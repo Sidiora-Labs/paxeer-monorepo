@@ -1,21 +1,43 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, writeSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { createInterface } from "node:readline/promises";
 import { ReadStream, WriteStream, isatty } from "node:tty";
-import { PaxeerWallet } from "../../../../sdk/wallet/dist/index.js";
+const { keccak256, serializeTransaction } = createRequire(new URL("../../../../sdk/wallet/package.json", import.meta.url))("viem");
 
 const required = (env, name) => {
   const value = env[name];
   if (typeof value !== "string" || !value || value.includes("\0")) throw new Error(`missing_${name.toLowerCase()}`);
   return value;
 };
-const digest = (value) => createHash("sha256").update(value).digest("hex");
 const identifier = (value) => {
   if (typeof value !== "string" || !/^[0-9a-f]{64}$/u.test(value)) throw new Error("invalid_preparation_reference");
   return value;
 };
+function preparedTransaction(prepared) {
+  const decimal = (name, max) => {
+    const value = prepared[name];
+    if (typeof value !== "string" || !/^(0|[1-9][0-9]*)$/u.test(value) || value.length > 39 || BigInt(value) > max) throw new Error("prepared_bytes_mismatch");
+    return BigInt(value);
+  };
+  const chainId = decimal("chain_id", BigInt(Number.MAX_SAFE_INTEGER));
+  const nonce = decimal("nonce", BigInt(Number.MAX_SAFE_INTEGER));
+  const maxPriorityFeePerGas = decimal("max_priority_fee_per_gas", (1n << 128n) - 1n);
+  const maxFeePerGas = decimal("max_fee_per_gas", (1n << 128n) - 1n);
+  const gas = decimal("gas_limit", (1n << 64n) - 1n);
+  if (chainId === 0n || gas === 0n || maxPriorityFeePerGas > maxFeePerGas
+    || typeof prepared.to !== "string" || !/^[0-9a-f]{40}$/u.test(prepared.to)
+    || typeof prepared.data !== "string" || !/^(?:[0-9a-f]{2})*$/u.test(prepared.data) || prepared.data.length > 2097152) throw new Error("prepared_bytes_mismatch");
+  return { type: "eip1559", chainId: Number(chainId), nonce: Number(nonce), maxPriorityFeePerGas, maxFeePerGas,
+    gas, to: `0x${prepared.to}`, value: 0n, data: `0x${prepared.data}`, accessList: [] };
+}
+export function preparedTransactionReference(prepared) {
+  const id = identifier(prepared.preparation_ref);
+  if (keccak256(serializeTransaction(preparedTransaction(prepared))).slice(2) !== id) throw new Error("prepared_bytes_mismatch");
+  return id;
+}
 function protectedPath(path, directory = false) {
   if (!isAbsolute(path) || resolve(path) !== path || realpathSync(path) !== path) throw new Error("noncanonical_owner_path");
   const stat = lstatSync(path);
@@ -109,7 +131,7 @@ async function confirmAtTerminal(review) {
   const input = new ReadStream(fd);
   const output = new WriteStream(outputFd);
   const rl = createInterface({ input, output, terminal: true });
-  const answer = `APPROVE ${review.id} ${digest(Buffer.from(review.activity, "hex"))}`;
+  const answer = `APPROVE ${review.id} ${review.to} ${review.value} ${review.signing_hash}`;
   try {
     writeSync(outputFd, `Original wallet review (no signing occurs during this approval):\n${JSON.stringify(review, null, 2)}\n`);
     return await rl.question(`Type exactly ${answer}\n> `, { signal: AbortSignal.timeout(300000) }) === answer;
@@ -142,9 +164,10 @@ export async function createAgentServices(environment) {
     sessionId: required(environment, "LAYERX_SESSION_ID"), receiptPath, preparationPath });
   let wallet, subscription;
   try {
+    const { PaxeerWallet } = await import("../../../../sdk/wallet/dist/index.js");
     wallet = new PaxeerWallet({ apiUrl, supabaseUrl,
       supabaseAnonKey: required(environment, "LAYERX_WALLET_SUPABASE_ANON_KEY"),
-      lxActivity: { storage: store, confirm: confirmAtTerminal } });
+      evmReview: { storage: store } });
     const saved = store.getItem("owner:session");
     const session = saved === null ? protectedJson(required(environment, "LAYERX_WALLET_SESSION_FILE")) : JSON.parse(saved);
     if (typeof session.access_token !== "string" || typeof session.refresh_token !== "string") throw new Error("original_session_required");
@@ -156,33 +179,34 @@ export async function createAgentServices(environment) {
     });
     const handoff = {
       async review(prepared) {
-        const id = identifier(prepared.preparation_ref);
-        if (typeof prepared.unsigned_canonical_bytes !== "string" || !/^(?:[0-9a-f]{2})+$/u.test(prepared.unsigned_canonical_bytes)
-          || digest(Buffer.from(prepared.unsigned_canonical_bytes, "hex")) !== id) throw new Error("prepared_bytes_mismatch");
+        const id = preparedTransactionReference(prepared);
+        const transaction = preparedTransaction(prepared);
         const key = `owner:preparation:${id}`;
         const old = store.getItem(key);
         if (old !== null) {
           const retained = JSON.parse(old);
           if (JSON.stringify(retained.prepared) !== JSON.stringify(prepared)) throw new Error("prepared_handoff_conflict");
           if (!retained.reviewId) throw new Error("wallet_review_outcome_unknown");
-          return wallet.lxApprovalStatus(retained.reviewId);
+          return wallet.evmApprovalStatus(retained.reviewId);
         }
         store.setItem(key, JSON.stringify({ prepared, reviewId: null }));
-        const review = await wallet.reviewLxActivity(prepared.unsigned_canonical_bytes);
-        if (review.kind !== "lx_activity" || review.activity !== prepared.unsigned_canonical_bytes
-          || review.signing_preimage !== prepared.signing_preimage || review.public_key !== prepared.signer_public_key) throw new Error("wallet_preparation_binding_failed");
+        const review = await wallet.reviewEvmTransaction(transaction);
+        if (review.to !== transaction.to || review.value !== transaction.value.toString() || review.data !== transaction.data
+          || review.signing_hash !== `0x${prepared.signing_hash}` || review.signing_hash !== `0x${id}`) throw new Error("wallet_preparation_binding_failed");
         store.setItem(key, JSON.stringify({ prepared, reviewId: review.id }));
         return review;
       },
       async approve(preparationRef, reviewId) {
         const retained = JSON.parse(store.getItem(`owner:preparation:${identifier(preparationRef)}`) ?? "null");
         if (!retained || retained.reviewId !== reviewId) throw new Error("original_review_handoff_required");
-        return wallet.approveLxActivity(reviewId);
+        const review = await wallet.evmApprovalStatus(reviewId);
+        if (!await confirmAtTerminal(review)) throw new Error("explicit_owner_approval_required");
+        return wallet.approveEvmTransaction(reviewId);
       },
       async status(preparationRef, reviewId) {
         const retained = JSON.parse(store.getItem(`owner:preparation:${identifier(preparationRef)}`) ?? "null");
         if (!retained || retained.reviewId !== reviewId) throw new Error("original_review_handoff_required");
-        return wallet.lxApprovalStatus(reviewId);
+        return wallet.evmApprovalStatus(reviewId);
       },
     };
     active = { handoff };

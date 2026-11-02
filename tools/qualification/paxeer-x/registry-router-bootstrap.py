@@ -13,6 +13,9 @@ import time
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "tools/paxeer-x"))
+from candidate import SERVICE_CATALOGUE
+
 STAGES = ("material", "registry-bootstrap", "router-activation", "routed-proof")
 PUBLIC = "https://api-mainnet-beta.paxeer.network"
 REGISTRY_ENV = "docker/platform-registry/registry.env.example"
@@ -410,7 +413,7 @@ def case_plan_acyclic(plan, **_):
 
 
 def case_spec_stage_graph(**_):
-    text = (ROOT / "spec/paxeer-x/spec.kvx").read_text()
+    text = (ROOT / SERVICE_CATALOGUE).read_text()
     tasks = {}
     for match in re.finditer(r"(?ms)^\[task\.([0-9.]+)\]\n(.*?)(?=^\[|\Z)", text):
         dependencies = re.search(r"^requires = (\[.*\])$", match.group(2), re.M)

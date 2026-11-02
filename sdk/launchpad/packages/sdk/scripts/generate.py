@@ -11,6 +11,18 @@ import types
 sys.dont_write_bytecode = True
 
 
+def repository_root():
+    return pathlib.Path(__file__).resolve().parents[5]
+
+
+def default_contracts(major):
+    return repository_root() / ('launchpad/spec/production-system/integration/contracts/v' + str(major))
+
+
+def expected_package(major):
+    return repository_root() / ('sdk/launchpad/packages/sdk' if major == 1 else 'sdk/launchpad/packages/sdk-v' + str(major))
+
+
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -80,13 +92,13 @@ def emit_operations(root, contracts):
             security = operation.get('security',[])
             rows[name] = {'path':path,'wireMajor':int(path.split('/')[1][1:]),'binaryBody':binary_body,'binaryResponse':binary_response,'method':method.upper(),'service':service,'authenticated':bool(security) and not any(not v for v in security),'cookieSession':name in ('IF_LOGIN','IF_REFRESH'),'idempotentRead':method=='get' and ('read' in operation.get('x-idempotency','').lower() or name=='IF_TOPIC_SNAPSHOT_READ'),'public':not security and operation.get('x-cache-policy','').startswith('Public'),'timeoutMs':operation['x-timeout-ms'],'body':body['$ref'].split('/')[-1] if body else None,'response':response,'emptyResponse':all(not value.get('content') for value in successes),'parameters':local_refs(parameters),'idempotencyKey':'Idempotency-Key' in operation.get('x-idempotency','')}
     generated = "import type { ContractTypes as V2ContractTypes } from '@kindle/sdk-v2/types';\nexport interface OperationTypes {\n" + ';\n'.join(types_out) + '\n}\nexport const operationDefinitions = ' + json.dumps(rows,sort_keys=True,indent=2) + ' as const;\n'
-    target = root / 'client/packages/sdk/src/operations.gen.ts'
+    target = root / 'sdk/launchpad/packages/sdk/src/operations.gen.ts'
     target.write_text(generated)
     return {'generatorSha256':sha(pathlib.Path(__file__)), 'openapiSha256':sha(contracts/'openapi.json'),'outputSha256':sha(target),'operationCount':len(rows)}
 
 
 def main():
-    root = pathlib.Path(__file__).resolve().parents[4]
+    root = repository_root()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--major', type=int, default=1)
     parser.add_argument('--contracts', type=pathlib.Path)
@@ -98,16 +110,15 @@ def main():
     args = parser.parse_args()
     if args.major < 1:
         raise ValueError('positive schema major required')
-    contracts = (args.contracts or root / ('spec/production-system/integration/contracts/v' + str(args.major))).resolve()
+    contracts = (args.contracts or default_contracts(args.major)).resolve()
     if args.operations_only:
         if args.major != 2: raise ValueError('--operations-only requires --major2')
         print(json.dumps(emit_operations(root, contracts), sort_keys=True)); return
     manifest_path = (args.manifest or contracts / 'codegen-manifest.json').resolve()
-    package = (args.package or pathlib.Path(__file__).resolve().parents[1]).resolve()
-    if not contracts.is_relative_to(root / 'spec/production-system/integration/contracts') or not manifest_path.is_relative_to(contracts):
+    package = (args.package or expected_package(args.major)).resolve()
+    if not contracts.is_relative_to(root / 'launchpad/spec/production-system/integration/contracts') or not manifest_path.is_relative_to(contracts):
         raise ValueError('bundle/manifest outside contract allowlist')
-    expected_package = root / ('client/packages/sdk' if args.major == 1 else 'client/packages/sdk-v' + str(args.major))
-    if package != expected_package:
+    if package != expected_package(args.major):
         raise ValueError('explicit versioned SDK package required; frozen SDK must not be overwritten')
     manifest = json.loads(manifest_path.read_bytes())
     generator = (args.generator or root / manifest['generator']).resolve()
@@ -163,7 +174,7 @@ def main():
     for name, content in outputs.items():
         if hashlib.sha256(content.encode()).hexdigest() != manifest['outputs'][name]:
             raise ValueError('Pinned generated output mismatch: ' + name)
-    ts_root = 'client/packages/production-contracts/src' if args.major == 1 else next(str(pathlib.PurePosixPath(name).parent) for name in outputs if name.endswith('types.gen.ts'))
+    ts_root = 'sdk/launchpad/packages/production-contracts/src' if args.major == 1 else next(str(pathlib.PurePosixPath(name).parent) for name in outputs if name.endswith('types.gen.ts'))
     package.joinpath('src').mkdir(parents=True, exist_ok=True)
     for filename in ('types.gen.ts', 'schemas.gen.json'):
         (package / 'src' / filename).write_text(outputs[ts_root + '/' + filename])

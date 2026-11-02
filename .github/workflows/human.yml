@@ -61,8 +61,7 @@ jobs:
           make -j4 CC=gcc LXP_REVISION="$(git rev-parse HEAD)" \
             PROGRAMS_TARGET_DIR="$CARGO_TARGET_DIR" \
             PROGRAMS_RUNTIME_LIB="$CARGO_TARGET_DIR/debug/liblayerx_programs_sandbox.a" \
-            build/bin/layerxd build/bin/layerx-genesis-build build/tests/bridge/sign-credit
-          echo "LAYERX_TEST_SIGN_CREDIT_BIN=$PWD/build/tests/bridge/sign-credit" >> "$GITHUB_ENV"
+            build/bin/layerx-genesis-build
       - name: Install the locked agent SDK workspace dependencies
         run: npm --prefix services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund
       - name: Install locked Human web dependencies

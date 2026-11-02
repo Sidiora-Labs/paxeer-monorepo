@@ -24,3 +24,7 @@ type CustodyKeeper interface {
 type EVMKeeper interface {
 	ChainID(ctx sdk.Context) *big.Int
 }
+
+type UpgradeKeeper interface {
+	IsUpgradeActiveAtHeight(ctx sdk.Context, name string, height int64) bool
+}

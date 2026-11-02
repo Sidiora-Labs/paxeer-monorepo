@@ -16,7 +16,6 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
-	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -31,18 +30,6 @@ const EnvTrustedProxies = "PERPS_TRUSTED_PROXY_CIDRS"
 
 // maxTrustedProxies bounds EnvTrustedProxies.
 const maxTrustedProxies = 32
-
-// trustedProxies is EnvTrustedProxies, parsed once at start; a malformed value
-// stops the process rather than trusting a proxy set nobody configured.
-var trustedProxies = mustTrustedProxies(os.Getenv(EnvTrustedProxies))
-
-func mustTrustedProxies(raw string) []netip.Prefix {
-	out, err := ParseTrustedProxies(raw)
-	if err != nil {
-		panic(err)
-	}
-	return out
-}
 
 // ParseTrustedProxies parses a comma-separated CIDR list; an empty list trusts
 // no proxy.
@@ -84,13 +71,13 @@ var (
 // Report wires the package into a service: it registers UntrustedProxyHeaders
 // with register, sends the untrusted-header warnings to log and logs the
 // trusted proxy set once.
-func Report(log *slog.Logger, register func(prometheus.Collector) error) error {
+func Report(log *slog.Logger, register func(prometheus.Collector) error, trusted []netip.Prefix) error {
 	if err := register(UntrustedProxyHeaders); err != nil {
 		return err
 	}
 	logger.Store(log)
-	cidrs := make([]string, len(trustedProxies))
-	for i, p := range trustedProxies {
+	cidrs := make([]string, len(trusted))
+	for i, p := range trusted {
 		cidrs[i] = p.String()
 	}
 	log.Info("client ip resolution", slog.String("header", "X-Real-IP"), slog.Any("trusted_proxies", cidrs))
@@ -120,8 +107,8 @@ const capacityBody = `{"statusCode":503,"error":"Internal Server Error","message
 // X-API-Key header is not an identity: the services issue no API keys, so any
 // value is caller-chosen and keying on it would hand every random key a fresh
 // budget and a fresh bucket.
-func ClientKey(r *http.Request) string {
-	return "ip:" + clientIP(r, trustedProxies)
+func ClientKey(r *http.Request, trusted []netip.Prefix) string {
+	return "ip:" + clientIP(r, trusted)
 }
 
 // Limiter bounds the number of concurrently in-flight requests.

@@ -8,12 +8,14 @@ import (
 	"io"
 	"math/big"
 	"net"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -75,6 +77,13 @@ type primary struct {
 
 func newPrimary(t *testing.T, addr string, timeout time.Duration, funded ...utils.TestAcct) *primary {
 	t.Helper()
+	params := app.DefaultConsensusParams
+	configured := *params
+	block := *params.Block
+	block.MaxGasWanted = block.MaxGas
+	configured.Block = &block
+	app.DefaultConsensusParams = &configured
+	t.Cleanup(func() { app.DefaultConsensusParams = params })
 	h := newHarness(t, funded...)
 	w, err := wal.OpenWAL(filepath.Join(t.TempDir(), "primary-wal"), wal.DefaultConfig())
 	require.NoError(t, err)
@@ -208,6 +217,39 @@ func TestStandbyNoAckNoReceipt(t *testing.T) {
 	require.ErrorIs(t, err, sequencer.ErrStandbyRefused)
 }
 
+func TestStandbyRefusesTamperedGroupMidway(t *testing.T) {
+	sender := utils.NewSigner()
+	recipient := utils.NewSigner().EvmAddress
+	l := listen(t)
+	p := newPrimary(t, l.Addr().String(), replicationTimeout, sender)
+	sb := newStandby(t, p, sender)
+	sb.serve(t, l)
+	lastSeq := sb.s.LastSeq()
+
+	entries := []wal.Entry{p.open()}
+	for nonce := uint64(0); nonce < 3; nonce++ {
+		_, tx := transfer(t, sender, nonce, recipient, big.NewInt(onePaxInWei))
+		a := p.accept(tx)
+		if nonce == 1 {
+			a.Receipt = append([]byte(nil), a.Receipt...)
+			a.Receipt[len(a.Receipt)-1] ^= 0xff
+		}
+		entries = append(entries, a)
+	}
+
+	ack, err := p.repl.Release(context.Background(), entries...)
+	require.ErrorIs(t, err, sequencer.ErrStandbyRefused)
+	require.Equal(t, sequencer.Ack{}, ack)
+	require.Equal(t, lastSeq, sb.s.LastSeq())
+	require.ErrorIs(t, sb.s.Err(), wal.ErrReceiptMismatch)
+
+	ack, err = p.repl.Release(context.Background(), &wal.Lease{Epoch: 1, ExpiryMs: uint64(p.openMs)})
+	require.ErrorIs(t, err, sequencer.ErrStandbyRefused)
+	require.Equal(t, sequencer.Ack{}, ack)
+	require.Equal(t, lastSeq, sb.s.LastSeq())
+	require.ErrorIs(t, sb.s.Err(), wal.ErrReceiptMismatch)
+}
+
 func TestStandbyReplayMatchesPrimary(t *testing.T) {
 	sender := utils.NewSigner()
 	recipient := utils.NewSigner().EvmAddress
@@ -262,6 +304,134 @@ func TestStandbyAckBeforeRelease(t *testing.T) {
 	require.Equal(t, 1, res.Accepts)
 	require.Equal(t, a.Seq, res.LastAccept.Seq)
 	require.Equal(t, a.Receipt, res.LastAccept.Receipt)
+}
+
+type standbyCommitReplayer struct {
+	appReplayer
+	host             *app.App
+	mu               sync.Mutex
+	opens            []uint64
+	committedHeights []int64
+}
+
+func (r *standbyCommitReplayer) LastBlockHeight() int64 {
+	return r.host.LastBlockHeight()
+}
+
+func (r *standbyCommitReplayer) Apply(e wal.Entry) error {
+	if err := r.appReplayer.Apply(e); err != nil {
+		return err
+	}
+	if open, ok := e.(*wal.Open); ok {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.opens = append(r.opens, open.Height)
+		r.committedHeights = append(r.committedHeights, r.host.LastBlockHeight())
+	}
+	return nil
+}
+
+func TestStandbyAcksOpenBeforePriorCommitApplies(t *testing.T) {
+	sender := utils.NewSigner()
+	recipient := utils.NewSigner().EvmAddress
+	l := listen(t)
+	p := newPrimary(t, l.Addr().String(), replicationTimeout, sender)
+	sb := newStandby(t, p, sender)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	replayer := &standbyCommitReplayer{appReplayer: appReplayer{exec: sb.h.exec}, host: sb.h.app}
+	primaryPub, err := p.pv.GetPubKey(ctx)
+	require.NoError(t, err)
+	sb.s, err = sequencer.NewStandby(ctx, sequencer.StandbyConfig{
+		WAL: sb.wal, Executor: replayer,
+		ConsensusKey: sb.s.ConsensusKey(), ReceiptKey: sb.s.ReceiptKey(),
+		PrimaryConsensusKey: primaryPub, PrimaryReceiptKey: p.receipt,
+		CommittedHeight: uint64(committedTip), LastSeq: startSeq, ReplicationTimeout: replicationTimeout,
+	})
+	require.NoError(t, err)
+	sb.serve(t, l)
+
+	open := p.open()
+	batch, err := p.h.exec.Seal(openHeight)
+	require.NoError(t, err)
+	seal := &wal.Seal{Height: uint64(openHeight), FromSeq: batch.FromSeq, ToSeq: batch.LastSeq, LastSeqHash: batch.LastSeqHash}
+	ack, err := p.repl.Release(ctx, open, seal)
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: startSeq}, ack)
+	require.Equal(t, openHeight+1, commitBlock(p.h, func(sdk.Context) {}))
+	committed := &wal.Committed{Height: uint64(openHeight), LastSeq: batch.LastSeq}
+	ack, err = p.repl.Release(ctx, committed)
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: startSeq}, ack)
+
+	nextOpen := &wal.Open{Height: uint64(openHeight + 1), OpenTimeMs: uint64(p.openMs + 1000), BaseFee: uint256.NewInt(0)}
+	require.NoError(t, p.h.exec.Open(openHeight+1, p.openMs+1000))
+	_, tx := transfer(t, sender, 0, recipient, big.NewInt(onePaxInWei))
+	first := p.accept(tx)
+	started := time.Now()
+	releaseCtx, releaseCancel := context.WithTimeout(ctx, replicationTimeout/2)
+	ack, err = p.repl.Release(releaseCtx, nextOpen, first)
+	releaseCancel()
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: first.Seq}, ack)
+	require.Less(t, time.Since(started), replicationTimeout/2)
+	require.Equal(t, committedTip, sb.h.app.LastBlockHeight())
+	require.Equal(t, startSeq, sb.s.LastSeq())
+	_, err = sb.h.exec.Snapshot()
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+
+	_, tx = transfer(t, sender, 1, recipient, big.NewInt(2*onePaxInWei))
+	second := p.accept(tx)
+	started = time.Now()
+	releaseCtx, releaseCancel = context.WithTimeout(ctx, replicationTimeout/2)
+	ack, err = p.repl.Release(releaseCtx, second)
+	releaseCancel()
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: second.Seq}, ack)
+	require.Less(t, time.Since(started), replicationTimeout/2)
+	require.Equal(t, committedTip, sb.h.app.LastBlockHeight())
+	require.Equal(t, startSeq, sb.s.LastSeq())
+	var durable []byte
+	for _, entry := range []wal.Entry{open, seal, committed, nextOpen, first, second} {
+		frame, err := wal.NewFrame(entry)
+		require.NoError(t, err)
+		durable = append(durable, frame...)
+	}
+	onDisk, err := os.ReadFile(filepath.Join(sb.dir, "head.seg"))
+	require.NoError(t, err)
+	require.Equal(t, durable, onDisk)
+
+	require.Equal(t, openHeight+1, commitBlock(sb.h, func(sdk.Context) {}))
+	require.Eventually(t, func() bool { return sb.s.LastSeq() == second.Seq }, replicationTimeout, time.Millisecond)
+	require.NoError(t, sb.s.Err())
+	replayer.mu.Lock()
+	opens := append([]uint64(nil), replayer.opens...)
+	committedHeights := append([]int64(nil), replayer.committedHeights...)
+	replayer.mu.Unlock()
+	require.Equal(t, []uint64{uint64(openHeight), uint64(openHeight + 1)}, opens)
+	require.Equal(t, []int64{committedTip, openHeight}, committedHeights)
+	requireStandbyState(t, p, sb, sender.EvmAddress, recipient)
+	requireWei(t, big.NewInt(3*onePaxInWei), sb.h.weiBalance(sb.h.openCtx(), recipient))
+	require.Equal(t, uint64(2), sb.h.app.EvmKeeper.GetNonce(sb.h.openCtx(), sender.EvmAddress))
+
+	p.repl.Close()
+	require.NoError(t, l.Close())
+	sb.wal.Close()
+	fresh := newHarness(t, sender)
+	require.Equal(t, openHeight+1, commitBlock(fresh, func(sdk.Context) {}))
+	w, err := wal.OpenWAL(sb.dir, wal.DefaultConfig())
+	require.NoError(t, err)
+	t.Cleanup(w.Close)
+	recovered, err := sequencer.NewStandby(ctx, sequencer.StandbyConfig{
+		WAL: w, Executor: appReplayer{exec: fresh.exec},
+		ConsensusKey: sb.s.ConsensusKey(), ReceiptKey: sb.s.ReceiptKey(),
+		PrimaryConsensusKey: primaryPub, PrimaryReceiptKey: p.receipt,
+		CommittedHeight: uint64(openHeight), LastSeq: startSeq, ReplicationTimeout: replicationTimeout,
+	})
+	require.NoError(t, err)
+	require.Equal(t, second.Seq, recovered.LastSeq())
+	require.Equal(t, uint64(2), fresh.app.EvmKeeper.GetNonce(fresh.openCtx(), sender.EvmAddress))
+	requireWei(t, big.NewInt(3*onePaxInWei), fresh.weiBalance(fresh.openCtx(), recipient))
 }
 
 func TestStandbyTimeoutRefusesSend(t *testing.T) {
@@ -332,6 +502,253 @@ func TestStandbyAppliesInSeqOrder(t *testing.T) {
 	require.Equal(t, startSeq+2, sb.s.LastSeq())
 	requireStandbyState(t, p, sb, sender.EvmAddress, recipient)
 	require.Equal(t, uint64(2), sb.h.app.EvmKeeper.GetNonce(sb.h.openCtx(), sender.EvmAddress))
+}
+
+func TestStandbyRestartRefusesStaleLease(t *testing.T) {
+	ctx := context.Background()
+	sender := utils.NewSigner()
+	l := listen(t)
+	p := newPrimary(t, l.Addr().String(), replicationTimeout, sender)
+	sb := newStandby(t, p, sender)
+	sb.serve(t, l)
+
+	_, tx := transfer(t, sender, 0, utils.NewSigner().EvmAddress, big.NewInt(onePaxInWei))
+	open := p.open()
+	a := p.accept(tx)
+	batch, err := p.h.exec.Seal(openHeight)
+	require.NoError(t, err)
+	seal := &wal.Seal{Height: uint64(openHeight), FromSeq: batch.FromSeq, ToSeq: batch.LastSeq, LastSeqHash: batch.LastSeqHash}
+	lease := &wal.Lease{Epoch: 5, ExpiryMs: uint64(p.openMs)}
+	committed := &wal.Committed{Height: uint64(openHeight), LastSeq: a.Seq}
+	ack, err := p.repl.Release(ctx, open, a, seal, lease, committed)
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: a.Seq}, ack)
+	require.Equal(t, committed, sb.wal.LastCommitted())
+	p.repl.Close()
+	require.NoError(t, l.Close())
+	sb.wal.Close()
+
+	fresh := newHarness(t, sender)
+	require.Equal(t, openHeight+1, commitBlock(fresh, func(sdk.Context) {}))
+	w, err := wal.OpenWAL(sb.dir, wal.DefaultConfig())
+	require.NoError(t, err)
+	t.Cleanup(w.Close)
+	primaryPub, err := p.pv.GetPubKey(ctx)
+	require.NoError(t, err)
+	recovered, err := sequencer.NewStandby(ctx, sequencer.StandbyConfig{
+		WAL:                 w,
+		Executor:            appReplayer{exec: fresh.exec},
+		ConsensusKey:        sb.s.ConsensusKey(),
+		ReceiptKey:          sb.s.ReceiptKey(),
+		PrimaryConsensusKey: primaryPub,
+		PrimaryReceiptKey:   p.receipt,
+		CommittedHeight:     uint64(committedTip),
+		LastSeq:             startSeq,
+	})
+	require.NoError(t, err)
+	require.Equal(t, a.Seq, recovered.LastSeq())
+	before, err := os.ReadFile(filepath.Join(sb.dir, "head.seg"))
+	require.NoError(t, err)
+
+	l2 := listen(t)
+	t.Cleanup(func() { _ = l2.Close() })
+	go func() { _ = recovered.Serve(l2) }()
+	conn, err := net.DialTimeout("tcp", l2.Addr().String(), replicationTimeout)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+	require.NoError(t, conn.SetDeadline(time.Now().Add(replicationTimeout)))
+	frame, err := wal.NewFrame(&wal.Lease{Epoch: 4, ExpiryMs: lease.ExpiryMs})
+	require.NoError(t, err)
+	_, err = conn.Write(append(binary.BigEndian.AppendUint32(nil, 1), frame...))
+	require.NoError(t, err)
+	var reply [33]byte
+	_, err = io.ReadFull(conn, reply[:])
+	require.NoError(t, err)
+	require.Equal(t, sequencer.AckRefused, sequencer.AckStatus(reply[0]))
+	require.Equal(t, a.Seq, binary.BigEndian.Uint64(reply[1:9]))
+	require.Zero(t, binary.BigEndian.Uint64(reply[25:33]))
+	after, err := os.ReadFile(filepath.Join(sb.dir, "head.seg"))
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	require.Equal(t, committed, w.LastCommitted())
+	require.Equal(t, a.Seq, recovered.LastSeq())
+	require.NoError(t, recovered.Err())
+}
+
+func standbyLeaseExchange(t *testing.T, conn net.Conn, entries ...wal.Entry) sequencer.Ack {
+	t.Helper()
+	require.NoError(t, conn.SetDeadline(time.Now().Add(replicationTimeout)))
+	msg := binary.BigEndian.AppendUint32(nil, uint32(len(entries)))
+	for _, e := range entries {
+		frame, err := wal.NewFrame(e)
+		require.NoError(t, err)
+		msg = append(msg, frame...)
+	}
+	n, err := conn.Write(msg)
+	require.NoError(t, err)
+	require.Equal(t, len(msg), n)
+	var reply [33]byte
+	_, err = io.ReadFull(conn, reply[:])
+	require.NoError(t, err)
+	return sequencer.Ack{
+		Status:  sequencer.AckStatus(reply[0]),
+		LastSeq: binary.BigEndian.Uint64(reply[1:9]),
+		GapFrom: binary.BigEndian.Uint64(reply[9:17]),
+		GapTo:   binary.BigEndian.Uint64(reply[17:25]),
+		Epoch:   binary.BigEndian.Uint64(reply[25:33]),
+	}
+}
+
+func TestStandbyTakeLeaseRefusesLaterGroups(t *testing.T) {
+	ctx := context.Background()
+	sender := utils.NewSigner()
+	l := listen(t)
+	p := newPrimary(t, l.Addr().String(), replicationTimeout, sender)
+	sb := newStandby(t, p, sender)
+	sb.serve(t, l)
+	_, tx := transfer(t, sender, 0, utils.NewSigner().EvmAddress, big.NewInt(onePaxInWei))
+	open := p.open()
+	a := p.accept(tx)
+	held := uint64(1)<<40 + 5
+	ack, err := p.repl.Release(ctx, &wal.Lease{Epoch: held}, open, a)
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: a.Seq}, ack)
+
+	conn, err := net.DialTimeout("tcp", l.Addr().String(), replicationTimeout)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+	// Ordinary refusals and gaps do not advertise an epoch, even with a held lease.
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckRefused, LastSeq: a.Seq},
+		standbyLeaseExchange(t, conn, &wal.Lease{Epoch: held - 1}))
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckGap, LastSeq: a.Seq, GapFrom: a.Seq + 1, GapTo: a.Seq + 1},
+		standbyLeaseExchange(t, conn, &wal.Accept{Seq: a.Seq + 2, Height: a.Height}))
+	// Replicated higher epochs retain the ordinary lease admission rule before promotion.
+	ack, err = p.repl.Release(ctx, &wal.Lease{Epoch: held + 1})
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: a.Seq}, ack)
+	before, err := os.ReadFile(filepath.Join(sb.dir, "head.seg"))
+	require.NoError(t, err)
+	lease := &wal.Lease{Epoch: held + 2, KeyID: [32]byte{1}, ExpiryMs: uint64(p.openMs)}
+	require.NoError(t, sb.s.TakeLease(lease))
+	frame, err := wal.NewFrame(lease)
+	require.NoError(t, err)
+	durable, err := os.ReadFile(filepath.Join(sb.dir, "head.seg"))
+	require.NoError(t, err)
+	require.Equal(t, append(before, frame...), durable)
+
+	laterRecipient := utils.NewSigner().EvmAddress
+	_, laterTx := transfer(t, sender, 1, laterRecipient, big.NewInt(onePaxInWei))
+	later := p.accept(laterTx)
+	for _, group := range [][]wal.Entry{
+		{later},
+		{open, a},
+		{&wal.Lease{Epoch: lease.Epoch}},
+		{&wal.Lease{Epoch: lease.Epoch + 1}, later},
+	} {
+		require.Equal(t, sequencer.Ack{Status: sequencer.AckRefused, LastSeq: a.Seq, Epoch: lease.Epoch},
+			standbyLeaseExchange(t, conn, group...))
+	}
+	after, err := os.ReadFile(filepath.Join(sb.dir, "head.seg"))
+	require.NoError(t, err)
+	require.Equal(t, durable, after)
+	require.Equal(t, a.Seq, sb.s.LastSeq())
+	require.NoError(t, sb.s.Err())
+	requireWei(t, big.NewInt(0), sb.h.weiBalance(sb.h.openCtx(), laterRecipient))
+	require.Equal(t, uint64(1), sb.h.app.EvmKeeper.GetNonce(sb.h.openCtx(), sender.EvmAddress))
+
+	p.repl.Close()
+	require.NoError(t, conn.Close())
+	require.NoError(t, l.Close())
+	sb.wal.Close()
+	w, err := wal.OpenWAL(sb.dir, wal.DefaultConfig())
+	require.NoError(t, err)
+	t.Cleanup(w.Close)
+	fresh := newHarness(t, sender)
+	res, err := w.Replay(appReplayer{exec: fresh.exec})
+	require.NoError(t, err)
+	require.Nil(t, res.Tail)
+	require.Equal(t, lease, res.Lease)
+	require.Equal(t, 1, res.Accepts)
+	require.Equal(t, a, res.LastAccept)
+}
+
+func TestStandbyTakeLeaseRefusesStaleEpoch(t *testing.T) {
+	l := listen(t)
+	p := newPrimary(t, l.Addr().String(), replicationTimeout)
+	sb := newStandby(t, p)
+	sb.serve(t, l)
+	before, err := os.ReadFile(filepath.Join(sb.dir, "head.seg"))
+	require.NoError(t, err)
+	require.ErrorIs(t, sb.s.TakeLease(&wal.Lease{Epoch: 0}), sequencer.ErrStaleLease)
+	after, err := os.ReadFile(filepath.Join(sb.dir, "head.seg"))
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	ack, err := p.repl.Release(context.Background(), &wal.Lease{Epoch: 5})
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: startSeq}, ack)
+	for _, held := range []uint64{5, 6} {
+		if held == 6 {
+			require.NoError(t, sb.s.TakeLease(&wal.Lease{Epoch: held}))
+		}
+		before, err = os.ReadFile(filepath.Join(sb.dir, "head.seg"))
+		require.NoError(t, err)
+		for _, epoch := range []uint64{0, held - 1, held} {
+			require.ErrorIs(t, sb.s.TakeLease(&wal.Lease{Epoch: epoch, KeyID: [32]byte{2}}), sequencer.ErrStaleLease)
+			after, err = os.ReadFile(filepath.Join(sb.dir, "head.seg"))
+			require.NoError(t, err)
+			require.Equal(t, before, after)
+			require.NoError(t, sb.s.Err())
+		}
+		if held == 5 {
+			ack, err = p.repl.Release(context.Background(), &wal.Lease{Epoch: held})
+			require.NoError(t, err)
+			require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: startSeq}, ack)
+		}
+	}
+	conn, err := net.DialTimeout("tcp", l.Addr().String(), replicationTimeout)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckRefused, LastSeq: startSeq, Epoch: 6},
+		standbyLeaseExchange(t, conn, &wal.Lease{Epoch: 7}))
+}
+
+func TestReplicatorFencedByHigherEpoch(t *testing.T) {
+	ctx := context.Background()
+	sender := utils.NewSigner()
+	l := listen(t)
+	p := newPrimary(t, l.Addr().String(), replicationTimeout, sender)
+	sb := newStandby(t, p, sender)
+	sb.serve(t, l)
+	require.Zero(t, p.repl.Epoch())
+	baseEpoch := uint64(1) << 40
+	for _, epoch := range []uint64{baseEpoch + 5, baseEpoch + 6} {
+		ack, err := p.repl.Release(ctx, &wal.Lease{Epoch: epoch})
+		require.NoError(t, err)
+		require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: startSeq}, ack)
+		require.Equal(t, epoch, p.repl.Epoch())
+	}
+	require.NoError(t, sb.s.TakeLease(&wal.Lease{Epoch: baseEpoch + 7}))
+	before, err := os.ReadFile(filepath.Join(sb.dir, "head.seg"))
+	require.NoError(t, err)
+	_, tx := transfer(t, sender, 0, utils.NewSigner().EvmAddress, big.NewInt(onePaxInWei))
+	open := p.open()
+	ack, err := p.repl.Release(ctx, open, p.accept(tx))
+	require.ErrorIs(t, err, sequencer.ErrFenced)
+	require.Equal(t, sequencer.Ack{}, ack)
+	require.Equal(t, baseEpoch+6, p.repl.Epoch())
+	require.Equal(t, startSeq, sb.s.LastSeq())
+	// Equal and higher primary epochs remain refusals, but do not falsely report fencing.
+	for _, epoch := range []uint64{baseEpoch + 7, baseEpoch + 8} {
+		ack, err = p.repl.Release(ctx, &wal.Lease{Epoch: epoch})
+		require.ErrorIs(t, err, sequencer.ErrStandbyRefused)
+		require.NotErrorIs(t, err, sequencer.ErrFenced)
+		require.Equal(t, sequencer.Ack{}, ack)
+		require.Equal(t, epoch, p.repl.Epoch())
+	}
+	after, err := os.ReadFile(filepath.Join(sb.dir, "head.seg"))
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	require.NoError(t, sb.s.Err())
 }
 
 func TestStandbyRefusesSharedKeys(t *testing.T) {

@@ -31,9 +31,10 @@ impl Config {
             Err(std::env::VarError::NotPresent) => 5,
             Err(_) => return Err(Error::Configuration),
         };
+        let trust_root = path("LAYERX_HUMAN_SECURITY_PROVIDER_TRUST_HISTORY")?;
         let config = Self {
             state_root: path("LAYERX_HUMAN_SECURITY_PROVIDER_STATE_ROOT")?,
-            trust_history: path("LAYERX_HUMAN_SECURITY_PROVIDER_TRUST_HISTORY")?,
+            trust_history: trust_root,
             socket: path("LAYERX_HUMAN_SECURITY_PROVIDER_SOCKET")?,
             allowed_uid: std::env::var("LAYERX_HUMAN_SECURITY_PROVIDER_ALLOWED_UID")
                 .map_err(|_| Error::Configuration)?

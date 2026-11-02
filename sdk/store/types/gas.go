@@ -6,8 +6,6 @@ import (
 	"math"
 	"sync"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
-	"github.com/armon/go-metrics"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 )
@@ -120,13 +118,6 @@ func (g *basicGasMeter) incrGasExceededCounter(errorType string, descriptor stri
 		attribute.String("error", errorType),
 		attribute.String("descriptor", descriptor),
 	))
-	// TODO(PLT-353): remove once store_gas_exceeded verified
-	telemetry.IncrCounterWithLabels(
-		[]string{"gas", "exceeded"},
-		1,
-		// descriptor is a label to distinguish between different gas meters (e.g block vs tx)
-		[]metrics.Label{telemetry.NewLabel("error", errorType), telemetry.NewLabel("descriptor", descriptor)},
-	)
 }
 
 // RefundGas will deduct the given amount from the gas consumed. If the amount is greater than the
@@ -232,12 +223,12 @@ func (g *infiniteGasMeter) ConsumeGas(amount Gas, descriptor string) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
-	var overflow bool
-	// TODO: Should we set the consumed field after overflow checking?
-	g.consumed, overflow = addUint64Overflow(g.consumed, amount)
+	consumed, overflow := addUint64Overflow(g.consumed, amount)
 	if overflow {
+		g.consumed = math.MaxUint64
 		panic(ErrorGasOverflow{descriptor})
 	}
+	g.consumed = consumed
 }
 
 // RefundGas will deduct the given amount from the gas consumed. If the amount is greater than the

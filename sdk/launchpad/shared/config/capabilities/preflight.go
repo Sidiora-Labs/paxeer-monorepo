@@ -1083,7 +1083,7 @@ func (e *PreflightEngine) ReconcileCreationFee(ctx context.Context, hash common.
 		if err != nil || len(implementation) == 0 || len(implementation) > 128<<10 || crypto.Keccak256Hash(implementation).Hex() != treasuryIdentity.ImplementationHash {
 			return CreationFeeReconciliation{}, bad
 		}
-	} else if treasuryIdentity.Kind != "direct" || treasuryIdentity.ImplementationAddress != "" || treasuryIdentity.ImplementationHash != "" {
+	} else if (treasuryIdentity.Kind != "direct" && treasuryIdentity.Kind != "surface") || treasuryIdentity.ImplementationAddress != "" || treasuryIdentity.ImplementationHash != "" {
 		return CreationFeeReconciliation{}, bad
 	}
 	usdl := common.HexToAddress(e.manifest.Roles["USDL"].Address)

@@ -31,6 +31,8 @@ type TokenMetadataResolver interface {
 // poolId. The development indexer turns this event into indexer.pools rows.
 var developmentMarketCreatedTopic = crypto.Keccak256Hash([]byte("MarketCreated(bytes32,address,address,address,address,uint256,uint256)"))
 
+var erc20MetadataSelectors = []string{"0x06fdde03", "0x95d89b41", "0x313ce567", "0x18160ddd"}
+
 // DevelopmentPoolMetadataSource is the non-production TokenMetadataResolver.
 // Production resolves a pool through indexer.indexer_canonical_creations_v1 and
 // a verified (anchor-pinned) RPC client; neither exists in development. Here
@@ -156,10 +158,9 @@ func (s *DevelopmentPoolMetadataSource) Resolve(ctx context.Context, pool string
 	if _, err = hexutil.DecodeUint64(head.Number); err != nil {
 		return token, errors.New("chain head unavailable")
 	}
-	selectors := []string{"0x06fdde03", "0x95d89b41", "0x313ce567", "0x18160ddd"}
-	results := make([]hexutil.Bytes, len(selectors))
-	batch := make([]rpc.BatchElem, len(selectors))
-	for i, selector := range selectors {
+	results := make([]hexutil.Bytes, len(erc20MetadataSelectors))
+	batch := make([]rpc.BatchElem, len(erc20MetadataSelectors))
+	for i, selector := range erc20MetadataSelectors {
 		batch[i] = rpc.BatchElem{Method: "eth_call", Args: []any{map[string]any{"to": common.HexToAddress(tokenAddress), "data": selector}, head.Number}, Result: &results[i]}
 	}
 	if err = s.Chain.BatchCallContext(ctx, batch); err != nil {

@@ -10,6 +10,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
+	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
@@ -43,6 +44,10 @@ func newSpotEnv(t *testing.T, gs types.GenesisState) (*keeper.Keeper, sdk.Contex
 	key := sdk.NewKVStoreKey(types.StoreKey)
 	ctx = pricefeedtestutil.WithPriceFeedStore(ctx, key)
 	require.NoError(t, app.EvmKeeper.SetERC20NativePointer(ctx, syncDenom, syncPointer))
+	app.BankKeeper.SetDenomMetaData(ctx, banktypes.Metadata{
+		Base: syncDenom, Display: "spotsync", Name: "Spot Sync", Symbol: "SPOTSYNC",
+		DenomUnits: []*banktypes.DenomUnit{{Denom: syncDenom, Exponent: 0}, {Denom: "spotsync", Exponent: 6}},
+	})
 	k := keeper.NewKeeper(key, app.BankKeeper, &app.EvmKeeper, pricefeed)
 	k.InitGenesis(ctx, gs)
 	return k, ctx
@@ -77,6 +82,107 @@ func syncToken(capBps uint64, paused bool) types.TokenParams {
 		Paused: paused, MaxUtilizationBps: capBps}
 }
 
+func TestUpdateParamsRegistersNewToken(t *testing.T) {
+	k, ctx := newSpotEnv(t, *types.DefaultGenesis())
+	server := keeper.NewMsgServerImpl(k)
+	params := getParams(t, k, ctx)
+	token := syncToken(9_000, true)
+	token.Decimals = 0
+	params.Tokens = []types.TokenParams{token}
+	params.SwapPaused = true
+	before := len(ctx.EVMEventManager().Events())
+	response, err := server.UpdateParams(sdk.WrapSDKContext(ctx), &types.MsgUpdateParams{
+		Authority: governanceAuthority, Params: params,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, response)
+	token.Decimals = 6
+	stored := getParams(t, k, ctx)
+	require.Equal(t, []types.TokenParams{token}, stored.Tokens)
+	require.True(t, stored.SwapPaused)
+	books := k.ExportGenesis(ctx).Books
+	require.Equal(t, []types.TokenBook{{Token: syncPointer, Reserves: sdk.ZeroInt(),
+		TotalDeposited: sdk.ZeroInt(), TotalWithdrawn: sdk.ZeroInt(), Decimals: 6,
+		ShareDenom: k.ShareDenom(syncPointer)}}, books)
+	logs := logsSince(ctx, before)
+	require.Len(t, logs, 3)
+	requireLog(t, logs[0], pecor, []common.Hash{keeper.PausedTopic},
+		common.LeftPadBytes(types.GovernanceEVMAddress().Bytes(), 32))
+	tokenTopic := common.BytesToHash(syncPointer.Bytes())
+	requireLog(t, logs[1], pecorVault, []common.Hash{keeper.TokenRegisteredTopic, tokenTopic}, word(6), word(0))
+	requireLog(t, logs[2], pecorVault, []common.Hash{keeper.UtilizationCapUpdatedTopic, tokenTopic}, word(9_000))
+
+	before = len(ctx.EVMEventManager().Events())
+	_, err = server.UpdateParams(sdk.WrapSDKContext(ctx), &types.MsgUpdateParams{
+		Authority: governanceAuthority, Params: stored,
+	})
+	require.NoError(t, err)
+	require.Empty(t, logsSince(ctx, before))
+	require.Equal(t, books, k.ExportGenesis(ctx).Books)
+	require.Equal(t, stored, getParams(t, k, ctx))
+}
+
+func TestUpdateParamsRefusesUnknownMarket(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		name := "new token"
+		if existing {
+			name = "existing token"
+		}
+		t.Run(name, func(t *testing.T) {
+			gs := types.DefaultGenesis()
+			if existing {
+				gs.Params.Tokens = []types.TokenParams{syncToken(9_000, false)}
+				gs.Books = []types.TokenBook{{Token: syncPointer, Reserves: sdk.ZeroInt(),
+					TotalDeposited: sdk.ZeroInt(), TotalWithdrawn: sdk.ZeroInt(), Decimals: 6,
+					ShareDenom: "spot/share/" + syncPointer.Hex()}}
+			}
+			k, ctx := newSpotEnv(t, *gs)
+			server := keeper.NewMsgServerImpl(k)
+			beforeState := k.ExportGenesis(ctx)
+			params := getParams(t, k, ctx)
+			token := syncToken(9_000, false)
+			token.MarketID = ^uint64(0)
+			params.Tokens = []types.TokenParams{token}
+			params.SwapPaused = true
+			beforeLogs := len(ctx.EVMEventManager().Events())
+			beforeEvents := len(ctx.EventManager().Events())
+			response, err := server.UpdateParams(sdk.WrapSDKContext(ctx), &types.MsgUpdateParams{
+				Authority: governanceAuthority, Params: params,
+			})
+			require.ErrorIs(t, err, types.ErrInvalidOracle)
+			require.Nil(t, response)
+			require.Equal(t, beforeState, k.ExportGenesis(ctx))
+			require.Empty(t, logsSince(ctx, beforeLogs))
+			require.Len(t, ctx.EventManager().Events(), beforeEvents)
+		})
+	}
+}
+
+func TestUpdateParamsRefusesDelistWithReserves(t *testing.T) {
+	gs := types.DefaultGenesis()
+	gs.Params.Tokens = []types.TokenParams{syncToken(9_000, false)}
+	gs.Books = []types.TokenBook{{Token: syncPointer, Reserves: sdk.NewInt(1_000),
+		TotalDeposited: sdk.NewInt(1_000), TotalWithdrawn: sdk.ZeroInt(), Decimals: 6,
+		ShareDenom: "spot/share/" + syncPointer.Hex()}}
+	k, ctx := newSpotEnv(t, *gs)
+	server := keeper.NewMsgServerImpl(k)
+	beforeState := k.ExportGenesis(ctx)
+	params := getParams(t, k, ctx)
+	params.Tokens = nil
+	params.SwapPaused = true
+	beforeLogs := len(ctx.EVMEventManager().Events())
+	beforeEvents := len(ctx.EventManager().Events())
+	response, err := server.UpdateParams(sdk.WrapSDKContext(ctx), &types.MsgUpdateParams{
+		Authority: governanceAuthority, Params: params,
+	})
+	require.ErrorIs(t, err, types.ErrParamsInvalid)
+	require.ErrorContains(t, err, "token "+syncPointer.Hex()+" holds reserves")
+	require.Nil(t, response)
+	require.Equal(t, beforeState, k.ExportGenesis(ctx))
+	require.Empty(t, logsSince(ctx, beforeLogs))
+	require.Len(t, ctx.EventManager().Events(), beforeEvents)
+}
+
 func TestParamChangeEmitsPauseLogs(t *testing.T) {
 	require.Equal(t, common.HexToHash("0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258"), keeper.PausedTopic)
 	require.Equal(t, common.HexToHash("0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa"), keeper.UnpausedTopic)
@@ -103,9 +209,10 @@ func TestParamChangeEmitsPauseLogs(t *testing.T) {
 	params.Tokens = []types.TokenParams{syncToken(9_000, false)}
 	logs, err := update(params)
 	require.NoError(t, err)
-	require.Len(t, logs, 2)
+	require.Len(t, logs, 3)
 	requireLog(t, logs[0], pecor, []common.Hash{keeper.PausedTopic}, governance)
-	requireLog(t, logs[1], pecorVault, []common.Hash{keeper.UtilizationCapUpdatedTopic, tokenTopic}, word(9_000))
+	requireLog(t, logs[1], pecorVault, []common.Hash{keeper.TokenRegisteredTopic, tokenTopic}, word(6), word(0))
+	requireLog(t, logs[2], pecorVault, []common.Hash{keeper.UtilizationCapUpdatedTopic, tokenTopic}, word(9_000))
 	require.True(t, getParams(t, k, ctx).SwapPaused)
 
 	params.SwapPaused, params.OrdersPaused = false, true

@@ -39,7 +39,7 @@ func measurementFixtureConfig(t *testing.T) (*identityHTTPFixture, IdentityMeasu
 	if err != nil {
 		t.Fatal(err)
 	}
-	contract, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/contracts/v2/catalog.json"))
+	contract, err := os.ReadFile(filepath.Join(root, "sdk/launchpad/packages/sdk/src/operations.gen.ts"))
 	if err != nil {
 		t.Fatal(err)
 	}

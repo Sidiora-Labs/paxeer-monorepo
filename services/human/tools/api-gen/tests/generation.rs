@@ -165,6 +165,41 @@ fn conformance_body(client: &GeneratedClient) -> &str {
         .unwrap_or_else(|| panic!("conformance.ts missing from generation"))
 }
 
+fn retired_operations() -> BTreeSet<String> {
+    let mut retired = BTreeSet::new();
+    let entries = fs::read_dir(real_schema_root())
+        .unwrap_or_else(|error| panic!("read schema root: {error}"));
+    for entry in entries {
+        let path = entry
+            .unwrap_or_else(|error| panic!("read entry: {error}"))
+            .path();
+        if path.extension().is_none_or(|extension| extension != "kvx") {
+            continue;
+        }
+        let body = fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
+        let mut operation = None;
+        for line in body.lines().map(str::trim) {
+            if line.starts_with('[') {
+                operation = line
+                    .strip_prefix("[operation.")
+                    .and_then(|name| name.strip_suffix(']'));
+            } else if line
+                .split_once('=')
+                .is_some_and(|(key, value)| key.trim() == "retired" && value.trim() == "\"true\"")
+            {
+                if let Some(name) = operation {
+                    assert!(
+                        retired.insert(name.to_owned()),
+                        "duplicate operation: {name}"
+                    );
+                }
+            }
+        }
+    }
+    retired
+}
+
 #[test]
 fn real_schema_generates_deterministically() {
     let first = generated(&real_schema_root());
@@ -180,8 +215,14 @@ fn generated_client_covers_every_schema_declaration() {
     let index = index_body(&client);
     let conformance = conformance_body(&client);
     let operations = declared_sections("operation.");
-    assert_eq!(client.operations, operations.len());
-    for operation in &operations {
+    let retired = retired_operations();
+    let (retired, live): (Vec<_>, Vec<_>) = operations
+        .iter()
+        .partition(|operation| retired.contains(*operation));
+    assert_eq!(client.operations, live.len());
+    assert_eq!(client.retired(), retired.len());
+    assert_eq!(client.operations + client.retired(), operations.len());
+    for operation in live {
         assert!(
             index.contains(&format!("\"{operation}\": {{ method: ")),
             "index.ts must declare the {operation} shape"
@@ -193,6 +234,20 @@ fn generated_client_covers_every_schema_declaration() {
         assert!(
             conformance.contains(&format!("\"{operation}\": async (run) =>")),
             "conformance.ts must drive the {operation} client method"
+        );
+    }
+    for operation in retired {
+        assert!(
+            !index.contains(&format!("\"{operation}\": {{ method: ")),
+            "index.ts must not declare the retired {operation} shape"
+        );
+        assert!(
+            !index.contains(&format!("  {}(", camel(operation))),
+            "index.ts must not declare the retired {operation} client method"
+        );
+        assert!(
+            !conformance.contains(&format!("\"{operation}\": async (run) =>")),
+            "conformance.ts must not drive the retired {operation} client method"
         );
     }
     let mut types = declared_sections("type.");
@@ -237,6 +292,23 @@ fn generated_client_covers_every_schema_declaration() {
         );
     }
     assert!(index.contains("export class HumanApiError extends Error {"));
+}
+
+#[test]
+fn committed_client_has_no_retired_operation_method() {
+    let retired = retired_operations();
+    assert_eq!(retired.len(), 11, "minor 10 retires eleven operations");
+
+    let path = committed_output_root().join("index.ts");
+    let index = fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
+    assert!(index.contains("export const schemaVersion = { major: 1, minor: 10 } as const;"));
+    for operation in retired {
+        assert!(
+            !index.contains(&format!("  {}(", camel(&operation))),
+            "committed client must not declare the retired {operation} method"
+        );
+    }
 }
 
 #[test]

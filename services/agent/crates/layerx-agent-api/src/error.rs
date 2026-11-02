@@ -1,10 +1,11 @@
-//! Total API error, idempotency, and verification-level contract.
+//! Total API error, idempotency, and verification-rung contract.
 
 use layerx_types::error::ErrorClass as LayerErrorClass;
 use layerx_types::result::ResultCode;
-use layerx_types::verify::VerificationLevel;
 
 use crate::identity::ContractError;
+
+pub type Rung = layerx_types::rung::Rung;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct RequestId(pub u64);
@@ -104,6 +105,17 @@ pub struct ApiError {
 }
 
 impl ApiError {
+    #[must_use]
+    pub fn idempotent_replay(request_id: RequestId) -> Self {
+        Self {
+            class: ErrorClass::CoreRejection,
+            protocol_result_code: Some(ResultCode::from_raw(-302)),
+            retriability: Retriability::Terminal,
+            request_id,
+            reason: ReasonCode("idempotent_replay".into()),
+        }
+    }
+
     /// Constructs the non-emulated unavailable-capability error.
     ///
     /// # Errors
@@ -123,37 +135,14 @@ impl ApiError {
     }
 }
 
-/// Ordered contract-level verification lattice shared by every SDK.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-#[repr(u8)]
-pub enum Level {
-    Unverified = 0,
-    SequencerSigned = 1,
-    BatchIncluded = 2,
-    StateProven = 3,
-    CheckpointFinalised = 4,
-    SettlementAnchored = 5,
-}
-
-impl From<VerificationLevel> for Level {
-    fn from(value: VerificationLevel) -> Self {
-        match value.wire_rank() {
-            0 => Self::Unverified,
-            1 => Self::SequencerSigned,
-            2 => Self::BatchIncluded,
-            3 => Self::StateProven,
-            4 => Self::CheckpointFinalised,
-            _ => Self::SettlementAnchored,
-        }
-    }
-}
+pub type VerificationStatus = RungStatus;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum VerificationStatus {
-    Achieved(Level),
-    Unverified {
-        requested: Level,
-        achieved: Level,
+pub enum RungStatus {
+    Achieved(Rung),
+    Below {
+        requested: Rung,
+        achieved: Rung,
         reason: ReasonCode,
     },
 }

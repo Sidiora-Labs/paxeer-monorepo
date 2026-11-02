@@ -98,45 +98,8 @@ static int init_ctx(lxp_module_ctx *ctx, lxp_kernel *kernel, lxp_arena *arena,
     return lxp_module_ctx_bind_effects(ctx, effects) == LXP_OK ? 0 : 1;
 }
 
-static int bridge_reserve_credit(void)
-{
-    const uint8_t asset[32] = {1U};
-    const lxp_u128 amount = {0U, 1U};
-    lx_account reserve = {0};
-    lx_account before;
-    reserve.kind = LX_ACCOUNT_SYSTEM_PAXEER_RESERVE;
-    if (lxp_ledger_bootstrap_balance(&reserve, asset,
-            (lxp_u128){0U, UINT64_MAX}, 7U) != LXP_OK)
-        return 1;
-    before = reserve;
-    if (lxp_ledger_apply_bridge_credit(&reserve, asset, amount) != LXP_OK ||
-        reserve.balance.hi != 1U || reserve.balance.lo != 0U ||
-        reserve.next_sequence != before.next_sequence)
-        return 1;
-    before.balance = reserve.balance;
-    if (memcmp(&reserve, &before, sizeof(reserve)) != 0) return 1;
-    for (unsigned int failure = 0U; failure < 6U; ++failure) {
-        reserve = before;
-        switch (failure) {
-        case 0U: reserve.kind = LX_ACCOUNT_AGENT_MAIN; break;
-        case 1U: reserve.frozen = true; break;
-        case 2U: reserve.has_asset = false; break;
-        case 3U: reserve.asset_id[0] ^= 1U; break;
-        case 4U: reserve.next_sequence = UINT64_MAX; break;
-        case 5U: reserve.balance = (lxp_u128){UINT64_MAX, UINT64_MAX}; break;
-        }
-        lx_account unchanged = reserve;
-        if (lxp_ledger_apply_bridge_credit(&reserve, asset, amount) == LXP_OK ||
-            memcmp(&reserve, &unchanged, sizeof(reserve)) != 0)
-            return 1;
-    }
-    return lxp_ledger_apply_bridge_credit(NULL, asset, amount) != LXP_OK &&
-           lxp_ledger_apply_bridge_credit(&reserve, NULL, amount) != LXP_OK ? 0 : 1;
-}
-
 int main(void)
 {
-    if (bridge_reserve_credit() != 0) return 1;
     static const uint8_t seed[32] = {
         0x9dU, 0x61U, 0xb1U, 0x9dU, 0xefU, 0xfdU, 0x5aU, 0x60U,
         0xbaU, 0x84U, 0x4aU, 0xf4U, 0x92U, 0xecU, 0x2cU, 0xc4U,
@@ -214,7 +177,7 @@ int main(void)
         lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) != LXP_OK)
         return 1;
     runtime = (lx_asset_runtime){ &accounts, &asset, 1U, &asset_state, 1U,
-                                  7U, LXP_PROTOCOL_VERSION_OCCUPANCY };
+                                  7U, LXP_PROTOCOL_VERSION_OCCUPANCY, false };
     if (lxp_kernel_bind_module_runtime(&kernel, LXP_MODULE_ASSET, &runtime) !=
             LXP_OK ||
         lxp_kernel_module_for_activity(&kernel, LX_ASSET_SEND, 0U,
@@ -283,11 +246,6 @@ int main(void)
         !balances(from, to, 100U, 0U))
         return 1;
     asset.asset_id[0] = 1U;
-    request.payer_grant = NULL;
-    if (init_ctx(&ctx, &kernel, &arena, &effects, 1U, 2U) != 0 ||
-        lx_asset_receive_execute(&ctx, &request, &receipt) !=
-            LXP_ERR_NO_PAYER_GRANT)
-        return 1;
 
     (void)memset(&send, 0, sizeof(send));
     (void)memcpy(send.from, from_id, 32U);

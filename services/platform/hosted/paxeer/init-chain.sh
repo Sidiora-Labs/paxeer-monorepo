@@ -23,14 +23,7 @@
 # LAYERX_PAXEER_DEPOSIT_ROOT_AUTHORITY (or ..._FILE) names that public key as 0x and 64 lowercase
 # hexadecimal characters, and the custody genesis section must carry exactly it.
 #
-# Checkpoint settlement and the guarantor bond are the native layerxanchor module behind the
-# precompile at 0x0000000000000000000000000000000000001014; no checkpoint or bond contract is
-# deployed. LAYERX_PAXEER_ANCHOR_GENESIS_FILE names the section written by anchor-genesis.py. Its
-# authority must be the deployer's cast account and its paxeer_chain_id this chain's EVM chain id,
-# the two values guarantors and the bring-up depend on. Without the file the module keeps its
-# default genesis, which authorizes no sequencer and therefore accepts no checkpoint.
-#
-# The guarantor submits every checkpoint to that precompile from its own account, which pays its
+# The guarantor submits every checkpoint from its own account, which pays its
 # own gas and is never the deployer. LAYERX_PAXEER_CHECKPOINT_SUBMITTER_ADDRESS (or
 # ..._ADDRESS_FILE) names it, and genesis funds its cast account with
 # LAYERX_PAXEER_CHECKPOINT_SUBMITTER_FUNDING and binds the association the same way the deployer's
@@ -60,7 +53,6 @@ GRPC_PORT=${LAYERX_PAXEER_GRPC_PORT:-9090}
 GRPC_WEB_PORT=${LAYERX_PAXEER_GRPC_WEB_PORT:-9091}
 COMMIT_TIMEOUT_NANOSECONDS=${LAYERX_PAXEER_COMMIT_TIMEOUT_NANOSECONDS:-}
 CUSTODY_GENESIS=${LAYERX_PAXEER_CUSTODY_GENESIS_FILE:-}
-ANCHOR_GENESIS=${LAYERX_PAXEER_ANCHOR_GENESIS_FILE:-}
 DEPOSIT_ROOT_AUTHORITY=${LAYERX_PAXEER_DEPOSIT_ROOT_AUTHORITY:-}
 MARKER="$HOME_DIR/config/.layerx-beta-initialised"
 
@@ -147,15 +139,6 @@ if [ -n "$CUSTODY_GENESIS" ]; then
         DEPOSIT_ROOT_AUTHORITY=$CUSTODY_AUTHORITY
     fi
 fi
-if [ -n "$ANCHOR_GENESIS" ]; then
-    [ -r "$ANCHOR_GENESIS" ] || fail "anchor genesis $ANCHOR_GENESIS is not readable"
-    "$JQ" -e --argjson chain "$CHAIN_ID" '(.params.network_id | type == "number" and . > 0)
-        and .params.paxeer_chain_id == $chain
-        and .params.settlement_contract == "0000000000000000000000000000000000001014"
-        and (.params.threshold | type == "number" and . > 0)
-        and (.sequencers | type == "array" and length > 0)' "$ANCHOR_GENESIS" >/dev/null \
-        || fail "anchor genesis must carry a network id, this EVM chain id, the anchor address, a threshold and a sequencer authorization"
-fi
 
 if [ -f "$MARKER" ]; then
     if [ -n "$CUSTODY_GENESIS" ]; then
@@ -171,13 +154,6 @@ if [ -f "$MARKER" ]; then
             '.app_state.layerxcustody.params.deposit_root_authority == $authority' \
             "$HOME_DIR/config/genesis.json" >/dev/null \
             || fail "requested deposit-root authority $DEPOSIT_ROOT_AUTHORITY is not the one in the initialised genesis"
-    fi
-    if [ -n "$ANCHOR_GENESIS" ]; then
-        "$JQ" -e --slurpfile anchor "$ANCHOR_GENESIS" \
-            '.app_state.layerxanchor.params == $anchor[0].params
-             and .app_state.layerxanchor.sequencers == $anchor[0].sequencers' \
-            "$HOME_DIR/config/genesis.json" >/dev/null \
-            || fail "requested anchor genesis differs from initialised genesis"
     fi
     if [ -n "$COMMIT_TIMEOUT_NANOSECONDS" ]; then
         "$JQ" -e --arg commit_timeout "$COMMIT_TIMEOUT_NANOSECONDS" \
@@ -268,32 +244,6 @@ if [ -n "$CUSTODY_GENESIS" ]; then
     "$JQ" -e --arg authority "$DEPOSIT_ROOT_AUTHORITY" \
         '.app_state.layerxcustody.params.deposit_root_authority == $authority' "$GENESIS" >/dev/null \
         || fail "genesis does not carry the deposit-root authority $DEPOSIT_ROOT_AUTHORITY"
-fi
-if [ -n "$ANCHOR_GENESIS" ]; then
-    "$JQ" -e --arg authority "$DEPLOYER_CAST" '.params.authority == $authority' "$ANCHOR_GENESIS" >/dev/null \
-        || fail "anchor genesis authority is not the deployer cast account $DEPLOYER_CAST"
-    "$JQ" --slurpfile anchor "$ANCHOR_GENESIS" '.app_state.layerxanchor = $anchor[0]' "$GENESIS" > "$GENESIS.tmp"
-    mv "$GENESIS.tmp" "$GENESIS"
-fi
-if [ -n "$ANCHOR_GENESIS" ] && "$JQ" -e '(.guarantors // []) | length > 0' "$ANCHOR_GENESIS" >/dev/null; then
-    # layerxanchor refuses to initialise unless its module account holds exactly the bonds its genesis
-    # records, so a genesis guarantor set brings its escrow with it.
-    "$JQ" -e '[.guarantors[].bond | tonumber] | all(. > 0 and . < 9007199254740992)' "$ANCHOR_GENESIS" >/dev/null \
-        || fail "anchor genesis bond is outside the range this script can total"
-    ESCROW_TOTAL=$("$JQ" -r '[.guarantors[].bond | tonumber] | add' "$ANCHOR_GENESIS")
-    ESCROW_DENOM=$("$JQ" -r '.params.bond_denom' "$ANCHOR_GENESIS")
-    ESCROW_HEX=$(printf 'layerxanchor' | sha256sum | cut -c 1-40)
-    ESCROW_ACCOUNT=$("$PAXD" debug addr "$ESCROW_HEX" --home "$HOME_DIR" 2>/dev/null | sed -n 's/^Bech32 Acc: //p')
-    case "$ESCROW_ACCOUNT" in
-        pax1*) ;;
-        *) fail "paxd could not derive the anchor module account" ;;
-    esac
-    "$JQ" --arg address "$ESCROW_ACCOUNT" --arg denom "$ESCROW_DENOM" --arg amount "$ESCROW_TOTAL" '
-        if any(.app_state.bank.balances[]; .address == $address) then error("anchor module account already funded") else . end
-        | .app_state.bank.balances = (.app_state.bank.balances + [{"address": $address, "coins": [{"denom": $denom, "amount": $amount}]}]
-            | sort_by(.address))
-    ' "$GENESIS" > "$GENESIS.tmp"
-    mv "$GENESIS.tmp" "$GENESIS"
 fi
 "$PAXD" collect-gentxs --home "$HOME_DIR" >/dev/null 2>&1
 "$PAXD" validate-genesis --home "$HOME_DIR" >/dev/null

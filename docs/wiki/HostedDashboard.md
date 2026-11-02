@@ -22,26 +22,46 @@ Webhook registration and delivery live on
 
 ## Deployment
 
-Three Fly apps serve the developer surface, each with at least two
-machines across `ams` and `fra`:
+The browser UI, dashboard API and webhooks use separate services:
 
-- `paxeer-dashboard-web` (`services/platform/hosted/dashboard/web/fly.toml`,
-  image `docker/platform-dashboard-web`) is the browser UI on port
-  `3000`. It rewrites `/v1/dashboard/*` to
-  `http://paxeer-dashboard.internal:9445`
+- `paxeer-dashboard-web` remains a Fly app
+  (`services/platform/hosted/dashboard/web/fly.toml`), built from
+  `docker/platform-dashboard-web/Dockerfile` and served on port `3000`.
+  Its `/v1/dashboard/*` rewrite targets
+  `http://dashboard.railway.internal:9445`
   (`services/platform/hosted/dashboard/web/next.config.ts`).
-- `paxeer-dashboard` (`services/platform/hosted/dashboard/fly.toml`, image
-  `docker/platform-dashboard`) is the dashboard API. It listens in plain
-  HTTP on `[::]:9445` (`LAYERX_DASHBOARD_LISTENER=plain`). It reads
-  webhook state from `paxeer-internal-redis` and the gateway request log
-  from `paxeer-shared-endpoint-redis`.
-- `paxeer-webhooks` (`services/platform/hosted/webhooks/fly.toml`) serves
-  webhooks; see [Hosted webhooks](HostedWebhooks.md).
+- Railway service `dashboard` is built from
+  `docker/platform-dashboard/Dockerfile`. Its configuration is
+  `services/platform/hosted/dashboard/railway.env.example`, with
+  `PORT=9445`, `LAYERX_DASHBOARD_LISTEN=[::]:9445` and
+  `LAYERX_DASHBOARD_LISTENER=plain`. The API and `GET /healthz` share
+  that plain HTTP listener. It reads webhook state from
+  `rediss://redis-internal.railway.internal:6379`, gateway keys, quota
+  and request logs from `rediss://redis-router.railway.internal:6379`,
+  and developer sessions from `https://identity.railway.internal:9443`.
+- Railway services `webhooks-public` and `webhooks-ingress` use the
+  `env-init-prebuilt` or `env-init` target of
+  `docker/platform-webhooks/Dockerfile`, with settings from
+  `services/platform/hosted/webhooks/railway.env.example`.
+  The `layerx-env-files` entrypoint runs
+  `services/platform/hosted/webhooks/env-init.sh` to select the role's
+  listener, health listener and credential paths from `LAYERX_ROLE`,
+  and its instance id from the replica id or hostname; see
+  [Hosted webhooks](HostedWebhooks.md).
 
-The edge proxies each name through the wildcard name with a certbot
-certificate: `dev.paxeer.network` to `paxeer-dashboard-web`,
-`api-dev.paxeer.network` to `paxeer-dashboard` and
-`hooks.paxeer.network` to `paxeer-webhooks`.
+The dashboard image starts `layerx-env-files` before `layerx-dashboard`
+as uid `65532`. The file variables in the dashboard env example hold
+base64 values decoded under `/run/layerx`, using
+`docker/platform-dashboard/files.tsv` and
+`LAYERX_FILES_OWNER=65532:65532`:
+
+| File variables | Paths under `/run/layerx` |
+| --- | --- |
+| `DASHBOARD_CLIENT_P12`, `DASHBOARD_CLIENT_PASSWORD` | `client/identity.p12`, `client/password` |
+| `DASHBOARD_CLIENT_CA_DER` | `ca/internal.der` |
+| `DASHBOARD_WEBHOOKS_REDIS_USERNAME`, `DASHBOARD_WEBHOOKS_REDIS_PASSWORD` | `redis/username`, `redis/password` |
+| `DASHBOARD_GATEWAY_REDIS_USERNAME`, `DASHBOARD_GATEWAY_REDIS_PASSWORD` | `dashboard-redis/username`, `dashboard-redis/password` |
+| `DASHBOARD_IDENTITY_TOKEN` | `tokens/identity` |
 
 The API listens on `LAYERX_DASHBOARD_LISTEN`, default
 `0.0.0.0:9445` (`services/platform/hosted/dashboard/src/main.rs`). At most 256

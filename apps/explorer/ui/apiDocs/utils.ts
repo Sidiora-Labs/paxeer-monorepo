@@ -1,4 +1,5 @@
 import type { SwaggerRequest } from './types';
+import { getFeaturePayload } from 'configs/app/features/types';
 
 import config from 'configs/app';
 import type { ApiPropsBase } from 'configs/app/apis';
@@ -16,13 +17,48 @@ const microserviceRequestInterceptorFactory = (api: ApiPropsBase) => (req: Swagg
 
 const getMicroserviceSwaggerUrl = (api: ApiPropsBase) => `${ api.endpoint }${ api.basePath ?? '' }/api/v1/docs/swagger.yaml`;
 
+// The spec shipped with the frontend build (public/openapi.yaml).
+export const CORE_API_SPEC_PUBLIC_URL = '/openapi.yaml';
+
+// The spec the backend renders for its API v2 controllers.
+export const getCoreApiSpecBackendUrl = (): string | undefined => {
+  if (!config.apis.general) {
+    return;
+  }
+
+  return `${ config.apis.general.endpoint }${ config.apis.general.basePath ?? '' }/api/v2/openapi`;
+};
+
+// Ordered list of locations the core API spec is looked up from:
+// an explicitly configured URL, the frontend public dir, then the backend.
+export const getCoreApiSpecCandidates = (): Array<string> => {
+  return [
+    getFeaturePayload(config.features.apiDocs)?.coreApiSpecUrl,
+    CORE_API_SPEC_PUBLIC_URL,
+    getCoreApiSpecBackendUrl(),
+  ].filter(Boolean);
+};
+
+export const resolveCoreApiSpecUrl = async(candidates: Array<string>): Promise<string | undefined> => {
+  for (const candidate of candidates) {
+    try {
+      const response = await fetch(candidate, { method: 'HEAD' });
+      if (response.ok) {
+        return candidate;
+      }
+    } catch (error) {}
+  }
+
+  return candidates[0];
+};
+
 export const REST_API_SECTIONS = [
   config.apis.general && {
     id: 'blockscout-core-api',
     title: 'Blockscout core API',
     swagger: {
-      // default swagger URL, will be replaced with an URL constructed from the backend version and the openapi spec folder name
-      url: 'https://raw.githubusercontent.com/blockscout/blockscout-api-v2-swagger/main/swagger.yaml',
+      // default swagger URL, will be replaced with the first reachable spec location (see getCoreApiSpecCandidates)
+      url: CORE_API_SPEC_PUBLIC_URL,
       requestInterceptor: (req: SwaggerRequest) => {
         if (!config.apis.general) {
           return req;
@@ -33,6 +69,7 @@ export const REST_API_SECTIONS = [
             try {
               const DEFAULT_SERVER = 'blockscout.com/poa/core';
               const DEFAULT_SERVER_NEW = 'http://localhost/api';
+              const backendApiUrl = `${ config.apis.general.endpoint }${ config.apis.general.basePath }/api`;
 
               if (req.url.includes(DEFAULT_SERVER)) {
                 const url = new URL(req.url.replace(DEFAULT_SERVER, config.apis.general.host));
@@ -46,7 +83,16 @@ export const REST_API_SECTIONS = [
               }
 
               if (req.url.includes(DEFAULT_SERVER_NEW)) {
-                return new URL(req.url.replace(DEFAULT_SERVER_NEW, `${ config.apis.general.endpoint }${ config.apis.general.basePath }/api`));
+                return new URL(req.url.replace(DEFAULT_SERVER_NEW, backendApiUrl));
+              }
+
+              // a spec served from the frontend origin declares the server as "/",
+              // so requests land on the frontend host and have to be sent to the backend instead
+              if (typeof window !== 'undefined') {
+                const url = new URL(req.url, window.location.origin);
+                if (url.origin === window.location.origin && url.pathname.startsWith('/api/')) {
+                  return new URL(`${ backendApiUrl }${ url.pathname.slice('/api'.length) }${ url.search }`);
+                }
               }
 
             } catch (error) {}

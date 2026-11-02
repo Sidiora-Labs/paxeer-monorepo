@@ -66,14 +66,15 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	if err := ratelimit.Report(logger, metrics.Register); err != nil {
+	if err := ratelimit.Report(logger, metrics.Register, cfg.TrustedProxies); err != nil {
 		return err
 	}
 	srv, err := explorer.NewServer(db, explorer.Options{
-		LinkBase: cfg.ExplorerTxBase,
-		Requests: clientRequests,
-		Window:   clientWindow,
-		Metrics:  metrics,
+		LinkBase:       cfg.ExplorerTxBase,
+		TrustedProxies: cfg.TrustedProxies,
+		Requests:       clientRequests,
+		Window:         clientWindow,
+		Metrics:        metrics,
 	})
 	if err != nil {
 		return err

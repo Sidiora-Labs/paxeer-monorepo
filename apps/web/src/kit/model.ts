@@ -39,13 +39,24 @@ export const VERIFICATION_PRESENTATIONS = Object.freeze({
   unverified: { copyKey: "verification.unverified" },
   "receipt-verified": { copyKey: "verification.receipt_verified" },
   "checkpoint-finalised": { copyKey: "verification.checkpoint_finalised" },
-  "paxeer-finalised": { copyKey: "verification.paxeer_finalised" },
-  "settlement-anchored": { copyKey: "explorer.verification.settlement_anchored" },
 } as const);
 
 export type StatusKey = keyof typeof STATUS_PRESENTATIONS;
 export type StatusTone = (typeof STATUS_PRESENTATIONS)[StatusKey]["tone"];
 export type VerificationKey = keyof typeof VERIFICATION_PRESENTATIONS;
+export type VerificationRung = "unverified" | "receipt-verified" | "checkpoint-finalised";
+
+export function verificationRung(level: string): VerificationRung {
+  switch (level) {
+    case "unverified":
+    case "receipt-verified":
+    case "checkpoint-finalised":
+      return level;
+    default:
+      return "unverified";
+  }
+}
+
 export type MoneyDirection = "inbound" | "outbound" | "other";
 export type ConfirmationKind = "reversible" | "destructive" | "irreversible";
 declare const protocolAmountBrand: unique symbol;
@@ -74,8 +85,8 @@ export function statusKeyFromCopyKey(copyKey: string): StatusKey {
   return key as StatusKey;
 }
 
-export function verificationWord(verification: VerificationKey): string {
-  return copyEntry(VERIFICATION_PRESENTATIONS[verification].copyKey).message;
+export function verificationWord(level: string): string {
+  return copyEntry(VERIFICATION_PRESENTATIONS[verificationRung(level)].copyKey).message;
 }
 
 export function directionWord(direction: MoneyDirection): string {

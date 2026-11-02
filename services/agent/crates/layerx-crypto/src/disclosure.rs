@@ -1,5 +1,7 @@
 //! Structured, byte-bound descriptions of canonical activities.
 
+pub mod call;
+
 mod native;
 mod program;
 
@@ -28,6 +30,7 @@ use layerx_wire::WireError;
 use crate::{
     authority_grant::AuthorityGrant,
     ct,
+    evm_transaction::Eip1559Call,
     onboarding::{OnboardingConsent, SponsoredRegistration},
     payments::{Grant, Payment},
     session::{decode_session_key, IssuedSessionKey, SessionPurpose},
@@ -39,8 +42,6 @@ const SEND_WIRE_TAG: u16 = 0x5301;
 const SEND_FIELD_COUNT: u16 = 10;
 const ASSET_RECEIVE_ORDINAL: u16 = 6;
 const BRIDGE_DEPOSIT_CREDIT_ORDINAL: u16 = 1;
-const BRIDGE_DEPOSIT_CREDIT_WIRE_TAG: u16 = 0x4801;
-const BRIDGE_DEPOSIT_CREDIT_FIELD_COUNT: u16 = 7;
 const ASSET_WITHDRAW_ORDINAL: u16 = 9;
 const GOVERNANCE_EVM_BINDING_ORDINAL: u16 = 4;
 const GOVERNANCE_EVM_BINDING_WIRE_TAG: u16 = 0x7104;
@@ -169,9 +170,16 @@ pub struct Disclosure {
     pub session_grant: Option<DisclosedSessionGrant>,
     pub onboarding: Option<DisclosedOnboarding>,
     pub native_operation: Option<DisclosedNativeOperation>,
-    activity: Activity,
+    source: Source,
+    call_sender: Option<[u8; 20]>,
     signing_digest: [u8; 32],
     budget_context: Option<BudgetStateContext>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum Source {
+    Activity(Activity),
+    Call(Eip1559Call),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -282,7 +290,7 @@ fn fixed<const N: usize>(decoder: &mut Decoder<'_>) -> Result<[u8; N], Disclosur
         .map_err(|_| DisclosureError::MalformedPayload)
 }
 
-fn decode_send(payload: &[u8], activity: &Activity) -> Result<SendSemantics, DisclosureError> {
+fn decode_send(payload: &[u8]) -> Result<SendSemantics, DisclosureError> {
     let mut decoder = Decoder::new(payload, 0);
     if decoder.u16()? != SEND_WIRE_TAG || decoder.u16()? != SEND_FIELD_COUNT {
         return Err(DisclosureError::MalformedPayload);
@@ -318,9 +326,8 @@ fn decode_send(payload: &[u8], activity: &Activity) -> Result<SendSemantics, Dis
 
     if controller != from
         || signed_context_hash != context_hash
-        || network_id != activity.network_id()
-        || protocol_version != activity.protocol_version()
-        || idempotency_key != activity.idempotency_key()
+        || network_id == 0
+        || !layerx_wire::limits::protocol_version_supported(protocol_version)
     {
         return Err(DisclosureError::MalformedPayload);
     }
@@ -344,6 +351,21 @@ fn decode_send(payload: &[u8], activity: &Activity) -> Result<SendSemantics, Dis
         idempotency_key,
         expires_at,
     })
+}
+
+fn decode_activity_send(
+    payload: &[u8],
+    activity: &Activity,
+) -> Result<SendSemantics, DisclosureError> {
+    let send = decode_send(payload)?;
+    let scope = &payload[payload.len() - 6..];
+    if scope[..4] != activity.network_id().to_be_bytes()
+        || scope[4..] != activity.protocol_version().to_be_bytes()
+        || send.idempotency_key != activity.idempotency_key()
+    {
+        return Err(DisclosureError::MalformedPayload);
+    }
+    Ok(send)
 }
 
 fn decode_receive(payload: &[u8], activity: &Activity) -> Result<SendSemantics, DisclosureError> {
@@ -382,30 +404,47 @@ fn decode_bridge_deposit_credit(
     payload: &[u8],
     activity: &Activity,
 ) -> Result<SendSemantics, DisclosureError> {
-    let mut decoder = Decoder::new(payload, 0);
-    if decoder.u16()? != BRIDGE_DEPOSIT_CREDIT_WIRE_TAG
-        || decoder.u16()? != BRIDGE_DEPOSIT_CREDIT_FIELD_COUNT
+    if payload.len() < 368
+        || payload.len() > layerx_types::limits::MAX_PAYLOAD_BYTES
+        || &payload[..5] != b"LXDC3"
+        || &payload[363..368] != b"LXLB1"
+        || payload[327..359] != Sha256::digest(&payload[363..])[..]
+        || payload[359..363] != 2_u32.to_be_bytes()
+        || payload[37..41] != activity.network_id().to_be_bytes()
+        || payload[41..43] != activity.protocol_version().to_be_bytes()
+        || payload[107..139].iter().all(|byte| *byte == 0)
+        || payload[171..191].iter().all(|byte| *byte == 0)
+        || payload[191..207].iter().all(|byte| *byte == 0)
     {
         return Err(DisclosureError::MalformedPayload);
     }
-    let _deposit_proof: [u8; 32] = fixed(&mut decoder)?;
-    let _checkpoint: [u8; 32] = fixed(&mut decoder)?;
-    let from = fixed(&mut decoder)?;
-    let to = fixed(&mut decoder)?;
-    let asset = fixed(&mut decoder)?;
-    let amount = decoder.u128()?;
-    let idempotency_key = fixed(&mut decoder)?;
-    decoder.finish()?;
-    if idempotency_key != activity.idempotency_key() || amount == 0 || from == to {
+    let mut nullifier = Sha256::new();
+    nullifier.update(b"LX:DEPOSIT:NULLIFIER:v1");
+    nullifier.update(&payload[43..75]);
+    let idempotency_key: [u8; 32] = nullifier.finalize().into();
+    if idempotency_key != activity.idempotency_key() {
         return Err(DisclosureError::MalformedPayload);
     }
+    let mut from = [0; 32];
+    from[12..].copy_from_slice(&payload[171..191]);
+    let to = payload[107..139]
+        .try_into()
+        .map_err(|_| DisclosureError::MalformedPayload)?;
+    let asset = payload[75..107]
+        .try_into()
+        .map_err(|_| DisclosureError::MalformedPayload)?;
+    let amount = u128::from_be_bytes(
+        payload[191..207]
+            .try_into()
+            .map_err(|_| DisclosureError::MalformedPayload)?,
+    );
     Ok(SendSemantics {
         from,
         to,
         asset,
         amount,
         sequence: activity.account_sequence(),
-        idempotency_key,
+        idempotency_key: activity.idempotency_key(),
         expires_at: activity.timestamp_bound().not_after,
     })
 }
@@ -497,11 +536,16 @@ fn decode_evm_payout_binding(
 fn semantics(activity: &Activity) -> Result<SendSemantics, DisclosureError> {
     let activity_type = activity.activity_type();
     let kind = (activity_type.module(), activity_type.ordinal());
-    if activity.payload().len() > MAX_SEND_PAYLOAD_BYTES {
+    let max_payload_bytes = if kind == (ModuleId::Bridge, BRIDGE_DEPOSIT_CREDIT_ORDINAL) {
+        layerx_types::limits::MAX_PAYLOAD_BYTES
+    } else {
+        MAX_SEND_PAYLOAD_BYTES
+    };
+    if activity.payload().len() > max_payload_bytes {
         return Err(DisclosureError::MalformedPayload);
     }
     match kind {
-        (ModuleId::Asset, ASSET_SEND_ORDINAL) => decode_send(activity.payload(), activity),
+        (ModuleId::Asset, ASSET_SEND_ORDINAL) => decode_activity_send(activity.payload(), activity),
         (ModuleId::Asset, ASSET_RECEIVE_ORDINAL) => decode_receive(activity.payload(), activity),
         (ModuleId::Bridge, BRIDGE_DEPOSIT_CREDIT_ORDINAL) => {
             decode_bridge_deposit_credit(activity.payload(), activity)
@@ -990,17 +1034,26 @@ struct DisclosureFields {
 impl Disclosure {
     #[must_use]
     pub fn canonical_payload(&self) -> &[u8] {
-        self.activity.payload()
+        match &self.source {
+            Source::Activity(activity) => activity.payload(),
+            Source::Call(call) => &call.data,
+        }
     }
 
     #[must_use]
     pub const fn envelope_sequence(&self) -> u64 {
-        self.activity.account_sequence()
+        match &self.source {
+            Source::Activity(activity) => activity.account_sequence(),
+            Source::Call(call) => call.nonce,
+        }
     }
 
     /// # Errors
     /// Returns a payload decoding error for malformed canonical semantics.
     pub fn payload_sequence(&self) -> Result<Option<u64>, DisclosureError> {
+        if let Source::Call(call) = &self.source {
+            return call::payload_sequence(call);
+        }
         if let Some(DisclosedNativeOperation::BudgetCreate(budget)) = &self.native_operation {
             return Ok(Some(budget.source_sequence));
         }
@@ -1014,13 +1067,22 @@ impl Disclosure {
             });
         }
         match (self.activity_type.module(), self.activity_type.ordinal()) {
-            (ModuleId::Asset, 5 | 6) => Ok(Some(semantics(&self.activity)?.sequence)),
+            (ModuleId::Asset, 5 | 6) => match &self.source {
+                Source::Activity(activity) => Ok(Some(semantics(activity)?.sequence)),
+                Source::Call(call) => call::payload_sequence(call),
+            },
             _ => Ok(None),
         }
     }
 
     fn validate_fields(&self) -> Result<(), DisclosureError> {
-        let expected = decoded_fields(&self.activity, self.budget_context.as_ref())?;
+        let expected = match &self.source {
+            Source::Activity(activity) => decoded_fields(activity, self.budget_context.as_ref())?,
+            Source::Call(call) => call::fields(
+                call,
+                self.call_sender.ok_or(DisclosureError::MalformedPayload)?,
+            )?,
+        };
         macro_rules! require_field {
             ($field:ident) => {
                 if self.$field != expected.$field {
@@ -1054,7 +1116,10 @@ impl Disclosure {
     /// Names the first changed semantic field or returns a typed wire error.
     pub fn reencode(&self) -> Result<Vec<u8>, DisclosureError> {
         self.validate_fields()?;
-        encode_unsigned(&self.activity).map_err(DisclosureError::from)
+        match &self.source {
+            Source::Activity(activity) => encode_unsigned(activity).map_err(DisclosureError::from),
+            Source::Call(_) => Err(DisclosureError::FieldMismatch("source")),
+        }
     }
 
     /// Computes a domain-separated audit digest over the validated disclosure form.
@@ -1167,19 +1232,48 @@ impl Disclosure {
         if let Some(operation) = &self.native_operation {
             encoder.bytes(&operation.encode()?, 2048)?;
         }
+        if let Source::Call(call) = &self.source {
+            encoder.fixed(&call.signing_hash())?;
+            encoder.bytes(&call.data, MAX_TRANSPORT_DISCLOSURE_BYTES)?;
+        }
         Ok(encoder.finish())
     }
 
+    /// Returns the signing digest after checking every disclosed field.
+    ///
+    /// # Errors
+    /// Refuses any semantic field that differs from its source bytes.
+    pub fn signing_digest(&self) -> Result<[u8; 32], DisclosureError> {
+        self.validated_digest()
+    }
+
+    /// Returns all ABI arguments for a construct call, including grant and bank fields.
+    ///
+    /// # Errors
+    /// Refuses malformed calldata.
+    pub fn construct_method(&self) -> Result<Option<call::ConstructMethod>, DisclosureError> {
+        match &self.source {
+            Source::Activity(_) => Ok(None),
+            Source::Call(call) => call::decode_method(call).map(Some),
+        }
+    }
+
     pub(crate) fn validated_digest(&self) -> Result<[u8; 32], DisclosureError> {
-        let reencoded = self.reencode()?;
-        let message = SignatureMessage::new(
-            hash::Domain::SignaturePreimage,
-            self.activity.protocol_version(),
-            self.activity.network_id(),
-            &reencoded,
-        )
-        .map_err(|_| DisclosureError::MalformedPayload)?;
-        let digest = message.digest();
+        self.validate_fields()?;
+        let digest = match &self.source {
+            Source::Activity(activity) => {
+                let reencoded = encode_unsigned(activity)?;
+                SignatureMessage::new(
+                    hash::Domain::SignaturePreimage,
+                    activity.protocol_version(),
+                    activity.network_id(),
+                    &reencoded,
+                )
+                .map_err(|_| DisclosureError::MalformedPayload)?
+                .digest()
+            }
+            Source::Call(call) => call.signing_hash(),
+        };
         if !ct::eq_fixed(&digest, &self.signing_digest) {
             return Err(DisclosureError::FieldMismatch("canonical_bytes"));
         }
@@ -1187,7 +1281,11 @@ impl Disclosure {
     }
 
     pub(crate) const fn scope(&self) -> (u16, u32) {
-        (self.activity.protocol_version(), self.activity.network_id())
+        match &self.source {
+            Source::Activity(activity) => (activity.protocol_version(), activity.network_id()),
+            // Calls have no kernel signing domain and cannot enter the activity signer.
+            Source::Call(_) => (0, 0),
+        }
     }
 
     pub(crate) fn validate_bytes(
@@ -1195,6 +1293,9 @@ impl Disclosure {
         canonical: &[u8],
         registry: &ModuleRegistry,
     ) -> Result<(), DisclosureError> {
+        if matches!(self.source, Source::Call(_)) {
+            return Err(DisclosureError::FieldMismatch("source"));
+        }
         let actual = bind_with(canonical, registry, self.budget_context.as_ref())?;
         macro_rules! require_field {
             ($field:ident) => {
@@ -1301,7 +1402,8 @@ fn bind_with(
         evm_payout_binding: fields.evm_payout_binding,
         withdrawal: fields.withdrawal,
         payment: fields.payment,
-        activity,
+        source: Source::Activity(activity),
+        call_sender: None,
         signing_digest: message.digest(),
         budget_context: budget_context.copied(),
     })
@@ -1325,6 +1427,7 @@ mod tests {
         payload[75..107].fill(0x33);
         payload[107..139].fill(0x22);
         payload[139..171].fill(0x44);
+        payload[171..191].fill(0x55);
         payload[191..207].copy_from_slice(&25_u128.to_be_bytes());
         payload[359..363].copy_from_slice(&2_u32.to_be_bytes());
         payload[363..368].copy_from_slice(b"LXLB1");
@@ -1368,18 +1471,82 @@ mod tests {
     }
 
     #[test]
-    fn no_custody_credit_kind() -> Result<(), String> {
+    fn custody_credit_discloses_at_every_supported_length_and_scope() -> Result<(), String> {
         for length in [368, 512, 513, layerx_types::limits::MAX_PAYLOAD_BYTES] {
-            let payload = custody_credit_payload(length);
-            for protocol in [1, 2, 3] {
+            for protocol in [1_u16, 2, 3] {
+                let mut payload = custody_credit_payload(length);
+                payload[41..43].copy_from_slice(&protocol.to_be_bytes());
                 let (canonical, registry) = custody_credit_envelope(&payload, protocol)?;
-                assert_eq!(
-                    bind(&canonical, &registry),
-                    Err(DisclosureError::MalformedPayload),
-                    "length {length}, protocol {protocol}"
-                );
+                let disclosure = bind(&canonical, &registry).map_err(|e| format!("{e:?}"))?;
+                let mut payer = [0; 32];
+                payer[12..].copy_from_slice(&payload[171..191]);
+                assert_eq!(disclosure.counterparties[0].account, payer);
+                assert_eq!(disclosure.counterparties[1].account, payload[107..139]);
+                assert_eq!(disclosure.asset, payload[75..107]);
+                assert_eq!(disclosure.amounts[0].value.to_be_bytes(), payload[191..207]);
+                let mut nullifier = Sha256::new();
+                nullifier.update(b"LX:DEPOSIT:NULLIFIER:v1");
+                nullifier.update(&payload[43..75]);
+                assert_eq!(disclosure.idempotency_key, nullifier.finalize()[..]);
+                assert_eq!(disclosure.envelope_sequence(), 7);
+                assert_eq!(disclosure.expiry.payload_expires_at, 100);
+                assert_eq!(disclosure.reencode(), Ok(canonical));
             }
         }
+        Ok(())
+    }
+
+    #[test]
+    fn custody_credit_refuses_inconsistent_scope_bundle_and_nullifier() -> Result<(), String> {
+        for offset in [40, 42, 327, 43, 0, 359, 363] {
+            let mut payload = custody_credit_payload(368);
+            payload[offset] ^= 1;
+            let (canonical, registry) = custody_credit_envelope(&payload, 3)?;
+            assert_eq!(
+                bind(&canonical, &registry),
+                Err(DisclosureError::MalformedPayload),
+                "altered byte {offset}"
+            );
+        }
+        for range in [107..139, 171..191, 191..207] {
+            let mut payload = custody_credit_payload(368);
+            payload[range.clone()].fill(0);
+            let (canonical, registry) = custody_credit_envelope(&payload, 3)?;
+            assert_eq!(
+                bind(&canonical, &registry),
+                Err(DisclosureError::MalformedPayload),
+                "zero field {range:?}"
+            );
+        }
+        let payload = custody_credit_payload(368);
+        for length in 0..368 {
+            let (canonical, registry) = custody_credit_envelope(&payload[..length], 3)?;
+            assert_eq!(
+                bind(&canonical, &registry),
+                Err(DisclosureError::MalformedPayload),
+                "truncated length {length}"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn custody_credit_refuses_legacy_tlv_framing() -> Result<(), String> {
+        let mut payload = vec![0x11; 212];
+        payload[..4].copy_from_slice(&[0x48, 0x01, 0x00, 0x07]);
+        payload[68..100].fill(0x55);
+        payload[100..132].fill(0x22);
+        payload[132..164].fill(0x33);
+        payload[164..180].copy_from_slice(&25_u128.to_be_bytes());
+        let mut nullifier = Sha256::new();
+        nullifier.update(b"LX:DEPOSIT:NULLIFIER:v1");
+        nullifier.update([0x11; 32]);
+        payload[180..212].copy_from_slice(&nullifier.finalize());
+        let (canonical, registry) = custody_credit_envelope(&payload, 3)?;
+        assert_eq!(
+            bind(&canonical, &registry),
+            Err(DisclosureError::MalformedPayload)
+        );
         Ok(())
     }
 

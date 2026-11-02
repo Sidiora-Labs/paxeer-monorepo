@@ -383,6 +383,36 @@ func TestTransactionsRoute(t *testing.T) {
 	})
 }
 
+func TestTransactionsRouteChecksummedPool(t *testing.T) {
+	ctx := context.Background()
+	st := store.New(internaltest.NewPostgres(t))
+	h := newReadRouter(st)
+
+	const pool = "0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed"
+	const checksummedPool = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
+	insertTx(t, ctx, st, "older-100", pool, "0xa", true, "1", "2", 100)
+	insertTx(t, ctx, st, "newer-200", pool, "0xb", false, "3", "4", 200)
+
+	for _, address := range []string{pool, checksummedPool} {
+		t.Run(address, func(t *testing.T) {
+			rec := serve(t, h, http.MethodGet, "/stats/"+address+"/transactions", nil, nil)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", rec.Code)
+			}
+			var got struct {
+				Transactions []store.TransactionRow `json:"transactions"`
+			}
+			decode(t, rec, &got)
+			if len(got.Transactions) != 2 {
+				t.Fatalf("transactions = %+v, want 2 rows", got.Transactions)
+			}
+			if got.Transactions[0].ID != "newer-200" || got.Transactions[1].ID != "older-100" {
+				t.Fatalf("transactions not newest first: %+v", got.Transactions)
+			}
+		})
+	}
+}
+
 func TestCrossTokenSwapRoutes(t *testing.T) {
 	ctx := context.Background()
 	st := store.New(internaltest.NewPostgres(t))

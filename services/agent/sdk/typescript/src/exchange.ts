@@ -20,7 +20,9 @@ export type PrecompileAbiErrorCode =
   | "data_length"
   | "non_canonical_word"
   | "invalid_string"
-  | "malformed_wallet_answer";
+  | "malformed_wallet_answer"
+  | "approve_reverted"
+  | "approve_not_mined";
 
 export class PrecompileAbiError extends Error {
   readonly code: PrecompileAbiErrorCode;
@@ -281,13 +283,20 @@ function dynamicType(type: string): boolean {
   return type.startsWith("(") && tupleTypes(type).some(dynamicType);
 }
 
+function headWidth(type: string): number {
+  if (!dynamicType(type) && type.startsWith("(") && type.endsWith(")")) {
+    return tupleTypes(type).reduce((width, item) => width + headWidth(item), 0);
+  }
+  return WORD;
+}
+
 function encodeSequence(types: readonly string[], values: readonly AbiArgument[], label: string): Uint8Array {
   if (types.length !== values.length) {
     throw new PrecompileAbiError("invalid_value", `${label} argument count`);
   }
   const heads: Uint8Array[] = [];
   const tails: Uint8Array[] = [];
-  let tailOffset = types.length * WORD;
+  let tailOffset = types.reduce((width, type) => width + headWidth(type), 0);
   types.forEach((type, index) => {
     const encoded = encodeArgument(type, values[index] as AbiArgument, `${label} argument ${index}`);
     if (dynamicType(type)) {
@@ -371,7 +380,7 @@ export function precompileTransactionRequest(from: string, call: PrecompileCall)
   }
   return {
     method: "eth_sendTransaction",
-    params: [{ from, to: call.to, data: call.data, value: `0x${call.value.toString(16)}` }],
+    params: [{ from, to: call.to, data: call.data, value: `0x${call.value.toString(16)}`, type: "0x2", chainId: "0x7d" }],
   };
 }
 
@@ -565,9 +574,10 @@ function exchangeCall(name: string, types: readonly PrecompileAbiType[], values:
   return { to: LAYERX_EXCHANGE_PRECOMPILE, data: encodeAbiCall(name, types, values), value };
 }
 
-/** `placeOrder(bytes32,uint8,uint256,uint256,uint8)`. */
+/** `placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8)`. */
 export function exchangePlaceOrderCall(order: {
   readonly marketId: string;
+  readonly accountId: string;
   readonly side: number;
   readonly price: bigint;
   readonly quantity: bigint;
@@ -575,8 +585,8 @@ export function exchangePlaceOrderCall(order: {
 }): PrecompileCall {
   return exchangeCall(
     "placeOrder",
-    ["bytes32", "uint8", "uint256", "uint256", "uint8"],
-    [order.marketId, BigInt(order.side), order.price, order.quantity, BigInt(order.timeInForce)],
+    ["bytes32", "bytes32", "uint8", "uint256", "uint256", "uint8"],
+    [order.marketId, order.accountId, BigInt(order.side), order.price, order.quantity, BigInt(order.timeInForce)],
   );
 }
 

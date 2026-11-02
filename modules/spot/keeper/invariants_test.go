@@ -523,6 +523,92 @@ func TestEscrowInvariant(t *testing.T) {
 		"active count of %s is %d, it has %d active orders\n", e.trader.Hex(), count+1, count))
 }
 
+func TestActiveIndexInvariant(t *testing.T) {
+	e := newInvEnv(t)
+	e.provide()
+	invariant := keeper.ActiveIndexInvariant(e.k)
+	require.Equal(t, "active-index", keeper.ActiveIndexInvariantName)
+	requireInvariant(t, e.ctx, invariant, keeper.ActiveIndexInvariantName, "")
+
+	for _, list := range []struct {
+		name   string
+		prefix []byte
+		place  func() (uint64, error)
+		cancel func(uint64) error
+	}{
+		{"limit", types.ActiveLimitPrefix, func() (uint64, error) {
+			id, _, err := e.k.PlaceLimit(e.ctx, e.trader, e.usdl, e.pax, sdk.NewInt(100_000_000), invPAXPrice, 0, types.OrderTypeLimitBuy)
+			return id, err
+		}, func(id uint64) error {
+			_, err := e.k.CancelLimit(e.ctx, e.trader, id)
+			return err
+		}},
+		{"stop-limit", types.ActiveStopLimitPrefix, func() (uint64, error) {
+			return e.k.PlaceStopLimit(e.ctx, e.trader, e.usdl, e.pax, sdk.NewInt(100_000_000), invPAXPrice,
+				sdk.NewIntWithDecimal(6, 17), 0, types.OrderTypeStopLimitBuy)
+		}, func(id uint64) error {
+			return e.k.CancelStopLimit(e.ctx, e.trader, id)
+		}},
+		{"stop-loss", types.ActiveStopLossPrefix, func() (uint64, error) {
+			return e.k.PlaceStopLoss(e.ctx, e.trader, e.pax, e.usdl, sdk.NewInt(200_000_000), invPAXPrice, 0)
+		}, func(id uint64) error {
+			return e.k.CancelStopLoss(e.ctx, e.trader, id)
+		}},
+	} {
+		t.Run(list.name, func(t *testing.T) {
+			ids := make([]uint64, 3)
+			for i := range ids {
+				id, err := list.place()
+				require.NoError(t, err)
+				ids[i] = id
+				requireInvariant(t, e.ctx, invariant, keeper.ActiveIndexInvariantName, "")
+			}
+			require.NoError(t, list.cancel(ids[0]))
+			requireInvariant(t, e.ctx, invariant, keeper.ActiveIndexInvariantName, "")
+			idKey := append(append([]byte(nil), list.prefix...), binary.BigEndian.AppendUint64(nil, ids[2])...)
+			positionKey := types.ActivePositionKey(list.prefix, 0)
+			lengthKey := types.ActiveLengthKey(list.prefix)
+			require.Equal(t, binary.BigEndian.AppendUint64(nil, 0), e.ctx.KVStore(e.key).Get(idKey))
+			require.Equal(t, binary.BigEndian.AppendUint64(nil, ids[2]), e.ctx.KVStore(e.key).Get(positionKey))
+
+			for _, corruption := range []struct {
+				name string
+				key  []byte
+				raw  []byte
+			}{
+				{"missing-position", positionKey, nil},
+				{"wrong-position-id", positionKey, binary.BigEndian.AppendUint64(nil, ids[0])},
+				{"malformed-position", positionKey, []byte{1}},
+				{"missing-length", lengthKey, nil},
+				{"short-length", lengthKey, binary.BigEndian.AppendUint64(nil, 1)},
+				{"long-length", lengthKey, binary.BigEndian.AppendUint64(nil, 3)},
+				{"malformed-length", lengthKey, []byte{1}},
+				{"wrong-id-position", idKey, binary.BigEndian.AppendUint64(nil, 1)},
+				{"out-of-bounds-position", idKey, binary.BigEndian.AppendUint64(nil, 2)},
+				{"malformed-id-position", idKey, []byte{1}},
+				{"extra-position", types.ActivePositionKey(list.prefix, 2), binary.BigEndian.AppendUint64(nil, ids[0])},
+			} {
+				t.Run(corruption.name, func(t *testing.T) {
+					branch, _ := e.ctx.CacheContext()
+					store := branch.KVStore(e.key)
+					if corruption.raw == nil {
+						store.Delete(corruption.key)
+					} else {
+						store.Set(corruption.key, corruption.raw)
+					}
+					message, broken := invariant(branch)
+					require.True(t, broken, message)
+					require.Contains(t, message, "active "+list.name)
+				})
+			}
+			for _, id := range ids[1:] {
+				require.NoError(t, list.cancel(id))
+				requireInvariant(t, e.ctx, invariant, keeper.ActiveIndexInvariantName, "")
+			}
+		})
+	}
+}
+
 func TestCrossPoolConservation(t *testing.T) {
 	e := newInvEnv(t)
 	e.provide()

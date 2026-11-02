@@ -77,6 +77,36 @@ func (s Store) SaveRule(ctx context.Context, actor string, r AlertRule, expected
 		return e
 	})
 }
+
+func (s Store) DisableRule(ctx context.Context, actor, id string) error {
+	if actor == "" {
+		return sql.ErrNoRows
+	}
+	return s.transaction(ctx, func(tx *sql.Tx) error {
+		if e := lock(ctx, tx, "rules:"+actor); e != nil {
+			return e
+		}
+		var b []byte
+		if e := tx.QueryRowContext(ctx, `SELECT document FROM narrative_discovery.rules WHERE id=$1 AND account_id=$2 FOR UPDATE`, id, actor).Scan(&b); e != nil {
+			return e
+		}
+		var r AlertRule
+		if e := json.Unmarshal(b, &r); e != nil {
+			return e
+		}
+		if r.OwnerAccountID != actor || r.Disabled {
+			return sql.ErrNoRows
+		}
+		if r.Revision == ^uint64(0) {
+			return ErrRevisionExhausted
+		}
+		r.Disabled = true
+		r.Revision++
+		_, e := tx.ExecContext(ctx, `UPDATE narrative_discovery.rules SET document=$1 WHERE id=$2 AND account_id=$3`, encode(r), id, actor)
+		return e
+	})
+}
+
 func (s Store) EvaluateRule(ctx context.Context, id string, m Metric, now time.Time) (bool, string, error) {
 	crossed := false
 	reason := ""

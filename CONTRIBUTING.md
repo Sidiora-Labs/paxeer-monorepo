@@ -16,7 +16,8 @@ Follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Report vulnerabilities only thr
 
 - `apps/` holds the user-facing frontends, `services/` the off-chain programs, `sdk/` the client SDKs, `contracts/` the Solidity contracts, `tests/` the cross-cutting test suites, and `tools/` the developer and release tooling.
 - The Paxeer X chain node (`paxd`) is the root Go module (`go.mod`, built through `chain.mk`); its packages live in root directories such as `node/`, `modules/`, `precompiles/`, `rpc/` and `consensus/`. The LayerX kernel (`layerxd`, C17) lives in `src/`, `include/` and `cmd/`. These root directories move under `core/` in a later release.
-- `core/deps/`, `sdk/js/` and several directories under `tools/` are vendored upstream snapshots. Each has a `VENDOR.kvx` pin record, and `scripts/ci/vendor-verify.sh <dir>` proves the directory equals the pinned upstream commit. Do not edit them in place; change the upstream repository and re-pin.
+- `sdk/js/` is the first-party `@pax-js/cosmos` package, edited in place and aligned to the protos of this repository.
+- `core/deps/` and several directories under `tools/` are vendored upstream snapshots. Each has a `VENDOR.kvx` pin record, and `scripts/ci/vendor-verify.sh <dir>` proves the directory equals the pinned upstream commit. Do not edit them in place; change the upstream repository and re-pin.
 
 ## Specifications come first
 

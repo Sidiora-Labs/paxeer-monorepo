@@ -159,7 +159,7 @@ pub fn claim(body: &[u8]) -> Result<Claim, Refusal> {
         .ok_or(Refusal::Evidence)?;
     let presented = layerx_proof::merkle::leaf_hash(&receipt).map_err(|_| Refusal::Evidence)?;
     if presented.ct_eq(&receipt_digest).unwrap_u8() != 1 {
-        return Err(Refusal::ReceiptDigest);
+        return Err(Refusal::Evidence);
     }
     let mut binding = Sha256::new();
     binding.update(IDEMPOTENCY_DOMAIN);
@@ -575,4 +575,350 @@ fn hex(bytes: &[u8]) -> String {
         value.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
     }
     value
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ed25519_dalek::{Signer, SigningKey};
+    use layerx_wire::encode::Encoder;
+    use std::error::Error;
+
+    fn signed_effect(
+        encoder: &mut Encoder,
+        ordinal: u16,
+        kind: u8,
+        body: &[u8],
+    ) -> Result<(), layerx_wire::WireError> {
+        encoder.u16(12)?;
+        encoder.u16(ordinal)?;
+        encoder.u16(0)?;
+        encoder.u8(kind)?;
+        encoder.u8(0)?;
+        encoder.bytes(&[0; 32], 32)?;
+        encoder.bytes(body, 256)?;
+        Ok(())
+    }
+
+    fn signed_receipt(
+        height: u64,
+        key_id: [u8; 32],
+        seed: [u8; 32],
+    ) -> Result<Vec<u8>, layerx_wire::WireError> {
+        let mut summary = Encoder::new(191);
+        summary.u64(5)?;
+        summary.u64(12)?;
+        summary.u64(1)?;
+        summary.u32(2)?;
+        summary.fixed(&[0; 40])?;
+        summary.fixed(&Sha256::digest(b""))?;
+        summary.u32(4)?;
+        summary.u32(1)?;
+        summary.u8(4)?;
+        summary.fixed(b"upax")?;
+        let mut log = Encoder::new(181);
+        log.fixed(&[0x33; 20])?;
+        log.u8(1)?;
+        log.fixed(&[0x44; 32])?;
+        log.fixed(&Sha256::digest(b"settlement"))?;
+        let mut sequence = Sha256::new();
+        sequence.update(b"PAXEER/v1/sequence\0");
+        sequence.update([3; 32]);
+        sequence.update(7_u64.to_be_bytes());
+        sequence.update([0x55; 32]);
+        let state: [u8; 32] = sequence.finalize().into();
+        let mut encoder = Encoder::new(2048);
+        encoder.u16(2)?;
+        encoder.u16(0x5201)?;
+        encoder.u16(2)?;
+        encoder.bytes(&[0x55; 32], 32)?;
+        encoder.u64(7)?;
+        encoder.bytes(&[3; 32], 32)?;
+        encoder.bytes(&state, 32)?;
+        encoder.bytes(&Sha256::digest(b"paid"), 32)?;
+        encoder.i32(0)?;
+        encoder.u32(2)?;
+        signed_effect(&mut encoder, 0, 1, &summary.finish())?;
+        signed_effect(&mut encoder, 1, 3, &log.finish())?;
+        encoder.u128(5)?;
+        let mut batch = [0; 32];
+        batch[24..].copy_from_slice(&height.to_be_bytes());
+        encoder.bytes(&batch, 32)?;
+        encoder.u16(12)?;
+        encoder.u32(1)?;
+        encoder.u32(0)?;
+        encoder.u8(0)?;
+        encoder.bytes(&Sha256::digest(b"upax"), 32)?;
+        encoder.u128(10)?;
+        let mut from = [0; 32];
+        from[12..].fill(0x11);
+        encoder.bytes(&from, 32)?;
+        encoder.u128(100)?;
+        encoder.u128(85)?;
+        encoder.u64(4)?;
+        let mut to = [0; 32];
+        to[12..].fill(0x22);
+        encoder.bytes(&to, 32)?;
+        encoder.u128(20)?;
+        encoder.u128(30)?;
+        encoder.bytes(&[0; 32], 32)?;
+        encoder.bytes(&[0; 32], 32)?;
+        encoder.bytes(&key_id, 32)?;
+        encoder.u64(1234)?;
+        encoder.u8(0)?;
+        let mut unsigned = encoder.finish();
+        let digest = layerx_wire::hash::receipt_digest(&unsigned)?;
+        let signature = SigningKey::from_bytes(&seed).sign(&digest).to_bytes();
+        unsigned.pop();
+        let mut signed = Encoder::new(2048);
+        signed.fixed(&unsigned)?;
+        signed.u8(1)?;
+        signed.bytes(&signature, 64)?;
+        Ok(signed.finish())
+    }
+
+    fn inclusion(receipt: &[u8], rung: &str) -> Result<serde_json::Value, Box<dyn Error>> {
+        let decoded =
+            layerx_wire::receipt::decode(receipt).map_err(|error| format!("{error:?}"))?;
+        let protocol = decoded.protocol().ok_or("protocol receipt")?;
+        let height = u64::from_be_bytes(protocol.batch_id()[24..].try_into()?);
+        let mut view = serde_json::json!({
+            "rung": rung, "txHash": format!("0x{}", hex(&protocol.activity_id())),
+            "nonce": "0x4", "seq": "0x7", "height": format!("0x{height:x}"),
+            "timestamp": "0x4d2", "index": "0x2", "status": "0x1",
+            "gasUsed": "0x5", "cumulativeGasUsed": "0xc", "effectiveGasPrice": "0x1",
+            "feeDenom": "upax", "feeAmount": "0x5", "returnData": "0x70616964", "vmError": "",
+            "keyId": format!("0x{}", hex(&protocol.context_hash())),
+            "from": format!("0x{}", "11".repeat(20)), "to": format!("0x{}", "22".repeat(20)),
+            "contractAddress": format!("0x{}", "00".repeat(20)), "sponsor": format!("0x{}", "00".repeat(20)),
+            "receipt": format!("0x{}", hex(receipt)),
+            "logs": [{ "address": format!("0x{}", "33".repeat(20)),
+                "topics": [format!("0x{}", "44".repeat(32))], "data": "0x736574746c656d656e74", "logIndex": "0x0" }],
+        });
+        if rung == "committed" {
+            view["blockNumber"] = serde_json::json!(format!("0x{:x}", height + 1));
+            view["blockHash"] = serde_json::json!(format!("0x{}", "66".repeat(32)));
+        }
+        Ok(view)
+    }
+
+    fn transaction(inclusion: &serde_json::Value) -> serde_json::Value {
+        let logs = inclusion["logs"].clone();
+        serde_json::json!({
+            "transactionHash": inclusion["txHash"], "blockNumber": inclusion["blockNumber"],
+            "blockHash": inclusion["blockHash"], "status": inclusion["status"],
+            "gasUsed": inclusion["gasUsed"], "cumulativeGasUsed": inclusion["cumulativeGasUsed"],
+            "effectiveGasPrice": inclusion["effectiveGasPrice"], "logs": logs, "transactionIndex": "0x1",
+        })
+    }
+
+    fn settlement_request(receipt: &[u8]) -> serde_json::Value {
+        let digest =
+            layerx_proof::merkle::leaf_hash(receipt).unwrap_or_else(|error| panic!("{error:?}"));
+        let mut binding = Sha256::new();
+        binding.update(b"LayerX/middleware/x402/idempotency\0");
+        binding.update("settlement-unit-test".as_bytes());
+        binding.update([0x77; 32]);
+        let idempotency: [u8; 32] = binding.finalize().into();
+        serde_json::json!({
+            "principal": "settlement-unit-test",
+            "payload": {
+                "x402Version": 2,
+                "payload": {
+                    "receipt": layerx_platform_internal::base64::encode(receipt),
+                    "receiptDigest": hex(&digest),
+                    "verificationLevel": "sequencer-signed",
+                },
+                "accepted": { "scheme": "exact", "network": "layerx:beta" },
+            },
+            "requirements": { "scheme": "exact", "network": "layerx:beta" },
+            "idempotencyKey": hex(&idempotency),
+            "requestDigest": hex(&[0x77; 32]),
+        })
+    }
+
+    fn canonical_receipt() -> Result<Vec<u8>, Box<dyn Error>> {
+        let bytes =
+            signed_receipt(900, [1; 32], [0x41; 32]).map_err(|error| format!("{error:?}"))?;
+        let decoded = layerx_wire::receipt::decode(&bytes).map_err(|error| format!("{error:?}"))?;
+        let canonical =
+            layerx_wire::receipt::encode(&decoded).map_err(|error| format!("{error:?}"))?;
+        assert_eq!(canonical, bytes);
+        Ok(canonical)
+    }
+
+    #[test]
+    fn settlement_claim_refuses_a_receipt_that_does_not_reencode() -> Result<(), Box<dyn Error>> {
+        let canonical = canonical_receipt()?;
+        let body = settlement_request(&canonical);
+        let accepted = claim(body.to_string().as_bytes()).map_err(Refusal::reason)?;
+        assert_eq!(accepted.receipt(), canonical);
+        assert_eq!(accepted.activity_id(), [0x55; 32]);
+
+        let mut invalid_signature_tag = canonical.clone();
+        let signature_tag = invalid_signature_tag.len() - 69;
+        assert_eq!(invalid_signature_tag[signature_tag], 1);
+        invalid_signature_tag[signature_tag] = 2;
+        let mut trailing_bytes = canonical.clone();
+        trailing_bytes.push(0);
+        for noncanonical in [invalid_signature_tag, trailing_bytes] {
+            let round_trip = layerx_wire::receipt::decode(&noncanonical)
+                .and_then(|decoded| layerx_wire::receipt::encode(&decoded));
+            assert!(round_trip.is_err());
+            let body = settlement_request(&noncanonical);
+            let refusal = claim(body.to_string().as_bytes());
+            assert_eq!(refusal, Err(Refusal::Receipt));
+            assert_eq!(
+                refusal.err().map(Refusal::reason),
+                Some("invalid_canonical_receipt")
+            );
+        }
+
+        let mut body = body;
+        let wrong_digest = layerx_proof::merkle::leaf_hash(&[canonical.as_slice(), &[0]].concat())
+            .map_err(|error| format!("{error:?}"))?;
+        assert_ne!(
+            hex(&wrong_digest),
+            body["payload"]["payload"]["receiptDigest"]
+        );
+        body["payload"]["payload"]["receiptDigest"] = serde_json::json!(hex(&wrong_digest));
+        let refusal = claim(body.to_string().as_bytes());
+        assert_eq!(refusal, Err(Refusal::Evidence));
+        assert_eq!(
+            refusal.err().map(Refusal::reason),
+            Some("invalid_receipt_evidence")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn settlement_refuses_an_inclusion_whose_logs_differ() -> Result<(), Box<dyn Error>> {
+        let canonical = canonical_receipt()?;
+        let body = settlement_request(&canonical);
+        let accepted = claim(body.to_string().as_bytes()).map_err(Refusal::reason)?;
+        let committed = inclusion(accepted.receipt(), "committed")?;
+        let chain = transaction(&committed);
+        assert_eq!(
+            sequencer_committed(accepted.receipt(), &committed),
+            Ok(true)
+        );
+        assert_eq!(transaction_committed(&committed, &chain), Ok(true));
+        assert_eq!(
+            sequencer_committed(accepted.receipt(), &serde_json::Value::Null),
+            Ok(false)
+        );
+        assert_eq!(
+            transaction_committed(&committed, &serde_json::Value::Null),
+            Ok(false)
+        );
+        let receipted = inclusion(accepted.receipt(), "receipted")?;
+        assert_eq!(
+            sequencer_committed(accepted.receipt(), &receipted),
+            Ok(false)
+        );
+
+        for (field, value) in [
+            ("txHash", format!("0x{}", hex(&[0x56; 32]))),
+            ("nonce", "0x5".to_owned()),
+            ("seq", "0x8".to_owned()),
+            ("height", "0x385".to_owned()),
+            ("status", "0x0".to_owned()),
+            ("gasUsed", "0x6".to_owned()),
+            ("returnData", "0x00".to_owned()),
+            ("feeDenom", "other".to_owned()),
+            ("blockNumber", "0x383".to_owned()),
+        ] {
+            let mut mismatched = committed.clone();
+            mismatched[field] = serde_json::json!(value);
+            assert_eq!(
+                sequencer_committed(accepted.receipt(), &mismatched),
+                Err("settlement_inclusion_mismatch"),
+                "{field}"
+            );
+        }
+        let mut mismatched = committed.clone();
+        mismatched["receipt"] = serde_json::json!("0x00");
+        assert_eq!(
+            sequencer_committed(accepted.receipt(), &mismatched),
+            Err("settlement_receipt_mismatch")
+        );
+
+        for (inclusion_field, chain_field, value) in [
+            (
+                "txHash",
+                "transactionHash",
+                format!("0x{}", hex(&[0x56; 32])),
+            ),
+            ("blockHash", "blockHash", format!("0x{}", hex(&[0x67; 32]))),
+            ("blockNumber", "blockNumber", "0x386".to_owned()),
+            ("status", "status", "0x0".to_owned()),
+            ("gasUsed", "gasUsed", "0x6".to_owned()),
+            ("cumulativeGasUsed", "cumulativeGasUsed", "0xd".to_owned()),
+            ("effectiveGasPrice", "effectiveGasPrice", "0x2".to_owned()),
+        ] {
+            let mut mismatched = committed.clone();
+            mismatched[inclusion_field] = serde_json::json!(value);
+            assert_eq!(
+                transaction_committed(&mismatched, &chain),
+                Err("settlement_inclusion_mismatch"),
+                "inclusion {inclusion_field}"
+            );
+            let mut mismatched_chain = chain.clone();
+            mismatched_chain[chain_field] = serde_json::json!(value);
+            assert_eq!(
+                transaction_committed(&committed, &mismatched_chain),
+                Err("settlement_inclusion_mismatch"),
+                "chain {chain_field}"
+            );
+        }
+
+        for (field, value) in [
+            (
+                "address",
+                serde_json::json!(format!("0x{}", hex(&[0x34; 20]))),
+            ),
+            (
+                "topics",
+                serde_json::json!([format!("0x{}", hex(&[0x45; 32]))]),
+            ),
+            ("data", serde_json::json!("0x00")),
+        ] {
+            let mut mismatched = committed.clone();
+            mismatched["logs"][0][field] = value.clone();
+            assert_eq!(
+                sequencer_committed(accepted.receipt(), &mismatched),
+                Err("settlement_inclusion_mismatch"),
+                "sequencer log {field}"
+            );
+            assert_eq!(
+                transaction_committed(&mismatched, &chain),
+                Err("settlement_inclusion_mismatch"),
+                "inclusion log {field}"
+            );
+            let mut mismatched_chain = chain.clone();
+            mismatched_chain["logs"][0][field] = value;
+            assert_eq!(
+                transaction_committed(&committed, &mismatched_chain),
+                Err("settlement_inclusion_mismatch"),
+                "chain log {field}"
+            );
+        }
+        let mut missing_logs = committed.clone();
+        missing_logs["logs"] = serde_json::json!([]);
+        assert_eq!(
+            sequencer_committed(accepted.receipt(), &missing_logs),
+            Err("settlement_inclusion_mismatch")
+        );
+        assert_eq!(
+            transaction_committed(&missing_logs, &chain),
+            Err("settlement_inclusion_mismatch")
+        );
+        let mut removed = chain;
+        removed["logs"][0]["removed"] = serde_json::json!(true);
+        assert_eq!(
+            transaction_committed(&committed, &removed),
+            Err("settlement_inclusion_mismatch")
+        );
+        Ok(())
+    }
 }

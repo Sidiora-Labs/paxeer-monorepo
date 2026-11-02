@@ -7,11 +7,14 @@ use crate::{
 };
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite, PinnedSpec, SpecVersion};
+use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
+use layerx_interop_gateway::gateway::{SequencerSettlementError, TranslationStatus};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::{interop_gateway_core, GatewayCore};
-use layerx_proof::receipt::AuthorizedBatch;
-use layerx_types::payload::ModuleId;
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::sequencer_logs::SequencerLog;
+use serde_json::Value;
 use sha2::{Digest as _, Sha256};
 
 const ETHEREUM_MAINNET_CHAIN_ID: u64 = 1;
@@ -27,6 +30,9 @@ const SOLANA_TESTNET_GENESIS: [u8; 32] = [
 
 const PERIOD_START: u64 = 1_700_000_000;
 const WINDOW_START: u64 = 200;
+const SEQUENCER_MODULE_ID: u16 = 12;
+const RECEIPT_HEIGHT: u64 = 1001;
+const TEST_SEQUENCER_KEY_ID: [u8; 32] = [0x6b; 32];
 const TEST_ASSET: [u8; 32] = [0xc2; 32];
 const TEST_CUSTODY_AUTHORITY: [u8; 32] = [0x42; 32];
 const TEST_CUSTODY_AUTHORIZATION: [u8; 32] = [0x92; 32];
@@ -41,7 +47,7 @@ fn custody_policy() -> CustodyReceiptPolicy {
     CustodyReceiptPolicy::new(
         test_sequencer_public_key(),
         TEST_CUSTODY_AUTHORITY,
-        ModuleId::Asset as u16,
+        SEQUENCER_MODULE_ID,
         1,
         0,
         1,
@@ -53,7 +59,7 @@ fn binding_policy() -> BindingReceiptPolicy {
     BindingReceiptPolicy::new(
         test_sequencer_public_key(),
         TEST_CUSTODY_AUTHORITY,
-        ModuleId::Governance as u16,
+        SEQUENCER_MODULE_ID,
         1,
         1,
         1,
@@ -90,10 +96,11 @@ impl TestPlane {
         &mut self,
         ownership: &VerifiedOwnership,
         key: [u8; 32],
-    ) -> (Vec<u8>, AuthorizedBatch) {
+    ) -> (SequencerEvidence, Vec<SequencerAuthorization>) {
         self.binding_sequence += 1;
         let activity_id = Self::activity_id(self.binding_sequence, key);
-        let batch_id = Self::batch_id(&activity_id);
+        let mut batch_id = [0; 32];
+        batch_id[24..].copy_from_slice(&RECEIPT_HEIGHT.to_be_bytes());
         let previous = Self::state_root(&activity_id, b"before");
         let resulting = Self::state_root(&activity_id, b"after");
         let canonical = self.encode_binding_receipt(
@@ -103,25 +110,24 @@ impl TestPlane {
             resulting,
             batch_id,
             ownership,
+            key,
         );
-        let authority = AuthorizedBatch::new(
-            batch_id,
-            TEST_ASSET,
-            previous,
-            resulting,
-            self.sequencer.verifying_key().to_bytes(),
-        );
-        (canonical, authority)
+        self.evidence(
+            canonical,
+            activity_id,
+            payment_log(key, ownership.layerx_identity, TEST_ASSET, 1),
+        )
     }
 
     fn mint_custody_receipt(
         &mut self,
         finality: &VerifiedAssetFinality,
         key: [u8; 32],
-    ) -> (Vec<u8>, AuthorizedBatch) {
+    ) -> (SequencerEvidence, Vec<SequencerAuthorization>) {
         self.custody_sequence += 1;
         let activity_id = Self::activity_id(self.custody_sequence, key);
-        let batch_id = Self::batch_id(&activity_id);
+        let mut batch_id = [0; 32];
+        batch_id[24..].copy_from_slice(&RECEIPT_HEIGHT.to_be_bytes());
         let previous = Self::state_root(&activity_id, b"before");
         let resulting = Self::state_root(&activity_id, b"after");
         let canonical = self.encode_custody_receipt(
@@ -131,15 +137,18 @@ impl TestPlane {
             resulting,
             batch_id,
             finality,
+            key,
         );
-        let authority = AuthorizedBatch::new(
-            batch_id,
-            finality.layerx_asset,
-            previous,
-            resulting,
-            self.sequencer.verifying_key().to_bytes(),
-        );
-        (canonical, authority)
+        self.evidence(
+            canonical,
+            activity_id,
+            payment_log(
+                key,
+                finality.destination,
+                finality.layerx_asset,
+                finality.layerx_amount,
+            ),
+        )
     }
 
     fn activity_id(sequence: u64, key: [u8; 32]) -> [u8; 32] {
@@ -154,8 +163,26 @@ impl TestPlane {
         .into()
     }
 
-    fn batch_id(activity_id: &[u8; 32]) -> [u8; 32] {
-        Sha256::digest([b"batch".as_slice(), activity_id].concat()).into()
+    fn evidence(
+        &self,
+        signed_receipt: Vec<u8>,
+        transaction_hash: [u8; 32],
+        log: SequencerLog,
+    ) -> (SequencerEvidence, Vec<SequencerAuthorization>) {
+        (
+            SequencerEvidence {
+                transaction_hash,
+                signed_receipt,
+                logs: vec![log],
+                rung: SettlementRung::Receipted,
+            },
+            vec![SequencerAuthorization::new(
+                TEST_SEQUENCER_KEY_ID,
+                self.sequencer.verifying_key().to_bytes(),
+                RECEIPT_HEIGHT,
+                RECEIPT_HEIGHT,
+            )],
+        )
     }
 
     fn state_root(activity_id: &[u8; 32], label: &[u8]) -> [u8; 32] {
@@ -170,6 +197,7 @@ impl TestPlane {
         resulting: [u8; 32],
         batch_id: [u8; 32],
         ownership: &VerifiedOwnership,
+        key: [u8; 32],
     ) -> Vec<u8> {
         let mut bytes = Vec::new();
         push_u16(&mut bytes, 2);
@@ -181,10 +209,13 @@ impl TestPlane {
         push_bytes(&mut bytes, &resulting);
         push_bytes(&mut bytes, &[0x81; 32]);
         bytes.extend_from_slice(&0_i32.to_be_bytes());
-        bytes.extend_from_slice(&0_u32.to_be_bytes());
+        push_receipt_effects(
+            &mut bytes,
+            &payment_log(key, ownership.layerx_identity, TEST_ASSET, 1),
+        );
         bytes.extend_from_slice(&1_u128.to_be_bytes());
         push_bytes(&mut bytes, &batch_id);
-        push_u16(&mut bytes, ModuleId::Governance as u16);
+        push_u16(&mut bytes, SEQUENCER_MODULE_ID);
         bytes.extend_from_slice(&1_u32.to_be_bytes());
         bytes.extend_from_slice(&1_u32.to_be_bytes());
         bytes.push(1);
@@ -199,7 +230,7 @@ impl TestPlane {
         bytes.extend_from_slice(&1_u128.to_be_bytes());
         push_bytes(&mut bytes, &[0x91; 32]);
         push_bytes(&mut bytes, &TEST_CUSTODY_AUTHORIZATION);
-        push_bytes(&mut bytes, &BindingReceiptPolicy::context_hash(ownership));
+        push_bytes(&mut bytes, &TEST_SEQUENCER_KEY_ID);
         push_u64(&mut bytes, PERIOD_START + sequence);
         bytes.push(0);
         let signature = self.sign(&bytes);
@@ -218,6 +249,7 @@ impl TestPlane {
         resulting: [u8; 32],
         batch_id: [u8; 32],
         finality: &VerifiedAssetFinality,
+        key: [u8; 32],
     ) -> Vec<u8> {
         let debit_before = 5_000_u128;
         let credit_before = 10_000_u128;
@@ -231,10 +263,18 @@ impl TestPlane {
         push_bytes(&mut bytes, &resulting);
         push_bytes(&mut bytes, &[0x81; 32]);
         bytes.extend_from_slice(&0_i32.to_be_bytes());
-        bytes.extend_from_slice(&0_u32.to_be_bytes());
+        push_receipt_effects(
+            &mut bytes,
+            &payment_log(
+                key,
+                finality.destination,
+                finality.layerx_asset,
+                finality.layerx_amount,
+            ),
+        );
         bytes.extend_from_slice(&1_u128.to_be_bytes());
         push_bytes(&mut bytes, &batch_id);
-        push_u16(&mut bytes, ModuleId::Asset as u16);
+        push_u16(&mut bytes, SEQUENCER_MODULE_ID);
         bytes.extend_from_slice(&1_u32.to_be_bytes());
         bytes.extend_from_slice(&0_u32.to_be_bytes());
         bytes.push(1);
@@ -249,7 +289,7 @@ impl TestPlane {
         bytes.extend_from_slice(&(credit_before + finality.layerx_amount).to_be_bytes());
         push_bytes(&mut bytes, &[0x91; 32]);
         push_bytes(&mut bytes, &[0x92; 32]);
-        push_bytes(&mut bytes, &CustodyReceiptPolicy::context_hash(finality));
+        push_bytes(&mut bytes, &TEST_SEQUENCER_KEY_ID);
         push_u64(&mut bytes, PERIOD_START + sequence);
         bytes.push(0);
         let signature = self.sign(&bytes);
@@ -276,11 +316,11 @@ impl MigrationPlane for TestPlane {
         request: &BindingExecution<'_>,
         _trace: &TraceId,
     ) -> Result<MigrationPlaneResult, MigrationError> {
-        let (canonical, authority) =
+        let (evidence, receipt_keys) =
             self.mint_binding_receipt(request.ownership(), request.idempotency_key());
         Ok(MigrationPlaneResult::Executed {
-            canonical_receipt: canonical,
-            authorised_batch: authority,
+            evidence,
+            receipt_keys,
         })
     }
 
@@ -289,12 +329,139 @@ impl MigrationPlane for TestPlane {
         request: &CustodyExecution<'_>,
         _trace: &TraceId,
     ) -> Result<MigrationPlaneResult, MigrationError> {
-        let (canonical, authority) =
+        let (evidence, receipt_keys) =
             self.mint_custody_receipt(request.finality(), request.idempotency_key());
         Ok(MigrationPlaneResult::Executed {
-            canonical_receipt: canonical,
-            authorised_batch: authority,
+            evidence,
+            receipt_keys,
         })
+    }
+}
+
+fn recorded_payment() -> Value {
+    let fixture: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    )))
+    .unwrap_or_else(|error| panic!("recorded receipts: {error}"));
+    fixture["cases"]
+        .as_array()
+        .unwrap_or_else(|| panic!("recorded receipt cases missing"))
+        .iter()
+        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+        .unwrap_or_else(|| panic!("recorded PaymentExact receipt missing"))
+        .clone()
+}
+
+fn fixture_hex(value: &Value) -> Vec<u8> {
+    let value = value
+        .as_str()
+        .and_then(|value| value.strip_prefix("0x"))
+        .unwrap_or_else(|| panic!("fixture hex missing"));
+    assert_eq!(value.len() % 2, 0);
+    (0..value.len())
+        .step_by(2)
+        .map(|index| {
+            u8::from_str_radix(&value[index..index + 2], 16)
+                .unwrap_or_else(|error| panic!("fixture hex: {error}"))
+        })
+        .collect()
+}
+
+fn payment_exact_words(case: &Value) -> [[u8; 32]; 3] {
+    let transaction = fixture_hex(&case["rawTransaction"]);
+    let offsets: Vec<usize> = transaction
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x78, 0xea, 0x11, 0xdb]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one recorded payExact selector");
+    let calldata = &transaction[offsets[0] + 4..];
+    [5, 0, 1].map(|word| {
+        calldata[word * 32..(word + 1) * 32]
+            .try_into()
+            .unwrap_or_else(|_| panic!("recorded payExact word {word}"))
+    })
+}
+
+fn payment_log(
+    key: [u8; 32],
+    destination: [u8; 32],
+    asset: [u8; 32],
+    amount: u128,
+) -> SequencerLog {
+    let case = recorded_payment();
+    let recorded = &case["receiptJson"]["logs"][0];
+    let address = fixture_hex(&recorded["address"])
+        .try_into()
+        .unwrap_or_else(|_| panic!("recorded log address length"));
+    let mut topics: Vec<[u8; 32]> = recorded["topics"]
+        .as_array()
+        .unwrap_or_else(|| panic!("recorded topics missing"))
+        .iter()
+        .map(|value| {
+            fixture_hex(value)
+                .try_into()
+                .unwrap_or_else(|_| panic!("recorded topic length"))
+        })
+        .collect();
+    topics[1..].copy_from_slice(&payment_exact_words(&case));
+    topics[1] = key;
+    topics[2] = TEST_CUSTODY_AUTHORITY;
+    topics[3] = destination;
+    let mut data = asset.to_vec();
+    data.extend_from_slice(&[0; 16]);
+    data.extend_from_slice(&amount.to_be_bytes());
+    SequencerLog::new(address, topics, data, 0)
+}
+
+fn push_receipt_effects(bytes: &mut Vec<u8>, log: &SequencerLog) {
+    let case = recorded_payment();
+    let recorded = &case["receiptJson"];
+    let number = |name: &str| {
+        u64::from_str_radix(
+            recorded[name]
+                .as_str()
+                .and_then(|value| value.strip_prefix("0x"))
+                .unwrap_or_else(|| panic!("fixture number {name} missing")),
+            16,
+        )
+        .unwrap_or_else(|error| panic!("fixture number {name}: {error}"))
+    };
+    let mut summary = Vec::new();
+    push_u64(&mut summary, number("gasUsed"));
+    push_u64(&mut summary, number("cumulativeGasUsed"));
+    push_u64(&mut summary, number("effectiveGasPrice"));
+    summary.extend_from_slice(
+        &u32::try_from(number("index"))
+            .unwrap_or_else(|_| panic!("fixture transaction index overflow"))
+            .to_be_bytes(),
+    );
+    summary.extend_from_slice(&fixture_hex(&recorded["contractAddress"]));
+    summary.extend_from_slice(&fixture_hex(&recorded["sponsor"]));
+    summary.extend_from_slice(&Sha256::digest(b""));
+    summary.extend_from_slice(&0_u32.to_be_bytes());
+    summary.extend_from_slice(&1_u32.to_be_bytes());
+    let denom = recorded["feeDenom"]
+        .as_str()
+        .unwrap_or_else(|| panic!("fixture fee denomination missing"));
+    summary.push(u8::try_from(denom.len()).unwrap_or_else(|_| panic!("fee denomination overflow")));
+    summary.extend_from_slice(denom.as_bytes());
+    let mut commitment = log.address().to_vec();
+    commitment.push(u8::try_from(log.topics().len()).unwrap_or_else(|_| panic!("topic overflow")));
+    for topic in log.topics() {
+        commitment.extend_from_slice(topic);
+    }
+    commitment.extend_from_slice(&Sha256::digest(log.data()));
+    bytes.extend_from_slice(&2_u32.to_be_bytes());
+    for (ordinal, kind, body) in [(0, 1, summary), (1, 3, commitment)] {
+        push_u16(bytes, SEQUENCER_MODULE_ID);
+        push_u16(bytes, ordinal);
+        push_u16(bytes, 0);
+        bytes.push(kind);
+        bytes.push(0);
+        push_bytes(bytes, &[0; 32]);
+        push_bytes(bytes, &body);
     }
 }
 
@@ -967,6 +1134,170 @@ fn registered_migration_gateway() -> GatewayCore {
     core.register_adapter(descriptor, &trace(), 1)
         .unwrap_or_else(|error| panic!("register: {error}"));
     core
+}
+
+#[test]
+fn migration_settles_receipts_under_one_fixed_sequencer_key_id() {
+    let mut gateway = registered_migration_gateway();
+    let mut plane = TestPlane::new();
+    let verifier = EthereumTestVerifier::new(ETHEREUM_MAINNET_CHAIN_ID);
+    let alice = principal("alice");
+    let trace = trace();
+    let binding_policy = binding_policy();
+    let custody_policy = custody_policy();
+    let ownership_evidence = EthereumTestVerifier::test_ownership_evidence(
+        ETHEREUM_MAINNET_CHAIN_ID,
+        [0xe1; 20],
+        [0xf1; 32],
+    );
+    let custody_evidence = EthereumTestVerifier::test_finality_evidence(
+        ETHEREUM_MAINNET_CHAIN_ID,
+        &FinalityFields {
+            transaction: SourceTransaction::ethereum([0xd1; 32])
+                .unwrap_or_else(|error| panic!("transaction: {error}")),
+            source: [0xe2; 20],
+            source_asset: [0xa1; 32],
+            source_amount: 1_000_000,
+            custody_reference: [0xb1; 32],
+            layerx_asset: TEST_ASSET,
+            layerx_amount: 1_000,
+            destination: [0xf2; 32],
+            finality_height: 20_000_000,
+        },
+    );
+    let ownership = verifier
+        .verify_ownership(&ownership_evidence, &trace)
+        .unwrap_or_else(|error| panic!("ownership: {error}"));
+    let finality = verifier
+        .verify_asset_finality(&custody_evidence, &trace)
+        .unwrap_or_else(|error| panic!("finality: {error}"));
+    let binding_key = crate::ownership_key(&ownership);
+    let custody_key = crate::asset_key(&finality);
+    assert_ne!(binding_key, custody_key);
+    let (binding_receipt, binding_keys) = plane.mint_binding_receipt(&ownership, binding_key);
+    let (custody_receipt, custody_keys) = plane.mint_custody_receipt(&finality, custody_key);
+    let pinned_keys = vec![SequencerAuthorization::new(
+        TEST_SEQUENCER_KEY_ID,
+        test_sequencer_public_key(),
+        RECEIPT_HEIGHT,
+        RECEIPT_HEIGHT,
+    )];
+    assert_eq!(binding_keys, pinned_keys);
+    assert_eq!(custody_keys, pinned_keys);
+    for receipt in [&binding_receipt, &custody_receipt] {
+        let verified = layerx_proof::receipt::verify_sequencer_signature(
+            &receipt.signed_receipt,
+            layerx_proof::receipt::ReceiptKeys::HeightRanges(&pinned_keys),
+        )
+        .unwrap_or_else(|error| panic!("fixed-key receipt: {error:?}"));
+        assert_eq!(
+            verified.protocol().unwrap().context_hash(),
+            TEST_SEQUENCER_KEY_ID
+        );
+    }
+    let mapped = MigrationAdapter::map_account(
+        &mut gateway,
+        &alice,
+        &ownership_evidence,
+        &verifier,
+        &mut plane,
+        &binding_policy,
+        &trace,
+        10,
+    )
+    .unwrap_or_else(|error| panic!("fixed-key binding: {error}"));
+    assert!(matches!(mapped, MigrationState::AccountMapped { .. }));
+    let credited = MigrationAdapter::migrate_asset(
+        &mut gateway,
+        &alice,
+        &custody_evidence,
+        &verifier,
+        &mut plane,
+        &custody_policy,
+        &trace,
+        11,
+    )
+    .unwrap_or_else(|error| panic!("fixed-key custody: {error}"));
+    assert!(matches!(credited, MigrationState::AssetCredited { .. }));
+}
+
+#[test]
+fn migration_refuses_a_receipt_paying_another_claim() {
+    let mut gateway = registered_migration_gateway();
+    let mut plane = TestPlane::new();
+    let verifier = EthereumTestVerifier::new(ETHEREUM_MAINNET_CHAIN_ID);
+    let alice = principal("alice");
+    let trace = trace();
+    let policy = binding_policy();
+    let claims = [[0xe1; 20], [0xe2; 20]].map(|address| {
+        let evidence = EthereumTestVerifier::test_ownership_evidence(
+            ETHEREUM_MAINNET_CHAIN_ID,
+            address,
+            [0xf1; 32],
+        );
+        verifier
+            .verify_ownership(&evidence, &trace)
+            .unwrap_or_else(|error| panic!("ownership: {error}"))
+    });
+    let keys = claims.each_ref().map(crate::ownership_key);
+    assert_ne!(keys[0], keys[1]);
+    for (claim, key) in claims.iter().zip(keys) {
+        let request = crate::translation_request(key, crate::ownership_digest(claim), &trace)
+            .unwrap_or_else(|error| panic!("request: {error}"));
+        assert_eq!(
+            crate::begin(&mut gateway, &alice, &request, &trace, 10).unwrap(),
+            TranslationStatus::Pending
+        );
+    }
+    let (evidence, receipt_keys) = plane.mint_binding_receipt(&claims[0], keys[0]);
+    let error = gateway
+        .settle_with_sequencer_evidence(&alice, keys[1], &evidence, &receipt_keys, &trace, 11)
+        .unwrap_err();
+    assert_eq!(
+        error.into_error(),
+        SequencerSettlementError::PaymentUnmatched
+    );
+    let error = crate::settle(
+        &mut gateway,
+        &alice,
+        keys[1],
+        MigrationPlaneResult::Executed {
+            evidence: evidence.clone(),
+            receipt_keys: receipt_keys.clone(),
+        },
+        test_sequencer_public_key(),
+        &trace,
+        12,
+        |receipt| {
+            assert_eq!(policy.verify(&claims[1], receipt), Ok(()));
+            Ok(())
+        },
+        |receipt_digest| MigrationState::AccountMapped { receipt_digest },
+    )
+    .unwrap_err();
+    assert_eq!(error.into_error(), MigrationError::ReceiptMismatch);
+    let request =
+        crate::translation_request(keys[1], crate::ownership_digest(&claims[1]), &trace).unwrap();
+    assert_eq!(
+        crate::begin(&mut gateway, &alice, &request, &trace, 13).unwrap(),
+        TranslationStatus::Pending
+    );
+    let settled = crate::settle(
+        &mut gateway,
+        &alice,
+        keys[0],
+        MigrationPlaneResult::Executed {
+            evidence,
+            receipt_keys,
+        },
+        test_sequencer_public_key(),
+        &trace,
+        14,
+        |receipt| policy.verify(&claims[0], receipt),
+        |receipt_digest| MigrationState::AccountMapped { receipt_digest },
+    )
+    .unwrap_or_else(|error| panic!("receipt must settle its own claim: {error}"));
+    assert!(matches!(settled, MigrationState::AccountMapped { .. }));
 }
 
 #[test]

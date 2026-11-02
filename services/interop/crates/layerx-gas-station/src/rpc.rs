@@ -257,6 +257,42 @@ pub struct SequencerReceipt {
     pub rung: Rung,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FullSequencerReceipt {
+    pub rung: Rung,
+    pub tx_hash: Word,
+    pub nonce: u64,
+    pub seq: Option<u64>,
+    pub height: Option<u64>,
+    pub index: Option<u64>,
+    pub timestamp: Option<u64>,
+    pub status: Option<u64>,
+    pub return_data: Vec<u8>,
+    pub logs: Vec<SequencerLog>,
+    pub gas_used: Option<u64>,
+    pub cumulative_gas_used: Option<u64>,
+    pub effective_gas_price: Option<u64>,
+    pub fee_denom: Option<String>,
+    pub fee_amount: Option<Word>,
+    pub sponsor: Option<Address>,
+    pub from: Option<Address>,
+    pub to: Option<Address>,
+    pub contract_address: Option<Address>,
+    pub vm_error: Option<String>,
+    pub key_id: Option<Word>,
+    pub receipt: Vec<u8>,
+    pub block_number: Option<u64>,
+    pub block_hash: Option<Word>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SequencerLog {
+    pub address: Address,
+    pub topics: Vec<Word>,
+    pub data: Vec<u8>,
+    pub log_index: u64,
+}
+
 /// The chain client on the sequencer: sends go through `eth_sendRawTransaction`
 /// and pending reads through the same endpoints, which the router forwards to
 /// the sequencer, and a sent transaction's rung is read from `pax_sequencerReceipt`.
@@ -276,6 +312,16 @@ impl SequencerEndpoint {
     /// transaction or one that cannot be decoded.
     pub fn receipt(&self, hash: &Word) -> Result<Option<SequencerReceipt>, RpcFault> {
         self.rpc.sequencer_receipt(hash)
+    }
+
+    /// # Errors
+    /// Refuses malformed full receipts or returns a sanitized RPC fault.
+    pub fn full_receipt(&self, hash: &Word) -> Result<Option<FullSequencerReceipt>, RpcFault> {
+        let value = self.rpc.call("pax_sequencerReceipt", json!([hex(hash)]))?;
+        if value.is_null() {
+            return Ok(None);
+        }
+        decode_full_sequencer_receipt(&value, hash).map(Some)
     }
 }
 impl JsonRpc for SequencerEndpoint {
@@ -357,6 +403,110 @@ fn decode_sequencer_receipt(
             Rung::Committed(execution)
         },
     }))
+}
+
+/// # Errors
+/// Refuses malformed fields, mismatched hashes or block fields at the wrong rung.
+pub fn decode_full_sequencer_receipt(
+    value: &Value,
+    hash: &Word,
+) -> Result<FullSequencerReceipt, RpcFault> {
+    let summary = decode_sequencer_receipt(hash, value)?.ok_or(RpcFault::Malformed)?;
+    let text = |name: &str| value[name].as_str().ok_or(RpcFault::Malformed);
+    let number = |name: &str| pending_quantity(&value[name]);
+    let mut result = FullSequencerReceipt {
+        rung: summary.rung,
+        tx_hash: *hash,
+        nonce: summary.nonce,
+        seq: None,
+        height: None,
+        index: None,
+        timestamp: None,
+        status: None,
+        return_data: Vec::new(),
+        logs: Vec::new(),
+        gas_used: None,
+        cumulative_gas_used: None,
+        effective_gas_price: None,
+        fee_denom: None,
+        fee_amount: None,
+        sponsor: None,
+        from: None,
+        to: None,
+        contract_address: None,
+        vm_error: None,
+        key_id: None,
+        receipt: Vec::new(),
+        block_number: None,
+        block_hash: None,
+    };
+    match summary.rung {
+        Rung::Submitted => return Ok(result),
+        Rung::Receipted(_) => {
+            if value.get("blockNumber").is_some() || value.get("blockHash").is_some() {
+                return Err(RpcFault::Malformed);
+            }
+        }
+        Rung::Committed(_) => {
+            result.block_number = Some(number("blockNumber")?);
+            result.block_hash = Some(receipt_fixed_bytes(&value["blockHash"])?);
+            if number("blockNumber")? < number("height")? {
+                return Err(RpcFault::Malformed);
+            }
+        }
+    }
+    result.seq = Some(number("seq")?);
+    result.height = Some(number("height")?);
+    result.index = Some(number("index")?);
+    result.timestamp = Some(number("timestamp")?);
+    result.status = Some(number("status")?);
+    result.return_data = bytes(text("returnData")?)?;
+    result.gas_used = Some(number("gasUsed")?);
+    result.cumulative_gas_used = Some(number("cumulativeGasUsed")?);
+    result.effective_gas_price = Some(number("effectiveGasPrice")?);
+    result.fee_denom = Some(text("feeDenom")?.to_owned());
+    let fee = text("feeAmount")?
+        .strip_prefix("0x")
+        .ok_or(RpcFault::Malformed)?;
+    if fee.is_empty()
+        || fee.len() > 64
+        || (fee.len() > 1 && fee.starts_with('0'))
+        || !fee.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(RpcFault::Malformed);
+    }
+    result.fee_amount = Some(receipt_fixed_bytes(&Value::String(format!(
+        "0x{fee:0>64}"
+    )))?);
+    result.sponsor = Some(receipt_fixed_bytes(&value["sponsor"])?);
+    result.from = Some(receipt_fixed_bytes(&value["from"])?);
+    result.to = Some(receipt_fixed_bytes(&value["to"])?);
+    result.contract_address = Some(receipt_fixed_bytes(&value["contractAddress"])?);
+    result.vm_error = Some(text("vmError")?.to_owned());
+    result.key_id = Some(receipt_fixed_bytes(&value["keyId"])?);
+    result.receipt = bytes(text("receipt")?)?;
+    for log in value["logs"].as_array().ok_or(RpcFault::Malformed)? {
+        let topics = log["topics"].as_array().ok_or(RpcFault::Malformed)?;
+        if topics.len() > 4 {
+            return Err(RpcFault::Malformed);
+        }
+        result.logs.push(SequencerLog {
+            address: receipt_fixed_bytes(&log["address"])?,
+            topics: topics
+                .iter()
+                .map(receipt_fixed_bytes)
+                .collect::<Result<_, _>>()?,
+            data: bytes(log["data"].as_str().ok_or(RpcFault::Malformed)?)?,
+            log_index: pending_quantity(&log["logIndex"])?,
+        });
+    }
+    Ok(result)
+}
+
+fn receipt_fixed_bytes<const N: usize>(value: &Value) -> Result<[u8; N], RpcFault> {
+    bytes(value.as_str().ok_or(RpcFault::Malformed)?)?
+        .try_into()
+        .map_err(|_| RpcFault::Malformed)
 }
 
 pub struct HttpsExchange;

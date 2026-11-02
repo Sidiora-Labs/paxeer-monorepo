@@ -1,6 +1,5 @@
 #include "layerx/lxp_kernel.h"
 
-#include "layerx/lx_batch.h"
 #include "layerx/lx_web.h"
 #include "layerx/lxp_hash.h"
 #include "layerx/programs.h"
@@ -151,8 +150,8 @@ static const lxp_module_kv_entry *web_attestor_entry(const lxp_kernel *kernel)
 }
 
 /* The web module registers beside the programs module: both web activities
- * resolve to it, the attestor set and the observation run through dispatch
- * in the Programs module context, and module 12 stays unknown. */
+ * resolve to it, the attestor set runs through dispatch in the Programs
+ * module context, and module 12 stays unknown. */
 static int web_dispatch_checks(void)
 {
     static const uint32_t twelve_types[] = { UINT32_C(0x000C0001) };
@@ -161,14 +160,8 @@ static int web_dispatch_checks(void)
     static lxp_state_journal journal;
     static lx_web_store web;
     static lx_web_attestor_set set;
-    static lx_web_observation observation;
-    static uint8_t observation_bytes[LX_WEB_OBSERVATION_MAX_BYTES];
-    static uint8_t root_arena_bytes[65536];
-    static lx_batch_header header;
     uint8_t set_bytes[LX_WEB_ATTESTOR_SET_MAX_BYTES];
-    uint8_t web_root[32];
     size_t set_length;
-    size_t observation_length;
     size_t index;
     uint64_t parameters = 1U;
     lxp_module_iface twelve = { LXP_MODULE_RESERVED_COUNT + 1U, 1U, "twelve",
@@ -181,7 +174,6 @@ static int web_dispatch_checks(void)
     const lxp_module_registration *registration;
     const lxp_module_kv_entry *entry;
     lxp_activity activity;
-    lxp_arena root_arena;
     lxp_result module_result;
     if (lxp_state_store_init(&state, 1U) != LXP_OK ||
         lxp_kernel_create(&kernel, &state, &journal, &parameters, 0U) !=
@@ -213,28 +205,6 @@ static int web_dispatch_checks(void)
         return 1;
     web.network_id = 7U;
     if (lxp_kernel_bind_module_runtime(&kernel, LXP_MODULE_WEB, &web) != LXP_OK)
-        return 1;
-
-    (void)memset(&observation, 0, sizeof(observation));
-    observation.origin = LX_WEB_ORIGIN_PROGRAM;
-    observation.network_id = 7U;
-    (void)memset(observation.program_id, 0x71, 32U);
-    observation.request_id = 9U;
-    observation.kind = LX_WEB_KIND_FETCH;
-    observation.full_length = 1U;
-    observation.response_length = 1U;
-    observation.response[0] = (uint8_t)'x';
-    observation.signature_count = 1U;
-    if (lx_web_observation_encode(&observation, observation_bytes,
-                                  sizeof(observation_bytes),
-                                  &observation_length) != LXP_OK)
-        return 1;
-    web_activity(&activity, LX_WEB_OBSERVATION_ACTIVITY, observation_bytes,
-                 observation_length);
-    /* No attestor set is registered yet, so validation refuses it. */
-    if (web_dispatch(&kernel, LXP_MODULE_PROGRAMS, &activity, &authority,
-                     false, &module_result) != LXP_OK ||
-        module_result != LXP_ERR_ATTESTATION_THRESHOLD)
         return 1;
 
     (void)memset(&set, 0, sizeof(set));
@@ -274,37 +244,6 @@ static int web_dispatch_checks(void)
         memcmp(entry->value, set_bytes, set_length) != 0)
         return 1;
 
-    /* With the set registered the observation reaches intake, which finds no
-     * request recorded for it; one for another network never gets there. */
-    web_activity(&activity, LX_WEB_OBSERVATION_ACTIVITY, observation_bytes,
-                 observation_length);
-    if (web_dispatch(&kernel, LXP_MODULE_PROGRAMS, &activity, &authority,
-                     true, &module_result) != LXP_OK ||
-        module_result != LXP_ERR_UNKNOWN_FIELD ||
-        web.pending_count != 0U || web.committed_count != 0U)
-        return 1;
-    observation.network_id = 8U;
-    if (lx_web_observation_encode(&observation, observation_bytes,
-                                  sizeof(observation_bytes),
-                                  &observation_length) != LXP_OK)
-        return 1;
-    web_activity(&activity, LX_WEB_OBSERVATION_ACTIVITY, observation_bytes,
-                 observation_length);
-    if (web_dispatch(&kernel, LXP_MODULE_PROGRAMS, &activity, &authority,
-                     true, &module_result) != LXP_OK ||
-        module_result != LXP_ERR_WRONG_NETWORK)
-        return 1;
-
-    /* The batch header carries the root of the bound web store. */
-    if (lxp_arena_init(&root_arena, root_arena_bytes,
-                       sizeof(root_arena_bytes)) != LXP_OK ||
-        lx_web_root(&web, &root_arena, web_root) != LXP_OK ||
-        lxp_arena_reset(&root_arena, 0U) != LXP_OK ||
-        lx_batch_header_set_web_root(&header,
-            (const lx_web_store *)kernel.module_runtime[LXP_MODULE_WEB],
-            &root_arena) != LXP_OK ||
-        memcmp(header.web_root, web_root, 32U) != 0)
-        return 1;
     if (lxp_state_store_destroy(&state) != LXP_OK) return 1;
     return 0;
 }

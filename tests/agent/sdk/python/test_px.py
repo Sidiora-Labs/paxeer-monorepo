@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import sys
 import threading
 import unittest
 from pathlib import Path
 from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "services/agent/sdk/python"))
 
 from layerx_sdk import (
     HISTORY_DEFAULT_LIMIT,
@@ -27,6 +30,7 @@ from layerx_sdk import (
     px_optional_quantity,
     px_quantity,
 )
+from layerx_sdk.px import HistoryAssetMetadata, HistoryRow, _MAX_U256
 
 ACCOUNT = "bb" * 32
 DID = "did:layerx:" + "aa" * 32
@@ -360,7 +364,7 @@ class HistoryReadTest(unittest.TestCase):
         unified = decode_unified_history_page(RECORDED_UNIFIED)
         self.assertEqual(
             [(row.id, row.side, row.block_height, row.tx_index, row.log_index) for row in unified.items],
-            [(3, "paxeer", 10, 0, 0), (6, "paxeer", 11, 0, 0), (9, "paxeer", 12, 0, 0), (11, "paxeer", 12, 1, 0)],
+            [("3", "paxeer", 10, 0, 0), ("6", "paxeer", 11, 0, 0), ("9", "paxeer", 12, 0, 0), ("11", "paxeer", 12, 1, 0)],
         )
         self.assertEqual([(side.side, side.account) for side in unified.accounts], [("paxeer", EVE)])
         self.assertIsNone(unified.next_cursor)
@@ -381,9 +385,207 @@ class HistoryReadTest(unittest.TestCase):
         paxeer = decode_paxeer_history_page(RECORDED_PAXEER)
         self.assertEqual(paxeer.account, EVE)
         self.assertIsNone(paxeer.next_cursor)
-        self.assertEqual([(row.id, row.side) for row in paxeer.items], [(3, None), (6, None), (9, None), (11, None)])
+        self.assertEqual([(row.id, row.side) for row in paxeer.items], [("3", None), ("6", None), ("9", None), ("11", None)])
         self.assertEqual(decode_paxeer_history_page({**RECORDED_PAXEER, "items": []}).items, ())
         self.assertEqual(decode_paxeer_history_page({**RECORDED_PAXEER, "next_cursor": CURSOR}).next_cursor, CURSOR)
+
+    def test_history_boundary_rows_decode(self) -> None:
+        first = {
+            "id": "explorer:1",
+            "height_or_seq": "10",
+            "chain": "paxeer",
+            "kind": "native_transfer",
+            "direction": "out",
+            "account": EVE,
+            "counterparty": EVM,
+            "asset": "evm:native",
+            "amount": str((1 << 256) - 1),
+            "tx_id": "native_transfer-10-0",
+            "tx_hash": "0x" + "12" * 32,
+            "ordinal": "0",
+            "final": False,
+            "decoded": {"position": "10"},
+            "asset_metadata": {
+                "asset": "evm:native",
+                "chain": "paxeer",
+                "kind": "native",
+                "address": None,
+                "denom": None,
+                "symbol": None,
+                "decimals": 18,
+                "native_id": None,
+                "pointer": None,
+                "metadata": {},
+            },
+            "blockHeight": 10,
+            "txIndex": 0,
+            "logIndex": 0,
+            "side": "paxeer",
+        }
+        layerx = {
+            **first,
+            "id": "2",
+            "height_or_seq": "11",
+            "chain": "layerx",
+            "kind": "asset_transfer",
+            "direction": "in",
+            "account": ACCOUNT,
+            "counterparty": UNJOINED,
+            "asset": NATIVE,
+            "amount": "7",
+            "tx_id": "asset_transfer-11-1",
+            "tx_hash": "0x" + "34" * 32,
+            "ordinal": "1",
+            "final": True,
+            "decoded": {"transfer": {"amount": "7", "recipient": ACCOUNT}},
+            "asset_metadata": {
+                "asset": NATIVE,
+                "chain": "layerx",
+                "kind": "native",
+                "address": None,
+                "denom": "ulxp",
+                "symbol": "LXP",
+                "decimals": 6,
+                "native_id": NATIVE,
+                "pointer": EVM,
+                "metadata": {"display": {"name": "LayerX asset", "tags": ["native", "LXP"]}},
+            },
+            "blockHeight": 11,
+            "txIndex": 1,
+            "logIndex": 1,
+            "side": "layerx",
+        }
+        items = [
+            first,
+            layerx,
+            {
+                **first,
+                "id": "explorer:3",
+                "height_or_seq": "12",
+                "amount": "2",
+                "asset_metadata": None,
+                "blockHeight": 12,
+                "txIndex": 2,
+                "logIndex": 2,
+            },
+            {
+                **first,
+                "id": "4",
+                "height_or_seq": "13",
+                "amount": "3",
+                "counterparty": None,
+                "blockHeight": 13,
+                "txIndex": 3,
+                "logIndex": 3,
+            },
+        ]
+        document = {
+            "account": IDENTITIES,
+            "accounts": [
+                {"side": "paxeer", "account": EVE},
+                {"side": "layerx", "account": ACCOUNT},
+            ],
+            "items": items,
+            "next_cursor": "000000000000000d0000000300000003",
+        }
+        page = decode_unified_history_page(document)
+        self.assertEqual(page.account, IDENTITIES)
+        self.assertEqual([(side.side, side.account) for side in page.accounts], [("paxeer", EVE), ("layerx", ACCOUNT)])
+        self.assertEqual([row.id for row in page.items], ["explorer:1", "2", "explorer:3", "4"])
+        self.assertEqual(
+            [(row.tx_id, row.tx_hash) for row in page.items],
+            [
+                ("native_transfer-10-0", "0x" + "12" * 32),
+                ("asset_transfer-11-1", "0x" + "34" * 32),
+                ("native_transfer-10-0", "0x" + "12" * 32),
+                ("native_transfer-10-0", "0x" + "12" * 32),
+            ],
+        )
+        self.assertEqual(
+            [(row.block_height, row.tx_index, row.log_index) for row in page.items],
+            [(10, 0, 0), (11, 1, 1), (12, 2, 2), (13, 3, 3)],
+        )
+        self.assertEqual(page.items[0].amount, _MAX_U256)
+        self.assertEqual(page.items[0].amount, (1 << 256) - 1)
+        self.assertEqual(page.items[1], HistoryRow(
+            id="2",
+            height_or_seq=11,
+            chain="layerx",
+            kind="asset_transfer",
+            direction="in",
+            account=ACCOUNT,
+            counterparty=UNJOINED,
+            asset=NATIVE,
+            amount=7,
+            tx_id="asset_transfer-11-1",
+            tx_hash="0x" + "34" * 32,
+            ordinal=1,
+            final=True,
+            decoded={"transfer": {"amount": "7", "recipient": ACCOUNT}},
+            asset_metadata=HistoryAssetMetadata(
+                asset=NATIVE,
+                chain="layerx",
+                kind="native",
+                address=None,
+                denom="ulxp",
+                symbol="LXP",
+                decimals=6,
+                native_id=NATIVE,
+                pointer=EVM,
+                metadata={"display": {"name": "LayerX asset", "tags": ["native", "LXP"]}},
+            ),
+            block_height=11,
+            tx_index=1,
+            log_index=1,
+            side="layerx",
+        ))
+        self.assertIsNone(page.items[2].asset_metadata)
+        self.assertIsNone(page.items[3].counterparty)
+        self.assertEqual(page.next_cursor, document["next_cursor"])
+        missing_tx_hash = dict(first)
+        del missing_tx_hash["tx_hash"]
+        for refused_row in (missing_tx_hash, {**first, "tx_hash": "0x" + "1" * 63}):
+            with self.subTest(tx_hash=refused_row.get("tx_hash")):
+                with self.assertRaisesRegex(ValueError, "^invalid-history-transaction-hash$"):
+                    decode_unified_history_page({
+                        **document,
+                        "items": [refused_row, *items[1:]],
+                    })
+        with self.assertRaisesRegex(ValueError, "^invalid-history-decimal$"):
+            decode_unified_history_page({
+                **document,
+                "items": [{**first, "amount": str(1 << 256)}, *items[1:]],
+            })
+
+    def test_explorer_row_ids_decode_as_strings(self) -> None:
+        for document, decode in (
+            (RECORDED_UNIFIED, decode_unified_history_page),
+            (RECORDED_PAXEER, decode_paxeer_history_page),
+        ):
+            first, second = document["items"][:2]
+            page_document = {
+                **document,
+                "items": [{**first, "id": "9"}, {**second, "id": "explorer:7"}],
+                "next_cursor": None,
+            }
+            page = decode(page_document)
+            self.assertEqual([row.id for row in page.items], ["9", "explorer:7"])
+            for row_id in ("18446744073709551615", "explorer:18446744073709551615"):
+                with self.subTest(row_id=row_id, decode=decode.__name__):
+                    maximum = decode({**page_document, "items": [{**first, "id": row_id}]})
+                    self.assertEqual(maximum.items[0].id, row_id)
+            for row_id in (
+                "explorer:0", "explorer:", "0", "layerx:7",
+                "explorer:18446744073709551616", "18446744073709551616",
+                "", "01", "explorer:07", "-7", "explorer:-7", "explorer:7.0",
+                "explorer:7\n", " 9", "explorer:٧", 7, None, True,
+            ):
+                with self.subTest(row_id=row_id, decode=decode.__name__):
+                    with self.assertRaisesRegex(ValueError, "invalid-history-row-id"):
+                        decode({
+                            **page_document,
+                            "items": [{**first, "id": "9"}, {**second, "id": row_id}],
+                        })
 
     def test_malformed_pages_are_refused(self) -> None:
         refusals = (
@@ -415,7 +617,7 @@ class HistoryReadTest(unittest.TestCase):
         try:
             client = PxClient(f"http://127.0.0.1:{server.server_port}/rpc")
             unified = client.get_unified_history(DID.upper().replace("DID:LAYERX:", "did:layerx:"), limit=4)
-            self.assertEqual([row.id for row in unified.items], [3, 6, 9, 11])
+            self.assertEqual([row.id for row in unified.items], ["3", "6", "9", "11"])
             paxeer = client.get_history(DID, cursor=CURSOR, kind="erc20_transfer")
             self.assertEqual(len(paxeer.items), 4)
             client.get_history(EVE.upper().replace("0X", "0x"))

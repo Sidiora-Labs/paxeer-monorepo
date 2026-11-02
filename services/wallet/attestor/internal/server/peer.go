@@ -248,7 +248,11 @@ func (s *Server) Announce(ctx context.Context, keyID, sessionID, account string,
 
 func (s *Server) peerCall(ctx context.Context, peer, path string, body []byte, retry bool, out any) error {
 	for {
+		started := time.Now()
 		status, resp, err := s.opts.Transport.Request(ctx, peer, path, body)
+		if err == nil && s.opts.Metrics != nil {
+			s.opts.Metrics.ObservePeerRTT(peer, time.Since(started))
+		}
 		if err == nil && status == http.StatusOK {
 			if out == nil {
 				return nil

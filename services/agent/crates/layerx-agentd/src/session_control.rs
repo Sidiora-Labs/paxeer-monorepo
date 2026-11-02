@@ -684,7 +684,14 @@ impl SessionControl {
             .store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        match managed_agent::rotation::prepare(&store, &registry, tenant, agent_id, request)? {
+        let prepared =
+            managed_agent::rotation::prepare(&store, &registry, tenant, agent_id, request)
+                .map_err(|refusal| match refusal {
+                    managed_agent::rotation::OwnerRotation::Unsupported => {
+                        HumanOperationError::Refused
+                    }
+                })?;
+        match prepared {
             managed_agent::rotation::Prepared::Replay(response) => Ok(response),
             managed_agent::rotation::Prepared::Commit {
                 event,

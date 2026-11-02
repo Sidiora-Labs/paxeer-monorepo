@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -47,6 +48,7 @@ func GetTxCmd() *cobra.Command {
 		NewBurnCmd(),
 		NewChangeAdminCmd(),
 		NewSetDenomMetadataCmd(),
+		NewSetDenomPausedCmd(),
 	)
 
 	return cmd
@@ -289,6 +291,33 @@ Where metadata.json contains:
 				clientCtx.GetFromAddress().String(),
 				metadata,
 			)
+
+			return tx.GenerateOrBroadcastTxWithFactory(cmd.Context(), clientCtx, txf, msg)
+		},
+	}
+
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
+func NewSetDenomPausedCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "set-denom-paused [denom] [true|false]",
+		Short: "Pause or unpause a factory-created denom. Must have admin authority to do so.",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			paused, err := strconv.ParseBool(args[1])
+			if err != nil {
+				return err
+			}
+
+			txf := tx.NewFactoryCLI(clientCtx, cmd.Flags()).WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
+			msg := types.NewMsgSetDenomPaused(clientCtx.GetFromAddress().String(), args[0], paused)
 
 			return tx.GenerateOrBroadcastTxWithFactory(cmd.Context(), clientCtx, txf, msg)
 		},

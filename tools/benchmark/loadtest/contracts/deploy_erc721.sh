@@ -3,11 +3,19 @@
 # This script is used to deploy the NoopToken contract to the target network
 # This avoids trying to predict what address it might be deployed to
 
+BENCH_DEPLOYER_KEY() {
+  if [[ -z "${BENCH_DEPLOYER_KEY:-}" ]]; then
+    printf 'BENCH_DEPLOYER_KEY must be set\n' >&2
+    exit 1
+  fi
+}
+BENCH_DEPLOYER_KEY
+
 evm_endpoint=$1
 
 # first fund account if necessary
 THRESHOLD=100000000000000000000 # 100 Eth
-ACCOUNT="0xF87A299e6bC7bEba58dbBe5a5Aa21d49bCD16D52"
+ACCOUNT=$(cast wallet address --private-key "$BENCH_DEPLOYER_KEY")
 BALANCE=$(cast balance $ACCOUNT --rpc-url "$evm_endpoint")
 if (( $(echo "$BALANCE < $THRESHOLD" | bc -l) )); then
   printf "12345678\n" | ~/go/bin/paxd tx evm send $ACCOUNT 100000000000000000000 --from admin --evm-rpc "$evm_endpoint"
@@ -20,4 +28,4 @@ cd tools/benchmark/loadtest/contracts/evm || exit 1
 
 git submodule update --init --recursive > /dev/null 2>&1
 
-/root/.foundry/bin/forge create --broadcast -r "$evm_endpoint" --private-key 57acb95d82739866a5c29e40b0aa2590742ae50425b7dd5b5d279a986370189e src/ERC721.sol:MyNFT --json | jq -r '.deployedTo'
+/root/.foundry/bin/forge create --broadcast -r "$evm_endpoint" --private-key "$BENCH_DEPLOYER_KEY" src/ERC721.sol:MyNFT --json | jq -r '.deployedTo'

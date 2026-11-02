@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -92,10 +93,11 @@ var dataSockets = []string{"GET /{$}", "GET /ws", "GET /ws/markets", "GET /ws/ex
 // Options wires a Server.
 type Options struct {
 	// DB is the database of the gateway; NewServer sets its idle pool.
-	DB         *sql.DB
-	NATS       *nats.Conn
-	Chain      uint64
-	AuthSecret string
+	DB             *sql.DB
+	NATS           *nats.Conn
+	Chain          uint64
+	AuthSecret     string
+	TrustedProxies []netip.Prefix
 	// Node reads the node for the spot holdings and positions routes.
 	Node    rest.SpotNode
 	Metrics *telemetry.Metrics
@@ -104,18 +106,19 @@ type Options struct {
 
 // Server is one gateway process.
 type Server struct {
-	db        *sql.DB
-	nats      *nats.Conn
-	chain     uint64
-	js        jetstream.JetStream
-	providers *feeds.Providers
-	hub       *ws.Hub
-	feed      *graphql.Feed
-	schema    *gqlgo.Schema
-	transport *graphql.TransportWS
-	spotUser  *ws.SpotUser
-	spotUsers *rest.SpotUsers
-	logger    *slog.Logger
+	db             *sql.DB
+	nats           *nats.Conn
+	chain          uint64
+	js             jetstream.JetStream
+	providers      *feeds.Providers
+	hub            *ws.Hub
+	feed           *graphql.Feed
+	schema         *gqlgo.Schema
+	transport      *graphql.TransportWS
+	spotUser       *ws.SpotUser
+	spotUsers      *rest.SpotUsers
+	logger         *slog.Logger
+	trustedProxies []netip.Prefix
 	// data serves the shared topic protocol through the hub.
 	data *ws.Server
 	// closer closes every socket it upgrades with 1013 and a retry-after
@@ -245,11 +248,12 @@ func NewServer(ctx context.Context, opts Options) (*Server, error) {
 		db: opts.DB, nats: opts.NATS, chain: opts.Chain, js: js, providers: providers, hub: hub, feed: feed,
 		schema: schema, transport: transport, spotUser: &ws.SpotUser{}, spotUsers: spotUsers, logger: logger, data: data, closer: closer,
 		metrics: opts.Metrics, sockets: sockets, subscriptions: subscriptions, gqlTime: gqlTime,
-		limiter:      &windowLimiter{max: clientRequests, window: clientWindow, entries: map[string]windowEntry{}},
-		mux:          http.NewServeMux(),
-		socketRoutes: map[string]bool{"GET /graphql": true, "GET /graphql-ws": true, "GET /v1/ws": true},
-		ops:          map[string]bool{},
-		held:         map[*ws.Socket]int{},
+		trustedProxies: append([]netip.Prefix(nil), opts.TrustedProxies...),
+		limiter:        &windowLimiter{max: clientRequests, window: clientWindow, entries: map[string]windowEntry{}},
+		mux:            http.NewServeMux(),
+		socketRoutes:   map[string]bool{"GET /graphql": true, "GET /graphql-ws": true, "GET /v1/ws": true},
+		ops:            map[string]bool{},
+		held:           map[*ws.Socket]int{},
 	}
 	// A socket path subscribes to its path topics on open; dataSocket has
 	// already refused the paths SocketTopics does not serve.
@@ -481,7 +485,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 // limited spends one request of the client key's budget, marks the account
 // routes uncacheable and serves the route.
 func (s *Server) limited(w http.ResponseWriter, r *http.Request) {
-	key := ratelimit.ClientKey(r)
+	key := ratelimit.ClientKey(r, s.trustedProxies)
 	if len(key) > maxClientKeyLen {
 		writeError(w, http.StatusBadRequest, "invalid request principal")
 		return

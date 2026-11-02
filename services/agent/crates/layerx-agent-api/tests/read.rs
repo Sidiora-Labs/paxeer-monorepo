@@ -9,11 +9,11 @@ use layerx_agent_api::export::{FactRef, OfflineExport};
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::proof::ProofBundle;
 use layerx_agent_api::read::{
-    AccountRef, AccountValue, BalanceValue, BatchRef, BatchValue, CheckpointRef, CheckpointValue,
-    Freshness, HistoryValue, ModuleStateValue, ProjectionResult, RelativeTo, VerifiedRead,
+    AccountRef, AccountValue, BalanceValue, BatchValue, CheckpointValue, Freshness, HistoryValue,
+    ModuleStateValue, ProjectionResult, RelativeTo, VerifiedRead,
 };
-use layerx_agent_api::verify::Level;
-use layerx_agent_api::{Amount, Sequence};
+use layerx_agent_api::verify::Rung;
+use layerx_agent_api::Amount;
 use layerx_types::json::{self, JsonValue};
 
 const SCHEMA: &str = include_str!("../../../schema/agent-api/read.kvx");
@@ -28,27 +28,52 @@ fn bytes(value: u8) -> CanonicalBytes {
 
 fn freshness() -> Freshness {
     Freshness {
-        chain_head: Sequence(50),
-        latest_sealed_batch: required(BatchRef::new("batch-4")),
-        latest_finalised_checkpoint: required(CheckpointRef::new("checkpoint-3")),
-        value_sequence: Sequence(47),
-        relative_to: RelativeTo::Batch(required(BatchRef::new("batch-4"))),
+        chain_head: 50,
+        value_height: 47,
+        relative_to: RelativeTo::Block {
+            height: 47,
+            hash: [4; 32],
+        },
+    }
+}
+
+fn bundle() -> ProofBundle {
+    ProofBundle {
+        format: "layerx-receipt-proof-v2".to_owned(),
+        verification_level: Rung::Committed,
+        raw_transaction: bytes(6),
+        signed_receipt: bytes(7),
+        receipt_digest: [8; 32],
+        receipt_key: layerx_client::sequencer::ReceiptKeyEntry {
+            key_id: [9; 32],
+            public_key: [10; 32],
+            first_height: 1,
+            last_height: 50,
+        },
+        block_header: Some(bytes(11)),
+        receipt_inclusion: Some(bytes(12)),
+        commit: Some(bytes(13)),
+        validator_set: Some(bytes(14)),
+        account_proof: None,
     }
 }
 
 fn assert_verified<T: layerx_agent_api::read::CoreProduced>(value: &VerifiedRead<T>) {
-    assert_eq!(value.achieved_verification_level, Level::StateProven);
-    assert_eq!(value.freshness.chain_head, Sequence(50));
-    assert_eq!(value.freshness.latest_sealed_batch.as_str(), "batch-4");
+    assert_eq!(value.achieved_rung, Rung::Committed);
+    assert_eq!(value.freshness.chain_head, 50);
+    assert_eq!(value.freshness.value_height, 47);
     assert_eq!(
-        value.freshness.latest_finalised_checkpoint.as_str(),
-        "checkpoint-3"
+        value.freshness.relative_to,
+        RelativeTo::Block {
+            height: 47,
+            hash: [4; 32]
+        }
     );
 }
 
 #[test]
 fn every_authoritative_read_shape_carries_level_and_freshness() {
-    let level = Level::StateProven;
+    let level = Rung::Committed;
     let values = (
         VerifiedRead::new(AccountValue(bytes(1)), level, freshness()),
         VerifiedRead::new(ModuleStateValue(bytes(2)), level, freshness()),
@@ -56,20 +81,22 @@ fn every_authoritative_read_shape_carries_level_and_freshness() {
             HistoryValue {
                 records: vec![bytes(3)],
                 next_cursor: None,
+                height: 47,
             },
             level,
             freshness(),
         ),
         VerifiedRead::new(BatchValue(bytes(4)), level, freshness()),
-        VerifiedRead::new(CheckpointValue(bytes(5)), level, freshness()),
         VerifiedRead::new(
-            ProofBundle {
-                target: bytes(6),
-                proofs: vec![bytes(7)],
+            CheckpointValue {
+                commit: bytes(5),
+                validator_set: bytes(6),
+                height: 47,
             },
             level,
             freshness(),
         ),
+        VerifiedRead::new(bundle(), level, freshness()),
     );
     assert_verified(&values.0);
     assert_verified(&values.1);
@@ -88,12 +115,13 @@ fn balance_preserves_identity_amount_sequence_and_reference() {
             asset: required(layerx_agent_api::identity::Asset::new("LXP")),
             amount: Amount(9_007_199_254_740_993),
             canonical_state: bytes(8),
+            height: 47,
         },
-        Level::StateProven,
+        Rung::Committed,
         freshness(),
     );
     assert_eq!(balance.value.amount, Amount(9_007_199_254_740_993));
-    assert_eq!(balance.freshness.value_sequence, Sequence(47));
+    assert_eq!(balance.freshness.value_height, 47);
     assert_verified(&balance);
 }
 
@@ -116,7 +144,7 @@ fn availability_reports_complete_provider_or_attributed_partials() {
             failure: Some("incomplete".to_owned()),
         }],
     };
-    let read = VerifiedRead::new(report, Level::BatchIncluded, freshness());
+    let read = VerifiedRead::new(report, Rung::Receipted, freshness());
     assert!(matches!(
         read.value.completion,
         AvailabilityCompletion::Partial
@@ -129,14 +157,12 @@ fn availability_reports_complete_provider_or_attributed_partials() {
 fn offline_export_is_self_contained_and_projection_is_distinct() {
     let export = OfflineExport {
         facts: vec![required(FactRef::new("fact-1"))],
-        receipts: vec![bytes(9)],
-        proofs: vec![bytes(10)],
-        certificates: vec![bytes(11)],
-        headers: vec![bytes(12)],
+        bundles: vec![bundle()],
+        height: 47,
     }
     .validate()
     .unwrap_or_else(|error| panic!("offline export: {error:?}"));
-    let verified = VerifiedRead::new(export, Level::CheckpointFinalised, freshness());
+    let verified = VerifiedRead::new(export, Rung::Committed, freshness());
     assert_eq!(verified.value.facts.len(), 1);
 
     let projection = ProjectionResult::new(Amount(22), "fee estimate only", freshness())

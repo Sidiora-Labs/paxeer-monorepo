@@ -5,7 +5,7 @@ package deployment
 import (
 	"bytes"
 	"crypto/sha256"
-	_ "embed"
+	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -26,6 +26,9 @@ const LaunchpadPrecompileAddress = "0x0000000000000000000000000000000000001017"
 
 //go:embed current.json
 var currentJSON []byte
+
+//go:embed history/*.json
+var historyJSON embed.FS
 
 var mandatory = []string{"EventEmitter", "ProtocolConfig", "Router", "Quoter", "SidioraFactory", "PoolRegistry", "FeeAccumulator", "SidioraNFT", "FeesRouter", "OpticalRegistry", "PoolBeacon", "USDL"}
 var hashRE = regexp.MustCompile(`^0x[0-9a-fA-F]{64}$`)
@@ -87,6 +90,50 @@ func Current() Manifest {
 	}
 	return m
 }
+func approvedHistory() []Manifest {
+	manifests := []Manifest{Current()}
+	entries, err := historyJSON.ReadDir("history")
+	if err != nil {
+		panic(err)
+	}
+	seen := map[uint64]bool{manifests[0].ActivationHeight: true}
+	for _, entry := range entries {
+		data, err := historyJSON.ReadFile("history/" + entry.Name())
+		if err != nil {
+			panic(err)
+		}
+		manifest, err := Parse(data)
+		if err != nil {
+			panic(err)
+		}
+		if seen[manifest.ActivationHeight] {
+			panic("deployment: duplicate approved activation height")
+		}
+		seen[manifest.ActivationHeight] = true
+		manifests = append(manifests, manifest)
+	}
+	return manifests
+}
+
+func Approved(activationHeight uint64) (Manifest, bool) {
+	for _, manifest := range approvedHistory() {
+		if manifest.ActivationHeight == activationHeight {
+			return manifest, true
+		}
+	}
+	return Manifest{}, false
+}
+
+func NextActivationHeight(activationHeight uint64) (uint64, bool) {
+	var next uint64
+	for _, manifest := range approvedHistory() {
+		if manifest.ActivationHeight > activationHeight && (next == 0 || manifest.ActivationHeight < next) {
+			next = manifest.ActivationHeight
+		}
+	}
+	return next, next != 0
+}
+
 func Parse(data []byte) (Manifest, error) {
 	if len(data) == 0 || len(data) > MaxManifestBytes {
 		return Manifest{}, Issue{Code: "manifest_size_invalid"}

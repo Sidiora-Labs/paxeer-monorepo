@@ -770,8 +770,6 @@ dependencies = [
  "layerx-crypto",
  "layerx-identity-binding",
  "layerx-intents",
- "layerx-paxeer-verifier",
- "layerx-programs-protocol-adapter",
  "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
@@ -795,7 +793,9 @@ dependencies = [
 name = "layerx-agentd-host"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "getrandom 0.3.4",
+ "k256",
  "layerx-agent-api",
  "layerx-agentd",
  "layerx-client",
@@ -804,14 +804,13 @@ dependencies = [
  "layerx-identity-binding",
  "layerx-intents",
  "layerx-mcp",
- "layerx-paxeer-verifier",
- "layerx-programs-protocol-adapter",
  "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
  "layerx-sdk",
  "layerx-types",
  "layerx-wire",
+ "p256",
  "rustix",
  "rustls",
  "rustls-native-certs",
@@ -819,6 +818,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "sha3",
  "ureq",
  "zeroize",
 ]
@@ -827,10 +827,11 @@ dependencies = [
 name = "layerx-client"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "ed25519-dalek",
  "layerx-crypto",
- "layerx-paxeer-verifier",
  "layerx-programs-ai-market",
+ "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
  "layerx-types",
@@ -839,7 +840,17 @@ dependencies = [
  "rustls",
  "serde_json",
  "sha2",
+ "tungstenite",
  "ureq",
+]
+
+[[package]]
+name = "layerx-committed-proof"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -924,6 +935,7 @@ name = "layerx-mcp"
 version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
+ "ed25519-dalek",
  "layerx-agent-api",
  "layerx-agentd",
  "layerx-crypto",
@@ -947,8 +959,6 @@ dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
  "k256",
- "layerx-agent-api",
- "layerx-client",
  "layerx-crypto",
  "layerx-proof",
  "layerx-wire",
@@ -959,17 +969,6 @@ dependencies = [
  "sha2",
  "sha3",
  "zeroize",
-]
-
-[[package]]
-name = "layerx-paxeer-verifier"
-version = "0.1.0"
-dependencies = [
- "layerx-proof",
- "layerx-types",
- "layerx-wire",
- "rustls",
- "sha3",
 ]
 
 [[package]]
@@ -990,21 +989,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "layerx-programs-protocol-adapter"
-version = "0.1.0"
-dependencies = [
- "layerx-programs-registry",
-]
-
-[[package]]
 name = "layerx-programs-registry"
 version = "0.1.0"
 dependencies = [
+ "curve25519-dalek",
+ "ed25519-dalek",
  "layerx-program-sdk",
  "layerx-programs-runtime",
- "layerx-proof",
  "layerx-types",
- "layerx-wire",
+ "sha2",
 ]
 
 [[package]]
@@ -1077,6 +1070,7 @@ name = "layerx-x402"
 version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
+ "layerx-committed-proof",
  "layerx-interop-gateway",
  "layerx-proof",
  "serde",
@@ -1233,6 +1227,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "p256"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9863ad85fa8f4460f9c48cb909d38a0d689dba1f6f6988a5e3e0d31071bcd4b"
+dependencies = [
+ "ecdsa",
+ "elliptic-curve",
+ "primeorder",
+ "sha2",
+]
+
+[[package]]
 name = "parity-wasm"
 version = "0.45.0"
 
@@ -1308,6 +1314,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
  "zerocopy",
+]
+
+[[package]]
+name = "primeorder"
+version = "0.13.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "353e1ca18966c16d9deb1c69278edbc5f194139612772bd9537af60ac231e1e6"
+dependencies = [
+ "elliptic-curve",
 ]
 
 [[package]]

@@ -39,18 +39,6 @@
 #                                       and every Paxeer transaction is signed by services/platform/hosted/paxeer/evm.py
 #   LAYERX_BETA_FAUCET_HOST             public faucet hostname (default faucet.paxeer.network)
 #   LAYERX_BETA_DEVELOPER_HOST          public developer hostname (default dev.paxeer.network)
-#   LAYERX_BETA_RELAY_HOST              public relay/archive hostname (default archive.paxeer.network)
-#   LAYERX_BETA_RELAY_UPSTREAM          comma-separated public HTTPS relay/archive origins the beta relay reads
-#                                       canonical history from; unset leaves the colocated canonical availability
-#                                       log of the sequencer node as its only source
-#   LAYERX_BETA_RELAY_SUBMISSION_UPSTREAM  comma-separated public HTTPS endpoints the relay forwards original
-#                                       signed activities to (origin, /v1/activities or /rpc). Cluster-internal
-#                                       addresses are refused by the relay address policy in
-#                                       services/platform/relay_archive/protocol.py, so this endpoint has to be a public
-#                                       one; unset leaves POST /v1/activities without a forwarding destination
-#                                       and the bring-up records the missing owner input
-#   LAYERX_BETA_RELAY_PEER_SEED         comma-separated public HTTPS relay/archive peer-discovery seeds; unset
-#                                       keeps peer discovery disabled
 #   LAYERX_BETA_KIND_CNI                calico (default, enforces NetworkPolicy) or kindnet
 #   LAYERX_BETA_READY_TIMEOUT           seconds to wait for every journey to report ready (default 900)
 #   LAYERX_BETA_MIN_FREE_GIB            free disk required before building the images of a local cluster
@@ -186,11 +174,9 @@
 # The trusted-boundary services (node with core boundary, receipt authority and agent boundary; identity;
 # Paxeer chain with its boundary) are built from the repository, applied before the testnet, gateway,
 # registry and developer manifests, and bound together in this order: the Paxeer chain starts with the
-# generated deployer address and the custody and anchor module genesis, the node bootstraps its genesis with
-# the registry, custody and anchor precompile addresses its manifest carries as settlement inputs on chain 125
-# through the loopback relay, anchor-guarantors.sh registers and activates the node's guarantors in the anchor
-# module through the Paxeer boundary, and the same settlement inputs are published as the layerx-node-settlement
-# ConfigMap the guarantors read. No Solidity contract is deployed for custody, checkpoints, bonds or challenges.
+# generated deployer address and custody module genesis for the treasury binding. The node bootstraps its
+# genesis with the settlement inputs its manifest carries on chain 125 through the loopback relay, and the
+# same inputs are published as the layerx-node-settlement ConfigMap. No Solidity contract is deployed here.
 #
 # Two reference programs are deployed through the program registry deployment ingress before the explorer
 # observation is published: programs/sdk/rust/examples/escrow, whose deployment record carries the program
@@ -205,7 +191,7 @@
 # the seed and the sequencer public key in the layerx-explorer-index Secret. It is not an owner input.
 #
 # Boundary checks (--boundary-checks) additionally read the inputs of
-# services/platform/hosted/gateway/tests/hosted-boundary.sh and services/platform/hosted/webhooks/tests/fault-injection.sh.
+# services/platform/hosted/webhooks/tests/fault-injection.sh.
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -231,7 +217,6 @@ CALICO_SHA256=9382d2b27a76f40c170454b408653e6d71e2205ef0aef069e942bb690e7381d0
 CLUSTER_NAME=${LAYERX_BETA_CLUSTER_NAME:-layerx-beta}
 FAUCET_HOST=${LAYERX_BETA_FAUCET_HOST:-faucet.paxeer.network}
 DEVELOPER_HOST=${LAYERX_BETA_DEVELOPER_HOST:-dev.paxeer.network}
-RELAY_HOST=${LAYERX_BETA_RELAY_HOST:-archive.paxeer.network}
 HUMAN_WEB_HOST=paxportwallet.com
 TESTNET_HOST=beta.paxeer.network
 GATEWAY_HOST=api-mainnet-beta.paxeer.network
@@ -301,10 +286,6 @@ NODE_ASSET_ID=$(sed -n 's/^  asset-id: "\([0-9a-f]*\)"$/\1/p' "$NODE_MANIFEST")
 PAXEER_RELAY_PORT=$(sed -n 's/^  paxeer-relay-port: "\([0-9]*\)"$/\1/p' "$NODE_MANIFEST")
 GUARANTOR_CHECKPOINT_AUTHORITY_KEY_FILE=$(sed -n 's/^ *- {name: LAYERX_GUARANTOR_CHECKPOINT_AUTHORITY_KEY_FILE, value: \([^}]*\)}$/\1/p' "$NODE_MANIFEST" | sort -u)
 NODE_DATA_DIR=/var/lib/layerx/node
-RELAY_NODE_SOURCE_DIR=/var/lib/layerx/node-source/node
-RELAY_DATA_DIR=/var/lib/layerx/relay-archive
-RELAY_TLS_DIR=/run/layerx/tls
-RELAY_CODEC=/usr/local/bin/layerx-archive-codec
 
 log() { printf 'beta-cluster: %s\n' "$*" >&2; }
 fail() { printf 'beta-cluster: error: %s\n' "$*" >&2; exit 1; }
@@ -664,8 +645,6 @@ ca_generate() {
         "DNS:layerx-faucet-public.$svc,DNS:layerx-faucet-public,DNS:$FAUCET_HOST,DNS:localhost,IP:127.0.0.1"
     issue_cert registry layerx-program-registry serverAuth \
         "DNS:layerx-program-registry.$svc,DNS:layerx-program-registry"
-    issue_cert relay-archive layerx-relay-archive serverAuth \
-        "DNS:layerx-relay-archive.$svc,DNS:layerx-relay-archive.$TESTNET_NAMESPACE.svc,DNS:layerx-relay-archive,DNS:$RELAY_HOST,DNS:localhost,IP:127.0.0.1"
     issue_cert faucet-redis layerx-faucet-redis serverAuth "DNS:layerx-faucet-redis.$svc,DNS:layerx-faucet-redis"
     issue_cert gateway-redis layerx-gateway-redis serverAuth "DNS:layerx-gateway-redis.$svc,DNS:layerx-gateway-redis"
     issue_cert interop-gateway layerx-interop-gateway serverAuth \
@@ -1462,18 +1441,6 @@ secrets_apply() {
         --deposit-root-authority "$(deposit_root_authority "$s")" \
         --asset "$NODE_ASSET_ID:uhpx" --output "$WORK_DIR/paxeer-custody-genesis.json"
     apply_configmap "$ns" paxeer-custody-genesis --from-file=genesis.json="$WORK_DIR/paxeer-custody-genesis.json"
-    # Checkpoint settlement and the guarantor bond are the layerxanchor module behind the precompile
-    # at 0x…1014. The deployer is its authority, the EVM chain id and the anchor address are what
-    # guarantors sign, and the sequencer is authorized from batch 1 onwards. The guarantor set is
-    # registered through the precompile once the node has generated it (anchor_guarantors_register).
-    rm -f "$WORK_DIR/paxeer-anchor-genesis.json"
-    python3 "$REPO_ROOT/services/platform/hosted/paxeer/anchor-genesis.py" --authority-evm "$(cat "$s/paxeer-deployer.address")" \
-        --paxeer-chain-id "$PAXEER_CHAIN_ID" --network-id "$NODE_NETWORK_ID" \
-        --threshold "$(jq -er '.finality_policy.certificate_threshold' "$REPO_ROOT/contracts/config/checkpoint-settlement.json")" \
-        --max-attestation-delay-ms "$(($(jq -er '.finality_policy.maximum_attestation_delay_seconds' "$REPO_ROOT/contracts/config/checkpoint-settlement.json") * 1000))" \
-        --sequencer-id "$SEQUENCER_ID" --sequencer-public-key "$(cat "$CA_DIR/sequencer.pub.hex")" \
-        --output "$WORK_DIR/paxeer-anchor-genesis.json"
-    apply_configmap "$ns" paxeer-anchor-genesis --from-file=genesis.json="$WORK_DIR/paxeer-anchor-genesis.json"
     apply_tls_secret "$ns" layerx-testnet-ingress-tls testnet-control
     apply_tls_secret "$ns" layerx-gateway-ingress-tls gateway
     apply_tls_secret "$ns" layerx-faucet-ingress-tls faucet
@@ -1522,19 +1489,6 @@ publication_binding_publish() {
     fi
     apply_secret "$TESTNET_NAMESPACE" layerx-node-publication \
         --from-file=binding-policy.json="$policy" "${authorization[@]}"
-}
-
-publication_authorization_publish() {
-    local recipient public vault
-    recipient=$(cat "$SECRETS_DIR/paxeer-deployer.address")
-    public=$(sed -n 's/^LAYERX_NODE_TREASURY_PUBLIC_KEY=//p' "$WORK_DIR/genesis/node.env")
-    vault=$(jq -er '.vault' "$WORK_DIR/human-evidence-input/owner-custody.json")
-    publication_policy_create authorization "$SECRETS_DIR/publication-authorization.json" \
-        "$NODE_NETWORK_ID" "$PAXEER_CHAIN_ID" "$GUARANTOR_BOND" "$CHECKPOINT_REGISTRY" "$vault" \
-        "$public" "$NODE_ASSET_ID" "${recipient#0x}"
-    apply_secret "$TESTNET_NAMESPACE" layerx-node-publication \
-        --from-file=binding-policy.json="$SECRETS_DIR/publication-binding-policy.json" \
-        --from-file=authorization.json="$SECRETS_DIR/publication-authorization.json"
 }
 
 builder_release_publish() {
@@ -1745,136 +1699,6 @@ PYSTATUS
     fi
 }
 
-relay_archive_config_write() {
-    # relay_archive_config_write OUTPUT NETWORK_ID GENESIS_SHA256 SEQUENCER_ID SEQUENCER_PUBLIC_KEY FIRST_BATCH LAST_BATCH PUBLIC_URL
-    [ "$#" -eq 8 ] || fail "relay_archive_config_write needs output, network id, genesis digest, sequencer id, sequencer public key, first batch, last batch and public URL"
-    LAYERX_RELAY_SOURCE_DIR="$RELAY_NODE_SOURCE_DIR" LAYERX_RELAY_DATA_DIR="$RELAY_DATA_DIR" \
-        LAYERX_RELAY_TLS_DIR="$RELAY_TLS_DIR" LAYERX_RELAY_CODEC="$RELAY_CODEC" \
-        python3 - "$@" <<'PYRELAY'
-import json
-import os
-import re
-import sys
-import urllib.parse
-
-(destination, network_id, genesis_sha256, sequencer_id, sequencer_public_key,
- first_batch, last_batch, public_url) = sys.argv[1:9]
-source_dir = os.environ["LAYERX_RELAY_SOURCE_DIR"]
-data_dir = os.environ["LAYERX_RELAY_DATA_DIR"]
-tls_dir = os.environ["LAYERX_RELAY_TLS_DIR"]
-codec = os.environ["LAYERX_RELAY_CODEC"]
-
-
-def refuse(detail):
-    raise SystemExit("beta-cluster: error: relay/archive configuration refused: " + detail)
-
-
-def pin(value, name):
-    if re.fullmatch(r"[0-9a-f]{64}", value) is None or value == "0" * 64:
-        refuse(name + " must be a non-zero lowercase 64-character hexadecimal pin")
-    return value
-
-
-def cursor(value, name):
-    if re.fullmatch(r"(0|[1-9][0-9]*)", value) is None or int(value) > 0xFFFFFFFFFFFFFFFF:
-        refuse(name + " must be a canonical unsigned decimal batch cursor")
-    return int(value)
-
-
-def origins(variable, allowed_paths):
-    raw = os.environ.get(variable, "")
-    values = [entry.strip() for entry in raw.split(",") if entry.strip()]
-    result = []
-    for value in values:
-        try:
-            parsed = urllib.parse.urlsplit(value)
-            host, port = parsed.hostname, parsed.port
-        except ValueError:
-            refuse(variable + " carries a malformed URL")
-        if (parsed.scheme != "https" or not host or parsed.username is not None
-                or parsed.password is not None or parsed.query or parsed.fragment
-                or parsed.path.rstrip("/") not in allowed_paths):
-            refuse(variable + " must list credential-free HTTPS URLs with a supported path "
-                   + "(" + ", ".join(sorted(path or "/" for path in allowed_paths)) + ")")
-        if port is not None and not 1 <= port <= 65535:
-            refuse(variable + " carries an invalid port")
-        normalized = value.rstrip("/")
-        if normalized not in result:
-            result.append(normalized)
-    return result
-
-
-if re.fullmatch(r"[1-9][0-9]*", network_id) is None or not 1 <= int(network_id) <= 0xFFFFFFFF:
-    refuse("the node network id is out of range")
-public = urllib.parse.urlsplit(public_url)
-if public.scheme != "https" or not public.hostname or public.path.rstrip("/"):
-    refuse("LAYERX_BETA_RELAY_HOST must produce a bare HTTPS origin, got " + public_url)
-first = cursor(first_batch, "sequencer_first_batch")
-last = cursor(last_batch, "sequencer_last_batch")
-if first > last or first == 0:
-    refuse("the sequencer batch authorization range is empty")
-seeds = origins("LAYERX_BETA_RELAY_PEER_SEED", ("",))
-document = {
-    "network_id": int(network_id),
-    "genesis_sha256": pin(genesis_sha256, "genesis_sha256"),
-    "sequencer_id": pin(sequencer_id, "sequencer_id"),
-    "sequencer_public_key": pin(sequencer_public_key, "sequencer_public_key"),
-    "sequencer_first_batch": str(first),
-    "sequencer_last_batch": str(last),
-    "genesis_manifest": source_dir + "/genesis/genesis.manifest",
-    "genesis_snapshot": source_dir + "/genesis/00000000000000000000.lxs",
-    "source_log": source_dir + "/checkpoints/da-bodies.log",
-    "data_dir": data_dir,
-    "listen": "0.0.0.0:9443",
-    "public_url": public_url.rstrip("/"),
-    "codec": codec,
-    "allow_loopback_dev": False,
-    "upstreams": origins("LAYERX_BETA_RELAY_UPSTREAM", ("",)),
-    "submission_upstreams": origins(
-        "LAYERX_BETA_RELAY_SUBMISSION_UPSTREAM", ("", "/v1/activities", "/rpc")),
-    "tls_cert": tls_dir + "/tls.crt",
-    "tls_key": tls_dir + "/tls.key",
-    "ca_file": "/etc/ssl/certs/ca-certificates.crt",
-    "peer_discovery": {
-        "enabled": bool(seeds),
-        "seeds": seeds,
-        "advertise_ttl_seconds": 300,
-        "refresh_interval_seconds": 60,
-        "max_peers": 64,
-        "max_advertised_peers": 32,
-        "allow_loopback_dev": False,
-    },
-}
-descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-with os.fdopen(descriptor, "w", encoding="utf-8") as output:
-    json.dump(document, output, sort_keys=True, indent=2)
-    output.write("\n")
-PYRELAY
-}
-
-relay_archive_apply() {
-    local configuration="$WORK_DIR/relay-archive.json" manifest="$WORK_DIR/genesis/genesis.manifest" pin
-    grep -Fq -- "- $NODE_DATA_DIR" "$NODE_MANIFEST" \
-        || fail "the node no longer runs with --data-dir $NODE_DATA_DIR; the relay/archive canonical source paths must follow it"
-    if [ -z "${LAYERX_BETA_RELAY_SUBMISSION_UPSTREAM:-}" ]; then
-        MISSING_INPUTS+=("LAYERX_BETA_RELAY_SUBMISSION_UPSTREAM: relay/archive activity forwarding; supply a public HTTPS endpoint such as https://$GATEWAY_HOST/v1/activities because services/platform/relay_archive/protocol.py refuses private cluster addresses")
-        log "relay/archive activity forwarding is unconfigured: set LAYERX_BETA_RELAY_SUBMISSION_UPSTREAM to a public HTTPS endpoint"
-    fi
-    mkdir -p "$WORK_DIR/genesis"
-    node_file_fetch "$NODE_DATA_DIR/genesis/genesis.manifest" "$manifest"
-    pin=$(sha256sum "$manifest" | cut -d ' ' -f 1)
-    [[ $pin =~ ^[0-9a-f]{64}$ ]] || fail "the node genesis manifest has no SHA-256 digest"
-    relay_archive_config_write "$configuration" "$NODE_NETWORK_ID" "$pin" \
-        "$(cat "$SECRETS_DIR/sequencer-id")" "$(cat "$SECRETS_DIR/sequencer-public-key")" \
-        "$(cat "$SECRETS_DIR/sequencer-first-batch")" "$(cat "$SECRETS_DIR/sequencer-last-batch")" \
-        "https://$RELAY_HOST"
-    apply_secret "$TESTNET_NAMESPACE" layerx-relay-archive-config --from-file=relay-archive.json="$configuration"
-    apply_tls_secret "$TESTNET_NAMESPACE" layerx-relay-archive-tls relay-archive
-    kube apply -f "$MANIFESTS_DIR/relay-archive.yaml" > /dev/null
-    wait_for_pod_ready "$TESTNET_NAMESPACE" app=layerx-relay-archive 600
-    log "relay/archive serving https://$RELAY_HOST pinned to genesis manifest $pin"
-}
-
 manifests_render() {
     mkdir -p "$MANIFESTS_DIR"
     render_manifest "$NODE_MANIFEST" "$MANIFESTS_DIR/node.yaml"
@@ -1940,10 +1764,6 @@ PYREG
     render_manifest "$REPO_ROOT/services/platform/hosted/human/web-deployment.yaml" "$MANIFESTS_DIR/human-web.yaml"
     render_manifest "$REPO_ROOT/services/platform/hosted/internal/deployment.yaml" "$MANIFESTS_DIR/internal.yaml"
     render_manifest "$REPO_ROOT/services/platform/hosted/webhooks/deployment.yaml" "$MANIFESTS_DIR/developer.yaml"
-    render_manifest "$REPO_ROOT/services/platform/relay_archive/deployment.yaml" "$MANIFESTS_DIR/relay-archive.yaml"
-    sed -i "s|archive\.paxeer\.network|$RELAY_HOST|g" "$MANIFESTS_DIR/relay-archive.yaml"
-    grep -Fq "host: $RELAY_HOST" "$MANIFESTS_DIR/relay-archive.yaml" \
-        || fail "the relay/archive manifest host could not be bound to $RELAY_HOST"
     if [ "$RAMP_ENABLED" = 1 ]; then
         render_manifest "$REPO_ROOT/services/platform/ramps/deployment.yaml" "$MANIFESTS_DIR/ramp.yaml"
     fi
@@ -2206,26 +2026,10 @@ wait_for_node_genesis() {
     [ "$NODE_SEQUENCER_PUBLIC_KEY" = "$(cat "$CA_DIR/sequencer.pub.hex")" ] || fail "the node sequencer public key differs from the generated sequencer key"
     [ "$GUARANTOR_CHECKPOINT_AUTHORITY_KEY_FILE" = /var/lib/guarantor-submitter/checkpoint-authority.pem ] \
         || fail "the node manifest no longer binds every guarantor to one checkpoint authority key file"
-    # The key itself was generated and published before the Paxeer genesis, because the custody
-    # parameter that accepts its signatures is genesis state. What is checked here is that the
-    # guarantors really do hold it: a pod that installed a different key would register deposit roots
-    # the chain rejects, and this bring-up would rather stop than run a cluster that cannot settle.
-    local checkpoint_authority pod_authority
-    checkpoint_authority=$(deposit_root_authority "$SECRETS_DIR")
-    kube -n "$TESTNET_NAMESPACE" exec layerx-node-0 -c guarantor-1 -- \
-        /opt/layerx/guarantor.sh --checkpoint-authority-public \
-        "$GUARANTOR_CHECKPOINT_AUTHORITY_KEY_FILE" > "$WORK_DIR/genesis/checkpoint-authority.public.hex"
-    pod_authority=$(deposit_root_authority "$WORK_DIR/genesis")
-    [ "$pod_authority" = "$checkpoint_authority" ] \
-        || fail "the guarantors sign deposit roots with $pod_authority but the Paxeer genesis authorizes $checkpoint_authority"
-    log "guarantor checkpoint authority $checkpoint_authority signs the deposit roots of this cluster"
 }
 
-# The guarantor that publishes a checkpoint signs its deposit-root registration with the Ed25519 key at
-# $GUARANTOR_CHECKPOINT_AUTHORITY_KEY_FILE: cmd/layerx-guarantor/authorization.py signs with the policy
-# field deposit_authority_key_file, which services/platform/hosted/tests/publication-policy.py sets to that path,
-# and every guarantor container mounts it from the one shared guarantor-submitter volume subpath. The
-# vault deposit-root authority must therefore be that key's public half.
+# Custody genesis retains the generated Ed25519 public key as its deposit-root authority for the
+# treasury binding. Read that key from the material generated before the Paxeer chain starts.
 deposit_root_authority() {
     local source="$1/checkpoint-authority.public.hex" key
     [ -r "$source" ] || fail "the guarantor checkpoint authority public key is unavailable at $source"
@@ -2241,7 +2045,7 @@ guarantor_set_render() {
 
 guarantor_sequence_test() (
     set -euo pipefail
-    local dir threshold index public signer id mutation
+    local dir threshold index public signer id
     dir=$(mktemp -d)
     trap 'rm -rf "$dir"' EXIT
     umask 077
@@ -2262,69 +2066,8 @@ guarantor_sequence_test() (
         ' "$dir/members.json" > /dev/null
         jq -s 'sort_by(.guarantor_id)' "$dir/members.jsonl" > "$dir/expected.json"
         jq -e --slurpfile expected "$dir/expected.json" 'map(del(.governance_sequence)) == $expected[0]' "$dir/members.json" > /dev/null
-        LAYERX_PAXEER_GUARANTORS="$dir/members.json" bash "$REPO_ROOT/services/platform/hosted/paxeer/anchor-guarantors.sh" check-guarantors
-        for mutation in 'map(.governance_sequence = 1)' '.[0].governance_sequence = 0' '.[1].governance_sequence = 3' '.[1].governance_sequence = "2"' '.[1].governance_sequence = 2.5' 'reverse'; do
-            jq "$mutation" "$dir/members.json" > "$dir/invalid.json"
-            if LAYERX_PAXEER_GUARANTORS="$dir/invalid.json" bash "$REPO_ROOT/services/platform/hosted/paxeer/anchor-guarantors.sh" check-guarantors > "$dir/refusal.log" 2>&1; then
-                fail "non-contiguous governance sequences were accepted: $mutation"
-            fi
-            grep -q 'governance sequences must be contiguous from 1 in member order' "$dir/refusal.log"
-        done
-        log "guarantor sequence threshold $threshold: sorted 1..$threshold and six explicit refusals passed"
+        log "guarantor sequence threshold $threshold: sorted 1..$threshold and member fields preserved"
     done
-)
-
-deposit_root_authority_test() (
-    set -euo pipefail
-    local dir key der expected policy scenario observed custody
-    dir=$(mktemp -d)
-    trap 'rm -rf "$dir"' EXIT
-    umask 077
-    mkdir -p "$dir/genesis"
-    guarantor_checkpoint_authority_generate "$dir/genesis"
-    key=$(deposit_root_authority "$dir/genesis")
-    [[ $key =~ ^0x[0-9a-fA-F]{64}$ ]] || fail "the extracted deposit-root authority is not a 32-byte key"
-    [ "$key" != "0x$(printf '%064d' 0)" ] || fail "the extracted deposit-root authority is zero"
-    der=$(openssl pkey -in "$dir/genesis/checkpoint-authority.pem" -pubout -outform DER | od -An -v -tx1 | tr -d ' \n')
-    [ "${#der}" -eq 88 ] && [ "${der:0:24}" = 302a300506032b6570032100 ] \
-        || fail "the guarantor checkpoint authority key is not Ed25519"
-    expected="0x${der:24}"
-    [ "$key" = "$expected" ] || fail "the deposit-root authority $key differs from the signing key public half $expected"
-    # The guarantor reads back the key the bring-up generated for it instead of minting one of its own,
-    # which is what lets the custody genesis authorize the signatures the guarantor will actually make.
-    observed=$(bash "$REPO_ROOT/services/platform/hosted/node/guarantor.sh" --checkpoint-authority-public \
-        "$dir/genesis/checkpoint-authority.pem")
-    [ "$observed" = "$key" ] \
-        || fail "the guarantor reports the checkpoint authority $observed for the key published as $key"
-    custody="$dir/custody-genesis.json"
-    if python3 "$REPO_ROOT/services/platform/hosted/paxeer/custody-genesis.py" --network-id "$NODE_NETWORK_ID" \
-        --sequencer-id "$(printf '%064d' 6)" --sequencer-public-key "$(printf '%064d' 7)" \
-        --asset "$NODE_ASSET_ID:uhpx" --output "$custody" > "$dir/refusal.log" 2>&1; then
-        fail "a custody genesis without a deposit-root authority was accepted"
-    fi
-    rm -f "$custody"
-    python3 "$REPO_ROOT/services/platform/hosted/paxeer/custody-genesis.py" --network-id "$NODE_NETWORK_ID" \
-        --sequencer-id "$(printf '%064d' 6)" --sequencer-public-key "$(printf '%064d' 7)" \
-        --deposit-root-authority "$key" --asset "$NODE_ASSET_ID:uhpx" --output "$custody"
-    [ "$(jq -r '.params.deposit_root_authority' "$custody")" = "${key#0x}" ] \
-        || fail "the custody genesis does not carry the guarantor checkpoint authority"
-    policy="$dir/authorization.json"
-    python3 "$REPO_ROOT/services/platform/hosted/tests/publication-policy.py" authorization "$policy" \
-        "$NODE_NETWORK_ID" "$PAXEER_CHAIN_ID" 0x"$(printf '%040d' 1)" 0x"$(printf '%040d' 2)" \
-        0x"$(printf '%040d' 3)" "$(printf '%064d' 4)" "$NODE_ASSET_ID" "$(printf '%040d' 5)"
-    [ "$(jq -r '.deposit_authority_key_file' "$policy")" = "$GUARANTOR_CHECKPOINT_AUTHORITY_KEY_FILE" ] \
-        || fail "the guarantor publication policy signs deposit roots with a different key file than the bring-up reads"
-    for scenario in missing malformed zero; do
-        case "$scenario" in
-            missing) rm -f "$dir/genesis/checkpoint-authority.public.hex" ;;
-            malformed) printf '0x%s\n' "${key:2:62}" > "$dir/genesis/checkpoint-authority.public.hex" ;;
-            zero) printf '0x%064d\n' 0 > "$dir/genesis/checkpoint-authority.public.hex" ;;
-        esac
-        if (deposit_root_authority "$dir/genesis") > "$dir/refusal.log" 2>&1; then
-            fail "a $scenario deposit-root authority was accepted"
-        fi
-    done
-    log "deposit-root authority $key generated, read back by the guarantor, carried into the custody genesis, with four refusals"
 )
 
 genesis_metadata_test() (
@@ -2463,15 +2206,13 @@ PYGENESISTEST
 paxeer_contracts_deploy() {
     [ "${LAYERX_BETA_FORBIDDEN_CHAIN_ID:-}" != "$PAXEER_CHAIN_ID" ] \
         || fail "contract transactions on chain $PAXEER_CHAIN_ID are forbidden by LAYERX_BETA_FORBIDDEN_CHAIN_ID"
-    local dir="$WORK_DIR/paxeer" signer bond_amount count index id public controller previous_id="" authority
+    local dir="$WORK_DIR/paxeer" signer count index id public controller previous_id="" authority
     mkdir -p "$dir/guarantor-keys"
     chmod 0700 "$dir/guarantor-keys"
     count=$(sed -n 's/^LAYERX_NODE_GENESIS_GUARANTOR_COUNT=//p' "$WORK_DIR/genesis/node.env")
     [[ $count =~ ^[1-9][0-9]*$ ]] && [ "$count" -le 32 ] || fail "node.env carries no bounded genesis guarantor count"
     [ "$count" -ge "$(jq -er '.finality_policy.certificate_threshold' "$REPO_ROOT/contracts/config/checkpoint-settlement.json")" ] \
         || fail "genesis guarantors cannot meet the certificate threshold"
-    bond_amount=$(jq -er '.params.min_bond' "$WORK_DIR/paxeer-anchor-genesis.json")
-    [[ $bond_amount =~ ^[1-9][0-9]*$ ]] || fail "the anchor genesis carries no positive minimum guarantor bond"
     : > "$dir/guarantors.jsonl"
     for ((index = 0; index < count; index++)); do
         id=$(sed -n "s/^LAYERX_NODE_GENESIS_GUARANTOR_ID_$index=//p" "$WORK_DIR/genesis/node.env")
@@ -2486,14 +2227,14 @@ paxeer_contracts_deploy() {
         fi
         signer=$(python3 "$REPO_ROOT/services/platform/hosted/paxeer/settlement-domain.py" signer "0x$public") || fail "guarantor signer derivation failed"
         jq -n --arg id "0x$id" --arg signer "$signer" --arg public_key "0x$public" \
-            --arg controller "$(cat "$SECRETS_DIR/$controller.address")" --arg bond "$bond_amount" \
-            '{guarantor_id: $id, signer: $signer, public_key: $public_key, bond_controller: $controller, joined_epoch: 1, bond_amount: $bond}' \
+            --arg controller "$(cat "$SECRETS_DIR/$controller.address")" \
+            '{guarantor_id: $id, signer: $signer, public_key: $public_key, bond_controller: $controller, joined_epoch: 1}' \
             >> "$dir/guarantors.jsonl"
         (umask 077; cp "$SECRETS_DIR/$controller.key" "$dir/guarantor-keys/0x$id.controller.key")
     done
     guarantor_set_render "$dir/guarantors.jsonl" > "$dir/guarantors.json"
     cp "$REPO_ROOT/contracts/config/checkpoint-settlement.json" "$dir/checkpoint-settlement.json"
-    authority=$(deposit_root_authority "$WORK_DIR/genesis")
+    authority=$(deposit_root_authority "$SECRETS_DIR")
     [ "$(jq -er '.params.network_id' "$WORK_DIR/paxeer-custody-genesis.json")" = "$NODE_NETWORK_ID" ] \
         || fail "the custody genesis network id differs from the node network id $NODE_NETWORK_ID"
     # Custody and the checkpoint anchor are chain modules: the record names their constant precompile
@@ -2504,30 +2245,8 @@ paxeer_contracts_deploy() {
           addresses: {custody: $custody, checkpoint_registry: $anchor, guarantor_bond: $anchor},
           deposit_root_authority: {public_key: $authority}}' > "$dir/deployment.json"
     log "custody $CUSTODY_PRECOMPILE and anchor $ANCHOR_PRECOMPILE are native modules; nothing is deployed (deposit-root authority $authority)"
-    anchor_guarantors_register
-}
-
-# Checkpoints settle and guarantors bond in the layerxanchor module behind the precompile at
-# 0x…1014: the settlement contract and the checkpoint registry of every LayerX configuration are
-# that one constant. The guarantor identities exist only after the node generated them, so they
-# register here through the precompile and the deployer, the anchor authority, activates them, and
-# the beta settlement domain is written as the anchor domain.
-anchor_guarantors_register() {
-    local dir="$WORK_DIR/paxeer"
-    [ "$(jq -er '.params.network_id' "$WORK_DIR/paxeer-anchor-genesis.json")" = "$NODE_NETWORK_ID" ] \
-        || fail "the anchor genesis network id differs from the node network id $NODE_NETWORK_ID"
-    if ! LAYERX_PAXEER_BOUNDARY_URL="$PAXEER_URL" LAYERX_PAXEER_BOUNDARY_CA_DER="$CA_DIR/ca.der" LAYERX_PAXEER_CHAIN_ID="$PAXEER_CHAIN_ID" \
-        LAYERX_PAXEER_DEPLOYER_KEY_FILE="$SECRETS_DIR/paxeer-deployer.key" \
-        LAYERX_PAXEER_ANCHOR_GENESIS="$WORK_DIR/paxeer-anchor-genesis.json" LAYERX_PAXEER_GUARANTORS="$dir/guarantors.json" \
-        LAYERX_PAXEER_GUARANTOR_KEYS_DIR="$dir/guarantor-keys" LAYERX_PAXEER_SETTLEMENT_JSON="$dir/checkpoint-settlement.json" \
-        LAYERX_PAXEER_SETTLEMENT_DOMAIN=beta \
-        bash "$REPO_ROOT/services/platform/hosted/paxeer/anchor-guarantors.sh" > "$LOG_DIR/anchor-guarantors.log" 2>&1; then
-        tail -n 40 "$LOG_DIR/anchor-guarantors.log" >&2
-        fail "anchor-guarantors.sh failed (log $LOG_DIR/anchor-guarantors.log)"
-    fi
     GUARANTOR_BOND=$ANCHOR_PRECOMPILE
     CHECKPOINT_REGISTRY=$ANCHOR_PRECOMPILE
-    log "guarantors registered and active in the anchor module at $ANCHOR_PRECOMPILE"
 }
 
 settlement_publish() {
@@ -2541,7 +2260,6 @@ settlement_publish() {
         || fail "the settlement environment was refused by bootstrap.sh --check-settlement"
     apply_configmap "$ns" layerx-node-settlement --from-file=settlement.env="$WORK_DIR/paxeer/settlement.env" \
         --from-file=checkpoint-settlement.json="$WORK_DIR/paxeer/checkpoint-settlement.json"
-    publication_authorization_publish
     log "settlement environment published as ConfigMap $ns/layerx-node-settlement"
 }
 
@@ -3293,16 +3011,6 @@ agentd_check() {
 
 boundary_checks() {
     local node script="$REPO_ROOT/services/platform/hosted/registry/node-provision-build-boundary.sh"
-    log "boundary checks: gateway hosted boundary"
-    (
-        set -a
-        # shellcheck disable=SC1090
-        . "$ENV_FILE"
-        set +a
-        : "${LAYERX_RECEIPT_VERIFY_BIN:=$REPO_ROOT/tools/platform/target/release/layerx}"
-        export LAYERX_RECEIPT_VERIFY_BIN
-        sh "$REPO_ROOT/services/platform/hosted/gateway/tests/hosted-boundary.sh"
-    )
     log "boundary checks: webhooks fault injection"
     (
         set -a
@@ -3454,48 +3162,6 @@ for path in "$deposit" "$credit"; do
     [ "$(stat -c '%u %a %h' "$path")" = "$(id -u) 600 1" ] || { printf '%s: evidence file is not private to the movement provider\n' "$path" >&2; exit 1; }
 done
 HUMAN_EVIDENCE_DELIVERY
-}
-
-human_custody_evidence_publish() {
-    local input="$WORK_DIR/human-evidence-input" ns="$TESTNET_NAMESPACE" log_file="$LOG_DIR/human-deposit-proof.log"
-    local transaction account credit checkpoint attempted="" deadline
-    transaction=$(jq -er '.transactionHash' "$input/custody-deposit.json" | tr '[:upper:]' '[:lower:]') \
-        || fail "$input/custody-deposit.json: the owner custody deposit receipt is required before evidence delivery"
-    [[ $transaction =~ ^0x[0-9a-f]{64}$ ]] || fail "custody-deposit.json carries no 32-byte transaction hash"
-    account="agent:$(jq -er '.did' "$input/owner-admission.json"):main" \
-        || fail "$input/owner-admission.json: the admitted owner DID is required before evidence delivery"
-    credit="$input/credit-${transaction#0x}.bin"
-    [ -f "$credit" ] && [ ! -L "$credit" ] && [ "$(stat -c %s "$credit")" -gt 363 ] \
-        || fail "$credit: the light-client custody credit for the owner deposit is missing; owner_custody.py deposit publishes it"
-    [[ $CHECKPOINT_REGISTRY =~ ^0x[0-9a-fA-F]{40}$ ]] || fail "the anchor precompile address is required before evidence delivery"
-    log "publishing the owner custody deposit proof for $transaction through the in-cluster movement provider"
-    deadline=$((SECONDS + 600))
-    while :; do
-        checkpoint=$(custody_latest_checkpoint) \
-            || fail "the latest finalized checkpoint could not be read from the anchor precompile $CHECKPOINT_REGISTRY"
-        if [ "$checkpoint" != "$attempted" ] && [[ ! $checkpoint =~ ^0x0{64}$ ]]; then
-            attempted=$checkpoint
-            printf 'attempting deposit proof publication against checkpoint %s\n' "$checkpoint" >> "$log_file"
-            if kube -n "$ns" exec layerx-node-0 -c human-movement -- sh -ec '
-                umask 077
-                runtime=$(mktemp -d /run/human-private/movement-publish.XXXXXX)
-                status=0
-                /usr/local/bin/layerx-runtime-clock --runtime-dir "$runtime" -- \
-                    /usr/local/bin/layerx-human-movement-provider --publish-deposit-proof "$@" || status=$?
-                rm -r "$runtime"
-                exit "$status"
-            ' sh "$transaction" "$checkpoint" "$account" >> "$log_file" 2>&1; then
-                break
-            fi
-        fi
-        [ "$SECONDS" -lt "$deadline" ] \
-            || fail "no canonical checkpoint covered the owner custody deposit $transaction within 600s; see $log_file"
-        sleep 5
-    done
-    human_evidence_delivery_script | kube -n "$ns" exec -i layerx-node-0 -c human-movement -- \
-        sh -s -- /var/lib/layerx/human/evidence "${transaction#0x}" "$(base64 -w0 "$credit")" "$(sha256sum "$credit" | cut -c1-64)" \
-        || fail "the custody credit material for $transaction was not delivered to the movement provider evidence root"
-    log "owner custody deposit proof and credit material delivered to the movement provider for $transaction"
 }
 
 ramp_inputs_require() {
@@ -3871,10 +3537,8 @@ beta_cluster_up() {
     port_forward agent-boundary "$TESTNET_NAMESPACE" layerx-agent-boundary 19447 9443
     port_forward agentd "$TESTNET_NAMESPACE" layerx-agentd 19456 9443
     wait_for_pod_ready "$TESTNET_NAMESPACE" app=layerx-node 600
-    if [ "${LAYERX_BETA_RETAIN_MATERIAL:-0}" != 1 ]; then human_custody_evidence_publish; fi
     agentd_check
     mirror_ready
-    relay_archive_apply
     port_forward explorer-index "$TESTNET_NAMESPACE" layerx-explorer-index "$EXPLORER_INDEX_PORT" 9443
     module_registry_verify
     explorer_observation_publish
@@ -3988,7 +3652,6 @@ main() {
             ;;
         test-retained-material) retained_material_test ;;
         test-guarantor-sequences) guarantor_sequence_test ;;
-        test-deposit-root-authority) deposit_root_authority_test ;;
         test-genesis-metadata) genesis_metadata_test ;;
         down) beta_cluster_down ;;
         render) beta_cluster_render ;;

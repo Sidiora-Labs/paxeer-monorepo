@@ -277,9 +277,10 @@ func TestWALEntryKindsRoundTrip(t *testing.T) {
 		&Open{Height: 42, OpenTimeMs: 1_760_000_000_123, BaseFee: fee},
 		accept,
 		&Seal{Height: 42, FromSeq: 901, ToSeq: 901, LastSeqHash: hash},
+		&Seal{Height: 43, FromSeq: 902, ToSeq: 901, LastSeqHash: hash},
 		&Lease{Epoch: 3, KeyID: key, ExpiryMs: 1_760_000_000_500},
 	}
-	wantKinds := []EntryKind{KindOpen, KindAccept, KindSeal, KindLease}
+	wantKinds := []EntryKind{KindOpen, KindAccept, KindSeal, KindSeal, KindLease}
 	for i, e := range append([]Entry{committed}, entries...) {
 		b, err := EncodeEntry(e)
 		if err != nil {
@@ -311,7 +312,7 @@ func TestWALEntryKindsRoundTrip(t *testing.T) {
 	for _, e := range entries {
 		mustAppend(t, w, e)
 	}
-	mustSync(t, w, 5)
+	mustSync(t, w, 6)
 	w.Close()
 	w = mustOpen(t, dir, DefaultConfig())
 	exec := &chainExecutor{}
@@ -325,7 +326,7 @@ func TestWALEntryKindsRoundTrip(t *testing.T) {
 	if !reflect.DeepEqual(res.LastAccept, entries[1]) || res.Accepts != 1 {
 		t.Fatalf("ACCEPT read back as %+v (%d), want %+v", res.LastAccept, res.Accepts, entries[1])
 	}
-	if want := []Entry{entries[0], entries[2], entries[3]}; !reflect.DeepEqual(exec.applied, want) {
+	if want := []Entry{entries[0], entries[2], entries[3], entries[4]}; !reflect.DeepEqual(exec.applied, want) {
 		t.Fatalf("applied %+v, want %+v", exec.applied, want)
 	}
 	if res.Tail != nil {
@@ -350,7 +351,7 @@ func TestWALEntryKindsRoundTrip(t *testing.T) {
 		{"trailing byte", append(append([]byte(nil), good...), 0), ErrMalformed},
 		{"header only", good[:1], ErrMalformed},
 		{"accept length past end", []byte{Version, byte(KindAccept), 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0xff, 0xff, 0xff, 0xff}, ErrMalformed},
-		{"seal from above to", mustEncode(t, &Seal{Height: 1, FromSeq: 2, ToSeq: 2}, func(b []byte) { b[len(b)-1] = 3 }), ErrMalformed},
+		{"seal from above to", mustEncode(t, &Seal{Height: 1, FromSeq: 2, ToSeq: 2}, func(b []byte) { b[len(b)-1] = 4 }), ErrMalformed},
 	}
 	for _, r := range refusals {
 		if _, err := DecodeEntry(r.b); !errors.Is(err, r.want) {
@@ -360,7 +361,7 @@ func TestWALEntryKindsRoundTrip(t *testing.T) {
 	if _, err := EncodeEntry(&Open{Height: 1}); !errors.Is(err, ErrMalformed) {
 		t.Fatalf("EncodeEntry(OPEN without base fee) = %v, want ErrMalformed", err)
 	}
-	if _, err := EncodeEntry(&Seal{FromSeq: 5, ToSeq: 4}); !errors.Is(err, ErrMalformed) {
+	if _, err := EncodeEntry(&Seal{FromSeq: 903, ToSeq: 901}); !errors.Is(err, ErrMalformed) {
 		t.Fatalf("EncodeEntry(SEAL from above to) = %v, want ErrMalformed", err)
 	}
 	if _, err := EncodeEntry(&Accept{Tx: make([]byte, MaxEntrySize)}); !errors.Is(err, ErrEntryTooLarge) {
@@ -475,6 +476,219 @@ func TestWALReplayReproducesReceipts(t *testing.T) {
 	}
 	if res.Accepts != 16 || res.LastAccept.Seq != 23 {
 		t.Fatalf("replay stopped after %d accepts at %+v, want 16 ending at seq 23", res.Accepts, res.LastAccept)
+	}
+}
+
+func TestReplayReportsLastLoggedAccept(t *testing.T) {
+	for _, segment := range []struct {
+		name string
+		cfg  Config
+	}{
+		{name: "head", cfg: DefaultConfig()},
+		{name: "sealed", cfg: Config{SegmentSizeLimit: 1}},
+	} {
+		for _, tc := range []struct {
+			name      string
+			committed bool
+			tail      bool
+		}{
+			{name: "without committed"},
+			{name: "before committed", committed: true},
+			{name: "after committed", committed: true, tail: true},
+		} {
+			t.Run(segment.name+"/"+tc.name, func(t *testing.T) {
+				dir := t.TempDir()
+				w := mustOpen(t, dir, segment.cfg)
+				t.Cleanup(w.Close)
+				primary := &chainExecutor{}
+				var seq uint64
+				accepts := writeHeight(t, w, primary, 1000, &seq, 2)
+				wantLogged := accepts[len(accepts)-1]
+				wantLastAccept := wantLogged
+				wantAccepts := len(accepts)
+				var committed *Committed
+				var committedState [32]byte
+				if tc.committed {
+					committed = &Committed{Height: 1000, LastSeq: seq, AppHash: primary.state}
+					mustAppend(t, w, committed)
+					committedState = primary.state
+					wantLastAccept = nil
+					wantAccepts = 0
+				}
+				if tc.tail {
+					accepts = writeHeight(t, w, primary, 1001, &seq, 2)
+					wantLogged = accepts[len(accepts)-1]
+					wantLastAccept = wantLogged
+					wantAccepts = len(accepts)
+				}
+				if _, err := w.GroupSync(); err != nil {
+					t.Fatal(err)
+				}
+				w.Close()
+
+				w = mustOpen(t, dir, segment.cfg)
+				defer w.Close()
+				exec := &chainExecutor{state: committedState}
+				res, err := w.Replay(exec)
+				if err != nil {
+					t.Fatalf("Replay: %v", err)
+				}
+				if !reflect.DeepEqual(res.LastLogged, wantLogged) {
+					t.Fatalf("last logged ACCEPT = %+v, want %+v", res.LastLogged, wantLogged)
+				}
+				if !reflect.DeepEqual(res.From, committed) {
+					t.Fatalf("replay started after %+v, want %+v", res.From, committed)
+				}
+				if res.Accepts != wantAccepts || !reflect.DeepEqual(res.LastAccept, wantLastAccept) {
+					t.Fatalf("replayed %d accepts ending at %+v, want %d ending at %+v", res.Accepts, res.LastAccept, wantAccepts, wantLastAccept)
+				}
+				if exec.state != primary.state {
+					t.Fatalf("replayed state %x, want primary state %x", exec.state, primary.state)
+				}
+			})
+		}
+	}
+}
+
+func TestReplayLastLoggedNilWithoutAccepts(t *testing.T) {
+	for _, segment := range []struct {
+		name string
+		cfg  Config
+	}{
+		{name: "head", cfg: DefaultConfig()},
+		{name: "sealed", cfg: Config{SegmentSizeLimit: 1}},
+	} {
+		for _, history := range []bool{false, true} {
+			name := "empty"
+			if history {
+				name = "non-accept entries"
+			}
+			t.Run(segment.name+"/"+name, func(t *testing.T) {
+				dir := t.TempDir()
+				w := mustOpen(t, dir, segment.cfg)
+				t.Cleanup(w.Close)
+				if history {
+					mustAppend(t, w, &Open{Height: 1000, OpenTimeMs: 400_000, BaseFee: uint256.NewInt(67_000_000)})
+					mustAppend(t, w, &Lease{Epoch: 7, KeyID: [32]byte{1}, ExpiryMs: 500_000})
+					mustAppend(t, w, &Committed{Height: 1000})
+					mustAppend(t, w, &Open{Height: 1001, OpenTimeMs: 400_400, BaseFee: uint256.NewInt(67_000_000)})
+					mustSync(t, w, 4)
+				}
+				w.Close()
+
+				w = mustOpen(t, dir, segment.cfg)
+				defer w.Close()
+				exec := &chainExecutor{}
+				res, err := w.Replay(exec)
+				if err != nil {
+					t.Fatalf("Replay: %v", err)
+				}
+				if res.LastLogged != nil {
+					t.Fatalf("last logged ACCEPT = %+v, want nil", res.LastLogged)
+				}
+				if res.Accepts != 0 || res.LastAccept != nil {
+					t.Fatalf("replayed ACCEPTs without any logged: %+v", res)
+				}
+				wantApplied := 0
+				if history {
+					wantApplied = 1
+				}
+				if len(exec.applied) != wantApplied {
+					t.Fatalf("applied %d entries, want %d", len(exec.applied), wantApplied)
+				}
+			})
+		}
+	}
+}
+
+func TestReplayKeepsLeaseBeforeCommitted(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		cfg  Config
+	}{
+		{name: "head", cfg: DefaultConfig()},
+		{name: "sealed", cfg: Config{SegmentSizeLimit: 1}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			w := mustOpen(t, dir, tc.cfg)
+			t.Cleanup(w.Close)
+			older := &Lease{Epoch: 7, KeyID: [32]byte{1}, ExpiryMs: 400_000}
+			want := &Lease{Epoch: 8, KeyID: [32]byte{2}, ExpiryMs: 500_000}
+			mustAppend(t, w, older)
+			mustAppend(t, w, want)
+			mustSync(t, w, 2)
+			committed := &Committed{Height: 1000, LastSeq: 7, AppHash: [32]byte{3}}
+			mustAppend(t, w, committed)
+			mustSync(t, w, 1)
+			w.Close()
+
+			w = mustOpen(t, dir, tc.cfg)
+			defer w.Close()
+			exec := &chainExecutor{}
+			res, err := w.Replay(exec)
+			if err != nil {
+				t.Fatalf("Replay: %v", err)
+			}
+			if !reflect.DeepEqual(res.Lease, want) {
+				t.Fatalf("replayed lease %+v, want %+v before COMMITTED", res.Lease, want)
+			}
+			if !reflect.DeepEqual(res.From, committed) {
+				t.Fatalf("replay started after %+v, want %+v", res.From, committed)
+			}
+			if len(exec.applied) != 0 || res.Accepts != 0 || res.LastAccept != nil {
+				t.Fatalf("replayed entries before COMMITTED: applied %+v, result %+v", exec.applied, res)
+			}
+		})
+	}
+}
+
+func TestReplayReportsLatestLease(t *testing.T) {
+	older := &Lease{Epoch: 7, KeyID: [32]byte{1}, ExpiryMs: 400_000}
+	later := &Lease{Epoch: 8, KeyID: [32]byte{2}, ExpiryMs: 500_000}
+	latest := &Lease{Epoch: 9, KeyID: [32]byte{3}, ExpiryMs: 600_000}
+	committed := &Committed{Height: 1000, LastSeq: 7, AppHash: [32]byte{4}}
+	for _, tc := range []struct {
+		name    string
+		entries []Entry
+		want    *Lease
+		applied []Entry
+	}{
+		{name: "empty"},
+		{name: "without_lease", entries: []Entry{committed}},
+		{
+			name: "without_committed", entries: []Entry{older, latest},
+			want: latest, applied: []Entry{older, latest},
+		},
+		{
+			name: "after_committed", entries: []Entry{older, committed, later, latest},
+			want: latest, applied: []Entry{later, latest},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			w := mustOpen(t, dir, DefaultConfig())
+			t.Cleanup(w.Close)
+			for _, entry := range tc.entries {
+				mustAppend(t, w, entry)
+			}
+			mustSync(t, w, len(tc.entries))
+			w.Close()
+
+			w = mustOpen(t, dir, DefaultConfig())
+			defer w.Close()
+			exec := &chainExecutor{}
+			res, err := w.Replay(exec)
+			if err != nil {
+				t.Fatalf("Replay: %v", err)
+			}
+			if !reflect.DeepEqual(res.Lease, tc.want) {
+				t.Fatalf("replayed lease %+v, want %+v", res.Lease, tc.want)
+			}
+			if !reflect.DeepEqual(exec.applied, tc.applied) {
+				t.Fatalf("applied %+v, want %+v", exec.applied, tc.applied)
+			}
+		})
 	}
 }
 

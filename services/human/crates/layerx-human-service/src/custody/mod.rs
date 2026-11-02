@@ -8,13 +8,13 @@ pub use evm::{
     SendPlanAuthorization,
 };
 mod sessions;
-mod signer;
+pub mod signer;
 
 pub use gateway::{GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, GATEWAY_FRAME_LIMIT};
 pub use provider::{
-    KmsProvider, NativeConsent, ProviderNativeSignRequest, PrincipalKeyBinding, ProviderDeployment, ProviderKeyDescription,
-    ProviderKeyReference, ProviderSignRequest, RemoteCustodySigner, RemoteKmsProvider,
-    RotationState,
+    KmsProvider, NativeConsent, PrincipalKeyBinding, ProviderDeployment, ProviderKeyDescription,
+    ProviderKeyReference, ProviderNativeSignRequest, ProviderSignRequest, RemoteCustodySigner,
+    RemoteKmsProvider, RotationState,
 };
 pub use sessions::{
     AgentContractError, AgentSessionContract, AgentSessionProvision, AgentSessionSecret,
@@ -25,9 +25,10 @@ pub use sessions::{
     SessionLeaseState, SessionPolicy, SessionTarget, SuspensionEvidence,
 };
 
+pub(crate) use signer::attach_call_signature;
 pub use signer::{
-    CustodySigner, NativeConsentRequest, Operation, SettlementRecipientRequest, SignAuthorization, SignRequest,
-    SignatureGrant, SigningLimits, StepUpEvidence,
+    CustodySigner, NativeConsentRequest, Operation, SignAuthorization, SignRequest, SignatureGrant,
+    SigningLimits, StepUpEvidence,
 };
 
 use std::fmt::{Display, Formatter};
@@ -941,7 +942,7 @@ impl Keystore {
         ))
     }
 
-    fn binding(
+    pub fn binding(
         &self,
         principal: &PrincipalId,
         key: &KeyId,

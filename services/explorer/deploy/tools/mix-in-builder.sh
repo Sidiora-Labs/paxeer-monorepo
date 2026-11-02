@@ -60,6 +60,7 @@ reuse_db=0
 check_only=0
 sidecar_started=0
 database_container=''
+database_group_suffix=''
 
 log() {
   printf 'mix-in-builder: %s\n' "$*" >&2
@@ -146,9 +147,9 @@ default_build_volume() {
 
 database_container_name() {
   if [ "$reuse_db" -eq 1 ]; then
-    printf 'explorer-mix-db-%s' "$(tree_digest)"
+    printf 'explorer-mix-db-%s%s' "$(tree_digest)" "${database_group_suffix:-}"
   else
-    printf 'explorer-mix-db-%s-%s' "$(tree_digest)" "$$"
+    printf 'explorer-mix-db-%s-%s%s' "$(tree_digest)" "$$" "${database_group_suffix:-}"
   fi
 }
 
@@ -191,6 +192,7 @@ ensure_mounts() {
   for mount in apps config rel mix.exs mix.lock .formatter.exs .credo.exs; do
     [ -e "$backend_dir/$mount" ] || die "mount source $backend_dir/$mount does not exist"
   done
+  [ -d "$repo_root/precompiles" ] || die "mount source $repo_root/precompiles is not a directory"
 }
 
 # Everything the builder image is built from. The digest goes on the image as a
@@ -312,12 +314,14 @@ mix_in_container() {
     --volume "$backend_dir/mix.lock:$CONTAINER_WORKDIR/mix.lock" \
     --volume "$backend_dir/.formatter.exs:$CONTAINER_WORKDIR/.formatter.exs" \
     --volume "$backend_dir/.credo.exs:$CONTAINER_WORKDIR/.credo.exs" \
+    --volume "$repo_root/precompiles:/precompiles:ro" \
     --volume "$build_volume:$build_path" \
     --env MIX_ENV="$mix_env" \
     --env MIX_BUILD_PATH="$build_path" \
     --env MIX_HOME="$MIX_HOME_IN_IMAGE" \
     --env CHAIN_TYPE="$chain_type" \
     --env ETHEREUM_JSONRPC_VARIANT="$jsonrpc_variant" \
+    --env PAXEER_PRECOMPILES_DIR=/precompiles \
     --env PGUSER="$pguser" \
     --env PGPASSWORD="$pgpassword" \
     --env MIX_IN_BUILDER_BROWSER_DRIVER="$browser_driver" \
@@ -333,6 +337,121 @@ mix_in_container() {
   mix_status=0
   docker "$@" || mix_status=$?
   return "$mix_status"
+}
+
+run_test_group() (
+  set -e
+  test_app=$1
+  shift
+  remaining=$#
+  while [ "$remaining" -gt 0 ]; do
+    argument=$1
+    shift
+    case $argument in
+      apps/*/*)
+        argument_app=${argument#apps/}
+        argument_app=${argument_app%%/*}
+        if [ "$argument_app" != "$test_app" ]; then
+          remaining=$((remaining - 1))
+          continue
+        fi
+        ;;
+    esac
+    set -- "$@" "$argument"
+    remaining=$((remaining - 1))
+  done
+
+  database_group_suffix=-$test_app
+  run_mix_command "$@"
+)
+
+run_test_groups() (
+  status=0
+  while :; do
+    test_app=''
+    for argument in "$@"; do
+      case $argument in
+        apps/*/*)
+          test_app=${argument#apps/}
+          test_app=${test_app%%/*}
+          break
+          ;;
+      esac
+    done
+    [ -n "$test_app" ] || break
+
+    set +e
+    run_test_group "$test_app" "$@"
+    group_status=$?
+    set -e
+    if [ "$status" -eq 0 ] && [ "$group_status" -ne 0 ]; then
+      status=$group_status
+    fi
+
+    remaining=$#
+    while [ "$remaining" -gt 0 ]; do
+      argument=$1
+      shift
+      case $argument in
+        "apps/$test_app/"*) ;;
+        *) set -- "$@" "$argument" ;;
+      esac
+      remaining=$((remaining - 1))
+    done
+  done
+  exit "$status"
+)
+
+run_mix_command() {
+  build_volume=${MIX_BUILD_VOLUME:-$(default_build_volume)}
+  database_container=$(database_container_name)
+
+  if browser_driver_needed "$@"; then
+    browser_driver=1
+  else
+    browser_driver=0
+  fi
+
+  ensure_runtime
+  ensure_mounts
+
+  if [ "$check_only" -eq 1 ]; then
+    case $(image_state) in
+      current)
+        log "the builder image $image resolves and matches the inputs it was built from"
+        ;;
+      unlabelled)
+        log "the builder image $image resolves but carries no input digest, so this run cannot tell whether it matches the current Dockerfile, lock file and application manifests"
+        ;;
+      absent)
+        [ -f "$dockerfile" ] || die "the builder image $image is absent and $dockerfile does not exist"
+        log "the builder image $image is absent, it would be built from ${dockerfile#"$repo_root"/}"
+        ;;
+      stale)
+        [ -f "$dockerfile" ] || die "the builder image $image was built from other inputs and $dockerfile does not exist"
+        log "the builder image $image was built from other inputs, it would be rebuilt from ${dockerfile#"$repo_root"/}"
+        ;;
+    esac
+    log "every mount source resolves, build volume $build_volume, sidecar $database_container"
+    mix_in_container print "$@"
+    exit 0
+  fi
+
+  trap remove_sidecar EXIT
+  trap 'remove_sidecar; exit 130' INT
+  trap 'remove_sidecar; exit 143' TERM
+  trap 'remove_sidecar; exit 129' HUP
+
+  ensure_image
+  start_sidecar
+
+  mix_in_container print "$@"
+
+  status=0
+  mix_in_container run "$@" || status=$?
+
+  remove_sidecar
+  exit "$status"
 }
 
 while [ "$#" -gt 0 ]; do
@@ -371,52 +490,22 @@ done
 
 [ "$#" -gt 0 ] || [ "$check_only" -eq 1 ] || die 'no mix arguments given; try --help'
 
-build_volume=${MIX_BUILD_VOLUME:-$(default_build_volume)}
-database_container=$(database_container_name)
-
-if browser_driver_needed "$@"; then
-  browser_driver=1
-else
-  browser_driver=0
+first_test_app=''
+if [ "${1:-}" = 'test' ]; then
+  for argument in "$@"; do
+    case $argument in
+      apps/*/*)
+        test_app=${argument#apps/}
+        test_app=${test_app%%/*}
+        if [ -z "$first_test_app" ]; then
+          first_test_app=$test_app
+        elif [ "$test_app" != "$first_test_app" ]; then
+          run_test_groups "$@"
+          exit $?
+        fi
+        ;;
+    esac
+  done
 fi
 
-ensure_runtime
-ensure_mounts
-
-if [ "$check_only" -eq 1 ]; then
-  case $(image_state) in
-    current)
-      log "the builder image $image resolves and matches the inputs it was built from"
-      ;;
-    unlabelled)
-      log "the builder image $image resolves but carries no input digest, so this run cannot tell whether it matches the current Dockerfile, lock file and application manifests"
-      ;;
-    absent)
-      [ -f "$dockerfile" ] || die "the builder image $image is absent and $dockerfile does not exist"
-      log "the builder image $image is absent, it would be built from ${dockerfile#"$repo_root"/}"
-      ;;
-    stale)
-      [ -f "$dockerfile" ] || die "the builder image $image was built from other inputs and $dockerfile does not exist"
-      log "the builder image $image was built from other inputs, it would be rebuilt from ${dockerfile#"$repo_root"/}"
-      ;;
-  esac
-  log "every mount source resolves, build volume $build_volume, sidecar $database_container"
-  mix_in_container print "$@"
-  exit 0
-fi
-
-trap remove_sidecar EXIT
-trap 'remove_sidecar; exit 130' INT
-trap 'remove_sidecar; exit 143' TERM
-trap 'remove_sidecar; exit 129' HUP
-
-ensure_image
-start_sidecar
-
-mix_in_container print "$@"
-
-status=0
-mix_in_container run "$@" || status=$?
-
-remove_sidecar
-exit "$status"
+run_mix_command "$@"

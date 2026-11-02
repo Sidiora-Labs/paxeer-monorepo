@@ -71,7 +71,7 @@ LayerX names the kernel domain only: the C kernel (`layerxd`), its programs and 
 
 - `sdk/platform/` — the generated platform SDKs (Go, JVM, Swift, .NET), their generators, schema, conformance suite and generation pipeline.
 - `sdk/integrations/` — framework integration examples: agents, Android, Express, FastAPI, iOS, Next.js and Spring.
-- `sdk/js/` — vendored `@pax-js/cosmos`, the TypeScript types and clients generated from the chain's protobufs.
+- `sdk/js/` — the first-party `@pax-js/cosmos` package: TypeScript types and clients aligned to the protos of this repository, edited in place.
 - `sdk/wallet/` — the wallet SDK (`@paxeer/wallet`): Supabase sign-in, the embedded wallet, an EIP-1193 provider and clients for the human service and the kernel.
 - `sdk/chainflow/` — the Chainflow Data Gateway client libraries for Go, Python, Rust and TypeScript.
 - `sdk/launchpad/` — launchpad libraries: `protocol` (contract ABIs, Go bindings and event types), `shared` (the runtime library of every launchpad service) and `packages` (the client TypeScript SDKs and contract packages).

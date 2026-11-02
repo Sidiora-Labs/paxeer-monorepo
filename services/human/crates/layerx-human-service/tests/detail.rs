@@ -7,8 +7,6 @@ use layerx_agent_api::subscription::{
     Cursor as ApiCursor, EventDelivery, EventIdentity, ReceiptReference,
 };
 use layerx_agent_api::track::ReceiptRef;
-use layerx_agent_api::verify::Level;
-use layerx_agent_api::Sequence;
 use layerx_human_service::activity::detail::{
     DetailError, EvidenceKind, FinalityReference, ReceiptActual, StageState,
 };
@@ -18,6 +16,7 @@ use layerx_human_service::activity::{
 };
 use layerx_human_service::notify::ActivityEntryId;
 use layerx_proof::receipt::{verify, AuthorizedBatch, VerifiedReceipt};
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use sha2::{Digest as _, Sha256};
 
@@ -156,21 +155,28 @@ fn assembles_every_activity_class_from_verified_receipt_actuals() {
         ActivityKind::Security,
     ];
 
-    for (index, kind) in kinds.into_iter().enumerate() {
-        let finalised = kind == ActivityKind::Movement;
-        let level = if finalised {
-            Level::CheckpointFinalised
+    for (index, (kind, finalised)) in kinds
+        .into_iter()
+        .flat_map(|kind| [(kind, false), (kind, true)])
+        .enumerate()
+    {
+        let rung = if finalised {
+            Rung::Committed
         } else {
-            Level::SequencerSigned
+            Rung::Receipted
         };
         let sequence = u64::try_from(index).unwrap_or(0).saturating_add(1);
         let delivery = EventDelivery::new(
             EventIdentity::new([u8::try_from(sequence).unwrap_or(1); 32]),
             receipt.canonical_bytes().to_vec(),
-            ApiCursor(Sequence(sequence)),
+            ApiCursor {
+                block_height: sequence,
+                tx_index: 0,
+                log_index: 0,
+            },
             ReceiptReference::Verified {
                 receipt_ref: receipt_ref.clone(),
-                verification_level: level,
+                rung,
             },
         )
         .unwrap_or_else(|error| panic!("delivery: {error:?}"));
@@ -182,13 +188,22 @@ fn assembles_every_activity_class_from_verified_receipt_actuals() {
         )
         .unwrap_or_else(|error| panic!("feed entry: {error}"));
         let finality = finalised.then(|| {
-            FinalityReference::new([0x77; 32], Level::CheckpointFinalised)
+            FinalityReference::new([0x77; 32], Rung::Committed)
                 .unwrap_or_else(|error| panic!("finality: {error}"))
         });
         let detail = EntryDetail::assemble(&entry, vec![actual.clone()], finality)
             .unwrap_or_else(|error| panic!("detail: {error}"));
 
         assert_eq!(detail.kind(), kind);
+        assert_eq!(detail.is_final(), finalised);
+        assert_eq!(
+            detail.rung(),
+            if finalised {
+                Rung::Committed
+            } else {
+                Rung::Receipted
+            }
+        );
         assert!(detail.sentence().ends_with('.'));
         assert!(!detail.stages().is_empty());
         assert_eq!(
@@ -207,6 +222,11 @@ fn assembles_every_activity_class_from_verified_receipt_actuals() {
             .path()
             .starts_with("/explorer/receipts/"));
         if finalised {
+            let reference = detail
+                .finality()
+                .unwrap_or_else(|| panic!("missing finality"));
+            assert_eq!(reference.rung(), Rung::Committed);
+            assert!(reference.is_final());
             assert_eq!(detail.evidence().len(), 2);
             assert_eq!(detail.evidence()[1].kind(), EvidenceKind::Checkpoint);
             assert!(detail.evidence()[1]
@@ -232,11 +252,15 @@ fn refuses_unbacked_actuals_and_states_refusal_funds_disposition() {
     let completed_delivery = EventDelivery::new(
         EventIdentity::new([1; 32]),
         receipt.canonical_bytes().to_vec(),
-        ApiCursor(Sequence(1)),
+        ApiCursor {
+            block_height: 1,
+            tx_index: 0,
+            log_index: 0,
+        },
         ReceiptReference::Verified {
             receipt_ref: ReceiptRef::new(actual.reference())
                 .unwrap_or_else(|error| panic!("receipt reference: {error:?}")),
-            verification_level: Level::SequencerSigned,
+            rung: Rung::Receipted,
         },
     )
     .unwrap_or_else(|error| panic!("delivery: {error:?}"));
@@ -256,7 +280,7 @@ fn refuses_unbacked_actuals_and_states_refusal_funds_disposition() {
             &completed,
             vec![actual],
             Some(
-                FinalityReference::new([9; 32], Level::CheckpointFinalised)
+                FinalityReference::new([9; 32], Rung::Committed)
                     .unwrap_or_else(|error| panic!("finality: {error}")),
             ),
         ),
@@ -266,7 +290,11 @@ fn refuses_unbacked_actuals_and_states_refusal_funds_disposition() {
     let refusal_delivery = EventDelivery::new(
         EventIdentity::new([2; 32]),
         vec![1, 2, 3],
-        ApiCursor(Sequence(2)),
+        ApiCursor {
+            block_height: 2,
+            tx_index: 0,
+            log_index: 0,
+        },
         ReceiptReference::None,
     )
     .unwrap_or_else(|error| panic!("refusal delivery: {error:?}"));

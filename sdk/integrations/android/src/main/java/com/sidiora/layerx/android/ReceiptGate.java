@@ -9,11 +9,16 @@ import java.util.Objects;
 
 /** Settlement is believed only after the device itself verifies the protocol receipt. */
 public final class ReceiptGate {
-    public record Evidence(byte[] canonicalReceipt, LocalVerifier.AuthorizedReceiptBatch authorizedBatch) {
+    public record Evidence(byte[] rawTransaction, byte[] signedReceipt, LocalVerifier.ReceiptKey receiptKey) {
         public Evidence {
-            Objects.requireNonNull(canonicalReceipt, "canonicalReceipt");
-            Objects.requireNonNull(authorizedBatch, "authorizedBatch");
+            Objects.requireNonNull(rawTransaction, "rawTransaction");
+            Objects.requireNonNull(signedReceipt, "signedReceipt");
+            Objects.requireNonNull(receiptKey, "receiptKey");
+            rawTransaction = rawTransaction.clone();
+            signedReceipt = signedReceipt.clone();
         }
+        @Override public byte[] rawTransaction() { return rawTransaction.clone(); }
+        @Override public byte[] signedReceipt() { return signedReceipt.clone(); }
     }
 
     public record Expectation(byte[] asset, byte[] recipient, ProtocolAmount amount) {
@@ -37,9 +42,11 @@ public final class ReceiptGate {
     }
 
     private final ReceiptResolver receipts;
+    private final LocalVerifier.ReceiptKeys receiptKeys;
 
-    public ReceiptGate(ReceiptResolver receipts) {
+    public ReceiptGate(ReceiptResolver receipts, LocalVerifier.ReceiptKeys receiptKeys) {
         this.receipts = Objects.requireNonNull(receipts, "receipts");
+        this.receiptKeys = Objects.requireNonNull(receiptKeys, "receiptKeys");
     }
 
     public State settle(String receiptReference, Expectation expectation) {
@@ -53,9 +60,21 @@ public final class ReceiptGate {
     public State verify(Evidence evidence, Expectation expectation) {
         Objects.requireNonNull(evidence, "evidence");
         Objects.requireNonNull(expectation, "expectation");
-        LocalVerifier.ReceiptVerification verification;
+        LocalVerifier.SequencerReceiptVerification verification;
         try {
-            verification = LocalVerifier.verifyReceipt(evidence.canonicalReceipt(), evidence.authorizedBatch());
+            verification = LocalVerifier.verifySequencerReceipt(
+                evidence.signedReceipt(), evidence.rawTransaction(), receiptKeys);
+            LocalVerifier.ReceiptKey carried = evidence.receiptKey();
+            LocalVerifier.ReceiptKey pinned = receiptKeys.entries().stream()
+                .filter(key -> MessageDigest.isEqual(key.keyId(), verification.receipt().contextHash()))
+                .findFirst().orElseThrow();
+            if (!MessageDigest.isEqual(carried.keyId(), pinned.keyId())
+                    || !MessageDigest.isEqual(carried.publicKey(), pinned.publicKey())
+                    || !carried.firstHeight().equals(pinned.firstHeight())
+                    || !carried.lastHeight().equals(pinned.lastHeight())) {
+                throw MobileIntegrationException.of(MobileIntegrationException.Code.VERIFICATION_FAILURE);
+            }
+            verification.requireSuccess();
         } catch (RuntimeException error) {
             throw MobileIntegrationException.of(MobileIntegrationException.Code.VERIFICATION_FAILURE);
         }

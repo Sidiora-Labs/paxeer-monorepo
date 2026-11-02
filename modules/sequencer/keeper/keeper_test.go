@@ -3,6 +3,8 @@ package keeper_test
 import (
 	"bytes"
 	"crypto/ed25519"
+	"fmt"
+	"math"
 	"testing"
 
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
@@ -10,6 +12,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -17,10 +20,11 @@ import (
 const testChainID = "sequencer-test-1"
 
 type fixture struct {
-	keeper  keeper.Keeper
-	ctx     sdk.Context
-	private ed25519.PrivateKey
-	keyID   [types.KeyIDLength]byte
+	keeper   keeper.Keeper
+	ctx      sdk.Context
+	private  ed25519.PrivateKey
+	keyID    [types.KeyIDLength]byte
+	storeKey sdk.StoreKey
 }
 
 func newFixture(t *testing.T) fixture {
@@ -45,7 +49,7 @@ func newFixture(t *testing.T) fixture {
 		Leaders:     [][32]byte{leader},
 		ReceiptKeys: []types.ReceiptKey{{KeyId: keyID, PublicKey: public, FirstHeight: 1000, LastHeight: 1999}},
 	}))
-	return fixture{keeper: k, ctx: ctx, private: private, keyID: keyID}
+	return fixture{keeper: k, ctx: ctx, private: private, keyID: keyID, storeKey: key}
 }
 
 func (f fixture) batch(t *testing.T, height, fromSeq, toSeq uint64, prev, last byte) types.MsgSequenceBatch {
@@ -84,6 +88,7 @@ func (f fixture) requireStored(t *testing.T, lastSeq uint64, lastSeqHash byte) {
 
 func TestSequenceBatchMustBeFirst(t *testing.T) {
 	f := newFixture(t)
+	require.NoError(t, f.keeper.SetActivationHeight(f.ctx, 1))
 	f.requireStored(t, 0, 0x00)
 
 	first := f.batch(t, 1000, 1, 30, 0x00, 0x11)
@@ -111,6 +116,7 @@ func TestSequenceBatchMustBeFirst(t *testing.T) {
 
 func TestSequenceBatchChainsFromStore(t *testing.T) {
 	f := newFixture(t)
+	require.NoError(t, f.keeper.SetActivationHeight(f.ctx, 1))
 	require.NoError(t, f.keeper.DeliverSequenceBatch(f.at(1000, 0), f.batch(t, 1000, 1, 30, 0x00, 0x11)))
 	f.requireStored(t, 30, 0x11)
 
@@ -153,8 +159,58 @@ func TestSequenceBatchChainsFromStore(t *testing.T) {
 	require.Equal(t, uint64(1999), exported.ReceiptKeys[0].LastHeight)
 }
 
+func TestSequenceBatchRefusedBelowActivation(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		activation int64
+		heights    []int64
+	}{
+		{name: "below activation", activation: 1001, heights: []int64{1, 999, 1000}},
+		{name: "unset activation", heights: []int64{1, 1000, 1001, 1999, math.MaxInt64}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t)
+			if tc.activation != 0 {
+				require.NoError(t, f.keeper.SetActivationHeight(f.ctx, tc.activation))
+			}
+			snapshot := func() map[string][]byte {
+				entries := make(map[string][]byte)
+				iterator := f.ctx.KVStore(f.storeKey).Iterator(nil, nil)
+				defer iterator.Close()
+				for ; iterator.Valid(); iterator.Next() {
+					entries[string(iterator.Key())] = bytes.Clone(iterator.Value())
+				}
+				return entries
+			}
+			before := snapshot()
+			for _, height := range tc.heights {
+				msg := f.batch(t, uint64(height), 1, 3, 0x00, 0x11)
+				err := f.keeper.DeliverSequenceBatch(f.at(height, 0), msg)
+				require.ErrorIs(t, err, keeper.ErrNotActivated, "height %d", height)
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, "sequencer", codespace)
+				require.Equal(t, uint32(11), code)
+				require.Contains(t, err.Error(), fmt.Sprintf("block height %d, activation height %d", height, tc.activation))
+				f.requireStored(t, 0, 0x00)
+				require.Equal(t, before, snapshot(), "store changed at height %d", height)
+			}
+		})
+	}
+}
+
+func TestSequenceBatchAcceptedAtActivation(t *testing.T) {
+	f := newFixture(t)
+	const activation int64 = 1001
+	require.NoError(t, f.keeper.SetActivationHeight(f.ctx, activation))
+	f.requireStored(t, 0, 0x00)
+	msg := f.batch(t, uint64(activation), 1, 3, 0x00, 0x11)
+	require.NoError(t, f.keeper.DeliverSequenceBatch(f.at(activation, 0), msg))
+	f.requireStored(t, 3, 0x11)
+}
+
 func TestSequenceBatchFeeFreeAndBlockOnly(t *testing.T) {
 	f := newFixture(t)
+	require.NoError(t, f.keeper.SetActivationHeight(f.ctx, 1))
 	msg := f.batch(t, 1000, 1, 30, 0x00, 0x11)
 
 	for name, ctx := range map[string]sdk.Context{

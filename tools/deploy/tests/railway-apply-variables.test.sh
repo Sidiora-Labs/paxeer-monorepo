@@ -120,6 +120,51 @@ grep -q 'applied' "$tmp/ghost.out" && fail "apply wrote to charts before refusin
 grep -q '^  applied registry credentials$' "$tmp/apply.out" || fail "registry credentials not applied to a service without an image read"
 grep -q "^  applied $(cat "$tmp/upsert-count") variables$" "$tmp/apply.out" || fail "apply did not upsert the changed variables"
 grep -q 'sentinel-ghcr-token' "$tmp/apply.out" && fail "apply printed the registry token"
+
+stats_inline_pem_plan() {
+	python3 - "$root/deploy/launchpad/railway/variables.json" "$tmp" "$replay" <<'PY'
+import json, sys
+stats = json.load(open(sys.argv[1]))["stats"]
+json.dump({"stats": stats}, open(f"{sys.argv[2]}/stats.json", "w"))
+needed = [n for k, v in stats.items() if isinstance(v, list) and k not in ("secret", "secrets")
+          for n in v if n not in stats["fixed"]]
+values = {n: f"sentinel-stats-{i:02d}" for i, n in enumerate(needed)}
+values["IDENTITY_MTLS_CLIENT_KEY_PEM"] = "-----BEGIN PRIVATE KEY-----\nsentinel-stats-pem-3b7e\n-----END PRIVATE KEY-----"
+json.dump({"stats": values}, open(f"{sys.argv[2]}/stats-values.json", "w"))
+project = next(e for e in json.load(open(sys.argv[3])) if e["op"] == "Project")
+project["data"]["project"]["services"]["edges"] = [{"node": {"id": "svc-stats", "name": "stats"}}]
+want = dict(stats["fixed"], **values)
+json.dump([project,
+           {"op": "Variables", "variables": {"p": "proj-test", "e": "env-prod", "s": "svc-stats"},
+            "data": {"variables": {}}},
+           {"op": "VariablesUpsert", "variables": {"i": {"projectId": "proj-test", "environmentId": "env-prod",
+            "serviceId": "svc-stats", "variables": want, "skipDeploys": True}},
+            "data": {"variableCollectionUpsert": True}}], open(f"{sys.argv[2]}/stats-replay.json", "w"))
+print(len(want), file=open(f"{sys.argv[2]}/stats-upsert-count", "w"))
+PY
+	local mode
+	for mode in plan apply; do
+		python3 "$tool" proj-test production --manifest "$tmp/stats.json" --replay "$tmp/stats-replay.json" \
+			--values "$tmp/stats-values.json" "--$mode" >"$tmp/stats-$mode.out" 2>&1 ||
+			fail "stats $mode exited $?: $(cat "$tmp/stats-$mode.out")"
+		grep -q '^  missing IDENTITY_MTLS_CLIENT_KEY_PEM = \*\*\*\*$' "$tmp/stats-$mode.out" ||
+			fail "inline PEM not masked in stats $mode"
+		if grep -q 'contains a newline' "$tmp/stats-$mode.out"; then
+			fail "stats $mode refused inline PEM"
+		fi
+	done
+	grep -q "^  applied $(cat "$tmp/stats-upsert-count") variables$" "$tmp/stats-apply.out" ||
+		fail "stats apply did not upsert the raw inline PEM"
+	python3 - "$tmp/stats-values.json" "$tmp/stats-plan.out" "$tmp/stats-apply.out" <<'PY' || fail "stats plan or apply printed a PEM line"
+import json, sys
+pem = json.load(open(sys.argv[1]))["stats"]["IDENTITY_MTLS_CLIENT_KEY_PEM"]
+for path in sys.argv[2:]:
+    out = open(path).read()
+    assert not any(line in out for line in pem.splitlines()), f"{path} printed a PEM line"
+PY
+}
+stats_inline_pem_plan
+
 # The user service from the real manifest carries a signing seed: plan and apply never print it.
 python3 - "$root/deploy/launchpad/railway/variables.json" "$tmp" "$replay" <<'PY'
 import json, sys

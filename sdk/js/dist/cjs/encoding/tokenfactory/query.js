@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.aminoConverters = exports.registry = exports.QueryDenomAllowListResponse = exports.QueryDenomAllowListRequest = exports.QueryDenomMetadataResponse = exports.QueryDenomMetadataRequest = exports.QueryDenomsFromCreatorResponse = exports.QueryDenomsFromCreatorRequest = exports.QueryDenomAuthorityMetadataResponse = exports.QueryDenomAuthorityMetadataRequest = exports.QueryParamsResponse = exports.QueryParamsRequest = void 0;
 const wire_1 = require("@bufbuild/protobuf/wire");
 const bank_1 = require("../cosmos/bank/v1beta1/bank");
+const pagination_1 = require("../cosmos/base/query/v1beta1/pagination");
 const authorityMetadata_1 = require("./authorityMetadata");
 const params_1 = require("./params");
 exports.QueryParamsRequest = {
@@ -193,6 +194,9 @@ exports.QueryDenomsFromCreatorRequest = {
         if (message.creator !== "") {
             writer.uint32(10).string(message.creator);
         }
+        if (message.pagination !== undefined) {
+            pagination_1.PageRequest.encode(message.pagination, writer.uint32(18).fork()).join();
+        }
         return writer;
     },
     decode(input, length) {
@@ -208,6 +212,12 @@ exports.QueryDenomsFromCreatorRequest = {
                     }
                     message.creator = reader.string();
                     continue;
+                case 2:
+                    if (tag !== 18) {
+                        break;
+                    }
+                    message.pagination = pagination_1.PageRequest.decode(reader, reader.uint32());
+                    continue;
             }
             if ((tag & 7) === 4 || tag === 0) {
                 break;
@@ -217,12 +227,18 @@ exports.QueryDenomsFromCreatorRequest = {
         return message;
     },
     fromJSON(object) {
-        return { creator: isSet(object.creator) ? globalThis.String(object.creator) : "" };
+        return {
+            creator: isSet(object.creator) ? globalThis.String(object.creator) : "",
+            pagination: isSet(object.pagination) ? pagination_1.PageRequest.fromJSON(object.pagination) : undefined
+        };
     },
     toJSON(message) {
         const obj = {};
         if (message.creator !== "") {
             obj.creator = message.creator;
+        }
+        if (message.pagination !== undefined) {
+            obj.pagination = pagination_1.PageRequest.toJSON(message.pagination);
         }
         return obj;
     },
@@ -232,6 +248,7 @@ exports.QueryDenomsFromCreatorRequest = {
     fromPartial(object) {
         const message = createBaseQueryDenomsFromCreatorRequest();
         message.creator = object.creator ?? "";
+        message.pagination = object.pagination !== undefined && object.pagination !== null ? pagination_1.PageRequest.fromPartial(object.pagination) : undefined;
         return message;
     }
 };
@@ -240,6 +257,9 @@ exports.QueryDenomsFromCreatorResponse = {
     encode(message, writer = new wire_1.BinaryWriter()) {
         for (const v of message.denoms) {
             writer.uint32(10).string(v);
+        }
+        if (message.pagination !== undefined) {
+            pagination_1.PageResponse.encode(message.pagination, writer.uint32(18).fork()).join();
         }
         return writer;
     },
@@ -256,6 +276,12 @@ exports.QueryDenomsFromCreatorResponse = {
                     }
                     message.denoms.push(reader.string());
                     continue;
+                case 2:
+                    if (tag !== 18) {
+                        break;
+                    }
+                    message.pagination = pagination_1.PageResponse.decode(reader, reader.uint32());
+                    continue;
             }
             if ((tag & 7) === 4 || tag === 0) {
                 break;
@@ -266,13 +292,17 @@ exports.QueryDenomsFromCreatorResponse = {
     },
     fromJSON(object) {
         return {
-            denoms: globalThis.Array.isArray(object?.denoms) ? object.denoms.map((e) => globalThis.String(e)) : []
+            denoms: globalThis.Array.isArray(object?.denoms) ? object.denoms.map((e) => globalThis.String(e)) : [],
+            pagination: isSet(object.pagination) ? pagination_1.PageResponse.fromJSON(object.pagination) : undefined
         };
     },
     toJSON(message) {
         const obj = {};
         if (message.denoms?.length) {
             obj.denoms = message.denoms;
+        }
+        if (message.pagination !== undefined) {
+            obj.pagination = pagination_1.PageResponse.toJSON(message.pagination);
         }
         return obj;
     },
@@ -282,6 +312,7 @@ exports.QueryDenomsFromCreatorResponse = {
     fromPartial(object) {
         const message = createBaseQueryDenomsFromCreatorResponse();
         message.denoms = object.denoms?.map((e) => e) || [];
+        message.pagination = object.pagination !== undefined && object.pagination !== null ? pagination_1.PageResponse.fromPartial(object.pagination) : undefined;
         return message;
     }
 };
@@ -490,10 +521,10 @@ function createBaseQueryDenomAuthorityMetadataResponse() {
     return { authority_metadata: undefined };
 }
 function createBaseQueryDenomsFromCreatorRequest() {
-    return { creator: "" };
+    return { creator: "", pagination: undefined };
 }
 function createBaseQueryDenomsFromCreatorResponse() {
-    return { denoms: [] };
+    return { denoms: [], pagination: undefined };
 }
 function createBaseQueryDenomMetadataRequest() {
     return { denom: "" };

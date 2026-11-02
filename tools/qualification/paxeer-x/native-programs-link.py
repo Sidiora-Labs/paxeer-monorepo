@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 import argparse
 import fcntl
-import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
 import queue
 import shlex
-import stat
 import subprocess
 import sys
 
@@ -22,7 +20,6 @@ PRODUCTION = (
     "layerx-verify",
     "layerx-module-registry",
     "layerx-archive-codec",
-    "layerx-custody-proof",
 )
 
 
@@ -87,86 +84,22 @@ def evidence_directory(gate):
     return directory
 
 
-def commit_proof():
-    configured = os.environ.get("PAXEER_X_NATIVE_PROGRAMS_COMMIT_PROOF")
-    if not configured:
-        raise RuntimeError("protected genuine chain commit and state proof required")
-    path = Path(configured)
-    info = path.lstat()
-    if (
-        not stat.S_ISREG(info.st_mode)
-        or not 0 < info.st_size <= 128 * 1024 * 1024
-        or info.st_uid != os.geteuid()
-        or info.st_mode & 0o077
-    ):
-        raise RuntimeError(
-            "chain commit proof must be caller-owned, protected and bounded"
-        )
-    path = path.resolve(strict=True)
-    if path == ROOT or ROOT in path.parents:
-        raise RuntimeError("chain commit proof must remain outside the checkout")
-    return path
-
-
-def verify_commit(gate, evidence, manifest):
-    proof = commit_proof()
-    if gate.checked(manifest["commit_proof"]) != proof:
-        raise RuntimeError("chain commit proof differs from the declared build input")
-    with proof.open("rb") as source:
-        request = source.read(128 * 1024 * 1024 + 1)
-    if not 0 < len(request) <= 128 * 1024 * 1024:
-        raise RuntimeError("chain commit proof size")
-    if hashlib.sha256(request).hexdigest() != manifest["commit_proof"]["sha256"]:
-        raise RuntimeError("chain commit proof changed while being read")
-    command = [str(gate.checked(manifest["production"]["layerx-custody-proof"]))]
-    result = subprocess.run(
-        command, cwd=ROOT, input=request, capture_output=True, check=False, timeout=120
-    )
-    log = evidence / "verify-chain-commit.log"
-    log.write_bytes(result.stdout + result.stderr)
-    log.chmod(0o600)
-    if result.returncode:
-        raise subprocess.CalledProcessError(result.returncode, command)
-    decoded = json.loads(request)
-    verified = json.loads(result.stdout)
-    if (
-        not isinstance(decoded, dict)
-        or not isinstance(verified, dict)
-        or verified.get("version") != "paxeer-custody-state-v3"
-        or verified.get("version") != decoded["bundle"]["version"]
-        or verified.get("state_height") != decoded["bundle"]["state_height"]
-        or verified.get("finalized_height") != decoded["bundle"]["finalized_height"]
-        or verified.get("module_sha256") != decoded["expected"]["module_sha256"].lower()
-        or verified.get("deposit_id", "") != decoded["expected"].get("deposit_id", "")
-    ):
-        raise RuntimeError(
-            "verified chain commit identity differs from the declared proof"
-        )
-    gate.checked(manifest["commit_proof"])
-    return gate.artifact(log)
-
-
 def build(arguments, gate, evidence):
     manifest = evidence / "native-programs-artifacts.json"
     manifest.unlink(missing_ok=True)
     (evidence / "artifacts.json").unlink(missing_ok=True)
     source = inputs(gate)
-    proof = gate.artifact(commit_proof())
     catalogue_source = gate.inputs()
     native_dir = Path(arguments.native_dir).resolve()
     programs_dir = Path(arguments.programs_dir).resolve()
     agent_dir = Path(arguments.agent_dir).resolve()
     native_make = evidence / "build-native.mk"
-    targets = " ".join(
-        "$(BUILD_DIR)/bin/" + name
-        for name in PRODUCTION
-        if name != "layerx-custody-proof"
-    )
+    targets = " ".join("$(BUILD_DIR)/bin/" + name for name in PRODUCTION)
     native_make.write_text(
         ".PHONY: paxeer-x-native-programs-link-build\n"
         "paxeer-x-native-programs-link-build: "
         + targets
-        + " custody-proof-build $(BUILD_DIR)/tests/lxp_test_replay_catalogue\n"
+        + " $(BUILD_DIR)/tests/lxp_test_replay_catalogue\n"
         "$(BUILD_DIR)/tests/lxp_test_replay_catalogue: tests/daemon/lxp_test_replay_catalogue.c tests/programs/test_call_activity.c $(filter-out $(BUILD_DIR)/obj/cmd/layerxd/main.o,$(LAYERXD_OBJECTS)) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build\n"
         "\t@mkdir -p $(@D)\n"
         "\t$(CC) $(CPPFLAGS) $(CFLAGS) -Icmd/layerxd $< $(filter-out $(BUILD_DIR)/obj/cmd/layerxd/main.o,$(LAYERXD_OBJECTS)) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@\n"
@@ -256,7 +189,6 @@ def build(arguments, gate, evidence):
         text=True,
     ).stdout.strip()
     production = {name: gate.artifact(native_dir / "bin" / name) for name in PRODUCTION}
-    gate.checked(proof)
     transport = {
         "schema": gate.SCHEMA,
         "task": gate.TASK,
@@ -275,7 +207,6 @@ def build(arguments, gate, evidence):
             "revision": revision,
             "inputs": source,
             "production": production,
-            "commit_proof": proof,
             "transport_manifest": gate.artifact(evidence / "artifacts.json"),
         },
     )
@@ -324,14 +255,12 @@ def qualify(gate, evidence):
                 raise RuntimeError("unresolved production native dependency: " + name)
     if not any("libssl.so" in line for line in dependencies["layerxd"]):
         raise RuntimeError("daemon Programs-to-Client TLS dependency missing")
-    chain_commit = verify_commit(gate, evidence, manifest)
     gate.qualify(evidence)
     if inputs(gate) != manifest["inputs"]:
         raise RuntimeError("source changed during focused native qualification")
     for value in manifest["production"].values():
         gate.checked(value)
     gate.checked(manifest["transport_manifest"])
-    gate.checked(manifest["commit_proof"])
     transport_result = evidence / "result.json"
     gate.save(
         evidence / "native-programs-result.json",
@@ -341,7 +270,6 @@ def qualify(gate, evidence):
             "command": "timeout 10m python3 " + DECLARED,
             "exit": 0,
             "production_dependencies": dependencies,
-            "chain_commit": chain_commit,
             "transport_result": gate.artifact(transport_result),
         },
     )

@@ -179,6 +179,16 @@ public final class GoldenVectorTest {
         assertThrows(IllegalArgumentException.class,
             () -> JSON.convertValue(floating, GeneratedSchema.HumanOperations.MoveQuoteRequest.class));
 
+        assertEquals(SchemaErrors.HumanCode.OPERATION_RETIRED,
+            SchemaErrors.HumanCode.fromWire("operation-retired"));
+        for (SchemaErrors.AgentClass value : SchemaErrors.AgentClass.values()) {
+            assertEquals(value, SchemaErrors.AgentClass.fromWire(value.wire()));
+        }
+        for (SchemaErrors.HumanCode value : SchemaErrors.HumanCode.values()) {
+            assertEquals(value, SchemaErrors.HumanCode.fromWire(value.wire()));
+        }
+        assertThrows(IllegalArgumentException.class, () -> SchemaErrors.AgentClass.fromWire("operation-retired"));
+        assertThrows(IllegalArgumentException.class, () -> SchemaErrors.HumanCode.fromWire("unknown-code"));
         assertEquals(OperationCatalog.AGENT_ERROR_CLASSES,
             java.util.Arrays.stream(SchemaErrors.AgentClass.values()).map(SchemaErrors.AgentClass::wire)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet()));

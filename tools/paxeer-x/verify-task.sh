@@ -4,7 +4,7 @@
 #   verify-task.sh --identity <task-id> [--manifest PATH]  print the gate identity, run nothing
 #   verify-task.sh --check <evidence.json> [--manifest PATH] accept evidence only for this checkout
 # A task is registered only by an executable tools/paxeer-x/gates/<task-id>.sh and a [task.<task-id>]
-# section in spec/paxeer-x/spec.kvx. A gate must print "PAXEER_X_GATE tests=<n> skipped=<m>".
+# section in tools/paxeer-x/gates/registry.kvx. A gate must print "PAXEER_X_GATE tests=<n> skipped=<m>".
 # Evidence goes to $PAXEER_X_EVIDENCE_DIR (private, outside the repository); the candidate
 # manifest comes from --manifest or $PAXEER_X_CANDIDATE_MANIFEST.
 # Exit codes: 2 unknown selector/usage, 3 unregistered, 4 not executable, 5 unsafe evidence
@@ -28,7 +28,7 @@ import sys
 sys.dont_write_bytecode = True
 HERE = Path(sys.argv[1])
 sys.path.insert(0, str(HERE))
-from candidate import SCHEMA, UNKNOWN, BINDING_FIELDS, Invalid, load_private, validate, catalogue
+from candidate import SCHEMA, UNKNOWN, BINDING_FIELDS, SERVICE_CATALOGUE, Invalid, load_private, validate, catalogue
 
 EXIT = {'usage': 2, 'unregistered': 3, 'not_executable': 4, 'evidence_dir': 5, 'mismatch': 6,
         'dirty': 7, 'failed': 8, 'empty': 9, 'skipped': 10, 'fabricated': 11, 'stale': 12}
@@ -130,7 +130,7 @@ def manifest(argument):
         raise Refuse('mismatch', 'no candidate manifest supplied')
     try:
         data = load_private(raw)
-        validate(data, catalogue(SPEC), ROOT, False, MAINLINE)
+        validate(data, catalogue(ROOT / SERVICE_CATALOGUE), ROOT, False, MAINLINE)
     except (Invalid, OSError, ValueError, KeyError, TypeError, RecursionError):
         raise Refuse('mismatch', 'candidate manifest is invalid or does not identify this checkout') from None
     return data, sha256(canonical(data))
@@ -280,7 +280,7 @@ def main(args):
     global ROOT, SPEC
     try:
         ROOT = Path(git('rev-parse', '--show-toplevel')).resolve()
-        SPEC = ROOT / 'spec/paxeer-x/spec.kvx'
+        SPEC = ROOT / 'tools/paxeer-x/gates/registry.kvx'
         mode = args[0] if args and args[0] in ('--identity', '--check') else 'run'
         rest = args[1:] if mode != 'run' else list(args)
         argument = None

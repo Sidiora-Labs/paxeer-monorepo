@@ -1,15 +1,18 @@
 import { spawn } from 'node:child_process';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { generateKeyPairSync, randomBytes, randomUUID, sign } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, test } from 'vitest';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
 import { newAgentKey } from './support/identity.js';
 import { TestChain } from './support/chain.js';
-import { CHAIN_ID, startAttestorNetwork, startIdentity, type AttestorNetwork, type Identity } from './e2e/attestors.js';
+import { CHAIN_ID, makePki, startAttestorNetwork, startIdentity, type AttestorNetwork, type Identity } from './e2e/attestors.js';
+import * as backfillCommand from '../src/jobs/backfillAccounts.js';
+
+const parseBackfillArgs = backfillCommand.parseBackfillArgs;
 
 const here = dirname(fileURLToPath(import.meta.url));
 const gatewayDir = resolve(here, '..');
@@ -57,6 +60,7 @@ function baseEnv(): NodeJS.ProcessEnv {
     CORS_ORIGINS: 'http://localhost:3000',
     SPONSOR_PRIVATE_KEY_FILE: sponsorFile,
     ACCOUNT_SETUP_GAS_CAP_WEI: '1000000000000000',
+    WALLET_GAS_STATION_URL: 'http://127.0.0.1:1',
   };
 }
 
@@ -122,18 +126,6 @@ async function walletRow(id: string): Promise<{ did: string | null; binding_stat
 
 beforeAll(async () => {
   workDir = mkdtempSync(join(tmpdir(), 'backfill-command-'));
-  identity = await startIdentity();
-  chain = new TestChain(CHAIN_ID);
-  await chain.start();
-  net = await startAttestorNetwork({ identity, rpcUrl: chain.url, readyTimeoutMs: 120_000 });
-  const sponsorKey = generatePrivateKey();
-  sponsorAddress = privateKeyToAccount(sponsorKey).address.toLowerCase();
-  chain.balances.set(sponsorAddress, 10n ** 21n);
-  sponsorFile = join(workDir, 'sponsor.key');
-  writeFileSync(sponsorFile, sponsorKey.slice(2));
-  process.env.SUPABASE_URL = identity.url;
-  process.env.RPC_URLS = chain.url;
-  process.env.HYPERPAXEER_CHAIN_ID = String(CHAIN_ID);
   pg = await startPostgres();
   poolModule = await import('../src/db/pool.js');
   walletsModule = await import('../src/db/wallets.js');
@@ -142,13 +134,112 @@ beforeAll(async () => {
 afterAll(async () => {
   await poolModule?.closePool();
   await pg?.stop();
-  await net?.stop();
-  await chain?.stop();
-  await identity?.close();
   if (workDir) rmSync(workDir, { recursive: true, force: true });
 }, 120_000);
 
+async function backfillRefusesWithoutStation(): Promise<void> {
+  const nodeIds = ['node-1', 'node-2', 'node-3', 'node-4', 'node-5'];
+  const pki = makePki(nodeIds);
+  const pool = poolModule.getPool();
+  const authority = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const privateKeyFile = join(workDir, 'authority-private.pem');
+  const publicKeyFile = join(workDir, 'authority-public.pem');
+  const inventoryFile = join(workDir, 'inventory.jwt');
+  const tenant = 'backfill-command';
+  const issuer = 'http://127.0.0.1:1';
+  writeFileSync(privateKeyFile, authority.privateKey.export({ type: 'pkcs8', format: 'pem' }), { mode: 0o600 });
+  writeFileSync(publicKeyFile, authority.publicKey.export({ type: 'spki', format: 'pem' }));
+  const issuedAt = Math.floor(Date.now() / 1000);
+  const header = Buffer.from(JSON.stringify({ alg: 'ES256', typ: 'wallet-custody-inventory+jwt' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({
+    version: 1,
+    iss: `${issuer}/auth/v1`,
+    aud: 'wallet-custody-inventory',
+    tenant,
+    sequence: '1',
+    iat: issuedAt,
+    exp: issuedAt + 3600,
+    protocol: 'wallet',
+    threshold: 3,
+    members: nodeIds.map((id) => ({ id, spki_sha256: pki.node(id).pin })),
+    keys: [],
+  })).toString('base64url');
+  const input = `${header}.${payload}`;
+  const signature = sign('sha256', Buffer.from(input), { key: authority.privateKey, dsaEncoding: 'ieee-p1363' });
+  writeFileSync(inventoryFile, `${input}.${signature.toString('base64url')}`);
+
+  await pool.query('create role backfill_without_station login');
+  try {
+    const databaseUrl = new URL(pg.url);
+    databaseUrl.username = 'backfill_without_station';
+    const privileges = await pool.query(
+      `select has_table_privilege('backfill_without_station', 'wallets', 'select') as can_read`,
+    );
+    expect(privileges.rows[0].can_read).toBe(false);
+    const cursorBefore = await pool.query('select * from account_backfill_cursor order by name');
+    const args = ['--batch-size=2', '--max-batches', '1'];
+    expect(parseBackfillArgs(args)).toEqual({ batchSize: 2, maxBatches: 1 });
+    expect(parseBackfillArgs(['--', '--batch-size', '2', '--max-batches=1'])).toEqual({ batchSize: 2, maxBatches: 1 });
+    const env: NodeJS.ProcessEnv = {
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+      NODE_ENV: 'test',
+      LOG_LEVEL: 'error',
+      SUPABASE_URL: issuer,
+      DATABASE_URL: databaseUrl.toString(),
+      HYPERPAXEER_RPC_URL: 'http://127.0.0.1:1',
+      RPC_URLS: 'http://127.0.0.1:1',
+      HYPERPAXEER_CHAIN_ID: String(CHAIN_ID),
+      WALLET_MASTER_KEY: process.env.WALLET_MASTER_KEY,
+      CORS_ORIGINS: 'http://localhost:3000',
+      ATTESTOR_ENDPOINTS: nodeIds.map((_, i) => `https://127.0.0.1:${i + 1}`).join(','),
+      ATTESTOR_CLIENT_CERT_FILE: pki.clientCert,
+      ATTESTOR_CLIENT_KEY_FILE: pki.clientKey,
+      ATTESTOR_CA_FILE: pki.caFile,
+      ATTESTOR_QUORUM: '3',
+      WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE: privateKeyFile,
+      WALLET_IDENTITY_BINDING_TENANT: tenant,
+      WALLET_CUSTODY_INVENTORY_FILE: inventoryFile,
+      WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE: publicKeyFile,
+    };
+    expect(env.WALLET_GAS_STATION_URL).toBeUndefined();
+    const refused = await runEntry(args, env);
+    expect(refused.code, refused.stderr).toBe(1);
+    expect(refused.stdout).toBe('');
+    expect(refused.stderr).toBe('backfill: stopped: ProvisionError gas_station_unconfigured\n');
+    expectNoIdentifiers(refused);
+    const cursorAfter = await pool.query('select * from account_backfill_cursor order by name');
+    expect(cursorAfter.rows).toEqual(cursorBefore.rows);
+  } finally {
+    await pool.query('drop role backfill_without_station');
+    rmSync(pki.dir, { recursive: true, force: true });
+  }
+}
+
+test(backfillRefusesWithoutStation, backfillRefusesWithoutStation, LONG);
+
 describe('backfill command', () => {
+  beforeAll(async () => {
+    identity = await startIdentity();
+    chain = new TestChain(CHAIN_ID);
+    await chain.start();
+    net = await startAttestorNetwork({ identity, rpcUrl: chain.url, readyTimeoutMs: 120_000 });
+    const sponsorKey = generatePrivateKey();
+    sponsorAddress = privateKeyToAccount(sponsorKey).address.toLowerCase();
+    chain.balances.set(sponsorAddress, 10n ** 21n);
+    sponsorFile = join(workDir, 'sponsor.key');
+    writeFileSync(sponsorFile, sponsorKey.slice(2));
+    process.env.SUPABASE_URL = identity.url;
+    process.env.RPC_URLS = chain.url;
+    process.env.HYPERPAXEER_CHAIN_ID = String(CHAIN_ID);
+  }, LONG);
+
+  afterAll(async () => {
+    await net?.stop();
+    await chain?.stop();
+    await identity?.close();
+  }, 120_000);
+
   it('backfill command refuses bad arguments and a start without the attestor configuration', async () => {
     const usage = await runEntry(['--batch-size', '0'], { ...baseEnv(), ...attestorEnv() });
     expect(usage.code).toBe(2);

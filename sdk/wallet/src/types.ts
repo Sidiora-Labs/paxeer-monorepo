@@ -48,6 +48,7 @@ export interface SendTxResponse {
   tx_hash: `0x${string}`;
   address: `0x${string}`;
   chain_id: number;
+  receipt?: SequencerReceiptAnswer;
 }
 
 export interface SignMessageResponse {
@@ -60,7 +61,7 @@ export class PaxeerWalletError extends Error {
     message: string,
     public readonly code: string,
     public readonly status?: number,
-    public readonly detail?: unknown,
+    public readonly detail?: unknown
   ) {
     super(message);
     this.name = 'PaxeerWalletError';
@@ -69,7 +70,11 @@ export class PaxeerWalletError extends Error {
 
 export class FundedUnsupportedError extends PaxeerWalletError {
   constructor() {
-    super('Funded accounts are retired; use an embedded or injected wallet.', 'FUNDED_UNSUPPORTED', 410);
+    super(
+      'Funded accounts are retired; use an embedded or injected wallet.',
+      'FUNDED_UNSUPPORTED',
+      410
+    );
     this.name = 'FundedUnsupportedError';
   }
 }
@@ -247,71 +252,36 @@ export interface UnifiedAccountDocument {
   bound: boolean;
 }
 
-export interface PaxeerAccountHalf {
-  address: `0x${string}`;
-  balance: `0x${string}`;
-  nonce: `0x${string}`;
-}
-
-export interface JoinedAccount {
+export interface ChainAccount {
   account: UnifiedAccountDocument;
-  paxeer: PaxeerAccountHalf | null;
-  layerx: Record<string, unknown> | null;
+  paxeer: { address: string; balance: string; nonce: string; height: string };
 }
 
-export interface CustodyAssetRecord {
-  asset_id: string;
+export interface BankBalance {
   denom: string;
-  pointer: `0x${string}`;
-  enabled: boolean;
-  paused: boolean;
-  minimum_deposit: string;
-  custody_cap: string;
-  custodied: string;
-  released: string;
-  pending: string;
+  amount: string;
 }
 
-export interface JoinedAsset {
-  asset_id: string;
-  layerx: Record<string, unknown>;
-  paxeer: CustodyAssetRecord | null;
+export interface Balances {
+  account: UnifiedAccountDocument;
+  height: string;
+  balances: BankBalance[];
 }
 
-export interface AssetMap {
-  assets: JoinedAsset[];
-  joined_limit: number;
-}
-
-export interface JoinedBalanceRow {
+export interface BankAsset {
   asset_id: string;
   denom: string | null;
-  custody: CustodyAssetRecord | null;
-  paxeer: { denom: string; amount: string } | null;
-  layerx: Record<string, unknown> | null;
+  kind: string;
+  name: string | null;
+  symbol: string | null;
+  decimals: number | null;
+  supply: string | null;
 }
 
-export interface JoinedBalances {
-  account: UnifiedAccountDocument;
-  balances: JoinedBalanceRow[];
+export interface AssetPage {
+  height: string;
+  assets: BankAsset[];
   joined_limit: number;
-}
-
-export type CompletionAsset =
-  | { kind: 'native'; symbol: string; decimals: number; denom?: string }
-  | { kind: 'erc20'; address: `0x${string}`; symbol?: string; decimals?: number };
-
-export interface CompletedBalance {
-  asset: CompletionAsset;
-  source: 'eth_getBalance' | 'erc20_balanceOf';
-  amount: string | null;
-  error: JsonRpcErrorObject | null;
-}
-
-export interface AccountBalances extends JoinedBalances {
-  asset_map: AssetMap;
-  join_limit_reached: boolean;
-  completed: CompletedBalance[];
 }
 
 export interface Capabilities {
@@ -322,28 +292,20 @@ export interface Capabilities {
   rpc_height: string;
 }
 
-export type KernelReason = 'available' | 'not_configured' | 'unreachable' | 'no_finalised_checkpoint';
+export type KernelReason = 'available' | 'not_configured' | 'unreachable' | 'consensus_unavailable';
 
-export interface KernelStatus {
-  available: boolean;
-  reason: KernelReason;
+export interface ConsensusHead {
+  latest_height: string;
+  latest_block_hash: string;
+  latest_app_hash: string;
+  catching_up: boolean;
 }
-
-export interface AnchorHead {
-  latest_finalized_batch: number | null;
-  status: number | null;
-  status_name: AnchorStatusName | null;
-  status_ladder: Record<string, string>;
-}
-
-export type AnchorStatusName = 'unknown' | 'submitted' | 'final';
 
 export interface NetworkHead {
   network_id: string;
   paxeer: { chain_id: `0x${string}`; latest_block: `0x${string}` };
-  layerx: { node_info: Record<string, unknown> | null };
-  anchor: AnchorHead | null;
-  kernel: KernelStatus;
+  consensus: ConsensusHead | null;
+  consensus_reason: 'consensus_unavailable' | null;
 }
 
 export interface HistoryAssetMetadata {
@@ -374,13 +336,23 @@ export interface HistoryItem {
   final: boolean;
   decoded: unknown;
   asset_metadata: HistoryAssetMetadata | null;
+  /** @deprecated Use ChainHistoryItem, which has no side label. */
   side: 'layerx' | 'paxeer';
 }
 
 export interface HistoryPage {
   account: UnifiedAccountDocument;
+  /** @deprecated Use ChainHistoryPage for a single chain account. */
   accounts: { side: 'layerx' | 'paxeer'; account: string }[];
   items: HistoryItem[];
+  next_cursor: string | null;
+}
+
+export type ChainHistoryItem = Omit<HistoryItem, 'chain' | 'side'>;
+
+export interface ChainHistoryPage {
+  account: string;
+  items: ChainHistoryItem[];
   next_cursor: string | null;
 }
 
@@ -411,7 +383,7 @@ export type KernelAvailabilityState = KernelAvailable | KernelUnavailableState;
 
 export type KernelRead<T> = { available: true; result: T } | KernelUnavailableState;
 
-export type KernelDocument = Record<string, unknown>;
+export type KernelDocument = ChainAccount | Balances | SequencerReceiptAnswer | null;
 
 export interface HumanMoney {
   amount: string;
@@ -443,6 +415,7 @@ export interface IntentLeg {
   destination: IntentEndpoint;
   money: HumanMoney;
   fee: HumanMoney;
+  tx_hash?: string;
 }
 
 export interface IntentSigningRequirement {
@@ -466,7 +439,9 @@ export interface IntentLegBinding {
   actor: string;
   authority: string;
   relationship: string;
+  /** Pending-tag EVM nonce of the leg sender (human decision.1003). */
   account_sequence: number;
+  tx_hash?: string;
   not_before: number;
   not_after: number;
   fee_limit: HumanMoney;
@@ -505,12 +480,17 @@ export type EvidenceClass =
   | 'approval-hold'
   | 'wallet-ack';
 
-export type VerificationLevel = 'unverified' | 'receipt-verified' | 'checkpoint-finalised' | 'paxeer-finalised';
+export type VerificationLevel =
+  | 'unverified'
+  | 'receipt-verified'
+  | 'checkpoint-finalised'
+  | 'paxeer-finalised';
 
 export interface EvidenceRef {
   evidence_id: string;
   class: EvidenceClass;
   verification: VerificationLevel;
+  tx_hash?: string;
   settlement_domain?: string;
 }
 
@@ -554,14 +534,41 @@ export interface HumanErrorBody {
   field?: string;
 }
 
-export type ExplorerRung = 'pending' | 'instant' | 'sealed' | 'final';
+export type ExplorerRung = SequencerRung;
+
+export type SequencerRung = 'submitted' | 'receipted' | 'committed';
+
+export interface SequencerReceiptAnswer {
+  rung: SequencerRung;
+  txHash: Hex;
+  nonce: Hex;
+  blockNumber?: Hex;
+  blockHash?: Hex;
+  seq?: Hex;
+  height?: Hex;
+  index?: Hex;
+  timestamp?: Hex;
+  status?: Hex;
+  returnData?: Hex;
+  logs?: { address: Hex; topics: Hex[]; data: Hex; logIndex: Hex }[];
+  gasUsed?: Hex;
+  cumulativeGasUsed?: Hex;
+  effectiveGasPrice?: Hex;
+  feeDenom?: string;
+  feeAmount?: Hex;
+  sponsor?: Hex;
+  from?: Hex;
+  to?: Hex;
+  contractAddress?: Hex;
+  vmError?: string;
+  keyId?: Hex;
+  receipt?: Hex;
+}
 
 export interface ExplorerTransactionStatus {
   rung: ExplorerRung;
   block_number: number | null;
-  sealed_batch_number: number | null;
-  finalized_batch_number: number | null;
-  checkpoint_id: string | null;
+  committed_height: number | null;
 }
 
 /* ============================================================================
@@ -575,7 +582,12 @@ export interface RequestArguments {
   readonly params?: readonly unknown[] | Record<string, unknown>;
 }
 
-export type ProviderEvent = 'connect' | 'disconnect' | 'accountsChanged' | 'chainChanged' | 'message';
+export type ProviderEvent =
+  | 'connect'
+  | 'disconnect'
+  | 'accountsChanged'
+  | 'chainChanged'
+  | 'message';
 
 export type ProviderListener = (...args: unknown[]) => void;
 
@@ -669,11 +681,6 @@ export interface SignTypedDataResponse {
 }
 
 export interface SignDigestResponse {
-  signature: Hex;
-  address: Hex;
-}
-
-export interface SignCustodyResponse {
   signature: Hex;
   address: Hex;
 }

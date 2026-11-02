@@ -29,17 +29,13 @@ pub struct Transition {
 pub struct SignedObservation {
     pub activity_id: [u8; 32],
     pub submission_ref: String,
-    pub verification_level: Rung,
+    pub rung: Rung,
     pub evidence: Vec<Evidence>,
     pub transitions: Vec<Transition>,
 }
 
 fn rung_name(text: &str) -> Option<Rung> {
-    Some(match text {
-        "Unverified" => Rung::Submitted,
-        "SequencerSigned" | "BatchIncluded" | "StateProven" => Rung::Receipted,
-        _ => return None,
-    })
+    Rung::from_name(text)
 }
 
 fn digest(value: &Value, operation: Operation) -> Result<[u8; 32], EnvelopeError> {
@@ -58,13 +54,7 @@ fn decode_signed(value: &Value, operation: Operation) -> Result<SignedObservatio
     }
     let submission = object(
         &observation["submission"],
-        &[
-            "submission_ref",
-            "state",
-            "verification_level",
-            "evidence",
-            "transitions",
-        ],
+        &["submission_ref", "state", "rung", "evidence", "transitions"],
         operation,
     )?;
     if submission["state"] != "Signed" {
@@ -99,7 +89,7 @@ fn decode_signed(value: &Value, operation: Operation) -> Result<SignedObservatio
     Ok(SignedObservation {
         activity_id,
         submission_ref: text(&submission["submission_ref"], operation)?,
-        verification_level: submission["verification_level"]
+        rung: submission["rung"]
             .as_str()
             .and_then(rung_name)
             .ok_or_else(|| violation(operation))?,
@@ -148,7 +138,7 @@ mod tests {
             "submission": {
                 "submission_ref": "submission-a",
                 "state": "Signed",
-                "verification_level": level,
+                "rung": level,
                 "evidence": [],
                 "transitions": [],
             },
@@ -159,14 +149,13 @@ mod tests {
     #[test]
     fn signed_observation_carries_the_rung() {
         for (level, rung) in [
-            ("Unverified", Rung::Submitted),
-            ("SequencerSigned", Rung::Receipted),
-            ("BatchIncluded", Rung::Receipted),
-            ("StateProven", Rung::Receipted),
+            ("submitted", Rung::Submitted),
+            ("receipted", Rung::Receipted),
+            ("committed", Rung::Committed),
         ] {
             let decoded = decode_signed(&observation(level), Operation::Sign)
                 .unwrap_or_else(|error| panic!("{level}: {error:?}"));
-            assert_eq!(decoded.verification_level, rung);
+            assert_eq!(decoded.rung, rung);
             assert_eq!(decoded.submission_ref, "submission-a");
             assert_eq!(decoded.activity_id, [0x11; 32]);
         }
@@ -177,7 +166,10 @@ mod tests {
         for level in [
             "CheckpointFinalised",
             "SettlementAnchored",
-            "submitted",
+            "Unverified",
+            "SequencerSigned",
+            "BatchIncluded",
+            "StateProven",
             "Receipted",
             "Committed",
         ] {

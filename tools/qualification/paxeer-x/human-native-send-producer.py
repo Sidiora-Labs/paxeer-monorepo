@@ -12,6 +12,9 @@ import tempfile
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
+from candidate import SERVICE_CATALOGUE
+
 TEST = 'genuine_human_owner_session_consent_preview_and_reopen'
 SOURCES = (
     'services/human/crates/layerx-human-service/src/server/agent_creation_native.rs',
@@ -86,7 +89,7 @@ def main():
     sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
     from candidate import catalogue, load_private, validate
     candidate = load_private(args.candidate_manifest)
-    validate(candidate, catalogue(ROOT / 'spec/paxeer-x/spec.kvx'))
+    validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
     revision = git('rev-parse', 'HEAD')
     require(candidate['source']['revision'] == revision and candidate['source']['integrated'] is True
             and candidate['source']['dirty'] is False and not git('status', '--porcelain', '--untracked-files=all'),

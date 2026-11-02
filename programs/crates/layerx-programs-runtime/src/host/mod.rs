@@ -1266,6 +1266,7 @@ pub(crate) const fn error_status(error: &AbiError) -> i32 {
         AbiError::BalanceAbsent => STATUS_ABSENT,
         AbiError::OracleUnknownMarket => STATUS_ORACLE_UNKNOWN_MARKET,
         AbiError::OracleMarketHalted => STATUS_ORACLE_MARKET_HALTED,
+        AbiError::EffectLimit => STATUS_BOUNDS,
         AbiError::Storage(
             crate::storage::StorageError::InvalidScanCursor
             | crate::storage::StorageError::InvalidScanLimits,

@@ -4,10 +4,10 @@
   "environments": {
     "emulator": {
       "endpoint": "http://127.0.0.1:9402",
-      "network": "layerx:emulator",
-      "protocolVersion": 3,
+      "network": "eip155:125",
       "cliBinaryEnvironment": "LAYERX_BIN",
-      "receiptAuthorityUrl": "http://127.0.0.1:9402",
+      "rpcUrl": "http://127.0.0.1:9402/rpc",
+      "receiptKeysEnvironment": "LAYERX_EMULATOR_RECEIPT_KEYS_JSON",
       "tokenEnvironment": "LAYERX_EMULATOR_TOKEN",
       "programIdEnvironment": "LAYERX_EMULATOR_MARKETPLACE_PROGRAM_ID",
       "listingIdEnvironment": "LAYERX_EMULATOR_MARKETPLACE_LISTING_ID",
@@ -19,10 +19,10 @@
     },
     "beta": {
       "endpoint": "https://api-mainnet-beta.paxeer.network",
-      "network": "layerx:beta",
-      "protocolVersion": 3,
+      "network": "eip155:125",
       "cliBinaryEnvironment": "LAYERX_BIN",
-      "receiptAuthorityUrl": "https://api-mainnet-beta.paxeer.network",
+      "rpcUrl": "https://api-mainnet-beta.paxeer.network/rpc",
+      "receiptKeysEnvironment": "LAYERX_TESTNET_RECEIPT_KEYS_JSON",
       "tokenEnvironment": "LAYERX_TESTNET_TOKEN",
       "programIdEnvironment": "LAYERX_TESTNET_MARKETPLACE_PROGRAM_ID",
       "listingIdEnvironment": "LAYERX_TESTNET_MARKETPLACE_LISTING_ID",

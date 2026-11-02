@@ -458,6 +458,14 @@ func (s *State) PushBlock(ctx context.Context, n types.GlobalBlockNumber, block 
 	return nil
 }
 
+// FirstBlock returns the first retained block number.
+func (s *State) FirstBlock() types.GlobalBlockNumber {
+	for inner := range s.inner.Lock() {
+		return inner.first
+	}
+	panic("unreachable")
+}
+
 // NextBlock returns the index of the next block to be pushed.
 func (s *State) NextBlock() types.GlobalBlockNumber {
 	for inner := range s.inner.Lock() {

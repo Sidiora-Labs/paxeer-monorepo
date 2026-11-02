@@ -128,6 +128,15 @@ func GovernanceEVMAddress() common.Address {
 	return common.BytesToAddress(authtypes.NewModuleAddress(govtypes.ModuleName))
 }
 
+const (
+	MaxRegisteredTokens         = 64
+	MaxActiveOrdersPerUserLimit = 1000
+	MaxExpiriesPerBlockLimit    = 2000
+	MaxScanPerBlockLimit        = 5000
+	MaxFillsPerBlockLimit       = 2000
+	MaxFillBackoffBlocksLimit   = 2560
+)
+
 // DefaultParams are the spot parameter sheet values with no registered
 // token; InitV6120 registers the opening tokens.
 func DefaultParams() Params {
@@ -229,14 +238,26 @@ func (p Params) Validate() error {
 	if p.MinOrderNotional.IsNil() || p.MinOrderNotional.IsNegative() || p.MinOrderNotional.BigInt().BitLen() > 256 {
 		return fmt.Errorf("%w: minOrderNotional must be a uint256 integer", ErrParamsInvalid)
 	}
-	if p.MaxActiveOrdersPerUser == 0 {
-		return fmt.Errorf("%w: zero maxActiveOrdersPerUser", ErrParamsInvalid)
+	if p.MaxActiveOrdersPerUser == 0 || p.MaxActiveOrdersPerUser > MaxActiveOrdersPerUserLimit {
+		return fmt.Errorf("%w: maxActiveOrdersPerUser must be in [1, %d]", ErrParamsInvalid, MaxActiveOrdersPerUserLimit)
 	}
-	if p.MaxExpiriesPerBlock == 0 || p.ActivationScanPerBlock == 0 || p.FillScanPerBlock == 0 || p.MaxFillsPerBlock == 0 {
-		return fmt.Errorf("%w: zero EndBlock budget", ErrParamsInvalid)
+	if p.MaxExpiriesPerBlock == 0 || p.MaxExpiriesPerBlock > MaxExpiriesPerBlockLimit {
+		return fmt.Errorf("%w: maxExpiriesPerBlock must be in [1, %d]", ErrParamsInvalid, MaxExpiriesPerBlockLimit)
 	}
-	if p.MaxFillBackoffBlocks == 0 {
-		return fmt.Errorf("%w: zero maxFillBackoffBlocks", ErrParamsInvalid)
+	if p.ActivationScanPerBlock == 0 || p.ActivationScanPerBlock > MaxScanPerBlockLimit {
+		return fmt.Errorf("%w: activationScanPerBlock must be in [1, %d]", ErrParamsInvalid, MaxScanPerBlockLimit)
+	}
+	if p.FillScanPerBlock == 0 || p.FillScanPerBlock > MaxScanPerBlockLimit {
+		return fmt.Errorf("%w: fillScanPerBlock must be in [1, %d]", ErrParamsInvalid, MaxScanPerBlockLimit)
+	}
+	if p.MaxFillsPerBlock == 0 || p.MaxFillsPerBlock > MaxFillsPerBlockLimit {
+		return fmt.Errorf("%w: maxFillsPerBlock must be in [1, %d]", ErrParamsInvalid, MaxFillsPerBlockLimit)
+	}
+	if p.MaxFillBackoffBlocks == 0 || p.MaxFillBackoffBlocks > MaxFillBackoffBlocksLimit {
+		return fmt.Errorf("%w: maxFillBackoffBlocks must be in [1, %d]", ErrParamsInvalid, MaxFillBackoffBlocksLimit)
+	}
+	if len(p.Tokens) > MaxRegisteredTokens {
+		return fmt.Errorf("%w: tokens count above %d", ErrParamsInvalid, MaxRegisteredTokens)
 	}
 	seen := make(map[common.Address]struct{}, len(p.Tokens))
 	for _, token := range p.Tokens {
@@ -249,6 +270,9 @@ func (p Params) Validate() error {
 		seen[token.Address] = struct{}{}
 		if token.Kind != TokenKindERC20 && token.Kind != TokenKindNative {
 			return fmt.Errorf("%w: token %s has no kind", ErrParamsInvalid, token.Address.Hex())
+		}
+		if !token.IsStablecoin && token.MarketID == 0 {
+			return fmt.Errorf("%w: token %s marketID must be nonzero for a non-stablecoin", ErrParamsInvalid, token.Address.Hex())
 		}
 		if token.Decimals > MaxTokenDecimals {
 			return fmt.Errorf("%w: token %s decimals above %d", ErrParamsUnsupportedToken, token.Address.Hex(), MaxTokenDecimals)

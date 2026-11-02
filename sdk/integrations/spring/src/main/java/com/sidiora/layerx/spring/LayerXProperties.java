@@ -1,6 +1,9 @@
 package com.sidiora.layerx.spring;
 
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
+import com.sidiora.layerx.sdk.PlatformSdkException;
+import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +20,7 @@ public class LayerXProperties {
     private String storageDirectory;
     private final Resource resource = new Resource();
     private final Payment payment = new Payment();
-    private final Batch authorizedBatch = new Batch();
+    private final ReceiptKeys receiptKeys = new ReceiptKeys();
     private final Webhook webhook = new Webhook();
 
     public String getPrincipal() { return principal; }
@@ -36,7 +39,7 @@ public class LayerXProperties {
 
     public Payment getPayment() { return payment; }
 
-    public Batch getAuthorizedBatch() { return authorizedBatch; }
+    public ReceiptKeys getReceiptKeys() { return receiptKeys; }
 
     public Webhook getWebhook() { return webhook; }
 
@@ -96,32 +99,33 @@ public class LayerXProperties {
         public void setTimeoutSeconds(long timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; }
     }
 
-    public static class Batch {
-        private String batchId;
-        private String asset;
-        private String previousStateRoot;
-        private String resultingStateRoot;
-        private String sequencerPublicKey;
+    public static class ReceiptKeys {
+        private final List<ReceiptKey> entries = new ArrayList<>();
 
-        public String getBatchId() { return batchId; }
+        public List<ReceiptKey> getEntries() { return entries; }
+    }
 
-        public void setBatchId(String batchId) { this.batchId = batchId; }
+    public static class ReceiptKey {
+        private String keyId;
+        private String publicKey;
+        private String firstHeight;
+        private String lastHeight;
 
-        public String getAsset() { return asset; }
+        public String getKeyId() { return keyId; }
 
-        public void setAsset(String asset) { this.asset = asset; }
+        public void setKeyId(String keyId) { this.keyId = keyId; }
 
-        public String getPreviousStateRoot() { return previousStateRoot; }
+        public String getPublicKey() { return publicKey; }
 
-        public void setPreviousStateRoot(String previousStateRoot) { this.previousStateRoot = previousStateRoot; }
+        public void setPublicKey(String publicKey) { this.publicKey = publicKey; }
 
-        public String getResultingStateRoot() { return resultingStateRoot; }
+        public String getFirstHeight() { return firstHeight; }
 
-        public void setResultingStateRoot(String resultingStateRoot) { this.resultingStateRoot = resultingStateRoot; }
+        public void setFirstHeight(String firstHeight) { this.firstHeight = firstHeight; }
 
-        public String getSequencerPublicKey() { return sequencerPublicKey; }
+        public String getLastHeight() { return lastHeight; }
 
-        public void setSequencerPublicKey(String sequencerPublicKey) { this.sequencerPublicKey = sequencerPublicKey; }
+        public void setLastHeight(String lastHeight) { this.lastHeight = lastHeight; }
     }
 
     public static class Webhook {
@@ -178,16 +182,33 @@ public class LayerXProperties {
             mountPath(required(protectedPath)),
             paymentRequired,
             paymentRequired.accepts().get(0),
-            new LocalVerifier.AuthorizedReceiptBatch(
-                hex32(authorizedBatch.getBatchId()),
-                hex32(authorizedBatch.getAsset()),
-                hex32(authorizedBatch.getPreviousStateRoot()),
-                hex32(authorizedBatch.getResultingStateRoot()),
-                hex32(authorizedBatch.getSequencerPublicKey())),
+            declaredReceiptKeys(),
             mountPath(required(webhook.getPath())),
             keys,
             webhook.getMaximumAgeMs(),
             webhook.getLeaseMs());
+    }
+
+    private LocalVerifier.ReceiptKeys declaredReceiptKeys() {
+        try {
+            List<LocalVerifier.ReceiptKey> entries = new ArrayList<>();
+            for (ReceiptKey entry : receiptKeys.getEntries()) {
+                if (entry == null || entry.getKeyId() == null || entry.getKeyId().isEmpty()
+                        || entry.getPublicKey() == null || entry.getPublicKey().isEmpty()) invalid();
+                entries.add(new LocalVerifier.ReceiptKey(hex32(entry.getKeyId()), hex32(entry.getPublicKey()),
+                    unsignedHeight(entry.getFirstHeight()), unsignedHeight(entry.getLastHeight())));
+            }
+            return new LocalVerifier.ReceiptKeys(entries);
+        } catch (PlatformSdkException | IllegalArgumentException error) {
+            throw MiddlewareException.of(MiddlewareException.Code.INVALID_DECLARED_KEY);
+        }
+    }
+
+    private static BigInteger unsignedHeight(String value) {
+        if (value == null || !value.matches("0|[1-9][0-9]{0,19}")) invalid();
+        BigInteger height = new BigInteger(value);
+        if (height.bitLength() > 64) invalid();
+        return height;
     }
 
     private static String required(String value) {

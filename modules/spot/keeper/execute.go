@@ -10,6 +10,7 @@ import (
 
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	pricefeedtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	receipt "github.com/Sidiora-Labs/Paxeer-X-Network/storage/ledger_db/receipt"
@@ -134,7 +135,8 @@ func (k *Keeper) ExecuteResting(ctx sdk.Context) (RestingExecution, error) {
 			continue
 		}
 		if err := k.RecordSample(branch, token.Address); err != nil {
-			if errors.Is(err, types.ErrStalePrice) || errors.Is(err, types.ErrTokenPaused) {
+			if errors.Is(err, types.ErrStalePrice) || errors.Is(err, types.ErrTokenPaused) ||
+				errors.Is(err, types.ErrInvalidOracle) || errors.Is(err, pricefeedtypes.ErrUnknownMarket) {
 				continue
 			}
 			return work, err

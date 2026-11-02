@@ -37,7 +37,11 @@ func run(logger *slog.Logger) error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	profile := loadtest.FullProfile()
+	symbols, err := loadtest.FeedSymbols(ctx, cfg.GatewayURL)
+	if err != nil {
+		return fmt.Errorf("load markets: %w", err)
+	}
+	profile := loadtest.FullProfile(symbols)
 	logger.Info("perps-loadtest starting", slog.Any("config", *cfg), slog.Int("sockets", profile.Sockets))
 	report, runErr := loadtest.Run(ctx, socketURL, profile)
 	if report != nil {

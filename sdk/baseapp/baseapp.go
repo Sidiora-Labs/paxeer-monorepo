@@ -16,12 +16,10 @@ import (
 	servertypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/snapshots"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/utils/tracing"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/legacy/legacytx"
-	"github.com/armon/go-metrics"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gogo/protobuf/proto"
 	"github.com/holiman/uint256"
@@ -854,14 +852,6 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode runTxMode, tx sdk.Tx, checksum [
 	runTxStart := time.Now()
 	defer func() {
 		baseappMetrics.runTxDuration.Record(ctx.Context(), time.Since(runTxStart).Seconds(), otelmetric.WithAttributes(attribute.String("mode", modeKeyToString[mode])))
-		// TODO(PLT-353): remove once baseapp_run_tx_duration verified
-		telemetry.MeasureThroughputSinceWithLabels(
-			telemetry.TxCount,
-			[]metrics.Label{
-				telemetry.NewLabel("mode", modeKeyToString[mode]),
-			},
-			runTxStart,
-		)
 	}()
 
 	// check for existing parent tracer, and if applicable, use it
@@ -886,7 +876,9 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode runTxMode, tx sdk.Tx, checksum [
 	defer func() {
 		if r := recover(); r != nil {
 			recoveryMW := newOutOfGasRecoveryMiddleware(gasWanted, ctx, app.runTxRecoveryMiddleware)
-			recoveryMW = newOCCAbortRecoveryMiddleware(recoveryMW) // TODO: do we have to wrap with occ enabled check?
+			if ctx.IsOCCEnabled() {
+				recoveryMW = newOCCAbortRecoveryMiddleware(recoveryMW)
+			}
 			err, runTxRes.result = processRecovery(r, recoveryMW), nil
 		}
 		if ctx.GasMeter() == blockGasMeter {
@@ -1015,14 +1007,6 @@ func (app *BaseApp) RunMsgs(ctx sdk.Context, msgs []sdk.Msg) (*sdk.Result, error
 	runMsgsStart := time.Now()
 	defer func() {
 		baseappMetrics.runMsgsDuration.Record(ctx.Context(), time.Since(runMsgsStart).Seconds())
-		// TODO(PLT-353): remove once baseapp_run_msgs_duration verified
-		telemetry.MeasureThroughputSinceWithLabels(
-			telemetry.MessageCount,
-			[]metrics.Label{
-				telemetry.NewLabel("mode", "deliver"),
-			},
-			runMsgsStart,
-		)
 	}()
 
 	defer func() {
@@ -1058,12 +1042,6 @@ func (app *BaseApp) RunMsgs(ctx sdk.Context, msgs []sdk.Msg) (*sdk.Result, error
 			msgResult, err = handler(msgCtx, msg)
 			eventMsgName = sdk.MsgTypeURL(msg)
 			baseappMetrics.runMsgLatency.Record(ctx.Context(), time.Since(startTime).Seconds(), otelmetric.WithAttributes(attribute.String("type", eventMsgName)))
-			// TODO(PLT-353): remove once baseapp_run_msg_latency verified
-			metrics.MeasureSinceWithLabels(
-				[]string{"pax", "cosmos", "run", "msg", "latency"},
-				startTime,
-				[]metrics.Label{{Name: "type", Value: eventMsgName}},
-			)
 		} else if legacyMsg, ok := msg.(legacytx.LegacyMsg); ok {
 			// legacy sdk.Msg routing
 			// Assuming that the app developer has migrated all their Msgs to
@@ -1078,12 +1056,6 @@ func (app *BaseApp) RunMsgs(ctx sdk.Context, msgs []sdk.Msg) (*sdk.Result, error
 			}
 			msgResult, err = handler(msgCtx, msg)
 			baseappMetrics.runMsgLatency.Record(ctx.Context(), time.Since(startTime).Seconds(), otelmetric.WithAttributes(attribute.String("type", eventMsgName)))
-			// TODO(PLT-353): remove once baseapp_run_msg_latency verified
-			metrics.MeasureSinceWithLabels(
-				[]string{"cosmos", "run", "msg", "latency"},
-				startTime,
-				[]metrics.Label{{Name: "type", Value: eventMsgName}},
-			)
 		} else {
 			return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "can't route message %+v", msg)
 		}

@@ -1,9 +1,9 @@
 {
-  "status": 400,
+  "status": 410,
   "body": {
     "ok": false,
     "error": {
-      "code": "invalid-request",
+      "code": "operation-retired",
       "copy_key": "error.wallet.signature-mismatch",
       "retry": "structural",
       "field": "signature"

@@ -628,7 +628,7 @@ body {
    widget while body's bg-background colour acts as fallback.
    Image source per theme:
      dark      → /Dark.png
-     greenify  → /Paxify.png   ("Paxify" label in Settings)
+     greenify  → gradient only ("Paxify" label in Settings)
      hotline   → /Hotline.png
      oled      → /OLED.png
    ───────────────────────────────────────────────────────── */
@@ -930,7 +930,7 @@ a {
     --brand-danger-soft: var(--red-100);
   }
   .greenify {
-    --theme-bg-image: url("/Paxify.png");
+    --theme-bg-image: none;
 --background: 220 40% 5%;
     --foreground: 215 18% 75%;
     --component-background: 220 30% 7%;
@@ -1196,12 +1196,6 @@ a {
 /* Add this to remove outline for mouse users but keep it for keyboard navigation */
 *:focus:not(:focus-visible) {
   outline: none;
-}
-
-*:focus-visible {
-  outline: none;
-  ring-color: hsl(var(--ring));
-  ring-offset-color: hsl(var(--background));
 }
 
 .font-mono {

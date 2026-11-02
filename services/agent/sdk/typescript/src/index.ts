@@ -19,8 +19,11 @@ export * from "./history.js";
 export * from "./account-derivation.js";
 
 export * from "./rpc.js";
+export * from "./names.js";
+export * from "./chains.js";
 
 export * from "./wallet.js";
+export * from "./evm-transaction.js";
 
 export * from "./x402/activity.js";
 export * from "./x402/draw.js";

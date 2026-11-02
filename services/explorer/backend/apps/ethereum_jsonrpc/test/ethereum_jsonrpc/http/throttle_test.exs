@@ -283,6 +283,49 @@ defmodule EthereumJSONRPC.HTTP.ThrottleTest do
     end
   end
 
+  test "a completion from before a guard restart does not release a slot of the replacement guard" do
+    configure(
+      max_inflight: 1,
+      rps: @unlimited_rps,
+      trace_max_inflight: 1,
+      archive_max_inflight: 1,
+      coalesce?: false
+    )
+
+    release_a = make_ref()
+
+    request_a =
+      Task.async(fn ->
+        result = block_request(1, test_release: release_a)
+        {result, Throttle.stats(@url)}
+      end)
+
+    wait_until(fn -> CountingTransport.served() == [1] end)
+
+    restart_guard()
+
+    release_b = make_ref()
+    request_b = Task.async(fn -> block_request(2, test_release: release_b) end)
+    wait_until(fn -> CountingTransport.served() == [1, 2] end)
+
+    request_c = Task.async(fn -> block_request(3, test_delay: 0) end)
+    wait_until(fn -> Throttle.stats(@url).queue_depth == 1 end)
+
+    send(request_a.pid, {:release, release_a})
+
+    assert {{:ok, "0x1"}, %{inflight_total: 1, queue_depth: 1}} = Task.await(request_a, 30_000)
+    assert %{inflight_total: 1, queue_depth: 1} = Throttle.stats(@url)
+    assert CountingTransport.served() == [1, 2]
+
+    send(request_b.pid, {:release, release_b})
+
+    assert {:ok, "0x1"} = Task.await(request_b, 30_000)
+    assert {:ok, "0x1"} = Task.await(request_c, 30_000)
+    assert CountingTransport.served() == [1, 2, 3]
+    wait_until(fn -> Throttle.stats(@url).inflight_total == 0 end)
+    assert Throttle.stats(@url).queue_depth == 0
+  end
+
   describe "request/3 availability" do
     test "reports queue depth and in-flight counts while callers wait" do
       configure(

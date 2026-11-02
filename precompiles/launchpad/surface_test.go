@@ -282,6 +282,7 @@ func surfaceAt(role string) common.Address { return launchpadkeeper.Generation2S
 
 func TestSurfaceRuntimeForwards(t *testing.T) {
 	s := newSurfaceHarness(t)
+	require.Equal(t, launchpadkeeper.SurfaceRuntime, launchpad.SurfaceRuntime)
 	require.Len(t, launchpad.SurfaceRuntime, 41)
 	require.Equal(t, "0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3",
 		hexutil.Encode(launchpad.SurfaceRuntime))

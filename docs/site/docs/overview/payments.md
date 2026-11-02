@@ -1,10 +1,12 @@
 # Payments developer path
 
-This path covers a wallet, custody-credit funding, an Asset transfer, token issuance,
+This path covers a wallet, ledger funding, an Asset transfer, token issuance,
 an LXT20 program, and an HTTP 402 payment. The wallet/token CLI, native Asset
 execution, public RPC, payment signer, and extended 402LXP flow described here
-are served by this tree. The LXT20 example is not: neither
-`programs/sdk/rust/examples` nor `programs/fixtures/pay5` is present here.
+are served by this tree. The LXT20 token and merchant examples live in
+`programs/sdk/rust/examples/token-lxt20` and
+`programs/sdk/rust/examples/payments-merchant`; their replay fixtures live in
+`programs/fixtures/pay5`.
 
 For a shorter environment checklist, start with
 [Getting started](getting-started.md). Wire details are in
@@ -21,7 +23,7 @@ export RPC_URL=https://api-mainnet-beta.paxeer.network/rpc
 
 You also need:
 
-- a custody deposit on Paxeer chain `125` for the account you fund;
+- an account with sufficient ledger funds for the payment;
 - a stored `LayerX-Key` gateway credential with the scopes required by the
   operations you will submit;
 - the network id and a receipt policy obtained independently of the RPC
@@ -72,40 +74,14 @@ export WALLET_PUBLIC_KEY='<64-hex public key>'
 Public wallet registration and public DID history are not exposed by the CLI;
 those attempts return typed unavailable errors.
 
-## 3. Fund the account through custody credit
+## 3. Fund the account through the ledger
 
-There is no public faucet. An account is funded by an authenticated custody
-credit: deposit into the custody precompile
-`0x0000000000000000000000000000000000001013` on Paxeer chain `125` through one
-of the [public RPC names](../reference/public-rpc.md), then build the credit from that deposit's
-evidence, sign the funding activity with the account's own key, and submit it
-through the router. [Custody credit](../human/custody.md) documents every input and
-refusal.
-
-```sh
-python tests/bridge/custody_credit.py attest \
-  --rpc "$FIRST_RPC" --rpc "$SECOND_RPC" --comet-rpc "$COMET_RPC" \
-  --ca-bundle "$CA_BUNDLE" --disposable-identity "$IDENTITY" \
-  --profile custody.profile --network-id "$NETWORK_ID" \
-  --transaction "$DEPOSIT_TRANSACTION" --beneficiary "$WALLET_DID" \
-  --beneficiary-key "$WALLET_PUBLIC_KEY" --expected-amount "$AMOUNT" \
-  --output custody.credit
-build/tests/bridge/sign-credit custody.profile custody.credit "$WALLET_DID" \
-  "$WALLET_KEY" "$WALLET_SEQUENCE" "$TIMESTAMP_MS" funding.activity
-
-jq -cn --arg canonical "$(xxd -p funding.activity | tr -d '\n')" \
-  '{jsonrpc:"2.0",id:1,method:"lx_sendActivity",params:[$canonical,"executed"]}' |
-  curl --fail-with-body --silent --show-error "$RPC_URL" \
-    --header 'Content-Type: application/json' \
-    --header "Authorization: LayerX-Key $GATEWAY_KEY_ID:$GATEWAY_KEY_SECRET" \
-    --data-binary @- > funding-response.json
-```
-
-The credit's idempotency is the deposit nullifier in `custody.credit.nullifier`,
-so a repeated submission of the same deposit cannot credit it twice. A signed
-credit is admissible for five minutes; sign it right before submitting. Accept
-funding only after the `executed` outcome and a confirming `lx_getAccount`,
-`lx_getBalance`, or `lx_getBalances` read.
+There is no public faucet. The local custody-credit funding procedure is
+retired: credit evidence is produced by the chain, not by a local script.
+For current ledger payments through the Human service, follow the
+[Human service payment path](../human/payments). See
+[Custody credit](../human/custody.md) for the retirement notice and protocol
+background.
 
 ## 4. Create and use an Asset
 
@@ -188,19 +164,22 @@ layerx --rpc "$RPC_URL" --gateway-credential beta wallet receipt \
 
 ## 5. Inspect Assets, balances, and fees
 
+Set `FROM_ADDRESS` to the sender's EVM address and `UNSIGNED_TX_HEX` to the
+unsigned EIP-1559 transaction hex to estimate its fee.
+
 ```sh
 layerx --rpc "$RPC_URL" --gateway-credential beta wallet balance \
   --did "$WALLET_DID"
 layerx --rpc "$RPC_URL" --gateway-credential beta token info "$ASSET_ID"
 layerx --rpc "$RPC_URL" --gateway-credential beta token list
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet estimate-fee \
-  "$CANONICAL_HEX"
+layerx --rpc "$RPC_URL" --gateway-credential beta wallet estimate-fee --from "$FROM_ADDRESS" "$UNSIGNED_TX_HEX"
 ```
 
 The corresponding RPC methods are `lx_getBalances`, `lx_getAsset`,
-`lx_listAssets`, and `lx_estimateFee`. Snapshot-authentication labels are not
-finality claims, and a fee estimate neither reserves the fee nor proves that
-the activity will execute.
+`lx_listAssets`, `eth_estimateGas`, and `eth_gasPrice`. Fee estimation multiplies
+the gas estimate at `pending` by the gas price. Snapshot-authentication labels
+are not finality claims, and a fee estimate neither reserves the fee nor proves
+that the transaction will execute.
 
 Live `receipts`, `checkpoints`, and `account` watches are unverified wake-ups.
 Always reconcile with a verified read or `wallet receipt` after a notification
@@ -209,8 +188,7 @@ or stream closure.
 ## 6. Build and deploy the LXT20 example
 
 The LXT20 example is a Programs ABI-v2 token backed by one native Asset. It is
-not a second ledger and does not mint native units. It is not in this tree, so
-the build below has no manifest to read here.
+not a second ledger and does not mint native units.
 
 ```sh
 cargo build \

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	atypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/autobahn/types"
 	tmbytes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/bytes"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
@@ -21,23 +22,13 @@ import (
 // blocking integration-test CI today (no reader), but external tooling will
 // want them:
 //
-//   - LatestBlockHash / LatestBlockTime: need Autobahn block-header lookup
-//     for the latest global block.
-//   - EarliestBlockHash / EarliestAppHash / EarliestBlockHeight /
-//     EarliestBlockTime: need Autobahn's pruning-boundary metadata
-//     (FirstCommitQC or equivalent).
 //   - CatchingUp: currently hardcoded `true` under Autobahn because
 //     ConsensusReactor is nil. Needs a sync-state signal from Autobahn.
 //   - MaxPeerBlockHeight / TotalSyncedTime / RemainingTime: require an
 //     Autobahn equivalent of BlockSyncReactor.
 //
-// Separately, every RPC handler that uses env.getHeight(env.BlockStore.Height(), …)
-// still rejects queries under Autobahn because BlockStore.Height()==0. This
-// breaks /block, /block_results, /commit, and the evmrpc endpoints that walk
-// through them (eth_getBlockByNumber, eth_gasPrice, etc.). A separate PR
-// needs to either route block-data reads through an Autobahn-aware path or
-// have Autobahn expose enough block metadata to satisfy the CometBFT Block
-// RPC surface.
+// Autobahn height validation uses the app's head and GigaRouter's retained
+// lower bound; classic height validation uses the BlockStore's range.
 func (env *Environment) Status(ctx context.Context) (*coretypes.ResultStatus, error) {
 	var (
 		earliestBlockHeight   int64
@@ -45,13 +36,6 @@ func (env *Environment) Status(ctx context.Context) (*coretypes.ResultStatus, er
 		earliestAppHash       tmbytes.HexBytes
 		earliestBlockTimeNano int64
 	)
-
-	if earliestBlockMeta := env.BlockStore.LoadBaseMeta(); earliestBlockMeta != nil {
-		earliestBlockHeight = earliestBlockMeta.Header.Height
-		earliestAppHash = earliestBlockMeta.Header.AppHash
-		earliestBlockHash = earliestBlockMeta.BlockID.Hash
-		earliestBlockTimeNano = earliestBlockMeta.Header.Time.UnixNano()
-	}
 
 	var (
 		latestBlockHash     tmbytes.HexBytes
@@ -72,8 +56,7 @@ func (env *Environment) Status(ctx context.Context) (*coretypes.ResultStatus, er
 	// Under Autobahn the CometBFT block store isn't populated, so the height
 	// above is stuck at 0. Pull the live height and app hash from the app —
 	// ABCIInfo reports both the last height the app committed in FinalizeBlock
-	// and the matching app hash. Block hash and block time stay empty; see
-	// the TODO on Status for what's left.
+	// and the matching app hash.
 	//
 	// LastCommittedBlockHeight reports the last block consensus has finalized.
 	// Under CometBFT commit == app-apply in one step, so latestHeight IS the
@@ -85,8 +68,22 @@ func (env *Environment) Status(ctx context.Context) (*coretypes.ResultStatus, er
 		if abciInfo, err := env.ABCIInfo(ctx); err == nil {
 			latestHeight = abciInfo.Response.LastBlockHeight
 			latestAppHash = abciInfo.Response.LastBlockAppHash
+			if block, err := giga.BlockByNumber(ctx, atypes.GlobalBlockNumber(latestHeight)); err == nil {
+				latestBlockHash = block.BlockID.Hash
+				latestBlockTimeNano = block.Block.Header.Time.UnixNano()
+			}
 		}
 		lastCommittedBlockHeight = giga.LastCommittedBlockNumber()
+		earliestBlockHeight = giga.EarliestBlockNumber()
+		if earliestBlockHeight <= lastCommittedBlockHeight {
+			block, err := giga.BlockByNumber(ctx, atypes.GlobalBlockNumber(earliestBlockHeight))
+			if err != nil {
+				return nil, fmt.Errorf("load earliest Autobahn block at height %d: %w", earliestBlockHeight, err)
+			}
+			earliestBlockHash = block.BlockID.Hash
+			earliestAppHash = block.Block.Header.AppHash
+			earliestBlockTimeNano = block.Block.Header.Time.UnixNano()
+		}
 		// Invariant: under Autobahn, consensus finalizes before the app
 		// executes, so the committed height leads (or equals) the executed
 		// height. Committed=0 is a legitimate startup window before the first
@@ -96,6 +93,11 @@ func (env *Environment) Status(ctx context.Context) (*coretypes.ResultStatus, er
 				"committed", lastCommittedBlockHeight,
 				"executed", latestHeight)
 		}
+	} else if earliestBlockMeta := env.BlockStore.LoadBaseMeta(); earliestBlockMeta != nil {
+		earliestBlockHeight = earliestBlockMeta.Header.Height
+		earliestAppHash = earliestBlockMeta.Header.AppHash
+		earliestBlockHash = earliestBlockMeta.BlockID.Hash
+		earliestBlockTimeNano = earliestBlockMeta.Header.Time.UnixNano()
 	}
 
 	// Return the very last voting power, not the voting power of this validator

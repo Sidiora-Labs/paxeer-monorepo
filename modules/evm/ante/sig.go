@@ -69,7 +69,11 @@ func (svd *EVMSigVerifyDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulat
 
 	if ctx.IsCheckTx() {
 		if txNonce < nextNonce {
+			evmAnteMetrics.pendingNonce.Add(ctx.Context(), 1, otelmetric.WithAttributes(attribute.String("type", "rejected")))
 			return ctx, sdkerrors.ErrWrongSequence
+		}
+		if txNonce > nextNonce {
+			evmAnteMetrics.pendingNonce.Add(ctx.Context(), 1, otelmetric.WithAttributes(attribute.String("type", "added")))
 		}
 		ctx = ctx.WithEVMRequiredBalance(fee)
 	} else if txNonce != nextNonce {

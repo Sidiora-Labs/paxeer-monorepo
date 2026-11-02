@@ -6,15 +6,16 @@ use std::pin::pin;
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 
-use layerx_agentd::prepare::{
-    prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
-    PreparationDefaults, PrepareRequest,
-};
+use k256::ecdsa::SigningKey;
+use layerx_agentd::prepare::{restore_canonical, EvmPrepared};
+use layerx_agentd::sign::SigningPreparation;
 use layerx_agentd::sign::{external, self_sign, ProvisionedSessionKey, SigningError, SigningMode};
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
 use layerx_crypto::local::LocalSigner;
+use layerx_crypto::secp256k1::evm_address;
 use layerx_crypto::session::{issue_session_key, IssuedSessionKey, SessionKeyRequest};
 use layerx_crypto::signer::Signer;
-use layerx_types::activity::{Authority, TimestampBound};
+use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
 use layerx_types::amount::Amount;
 use layerx_types::ids::{Did, IdempotencyKey};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
@@ -33,14 +34,6 @@ fn ready<F: Future>(future: F) -> F::Output {
     match future.as_mut().poll(&mut context) {
         Poll::Ready(value) => value,
         Poll::Pending => panic!("local signing unexpectedly blocked"),
-    }
-}
-
-struct RecordedCore(CorePreparationState);
-
-impl CorePreparationBoundary for RecordedCore {
-    fn preparation_state(&mut self, _actor: &Did) -> Result<CorePreparationState, CoreStateError> {
-        Ok(self.0.clone())
     }
 }
 
@@ -129,38 +122,56 @@ fn issued(seed: [u8; 32], permitted: ActivityType, expires_at: u64) -> IssuedSes
     .unwrap_or_else(|error| panic!("issue session key: {error:?}"))
 }
 
-fn prepared(authority: Authority) -> layerx_agentd::prepare::Prepared {
-    let mut core = RecordedCore(CorePreparationState {
-        network_id: 17,
-        account_sequence: 5,
-        protocol_timestamp: 1_000,
-        observed_head_sequence: 88,
-        module_registry: registry(),
-    });
-    prepare_activity(
-        &mut core,
-        PreparationDefaults {
-            timestamp_span: 30,
-            fee_limit: Amount::from_u128(12),
-            maximum_payload_bytes: 1_024,
+fn session_address(seed: [u8; 32]) -> [u8; 20] {
+    let key = SigningKey::from_slice(&seed).unwrap_or_else(|error| panic!("key: {error:?}"));
+    evm_address(key.verifying_key().to_encoded_point(false).as_bytes())
+        .unwrap_or_else(|error| panic!("address: {error:?}"))
+}
+
+fn prepared(authority: Authority) -> SigningPreparation {
+    let payload = layerx_types::payload::Payload::new(&registry(), send_type(), &send_payload())
+        .unwrap_or_else(|error| panic!("payload: {error:?}"));
+    let payload_hash = layerx_wire::hash::payload_hash_for(&payload)
+        .unwrap_or_else(|error| panic!("payload hash: {error:?}"));
+    let mut builder = EnvelopeBuilder::new();
+    builder
+        .protocol_version(layerx_wire::limits::PROTOCOL_VERSION)
+        .and_then(|builder| builder.network_id(17))
+        .and_then(|builder| builder.activity_type(send_type()))
+        .and_then(|builder| builder.actor_did(Did::new(b"did:layerx:prepare-agent").unwrap()))
+        .and_then(|builder| builder.authority(authority.clone()))
+        .and_then(|builder| builder.account_sequence(5))
+        .and_then(|builder| builder.timestamp_bound(TimestampBound::new(995, 1_010).unwrap()))
+        .and_then(|builder| builder.idempotency_key(IdempotencyKey::new([4; 32])))
+        .and_then(|builder| builder.fee_limit(Amount::from_u128(7)))
+        .and_then(|builder| builder.payload_hash(payload_hash))
+        .and_then(|builder| builder.payload(payload))
+        .unwrap_or_else(|error| panic!("envelope: {error:?}"));
+    let envelope = builder
+        .build()
+        .unwrap_or_else(|error| panic!("envelope: {error:?}"));
+    let canonical = layerx_wire::activity::encode_unsigned_envelope(&envelope)
+        .unwrap_or_else(|error| panic!("encode: {error:?}"));
+    let authorization = restore_canonical(&canonical, 88, &registry(), Some(&authority))
+        .unwrap_or_else(|error| panic!("restore: {error:?}"));
+    let call = Eip1559Call {
+        chain_id: 17,
+        nonce: 5,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 7,
+        gas_limit: 100_000,
+        to: [0x1a; 20],
+        data: send_payload(),
+    };
+    SigningPreparation {
+        transaction: EvmPrepared {
+            signing_hash: call.signing_hash(),
+            call,
+            observed_head_height: 88,
         },
-        PrepareRequest {
-            actor: Did::new(b"did:layerx:prepare-agent")
-                .unwrap_or_else(|error| panic!("DID: {error:?}")),
-            authority,
-            activity_type: send_type(),
-            expected_account_sequence: Some(5),
-            timestamp_bound: Some(
-                TimestampBound::new(995, 1_010)
-                    .unwrap_or_else(|error| panic!("timestamp: {error:?}")),
-            ),
-            fee_limit: Some(Amount::from_u128(7)),
-            idempotency_key: IdempotencyKey::new([4; 32]),
-            payload: send_payload(),
-            declared_payload_limit: 1_024,
-        },
-    )
-    .unwrap_or_else(|error| panic!("prepare: {error:?}"))
+        actor_address: session_address([0xa5; 32]),
+        authorization,
+    }
 }
 
 #[test]
@@ -171,9 +182,15 @@ fn external_signing_is_the_key_free_default() {
     );
     let package = external(&prepared).unwrap_or_else(|error| panic!("external: {error:?}"));
     assert_eq!(package.mode, SigningMode::External);
-    assert_eq!(package.canonical_bytes, prepared.canonical_bytes);
-    assert_eq!(package.signing_preimage, prepared.signing_preimage);
-    assert_eq!(package.disclosure_digest, prepared.disclosure_digest);
+    assert_eq!(
+        package.canonical_bytes,
+        prepared.authorization.canonical_bytes
+    );
+    assert_eq!(package.signing_preimage, prepared.transaction.signing_hash);
+    assert_eq!(
+        package.disclosure_digest,
+        prepared.authorization.disclosure_digest
+    );
 }
 
 #[test]
@@ -235,9 +252,25 @@ fn session_key_self_signing_is_distinct_and_audited() {
     assert_eq!(signed.mode, SigningMode::ProtocolSessionKey);
     assert_eq!(signed.audit.mode, SigningMode::ProtocolSessionKey);
     assert_eq!(signed.audit.activity_type, send_type());
-    assert_eq!(signed.audit.disclosure_digest, prepared.disclosure_digest);
-    assert_eq!(signed.canonical_bytes, prepared.canonical_bytes);
-    assert_ne!(signed.signature, [0; 64]);
+    assert_eq!(
+        signed.audit.disclosure_digest,
+        prepared.authorization.disclosure_digest
+    );
+    assert_eq!(
+        signed.canonical_bytes,
+        prepared.authorization.canonical_bytes
+    );
+    assert_eq!(signed.signature.len(), 65);
+    assert_ne!(signed.signature, [0; 65]);
+    let (call, signature) = decode_signed(&signed.signed_canonical_bytes)
+        .unwrap_or_else(|error| panic!("decode: {error:?}"));
+    assert_eq!(call, prepared.transaction.call);
+    assert_eq!(signature.as_bytes(), &signed.signature);
+    assert_eq!(
+        recover_sender(&call, &signature).unwrap(),
+        session_address(seed)
+    );
+    assert_eq!(signed.signer_address, session_address(seed));
 }
 
 #[test]

@@ -323,7 +323,7 @@ func migratePool(ctx sdk.Context, k *Keeper, evm EVMReader, pool v6120Pool, inde
 // registers the pool as the surface of its market, with the generation of
 // the contract it replaced.
 func installPoolSurface(ctx sdk.Context, k *Keeper, evm EVMReader, pool v6120Pool) error {
-	evm.SetCode(ctx, pool.Address, surfaceRuntime)
+	evm.SetCode(ctx, pool.Address, SurfaceRuntime)
 	return k.SetSurface(ctx, pool.Address, Surface{Role: types.RolePool, Generation: pool.Generation,
 		Market: pool.Market.Denom})
 }

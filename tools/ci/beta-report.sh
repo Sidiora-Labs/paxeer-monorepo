@@ -6,7 +6,7 @@ usage() {
 usage: tools/ci/beta-report.sh [--ledger PATH] [--check]
 
 Reads the Paxeer X Network mainnet-beta evidence ledger
-(spec/layerx-beta/qualification.kvx by default) and nothing else.
+(spec/layerx-merge/qualification.kvx by default) and nothing else.
 
   --check        validate the ledger shape only and print a one-line summary;
                  needs no CI inputs, network or build output
@@ -42,7 +42,7 @@ while [ "$#" -gt 0 ]; do
         ;;
     esac
 done
-ledger=${ledger:-$root/spec/layerx-beta/qualification.kvx}
+ledger=${ledger:-$root/spec/layerx-merge/qualification.kvx}
 command -v python3 >/dev/null 2>&1 || { echo "beta-report: python3 is required" >&2; exit 2; }
 [ -f "$ledger" ] || { echo "beta-report: ledger not found: $ledger" >&2; exit 2; }
 
@@ -57,10 +57,12 @@ mode, path = sys.argv[1], sys.argv[2]
 KEYS = {
     "gate": ["task", "reqs", "revision", "command", "environment", "started_at", "outcome", "evidence", "note"],
     "observation": ["task", "file", "symbol", "observed", "assumption", "severity"],
+    "finding": ["task", "file", "symbol", "observed", "assumption", "severity"],
 }
 OUTCOMES = ("pass", "fail", "blocked")
 SEVERITIES = ("blocker", "suspect", "assumption", "note")
 HEADER = re.compile(r"^\[(gate|observation)\.(.+)\.([1-9][0-9]*)\]$")
+FINDING_HEADER = re.compile(r"^\[(finding)\.([0-9]+\.[0-9]+\.[0-9]+)(?:\.([1-9][0-9]*))?\]$")
 TASK = re.compile(r"^[0-9A-Za-z]+(\.[0-9A-Za-z]+)*$")
 ASSIGN = re.compile(r"^([a-z_][a-z0-9_]*) = (.+)$")
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
@@ -84,9 +86,9 @@ for lineno, raw in enumerate(lines, 1):
     if not line or line.startswith("#"):
         continue
     if line.startswith("["):
-        match = HEADER.match(line)
+        match = HEADER.match(line) or FINDING_HEADER.match(line)
         if not match or not TASK.match(match.group(2)):
-            fail(lineno, f"record header {line!r} is not [gate.<task>.<n>] or [observation.<task>.<n>]")
+            fail(lineno, f"record header {line!r} is not a gate, observation or layerx-merge finding")
             current = None
             continue
         name = line[1:-1]
@@ -137,7 +139,7 @@ for record in records:
             fail(lineno, f"{name}.{key}: wrong value type")
     if values.get("task") is not None and values.get("task") != record["task"]:
         fail(lineno, f"{name}: task key {values.get('task')!r} does not match the record name")
-    if kind == "observation":
+    if kind in ("observation", "finding"):
         if "severity" in values and values["severity"] not in SEVERITIES:
             fail(lineno, f"{name}.severity: {values['severity']!r} is not one of {', '.join(SEVERITIES)}")
         continue
@@ -162,6 +164,7 @@ if errors:
 
 gates = [r for r in records if r["kind"] == "gate"]
 observations = [r for r in records if r["kind"] == "observation"]
+findings = [r for r in records if r["kind"] == "finding"]
 go_records = [
     g for g in gates
     if g["values"]["outcome"] == "pass" and g["values"]["note"].startswith("owner go decision:")
@@ -175,6 +178,7 @@ count = lambda items, key, vocab: ", ".join(f"{v} {sum(1 for i in items if i['va
 summary = (
     f"beta-report: {decision}; {len(gates)} gate records ({count(gates, 'outcome', OUTCOMES)}); "
     f"{len(observations)} observations ({count(observations, 'severity', SEVERITIES)}); "
+    f"{len(findings)} findings ({count(findings, 'severity', SEVERITIES)}); "
     f"candidate {candidate or 'undeclared'}"
 )
 
@@ -186,7 +190,7 @@ cell = lambda text: text.replace("|", "\\|").replace("\n", " ")
 out = [
     "# Paxeer X Network mainnet-beta go/no-go report",
     "",
-    f"Rendered by `tools/ci/beta-report.sh` from `spec/layerx-beta/qualification.kvx` gate records only.",
+    f"Rendered by `tools/ci/beta-report.sh` from `spec/layerx-merge/qualification.kvx` gate records only.",
     "",
     f"Decision: **{decision}**",
     "",
@@ -206,6 +210,7 @@ else:
 out += ["", "## Blocking records on the candidate", ""]
 out += [f"- {g['name']}: {g['values']['outcome']}: {cell(g['values']['note'])}" for g in blocking] or ["None."]
 out += ["", "## Observations", "", count(observations, "severity", SEVERITIES) + "."]
+out += ["", "## Findings", "", count(findings, "severity", SEVERITIES) + "."]
 print("\n".join(out))
 print(summary, file=sys.stderr)
 PY

@@ -3,6 +3,8 @@
 use std::path::Path;
 
 use layerx_agent_api::subscription::{SubscriptionRecord, SubscriptionTarget};
+use layerx_client::sequencer::ReceiptKeyEntry;
+use layerx_crypto::evm_transaction::decode_signed;
 use layerx_types::verify::VerificationLevel;
 use sha2::{Digest, Sha256};
 
@@ -144,13 +146,14 @@ const COMMANDS: [CommandDescriptor; 10] = [
     CommandDescriptor {
         name: "unknown.inspect",
         target: "unknown submission",
-        action: "read daemon-local outbox status",
+        action: "read transaction hash, nonce and daemon-local outbox status",
         protocol_mutating: false,
     },
     CommandDescriptor {
         name: "unknown.resolve",
         target: "unknown submission",
-        action: "look up a verified receipt or resend identical bytes",
+        action:
+            "look up a verified sequencer receipt; resend identical bytes only at the pending nonce",
         protocol_mutating: false,
     },
     CommandDescriptor {
@@ -264,6 +267,21 @@ impl OperatorContext {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UnknownInspection {
+    pub transaction_hash: [u8; 32],
+    pub nonce: u64,
+    pub status: SubmissionStatus,
+}
+
+impl std::ops::Deref for UnknownInspection {
+    type Target = SubmissionStatus;
+
+    fn deref(&self) -> &Self::Target {
+        &self.status
+    }
+}
+
 /// One operator-visible stalled-subscription snapshot.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StalledSubscription {
@@ -356,17 +374,26 @@ impl Surface {
         context: &OperatorContext,
         outbox: &Outbox,
         submission_id: [u8; 32],
-    ) -> Result<SubmissionStatus, AdminError> {
+    ) -> Result<UnknownInspection, AdminError> {
         self.dispatch(context, OperatorCommand::InspectUnknown(submission_id))?;
         let status = outbox
             .status(submission_id)
             .filter(|status| status.state == SubmissionState::Unknown)
             .cloned()
             .ok_or(AdminError::NotUnknown)?;
-        Ok(status)
+        let raw = outbox
+            .exact_signed_bytes(submission_id)
+            .map_err(|error| AdminError::UnknownResolution(error.into()))?;
+        let (transaction, _) = decode_signed(raw)
+            .map_err(|_| AdminError::UnknownResolution(UnknownResolutionError::Corrupt))?;
+        Ok(UnknownInspection {
+            transaction_hash: submission_id,
+            nonce: transaction.nonce,
+            status,
+        })
     }
 
-    /// Runs the existing receipt-only unknown resolver after durable audit.
+    /// Audits sequencer receipt lookup and resends only while the pending nonce equals ours.
     ///
     /// # Errors
     ///
@@ -381,7 +408,7 @@ impl Surface {
         store: &mut crate::store::Store,
         submission_id: [u8; 32],
         observed_at_ms: u64,
-        verifier: &EvidenceAuthority,
+        receipt_keys: &[ReceiptKeyEntry],
         boundary: &mut B,
     ) -> Result<UnknownResolution, AdminError> {
         self.dispatch(context, OperatorCommand::ResolveUnknown(submission_id))?;
@@ -390,7 +417,7 @@ impl Surface {
             store,
             submission_id,
             observed_at_ms,
-            verifier,
+            receipt_keys,
             boundary,
         )
         .map_err(AdminError::UnknownResolution)
@@ -530,10 +557,14 @@ impl Surface {
             context,
             OperatorCommand::RetryVerification(backlog.idempotency_key),
         )?;
-        finality::wait_for_level(
+        let requested = backlog
+            .requested
+            .rung()
+            .ok_or(AdminError::Verification(FinalityError::ProgressUnavailable))?;
+        finality::wait_for_rung(
             progress,
             backlog.idempotency_key,
-            backlog.requested,
+            requested,
             started_at_ms,
             deadline_ms,
             poll_interval_ms,

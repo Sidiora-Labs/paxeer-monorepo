@@ -15,7 +15,6 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	cdctypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store"
-	sdktestutil "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/address"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
@@ -24,6 +23,8 @@ import (
 	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	paramskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/keeper"
+	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
+	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
@@ -63,9 +64,10 @@ func programSignatureKeys(t *testing.T, count int) (types.AttestorSet, []*ecdsa.
 
 func programSignatureKeeper(t *testing.T, set types.AttestorSet) (Keeper, sdk.Context) {
 	t.Helper()
-	key := sdk.NewKVStoreKey(types.StoreKey)
-	ctx := sdktestutil.DefaultContext(key, sdk.NewTransientStoreKey("transient_xweb"))
-	k := Keeper{storeKey: key}
+	k, ctx, upgrades := newProgramActivationKeeper(t)
+	ctx = ctx.WithBlockHeight(8)
+	k.upgrades = upgrades
+	upgrades.SetDone(ctx, ProgramOriginPlan)
 	k.setAttestorSet(ctx, set)
 	require.Equal(t, set, k.GetAttestorSet(ctx))
 	return k, ctx
@@ -381,15 +383,18 @@ func newProgramFulfilSuite(t *testing.T, attestors int) *programFulfilSuite {
 	accountKey := sdk.NewKVStoreKey(authtypes.StoreKey)
 	bankKey := sdk.NewKVStoreKey(banktypes.StoreKey)
 	paramsKey := sdk.NewKVStoreKey("params")
+	upgradeKey := sdk.NewKVStoreKey(upgradetypes.StoreKey)
 	paramsTransientKey := sdk.NewTransientStoreKey("transient_params")
 	db := dbm.NewMemDB()
 	cms := store.NewCommitMultiStore(db)
-	for _, key := range []sdk.StoreKey{xwebKey, accountKey, bankKey, paramsKey} {
+	for _, key := range []sdk.StoreKey{xwebKey, accountKey, bankKey, paramsKey, upgradeKey} {
 		cms.MountStoreWithDB(key, sdk.StoreTypeIAVL, db)
 	}
 	cms.MountStoreWithDB(paramsTransientKey, sdk.StoreTypeTransient, db)
 	require.NoError(t, cms.LoadLatestVersion())
 	ctx := sdk.NewContext(cms, tmproto.Header{Height: 8}, false)
+	upgrades := upgradekeeper.NewKeeper(nil, upgradeKey, cdc, t.TempDir(), nil)
+	upgrades.SetDone(ctx, ProgramOriginPlan)
 	params := paramskeeper.NewKeeper(cdc, codec.NewLegacyAmino(), paramsKey, paramsTransientKey)
 	accounts := authkeeper.NewAccountKeeper(cdc, accountKey, params.Subspace(authtypes.ModuleName),
 		authtypes.ProtoBaseAccount, map[string][]string{programFulfilMinter: {authtypes.Minter}})
@@ -402,7 +407,7 @@ func newProgramFulfilSuite(t *testing.T, attestors int) *programFulfilSuite {
 	genesis.Params.KernelNetworkId = 1
 	genesis.Params.ProgramFeeDenoms = []string{types.ProgramFeeDenomPAX, types.ProgramFeeDenomSID,
 		types.ProgramFeeDenomUSDC, types.ProgramFeeDenomUSDL}
-	k := Keeper{storeKey: xwebKey, bankKeeper: bank}
+	k := Keeper{storeKey: xwebKey, bankKeeper: bank, upgrades: &upgrades}
 	k.InitGenesis(ctx, genesis)
 	require.False(t, k.IsPaused(ctx))
 	return &programFulfilSuite{t: t, ctx: ctx, k: k, bank: bank, keys: keys, set: set, bkey: bankKey}

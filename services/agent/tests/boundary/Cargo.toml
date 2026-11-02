@@ -5,11 +5,8 @@ edition = "2021"
 publish = false
 
 [dependencies]
-ed25519-dalek = "=2.2.0"
 layerx-client = { path = "../../crates/layerx-client" }
-layerx-proof = { path = "../../crates/layerx-proof" }
-layerx-types = { path = "../../crates/layerx-types" }
-layerx-wire = { path = "../../crates/layerx-wire" }
+layerx-crypto = { path = "../../crates/layerx-crypto" }
 
 [workspace]
 

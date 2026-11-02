@@ -1,6 +1,4 @@
 import * as confio from "./confio/index";
-import * as cosmos_accesscontrol from "./cosmos/accesscontrol/index";
-import * as cosmos_accesscontrol_x from "./cosmos/accesscontrol_x/index";
 import * as cosmos_auth_v1beta1 from "./cosmos/auth/v1beta1/index";
 import * as cosmos_authz_v1beta1 from "./cosmos/authz/v1beta1/index";
 import * as cosmos_bank_v1beta1 from "./cosmos/bank/v1beta1/index";
@@ -14,7 +12,6 @@ import * as cosmos_base_store_v1beta1 from "./cosmos/base/store/v1beta1/index";
 import * as cosmos_base_tendermint_v1beta1 from "./cosmos/base/tendermint/v1beta1/index";
 import * as cosmos_base_v1beta1 from "./cosmos/base/v1beta1/index";
 import * as cosmos_capability_v1beta1 from "./cosmos/capability/v1beta1/index";
-import * as cosmos_crisis_v1beta1 from "./cosmos/crisis/v1beta1/index";
 import * as cosmos_crypto_ed25519 from "./cosmos/crypto/ed25519/index";
 import * as cosmos_crypto_multisig from "./cosmos/crypto/multisig/index";
 import * as cosmos_crypto_secp256k1 from "./cosmos/crypto/secp256k1/index";
@@ -25,7 +22,6 @@ import * as cosmos_evidence_v1beta1 from "./cosmos/evidence/v1beta1/index";
 import * as cosmos_feegrant_v1beta1 from "./cosmos/feegrant/v1beta1/index";
 import * as cosmos_genutil_v1beta1 from "./cosmos/genutil/v1beta1/index";
 import * as cosmos_gov_v1beta1 from "./cosmos/gov/v1beta1/index";
-import * as cosmos_mint_v1beta1 from "./cosmos/mint/v1beta1/index";
 import * as cosmos_params_types from "./cosmos/params/types/index";
 import * as cosmos_params_v1beta1 from "./cosmos/params/v1beta1/index";
 import * as cosmos_slashing_v1beta1 from "./cosmos/slashing/v1beta1/index";
@@ -53,8 +49,6 @@ export * from "./registry";
 export declare const Encoder: {
     confio: typeof confio;
     cosmos: {
-        accesscontrol: typeof cosmos_accesscontrol;
-        accesscontrol_x: typeof cosmos_accesscontrol_x;
         auth: {
             v1beta1: typeof cosmos_auth_v1beta1;
         };
@@ -92,9 +86,6 @@ export declare const Encoder: {
         capability: {
             v1beta1: typeof cosmos_capability_v1beta1;
         };
-        crisis: {
-            v1beta1: typeof cosmos_crisis_v1beta1;
-        };
         crypto: {
             ed25519: typeof cosmos_crypto_ed25519;
             multisig: typeof cosmos_crypto_multisig;
@@ -116,9 +107,6 @@ export declare const Encoder: {
         };
         gov: {
             v1beta1: typeof cosmos_gov_v1beta1;
-        };
-        mint: {
-            v1beta1: typeof cosmos_mint_v1beta1;
         };
         params: {
             types: typeof cosmos_params_types;

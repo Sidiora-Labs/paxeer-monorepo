@@ -63,6 +63,7 @@ func TestRevertReasonIsLxpCode(t *testing.T) {
 			{types.ErrInvalidGenesis, 11, "invalid genesis", "LXP_EXCHANGE_INVALID_GENESIS"},
 			{types.ErrKeeperMissing, 12, "layerxexchange keeper is not wired", "LXP_EXCHANGE_KEEPER_MISSING"},
 			{types.ErrEvidenceTooLong, 13, "state proof exceeds the exchange bound", "LXP_EXCHANGE_EVIDENCE_TOO_LONG"},
+			{types.ErrRetired, 14, "exchange is retired from v6.12.0", "LXP_EXCHANGE_RETIRED"},
 		}
 		for _, test := range cases {
 			t.Run(test.text, func(t *testing.T) {

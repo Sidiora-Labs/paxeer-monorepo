@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { formatTransaction, recoverTransactionAddress, serializeTransaction, type Hex, type RpcTransaction } from 'viem';
-import { transactionHash } from '../src/provision/bind.js';
+import { transactionHash } from '../src/chain.js';
 
 /**
  * Mined chain 125 transactions exactly as a public node answers eth_getTransactionByHash: one legacy

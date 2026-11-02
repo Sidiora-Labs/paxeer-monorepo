@@ -4,7 +4,7 @@ Paxeer X Network handles authorization, accounting, custody, bridging and settle
 
 ## Report privately
 
-Do not open a public issue, discussion or pull request for a suspected vulnerability. Report it through GitHub private vulnerability reporting: open the repository's Security tab and choose "Report a vulnerability", or go directly to <https://github.com/Sidiora-Labs/Paxeer-X-Network/security/advisories/new>. Only the maintainers see the report.
+Do not open a public issue, discussion or pull request for a suspected vulnerability. Report it by email to <security@paxeer.app> or through GitHub private vulnerability reporting: open the repository's Security tab and choose "Report a vulnerability", or go directly to <https://github.com/Sidiora-Labs/Paxeer-X-Network/security/advisories/new>. Only the maintainers see the report.
 
 Include:
 
@@ -20,7 +20,24 @@ Test only against systems and assets you own or have written permission to test.
 
 The maintainers confirm receipt in the advisory, assess scope and severity, and work on the fix in a private advisory fork when one is needed. The fix lands on `main`, and when it changes the chain node it ships in a release as described in [RELEASE.md](RELEASE.md). The advisory is published once the fix is available, crediting the reporter unless they ask otherwise. A report found to be out of scope is closed with the reason given in the advisory. Please keep details private until the advisory is published.
 
-There is no bug bounty.
+## Response targets
+
+These response targets are best-effort commitments. The maintainers aim to acknowledge a report within three business days of receipt and complete triage with a scope and severity decision within ten business days of receipt. While remediation is in progress, they provide a status update at least every fourteen days.
+
+Remediation targets, counted from the severity decision, are thirty days for Critical issues, sixty days for High issues, ninety days for Medium issues and the next scheduled release for Low issues. Coordinated disclosure is targeted within fourteen days of the fix being available.
+
+If a target is missed, escalate by commenting in the advisory. After two further business days without a response, email <security@paxeer.app> with the advisory identifier.
+
+## Bug bounty
+
+The [Paxeer bug bounty programme](https://www.paxeer.app/bug-bounty) rewards vulnerabilities in the in-scope code listed below, subject to the out-of-scope exclusions. One reward in USD is paid per unique vulnerability; if reports are duplicates, only the first reporter receives the reward.
+
+- Critical: $10,000-$50,000 — could move or destroy funds, or change what the network considers final
+- High: $5,000-$10,000 — a serious security or stability weakness that does not by itself lose funds
+- Medium: $1,000-$5,000 — limited impact, or exploitable only under specific conditions
+- Low: $100-$1,000 — minor issues and informational findings
+
+Stop testing at a proof of concept. Never move funds that are not your own, and follow the testing restrictions above. Keep the issue private until it is fixed and the advisory is published.
 
 ## Supported versions
 
@@ -40,6 +57,9 @@ The root directories of the chain node and the kernel move under `core/` in a la
 
 Out of scope:
 
+- third-party services and integrations
+- issues already known or reported
+- social engineering
 - defects that need a compromised validator, governance or operator key, unless the code fails to enforce a limit it claims to enforce
 - denial of service by sheer traffic volume against hosted endpoints
 - findings from automated scanners without a demonstrated impact

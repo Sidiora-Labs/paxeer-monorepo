@@ -6,6 +6,7 @@ export const WEI_DECIMALS = 18;
 
 /** Launched tokens and the launchpad quote denom use six display decimals. */
 export const LAUNCHPAD_DECIMALS = 6;
+export const LAUNCHPAD_PRICE_DECIMALS = 18;
 
 /** Renders base units as a decimal string with `decimals` fractional digits, trailing zeros trimmed. */
 export function formatUnits(amount: bigint, decimals: number): string {

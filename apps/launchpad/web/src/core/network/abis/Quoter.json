@@ -35,6 +35,16 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "InvalidRoleAccount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LastDefaultAdmin",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -52,7 +62,17 @@
   },
   {
     "inputs": [],
+    "name": "NonPayableUpgrade",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NotInitializing",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OpticalQuoteUnsupported",
     "type": "error"
   },
   {
@@ -73,6 +93,16 @@
   {
     "inputs": [],
     "name": "UnauthorizedUpgrade",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UnexecutableQuote",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UpgradeInitializationFailed",
     "type": "error"
   },
   {
@@ -576,6 +606,19 @@
         "internalType": "struct IQuoter.MultihopQuoteResult",
         "name": "result",
         "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "registeredDefaultAdminCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",

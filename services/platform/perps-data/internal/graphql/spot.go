@@ -127,98 +127,6 @@ type spotCollateralMovement struct {
 	BlockTimestamp spotTime
 }
 
-type spotBatchClearing struct {
-	ID                int32
-	MarketID          string
-	ClearingOffsetBps int32
-	ClearingPrice     spotDecimal
-	MatchedVolume     spotDecimal
-	NumBuysFilled     int32
-	NumSellsFilled    int32
-	BlockNumber       int32
-	TxHash            string
-	LogIndex          int32
-	BlockTimestamp    spotTime
-}
-
-type spotEpochSettlement struct {
-	EpochNumber    spotDecimal
-	UsersProcessed int32
-	OnchainBlock   int32
-	BlockNumber    int32
-	TxHash         string
-	LogIndex       int32
-	BlockTimestamp spotTime
-}
-
-type spotFastSettlement struct {
-	ID             int32
-	UserAddress    string
-	TokenAddress   string
-	Amount         spotDecimal
-	Fee            spotDecimal
-	BlockNumber    int32
-	TxHash         string
-	LogIndex       int32
-	BlockTimestamp spotTime
-}
-
-type spotMarketModeChange struct {
-	ID                  int32
-	MarketID            string
-	OldMode             int32
-	NewMode             int32
-	BatchModeUntilBlock spotDecimal
-	BlockNumber         int32
-	TxHash              string
-	LogIndex            int32
-	BlockTimestamp      spotTime
-}
-
-type spotPofqUpdate struct {
-	ID             int32
-	EntityAddress  string
-	NewScore       spotDecimal
-	NewWeight      spotDecimal
-	IsVault        bool
-	BlockNumber    int32
-	TxHash         string
-	LogIndex       int32
-	BlockTimestamp spotTime
-}
-
-type spotPLV struct {
-	VaultAddress       string
-	IsRegistered       bool
-	RegisteredAt       *spotTime
-	RegisteredBlock    *int32
-	RegisteredTxHash   *string
-	DeregisteredAt     *spotTime
-	DeregisteredBlock  *int32
-	DeregisteredTxHash *string
-}
-
-type spotKeeperCycle struct {
-	ID               int32
-	OnchainTimestamp int32
-	MarketsEvaluated int32
-	BatchesCleared   int32
-	EpochSettled     bool
-	BlockNumber      int32
-	TxHash           string
-	BlockTimestamp   spotTime
-}
-
-type spotBatchClearFailure struct {
-	ID             int32
-	MarketID       string
-	Reason         string
-	BlockNumber    int32
-	TxHash         string
-	LogIndex       int32
-	BlockTimestamp spotTime
-}
-
 type spotPageArgs struct {
 	Limit  *int32
 	Offset *int32
@@ -243,32 +151,10 @@ type spotOrderFillsArgs struct {
 	spotPageArgs
 }
 
-type spotMarketFilterArgs struct {
-	MarketID *string
-	spotPageArgs
-}
-
-type spotUserTokenArgs struct {
-	UserAddress  *string
-	TokenAddress *string
-	spotPageArgs
-}
-
 type spotCollateralArgs struct {
 	UserAddress  *string
 	TokenAddress *string
 	EventType    *string
-	spotPageArgs
-}
-
-type spotPofqArgs struct {
-	EntityAddress *string
-	IsVault       *bool
-	spotPageArgs
-}
-
-type spotPLVArgs struct {
-	IsRegistered *bool
 	spotPageArgs
 }
 
@@ -659,47 +545,4 @@ func (r *Resolver) SpotCollateralMovements(ctx context.Context, args spotCollate
 		return nil, fmt.Errorf("spot collateral movements: %w", err)
 	}
 	return moves, nil
-}
-
-// The roots below have no source event in the spot precompile set of this
-// release and answer an empty list (contracts/data-services.md section 13).
-
-// SpotBatchClearings resolves Query.spotBatchClearings.
-func (r *Resolver) SpotBatchClearings(spotMarketFilterArgs) []*spotBatchClearing {
-	return []*spotBatchClearing{}
-}
-
-// SpotEpochSettlements resolves Query.spotEpochSettlements.
-func (r *Resolver) SpotEpochSettlements(spotPageArgs) []*spotEpochSettlement {
-	return []*spotEpochSettlement{}
-}
-
-// SpotFastSettlements resolves Query.spotFastSettlements.
-func (r *Resolver) SpotFastSettlements(spotUserTokenArgs) []*spotFastSettlement {
-	return []*spotFastSettlement{}
-}
-
-// SpotMarketModeChanges resolves Query.spotMarketModeChanges.
-func (r *Resolver) SpotMarketModeChanges(spotMarketFilterArgs) []*spotMarketModeChange {
-	return []*spotMarketModeChange{}
-}
-
-// SpotPofqUpdates resolves Query.spotPofqUpdates.
-func (r *Resolver) SpotPofqUpdates(spotPofqArgs) []*spotPofqUpdate {
-	return []*spotPofqUpdate{}
-}
-
-// SpotPLVs resolves Query.spotPLVs.
-func (r *Resolver) SpotPLVs(spotPLVArgs) []*spotPLV {
-	return []*spotPLV{}
-}
-
-// SpotKeeperCycles resolves Query.spotKeeperCycles.
-func (r *Resolver) SpotKeeperCycles(spotPageArgs) []*spotKeeperCycle {
-	return []*spotKeeperCycle{}
-}
-
-// SpotBatchClearFailures resolves Query.spotBatchClearFailures.
-func (r *Resolver) SpotBatchClearFailures(spotMarketFilterArgs) []*spotBatchClearFailure {
-	return []*spotBatchClearFailure{}
 }

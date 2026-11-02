@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::io::{Read as _, Write as _};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -114,7 +115,8 @@ fn substitute(value: &Value, bindings: &BTreeMap<String, Value>) -> Value {
 
 /// The recorded node: every exchange is answered from tests/fixtures/cycle.json,
 /// except in the `unreachable` phase, where the request goes to a real HTTPS
-/// exchange aimed at a closed loopback port.
+/// exchange aimed at a closed loopback port. The `did_unreachable` phase sends
+/// only the DID read to that port.
 struct ReplayExchange(Arc<Recording>);
 impl Exchange for ReplayExchange {
     fn request(&self, _endpoint: &str, method: &str, params: &Value) -> Result<Value, RpcFault> {
@@ -124,7 +126,11 @@ impl Exchange for ReplayExchange {
             .lock()
             .map_err(|_| RpcFault::Unavailable)?
             .clone();
-        if phase == "unreachable" {
+        if phase == "unreachable"
+            || (phase == "did_unreachable"
+                && method == "eth_call"
+                && params[0]["to"] == hex(&DID_PRECOMPILE))
+        {
             return HttpsExchange.request("https://127.0.0.1:1", method, params);
         }
         if method == "eth_sendRawTransaction" {
@@ -175,8 +181,8 @@ fn sequencer_endpoint_rules() -> Value {
             "timestamp": "0x3e8", "status": status, "returnData": "0x", "logs": [],
             "gasUsed": "0x186a0", "cumulativeGasUsed": "0x186a0",
             "effectiveGasPrice": "0x48c27395000", "feeDenom": "ahpx", "feeAmount": "0x0",
-            "sponsor": sponsor, "from": "$sponsor", "to": "$account", "contractAddress": null,
-            "nonce": "0x5", "vmError": "", "keyId": "0x1", "receipt": "0x"})
+            "sponsor": sponsor, "from": "$sponsor", "to": "$account", "contractAddress": hex(&[0; 20]),
+            "nonce": "0x5", "vmError": "", "keyId": hex(&word(1)), "receipt": "0x"})
     };
     let sent = json!({"method": "eth_sendRawTransaction", "params": ["$raw"], "result": "$hash"});
     let receipt = |result: Value| json!({"method": "pax_sequencerReceipt", "params": ["$hash"], "result": result});
@@ -203,6 +209,7 @@ fn sequencer_endpoint_rules() -> Value {
             {"method": "eth_call", "params": [{"to": "$account", "data": "$consumed_call"}, finalized],
                 "result": "$zero"},
         ],
+        "did_unreachable": [],
         "receipted": [sent.clone(), receipt(executed("receipted", "0x1", json!("$sponsor")))],
         "reverted": [sent.clone(), receipt(executed("receipted", "0x0", Value::Null))],
         "foreign_sponsor": [sent.clone(), receipt(executed("receipted", "0x1", json!("$paymaster")))],
@@ -225,6 +232,25 @@ fn with_sequencer_endpoint_rules(mut fixture: Value) -> Result<Value, Box<dyn st
             }
             phases.insert(phase, Value::Array(merged));
         }
+    }
+    let receipts: Value = serde_json::from_str(include_str!("fixtures/sequencer_receipts.json"))?;
+    for (phase, rung) in [
+        ("full_committed", "committed"),
+        ("full_receipted", "receipted"),
+    ] {
+        let mut receipt = receipts[rung].clone();
+        receipt["txHash"] = json!("$hash");
+        receipt["nonce"] = json!("0x5");
+        receipt["sponsor"] = json!("$sponsor");
+        receipt["from"] = json!("$sponsor");
+        receipt["to"] = json!("$account");
+        phases.insert(
+            phase.into(),
+            json!([
+                {"method": "eth_sendRawTransaction", "params": ["$raw"], "result": "$hash"},
+                {"method": "pax_sequencerReceipt", "params": ["$hash"], "result": receipt},
+            ]),
+        );
     }
     Ok(fixture)
 }
@@ -256,6 +282,7 @@ struct Harness {
     secrets: Vec<String>,
     log: SharedLog,
     journal: PathBuf,
+    clock: Arc<AtomicU64>,
 }
 
 fn station_config(name: &str) -> StationConfig {
@@ -282,7 +309,7 @@ fn ephemeral_signer(
 ) -> Result<(LocalSigner, String), Box<dyn std::error::Error>> {
     let secret = hex(&SigningKey::random(&mut OsRng).to_bytes());
     std::env::set_var(&config.relayer_key_env, &secret);
-    let signer = LocalSigner::from_config(config);
+    let signer = LocalSigner::from_env(&config.relayer_key_env);
     std::env::remove_var(&config.relayer_key_env);
     Ok((signer?, secret))
 }
@@ -295,6 +322,7 @@ fn spawn_service(
     recorded: Arc<Recording>,
     journal: PathBuf,
     listener: TcpListener,
+    clock: Arc<AtomicU64>,
     mut log: SharedLog,
 ) -> TestResult {
     let (ready, started) = mpsc::channel();
@@ -319,7 +347,7 @@ fn spawn_service(
             Ok(Service::new(
                 &config,
                 station,
-                || Some(1000),
+                move || Some(clock.load(Ordering::SeqCst)),
                 Limits {
                     max_body: 65_536,
                     read_time: Duration::from_millis(500),
@@ -437,12 +465,14 @@ fn start_configured(
         .lock()
         .unwrap_or_else(PoisonError::into_inner);
     std::env::set_var("GAS_STATION_DID_GAS_LIMIT", "1000000");
+    let clock = Arc::new(AtomicU64::new(1000));
     spawn_service(
         config,
         signer,
         Arc::clone(&recorded),
         journal.clone(),
         listener,
+        Arc::clone(&clock),
         log.clone(),
     )?;
     Ok(Harness {
@@ -453,6 +483,7 @@ fn start_configured(
         secrets: vec![relayer_secret, account_secret],
         log,
         journal,
+        clock,
     })
 }
 
@@ -663,7 +694,9 @@ fn quote_and_sponsored_submission_over_a_socket() -> TestResult {
     let hash = hex(&keccak(&sent[0]));
     assert_eq!(
         submitted,
-        json!({"transactionHash": hash, "rung": "receipted", "seq": "42"})
+        json!({"transactionHash": hash, "rung": "receipted", "seq": "42",
+            "height": "17", "status": "1", "logs": [],
+            "keyId": hex(&word(1)), "receipt": "0x"})
     );
     let submitted = submitted.to_string();
     assert!(!submitted.contains(hex(&sent[0]).trim_start_matches("0x")));
@@ -681,6 +714,11 @@ fn quote_and_sponsored_submission_over_a_socket() -> TestResult {
                 "submission": {"sponsorNonce": "5", "transactionHash": hash},
                 "completion": {"outcome": "receipted", "rung": "receipted",
                     "transactionHash": hash, "seq": "42"},
+                "budget": {
+                    "key": format!("did:layerx:{}", &hex(&[0xd1; 32])[2..]),
+                    "gasLimit": "1000000", "usedGas": "200000",
+                    "remainingGas": "800000", "dayEnds": "86400",
+                },
             })
         )
     );
@@ -700,6 +738,20 @@ fn healthz_answers_a_plain_get_and_refuses_other_methods() -> TestResult {
         (405, json!({"error": "method_not_allowed"}))
     );
     harness.assert_log_clean(&["/healthz 200", "/healthz 405"]);
+    harness.finish()
+}
+
+#[test]
+fn a_failed_did_read_answers_503_unavailable() -> TestResult {
+    let harness = start("DID_UNAVAILABLE")?;
+    harness.recorded.phase("did_unreachable");
+    assert_eq!(
+        harness.post("/quote", &harness.quote_body())?,
+        (503, json!({"error": "unavailable"}))
+    );
+    assert!(harness.journal_is_empty()?);
+    assert!(harness.recorded.sent().is_empty());
+    harness.assert_log_clean(&["/quote 503"]);
     harness.finish()
 }
 
@@ -821,6 +873,11 @@ fn submission_refusals_are_4xx_and_an_unreachable_node_is_5xx() -> TestResult {
                 "deadline": "1019",
                 "submission": {"sponsorNonce": "5", "transactionHash": hash},
                 "completion": null,
+                "budget": {
+                    "key": format!("did:layerx:{}", &hex(&[0xd1; 32])[2..]),
+                    "gasLimit": "1000000", "usedGas": "200000",
+                    "remainingGas": "800000", "dayEnds": "86400",
+                },
             })
         )
     );
@@ -883,6 +940,11 @@ fn a_held_future_nonce_send_answers_at_rung_submitted_and_stays_pending() -> Tes
                 "deadline": "1019",
                 "submission": {"sponsorNonce": "5", "transactionHash": hash},
                 "completion": null,
+                "budget": {
+                    "key": format!("did:layerx:{}", &hex(&[0xd1; 32])[2..]),
+                    "gasLimit": "1000000", "usedGas": "200000",
+                    "remainingGas": "800000", "dayEnds": "86400",
+                },
             })
         )
     );
@@ -993,6 +1055,44 @@ fn registered_senders_parse_resolve_their_own_budget_and_are_quoted() -> TestRes
 }
 
 #[test]
+fn status_reports_the_did_gas_budget() -> TestResult {
+    let harness = start("DID_STATUS")?;
+    let budget_key = format!("did:layerx:{}", &hex(&[0xd1; 32])[2..]);
+    let (status, quote) = harness.post("/quote", &harness.quote_body())?;
+    assert_eq!(status, 200);
+    let identity = harness.status_body(&quote);
+    harness.recorded.phase("did_unreachable");
+    let mut lines = vec!["/quote 200"];
+    for now in [1000, 1020, 86_399, 86_400, 172_800] {
+        harness.clock.store(now, Ordering::SeqCst);
+        let (status, report) = harness.post("/status", &identity)?;
+        assert_eq!(status, 200);
+        let used: u64 = if now < 86_400 { 200_000 } else { 0 };
+        assert_eq!(
+            report,
+            json!({
+                "state": "quoted",
+                "deadline": "1019",
+                "submission": null,
+                "completion": null,
+                "budget": {
+                    "key": budget_key,
+                    "gasLimit": "1000000",
+                    "usedGas": used.to_string(),
+                    "remainingGas": (1_000_000 - used).to_string(),
+                    "dayEnds": ((now / 86_400 + 1) * 86_400).to_string(),
+                },
+            }),
+            "budget at service time {now}"
+        );
+        lines.push("/status 200");
+    }
+    assert!(harness.recorded.sent().is_empty());
+    harness.assert_log_clean(&lines);
+    harness.finish()
+}
+
+#[test]
 fn an_empty_or_sidiora_paymaster_is_refused_at_start() {
     for paymaster in [hex(&[0; 20]), hex(&SIDIORA)] {
         let mut value = service_json(&json!([]));
@@ -1048,6 +1148,53 @@ fn sequencer_receipt_is_requested_by_transaction_hash() -> TestResult {
     );
     harness.recorded.phase("refused");
     assert_eq!(rpc.sequencer_receipt(&hash)?, None);
+    harness.assert_log_clean(&["/quote 200", "/submit 200"]);
+    harness.finish()
+}
+
+#[test]
+fn a_committed_submission_answers_the_full_sequencer_receipt() -> TestResult {
+    let (harness, _, answer) = sequencer_endpoint_submission("FULL_COMMITTED", "full_committed")?;
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/sequencer_receipts.json"))?;
+    let receipt = &fixture["committed"];
+    let mut logs = receipt["logs"].clone();
+    logs[0]["logIndex"] = json!("0");
+    assert_eq!(
+        answer,
+        (
+            200,
+            json!({
+                "transactionHash": hex(&keccak(&harness.recorded.sent()[0])),
+                "rung": "committed", "seq": "2", "height": "1000", "status": "1",
+                "logs": logs, "keyId": receipt["keyId"], "receipt": receipt["receipt"],
+                "blockNumber": "1000", "blockHash": receipt["blockHash"],
+            })
+        )
+    );
+    harness.assert_log_clean(&["/quote 200", "/submit 200"]);
+    harness.finish()
+}
+
+#[test]
+fn a_receipted_submission_answers_without_block_fields() -> TestResult {
+    let (harness, _, answer) = sequencer_endpoint_submission("FULL_RECEIPTED", "full_receipted")?;
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/sequencer_receipts.json"))?;
+    let receipt = &fixture["receipted"];
+    let mut logs = receipt["logs"].clone();
+    logs[0]["logIndex"] = json!("0");
+    assert_eq!(
+        answer,
+        (
+            200,
+            json!({
+                "transactionHash": hex(&keccak(&harness.recorded.sent()[0])),
+                "rung": "receipted", "seq": "2", "height": "1000", "status": "1",
+                "logs": logs, "keyId": receipt["keyId"], "receipt": receipt["receipt"],
+            })
+        )
+    );
+    assert!(answer.1.get("blockNumber").is_none());
+    assert!(answer.1.get("blockHash").is_none());
     harness.assert_log_clean(&["/quote 200", "/submit 200"]);
     harness.finish()
 }
@@ -1179,12 +1326,14 @@ fn documented_deploy_inputs_start_service() -> TestResult {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let address = listener.local_addr()?;
     let log = SharedLog(Arc::new(Mutex::new(Vec::new())));
+    let clock = Arc::new(AtomicU64::new(1000));
     spawn_service(
         config.clone(),
         signer,
         Arc::clone(&recorded),
         journal.clone(),
         listener,
+        Arc::clone(&clock),
         log.clone(),
     )?;
     let harness = Harness {
@@ -1195,6 +1344,7 @@ fn documented_deploy_inputs_start_service() -> TestResult {
         secrets: vec![relayer_secret, owner_secret, account_secret],
         log,
         journal,
+        clock,
     };
     let (status, body) = harness.exchange(b"GET /healthz HTTP/1.1\r\nHost: station\r\n\r\n")?;
     assert_eq!((status, body), (200, json!({"status": "ok"})));

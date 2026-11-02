@@ -1130,7 +1130,7 @@ impl Service {
             native_state_root: Digest32::new([0x31; 32])?,
             observed_sequence: at - 1,
             execution_height: at - 1,
-            batch_id: Digest32::new([0x32; 32])?,
+            block_hash: Digest32::new([0x32; 32])?,
         };
         let state = capture_state(&self.identity, &proof, |envelope| {
             m.compose(envelope, self.identity.reader, at)

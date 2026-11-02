@@ -208,6 +208,18 @@ static void program_interface_key(const uint8_t program_id[32], uint8_t key[42])
     (void)memcpy(key + PROGRAM_INTERFACE_KEY_PREFIX_LENGTH, program_id, 32U);
 }
 
+lxp_result lxp_programs_interface_read(
+    lxp_module_ctx *ctx, const uint8_t program_id[32],
+    const uint8_t **bytes, size_t *length)
+{
+    uint8_t key[42];
+    if (ctx == NULL || program_id == NULL || bytes == NULL || length == NULL ||
+        ctx->module_id != LXP_MODULE_PROGRAMS)
+        return LXP_ERR_NON_CANONICAL;
+    program_interface_key(program_id, key);
+    return lxp_ctx_kv_get(ctx, key, sizeof(key), bytes, length);
+}
+
 static lxp_result validate_wasm(lxp_module_ctx *ctx,
                                  programs_lifecycle_decoded *value)
 {

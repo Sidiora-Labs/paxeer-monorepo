@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { cn } from "@/ui/utils/cn";
 import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
@@ -14,8 +14,12 @@ import {
   type SpotClosedLeg,
   type SpotOrder,
   type SpotPosition,
-  type SpotTrade,
+  type SpotTradesResponse,
 } from "@/core/spot/api";
+import {
+  appendSpotTradeHistoryPage,
+  spotTradeHistory,
+} from "@/core/spot/trade-history";
 import { paxeerChain } from "@/core/perps/config";
 import { classifyError } from "@/core/errors/classify";
 import { reportError } from "@/core/errors/report";
@@ -169,8 +173,11 @@ export function SpotPositionsPanel() {
           <OrderHistoryTab address={address ?? null} />
         ) : activeTab === "tradeHistory" ? (
           <TradeHistoryTab
+            key={address?.toLowerCase()}
             address={address ?? null}
-            initial={portfolio.recentTrades}
+            initial={portfolio.tradeHistory}
+            initialError={portfolio.tradeHistoryError}
+            refresh={portfolio.refresh}
           />
         ) : (
           <ClosedLegsTab address={address ?? null} />
@@ -523,46 +530,40 @@ function OrderHistoryTab({ address }: { address: string | null }) {
 function TradeHistoryTab({
   address,
   initial,
+  initialError,
+  refresh,
 }: {
   address: string | null;
-  initial: SpotTrade[];
+  initial: SpotTradesResponse | null;
+  initialError: Error | null;
+  refresh: () => void;
 }) {
-  const [trades, setTrades] = useState<SpotTrade[]>(initial);
-  const [cursor, setCursor] = useState<{
-    afterBlock: string;
-    afterIndex: number;
-  } | null>(null);
+  const [history, setHistory] = useState(() => spotTradeHistory(initial));
+  const page = history.snapshot === initial ? history.page : initial;
+  const trades = page?.items ?? [];
+  const cursor = page?.nextCursor;
+  const requestRef = useRef<AbortController | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [exhausted, setExhausted] = useState(false);
 
-  // Sync with snapshot from `useSpotPortfolio` whenever it changes (it's
-  // pushed by the WS layer, so this picks up new fills automatically).
   useEffect(() => {
-    setTrades(initial);
-    setCursor(null);
-    setExhausted(false);
-  }, [initial]);
+    requestRef.current?.abort();
+    requestRef.current = null;
+    setHistory(spotTradeHistory(initial));
+    setLoading(false);
+    setError(null);
+    return () => requestRef.current?.abort();
+  }, [address, initial]);
 
-  // Initial cursor — needs to come from the trades response, which the
-  // composite hook discards. Pull it once here.
   useEffect(() => {
-    if (!address) return;
-    const ctrl = new AbortController();
-    spotApi
-      .getTrades(address, { limit: 50, signal: ctrl.signal })
-      .then((res) => {
-        if (ctrl.signal.aborted) return;
-        if (res.items.length > 0) setTrades(res.items);
-        setCursor(res.nextCursor);
-        if (res.nextCursor === null) setExhausted(true);
-      })
-      .catch(() => {});
-    return () => ctrl.abort();
-  }, [address]);
+    if (initialError)
+      setError(classifyFetchError(initialError, "spot/trades-initial"));
+  }, [initialError]);
 
   const loadMore = async () => {
-    if (!address || !cursor || loading || exhausted) return;
+    if (!address || !initial || !cursor || requestRef.current) return;
+    const ctrl = new AbortController();
+    requestRef.current = ctrl;
     setLoading(true);
     setError(null);
     try {
@@ -570,18 +571,44 @@ function TradeHistoryTab({
         limit: 50,
         afterBlock: cursor.afterBlock,
         afterIndex: cursor.afterIndex,
+        signal: ctrl.signal,
       });
-      setTrades((prev) => [...prev, ...res.items]);
-      setCursor(res.nextCursor);
-      if (res.nextCursor === null) setExhausted(true);
+      if (!ctrl.signal.aborted) {
+        setHistory((prev) =>
+          appendSpotTradeHistoryPage(prev, initial, cursor, res),
+        );
+      }
     } catch (e) {
-      setError(classifyFetchError(e, "spot/trades"));
+      if (!ctrl.signal.aborted) setError(classifyFetchError(e, "spot/trades"));
     } finally {
-      setLoading(false);
+      if (requestRef.current === ctrl) {
+        requestRef.current = null;
+        if (!ctrl.signal.aborted) setLoading(false);
+      }
     }
   };
 
-  if (trades.length === 0 && !loading) return <Empty title="No trade history" />;
+  if (!page) {
+    if (!initialError) return <LoadingRows />;
+    return (
+      <div className="flex-1 flex flex-col items-center">
+        <Empty
+          title="Unable to load trade history"
+          subtitle={error ?? undefined}
+        />
+        <button
+          type="button"
+          onClick={refresh}
+          className="text-xs px-3 py-2 mb-4"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (trades.length === 0 && !loading)
+    return <Empty title="No trade history" />;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -606,7 +633,10 @@ function TradeHistoryTab({
               const inAmt = dStr(t.amountIn, 0);
               const outAmt = dStr(t.amountOut, 0);
               return (
-                <tr key={String(t.id)} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
+                <tr
+                  key={String(t.id)}
+                  className="border-b border-white/[0.04] hover:bg-white/[0.02]"
+                >
                   <td className="px-4 py-2.5 tabular-nums font-mono text-muted-foreground">
                     {fmtTime(t.blockTimestamp)}
                   </td>
@@ -614,10 +644,18 @@ function TradeHistoryTab({
                     {`${t.tokenIn.slice(0, 6)}… → ${t.tokenOut.slice(0, 6)}…`}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-mono">
-                    {inAmt > 0 ? inAmt.toLocaleString("en-US", { maximumFractionDigits: 6 }) : "—"}
+                    {inAmt > 0
+                      ? inAmt.toLocaleString("en-US", {
+                          maximumFractionDigits: 6,
+                        })
+                      : "—"}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-mono">
-                    {outAmt > 0 ? outAmt.toLocaleString("en-US", { maximumFractionDigits: 6 }) : "—"}
+                    {outAmt > 0
+                      ? outAmt.toLocaleString("en-US", {
+                          maximumFractionDigits: 6,
+                        })
+                      : "—"}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-mono">
                     {exec > 0 ? fmtUsd(exec) : "—"}
@@ -639,7 +677,7 @@ function TradeHistoryTab({
       </div>
       <Pager
         loading={loading}
-        exhausted={exhausted}
+        exhausted={cursor == null}
         onMore={loadMore}
         error={error}
       />

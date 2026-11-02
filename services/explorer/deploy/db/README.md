@@ -83,15 +83,118 @@ A larger histogram costs a slower `ANALYZE` and nothing else.
 
 ### Rolling back
 
-```
-mix ecto.rollback -r Explorer.Repo -n 3
+**Use a tuning-only migration directory, not a rollback count or a historical target.**
+On a fully migrated database the newest migrations include application and pricefeed schema;
+rolling back three steps in the normal directory selects those, not the March tuning.
+`--to` and `--to-exclusive` against that directory also traverse newer migrations and can
+delete indexed application data. Neither is a tuning rollback.
+
+This procedure uses the three existing `down` implementations, in this order:
+
+| version | effect |
+|---|---|
+| `20260301000200` | Set the seven column statistics targets listed in the migration to `-1`. |
+| `20260301000100` | Drop only `internal_transactions_block_number_brin_index`, concurrently. |
+| `20260301000000` | Reset only the named heap and TOAST storage parameters in the migration. |
+
+#### Prerequisites and before-state
+
+1. Obtain approval for this maintenance operation, a recoverable backup, and a successful
+   rehearsal on an isolated restored database with the same migration state. This runbook's
+   selection has been checked statically; that is not a production rollback rehearsal.
+2. Use the matching, reviewed source release and installed dependencies from
+   `services/explorer/backend`, with `MIX_ENV=prod` and the intended primary database
+   configuration already set. Confirm the effective `Explorer.Repo` connection, database,
+   role and search path without printing credentials. The commands below assume the six
+   tables, the index and the default `schema_migrations` table are in `public`, with raw SQL
+   resolving those table names to `public`. Stop for a separately reviewed procedure if
+   using a custom schema, migration source/repo, or an incompatible schema version; a
+   `--prefix` alone does not schema-qualify the migrations' raw SQL.
+3. Stop deployment/startup auto-migrators and exclude all other migrators and schema changes
+   for the entire operation, including verification. The BRIN `down` disables both the DDL
+   transaction and migration lock. Have the DBA configure and verify a short `lock_timeout`
+   (for example, 5 seconds) on the actual migrator connections before proceeding; do not
+   assume a client-side setting in a separate SQL session applies to them.
+4. Capture the complete migration status before the operation, using the same configuration:
+
+   ```sh
+   mix ecto.migrations -r Explorer.Repo --prefix public
+   ```
+
+   **All three March versions above must be `up` on the initial attempt.** Later versions may
+   also be `up`; they must remain unchanged. Stop on missing versions, unexplained migration
+   history, or a partially applied tuning migration. A known interruption of this procedure
+   is handled below, not by guessing a new step count.
+5. Capture the six tables' `pg_class.reloptions`, the TOAST relations' `reloptions` for
+   `transactions`, `logs` and `internal_transactions`, the seven columns' `pg_attribute.attstattarget`,
+   and the BRIN index definition/validity. Compare them with the three reviewed migration
+   files. Confirm that no subsequent migration or manual tuning repurposed that index,
+   changed the affected objects, or introduced a dependency requiring it. These `down`
+   functions reset to defaults, **not to captured pre-March custom values**. If any affected
+   setting must retain a later/custom value, stop and obtain a setting-specific plan instead.
+
+#### Execute only the three tuning downs
+
+From `services/explorer/backend`, run this in Bash only after the prerequisites pass. Copy
+the three literal filenames into a new private directory; do not copy the whole migrations
+tree, use a filename glob, or append another `--migrations-path`.
+
+```bash
+(
+  set -eu
+  test "${MIX_ENV:-}" = prod
+  source_migrations="$PWD/apps/explorer/priv/repo/migrations"
+  tuning_migrations=$(mktemp -d "${TMPDIR:-/tmp}/explorer-tuning-rollback.XXXXXXXX")
+  trap 'rm -rf -- "$tuning_migrations"' EXIT
+
+  for migration in \
+    20260301000000_hot_tables_storage_parameters.exs \
+    20260301000100_internal_transactions_block_number_brin_index.exs \
+    20260301000200_hot_tables_block_number_statistics.exs
+  do
+    cp -- "$source_migrations/$migration" "$tuning_migrations/$migration"
+  done
+
+  mix ecto.rollback -r Explorer.Repo --prefix public \
+    --migrations-path "$tuning_migrations" --all
+)
 ```
 
-`down` resets the storage parameters to the cluster defaults, drops the BRIN index
-concurrently, and returns the statistics targets to `-1` (meaning
-`default_statistics_target`): after
-the rollback `pg_class.reloptions` is null on all six tables, the BRIN index is gone and every
-touched column is back to `-1`.
+The locked Ecto SQL version is `3.13.4`. Its
+[`ensure_migrations_paths/2`](https://github.com/elixir-ecto/ecto_sql/blob/ed07cf27a49109be3b2558574ff03d9499f79557/lib/mix/ecto_sql.ex#L8-L11)
+replaces the default path when an explicit path is supplied. Its
+[`pending_in_direction/3`](https://github.com/elixir-ecto/ecto_sql/blob/ed07cf27a49109be3b2558574ff03d9499f79557/lib/ecto/migrator.ex#L644-L674)
+selects only applied versions found in that path, in descending order for `down`.
+Thus `--all` here means only the three copied tuning migrations, even when newer application
+migrations are applied. Recheck this behavior before using a different dependency version.
+
+#### Verify, handle interruption, and keep the rollback in effect
+
+Run the same full `mix ecto.migrations -r Explorer.Repo --prefix public` status command again
+and compare it with the before-state. Exactly the three March versions must change from
+`up` to `down`; every other version must retain its status. Verify the database objects too:
+
+* The seven statistics targets are `-1` (`default_statistics_target`).
+* `public.internal_transactions_block_number_brin_index` is absent.
+* The specific heap and TOAST options named by `20260301000000` are absent from their
+  respective `reloptions`. Unrelated options must remain unchanged; an entire `reloptions`
+  value need **not** be null. Resetting options does not restore historical custom values or
+  rewrite existing heap pages.
+
+Keep the migration output and before/after evidence in the approved operations record. The
+three migrations are not one atomic rollback: earlier downs can commit before a later one
+fails, and the concurrent index drop can complete before its migration-history update.
+On any failure, keep auto-migrators disabled, inspect both the ledger and affected objects,
+and resolve the failure before continuing. Only when the partial state is explained by this
+attempt and the same prerequisites still hold may the operator repeat the **same isolated
+directory procedure**; Ecto skips versions already down, and the BRIN drop uses `IF EXISTS`.
+Do not manually edit the migration ledger or switch to an unscoped rollback to recover.
+
+Successful downs remove these three versions from migration history. A subsequent ordinary
+`mix ecto.migrate` can therefore **reapply the tuning**, even though newer versions are
+already up. Keep automatic migration/deployment disabled until an approved release plan
+either intentionally reapplies the tuning or preserves the rollback. This procedure does
+not change deployment defaults or install a new automatically applied migration.
 
 ### Applying to a live database
 

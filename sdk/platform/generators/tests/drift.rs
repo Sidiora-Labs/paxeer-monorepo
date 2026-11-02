@@ -67,8 +67,16 @@ fn repo_fixture(label: &str) -> PathBuf {
         "services/agent/tools/sdk-gen/Cargo.toml",
         "[package]\nname = \"layerx-sdk-gen\"\n",
     );
-    place(&root, "services/agent/tools/sdk-gen/Cargo.lock", "version = 4\n");
-    place(&root, "services/agent/tools/sdk-gen/src/main.rs", "fn main() {}\n");
+    place(
+        &root,
+        "services/agent/tools/sdk-gen/Cargo.lock",
+        "version = 4\n",
+    );
+    place(
+        &root,
+        "services/agent/tools/sdk-gen/src/main.rs",
+        "fn main() {}\n",
+    );
     place(
         &root,
         "services/agent/tools/sdk-gen/templates/typescript.tpl",
@@ -79,8 +87,16 @@ fn repo_fixture(label: &str) -> PathBuf {
         "services/human/tools/api-gen/Cargo.toml",
         "[package]\nname = \"layerx-human-api-gen\"\n",
     );
-    place(&root, "services/human/tools/api-gen/Cargo.lock", "version = 4\n");
-    place(&root, "services/human/tools/api-gen/src/main.rs", "fn main() {}\n");
+    place(
+        &root,
+        "services/human/tools/api-gen/Cargo.lock",
+        "version = 4\n",
+    );
+    place(
+        &root,
+        "services/human/tools/api-gen/src/main.rs",
+        "fn main() {}\n",
+    );
     place(
         &root,
         "programs/sdk/rust/src/abi_policy.rs",
@@ -90,11 +106,6 @@ fn repo_fixture(label: &str) -> PathBuf {
         &root,
         "programs/crates/layerx-programs-runtime/src/terminal.rs",
         "const EXECUTION_V4: &[u8] = b\"LXP/program-execution/v4\\0\";\nconst EXECUTION_V5: &[u8] = b\"LXP/program-execution/v5\\0\";\n",
-    );
-    place(
-        &root,
-        "sdk/platform/generators/generate_lifecycle.py",
-        include_str!("../generate_lifecycle.py"),
     );
     place(
         &root,
@@ -174,7 +185,11 @@ fn place_generated_fixture(root: &Path) {
         "services/agent/sdk/python/layerx_sdk/generated/guarantees.md",
         "guarantees\n",
     );
-    place(root, "services/agent/sdk/COMPATIBILITY.md", "compatibility\n");
+    place(
+        root,
+        "services/agent/sdk/COMPATIBILITY.md",
+        "compatibility\n",
+    );
     place(
         root,
         "apps/web/src/api/generated/index.ts",
@@ -249,7 +264,7 @@ fn place_generated_fixture(root: &Path) {
 }
 
 #[test]
-fn lifecycle_sources_participate_in_normal_drift_check() {
+fn retired_lifecycle_output_is_unclassified() {
     let root = repo_fixture("lifecycle-drift");
     let lock = lock_path(&root);
     write_lock(&root, &lock).unwrap_or_else(|error| panic!("generate lifecycle: {error}"));
@@ -262,7 +277,11 @@ fn lifecycle_sources_participate_in_normal_drift_check() {
     let error = check(&root, &lock)
         .err()
         .unwrap_or_else(|| panic!("lifecycle drift must fail the normal gate"));
-    assert!(error.contains("Lifecycle SDK drift"), "{error}");
+    assert!(
+        error.contains("untracked file in generated go root"),
+        "{error}"
+    );
+    assert!(error.contains("program_lifecycle_generated.go"), "{error}");
     fs::remove_dir_all(root).unwrap_or_else(|error| panic!("remove lifecycle fixture: {error}"));
 }
 
@@ -300,9 +319,10 @@ fn freshly_generated_pipeline_passes_the_gate() {
 fn rust_operation_catalogue_is_derived_from_programs_schema() {
     let root = repo_fixture("rust-programs");
     generate(&root);
-    let generated =
-        fs::read_to_string(root.join("services/agent/crates/layerx-agent-api/src/operation_generated.rs"))
-            .unwrap_or_else(|error| panic!("read generated Rust operation catalogue: {error}"));
+    let generated = fs::read_to_string(
+        root.join("services/agent/crates/layerx-agent-api/src/operation_generated.rs"),
+    )
+    .unwrap_or_else(|error| panic!("read generated Rust operation catalogue: {error}"));
     assert!(generated.contains("ProgramDiscover"));
     assert!(generated.contains("ProgramInterface"));
     assert!(generated.contains("ProgramSimulate"));
@@ -371,7 +391,10 @@ fn hand_edited_typescript_output_fails_the_gate() {
         "services/agent/sdk/typescript/src/generated/client.ts",
         "export const generated = false;\n",
     );
-    expect_failure(&root, "services/agent/sdk/typescript/src/generated/client.ts");
+    expect_failure(
+        &root,
+        "services/agent/sdk/typescript/src/generated/client.ts",
+    );
     cleanup(&root);
 }
 
@@ -384,7 +407,10 @@ fn hand_edited_python_output_fails_the_gate() {
         "services/agent/sdk/python/layerx_sdk/generated/client.py",
         "GENERATED = False\n",
     );
-    expect_failure(&root, "services/agent/sdk/python/layerx_sdk/generated/client.py");
+    expect_failure(
+        &root,
+        "services/agent/sdk/python/layerx_sdk/generated/client.py",
+    );
     cleanup(&root);
 }
 
@@ -699,7 +725,8 @@ fn rust_operation_catalogue_matches_the_repository_schema() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
     let generated = generate_rust_operation_catalog(&root)
         .unwrap_or_else(|error| panic!("generate Rust operation catalogue: {error}"));
-    let committed_path = root.join("services/agent/crates/layerx-agent-api/src/operation_generated.rs");
+    let committed_path =
+        root.join("services/agent/crates/layerx-agent-api/src/operation_generated.rs");
     let committed = fs::read_to_string(&committed_path)
         .unwrap_or_else(|error| panic!("read {}: {error}", committed_path.display()));
     assert_eq!(

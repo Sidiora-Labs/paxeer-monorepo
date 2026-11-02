@@ -212,6 +212,7 @@ var (
 // in seq order. The sequencer and standby feed it from Accept and from commit;
 // the filter API serves pending logs and pending transaction hashes from it.
 type ReceiptLogFeed struct {
+	receiptMu *sync.Mutex
 	mu        sync.Mutex
 	committed int64
 	lastSeq   uint64
@@ -265,6 +266,7 @@ type receiptLogNotice struct {
 // NewReceiptLogFeed starts an empty feed above the committed height.
 func NewReceiptLogFeed(committedHeight int64) *ReceiptLogFeed {
 	return &ReceiptLogFeed{
+		receiptMu: &sync.Mutex{},
 		committed: committedHeight,
 		filters:   make(map[*pendingTxFilter]struct{}),
 		listeners: make(map[*receiptLogListener]struct{}),
@@ -404,6 +406,8 @@ func (f *ReceiptLogFeed) removeLogListener(l *receiptLogListener) {
 // Committed drops the transactions of every block up to height, which the
 // committed store now serves.
 func (f *ReceiptLogFeed) Committed(height int64) error {
+	f.receiptMu.Lock()
+	defer f.receiptMu.Unlock()
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if height < f.committed {
@@ -573,14 +577,15 @@ type FilterAPI struct {
 	namespace        string
 	shutdownCtx      context.Context
 	shutdownCancel   context.CancelFunc
+	shutdownOnce     sync.Once
 	globalRPSLimiter *rate.Limiter
 	receiptLogs      *ReceiptLogFeed
 }
 
-// SetReceiptLogFeed makes this API serve pending logs and pending transaction
+// setReceiptLogFeed makes this API serve pending logs and pending transaction
 // filters from feed. Only the sequencer and standby set it, before the server
 // serves requests; every other node refuses them.
-func (a *FilterAPI) SetReceiptLogFeed(feed *ReceiptLogFeed) {
+func (a *FilterAPI) setReceiptLogFeed(feed *ReceiptLogFeed) {
 	a.receiptLogs = feed
 }
 
@@ -1075,7 +1080,7 @@ func (a *FilterAPI) committedLogs(ctx context.Context, startTime time.Time, crit
 	}
 	earliest, err := a.logFetcher.earliestHeight(ctx)
 	if err != nil {
-		earliest = 0
+		return nil, err
 	}
 
 	begin, end, err := ComputeBlockBounds(latest, earliest, 0, crit)
@@ -1202,21 +1207,22 @@ func (a *FilterAPI) UninstallFilter(
 	}
 }
 
-// Cleanup method for graceful shutdown
-func (a *FilterAPI) Cleanup() {
-	a.shutdownCancel()
+func (a *FilterAPI) shutdown() {
+	a.shutdownOnce.Do(func() {
+		a.shutdownCancel()
 
-	// Cancel all remaining filters
-	a.filtersMu.Lock()
-	for _, filter := range a.filters {
-		if filter.cancelFunc != nil {
-			filter.cancelFunc()
+		// Cancel all remaining filters
+		a.filtersMu.Lock()
+		for _, filter := range a.filters {
+			if filter.cancelFunc != nil {
+				filter.cancelFunc()
+			}
 		}
-	}
-	a.filters = make(map[ethrpc.ID]filter)
-	a.filtersMu.Unlock()
+		a.filters = make(map[ethrpc.ID]filter)
+		a.filtersMu.Unlock()
 
-	close(a.toDelete)
+		close(a.toDelete)
+	})
 }
 
 type LogFetcher struct {
@@ -1290,7 +1296,7 @@ func (f *LogFetcher) GetLogsByFilters(ctx context.Context, crit filters.FilterCr
 	}
 	earliest, err := f.earliestHeight(ctx)
 	if err != nil {
-		earliest = 0
+		return nil, 0, err
 	}
 	begin, end, err := ComputeBlockBounds(latest, earliest, lastToHeight, crit)
 	if err != nil {
@@ -1666,18 +1672,12 @@ func (f *LogFetcher) fetchBlocksByCrit(ctx context.Context, crit filters.FilterC
 		// Check for invalid zero hash
 		zeroHash := common.Hash{}
 		if *crit.BlockHash == zeroHash {
-			// For invalid hash, return empty channel instead of error
-			res := make(chan *coretypes.ResultBlock)
-			close(res)
-			return res, 0, false, nil
+			return nil, 0, false, errors.New("unknown block")
 		}
 
 		block, err := blockByHashRespectingWatermarks(ctx, f.tmClient, f.watermarks, crit.BlockHash[:], 1)
 		if err != nil {
-			// For non-existent blocks, return empty channel instead of error
-			res := make(chan *coretypes.ResultBlock)
-			close(res)
-			return res, 0, false, nil
+			return nil, 0, false, errors.New("unknown block")
 		}
 		res := make(chan *coretypes.ResultBlock, 1)
 		res <- block
@@ -1692,7 +1692,7 @@ func (f *LogFetcher) fetchBlocksByCrit(ctx context.Context, crit filters.FilterC
 	}
 	earliest, err := f.watermarks.EarliestHeight(ctx)
 	if err != nil {
-		earliest = 0
+		return nil, 0, false, err
 	}
 	begin, end, err := ComputeBlockBounds(latest, earliest, lastToHeight, crit)
 	if err != nil {

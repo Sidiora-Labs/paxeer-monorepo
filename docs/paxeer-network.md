@@ -21,6 +21,14 @@ LayerX is under active development and release qualification. The public network
 
 The Cosmos-style chain identifier used by node distribution is `hyperpax_125-1` (EVM chain ID `125`). See [`tools/hpx/`](../tools/hpx/).
 
+## Virtual chains
+
+A virtual chain is one record in the `layerxchains` registry at `0x000000000000000000000000000000000000101E`. It needs no new process or infrastructure and shares Paxeer security and EVM state. Its chain ID is `125000000 + id`, and its HTTP and WebSocket RPC path is `/chain/<id>`. Each chain has its own gas and byte allowances, base fee and operator fee share.
+
+Launch through the launchpad's **Launch a chain** flow: name it, pick a size tier and confirm one wallet transaction. The result supplies the RPC URL, explorer page and Add to wallet action. A chain is a namespace for identity, fees and block space, not a trust boundary. Feature availability follows the programme tasks and deployment activation.
+
+See [Virtual chains](wiki/VirtualChains.md) for the complete ABI, lifecycle, fees and operator, indexer, explorer, wallet and SDK entry points, and the [feature-20 contract](../spec/layerx-merge/contracts/virtual-chains.md) for normative integration requirements.
+
 ## Layout
 
 | Path | Purpose |

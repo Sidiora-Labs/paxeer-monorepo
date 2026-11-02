@@ -1,19 +1,18 @@
 use layerx_crypto::session::{issue_session_key, SessionKeyRequest};
 use layerx_intents::{
-    compile, golden, BridgeDepositCredit, BridgeWithdrawRequest, BudgetCreate, BudgetDefund,
-    BudgetFund, DidRegistration, DisclosureCheck, DisclosureCheckError, DisclosureField,
-    EvmPayoutBinding, Intent, IntentKind, IntentVersion, KeyRotation, LxpReceive, LxpSend,
-    PayerGrantRegistration, RecoveryRegistration, SessionGrant, SessionRevoke,
+    compile, golden, BudgetCreate, BudgetDefund, BudgetFund, DidRegistration, DisclosureCheck,
+    DisclosureCheckError, DisclosureField, Intent, IntentKind, IntentVersion, KeyRotation,
+    LxpReceive, LxpSend, PayerGrantRegistration, RecoveryRegistration, SessionGrant, SessionRevoke,
 };
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Signature, TimestampBound};
+use layerx_types::activity::TimestampBound;
 use layerx_types::amount::Amount;
-use layerx_types::ids::{AssetId, CheckpointId, Did, IdempotencyKey};
+use layerx_types::ids::{AssetId, Did, IdempotencyKey};
 use layerx_types::intent::{
     ApprovalThreshold, AuthorityGrantId, AuthorizationSignature, BudgetId, ContextHash,
-    DepositProofId, EvmAddress, GrantSchedule, NetworkId, PayerGrantId, PeriodLength,
-    ProtocolVersion, PublicKey, PurposeHash, RecoveryRoot, RolloverPolicy, SendAuthorization,
-    SendAuthorizationKind, Sequence, SessionRevocationReason, TimestampSeconds,
+    GrantSchedule, NetworkId, PayerGrantId, PeriodLength, ProtocolVersion, PublicKey, PurposeHash,
+    RecoveryRoot, RolloverPolicy, SendAuthorization, SendAuthorizationKind, Sequence,
+    SessionRevocationReason, TimestampSeconds,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use proptest::prelude::*;
@@ -37,7 +36,6 @@ fn registry() -> ModuleRegistry {
                 activity(ModuleId::Governance, 1),
                 activity(ModuleId::Governance, 2),
                 activity(ModuleId::Governance, 3),
-                activity(ModuleId::Governance, 4),
                 activity(ModuleId::Governance, 5),
                 activity(ModuleId::Governance, 6),
             ],
@@ -45,11 +43,7 @@ fn registry() -> ModuleRegistry {
         .unwrap_or_else(|error| panic!("governance: {error:?}")),
         ModuleRegistration::new(
             ModuleId::Asset,
-            &[
-                activity(ModuleId::Asset, 5),
-                activity(ModuleId::Asset, 6),
-                activity(ModuleId::Asset, 9),
-            ],
+            &[activity(ModuleId::Asset, 5), activity(ModuleId::Asset, 6)],
         )
         .unwrap_or_else(|error| panic!("asset: {error:?}")),
         ModuleRegistration::new(
@@ -58,15 +52,10 @@ fn registry() -> ModuleRegistry {
                 activity(ModuleId::Budget, 1),
                 activity(ModuleId::Budget, 2),
                 activity(ModuleId::Budget, 4),
-                activity(ModuleId::Budget, 7),
+                activity(ModuleId::Budget, 8),
             ],
         )
         .unwrap_or_else(|error| panic!("budget: {error:?}")),
-        ModuleRegistration::new(
-            ModuleId::Bridge,
-            &[activity(ModuleId::Bridge, 1), activity(ModuleId::Bridge, 2)],
-        )
-        .unwrap_or_else(|error| panic!("bridge: {error:?}")),
     ];
     ModuleRegistry::new(&registrations).unwrap_or_else(|error| panic!("registry: {error:?}"))
 }
@@ -165,19 +154,6 @@ fn fixtures() -> Vec<Fixture> {
                         .unwrap_or_else(|error| panic!("threshold: {error:?}")),
                 )
                 .unwrap_or_else(|error| panic!("recovery: {error:?}")),
-            )),
-        },
-        Fixture {
-            name: "evm_payout_binding",
-            source: "v1 evm_payout_binding did=did:layerx:golden network=77 payout=04x20 ownership_signature=05x65",
-            intent: Intent::v1(IntentKind::EvmPayoutBinding(
-                EvmPayoutBinding::new(
-                    did(),
-                    NetworkId::new(77).unwrap_or_else(|error| panic!("network: {error:?}")),
-                    EvmAddress::new([4; 20]),
-                    Signature::new(&[5; 65]).unwrap_or_else(|error| panic!("signature: {error:?}")),
-                )
-                .unwrap_or_else(|error| panic!("payout binding: {error:?}")),
             )),
         },
         Fixture {
@@ -293,39 +269,6 @@ fn fixtures() -> Vec<Fixture> {
                 .unwrap_or_else(|error| panic!("budget defund: {error:?}")),
             )),
         },
-        Fixture {
-            name: "bridge_deposit_credit",
-            source: "v1 bridge_deposit_credit proof=0dx32 checkpoint=0ex32 reserve=system:treasury recipient=agent:did:layerx:golden:main asset=02x32 amount=25 idempotency=03x32",
-            intent: Intent::v1(IntentKind::BridgeDepositCredit(
-                BridgeDepositCredit::new(
-                    DepositProofId::new([13; 32]),
-                    CheckpointId::new([14; 32]),
-                    account("system:treasury"),
-                    owner(),
-                    asset(),
-                    amount(),
-                    idempotency(),
-                )
-                .unwrap_or_else(|error| panic!("bridge deposit: {error:?}")),
-            )),
-        },
-        Fixture {
-            name: "bridge_withdraw_request",
-            source: "v2 bridge_withdraw_request withdrawal=0fx32 owner=agent:did:layerx:golden:main account=system:paxeer-withdrawals payout=10x20 asset=02x32 amount=25 idempotency=03x32 request_anchor=12x32 fee_limit=100",
-            intent: Intent::v2(IntentKind::BridgeWithdrawRequest(
-                BridgeWithdrawRequest::new(
-                    CheckpointId::new([18; 32]),
-                    100,
-                    owner(),
-                    account("system:paxeer-withdrawals"),
-                    EvmAddress::new([16; 20]),
-                    asset(),
-                    amount(),
-                    idempotency(),
-                )
-                .unwrap_or_else(|error| panic!("bridge withdrawal: {error:?}")),
-            )),
-        },
     ]
 }
 
@@ -337,6 +280,72 @@ fn hex(bytes: &[u8]) -> String {
         encoded.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
     }
     encoded
+}
+
+pub(crate) fn assert_golden_vectors(source: &str, version: u16) {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let mut sections = source.split("\n[vector.");
+    let metadata: BTreeMap<_, _> = sections
+        .next()
+        .expect("vector metadata")
+        .lines()
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(|line| line.split_once(" = ").expect("metadata assignment"))
+        .collect();
+    assert_eq!(metadata.len(), 2);
+    assert_eq!(metadata["intent_version"], version.to_string());
+    let expected_count: usize = metadata["vector_count"].parse().expect("vector count");
+    let fixtures = fixtures();
+    assert_eq!(expected_count, 11);
+    assert_eq!(expected_count, fixtures.len());
+    let registry = registry();
+    let mut names = BTreeSet::new();
+    for section in sections {
+        let (name, body) = section.split_once("]\n").expect("vector section header");
+        assert!(names.insert(name), "duplicate vector {name}");
+        assert!(!matches!(
+            name,
+            "bridge_deposit_credit" | "bridge_withdraw_request" | "evm_payout_binding"
+        ));
+        let mut fields = BTreeMap::new();
+        for line in body.lines().filter(|line| !line.is_empty()) {
+            let (key, value) = line.split_once(" = ").expect("vector assignment");
+            assert!(fields.insert(key, value).is_none(), "duplicate field {key}");
+        }
+        assert_eq!(fields.len(), 4, "{name} fields");
+        let intent_source = fields["intent"]
+            .strip_prefix('"')
+            .and_then(|value| value.strip_suffix('"'))
+            .expect("quoted intent");
+        let fixture = fixtures
+            .iter()
+            .find(|fixture| fixture.name == name && fixture.source == intent_source)
+            .unwrap_or_else(|| panic!("unknown intent source {intent_source}"));
+        assert_ne!(fixture.intent.module(), ModuleId::Bridge);
+        let compiled = compile(&fixture.intent, &registry)
+            .unwrap_or_else(|error| panic!("v{version} {name}: {error:?}"));
+        assert_ne!(compiled.activity_type().module(), ModuleId::Bridge);
+        assert_ne!(compiled.activity_type(), activity(ModuleId::Asset, 9));
+        assert_eq!(
+            fields["activity_type"],
+            compiled.activity_type().value().to_string(),
+            "v{version} {name} activity"
+        );
+        assert_eq!(
+            fields["payload_hex"],
+            format!("\"{}\"", hex(compiled.payload().as_bytes())),
+            "v{version} {name} payload"
+        );
+        assert_eq!(
+            fields["payload_hash_hex"],
+            format!("\"{}\"", hex(&compiled.payload_hash())),
+            "v{version} {name} hash"
+        );
+        DisclosureCheck::verify(&fixture.intent, &compiled)
+            .unwrap_or_else(|error| panic!("v{version} {name} disclosure: {error:?}"));
+    }
+    assert_eq!(names.len(), expected_count);
 }
 
 fn render_vectors() -> String {
@@ -362,6 +371,51 @@ fn render_vectors() -> String {
         .unwrap_or_else(|error| panic!("render {}: {error}", fixture.name));
     }
     rendered
+}
+
+#[test]
+fn budget_vectors_hold_the_kernel_canonical_payloads() {
+    let registry = registry();
+    let fixtures = fixtures();
+    for name in ["budget_create", "budget_fund", "budget_defund"] {
+        let fixture = fixtures
+            .iter()
+            .find(|fixture| fixture.name == name)
+            .unwrap_or_else(|| panic!("missing fixture {name}"));
+        let compiled = compile(&fixture.intent, &registry)
+            .unwrap_or_else(|error| panic!("compile {name}: {error:?}"));
+        let payload_hex = format!("\"{}\"", hex(compiled.payload().as_bytes()));
+        let payload_hash_hex = format!("\"{}\"", hex(&compiled.payload_hash()));
+        for (version, source) in [(1, golden::V1_SOURCE), (2, golden::V2_SOURCE)] {
+            let header = format!("\n[vector.{name}]\n");
+            let (_, remainder) = source
+                .split_once(header.as_str())
+                .unwrap_or_else(|| panic!("missing v{version} vector {name}"));
+            let vector = remainder
+                .split("\n[")
+                .next()
+                .expect("vector section must exist");
+            assert_eq!(
+                vector
+                    .lines()
+                    .find_map(|line| line.strip_prefix("payload_hex = ")),
+                Some(payload_hex.as_str()),
+                "v{version} {name} payload",
+            );
+            assert_eq!(
+                vector
+                    .lines()
+                    .find_map(|line| line.strip_prefix("payload_hash_hex = ")),
+                Some(payload_hash_hex.as_str()),
+                "v{version} {name} payload hash",
+            );
+        }
+        if name == "budget_defund" {
+            assert_eq!(compiled.payload().as_bytes().len(), 50);
+            assert_eq!(&compiled.payload().as_bytes()[..2], &[0, 1]);
+            assert_eq!(compiled.activity_type().value(), 196616);
+        }
+    }
 }
 
 #[test]

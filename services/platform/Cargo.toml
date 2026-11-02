@@ -9,7 +9,6 @@ members = [
     "hosted/agent-boundary",
     "hosted/identity",
     "hosted/internal",
-    "hosted/runtime-clock",
     "hosted/paxeer",
     "hosted/gateway",
     "hosted/indexer",
@@ -50,7 +49,6 @@ layerx-crypto = { path = "../../services/agent/crates/layerx-crypto" }
 layerx-types = { path = "../../services/agent/crates/layerx-types" }
 layerx-wire = { path = "../../services/agent/crates/layerx-wire" }
 layerx-intents = { path = "../human/crates/layerx-intents" }
-layerx-paxeer-client = { path = "../human/crates/layerx-paxeer-client" }
 layerx-platform-kvx = { path = "tools/kvx", version = "=0.1.0" }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.151"

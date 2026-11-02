@@ -1,0 +1,2 @@
+/** Applies the stored dx theme before first paint (the dx ThemeProvider resolves after mount). */
+export const THEME_INIT = `try{var t=localStorage.getItem("dx-theme");if(t!=="light"&&t!=="dark"&&t!=="system")t="system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);if(localStorage.getItem("dx-accent")==="dx-gradient")document.documentElement.classList.add("accent-dx-gradient");}catch(e){}`;

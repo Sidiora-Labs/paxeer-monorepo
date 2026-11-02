@@ -12,8 +12,6 @@ import (
 	"github.com/holiman/uint256"
 )
 
-const adlCounterpartiesPerBlock = 64
-
 func ADLRankScore(position types.Position, mark, accountValue uint256.Int) (uint256.Int, bool, error) {
 	if mark.IsZero() || position.EntryPrice.IsZero() {
 		return uint256.Int{}, false, types.ErrPriceStale
@@ -50,8 +48,12 @@ func (k *Keeper) RankADL(ctx sdk.Context, deficitID, previousMark uint256.Int, l
 	if previousMark.IsZero() {
 		return nil, types.ErrPriceStale
 	}
-	if limit > adlCounterpartiesPerBlock {
-		return nil, types.ErrInvalidParams
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if uint64(limit) > params.AdlPositionsPerBlock {
+		limit = uint32(params.AdlPositionsPerBlock)
 	}
 	store := ctx.KVStore(k.storeKey)
 	deficit, err := adlPosition(store, deficitID)
@@ -64,7 +66,7 @@ func (k *Keeper) RankADL(ctx sdk.Context, deficitID, previousMark uint256.Int, l
 	prefix := types.AdlRankSidePrefix(deficit.MarketID, types.SideOf(!deficit.IsLong))
 	iterator := sdk.KVStorePrefixIterator(store, prefix)
 	defer iterator.Close()
-	ranked := make([]types.Position, 0, limit)
+	ranked := make([]types.Position, 0)
 	for ; iterator.Valid() && len(ranked) < int(limit); iterator.Next() {
 		key := iterator.Key()
 		if len(key) != len(prefix)+64 || len(iterator.Value()) != 0 {
@@ -103,7 +105,11 @@ func (k *Keeper) ExecuteADL(ctx sdk.Context, deficitIDs []uint256.Int, previousM
 	if !insurance.Collateral.IsZero() {
 		return nil, nil
 	}
-	remaining := uint32(adlCounterpartiesPerBlock)
+	params, err := k.GetParams(cached)
+	if err != nil {
+		return nil, err
+	}
+	remaining := params.AdlPositionsPerBlock
 	var events []types.EventRecord
 	for _, id := range deficitIDs {
 		if remaining == 0 {
@@ -124,7 +130,7 @@ func (k *Keeper) ExecuteADL(ctx sdk.Context, deficitIDs []uint256.Int, previousM
 		if !found || price.IsZero() {
 			return nil, types.ErrPriceStale
 		}
-		ranked, err := k.RankADL(cached, id, price, remaining)
+		ranked, err := k.RankADL(cached, id, price, uint32(min(remaining, uint64(^uint32(0)))))
 		if err != nil {
 			return nil, err
 		}

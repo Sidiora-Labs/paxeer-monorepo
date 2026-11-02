@@ -83,6 +83,9 @@ func (k *Keeper) setCheckpoint(ctx sdk.Context, checkpoint types.Checkpoint) {
 // RegisterCheckpoint records a finalized LayerX batch. A recorded checkpoint
 // is immutable: claims already queued against it must stay verifiable.
 func (k *Keeper) RegisterCheckpoint(ctx sdk.Context, batchNumber uint64, stateRoot, receiptRoot [32]byte) error {
+	if k.Retired(ctx) {
+		return sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
 	checkpoint := types.Checkpoint{BatchNumber: batchNumber, StateRoot: types.Hash32(stateRoot),
 		ReceiptRoot: types.Hash32(receiptRoot), FinalizedAt: ctx.BlockTime().Unix()}
 	if err := checkpoint.Validate(); err != nil {

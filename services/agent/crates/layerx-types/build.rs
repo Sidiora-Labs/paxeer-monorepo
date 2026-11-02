@@ -14,6 +14,12 @@ struct HeaderCode {
     c_name: String,
 }
 
+struct RegistryRow {
+    code: String,
+    message: String,
+    retryable: bool,
+}
+
 fn read_file(path: &Path) -> String {
     fs::read_to_string(path)
         .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()))
@@ -127,7 +133,7 @@ fn mirror_codes(source: &str) -> Result<Vec<Code>, String> {
     Ok(codes)
 }
 
-fn registry_retryable(source: &str) -> Result<Vec<(String, String)>, String> {
+fn registry_retryable(source: &str) -> Result<Vec<RegistryRow>, String> {
     let section = source
         .split_once("\n## (b) ")
         .ok_or_else(|| "section (b) Error code registry is missing".to_owned())?
@@ -141,12 +147,25 @@ fn registry_retryable(source: &str) -> Result<Vec<(String, String)>, String> {
             continue;
         }
         let cells: Vec<&str> = line.split('|').map(str::trim).collect();
-        let ["", code, _message, _construct, _origin, retryable, ""] = cells.as_slice() else {
+        let ["", code, message, _construct, _origin, retryable, ""] = cells.as_slice() else {
             return Err(format!(
                 "registry row does not have the five columns Code, Message, Emitting construct, origin and Retryable: {line}"
             ));
         };
-        rows.push(((*code).to_owned(), (*retryable).to_owned()));
+        let retryable = match *retryable {
+            "yes" => true,
+            "no" => false,
+            other => {
+                return Err(format!(
+                    "{code} has the Retryable cell {other:?}, which is neither yes nor no"
+                ));
+            }
+        };
+        rows.push(RegistryRow {
+            code: (*code).to_owned(),
+            message: (*message).to_owned(),
+            retryable,
+        });
     }
     if rows.is_empty() {
         return Err("section (b) holds no LXP_ registry row".to_owned());
@@ -160,16 +179,13 @@ fn registry_code_name(c_name: &str) -> String {
         .map_or_else(|| c_name.to_owned(), |rest| format!("LXP_{rest}"))
 }
 
-fn retriability(
-    header: &HeaderCode,
-    registry: &[(String, String)],
-) -> Result<&'static str, String> {
+fn retriability(header: &HeaderCode, registry: &[RegistryRow]) -> Result<&'static str, String> {
     if header.c_name == "LXP_OK" {
         return Ok("Terminal");
     }
     let code = registry_code_name(&header.c_name);
-    let mut rows = registry.iter().filter(|(name, _)| *name == code);
-    let Some((_, cell)) = rows.next() else {
+    let mut rows = registry.iter().filter(|row| row.code == code);
+    let Some(row) = rows.next() else {
         return Err(format!(
             "{} has no registry row {code} in section (b)",
             header.c_name
@@ -180,25 +196,17 @@ fn retriability(
             "{code} has more than one registry row in section (b)"
         ));
     }
-    let class = match cell.as_str() {
-        "yes" => "Retriable",
-        "no" => "Terminal",
-        other => {
-            return Err(format!(
-                "{code} has the Retryable cell {other:?}, which is neither yes nor no"
-            ));
-        }
-    };
     if header.code.value <= -1000 {
         return Ok("Terminal");
     }
-    Ok(class)
+    Ok(if row.retryable {
+        "Retriable"
+    } else {
+        "Terminal"
+    })
 }
 
-fn result_codes_body(
-    header: &[HeaderCode],
-    registry: &[(String, String)],
-) -> Result<String, String> {
+fn result_codes_body(header: &[HeaderCode], registry: &[RegistryRow]) -> Result<String, String> {
     let mut entries = String::new();
     for code in header {
         let class = retriability(code, registry)?;
@@ -209,10 +217,23 @@ fn result_codes_body(
         )
         .map_err(|error| format!("failed to format the result-code table: {error}"))?;
     }
+    let mut registry_entries = String::new();
+    for row in registry {
+        writeln!(
+            registry_entries,
+            "        ({:?}, {:?}, {}),",
+            row.code, row.message, row.retryable
+        )
+        .map_err(|error| format!("failed to format the registry retryability table: {error}"))?;
+    }
     Ok(format!(
         "// Generated from include/layerx/lxp_result.h and the Retryable column of\n\
 // spec/layerx-merge/contracts/address-table.md section (b) by build.rs. Do not edit.\n\n\
-protocol_result_codes! {{\n{entries}}}\n"
+protocol_result_codes! {{\n{entries}}}\n\n\
+mod generated_registry {{\n\
+    pub(super) const REGISTRY_RETRYABLE: &[(&str, &str, bool)] = &[\n\
+{registry_entries}    ];\n\
+}}\n"
     ))
 }
 

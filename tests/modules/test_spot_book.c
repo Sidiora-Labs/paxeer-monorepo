@@ -127,7 +127,7 @@ static int kernel_start(void)
         return 1;
     asset_runtime = (lx_asset_runtime){ &accounts, asset_records, 2U,
                                         asset_states, 2U, 7U,
-                                        LXP_PROTOCOL_VERSION_OCCUPANCY };
+                                        LXP_PROTOCOL_VERSION_OCCUPANCY, false };
     return lxp_kernel_bind_module_runtime(&kernel, LXP_MODULE_ASSET,
                                           &asset_runtime) != LXP_OK;
 }

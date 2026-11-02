@@ -197,15 +197,11 @@ _ENVELOPE_VERSION = 1
 _ENVELOPE_PATH = "/v1/agent/rpc"
 _DAEMON_PATH = "/rpc"
 _ENVELOPE_MAX_BODY_BYTES = 1_048_576
-_BOOTSTRAP_OPERATIONS = frozenset({"agent.register", "session.open"})
 _MAX_U64 = (1 << 64) - 1
 _LEVELS: Mapping[str, int] = {
-    "Unverified": 0,
-    "SequencerSigned": 1,
-    "BatchIncluded": 2,
-    "StateProven": 3,
-    "CheckpointFinalised": 4,
-    "SettlementAnchored": 5,
+    "submitted": 0,
+    "receipted": 1,
+    "committed": 2,
 }
 
 
@@ -487,12 +483,9 @@ class AgentEnvelopeTransport(ProductionTransport):
         if proof_request is not None:
             request = proof_request
         mutating = operation in _AGENT_IDEMPOTENT
-        if operation in _BOOTSTRAP_OPERATIONS:
-            credential: dict[str, str] | None = None
-        elif self._session is None:
+        if self._session is None:
             raise _invalid_argument()
-        else:
-            credential = self._session.coordinates()
+        credential = self._session.coordinates()
         if mutating:
             if idempotency_key is None or not _nonzero_hex32(str(idempotency_key)):
                 raise _invalid_argument()
@@ -764,6 +757,17 @@ def _valid_verification_status(value: object) -> bool:
         return False
     if value.get("state") == "achieved":
         return set(value) == {"state", "level"} and isinstance(value.get("level"), str) and value["level"] in _LEVELS
+    if value.get("state") == "absent":
+        return set(value) == {"state", "requested"} and isinstance(value.get("requested"), str) and value["requested"] in _LEVELS
+    if value.get("state") == "pending":
+        requested = value.get("requested")
+        achieved = value.get("achieved")
+        return (
+            set(value) == {"state", "requested", "achieved"}
+            and isinstance(requested, str) and requested in _LEVELS
+            and isinstance(achieved, str) and achieved in _LEVELS
+            and _LEVELS[achieved] < _LEVELS[requested]
+        )
     if value.get("state") != "unverified" or set(value) != {"state", "requested", "achieved", "reason"}:
         return False
     requested = value.get("requested")
@@ -912,16 +916,16 @@ def _accepted_program_verification(operation: str, result: object, value: object
             return False
         key, signature = result.get("discovery_public_key"), result.get("discovery_signature")
         return (set(value) == {"state", "level"} and value.get("state") == "Achieved"
-                and value.get("level") == "SequencerSigned" and isinstance(key, str) and _hex32(key)
+                and value.get("level") == "receipted" and isinstance(key, str) and _hex32(key)
                 and isinstance(signature, str) and len(signature) == 128
                 and all(character in _HEX for character in signature))
     if operation in {"program.call", "program.receipt", "program.activity"} and result_state in {"unknown", "pending"}:
         return _exact_unverified(value, "receipt_pending")
-    return set(value) == {"state", "level"} and value.get("state") == "Achieved" and value.get("level") == "SequencerSigned"
+    return set(value) == {"state", "level"} and value.get("state") == "Achieved" and value.get("level") == "receipted"
 
 
 def _exact_unverified(value: Mapping[str, object], reason: str) -> bool:
-    return set(value) == {"state", "requested", "achieved", "reason"} and value.get("state") == "Unverified" and value.get("requested") == "SequencerSigned" and value.get("achieved") == "Unverified" and value.get("reason") == reason
+    return set(value) == {"state", "requested", "achieved", "reason"} and value.get("state") == "Unverified" and value.get("requested") == "receipted" and value.get("achieved") == "submitted" and value.get("reason") == reason
 
 
 def _service_error(status: int, error: Mapping[str, object]) -> PlatformSdkError:

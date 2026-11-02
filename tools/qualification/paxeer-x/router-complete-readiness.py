@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import hashlib
 import http.client
 import ipaddress
@@ -24,14 +25,12 @@ ROSTER = {
     "paxeer_chain",
     "core_agent_boundary",
     "public_core",
-    "independent_receipt_authority",
     "identity",
     "program_registry",
 }
 KERNEL = {
     "core_agent_boundary",
     "public_core",
-    "independent_receipt_authority",
     "identity",
     "program_registry",
 }
@@ -44,8 +43,6 @@ KERNEL_ENV = (
     "LAYERX_GATEWAY_COMPONENT_URL",
     "LAYERX_GATEWAY_COMPONENT_TOKEN_FILE",
     "LAYERX_GATEWAY_PUBLIC_CORE_URL",
-    "LAYERX_GATEWAY_AUTHORITY_URL",
-    "LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE",
     "LAYERX_GATEWAY_IDENTITY_URL",
     "LAYERX_GATEWAY_IDENTITY_TOKEN_FILE",
     "LAYERX_GATEWAY_PROGRAM_REGISTRY_URL",
@@ -215,7 +212,37 @@ def inputs():
     return revision, binaries, fixture
 
 
-def readiness_document(status, body, unavailable=frozenset(), chain_only=False):
+def readiness_document(
+    status, body, unavailable=frozenset(), chain_only=False, unconfigured=frozenset()
+):
+    if chain_only:
+        require(status == 200, "gateway readiness status mismatch")
+        backends = body["backends"]
+        roster = ROSTER - KERNEL - unconfigured
+        require(
+            set(backends) == roster,
+            "chain-only dependency roster omitted or added a backend",
+        )
+        require(
+            set(body["components"]) == {"durable_store"},
+            "chain-only readiness includes a kernel component",
+        )
+        for name in roster:
+            expected = (
+                {"state": "unavailable", "reason": "unreachable"}
+                if name in unavailable
+                else {"state": "ready", "reason": "ready"}
+            )
+            require(backends[name] == expected, "backend state mismatch: " + name)
+        require(
+            body["status"] == ("degraded" if unavailable else "ready"),
+            "complete readiness status mismatch",
+        )
+        require(
+            body["valid_until_ms"] > body["observed_at_ms"],
+            "readiness freshness invalid",
+        )
+        return body
     require(
         status == (503 if unavailable and not chain_only else 200),
         "gateway readiness status mismatch",
@@ -284,7 +311,7 @@ class Run:
             )
             for key, value in values.items():
                 if key.endswith("_URL"):
-                    if key in ("LAYERX_CORE_NODE_URL", "LAYERX_CORE_REPLICA_URL"):
+                    if key == "LAYERX_CORE_NODE_URL":
                         parsed_node = urlsplit(value)
                         require(
                             parsed_node.scheme == "http"
@@ -362,7 +389,6 @@ class Run:
         observed = set()
         services = {
             "component": "layerx-agent-boundary",
-            "authority": "layerx-receipt-authority",
             "registry": "layerx-program-registry",
             "redis": "redis-server",
             "paxeer": "layerx-paxeer-boundary",
@@ -397,7 +423,6 @@ class Run:
             gateway[name]
             for name in (
                 "LAYERX_GATEWAY_COMPONENT_URL",
-                "LAYERX_GATEWAY_AUTHORITY_URL",
                 "LAYERX_GATEWAY_PROGRAM_REGISTRY_URL",
                 "LAYERX_GATEWAY_REDIS_URL",
             )
@@ -539,7 +564,15 @@ class Run:
         status, body = self.request(
             "gateway", "/readyz/core" if not chain_only else "/readyz"
         )
-        result = readiness_document(status, body, unavailable, chain_only)
+        unconfigured = set()
+        if (
+            chain_only
+            and "LAYERX_EVENTS_PAYMENT_UPSTREAM_URL" not in self.environments["gateway"]
+        ):
+            unconfigured.add("event_producer")
+        result = readiness_document(
+            status, body, unavailable, chain_only, unconfigured=unconfigured
+        )
         if not chain_only:
             product_status, product = self.request("gateway", "/readyz")
             require(
@@ -729,12 +762,8 @@ def worker(directory):
         run.record("core-credential-restored-with-same-retained-state")
         wrong = int(gateway["LAYERX_GATEWAY_PROTOCOL_NETWORK_ID"]) % (2**32 - 1) + 1
         run.start("gateway", {"LAYERX_GATEWAY_PROTOCOL_NETWORK_ID": str(wrong)})
-        run.wait(
-            lambda: bool(
-                run.readiness({"public_core", "independent_receipt_authority"})
-            )
-        )
-        run.record("wrong-network-real-router-refuses-core-and-authority")
+        run.wait(lambda: bool(run.readiness({"public_core"})))
+        run.record("wrong-network-real-router-refuses-core")
         run.start("gateway")
         run.wait(lambda: bool(run.readiness()))
         require(
@@ -848,10 +877,14 @@ def worker(directory):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Qualify router readiness against the configured service roster."
+    )
+    parser.add_argument("--worker", metavar="DIRECTORY", help=argparse.SUPPRESS)
+    args = parser.parse_args()
     os.umask(0o077)
-    if len(sys.argv) == 3 and sys.argv[1] == "--worker":
-        return worker(sys.argv[2])
-    require(len(sys.argv) == 1, "gate accepts no arguments")
+    if args.worker is not None:
+        return worker(args.worker)
     revision, binaries, fixture = inputs()
     require(
         os.geteuid() == 0, "explicit isolated network namespace entry requires root"

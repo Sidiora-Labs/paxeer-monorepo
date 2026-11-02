@@ -3,5 +3,6 @@
 pub mod read;
 pub mod write;
 
+pub mod faucet;
 pub mod wallet;
 pub mod web;

@@ -1,28 +1,35 @@
 "use client";
 
+import * as React from "react";
 import { Percent } from "lucide-react";
+import type { FeeTierView } from "@/core/perps/feeTier";
+import { useFeeTier } from "@/hooks/perps/useFeeTier";
 import { FeesBreakdownCard } from "./FeesBreakdownCard";
 import { SectionCard } from "./PortfolioPrimitives";
 
-/**
- * Fee tier tab.
- *
- *   ┌─────────────────────────────────┐
- *   │ Current tier · taker/maker bps  │
- *   ├─────────────────────────────────┤
- *   │ Fees breakdown (PerfDB rollup)  │
- *   └─────────────────────────────────┘
- *
- * Tier values are placeholder until volume-based tiering ships. The
- * breakdown card reads real fee data from PerfDB when an address is
- * available.
- */
-
 export interface PortfolioFeeTierPanelProps {
   address: string | undefined;
+  view?: FeeTierView;
 }
 
-export function PortfolioFeeTierPanel({ address }: PortfolioFeeTierPanelProps) {
+export function PortfolioFeeTierPanel({ address, view }: PortfolioFeeTierPanelProps) {
+  if (view === undefined) return <ConnectedFeeTierPanel address={address} />;
+  return <FeeTierPanelContent address={address} view={view} />;
+}
+
+function ConnectedFeeTierPanel({ address }: Pick<PortfolioFeeTierPanelProps, "address">) {
+  const { view, isLoading, error } = useFeeTier(address);
+  return (
+    <FeeTierPanelContent address={address} view={view} isLoading={isLoading} error={error} />
+  );
+}
+
+function FeeTierPanelContent({
+  address,
+  view,
+  isLoading = false,
+  error = null,
+}: PortfolioFeeTierPanelProps & { isLoading?: boolean; error?: Error | null }) {
   return (
     <div className="space-y-4 md:space-y-6">
       <SectionCard title="Fee tier">
@@ -36,15 +43,16 @@ export function PortfolioFeeTierPanel({ address }: PortfolioFeeTierPanelProps) {
                 Current tier
               </div>
               <div className="text-base font-semibold text-foreground">
-                Tier 1 · Taker 3 bps / Maker 0.5 bps rebate
+                {view
+                  ? `Tier ${view.tier} · Taker ${view.takerBps} bps / Maker ${view.makerBps} bps`
+                  : error
+                    ? "Unable to load fee tier"
+                    : isLoading
+                      ? "Loading fee tier…"
+                      : "Connect your wallet to view your fee tier"}
               </div>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Fee tiers are applied automatically based on 30d volume and PAX
-            holdings. Volume-based upgrades and PoFQ rebates will unlock as
-            the competition program rolls out.
-          </p>
         </div>
       </SectionCard>
 

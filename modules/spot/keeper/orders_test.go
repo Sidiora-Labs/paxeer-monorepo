@@ -425,6 +425,64 @@ func TestActiveListSwapAndPop(t *testing.T) {
 	require.Empty(t, ids)
 }
 
+func TestActiveIndexCostIndependentOfBookSize(t *testing.T) {
+	type costs struct {
+		count, lookup, cancel uint64
+	}
+	measure := func(size uint64) costs {
+		e := newLimitEnv(t)
+		params, err := e.k.GetParams(e.ctx)
+		require.NoError(t, err)
+		params.MaxActiveOrdersPerUser = 1000
+		require.NoError(t, params.Validate())
+		e.put(types.ParamsKey, params)
+		for i := uint64(0); i < 1000-size; i++ {
+			_, err := e.k.PlaceStopLimit(e.ctx, e.user, e.stable, e.token, limitInt(100_000_000), limitPrice(550), limitPrice(500), 0, types.OrderTypeStopLimitSell)
+			require.NoError(t, err)
+		}
+		var last uint64
+		for i := uint64(0); i < size; i++ {
+			last = e.place(types.OrderTypeLimitSell, 100_000_000, 500, 0)
+		}
+		require.Equal(t, uint64(1000), last)
+		meter := sdk.NewInfiniteGasMeterWithMultiplier(e.ctx)
+		ctx := e.ctx.WithGasMeter(meter)
+		count, err := e.k.GetActiveLimitOrderCount(ctx)
+		used := costs{count: meter.GasConsumed()}
+		require.NoError(t, err)
+		require.Equal(t, size, count)
+		before := meter.GasConsumed()
+		id, err := e.k.ActiveLimitOrderID(ctx, 0)
+		used.lookup = meter.GasConsumed() - before
+		require.NoError(t, err)
+		require.Equal(t, 1001-size, id)
+		before = meter.GasConsumed()
+		events, err := e.k.CancelLimit(ctx, e.user, last)
+		used.cancel = meter.GasConsumed() - before
+		require.NoError(t, err)
+		require.Len(t, events, 1)
+		require.Equal(t, "LimitOrderCancelled", events[0].Name)
+		require.Equal(t, types.OrderStatusCancelled, e.order(last).Status)
+		count, err = e.k.GetActiveLimitOrderCount(ctx)
+		require.NoError(t, err)
+		require.Equal(t, size-1, count)
+		store := ctx.KVStore(e.key)
+		require.Nil(t, store.Get(types.ActivePositionKey(types.ActiveLimitPrefix, size-1)))
+		require.Nil(t, store.Get(limitKey(types.ActiveLimitPrefix, limitID(last))))
+		id, err = e.k.ActiveLimitOrderID(ctx, size-2)
+		require.NoError(t, err)
+		require.Equal(t, last-1, id)
+		require.Positive(t, used.count)
+		require.Positive(t, used.lookup)
+		require.Positive(t, used.cancel)
+		return used
+	}
+	small, large := measure(10), measure(1000)
+	require.Equal(t, small.count, large.count, "active limit count gas")
+	require.Equal(t, small.lookup, large.lookup, "active limit lookup gas")
+	require.Equal(t, small.cancel, large.cancel, "last limit cancellation gas")
+}
+
 func TestMinOrderNotional(t *testing.T) {
 	for _, tc := range []struct {
 		name           string

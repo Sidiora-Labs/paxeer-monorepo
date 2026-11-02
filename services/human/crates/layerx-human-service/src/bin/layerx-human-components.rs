@@ -37,28 +37,12 @@ fn run() -> Result<(), String> {
     if maintenance_interval.is_zero() || maintenance_maximum_items == 0 {
         return Err("the component maintenance policy is invalid".to_owned());
     }
-    let recipient_socket = PathBuf::from(required("LAYERX_HUMAN_RECIPIENT_SOCKET")?);
-    let recipient_caller_uid = required_number("LAYERX_HUMAN_RECIPIENT_CALLER_UID")?;
-    let recipient_caller_gid = required_number("LAYERX_HUMAN_RECIPIENT_CALLER_GID")?;
-    let recipient_deadline =
-        Duration::from_secs(required_number("LAYERX_HUMAN_RECIPIENT_DEADLINE_SECONDS")?);
     let clock = layerx_client::runtime_clock::RuntimeClock::from_environment()
         .map_err(|error| error.to_string())?;
     let backend = Arc::new(ProductionComponents::open(
         ProductionComponentsConfig::from_environment()?,
         clock.clone(),
     )?);
-    let recipient = layerx_human_service::server::production_components::RecipientServer::bind(
-        Arc::clone(&backend),
-        layerx_human_service::server::production_components::RecipientServerConfig {
-            socket: recipient_socket,
-            caller_uid: recipient_caller_uid,
-            caller_gid: recipient_caller_gid,
-            deadline: recipient_deadline,
-            clock: clock.clone(),
-        },
-    )
-    .map_err(|_| "the recipient listener cannot bind".to_owned())?;
     let server = HumanComponentServer::new_maintained(
         backend,
         maintenance_interval,
@@ -68,20 +52,9 @@ fn run() -> Result<(), String> {
     .map_err(|_| "the component maintenance policy is invalid".to_owned())?
     .bind(configuration)
     .map_err(|_| "the privileged component listener cannot bind".to_owned())?;
-    let shutdown = server.shutdown();
-    let recipient_shutdown = shutdown.clone();
-    let worker = std::thread::spawn(move || {
-        let result = recipient.run(&recipient_shutdown);
-        recipient_shutdown.request();
-        result
-    });
-    let result = server.run();
-    shutdown.request();
-    worker
-        .join()
-        .map_err(|_| "the recipient listener panicked".to_owned())?
-        .map_err(|_| "the recipient listener failed".to_owned())?;
-    result.map_err(|_| "the privileged component listener failed".to_owned())
+    server
+        .run()
+        .map_err(|_| "the privileged component listener failed".to_owned())
 }
 
 fn required(name: &str) -> Result<String, String> {

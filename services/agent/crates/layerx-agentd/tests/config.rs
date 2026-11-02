@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use layerx_agentd::config::{
-    load, validate, ConfigError, RejectionReason, SECURITY_RELEVANT_SETTINGS,
+    load, validate, ConfigError, ReceiptKeySource, RejectionReason, SECURITY_RELEVANT_SETTINGS,
 };
 use layerx_types::verify::VerificationLevel;
 
@@ -24,9 +24,9 @@ fn values() -> BTreeMap<String, String> {
         ("network_id".to_owned(), "42".to_owned()),
         (
             "node_endpoint".to_owned(),
-            "/run/layerx/layerxd.sock".to_owned(),
+            "https://node.example/rpc".to_owned(),
         ),
-        ("expected_protocol_version".to_owned(), "2".to_owned()),
+        ("expected_chain_id".to_owned(), "125".to_owned()),
         ("tenants".to_owned(), "tenant-a,tenant-b".to_owned()),
         (
             "policy_sources".to_owned(),
@@ -41,8 +41,8 @@ fn values() -> BTreeMap<String, String> {
             "tenant-a:state-proven,tenant-b:checkpoint-finalised".to_owned(),
         ),
         (
-            "sequencer_authority_source".to_owned(),
-            "/etc/layerx/sequencer-authorities.csv".to_owned(),
+            "receipt_key_source".to_owned(),
+            "/etc/layerx/receipt-keys.json".to_owned(),
         ),
     ])
 }
@@ -71,20 +71,19 @@ fn explicit_environment_precedence_produces_one_fully_typed_configuration() {
     let environment = BTreeMap::from([
         (
             "LAYERX_NODE_ENDPOINT".to_owned(),
-            "/run/layerx/override.sock".to_owned(),
+            "https://override.example/rpc".to_owned(),
+        ),
+        ("LAYERX_EXPECTED_CHAIN_ID".to_owned(), "126".to_owned()),
+        (
+            "LAYERX_RECEIPT_KEY_SOURCE".to_owned(),
+            "px_getReceiptKeys".to_owned(),
         ),
         ("PATH".to_owned(), "/usr/bin".to_owned()),
     ]);
     let loaded = load(&path, &environment).unwrap_or_else(|error| panic!("load: {error}"));
     assert_eq!(loaded.network_id, 42);
-    assert_eq!(
-        loaded.node_endpoint,
-        PathBuf::from("/run/layerx/override.sock")
-    );
-    assert_eq!(
-        loaded.expected_protocol_version,
-        layerx_wire::limits::PROTOCOL_VERSION
-    );
+    assert_eq!(loaded.node_endpoint, "https://override.example/rpc");
+    assert_eq!(loaded.expected_chain_id, 126);
     assert_eq!(loaded.tenants.len(), 2);
     assert!(loaded
         .verification_defaults
@@ -92,9 +91,14 @@ fn explicit_environment_precedence_produces_one_fully_typed_configuration() {
         .any(|level| *level == VerificationLevel::STATE_PROVEN));
     assert_eq!(loaded.policy_sources.len(), loaded.tenants.len());
     assert_eq!(loaded.signer_configurations.len(), loaded.tenants.len());
+    assert_eq!(loaded.receipt_key_source, ReceiptKeySource::NodeRpc);
+    let from_file =
+        load(&path, &BTreeMap::new()).unwrap_or_else(|error| panic!("load file: {error}"));
+    assert_eq!(from_file.node_endpoint, "https://node.example/rpc");
+    assert_eq!(from_file.expected_chain_id, 125);
     assert_eq!(
-        loaded.sequencer_authority_source,
-        PathBuf::from("/etc/layerx/sequencer-authorities.csv")
+        from_file.receipt_key_source,
+        ReceiptKeySource::PinnedFile(PathBuf::from("/etc/layerx/receipt-keys.json"))
     );
     let _ = fs::remove_file(path);
 }
@@ -143,19 +147,11 @@ fn duplicate_file_setting_and_unknown_environment_setting_are_refused() {
 }
 
 #[test]
-fn unsafe_paths_protocols_maps_and_blank_overrides_name_the_setting() {
+fn unsafe_paths_chain_ids_maps_and_blank_overrides_name_the_setting() {
     let cases = [
         ("network_id", "0", RejectionReason::InvalidInteger),
-        (
-            "node_endpoint",
-            "relative.sock",
-            RejectionReason::InvalidPath,
-        ),
-        (
-            "expected_protocol_version",
-            "1",
-            RejectionReason::UnsupportedProtocol,
-        ),
+        ("node_endpoint", "relative.sock", RejectionReason::Invalid),
+        ("expected_chain_id", "0", RejectionReason::InvalidInteger),
         (
             "policy_sources",
             "tenant-a:/etc/layerx/a.kvx",
@@ -172,7 +168,7 @@ fn unsafe_paths_protocols_maps_and_blank_overrides_name_the_setting() {
             RejectionReason::InvalidVerificationLevel,
         ),
         (
-            "sequencer_authority_source",
+            "receipt_key_source",
             "relative.csv",
             RejectionReason::InvalidPath,
         ),

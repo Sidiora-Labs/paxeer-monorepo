@@ -49,4 +49,5 @@ func panicCatchingEpochHook(ctx sdk.Context, hookFn func(sdk.Context, Epoch), ep
 	cacheCtx, write := ctx.CacheContext()
 	hookFn(cacheCtx, epoch)
 	write()
+	ctx.EventManager().EmitEvents(cacheCtx.EventManager().Events())
 }

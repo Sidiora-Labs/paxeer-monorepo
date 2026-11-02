@@ -19,10 +19,7 @@ static int entry_order(const void *left, const void *right)
 {
     const state_entry *const *a = (const state_entry *const *)left;
     const state_entry *const *b = (const state_entry *const *)right;
-    int order = memcmp((*a)->key, (*b)->key, 64U);
-    if (order != 0) return order;
-    if (*a < *b) return -1;
-    return *a > *b ? 1 : 0;
+    return memcmp((*a)->key, (*b)->key, 64U);
 }
 
 lxp_result lx_asset_balance_get(const lx_account_registry *accounts,
@@ -177,6 +174,12 @@ lxp_result lx_asset_state_root(const lx_asset_registry *assets,
     }
     for (i = 0U; i < count; ++i) order[i] = &entries[i];
     qsort(order, count, sizeof(*order), entry_order);
+    for (i = 1U; i < count; ++i) {
+        if (memcmp(order[i - 1U]->key, order[i]->key, 64U) == 0) {
+            free(entries); free(order); free(hashes);
+            return LXP_ERR_SEQUENCE_REUSED;
+        }
+    }
     for (i = 0U; status == LXP_OK && i < count; ++i) {
         uint8_t leaf[64U + 384U];
         (void)memcpy(leaf, order[i]->key, 64U);

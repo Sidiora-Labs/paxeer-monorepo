@@ -2,6 +2,8 @@
 
 use std::cmp::Ordering;
 
+use crate::rung::Rung;
+
 /// Internal rank for the ordered verification lattice.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 enum VerificationRank {
@@ -50,6 +52,21 @@ impl VerificationLevel {
     #[must_use]
     pub const fn wire_rank(self) -> u8 {
         self.0 as u8
+    }
+
+    /// Maps legacy evidence levels to write rungs; settlement anchoring has no rung.
+    #[must_use]
+    pub const fn rung(self) -> Option<Rung> {
+        match self.0 {
+            VerificationRank::Unverified | VerificationRank::SequencerSigned => {
+                Some(Rung::Submitted)
+            }
+            VerificationRank::BatchIncluded | VerificationRank::StateProven => {
+                Some(Rung::Receipted)
+            }
+            VerificationRank::CheckpointFinalised => Some(Rung::Committed),
+            VerificationRank::SettlementAnchored => None,
+        }
     }
 }
 

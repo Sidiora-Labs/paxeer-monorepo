@@ -2,14 +2,14 @@
 
 # Precompile ABIs
 
-Source: `precompiles/<name>/abi.json`, the address constants in `precompiles/<name>/*.go` and the Solidity interfaces in `contracts/src/precompiles/`.
+Source: `precompiles/<name>/*abi*.json`, `precompiles/<name>/abi/*.json` and the `abiJSON` constants in `precompiles/layerxagent/*/*.go`, the address constants in each package or its `modules/<name>/types/*.go`, and the Solidity interfaces in `contracts/src/precompiles/`. Addresses list the package's fixed addresses, shared across its ABI rows; the spot share ABI describes dynamically allocated share-token pointers.
 
 ## Summary
 
 | Precompile | ABI | Address | Functions |
 |---|---|---|---|
 | addr | `precompiles/addr/abi.json` | `0x0000000000000000000000000000000000001004` | 10 |
-| bank | `precompiles/bank/abi.json` | `0x0000000000000000000000000000000000001001` | 8 |
+| bank | `precompiles/bank/abi.json` | `0x0000000000000000000000000000000000001001` | 9 |
 | common | `precompiles/common/erc20_abi.json` | - | 14 |
 | distribution | `precompiles/distribution/abi.json` | `0x0000000000000000000000000000000000001007` | 5 |
 | distribution | `precompiles/distribution/staking_abi.json` | `0x0000000000000000000000000000000000001007` | 3 |
@@ -17,20 +17,51 @@ Source: `precompiles/<name>/abi.json`, the address constants in `precompiles/<na
 | gov | `precompiles/gov/abi.json` | `0x0000000000000000000000000000000000001006` | 4 |
 | ibc | `precompiles/ibc/abi.json` | `0x0000000000000000000000000000000000001009` | 2 |
 | json | `precompiles/json/abi.json` | `0x0000000000000000000000000000000000001003` | 4 |
-| launchpad | `precompiles/launchpad/abi.json` | - | 24 |
+| launchpad | `precompiles/launchpad/abi/FeeAccumulator.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 54 |
+| launchpad | `precompiles/launchpad/abi/FeesRouter.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 20 |
+| launchpad | `precompiles/launchpad/abi/PoolRegistry.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 22 |
+| launchpad | `precompiles/launchpad/abi/ProtocolConfig.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 27 |
+| launchpad | `precompiles/launchpad/abi/Quoter.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 19 |
+| launchpad | `precompiles/launchpad/abi/Router.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 23 |
+| launchpad | `precompiles/launchpad/abi/SidioraERC20.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 19 |
+| launchpad | `precompiles/launchpad/abi/SidioraFactory.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 23 |
+| launchpad | `precompiles/launchpad/abi/SidioraNFT.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 37 |
+| launchpad | `precompiles/launchpad/abi/SidioraPool.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 42 |
+| launchpad | `precompiles/launchpad/abi/Treasury.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 17 |
+| launchpad | `precompiles/launchpad/abi.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 113 |
 | layerxanchor | `precompiles/layerxanchor/abi.json` | `0x0000000000000000000000000000000000001014` | 21 |
-| layerxbridge | `precompiles/layerxbridge/abi.json` | - | 7 |
-| layerxcustody | `precompiles/layerxcustody/abi.json` | - | 20 |
-| layerxexchange | `precompiles/layerxexchange/abi.json` | - | 12 |
+| layerxauth | `precompiles/layerxauth/abi.json` | `0x000000000000000000000000000000000000101C` | 10 |
+| layerxbridge | `precompiles/layerxbridge/abi.json` | `0x0000000000000000000000000000000000001016` | 7 |
+| layerxcustody | `precompiles/layerxcustody/abi.json` | `0x0000000000000000000000000000000000001013` | 20 |
+| layerxexchange | `precompiles/layerxexchange/abi.json` | `0x0000000000000000000000000000000000001015` | 12 |
+| layerxledger | `precompiles/layerxledger/abi.json` | `0x000000000000000000000000000000000000101A` | 18 |
+| layerxpay | `precompiles/layerxpay/abi.json` | `0x000000000000000000000000000000000000101B` | 57 |
+| layerxprograms | `precompiles/layerxprograms/abi.json` | - | 35 |
 | layerxverify | `precompiles/layerxverify/abi.json` | `0x0000000000000000000000000000000000001012` | 5 |
 | oracle | `precompiles/oracle/abi.json` | `0x0000000000000000000000000000000000001008` | 2 |
 | p256 | `precompiles/p256/abi.json` | `0x0000000000000000000000000000000000001011` | 1 |
+| perps | `precompiles/perps/abi/abi.json` | `0x0000000000000000000000000000000000001015` | 67 |
 | pointer | `precompiles/pointer/abi.json` | `0x000000000000000000000000000000000000100b` | 4 |
 | pointerview | `precompiles/pointerview/abi.json` | `0x000000000000000000000000000000000000100A` | 4 |
+| pricefeed | `precompiles/pricefeed/abi/abi.json` | `0x0000000000000000000000000000000000001020` | 12 |
 | solo | `precompiles/solo/abi.json` | `0x000000000000000000000000000000000000100C` | 2 |
+| spot | `precompiles/spot/abi/orders.json` | `0x0000000000000000000000000000000000001021`, `0x0000000000000000000000000000000000001022`, `0x0000000000000000000000000000000000001023`, `0x0000000000000000000000000000000000001024`, `0x0000000000000000000000000000000000001025` | 40 |
+| spot | `precompiles/spot/abi/pecor.json` | `0x0000000000000000000000000000000000001021`, `0x0000000000000000000000000000000000001022`, `0x0000000000000000000000000000000000001023`, `0x0000000000000000000000000000000000001024`, `0x0000000000000000000000000000000000001025` | 45 |
+| spot | `precompiles/spot/abi/quoter.json` | `0x0000000000000000000000000000000000001021`, `0x0000000000000000000000000000000000001022`, `0x0000000000000000000000000000000000001023`, `0x0000000000000000000000000000000000001024`, `0x0000000000000000000000000000000000001025` | 17 |
+| spot | `precompiles/spot/abi/share.json` | `0x0000000000000000000000000000000000001021`, `0x0000000000000000000000000000000000001022`, `0x0000000000000000000000000000000000001023`, `0x0000000000000000000000000000000000001024`, `0x0000000000000000000000000000000000001025` | 14 |
+| spot | `precompiles/spot/abi/stoporders.json` | `0x0000000000000000000000000000000000001021`, `0x0000000000000000000000000000000000001022`, `0x0000000000000000000000000000000000001023`, `0x0000000000000000000000000000000000001024`, `0x0000000000000000000000000000000000001025` | 49 |
+| spot | `precompiles/spot/abi/vault.json` | `0x0000000000000000000000000000000000001021`, `0x0000000000000000000000000000000000001022`, `0x0000000000000000000000000000000000001023`, `0x0000000000000000000000000000000000001024`, `0x0000000000000000000000000000000000001025` | 42 |
 | staking | `precompiles/staking/abi.json` | `0x0000000000000000000000000000000000001005` | 19 |
 | wasmd | `precompiles/wasmd/abi.json` | `0x0000000000000000000000000000000000001002` | 4 |
-| xweb | `precompiles/xweb/abi.json` | `0x0000000000000000000000000000000000001019` | 9 |
+| xweb | `precompiles/xweb/abi.json` | `0x0000000000000000000000000000000000001019` | 12 |
+| layerxagent/clearing | `precompiles/layerxagent/clearing/clearing.go:abiJSON` | `0x0000000000000000000000000000000000000902` | 1 |
+| layerxagent/eip712 | `precompiles/layerxagent/eip712/eip712.go:abiJSON` | `0x0000000000000000000000000000000000000908` | 3 |
+| layerxagent/oracle | `precompiles/layerxagent/oracle/oracle.go:abiJSON` | `0x0000000000000000000000000000000000000903` | 3 |
+| layerxagent/orob | `precompiles/layerxagent/orob/orob.go:abiJSON` | `0x0000000000000000000000000000000000000901` | 3 |
+| layerxagent/pofq | `precompiles/layerxagent/pofq/pofq.go:abiJSON` | `0x0000000000000000000000000000000000000904` | 3 |
+| layerxagent/scheduler | `precompiles/layerxagent/scheduler/scheduler.go:abiJSON` | `0x0000000000000000000000000000000000000905` | 5 |
+| layerxagent/streams | `precompiles/layerxagent/streams/streams.go:abiJSON` | `0x0000000000000000000000000000000000000906` | 6 |
+| layerxagent/teeattestor | `precompiles/layerxagent/teeattestor/teeattestor.go:abiJSON` | `0x0000000000000000000000000000000000000907` | 4 |
 
 ## addr (`abi.json`)
 
@@ -66,9 +97,14 @@ Address: `0x0000000000000000000000000000000000001001`
 - `decimals(string denom) returns (uint8 response)` `view`
 - `name(string denom) returns (string response)` `view`
 - `send(address fromAddress, address toAddress, string denom, uint256 amount) returns (bool success)` `nonpayable`
+- `send(address fromAddress, address toAddress, string denom, uint256 amount, bytes32 contextHash) returns (bool success)` `nonpayable`
 - `sendNative(string toNativeAddress) returns (bool success)` `payable`
 - `supply(string denom) returns (uint256 response)` `view`
 - `symbol(string denom) returns (string response)` `view`
+
+### Events
+
+- `LayerXReceipt(address from, address to, string denom, uint256 amount, bytes32 contextHash)`
 
 
 ## common (`erc20_abi.json`)
@@ -181,47 +217,953 @@ Address: `0x0000000000000000000000000000000000001003`
 - `extractAsUint256(bytes input, string key) returns (uint256 response)` `view`
 
 
-## launchpad (`abi.json`)
+## launchpad (`FeeAccumulator.json`)
+
+Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
 
 ### Functions
 
-- `buy(address token, uint256 quoteIn, uint256 minOut, address recipient, uint256 deadline) returns (uint256 amountOut)` `nonpayable`
-- `claimAirdrop(address token) returns (uint256 amount)` `nonpayable`
-- `claimAirdropForEpoch(address token, uint64 epoch) returns (uint256 amount)` `nonpayable`
-- `claimFees(address token, address recipient) returns (uint256 amount)` `nonpayable`
-- `createMarket(string name, string symbol, uint8 feeStrategy) returns (address token, string denom)` `nonpayable`
-- `executeAirdrop(address token) returns (uint256 amount)` `nonpayable`
-- `executeBurn(address token) returns (uint256 amount)` `nonpayable`
-- `executeLpRewards(address token) returns (uint256 amount)` `nonpayable`
-- `getAccumulatedFees(address token) returns (uint256)` `view`
-- `getConfig() returns (tuple)` `view`
-- `getFeeBps(address token) returns (uint256)` `view`
-- `getMarket(address token) returns (tuple)` `view`
-- `getMarketCount() returns (uint256)` `view`
-- `getMarkets(uint256 offset, uint256 limit) returns (tuple[])` `view`
-- `getMarketsByCreator(address creator) returns (tuple[])` `view`
-- `getPrice(address token) returns (uint256)` `view`
-- `getPriceSnapshots(address token) returns (uint256[8] snapshots, uint256 index, uint256 count)` `view`
-- `getReserves(address token) returns (uint256 virtualQuote, uint256 realQuote, uint256 tokenReserve)` `view`
-- `pause(address token) returns (bool)` `nonpayable`
-- `quoteBuy(address token, uint256 quoteIn) returns (uint256 amountOut, uint256 feeBps, uint256 feeAmount)` `view`
-- `quoteSell(address token, uint256 amountIn) returns (uint256 amountOut, uint256 feeBps, uint256 feeAmount)` `view`
-- `sell(address token, uint256 amountIn, uint256 minOut, address recipient, uint256 deadline) returns (uint256 amountOut)` `nonpayable`
-- `setFeeStrategy(address token, uint8 feeStrategy) returns (uint8 oldStrategy)` `nonpayable`
-- `unpause(address token) returns (bool)` `nonpayable`
+- `DEAD_ADDRESS() returns (address)` `view`
+- `DEFAULT_ADMIN_ROLE() returns (bytes32)` `view`
+- `FACTORY_ROLE() returns (bytes32)` `view`
+- `FEES_ROUTER_ROLE() returns (bytes32)` `view`
+- `OPTICAL_CLAIM_ROLE() returns (bytes32)` `view`
+- `OPTICAL_GRANTER_ROLE() returns (bytes32)` `view`
+- `POOL_ROLE() returns (bytes32)` `view`
+- `accountingInitialized() returns (bool)` `view`
+- `accountingMigrationCursor() returns (uint256)` `view`
+- `airdropClaimedSupply(address, uint256) returns (uint256)` `view`
+- `airdropEligibleSupply(address, uint256) returns (uint256)` `view`
+- `airdropEpochRemaining(address, uint256) returns (uint256)` `view`
+- `airdropSnapshotBlock(address, uint256) returns (uint256)` `view`
+- `allocateLegacyAirdrop(address pool, uint256 epoch, bytes32 root, uint256 budget)` `nonpayable`
+- `authorizeOptical(address optical)` `nonpayable`
+- `authorizePool(address pool)` `nonpayable`
+- `burn(address pool) returns (uint256 amount)` `nonpayable`
+- `claim(address pool, address recipient) returns (uint256 amount)` `nonpayable`
+- `claimAirdrop(address pool, address holder) returns (uint256 amount)` `nonpayable`
+- `claimAirdropEpoch(address pool, address holder, uint256 epoch) returns (uint256 amount)` `nonpayable`
+- `claimLegacyAirdrop(address pool, uint256 epoch, address holder, uint256 amount, bytes32[] proof)` `nonpayable`
+- `claimOpticalSurplus(address pool, uint256 amount, address recipient)` `nonpayable`
+- `eventEmitter() returns (address)` `view`
+- `getAccumulatedFees(address pool) returns (uint256)` `view`
+- `getAirdropBalance(address pool) returns (uint256)` `view`
+- `getAirdropEpoch(address pool) returns (uint256)` `view`
+- `getLpRewardsBalance(address pool) returns (uint256)` `view`
+- `getOpticalSurplus(address pool) returns (uint256)` `view`
+- `getProtocolFeesPending() returns (uint256)` `view`
+- `getRoleAdmin(bytes32 role) returns (bytes32)` `view`
+- `grantRole(bytes32 role, address account)` `nonpayable`
+- `hasClaimedAirdrop(address pool, address holder, uint256 epoch) returns (bool)` `view`
+- `hasRole(bytes32 role, address account) returns (bool)` `view`
+- `initialize(address _protocolConfig, address _treasury, address _poolRegistry, address _eventEmitter, address _usdlAddress, address _admin)` `nonpayable`
+- `legacyAirdropRemaining(address, uint256) returns (uint256)` `view`
+- `legacyAirdropRoot(address, uint256) returns (bytes32)` `view`
+- `legacyAirdropUnallocated(address) returns (uint256)` `view`
+- `migrateAccounting(uint256 maxPools)` `nonpayable`
+- `migrateAdditionalAccounting(address[] pools)` `nonpayable`
+- `poolRegistry() returns (address)` `view`
+- `protocolConfig() returns (address)` `view`
+- `proxiableUUID() returns (bytes32)` `view`
+- `recordFee(address pool, uint256 feeAmount)` `nonpayable`
+- `recordOpticalSurplus(address pool, uint256 amount)` `nonpayable`
+- `registeredDefaultAdminCount() returns (uint256)` `view`
+- `renounceRole(bytes32 role, address callerConfirmation)` `nonpayable`
+- `revokeRole(bytes32 role, address account)` `nonpayable`
+- `sendLpRewards(address pool) returns (uint256 amount)` `nonpayable`
+- `supportsAirdrop(address pool) returns (bool)` `view`
+- `totalLiabilities() returns (uint256)` `view`
+- `treasury() returns (address)` `view`
+- `triggerAirdrop(address pool) returns (uint256 totalAmount)` `nonpayable`
+- `upgradeToAndCall(address newImplementation, bytes data)` `payable`
+- `usdlAddress() returns (address)` `view`
 
 ### Events
 
-- `AirdropClaimed(address token, address holder, uint256 amount, uint256 epoch)`
-- `AirdropExecuted(address token, uint256 amount, uint256 epoch)`
-- `FeeRecorded(address token, uint256 feeAmount, uint256 protocolCut, uint256 poolCut)`
-- `FeeStrategyChanged(address token, uint8 oldStrategy, uint8 newStrategy)`
-- `FeesBurned(address token, uint256 amount)`
-- `FeesClaimed(address token, address recipient, uint256 amount)`
-- `LpRewardsExecuted(address token, uint256 amount)`
-- `MarketCreated(address token, address creator, string denom, string name, string symbol, uint8 feeStrategy)`
-- `PauseToggled(address token, bool paused)`
-- `Swap(address token, address trader, address recipient, bool isBuy, uint256 amountIn, uint256 amountOut, uint256 feeAmount, uint256 price)`
+- `AccountingMigrated(uint256 liabilities)`
+- `AirdropClaimed(address pool, address holder, uint256 amount, uint256 epoch)`
+- `AirdropTriggered(address pool, uint256 totalAmount, uint256 epoch)`
+- `FeeRecorded(address pool, uint256 feeAmount, uint256 protocolCut, uint256 poolCut)`
+- `FeesBurned(address pool, uint256 amount)`
+- `FeesClaimed(address pool, address recipient, uint256 amount)`
+- `Initialized(uint64 version)`
+- `LegacyAirdropAllocated(address pool, uint256 epoch, bytes32 root, uint256 budget)`
+- `LpRewardsSent(address pool, uint256 amount)`
+- `MirrorFailed(bytes4 selector)`
+- `OpticalSurplusClaimed(address pool, address recipient, uint256 amount)`
+- `OpticalSurplusRecorded(address pool, uint256 amount)`
+- `ProtocolFeeSwept(uint256 amount)`
+- `RoleAdminChanged(bytes32 role, bytes32 previousAdminRole, bytes32 newAdminRole)`
+- `RoleGranted(bytes32 role, address account, address sender)`
+- `RoleRevoked(bytes32 role, address account, address sender)`
+- `Upgraded(address implementation)`
+
+### Errors
+
+- `AirdropNotTriggered()`
+- `AlreadyClaimed()`
+- `AlreadyInitialized()`
+- `ApproveFailed()`
+- `InsufficientSurplus()`
+- `InvalidImplementation()`
+- `InvalidImplementation()`
+- `InvalidRoleAccount()`
+- `LastDefaultAdmin()`
+- `MissingRole(address account, bytes32 role)`
+- `NoFeesAccumulated()`
+- `NonPayableUpgrade()`
+- `NotInitializing()`
+- `ReentrancyGuardReentrantCall()`
+- `TransferFailed()`
+- `UUPSNotThroughActiveProxy()`
+- `UUPSNotThroughProxy()`
+- `Unauthorized()`
+- `UnauthorizedUpgrade()`
+- `UnsupportedSnapshotToken()`
+- `UpgradeInitializationFailed()`
+- `WrongStrategy()`
+- `ZeroAddress()`
+- `ZeroAmount()`
+
+
+## launchpad (`FeesRouter.json`)
+
+Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+
+### Functions
+
+- `DEFAULT_ADMIN_ROLE() returns (bytes32)` `view`
+- `claimAirdrop(uint256 nftId) returns (uint256 amount)` `nonpayable`
+- `claimAirdropEpoch(uint256 nftId, uint256 epoch) returns (uint256 amount)` `nonpayable`
+- `claimFees(uint256 nftId) returns (uint256 amount)` `nonpayable`
+- `executeAirdrop(uint256 nftId) returns (uint256 amount)` `nonpayable`
+- `executeBurn(uint256 nftId) returns (uint256 amount)` `nonpayable`
+- `executeLpRewards(uint256 nftId) returns (uint256 amount)` `nonpayable`
+- `feeAccumulator() returns (address)` `view`
+- `getRoleAdmin(bytes32 role) returns (bytes32)` `view`
+- `grantRole(bytes32 role, address account)` `nonpayable`
+- `hasRole(bytes32 role, address account) returns (bool)` `view`
+- `initialize(address _nftContract, address _feeAccumulator, address _poolRegistry, address _admin)` `nonpayable`
+- `nftContract() returns (address)` `view`
+- `poolRegistry() returns (address)` `view`
+- `proxiableUUID() returns (bytes32)` `view`
+- `registeredDefaultAdminCount() returns (uint256)` `view`
+- `renounceRole(bytes32 role, address callerConfirmation)` `nonpayable`
+- `revokeRole(bytes32 role, address account)` `nonpayable`
+- `setFeeStrategy(uint256 nftId, uint8 newStrategy)` `nonpayable`
+- `upgradeToAndCall(address newImplementation, bytes data)` `payable`
+
+### Events
+
+- `AirdropClaimed(uint256 nftId, address holder, uint256 amount)`
+- `AirdropExecuted(uint256 nftId, uint256 amount)`
+- `FeeStrategyChanged(uint256 nftId, uint8 oldStrategy, uint8 newStrategy)`
+- `FeesBurned(uint256 nftId, uint256 amount)`
+- `FeesClaimed(uint256 nftId, address owner, uint256 amount)`
+- `Initialized(uint64 version)`
+- `LpRewardsExecuted(uint256 nftId, uint256 amount)`
+- `MirrorFailed(bytes4 selector)`
+- `RoleAdminChanged(bytes32 role, bytes32 previousAdminRole, bytes32 newAdminRole)`
+- `RoleGranted(bytes32 role, address account, address sender)`
+- `RoleRevoked(bytes32 role, address account, address sender)`
+- `Upgraded(address implementation)`
+
+### Errors
+
+- `AlreadyInitialized()`
+- `InvalidImplementation()`
+- `InvalidImplementation()`
+- `InvalidRoleAccount()`
+- `LastDefaultAdmin()`
+- `MissingRole(address account, bytes32 role)`
+- `NonPayableUpgrade()`
+- `NotInitializing()`
+- `NotNftOwner()`
+- `ReentrancyGuardReentrantCall()`
+- `UUPSNotThroughActiveProxy()`
+- `UUPSNotThroughProxy()`
+- `UnauthorizedUpgrade()`
+- `UnsupportedSnapshotToken()`
+- `UpgradeInitializationFailed()`
+- `WrongStrategy()`
+- `ZeroAddress()`
+
+
+## launchpad (`PoolRegistry.json`)
+
+Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+
+### Functions
+
+- `DEFAULT_ADMIN_ROLE() returns (bytes32)` `view`
+- `FACTORY_ROLE() returns (bytes32)` `view`
+- `eventEmitter() returns (address)` `view`
+- `getAllPools(uint256 offset, uint256 limit) returns (address[])` `view`
+- `getNftIdByPool(address pool) returns (uint256)` `view`
+- `getPoolByToken(address token) returns (address)` `view`
+- `getPoolCount() returns (uint256)` `view`
+- `getPoolCountByCreator(address creator) returns (uint256)` `view`
+- `getPoolMetadata(address pool) returns (tuple)` `view`
+- `getPoolsByCreator(address creator) returns (address[])` `view`
+- `getPoolsByCreatorPage(address creator, uint256 offset, uint256 limit) returns (address[] result)` `view`
+- `getRoleAdmin(bytes32 role) returns (bytes32)` `view`
+- `grantRole(bytes32 role, address account)` `nonpayable`
+- `hasRole(bytes32 role, address account) returns (bool)` `view`
+- `initialize(address _eventEmitter, address _admin)` `nonpayable`
+- `isRegisteredPool(address pool) returns (bool)` `view`
+- `proxiableUUID() returns (bytes32)` `view`
+- `register(address pool, address token, address creator, address optical, uint256 nftId)` `nonpayable`
+- `registeredDefaultAdminCount() returns (uint256)` `view`
+- `renounceRole(bytes32 role, address callerConfirmation)` `nonpayable`
+- `revokeRole(bytes32 role, address account)` `nonpayable`
+- `upgradeToAndCall(address newImplementation, bytes data)` `payable`
+
+### Events
+
+- `Initialized(uint64 version)`
+- `MirrorFailed(bytes4 selector)`
+- `PoolRegistered(address pool, address token, address creator, address optical, uint256 nftId, uint256 timestamp)`
+- `RoleAdminChanged(bytes32 role, bytes32 previousAdminRole, bytes32 newAdminRole)`
+- `RoleGranted(bytes32 role, address account, address sender)`
+- `RoleRevoked(bytes32 role, address account, address sender)`
+- `Upgraded(address implementation)`
+
+### Errors
+
+- `AlreadyInitialized()`
+- `DuplicatePool()`
+- `DuplicateToken()`
+- `InvalidImplementation()`
+- `InvalidImplementation()`
+- `InvalidRoleAccount()`
+- `LastDefaultAdmin()`
+- `MissingRole(address account, bytes32 role)`
+- `NonPayableUpgrade()`
+- `NotInitializing()`
+- `PoolNotFound()`
+- `UUPSNotThroughActiveProxy()`
+- `UUPSNotThroughProxy()`
+- `Unauthorized()`
+- `UnauthorizedUpgrade()`
+- `UpgradeInitializationFailed()`
+- `ZeroAddress()`
+
+
+## launchpad (`ProtocolConfig.json`)
+
+Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+
+### Functions
+
+- `DEFAULT_ADMIN_ROLE() returns (bytes32)` `view`
+- `baseFeeBps() returns (uint256)` `view`
+- `concentrationWeight() returns (uint256)` `view`
+- `creationFee() returns (uint256)` `view`
+- `eventEmitter() returns (address)` `view`
+- `feeDecayRate() returns (uint256)` `view`
+- `getRoleAdmin(bytes32 role) returns (bytes32)` `view`
+- `grantRole(bytes32 role, address account)` `nonpayable`
+- `hasRole(bytes32 role, address account) returns (bool)` `view`
+- `initialize(address _usdlAddress, address _eventEmitter, address _admin)` `nonpayable`
+- `maxFeeBps() returns (uint256)` `view`
+- `minFeeBps() returns (uint256)` `view`
+- `protocolFeeBps() returns (uint256)` `view`
+- `proxiableUUID() returns (bytes32)` `view`
+- `registeredDefaultAdminCount() returns (uint256)` `view`
+- `renounceRole(bytes32 role, address callerConfirmation)` `nonpayable`
+- `revokeRole(bytes32 role, address account)` `nonpayable`
+- `setBaseFeeBps(uint256 newBaseFeeBps)` `nonpayable`
+- `setCreationFee(uint256 newCreationFee)` `nonpayable`
+- `setFeeWeights(uint256 newDecayRate, uint256 newVolWeight, uint256 newConcWeight)` `nonpayable`
+- `setProtocolFeeBps(uint256 newProtocolFeeBps)` `nonpayable`
+- `setVirtualDefaults(uint256 newVirtualUsdl, uint256 newVirtualToken)` `nonpayable`
+- `upgradeToAndCall(address newImplementation, bytes data)` `payable`
+- `usdlAddress() returns (address)` `view`
+- `virtualTokenDefault() returns (uint256)` `view`
+- `virtualUsdlDefault() returns (uint256)` `view`
+- `volatilityWeight() returns (uint256)` `view`
+
+### Events
+
+- `ConfigUpdated(bytes32 key, uint256 oldValue, uint256 newValue)`
+- `Initialized(uint64 version)`
+- `RoleAdminChanged(bytes32 role, bytes32 previousAdminRole, bytes32 newAdminRole)`
+- `RoleGranted(bytes32 role, address account, address sender)`
+- `RoleRevoked(bytes32 role, address account, address sender)`
+- `Upgraded(address implementation)`
+
+### Errors
+
+- `AlreadyInitialized()`
+- `FeeOutOfRange()`
+- `InvalidImplementation()`
+- `InvalidImplementation()`
+- `InvalidRoleAccount()`
+- `LastDefaultAdmin()`
+- `MissingRole(address account, bytes32 role)`
+- `NonPayableUpgrade()`
+- `NotInitializing()`
+- `UUPSNotThroughActiveProxy()`
+- `UUPSNotThroughProxy()`
+- `UnauthorizedUpgrade()`
+- `UpgradeInitializationFailed()`
+- `ZeroAddress()`
+
+
+## launchpad (`Quoter.json`)
+
+Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+
+### Functions
+
+- `DEFAULT_ADMIN_ROLE() returns (bytes32)` `view`
+- `getAllPools(uint256 offset, uint256 limit) returns (address[])` `view`
+- `getMarketCap(address pool) returns (uint256)` `view`
+- `getPoolPrice(address pool) returns (uint256)` `view`
+- `getPoolStats(address pool) returns (tuple stats)` `view`
+- `getPoolsByCreator(address creator) returns (address[])` `view`
+- `getRoleAdmin(bytes32 role) returns (bytes32)` `view`
+- `grantRole(bytes32 role, address account)` `nonpayable`
+- `hasRole(bytes32 role, address account) returns (bool)` `view`
+- `initialize(address _poolRegistry, address _protocolConfig, address _admin)` `nonpayable`
+- `poolRegistry() returns (address)` `view`
+- `protocolConfig() returns (address)` `view`
+- `proxiableUUID() returns (bytes32)` `view`
+- `quoteExactInput(address pool, uint256 amountIn, bool isBuy) returns (tuple result)` `view`
+- `quoteMultihop(address tokenIn, address tokenOut, uint256 amountIn) returns (tuple result)` `view`
+- `registeredDefaultAdminCount() returns (uint256)` `view`
+- `renounceRole(bytes32 role, address callerConfirmation)` `nonpayable`
+- `revokeRole(bytes32 role, address account)` `nonpayable`
+- `upgradeToAndCall(address newImplementation, bytes data)` `payable`
+
+### Events
+
+- `Initialized(uint64 version)`
+- `RoleAdminChanged(bytes32 role, bytes32 previousAdminRole, bytes32 newAdminRole)`
+- `RoleGranted(bytes32 role, address account, address sender)`
+- `RoleRevoked(bytes32 role, address account, address sender)`
+- `Upgraded(address implementation)`
+
+### Errors
+
+- `AlreadyInitialized()`
+- `DivisionByZero()`
+- `InsufficientInput()`
+- `InsufficientLiquidity()`
+- `InvalidImplementation()`
+- `InvalidImplementation()`
+- `InvalidRoleAccount()`
+- `LastDefaultAdmin()`
+- `MissingRole(address account, bytes32 role)`
+- `NonPayableUpgrade()`
+- `NotInitializing()`
+- `OpticalQuoteUnsupported()`
+- `Overflow()`
+- `UUPSNotThroughActiveProxy()`
+- `UUPSNotThroughProxy()`
+- `UnauthorizedUpgrade()`
+- `UnexecutableQuote()`
+- `UpgradeInitializationFailed()`
+- `ZeroAddress()`
+
+
+## launchpad (`Router.json`)
+
+Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+
+### Functions
+
+- `DEFAULT_ADMIN_ROLE() returns (bytes32)` `view`
+- `buy(address pool, uint256 usdlAmountIn, uint256 minTokensOut, uint256 deadline) returns (uint256 amountOut)` `nonpayable`
+- `buyWithPermit(address pool, uint256 usdlAmountIn, uint256 minTokensOut, uint256 deadline, tuple permit) returns (uint256 amountOut)` `nonpayable`
+- `createMarket(string name, string symbol, uint8 feeStrategy, address optical) returns (address tokenAddr, address poolAddr, uint256 nftId)` `nonpayable`
+- `createMarketWithPermit(string name, string symbol, uint8 feeStrategy, address optical, tuple permit) returns (address tokenAddr, address poolAddr, uint256 nftId)` `nonpayable`
+- `factory() returns (address)` `view`
+- `getRoleAdmin(bytes32 role) returns (bytes32)` `view`
+- `grantRole(bytes32 role, address account)` `nonpayable`
+- `hasRole(bytes32 role, address account) returns (bool)` `view`
+- `initialize(address _factory, address _poolRegistry, address _protocolConfig, address _usdlAddress, address _admin)` `nonpayable`
+- `multicall(bytes[] data) returns (bytes[] results)` `nonpayable`
+- `poolRegistry() returns (address)` `view`
+- `protocolConfig() returns (address)` `view`
+- `proxiableUUID() returns (bytes32)` `view`
+- `registeredDefaultAdminCount() returns (uint256)` `view`
+- `renounceRole(bytes32 role, address callerConfirmation)` `nonpayable`
+- `revokeRole(bytes32 role, address account)` `nonpayable`
+- `sell(address pool, uint256 tokenAmountIn, uint256 minUsdlOut, uint256 deadline) returns (uint256 amountOut)` `nonpayable`
+- `sellWithPermit(address pool, uint256 tokenAmountIn, uint256 minUsdlOut, uint256 deadline, tuple permit) returns (uint256 amountOut)` `nonpayable`
+- `swapTokenForToken(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline) returns (uint256 amountOut, uint256 intermediateUsdl)` `nonpayable`
+- `swapTokenForTokenWithPermit(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline, tuple permit) returns (uint256 amountOut, uint256 intermediateUsdl)` `nonpayable`
+- `upgradeToAndCall(address newImplementation, bytes data)` `payable`
+- `usdlAddress() returns (address)` `view`
+
+### Events
+
+- `Buy(address pool, address buyer, uint256 usdlIn, uint256 tokensOut)`
+- `Initialized(uint64 version)`
+- `MarketCreated(address token, address pool, address creator, uint256 nftId)`
+- `MultihopSwap(address sender, address tokenIn, address tokenOut, uint256 amountIn, uint256 intermediateUsdl, uint256 amountOut)`
+- `RoleAdminChanged(bytes32 role, bytes32 previousAdminRole, bytes32 newAdminRole)`
+- `RoleGranted(bytes32 role, address account, address sender)`
+- `RoleRevoked(bytes32 role, address account, address sender)`
+- `Sell(address pool, address seller, uint256 tokensIn, uint256 usdlOut)`
+- `Upgraded(address implementation)`
+
+### Errors
+
+- `AlreadyInitialized()`
+- `DeadlineExpired()`
+- `InsufficientBalance()`
+- `InvalidImplementation()`
+- `InvalidImplementation()`
+- `InvalidRoleAccount()`
+- `LastDefaultAdmin()`
+- `MissingRole(address account, bytes32 role)`
+- `MulticallFailed(uint256 index, bytes reason)`
+- `NonPayableUpgrade()`
+- `NotInitializing()`
+- `PoolNotFound()`
+- `ReentrancyGuardReentrantCall()`
+- `SameToken()`
+- `TransferFailed()`
+- `TransferFromFailed()`
+- `UUPSNotThroughActiveProxy()`
+- `UUPSNotThroughProxy()`
+- `UnauthorizedUpgrade()`
+- `UpgradeInitializationFailed()`
+- `ZeroAddress()`
+- `ZeroAmount()`
+
+
+## launchpad (`SidioraERC20.json`)
+
+Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+
+### Functions
+
+- `DOMAIN_SEPARATOR() returns (bytes32)` `view`
+- `PERMIT_TYPEHASH() returns (bytes32)` `view`
+- `allowance(address, address) returns (uint256)` `view`
+- `approve(address spender, uint256 amount) returns (bool)` `nonpayable`
+- `balanceOf(address) returns (uint256)` `view`
+- `bindPool(address pool_)` `nonpayable`
+- `decimals() returns (uint8)` `view`
+- `deploymentFactory() returns (address)` `view`
+- `getPastBalance(address account, uint256 blockNumber) returns (uint256)` `view`
+- `getPastTotalSupply(uint256 blockNumber) returns (uint256)` `view`
+- `getPastVotes(address account, uint256 blockNumber) returns (uint256)` `view`
+- `name() returns (string)` `view`
+- `nonces(address) returns (uint256)` `view`
+- `permit(address owner_, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)` `nonpayable`
+- `pool() returns (address)` `view`
+- `symbol() returns (string)` `view`
+- `totalSupply() returns (uint256)` `view`
+- `transfer(address to, uint256 amount) returns (bool)` `nonpayable`
+- `transferFrom(address from, address to, uint256 amount) returns (bool)` `nonpayable`
+
+### Events
+
+- `Approval(address owner, address spender, uint256 value)`
+- `Transfer(address from, address to, uint256 value)`
+
+### Errors
+
+- `FutureLookup()`
+- `InsufficientAllowance()`
+- `InsufficientBalance()`
+- `InvalidPermit()`
+- `InvalidPoolBinding()`
+- `PermitExpired()`
+- `ZeroAddress()`
+
+
+## launchpad (`SidioraFactory.json`)
+
+Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+
+### Functions
+
+- `DEFAULT_ADMIN_ROLE() returns (bytes32)` `view`
+- `ROUTER_ROLE() returns (bytes32)` `view`
+- `createMarket(string name, string symbol, uint8 feeStrategy, address optical) returns (address tokenAddr, address poolAddr, uint256 nftId)` `nonpayable`
+- `createMarketFor(address creator, string name, string symbol, uint8 feeStrategy, address optical) returns (address tokenAddr, address poolAddr, uint256 nftId)` `nonpayable`
+- `eventEmitter() returns (address)` `view`
+- `feeAccumulator() returns (address)` `view`
+- `getNonce(address creator) returns (uint256)` `view`
+- `getRoleAdmin(bytes32 role) returns (bytes32)` `view`
+- `grantRole(bytes32 role, address account)` `nonpayable`
+- `hasRole(bytes32 role, address account) returns (bool)` `view`
+- `initialize(address _poolBeacon, address _nftContract, address _poolRegistry, address _eventEmitter, address _protocolConfig, address _treasury, address _feeAccumulator, address _usdlAddress, address _admin)` `nonpayable`
+- `nftContract() returns (address)` `view`
+- `poolBeacon() returns (address)` `view`
+- `poolRegistry() returns (address)` `view`
+- `predictPoolAddress(address token, address creator, address optical) returns (address)` `view`
+- `protocolConfig() returns (address)` `view`
+- `proxiableUUID() returns (bytes32)` `view`
+- `registeredDefaultAdminCount() returns (uint256)` `view`
+- `renounceRole(bytes32 role, address callerConfirmation)` `nonpayable`
+- `revokeRole(bytes32 role, address account)` `nonpayable`
+- `treasury() returns (address)` `view`
+- `upgradeToAndCall(address newImplementation, bytes data)` `payable`
+- `usdlAddress() returns (address)` `view`
+
+### Events
+
+- `Initialized(uint64 version)`
+- `MarketCreated(address token, address pool, address creator, uint256 nftId, address optical)`
+- `RoleAdminChanged(bytes32 role, bytes32 previousAdminRole, bytes32 newAdminRole)`
+- `RoleGranted(bytes32 role, address account, address sender)`
+- `RoleRevoked(bytes32 role, address account, address sender)`
+- `Upgraded(address implementation)`
+
+### Errors
+
+- `AlreadyInitialized()`
+- `DuplicateToken()`
+- `InsufficientCreationFee()`
+- `InvalidImplementation()`
+- `InvalidImplementation()`
+- `InvalidRoleAccount()`
+- `LastDefaultAdmin()`
+- `MissingRole(address account, bytes32 role)`
+- `NonPayableUpgrade()`
+- `NotInitializing()`
+- `TransferFailed()`
+- `TransferFromFailed()`
+- `UUPSNotThroughActiveProxy()`
+- `UUPSNotThroughProxy()`
+- `UnauthorizedUpgrade()`
+- `UpgradeInitializationFailed()`
+- `ZeroAddress()`
+
+
+## launchpad (`SidioraNFT.json`)
+
+Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+
+### Functions
+
+- `DEFAULT_ADMIN_ROLE() returns (bytes32)` `view`
+- `MINTER_ROLE() returns (bytes32)` `view`
+- `STRATEGY_SETTER_ROLE() returns (bytes32)` `view`
+- `approve(address to, uint256 tokenId)` `nonpayable`
+- `balanceOf(address owner_) returns (uint256)` `view`
+- `eventEmitter() returns (address)` `view`
+- `getApproved(uint256 tokenId) returns (address)` `view`
+- `getFeeStrategy(uint256 tokenId) returns (uint8)` `view`
+- `getPoolAddress(uint256 tokenId) returns (address)` `view`
+- `getRoleAdmin(bytes32 role) returns (bytes32)` `view`
+- `grantRole(bytes32 role, address account)` `nonpayable`
+- `hasRole(bytes32 role, address account) returns (bool)` `view`
+- `initialize(string _name, string _symbol, address _eventEmitter, address _admin)` `nonpayable`
+- `isApprovedForAll(address owner_, address operator) returns (bool)` `view`
+- `migratePoolIndex(uint256 maxItems)` `nonpayable`
+- `mint(address to, address pool, uint8 strategy) returns (uint256 tokenId)` `nonpayable`
+- `name() returns (string)` `view`
+- `nextTokenId() returns (uint256)` `view`
+- `ownerOf(uint256 tokenId) returns (address owner_)` `view`
+- `poolIndexMigrationCursor() returns (uint256)` `view`
+- `poolIndexReady() returns (bool)` `view`
+- `poolTokenId(address) returns (uint256)` `view`
+- `proxiableUUID() returns (bytes32)` `view`
+- `registeredDefaultAdminCount() returns (uint256)` `view`
+- `renounceRole(bytes32 role, address callerConfirmation)` `nonpayable`
+- `revokeRole(bytes32 role, address account)` `nonpayable`
+- `safeTransferFrom(address from, address to, uint256 tokenId)` `nonpayable`
+- `safeTransferFrom(address from, address to, uint256 tokenId, bytes data)` `nonpayable`
+- `setApprovalForAll(address operator, bool approved)` `nonpayable`
+- `setFeeStrategy(uint256 tokenId, uint8 newStrategy)` `nonpayable`
+- `supportsInterface(bytes4 interfaceId) returns (bool)` `view`
+- `symbol() returns (string)` `view`
+- `tokenByIndex(uint256 index) returns (uint256)` `view`
+- `tokenOfOwnerByIndex(address owner_, uint256 index) returns (uint256)` `view`
+- `totalSupply() returns (uint256)` `view`
+- `transferFrom(address from, address to, uint256 tokenId)` `nonpayable`
+- `upgradeToAndCall(address newImplementation, bytes data)` `payable`
+
+### Events
+
+- `Approval(address owner, address approved, uint256 tokenId)`
+- `ApprovalForAll(address owner, address operator, bool approved)`
+- `FeeStrategyChanged(uint256 tokenId, uint8 oldStrategy, uint8 newStrategy)`
+- `Initialized(uint64 version)`
+- `PoolNFTMinted(uint256 tokenId, address creator, address pool)`
+- `RoleAdminChanged(bytes32 role, bytes32 previousAdminRole, bytes32 newAdminRole)`
+- `RoleGranted(bytes32 role, address account, address sender)`
+- `RoleRevoked(bytes32 role, address account, address sender)`
+- `Transfer(address from, address to, uint256 tokenId)`
+- `Upgraded(address implementation)`
+
+### Errors
+
+- `AlreadyInitialized()`
+- `AlreadyMinted()`
+- `DuplicatePool()`
+- `IndexOutOfBounds()`
+- `InvalidImplementation()`
+- `InvalidImplementation()`
+- `InvalidRoleAccount()`
+- `InvalidStrategy()`
+- `LastDefaultAdmin()`
+- `MissingRole(address account, bytes32 role)`
+- `NonERC721Receiver()`
+- `NonPayableUpgrade()`
+- `NotApproved()`
+- `NotInitializing()`
+- `NotTokenOwner()`
+- `PoolIndexMigrationRequired()`
+- `TokenNotFound()`
+- `UUPSNotThroughActiveProxy()`
+- `UUPSNotThroughProxy()`
+- `UnauthorizedUpgrade()`
+- `UnsupportedSnapshotToken()`
+- `UpgradeInitializationFailed()`
+- `ZeroAddress()`
+
+
+## launchpad (`SidioraPool.json`)
+
+Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+
+### Functions
+
+- `PAUSER_ROLE() returns (bytes32)` `view`
+- `SNAPSHOT_INTERVAL() returns (uint256)` `view`
+- `SNAPSHOT_MIN_VOLUME_BPS() returns (uint256)` `view`
+- `acceptGuardian()` `nonpayable`
+- `accumulatedTokenFees() returns (uint256)` `view`
+- `accumulatedUsdlFees() returns (uint256)` `view`
+- `creationTimestamp() returns (uint256)` `view`
+- `cumulativeBuyUsdlVolume() returns (uint256)` `view`
+- `cumulativeSellUsdlVolume() returns (uint256)` `view`
+- `cumulativeVolume() returns (uint256)` `view`
+- `currentFeeBps() returns (uint256)` `view`
+- `emergencyPaused() returns (bool)` `view`
+- `eventEmitter() returns (address)` `view`
+- `factory() returns (address)` `view`
+- `feeAccumulator() returns (address)` `view`
+- `getEffectiveReserves() returns (uint256 effectiveUsdl, uint256 tokenRes)` `view`
+- `getPoolInfo() returns (tuple)` `view`
+- `getPrice() returns (uint256)` `view`
+- `getPriceSnapshots() returns (uint256[8])` `view`
+- `getReserves() returns (uint256 virtualUsdl, uint256 realUsdl, uint256 tokenRes)` `view`
+- `guardian() returns (address)` `view`
+- `initialize(address _tokenAddress, address _usdlAddress, address _opticalAddress, address _feeAccumulator, address _eventEmitter, address _protocolConfig, address _guardian, uint256 _virtualUsdlReserve, uint256 _tokenReserve)` `nonpayable`
+- `lastSnapshotTimestamp() returns (uint256)` `view`
+- `migrateFactory(address factory_)` `nonpayable`
+- `opticalAddress() returns (address)` `view`
+- `pause()` `nonpayable`
+- `paused() returns (bool)` `view`
+- `pendingGuardian() returns (address)` `view`
+- `priceSnapshots(uint256) returns (uint256)` `view`
+- `protocolConfig() returns (address)` `view`
+- `realUsdlBalance() returns (uint256)` `view`
+- `snapshotCount() returns (uint256)` `view`
+- `snapshotIndex() returns (uint256)` `view`
+- `swap(uint256 amountIn, uint256 minAmountOut, bool isBuy, address recipient, uint256 deadline) returns (uint256 amountOut)` `nonpayable`
+- `swapFor(uint256 amountIn, uint256 minAmountOut, bool isBuy, address trader, address recipient, uint256 deadline) returns (uint256)` `nonpayable`
+- `syncReserves() returns (uint256 usdlBal, uint256 tokenBal)` `nonpayable`
+- `tokenAddress() returns (address)` `view`
+- `tokenReserve() returns (uint256)` `view`
+- `transferGuardian(address nextGuardian)` `nonpayable`
+- `unpause()` `nonpayable`
+- `usdlAddress() returns (address)` `view`
+- `virtualUsdlReserve() returns (uint256)` `view`
+
+### Events
+
+- `FactoryMigrated(address factory)`
+- `GuardianTransferStarted(address guardian, address pendingGuardian)`
+- `GuardianTransferred(address previousGuardian, address guardian)`
+- `Initialized(uint64 version)`
+- `InputAdjustment(uint256 paidInput, uint256 pricedInput)`
+- `PauseToggled(bool paused)`
+
+### Errors
+
+- `AlreadyInitialized()`
+- `DeadlineExpired()`
+- `DivisionByZero()`
+- `InsufficientInput()`
+- `InsufficientInput()`
+- `InsufficientLiquidity()`
+- `InsufficientLiquidity()`
+- `InvalidBalance()`
+- `InvalidConfiguration()`
+- `InvalidHookResponse()`
+- `NotInitializing()`
+- `NotPaused()`
+- `Overflow()`
+- `Paused()`
+- `ReentrancyGuardReentrantCall()`
+- `SlippageExceeded()`
+- `TransferFailed()`
+- `Unauthorized()`
+- `VirtualFloorBreached()`
+- `ZeroAddress()`
+- `ZeroAmount()`
+
+
+## launchpad (`Treasury.json`)
+
+Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+
+### Functions
+
+- `DEFAULT_ADMIN_ROLE() returns (bytes32)` `view`
+- `DEPOSITOR_ROLE() returns (bytes32)` `view`
+- `deposit(address token, uint256 amount)` `nonpayable`
+- `eventEmitter() returns (address)` `view`
+- `getBalance(address token) returns (uint256)` `view`
+- `getRoleAdmin(bytes32 role) returns (bytes32)` `view`
+- `grantRole(bytes32 role, address account)` `nonpayable`
+- `hasRole(bytes32 role, address account) returns (bool)` `view`
+- `initialize(address _eventEmitter, address _admin)` `nonpayable`
+- `proxiableUUID() returns (bytes32)` `view`
+- `recordDeposit(address token, uint256 amount)` `nonpayable`
+- `recoverSurplus(address token, address to, uint256 amount)` `nonpayable`
+- `registeredDefaultAdminCount() returns (uint256)` `view`
+- `renounceRole(bytes32 role, address callerConfirmation)` `nonpayable`
+- `revokeRole(bytes32 role, address account)` `nonpayable`
+- `upgradeToAndCall(address newImplementation, bytes data)` `payable`
+- `withdraw(address token, address to, uint256 amount)` `nonpayable`
+
+### Events
+
+- `Deposited(address token, address from, uint256 amount)`
+- `Initialized(uint64 version)`
+- `RoleAdminChanged(bytes32 role, bytes32 previousAdminRole, bytes32 newAdminRole)`
+- `RoleGranted(bytes32 role, address account, address sender)`
+- `RoleRevoked(bytes32 role, address account, address sender)`
+- `SurplusRecovered(address token, address to, uint256 amount)`
+- `Upgraded(address implementation)`
+- `Withdrawn(address token, address to, uint256 amount)`
+
+### Errors
+
+- `AlreadyInitialized()`
+- `InsufficientBalance()`
+- `InvalidImplementation()`
+- `InvalidImplementation()`
+- `InvalidRoleAccount()`
+- `InvalidToken()`
+- `LastDefaultAdmin()`
+- `MissingRole(address account, bytes32 role)`
+- `NonPayableUpgrade()`
+- `NotInitializing()`
+- `ReentrantCall()`
+- `TransferFailed()`
+- `TransferFromFailed()`
+- `UUPSNotThroughActiveProxy()`
+- `UUPSNotThroughProxy()`
+- `Unauthorized()`
+- `UnauthorizedUpgrade()`
+- `UpgradeInitializationFailed()`
+- `ZeroAddress()`
+- `ZeroAmount()`
+
+
+## launchpad (`abi.json`)
+
+Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+
+### Functions
+
+- `DEAD_ADDRESS() returns (address)` `view`
+- `DEFAULT_ADMIN_ROLE() returns (bytes32)` `view`
+- `FACTORY_ROLE() returns (bytes32)` `view`
+- `FEES_ROUTER_ROLE() returns (bytes32)` `view`
+- `OPTICAL_CLAIM_ROLE() returns (bytes32)` `view`
+- `OPTICAL_GRANTER_ROLE() returns (bytes32)` `view`
+- `POOL_ROLE() returns (bytes32)` `view`
+- `ROUTER_ROLE() returns (bytes32)` `view`
+- `accountingInitialized() returns (bool)` `view`
+- `accountingMigrationCursor() returns (uint256)` `view`
+- `airdropClaimedSupply(address, uint256) returns (uint256)` `view`
+- `airdropEligibleSupply(address, uint256) returns (uint256)` `view`
+- `airdropEpochRemaining(address, uint256) returns (uint256)` `view`
+- `airdropSnapshotBlock(address, uint256) returns (uint256)` `view`
+- `allocateLegacyAirdrop(address pool, uint256 epoch, bytes32 root, uint256 budget)` `nonpayable`
+- `authorizeOptical(address optical)` `nonpayable`
+- `authorizePool(address pool)` `nonpayable`
+- `baseFeeBps() returns (uint256)` `view`
+- `burn(address pool) returns (uint256 amount)` `nonpayable`
+- `buy(address pool, uint256 usdlAmountIn, uint256 minTokensOut, uint256 deadline) returns (uint256 amountOut)` `nonpayable`
+- `buyWithPermit(address pool, uint256 usdlAmountIn, uint256 minTokensOut, uint256 deadline, tuple permit) returns (uint256 amountOut)` `nonpayable`
+- `claim(address pool, address recipient) returns (uint256 amount)` `nonpayable`
+- `claimAirdrop(address pool, address holder) returns (uint256 amount)` `nonpayable`
+- `claimAirdrop(uint256 nftId) returns (uint256 amount)` `nonpayable`
+- `claimAirdropEpoch(address pool, address holder, uint256 epoch) returns (uint256 amount)` `nonpayable`
+- `claimAirdropEpoch(uint256 nftId, uint256 epoch) returns (uint256 amount)` `nonpayable`
+- `claimFees(uint256 nftId) returns (uint256 amount)` `nonpayable`
+- `claimLegacyAirdrop(address pool, uint256 epoch, address holder, uint256 amount, bytes32[] proof)` `nonpayable`
+- `claimOpticalSurplus(address pool, uint256 amount, address recipient)` `nonpayable`
+- `concentrationWeight() returns (uint256)` `view`
+- `createMarket(string name, string symbol, uint8 feeStrategy, address optical) returns (address tokenAddr, address poolAddr, uint256 nftId)` `nonpayable`
+- `createMarketFor(address creator, string name, string symbol, uint8 feeStrategy, address optical) returns (address tokenAddr, address poolAddr, uint256 nftId)` `nonpayable`
+- `createMarketWithPermit(string name, string symbol, uint8 feeStrategy, address optical, tuple permit) returns (address tokenAddr, address poolAddr, uint256 nftId)` `nonpayable`
+- `creationFee() returns (uint256)` `view`
+- `eventEmitter() returns (address)` `view`
+- `executeAirdrop(uint256 nftId) returns (uint256 amount)` `nonpayable`
+- `executeBurn(uint256 nftId) returns (uint256 amount)` `nonpayable`
+- `executeLpRewards(uint256 nftId) returns (uint256 amount)` `nonpayable`
+- `factory() returns (address)` `view`
+- `feeAccumulator() returns (address)` `view`
+- `feeDecayRate() returns (uint256)` `view`
+- `getAccumulatedFees(address pool) returns (uint256)` `view`
+- `getAirdropBalance(address pool) returns (uint256)` `view`
+- `getAirdropEpoch(address pool) returns (uint256)` `view`
+- `getAllPools(uint256 offset, uint256 limit) returns (address[])` `view`
+- `getLpRewardsBalance(address pool) returns (uint256)` `view`
+- `getMarketCap(address pool) returns (uint256)` `view`
+- `getNftIdByPool(address pool) returns (uint256)` `view`
+- `getNonce(address creator) returns (uint256)` `view`
+- `getOpticalSurplus(address pool) returns (uint256)` `view`
+- `getPoolByToken(address token) returns (address)` `view`
+- `getPoolCount() returns (uint256)` `view`
+- `getPoolCountByCreator(address creator) returns (uint256)` `view`
+- `getPoolMetadata(address pool) returns (tuple)` `view`
+- `getPoolPrice(address pool) returns (uint256)` `view`
+- `getPoolStats(address pool) returns (tuple stats)` `view`
+- `getPoolsByCreator(address creator) returns (address[])` `view`
+- `getPoolsByCreatorPage(address creator, uint256 offset, uint256 limit) returns (address[] result)` `view`
+- `getProtocolFeesPending() returns (uint256)` `view`
+- `getRoleAdmin(bytes32 role) returns (bytes32)` `view`
+- `grantRole(bytes32 role, address account)` `nonpayable`
+- `hasClaimedAirdrop(address pool, address holder, uint256 epoch) returns (bool)` `view`
+- `hasRole(bytes32 role, address account) returns (bool)` `view`
+- `initialize(address _eventEmitter, address _admin)` `nonpayable`
+- `initialize(address _factory, address _poolRegistry, address _protocolConfig, address _usdlAddress, address _admin)` `nonpayable`
+- `initialize(address _nftContract, address _feeAccumulator, address _poolRegistry, address _admin)` `nonpayable`
+- `initialize(address _poolBeacon, address _nftContract, address _poolRegistry, address _eventEmitter, address _protocolConfig, address _treasury, address _feeAccumulator, address _usdlAddress, address _admin)` `nonpayable`
+- `initialize(address _poolRegistry, address _protocolConfig, address _admin)` `nonpayable`
+- `initialize(address _protocolConfig, address _treasury, address _poolRegistry, address _eventEmitter, address _usdlAddress, address _admin)` `nonpayable`
+- `isRegisteredPool(address pool) returns (bool)` `view`
+- `legacyAirdropRemaining(address, uint256) returns (uint256)` `view`
+- `legacyAirdropRoot(address, uint256) returns (bytes32)` `view`
+- `legacyAirdropUnallocated(address) returns (uint256)` `view`
+- `maxFeeBps() returns (uint256)` `view`
+- `migrateAccounting(uint256 maxPools)` `nonpayable`
+- `migrateAdditionalAccounting(address[] pools)` `nonpayable`
+- `minFeeBps() returns (uint256)` `view`
+- `multicall(bytes[] data) returns (bytes[] results)` `nonpayable`
+- `nftContract() returns (address)` `view`
+- `poolBeacon() returns (address)` `view`
+- `poolRegistry() returns (address)` `view`
+- `predictPoolAddress(address token, address creator, address optical) returns (address)` `view`
+- `protocolConfig() returns (address)` `view`
+- `protocolFeeBps() returns (uint256)` `view`
+- `proxiableUUID() returns (bytes32)` `view`
+- `quoteExactInput(address pool, uint256 amountIn, bool isBuy) returns (tuple result)` `view`
+- `quoteMultihop(address tokenIn, address tokenOut, uint256 amountIn) returns (tuple result)` `view`
+- `recordFee(address pool, uint256 feeAmount)` `nonpayable`
+- `recordOpticalSurplus(address pool, uint256 amount)` `nonpayable`
+- `register(address pool, address token, address creator, address optical, uint256 nftId)` `nonpayable`
+- `registeredDefaultAdminCount() returns (uint256)` `view`
+- `renounceRole(bytes32 role, address callerConfirmation)` `nonpayable`
+- `revokeRole(bytes32 role, address account)` `nonpayable`
+- `sell(address pool, uint256 tokenAmountIn, uint256 minUsdlOut, uint256 deadline) returns (uint256 amountOut)` `nonpayable`
+- `sellWithPermit(address pool, uint256 tokenAmountIn, uint256 minUsdlOut, uint256 deadline, tuple permit) returns (uint256 amountOut)` `nonpayable`
+- `sendLpRewards(address pool) returns (uint256 amount)` `nonpayable`
+- `setBaseFeeBps(uint256 newBaseFeeBps)` `nonpayable`
+- `setCreationFee(uint256 newCreationFee)` `nonpayable`
+- `setFeeStrategy(uint256 nftId, uint8 newStrategy)` `nonpayable`
+- `setFeeWeights(uint256 newDecayRate, uint256 newVolWeight, uint256 newConcWeight)` `nonpayable`
+- `setProtocolFeeBps(uint256 newProtocolFeeBps)` `nonpayable`
+- `setVirtualDefaults(uint256 newVirtualUsdl, uint256 newVirtualToken)` `nonpayable`
+- `supportsAirdrop(address pool) returns (bool)` `view`
+- `swapTokenForToken(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline) returns (uint256 amountOut, uint256 intermediateUsdl)` `nonpayable`
+- `swapTokenForTokenWithPermit(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline, tuple permit) returns (uint256 amountOut, uint256 intermediateUsdl)` `nonpayable`
+- `totalLiabilities() returns (uint256)` `view`
+- `treasury() returns (address)` `view`
+- `triggerAirdrop(address pool) returns (uint256 totalAmount)` `nonpayable`
+- `upgradeToAndCall(address newImplementation, bytes data)` `payable`
+- `usdlAddress() returns (address)` `view`
+- `virtualTokenDefault() returns (uint256)` `view`
+- `virtualUsdlDefault() returns (uint256)` `view`
+- `volatilityWeight() returns (uint256)` `view`
+
+### Events
+
+- `ConfigUpdated(bytes32 key, uint256 oldValue, uint256 newValue, uint256 timestamp, uint256 blockNumber)`
+- `FeeDistributed(bytes32 poolId, uint256 nftId, uint8 strategy, uint256 amount, address recipient, uint256 timestamp, uint256 blockNumber)`
+- `FeeFlow(uint8 kind, address pool, address party, uint256 amount, uint256 protocolCut, uint256 poolCut, uint256 epoch, uint256 timestamp, uint256 blockNumber)`
+- `FeeStrategyChanged(bytes32 poolId, uint256 nftId, uint8 oldStrategy, uint8 newStrategy, uint256 timestamp, uint256 blockNumber)`
+- `MarketCreated(bytes32 poolId, address token, address creator, address pool, address optical, uint256 timestamp, uint256 blockNumber)`
+- `NftMint(uint256 tokenId, address creator, address pool, uint8 strategy, uint256 timestamp, uint256 blockNumber)`
+- `NftTransfer(address nft, address from, address to, uint256 tokenId, uint256 timestamp, uint256 blockNumber)`
+- `PoolRegistered(address pool, address token, address creator, address optical, uint256 nftId, uint256 timestamp, uint256 blockNumber)`
+- `PoolStateUpdated(bytes32 poolId, uint256 virtualReserve, uint256 realReserve, uint256 tokenReserve, uint256 price, uint256 timestamp, uint256 blockNumber)`
+- `RouterTrade(uint8 kind, address pool, address sender, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint256 intermediateUsdl, uint256 timestamp, uint256 blockNumber)`
+- `Swap(bytes32 poolId, address sender, bool isBuy, uint256 amountIn, uint256 amountOut, uint256 fee, uint256 price, uint256 timestamp, uint256 blockNumber)`
+- `TokenDeployed(address token, address pool, address creator, bytes32 salt, string name, string symbol, uint8 decimals, uint256 totalSupply, uint256 timestamp, uint256 blockNumber)`
+
+### Errors
+
+- `AccessControlUnauthorizedAccount(address, bytes32)`
+- `AirdropNotTriggered()`
+- `AlreadyClaimed()`
+- `AlreadyInitialized()`
+- `AlreadyMinted()`
+- `ApproveFailed()`
+- `DeadlineExpired()`
+- `DivisionByZero()`
+- `DuplicatePool()`
+- `DuplicateToken()`
+- `FeeOutOfRange()`
+- `FutureLookup()`
+- `IndexOutOfBounds()`
+- `InsufficientAllowance()`
+- `InsufficientBalance()`
+- `InsufficientCreationFee()`
+- `InsufficientInput()`
+- `InsufficientLiquidity()`
+- `InsufficientSurplus()`
+- `InvalidBalance()`
+- `InvalidConfiguration()`
+- `InvalidHookResponse()`
+- `InvalidImplementation()`
+- `InvalidPermit()`
+- `InvalidPoolBinding()`
+- `InvalidRoleAccount()`
+- `InvalidStrategy()`
+- `InvalidToken()`
+- `LastDefaultAdmin()`
+- `MissingRole(address, bytes32)`
+- `MulticallFailed(uint256, bytes)`
+- `NoFeesAccumulated()`
+- `NonERC721Receiver()`
+- `NonPayableUpgrade()`
+- `NotApproved()`
+- `NotInitializing()`
+- `NotNftOwner()`
+- `NotPaused()`
+- `NotTokenOwner()`
+- `OpticalQuoteUnsupported()`
+- `Overflow()`
+- `Paused()`
+- `PermitExpired()`
+- `PoolIndexMigrationRequired()`
+- `PoolNotFound()`
+- `ReentrancyGuardReentrantCall()`
+- `ReentrantCall()`
+- `Retired(address)`
+- `SameToken()`
+- `SlippageExceeded()`
+- `TokenNotFound()`
+- `TransferFailed()`
+- `TransferFromFailed()`
+- `UUPSNotThroughActiveProxy()`
+- `UUPSNotThroughProxy()`
+- `Unauthorized()`
+- `UnauthorizedUpgrade()`
+- `UnexecutableQuote()`
+- `UnsupportedSnapshotToken()`
+- `UpgradeInitializationFailed()`
+- `VirtualFloorBreached()`
+- `WrongStrategy()`
+- `ZeroAddress()`
+- `ZeroAmount()`
 
 
 ## layerxanchor (`abi.json`)
@@ -268,7 +1210,35 @@ Address: `0x0000000000000000000000000000000000001014`
 - `UnbondCompleted(bytes32 guarantorId, uint256 amount)`
 
 
+## layerxauth (`abi.json`)
+
+Address: `0x000000000000000000000000000000000000101C`
+
+### Functions
+
+- `capabilityScope(bytes32 grantId) returns (uint64 moduleMask, uint16 ordinalMin, uint16 ordinalMax, bytes32 assetId, uint128 maxPerActivity, uint128 maxTotal, uint128 spentTotal, uint64 periodLength, uint128 maxPerPeriod, uint128 spentThisPeriod, uint64 periodStart, bytes32 purposeHash)` `view`
+- `checkActivity(bytes32 grantId, uint32 activityType, bytes32 assetId, uint128 amount) returns (string code)` `view`
+- `getGrant(bytes32 grantId) returns (bytes grant, bool revoked, uint64 revokedAt)` `view`
+- `grantCapability(bytes grant) returns (bytes32 grantId)` `nonpayable`
+- `grantSession(bytes grant, uint64 expirySequence, bytes32 actionKey) returns (bytes32 grantId)` `nonpayable`
+- `grantSessionSuccessor(bytes grant, uint64 expirySequence, bytes32 actionKey, bytes32 predecessorId, bytes32 expectedCommitment) returns (bytes32 grantId)` `nonpayable`
+- `isLive(bytes32 grantId, uint64 sequence, uint64 timestampMs) returns (bool live, string code)` `view`
+- `recordLifecycle(bytes payload, bytes32 idempotencyKey) returns (uint64 globalSequence)` `nonpayable`
+- `revokeGrant(bytes32 grantId, uint8 reason, uint64 sequence)` `nonpayable`
+- `sessionKey(bytes32 grantId) returns (bytes summary)` `view`
+
+### Events
+
+- `CapabilityGranted(bytes32 grantId)`
+- `GrantBody(bytes32 grantId, uint8 sub, uint8 chunk, bytes body)`
+- `GrantRevoked(bytes32 grantId, bytes record)`
+- `IdentityStateUpdated(bytes32 didId, bytes state)`
+- `SessionGranted(bytes32 grantId, bytes summary)`
+
+
 ## layerxbridge (`abi.json`)
+
+Address: `0x0000000000000000000000000000000000001016`
 
 ### Functions
 
@@ -287,6 +1257,8 @@ Address: `0x0000000000000000000000000000000000001014`
 
 
 ## layerxcustody (`abi.json`)
+
+Address: `0x0000000000000000000000000000000000001013`
 
 ### Functions
 
@@ -323,6 +1295,8 @@ Address: `0x0000000000000000000000000000000000001014`
 
 ## layerxexchange (`abi.json`)
 
+Address: `0x0000000000000000000000000000000000001015`
+
 ### Functions
 
 - `cancelOrder(bytes32 orderId) returns (bytes32 intentId)` `nonpayable`
@@ -345,6 +1319,208 @@ Address: `0x0000000000000000000000000000000000001014`
 - `OrderCancelRequested(bytes32 intentId, bytes32 orderId, address owner, uint64 nonce)`
 - `OrderPlaced(bytes32 intentId, bytes32 marketId, address owner, uint8 side, uint256 price, uint256 quantity, uint8 timeInForce, uint64 nonce)`
 - `SettlementRequested(bytes32 intentId, bytes32 positionId, address owner, uint64 nonce)`
+
+
+## layerxledger (`abi.json`)
+
+Address: `0x000000000000000000000000000000000000101A`
+
+### Functions
+
+- `accountId(bytes32 owner, bytes32 assetId) returns (bytes32 accountId)` `view`
+- `accountOwner(bytes32 accountId) returns (bytes32 owner)` `view`
+- `balanceOf(bytes32 accountId, bytes32 assetId) returns (uint128 balance)` `view`
+- `burn(bytes32 assetId, bytes32 accountId, uint128 amount)` `nonpayable`
+- `draw(bytes32 grantId, bytes32 recipient, uint128 amount, bytes32 idempotencyKey, uint64 sequence, bytes32 purposeHash, bytes32 contextHash)` `nonpayable`
+- `getAsset(bytes32 assetId) returns (bytes32 assetId, string symbol, string name, uint8 decimals, uint128 supplyCap, bytes32 issuerDid, bytes32 salt, uint8 issuerKind, uint8 custodyKind, bytes custodyReference, bool paused, uint128 totalUnits)` `view`
+- `getPayerGrant(bytes32 grantId) returns (bytes grant, uint128 drawnTotal, uint128 drawnThisPeriod, uint64 windowStart, uint64 revokedAt, bool revoked, bool invoiceSettled)` `view`
+- `issueGrant(bytes grant)` `nonpayable`
+- `mint(bytes32 assetId, bytes32 accountId, uint128 amount)` `nonpayable`
+- `nextSequence(bytes32 accountId, bytes32 assetId) returns (uint64 sequence)` `view`
+- `openAccount(bytes32 assetId)` `nonpayable`
+- `pause(bytes32 assetId)` `nonpayable`
+- `payExact(bytes32 from, bytes32 to, bytes32 assetId, uint128 amount, uint64 sequence, bytes32 paymentReference)` `nonpayable`
+- `register(bytes32 assetId, bytes32 salt, string symbol, string name, uint8 decimals, uint128 supplyCap, uint8 issuerKind, bytes custodyReference)` `nonpayable`
+- `revokeGrant(bytes32 grantId, uint64 revocationSequence)` `nonpayable`
+- `send(bytes envelope)` `nonpayable`
+- `totalUnits(bytes32 assetId) returns (uint128 totalUnits)` `view`
+- `unpause(bytes32 assetId)` `nonpayable`
+
+### Events
+
+- `AccountOpened(bytes32 accountId)`
+- `AssetPaused(bytes32 assetId)`
+- `AssetRegistered(bytes32 assetId)`
+- `AssetUnpaused(bytes32 assetId)`
+- `PayerGrantIssued(bytes32 grantId)`
+- `PayerGrantRevoked(bytes32 grantId)`
+- `PaymentDrawn(bytes32 grantId, bytes32 from, bytes32 to, bytes32 assetId, uint128 amount, bytes32 idempotencyKey, bytes32 contextHash)`
+- `PaymentExact(bytes32 paymentReference, bytes32 from, bytes32 to, bytes32 assetId, uint128 amount)`
+- `Transfer(bytes32 from, bytes32 to, bytes32 assetId, uint128 amount, uint8 kind)`
+
+
+## layerxpay (`abi.json`)
+
+Address: `0x000000000000000000000000000000000000101B`
+
+### Functions
+
+- `budgetAmend(bytes32 budgetId, uint128 perPeriodLimit, uint128 carryCap, uint64 expiryMs, uint8 rolloverPolicy)` `nonpayable`
+- `budgetClose(bytes32 budgetId, uint64 revocationSequence)` `nonpayable`
+- `budgetCreate(bytes32 budgetId, bytes32 budgetAccount, bytes32 assetId, bytes32 purposeHash, uint128 perPeriodLimit, uint128 carryCap, uint128 amount, uint64 periodLengthMs, uint64 periodStartMs, uint64 expiryMs, uint64 revocationSequence, uint8 rolloverPolicy)` `nonpayable`
+- `budgetCreateNative(bytes32 budgetId, bytes32 budgetAccount, bytes32 assetId, bytes32 purposeHash, uint128 perPeriodLimit, uint128 carryCap, uint128 amount, uint64 periodLengthMs, uint64 periodStartMs, uint64 expiryMs, uint64 revocationSequence, uint8 rolloverPolicy, bytes32 sourceAccount, uint64 sourceSequence)` `nonpayable`
+- `budgetDefund(bytes32 budgetId, uint128 amount)` `nonpayable`
+- `budgetDelegateAdd(bytes32 budgetId, bytes32 delegateActor)` `nonpayable`
+- `budgetDelegateRemove(bytes32 budgetId, bytes32 delegateActor)` `nonpayable`
+- `budgetDelegateSpend(bytes32 budgetId, bytes32 recipient, uint128 amount)` `nonpayable`
+- `budgetFund(bytes32 budgetId, uint128 amount)` `nonpayable`
+- `budgetFundNative(bytes32 budgetId, uint128 amount, uint64 sourceSequence)` `nonpayable`
+- `budgetPull(bytes32 budgetId, bytes32 recipient, uint128 amount, bytes payerGrant)` `nonpayable`
+- `budgetRemaining(bytes32 budgetId) returns (uint128 remaining)` `view`
+- `budgetRevoke(bytes32 budgetId, uint64 revocationSequence)` `nonpayable`
+- `budgetSpend(bytes32 budgetId, bytes32 recipient, uint128 amount)` `nonpayable`
+- `escrowCapture(bytes32 escrowId, uint128 amount, bytes32 idempotencyKey)` `nonpayable`
+- `escrowDisputeOpen(bytes32 escrowId)` `nonpayable`
+- `escrowDisputeResolve(bytes32 escrowId, uint32 beneficiaryBps, bytes32 idempotencyKey)` `nonpayable`
+- `escrowOpen(bytes32 escrowId, bytes32 owner, bytes32 escrowAccount, bytes32 beneficiary, bytes32 arbiter, bytes32 assetId, uint128 amount, uint64 expiryMs, uint64 disputeWindowMs, bytes32 termsHash, bytes32 agreementReference)` `nonpayable`
+- `escrowPartialCapture(bytes32 escrowId, uint128 amount, bytes32 idempotencyKey)` `nonpayable`
+- `escrowRelease(bytes32 escrowId, bytes32 idempotencyKey)` `nonpayable`
+- `escrowRemaining(bytes32 escrowId) returns (uint128 remaining)` `view`
+- `escrowTimeout(bytes32 escrowId, bytes32 idempotencyKey)` `nonpayable`
+- `getAgreement(bytes32 agreementId) returns (tuple agreement)` `view`
+- `getBudget(bytes32 budgetId) returns (tuple budget)` `view`
+- `getCommitment(bytes32 commitmentId) returns (tuple commitment)` `view`
+- `getDelivery(bytes32 deliveryId) returns (tuple delivery)` `view`
+- `getDispute(bytes32 disputeId) returns (tuple dispute)` `view`
+- `getEscrow(bytes32 escrowId) returns (tuple escrow)` `view`
+- `getEscrowResult(bytes32 idempotencyKey) returns (bytes result)` `view`
+- `getExecution(bytes32 attestationId) returns (bytes execution)` `view`
+- `getOffer(bytes32 offerId) returns (tuple offer)` `view`
+- `getProgress(bytes32 reportId) returns (tuple progress)` `view`
+- `getStream(bytes32 streamId) returns (tuple stream)` `view`
+- `getStreamResult(bytes32 idempotencyKey) returns (tuple result)` `view`
+- `latestDelivery(bytes32 agreementId) returns (tuple delivery)` `view`
+- `progressHighWater(bytes32 commitmentId) returns (uint32 progressBps)` `view`
+- `serviceAccept(bytes32 agreementId)` `nonpayable`
+- `serviceAgreementAccept(bytes32 agreementId)` `nonpayable`
+- `serviceAgreementPropose(bytes32 agreementId, bytes32 offerId, bytes32 termsHash, bytes32 escrowId)` `nonpayable`
+- `serviceCommitAbandon(bytes32 commitmentId, uint16 reason)` `nonpayable`
+- `serviceCommitTask(bytes32 commitmentId, bytes32 agreementId, bytes32 taskHash, bytes32 escrowId, uint64 deadlineMs, uint64 resourceBound)` `nonpayable`
+- `serviceDeliver(bytes32 deliveryId, bytes32 agreementId, tuple[] deliverables)` `nonpayable`
+- `serviceDisputeOpen(bytes32 disputeId, bytes32 agreementId, bytes32[] evidenceHashes)` `nonpayable`
+- `serviceDisputeResolve(bytes32 disputeId, uint16 ruling, uint32 providerBps, bytes32 escrowResolutionId)` `nonpayable`
+- `serviceOfferPublish(bytes32 offerId, bytes32 assetId, uint128 price, bytes32 termsHash, bytes32 deliverableSpecHash, uint64 deliveryDeadlineMs, uint64 acceptanceWindowMs, uint64 disputeWindowMs, uint8 defaultOutcome, uint64 offerExpiryMs)` `nonpayable`
+- `serviceOfferWithdraw(bytes32 offerId)` `nonpayable`
+- `serviceProgressReport(bytes32 reportId, bytes32 commitmentId, bytes32 noteHash, bytes32 availabilityReference, uint32 progressBps)` `nonpayable`
+- `serviceReject(bytes32 agreementId, uint16 reason, bytes32[] contestedHashes)` `nonpayable`
+- `serviceToolExecAttest(bytes execution)` `nonpayable`
+- `streamAccrued(bytes32 streamId) returns (uint128 accruedTotal, uint128 unsettled)` `view`
+- `streamClose(bytes32 streamId, bytes32 idempotencyKey)` `nonpayable`
+- `streamMeter(bytes32 streamId, uint64 cumulativeReading, bytes32 authorityKey, bytes signature)` `nonpayable`
+- `streamOpen(bytes32 streamId, bytes32 streamAccount, bytes32 recipient, bytes32 assetId, uint8 mode, uint128 rate, uint64 rateUnit, uint64 startMs, uint64 endMs, uint128 totalCap, uint128 initialFunding, bytes32[] meterAuthorities)` `nonpayable`
+- `streamPause(bytes32 streamId)` `nonpayable`
+- `streamResume(bytes32 streamId)` `nonpayable`
+- `streamSettle(bytes32 streamId, bytes32 idempotencyKey)` `nonpayable`
+- `streamTopUp(bytes32 streamId, uint128 amount)` `nonpayable`
+
+### Events
+
+- `AgreementAccepted(bytes32 primary, bytes32 secondary, uint8 code, uint64 sequence)`
+- `AgreementProposed(bytes32 primary, bytes32 secondary, uint8 code, uint64 sequence)`
+- `BudgetAmended(bytes32 budgetId, uint128 perPeriodLimit, uint64 expiryMs)`
+- `BudgetClosed(bytes32 budgetId, uint128 drained, uint64 revocationSequence)`
+- `BudgetCreated(bytes32 budgetId, bytes32 assetId, uint128 amount)`
+- `BudgetDefunded(bytes32 budgetId, uint128 amount, uint128 perPeriodLimit)`
+- `BudgetDelegateAdded(bytes32 budgetId, bytes32 delegateActor)`
+- `BudgetDelegateRemoved(bytes32 budgetId, bytes32 delegateActor)`
+- `BudgetFunded(bytes32 budgetId, uint128 amount)`
+- `BudgetRevoked(bytes32 budgetId, uint128 drained, uint64 revocationSequence)`
+- `BudgetSpent(bytes32 budgetId, bytes32 recipient, uint128 amount)`
+- `CommitAbandoned(bytes32 primary, bytes32 secondary, uint8 code, uint64 sequence)`
+- `DefaultOutcomeApplied(bytes32 agreementId, uint8 state, bool defaultApplied, uint64 outcomeSequence, uint64 outcomeTimestampMs)`
+- `Delivered(bytes32 primary, bytes32 secondary, uint8 code, uint64 sequence)`
+- `DisputeOpened(bytes32 primary, bytes32 secondary, uint8 code, uint64 sequence)`
+- `DisputeResolved(bytes32 primary, bytes32 secondary, uint8 code, uint64 sequence)`
+- `EscrowCaptured(bytes32 escrowId, uint16 ordinal, uint8 state, uint128 capturedAmount, uint128 lockedAmount)`
+- `EscrowDisputed(bytes32 escrowId, uint16 ordinal, uint8 state, uint128 capturedAmount, uint128 lockedAmount)`
+- `EscrowOpened(bytes32 escrowId, uint16 ordinal, uint8 state, uint128 capturedAmount, uint128 lockedAmount)`
+- `EscrowPartiallyCaptured(bytes32 escrowId, uint16 ordinal, uint8 state, uint128 capturedAmount, uint128 lockedAmount)`
+- `EscrowReleased(bytes32 escrowId, uint16 ordinal, uint8 state, uint128 capturedAmount, uint128 lockedAmount)`
+- `EscrowResolved(bytes32 escrowId, uint16 ordinal, uint8 state, uint128 capturedAmount, uint128 lockedAmount)`
+- `EscrowTimedOut(bytes32 escrowId, uint16 ordinal, uint8 state, uint128 capturedAmount, uint128 lockedAmount)`
+- `ExecutionAttested(bytes32 primary, bytes32 secondary, uint8 code, uint64 sequence)`
+- `OfferPublished(bytes32 primary, bytes32 secondary, uint8 code, uint64 sequence)`
+- `OfferWithdrawn(bytes32 primary, bytes32 secondary, uint8 code, uint64 sequence)`
+- `OutcomeAccepted(bytes32 primary, bytes32 secondary, uint8 code, uint64 sequence)`
+- `OutcomeRejected(bytes32 primary, bytes32 secondary, uint8 code, uint64 sequence)`
+- `ProgressReported(bytes32 primary, bytes32 secondary, uint8 code, uint64 sequence)`
+- `StreamClosed(bytes32 streamId, uint128 paid, uint128 refunded)`
+- `StreamMetered(bytes32 streamId, uint64 cumulativeMeter, uint128 accrued, uint128 accruedTotal)`
+- `StreamOpened(bytes32 streamId, bytes32 payer, bytes32 streamAccount, bytes32 recipient, bytes32 assetId, uint8 mode, uint128 funding)`
+- `StreamPaused(bytes32 streamId, uint64 lastAccrualMs, uint128 accruedTotal)`
+- `StreamRateUpdated(bytes32 streamId, uint128 oldRate, uint128 newRate, uint128 paid)`
+- `StreamResumed(bytes32 streamId, uint64 lastAccrualMs, uint128 accruedTotal)`
+- `StreamSettled(bytes32 streamId, uint128 paid, uint128 settledTotal, bool underfunded)`
+- `StreamToppedUp(bytes32 streamId, uint128 amount, bool wasUnderfunded)`
+- `TaskCommitted(bytes32 primary, bytes32 secondary, uint8 code, uint64 sequence)`
+
+
+## layerxprograms (`abi.json`)
+
+### Functions
+
+- `call(bytes32 programId, uint16 abiVersion, string entrypoint, bytes callData, bytes capabilities, bytes accessDeclaration, uint32 responseCapacity, uint64[7] budget, uint128 feeLimit) returns (int32 terminalResult, uint8 terminalKind, bytes response)` `nonpayable`
+- `deploy(bytes32 programId, uint16 abiVersion, uint8 policy, bytes32 authority, bytes32 codeHash, bytes interfaceEncoding, bytes wasm)` `nonpayable`
+- `deprecate(bytes32 programId, bytes32 exitProgram, uint64 deadline)` `nonpayable`
+- `exitValue(bytes32 programId, bytes32 account)` `nonpayable`
+- `exitValueBounded(bytes32 programId, bytes32 account, uint128 maxAmount)` `nonpayable`
+- `getAccountProfile(bytes32 programId) returns (uint8 profile, bytes32 principal)` `view`
+- `getCurrentFeeSchedule() returns (uint32 version, uint64[7] prices, bytes32 feeAsset)` `view`
+- `getCurrentMeteringSchedule() returns (uint32 version, uint64[9] coefficients)` `view`
+- `getExitRoute(bytes32 programId, bytes32 accountId) returns (bytes32 asset, bytes32 destination, bytes seed)` `view`
+- `getFeeSchedule(uint32 version) returns (uint64[7] prices, bytes32 feeAsset)` `view`
+- `getInterface(bytes32 programId) returns (uint32 version, bytes32 digest, bytes encoding)` `view`
+- `getMeteringSchedule(uint32 version) returns (uint64[9] coefficients, uint8 authorityKind)` `view`
+- `getPendingFeeSchedule() returns (uint64[7] prices, bytes32 asset, uint64[6] demand, uint64 activationBatch)` `view`
+- `getProgram(bytes32 programId) returns (uint8 policy, bytes32 authority, bytes32 codeHash, uint16 abiVersion, uint32 version, bool active)` `view`
+- `getProgramAccount(bytes32 programId, bytes32 assetId, bytes seed) returns (bytes32 accountId, bytes32 assetId, uint64 registeredSequence)` `view`
+- `getProgramAccountById(bytes32 accountId) returns (bytes32 programId, bytes32 assetId, bytes seed)` `view`
+- `getProgramOwner(bytes32 programId) returns (bytes32 owner)` `view`
+- `getRetirementControl() returns (bytes control)` `view`
+- `getSandbox(bytes32 leaseId, uint8 kind) returns (bytes state)` `view`
+- `getStateHead(bytes32 programId) returns (bytes stateRecord)` `view`
+- `getValueAccount(bytes32 programId, bytes32 accountId) returns (uint128 balance, bool frozen)` `view`
+- `getWebRequest(bytes32 programId, uint64 requestId) returns (bytes record)` `view`
+- `getWindDown(bytes32 programId) returns (uint8 status, bytes32 exitProgram, uint64 deadline, uint64 effectiveSequence, uint16 accountCount, uint16 liveCount)` `view`
+- `quoteCallFee(uint64[7] budget) returns (uint32 version, uint128 executionCeiling, bytes32 feeAsset)` `view`
+- `registerAccount(bytes32 programId, uint8 profile, bytes32 assetId, bytes seed)` `nonpayable`
+- `registryRead(bytes32 programId, bytes body)` `nonpayable`
+- `retireStorage(bytes request)` `nonpayable`
+- `sandboxActivate(bytes32 leaseId, bytes32 expectedLeaseDigest, uint64 expectedSequence)` `nonpayable`
+- `sandboxExecute(bytes32 leaseId, uint64 expectedSequence, bytes32 expectedLeaseDigest, bytes32 escrowAccount, bytes32 asset, bytes32 feeDestination, uint32 feeScheduleVersion, uint64[7] feeSchedule, bytes callPayload, uint128 feeLimit) returns (int32 terminalResult, uint8 terminalKind, bytes response)` `nonpayable`
+- `sandboxFund(bytes32 leaseId, bytes32 tenant, bytes32 hostProgram, bytes32 escrowAccount, bytes32 asset, uint128 amount, uint64 expiry, uint32 feeScheduleVersion, uint64[7] feeSchedule, bytes leaseRequest, bytes32 transferProgramId, tuple[] fundingLegs)` `nonpayable`
+- `setExitRoute(bytes32 programId, bytes32 account, bytes32 asset, bytes32 destination, bytes seed)` `nonpayable`
+- `simulateCall(bytes32 programId, uint16 abiVersion, string entrypoint, bytes callData, bytes capabilities, bytes accessDeclaration, uint32 responseCapacity, uint64[7] budget, uint128 feeLimit) returns (int32 terminalResult, uint8 terminalKind, bytes response)` `view`
+- `tombstone(bytes32 programId)` `nonpayable`
+- `transfer(bytes32 programId, tuple[] legs)` `nonpayable`
+- `upgrade(bytes32 programId, uint16 abiVersion, uint8 flags, bytes32 oldCodeHash, bytes32 newCodeHash, bytes migrationHook, bytes interfaceEncoding, bytes wasm, uint128 feeLimit)` `nonpayable`
+
+### Events
+
+- `ExitRouteSet(bytes32 programId, bytes32 accountId, bytes32 assetId, bytes32 destination)`
+- `ProgramAccountRegistered(bytes32 programId, bytes32 accountId, bytes32 assetId, bytes32 seedDigest, uint16 seedLength, uint64 registeredSequence)`
+- `ProgramCallOutcome(bytes32 programId, bytes32 principal, bytes32 activityId, uint64 framePath, uint8 depth, uint16 runtimeVersion, uint16 abiVersion, uint32 feeScheduleVersion, uint32 meteringVersion, int32 terminalResult, bytes32 transferSetRoot, bytes32 callGraphDigest, bytes32 terminalDetailDigest, bytes32 eventEnvelopeDigest)`
+- `ProgramDeployed(bytes32 programId, bytes32 codeHash)`
+- `ProgramDeprecated(bytes32 programId, uint8 priorStatus, uint8 targetStatus, bytes32 principal, bytes32 exitProgram, uint64 deadline, uint64 sequence, uint16 accountCount, uint16 liveCount, bytes32 accountRoot)`
+- `ProgramGuestEvent(bytes32 programId, bytes32 principal, bytes32 activityId, uint64 framePath, uint8 depth, uint32 eventIndex, uint16 topicLength, bytes32 topicDigest, uint32 dataLength, bytes32 dataDigest)`
+- `ProgramTombstoned(bytes32 programId, uint8 priorStatus, uint8 targetStatus, bytes32 principal, bytes32 exitProgram, uint64 deadline, uint64 sequence, uint16 accountCount, uint16 liveCount, bytes32 accountRoot)`
+- `ProgramTransferred(bytes32 programId, bytes32 transferSetRoot)`
+- `ProgramUpgraded(bytes32 programId, bytes32 oldCodeHash, bytes32 newCodeHash)`
+- `ProgramValueExited(bytes32 programId, bytes32 accountId, bytes32 transferSetRoot)`
+- `RegistryRead(bytes32 programId)`
+- `SandboxDestroyed(bytes32 leaseId, uint8 part, bytes terminalFrame)`
+- `SandboxUsageReceipt(bytes32 activityId, uint64 expectedSequence, uint16 chunkIndex, uint16 chunkCount, uint32 receiptLength, bytes chunk)`
+- `StorageRetired(bytes32 activityId, uint8 frameIndex, bytes frame)`
 
 
 ## layerxverify (`abi.json`)
@@ -379,6 +1555,161 @@ Address: `0x0000000000000000000000000000000000001011`
 - `verify(bytes signature) returns (bytes response)` `view`
 
 
+## perps (`abi.json`)
+
+Address: `0x0000000000000000000000000000000000001015`
+
+### Functions
+
+- `addCollateral(uint256 positionId, uint256 amount)` `nonpayable`
+- `addSize(uint256 positionId, uint256 additionalCollateral, uint256 leverage)` `nonpayable`
+- `cancelByCloid(uint256 marketId, bytes16 cloid)` `nonpayable`
+- `cancelOrder(uint256 orderId)` `nonpayable`
+- `checkLiquidatable(uint256 positionId) returns (bool liquidatable, uint256 marginBps)` `view`
+- `closePosition(uint256 positionId)` `nonpayable`
+- `closePositionWithParams(uint256 positionId, uint256 closeSizeUsd, uint256 acceptablePrice, uint64 deadline)` `nonpayable`
+- `createVault() returns (address vault)` `nonpayable`
+- `deposit(address token, uint256 amount)` `nonpayable`
+- `emergencyWithdraw(address token)` `nonpayable`
+- `executeOrder(uint256 orderId) returns (uint256 positionId)` `nonpayable`
+- `getADLRank(uint256 positionId) returns (uint256 rankScore, bool profitable)` `view`
+- `getAccount(address account) returns (tuple state)` `view`
+- `getAccountSummary(address account, address token) returns (tuple summary)` `view`
+- `getAccountSummary(address token) returns (tuple summary)` `view`
+- `getActiveMarketIds() returns (uint256[] marketIds)` `view`
+- `getBalance(address account, address token) returns (uint256 balance)` `view`
+- `getBalance(address token) returns (uint256 balance)` `view`
+- `getCurrentFundingRate(uint256 marketId) returns (int256 ratePerSecond)` `view`
+- `getFeeTier(address account) returns (uint8 tier, uint256 takerFeePpm, int256 makerFeePpm, uint256 volume14dUsd)` `view`
+- `getFees() returns (uint256 takerFeePpm, uint256 makerFeePpm, uint256 liquidationFeePpm, uint256 insuranceSharePpm)` `view`
+- `getFundingDetails(uint256 marketId) returns (int256 cumulativeFundingPerUnit, uint256 lastSettleTime, int256 lastHourlyRate, int256 premiumSampleSum, uint256 premiumSampleCount)` `view`
+- `getFundingState(uint256 marketId) returns (int256 cumulativeLong, int256 cumulativeShort, uint256 lastUpdate, int256 ratePerSecond)` `view`
+- `getInsuranceBalance(address token) returns (uint256 balance)` `view`
+- `getLiquidationPrice(uint256 positionId) returns (uint256 liquidationPrice)` `view`
+- `getLockedBalance(address account, address token) returns (uint256 locked)` `view`
+- `getLockedBalance(address token) returns (uint256 locked)` `view`
+- `getMarginMode() returns (uint8 mode)` `view`
+- `getMarginMode(address account) returns (uint8 mode)` `view`
+- `getMarginTiers(uint256 marketId) returns (tuple[] tiers)` `view`
+- `getMarkPrice(uint256 marketId) returns (uint256 markPrice)` `view`
+- `getMarkPriceDetails(uint256 marketId) returns (uint256 markPrice, uint256 indexPrice, uint256 midPrice, bool fresh)` `view`
+- `getMarket(uint256 marketId) returns (string name, string symbol, uint256 maxLeverage, uint256 maintenanceMarginBps, uint256 maxOpenInterest, bool enabled)` `view`
+- `getMarketConfig(uint256 marketId) returns (tuple config)` `view`
+- `getOpenInterest(uint256 marketId) returns (uint256 longOI, uint256 shortOI)` `view`
+- `getOrder(uint256 orderId) returns (address user, uint256 marketId, bool isLong, uint8 orderType, uint256 triggerPrice, uint256 limitPrice, uint256 sizeUsd, uint256 leverage, address collateralToken, uint256 collateralAmount, bool active)` `view`
+- `getOrderDetails(uint256 orderId) returns (tuple details)` `view`
+- `getPosition(uint256 positionId) returns (address user, uint256 marketId, bool isLong, uint256 sizeUsd, uint256 collateralUsd, address collateralToken, uint256 collateralAmount, uint256 entryPrice, uint256 timestamp, bool active)` `view`
+- `getPositionDetails(uint256 positionId) returns (tuple details)` `view`
+- `getPositionFunding(uint256 positionId) returns (int256 fundingOwedUsd)` `view`
+- `getPositionMargin(uint256 positionId) returns (tuple margin)` `view`
+- `getProtocolAccounts() returns (address feeRecipient, address insuranceFund)` `view`
+- `getUserMarketPosition(address user, uint256 marketId) returns (uint256 positionId)` `view`
+- `getUserOrderIds(address user) returns (uint256[] orderIds)` `view`
+- `getUserPositionIds(address user) returns (uint256[] positionIds)` `view`
+- `getVault(address user) returns (address vault)` `view`
+- `isMarketActive(uint256 marketId) returns (bool active)` `view`
+- `liquidate(uint256 positionId)` `nonpayable`
+- `openPosition(uint256 marketId, address collateralToken, uint256 collateralAmount, uint256 leverage, bool isLong) returns (uint256 positionId)` `nonpayable`
+- `partialClose(uint256 positionId, uint256 closeSizeUsd)` `nonpayable`
+- `placeLimitOrder(uint256 marketId, bool isLong, uint256 triggerPrice, uint256 sizeUsd, uint256 leverage, address collateralToken, uint256 collateralAmount) returns (uint256 orderId)` `nonpayable`
+- `placeOrder(tuple p) returns (uint256 orderId)` `nonpayable`
+- `placeStopLimitOrder(uint256 marketId, bool isLong, uint256 triggerPrice, uint256 limitPrice, uint256 sizeUsd, uint256 leverage, address collateralToken, uint256 collateralAmount) returns (uint256 orderId)` `nonpayable`
+- `placeStopLossOrder(uint256 positionId, uint256 triggerPrice) returns (uint256 orderId)` `nonpayable`
+- `placeTakeProfitOrder(uint256 positionId, uint256 triggerPrice) returns (uint256 orderId)` `nonpayable`
+- `quoteClosePosition(uint256 positionId) returns (tuple quote)` `view`
+- `quoteMarket(uint256 marketId) returns (tuple quote)` `view`
+- `quoteOpenPosition(uint256 marketId, address collateralToken, uint256 collateralAmount, uint256 leverage, bool isLong) returns (tuple quote)` `view`
+- `quotePartialClose(uint256 positionId, uint256 closeSizeUsd) returns (uint256 exitPrice, int256 closedPnl, uint256 fee, uint256 estimatedPayout)` `view`
+- `removeCollateral(uint256 positionId, uint256 amount)` `nonpayable`
+- `setMarginMode(uint8 mode)` `nonpayable`
+- `setPositionTpSl(uint256 positionId, uint256 takeProfitPrice, uint256 stopLossPrice)` `nonpayable`
+- `topUpPosition(uint256 positionId, uint256 amount)` `nonpayable`
+- `totalMarkets() returns (uint256 count)` `view`
+- `transferCollateral(address to, uint256 amount)` `nonpayable`
+- `transferMargin(uint256 fromPositionId, uint256 toPositionId, uint256 amount)` `nonpayable`
+- `withdraw(address token, uint256 amount)` `nonpayable`
+
+### Events
+
+- `ADLExecuted(uint256 positionId, uint256 deleveragedSizeUsd)`
+- `ADLMatched(uint256 marketId, uint256 positionId, address account, uint256 sizeUsd, uint256 price, uint256 rankScore)`
+- `BackstopLiquidation(address account, uint256 marketId, uint256 sizeUsd, uint256 markPrice, uint256 marginTakenUsd)`
+- `CollateralDeposited(address account, uint256 amount, uint256 newBalance)`
+- `CollateralTransferred(address from, address to, uint256 amount)`
+- `CollateralWithdrawn(address account, uint256 amount, uint256 newBalance)`
+- `FeeCollected(uint256 positionId, address user, uint256 marketId, uint8 feeType, uint256 feeUsd, uint256 feeTokens, address token)`
+- `Fill(uint256 marketId, uint256 makerOrderId, uint256 takerOrderId, address maker, address taker, bool takerIsLong, uint256 price, uint256 sizeUsd, int256 makerFeeUsd, uint256 takerFeeUsd)`
+- `FundingRateUpdated(uint256 marketId, int256 newRatePerSecond, int256 fundingRate24h)`
+- `FundingSettled(uint256 marketId, int256 fundingRate, int256 longPayment, int256 shortPayment)`
+- `InsuranceContribution(address token, uint256 amount, uint8 source)`
+- `InsuranceDraw(uint256 marketId, uint256 amount, uint256 newBalance)`
+- `Liquidation(uint256 positionId, address user, uint256 marketId, uint256 liquidationPrice, uint256 penalty, address keeper)`
+- `MarkPriceUpdated(uint256 marketId, uint256 markPrice, uint256 indexPrice, uint256 midPrice)`
+- `OpenInterestChanged(uint256 marketId, uint256 longOI, uint256 shortOI, uint256 deltaUsd, bool isIncrease)`
+- `OrderCancelled(uint256 orderId, address user)`
+- `OrderExecuted(uint256 orderId, uint256 positionId, uint256 executionPrice)`
+- `OrderExpired(uint256 orderId, address user, uint256 marketId)`
+- `OrderOptions(uint256 orderId, uint8 timeInForce, bool reduceOnly, uint256 limitPrice, uint256 acceptablePrice, uint64 deadline, bytes16 cloid)`
+- `OrderPlaced(uint256 orderId, address user, uint256 marketId, uint8 orderType, bool isLong, uint256 triggerPrice, uint256 sizeUsd)`
+- `OrderTriggered(uint256 orderId, uint256 marketId, uint256 markPrice)`
+- `PositionClosed(uint256 positionId, address user, uint256 marketId, uint256 closedSizeUsd, uint256 exitPrice, int256 realizedPnl, bool isFullClose)`
+- `PositionEntryPriceChanged(uint256 positionId, uint256 oldEntryPrice, uint256 newEntryPrice)`
+- `PositionFundingApplied(uint256 positionId, address user, uint256 marketId, int256 fundingPaymentUsd, uint256 newCollateralUsd, uint256 newCollateralAmount)`
+- `PositionModified(uint256 positionId, uint256 newSizeUsd, uint256 newCollateralUsd, uint256 newCollateralAmount)`
+- `PositionOpened(uint256 positionId, address user, uint256 marketId, bool isLong, uint256 sizeUsd, uint256 leverage, uint256 entryPrice, address collateralToken, uint256 collateralAmount)`
+- `PositionTpSlSet(uint256 positionId, uint256 takeProfitPrice, uint256 stopLossPrice)`
+- `TradeSettled(uint256 positionId, address user, uint256 marketId, uint8 tradeType, uint256 sizeUsd, uint256 executionPrice, int256 grossPnl, uint256 totalFeesUsd, int256 fundingPaidUsd, uint256 netPayoutTokens)`
+- `VaultCreated(address user, address vault)`
+- `VaultDeficit(address token, uint256 deficit)`
+
+### Errors
+
+- `PerpsCloseSizeExceedsPosition()`
+- `PerpsCrossMarginOnly()`
+- `PerpsDeadlineExpired()`
+- `PerpsDelegatecall()`
+- `PerpsDuplicateCloid()`
+- `PerpsFokNotFilled()`
+- `PerpsInsufficientCollateral()`
+- `PerpsInsufficientMargin()`
+- `PerpsInvalidGenesis()`
+- `PerpsInvalidOrderType()`
+- `PerpsInvalidParams()`
+- `PerpsInvalidTimeInForce()`
+- `PerpsInvalidTriggerPrice()`
+- `PerpsLeverageTooHigh()`
+- `PerpsLiquidationCooldown()`
+- `PerpsLotSize()`
+- `PerpsMarketDisabled()`
+- `PerpsMaxOrderValue()`
+- `PerpsMinOrderValue()`
+- `PerpsNoAccount()`
+- `PerpsNoLiquidity()`
+- `PerpsNotLiquidatable()`
+- `PerpsNotOrderHolder()`
+- `PerpsNotPositionHolder()`
+- `PerpsOpenInterestCap()`
+- `PerpsOverflow()`
+- `PerpsPaused()`
+- `PerpsPostOnlyWouldCross()`
+- `PerpsPriceStale()`
+- `PerpsReduceOnlyViolation()`
+- `PerpsSelfTransfer()`
+- `PerpsSlippageExceeded()`
+- `PerpsStaticCall()`
+- `PerpsTickSize()`
+- `PerpsTokenTransferFailed()`
+- `PerpsTooManyOpenOrders()`
+- `PerpsTriggerNotReached()`
+- `PerpsUnauthorized()`
+- `PerpsUnknownMarket()`
+- `PerpsUnknownOrder()`
+- `PerpsUnknownPosition()`
+- `PerpsUnsupportedCollateral()`
+- `PerpsZeroAddress()`
+- `PerpsZeroAmount()`
+
+
 ## pointer (`abi.json`)
 
 Address: `0x000000000000000000000000000000000000100b`
@@ -403,6 +1734,31 @@ Address: `0x000000000000000000000000000000000000100A`
 - `getNativePointer(string token) returns (address addr, uint16 version, bool exists)` `view`
 
 
+## pricefeed (`abi.json`)
+
+Address: `0x0000000000000000000000000000000000001020`
+
+### Functions
+
+- `getFeedKey(address validator) returns (bytes pubKey, address feedAccount)` `view`
+- `getMarket(uint256 marketId) returns (tuple)` `view`
+- `getMarketCount() returns (uint256)` `view`
+- `getObservation(uint256 marketId, address validator) returns (tuple)` `view`
+- `getParams() returns (tuple)` `view`
+- `getPrice(uint256 marketId) returns (tuple)` `view`
+- `getPriceBySymbol(string symbol) returns (tuple)` `view`
+- `getPrices(uint256[] marketIds) returns (tuple[])` `view`
+- `getValidatorByFeedAccount(address feedAccount) returns (address validator)` `view`
+- `marketIdOf(string symbol) returns (uint256)` `view`
+- `registerFeedKey(bytes pubKey) returns (address feedAccount)` `nonpayable`
+- `revokeFeedKey()` `nonpayable`
+
+### Events
+
+- `FeedKeyRegistered(address validator, address feedAccount, bytes pubKey, address previousFeedAccount)`
+- `FeedKeyRevoked(address validator, address feedAccount)`
+
+
 ## solo (`abi.json`)
 
 Address: `0x000000000000000000000000000000000000100C`
@@ -411,6 +1767,456 @@ Address: `0x000000000000000000000000000000000000100C`
 
 - `claim(bytes payload) returns (bool response)` `nonpayable`
 - `claimSpecific(bytes payload) returns (bool response)` `nonpayable`
+
+
+## spot (`orders.json`)
+
+Address: `0x0000000000000000000000000000000000001021`, `0x0000000000000000000000000000000000001022`, `0x0000000000000000000000000000000000001023`, `0x0000000000000000000000000000000000001024`, `0x0000000000000000000000000000000000001025`
+
+### Functions
+
+- `BPS_DENOMINATOR() returns (uint256)` `view`
+- `MAX_ORDER_FEE_BPS() returns (uint256)` `view`
+- `accumulatedFees(address) returns (uint256)` `view`
+- `activeLimitOrderIds(uint256) returns (uint256)` `view`
+- `batchExecuteLimitOrders(uint256[] orderIds) returns (uint256 executedCount)` `nonpayable`
+- `batchExpireOrders(uint256[] orderIds) returns (uint256 expiredCount)` `nonpayable`
+- `canExecuteLimitOrder(uint256 orderId) returns (bool, string)` `view`
+- `cancelLimitOrder(uint256 orderId)` `nonpayable`
+- `collectFees(address token)` `nonpayable`
+- `executeLimitOrder(uint256 orderId)` `nonpayable`
+- `feeCollector() returns (address)` `view`
+- `fillQualityTwapPeriod() returns (uint256)` `view`
+- `getAccumulatedFees(address token) returns (uint256)` `view`
+- `getActiveLimitOrderCount() returns (uint256)` `view`
+- `getExecutableLimitOrders(uint256 maxCount) returns (uint256[] orderIds)` `view`
+- `getLimitOrder(uint256 orderId) returns (tuple)` `view`
+- `getUserLimitOrders(address user) returns (uint256[])` `view`
+- `keepers(address) returns (bool)` `view`
+- `limitOrders(uint256) returns (uint256 id, address user, address stablecoin, address token, uint256 amount, uint256 targetPrice, uint8 orderType, uint8 status, uint256 createdAt, uint256 expiresAt)` `view`
+- `modifyLimitOrder(uint256 orderId, uint256 newTargetPrice, uint256 newExpiresAt)` `nonpayable`
+- `nextOrderId() returns (uint256)` `view`
+- `orderFeeBps() returns (uint256)` `view`
+- `owner() returns (address)` `view`
+- `pause()` `nonpayable`
+- `paused() returns (bool)` `view`
+- `placeLimitBuy(address stablecoin, address token, uint256 stablecoinAmount, uint256 targetPrice, uint256 expiresAt) returns (uint256 orderId)` `nonpayable`
+- `placeLimitSell(address token, address stablecoin, uint256 tokenAmount, uint256 targetPrice, uint256 expiresAt) returns (uint256 orderId)` `nonpayable`
+- `priceOracle() returns (address)` `view`
+- `renounceOwnership()` `nonpayable`
+- `setFeeCollector(address _collector)` `nonpayable`
+- `setFillQualityTwapPeriod(uint256 period)` `nonpayable`
+- `setKeeper(address keeper, bool authorized)` `nonpayable`
+- `setOrderFee(uint256 _feeBps)` `nonpayable`
+- `setPriceOracle(address _oracle)` `nonpayable`
+- `setTransactionTracker(address _t)` `nonpayable`
+- `transactionTracker() returns (address)` `view`
+- `transferOwnership(address newOwner)` `nonpayable`
+- `unpause()` `nonpayable`
+- `userLimitOrders(address, uint256) returns (uint256)` `view`
+- `vault() returns (address)` `view`
+
+### Events
+
+- `LimitOrderCancelled(uint256 orderId)`
+- `LimitOrderCreated(uint256 orderId, address user, uint8 orderType, uint256 amount, uint256 targetPrice)`
+- `LimitOrderExecuted(uint256 orderId, uint256 executionPrice)`
+- `LimitOrderExpired(uint256 orderId)`
+- `LimitOrderModified(uint256 orderId, uint256 targetPrice, uint256 expiresAt)`
+- `OwnershipTransferred(address previousOwner, address newOwner)`
+- `Paused(address account)`
+- `Unpaused(address account)`
+
+### Errors
+
+- `CannotCancel()`
+- `EnforcedPause()`
+- `ExpectedPause()`
+- `FeeExceedsMax()`
+- `InsufficientLiquidity()`
+- `InsufficientOutput()`
+- `InvalidExpiry()`
+- `InvalidOracle()`
+- `InvalidPrice()`
+- `InvalidTWAPPeriod()`
+- `InvalidVault()`
+- `NoFeesToCollect()`
+- `NotAStablecoin()`
+- `NotAuthorized()`
+- `NotFeeCollector()`
+- `NotOrderOwner()`
+- `OrderBelowMinimumNotional()`
+- `OrderExpired()`
+- `OrderNotPending()`
+- `OwnableInvalidOwner(address owner)`
+- `OwnableUnauthorizedAccount(address account)`
+- `PriceAboveTarget()`
+- `PriceBelowTarget()`
+- `ReentrancyGuardReentrantCall()`
+- `SafeERC20FailedOperation(address token)`
+- `SameToken()`
+- `StalePrice()`
+- `TokenIsStablecoin()`
+- `TokenPaused()`
+- `TooManyActiveOrders()`
+- `UnsupportedInputTransfer()`
+- `UnsupportedTransfer()`
+- `ZeroAmount()`
+
+
+## spot (`pecor.json`)
+
+Address: `0x0000000000000000000000000000000000001021`, `0x0000000000000000000000000000000000001022`, `0x0000000000000000000000000000000000001023`, `0x0000000000000000000000000000000000001024`, `0x0000000000000000000000000000000000001025`
+
+### Functions
+
+- `BPS_DENOMINATOR() returns (uint256)` `view`
+- `MAX_FEE_BPS() returns (uint256)` `view`
+- `MAX_IMPACT_BPS() returns (uint256)` `view`
+- `PRECISION() returns (uint256)` `view`
+- `TIER1_THRESHOLD() returns (uint256)` `view`
+- `TIER2_THRESHOLD() returns (uint256)` `view`
+- `WETH() returns (address)` `view`
+- `accumulatedFees(address) returns (uint256)` `view`
+- `collectFees(address token)` `nonpayable`
+- `feeCollector() returns (address)` `view`
+- `getAccumulatedFees(address token) returns (uint256)` `view`
+- `getDetailedQuote(address tokenIn, address tokenOut, uint256 amountIn) returns (uint256 grossOut, uint256 netOut, uint256 priceImpactBps, uint256 feeBps, uint256 feeAmount)` `view`
+- `getQuoteExactIn(address tokenIn, address tokenOut, uint256 amountIn) returns (uint256 amountOut)` `view`
+- `getQuoteExactOut(address tokenIn, address tokenOut, uint256 amountOut) returns (uint256 amountIn)` `view`
+- `impactScalarBps() returns (uint256)` `view`
+- `marketBuy(address stablecoin, address token, uint256 stablecoinAmount, uint256 minTokenAmount, uint256 deadline) returns (uint256 tokenAmount)` `nonpayable`
+- `marketSell(address token, address stablecoin, uint256 tokenAmount, uint256 minStablecoinAmount, uint256 deadline) returns (uint256 stablecoinAmount)` `nonpayable`
+- `maxTwapDeviationBps() returns (uint256)` `view`
+- `multicall(bytes[] data) returns (bytes[] results)` `nonpayable`
+- `owner() returns (address)` `view`
+- `pause()` `nonpayable`
+- `paused() returns (bool)` `view`
+- `priceImpactEnabled() returns (bool)` `view`
+- `priceOracle() returns (address)` `view`
+- `renounceOwnership()` `nonpayable`
+- `setFeeCollector(address _collector)` `nonpayable`
+- `setPriceImpact(bool _enabled, uint256 _scalarBps)` `nonpayable`
+- `setPriceOracle(address _oracle)` `nonpayable`
+- `setSwapFee(uint256 _feeBps)` `nonpayable`
+- `setTieredFees(uint256 _tier1FeeBps, uint256 _tier2FeeBps)` `nonpayable`
+- `setTransactionTracker(address _tracker)` `nonpayable`
+- `setTwapSanity(bool enabled, uint256 period, uint256 maxDeviationBps_)` `nonpayable`
+- `swapExactIn(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOutMin, uint256 deadline) returns (uint256 amountOut)` `nonpayable`
+- `swapExactInNative(address tokenOut, uint256 amountOutMin, uint256 deadline) returns (uint256 amountOut)` `payable`
+- `swapExactInToNative(address tokenIn, uint256 amountIn, uint256 amountOutMin, uint256 deadline) returns (uint256 amountOut)` `nonpayable`
+- `swapExactOut(address tokenIn, address tokenOut, uint256 amountOut, uint256 amountInMax, uint256 deadline) returns (uint256 amountIn)` `nonpayable`
+- `swapFeeBps() returns (uint256)` `view`
+- `tier1FeeBps() returns (uint256)` `view`
+- `tier2FeeBps() returns (uint256)` `view`
+- `transactionTracker() returns (address)` `view`
+- `transferOwnership(address newOwner)` `nonpayable`
+- `twapSanityEnabled() returns (bool)` `view`
+- `twapSanityPeriod() returns (uint256)` `view`
+- `unpause()` `nonpayable`
+- `vault() returns (address)` `view`
+
+### Events
+
+- `MarketOrderExecuted(address user, address stablecoin, address token, uint256 stablecoinAmount, uint256 tokenAmount, bool isBuy)`
+- `NativeSwap(address user, address tokenOther, uint256 nativeAmount, uint256 tokenAmount, bool nativeIsInput)`
+- `OwnershipTransferred(address previousOwner, address newOwner)`
+- `Paused(address account)`
+- `PriceImpactApplied(address user, address tokenOut, uint256 impactBps, uint256 deductedAmount)`
+- `SimpleSwap(address user, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint256 executionPrice)`
+- `TieredFeeApplied(address user, address tokenOut, uint256 volumeUSD, uint256 feeBps, uint256 feeAmount)`
+- `TwapSanityUpdated(bool enabled, uint256 period, uint256 maxDeviationBps)`
+- `Unpaused(address account)`
+
+### Errors
+
+- `EnforcedPause()`
+- `ExcessiveInput()`
+- `ExpectedPause()`
+- `Expired()`
+- `InsufficientLiquidity()`
+- `InsufficientOutput()`
+- `InvalidVault()`
+- `MulticallFailed(uint256 index)`
+- `NativeTransferFailed()`
+- `NoFeesToCollect()`
+- `NotAStablecoin()`
+- `OwnableInvalidOwner(address owner)`
+- `OwnableUnauthorizedAccount(address account)`
+- `ReentrancyGuardReentrantCall()`
+- `SafeERC20FailedOperation(address token)`
+- `SameToken()`
+- `StalePrice()`
+- `TokenIsStablecoin()`
+- `TokenPaused()`
+- `UnsupportedInputTransfer()`
+- `UnsupportedTransfer()`
+- `UseWethDeposit()`
+- `UseWethWithdraw()`
+- `ZeroAmount()`
+
+
+## spot (`quoter.json`)
+
+Address: `0x0000000000000000000000000000000000001021`, `0x0000000000000000000000000000000000001022`, `0x0000000000000000000000000000000000001023`, `0x0000000000000000000000000000000000001024`, `0x0000000000000000000000000000000000001025`
+
+### Functions
+
+- `WETH() returns (address)` `view`
+- `batchQuote(tuple[] requests) returns (tuple[] results)` `view`
+- `getAllLiquidityInfo() returns (address[] tokens, uint256[] reserves, uint256[] prices, bool[] stale)` `view`
+- `getLiquidityInfo(address token) returns (uint256 available, uint256 tokenPrice, bool isStale)` `view`
+- `getTWAP(address token, uint256 period) returns (uint256)` `view`
+- `getTokenPrice(address token) returns (uint256 price, uint256 timestamp, bool isStale)` `view`
+- `getTokenPrices(address[] tokens) returns (uint256[] prices, uint256[] timestamps, bool[] stale)` `view`
+- `pecor() returns (address)` `view`
+- `priceOracle() returns (address)` `view`
+- `quoteExactIn(address tokenIn, address tokenOut, uint256 amountIn) returns (tuple result)` `view`
+- `quoteExactInNative(address tokenOut, uint256 nativeAmountIn) returns (tuple result)` `view`
+- `quoteExactInToNative(address tokenIn, uint256 amountIn) returns (tuple result)` `view`
+- `quoteExactOut(address tokenIn, address tokenOut, uint256 amountOut) returns (tuple result)` `view`
+- `quoteMarketBuy(address stablecoin, address token, uint256 stablecoinAmount) returns (tuple result)` `view`
+- `quoteMarketSell(address token, address stablecoin, uint256 tokenAmount) returns (tuple result)` `view`
+- `setPecor(address _pecor)` `nonpayable`
+- `vault() returns (address)` `view`
+
+### Errors
+
+- `OwnableUnauthorizedAccount(address account)`
+- `StalePrice()`
+- `TwapWindowInvalid()`
+
+
+## spot (`share.json`)
+
+Address: `0x0000000000000000000000000000000000001021`, `0x0000000000000000000000000000000000001022`, `0x0000000000000000000000000000000000001023`, `0x0000000000000000000000000000000000001024`, `0x0000000000000000000000000000000000001025`
+
+### Functions
+
+- `allowance(address owner, address spender) returns (uint256)` `view`
+- `approve(address spender, uint256 value) returns (bool)` `nonpayable`
+- `balanceOf(address account) returns (uint256)` `view`
+- `burn(address from, uint256 amount)` `nonpayable`
+- `decimals() returns (uint8)` `view`
+- `mint(address to, uint256 amount)` `nonpayable`
+- `name() returns (string)` `view`
+- `owner() returns (address)` `view`
+- `renounceOwnership()` `nonpayable`
+- `symbol() returns (string)` `view`
+- `totalSupply() returns (uint256)` `view`
+- `transfer(address to, uint256 value) returns (bool)` `nonpayable`
+- `transferFrom(address from, address to, uint256 value) returns (bool)` `nonpayable`
+- `transferOwnership(address newOwner)` `nonpayable`
+
+### Events
+
+- `Approval(address owner, address spender, uint256 value)`
+- `OwnershipTransferred(address previousOwner, address newOwner)`
+- `Transfer(address from, address to, uint256 value)`
+
+### Errors
+
+- `ERC20InsufficientAllowance(address spender, uint256 allowance, uint256 needed)`
+- `ERC20InsufficientBalance(address sender, uint256 balance, uint256 needed)`
+- `ERC20InvalidApprover(address approver)`
+- `ERC20InvalidReceiver(address receiver)`
+- `ERC20InvalidSender(address sender)`
+- `ERC20InvalidSpender(address spender)`
+- `OwnableInvalidOwner(address owner)`
+- `OwnableUnauthorizedAccount(address account)`
+
+
+## spot (`stoporders.json`)
+
+Address: `0x0000000000000000000000000000000000001021`, `0x0000000000000000000000000000000000001022`, `0x0000000000000000000000000000000000001023`, `0x0000000000000000000000000000000000001024`, `0x0000000000000000000000000000000000001025`
+
+### Functions
+
+- `BPS_DENOMINATOR() returns (uint256)` `view`
+- `MAX_ORDER_FEE_BPS() returns (uint256)` `view`
+- `accumulatedFees(address) returns (uint256)` `view`
+- `activeStopLimitOrderIds(uint256) returns (uint256)` `view`
+- `activeStopLossOrderIds(uint256) returns (uint256)` `view`
+- `batchCheckAndExecuteStopLimits(uint256[] orderIds) returns (uint256 activatedCount, uint256 executedCount)` `nonpayable`
+- `batchExecuteStopLossOrders(uint256[] orderIds) returns (uint256 executedCount)` `nonpayable`
+- `cancelStopLimitOrder(uint256 orderId)` `nonpayable`
+- `cancelStopLossOrder(uint256 orderId)` `nonpayable`
+- `checkStopLimitActivation(uint256 orderId)` `nonpayable`
+- `collectFees(address token)` `nonpayable`
+- `executeStopLimitOrder(uint256 orderId)` `nonpayable`
+- `executeStopLossOrder(uint256 orderId)` `nonpayable`
+- `feeCollector() returns (address)` `view`
+- `fillQualityTwapPeriod() returns (uint256)` `view`
+- `getAccumulatedFees(address token) returns (uint256)` `view`
+- `getActivatableStopLimits(uint256 maxCount) returns (uint256[] orderIds)` `view`
+- `getActiveStopLimitOrderCount() returns (uint256)` `view`
+- `getActiveStopLossOrderCount() returns (uint256)` `view`
+- `getExecutableStopLimits(uint256 maxCount) returns (uint256[] orderIds)` `view`
+- `getStopLimitOrder(uint256 orderId) returns (tuple)` `view`
+- `getStopLossOrder(uint256 orderId) returns (tuple)` `view`
+- `getUserStopLimitOrders(address user) returns (uint256[])` `view`
+- `getUserStopLossOrders(address user) returns (uint256[])` `view`
+- `keepers(address) returns (bool)` `view`
+- `nextOrderId() returns (uint256)` `view`
+- `orderFeeBps() returns (uint256)` `view`
+- `owner() returns (address)` `view`
+- `pause()` `nonpayable`
+- `paused() returns (bool)` `view`
+- `placeStopLimitBuy(address stablecoin, address token, uint256 amount, uint256 stopPrice, uint256 limitPrice, uint256 expiresAt) returns (uint256 orderId)` `nonpayable`
+- `placeStopLimitSell(address token, address stablecoin, uint256 amount, uint256 stopPrice, uint256 limitPrice, uint256 expiresAt) returns (uint256 orderId)` `nonpayable`
+- `placeStopLoss(address token, address stablecoin, uint256 tokenAmount, uint256 triggerPrice, uint256 expiresAt) returns (uint256 orderId)` `nonpayable`
+- `priceOracle() returns (address)` `view`
+- `renounceOwnership()` `nonpayable`
+- `setFeeCollector(address _collector)` `nonpayable`
+- `setFillQualityTwapPeriod(uint256 period)` `nonpayable`
+- `setKeeper(address keeper, bool authorized)` `nonpayable`
+- `setOrderFee(uint256 _feeBps)` `nonpayable`
+- `setPriceOracle(address _oracle)` `nonpayable`
+- `setTransactionTracker(address _t)` `nonpayable`
+- `stopLimitOrders(uint256) returns (uint256 id, address user, address stablecoin, address token, uint256 amount, uint256 stopPrice, uint256 limitPrice, uint8 orderType, uint8 status, uint256 createdAt, uint256 expiresAt)` `view`
+- `stopLossOrders(uint256) returns (uint256 id, address user, address stablecoin, address token, uint256 amount, uint256 triggerPrice, uint8 status, uint256 createdAt, uint256 expiresAt)` `view`
+- `transactionTracker() returns (address)` `view`
+- `transferOwnership(address newOwner)` `nonpayable`
+- `unpause()` `nonpayable`
+- `userStopLimitOrders(address, uint256) returns (uint256)` `view`
+- `userStopLossOrders(address, uint256) returns (uint256)` `view`
+- `vault() returns (address)` `view`
+
+### Events
+
+- `OwnershipTransferred(address previousOwner, address newOwner)`
+- `Paused(address account)`
+- `StopLimitActivated(uint256 orderId, uint256 activationPrice)`
+- `StopLimitCancelled(uint256 orderId)`
+- `StopLimitExecuted(uint256 orderId, uint256 executionPrice)`
+- `StopLimitOrderCreated(uint256 orderId, address user, uint8 orderType, uint256 amount, uint256 stopPrice, uint256 limitPrice)`
+- `StopLossOrderCancelled(uint256 orderId)`
+- `StopLossOrderCreated(uint256 orderId, address user, uint256 amount, uint256 triggerPrice)`
+- `StopLossOrderExecuted(uint256 orderId, uint256 executionPrice)`
+- `Unpaused(address account)`
+
+### Errors
+
+- `CannotCancel()`
+- `EnforcedPause()`
+- `ExpectedPause()`
+- `FeeExceedsMax()`
+- `InsufficientLiquidity()`
+- `InsufficientOutput()`
+- `InvalidExpiry()`
+- `InvalidOracle()`
+- `InvalidPrice()`
+- `InvalidPrices()`
+- `InvalidTWAPPeriod()`
+- `InvalidVault()`
+- `LimitMustBeAboveStopBuy()`
+- `LimitMustBeBelowStopSell()`
+- `NoFeesToCollect()`
+- `NotAStablecoin()`
+- `NotActivated()`
+- `NotAuthorized()`
+- `NotFeeCollector()`
+- `NotOrderOwner()`
+- `NotPending()`
+- `OrderBelowMinimumNotional()`
+- `OrderExpired()`
+- `OrderNotPending()`
+- `OwnableInvalidOwner(address owner)`
+- `OwnableUnauthorizedAccount(address account)`
+- `PriceAboveLimit()`
+- `PriceAboveTrigger()`
+- `PriceBelowLimit()`
+- `ReentrancyGuardReentrantCall()`
+- `SafeERC20FailedOperation(address token)`
+- `StalePrice()`
+- `TokenIsStablecoin()`
+- `TokenPaused()`
+- `TooManyActiveOrders()`
+- `UnsupportedInputTransfer()`
+- `UnsupportedTransfer()`
+- `ZeroAmount()`
+
+
+## spot (`vault.json`)
+
+Address: `0x0000000000000000000000000000000000001021`, `0x0000000000000000000000000000000000001022`, `0x0000000000000000000000000000000000001023`, `0x0000000000000000000000000000000000001024`, `0x0000000000000000000000000000000000001025`
+
+### Functions
+
+- `BPS_DENOMINATOR() returns (uint256)` `view`
+- `DEFAULT_MAX_UTILIZATION_BPS() returns (uint256)` `view`
+- `WETH() returns (address)` `view`
+- `authorizedOperators(address) returns (bool)` `view`
+- `deposit(address token, uint256 amount)` `nonpayable`
+- `depositBatch(address[] tokenList, uint256[] amounts)` `nonpayable`
+- `depositNative()` `payable`
+- `emergencyWithdraw(address token, uint256 amount, address recipient)` `nonpayable`
+- `getAllReserves() returns (address[], uint256[])` `view`
+- `getRegisteredStablecoins() returns (address[])` `view`
+- `getRegisteredTokenCount() returns (uint256)` `view`
+- `getRegisteredTokens() returns (address[])` `view`
+- `getReserves(address token) returns (uint256)` `view`
+- `getTokenDecimals(address token) returns (uint8)` `view`
+- `getTokenInfo(address token) returns (bool isRegistered, bool isStablecoin_, uint8 decimals, uint256 reserves, uint256 totalDeposited, uint256 totalWithdrawn)` `view`
+- `getUntrackedFunds(address token) returns (uint256)` `view`
+- `hasLiquidity(address token, uint256 amount) returns (bool)` `view`
+- `isStablecoin(address token) returns (bool)` `view`
+- `isTokenPaused(address token) returns (bool)` `view`
+- `maxUtilizationBps(address) returns (uint256)` `view`
+- `owner() returns (address)` `view`
+- `pausedTokens(address) returns (bool)` `view`
+- `pullTokens(address token, address from, uint256 amount) returns (uint256)` `nonpayable`
+- `pushTokens(address token, address to, uint256 amount)` `nonpayable`
+- `registerToken(address token, bool _isStablecoin)` `nonpayable`
+- `registeredStablecoins(uint256) returns (address)` `view`
+- `registeredTokens(uint256) returns (address)` `view`
+- `renounceOwnership()` `nonpayable`
+- `setMaxUtilizationBps(address token, uint256 capBps)` `nonpayable`
+- `setOperator(address operator, bool authorized)` `nonpayable`
+- `setStablecoinStatus(address token, bool _isStablecoin)` `nonpayable`
+- `setTokenPaused(address token, bool paused)` `nonpayable`
+- `setTransactionTracker(address _tracker)` `nonpayable`
+- `shareTokens(address) returns (address)` `view`
+- `syncAllReserves()` `nonpayable`
+- `syncReserves(address token)` `nonpayable`
+- `tokens(address) returns (bool isRegistered, bool isStablecoin, uint8 decimals, uint256 reserves, uint256 totalDeposited, uint256 totalWithdrawn)` `view`
+- `transactionTracker() returns (address)` `view`
+- `transferOwnership(address newOwner)` `nonpayable`
+- `updateReserves(address tokenIn, uint256 amountIn, address tokenOut, uint256 amountOut)` `nonpayable`
+- `withdraw(address token, uint256 shares) returns (uint256 amount)` `nonpayable`
+- `withdrawNative(uint256 amount, address to)` `nonpayable`
+
+### Events
+
+- `Deposit(address token, address depositor, uint256 amount, uint256 newReserve)`
+- `LPWithdrawal(address token, address provider, uint256 shares, uint256 amount)`
+- `NativeDeposit(address depositor, uint256 amount, uint256 newReserve)`
+- `NativeWithdrawal(address recipient, uint256 amount, uint256 newReserve)`
+- `OperatorUpdated(address operator, bool authorized)`
+- `OwnershipTransferred(address previousOwner, address newOwner)`
+- `ReservesSync(address token, uint256 oldReserves, uint256 newReserves, uint256 recovered)`
+- `ReservesUpdated(address token, uint256 oldReserve, uint256 newReserve)`
+- `ShareTokenCreated(address token, address shareToken)`
+- `TokenPauseUpdated(address token, bool paused)`
+- `TokenRegistered(address token, uint8 decimals, bool isStablecoin)`
+- `TransactionTrackerUpdated(address tracker)`
+- `UtilizationCapUpdated(address token, uint256 maxUtilizationBps)`
+- `Withdrawal(address token, address recipient, uint256 amount, uint256 newReserve)`
+
+### Errors
+
+- `InsufficientLiquidity()`
+- `InvalidArrayLength()`
+- `OwnableInvalidOwner(address owner)`
+- `OwnableUnauthorizedAccount(address account)`
+- `ReentrancyGuardReentrantCall()`
+- `SafeERC20FailedOperation(address token)`
+- `TokenNotRegistered()`
+- `TokenPaused()`
+- `UnsupportedInputTransfer()`
+- `UnsupportedTransfer()`
+- `WethOnly()`
+- `ZeroAmount()`
 
 
 ## staking (`abi.json`)
@@ -469,8 +2275,11 @@ Address: `0x0000000000000000000000000000000000001019`
 
 - `fee() returns (uint256)` `view`
 - `fulfil(uint64 requestId, bytes response, bytes32 contentDigest, uint32 fullLength, bytes[] signatures) returns (uint8 callback, uint64 callbackGasUsed)` `nonpayable`
+- `fulfilProgram(bytes observation)` `nonpayable`
 - `getAttestors() returns (tuple[] attestors, uint32 required)` `view`
+- `getKernelNetworkId() returns (uint32 kernelNetworkId)` `view`
 - `getParams() returns (tuple)` `view`
+- `getProgramResult(bytes32 programId, uint64 requestId) returns (bytes32 contentDigest, uint32 fullLength, uint32 responseLength, bytes response)` `view`
 - `getRequest(uint64 requestId) returns (tuple)` `view`
 - `getResult(uint64 requestId) returns (tuple)` `view`
 - `refund(uint64 requestId)` `nonpayable`
@@ -480,8 +2289,118 @@ Address: `0x0000000000000000000000000000000000001019`
 ### Events
 
 - `XWebFulfilled(uint64 requestId, address requester, bytes32 contentDigest, uint32 fullLength, uint8 level, uint8 callback, uint64 callbackGasUsed)`
+- `XWebProgramRequested(bytes32 programId, uint64 requestId, uint8 origin, bytes input, uint64 deadline)`
 - `XWebRefunded(uint64 requestId, address requester, uint256 refunded)`
 - `XWebRequested(uint64 requestId, address requester, uint8 kind, bytes payload, uint64 callbackGas, uint256 paid, uint64 timeoutHeight)`
+
+
+## layerxagent/clearing (`abiJSON`)
+
+Address: `0x0000000000000000000000000000000000000902`
+
+### Functions
+
+- `computeClearing(int256 oraclePrice, tuple[] buyOrders, tuple[] sellOrders) returns (int16 clearingOffsetBps, int256 clearingPrice, uint256 matchedVolume)` `pure`
+
+
+## layerxagent/eip712 (`abiJSON`)
+
+Address: `0x0000000000000000000000000000000000000908`
+
+### Functions
+
+- `domainSeparator(string name, string version, uint256 chainId, address verifyingContract) returns (bytes32 separator)` `pure`
+- `hashTypedData(bytes32 domainSeparator, bytes32 structHash) returns (bytes32 digest)` `pure`
+- `recoverTypedSigner(bytes32 domainSeparator, bytes32 structHash, bytes signature) returns (address signer)` `view`
+
+
+## layerxagent/oracle (`abiJSON`)
+
+Address: `0x0000000000000000000000000000000000000903`
+
+### Functions
+
+- `aggregate(tuple[] feeds) returns (int256 price, uint256 confidence)` `pure`
+- `getValidatorPrice(bytes32 feedID) returns (int256 price, uint256 quorum, uint256 timestamp)` `view`
+- `submitPrice(bytes32 feedID, int256 price, uint256 confidence)` `nonpayable`
+
+
+## layerxagent/orob (`abiJSON`)
+
+Address: `0x0000000000000000000000000000000000000901`
+
+### Functions
+
+- `resolveOffset(int256 oraclePrice, int16 offsetBps) returns (int256 absolutePrice)` `pure`
+- `resolveOffsetBatch(int256 oraclePrice, int16[] offsetsBps) returns (int256[] absolutePrices)` `pure`
+- `toOffset(int256 oraclePrice, int256 absolutePrice) returns (int16 offsetBps)` `pure`
+
+
+## layerxagent/pofq (`abiJSON`)
+
+Address: `0x0000000000000000000000000000000000000904`
+
+### Functions
+
+- `scoreBatch(tuple[] fills) returns (uint256 avgScore, uint256 totalVolume)` `pure`
+- `scoreFill(int256 fillPrice, int256 oraclePrice) returns (uint256 score)` `pure`
+- `updateRollingScore(uint256 currentScore, uint256 currentWeight, uint256 newScore, uint256 newWeight, uint16 decayBps) returns (uint256 updatedScore, uint256 updatedWeight)` `pure`
+
+
+## layerxagent/scheduler (`abiJSON`)
+
+Address: `0x0000000000000000000000000000000000000905`
+
+### Functions
+
+- `cancel(uint256 jobId)` `nonpayable`
+- `getJob(uint256 jobId) returns (uint256 id, address creator, address target, bytes callData, uint64 executeAtBlock, uint64 gasLimit, uint256 deposit, bool active)` `view`
+- `pending(address creator) returns (uint256[] jobIds)` `view`
+- `reschedule(uint256 jobId, uint64 newBlock)` `nonpayable`
+- `schedule(address target, bytes callData, uint64 executeAtBlock, uint64 gasLimit) returns (uint256 jobId)` `payable`
+
+### Events
+
+- `JobCancelled(uint256 jobId, address creator, uint256 refund)`
+- `JobRescheduled(uint256 jobId, uint64 newBlock)`
+- `JobScheduled(uint256 jobId, address creator, address target, uint64 executeAtBlock, uint64 gasLimit, uint256 deposit)`
+
+
+## layerxagent/streams (`abiJSON`)
+
+Address: `0x0000000000000000000000000000000000000906`
+
+### Functions
+
+- `accrued(uint256 streamId) returns (uint256 amount)` `view`
+- `close(uint256 streamId) returns (uint256 finalPaid)` `nonpayable`
+- `getStream(uint256 streamId) returns (tuple stream)` `view`
+- `open(address payee, address token, uint256 ratePerSecond, uint64 startTime, uint64 stopTime, uint256 cap) returns (uint256 streamId)` `nonpayable`
+- `settle(uint256 streamId) returns (uint256 paid)` `nonpayable`
+- `updateRate(uint256 streamId, uint256 newRate)` `nonpayable`
+
+### Events
+
+- `StreamClosed(uint256 streamId, uint256 finalPaid, uint256 refund)`
+- `StreamOpened(uint256 streamId, address payer, address payee, address token, uint256 ratePerSecond, uint256 cap)`
+- `StreamRateUpdated(uint256 streamId, uint256 oldRate, uint256 newRate)`
+- `StreamSettled(uint256 streamId, address payee, uint256 paid, uint256 committed)`
+
+
+## layerxagent/teeattestor (`abiJSON`)
+
+Address: `0x0000000000000000000000000000000000000907`
+
+### Functions
+
+- `rootCount(uint8 family) returns (uint256 count)` `view`
+- `rootOf(uint8 family, uint256 index) returns (bytes root)` `view`
+- `verify(uint8 family, bytes quote) returns (tuple att)` `view`
+- `verifyAndExpect(uint8 family, bytes quote, bytes32 expectedReportData) returns (tuple att)` `view`
+
+### Events
+
+- `AttestationVerified(uint8 family, bytes32 mrtd, bytes32 reportData, uint64 timestamp, bool debug)`
 
 
 ## Solidity interfaces (`contracts/src/precompiles/`)
@@ -501,8 +2420,6 @@ Address: `0x0000000000000000000000000000000000001019`
 ### IBank
 
 - `send(address fromAddress, address toAddress, string memory denom, uint256 amount) external returns (bool success)`
-- `sendFromCaller(address toAddress, string memory denom, uint256 amount) external returns (bool success)`
-- `sendFromOrigin(address toAddress, string memory denom, uint256 amount) external returns (bool success)`
 - `balance(address acc, string memory denom) external view returns (uint256 amount)`
 - `name(string memory denom) external view returns (string memory response)`
 - `symbol(string memory denom) external view returns (string memory response)`
@@ -586,6 +2503,7 @@ Address: `0x0000000000000000000000000000000000001019`
 
 - `request(uint8 kind, bytes calldata payload, uint64 callbackGas) external payable returns (uint64 requestId)`
 - `fulfil(uint64 requestId, bytes calldata response, bytes32 contentDigest, uint32 fullLength, bytes[] calldata signatures) external returns (uint8 callback, uint64 callbackGasUsed)`
+- `fulfilProgram(bytes calldata observation) external`
 - `refund(uint64 requestId) external`
 - `getRequest(uint64 requestId) external view returns (Request memory)`
 - `getResult(uint64 requestId) external view returns (Result memory)`
@@ -593,5 +2511,7 @@ Address: `0x0000000000000000000000000000000000001019`
 - `threshold() external view returns (uint32)`
 - `fee() external view returns (uint256)`
 - `getParams() external view returns (Params memory)`
+- `getProgramResult(bytes32 programId, uint64 requestId) external view returns (bytes32 contentDigest, uint32 fullLength, uint32 responseLength, bytes memory response)`
+- `getKernelNetworkId() external view returns (uint32 kernelNetworkId)`
 - `onXWebResponse(uint64 requestId, bytes32 contentDigest, uint32 fullLength, bytes calldata response) external`
 - constant `XWEB_PRECOMPILE_ADDRESS` = `0x0000000000000000000000000000000000001019`

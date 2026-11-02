@@ -59,6 +59,7 @@ export interface MsgClaim {
 export interface Asset {
     asset_type: AssetType;
     contract_address: string;
+    denom: string;
 }
 export interface MsgClaimSpecific {
     sender: string;

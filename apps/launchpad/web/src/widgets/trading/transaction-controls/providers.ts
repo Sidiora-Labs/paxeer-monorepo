@@ -9,15 +9,15 @@ const quoterAbi = parseAbi(['function quoteExactInput(address pool,uint256 amoun
 const registryAbi = parseAbi(['function getPoolByToken(address token) view returns(address)','function isRegisteredPool(address pool) view returns(bool)']);
 const poolAbi = parseAbi(['function tokenAddress() view returns(address)','function opticalAddress() view returns(address)']);
 const swapAbi = parseAbi(['event Swap(bytes32 indexed poolId,address indexed sender,bool isBuy,uint256 amountIn,uint256 amountOut,uint256 fee,uint256 price,uint256 timestamp,uint256 blockNumber)']);
-const opticalErrors=parseAbi(['error CooldownActive()','error MaxWalletExceeded()','error ProtectionActive()','error CliffActive()','error VestingExceeded()','error OpticalQuoteUnsupported()']);
+const opticalErrors=parseAbi(['error CooldownActive()','error MaxWalletExceeded()','error ProtectionActive()','error CliffActive()','error VestingExceeded()','error OpticalQuoteUnsupported()','error UnexecutableQuote()']);
 export class OpticalRejection extends Error {
   constructor(readonly reason:string,readonly retryEligibility:string){super(`${reason}; retry: ${retryEligibility}`);this.name='OpticalRejection';}
 }
-function opticalRejection(error:unknown):unknown {
+export function opticalRejection(error:unknown):unknown {
   let current:unknown=error;
   for(let index=0;index<8&&current&&typeof current==='object';index++){
     const record=current as {data?:unknown;cause?:unknown};const data=typeof record.data==='string'?record.data:(record.data&&typeof record.data==='object'&&'data' in record.data?record.data.data:undefined);
-    if(typeof data==='string'&&/^0x[0-9a-f]+$/i.test(data)){try{const decoded=decodeErrorResult({abi:opticalErrors,data:data as Hex});const retry:Record<string,string>={CooldownActive:'after cooldown',MaxWalletExceeded:'reduce amount or recipient balance',ProtectionActive:'after anti-snipe protection',CliffActive:'after vesting cliff',VestingExceeded:'within vested amount',OpticalQuoteUnsupported:'context-aware optical quote provider required'};return new OpticalRejection(decoded.errorName,retry[decoded.errorName]);}catch{}}
+    if(typeof data==='string'&&/^0x[0-9a-f]+$/i.test(data)){try{const decoded=decodeErrorResult({abi:opticalErrors,data:data as Hex});const retry:Record<string,string>={CooldownActive:'after cooldown',MaxWalletExceeded:'reduce amount or recipient balance',ProtectionActive:'after anti-snipe protection',CliffActive:'after vesting cliff',VestingExceeded:'within vested amount',OpticalQuoteUnsupported:'context-aware optical quote provider required',UnexecutableQuote:'request a new quote'};return new OpticalRejection(decoded.errorName,retry[decoded.errorName]);}catch{}}
     current=record.cause;
   }
   return error;
@@ -29,9 +29,9 @@ const proxyHash = '0xb2f39d5c380b45131e836d4beb5254d4e5c410d35935bf270e8492755f7
 export const productionTradeDeployment: TradeDeployment = {
   revision: CORE_DEPLOYMENT.manifestSha256, router: CORE_DEPLOYMENT.router, quoter: CORE_DEPLOYMENT.quoter, registry: CORE_DEPLOYMENT.poolRegistry, emitter: CORE_DEPLOYMENT.eventEmitter, usdl: CORE_DEPLOYMENT.usdl,
   pins: [
-    {address: CORE_DEPLOYMENT.router,runtimeHash:proxyHash,implementation:'0xfcBce73f397dF65D5b18364dadDCaE86E95CdB96',implementationHash:'0x3377796c705ad082dfa476c61f25f9cbf64f39fb80dad47de4f5220a4e65190c'},
-    {address:CORE_DEPLOYMENT.quoter,runtimeHash:proxyHash,implementation:'0x49Fe29eaAcb16d3D1a8671dD4d6D9070E340B5B8',implementationHash:'0x26be23199e2a93fc8c3b83982ac9e9dca7e065664bc83b028bf5c804d2a5320c'},
-    {address:CORE_DEPLOYMENT.poolRegistry,runtimeHash:proxyHash,implementation:'0x0e4d66894321e7e29803eF63E618bF07B9772687',implementationHash:'0xc74db1081c5791cda0336d914cdc44cd31cfb656c8b8aaa0c2e200123503e216'},
+    {address: CORE_DEPLOYMENT.router,runtimeHash:CORE_DEPLOYMENT.roleIdentity.router.runtimeHash},
+    {address:CORE_DEPLOYMENT.quoter,runtimeHash:CORE_DEPLOYMENT.roleIdentity.quoter.runtimeHash},
+    {address:CORE_DEPLOYMENT.poolRegistry,runtimeHash:CORE_DEPLOYMENT.roleIdentity.poolRegistry.runtimeHash},
     {address:CORE_DEPLOYMENT.eventEmitter,runtimeHash:proxyHash,implementation:'0x6d48a32e313cc4F08acdeE1F39F7e6B56F03a1cB',implementationHash:'0xd0dc6f1aa54811dc2b9ea13e4519b6b6992ba0a082ac55c2d9e312443b289c08'},
   ],
 };

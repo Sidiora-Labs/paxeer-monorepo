@@ -2126,7 +2126,6 @@ bind() {
 bind "$source/services/platform/hosted/human" "$root/usr/local/lib/layerx-human"
 bind "$source/docker/kernel/init.sh" "$root/usr/local/bin/kernel-init"
 bind "$source/tools/bringup/kernel-genesis.sh" "$root/usr/local/bin/kernel-genesis.sh"
-bind "$source/services/platform/hosted/node/checkpoint-authority.py" "$root/opt/layerx/checkpoint-authority.py"
 bind "$source/services/platform/hosted/paxeer/evm.py" "$root/opt/layerx/paxeer/evm.py"
 bind /etc/ssl "$root/etc/ssl"
 bind "$fixture" "$root/fixture"
@@ -2209,7 +2208,7 @@ history = human / 'trust-history'
 projection = human / 'genesis-binding'
 material = human / 'material'
 DURABLE = [human / name for name in ('components', 'identity', 'security', 'movement', 'agent', 'authority', 'kms')]
-KEYS = [keys / 'sequencer.key', keys / 'checkpoint-authority' / 'key.pem',
+KEYS = [keys / 'sequencer.key',
         keys / 'checkpoint-submitter' / 'deposit-authority.pem', keys / 'publication' / 'recipient.key']
 
 

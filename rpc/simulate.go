@@ -326,12 +326,17 @@ func isPendingBlockNrOrHash(blockNrOrHash rpc.BlockNumberOrHash) bool {
 }
 
 // ctxAtHeight returns the open-block snapshot for the height of the open
-// block and the provider's context for every other height.
+// block, the latest committed context for a future height, and the provider's
+// context for every other height.
 func (b *Backend) ctxAtHeight(height int64) sdk.Context {
 	if b.watermarks != nil && b.watermarks.pending != nil {
 		if open, err := b.watermarks.resolvePending(); err == nil && open == height {
 			return b.ctxProvider(PendingCtxHeight)
 		}
+	}
+	latest := b.ctxProvider(LatestCtxHeight)
+	if height > latest.BlockHeight() {
+		return latest
 	}
 	return b.ctxProvider(height)
 }
@@ -385,9 +390,15 @@ func (b *Backend) pendingStateAndHeader(ctx context.Context, blockNrOrHash rpc.B
 	return state.NewDBImpl(sdkCtx, b.keeper, true), header, nil
 }
 
+// StateAndHeaderByNumberOrHash returns the requested state and header. Pending
+// reads return the latest committed block while no block is open.
 func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.StateDB, *ethtypes.Header, error) {
 	if isPendingBlockNrOrHash(blockNrOrHash) {
-		return b.pendingStateAndHeader(ctx, blockNrOrHash)
+		stateDB, header, err := b.pendingStateAndHeader(ctx, blockNrOrHash)
+		if !errors.Is(err, ErrLayerNotOpen) {
+			return stateDB, header, err
+		}
+		blockNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
 	}
 	tmBlock, isLatestBlock, err := b.getBlockByNumberOrHash(ctx, blockNrOrHash)
 	if err != nil {
@@ -864,6 +875,10 @@ func (b *Backend) getBlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.
 	return block, isLatestBlock, nil
 }
 
+func (b *Backend) GetNextBaseFeePerGas(height int64) *big.Int {
+	return b.keeper.GetNextBaseFeePerGas(b.ctxProvider(height)).TruncateInt().BigInt()
+}
+
 func (b *Backend) getHeader(ctx context.Context, tmBlock *coretypes.ResultBlock) (*ethtypes.Header, error) {
 	if tmBlock == nil || tmBlock.Block == nil {
 		return nil, errors.New("cannot construct EVM header from an empty consensus block")
@@ -876,11 +891,8 @@ func (b *Backend) getHeader(ctx context.Context, tmBlock *coretypes.ResultBlock)
 		return nil, fmt.Errorf("block %d timestamp predates Unix epoch", height)
 	}
 	zeroExcessBlobGas := uint64(0)
-	baseFee := b.keeper.GetNextBaseFeePerGas(b.ctxProvider(height - 1)).TruncateInt().BigInt()
+	baseFee := b.GetNextBaseFeePerGas(height - 1)
 	sdkCtx := b.ctxProvider(height)
-	if sdkCtx.ChainID() == "pacific-1" && sdkCtx.BlockHeight() < b.keeper.UpgradeKeeper().GetDoneHeight(sdkCtx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), "6.2.0") {
-		baseFee = nil
-	}
 	cp := sdkCtx.ConsensusParams()
 	if cp == nil || cp.Block == nil {
 		return nil, fmt.Errorf("consensus block parameters are unavailable at height %d", height)
@@ -996,7 +1008,11 @@ func (b *Backend) GetBlockContext(ctx context.Context, block *ethtypes.Block, st
 	if typedStateDB == nil {
 		return vm.BlockContext{}, errors.New("unsupported EVM state database")
 	}
-	blockCtx, err := b.keeper.GetVMBlockContext(typedStateDB.Ctx(), b.keeper.GetGasPool())
+	sdkCtx := typedStateDB.Ctx()
+	if block.Number().Int64() != sdkCtx.BlockHeight() {
+		sdkCtx = sdkCtx.WithBlockHeight(block.Number().Int64()).WithBlockTime(time.Unix(int64(block.Time()), 0).UTC())
+	}
+	blockCtx, err := b.keeper.GetVMBlockContext(sdkCtx, b.keeper.GetGasPool())
 	if err != nil {
 		return vm.BlockContext{}, fmt.Errorf("failed to construct EVM block context: %w", err)
 	}

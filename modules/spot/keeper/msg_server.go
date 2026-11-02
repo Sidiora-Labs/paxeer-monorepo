@@ -68,8 +68,8 @@ func (k *Keeper) isNativePointer(ctx sdk.Context, address common.Address) bool {
 // ordersPaused flips, with the governance module EVM address as account;
 // TwapSanityUpdated at 0x1021 when the TWAP sanity triple changes; and, at
 // 0x1025, TokenPauseUpdated when the paused flag of a token changes and
-// UtilizationCapUpdated when its cap changes. A token new to the list counts
-// as unpaused with no cap before the change.
+// UtilizationCapUpdated when its cap changes. New tokens log through
+// RegisterToken instead.
 func paramChangeLogs(ctx sdk.Context, before, after types.Params) []*ethtypes.Log {
 	var logs []*ethtypes.Log
 	governance := addressTopic(types.GovernanceEVMAddress())
@@ -94,23 +94,7 @@ func paramChangeLogs(ctx sdk.Context, before, after types.Params) []*ethtypes.Lo
 		logs = append(logs, evmLog(ctx, common.HexToAddress(types.PECORAddress), []common.Hash{TwapSanityUpdatedTopic},
 			boolWord(after.TwapSanityEnabled), uamountWord(after.TwapSanityPeriod), uamountWord(after.MaxTwapDeviationBps)))
 	}
-	previous := make(map[common.Address]types.TokenParams, len(before.Tokens))
-	for _, token := range before.Tokens {
-		previous[token.Address] = token
-	}
-	vault := common.HexToAddress(types.PECORVaultAddress)
-	for _, token := range after.Tokens {
-		old, listed := previous[token.Address]
-		if old.Paused != token.Paused {
-			logs = append(logs, evmLog(ctx, vault, []common.Hash{TokenPauseUpdatedTopic, addressTopic(token.Address)},
-				boolWord(token.Paused)))
-		}
-		if !listed || old.MaxUtilizationBps != token.MaxUtilizationBps {
-			logs = append(logs, evmLog(ctx, vault, []common.Hash{UtilizationCapUpdatedTopic, addressTopic(token.Address)},
-				uamountWord(token.MaxUtilizationBps)))
-		}
-	}
-	return logs
+	return append(logs, TokenParamLogs(ctx, before.Tokens, after.Tokens)...)
 }
 
 // UpdateParams replaces the params under the governance authority, refusing
@@ -127,7 +111,10 @@ func (s msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 	if err != nil {
 		return nil, err
 	}
-	if err := s.keeper.UpdateParams(cacheCtx, msg.Authority, msg.Params); err != nil {
+	if msg.Authority != s.keeper.authority {
+		return nil, fmt.Errorf("%w: %s", sdkerrors.ErrUnauthorized, msg.Authority)
+	}
+	if err := msg.Params.Validate(); err != nil {
 		return nil, err
 	}
 	for _, token := range msg.Params.Tokens {
@@ -135,8 +122,20 @@ func (s msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 			return nil, fmt.Errorf("%w: NATIVE token %s is not a native pointer", types.ErrParamsUnsupportedToken,
 				token.Address.Hex())
 		}
+		if err := s.keeper.ValidatePriceMarket(cacheCtx, token); err != nil {
+			return nil, err
+		}
 	}
-	logs := paramChangeLogs(ctx, before, msg.Params)
+	tokens, tokenLogs, err := s.keeper.ListTokens(cacheCtx, before.Tokens, msg.Params.Tokens)
+	if err != nil {
+		return nil, err
+	}
+	params := msg.Params
+	params.Tokens = tokens
+	if err := s.keeper.UpdateParams(cacheCtx, msg.Authority, params); err != nil {
+		return nil, err
+	}
+	logs := append(paramChangeLogs(ctx, before, params), tokenLogs...)
 	write()
 	ctx.EventManager().EmitEvents(cacheCtx.EventManager().Events())
 	ctx.EVMEventManager().EmitEvents(logs)

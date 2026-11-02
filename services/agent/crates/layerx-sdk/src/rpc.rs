@@ -1,12 +1,13 @@
 pub use crate::rpc_subscription::{RpcSubscription, SubscriptionTopic};
+use layerx_crypto::evm_transaction::Eip1559Call;
 use serde_json::{json, Value};
 pub type RpcValue = Value;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-/// Page size `lx_listAssets` applies when a request omits an explicit limit.
+/// Page size `px_listAssets` applies when a request omits an explicit limit.
 pub const LIST_ASSETS_DEFAULT_PAGE: u16 = 64;
-/// Largest page the published `lx_listAssets` contract accepts.
+/// Largest page the published `px_listAssets` contract accepts.
 pub const LIST_ASSETS_MAX_PAGE: u16 = 256;
 /// The gateway JSON-RPC method that creates a self-service principal.
 pub const REGISTER_METHOD: &str = "px_register";
@@ -20,6 +21,12 @@ pub enum RpcError {
     Verification,
     Signing(layerx_crypto::signer::SignError),
     StaleSourceSequence,
+    Reverted {
+        code: String,
+        reason: String,
+        result: Option<layerx_types::result::KnownResult>,
+        retriability: layerx_types::result::Retriability,
+    },
     MissingFinalityTrust,
     Pending {
         activity_id: [u8; 32],
@@ -398,7 +405,7 @@ fn fixed_hex_field<const N: usize>(
     decode_hex(text_field(fields, key)?)
 }
 
-/// Builds the positional `lx_listAssets` parameters the published contract
+/// Builds the positional `px_listAssets` parameters the published contract
 /// expects: an omitted page is `[]`, a cursor alone is `[cursor]`, and a limit
 /// carries the cursor slot with it as `[cursor, limit]` where a missing cursor
 /// is JSON null.
@@ -412,15 +419,41 @@ pub fn list_assets_params(cursor: Option<[u8; 32]>, limit: Option<u16>) -> Value
     }
 }
 
-fn identity_sequence_params(did: &str) -> Result<Value, RpcError> {
-    layerx_types::ids::Did::new(did.as_bytes()).map_err(|_| RpcError::InvalidRequest)?;
-    if did
-        .bytes()
-        .any(|byte| !byte.is_ascii_alphanumeric() && !b"-._:".contains(&byte))
+fn identity_sequence_params(address: &str) -> Result<Value, RpcError> {
+    validate_address(address)?;
+    Ok(json!([address, "pending"]))
+}
+
+fn validate_address(address: &str) -> Result<(), RpcError> {
+    if address
+        .strip_prefix("0x")
+        .is_none_or(|hex| hex.len() != 40 || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
     {
         return Err(RpcError::InvalidRequest);
     }
-    Ok(json!([did, "identity"]))
+    Ok(())
+}
+
+fn quantity_u64(value: &Value) -> Result<u64, RpcError> {
+    let hex = value
+        .as_str()
+        .and_then(|text| text.strip_prefix("0x"))
+        .ok_or(RpcError::InvalidResponse)?;
+    if hex.is_empty()
+        || (hex.len() > 1 && hex.starts_with('0'))
+        || !hex.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(RpcError::InvalidResponse);
+    }
+    u64::from_str_radix(hex, 16).map_err(|_| RpcError::InvalidResponse)
+}
+
+fn ethereum_hash(value: &Value) -> Result<[u8; 32], RpcError> {
+    let hex = value
+        .as_str()
+        .and_then(|text| text.strip_prefix("0x"))
+        .ok_or(RpcError::InvalidResponse)?;
+    decode_hex(&hex.to_ascii_lowercase())
 }
 
 fn variable_hex_field(
@@ -743,10 +776,34 @@ impl RpcClient {
     }
 
     read_methods! {
-        get_account => "lx_getAccount", get_balance => "lx_getBalance",
-        get_sequence => "lx_getSequence",
-        get_receipt => "lx_getReceipt", get_activity_status => "lx_getActivityStatus",
-        get_batch_header => "lx_getBatchHeader", get_checkpoint => "lx_getCheckpoint",
+        get_account => "px_getAccount",
+        get_receipt => "eth_getTransactionReceipt",
+    }
+
+    /// # Errors
+    /// Rejects invalid addresses and preserves RPC refusals.
+    pub fn get_balance(&self, address: &str) -> Result<Value, RpcError> {
+        self.call("eth_getBalance", &identity_sequence_params(address)?)
+    }
+
+    /// # Errors
+    /// Rejects invalid addresses and malformed pending transaction counts.
+    pub fn get_sequence(&self, address: &str) -> Result<Value, RpcError> {
+        let value = self.call(
+            "eth_getTransactionCount",
+            &identity_sequence_params(address)?,
+        )?;
+        quantity_u64(&value)?;
+        Ok(value)
+    }
+
+    /// # Errors
+    /// Rejects an empty block selector and preserves RPC refusals.
+    pub fn get_batch_header(&self, block: &str) -> Result<Value, RpcError> {
+        if block.is_empty() {
+            return Err(RpcError::InvalidRequest);
+        }
+        self.call("eth_getBlockByNumber", &json!([block, false]))
     }
 
     /// Registers one self-service principal in the public beta tenant.
@@ -785,24 +842,18 @@ impl RpcClient {
         self.call("lx_requestFunds", &params)?.try_into()
     }
 
-    /// Reads the authenticated identity sequence used by the activity envelope.
+    /// Reads the address's pending transaction count.
     /// # Errors
-    /// Rejects malformed DIDs and any mismatched or malformed snapshot.
-    pub fn get_identity_sequence(&self, did: &str) -> Result<IdentitySequenceSnapshot, RpcError> {
-        let params = identity_sequence_params(did)?;
-        let snapshot: IdentitySequenceSnapshot =
-            self.call("lx_getSequence", &params)?.try_into()?;
-        if snapshot.did != did {
-            return Err(RpcError::InvalidResponse);
-        }
-        Ok(snapshot)
+    /// Rejects malformed addresses and noncanonical or overflowing quantities.
+    pub fn get_identity_sequence(&self, address: &str) -> Result<u64, RpcError> {
+        quantity_u64(&self.get_sequence(address)?)
     }
 
     /// # Errors
     /// Rejects malformed DID selectors and preserves upstream enumeration unavailability.
     pub fn get_balances(&self, did: &str) -> Result<BalancesSnapshot, RpcError> {
         layerx_types::ids::Did::new(did.as_bytes()).map_err(|_| RpcError::InvalidRequest)?;
-        self.call("lx_getBalances", &json!([did]))?.try_into()
+        self.call("px_getBalances", &json!([did]))?.try_into()
     }
 
     /// Opens an authenticated public subscription. Notifications are unverified hints.
@@ -850,7 +901,7 @@ impl RpcClient {
     /// # Errors
     /// Preserves node-info RPC refusals.
     pub fn get_node_info(&self) -> Result<Value, RpcError> {
-        self.call("lx_getNodeInfo", &json!([]))
+        self.call("px_getNetwork", &json!([]))
     }
 
     /// # Errors
@@ -859,7 +910,7 @@ impl RpcClient {
         self.list_assets_page(None, None)
     }
 
-    /// Reads one `lx_listAssets` page, resuming after `cursor` when it is present.
+    /// Reads one `px_listAssets` page, resuming after `cursor` when it is present.
     ///
     /// # Errors
     /// Refuses a zero cursor, a zero limit and a limit above
@@ -877,8 +928,15 @@ impl RpcClient {
             return Err(RpcError::InvalidRequest);
         }
         let params = list_assets_params(cursor, limit);
-        let snapshot: AssetListSnapshot = self.call("lx_listAssets", &params)?.try_into()?;
-        if snapshot.assets.len() > usize::from(limit.unwrap_or(LIST_ASSETS_DEFAULT_PAGE)) {
+        let snapshot: AssetListSnapshot = self.call("px_listAssets", &params)?.try_into()?;
+        if snapshot.assets.len() > usize::from(limit.unwrap_or(LIST_ASSETS_DEFAULT_PAGE))
+            || cursor.is_some_and(|cursor| {
+                snapshot
+                    .assets
+                    .first()
+                    .is_some_and(|asset| asset.asset_id <= cursor)
+            })
+        {
             return Err(RpcError::InvalidResponse);
         }
         Ok(snapshot)
@@ -887,54 +945,145 @@ impl RpcClient {
     /// # Errors
     /// Preserves native asset metadata refusals; returned read data is unverified.
     pub fn get_asset(&self, asset: [u8; 32]) -> Result<AssetSnapshot, RpcError> {
-        let snapshot: AssetSnapshot = self
-            .call("lx_getAsset", &json!([encode_hex(&asset)]))?
-            .try_into()?;
-        if snapshot.asset.asset_id != asset {
+        if asset == [0; 32] {
+            return Err(RpcError::InvalidRequest);
+        }
+        let mut cursor = None;
+        loop {
+            let page = self.list_assets_page(cursor, None)?;
+            if let Some(index) = page.assets.iter().position(|entry| entry.asset_id == asset) {
+                let mut fields = page.raw.clone();
+                let metadata = fields
+                    .get("assets")
+                    .and_then(Value::as_array)
+                    .and_then(|assets| assets.get(index))
+                    .cloned()
+                    .ok_or(RpcError::InvalidResponse)?;
+                fields.remove("assets");
+                fields.remove("next_cursor");
+                fields.insert("asset".to_owned(), metadata);
+                return Value::Object(fields).try_into();
+            }
+            if page
+                .assets
+                .last()
+                .is_some_and(|entry| entry.asset_id > asset)
+            {
+                return Err(RpcError::InvalidResponse);
+            }
+            cursor = Some(page.next_cursor.ok_or(RpcError::InvalidResponse)?);
+        }
+    }
+
+    /// # Errors
+    /// Rejects oversized call data and preserves gas-estimation refusals.
+    pub fn estimate_fee(&self, call: &Eip1559Call) -> Result<u64, RpcError> {
+        if call.data.len() > 524_288 {
+            return Err(RpcError::InvalidRequest);
+        }
+        let transaction = json!({
+            "type": "0x2",
+            "chainId": format!("0x{:x}", call.chain_id),
+            "nonce": format!("0x{:x}", call.nonce),
+            "maxPriorityFeePerGas": format!("0x{:x}", call.max_priority_fee_per_gas),
+            "maxFeePerGas": format!("0x{:x}", call.max_fee_per_gas),
+            "gas": format!("0x{:x}", call.gas_limit),
+            "to": format!("0x{}", encode_hex(&call.to)),
+            "value": "0x0",
+            "data": format!("0x{}", encode_hex(&call.data)),
+            "accessList": [],
+        });
+        quantity_u64(
+            &self
+                .call("eth_estimateGas", &json!([transaction, "pending"]))
+                .map_err(map_transaction_revert)?,
+        )
+    }
+
+    pub fn estimate_fee_from(&self, call: &Eip1559Call, from: [u8; 20]) -> Result<u64, RpcError> {
+        let transaction = json!({
+            "from": format!("0x{}", encode_hex(&from)), "type": "0x2",
+            "chainId": format!("0x{:x}", call.chain_id), "nonce": format!("0x{:x}", call.nonce),
+            "maxPriorityFeePerGas": format!("0x{:x}", call.max_priority_fee_per_gas),
+            "maxFeePerGas": format!("0x{:x}", call.max_fee_per_gas), "gas": format!("0x{:x}", call.gas_limit),
+            "to": format!("0x{}", encode_hex(&call.to)), "value": "0x0", "data": format!("0x{}", encode_hex(&call.data)), "accessList": []
+        });
+        quantity_u64(
+            &self
+                .call("eth_estimateGas", &json!([transaction, "pending"]))
+                .map_err(map_transaction_revert)?,
+        )
+    }
+
+    pub fn eip1559_parameters(&self) -> Result<(u64, u128, u128), RpcError> {
+        let chain_id = quantity_u64(&self.call("eth_chainId", &json!([]))?)?;
+        let price = quantity_u128(&self.call("eth_gasPrice", &json!([]))?)?;
+        let priority = quantity_u128(&self.call("eth_maxPriorityFeePerGas", &json!([]))?)?;
+        let maximum = price
+            .checked_mul(2)
+            .and_then(|value| value.checked_add(priority))
+            .ok_or(RpcError::InvalidResponse)?;
+        if chain_id == 0 || maximum == 0 {
             return Err(RpcError::InvalidResponse);
         }
-        Ok(snapshot)
+        Ok((chain_id, priority, maximum))
     }
 
     /// # Errors
-    /// Refuses empty or oversized activities and preserves native fee-estimation errors.
-    pub fn estimate_fee(&self, canonical: &[u8]) -> Result<FeeEstimate, RpcError> {
-        if canonical.is_empty() || canonical.len() > 524_288 {
-            return Err(RpcError::InvalidRequest);
-        }
-        self.call("lx_estimateFee", &json!([encode_hex(canonical)]))?
-            .try_into()
-    }
-
-    /// # Errors
-    /// Rejects invalid proof selectors and preserves RPC refusals.
+    /// Rejects invalid addresses or empty block selectors and preserves RPC refusals.
     pub fn get_proof(
         &self,
-        kind: &str,
-        activity: &str,
-        account: Option<&str>,
+        address: &str,
+        storage_keys: &[[u8; 32]],
+        block: &str,
     ) -> Result<Value, RpcError> {
-        let params = match (kind, account) {
-            ("activity" | "receipt", None) => json!([kind, activity]),
-            ("account", Some(account)) => json!([kind, activity, account]),
-            _ => return Err(RpcError::InvalidRequest),
-        };
-        self.call("lx_getProof", &params)
-    }
-
-    /// Returns the RPC outcome, including pending; this is not a verified receipt.
-    /// # Errors
-    /// Rejects empty or oversized bytes and preserves submission refusals.
-    pub fn send_activity(
-        &self,
-        canonical: &[u8],
-        commitment: Commitment,
-    ) -> Result<Value, RpcError> {
-        if canonical.is_empty() || canonical.len() > 524_288 {
+        validate_address(address)?;
+        if block.is_empty() {
             return Err(RpcError::InvalidRequest);
         }
-        let hex: String = encode_hex(canonical);
-        self.call("lx_sendActivity", &json!([hex, commitment.as_str()]))
+        let keys: Vec<_> = storage_keys
+            .iter()
+            .map(|key| format!("0x{}", encode_hex(key)))
+            .collect();
+        self.call("eth_getProof", &json!([address, keys, block]))
+    }
+
+    /// Submits raw transaction bytes and returns their hash without implying a receipt.
+    /// # Errors
+    /// Rejects empty or oversized bytes and malformed transaction hashes.
+    pub fn send_raw_transaction(&self, raw: &[u8]) -> Result<[u8; 32], RpcError> {
+        if raw.is_empty() || raw.len() > 524_288 {
+            return Err(RpcError::InvalidRequest);
+        }
+        ethereum_hash(
+            &self
+                .call(
+                    "eth_sendRawTransaction",
+                    &json!([format!("0x{}", encode_hex(raw))]),
+                )
+                .map_err(map_transaction_revert)?,
+        )
+    }
+
+    /// Returns unverified sequencer status and receipt evidence for the hash.
+    /// # Errors
+    /// Preserves sequencer RPC refusals and rejects malformed status documents.
+    pub fn sequencer_receipt(&self, hash: [u8; 32]) -> Result<Value, RpcError> {
+        self.sequencer_receipt_bounded(hash, Duration::from_secs(30))
+    }
+
+    pub(crate) fn sequencer_receipt_bounded(
+        &self,
+        hash: [u8; 32],
+        timeout: Duration,
+    ) -> Result<Value, RpcError> {
+        let result = self.call_bounded(
+            "pax_sequencerReceipt",
+            &json!([format!("0x{}", encode_hex(&hash))]),
+            timeout,
+        )?;
+        object(&result)?;
+        Ok(result)
     }
 
     fn call(&self, method: &str, params: &Value) -> Result<Value, RpcError> {
@@ -947,6 +1096,23 @@ impl RpcClient {
         params: &Value,
         timeout: Duration,
     ) -> Result<Value, RpcError> {
+        if method == "lx_getReceipt" {
+            let id = params[0].as_str().ok_or(RpcError::InvalidRequest)?;
+            let hash = ethereum_hash(&Value::String(format!("0x{id}")))?;
+            let result = self.sequencer_receipt_bounded(hash, timeout)?;
+            if result["txHash"] != format!("0x{id}") {
+                return Err(RpcError::InvalidResponse);
+            }
+            if result["rung"] == "submitted" {
+                return Ok(json!({"state": "pending"}));
+            }
+            check_transaction_revert(&result)?;
+            let receipt = result["receipt"]
+                .as_str()
+                .and_then(|value| value.strip_prefix("0x"))
+                .ok_or(RpcError::InvalidResponse)?;
+            return Ok(json!({"activity_id": id, "receipt": receipt}));
+        }
         if timeout.is_zero() {
             return Err(RpcError::Transport);
         }
@@ -1025,9 +1191,98 @@ fn decode_response(document: &Value, id: &str) -> Result<Value, RpcError> {
     }
     object
         .get("result")
-        .filter(|r| r.is_object())
         .cloned()
         .ok_or(RpcError::InvalidResponse)
+}
+
+fn quantity_u128(value: &Value) -> Result<u128, RpcError> {
+    let hex = value
+        .as_str()
+        .and_then(|value| value.strip_prefix("0x"))
+        .ok_or(RpcError::InvalidResponse)?;
+    if hex.is_empty()
+        || (hex.len() > 1 && hex.starts_with('0'))
+        || !hex.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(RpcError::InvalidResponse);
+    }
+    u128::from_str_radix(hex, 16).map_err(|_| RpcError::InvalidResponse)
+}
+
+fn revert_reason(data: &Value) -> Option<String> {
+    let text = data
+        .as_str()
+        .or_else(|| data.get("data").and_then(Value::as_str))?;
+    let hex = text.strip_prefix("0x")?;
+    if hex.len() % 2 != 0 || hex.len() > 2 * 524_288 {
+        return None;
+    }
+    let bytes = hex
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok())
+        .collect::<Option<Vec<_>>>()?;
+    if bytes.get(..4)? != [0x08, 0xc3, 0x79, 0xa0]
+        || bytes.get(4..35)?.iter().any(|byte| *byte != 0)
+        || *bytes.get(35)? != 32
+        || bytes.get(36..60)?.iter().any(|byte| *byte != 0)
+    {
+        return None;
+    }
+    let length = usize::try_from(u64::from_be_bytes(bytes.get(60..68)?.try_into().ok()?)).ok()?;
+    let end = 68usize.checked_add(length)?;
+    let padded = 68usize.checked_add(length.checked_add(31)? & !31)?;
+    if padded != bytes.len() || bytes.get(end..padded)?.iter().any(|byte| *byte != 0) {
+        return None;
+    }
+    std::str::from_utf8(bytes.get(68..end)?)
+        .ok()
+        .map(str::to_owned)
+}
+
+fn classified_revert(reason: String) -> RpcError {
+    let code = reason
+        .split_once(": ")
+        .map_or(reason.as_str(), |(code, _)| code)
+        .to_owned();
+    let result = layerx_types::result::KnownResult::from_revert_reason(&reason);
+    let retriability = layerx_types::result::Retriability::of_revert_reason(&reason);
+    RpcError::Reverted {
+        code,
+        reason,
+        result,
+        retriability,
+    }
+}
+
+fn map_transaction_revert(error: RpcError) -> RpcError {
+    if let RpcError::Remote { message, data, .. } = &error {
+        if let Some(reason) = data.as_ref().and_then(revert_reason) {
+            return classified_revert(reason);
+        }
+        if let Some(reason) = message
+            .strip_prefix("execution reverted: ")
+            .or_else(|| message.starts_with("LXP_").then_some(message.as_str()))
+        {
+            return classified_revert(reason.to_owned());
+        }
+    }
+    error
+}
+
+pub(crate) fn check_transaction_revert(receipt: &Value) -> Result<(), RpcError> {
+    match receipt["status"].as_str() {
+        Some("0x1") => Ok(()),
+        Some("0x0") => {
+            let data = receipt
+                .get("returnData")
+                .or_else(|| receipt.get("revertData"))
+                .ok_or(RpcError::InvalidResponse)?;
+            let reason = revert_reason(data).ok_or(RpcError::InvalidResponse)?;
+            Err(classified_revert(reason))
+        }
+        _ => Err(RpcError::InvalidResponse),
+    }
 }
 
 pub(crate) fn encode_hex(bytes: &[u8]) -> String {
@@ -1193,11 +1448,19 @@ mod tests {
         let rpc =
             RpcClient::connect("http://127.0.0.1:1", None).unwrap_or_else(|e| panic!("{e:?}"));
         assert!(matches!(
-            rpc.estimate_fee(&[]),
+            rpc.send_raw_transaction(&[]),
             Err(RpcError::InvalidRequest)
         ));
         assert!(matches!(
-            rpc.estimate_fee(&vec![0; 524_289]),
+            rpc.estimate_fee(&Eip1559Call {
+                chain_id: 125,
+                nonce: 0,
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 2,
+                gas_limit: 21000,
+                to: [1; 20],
+                data: vec![0; 524_289],
+            }),
             Err(RpcError::InvalidRequest)
         ));
     }
@@ -1267,8 +1530,11 @@ mod read_result_tests {
     #[test]
     fn identity_sequence_uses_the_two_parameter_domain_and_strict_snapshot() {
         assert_eq!(
-            identity_sequence_params("did:layerx:alice").ok(),
-            Some(json!(["did:layerx:alice", "identity"]))
+            identity_sequence_params("0x1111111111111111111111111111111111111111").ok(),
+            Some(json!([
+                "0x1111111111111111111111111111111111111111",
+                "pending"
+            ]))
         );
         assert!(identity_sequence_params("did:layerx:ali ce").is_err());
         let snapshot = IdentitySequenceSnapshot::try_from(json!({

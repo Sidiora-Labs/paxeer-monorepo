@@ -13,8 +13,11 @@ import (
 // InitGenesis initializes the ibc state from a provided genesis
 // state.
 func InitGenesis(ctx sdk.Context, k keeper.Keeper, createLocalhost bool, gs *types.GenesisState) {
-	// Initialize core params with defaults if not set
-	k.SetParams(ctx, types.DefaultParams())
+	if gs.Params != nil {
+		k.SetParams(ctx, *gs.Params)
+	} else {
+		k.SetParams(ctx, types.DefaultParams())
+	}
 
 	client.InitGenesis(ctx, k.ClientKeeper, gs.ClientGenesis)
 	connection.InitGenesis(ctx, k.ConnectionKeeper, gs.ConnectionGenesis)
@@ -23,9 +26,11 @@ func InitGenesis(ctx sdk.Context, k keeper.Keeper, createLocalhost bool, gs *typ
 
 // ExportGenesis returns the ibc exported genesis.
 func ExportGenesis(ctx sdk.Context, k keeper.Keeper) *types.GenesisState {
+	params := k.GetParams(ctx)
 	return &types.GenesisState{
 		ClientGenesis:     client.ExportGenesis(ctx, k.ClientKeeper),
 		ConnectionGenesis: connection.ExportGenesis(ctx, k.ConnectionKeeper),
 		ChannelGenesis:    channel.ExportGenesis(ctx, k.ChannelKeeper),
+		Params:            &params,
 	}
 }

@@ -23,6 +23,9 @@ on:
       - 'services/platform/hosted/feeder/**'
       - 'tools/price-sidecar/**'
       - 'tools/release/**'
+      - 'tools/ci/consensus_commit_gate.py'
+      - 'tools/ci/tests/test_consensus_commit_gate.py'
+      - 'docs/release/consensus-commits.md'
       - '.github/workflows/paxeer-release-check.yml'
       - '.github/workflows/paxeer-release-publish.yml'
   workflow_dispatch:
@@ -43,6 +46,12 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+      - name: Refuse unlisted consensus-changing commits
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 tools/ci/consensus_commit_gate.py "$PR_BASE_SHA" "$PR_HEAD_SHA"
       - name: Validate version and namespaced tag
         run: |
           set -euo pipefail

@@ -34,7 +34,8 @@ var (
 	// MsgSequenceBatch for tx 0.
 	ErrSequenceBatchMissing = errors.New("sealed block has no sequence batch")
 	// ErrOpenTimeMissing is returned when a sealed block carries no open time.
-	ErrOpenTimeMissing = errors.New("sealed block has no open time")
+	ErrOpenTimeMissing           = errors.New("sealed block has no open time")
+	ErrOpenTimeNotAfterLastBlock = errors.New("sealed block open time is not after the last block time")
 	// ErrSealedBlockTooLarge is returned when the sequence batch and the sealed
 	// slice do not fit the block data bytes.
 	ErrSealedBlockTooLarge = errors.New("sealed block exceeds the block data bytes")
@@ -232,8 +233,9 @@ func (blockExec *BlockExecutor) SetSequencerSource(src SequencerSource) {
 
 // CreateProposalBlock calls state.MakeBlock with evidence from the evpool
 // and txs from the mempool, or, at a height the sequencer source sequences,
-// with the sealed slice behind its sequence batch and the open time as the
-// header time. The max bytes must be big enough to fit the commit.
+// by reaping and admitting mempool transactions, then sealing the slice behind
+// its sequence batch with the open time as the header time. The max bytes must
+// be big enough to fit the commit.
 // Up to 1/10th of the block space is allcoated for maximum sized evidence.
 // The rest is given to txs, up to the max gas.
 //
@@ -264,6 +266,18 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	maxDataBytes := types.MaxDataBytes(maxBytes, evSize, state.Validators.Size())
 
 	if blockExec.sequencer != nil && blockExec.sequencer.Sequenced(height) {
+		reaped, _ := blockExec.mempool.ReapTxs(mempool.ReapLimits{
+			MaxBytes:        utils.Some(maxDataBytes),
+			MaxGasWanted:    utils.Some(maxGasWanted),
+			MaxGasEstimated: utils.Some(maxGas),
+		}, true)
+		if len(reaped) > 0 {
+			admitted, err := blockExec.sequencer.Admit(ctx, height, reaped)
+			logger.Info("admitted consensus mempool transactions", "height", height, "reaped", len(reaped), "admitted", admitted)
+			if err != nil {
+				return nil, fmt.Errorf("admit height %d: %w", height, err)
+			}
+		}
 		sealed, err := blockExec.sequencer.Seal(ctx, height)
 		if err != nil {
 			return nil, fmt.Errorf("seal height %d: %w", height, err)
@@ -271,6 +285,9 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		txs, err := InjectSequenceBatch(sealed, maxDataBytes)
 		if err != nil {
 			return nil, fmt.Errorf("sealed block at height %d: %w", height, err)
+		}
+		if !sealed.OpenTime.After(state.LastBlockTime) {
+			return nil, fmt.Errorf("%w: open %v, last %v", ErrOpenTimeNotAfterLastBlock, sealed.OpenTime, state.LastBlockTime)
 		}
 		return state.MakeBlockAt(height, txs, lastCommit, evidence, proposerAddr, sealed.OpenTime), nil
 	}

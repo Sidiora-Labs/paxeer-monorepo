@@ -200,7 +200,7 @@ fn restore_submissions(
                     queued_without_authority.push(submission_id);
                 }
             }
-            SubmissionState::Submitted | SubmissionState::Acknowledged => {
+            SubmissionState::Submitted => {
                 outbox.transition(
                     store,
                     submission_id,
@@ -214,7 +214,7 @@ fn restore_submissions(
             SubmissionState::Executed
             | SubmissionState::Failed
             | SubmissionState::Expired
-            | SubmissionState::Superseded => {}
+            | SubmissionState::Committed => {}
             SubmissionState::Prepared | SubmissionState::Signed => {
                 return Err(RecoveryError::Corrupt);
             }

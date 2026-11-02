@@ -1,12 +1,23 @@
 import * as paxeerXMock from 'mocks/paxeerX/unifiedAccount';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 
-import { activityKindLabel, assetLabel, formatAmount, listIdentities } from './utils';
+import { activityKindLabel, assetLabel, formatAmount, IDENTITY_ORDER, listIdentities } from './utils';
+
+function identity_order_has_three_kinds() {
+  expect(IDENTITY_ORDER).toEqual([ 'evm', 'pax', 'did' ]);
+  expect(listIdentities(paxeerXMock.unifiedAccount.identities)).toEqual([
+    { kind: 'evm', label: 'EVM address', value: paxeerXMock.evmAddress },
+    { kind: 'pax', label: 'Paxeer address', value: paxeerXMock.paxAddress },
+    { kind: 'did', label: 'LayerX DID', value: paxeerXMock.did },
+  ]);
+}
+
+test(identity_order_has_three_kinds);
 
 describe('listIdentities', () => {
-  it('keeps the four spellings in a stable order', () => {
+  it('keeps the three spellings in a stable order', () => {
     expect(listIdentities(paxeerXMock.unifiedAccount.identities).map((entry) => entry.kind))
-      .toEqual([ 'evm', 'pax', 'did', 'kernel_account' ]);
+      .toEqual([ 'evm', 'pax', 'did' ]);
   });
 
   it('drops the identities that are absent', () => {
@@ -22,7 +33,7 @@ describe('formatAmount', () => {
   });
 
   it('leaves the amount unscaled when the asset carries no scale', () => {
-    expect(formatAmount('1200', paxeerXMock.custodyAsset)).toBe('1,200');
+    expect(formatAmount('1200', { ...paxeerXMock.tokenAsset, decimals: null })).toBe('1,200');
   });
 
   it('leaves the amount unscaled when the asset is unknown', () => {
@@ -37,13 +48,13 @@ describe('formatAmount', () => {
 describe('assetLabel', () => {
   it('prefers the symbol, then the denom', () => {
     expect(assetLabel(paxeerXMock.nativeAsset)).toBe('HPX');
-    expect(assetLabel(paxeerXMock.custodyAsset)).toBe(paxeerXMock.custodyAsset.denom);
+    expect(assetLabel({ ...paxeerXMock.tokenAsset, symbol: null })).toBe(paxeerXMock.tokenAsset.denom);
     expect(assetLabel(null)).toBe('Unknown asset');
   });
 });
 
 describe('activityKindLabel', () => {
-  it('names the kernel events and the chain-side rows', () => {
+  it('names the chain-side rows and humanizes legacy kernel events', () => {
     expect(activityKindLabel('custody_deposit')).toBe('Custody deposit');
     expect(activityKindLabel('claim_finalised')).toBe('Claim finalised');
     expect(activityKindLabel('token_transfer')).toBe('Token transfer');

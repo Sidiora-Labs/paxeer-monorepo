@@ -202,6 +202,7 @@ func TestResolutionExecuteEntry(t *testing.T) {
 	}
 	run := func() ([]Receipt, []byte, *testChain) {
 		chain := newTestChain(t)
+		seedProgramsFeeRecord(t, chain, actor.id)
 		resolutionSeedMetering(t, chain)
 		host := chain.host(t)
 		receipts := make([]Receipt, 0, len(steps))
@@ -237,6 +238,7 @@ func TestResolutionExecuteEntry(t *testing.T) {
 func TestResolutionGuestImports(t *testing.T) {
 	actor := newTestActor(t, 0x43)
 	chain := newTestChain(t)
+	seedProgramsFeeRecord(t, chain, actor.id)
 	resolutionSeedMetering(t, chain)
 	host := chain.host(t)
 	registered := execute(t, host, chain.context(2, resolutionBlockTime, 41), actor.register(t, host, 0, resolutionBlockTime), actor.authority())

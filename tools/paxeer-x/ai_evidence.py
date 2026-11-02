@@ -30,28 +30,14 @@ LIMITS = [
     'Parent native controller remains host capable.',
 ]
 READ_SCOPE = [
-    '39 enumerated ai-market contract files',
+    '4 enumerated layerx-merge contract files',
     'embedded canonical AI task/requirement/acceptance packet',
     'existing tools/paxeer-x approved nonsecret style inputs',
     'programs/Cargo.toml', 'programs/sdk/rust/Cargo.toml',
     'this exact private decision manifest',
 ]
 CONTRACT_PATHS = (
-    'acceptance/system-journeys.kvx', 'contracts/core.kvx',
-    'contracts/integration-map.kvx', 'contracts/operation-registry.json',
-    'contracts/storage-lifecycle.kvx', 'contracts/wire.schema.json',
-    *tuple('features/F%02d-%s%s' % (number, name, suffix)
-           for number, name in enumerate(('markets', 'workers', 'evaluators',
-               'commit-reveal', 'aggregation', 'rewards', 'reputation', 'admission',
-               'artifacts', 'views-sdk'), 1)
-           for suffix in ('.kvx', '.requirements.json')),
-    'index.kvx', 'planning/execution.kvx', 'planning/task-graph.json', 'roles.kvx',
-    *tuple('schematics/%02d-%s.mmd' % (number, name)
-           for number, name in enumerate(('service-boundaries', 'task-and-epoch-lifecycle',
-               'participant-authorization', 'score-commit-reveal-aggregation',
-               'conserved-rewards', 'evidence-privacy-finalized-reads',
-               'storage-archive-retirement', 'implementation-dependency-waves'), 1)),
-    'schematics/index.kvx',
+    'programs.md', 'platform-hosted.md', 'services.md', 'tools-ops.md',
 )
 CAPS = {'committed_blobs': 512, 'committed_bytes': 67108864,
         'staged_new_blobs': 4, 'blob_bytes': 1048576,
@@ -394,7 +380,7 @@ def validate_structure(admission, approval):
     keys(admission['contract'], ('version', 'files'), 'contract')
     same(admission['contract']['version'], 1, 'application version')
     same(approval['contract_version'], 1, 'contract version pin')
-    expected = tuple('spec/paxeer-x/ai-markets/' + name for name in CONTRACT_PATHS)
+    expected = tuple('spec/layerx-merge/contracts/' + name for name in CONTRACT_PATHS)
     contracts = file_list(admission['contract']['files'], expected, 'contract')
     require(file_list(approval['contract_files'], expected, 'contract pin') == contracts,
             'contract pin mismatch')

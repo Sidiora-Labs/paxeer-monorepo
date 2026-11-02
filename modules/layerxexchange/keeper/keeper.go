@@ -24,10 +24,22 @@ type Keeper struct {
 
 	custody   types.CustodyKeeper
 	evmKeeper types.EVMKeeper
+	upgrade   types.UpgradeKeeper
 }
 
 func NewKeeper(cdc codec.BinaryCodec, storeKey sdk.StoreKey, custody types.CustodyKeeper, evmKeeper types.EVMKeeper) *Keeper {
 	return &Keeper{storeKey: storeKey, cdc: cdc, custody: custody, evmKeeper: evmKeeper}
+}
+
+func (k *Keeper) SetUpgradeKeeper(upgrade types.UpgradeKeeper) {
+	k.upgrade = upgrade
+}
+
+func (k *Keeper) Retired(ctx sdk.Context) (bool, error) {
+	if k.upgrade == nil {
+		return false, types.ErrKeeperMissing
+	}
+	return k.upgrade.IsUpgradeActiveAtHeight(ctx, types.RetiredFromUpgrade, ctx.BlockHeight()), nil
 }
 
 func (k *Keeper) store(ctx sdk.Context) sdk.KVStore { return ctx.KVStore(k.storeKey) }

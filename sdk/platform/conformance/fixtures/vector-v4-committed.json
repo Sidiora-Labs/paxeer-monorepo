@@ -1,0 +1,380 @@
+{
+  "name": "vector-v4-committed",
+  "provenance": {
+    "source": "daemon/committed-fixture/vectors/vector-v4-committed.json",
+    "sha256": "dc364da896e5b67c06d914a843ca5ec333b7403b5f6c41fa65cd3548f9f4c142",
+    "recording": "Local paxd chain; LayerX inclusion envelope assembled and signed by the recorder under the genesis receipt pin; Comet evidence is collected independently from the committed chain.",
+    "conversion": "Binary encodings only; receiptJson is the receipted view without blockNumber/blockHash. The execution header uses execution_commit; the successor header uses commit, or commit_at_most_two_thirds for the refusal."
+  },
+  "positive": {
+    "id": "committed-payExact",
+    "rawTransaction": "0xf9012c0684046492a0831e848094000000000000000000000000000000000000101a80b8c478ea11dbc84573ba19df3b8cf569631860d6b59f8dfd68703a198db15b06d76c6c81e556e592f2422c6efa88955aeb826a76d87d13495fbae242462847fffedb0120eb0bde1e38fef80c07b87019c9fecd726b72ed1380af7bf9d4b7d7596c73286eb3db0000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000001a18478de8b1082116f9bb3affecc3336ed67c7f4bec9709a81a8c7bddeb912f2d0c845b3b28315c808a01db9a4adad2cdf704b3af1061a532ec3bf5dc09e87ceede7d7c84962946a7d92a02f658200f4cd99108f2b95fdd793c0e74f92e3229b67365141b81a7c23af8779",
+    "receiptJson": {
+      "rung": "receipted",
+      "txHash": "0xf2cc445b433833da2cdc895138ec30725dba72171ae8267f010ed517ca7b2544",
+      "nonce": "0x6",
+      "seq": "0x9",
+      "height": "0xa",
+      "index": "0x1",
+      "timestamp": "0x1a18441efce",
+      "status": "0x1",
+      "returnData": "0x",
+      "logs": [
+        {
+          "address": "0x000000000000000000000000000000000000101a",
+          "topics": [
+            "0x3c136bc6b05877456edd6c1baed12a9d44c364ad7301478c948e7d70dd4b1ca0",
+            "0xc84573ba19df3b8cf569631860d6b59f8dfd68703a198db15b06d76c6c81e556",
+            "0xe592f2422c6efa88955aeb826a76d87d13495fbae242462847fffedb0120eb0b",
+            "0xde1e38fef80c07b87019c9fecd726b72ed1380af7bf9d4b7d7596c73286eb3db"
+          ],
+          "data": "0x00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000005",
+          "logIndex": "0x0"
+        },
+        {
+          "address": "0x000000000000000000000000000000000000101a",
+          "topics": [
+            "0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1",
+            "0x1082116f9bb3affecc3336ed67c7f4bec9709a81a8c7bddeb912f2d0c845b3b2",
+            "0xc84573ba19df3b8cf569631860d6b59f8dfd68703a198db15b06d76c6c81e556",
+            "0xe592f2422c6efa88955aeb826a76d87d13495fbae242462847fffedb0120eb0b"
+          ],
+          "data": "0xde1e38fef80c07b87019c9fecd726b72ed1380af7bf9d4b7d7596c73286eb3db0000000000000000000000000000000000000000000000000000000000000003",
+          "logIndex": "0x1"
+        }
+      ],
+      "gasUsed": "0x98b4",
+      "cumulativeGasUsed": "0x98b4",
+      "effectiveGasPrice": "0x46492a0",
+      "feeDenom": "uhpx",
+      "feeAmount": "0x29ecdc61880",
+      "sponsor": "0x0000000000000000000000000000000000000000",
+      "from": "0xc08e711fe101411a75cc8eb8cbb26dd0efac584e",
+      "to": "0x000000000000000000000000000000000000101a",
+      "contractAddress": "0x0000000000000000000000000000000000000000",
+      "vmError": "",
+      "keyId": "0xba3a5a0bba18e7ead9fd281c793daaec55218c5d084483346e45c959a92bf699",
+      "signingKey": "0xaed3d83b59b735683edb641862d13d6855f37284c190b7b501a46ca29085b239",
+      "receipt": "0x00025201000200000020f2cc445b433833da2cdc895138ec30725dba72171ae8267f010ed517ca7b25440000000000000009000000207e7a44935a4274c9fbeb2576c54396ff68e544f1019337b82a9bb07e804e1d0b000000200ab40120e86de9c1f23818b727ede33422bc1da9d307a1c8fe0d02ab9fa3d38800000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000003000c0000000001000000002000000000000000000000000000000000000000000000000000000000000000000000007100000000000098b400000000000098b400000000046492a00000000100000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000020475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a043c136bc6b05877456edd6c1baed12a9d44c364ad7301478c948e7d70dd4b1ca0c84573ba19df3b8cf569631860d6b59f8dfd68703a198db15b06d76c6c81e556e592f2422c6efa88955aeb826a76d87d13495fbae242462847fffedb0120eb0bde1e38fef80c07b87019c9fecd726b72ed1380af7bf9d4b7d7596c73286eb3db3baff3f001999a4eac55d4e7cc51618ae14f0840ff44a024066ad1c496c510a0000c000200000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b11082116f9bb3affecc3336ed67c7f4bec9709a81a8c7bddeb912f2d0c845b3b2c84573ba19df3b8cf569631860d6b59f8dfd68703a198db15b06d76c6c81e556e592f2422c6efa88955aeb826a76d87d13495fbae242462847fffedb0120eb0b09d909ef8be133eea9217981efadb3687d52cb2e58e88d52916b65f2888cc7f200000000000000000000029ecdc6188000000020000000000000000000000000000000000000000000000000000000000000000a000c000000010000000000000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f730000000000000000000000000000000000000020000000000000000000000000c08e711fe101411a75cc8eb8cbb26dd0efac584e000004ee16cefdb31918a8be3bb7ec80000004ee16cefdb31918a61f6df1d400000000000000000600000020000000000000000000000000000000000000000000000000000000000000101a000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000020ba3a5a0bba18e7ead9fd281c793daaec55218c5d084483346e45c959a92bf699000001a18441efce010000004036ffbbf85169d58ad9fb2bf631811991f31b958e077ba07c020f19492ded3bb87cf779d830be20561637886b56c0aa24b82f98ed8f90cceec29e6eea3b117c07"
+    },
+    "signedReceipt": "0x00025201000200000020f2cc445b433833da2cdc895138ec30725dba72171ae8267f010ed517ca7b25440000000000000009000000207e7a44935a4274c9fbeb2576c54396ff68e544f1019337b82a9bb07e804e1d0b000000200ab40120e86de9c1f23818b727ede33422bc1da9d307a1c8fe0d02ab9fa3d38800000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000003000c0000000001000000002000000000000000000000000000000000000000000000000000000000000000000000007100000000000098b400000000000098b400000000046492a00000000100000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000020475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a043c136bc6b05877456edd6c1baed12a9d44c364ad7301478c948e7d70dd4b1ca0c84573ba19df3b8cf569631860d6b59f8dfd68703a198db15b06d76c6c81e556e592f2422c6efa88955aeb826a76d87d13495fbae242462847fffedb0120eb0bde1e38fef80c07b87019c9fecd726b72ed1380af7bf9d4b7d7596c73286eb3db3baff3f001999a4eac55d4e7cc51618ae14f0840ff44a024066ad1c496c510a0000c000200000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b11082116f9bb3affecc3336ed67c7f4bec9709a81a8c7bddeb912f2d0c845b3b2c84573ba19df3b8cf569631860d6b59f8dfd68703a198db15b06d76c6c81e556e592f2422c6efa88955aeb826a76d87d13495fbae242462847fffedb0120eb0b09d909ef8be133eea9217981efadb3687d52cb2e58e88d52916b65f2888cc7f200000000000000000000029ecdc6188000000020000000000000000000000000000000000000000000000000000000000000000a000c000000010000000000000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f730000000000000000000000000000000000000020000000000000000000000000c08e711fe101411a75cc8eb8cbb26dd0efac584e000004ee16cefdb31918a8be3bb7ec80000004ee16cefdb31918a61f6df1d400000000000000000600000020000000000000000000000000000000000000000000000000000000000000101a000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000020ba3a5a0bba18e7ead9fd281c793daaec55218c5d084483346e45c959a92bf699000001a18441efce010000004036ffbbf85169d58ad9fb2bf631811991f31b958e077ba07c020f19492ded3bb87cf779d830be20561637886b56c0aa24b82f98ed8f90cceec29e6eea3b117c07",
+    "receiptDigest": "0x27716ca9585bb134dd75ea238ad5cd6c110e24883383824a0167b15b2cf0ce5e",
+    "prevSeqHash": "0x7e7a44935a4274c9fbeb2576c54396ff68e544f1019337b82a9bb07e804e1d0b",
+    "pinnedKey": {
+      "keyId": "0xba3a5a0bba18e7ead9fd281c793daaec55218c5d084483346e45c959a92bf699",
+      "publicKey": "0xaed3d83b59b735683edb641862d13d6855f37284c190b7b501a46ca29085b239",
+      "firstHeight": 10,
+      "lastHeight": 10
+    },
+    "blockHeader": {
+      "VersionBlock": 11,
+      "VersionApp": 0,
+      "ChainID": "committed-fixture",
+      "Height": 10,
+      "Time": "2026-10-28T20:44:36.174Z",
+      "LastBlockID": {
+        "Hash": "cwJOzXDEYVuxAWfcjDu8NIiGBryoYMg5iBhvOLWvSmI=",
+        "PartSetTotal": 1,
+        "PartSetHash": "2Qlt55YvJ7Qcxs1PfBJvtJ7qvYn0ZhI0E66/dqTq8lo="
+      },
+      "LastCommitHash": "UBHmiO+8yHSvkJ8pFuoCO+whiTilMJ7H+YGhOpmis6A=",
+      "DataHash": "x+e5w9VZG7veZ8Q/ha0TdIUFEeki7bWuUWT6lXvTAMM=",
+      "ValidatorsHash": "Zc6vQFr0ZD2oXZPWyqjKikf4CkF01FQdfT9YQBmBrKI=",
+      "NextValidatorsHash": "Zc6vQFr0ZD2oXZPWyqjKikf4CkF01FQdfT9YQBmBrKI=",
+      "ConsensusHash": "G/JVbKXV1+/7VA80yw/8d6MgLjInVVevvSGYgqnkKs8=",
+      "AppHash": "0+O/hpfhiKrdUY+DAIs122tGDmKTLw9gubN006Q3lVI=",
+      "LastResultsHash": "VZt7A4G8zpvA/WaVNNtHZC4cR6jcW6k+E9VB89E/HOY=",
+      "EvidenceHash": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+      "ProposerAddress": "+VT5YnZRr2w8oIzCQITlvsMRa9w="
+    },
+    "receiptInclusion": {
+      "Transaction": "CqwDCqkDCisvcGF4cHJvdG9jb2wucGF4Y2hhaW4uZXZtLk1zZ0VWTVRyYW5zYWN0aW9uEvkCCvYCCiIvcGF4cHJvdG9jb2wucGF4Y2hhaW4uZXRoLkxlZ2FjeVR4Es8CCAYSCDczNzAwMDAwGICJeiIqMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxMDFBKgEwMsQBeOoR28hFc7oZ3zuM9WljGGDWtZ+N/WhwOhmNsVsG12xsgeVW5ZLyQixu+oiVWuuCanbYfRNJX7riQkYoR//+2wEg6wveHjj++AwHuHAZyf7Ncmty7ROAr3v51LfXWWxzKG6z2wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABoYR43osQghFvm7Ov/swzNu1nx/S+yXCagajHvd65EvLQyEWzsjoDFcgIQiAduaStrSzfcEs68QYaUy7Dv13AnofO7efXyElilGp9kkogL2WCAPTNmRCPK5X915PA50+S4yKbZzZRQbgafCOvh3kSAhIA",
+      "TransactionProof": {
+        "Total": 2,
+        "Index": 1,
+        "Aunts": [
+          [
+            135,
+            150,
+            133,
+            24,
+            235,
+            203,
+            79,
+            25,
+            130,
+            166,
+            76,
+            211,
+            213,
+            50,
+            233,
+            89,
+            75,
+            127,
+            186,
+            22,
+            97,
+            83,
+            117,
+            132,
+            45,
+            159,
+            74,
+            176,
+            206,
+            169,
+            24,
+            244
+          ]
+        ]
+      },
+      "Result": {
+        "Code": 0,
+        "Data": "CvwGCisvcGF4cHJvdG9jb2wucGF4Y2hhaW4uZXZtLk1zZ0VWTVRyYW5zYWN0aW9uEswGCLSxAiJCMHhmMmNjNDQ1YjQzMzgzM2RhMmNkYzg5NTEzOGVjMzA3MjVkYmE3MjE3MWFlODI2N2YwMTBlZDUxN2NhN2IyNTQ0Kv4CCioweDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEwMUESQjB4M2MxMzZiYzZiMDU4Nzc0NTZlZGQ2YzFiYWVkMTJhOWQ0NGMzNjRhZDczMDE0NzhjOTQ4ZTdkNzBkZDRiMWNhMBJCMHhjODQ1NzNiYTE5ZGYzYjhjZjU2OTYzMTg2MGQ2YjU5ZjhkZmQ2ODcwM2ExOThkYjE1YjA2ZDc2YzZjODFlNTU2EkIweGU1OTJmMjQyMmM2ZWZhODg5NTVhZWI4MjZhNzZkODdkMTM0OTVmYmFlMjQyNDYyODQ3ZmZmZWRiMDEyMGViMGISQjB4ZGUxZTM4ZmVmODBjMDdiODcwMTljOWZlY2Q3MjZiNzJlZDEzODBhZjdiZjlkNGI3ZDc1OTZjNzMyODZlYjNkYhpAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSqAAwoqMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxMDFBEkIweGM0ZGE1ZDZmNzU3YzI1MWNkNzA5NDdiNzUyOTE3ZTU2NzFiNjc3NTE3ZTNkOTUzZjM2MmExZGY2NjQ4ZWY1YjESQjB4MTA4MjExNmY5YmIzYWZmZWNjMzMzNmVkNjdjN2Y0YmVjOTcwOWE4MWE4YzdiZGRlYjkxMmYyZDBjODQ1YjNiMhJCMHhjODQ1NzNiYTE5ZGYzYjhjZjU2OTYzMTg2MGQ2YjU5ZjhkZmQ2ODcwM2ExOThkYjE1YjA2ZDc2YzZjODFlNTU2EkIweGU1OTJmMjQyMmM2ZWZhODg5NTVhZWI4MjZhNzZkODdkMTM0OTVmYmFlMjQyNDYyODQ3ZmZmZWRiMDEyMGViMGIaQN4eOP74DAe4cBnJ/s1ya3LtE4Cve/nUt9dZbHMobrPbAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMgAQ==",
+        "GasWanted": 2000000,
+        "GasUsed": 39092
+      },
+      "ResultProof": {
+        "Total": 2,
+        "Index": 1,
+        "Aunts": [
+          [
+            110,
+            52,
+            11,
+            156,
+            255,
+            179,
+            122,
+            152,
+            156,
+            165,
+            68,
+            230,
+            187,
+            120,
+            10,
+            44,
+            120,
+            144,
+            29,
+            63,
+            179,
+            55,
+            56,
+            118,
+            133,
+            17,
+            163,
+            6,
+            23,
+            175,
+            160,
+            29
+          ]
+        ]
+      },
+      "BatchTransaction": "UEFYRUVSL3YxL3NlcXVlbmNlLWJhdGNoAAAAAAAAAAAKAAAAAAAAAAkAAAAAAAAACX56RJNaQnTJ++sldsVDlv9o5UTxAZM3uCqbsH6ATh0LCrQBIOht6cHyOBi3J+3jNCK8HanTB6HI/g0Cq5+j04gv5OmMp87d0l1Z1RE7fE9Q9z2lE21jqSfebVtZphKAK7o6Wgu6GOfq2f0oHHk9quxVIYxdCESDNG5FyVmpK/aZ3PXYXFHfhvtikXeUO77RkUVSr18+mEPhQZFmfOf31hMWxChF5pksd14e7kq9pyKVC6ezEIMciu1uKfCpyfvMAw==",
+      "BatchProof": {
+        "Total": 2,
+        "Index": 0,
+        "Aunts": [
+          [
+            64,
+            82,
+            247,
+            78,
+            27,
+            77,
+            149,
+            210,
+            171,
+            67,
+            219,
+            231,
+            53,
+            231,
+            84,
+            176,
+            70,
+            173,
+            249,
+            14,
+            236,
+            99,
+            120,
+            255,
+            68,
+            111,
+            111,
+            73,
+            213,
+            124,
+            63,
+            142
+          ]
+        ]
+      },
+      "NextHeader": {
+        "VersionBlock": 11,
+        "VersionApp": 0,
+        "ChainID": "committed-fixture",
+        "Height": 11,
+        "Time": "2026-10-28T20:44:46.208Z",
+        "LastBlockID": {
+          "Hash": "Bms7hutvYkN7ZZwdB18o6yIkbSM/6Gs9XKy9teGCFuk=",
+          "PartSetTotal": 1,
+          "PartSetHash": "b/HjVt/a06bJd6D5wLh0swb3KtnYOiB0J/tiCp2Z544="
+        },
+        "LastCommitHash": "jNY6GPVXMoUqGnQUcNuekaqdV9iYn0QoHw/KkSOa51U=",
+        "DataHash": "ueFzGrdPCE/aqKpYe6/m6BqmTQIovqRXSOn+hLlg/Wg=",
+        "ValidatorsHash": "Zc6vQFr0ZD2oXZPWyqjKikf4CkF01FQdfT9YQBmBrKI=",
+        "NextValidatorsHash": "Zc6vQFr0ZD2oXZPWyqjKikf4CkF01FQdfT9YQBmBrKI=",
+        "ConsensusHash": "G/JVbKXV1+/7VA80yw/8d6MgLjInVVevvSGYgqnkKs8=",
+        "AppHash": "WkKdpy2x3u7Vv/GaeIeqUMC0nAhzr7D8TnxSIixjMHw=",
+        "LastResultsHash": "KTkGPbMqDUl7mGSi1XnbXDNM4nJcPPYRkSfXv056f0U=",
+        "EvidenceHash": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+        "ProposerAddress": "+VT5YnZRr2w8oIzCQITlvsMRa9w="
+      },
+      "NextCommit": {
+        "Height": 11,
+        "Round": 0,
+        "BlockID": {
+          "Hash": "3/wEdfMM6RpMM2YmNvhmLdDggG7ibuYpgWZ84BNBpLA=",
+          "PartSetTotal": 1,
+          "PartSetHash": "EUpf+buJG4uJ1tRpY1n9qxIn4XU6ArI2XrD9xoWnDm8="
+        },
+        "Signatures": [
+          {
+            "BlockIDFlag": 2,
+            "ValidatorAddress": "+VT5YnZRr2w8oIzCQITlvsMRa9w=",
+            "Timestamp": "2026-10-28T20:44:56.245437229Z",
+            "Signature": "SDsHXnR8ftbHzYXu3sfaeYybwB9AhBtHIzgoy7uzh/IIGBwShj+FEHzCflWM1c4ha3bgSvv1aITcwNCqt233BQ=="
+          }
+        ]
+      },
+      "NextValidators": [
+        {
+          "PublicKey": [
+            198,
+            20,
+            161,
+            201,
+            24,
+            132,
+            195,
+            193,
+            59,
+            237,
+            88,
+            106,
+            22,
+            213,
+            31,
+            114,
+            83,
+            7,
+            47,
+            124,
+            196,
+            16,
+            24,
+            234,
+            40,
+            221,
+            134,
+            78,
+            78,
+            84,
+            142,
+            77
+          ],
+          "VotingPower": 7000000000
+        }
+      ]
+    },
+    "commit": {
+      "Height": 10,
+      "Round": 0,
+      "BlockID": {
+        "Hash": "Bms7hutvYkN7ZZwdB18o6yIkbSM/6Gs9XKy9teGCFuk=",
+        "PartSetTotal": 1,
+        "PartSetHash": "b/HjVt/a06bJd6D5wLh0swb3KtnYOiB0J/tiCp2Z544="
+      },
+      "Signatures": [
+        {
+          "BlockIDFlag": 2,
+          "ValidatorAddress": "+VT5YnZRr2w8oIzCQITlvsMRa9w=",
+          "Timestamp": "2026-10-28T20:44:46.153256047Z",
+          "Signature": "kZI6Vig5stDi89bqKmbLAERWkmShUNdpQVaPp/tdSdGygVME7aCKMu/MkZkNI/HlXkoeoNG3DpR8EJrlF3/SBw=="
+        }
+      ]
+    },
+    "validatorSet": [
+      {
+        "PublicKey": [
+          198,
+          20,
+          161,
+          201,
+          24,
+          132,
+          195,
+          193,
+          59,
+          237,
+          88,
+          106,
+          22,
+          213,
+          31,
+          114,
+          83,
+          7,
+          47,
+          124,
+          196,
+          16,
+          24,
+          234,
+          40,
+          221,
+          134,
+          78,
+          78,
+          84,
+          142,
+          77
+        ],
+        "VotingPower": 7000000000
+      }
+    ],
+    "expected": {
+      "rung": "committed"
+    }
+  },
+  "refusals": [
+    {
+      "id": "insufficient-power",
+      "nextCommit": {
+        "Height": 11,
+        "Round": 0,
+        "BlockID": {
+          "Hash": "3/wEdfMM6RpMM2YmNvhmLdDggG7ibuYpgWZ84BNBpLA=",
+          "PartSetTotal": 1,
+          "PartSetHash": "EUpf+buJG4uJ1tRpY1n9qxIn4XU6ArI2XrD9xoWnDm8="
+        },
+        "Signatures": [
+          {
+            "BlockIDFlag": 1,
+            "ValidatorAddress": "",
+            "Timestamp": "0001-01-01T00:00:00Z",
+            "Signature": null
+          }
+        ]
+      },
+      "expectedCheck": "committed-next-commit"
+    }
+  ]
+}

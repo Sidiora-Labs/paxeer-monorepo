@@ -73,22 +73,33 @@ const LatestBlocks = () => {
   const rpcDataContext = useHomeRpcDataContext();
   const isRpcData = rpcDataContext.isEnabled && !rpcDataContext.isLoading && !rpcDataContext.isError && rpcDataContext.subscriptions.includes('latest-blocks');
 
+  // A block arrives before its price updates are indexed and is sent again once they are stored,
+  // with transactions_count and price_update_count updated; the second message replaces the row.
   const handleFlush = React.useCallback((blocks: Array<Block>) => {
     queryClient.setQueryData(getResourceKey('general:homepage_blocks'), (prevData: Array<Block> | undefined) => {
-      const prevLength = prevData?.length ?? 0;
       const nextData = prevData ? [ ...prevData ] : [];
-      const heights = new Set(nextData.map((block) => block.height));
+      let changed = false;
 
       blocks.forEach((block) => {
-        if (heights.has(block.height)) {
+        const index = nextData.findIndex((item) => item.height === block.height);
+
+        if (index === -1) {
+          nextData.push(block);
+          changed = true;
           return;
         }
 
-        heights.add(block.height);
-        nextData.push(block);
+        const current = nextData[index];
+        if (
+          current.transactions_count !== block.transactions_count ||
+          current.price_update_count !== block.price_update_count
+        ) {
+          nextData[index] = block;
+          changed = true;
+        }
       });
 
-      if (nextData.length === prevLength) {
+      if (!changed) {
         return prevData;
       }
 

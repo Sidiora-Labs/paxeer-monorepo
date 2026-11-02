@@ -115,7 +115,7 @@ static int prepare_names(fixture *f, uint16_t version, bool success,
         (void)memcpy(f->transfer_asset.asset_id, send.asset, 32U);
         f->transfer_asset.registered = true;
         f->runtime = (lx_asset_runtime){&f->accounts, &f->asset, 1U,
-            &f->transfer_asset, 1U, 7U, version};
+            &f->transfer_asset, 1U, 7U, version, false};
         REQUIRE(lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_ASSET, &f->runtime) == LXP_OK);
     }
     f->activity.protocol_version = version;
@@ -613,9 +613,7 @@ static int pay1_submit_bytes(fixture *f, uint16_t ordinal, const uint8_t *payloa
         uint8_t replay_root[32];
         uint64_t next_sequence = actor_identity->next_sequence;
         REQUIRE(lxp_kernel_execute_activity(&f->kernel, &f->activity,
-            &f->execution, &replay) == LXP_ERR_IDEMPOTENT_REPLAY);
-        REQUIRE(replay.result_code == f->receipt.result_code);
-        REQUIRE(memcmp(replay.activity_id, f->receipt.activity_id, 32U) == 0);
+            &f->execution, &replay) == LXP_ERR_SEQUENCE_REUSED);
         REQUIRE(actor_identity->next_sequence == next_sequence);
         REQUIRE(lxp_state_root(&f->kernel, replay_root) == LXP_OK);
         REQUIRE(memcmp(root, replay_root, 32U) == 0);

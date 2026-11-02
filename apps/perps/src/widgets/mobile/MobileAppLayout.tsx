@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { X, Search } from "lucide-react";
-import { PERPS_MARKETS, coinLogoUrl, type PerpsMarket } from "@/core/perps/config";
+import { coinLogoUrl, type TradeableMarket } from "@/core/perps/config";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { fmtPrice, fmtUsdCompact } from "@/ui/utils/format";
 import { MobileHeader } from "./MobileHeader";
@@ -11,7 +12,7 @@ import { MobileAccountView } from "./MobileAccountView";
 import { MobileBottomNav, type MobileGlobalTab } from "./MobileBottomNav";
 
 interface MobileAppLayoutProps {
-  market: PerpsMarket;
+  market: TradeableMarket;
   onSelectMarket: (symbol: string) => void;
 }
 
@@ -77,16 +78,17 @@ function MarketSelectorOverlay({
 }) {
   const [search, setSearch] = useState("");
   const { prices, tickers } = useRealtimePrices();
+  const { catalog, isLoading, error } = usePerpsMarkets();
 
   const filtered = useMemo(() => {
-    if (!search) return PERPS_MARKETS;
+    if (!search) return catalog;
     const q = search.toLowerCase();
-    return PERPS_MARKETS.filter(
+    return catalog.filter(
       (m) =>
         m.symbol.toLowerCase().includes(q) ||
         m.name.toLowerCase().includes(q)
     );
-  }, [search]);
+  }, [catalog, search]);
 
   return (
     <div
@@ -215,7 +217,13 @@ function MarketSelectorOverlay({
               color: "var(--fg-subtle)",
             }}
           >
-            No markets found
+            <span role={error ? "alert" : "status"}>
+              {error
+                ? "Failed to load markets"
+                : isLoading
+                  ? "Loading markets…"
+                  : "No markets found"}
+            </span>
           </div>
         )}
       </div>

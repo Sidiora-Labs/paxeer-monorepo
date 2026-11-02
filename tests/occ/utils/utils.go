@@ -120,8 +120,7 @@ func addressToValAddress(addr sdk.AccAddress) sdk.ValAddress {
 	return valAddr
 }
 
-// deployCW20Token deploys a CW20 token contract for testing
-func deployCW20Token(tCtx *TestContext, i int) (string, error) {
+func CW20InstantiateMsg(tCtx *TestContext) []byte {
 	// CW20 instantiate message with initial balances for the test accounts
 	instantiateMsgCW20 := fmt.Sprintf(`{
 		"name": "TestToken",
@@ -136,14 +135,18 @@ func deployCW20Token(tCtx *TestContext, i int) (string, error) {
 			"cap": "10000000"
 		}
 	}`, tCtx.TestAccounts[0].AccountAddress.String(), tCtx.TestAccounts[1].AccountAddress.String(), tCtx.TestAccounts[0].AccountAddress.String())
+	return []byte(instantiateMsgCW20)
+}
 
+// deployCW20Token deploys a CW20 token contract for testing
+func deployCW20Token(tCtx *TestContext, i int) (string, error) {
 	// Execute the message to instantiate the contract
 	contractAddr, _, err := tCtx.ContractKeeper.Instantiate(
 		tCtx.Ctx,
 		tCtx.CW20CodeID,
 		tCtx.TestAccounts[0].AccountAddress,
 		tCtx.TestAccounts[0].AccountAddress,
-		[]byte(instantiateMsgCW20),
+		CW20InstantiateMsg(tCtx),
 		fmt.Sprintf("test-cw20-%d", i),
 		Funds(100000),
 	)
@@ -157,7 +160,6 @@ func deployCW20Token(tCtx *TestContext, i int) (string, error) {
 
 // NewTestContext initializes a new TestContext with a new app and a new contract
 func NewTestContext(tb testing.TB, testAccts []TestAcct, blockTime time.Time, workers int, occEnabled bool) *TestContext {
-	contractFile := "../../tests/integration/contracts/mars.wasm"
 	cw20ContractFile := "../../contracts/wasm/cw20_base.wasm"
 
 	wrapper := app.NewTestWrapper(tb, blockTime, testAccts[0].PublicKey, true, func(ba *baseapp.BaseApp) {
@@ -172,16 +174,10 @@ func NewTestContext(tb testing.TB, testAccts []TestAcct, blockTime time.Time, wo
 	wasmKeeper := testApp.WasmKeeper
 	contractKeeper := wasmkeeper.NewDefaultPermissionKeeper(&wasmKeeper)
 
-	// deploy a contract so we can use it
-	wasm, err := os.ReadFile(contractFile)
-	panicIfErr(err)
-	var perm *wasmxtypes.AccessConfig
-	codeID, err := contractKeeper.Create(ctx, testAccts[0].AccountAddress, wasm, perm)
-	panicIfErr(err)
-
 	// Upload the CW20 contract
 	cw20Wasm, err := os.ReadFile(cw20ContractFile)
 	panicIfErr(err)
+	var perm *wasmxtypes.AccessConfig
 	cw20CodeID, err := contractKeeper.Create(ctx, testAccts[0].AccountAddress, cw20Wasm, perm)
 	panicIfErr(err)
 
@@ -192,7 +188,7 @@ func NewTestContext(tb testing.TB, testAccts []TestAcct, blockTime time.Time, wo
 
 	tctx := &TestContext{
 		Ctx:            ctx,
-		CodeID:         codeID,
+		CodeID:         cw20CodeID,
 		CW20CodeID:     cw20CodeID,
 		Validator:      testAccts[0],
 		TestAccounts:   testAccts,

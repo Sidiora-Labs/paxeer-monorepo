@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+import importlib.util
 import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -69,6 +71,61 @@ class RegistrationInputTests(unittest.TestCase):
             provision.owner_registration(self.root)
         self.assertIn(str(self.path), str(caught.exception))
         self.assertFalse((self.root / 'human-evidence').exists())
+
+    def test_provisioning_makes_no_custody_deposit(self):
+        here = Path(provision.__file__).resolve().parent
+        for name in ('owner_custody.py', 'test_owner_custody.py'):
+            self.assertFalse(os.path.lexists(here / name), name)
+        script = (here / 'provision.sh').read_text()
+        for retired in ('human_custody_step', 'explorer_read_principal_fund', 'owner_custody.py'):
+            self.assertNotIn(retired, script)
+        result = subprocess.run(
+            ['bash', '--noprofile', '--norc', '-c',
+             'set -euo pipefail\n'
+             'source "$REPO_ROOT/services/platform/hosted/human/provision.sh"\n'
+             'declare -F\n'],
+            env=dict(os.environ, REPO_ROOT=str(here.parents[3])),
+            text=True, capture_output=True, check=True)
+        functions = {line.split()[-1] for line in result.stdout.splitlines()}
+        self.assertTrue({'human_native_owner_prepare', 'human_native_provision',
+                         'human_evidence_provision'} <= functions)
+        self.assertTrue({'human_custody_step', 'explorer_read_principal_fund'}.isdisjoint(functions))
+        for flag in ('--prepare-explorer-read-funding', '--sign-explorer-read-credit',
+                     '--submit-explorer-read-credit'):
+            with self.subTest(flag=flag):
+                result = subprocess.run(
+                    [sys.executable, str(here / 'provision.py'), '--validate-owner-registration',
+                     '--work-dir', str(self.root), flag],
+                    text=True, capture_output=True, check=False)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn(f'unrecognized arguments: {flag}', result.stderr)
+                self.assertEqual(result.stdout, '')
+        self.assertEqual(list(self.root.iterdir()), [self.input])
+        self.assertEqual(list(self.input.iterdir()), [])
+
+    def test_owner_policy_has_no_movement_intervals(self):
+        policy = provision.owner_policy()
+        self.assertNotIn('movement', policy)
+        source = Path(provision.__file__)
+        self.assertEqual(policy, json.loads(source.with_name('beta-owner-policy.json').read_text()))
+        copied_source = self.root / 'provision.py'
+        copied_source.write_text(source.read_text())
+        spec = importlib.util.spec_from_file_location('policy_provision', copied_source)
+        copied_provision = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(copied_provision)
+        policy_path = self.root / 'beta-owner-policy.json'
+        policy_path.write_text(json.dumps(policy))
+        self.assertEqual(copied_provision.owner_policy(), policy)
+        policy['movement'] = {
+            'PAXEER_CONFIRMATIONS': 12,
+            'CHECKPOINT_INTERVAL_SECONDS': 60,
+            'PAXEER_BLOCK_SECONDS': 2,
+            'REMINDER_INTERVAL_SECONDS': 300,
+        }
+        policy_path.write_text(json.dumps(policy))
+        with self.assertRaises(copied_provision.Refused) as caught:
+            copied_provision.owner_policy()
+        self.assertEqual(str(caught.exception), f'{policy_path}: invalid owner policy')
 
     def test_missing_wrong_mode_symlink_hardlink_and_directory_refuse(self):
         self.refused()

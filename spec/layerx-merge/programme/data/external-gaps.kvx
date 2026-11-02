@@ -1,0 +1,50 @@
+[meta]
+format_version = 1
+
+[gap.1]
+artefact = "launchpad/spec/production-system/integration/contracts/v1/openapi.json"
+consumer = "sdk/launchpad/packages/sdk/scripts/generate.py"
+owner_domain = 4
+ruling = "recorded external gap; no task regenerates the consumer until the artefact is committed"
+
+[gap.2]
+artefact = "launchpad/spec/production-system/integration/contracts/v1/asyncapi.json"
+consumer = "sdk/launchpad/packages/sdk/scripts/generate.py"
+owner_domain = 4
+ruling = "recorded external gap; no task regenerates the consumer until the artefact is committed"
+
+[gap.3]
+artefact = "launchpad/spec/production-system/integration/contracts/v2/openapi.json"
+consumer = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+owner_domain = 4
+ruling = "recorded external gap; no task regenerates the consumer until the artefact is committed"
+
+[gap.4]
+artefact = "launchpad/spec/production-system/integration/contracts/v2/asyncapi.json"
+consumer = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+owner_domain = 4
+ruling = "recorded external gap; no task regenerates the consumer until the artefact is committed"
+
+[gap.5]
+artefact = "launchpad/spec/production-system/spec.kvx"
+consumer = "tools/launchpad/production/qualify.py"
+owner_domain = 4
+ruling = "recorded external gap; no task regenerates the consumer until the artefact is committed"
+
+[gap.6]
+artefact = "launchpad/evidence"
+consumer = "tools/launchpad/production/qualify.py"
+owner_domain = 4
+ruling = "recorded external gap; no task regenerates the consumer until the artefact is committed"
+
+[gap.7]
+artefact = "launchpad/spec/production-system/handoffs"
+consumer = "services/launchpad/user/internal/account/account_test.go"
+owner_domain = 4
+ruling = "recorded external gap; no task regenerates the consumer until the artefact is committed"
+
+[gap.8]
+artefact = "launchpad/spec/production-system/integration/migrations"
+consumer = "services/launchpad/api/internal/rest/production_integration_test.go"
+owner_domain = 4
+ruling = "recorded external gap; no task regenerates the consumer until the artefact is committed"
