@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	proofcodec "github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
+	ledgerkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -123,9 +124,14 @@ func newPrecompileViewFixture(t *testing.T) *precompileViewFixture {
 	f.grant = append(append([]byte(nil), f.grantID[:]...), body...)
 	f.grant = append(f.grant, ed25519.Sign(f.private, f.grantID[:])...)
 	require.NoError(t, types.ValidateIssueGrantPayload(f.grant))
-	f.execute(t, f.private, 0x00010007, 5, f.grant, [32]byte{})
-	f.execute(t, f.private, 0x00010008, 6, types.EncodeRevokeGrantPayload(f.grantID, 6), [32]byte{})
-	f.execute(t, f.private, 0x00010002, 7, types.EncodePausePayload(f.asset), [32]byte{})
+	// Decision 2340: even a well-formed grant never reaches the kernel.
+	before := storeSnapshot(t, f.ctx.KVStore(f.hostKey))
+	_, err = f.keeper.IssueGrant(f.ctx, ledgerkeeper.Actor{}, f.grant, [32]byte{})
+	require.ErrorIs(t, err, types.ErrNoPayerGrant)
+	_, err = f.keeper.RevokeGrant(f.ctx, ledgerkeeper.Actor{}, f.grantID, 5, [32]byte{})
+	require.ErrorIs(t, err, types.ErrNoPayerGrant)
+	require.Equal(t, before, storeSnapshot(t, f.ctx.KVStore(f.hostKey)))
+	f.execute(t, f.private, 0x00010002, 5, types.EncodePausePayload(f.asset), [32]byte{})
 	return f
 }
 
@@ -152,11 +158,6 @@ func (f *precompileViewFixture) cases(t *testing.T) []precompileViewCase {
 	owner, err := f.keeper.AccountOwner(f.ctx, f.account)
 	require.NoError(t, err)
 	require.Equal(t, f.owner, owner)
-	grant, err := f.keeper.GetPayerGrant(f.ctx, f.grantID)
-	require.NoError(t, err)
-	require.Equal(t, f.grant, grant.Grant)
-	require.True(t, grant.Revoked)
-	require.NotZero(t, grant.RevokedAt)
 	sequence, err := f.keeper.NextSequence(f.ctx, f.key, f.asset)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), sequence)
@@ -168,10 +169,7 @@ func (f *precompileViewFixture) cases(t *testing.T) []precompileViewCase {
 		{"totalUnits", []interface{}{f.asset}, []interface{}{total.BigInt()}},
 		{"accountId", []interface{}{f.key, f.asset}, []interface{}{f.account}},
 		{"accountOwner", []interface{}{f.account}, []interface{}{owner}},
-		{"getPayerGrant", []interface{}{f.grantID}, []interface{}{grant.Grant,
-			new(big.Int).SetBytes(grant.DrawnTotal.BigInt().FillBytes(make([]byte, 32))),
-			new(big.Int).SetBytes(grant.DrawnThisPeriod.BigInt().FillBytes(make([]byte, 32))),
-			grant.WindowStart, grant.RevokedAt, grant.Revoked, grant.InvoiceSettled}},
+		{"getPayerGrant", []interface{}{f.grantID}, nil},
 		{"nextSequence", []interface{}{f.key, f.asset}, []interface{}{sequence}},
 	}
 }
@@ -195,6 +193,11 @@ func (f *precompileViewFixture) assertView(t *testing.T, caller common.Address, 
 	require.Equal(t, ledgerBefore, storeSnapshot(t, f.ctx.KVStore(f.storeKey)))
 	require.Len(t, f.ctx.EventManager().Events(), eventsBefore)
 	require.Len(t, f.stateDB.GetAllLogs(), logsBefore)
+	if view.name == "getPayerGrant" {
+		require.ErrorIs(t, err, vm.ErrExecutionReverted)
+		assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
+		return
+	}
 	require.NoError(t, err, "view %s: return data %x", view.name, data)
 	method := f.precompile.GetABI().Methods[view.name]
 	require.True(t, method.IsConstant())
