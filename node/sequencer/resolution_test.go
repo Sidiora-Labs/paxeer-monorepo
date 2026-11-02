@@ -26,10 +26,13 @@ import (
 )
 
 // resolutionMerged runs resolutionBlockGas and records the merge plan as done at the genesis
-// height, so the block at openHeight is sequenced.
+// height and persists the sequencing boundary, so the block at openHeight is sequenced.
 func resolutionMerged(ctx sdk.Context, a *app.App) {
 	resolutionBlockGas(ctx, a)
 	a.UpgradeKeeper.SetDone(ctx, app.MergeUpgrade)
+	if err := a.SequencerKeeper.SetActivationHeight(ctx, ctx.BlockHeight()+1); err != nil {
+		panic(err)
+	}
 }
 
 // resolutionBatch signs the MsgSequenceBatch of a sealed batch with the test receipt key and
@@ -175,6 +178,8 @@ func TestResolutionBatchInjection(t *testing.T) {
 	require.Equal(t, uint64(40), decoded.ToSeq)
 	require.Equal(t, root[:], decoded.TxRoot)
 	require.Equal(t, batch.LastSeqHash[:], decoded.LastSeqHash)
+	_, err = app.DecodeSequenceBatch(block[0][:len(block[0])-1])
+	require.Error(t, err, "consumer must refuse a truncated real producer batch")
 
 	at := time.UnixMilli(batch.TimestampMs).UTC()
 	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, resolutionProposal(t, rh.app, openHeight, at, block))
@@ -203,6 +208,8 @@ func TestResolutionNonceQueue(t *testing.T) {
 	rh.app.SetOpenBlock(rh.exec)
 	nonces := resolutionOpenNonces{a: rh.app}
 	require.Equal(t, uint64(7), nonces.EvmNonce(sender.EvmAddress))
+	require.Equal(t, uint64(7), nonces.EvmNonce(sender.EvmAddress))
+	require.Zero(t, rh.app.EvmKeeper.GetNonce(rh.committedCtx(), sender.EvmAddress))
 
 	type issued struct{ nonce, seq uint64 }
 	var receipts []issued
@@ -331,8 +338,9 @@ func TestResolutionActivationHeight(t *testing.T) {
 	require.False(t, h.app.Sequenced(ctx, 1))
 	require.False(t, h.app.Sequenced(ctx, 1_000_000))
 
-	// The block that applies the merge plan is not sequenced; every block after it is.
+	// The persisted activation boundary starts after the block applying the merge plan.
 	h.app.UpgradeKeeper.SetDone(ctx.WithBlockHeight(999), app.MergeUpgrade)
+	require.NoError(t, h.app.SequencerKeeper.SetActivationHeight(ctx, 1000))
 	require.False(t, h.app.Sequenced(ctx, 998))
 	require.False(t, h.app.Sequenced(ctx, 999))
 	require.True(t, h.app.Sequenced(ctx, 1000))

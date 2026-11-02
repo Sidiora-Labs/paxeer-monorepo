@@ -139,6 +139,41 @@ func TestChainsPrecompileRegistersMergeConstructor(t *testing.T) {
 	require.Len(t, a.Events, 4)
 }
 
+func TestChainByNameReturnsZeroForAnUnusedName(t *testing.T) {
+	h := newChainsHarness(t)
+	address := common.HexToAddress("0x000000000000000000000000000000000000101E")
+	require.Equal(t, address, h.precompile.Address())
+	require.Equal(t, []interface{}{uint32(0)}, h.read(t, "chainCount"))
+	a := h.precompile.GetABI()
+	lookup := func(name string, id uint32) {
+		t.Helper()
+		input, err := a.Pack("chainByName", name)
+		require.NoError(t, err)
+		output, _, err := h.evm.StaticCall(h.caller, address, input, 2000000)
+		require.NoError(t, err)
+		expected := make([]byte, 32)
+		new(big.Int).SetUint64(uint64(id)).FillBytes(expected)
+		require.Equal(t, expected, output)
+		values, err := a.Methods["chainByName"].Outputs.Unpack(output)
+		require.NoError(t, err)
+		require.Equal(t, []interface{}{id}, values)
+	}
+	lookup("unused-name", 0)
+	input, err := a.Pack("getChain", uint32(0))
+	require.NoError(t, err)
+	_, _, err = h.evm.StaticCall(h.caller, address, input, 2000000)
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+
+	id := h.create(t)
+	lookup("demo", id)
+	lookup("unused-name", 0)
+	_, _, err = h.call(t, h.caller, big.NewInt(0), "retireChain", id)
+	require.NoError(t, err)
+	require.Equal(t, uint8(4), h.read(t, "getChain", id)[3])
+	lookup("demo", id)
+	lookup("unused-name", 0)
+}
+
 func TestChainsPrecompileCreatesReadsAndPausesAChain(t *testing.T) {
 	h := newChainsHarness(t)
 	before := h.app.BankKeeper.GetBalance(h.db.Ctx(), sdk.AccAddress(h.caller.Bytes()), h.app.EvmKeeper.GetBaseDenom(h.db.Ctx())).Amount
