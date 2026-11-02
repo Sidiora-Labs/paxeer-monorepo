@@ -19,13 +19,19 @@ const { ethers } = require("hardhat");
 const fs = require("fs");
 const path = require("path");
 
+async function qualifyUpgrade() {
+  return require("./lib/upgrade-preflight").runUpgradePreflight([process.env.CONTRACT]);
+}
+
 async function main() {
-  const upgradePlan = await require("./lib/upgrade-preflight").upgradePreflight([process.env.CONTRACT]);
+  const upgradePlan = await qualifyUpgrade();
   const contractName = process.env.CONTRACT;
   const isBeacon = process.env.BEACON === "true";
 
   if (!contractName) {
-    console.error("❌ CONTRACT env var not set. Example: CONTRACT=Router npx hardhat run scripts/upgrade.js");
+    console.error(
+      "❌ CONTRACT env var not set. Example: CONTRACT=Router npx hardhat run scripts/upgrade.js"
+    );
     process.exit(1);
   }
 
@@ -34,7 +40,12 @@ async function main() {
   console.log(`   Deployer: ${deployer.address}`);
   console.log(`   Mode:     ${isBeacon ? "Beacon upgrade (all pools)" : "UUPS proxy upgrade"}\n`);
 
-  const addrPath = path.join(__dirname, "..", "deployments", require("./lib/operations").networkName() + "-addresses.json");
+  const addrPath = path.join(
+    __dirname,
+    "..",
+    "deployments",
+    require("./lib/operations").networkName() + "-addresses.json"
+  );
   if (!fs.existsSync(addrPath)) {
     throw new Error(`Addresses file not found: ${addrPath}\nRun deploy.js first.`);
   }
@@ -47,7 +58,7 @@ async function main() {
   const newImpl = await Factory.deploy();
   await newImpl.waitForDeployment();
   const newImplAddr = await newImpl.getAddress();
-    await require("./lib/operations").checkpointDeployment(newImplAddr, "newImpl");
+  await require("./lib/operations").checkpointDeployment(newImplAddr, "newImpl");
   console.log(`  New impl: ${newImplAddr}`);
 
   if (isBeacon) {
@@ -106,9 +117,12 @@ async function main() {
   console.log(`  Addresses file updated.\n`);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error("❌ Upgrade failed:", error);
-    process.exit(1);
-  });
+module.exports = { main, qualifyUpgrade };
+
+if (require.main === module)
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error("❌ Upgrade failed:", error);
+      process.exit(1);
+    });

@@ -37,12 +37,14 @@ function planCreationFee({ code, params, fee, authority }) {
 }
 
 async function main() {
-  const addrPath = path.join(
-    __dirname,
-    "..",
-    "deployments",
-    require("./lib/operations").networkName() + "-addresses.json"
-  );
+  const addrPath =
+    process.env.LAUNCHPAD_MANIFEST ||
+    path.join(
+      __dirname,
+      "..",
+      "deployments",
+      require("./lib/operations").networkName() + "-addresses.json"
+    );
   if (!fs.existsSync(addrPath)) {
     throw new Error(`Addresses file not found: ${addrPath}\nRun deploy.js first.`);
   }
@@ -104,10 +106,11 @@ async function main() {
   // Verify
   const updatedFee = await config.creationFee();
   console.log(`   Verified fee:     ${ethers.formatUnits(updatedFee, 6)} USDL`);
+  if (updatedFee !== newFee) throw new Error("Creation fee postcondition failed");
   console.log(`\n   ✅ Creation fee updated to $1 USDL\n`);
 }
 
-module.exports = { planCreationFee };
+module.exports = { planCreationFee, main };
 
 if (require.main === module) {
   main()

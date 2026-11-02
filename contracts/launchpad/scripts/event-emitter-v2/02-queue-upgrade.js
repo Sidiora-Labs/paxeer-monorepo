@@ -68,21 +68,22 @@ function loadAddresses(network) {
   }
   throw new Error(
     `No addresses file found for network "${network}". Looked in:\n` +
-    candidates.map((c) => `   ${c}`).join("\n")
+      candidates.map((c) => `   ${c}`).join("\n")
   );
 }
 
 function loadImplRecord(network) {
   const p = path.join(networkDir(network), "EventEmitterV2Impl.json");
-  requireFile(
-    p,
-    "Run scripts/event-emitter-v2/01-deploy-impl.js first (or set IMPL_ADDRESS env)."
-  );
+  requireFile(p, "Run scripts/event-emitter-v2/01-deploy-impl.js first (or set IMPL_ADDRESS env).");
   return readJson(p);
 }
 
+async function qualifyUpgrade() {
+  return require("../lib/upgrade-preflight").runUpgradePreflight(["EventEmitter"]);
+}
+
 async function main() {
-  await require("../lib/upgrade-preflight").upgradePreflight(["EventEmitter"]);
+  await qualifyUpgrade();
   const network = hre.network.name;
   const [signer] = await ethers.getSigners();
   const chainId = Number((await ethers.provider.getNetwork()).chainId);
@@ -142,14 +143,16 @@ async function main() {
   if (proposer.toLowerCase() !== signer.address.toLowerCase()) {
     throw new Error(
       `Signer ${signer.address} is NOT the Timelock proposer (${proposer}).\n` +
-      `  Switch PRIVATE_KEY or run from the proposer wallet.`
+        `  Switch PRIVATE_KEY or run from the proposer wallet.`
     );
   }
 
   const buffer = BigInt(process.env.BUFFER_SECONDS || "60");
   const block = await ethers.provider.getBlock("latest");
   const eta = BigInt(block.timestamp) + minDelay + buffer;
-  console.log(`  Now:               ${block.timestamp} (${new Date(block.timestamp * 1000).toISOString()})`);
+  console.log(
+    `  Now:               ${block.timestamp} (${new Date(block.timestamp * 1000).toISOString()})`
+  );
   console.log(`  Eta (queue):       ${eta} (${new Date(Number(eta) * 1000).toISOString()})`);
   console.log(`  Buffer:            ${buffer}s above minDelay`);
 
@@ -174,7 +177,7 @@ async function main() {
   if (!queued) {
     throw new Error(
       `Post-tx check failed: queuedTransactions[${queuedTxHash}] = false. ` +
-      `The transaction reverted silently (impossible) or address mismatch.`
+        `The transaction reverted silently (impossible) or address mismatch.`
     );
   }
   console.log("  ✅ Confirmed queued in Timelock mapping");
@@ -212,13 +215,18 @@ async function main() {
   console.log("\n══════════════════════════════════════════════════════════════════");
   console.log(`  ✅ Step 02 complete.`);
   console.log(`  Wait until ${record.etaIso} then run:`);
-  console.log(`     npx hardhat run scripts/event-emitter-v2/03-execute-upgrade.js --network ${network}`);
+  console.log(
+    `     npx hardhat run scripts/event-emitter-v2/03-execute-upgrade.js --network ${network}`
+  );
   console.log("══════════════════════════════════════════════════════════════════\n");
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((err) => {
-    console.error("❌ 02-queue-upgrade failed:", err);
-    process.exit(1);
-  });
+module.exports = { main, qualifyUpgrade };
+
+if (require.main === module)
+  main()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error("❌ 02-queue-upgrade failed:", err);
+      process.exit(1);
+    });

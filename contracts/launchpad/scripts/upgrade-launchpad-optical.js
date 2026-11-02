@@ -22,8 +22,12 @@ const { ethers } = require("hardhat");
 const fs = require("fs");
 const path = require("path");
 
+async function qualifyUpgrade() {
+  return require("./lib/upgrade-preflight").runUpgradePreflight(["FeeAccumulator"]);
+}
+
 async function main() {
-  await require("./lib/upgrade-preflight").upgradePreflight(["FeeAccumulator"]);
+  await qualifyUpgrade();
   const [deployer] = await ethers.getSigners();
   const balance = await ethers.provider.getBalance(deployer.address);
   console.log(`\n🚀 Upgrade FeeAccumulator + Deploy LaunchpadOptical`);
@@ -32,7 +36,12 @@ async function main() {
   console.log(`   Network:   ${(await ethers.provider.getNetwork()).chainId}\n`);
 
   // ─── Load existing addresses ───
-  const addrPath = path.join(__dirname, "..", "deployments", require("./lib/operations").networkName() + "-addresses.json");
+  const addrPath = path.join(
+    __dirname,
+    "..",
+    "deployments",
+    require("./lib/operations").networkName() + "-addresses.json"
+  );
   if (!fs.existsSync(addrPath)) {
     throw new Error(`Addresses file not found: ${addrPath}\nRun deploy.js first.`);
   }
@@ -55,7 +64,7 @@ async function main() {
   const newAccImpl = await FeeAccFactory.deploy();
   await newAccImpl.waitForDeployment();
   const newAccImplAddr = await newAccImpl.getAddress();
-    await require("./lib/operations").checkpointDeployment(newAccImplAddr, "newAccImpl");
+  await require("./lib/operations").checkpointDeployment(newAccImplAddr, "newAccImpl");
   console.log(`  New impl deployed: ${newAccImplAddr}`);
 
   const accProxy = FeeAccFactory.attach(FEE_ACC_PROXY);
@@ -86,7 +95,7 @@ async function main() {
   const lofImpl = await LOFFactory.deploy();
   await lofImpl.waitForDeployment();
   const lofImplAddr = await lofImpl.getAddress();
-    await require("./lib/operations").checkpointDeployment(lofImplAddr, "lofImpl");
+  await require("./lib/operations").checkpointDeployment(lofImplAddr, "lofImpl");
   console.log(`  Impl deployed: ${lofImplAddr}`);
 
   const lofInitData = LOFFactory.interface.encodeFunctionData("initialize", [
@@ -98,7 +107,7 @@ async function main() {
   const lofProxy = await Proxy.deploy(lofImplAddr, lofInitData);
   await lofProxy.waitForDeployment();
   const lofProxyAddr = await lofProxy.getAddress();
-    await require("./lib/operations").checkpointDeployment(lofProxyAddr, "lofProxy");
+  await require("./lib/operations").checkpointDeployment(lofProxyAddr, "lofProxy");
   console.log(`  ✅ LaunchpadOpticalFactory proxy: ${lofProxyAddr}`);
 
   addresses.LaunchpadOpticalFactory_impl = lofImplAddr;
@@ -169,9 +178,12 @@ async function main() {
   console.log(``);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error("❌ Upgrade failed:", error);
-    process.exit(1);
-  });
+module.exports = { main, qualifyUpgrade };
+
+if (require.main === module)
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error("❌ Upgrade failed:", error);
+      process.exit(1);
+    });

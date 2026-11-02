@@ -75,8 +75,12 @@ async function tryVerify(address) {
   }
 }
 
+async function qualifyUpgrade() {
+  return require("../lib/upgrade-preflight").runUpgradePreflight(["EventEmitter"]);
+}
+
 async function main() {
-  await require("../lib/upgrade-preflight").upgradePreflight(["EventEmitter"]);
+  await qualifyUpgrade();
   const network = hre.network.name;
   const [deployer] = await ethers.getSigners();
   const chainId = Number((await ethers.provider.getNetwork()).chainId);
@@ -99,9 +103,15 @@ async function main() {
     const code = await ethers.provider.getCode(existing.address);
     const artifact = await hre.artifacts.readArtifact("EventEmitter");
     if (existing.chainId !== chainId) throw new Error("Implementation record chain mismatch");
-    if (ethers.keccak256(code) !== ethers.keccak256(artifact.deployedBytecode)) throw new Error("Implementation runtime differs from artifact");
+    if (ethers.keccak256(code) !== ethers.keccak256(artifact.deployedBytecode))
+      throw new Error("Implementation runtime differs from artifact");
     const existingImpl = Factory.attach(existing.address);
-    if (await existingImpl.VERSION() !== "2.0.0" || await existingImpl.proxiableUUID() !== "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc") throw new Error("Implementation identity probe failed");
+    if (
+      (await existingImpl.VERSION()) !== "2.0.0" ||
+      (await existingImpl.proxiableUUID()) !==
+        "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+    )
+      throw new Error("Implementation identity probe failed");
     if (code && code !== "0x") {
       console.log("\n  ✅ Existing v2 impl matches current bytecode — reusing.");
       console.log(`     Address: ${existing.address}`);
@@ -122,7 +132,7 @@ async function main() {
   // ethers v6 returns the contract instance, not a receipt — fetch the receipt manually.
   const txReceipt = await ethers.provider.getTransactionReceipt(deployTx.hash);
   const address = await impl.getAddress();
-    await require("../lib/operations").checkpointDeployment(address, "impl");
+  await require("../lib/operations").checkpointDeployment(address, "impl");
   console.log(`    addr:  ${address}`);
   console.log(`    block: ${txReceipt.blockNumber}`);
   console.log(`    gas:   ${txReceipt.gasUsed.toString()}`);
@@ -130,14 +140,18 @@ async function main() {
   // ── Smoke probe: VERSION() must return "2.0.0" on the bare impl too ──
   const versionFromImpl = await impl.VERSION();
   if (versionFromImpl !== "2.0.0") {
-    throw new Error(`Sanity check failed: impl.VERSION() returned "${versionFromImpl}" (expected "2.0.0")`);
+    throw new Error(
+      `Sanity check failed: impl.VERSION() returned "${versionFromImpl}" (expected "2.0.0")`
+    );
   }
   console.log(`    VERSION(): ${versionFromImpl}`);
 
   // ── Persist ─────────────────────────────────────────────────────────
   fs.mkdirSync(networkDir(network), { recursive: true });
   const artifact = await hre.artifacts.readArtifact("EventEmitter");
-  const buildInfo = await hre.artifacts.getBuildInfo(`${artifact.sourceName}:${artifact.contractName}`);
+  const buildInfo = await hre.artifacts.getBuildInfo(
+    `${artifact.sourceName}:${artifact.contractName}`
+  );
   if (!buildInfo) throw new Error("Missing implementation compiler build identity");
   const record = {
     network,
@@ -158,7 +172,9 @@ async function main() {
     verified: false,
   };
   require("../lib/operations").atomicWrite(recordPath(network), record);
-  console.log(`\n  Recorded: ${path.relative(path.join(__dirname, "..", ".."), recordPath(network))}`);
+  console.log(
+    `\n  Recorded: ${path.relative(path.join(__dirname, "..", ".."), recordPath(network))}`
+  );
 
   // ── Verify (best-effort) ────────────────────────────────────────────
   console.log("\n  Verifying on explorer…");
@@ -173,9 +189,12 @@ async function main() {
   console.log("══════════════════════════════════════════════════════════════════\n");
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((err) => {
-    console.error("❌ 01-deploy-impl failed:", err);
-    process.exit(1);
-  });
+module.exports = { main, qualifyUpgrade };
+
+if (require.main === module)
+  main()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error("❌ 01-deploy-impl failed:", err);
+      process.exit(1);
+    });
