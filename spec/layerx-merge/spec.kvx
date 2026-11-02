@@ -213909,7 +213909,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1498.1]
 title = "Issue #1498: Decode the receipt-key result object in the MCP binding qualification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
