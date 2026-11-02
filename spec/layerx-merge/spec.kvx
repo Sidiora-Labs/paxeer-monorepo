@@ -103056,7 +103056,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.6.3]
 title = "Retire the state diff encoding once DA and replica users leave"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 45
 requires = ["1.0.1", "16.2.1", "16.2.4", "1.34.1", "1.34.2", "1.33.3", "6.96.5"]
@@ -106361,7 +106361,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.34.4]
 title = "Retire verified DA body storage in src/storage/lxp_da_verified.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.7", "16.32.9", "16.32.11", "6.96.5"]
