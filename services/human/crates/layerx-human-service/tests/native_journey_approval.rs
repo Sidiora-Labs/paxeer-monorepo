@@ -684,12 +684,25 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
         let durable_key = checked(layerx_agentd::prepare::DurablePreparation::store_key(
             &tenant, approval,
         ));
-        let durable = checked(layerx_agentd::prepare::DurablePreparation::decode(
-            tenant,
+        let retained = daemon
+            .get(&durable_key)
+            .expect("actual durable held approval")
+            .bytes()
+            .to_vec();
+        drop(daemon);
+        let daemon = checked(layerx_agentd::store::Store::open(text(
+            &fixture,
+            "agent_store",
+        )));
+        assert_eq!(
             daemon
                 .get(&durable_key)
-                .expect("actual durable held approval")
+                .expect("held approval after reopening store")
                 .bytes(),
+            retained
+        );
+        let durable = checked(layerx_agentd::prepare::DurablePreparation::decode(
+            tenant, &retained,
         ));
         assert_eq!(
             durable.state,

@@ -715,6 +715,8 @@ pub(super) fn payload_sequence(call: &Eip1559Call) -> Result<Option<u64>, Disclo
 /// # Errors
 /// Refuses unknown targets or selectors, noncanonical ABI, invalid payloads,
 /// trailing data, and a maximum transaction fee that overflows uint128.
+/// The sender is part of the disclosure, although EIP-1559 encodes it only through
+/// signature recovery. Signing must therefore also bind the selected key to it.
 pub fn bind_call(call: &Eip1559Call, from: [u8; 20]) -> Result<Disclosure, DisclosureError> {
     let fields = fields(call, from)?;
     Ok(Disclosure {
@@ -739,6 +741,21 @@ pub fn bind_call(call: &Eip1559Call, from: [u8; 20]) -> Result<Disclosure, Discl
         budget_context: None,
         call_sender: Some(from),
     })
+}
+
+/// Validates a consumer's retained disclosure against the exact prepared call.
+///
+/// # Errors
+/// Refuses unsupported or malformed calls and any changed disclosure or sender.
+pub fn validate_call(
+    call: &Eip1559Call,
+    disclosure: &Disclosure,
+    from: [u8; 20],
+) -> Result<(), DisclosureError> {
+    if &bind_call(call, from)? != disclosure {
+        return Err(DisclosureError::FieldMismatch("call"));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
