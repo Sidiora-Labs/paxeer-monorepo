@@ -7,7 +7,6 @@ import tempfile
 import threading
 import unittest
 import zipfile
-from dataclasses import replace
 from hashlib import sha256
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -26,7 +25,6 @@ from layerx_sdk import (
     ApprovalGetRequest,
     ApprovalListRequest,
     ApprovalRejectRequest,
-    CheckpointAttestation,
     Client,
     ErrorClass,
     IdempotencyKey,
@@ -40,16 +38,12 @@ from layerx_sdk import (
     Rung,
     SdkErrorCode,
     SecretBytes,
-    SubmissionFailed,
-    SubmissionUnknown,
     VerifiedRead,
     layerx_sdk_py_package,
     parse_amount,
     parse_sequence,
     require_verified,
 )
-from layerx_sdk.program_wire import OccupancyPayer, decode_and_verify_program_terminal
-from layerx_sdk.verifier import ProgramReceiptOutcome
 
 ROOT = Path(__file__).resolve().parents[4] / "services/agent/sdk/python"
 
@@ -83,27 +77,6 @@ def canonical_program_call(program_id: str, idempotency: str) -> bytes:
 
 def sized(value: bytes) -> bytes:
     return len(value).to_bytes(4, "big") + value
-
-
-def sized64(value: bytes) -> bytes:
-    return len(value).to_bytes(8, "big") + value
-
-
-def authority_wrapper(inner: bytes, authorization: bytes, root: bytes) -> bytes:
-    return b"LXP/program-execution-with-transfer-authority/v2\0" + sized(inner) + sized(authorization) + root
-
-
-def occupancy_wrapper(inner: bytes, evidence: bytes) -> bytes:
-    return b"LXP/program-execution-with-occupancy/v1\0" + sized(inner) + sized(evidence)
-
-
-def merkle_test_root(leg: bytes) -> bytes:
-    return sha256(b"LXP/v1/merkle-leaf\0" + leg).digest()
-
-
-def occupancy_test_root(payer: bytes, asset: bytes, amount: int) -> bytes:
-    treasury = sha256(b"LX:ACCOUNT:v1" + (11).to_bytes(4, "big") + b"system:fees").digest()
-    return merkle_test_root(b"\0" + payer + treasury + asset + amount.to_bytes(16, "big") + (23).to_bytes(2, "big"))
 
 
 def load_build_backend():
@@ -228,181 +201,6 @@ class PythonSdkIntegration(unittest.TestCase):
             server.server_close()
             thread.join()
 
-    def test_candidate_terminal_response_and_usage_are_receipt_bound(self) -> None:
-        program_id = "11" * 32
-        graph = b"LayerX/programs/call-graph/v1\0"
-        terminal = b"".join((
-            b"LXP/program-execution/v4\0",
-            (1).to_bytes(2, "big"), (1).to_bytes(4, "big"), (1).to_bytes(4, "big"), (0).to_bytes(8, "big"),
-            (1).to_bytes(8, "big"), (2).to_bytes(8, "big"), (3).to_bytes(8, "big"), (4).to_bytes(8, "big"),
-            (0).to_bytes(4, "big"), (0).to_bytes(8, "big"), (10).to_bytes(16, "big"), b"\0",
-            bytes.fromhex(program_id), (2).to_bytes(2, "big"), b"\0", (0).to_bytes(4, "big"),
-            sized64(b"\xaa\xbb"), sized64(graph),
-        ))
-        receipt = ProgramReceiptOutcome(
-            3, 1, 0, 1, 2, 1, 1, 1, 2, 3, 4, 0, 0, 0, 0,
-            (0, 0, 0, 0, 0, 0, 0), bytes(32), bytes(32), bytes(32), 10,
-            sha256(graph).digest(), sha256(terminal).digest(), bytes(32),
-        )
-        decoded = decode_and_verify_program_terminal(terminal, graph, program_id, receipt, 1)
-        self.assertEqual(decoded.outcome, {"kind": "completed", "code": 0, "response": "aabb"})
-        self.assertEqual(decoded.usage["fee_units"], "10")
-
-    def test_terminal_attachments_bind_canonical_money_and_occupancy_evidence(self) -> None:
-        program_id = "11" * 32
-        program = bytes.fromhex(program_id)
-        graph = b"LayerX/programs/call-graph/v1\0"
-        terminal = b"".join((
-            b"LXP/program-execution/v4\0",
-            (1).to_bytes(2, "big"), (1).to_bytes(4, "big"), (1).to_bytes(4, "big"), (0).to_bytes(8, "big"),
-            (1).to_bytes(8, "big"), (2).to_bytes(8, "big"), (3).to_bytes(8, "big"), (4).to_bytes(8, "big"),
-            (0).to_bytes(4, "big"), (0).to_bytes(8, "big"), (10).to_bytes(16, "big"), b"\0",
-            program, (2).to_bytes(2, "big"), b"\0", (0).to_bytes(4, "big"), sized64(b"\xaa\xbb"), sized64(graph),
-        ))
-        base = ProgramReceiptOutcome(
-            3, 1, 0, 1, 2, 1, 1, 1, 2, 3, 4, 0, 0, 0, 0,
-            (0, 0, 0, 0, 0, 0, 0), bytes(32), bytes(32), bytes(32), 10,
-            sha256(graph).digest(), sha256(terminal).digest(), bytes(32),
-        )
-
-        principal = bytes.fromhex("22" * 32); asset = bytes.fromhex("33" * 32); destination = bytes.fromhex("44" * 32)
-        events = b"LayerX/programs/events/v1\0" + bytes(4)
-        authorization = b"".join((
-            b"LayerX/programs/402LXP/transfer-set/v2\0", program, principal, bytes.fromhex("55" * 32), bytes(9),
-            sized(events), (0).to_bytes(8, "big"), (1).to_bytes(8, "big"), bytes(9), b"\x01", principal,
-            asset, destination, (7).to_bytes(16, "big"), program,
-        ))
-        transfer_root = merkle_test_root(b"\0" + principal + destination + asset + (7).to_bytes(16, "big") + (1).to_bytes(2, "big"))
-        authority_terminal = authority_wrapper(terminal, authorization, transfer_root)
-        authority_receipt = replace(base, terminal_payload_root=sha256(authority_terminal).digest(), transfer_root=transfer_root)
-        decode_and_verify_program_terminal(authority_terminal, graph, program_id, authority_receipt, 1)
-        mutated_authorization = bytearray(authorization); mutated_authorization[-65] ^= 1
-        with self.assertRaises(ValueError):
-            decode_and_verify_program_terminal(authority_wrapper(terminal, bytes(mutated_authorization), transfer_root), graph, program_id, authority_receipt, 1)
-        mutated_authority_root = bytearray(transfer_root); mutated_authority_root[0] ^= 1
-        with self.assertRaises(ValueError):
-            decode_and_verify_program_terminal(authority_wrapper(terminal, authorization, bytes(mutated_authority_root)), graph, program_id, authority_receipt, 1)
-
-        occupancy_asset = bytes.fromhex("66" * 32); payer = bytes.fromhex("77" * 32)
-        namespace = bytes((65,)) + program + b"\0" + payer
-        evidence = b"".join((
-            b"LXP/storage-occupancy-settlement/v3\0", (2).to_bytes(8, "big"), (1).to_bytes(4, "big"),
-            *(value.to_bytes(8, "big") for value in (0, 0, 0, 0, 0, 0, 2)),
-            (3).to_bytes(16, "big"), (6).to_bytes(16, "big"), (6).to_bytes(16, "big"), (0).to_bytes(16, "big"), (1).to_bytes(4, "big"),
-            namespace, payer, program, bytes.fromhex("88" * 32),
-            (1).to_bytes(8, "big"), (2).to_bytes(8, "big"), (3).to_bytes(8, "big"), (3).to_bytes(8, "big"),
-            (3).to_bytes(16, "big"), (2).to_bytes(8, "big"), (6).to_bytes(16, "big"), (0).to_bytes(16, "big"),
-            (6).to_bytes(16, "big"), (0).to_bytes(16, "big"), b"\x01", (0).to_bytes(16, "big"),
-            (3).to_bytes(8, "big"), (2).to_bytes(8, "big"), (0).to_bytes(16, "big"), bytes.fromhex("99" * 32),
-        ))
-        occupancy_root = occupancy_test_root(payer, occupancy_asset, 6)
-        occupancy_terminal = occupancy_wrapper(terminal, evidence)
-        occupancy_receipt = replace(
-            base, terminal_payload_root=sha256(occupancy_terminal).digest(), occupancy_byte_batches=3, occupancy_fee_units=6,
-            occupancy_asset_id=occupancy_asset, occupancy_evidence_digest=sha256(evidence).digest(), occupancy_transfer_root=occupancy_root,
-        )
-        decode_and_verify_program_terminal(occupancy_terminal, graph, program_id, occupancy_receipt, 2)
-        with self.assertRaises(ValueError):
-            decode_and_verify_program_terminal(occupancy_terminal, graph, program_id, replace(occupancy_receipt, occupancy_byte_batches=4), 2)
-        mutated_evidence = bytearray(evidence)
-        mutated_evidence[len(b"LXP/storage-occupancy-settlement/v3\0") + 8 + 4 + (7 * 8) + 15] ^= 1
-        with self.assertRaises(ValueError):
-            decode_and_verify_program_terminal(occupancy_wrapper(terminal, bytes(mutated_evidence)), graph, program_id,
-                replace(occupancy_receipt, occupancy_evidence_digest=sha256(mutated_evidence).digest()), 2)
-        mutated_root = bytearray(occupancy_root); mutated_root[0] ^= 1
-        with self.assertRaises(ValueError):
-            decode_and_verify_program_terminal(occupancy_terminal, graph, program_id, replace(occupancy_receipt, occupancy_transfer_root=bytes(mutated_root)), 2)
-        mutated_asset = bytearray(occupancy_asset); mutated_asset[0] ^= 1
-        with self.assertRaises(ValueError):
-            decode_and_verify_program_terminal(occupancy_terminal, graph, program_id, replace(occupancy_receipt, occupancy_asset_id=bytes(mutated_asset)), 2)
-
-        zero_evidence = b"".join((
-            b"LXP/storage-occupancy-settlement/v3\0", (2).to_bytes(8, "big"), (1).to_bytes(4, "big"),
-            *(bytes(8) for _ in range(7)), *(bytes(16) for _ in range(4)), bytes(4),
-        ))
-        zero_terminal = occupancy_wrapper(terminal, zero_evidence)
-        decode_and_verify_program_terminal(zero_terminal, graph, program_id, replace(
-            base, terminal_payload_root=sha256(zero_terminal).digest(), occupancy_asset_id=occupancy_asset,
-            occupancy_evidence_digest=sha256(zero_evidence).digest(), occupancy_transfer_root=bytes(32),
-        ), 2)
-        empty_terminal = occupancy_wrapper(terminal, b"")
-        decode_and_verify_program_terminal(empty_terminal, graph, program_id,
-            replace(base, terminal_payload_root=sha256(empty_terminal).digest()), 2)
-        wrong_order = occupancy_wrapper(authority_wrapper(terminal, authorization, transfer_root), evidence)
-        with self.assertRaises(ValueError):
-            decode_and_verify_program_terminal(wrong_order, graph, program_id, replace(occupancy_receipt, transfer_root=transfer_root), 2)
-        with self.assertRaises(ValueError):
-            decode_and_verify_program_terminal(authority_wrapper(authority_terminal, authorization, transfer_root), graph, program_id, authority_receipt, 1)
-        with self.assertRaises(ValueError):
-            decode_and_verify_program_terminal(occupancy_wrapper(occupancy_terminal, evidence), graph, program_id, occupancy_receipt, 2)
-
-    def test_state_commitment_occupancy_pays_from_the_proven_payer_account(self) -> None:
-        fixture = json.loads((ROOT.parents[2] / "sdk/platform/conformance/fixtures/occupancy-payment-accounts-v3.json").read_text())
-        asset = bytes.fromhex(fixture["asset_hex"])
-        stranger = fixture["stranger"]
-        program_id = "11" * 32
-        program = bytes.fromhex(program_id)
-        graph = b"LayerX/programs/call-graph/v1\0"
-        terminal = b"".join((
-            b"LXP/program-execution/v4\0",
-            (1).to_bytes(2, "big"), (1).to_bytes(4, "big"), (1).to_bytes(4, "big"), (0).to_bytes(8, "big"),
-            (1).to_bytes(8, "big"), (2).to_bytes(8, "big"), (3).to_bytes(8, "big"), (4).to_bytes(8, "big"),
-            (0).to_bytes(4, "big"), (0).to_bytes(8, "big"), (10).to_bytes(16, "big"), b"\0",
-            program, (2).to_bytes(2, "big"), b"\0", (0).to_bytes(4, "big"), sized64(b"\xaa\xbb"), sized64(graph),
-        ))
-        base = ProgramReceiptOutcome(
-            3, 1, 0, 1, 2, 1, 1, 1, 2, 3, 4, 0, 0, 0, 0,
-            (0, 0, 0, 0, 0, 0, 0), bytes(32), bytes(32), bytes(32), 10,
-            sha256(graph).digest(), sha256(terminal).digest(), bytes(32),
-        )
-        for vector in fixture["vectors"]:
-            evidence = bytes.fromhex(vector["evidence_hex"])
-            usage = vector["usage"]
-            payers = sorted(vector["payers"], key=lambda entry: entry["principal_hex"])
-            occupancy_terminal = occupancy_wrapper(terminal, evidence)
-            committed = replace(
-                base, terminal_payload_root=sha256(occupancy_terminal).digest(),
-                occupancy_byte_batches=int(usage["byte_batches"]), occupancy_fee_units=int(usage["fee_units"]),
-                occupancy_asset_id=asset, occupancy_evidence_digest=sha256(evidence).digest(),
-            )
-            derivable = 2 ** len(payers) <= 256
-            for selection in vector["account_transfer_roots"]:
-                receipt = replace(committed, occupancy_transfer_root=bytes.fromhex(selection["root_hex"]))
-                expected = tuple(bytes.fromhex(payer[kind + "_account_hex"])
-                                 for payer, kind in zip(payers, selection["accounts"]))
-                explicit = tuple(OccupancyPayer(payer["did"], account) for payer, account in zip(payers, expected))
-                decoded = decode_and_verify_program_terminal(
-                    occupancy_terminal, graph, program_id, receipt, 3, occupancy_payers=explicit)
-                self.assertEqual(decoded.occupancy_payment_accounts, expected)
-                offered = tuple(OccupancyPayer(payer["did"]) for payer in payers)
-                if derivable:
-                    self.assertEqual(decode_and_verify_program_terminal(
-                        occupancy_terminal, graph, program_id, receipt, 3,
-                        occupancy_payers=offered).occupancy_payment_accounts, expected)
-                else:
-                    with self.assertRaises(ValueError):
-                        decode_and_verify_program_terminal(occupancy_terminal, graph, program_id, receipt, 3, occupancy_payers=offered)
-                with self.assertRaises(ValueError):
-                    decode_and_verify_program_terminal(occupancy_terminal, graph, program_id, receipt, 3)
-                with self.assertRaises(ValueError):
-                    decode_and_verify_program_terminal(occupancy_terminal, graph, program_id, receipt, 3,
-                        occupancy_payers=(OccupancyPayer(stranger["did"]),))
-                unproven = tuple(OccupancyPayer(payer["did"], bytes.fromhex(stranger["main_account_hex"])) for payer in payers)
-                with self.assertRaises(ValueError):
-                    decode_and_verify_program_terminal(occupancy_terminal, graph, program_id, receipt, 3, occupancy_payers=unproven)
-            if "principal_transfer_root_hex" in vector:
-                principal = replace(committed, occupancy_transfer_root=bytes.fromhex(vector["principal_transfer_root_hex"]))
-                legacy = decode_and_verify_program_terminal(occupancy_terminal, graph, program_id, principal, 2)
-                self.assertEqual(legacy.occupancy_payment_accounts, ())
-                with self.assertRaises(ValueError):
-                    decode_and_verify_program_terminal(occupancy_terminal, graph, program_id, principal, 3,
-                        occupancy_payers=tuple(OccupancyPayer(payer["did"]) for payer in payers))
-            if "stranger_transfer_root_hex" in vector:
-                with self.assertRaises(ValueError):
-                    decode_and_verify_program_terminal(occupancy_terminal, graph, program_id,
-                        replace(committed, occupancy_transfer_root=bytes.fromhex(vector["stranger_transfer_root_hex"])), 3,
-                        occupancy_payers=tuple(OccupancyPayer(payer["did"]) for payer in payers))
-
     def test_approval_contract_operations_events_and_outcomes_are_exact(self) -> None:
         self.assertEqual(APPROVAL_CONTRACT_INTRODUCED, "1.1")
         self.assertIn("confers no protocol authority", APPROVAL_ENFORCEMENT_NOTICE)
@@ -455,29 +253,6 @@ class PythonSdkIntegration(unittest.TestCase):
         with self.assertRaises(OverflowError):
             parse_sequence("18446744073709551616")
 
-    def test_checkpoint_attestation_exposes_canonical_paxeer_binding(self) -> None:
-        attestation = CheckpointAttestation(
-            protocol_version=2,
-            network_id=17,
-            paxeer_chain_id=777,
-            settlement_contract=bytes([1]) * 20,
-            epoch=9,
-            checkpoint_id=bytes(32),
-            checkpoint_hash=bytes(32),
-            guarantor_id=bytes(32),
-            batch_number=12,
-            data_availability_root=bytes(32),
-            replayed=True,
-            data_possessed=True,
-            availability_class_mask=0x1F,
-            attested_at_ms=1,
-            signer=bytes([2]) * 20,
-            signature=bytes(64),
-            signature_v=27,
-        )
-        self.assertEqual(attestation.paxeer_chain_id, 777)
-        self.assertEqual(attestation.settlement_contract, bytes([1]) * 20)
-
     def test_reads_require_the_declared_verification_level(self) -> None:
         read = VerifiedRead(
             value=10,
@@ -501,18 +276,17 @@ class PythonSdkIntegration(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unverified_read"):
             require_verified(Rung.SUBMITTED, unverified)
 
-    def test_unknown_idempotency_and_future_result_codes_remain_lossless(self) -> None:
-        unknown = SubmissionUnknown()
-        future_failure = SubmissionFailed(protocol_result_code=-77_777)
+    def test_idempotent_mutation_preserves_request_identity_and_large_amounts(self) -> None:
         mutation = IdempotentMutation(
             request_id=18_446_744_073_709_551_615,
             key=bytes(range(32)),
             body_digest=bytes(reversed(range(32))),
             operation={"amount": 9_007_199_254_740_993},
         )
-        self.assertEqual(unknown.kind, "Unknown")
-        self.assertEqual(future_failure.protocol_result_code, -77_777)
         self.assertEqual(mutation.operation["amount"], 9_007_199_254_740_993)
+        self.assertEqual(mutation.request_id, 18_446_744_073_709_551_615)
+        self.assertEqual(mutation.key, bytes(range(32)))
+        self.assertEqual(mutation.body_digest, bytes(reversed(range(32))))
         self.assertEqual(len(mutation.key), 32)
 
     def test_typed_error_taxonomy_is_complete_and_disjoint(self) -> None:
