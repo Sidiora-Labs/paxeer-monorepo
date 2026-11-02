@@ -715,7 +715,6 @@ The binary reads a disjoint `LAYERX_AGENT_*` set
 | `LAYERX_AGENT_NODE_ENDPOINT` | Node HTTP endpoint for program-balance reads |
 | `LAYERX_AGENT_AUTHORITY_ENDPOINT` | Authority HTTP endpoint |
 | `LAYERX_AGENT_AUTHORITY_REPLICA_ID` | 32-byte hex replica id |
-| `LAYERX_AGENT_SEQUENCER_TRUST_HISTORY` | Protected sequencer trust history path |
 | `LAYERX_AGENT_PROGRAM_MAX_STALENESS_MS` | Non-zero staleness bound |
 | `LAYERX_AGENT_DEPLOYMENT_JOURNAL` | Directory of `*.admission` proofs |
 | `LAYERX_AGENT_PROGRAM_PROBE_ID` | Probe program id |
