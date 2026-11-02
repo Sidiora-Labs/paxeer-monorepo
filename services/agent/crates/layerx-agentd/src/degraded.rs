@@ -163,10 +163,10 @@ impl Controller {
         metrics: &mut Metrics,
         tenant: &TenantId,
     ) -> Result<(), MetricsError> {
-        metrics.observe(
+        metrics.observe_named(
             tenant,
             MetricKind::DegradedState,
-            metric_label(self.mode),
+            metric_label(self.mode).name(),
             1,
         )
     }
@@ -341,8 +341,9 @@ const fn metric_label(mode: Mode) -> MetricLabel {
     match mode {
         Mode::Healthy => MetricLabel::BoundaryReady,
         Mode::Unreachable => MetricLabel::NodeUnavailable,
-        Mode::Behind => MetricLabel::NodeBehind,
-        Mode::Halted | Mode::Emergency => MetricLabel::ChainHalted,
-        Mode::DataUnavailable => MetricLabel::BlockUnavailable,
+        Mode::Behind => MetricLabel::BoundaryBehind,
+        Mode::Halted => MetricLabel::CoreHalted,
+        Mode::Emergency => MetricLabel::CoreEmergency,
+        Mode::DataUnavailable => MetricLabel::DataUnavailable,
     }
 }
