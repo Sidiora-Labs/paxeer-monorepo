@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+// DialStandby returns a TCP dialer bounded by both timeout and the caller's context.
+// The returned connection carries the WAL group and acknowledgement protocol.
 func DialStandby(address string, timeout time.Duration) func(ctx context.Context) (net.Conn, error) {
 	return func(ctx context.Context) (net.Conn, error) {
 		if _, _, err := net.SplitHostPort(address); err != nil {
