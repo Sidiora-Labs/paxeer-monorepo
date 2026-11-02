@@ -10,11 +10,11 @@ use layerx_agent_api::read::{Freshness, ReadRequest, RelativeTo, VerifiedRead};
 use layerx_agent_api::verify::Rung;
 use layerx_agentd::agent_rpc::MAX_BODY_BYTES;
 use layerx_agentd::export::{
-    require_frame_within_bound, ExportProduceError, ExportTrustSource, MAX_EXPORT_BYTES,
+    require_frame_within_bound, ExportProduceError, ExportTrustError, ExportTrustSource,
+    MAX_EXPORT_BYTES,
 };
 use layerx_agentd::read::CommitValidator;
 use layerx_client::sequencer::ReceiptKeyEntry;
-use layerx_proof::export::OfflineTrustError;
 
 const GENESIS: &[u8] =
     include_bytes!("../../layerx-proof/tests/fixtures/signed-authority/genesis.bin");
@@ -133,6 +133,15 @@ fn export_request_uses_the_shared_strict_grammar_and_keeps_the_requested_rung() 
             "accepted {text:?}"
         );
     }
+    for text in [
+        format!("activity:{}", "11".repeat(32)),
+        format!("checkpoint:8:{}", "11".repeat(32)),
+    ] {
+        assert_eq!(
+            must(FactRef::new(text)).selector(),
+            Err(FactRefError::UnknownKind)
+        );
+    }
 }
 
 #[test]
@@ -198,7 +207,7 @@ fn export_trust_is_independent_of_the_artifact_and_rejects_invalid_entries() {
     ] {
         assert_eq!(
             ExportTrustSource::new(receipt_keys, vec![validator]),
-            Err(OfflineTrustError::NetworkId)
+            Err(ExportTrustError::InvalidEntry)
         );
     }
     for validator_set in [
@@ -215,7 +224,7 @@ fn export_trust_is_independent_of_the_artifact_and_rejects_invalid_entries() {
     ] {
         assert_eq!(
             ExportTrustSource::new(vec![receipt_key], validator_set),
-            Err(OfflineTrustError::NetworkId)
+            Err(ExportTrustError::InvalidEntry)
         );
     }
 }

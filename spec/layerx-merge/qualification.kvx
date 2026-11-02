@@ -16843,3 +16843,35 @@ symbol = "FixedBatchResolver"
 observed = "Attempt 1 (262c13e63) changed receipts.ts and support.ts as the task states and added the three tests; the declared build failed in the conformance package (tsc -p tsconfig.json compiles src/**/*.ts) with 21 errors in src/scenarios.ts, which task 8.26.2 ports: four from this task's own changes (FixedBatchResolver and CONFORMANCE_PROTOCOL_VERSION no longer exported, buyer construction, SignedReceipt fields) and the rest pre-existing on main since 8.22.4 (f362f37d5, 2026-10-27) and the seller and SDK ports: verifyReceipt is no longer exported by the TypeScript SDK, ReceiptVerification is not the seller's PaymentReceiptVerification, authorizedBatch, canonicalReceipt and evidence are not fields of SignedReceipt, protocolVersion is not a BuyerMiddlewareConfig field, InMemoryFulfillmentRepository lacks the get method FulfillmentRepository requires, and one byte parameter is untyped; the package has not compiled on main since then, so 8.26.1, 8.26.2, 8.26.3, 8.26.6 and 8.26.7 all fail their build as written."
 assumption = "Spec defect: the task's build compiles the package's own consumer that it leaves to a later task; 8.26.1 takes the scenarios.ts port so the package compiles, requires 8.23.3 so the buyer API it codes against is final, and continues from attempt 1."
 severity = "major"
+
+[finding.18.1441.1.1]
+task = "18.1441.1"
+file = "services/human/crates/layerx-intents/tests/live_kinds.rs:1"
+symbol = "kind_index"
+observed = "Attempt 1 (024cbd9b0) rewrote tests/live_kinds.rs for the sixteen retained kinds indexed 0 to 15; the declared build (cargo test -p layerx-intents --test live_kinds --no-run) failed in layerx-agentd, a dependency of layerx-intents, with the five export API errors of finding 9.27.3.1 (E0061 at src/audit/export.rs, E0609 verified_checkpoints, E0599 OfflineTrustError::NetworkId and FactSelector::Checkpoint), which task 9.27.9 repairs; the task's own file compiled no further because the dependency did not."
+assumption = "Producer gap already ruled: 18.1441.1 requires 9.27.9 and continues from attempt 1 unchanged once it is on main."
+severity = "minor"
+
+[finding.16.12.1.2]
+task = "16.12.1"
+file = "foundry.toml:6"
+symbol = "solc_version"
+observed = "Attempt 1 (ee97281de) removed the two read permissions and the test directory from foundry.toml and added tools/ci/tests/test_foundry_profile.py as the task states; the declared build forge build --offline exited 1 with 'can't install missing solc 0.8.27 in offline mode' before compiling anything, because the qualification environment had fetched no compiler for the repository root's foundry.toml; the change itself does not touch solc_version."
+assumption = "Environmental: the qualification environment now fetches the pinned compiler of the repository root before an offline build; the task continues from attempt 1 unchanged."
+severity = "minor"
+
+[finding.15.0.4.2]
+task = "15.0.4"
+file = "services/platform/middleware/seller/src/index.ts:405"
+symbol = "paymentPurpose"
+observed = "Attempt 5 (fb3e6c9e4) completed the receipt-key migration of sdk/integrations/express/src/index.ts (receiptKeys parsed from LAYERX_RECEIPT_KEYS_JSON with camelCase decimal heights, both middlewares built without protocolVersion) and the two tests; loadConfigReadsReceiptKeysJson passed and integrationSettlesSignedSequencerReceipt failed with 402 instead of 200 at test/receipt-keys.test.mjs:286, because the seller verifier reads the payment purpose from the offer terms with paymentPurpose(requirements.extra, true) (seller/src/index.ts:405, commitment.ts:59-64: a non-zero 64-hex purposeHash under extra.layerx) and readDeclaredConfig builds the PaymentRequirements (sdk/integrations/express/src/index.ts:256-264) with no extra at all; the agent middleware (agent/src/index.ts:849) and every seller test carry extra.layerx with commitment receipted and purposeHash. The task's symbols also still name staticAuthorizedBatches and parseAuthorizedBatch, which do_2 and do_3 delete, so the graph check would refuse the done record even with a passing verify."
+assumption = "Spec defect in the task, not in the attempt: the mount's offer must carry the receipted commitment and a purpose, and the symbols list must name definitions the task keeps; 15.0.4 continues from attempt 5."
+severity = "major"
+
+[finding.8.34.2.1]
+task = "8.34.2"
+file = "services/platform/examples/run-reference-apps.mjs:6"
+symbol = "BuyerMiddleware"
+observed = "Attempt 1 (fbca296ce) rewrote run-reference-apps.mjs for receipt keys and added test/run-reference-apps.test.mjs; node --check passed and referenceAppsCheckPassesWithoutRetiredSurfaces failed at import time with ERR_MODULE_NOT_FOUND for node_modules/@sidiora/layerx-buyer-middleware/dist/index.js, because the runner imports the buyer middleware and the TypeScript SDK (run-reference-apps.mjs:6-7) and its support files import the seller and merchant middlewares (support/merchant-app.mjs:5-11, support/runtime.mjs:4), all resolved through their dist entries, and the declared build is node --check alone, which builds none of them."
+assumption = "Spec defect: the build must produce the dist entries the test imports; the build command now builds the SDK and the seller, buyer and merchant packages before the syntax check, and the task continues from attempt 1."
+severity = "minor"
