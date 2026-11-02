@@ -13925,3 +13925,38 @@ fix = "The producer of a document and its strict consumer change together; a tes
 title = "A whole-crate cargo test in a task verify sweeps other tasks' proof targets"
 symptom = "A reconciliation task's four-crate cargo test failed on node-backed proofs and producer-input TLS tests owned by other tasks after its own targets passed."
 fix = "Name the test targets the task owns in its verify; whole-crate runs belong to crate-level closure gates."
+
+[gotcha.2821]
+title = "A go-ethereum client recomputes block hashes the node never served"
+symptom = "A chain-path proof compared ethclient Block.Hash() with receipt.BlockHash; the node serves the consensus block id as the hash field and the client's keccak of the decoded header differs on every block."
+fix = "Assert the hash fields the node serves (raw eth_getBlockByNumber hash, eth_getBlockByHash round trip, the consensus block id at the receipt height); never Block.Hash() of a decoded block."
+
+[gotcha.2822]
+title = "Two completion outcomes of one receipt must share one journal path"
+symptom = "The relayer journal let an Included completion follow a Receipted entry but demanded a Pending entry for a Reverted completion, so the status-zero integration test failed with a conflict and a unit test had pinned the asymmetry."
+fix = "Model the journal as Pending, Receipted, Completed with the outcome as data; assert conflicts on missing or already completed entries, never on the outcome value."
+
+[gotcha.2823]
+title = "A three-crate verify with two dependent-crate checks does not fit one qualification budget"
+symptom = "A runtime task repaired its candidate after the first verify, rebuilt, and the second dependent-crate check consumed the remaining budget so the verify never ran on the repair."
+fix = "Run the dependent-crate check once per candidate revision and let a gates-only requalification carry an unverified repair."
+
+[gotcha.2824]
+title = "A handwritten test landed in a generated markdown root without its manifest declaration"
+symptom = "A task added a proof test under a directory the platform generator owns; the generator's check refused the unclassified file and every later task whose build runs the generate target failed at the base."
+fix = "A file placed under a generated root is declared in the pipeline manifest in the same change; a generator refusal naming a file none of the candidate's hunks touch is a base break, repaired by declaring the file, never by deleting it."
+
+[gotcha.2825]
+title = "A task whose spec status read blocked never starts, and the attempt record shows only the start refusal"
+symptom = "Three attempts of one task failed at the start step within eleven minutes because the spec block said blocked at the time; the status flipped to pending an hour later and the task sat idle because every attempt record carried no revision and no note could attach to it."
+fix = "When a spec status flips from blocked to pending, relaunch the task fresh from main; a start refusal is never a candidate to continue from, and the attempt history of a blocked period is not counted against the task."
+
+[gotcha.2826]
+title = "A negative text search in a verify must cover only files the task may edit"
+symptom = "A port task listed six files and a verify that searched the whole crate for the retired module; the census outside the six files named ten more consumers, the agent stopped by its own rule and the verify failed on a file the task could not touch."
+fix = "Scope the negative search to the touches list, split the remaining consumers into sibling tasks per group, and let the deletion task search the whole tree once every sibling has published."
+
+[gotcha.2827]
+title = "A generic frame codec filed under a retired protocol module is product, not retired code"
+symptom = "The module slated for deletion held the length-prefixed codec and the Unix-socket transport the daemon's live Human peer socket speaks, beside the kernel handshake that is retired."
+fix = "Before deleting a module, classify each file by who speaks it at runtime; re-home the live wire under a neutral module with re-exports from the old path, and delete only the protocol no runtime peer speaks."

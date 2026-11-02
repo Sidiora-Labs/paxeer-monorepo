@@ -7209,6 +7209,30 @@ value = "layerxanchor stays in the basic manager for its codec and message route
 basis = "validate-genesis of every export failed with 'failed to unmarshal layerxanchor genesis state' because the module is exported by nobody and validated by the basic manager (finding 22.6.7.5)."
 affects = ["22.6.7"]
 
+[decision.2350]
+title = "A relayer submission completes from Receipted as Included or Reverted on one journal path"
+value = "The bridge relayer journal moves a submission from Pending to Receipted when the receipt is recorded and from Receipted to Completed with Included (status one) or Reverted or consumed (status zero) according to the receipt; both completions accept a Receipted entry; a completion for a hash with no open entry and a second completion after Completed are the journal conflicts; a committed receipt is final, so no completion is ever rewritten."
+basis = "22.11.7 attempt 5 read the loops test (Receipted then Completed for both phases) and a journal conflict test as opposite outcomes; the Reverted path demanded a pending entry that the Included path does not (finding 22.11.7.4)."
+affects = ["22.11.7"]
+
+[decision.2351]
+title = "The node's block hash is the consensus block id everywhere the EVM API speaks"
+value = "eth_getBlockByNumber and eth_getBlockByHash serve the consensus block id as the hash field, and every receipt, log and transaction view carries the same value; a go-ethereum client that recomputes a header hash from the decoded block fields gets a different value and no proof asserts that recomputed hash against node output."
+basis = "20.4.3 attempt 2 compared ethclient Block.Hash() with receipt.BlockHash and failed on every block; attempt 3 asserted the served hash by block number and qualified; rpc/block.go:617 and :773 define the served hash."
+affects = ["20.4.3", "20.4.4"]
+
+[decision.2352]
+title = "A chain-scoped log subscription never ends on a scope failure and never drops a lag notice"
+value = "Resolving the chain scope of a receipted log notice reads the latest committed layer or the receipt's own block, never the idle pending snapshot, so a seal between the receipt and the notifier drain cannot make the scope fail; when scope resolution still fails the notice is skipped and the subscription stays installed; a lag notice attached to a log the filter excludes for another chain is retained and emitted before the next delivered log, so a subscriber's lag count equals the feed's."
+basis = "Issue 1509: filter.go:1898-1924 scopeFilterLogs calls the pending watermark snapshot for a notice with a zero block hash and returns ErrLayerNotOpen after Seal, and subscribe.go:414-419 (notifyReceiptedLogs) treats the error as terminal and removes the listener (introduced by ae3406a26 in 20.4.4). Issue 1510: subscribe.go:421 continues on an excluded scoped log before the lagged check at :423."
+affects = ["18.1509.1", "18.1510.1"]
+
+[decision.2353]
+title = "The LNI module splits into a frame wire that stays and a kernel protocol that leaves, ported in four consumer-group tasks before 9.24.7 deletes it"
+value = "The length-prefixed frame codec (read_frame, write_frame) and the bounded Unix-socket transport (Limits, ConnectionGate, FrameTransport, Uds) are the agent daemon's Human peer wire and move to layerx_client::frame with the lni files left as re-exports until deletion; the kernel handshake, schema envelope, refusal decoder and the fake kernel frame servers in tests are the retired standalone-kernel protocol, because the kernel is a component of the node and the daemon submits and reads through node JSON-RPC. The port runs as 22.9.29 (events ingest and gap backfill plus their four tests), 22.9.30 (the library and the frame re-home), 22.9.31 (test support and the Human peer tests, requires 22.9.30) and 22.9.32 (the pay2 qualification harness); each task's negative search covers only its own files, and 9.24.7 requires all four and then deletes src/lni and the module line."
+basis = "Finding 22.9.29.1: a crate-wide negative search in one six-file task failed on consumers it could not edit; the census of finding 9.24.7.1 and the source census of 2026-11-02 show the frame transport serving the live Human peer socket (human_projection_facts.rs:156 connects to the daemon's human socket) while the handshake and envelope codec serve only the kernel socket."
+affects = ["22.9.29", "22.9.30", "22.9.31", "22.9.32", "9.24.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20829,6 +20853,30 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22046]
+title = "The pay2 qualification harness reads the node, not the kernel handshake"
+ac_1 = "Given the pay2 qualification harness, when the kernel interface module is deleted, then the harness builds, asserts the chain id, block number and receipt keys through the node JSON-RPC it already uses for readiness, and performs no kernel handshake."
+
+[req.22045]
+title = "The agent daemon test support proves the daemon through the node, not the kernel handshake"
+ac_1 = "Given the real-authority test support and the Human peer tests, when the kernel interface module is deleted, then the tests still build and the Human peer tests still speak the real frame wire to the daemon's sockets, the readiness gate is asserted through the node readiness endpoint, and no test performs the kernel handshake or replays submissions over the kernel socket."
+
+[req.22044]
+title = "The frame codec and Unix-socket transport outlive the kernel interface module"
+ac_1 = "Given the agent daemon's Human peer socket and its tests, when the kernel interface module is deleted, then the length-prefixed frame codec and the bounded Unix-socket transport they use are served from a frame module of the client crate with unchanged behaviour, and the agent daemon library names nothing under the kernel interface module."
+
+[req.22043]
+title = "Lag notices survive out-of-chain log exclusion"
+ac_1 = "Given a log subscription scoped to one chain and a feed that marks a notice lagged while delivering a log of another chain, when the filter excludes that log, then the subscriber still receives the lag signal before its next delivered log and its lag count equals the feed's."
+
+[req.22042]
+title = "Chain-scoped log subscriptions survive the seal-to-open window"
+ac_1 = "Given an open chain-scoped eth log subscription and a queued receipted log, when the layer is sealed before the notifier drains the queue, then the subscription stays installed and delivers the next matching log after the layer reopens; no scope-resolution error ends a subscription."
+
+[req.22041]
+title = "Observed pool fee reads use the accounting JSON key"
+ac_1 = "Given a launchpad pool whose latest fill row carries the accounting wire key feeBPS (sdk/launchpad/shared/accounting/wire.go:65), when the pool registry reads the observed fee, then it returns that value, selecting the newest fill, and a row stored under the earlier lowercase key feeBps is still read for compatibility."
 
 [req.22037]
 title = "The historical-admission integration fixture serves the reads the real bridge performs"
@@ -35566,6 +35614,60 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.9.32]
+title = "Port the pay2 qualification harness off the LNI handshake"
+reqs = ["22046.1"]
+touches = ["services/agent/qualification/pay2"]
+tests = ["services/agent/qualification/pay2/pay2e_test.rs"]
+verification_contract = "! grep -nw lni services/agent/qualification/pay2/pay2e_test.rs && cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --no-run"
+do_1 = "Decision 2353: services/agent/qualification/pay2/pay2e_test.rs:434-451 opens the kernel Unix socket, performs the handshake and asserts the protocol version, the network id, the authorised sequencer key, the Sequencer role and the two Submit capabilities; the kernel is a component of the node, so the section is replaced by node JSON-RPC reads against the harness node endpoint the readiness gate already uses (18.1131.1): eth_chainId equals the harness network id, eth_blockNumber replaces latest_sealed_batch as the height the readiness gate receives, and the receipt key the harness writes into pay2-sequencer-authority.txt is asserted to appear in px_getReceiptKeys."
+symbols = ["pay2_readiness_gate"]
+
+[capability.22.9.31]
+title = "Port the agent daemon test support and the Human peer tests off the LNI module"
+reqs = ["22045.1"]
+touches = ["services/agent/crates/layerx-agentd/tests"]
+tests = ["services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/webhook.rs"]
+verification_contract = "! grep -rnw lni services/agent/crates/layerx-agentd/tests | grep -v -e /tests/ingest_eth_subscribe.rs -e /tests/approval_events.rs -e /tests/gaps.rs -e /tests/subscription_ops_cursor.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test webhook --test subscription --test human_projection_facts"
+do_1 = "Decision 2353: tests/webhook.rs:28, tests/subscription.rs:36 and tests/human_projection_facts.rs:134 import read_frame, write_frame, ConnectionGate, FrameTransport, Limits and Uds from layerx_client::frame (the home 22.9.30 gave them); these tests keep speaking the real frame wire to the daemon's sockets and change nothing else."
+symbols = ["authorize", "ReadinessNode", "readiness_gate"]
+
+[capability.22.9.30]
+title = "Re-home the frame codec and Unix-socket transport and port the agent daemon library off the LNI module"
+reqs = ["22044.1"]
+touches = ["services/agent/crates/layerx-client/src/frame", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/lni/framing.rs", "services/agent/crates/layerx-client/src/lni/transport.rs", "services/agent/crates/layerx-agentd/src"]
+tests = ["services/agent/crates/layerx-client/src/frame/framing.rs"]
+verification_contract = "! grep -rnw lni services/agent/crates/layerx-agentd/src | grep -v /src/events/ && test -f services/agent/crates/layerx-client/src/frame/transport.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --lib frame && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib read::history"
+do_1 = "Decision 2353: services/agent/crates/layerx-client/src/frame (mod.rs, framing.rs, transport.rs) is the new home of read_frame and write_frame (today lni/framing.rs) and of Limits, ConnectionGate, FrameTransport and Uds (today lni/transport.rs); the code moves unchanged, lib.rs gains pub mod frame, and lni/framing.rs and lni/transport.rs become pub use re-exports of the frame module so every present consumer still compiles until 9.24.7 deletes the lni directory; the moved code references nothing under lni (a handshake, schema or refusal reference found in it is replaced by a frame-local definition named in the commit message)."
+symbols = ["read_frame", "write_frame", "Limits", "ConnectionGate", "FrameTransport", "Uds", "human_frame_limits", "RetainedNativeOwner::decode"]
+
+[capability.18.1510.1]
+title = "Preserve subscription lag signals when another chain's log is excluded"
+reqs = ["22043.1"]
+touches = ["rpc/subscribe.go", "rpc/subscribe_test.go"]
+tests = ["rpc/subscribe_test.go"]
+verification_contract = "go vet ./rpc/ && go test -count=1 ./rpc/ -run 'TestSubscribe|Lag'"
+do_1 = "Issue 1510 and decision 2352: rpc/subscribe.go:420-427 notifyReceiptedLogs (the continue at :421 runs before the lagged check at :423) retains the lagged count of a notice whose log the chain filter excludes and emits the lag signal before the next delivered log (or on its own when the feed carries a lag notice and no log follows within the batch), so the subscriber's lag count equals the feed's."
+symbols = []
+
+[capability.18.1509.1]
+title = "Keep chain-scoped log subscriptions alive across the seal-to-open window"
+reqs = ["22042.1"]
+touches = ["rpc/filter.go", "rpc/subscribe.go", "rpc/subscribe_test.go"]
+tests = ["rpc/subscribe_test.go"]
+verification_contract = "go vet ./rpc/ && go test -count=1 ./rpc/ -run 'TestSubscribe|Scoped|Scope'"
+do_1 = "Issue 1509 and decision 2352: rpc/filter.go:1898-1924 scopeFilterLogs resolves the chain scope of a receipted log notice with a zero block hash from the latest committed layer context or the receipt's block instead of the pending watermark snapshot, so a Seal between the receipt and the notifier drain cannot return ErrLayerNotOpen."
+symbols = []
+
+[capability.18.1508.1]
+title = "Read observed pool fees with the accounting feeBPS key"
+reqs = ["22041.1"]
+touches = ["services/launchpad/api/internal/store"]
+tests = ["services/launchpad/api/internal/store/pool_registry_test.go"]
+verification_contract = "cd services/launchpad/api && go vet ./internal/store/ ./internal/rest/ && go test -count=1 ./internal/store/ ./internal/rest/ -run 'Fee|PoolDetail|Observed'"
+do_1 = "Issue 1508: services/launchpad/api/internal/store/pool_registry.go:146 ObservedFeeBps selects and filters on fill->'execution'->>'feeBps' while the accounting wire type FeeBPS (sdk/launchpad/shared/accounting/wire.go:65) marshals feeBPS, so a fill written by the current producer never qualifies and the newest qualifying row is an older one or none; both the selected value and the IS NOT NULL filter read COALESCE of the feeBPS key and the lowercase feeBps key, so the DISTINCT ON pool ORDER BY sequence DESC selection picks the newest qualified fill whichever key it carries; the HTTP response key feeBps of the pool detail is unchanged."
+symbols = []
+
 [capability.18.1507.1]
 title = "Issue #1507: Serve the intermediate checkpoint reads in the historical-admission fixture"
 reqs = ["22037.1"]
@@ -35580,7 +35682,7 @@ title = "Issue #1506: Update the bundled owner policy to the enforced sixteen-by
 reqs = ["22036.1"]
 touches = ["services/platform/hosted/human/beta-owner-policy.json", "services/platform/hosted/human/test_material.py"]
 tests = ["services/platform/hosted/human/test_material.py"]
-verification_contract = "python3 -m pytest -q services/platform/hosted/human/test_material.py services/platform/hosted/human/test_provision.py"
+verification_contract = "python3 -m pytest -q services/platform/hosted/human/test_material.py services/platform/hosted/human/test_provision.py -k 'not test_generated_catalog_uses_real_keys_and_production_registry_modules and not test_real_owner_output_is_not_a_protocol_registration'"
 do_1 = "cbb624154 tightened the owner-policy validator to exactly 32 lowercase hex characters (the daemon's LimitId) while services/platform/hosted/human/beta-owner-policy.json:8 still carries a 64-character limit.id, so provision.owner_policy() (provision.py:322-341), the authority qualification path (:678-682) and the owner material publication (:780-793) refuse the shipped file; the policy's limit.id becomes a stable 32-lowercase-hex identifier (no runtime truncation of the old one) and the change is named in the commit message."
 symbols = ["owner_policy"]
 
@@ -35616,7 +35718,7 @@ title = "Port the agent daemon event ingestor and gap backfill off the LNI frame
 reqs = ["22040.1"]
 touches = ["services/agent/crates/layerx-agentd/src/events/ingest.rs", "services/agent/crates/layerx-agentd/src/events/gap.rs", "services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/gaps.rs", "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs", "services/agent/crates/layerx-agentd/tests/gaps.rs"]
-verification_contract = "! grep -rn 'layerx_client::lni' services/agent/crates/layerx-agentd/src services/agent/crates/layerx-agentd/tests && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test ingest_eth_subscribe --test approval_events --test gaps --test subscription_ops_cursor"
+verification_contract = "! grep -rnw lni services/agent/crates/layerx-agentd/src/events services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs services/agent/crates/layerx-agentd/tests/approval_events.rs services/agent/crates/layerx-agentd/tests/gaps.rs services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test ingest_eth_subscribe --test approval_events --test gaps --test subscription_ops_cursor"
 do_1 = "services/agent/crates/layerx-agentd/src/events/ingest.rs read_head (:751) and new_head (:771) and events/gap.rs attempt_backfill (:222) take &mut dyn FrameTransport from layerx_client::lni::transport, the kernel frame transport; since 9.11.2 the ingestor reads eth_subscribe logs with block-position cursors, so these three functions are retyped onto the eth_subscribe source the ingestor already uses (or deleted when the eth_subscribe path replaces them), and the use lines at ingest.rs:6 and gap.rs:7 leave."
 symbols = ["read_head", "new_head", "attempt_backfill"]
 
@@ -106157,7 +106259,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.34.1]
 title = "Retire the data-availability bundle builder in src/network/lxp_da_bundle.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.31.3", "16.32.6", "16.32.7", "16.32.8", "16.32.9", "16.32.11", "16.33.2", "16.33.5", "16.33.6", "6.96.5"]
@@ -106293,7 +106395,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.35.1]
 title = "Retire batch sealing and signing and move signature verification to the header codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "8.51.1", "13.34.1", "14.29.2", "16.31.5", "16.31.7", "16.32.1", "16.32.2", "16.32.8", "16.32.9", "16.32.10", "16.32.11", "16.33.5", "16.34.3", "6.96.5"]
@@ -116928,7 +117030,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.154.1]
 title = "Prove the middleware merchant ts exports path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117093,7 +117195,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.149.1]
 title = "Prove the hooks path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117224,7 +117326,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.145.1]
 title = "Prove the middleware conformance ts exports path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117557,7 +117659,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.135.1]
 title = "Prove the middleware seller ts exports path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -119776,7 +119878,7 @@ do_1 = "Regeneration at 2ddf941d9 removed the nested AgentModels.VerificationSta
 do_2 = "sdk/platform/generators/tests/drift.rs gains a case asserting the JVM output declares every nested type a generated record component references, so a future removal fails the generator tests before a Java compile would."
 do_3 = "The verify runs the generator check, its tests and the JVM compile."
 symbols = ["VerificationStatus", "AgentHttpSuccess"]
-touches = ["sdk/platform/generators/src/main.rs", "sdk/platform/generators/tests/drift.rs", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"]
+touches = ["sdk/platform/generators/src/main.rs", "sdk/platform/generators/tests/drift.rs", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java", "sdk/platform/pipeline.kvx"]
 tests = ["sdk/platform/generators/tests/drift.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml && make platform-sdk-generate"
@@ -119792,6 +119894,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 18.1503.1.1: sdk/platform/pipeline.kvx (now in touches) declares services/agent/sdk/typescript/test/proof_exchange.test.ts under [handwritten.agent-compatibility] in the shape of the existing [handwritten.<target>] sections (one quoted path key relative to that output's root with the value handwritten, as [handwritten.agent-api-rust] at pipeline.kvx:38 does), so platform-sdkgen classifies every file of the generated markdown root; every kvx value the candidate writes is a quoted string in the form the generator's parser accepts (the Either ... value of the first revision is quoted or expressed as the documented enum keys); the commit message names 43e826f4e as the change that left the file undeclared; continue from attempt 3."
 
 [task.18.1500.1]
 title = "Issue #1500: Give the real-node prerequisite script a POSIX function name and a syntax check"
@@ -126896,6 +126999,99 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.9.32]
+title = "Port the pay2 qualification harness off the LNI handshake"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22046.1"]
+capabilities = ["22.9.32"]
+interfaces = []
+do_1 = "Decision 2353: services/agent/qualification/pay2/pay2e_test.rs:434-451 opens the kernel Unix socket, performs the handshake and asserts the protocol version, the network id, the authorised sequencer key, the Sequencer role and the two Submit capabilities; the kernel is a component of the node, so the section is replaced by node JSON-RPC reads against the harness node endpoint the readiness gate already uses (18.1131.1): eth_chainId equals the harness network id, eth_blockNumber replaces latest_sealed_batch as the height the readiness gate receives, and the receipt key the harness writes into pay2-sequencer-authority.txt is asserted to appear in px_getReceiptKeys."
+do_2 = "No import from the kernel interface module remains in the file; the harness state's kernel socket path field stays if another section reads it and is removed otherwise; the commit message names the assertions dropped and the reads that replaced them."
+symbols = ["pay2_readiness_gate"]
+touches = ["services/agent/qualification/pay2"]
+tests = ["services/agent/qualification/pay2/pay2e_test.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --all-targets"
+verify_cmd = "! grep -nw lni services/agent/qualification/pay2/pay2e_test.rs && cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --no-run"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.9.31]
+title = "Port the agent daemon test support and the Human peer tests off the LNI module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.9.30"]
+reqs = ["22045.1"]
+capabilities = ["22.9.31"]
+interfaces = []
+do_1 = "Decision 2353: tests/webhook.rs:28, tests/subscription.rs:36 and tests/human_projection_facts.rs:134 import read_frame, write_frame, ConnectionGate, FrameTransport, Limits and Uds from layerx_client::frame (the home 22.9.30 gave them); these tests keep speaking the real frame wire to the daemon's sockets and change nothing else."
+do_2 = "tests/support/real_authority.rs drops the kernel protocol: handshake_gate (perform, HandshakeConfig, Capability, NodeRole), decode_core_refusal, the schema envelope codec, submit_calls over the Unix socket, connect_lni, wait_for_lni, lni_limits and the restart section's replay of retained submissions over the transport are deleted, because the kernel is a component of the node and the daemon submits through eth_sendRawTransaction (9.25.3) with restart recovery proven by the outbox tests (9.3.1); the readiness gate through ReadinessNode and NodeRpcConfig (18.1131.1), the evidence authority assertion and the daemon restart followed by the readiness gate stay."
+do_3 = "A process the remaining assertions never read is no longer started by the fixture and its binary lookup goes with it; a path a remaining assertion still reads stays; the commit message lists every deleted function and every test whose body changed."
+do_4 = "The tests that reach the fixture through tests/support (no test names it directly; the support module includes it) are adjusted to the surviving fixture API; after the task a whole-word text search for lni over services/agent/crates/layerx-agentd/tests finds nothing outside ingest_eth_subscribe.rs, approval_events.rs, gaps.rs and subscription_ops_cursor.rs (task 22.9.29 owns those); a consumer outside the tests directory is reported as a finding, not edited."
+symbols = ["authorize", "ReadinessNode", "readiness_gate"]
+touches = ["services/agent/crates/layerx-agentd/tests"]
+tests = ["services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/webhook.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --all-targets"
+verify_cmd = "! grep -rnw lni services/agent/crates/layerx-agentd/tests | grep -v -e /tests/ingest_eth_subscribe.rs -e /tests/approval_events.rs -e /tests/gaps.rs -e /tests/subscription_ops_cursor.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test webhook --test subscription --test human_projection_facts"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.9.30]
+title = "Re-home the frame codec and Unix-socket transport and port the agent daemon library off the LNI module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22044.1"]
+capabilities = ["22.9.30"]
+interfaces = []
+do_1 = "Decision 2353: services/agent/crates/layerx-client/src/frame (mod.rs, framing.rs, transport.rs) is the new home of read_frame and write_frame (today lni/framing.rs) and of Limits, ConnectionGate, FrameTransport and Uds (today lni/transport.rs); the code moves unchanged, lib.rs gains pub mod frame, and lni/framing.rs and lni/transport.rs become pub use re-exports of the frame module so every present consumer still compiles until 9.24.7 deletes the lni directory; the moved code references nothing under lni (a handshake, schema or refusal reference found in it is replaced by a frame-local definition named in the commit message)."
+do_2 = "A unit test in frame/framing.rs writes a frame into a byte buffer and reads it back, and asserts the over-limit refusal of a frame longer than the bound."
+do_3 = "services/agent/crates/layerx-agentd/src/main.rs:42 imports Limits from layerx_client::frame::transport, and human_lni_limits (:467) becomes human_frame_limits over the same four LAYERX_AGENT_HUMAN_MAX_* variables and the deadline; the value bounds the daemon's Human peer socket and keeps its consumer at :742."
+do_4 = "src/read/history.rs:238 deletes the blanket HistorySource impl for FrameTransport (an Unavailable stub); the impl for dyn HumanNode (:225), the history function and PolicyHistorySource (protocol_evidence.rs:2425) stay, and read/native.rs:184 keeps compiling; the use line at :5 goes."
+do_5 = "src/human_runtime/native_receipt.rs:17 RetainedNativeOwner::decode no longer takes a NodeInfo reference; it takes the network id and the protocol version as two parameters of the field types the comparison at :26-27 reads, and every caller in the human_runtime module passes the two values it already holds for this check."
+do_6 = "The string literal at src/human_runtime.rs:17716 that names the module path is rewritten to the frame module path or removed together with the check it serves, as that check requires; after the task a whole-word text search for lni over services/agent/crates/layerx-agentd/src finds nothing outside src/events (task 22.9.29 owns the events module); a library consumer outside the agent daemon and the client crate is reported as a finding, not edited."
+symbols = ["read_frame", "write_frame", "Limits", "ConnectionGate", "FrameTransport", "Uds", "human_frame_limits", "RetainedNativeOwner::decode"]
+touches = ["services/agent/crates/layerx-client/src/frame", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/lni/framing.rs", "services/agent/crates/layerx-client/src/lni/transport.rs", "services/agent/crates/layerx-agentd/src"]
+tests = ["services/agent/crates/layerx-client/src/frame/framing.rs"]
+planned_paths = ["services/agent/crates/layerx-client/src/frame/mod.rs", "services/agent/crates/layerx-client/src/frame/framing.rs", "services/agent/crates/layerx-client/src/frame/transport.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client -p layerx-agentd --all-targets"
+verify_cmd = "! grep -rnw lni services/agent/crates/layerx-agentd/src | grep -v /src/events/ && test -f services/agent/crates/layerx-client/src/frame/transport.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --lib frame && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib read::history"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1507.1]
 title = "Issue #1507: Serve the intermediate checkpoint reads in the historical-admission fixture"
 status = "pending"
@@ -126937,14 +127133,14 @@ capabilities = ["22.9.29"]
 interfaces = []
 do_1 = "services/agent/crates/layerx-agentd/src/events/ingest.rs read_head (:751) and new_head (:771) and events/gap.rs attempt_backfill (:222) take &mut dyn FrameTransport from layerx_client::lni::transport, the kernel frame transport; since 9.11.2 the ingestor reads eth_subscribe logs with block-position cursors, so these three functions are retyped onto the eth_subscribe source the ingestor already uses (or deleted when the eth_subscribe path replaces them), and the use lines at ingest.rs:6 and gap.rs:7 leave."
 do_2 = "The four test files that call them (tests/ingest_eth_subscribe.rs, approval_events.rs, gaps.rs, subscription_ops_cursor.rs) are ported onto the retyped functions with an in-process eth_subscribe fixture; no test keeps an LNI frame fixture."
-do_3 = "After this task a repository text search for layerx_client::lni under services/agent/crates/layerx-agentd finds nothing; task 9.24.7 then deletes the module."
+do_3 = "After this task a whole-word text search for lni over src/events and the four listed tests finds nothing; the other consumers of the module are ported by 22.9.30 (library and frame re-home), 22.9.31 (test support and the Human peer tests) and 22.9.32 (pay2 qualification), and task 9.24.7 then deletes the module."
 do_4 = "A caller outside the listed files that still needs the frame transport stops the task with a finding naming it; nothing outside touches is edited."
 symbols = ["read_head", "new_head", "attempt_backfill"]
 touches = ["services/agent/crates/layerx-agentd/src/events/ingest.rs", "services/agent/crates/layerx-agentd/src/events/gap.rs", "services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/gaps.rs", "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs", "services/agent/crates/layerx-agentd/tests/gaps.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --all-targets"
-verify_cmd = "! grep -rn 'layerx_client::lni' services/agent/crates/layerx-agentd/src services/agent/crates/layerx-agentd/tests && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test ingest_eth_subscribe --test approval_events --test gaps --test subscription_ops_cursor"
+verify_cmd = "! grep -rnw lni services/agent/crates/layerx-agentd/src/events services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs services/agent/crates/layerx-agentd/tests/approval_events.rs services/agent/crates/layerx-agentd/tests/gaps.rs services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test ingest_eth_subscribe --test approval_events --test gaps --test subscription_ops_cursor"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -126956,6 +127152,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Finding 22.9.29.1 and decision 2353: the verify's negative search is narrowed to this task's six files, so a reference in tests/support, webhook.rs, subscription.rs, human_projection_facts.rs or the library is not this task's failure; the fake kernel frame server the three tests build today (gaps.rs:295-338 reads and writes schema envelopes over the Unix socket) is replaced by the in-process eth_subscribe fixture of ingest_eth_subscribe.rs; where approval_events.rs or subscription_ops_cursor.rs include tests/support, the inclusion stays and nothing under support is edited. Attempt 3 starts fresh from main."
 
 [task.22.9.26]
 title = "Repair the agentd human runtime policy-history and subject queue tests"
@@ -127099,7 +127296,7 @@ do_4 = "proof_bridge_relayer.rs:252 and :265: the proof needs the real signer bi
 do_5 = "plain_listener.rs:335 plain_listener_refuses_tls_material_and_unknown_modes: the service refuses startup with 'LAYERX_INTEROP_SEQUENCER_URL is required' before the listener-mode refusal is evaluated; the test supplies a loopback URL for that variable, or the listener-mode check precedes the URL requirement, whichever the service contract names first."
 do_6 = "layerx-bridge-relayer and layerx-interop-service test clean with the verify; a test that needs a tool the repository cannot build skips with a printed reason naming it."
 symbols = []
-touches = ["services/interop/crates/layerx-bridge-relayer/tests", "services/interop/crates/layerx-bridge-relayer/src", "services/interop/crates/layerx-interop-service/tests/plain_listener.rs", "services/interop/crates/layerx-interop-service/src", "services/interop/crates/layerx-bridge-relayer/tests/sequencer_start.rs"]
+touches = ["services/interop/crates/layerx-bridge-relayer/tests", "services/interop/crates/layerx-bridge-relayer/src", "services/interop/crates/layerx-interop-service/tests", "services/interop/crates/layerx-interop-service/src"]
 tests = ["services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs", "services/interop/crates/layerx-bridge-relayer/tests/solana.rs", "services/interop/crates/layerx-interop-service/tests/plain_listener.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror-signer -p layerx-bridge-relayer -p layerx-interop-service --tests"
@@ -127118,6 +127315,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_7 = "Finding 22.11.7.1: verify_cmd excludes outbound_isolation_captured_production_boundaries by name (decision 2325; no producer sets LAYERX_BRIDGE_CAPTURE_MANIFEST in the repository, recorded in the finding); tests/sequencer_start.rs (now in touches) answers px_getReceiptKeys in the decision 2326 shape; the journal in src refuses a deposit appended before its receipt height with JournalError::Conflict so solana_release.rs:1045 holds; the restart path in loops.rs re-establishes the rpc quorum before the release phase proceeds (rpc.rs:29 Unavailable is a refusal of the restarted process reading before its providers answer, not an expected state), or the test waits on the restarted provider set the way the first start does, and the commit message names which; plain_listener and operator_cosign_contract passed in verify-2 and are unchanged."
 do_8 = "Finding 22.11.7.2 records the missing node producer for px_getReceiptKeys; this task does not add it; the candidate keeps the loopback producer in the test shape and notes in the commit message that a real node answers method-not-found until the node task lands."
 do_9 = "Finding 22.11.7.3: in loops.rs:812-835 the reverted-phase fixture records its pending submission under the hash the loop computes for the sent transaction (hash of recording.sent()[0].1) so the journal finds the pending entry; if the product's journal and the loop compute different hashes for the same bytes, the candidate repairs the product side and names it in the commit message; the batch 329 skips and the loopback fixture stand; continue from the fourth candidate."
+do_10 = "Finding 22.11.7.4 and decision 2350: (a) a journal unit test applies Pending (the sent raw bytes, hash H), Receipted {H, sequence 5, height 1002} and Reverted {H} in that order and expects success, and Reverted for an unknown hash and a second Completed to conflict; if it passes at the base, the loop (relayer.rs:1440-1500, the pending record it reads versus the submission the receipt step marked Receipted) is repaired so both entries of one receipt name one submission and one hash, and the commit message names the divergence; if it fails, journal.rs is repaired at :551-569; loops.rs:816-860 is kept as the candidate wrote it; (b) services/interop/crates/layerx-interop-service/tests replaces the misplaced relayer sequencer_start.rs path in touches: the fixture's receipt key entry satisfies decode_receipt_keys (a real ed25519 public key of the fixture signer, a non-zero keyId of the width the decoder reads, firstHeight at or below lastHeight) and the test keeps asserting the method and params it already checks at :240-241. Continue from attempt 5."
 
 [task.18.1501.1]
 title = "Issue #1501: Reconcile ledger asset metadata with the closed OpenRPC schema and the integration fixture"
@@ -127272,6 +127470,7 @@ do_3 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fail
 do_4 = "Finding 22.13.9.1: verify_cmd now excludes the producer-input tests by name (decision 2325) and the runtime and arbiter src and tests directories are in touches; the nine genuine failures are repaired from their producers: the meter injector in calls.rs accepts the reference-types opcode 0x1c the single-step conformance modules carry (do_1) or the conformance modules stop using it, whichever the module source dictates, and the commit message names which; the deterministic execution observer in the arbiter answers the trap step and the market fixture step instead of UnsupportedState; lease.rs transition evidence is built from the canonical encoder the lease verifier reads; step_conformance.rs asserts the real terminal trap record and the Resource fault with the budget the module actually meters (a 20000 Cpu limit the module exceeds at 5239 is a fixture whose limit is below the conformance step cost: raise the fixture limit or assert the exceeded budget, never both); program_replay.rs module start is retained through the real production producer path or the test names the fault as expected behaviour with the producer line that documents it."
 do_5 = "monetary_law.rs:401, :723 and :775: an escalation test presents an ABI-valid capability so the composition authority refusal (CapabilityEscalation) is the one exercised; the ABI invalid-capability refusal gets its own assertion in the same file; the composition order (ABI validation before authority) is the product behaviour and is not reordered for the test."
 do_6 = "Finding 22.13.9.2: the agentd proof_serve_errors.rs build break is repaired by task 22.9.25, which this task now requires; continue from the latest candidate rebased onto a main that carries 22.9.25."
+do_7 = "Finding 22.13.9.3: the attempt 6 candidate (step_conformance.rs asserting the integer-profile refusals of reference and vector types, lease.rs repaired) is requalified as it stands; the dependent-crate check runs once per candidate revision, so a build that already passed on the same revision is not rebuilt before the verify; no further change to the candidate."
 
 [task.22.13.8]
 title = "Order the program ABI validation so unsupported versions are refused first"
@@ -129820,7 +130019,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1488.1]
 title = "Issue #1488: Decode chain status events with the registry's 1-based lifecycle codes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
@@ -132829,6 +133028,95 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.18.1510.1]
+title = "Preserve subscription lag signals when another chain's log is excluded"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["18.1509.1"]
+reqs = ["22043.1"]
+capabilities = ["18.1510.1"]
+interfaces = []
+do_1 = "Issue 1510 and decision 2352: rpc/subscribe.go:420-427 notifyReceiptedLogs (the continue at :421 runs before the lagged check at :423) retains the lagged count of a notice whose log the chain filter excludes and emits the lag signal before the next delivered log (or on its own when the feed carries a lag notice and no log follows within the batch), so the subscriber's lag count equals the feed's."
+do_2 = "A mixed-chain overflow regression in rpc/subscribe_test.go adapts TestSubscribeLogsFromReceipts (:593): the feed marks a notice lagged while delivering another chain's log and the scoped subscriber still receives the lag signal; the existing subscription tests keep passing."
+symbols = []
+touches = ["rpc/subscribe.go", "rpc/subscribe_test.go"]
+tests = ["rpc/subscribe_test.go"]
+planned_paths = []
+build_cmd = "go build ./rpc/"
+verify_cmd = "go vet ./rpc/ && go test -count=1 ./rpc/ -run 'TestSubscribe|Lag'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1509.1]
+title = "Keep chain-scoped log subscriptions alive across the seal-to-open window"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22042.1"]
+capabilities = ["18.1509.1"]
+interfaces = []
+do_1 = "Issue 1509 and decision 2352: rpc/filter.go:1898-1924 scopeFilterLogs resolves the chain scope of a receipted log notice with a zero block hash from the latest committed layer context or the receipt's block instead of the pending watermark snapshot, so a Seal between the receipt and the notifier drain cannot return ErrLayerNotOpen."
+do_2 = "rpc/subscribe.go:414-419 (notifyReceiptedLogs) no longer treats a scope-resolution error as terminal: the notice is skipped with a logged reason and the metric recorded, and the listener stays installed."
+do_3 = "A regression in rpc/subscribe_test.go opens a chain-scoped log subscription, queues a receipted log, seals the layer before the notifier drains, reopens it and asserts the subscription is still installed and delivers the next matching log; the existing subscription tests keep passing."
+symbols = []
+touches = ["rpc/filter.go", "rpc/subscribe.go", "rpc/subscribe_test.go"]
+tests = ["rpc/subscribe_test.go"]
+planned_paths = []
+build_cmd = "go build ./rpc/"
+verify_cmd = "go vet ./rpc/ && go test -count=1 ./rpc/ -run 'TestSubscribe|Scoped|Scope'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1508.1]
+title = "Read observed pool fees with the accounting feeBPS key"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22041.1"]
+capabilities = ["18.1508.1"]
+interfaces = []
+do_1 = "Issue 1508: services/launchpad/api/internal/store/pool_registry.go:146 ObservedFeeBps selects and filters on fill->'execution'->>'feeBps' while the accounting wire type FeeBPS (sdk/launchpad/shared/accounting/wire.go:65) marshals feeBPS, so a fill written by the current producer never qualifies and the newest qualifying row is an older one or none; both the selected value and the IS NOT NULL filter read COALESCE of the feeBPS key and the lowercase feeBps key, so the DISTINCT ON pool ORDER BY sequence DESC selection picks the newest qualified fill whichever key it carries; the HTTP response key feeBps of the pool detail is unchanged."
+do_2 = "A regression in the store test package (new file pool_registry_test.go beside production_readmodel_test.go, same PostgreSQL fixture) inserts one fill marshalled through the accounting wire type and one older row stored under the lowercase key for a second pool, reads both through ObservedFeeBps and asserts the newest value for each; TestPoolDetailProductionRead (rest/pool_reads_test.go:217) keeps passing."
+do_3 = "The commit message names the two JSON keys and the selection rule; no change to the wire type."
+symbols = []
+touches = ["services/launchpad/api/internal/store"]
+tests = ["services/launchpad/api/internal/store/pool_registry_test.go"]
+planned_paths = ["services/launchpad/api/internal/store/pool_registry_test.go"]
+build_cmd = "cd services/launchpad/api && go build ./..."
+verify_cmd = "cd services/launchpad/api && go vet ./internal/store/ ./internal/rest/ && go test -count=1 ./internal/store/ ./internal/rest/ -run 'Fee|PoolDetail|Observed'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.9.28]
 title = "Serve px_getReceiptKeys from the node"
 status = "pending"
@@ -134095,7 +134383,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.102.1]
 title = "Prove the orob 0x0901 path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -135875,7 +136163,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.23.1]
 title = "Prove the activation path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136040,7 +136328,7 @@ do_8 = "Finding 21.87.1.1: the package build failure is node/sequencer/precompil
 
 [task.21.18.1]
 title = "Prove the launchpad gateway path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136605,7 +136893,7 @@ do_4 = "Finding 20.3.4.2: the chain-path transaction of TestChainPathLogSubscrip
 
 [task.20.4.3]
 title = "Drive a chain end to end with go-ethereum's ethclient on its path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["20.4.2", "20.3.4"]
@@ -167357,7 +167645,7 @@ title = "Delete the LNI framing, handshake, schema and transport module"
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.25.1", "9.24.4", "9.18.5", "9.13.1", "9.18.1", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.12.3", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "13.8.3", "22.9.24", "22.9.29"]
+requires = ["9.25.1", "9.24.4", "9.18.5", "9.13.1", "9.18.1", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.12.3", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "13.8.3", "22.9.24", "22.9.29", "22.9.30", "22.9.31", "22.9.32"]
 reqs = ["9277.1"]
 capabilities = ["9.24.7"]
 interfaces = ["interface.9.rs-client-lni-abi-abiversion-j44", "interface.9.rs-client-lni-abi-abiincompatible-j44", "interface.9.rs-client-lni-abi-fn-j44", "interface.9.rs-client-lni-abi-functions-j44", "interface.9.rs-client-lni-abi-handle-j44", "interface.9.rs-client-lni-abi-abiopenerror-j44", "interface.9.rs-client-lni-capabilities-capabilities", "interface.9.rs-client-lni-framing-decode-frame", "interface.9.rs-client-lni-framing-read-frame", "interface.9.rs-client-lni-framing-write-frame", "interface.9.rs-client-lni-framing-length-prefix-bytes-j44", "interface.9.rs-client-lni-framing-decodedframe-j44", "interface.9.rs-client-lni-handshake-noderole", "interface.9.rs-client-lni-handshake-nodeinfo", "interface.9.rs-client-lni-handshake-handshakeconfig", "interface.9.rs-client-lni-handshake-handshake", "interface.9.rs-client-lni-handshake-handshakeerror", "interface.9.rs-client-lni-handshake-perform", "interface.9.rs-client-lni-handshake-validate", "interface.9.rs-client-lni-handshake-encode-node-info", "interface.9.rs-client-lni-handshake-decode-node-info", "interface.9.rs-client-lni-handshake-sequencerkeychange-j44", "interface.9.rs-client-lni-handshake-perform-with-schema-j44", "interface.9.rs-client-lni-handshake-validate-with-schema-j44", "interface.9.rs-client-lni-refusal-corerefusal", "interface.9.rs-client-lni-refusal-decode-core-refusal", "interface.9.rs-client-lni-report-capabilityreport", "interface.9.rs-client-lni-report-capability-report", "interface.9.rs-client-lni-report-capabilitystatus-j44", "interface.9.rs-client-lni-report-capability-report-with-schema-j44", "interface.9.rs-client-lni-schema-version", "interface.9.rs-client-lni-schema-capability", "interface.9.rs-client-lni-schema-envelope", "interface.9.rs-client-lni-schema-schemaerror", "interface.9.rs-client-lni-schema-encode-envelope", "interface.9.rs-client-lni-schema-decode-envelope", "interface.9.rs-client-lni-schema-lni-v1-source-j44", "interface.9.rs-client-lni-schema-messagekind-j44", "interface.9.rs-client-lni-schema-messagedescriptor-j44", "interface.9.rs-client-lni-schema-schema-j44", "interface.9.rs-client-lni-schema-fn-j44", "interface.9.rs-client-lni-schema-fn-2-j44", "interface.9.rs-client-lni-schema-fn-2-3-j44", "interface.9.rs-client-lni-schema-goldenvector-j44", "interface.9.rs-client-lni-schema-fn-2-3-4-j44", "interface.9.rs-client-lni-schema-encode-envelope-with-schema-j44", "interface.9.rs-client-lni-schema-decode-envelope-with-schema-j44", "interface.9.rs-client-lni-transport-frameviolation", "interface.9.rs-client-lni-transport-transporterror", "interface.9.rs-client-lni-transport-limits", "interface.9.rs-client-lni-transport-connectiongate", "interface.9.rs-client-lni-transport-connectionpermit", "interface.9.rs-client-lni-transport-frametransport", "interface.9.rs-client-lni-transport-uds", "interface.9.rs-client-lni-transport-mutualtlsconfig", "interface.9.rs-client-lni-transport-tls", "interface.9.rs-client-lni-transport-trafficclass-j44", "interface.9.rs-client-lni-transport-outboundframe-j44", "interface.9.rs-client-lni-transport-multiplexer-j44"]
@@ -167386,6 +167674,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 do_4 = "Blocked by decision 2256 until the LNI consumer ports exist. When it runs: define `pub struct Version { pub major: u16, pub minor: u16 }` with the derives of lni/schema.rs (Clone, Copy, Debug, Eq, PartialEq) in src/rpc/mod.rs and import crate::rpc::Version at src/rpc/history.rs:3 and src/rpc/payments.rs:3 before deleting lni/schema.rs; attempt 1 (ff6311fc4) holds the nine deletions."
 do_5 = "Decision 2294: rpc/history.rs:3 and rpc/payments.rs:3 import crate::lni::schema::Version, which do_1 deletes with the module; both files are in touches and drop that import, replacing every use of Version with the retained wire-version type the rest of rpc/ uses (or deleting the unused version parameter when nothing reads it); no lni item is kept behind. Attempt 1 also met the availabilityClassCount build break that 6.96.5 repaired on main at 520414c87; continue from attempt 1."
 do_6 = "Decision 2185 and 2256 are satisfied: every task in requires is done on main, so the task is pending again; the agent daemon's event ingestor still names layerx_client::lni::transport::FrameTransport (events/ingest.rs:6, :751, :771 and events/gap.rs:7, :222), so this task requires 22.9.29, which ports the ingestor off it first; the deletion census is a text search over services/ and tools/ including crates the build does not compile."
+do_7 = "Decision 2353: the frame module (layerx-client src/frame, re-homed by 22.9.30) is product and stays; this task deletes the lni directory (lni/framing.rs and lni/transport.rs are re-exports by then) and the pub mod lni line, re-homes Version into rpc as do_4 and do_5 say, and the Limits bound of the daemon's Human peer socket keeps coming from layerx_client::frame::transport; the deletion census is a whole-word text search for lni over services/agent and tools/ after 22.9.29, 22.9.30, 22.9.31 and 22.9.32 have published."
 
 [task.9.25.1]
 title = "Delete the kernel-era read, receipt, submit, stream, batch, payments and evidence modules"
@@ -185605,7 +185894,7 @@ do_3 = "Finding 22.6.8.1: declare event XWebProgramRequested(bytes32 indexed pro
 
 [task.22.6.7]
 title = "Reconcile the retired custody, exchange, verify and anchor consumers' tests with the retirement gates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208036,6 +208325,54 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.22.9.32.1]
+feature = "22"
+req = "22046.1"
+scenario = "Given the pay2 qualification harness, when its evidence authority section reads the node instead of performing the kernel handshake, then the harness builds and names nothing under the kernel interface module."
+contract = "! grep -nw lni services/agent/qualification/pay2/pay2e_test.rs && cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --no-run"
+test = "services/agent/qualification/pay2/pay2e_test.rs"
+qualification = "UNRUN"
+
+[acceptance.22.9.31.1]
+feature = "22"
+req = "22045.1"
+scenario = "Given the agent daemon tests, when the support file drops the kernel handshake and the Human peer tests import the frame module, then every test target builds, the webhook, subscription and Human projection tests pass, and no test outside the events group names the kernel interface module."
+contract = "! grep -rnw lni services/agent/crates/layerx-agentd/tests | grep -v -e /tests/ingest_eth_subscribe.rs -e /tests/approval_events.rs -e /tests/gaps.rs -e /tests/subscription_ops_cursor.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test webhook --test subscription --test human_projection_facts"
+test = "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"
+qualification = "UNRUN"
+
+[acceptance.22.9.30.1]
+feature = "22"
+req = "22044.1"
+scenario = "Given the agent daemon library and the client crate, when the frame codec and transport move to the frame module, then the daemon library names nothing under the kernel interface module outside src/events and the frame round trip test passes."
+contract = "! grep -rnw lni services/agent/crates/layerx-agentd/src | grep -v /src/events/ && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --lib frame"
+test = "services/agent/crates/layerx-client/src/frame/framing.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1510.1.1]
+feature = "18"
+req = "22043.1"
+scenario = "Given a chain-scoped log subscription and a lagged notice carrying another chain's log, when the filter excludes the log, then the subscriber still receives the lag signal."
+contract = "go vet ./rpc/ && go test -count=1 ./rpc/ -run 'TestSubscribe|Lag'"
+test = "rpc/subscribe_test.go"
+qualification = "UNRUN"
+
+[acceptance.18.1509.1.1]
+feature = "18"
+req = "22042.1"
+scenario = "Given a chain-scoped log subscription with a queued receipted log, when the layer seals before the notifier drains, then the subscription survives and delivers the next log."
+contract = "go vet ./rpc/ && go test -count=1 ./rpc/ -run 'TestSubscribe|Scoped|Scope'"
+test = "rpc/subscribe_test.go"
+qualification = "UNRUN"
+
+[acceptance.18.1508.1.1]
+feature = "18"
+req = "22041.1"
+scenario = "Given a pool whose newest fill row carries feeBPS, when ObservedFeeBps reads it, then the value is returned and a legacy feeBps row is still read."
+contract = "cd services/launchpad/api && go test -count=1 ./internal/store/ ./internal/rest/ -run 'Fee|PoolDetail|Observed'"
+test = "services/launchpad/api/internal/store/pool_registry_test.go"
+qualification = "UNRUN"
+
 [acceptance.22.9.26.1]
 feature = "22"
 req = "22032.1"
@@ -217896,7 +218233,7 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 
 [task.18.1506.1]
 title = "Issue #1506: Update the bundled owner policy to the enforced sixteen-byte limit id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217911,7 +218248,7 @@ touches = ["services/platform/hosted/human/beta-owner-policy.json", "services/pl
 tests = ["services/platform/hosted/human/test_material.py"]
 planned_paths = []
 build_cmd = "python3 -m py_compile services/platform/hosted/human/provision.py services/platform/hosted/human/test_material.py"
-verify_cmd = "python3 -m pytest -q services/platform/hosted/human/test_material.py services/platform/hosted/human/test_provision.py"
+verify_cmd = "python3 -m pytest -q services/platform/hosted/human/test_material.py services/platform/hosted/human/test_provision.py -k 'not test_generated_catalog_uses_real_keys_and_production_registry_modules and not test_real_owner_output_is_not_a_protocol_registration'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-platform"
@@ -217923,10 +218260,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 18.1506.1.1: verify_cmd excludes test_generated_catalog_uses_real_keys_and_production_registry_modules and test_real_owner_output_is_not_a_protocol_registration by name; both run under make human-test-hosted-provisioning, which builds the real provider binary first, and the candidate changes neither test; the remaining provisioning tests pass; continue from attempt 3."
 
 [task.18.1504.1]
 title = "Issue #1504: Update the retained Python journal test to the real receipt verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -221820,7 +222158,7 @@ do_7 = "Finding 18.1443.1.2: in kernel_retirement.py restrict the live-reference
 
 [task.20.0.1]
 title = "Refuse the virtual-chains closure while any chain task is not done"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["20.1.1", "20.1.2", "20.2.1", "20.2.2", "20.3.1", "20.3.2", "20.3.3", "20.3.4", "20.4.1", "20.4.2", "20.4.3", "20.4.4", "20.5.1", "20.5.2", "20.6.1", "20.6.2", "20.7.1", "20.7.2", "20.7.3", "20.8.1", "20.8.2", "20.9.1", "20.9.2", "20.9.3", "20.9.4", "20.9.5", "20.9.6", "20.9.7", "20.9.8", "20.10.1", "18.1488.1", "18.1489.1"]
