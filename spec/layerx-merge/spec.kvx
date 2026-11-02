@@ -184259,7 +184259,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.15]
 title = "Reconcile the TEE attestor resolution registry expectation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184579,7 +184579,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.5.6]
 title = "Seal through the application sequencer source at the activation height and persist added receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184609,7 +184609,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.13.7]
 title = "Reconcile the metered-call and native-gaps programs tests with the current runtime"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
