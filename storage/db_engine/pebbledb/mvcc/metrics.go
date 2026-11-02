@@ -7,6 +7,18 @@ import (
 	smetrics "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/metrics"
 )
 
+// Metric names are part of the node's scrape interface.
+const (
+	pebble_apply_changeset_async_latency = "pebble_apply_changeset_async_latency"
+	pebble_apply_changeset_latency       = "pebble_apply_changeset_latency"
+	pebble_batch_size                    = "pebble_batch_size"
+	pebble_batch_write_latency           = "pebble_batch_write_latency"
+	pebble_cache_hits                    = "pebble_cache_hits"
+	pebble_cache_misses                  = "pebble_cache_misses"
+	pebble_cache_size                    = "pebble_cache_size"
+	pebble_compaction_bytes_read         = "pebble_compaction_bytes_read"
+)
+
 var (
 	meter = otel.Meter("paxdb_pebble")
 
@@ -53,13 +65,13 @@ func newMVCCMetrics(meter metric.Meter) mvccMetrics {
 			metric.WithExplicitBucketBoundaries(smetrics.LatencyBuckets...),
 		)),
 		applyChangesetLatency: must(meter.Float64Histogram(
-			"pebble_apply_changeset_latency",
+			pebble_apply_changeset_latency,
 			metric.WithDescription("Time taken to apply changeset to PebbleDB"),
 			metric.WithUnit("s"),
 			metric.WithExplicitBucketBoundaries(smetrics.LatencyBuckets...),
 		)),
 		applyChangesetAsyncLatency: must(meter.Float64Histogram(
-			"pebble_apply_changeset_async_latency",
+			pebble_apply_changeset_async_latency,
 			metric.WithDescription("Time taken to queue changeset for async write"),
 			metric.WithUnit("s"),
 			metric.WithExplicitBucketBoundaries(smetrics.LatencyBuckets...),
@@ -77,7 +89,7 @@ func newMVCCMetrics(meter metric.Meter) mvccMetrics {
 			metric.WithExplicitBucketBoundaries(smetrics.LatencyBuckets...),
 		)),
 		batchWriteLatency: must(meter.Float64Histogram(
-			"pebble_batch_write_latency",
+			pebble_batch_write_latency,
 			metric.WithDescription("Time taken to write a batch to PebbleDB"),
 			metric.WithUnit("s"),
 			metric.WithExplicitBucketBoundaries(smetrics.LatencyBuckets...),
@@ -95,7 +107,7 @@ func newMVCCMetrics(meter metric.Meter) mvccMetrics {
 			metric.WithExplicitBucketBoundaries(smetrics.LatencyBuckets...),
 		)),
 		compactionBytesRead: must(meter.Int64Counter(
-			"pebble_compaction_bytes_read",
+			pebble_compaction_bytes_read,
 			metric.WithDescription("Total bytes read during compaction"),
 			metric.WithUnit("By"),
 		)),
@@ -149,23 +161,23 @@ func newMVCCMetrics(meter metric.Meter) mvccMetrics {
 		)),
 
 		cacheHits: must(meter.Int64Counter(
-			"pebble_cache_hits",
+			pebble_cache_hits,
 			metric.WithDescription("Total number of cache hits"),
 			metric.WithUnit("{count}"),
 		)),
 		cacheMisses: must(meter.Int64Counter(
-			"pebble_cache_misses",
+			pebble_cache_misses,
 			metric.WithDescription("Total number of cache misses"),
 			metric.WithUnit("{count}"),
 		)),
 		cacheSize: must(meter.Int64Gauge(
-			"pebble_cache_size",
+			pebble_cache_size,
 			metric.WithDescription("Current cache size"),
 			metric.WithUnit("By"),
 		)),
 
 		batchSize: must(meter.Int64Histogram(
-			"pebble_batch_size",
+			pebble_batch_size,
 			metric.WithDescription("Size of batches written to PebbleDB"),
 			metric.WithUnit("By"),
 			metric.WithExplicitBucketBoundaries(smetrics.ByteSizeBuckets...),
