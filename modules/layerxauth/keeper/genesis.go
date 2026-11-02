@@ -14,6 +14,8 @@ func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 	}
 }
 
+// ExportGenesis exports only module parameters. Authority grants remain in the
+// shared host store and are observed through the keeper's grant views.
 func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	return &types.GenesisState{Params: k.GetParams(ctx)}
 }
