@@ -1,0 +1,124 @@
+[disposition.18.1206.1.2]
+finding = "18.1206.1.2"
+status = "resolved"
+evidence = "Commit b9fd53afe replaced the obsolete ReceiptLookup implementation with loopback SequencerEndpoint calls in services/agent/crates/layerx-agentd/tests/unknown.rs:61, while 519005b56 and dfa182a2e ported the budget identity assertions to sender and byte slices in services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs:519."
+
+[disposition.18.1211.2.1]
+finding = "18.1211.2.1"
+status = "resolved"
+evidence = "Commit 36dbaa76a changed the malformed transaction expectation to TransactionForm at services/interop/crates/layerx-x402/src/buyer.rs:883 and the noncanonical offer network expectations to ProfileMismatch at services/interop/crates/layerx-x402/src/seller.rs:1028."
+
+[disposition.18.1211.2.2]
+finding = "18.1211.2.2"
+status = "resolved"
+evidence = "Commit 36dbaa76a made the payTo mutation expect ProfileMismatch in both services/interop/crates/layerx-x402/tests/buyer_sequencer.rs:289 and services/interop/crates/layerx-x402/tests/evidence_format.rs:273 while retaining EvidenceMismatch for asset mutations."
+
+[disposition.18.1211.2.3]
+finding = "18.1211.2.3"
+status = "resolved"
+evidence = "Commit 36dbaa76a made proofless committed evidence expect EvidenceMismatch at services/interop/crates/layerx-x402/tests/layerx_evidence.rs:251 and services/interop/crates/layerx-x402/tests/seller.rs:1118 instead of treating either capture as successful."
+
+[disposition.18.1211.2.4]
+finding = "18.1211.2.4"
+status = "resolved"
+evidence = "Commit 36dbaa76a ported all three transport role-messages suites to eip155:125 networks, 0x transaction hashes and eip155:* signer keys, as shown by services/interop/specs/conformance/transport-http/role-messages.json:23, services/interop/specs/conformance/transport-a2a/role-messages.json:75 and services/interop/specs/conformance/transport-mcp/role-messages.json:168."
+
+[disposition.18.1211.3.1]
+finding = "18.1211.3.1"
+status = "resolved"
+evidence = "Commit b59e13c06 added verified capture evidence for reversal and chargeback journeys at services/interop/crates/layerx-fiat/tests/adapter.rs:692 and native topic ordering at services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs:188, with 3f3815ee7 updating the re-recorded journey digests at services/interop/specs/conformance/fiat/sequenced-journeys.json:28."
+
+[disposition.18.1211.4.1]
+finding = "18.1211.4.1"
+status = "resolved"
+evidence = "Commit a827b3267 replaced the three SHA-256 expectations with canonical_receipt_digest at services/interop/crates/layerx-interop-gateway/tests/gateway.rs:950, services/interop/crates/layerx-interop-gateway/tests/gateway.rs:994 and services/interop/crates/layerx-interop-gateway/tests/gateway.rs:1073."
+
+[disposition.18.1211.5.2]
+finding = "18.1211.5.2"
+status = "resolved"
+evidence = "Commit 3f3815ee7 changed TRANSACTION to the re-recorded a0d985d9 through 44b1ccd1 hash at services/interop/crates/layerx-x402/src/buyer.rs:709 while keeping the capture assertion."
+
+[disposition.18.1211.5.3]
+finding = "18.1211.5.3"
+status = "resolved"
+evidence = "The task verify command at spec/layerx-merge/spec.kvx:225931 now selects --bin layerx-interop-gateway, matching the binary declared at services/interop/crates/layerx-interop-service/Cargo.toml:8 instead of selecting a nonexistent library."
+
+[disposition.18.1211.5.4]
+finding = "18.1211.5.4"
+status = "resolved"
+evidence = "Commit 3f3815ee7 corrected payer, payee and reference topic indices at services/interop/crates/layerx-interop-service/src/payer_tx.rs:198, ported server receipt rewrites and offers, and supplied the relay block receiptsRoot at services/interop/crates/layerx-interop-service/src/relay.rs:812."
+
+[disposition.18.1211.5.5]
+finding = "18.1211.5.5"
+status = "resolved"
+evidence = "The relay explicitly gives the mismatched block a distinct hash at services/interop/crates/layerx-interop-service/src/relay.rs:816, and commit 3f3815ee7 changed server offers to eip155:125 at services/interop/crates/layerx-interop-service/src/server.rs:4696 and derived the settlement idempotency key before constructing its receipt."
+
+[disposition.18.1211.5.6]
+finding = "18.1211.5.6"
+status = "resolved"
+evidence = "Commit 3f3815ee7 added receiptsRoot to the relay block fixture at services/interop/crates/layerx-interop-service/src/relay.rs:812, allowing decode_block to decode the matching block while the test still distinguishes committed and receipted outcomes."
+
+[disposition.18.1211.5.7]
+finding = "18.1211.5.7"
+status = "resolved"
+evidence = "Commit 3f3815ee7 supplied the recorded transaction hash to both unsigned and unverifiable facilitator requests at services/interop/crates/layerx-interop-service/src/server.rs:5416 and services/interop/crates/layerx-interop-service/src/server.rs:5437, so the typed_intent_required assertion at services/interop/crates/layerx-interop-service/src/server.rs:5430 reaches the intended check."
+
+[disposition.18.1211.5.8]
+finding = "18.1211.5.8"
+status = "resolved"
+evidence = "Commit 3f3815ee7 refreshed services/interop/Cargo.lock by removing the retired layerx-client and layerx-paxeer-verifier dependencies from layerx-indexer, and b8137deb6 subsequently synchronized the layerx-client dependencies recorded at services/interop/Cargo.lock:1237."
+
+[disposition.18.1214.1.1]
+finding = "18.1214.1.1"
+status = "resolved"
+evidence = "Commit b8137deb6 refreshed the interop lock to include base64 0.22.1 and layerx-programs-registry under layerx-client at services/interop/Cargo.lock:1240 and services/interop/Cargo.lock:1244, matching services/agent/crates/layerx-client/Cargo.toml:9."
+
+[disposition.18.1218.1.1]
+finding = "18.1218.1.1"
+status = "environment"
+evidence = "The integration setup at tests/integration/rpc_tests/eth/eth_gasPrice.spec.ts:21 still requires bootstrapped runtime state through tests/integration/rpc_tests/utils/testUtils.ts:89, while commit 3fd00527e added the independent gas-price helper unit suite for qualification without the unavailable chain environment."
+
+[disposition.18.1222.1.1]
+finding = "18.1222.1.1"
+status = "resolved"
+evidence = "Commit 43f3ed2b1 removed require.Same from the wrapped zero-address cases while retaining ErrorIs and ABCI code comparisons at modules/launchpad/keeper/grpc_query_airdrop_claimed_test.go:110."
+
+[disposition.18.1228.1.1]
+finding = "18.1228.1.1"
+status = "resolved"
+evidence = "Commit 0ed82717d ported Observation::Ready to maximum_rung at services/agent/crates/layerx-agentd/tests/degraded.rs:103 and DegradedRead assertions to held_rung and reported_rung at services/agent/crates/layerx-agentd/tests/degraded.rs:166."
+
+[disposition.18.1228.1.2]
+finding = "18.1228.1.2"
+status = "resolved"
+evidence = "Commit b7220cd6e constructs SigningPreparation with EvmPrepared, actor_address and authorization at services/human/crates/layerx-human-service/tests/session_keys.rs:262 before passing it to self_sign at services/human/crates/layerx-human-service/tests/session_keys.rs:271."
+
+[disposition.18.1228.1.3]
+finding = "18.1228.1.3"
+status = "resolved"
+evidence = "Commit b7220cd6e replaced the retired FundsDispositionEvidence verification_level field with rung: Rung::Committed at services/human/crates/layerx-human-service/tests/archive.rs:101."
+
+[disposition.18.1228.1.4]
+finding = "18.1228.1.4"
+status = "resolved"
+evidence = "Commit b7220cd6e made spoofed header and body tenants expect NotAuthorized at services/agent/crates/layerx-agentd/tests/tenant_resolve.rs:218 and classified AgentRegister and SessionOpen as Prepare at services/agent/crates/layerx-agentd/tests/tenant_resolve.rs:398."
+
+[disposition.18.1228.1.5]
+finding = "18.1228.1.5"
+status = "resolved"
+evidence = "Commit b7220cd6e moved agent_controls to sign_transaction at services/human/crates/layerx-human-service/tests/agent_controls.rs:736 and ecf046436 moved agent_controls_rungs to the same shared EIP-1559 helper at services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:752, whose bind_call check is at services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:93."
+
+[disposition.18.1228.1.6]
+finding = "18.1228.1.6"
+status = "resolved"
+evidence = "Commit 64c4d6a23 landed the missing EIP-1559 signer and budgetCreate disclosure support, retained at services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:73 and services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:93, and ecf046436 ported the rung fixture caller at services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:752."
+
+[disposition.18.1228.1.7]
+finding = "18.1228.1.7"
+status = "resolved"
+evidence = "Commit 2455fbc51 made verify_outcome admit native owner module receipts with operation zero through verify_owner_projection at services/agent/crates/layerx-proof/src/receipt.rs:362, removing the reported Budget 3 Operation rejection."
+
+[disposition.18.1228.1.8]
+finding = "18.1228.1.8"
+status = "resolved"
+evidence = "Commit ecf046436 submits the replacement budget digest as action_key at services/human/crates/layerx-human-service/src/agents/controls.rs:610, aligning the caller with the payload digest assertion retained at services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:31."
