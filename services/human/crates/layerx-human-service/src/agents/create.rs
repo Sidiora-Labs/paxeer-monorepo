@@ -660,6 +660,11 @@ impl ProtocolEvidence {
                 payload,
                 layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
             ),
+            Some(layerx_crypto::disclosure::call::ConstructMethod::ProgramCall { .. }) => {
+                return Err(AgentFailure::Refused(
+                    "invalid lifecycle transaction method",
+                ))
+            }
             Some(
                 layerx_crypto::disclosure::call::ConstructMethod::LedgerOpenAccount { .. }
                 | layerx_crypto::disclosure::call::ConstructMethod::LedgerRegister { .. }

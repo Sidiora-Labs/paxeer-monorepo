@@ -1,6 +1,42 @@
 #!/bin/sh
 set -eu
 
+export_paxeer_chain_environment() {
+    paxeer_chain_environment=$(python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+from urllib.parse import urlsplit
+
+manifest_path = os.environ.get("PAXEER_X_RUNTIME_MANIFEST")
+if manifest_path:
+    manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    chain_id = manifest["chain_id"]
+    if "ports" in manifest:
+        rpc_port = manifest["ports"][0]
+    else:
+        rpc_port = urlsplit(manifest["chain_rpc"]).port
+else:
+    chain_id = 125
+    rpc_port = os.environ.get("LAYERX_TEST_PAXEER_RPC_PORT", "8545")
+
+
+def bounded_integer(value, maximum, name):
+    text = str(value)
+    if not text.isascii() or not text.isdecimal() or not 0 < int(text) <= maximum:
+        raise ValueError(f"invalid {name}: {value!r}")
+    return int(text)
+
+
+chain_id = bounded_integer(chain_id, 2**64 - 1, "Paxeer chain id")
+rpc_port = bounded_integer(rpc_port, 65535, "Paxeer RPC port")
+print(chain_id, rpc_port)
+PY
+    )
+    export LAYERX_TEST_PAXEER_CHAIN_ID=${paxeer_chain_environment% *}
+    export LAYERX_TEST_PAXEER_RPC_PORT=${paxeer_chain_environment#* }
+}
+
 case "${1-}" in
     test) test_target=agent-test ;;
     sanitizers) test_target=agent-test-sanitize ;;
@@ -44,6 +80,7 @@ for executable in forge cast anvil go; do
     command -v "$executable" >/dev/null
 done
 python3 -c "from Crypto.Hash import keccak; from eth_account import Account; from eth_utils import to_checksum_address"
+export_paxeer_chain_environment
 if [ -n "$test_target" ]; then
     make "$test_target"
     exit 0
