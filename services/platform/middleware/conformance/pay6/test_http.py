@@ -50,10 +50,10 @@ class HttpTests(unittest.TestCase):
                 "verificationLevel": "sequencer-signed",
             },
         )
-        self.authority = ConfiguredReceiptAuthority(f.authorized)
+        self.authority = ConfiguredReceiptAuthority(f.raw_transaction)
         self.seller = SellerMiddleware(
             self.required,
-            f.signatures,
+            f.receipt_keys,
             self.authority,
             FulfillmentStore(str(Path(self.directory.name) / "payments.sqlite")),
         )
@@ -69,7 +69,7 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(first[0], 200)
         buyer = BuyerMiddleware(
             PaymentRpc("http://127.0.0.1:1/rpc"),
-            self.fixture.signatures,
+            self.fixture.receipt_keys,
             self.authority,
             [("exact", "layerx:beta")],
         )
@@ -152,7 +152,7 @@ class HttpTests(unittest.TestCase):
         try:
             buyer = BuyerMiddleware(
                 PaymentRpc("http://127.0.0.1:1/rpc"),
-                self.fixture.signatures,
+                self.fixture.receipt_keys,
                 self.authority,
                 [("exact", "layerx:beta")],
             )

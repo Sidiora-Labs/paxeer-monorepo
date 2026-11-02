@@ -92,7 +92,7 @@ fn module_state_reads_the_storage_slot_proof_at_the_committed_height() {
 }
 
 #[test]
-fn module_state_with_history_refuses_a_storage_proof_for_another_slot() {
+fn module_state_refuses_a_storage_proof_for_another_slot() {
     for (result, hash, root) in [
         (json!("0x80ac"), 0x9a, 0x56),
         (json!("0x80ab"), 0x9b, 0x56),

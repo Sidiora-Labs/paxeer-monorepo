@@ -3,20 +3,19 @@ use layerx_crypto::send::SendDebit;
 use layerx_crypto::session::{issue_session_key, SessionKeyRequest, SessionPurpose};
 use layerx_crypto::signer::{LocalSigner, Signer};
 use layerx_intents::{
-    compile, BridgeDepositCredit, BridgeWithdrawRequest, BudgetCreate, BudgetDefund, BudgetFund,
-    DidRegistration, DisclosureCheck, EvmPayoutBinding, Intent, IntentKind, KeyRotation,
-    LxpReceive, LxpSend, NativeBudgetCreate, NativeCustodyCredit, NativeReceive,
+    compile, BudgetCreate, BudgetDefund, BudgetFund, DidRegistration, DisclosureCheck, Intent,
+    IntentKind, KeyRotation, LxpReceive, LxpSend, NativeBudgetCreate, NativeReceive,
     PayerGrantRegistration, RecoveryRegistration, SessionGrant, SessionRevoke,
 };
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Signature, TimestampBound};
+use layerx_types::activity::TimestampBound;
 use layerx_types::amount::Amount;
-use layerx_types::ids::{AssetId, CheckpointId, Did, IdempotencyKey};
+use layerx_types::ids::{AssetId, Did, IdempotencyKey};
 use layerx_types::intent::{
     ApprovalThreshold, AuthorityGrantId, AuthorizationSignature, BudgetId, ContextHash,
-    DepositProofId, EvmAddress, GrantSchedule, NetworkId, PayerGrantId, PeriodLength,
-    ProtocolVersion, PublicKey, PurposeHash, RecoveryRoot, RolloverPolicy, SendAuthorization,
-    SendAuthorizationKind, Sequence, SessionRevocationReason, TimestampSeconds,
+    GrantSchedule, NetworkId, PayerGrantId, PeriodLength, ProtocolVersion, PublicKey, PurposeHash,
+    RecoveryRoot, RolloverPolicy, SendAuthorization, SendAuthorizationKind, Sequence,
+    SessionRevocationReason, TimestampSeconds,
 };
 use layerx_types::payload::{
     ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, PerpsPayload,
@@ -74,7 +73,6 @@ fn registry() -> ModuleRegistry {
         activity(ModuleId::Budget, 4),
         activity(ModuleId::Budget, 8),
     ];
-    let bridge = [activity(ModuleId::Bridge, 1), activity(ModuleId::Bridge, 2)];
     let perps = [activity(ModuleId::Perps, 9)];
     let registrations = [
         ModuleRegistration::new(ModuleId::Governance, &governance)
@@ -83,8 +81,6 @@ fn registry() -> ModuleRegistry {
             .unwrap_or_else(|error| panic!("asset registry: {error:?}")),
         ModuleRegistration::new(ModuleId::Budget, &budget)
             .unwrap_or_else(|error| panic!("budget registry: {error:?}")),
-        ModuleRegistration::new(ModuleId::Bridge, &bridge)
-            .unwrap_or_else(|error| panic!("bridge registry: {error:?}")),
         ModuleRegistration::new(ModuleId::Perps, &perps)
             .unwrap_or_else(|error| panic!("perps registry: {error:?}")),
     ];
@@ -192,15 +188,6 @@ fn live_intents() -> Vec<Intent> {
             )
             .unwrap_or_else(|error| panic!("recovery: {error:?}")),
         )),
-        Intent::v1(IntentKind::EvmPayoutBinding(
-            EvmPayoutBinding::new(
-                did(),
-                NetworkId::new(77).unwrap_or_else(|error| panic!("network: {error:?}")),
-                EvmAddress::new([4; 20]),
-                Signature::new(&[5; 65]).unwrap_or_else(|error| panic!("signature: {error:?}")),
-            )
-            .unwrap_or_else(|error| panic!("payout binding: {error:?}")),
-        )),
         send_intent([4; 32]),
         Intent::v1(IntentKind::LxpReceive(
             LxpReceive::new(
@@ -270,31 +257,6 @@ fn live_intents() -> Vec<Intent> {
             )
             .unwrap_or_else(|error| panic!("budget defund: {error:?}")),
         )),
-        Intent::v1(IntentKind::BridgeDepositCredit(
-            BridgeDepositCredit::new(
-                DepositProofId::new([13; 32]),
-                CheckpointId::new([14; 32]),
-                account("system:treasury"),
-                owner(),
-                asset(),
-                amount(),
-                idempotency(),
-            )
-            .unwrap_or_else(|error| panic!("bridge deposit: {error:?}")),
-        )),
-        Intent::v2(IntentKind::BridgeWithdrawRequest(
-            BridgeWithdrawRequest::new(
-                CheckpointId::new([18; 32]),
-                100,
-                owner(),
-                account("system:paxeer-withdrawals"),
-                EvmAddress::new([16; 20]),
-                asset(),
-                amount(),
-                idempotency(),
-            )
-            .unwrap_or_else(|error| panic!("bridge withdrawal: {error:?}")),
-        )),
     ];
 
     let issued = checked(issue_session_key(&SessionKeyRequest {
@@ -309,12 +271,6 @@ fn live_intents() -> Vec<Intent> {
             .collect(),
         revocation_sequence: Some(3),
     }));
-    let credit =
-        include_bytes!("../../../../../tests/fixtures/custody/paxeer-light-v1/custody.credit");
-    let beneficiary: String = credit[139..171]
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect();
     let receive = include_str!(
         "../../../../agent/crates/layerx-crypto/tests/fixtures/payments/native-1-6.hex"
     );
@@ -357,13 +313,6 @@ fn live_intents() -> Vec<Intent> {
             SessionRevocationReason::Paused,
             Sequence::from_u64(9),
         )))),
-        Intent::v1(IntentKind::NativeCustodyCredit(checked(
-            NativeCustodyCredit::new(
-                credit,
-                account("system:treasury"),
-                account(&format!("agent:did:layerx:{beneficiary}:main")),
-            ),
-        ))),
         Intent::v1(IntentKind::NativeReceive(checked(NativeReceive::new(
             &receive,
         )))),
@@ -379,21 +328,17 @@ fn kind_index(kind: &IntentKind) -> usize {
         IntentKind::NativeAssetAccountOpen(_) => 2,
         IntentKind::KeyRotation(_) => 3,
         IntentKind::RecoveryRegistration(_) => 4,
-        IntentKind::EvmPayoutBinding(_) => 5,
-        IntentKind::SessionGrant(_) => 6,
-        IntentKind::AuthorityGrant(_) => 7,
-        IntentKind::SessionRevoke(_) => 8,
-        IntentKind::LxpSend(_) => 9,
-        IntentKind::LxpReceive(_) => 10,
-        IntentKind::PayerGrantRegistration(_) => 11,
-        IntentKind::BudgetCreate(_) => 12,
-        IntentKind::BudgetFund(_) => 13,
-        IntentKind::BudgetDefund(_) => 14,
-        IntentKind::BridgeDepositCredit(_) => 15,
-        IntentKind::NativeCustodyCredit(_) => 16,
-        IntentKind::NativeReceive(_) => 17,
-        IntentKind::BridgeWithdrawRequest(_) => 18,
-        IntentKind::Perps(_) => 19,
+        IntentKind::SessionGrant(_) => 5,
+        IntentKind::AuthorityGrant(_) => 6,
+        IntentKind::SessionRevoke(_) => 7,
+        IntentKind::LxpSend(_) => 8,
+        IntentKind::LxpReceive(_) => 9,
+        IntentKind::PayerGrantRegistration(_) => 10,
+        IntentKind::BudgetCreate(_) => 11,
+        IntentKind::BudgetFund(_) => 12,
+        IntentKind::BudgetDefund(_) => 13,
+        IntentKind::NativeReceive(_) => 14,
+        IntentKind::Perps(_) => 15,
     }
 }
 
@@ -401,7 +346,7 @@ fn kind_index(kind: &IntentKind) -> usize {
 fn every_remaining_intent_kind_compiles() {
     let registry = registry();
     let intents = live_intents();
-    let mut covered = [false; 20];
+    let mut covered = [false; 16];
     for intent in &intents {
         let index = kind_index(intent.kind());
         assert!(
@@ -414,11 +359,7 @@ fn every_remaining_intent_kind_compiles() {
             .unwrap_or_else(|error| panic!("{:?} refused compilation: {error:?}", intent.kind()));
         assert!(matches!(
             compiled.activity_type().module(),
-            ModuleId::Governance
-                | ModuleId::Asset
-                | ModuleId::Budget
-                | ModuleId::Bridge
-                | ModuleId::Perps
+            ModuleId::Governance | ModuleId::Asset | ModuleId::Budget | ModuleId::Perps
         ));
         assert_eq!(compiled.activity_type().module(), intent.module());
         assert_eq!(compiled.payload().activity_type().module(), intent.module());

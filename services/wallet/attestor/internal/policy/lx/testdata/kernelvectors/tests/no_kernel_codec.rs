@@ -4,6 +4,8 @@ use std::process::Command;
 fn kernelvectors_use_no_kernel_codec() {
     let source = include_str!("../src/main.rs");
     for retired in [
+        "layerx_wire::activity",
+        "layerx_wire::sign",
         "layerx_crypto::disclosure",
         "layerx_crypto::send",
         "encode_send_envelope",

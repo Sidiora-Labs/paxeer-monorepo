@@ -206,11 +206,13 @@ impl Peer {
                             assert_eq!(value.operation.preparation_ref, "type2-preparation");
                             assert_eq!(value.operation.signature.len(), 65);
                             let call = prepared.as_ref().expect("prepared transaction");
-                            let raw = checked(layerx_intents::owner_activity::attach_signature(
-                                call,
-                                checked(value.operation.signature.as_slice().try_into()),
-                                sender,
-                            ));
+                            let raw = checked(
+                                layerx_human_service::custody::signer::attach_call_signature(
+                                    call,
+                                    checked(value.operation.signature.as_slice().try_into()),
+                                    sender,
+                                ),
+                            );
                             let (decoded, signature) = checked(decode_signed(&raw));
                             assert_eq!(&decoded, call);
                             assert_eq!(checked(recover_sender(&decoded, &signature)), sender);
@@ -265,6 +267,7 @@ fn engine(root: &std::path::Path) -> JourneyEngine {
         ACTION,
         checked(AgentDid::new(ACTOR)),
         checked(AuthorityRef::new(AUTHORITY)),
+        NONCE,
         NONCE,
         100,
         200,
@@ -401,6 +404,7 @@ fn engine_refuses_a_kernel_activity_envelope_leg() {
         actor: request.actor,
         authority: request.authority,
         account_sequence: NONCE,
+        pending_nonce: NONCE,
         not_before: 100,
         not_after: 200,
         fee_limit: FEE,

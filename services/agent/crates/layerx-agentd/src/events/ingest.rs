@@ -4,7 +4,7 @@ use std::fmt::{Display, Formatter};
 use super::gap::{attempt_backfill, BackfillReport, Gap};
 use crate::read::{Cursor, HistoryLimits};
 use layerx_client::lni::transport::FrameTransport;
-use layerx_client::read::ReadContext;
+use layerx_client::rpc::history::ReadContext;
 use layerx_client::subscription::NodeSubscription;
 use layerx_types::{rung::Rung, verify as legacy};
 use serde_json::Value;

@@ -11,6 +11,7 @@ import (
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -19,6 +20,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/export"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 )
@@ -219,6 +221,111 @@ func TestPendingBlockGasPriceFromOpenBlock(t *testing.T) {
 	price, err = sequencerAPI.GasPrice(ctx)
 	require.NoError(t, err)
 	require.Equal(t, wantCommitted, price.ToInt())
+}
+
+func TestEstimateGasWithoutOpenBlockUsesLatestState(t *testing.T) {
+	const committed = int64(1000)
+	sender := utils.NewSigner()
+	recipient := utils.NewSigner().EvmAddress
+	s := newPendingSequencer(t, committed, sender)
+	txConfig := s.app.GetTxConfig()
+	ctxProvider := func(height int64) sdk.Context {
+		ctx := s.ctxProvider(height)
+		if height == evmrpc.PendingCtxHeight {
+			return ctx
+		}
+		return ctx.WithConsensusParams(s.app.GetConsensusParams(ctx))
+	}
+	api := evmrpc.NewSimulationAPI(ctxProvider, &s.app.EvmKeeper,
+		legacyabci.BeginBlockKeepers{}, func(int64) client.TxConfig { return txConfig },
+		&MockClient{latestOverride: committed},
+		&evmrpc.SimulateConfig{GasCap: 1_000_000, EVMTimeout: 5 * time.Second},
+		s.app.BaseApp, s.app.TracerAnteHandler, evmrpc.ConnectionTypeHTTP,
+		evmrpc.NewBlockCache(3000), &sync.Mutex{}, s.wm)
+	ctx := context.Background()
+	args := export.TransactionArgs{
+		From:     &sender.EvmAddress,
+		To:       &recipient,
+		Value:    (*hexutil.Big)(big.NewInt(pendingOnePaxWei)),
+		GasPrice: (*hexutil.Big)(big.NewInt(pendingGasPriceWei)),
+	}
+	pending := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
+	latest := rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
+
+	openEstimate, err := api.EstimateGas(ctx, args, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, hexutil.Uint64(pendingTransferGas), openEstimate)
+
+	_, err = s.exec.Seal(committed + 1)
+	require.NoError(t, err)
+	_, err = s.exec.Snapshot()
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+
+	latestEstimate, err := api.EstimateGas(ctx, args, &latest, nil)
+	require.NoError(t, err)
+	require.Equal(t, openEstimate, latestEstimate)
+	for _, tag := range []*rpc.BlockNumberOrHash{nil, &pending} {
+		estimate, err := api.EstimateGas(ctx, args, tag, nil)
+		require.NoError(t, err)
+		require.Equal(t, latestEstimate, estimate)
+
+		result, err := api.Call(ctx, args, tag, nil, nil)
+		require.NoError(t, err)
+		require.Empty(t, result)
+
+		accessList, err := api.CreateAccessList(ctx, args, tag)
+		require.NoError(t, err)
+		require.Empty(t, accessList.Error)
+		require.Equal(t, hexutil.Uint64(pendingTransferGas), accessList.GasUsed)
+	}
+
+	require.NoError(t, s.exec.Open(committed+1, time.Now().UTC().Add(2*time.Second).UnixMilli()))
+	estimate, err := api.EstimateGas(ctx, args, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, openEstimate, estimate)
+}
+
+func TestCustomPrecompilesAfterSealUseCommittedState(t *testing.T) {
+	const committed = int64(1000)
+	s := newPendingSequencer(t, committed)
+	txConfig := s.app.GetTxConfig()
+	ctxProvider := func(height int64) sdk.Context {
+		if height > committed {
+			_, err := s.app.CreateQueryContext(height, false)
+			panic(err)
+		}
+		return s.ctxProvider(height)
+	}
+	_, invalidHeightErr := s.app.CreateQueryContext(committed+1, false)
+	require.Error(t, invalidHeightErr)
+	require.PanicsWithError(t, invalidHeightErr.Error(), func() { ctxProvider(committed + 1) })
+	backend := evmrpc.NewBackend(ctxProvider, &s.app.EvmKeeper,
+		legacyabci.BeginBlockKeepers{}, func(int64) client.TxConfig { return txConfig },
+		&MockClient{latestOverride: committed},
+		&evmrpc.SimulateConfig{GasCap: 1_000_000, EVMTimeout: 5 * time.Second},
+		s.app.BaseApp, s.app.TracerAnteHandler,
+		evmrpc.NewBlockCache(3000), &sync.Mutex{}, s.wm)
+	state, header, err := backend.StateAndHeaderByNumberOrHash(context.Background(),
+		rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber))
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	require.NotNil(t, header)
+	require.Equal(t, committed+1, header.Number.Int64())
+
+	require.NotPanics(t, func() {
+		require.Equal(t, backend.GetCustomPrecompiles(evmrpc.PendingCtxHeight), backend.GetCustomPrecompiles(header.Number.Int64()))
+		require.Equal(t, backend.ChainConfigAtHeight(evmrpc.PendingCtxHeight), backend.ChainConfigAtHeight(header.Number.Int64()))
+	})
+
+	_, err = s.exec.Seal(committed + 1)
+	require.NoError(t, err)
+	_, err = s.exec.Snapshot()
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	require.Equal(t, committed, ctxProvider(evmrpc.LatestCtxHeight).BlockHeight())
+	require.NotPanics(t, func() {
+		require.Equal(t, backend.GetCustomPrecompiles(evmrpc.LatestCtxHeight), backend.GetCustomPrecompiles(header.Number.Int64()))
+		require.Equal(t, backend.ChainConfigAtHeight(evmrpc.LatestCtxHeight), backend.ChainConfigAtHeight(header.Number.Int64()))
+	})
 }
 
 func TestGasPriceWithoutOpenBlockUsesLatestBaseFee(t *testing.T) {

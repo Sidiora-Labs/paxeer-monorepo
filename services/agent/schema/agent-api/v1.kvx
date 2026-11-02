@@ -118,6 +118,9 @@ authority = "The daemon authenticates these exact coordinates; the agent is take
 fields = ["request_id:Sequence","value:canonical-map","verification_status:VerificationStatus"]
 verification_status = "Either {state:\"achieved\",rung:R} or {state:\"unverified\",requested:R,achieved:R,reason:ReasonCode} with achieved strictly below requested; R is one of submitted, receipted, committed. An unverified status that violates the ordering is refused as VerificationFailure verification.inconsistent."
 
+[record.VerificationStatus]
+verification_status = "Either {state:\"achieved\",rung:R}, {state:\"unverified\",requested:R,achieved:R,reason:ReasonCode} with achieved strictly below requested, {state:\"pending\",requested:R,achieved:R} with achieved strictly below requested for a submitted-but-unreceipted lookup, or {state:\"absent\",requested:R} when no submission is known; R is one of submitted, receipted, committed. An unverified or pending status that violates the ordering is refused as VerificationFailure verification.inconsistent."
+
 [record.AgentHttpError]
 fields = ["class:ErrorClass","protocol_result_code:i32?","retriability:Retriability","request_id:Sequence","reason:utf8"]
 request_id = "The envelope request_id when it was parsed, otherwise 0."

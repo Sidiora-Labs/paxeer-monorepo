@@ -19,7 +19,7 @@ import (
 
 func TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight(t *testing.T) {
 	app := testkeeper.EVMTestApp
-	ctx, _ := app.NewContext(false, tmtypes.Header{}).WithBlockHeight(7).WithBlockTime(genesisTime).CacheContext()
+	ctx := custodyTestContext(t, app.NewContext(false, tmtypes.Header{}).WithBlockHeight(7).WithBlockTime(genesisTime))
 	fixture, err := testvectors.Load()
 	require.NoError(t, err)
 	vector := fixture["withdrawal"][0]
@@ -62,10 +62,32 @@ func TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, anchor.ActivateGuarantor(ctx, authority, guarantorID))
 
-	var headerSignature [64]byte
-	copy(headerSignature[:], vectorBytes(t, vector, "header_signature"))
-	checkpoint, err := anchor.SubmitCheckpoint(ctx, operator, headerBytes, headerSignature, certificate)
+	decodedCertificate, err := codec.DecodeCheckpointCertificate(certificate)
 	require.NoError(t, err)
+	guarantors := make([]anchortypes.Hash32, len(decodedCertificate.Attestations))
+	for i, attestation := range decodedCertificate.Attestations {
+		guarantors[i] = anchortypes.Hash32(attestation.GuarantorID)
+	}
+	genesis = anchor.ExportGenesis(ctx)
+	genesis.Checkpoints = []anchortypes.Checkpoint{{
+		BatchNumber: header.BatchNumber, CheckpointID: anchortypes.Hash32(codec.CheckpointHash(headerBytes, nil)),
+		HeaderDigest: anchortypes.Hash32(codec.BatchHeaderDigest(headerBytes)), ProtocolVersion: header.ProtocolVersion,
+		NetworkID: header.NetworkID, Epoch: header.Epoch, FirstSequence: header.FirstSequence,
+		LastSequence: header.LastSequence, PreviousStateRoot: anchortypes.Hash32(header.PreviousStateRoot),
+		StateRoot: anchortypes.Hash32(header.ResultingStateRoot), ReceiptRoot: anchortypes.Hash32(header.ReceiptMerkleRoot),
+		DataAvailabilityRoot: anchortypes.Hash32(header.DataAvailabilityRoot), SequencerID: anchortypes.Hash32(header.SequencerID),
+		TimestampMs: header.TimestampMs, Status: anchortypes.CheckpointFinal,
+		DeclaredThreshold: decodedCertificate.Threshold, Guarantors: guarantors,
+		AvailabilityMask: decodedCertificate.Attestations[0].AvailabilityClassMask, Submitter: operator.String(),
+		SubmittedHeight: ctx.BlockHeight(), SubmittedTime: ctx.BlockTime().Unix(),
+		FinalizedHeight: ctx.BlockHeight(), FinalizedTime: ctx.BlockTime().Unix(),
+	}}
+	genesis.HasLatestFinalized = true
+	genesis.LatestFinalized = header.BatchNumber
+	require.NoError(t, genesis.Validate())
+	anchor.InitGenesis(ctx, *genesis)
+	checkpoint, imported := anchor.GetCheckpoint(ctx, header.BatchNumber)
+	require.True(t, imported)
 	require.Equal(t, anchortypes.CheckpointFinal, checkpoint.Status)
 
 	checkpointID := codec.CheckpointHash(headerBytes, nil)

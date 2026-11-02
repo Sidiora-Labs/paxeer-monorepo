@@ -216,7 +216,10 @@ fn decode_account(value: &Value) -> Option<PxAccountJoin> {
                 nonce: count(half.get("nonce")?)?,
             })
         })?,
-        layerx: nullable(fields.get("layerx")?, object)?,
+        layerx: match fields.get("layerx") {
+            None => None,
+            Some(value) => nullable(value, object)?,
+        },
     })
 }
 

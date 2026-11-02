@@ -1,6 +1,11 @@
 import { bytesToHex, concatBytes, hexToBytes } from '@noble/hashes/utils.js';
 import { namehash } from './namehash.js';
-import { ProofError, verifyStorageProof, type ProofOp } from './proof.js';
+import {
+  ProofError,
+  verifyStorageAbsence,
+  verifyStorageProof,
+  type ProofOp,
+} from './proof.js';
 import { contenthashSlot } from './slot.js';
 
 export type HeaderSource = {
@@ -118,11 +123,12 @@ export async function resolveContent(
   const encodedValue: unknown = result.hexValues[0];
   if (
     typeof encodedValue !== 'string' ||
-    !/^(?:0x)?[0-9a-fA-F]{64}$/.test(encodedValue)
+    (encodedValue !== '' &&
+      (encodedValue.replace(/^0x/, '').length !== 64 ||
+        !/^(?:0x)?[0-9a-fA-F]{64}$/.test(encodedValue)))
   ) {
     throw new ProofError('ics23:iavl', 'Manifest digest must be a 32-byte storage word');
   }
-  const value = hexToBytes(encodedValue.replace(/^0x/, ''));
   const key = concatBytes(
     Uint8Array.of(3),
     hexToBytes(resolver.slice(2)),
@@ -131,6 +137,11 @@ export async function resolveContent(
   const ops = proofOps(result.storageProof[0]);
   // Header h + 1 commits the application state produced by block h.
   const appHash = await headers.appHashAt(height + 1n);
+  if (encodedValue === '') {
+    verifyStorageAbsence({ proofOps: ops, appHash, store: 'evm', key });
+    return null;
+  }
+  const value = hexToBytes(encodedValue.replace(/^0x/, ''));
   verifyStorageProof({ proofOps: ops, appHash, store: 'evm', key, value });
   if (value.every((byte) => byte === 0)) return null;
   return { digest: `0x${bytesToHex(value)}`, height, verified: true };
