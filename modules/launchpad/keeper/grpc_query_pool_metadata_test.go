@@ -91,7 +91,12 @@ func TestQueryPoolMetadataRefusals(t *testing.T) {
 		"0x" + strings.Repeat("g", 40), "0x" + strings.Repeat("1", 42),
 	} {
 		t.Run("malformed/"+input, func(t *testing.T) {
-			response, err := client.PoolMetadata(context.Background(), &types.QueryPoolMetadataRequest{Pool: input})
+			request := &types.QueryPoolMetadataRequest{Pool: input}
+			response, err := client.PoolMetadata(context.Background(), request)
+			require.Nil(t, response)
+			require.Equal(t, codes.InvalidArgument, status.Code(err))
+			require.Contains(t, status.Convert(err).Message(), "invalid address")
+			response, err = querier.PoolMetadata(sdk.WrapSDKContext(e.ctx), request)
 			require.Nil(t, response)
 			require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 			require.Contains(t, err.Error(), "pool")
