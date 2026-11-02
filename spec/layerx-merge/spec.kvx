@@ -114963,7 +114963,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.38]
 title = "Inventory the platform examples packages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114993,7 +114993,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.37]
 title = "Inventory the sdk integrations packages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
