@@ -67,7 +67,9 @@ const (
 	AckRefused AckStatus = 3
 )
 
-// Ack is the standby's answer to one replicated group.
+// Ack is the standby's answer to one replicated group. AckOK permits receipt
+// publication only after the primary and any configured standby have synced
+// the corresponding WAL frames.
 type Ack struct {
 	Status AckStatus
 	// LastSeq is the last seq the standby holds synced.

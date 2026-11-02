@@ -22,10 +22,11 @@ type BankKeeper interface {
 	GetBalance(sdk.Context, sdk.AccAddress, string) sdk.Coin
 }
 type Keeper struct {
-	cdc       codec.BinaryCodec
-	storeKey  sdk.StoreKey
-	bank      BankKeeper
-	baseDenom func(sdk.Context) string
+	cdc             codec.BinaryCodec
+	storeKey        sdk.StoreKey
+	bank            BankKeeper
+	baseDenom       func(sdk.Context) string
+	addressResolver types.AddressResolver
 }
 
 func nilDependency(v interface{}) bool {
@@ -44,6 +45,23 @@ func NewKeeper(cdc codec.BinaryCodec, storeKey sdk.StoreKey, bank BankKeeper, ba
 		return nil, fmt.Errorf("layerxchains: missing store key, bank or base denom")
 	}
 	return &Keeper{cdc: cdc, storeKey: storeKey, bank: bank, baseDenom: baseDenom}, nil
+}
+func NewKeeperWithAddressResolver(cdc codec.BinaryCodec, storeKey sdk.StoreKey, bank BankKeeper, baseDenom func(sdk.Context) string, resolver types.AddressResolver) (*Keeper, error) {
+	if nilDependency(resolver) {
+		return nil, fmt.Errorf("layerxchains: missing address resolver")
+	}
+	k, err := NewKeeper(cdc, storeKey, bank, baseDenom)
+	if err != nil {
+		return nil, err
+	}
+	k.addressResolver = resolver
+	return k, nil
+}
+func (k Keeper) resolveAddress(ctx sdk.Context, address common.Address) (sdk.AccAddress, error) {
+	if nilDependency(k.addressResolver) {
+		return nil, fmt.Errorf("layerxchains: address resolver is required for bank transfers")
+	}
+	return k.addressResolver.GetPaxAddressOrDefault(ctx, address), nil
 }
 func putJSON(ctx sdk.Context, key sdk.StoreKey, path []byte, value interface{}) {
 	bz, err := json.Marshal(value)
@@ -177,7 +195,11 @@ func (k Keeper) Create(ctx sdk.Context, operator common.Address, name string, ga
 	d := types.Domain{Id: id, Name: name, Operator: operator, Status: types.StatusActive, GasAllowance: gasAllowance, ByteAllowance: byteAllowance, FeeShareBps: feeShareBps, Bond: value.Sub(p.CreationFee), TargetGasPerBlock: gasAllowance / 2, CreatedHeight: ctx.BlockHeight()}
 	cache, write := ctx.CacheContext()
 	denom := k.baseDenom(cache)
-	if err := k.bank.SendCoinsFromAccountToModule(cache, sdk.AccAddress(operator.Bytes()), types.ModuleName, sdk.NewCoins(sdk.NewCoin(denom, value))); err != nil {
+	account, err := k.resolveAddress(cache, operator)
+	if err != nil {
+		return types.Domain{}, err
+	}
+	if err := k.bank.SendCoinsFromAccountToModule(cache, account, types.ModuleName, sdk.NewCoins(sdk.NewCoin(denom, value))); err != nil {
 		return types.Domain{}, err
 	}
 	if p.CreationFee.IsPositive() {
@@ -207,7 +229,11 @@ func (k Keeper) Fund(ctx sdk.Context, id uint32, from common.Address, amount sdk
 		return types.ErrBondTooLow
 	}
 	cache, write := ctx.CacheContext()
-	if err := k.bank.SendCoinsFromAccountToModule(cache, sdk.AccAddress(from.Bytes()), types.ModuleName, sdk.NewCoins(sdk.NewCoin(k.baseDenom(cache), amount))); err != nil {
+	account, err := k.resolveAddress(cache, from)
+	if err != nil {
+		return err
+	}
+	if err := k.bank.SendCoinsFromAccountToModule(cache, account, types.ModuleName, sdk.NewCoins(sdk.NewCoin(k.baseDenom(cache), amount))); err != nil {
 		return err
 	}
 	d.Bond = d.Bond.Add(amount)
@@ -292,7 +318,11 @@ func (k Keeper) Retire(ctx sdk.Context, operator common.Address, id uint32) erro
 	}
 	cache, write := ctx.CacheContext()
 	if d.Bond.IsPositive() {
-		if err := k.bank.SendCoinsFromModuleToAccount(cache, types.ModuleName, sdk.AccAddress(operator.Bytes()), sdk.NewCoins(sdk.NewCoin(k.baseDenom(cache), d.Bond))); err != nil {
+		account, err := k.resolveAddress(cache, operator)
+		if err != nil {
+			return err
+		}
+		if err := k.bank.SendCoinsFromModuleToAccount(cache, types.ModuleName, account, sdk.NewCoins(sdk.NewCoin(k.baseDenom(cache), d.Bond))); err != nil {
 			return err
 		}
 	}
