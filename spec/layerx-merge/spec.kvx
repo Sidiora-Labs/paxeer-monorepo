@@ -116271,7 +116271,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1477.1]
 title = "Issue #1477: Assert the EVM transaction fields on the prepared consent, not on the spend request's preparation input"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213934,7 +213934,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.17.3]
 title = "Reconcile every interface row against the tree at HEAD"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216192,7 +216192,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1484.1]
 title = "Issue #1484: Remove the retired relay template from the bring-up harness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
