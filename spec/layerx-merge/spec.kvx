@@ -100318,7 +100318,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.32.4]
 title = "Retire the settlement-chain checkpoint client in lxp_paxeer_client.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.4", "16.32.11", "16.34.2", "16.36.1", "6.96.5"]
@@ -100352,7 +100352,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.32.5]
 title = "Retire the guarantor bond and membership client in lxp_bond_client.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.2", "16.36.2", "6.96.5"]
@@ -100452,7 +100452,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.33.3]
 title = "Retire the replica replay engine in src/replica/lxp_replay.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.31.5", "16.33.5", "16.33.6", "6.96.5"]
@@ -100485,7 +100485,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.33.4]
 title = "Retire replay checkpoints and replay sections"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.9", "16.32.11", "16.33.5", "16.33.6", "6.96.5"]
@@ -100553,7 +100553,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.33.6]
 title = "Retire the receipt history index and its range service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "8.51.1", "8.96.5", "13.8.1", "16.31.3", "16.32.9", "16.32.10", "16.33.5", "6.96.5"]
