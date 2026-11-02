@@ -14,6 +14,8 @@ import (
 	"time"
 
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer"
+	sequencerkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	sequencertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	genutiltypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/genutil/types"
 	"github.com/stretchr/testify/require"
@@ -26,12 +28,34 @@ func receiptGenesisPublicKey(seedByte byte) [32]byte {
 	return public
 }
 
+type receiptGenesisJSON struct {
+	Leaders          [][]byte                    `json:"leaders,omitempty"`
+	ReceiptKeys      sequencerkeeper.ReceiptKeys `json:"receipt_keys"`
+	ActivationHeight uint64                      `json:"activation_height,omitempty"`
+	LastSeq          uint64                      `json:"last_seq,omitempty"`
+	LastSeqHash      []byte                      `json:"last_seq_hash,omitempty"`
+}
+
 func writeReceiptGenesis(t *testing.T, home string, state *sequencertypes.GenesisState) string {
 	t.Helper()
 	appState := map[string]json.RawMessage{"bank": json.RawMessage(`{"balances":[],"supply":[]}`)}
 	if state != nil {
-		raw, err := json.Marshal(state)
+		wire := receiptGenesisJSON{ActivationHeight: state.ActivationHeight, LastSeq: state.LastSeq}
+		for _, leader := range state.Leaders {
+			wire.Leaders = append(wire.Leaders, bytes.Clone(leader[:]))
+		}
+		for _, key := range state.ReceiptKeys {
+			wire.ReceiptKeys = append(wire.ReceiptKeys, sequencerkeeper.ReceiptKeyEntry{
+				KeyId: bytes.Clone(key.KeyId[:]), PublicKey: bytes.Clone(key.PublicKey[:]),
+				FirstHeight: key.FirstHeight, LastHeight: key.LastHeight,
+			})
+		}
+		if state.LastSeqHash != ([32]byte{}) {
+			wire.LastSeqHash = state.LastSeqHash[:]
+		}
+		raw, err := json.Marshal(wire)
 		require.NoError(t, err)
+		require.NoError(t, (sequencer.AppModuleBasic{}).ValidateGenesis(nil, nil, raw))
 		appState[sequencertypes.ModuleName] = raw
 	}
 	raw, err := json.Marshal(appState)
@@ -87,7 +111,26 @@ func TestAddGenesisReceiptKeyPinsKeyInSequencerGenesis(t *testing.T) {
 			afterApp, afterDoc, err := genutiltypes.GenesisStateFromGenFile(path)
 			require.NoError(t, err)
 			var got sequencertypes.GenesisState
-			require.NoError(t, json.Unmarshal(afterApp[sequencertypes.ModuleName], &got))
+			var wire receiptGenesisJSON
+			require.NoError(t, json.Unmarshal(afterApp[sequencertypes.ModuleName], &wire))
+			require.NoError(t, (sequencer.AppModuleBasic{}).ValidateGenesis(nil, nil, afterApp[sequencertypes.ModuleName]))
+			for _, leader := range wire.Leaders {
+				require.Len(t, leader, 32)
+				got.Leaders = append(got.Leaders, [32]byte(leader))
+			}
+			for _, entry := range wire.ReceiptKeys {
+				require.Len(t, entry.KeyId, sequencertypes.KeyIDLength)
+				require.Len(t, entry.PublicKey, 32)
+				got.ReceiptKeys = append(got.ReceiptKeys, ReceiptKey{
+					KeyId: [32]byte(entry.KeyId), PublicKey: [32]byte(entry.PublicKey),
+					FirstHeight: entry.FirstHeight, LastHeight: entry.LastHeight,
+				})
+			}
+			got.ActivationHeight, got.LastSeq = wire.ActivationHeight, wire.LastSeq
+			if len(wire.LastSeqHash) > 0 {
+				require.Len(t, wire.LastSeqHash, sequencertypes.HashLength)
+				got.LastSeqHash = [32]byte(wire.LastSeqHash)
+			}
 			key := ReceiptKey{KeyId: sha256.Sum256(public[:]), PublicKey: public, FirstHeight: 1, LastHeight: 1000}
 			require.NotEqual(t, [32]byte{}, key.KeyId)
 			state.ReceiptKeys = append(state.ReceiptKeys, key)
