@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
+// GetVersioned retains v6.10 at its historical key even when it is latestUpgrade.
 func GetVersioned(latestUpgrade string, keepers utils.Keepers) utils.VersionedPrecompiles {
 	current := check(NewPrecompile(keepers))
 	return utils.VersionedPrecompiles{
