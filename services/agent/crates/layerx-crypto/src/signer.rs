@@ -12,7 +12,7 @@ use k256::ecdsa::Signature;
 use layerx_types::payload::ModuleRegistry;
 use layerx_wire::hash::Domain;
 
-use crate::disclosure::call::bind_call;
+use crate::disclosure::call::validate_call;
 use crate::disclosure::{Disclosure, DisclosureError};
 use crate::evm_transaction::Eip1559Call;
 use crate::{ct, ed25519, SignatureMessage, VerifyError};
@@ -280,11 +280,19 @@ pub fn sign_disclosed_call<'a>(
     from: [u8; 20],
 ) -> TransactionSignFuture<'a> {
     Box::pin(async move {
-        let rebound = bind_call(call, from).map_err(SignError::from)?;
-        if &rebound != disclosure {
-            return Err(SignError::DisclosureMismatch("call"));
+        validate_call(call, disclosure, from).map_err(SignError::from)?;
+        let address = signer.evm_address().ok_or(SignError::EvmKeyUnavailable)?;
+        if address != from {
+            return Err(SignError::DisclosureMismatch("signer"));
         }
-        signer.sign_transaction(call).await
+        let signature = signer.sign_transaction(call).await?;
+        if crate::evm_transaction::recover_sender(call, &signature)
+            .map_err(|_| SignError::ReturnedSignatureInvalid)?
+            != from
+        {
+            return Err(SignError::ReturnedSignatureInvalid);
+        }
+        Ok(signature)
     })
 }
 

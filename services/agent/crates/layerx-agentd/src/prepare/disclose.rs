@@ -30,13 +30,14 @@ pub(crate) fn decode_and_bind(
         None => bind(canonical_bytes, registry),
     }
     .map_err(DisclosureBindingError::Decode)?;
-    if disclosure
-        .reencode()
-        .map_err(DisclosureBindingError::Decode)?
-        != canonical_bytes
-    {
-        return Err(DisclosureBindingError::CanonicalMismatch);
-    }
+    disclosure
+        .validate_canonical(canonical_bytes)
+        .map_err(|error| match error {
+            DisclosureError::FieldMismatch("canonical_bytes") => {
+                DisclosureBindingError::CanonicalMismatch
+            }
+            error => DisclosureBindingError::Decode(error),
+        })?;
     let digest = DisclosureDigest(
         disclosure
             .audit_digest()
@@ -46,14 +47,15 @@ pub(crate) fn decode_and_bind(
 }
 
 pub(crate) fn verify_binding(prepared: &Prepared) -> Result<(), DisclosureBindingError> {
-    if prepared
+    prepared
         .disclosure
-        .reencode()
-        .map_err(DisclosureBindingError::Decode)?
-        != prepared.canonical_bytes
-    {
-        return Err(DisclosureBindingError::CanonicalMismatch);
-    }
+        .validate_canonical(&prepared.canonical_bytes)
+        .map_err(|error| match error {
+            DisclosureError::FieldMismatch("canonical_bytes") => {
+                DisclosureBindingError::CanonicalMismatch
+            }
+            error => DisclosureBindingError::Decode(error),
+        })?;
     let digest = DisclosureDigest(
         prepared
             .disclosure

@@ -315,14 +315,18 @@ impl NativeEffectApprovalCarrier {
             None => layerx_crypto::disclosure::bind(&self.canonical_bytes, &registry),
         }
         .map_err(|_| NativeEffectError::Corrupt)?;
+        disclosure
+            .validate_canonical(&self.canonical_bytes)
+            .map_err(|error| match error {
+                layerx_crypto::disclosure::DisclosureError::FieldMismatch("canonical_bytes") => {
+                    NativeEffectError::Binding
+                }
+                _ => NativeEffectError::Corrupt,
+            })?;
         if disclosure
-            .reencode()
+            .audit_digest()
             .map_err(|_| NativeEffectError::Corrupt)?
-            != self.canonical_bytes
-            || disclosure
-                .audit_digest()
-                .map_err(|_| NativeEffectError::Corrupt)?
-                != self.disclosure_digest
+            != self.disclosure_digest
             || disclosure.actor != self.actor
         {
             return Err(NativeEffectError::Binding);
