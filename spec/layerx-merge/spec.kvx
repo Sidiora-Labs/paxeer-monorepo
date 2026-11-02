@@ -6681,6 +6681,24 @@ value = "Each family task carries the exact site inventory of its crate, the por
 basis = "Decision 2253 blocked the layerx-wire deletion until the family existed. The census found 65 files importing layerx_wire::activity or layerx_wire::sign; the route retirements of tasks 8.7.3, 8.8.3, 8.20.1 left the kernel decode and submission helpers compiled behind routes that no longer exist, task 12.95.1 reintroduced the import that 12.18.2 had removed, and the verifies of those tasks never asserted the import absent, which is the uneven integration completeness the owner named. Per-crate tasks with grep-clean verifies make each crate's state provable on its own."
 affects = ["9.29.1", "9.35.7", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5"]
 
+[decision.2262]
+title = "The platform completion gate matches a retired surface only where the record places it: production code of a Rust file and the owning enum body of a java member"
+value = "signature_present of services/platform/hosted/gateway/tests/completion_gate.rs stops at the first #[cfg(test)] attribute of a Rust source and scopes GeneratedSchema member records to the body of the enum the gate's prefix table names; the jvm.kvx verification keys are deleted by task 8.0.9 itself because no other task owns the file after 8.42.5."
+basis = "Finding 8.0.9.1: nine of the ten surfaces attempt 1 named are a test that proves a variable is not read and members of unrelated enums; a gate that counts them can never pass without deleting evidence or renaming unrelated members, and the one real leftover is a three-line config edit."
+affects = ["8.0.9", "8.42.5"]
+
+[decision.2263]
+title = "The gateway's local lifecycle qualification package retires with the kernel receipt path it verified"
+value = "services/platform/hosted/gateway/tests/local/ (package layerx-gateway-local-qualification) is deleted by task 8.101.4; the gateway's production route refusal test is the surviving evidence and the verify of 8.101.4 asserts the directory is absent."
+basis = "Finding 8.101.4.1: the package decodes kernel activities with layerx_wire::activity on network 7332 and verifies receipts the EVM port does not produce; porting it would re-create a kernel-shaped qualification nothing serves."
+affects = ["8.101.4"]
+
+[decision.2264]
+title = "The disclosed owner-rotation operation retires with the rotation module"
+value = "DisclosedNativeOperation loses its OwnerRotation variant in task 9.35.1 together with layerx-crypto/src/rotation.rs; the governance ordinal 2 activity decodes as MalformedPayload, and the single daemon match arm at capability/effects.rs:520 goes in the same task so layerx-agentd compiles."
+basis = "Finding 9.35.1.4: the variant exists only to carry the kernel rotation activity the merge retires; every consumer either ignores it or is a retired-module test."
+affects = ["9.35.1", "9.35.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -106333,7 +106351,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.0.9]
 title = "Gate domain 3 completion on its retired surfaces and planned paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["3.0.1", "3.0.2", "3.0.3", "3.0.4", "3.3.2", "3.7.1", "3.7.2", "3.7.3", "3.7.4", "3.7.5", "3.8.1", "3.8.2", "3.21.4", "3.22.8", "3.23.6", "3.42.6", "3.43.1", "3.43.3", "3.45.4", "3.45.5", "3.45.6", "3.46.4", "3.47.1", "3.47.2", "3.54.2", "3.54.3", "3.54.4", "3.54.5", "3.54.6", "3.55.1", "3.56.1", "3.59.1", "3.97.1", "3.9.5", "6.96.5"]
@@ -118685,7 +118703,7 @@ do_1 = "Finding 8.8.3.1: in services/platform/hosted/agent-boundary/src/main.rs 
 do_2 = "In services/platform/hosted/agent-boundary/src/batch_maintenance_tests.rs delete the test at :48 that drives complete_record and any fixture only it uses; the other maintenance tests stay and run in the verify."
 do_3 = "The verify asserts the grep over the crate, builds every target and runs the binary's unit tests."
 symbols = []
-touches = ["services/platform/hosted/agent-boundary/src/main.rs", "services/platform/hosted/agent-boundary/src/batch_maintenance_tests.rs"]
+touches = ["services/platform/hosted/agent-boundary/src/main.rs", "services/platform/hosted/agent-boundary/src/batch_maintenance_tests.rs", "services/platform/hosted/agent-boundary/src/lifecycle_tests.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-agent-boundary --all-targets"
@@ -118701,6 +118719,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 8.8.3.2: in services/platform/hosted/agent-boundary/src/lifecycle_tests.rs delete fixture (:135), native_c_lifecycle_vectors_are_admitted (:151), lifecycle_code_hash_substitution_refuses_before_submit (:175) and idempotency_receipts_require_signed_activity_and_sequencer_bindings (:195) with the imports and helpers only they use, so the module compiles against main.rs as it stands (MAX_CONNECTIONS at :43, struct Config at :53); retired_program_routes_answer_not_found (:4) stays and the verify runs it with the other unit tests. Attempt 1 (31094a7d18) holds do_1 and do_2; continue from it."
 
 [task.8.101.4]
 title = "Delete the hosted gateway's unreachable kernel activity submission path"
@@ -118716,11 +118735,11 @@ do_2 = "Delete the kernel decode in tests/local/verifier.rs (:73-79) with the te
 do_3 = "Run cargo build --all-targets and remove dead code the compiler reports in the deleted path's wake until the crate builds without warnings for unused items it introduced."
 do_4 = "The verify asserts the grep over the crate, builds every target and runs the lib tests and the local test target."
 symbols = []
-touches = ["services/platform/hosted/gateway/src/lib.rs", "services/platform/hosted/gateway/src/main.rs", "services/platform/hosted/gateway/tests/local/verifier.rs"]
+touches = ["services/platform/hosted/gateway/src/lib.rs", "services/platform/hosted/gateway/src/main.rs", "services/platform/hosted/gateway/tests/local/verifier.rs", "services/platform/hosted/gateway/tests/local/Cargo.toml", "services/platform/hosted/gateway/tests/local/lifecycle_sdk.rs", "services/platform/hosted/gateway/tests/local/README.md"]
 tests = ["services/platform/hosted/gateway/src/lib.rs::production_route_refuses_every_program_and_activity_route"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets"
-verify_cmd = "! grep -rnE 'layerx_wire::(activity|sign)\b' services/platform/hosted/gateway/ && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --lib -- production_route_refuses_every_program_and_activity_route && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test local"
+verify_cmd = "! test -d services/platform/hosted/gateway/tests/local && ! grep -rnE 'layerx_wire::(activity|sign)\b' services/platform/hosted/gateway/ && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --lib -- production_route_refuses_every_program_and_activity_route"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -118732,10 +118751,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Finding 8.101.4.1: delete the directory services/platform/hosted/gateway/tests/local/ (Cargo.toml, README.md, verifier.rs, lifecycle_sdk.rs and any lock file) instead of porting verifier.rs (do_2 is satisfied by the deletion); it is a standalone package, not a test target, so the verify no longer names `--test local` and asserts the directory is gone. Add no field to Config or Kernel and no program_head item: the crate's existing types are the only ones the deletion needs. Attempt 1 (e8fdbe4e6f) holds lib.rs and main.rs; continue from it."
 
 [task.8.101.3]
 title = "Port the hosted core's sends, funding intents and fee estimate off the kernel activity codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -118873,7 +118893,7 @@ do_1 = "In services/agent/qualification/pay2/pay2e_test.rs:594-600 replace layer
 do_2 = "If canonical_activity() on main returns bytes that are not a type-2 transaction, stop, record a finding in qualification.kvx naming services/agent/crates/layerx-sdk/src/rpc_verification.rs:58 as the producer, and leave the test unchanged; the task reports the finding instead of guessing the producer."
 do_3 = "The qualification runs against a funded network, so the verify compiles the test target and asserts the grep; it does not run the funded test."
 symbols = []
-touches = ["services/agent/qualification/pay2/pay2e_test.rs"]
+touches = ["services/agent/qualification/pay2/pay2e_test.rs", "services/agent/qualification/pay2/Cargo.lock"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --all-targets"
@@ -118889,6 +118909,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 9.35.13.1: run `cargo generate-lockfile --manifest-path services/agent/qualification/pay2/Cargo.toml` and commit services/agent/qualification/pay2/Cargo.lock so the --locked build and verify resolve; the lock file records the path dependencies as they stand on main and is regenerated the same way whenever they change. Attempt 1 (1d3391cf96) holds the test port; continue from it."
 
 [task.10.21.9]
 title = "Port the layerx-intents budget and bootstrap tests from kernel envelopes onto bind_call"
@@ -118904,7 +118925,7 @@ do_2 = "In services/human/crates/layerx-intents/tests/owner_bootstrap.rs port na
 do_3 = "layerx-intents src is untouched; the tests use only pub items of layerx_crypto::payments and layerx_intents."
 do_4 = "The verify asserts the two test files name neither layerx_wire::activity nor layerx_crypto::disclosure::bind and runs both targets."
 symbols = []
-touches = ["services/human/crates/layerx-intents/tests/budget_payloads.rs", "services/human/crates/layerx-intents/tests/owner_bootstrap.rs"]
+touches = ["services/human/crates/layerx-intents/tests/budget_payloads.rs", "services/human/crates/layerx-intents/tests/owner_bootstrap.rs", "services/human/crates/layerx-intents/tests/retired_crypto_codec.rs"]
 tests = ["services/human/crates/layerx-intents/tests/budget_payloads.rs", "services/human/crates/layerx-intents/tests/owner_bootstrap.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --all-targets"
@@ -118920,10 +118941,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Finding 10.21.9.1: in services/human/crates/layerx-intents/tests/retired_crypto_codec.rs drop the include_str! entries for ../src/owner_activity.rs (:7) and native_session.rs (:14), deleted by tasks 10.21.4 and 10.21.6; the entries for canonical.rs, vectors/send.rs and compile.rs stay and the test keeps asserting that none of them names the retired codec. Attempts 1 and 2 (308de85012) hold do_1 and do_2 unchanged; continue from them."
 
 [task.9.27.10]
 title = "Feed the complete-export test the handover payload fixture instead of decoding the kernel activity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -118953,7 +118975,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.95.2]
 title = "Drop the kernel activity round trip from the attestor vectors generator and make its codec test assert the import absent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -119092,7 +119114,7 @@ do_4 = "In services/human/crates/layerx-human-service/tests/native_lifecycle.rs 
 do_5 = "In services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs the case engine_refuses_a_kernel_activity_envelope_leg (:337-394) becomes engine_refuses_a_leg_whose_canonical_bytes_are_not_a_type2_transaction: the prepared leg carries canonical bytes without the 0x02 prefix and a disclosure bound for an unrelated call, and the engine refuses it with the error the case asserts today; the EnvelopeBuilder, bind_budget_mutation over canonical envelope bytes, decode_unsigned and layerx_wire::sign::preimage uses go with it. In services/human/crates/layerx-human-service/tests/approval_rungs.rs approval_disclosure (:15-60) binds a type-2 bridge deposit call through bind_call instead of an envelope through bind, and the rendering assertions that follow read the same disclosure fields."
 do_6 = "The verify asserts that no file under services/human/crates/layerx-human-service/ names layerx_wire::activity or a layerx_intents::canonical envelope codec, compiles every test target of the crate and runs the three ported targets in full."
 symbols = ["BoundLifecycleCall", "ProtocolEvidence::bound_activity", "verify_owner_activity", "engine_refuses_a_leg_whose_canonical_bytes_are_not_a_type2_transaction"]
-touches = ["services/human/crates/layerx-human-service/src/agents/create.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/server/production_onboarding.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs", "services/human/crates/layerx-human-service/tests/native_lifecycle.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/approval_rungs.rs"]
+touches = ["services/human/crates/layerx-human-service/src/agents/create.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/server/production_onboarding.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs", "services/human/crates/layerx-human-service/tests/native_lifecycle.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/approval_rungs.rs", "services/human/crates/layerx-human-service/src/agents/controls.rs", "services/human/crates/layerx-human-service/src/agents/create_native.rs", "services/human/crates/layerx-human-service/src/server/agent_creation.rs", "services/human/crates/layerx-human-service/src/onboarding/native.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/native_lifecycle.rs::native_lifecycle_binds_distinct_action_and_activity_without_inventing_finality", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs::engine_refuses_a_leg_whose_canonical_bytes_are_not_a_type2_transaction", "services/human/crates/layerx-human-service/tests/approval_rungs.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
@@ -119109,6 +119131,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "Finding 9.35.9.1: the verify runs the three suites through tools/runtime/run-with-clock.sh, as the Makefile runs every human-workspace test, so services that open the runtime clock find it; the --no-run step stays bare."
+do_8 = "Finding 9.35.11.1: give BoundLifecycleCall (services/human/crates/layerx-human-service/src/agents/create.rs) the accessors payload() -> &[u8] (the AuthLifecycle payload decoded from call.data through layerx_crypto::disclosure::call ConstructMethod::AuthLifecycle, held in the struct at construction), fee_limit() -> u128 (disclosure.fee_limit), activity_type() (disclosure.activity_type), idempotency_key() and sender(); every caller listed in the finding reads them unchanged. In services/human/crates/layerx-human-service/src/onboarding/native.rs replace `registration.validate_outer(&activity)` (:393) with a local check over the bound call: the disclosure actor is the sponsor whose did id equals consent.sponsor, idempotency_key equals consent.action_key, the disclosure expiry is not after consent.expires_at, and payload() equals registration.payload(); refuse with OnboardingError::EvidenceConflict as today. Attempt 1 holds the deletion of the projection; continue from it."
 
 [task.9.35.10]
 title = "Port the production owner tests and the evidence node test off the kernel activity codec"
@@ -119174,6 +119197,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "Findings 9.35.9.1 and 9.35.9.2: the verify now runs the two suites through tools/runtime/run-with-clock.sh, which the Makefile uses for every human-workspace test, so Host::new finds the runtime clock; and task 9.35.12 (required) makes bind_call refuse budgetCreate terms the kernel path refuses. In tests/provider/native_setup.rs replace the two single-byte flips at offsets 2 and 34 of the corruption loop (:377-409) with zero fills of [2..34] (budget id) and [34..66] (budget account), keep the zero fills of the per-period limit, initial amount, period length, expiry and rollover and the version-2 and trailing-byte cases, and add rollover 3 and rollover 1 with a non-zero carry cap; every case is refused by bind_call once 9.35.12 is on main. Attempt 1 (c81177dc6) holds do_1 through do_6; continue from it."
+do_8 = "Finding 9.35.9.3: port the four restart fixtures of services/human/crates/layerx-human-kms/tests/provider.rs (the monetary roles loop at :880-910, native creation disclosures, owner fee grants and session registration/replacement) from unsigned_payload plus construct_signing_call over kernel payloads to type-2 calls to the ledger, pay or auth precompile whose calldata is the method and arguments call.rs decodes for that operation, bound with bind_call and signed through the real provider; and make native_setup_refuses_wrong_accounts_limits_and_payload_shapes pass by refusing corruption 9 (budget version 2) in the provider's budgetCreate term check, where it is admitted today. A fixture that cannot be expressed as a type-2 call is deleted with a one-line comment naming the kernel operation it covered. Continue from attempt 4."
 
 [task.9.24.8]
 title = "Drop the grant vectors from the wallet capability vectors producer and its two grant tests"
@@ -119500,7 +119524,7 @@ do_3 = "In services/human/crates/layerx-human-service/src/server/agent_runtime.r
 do_4 = "Extend services/agent/crates/layerx-agentd/tests/human_node_receipts.rs so the answer the runtime returns for a found receipt decodes with ReceiptLookupAnswer::decode into the fields of the served evidence (transaction hash, block height, key window and committed rung), and the answers for an absent and a submitted lookup decode to Absent and Submitted."
 do_5 = "Write services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs: encode a receipted and a committed found answer, an absent answer and a submitted answer with the daemon's ReceiptLookupAnswer::encode from fixture material, feed each through the agent runtime peer harness of tests/agent_runtime_rungs.rs, and assert the decoded ReceiptLookup; then assert CorruptResponse for a frame truncated after the authority fields, a frame whose key window excludes the inclusion height and a frame whose rung is Submitted. Replace the hand-built frame of agent_runtime_rungs.rs with the shared encoder."
 symbols = ["ReceiptLookup", "receipt_lookup_not_ready_bytes"]
-touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/lib.rs", "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/lib.rs", "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs", "services/human/crates/layerx-human-service/src/server/agent_creation_native.rs", "services/human/crates/layerx-human-service/src/server/agent_creation.rs", "services/human/crates/layerx-human-service/src/server/production_onboarding.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/src/human_receipt_frame.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_runtime_receipt_frame --test agent_runtime_rungs --no-run"
@@ -119516,6 +119540,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Finding 18.1433.1.1: extend the three matches on ReceiptLookup at services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:349, services/human/crates/layerx-human-service/src/server/agent_creation.rs:538 and services/human/crates/layerx-human-service/src/server/production_onboarding.rs:245 with a Submitted { tx_hash, nonce } arm that keeps the journey waiting as the Absent arm does and records the transaction hash where the pending record has a field for it; grep the crate for every other `match` on ReceiptLookup and cover it the same way. Continue from attempt 1."
 
 [task.9.27.9]
 title = "Port layerx-agentd to the retired offline export API"
@@ -119651,7 +119676,7 @@ do_8 = "Finding 10.21.4.2 and task 9.35.11: the native_lifecycle and stream_jour
 
 [task.10.1.7]
 title = "Route the custody gateway, KMS provider client and KMS gateway binary clock reads through the runtime clock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["10.1.6", "9.27.9", "10.21.8"]
@@ -121390,7 +121415,7 @@ do_7 = "Finding 5.7.1.2: delete modules/layerxanchor/module_retired_route_test.g
 
 [task.6.96.5]
 title = "Re-home the availability class count in the layerxanchor keeper after the codec retirement"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -127582,7 +127607,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.62.6]
 title = "Retire the distribution and dependency-graph targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["5.62.5", "6.96.5"]
@@ -140977,7 +141002,7 @@ do_1 = "Create services/platform/hosted/gateway/tests/completion_gate.rs (planne
 do_2 = "The same test fails unless each of the 57 planned paths of the domain-8 wave-6 tasks exists, for example services/platform/hosted/gateway/tests/test_retired_activity_scripts.py (planned) from task 8.7.4, services/platform/hosted/agent-boundary/tests/chain_receipt.rs (planned) from task 8.8.4, services/platform/hosted/tests/test_workspace_manifest.py (planned) from task 8.9.2."
 do_3 = "Run the gate after 8.0.1-8.0.4 and the 55 domain-8 wave-6 tasks; it changes only services/platform/hosted/gateway/tests/completion_gate.rs (planned), and task 17.0.9 requires it."
 symbols = ["platform_completion_retired_surfaces_absent"]
-touches = ["services/platform/hosted/gateway/tests/completion_gate.rs"]
+touches = ["services/platform/hosted/gateway/tests/completion_gate.rs", "sdk/platform/conformance/jvm.kvx"]
 tests = ["services/platform/hosted/gateway/tests/completion_gate.rs::platform_completion_retired_surfaces_absent"]
 planned_paths = ["services/platform/hosted/gateway/tests/completion_gate.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway"
@@ -140993,6 +141018,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 8.0.9.1: delete the three [verification] keys batch_inclusion, checkpoint and receipt_in_batch of sdk/platform/conformance/jvm.kvx (:19-25), the leftover of task 8.42.5 do_5; the section keeps its other keys and the file stays valid kvx (one `key = value` per line under its section header)."
+do_5 = "Finding 8.0.9.1: in services/platform/hosted/gateway/tests/completion_gate.rs signature_present reads a Rust source only up to its first `#[cfg(test)]` attribute, so a test module that names a retired variable to prove it is not read (services/platform/hosted/indexer/src/config.rs:353-451) is not a served surface; for the GeneratedSchema java records whose owner the prefix table names (JourneyKind, BindingState, ErrorCode, VerificationLevel, HumanCode) it matches the member only inside the body of `enum <Owner>` (from that declaration to its matching closing brace), so DEPOSIT at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:1083 and EXIT at :593 and :2181 do not count; every other record keeps the whole-file match. Attempt 1 holds the gate and both counting assertions (planned paths at least 57, retired at least 429); continue from it."
 
 [task.8.1.1]
 title = "Load the receipt key list without the kernel backend set"
@@ -151626,7 +151653,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.24.6]
 title = "Delete the orphaned LNI request and evidence submodule files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.1", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "13.8.3", "9.24.8"]
@@ -153037,7 +153064,7 @@ capabilities = ["9.35.1"]
 interfaces = ["interface.9.rs-crypto-onboarding-onboardingconsent", "interface.9.rs-crypto-onboarding-sponsoredregistration", "interface.9.rs-crypto-rotation-ownerrotationstate", "interface.9.rs-crypto-rotation-ownerrotationconsent", "interface.9.rs-crypto-rotation-ownerrotationcommit", "interface.9.rs-crypto-rotation-ownerrotation", "interface.9.rs-crypto-disclosure-bind", "interface.9.rs-crypto-disclosure-bind-budget-mutation", "interface.9.rs-crypto-send-encode-send-envelope", "interface.9.rs-crypto-send-envelopeoptions", "interface.9.rs-crypto-signer-sign-disclosed", "interface.9.rs-crypto-send-encode-payment-envelope", "interface.9.rs-crypto-disclosure-disclosure", "interface.9.rs-crypto-signer-keystoresigner", "interface.9.rs-crypto-signaturemessage-new-j70", "interface.9.rs-crypto-signaturemessage-digest-j70", "interface.9.rs-crypto-verifyerror-result-code-j70", "interface.9.rs-crypto-onboardingconsent-payload-j70", "interface.9.rs-crypto-onboardingconsent-decode-payload-j70", "interface.9.rs-crypto-sponsoredregistration-from-signed-consent-j70", "interface.9.rs-crypto-sponsoredregistration-decode-j70", "interface.9.rs-crypto-sponsoredregistration-payload-j70", "interface.9.rs-crypto-sponsoredregistration-signed-consent-j70", "interface.9.rs-crypto-sponsoredregistration-validate-outer-j70", "interface.9.rs-crypto-ownerrotationstate-decode-j70", "interface.9.rs-crypto-ownerrotationconsent-payload-j70", "interface.9.rs-crypto-ownerrotationconsent-decode-j70", "interface.9.rs-crypto-ownerrotationcommit-from-signed-consent-j70", "interface.9.rs-crypto-ownerrotationcommit-decode-j70", "interface.9.rs-crypto-ownerrotationcommit-payload-j70", "interface.9.rs-crypto-ownerrotation-owner-j70", "interface.9.rs-crypto-ownerrotation-payload-j70", "interface.9.rs-crypto-ownerrotation-decode-j70", "interface.9.rs-crypto-ownerrotation-from-activity-j70"]
 wiring = ["wiring.J44.26", "wiring.J44.27", "wiring.J44.28", "wiring.J44.25"]
 symbols = ["send_envelope_encoder_keeps_asset_ordinal_five"]
-touches = ["services/agent/crates/layerx-crypto/src/rotation.rs", "services/agent/crates/layerx-crypto/src/lib.rs", "services/agent/crates/layerx-crypto/src/send.rs", "services/agent/crates/layerx-crypto/tests/send_call.rs"]
+touches = ["services/agent/crates/layerx-crypto/src/rotation.rs", "services/agent/crates/layerx-crypto/src/lib.rs", "services/agent/crates/layerx-crypto/src/send.rs", "services/agent/crates/layerx-crypto/tests/send_call.rs", "services/agent/crates/layerx-crypto/src/disclosure/native.rs", "services/agent/crates/layerx-agentd/src/capability/effects.rs"]
 tests = ["services/agent/crates/layerx-crypto/tests/send_call.rs::send_envelope_encoder_keeps_asset_ordinal_five"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --all-targets"
@@ -153060,6 +153087,7 @@ do_3 = "Change nothing else in the crate: src/disclosure.rs, src/signer.rs, src/
 do_4 = "Add send_envelope_encoder_keeps_asset_ordinal_five to services/agent/crates/layerx-crypto/tests/send_call.rs (planned test name in an existing file): encode a send envelope with the options fixture at :72, decode it with layerx_wire::activity::decode_signed and assert the activity type is ModuleId::Asset ordinal 5 and the payload equals the encoded SendDebit."
 do_5 = "Attempts 1 (3877ce19d) and 2 (f9e1a5ff0) implemented the wider deletion of decision 2237 and are superseded by this scope; start from current main."
 do_6 = "Finding 9.35.1.3: restore services/agent/crates/layerx-crypto/src/send.rs and the `pub mod disclosure;` (with its custody cfg attribute) and `pub mod send;` lines of src/lib.rs exactly as on main, drop the added `domain()` accessor, then apply do_2 to send.rs and add the do_4 test; rotation.rs stays deleted and `pub mod rotation;` stays removed. Continue from attempt 3 (415ee2b3b)."
+do_7 = "Finding 9.35.1.4: in services/agent/crates/layerx-crypto/src/disclosure/native.rs delete the OwnerRotation variant (:52), its encode arm (:143-150) and the (ModuleId::Governance, 2) decode arm (:607-608), which becomes a MalformedPayload refusal like any other unknown pair; delete the empty arm `| DisclosedNativeOperation::OwnerRotation(_) => {}` at services/agent/crates/layerx-agentd/src/capability/effects.rs:520 so the daemon compiles against the smaller enum. do_3 still holds for src/disclosure.rs, src/signer.rs, src/payments.rs and src/onboarding.rs. Continue from attempt 4 (23e11e52e0)."
 
 [task.9.35.2]
 title = "Remove the checkpoint settlement types and activity decoders from layerx-sdk"
@@ -176853,7 +176881,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.3.2]
 title = "Delete the legacy telemetry calls of capability"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.2", "15.0.4", "6.96.5"]
@@ -176981,7 +177009,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.3.6]
 title = "Delete the legacy telemetry calls of bank Send"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.6", "15.0.4", "6.96.5"]
@@ -177264,7 +177292,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.3.15]
 title = "Delete the legacy telemetry calls of baseapp ABCI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.15", "15.0.4", "15.0.5", "6.96.5"]
@@ -177295,7 +177323,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.3.16]
 title = "Delete the legacy telemetry calls of baseapp runTx"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.16", "15.0.4", "6.96.5"]
@@ -184393,7 +184421,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.7.5]
 title = "Check every run card against the final wave counts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["17.7.4", "17.0.4"]

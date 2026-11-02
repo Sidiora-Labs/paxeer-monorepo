@@ -12,6 +12,7 @@ use layerx_human_service::custody::{
     GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, RemoteKmsProvider,
 };
 use layerx_human_service::frame::{Limits, MutualTlsConfig};
+use layerx_types::clock::Clock;
 use layerx_types::payload::ModuleRegistry;
 use rustix::fs::{Mode, OFlags};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
@@ -41,6 +42,8 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), String> {
+    let clock: Arc<dyn Clock> = layerx_client::runtime_clock::RuntimeClock::from_environment()
+        .map_err(|error| format!("runtime clock unavailable: {error}"))?;
     rustls::crypto::ring::default_provider()
         .install_default()
         .map_err(|_| "the TLS cryptographic provider is already configured".to_owned())?;
@@ -87,6 +90,7 @@ fn run() -> Result<(), String> {
             maximum_queued_bytes: number("PROVIDER_MAX_QUEUED_BYTES")?,
             deadline: Duration::from_secs(number("PROVIDER_DEADLINE_SECONDS")?),
         },
+        Arc::clone(&clock),
     )
     .map_err(|error| format!("the KMS provider was refused: {}", error.refusal_code()))?;
     let tls = GatewayTls::new(
@@ -117,6 +121,7 @@ fn run() -> Result<(), String> {
                 operation_window: Duration::from_secs(number("RATE_WINDOW_SECONDS")?),
             },
         },
+        Arc::clone(&clock),
     )
     .map_err(|error| format!("the gateway was refused: {}", error.refusal_code()))?;
     let listener =
@@ -192,11 +197,11 @@ fn number<T: std::str::FromStr>(suffix: &str) -> Result<T, String> {
 
 #[cfg(test)]
 mod tests {
+    use layerx_types::clock::Deadline;
     use std::fs;
     use std::net::TcpStream;
     use std::os::unix::fs::PermissionsExt;
     use std::process::{Child, Command, Output, Stdio};
-    use std::time::Instant;
 
     use layerx_crypto::disclosure::{AmountRole, CounterpartyRole, Disclosure};
     use layerx_crypto::ed25519::verify_digest;
@@ -455,6 +460,7 @@ mod tests {
     }
 
     struct Fixture {
+        clock: Arc<dyn Clock>,
         root: PathBuf,
         backend: SocketAddr,
         child: Option<Child>,
@@ -483,6 +489,7 @@ mod tests {
             fs::create_dir(&root)?;
             fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
             let fixture = Self {
+                clock: layerx_client::runtime_clock::RuntimeClock::from_environment()?,
                 root,
                 backend: free_address()?,
                 child: None,
@@ -642,7 +649,7 @@ mod tests {
                     .stderr(Stdio::null())
                     .spawn()?,
             );
-            let started = Instant::now();
+            let mut deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(15))?;
             loop {
                 if self.provider(self.backend, "relay")?.probe().is_ok() {
                     return Ok(());
@@ -656,7 +663,7 @@ mod tests {
                 {
                     return Err("the KMS backend exited at startup".into());
                 }
-                if started.elapsed() > Duration::from_secs(15) {
+                if deadline.remaining(self.clock.as_ref())?.is_zero() {
                     return Err("the KMS backend startup deadline passed".into());
                 }
                 std::thread::sleep(Duration::from_millis(20));
@@ -691,6 +698,7 @@ mod tests {
                     maximum_queued_bytes: GATEWAY_FRAME_LIMIT,
                     deadline: Duration::from_secs(5),
                 },
+                Arc::clone(&self.clock),
             )?)
         }
 
@@ -710,6 +718,7 @@ mod tests {
                 Arc::new(self.provider(self.backend, "relay")?),
                 self.tls("service")?,
                 policy(limits)?,
+                Arc::clone(&self.clock),
             )?);
             let listener = TcpListener::bind("127.0.0.1:0")?;
             let address = listener.local_addr()?;
@@ -830,6 +839,7 @@ mod tests {
             Arc::new(development),
             fixture.tls("service")?,
             policy(limits())?,
+            Arc::clone(&fixture.clock),
         );
         assert!(matches!(
             outcome,
@@ -845,6 +855,7 @@ mod tests {
             Arc::new(fixture.provider(free_address()?, "relay")?),
             fixture.tls("service")?,
             policy(limits())?,
+            Arc::clone(&fixture.clock),
         );
         assert!(matches!(absent, Err(CustodyError::Kms(_))));
         for bounds in [
@@ -873,6 +884,7 @@ mod tests {
                 Arc::new(fixture.provider(free_address()?, "relay")?),
                 fixture.tls("service")?,
                 policy(bounds)?,
+                Arc::clone(&fixture.clock),
             );
             assert!(matches!(outcome, Err(CustodyError::InvalidLimits)));
         }
@@ -883,6 +895,7 @@ mod tests {
                 network_id: 0,
                 ..policy(limits())?
             },
+            Arc::clone(&fixture.clock),
         );
         assert!(matches!(wrong_network, Err(CustodyError::InvalidNetwork)));
         Ok(())
@@ -1086,6 +1099,7 @@ mod tests {
             Arc::new(fixture.provider(fixture.backend, "foreign")?),
             fixture.tls("service")?,
             policy(limits())?,
+            Arc::clone(&fixture.clock),
         );
         assert!(matches!(unauthenticated, Err(CustodyError::Kms(_))));
         let wrong_provider = fixture.call(address, Some("service"), &header(1, 0, "other-kms")?)?;
@@ -1161,12 +1175,12 @@ mod tests {
 
     fn serve_probe(fixture: &Fixture, listen: SocketAddr, gateway: &mut Child) -> TestResult {
         let client = fixture.provider(listen, "service")?;
-        let started = Instant::now();
+        let mut deadline = Deadline::start(fixture.clock.as_ref(), Duration::from_secs(15))?;
         while client.probe().is_err() {
             if gateway.try_wait()?.is_some() {
                 return Err("the gateway binary exited at startup".into());
             }
-            if started.elapsed() > Duration::from_secs(15) {
+            if deadline.remaining(fixture.clock.as_ref())?.is_zero() {
                 return Err("the gateway binary startup deadline passed".into());
             }
             std::thread::sleep(Duration::from_millis(20));
