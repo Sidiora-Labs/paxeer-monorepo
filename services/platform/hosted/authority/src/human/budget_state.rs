@@ -3,7 +3,7 @@ mod record;
 use self::record::{number, Record};
 use super::super::PROTOCOL_VERSION;
 use super::{digest, hex, json, refusal, unavailable, Config, PrincipalPolicy, Response};
-use layerx_client::px::PxEndpoint;
+use layerx_client::px::{PxAccountJoin, PxEndpoint};
 use layerx_client::sequencer::SequencerEndpoint;
 use layerx_crypto::evm_transaction::transaction_hash as keccak256;
 use serde_json::{json as value, Value};
@@ -16,14 +16,43 @@ const PAY: [u8; 20] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1b,
 ];
 
-pub(super) struct Session<'a> {
-    config: &'a Config,
+pub(super) struct Session {
     sequencer: SequencerEndpoint,
     network: PxEndpoint,
     pub(super) committed_height: u64,
     pub(super) checkpoint_id: [u8; 32],
     pub(super) timestamp: u64,
     state_root: [u8; 32],
+}
+
+struct AccountJoinExport(PxAccountJoin);
+
+impl serde::Serialize for AccountJoinExport {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct as _;
+
+        let join = &self.0;
+        let mut state = serializer.serialize_struct("PxAccountJoin", 3)?;
+        state.serialize_field("account", &value!({
+            "evm_address": join.account.evm_address.map(|address| format!("0x{}", hex::encode(&address))),
+            "pax_address": join.account.pax_address,
+            "layerx_did": join.account.layerx_did,
+            "layerx_account": join.account.layerx_account.map(|id| hex::encode(&id)),
+            "bound": join.account.bound,
+        }))?;
+        state.serialize_field(
+            "paxeer",
+            &join.paxeer.as_ref().map(|account| {
+                value!({
+                    "address": format!("0x{}", hex::encode(&account.address)),
+                    "balance": account.balance.to_string(),
+                    "nonce": account.nonce,
+                })
+            }),
+        )?;
+        state.serialize_field("layerx", &join.layerx)?;
+        state.end()
+    }
 }
 
 fn data(signature: &[u8], argument: Option<&[u8; 32]>) -> Vec<u8> {
@@ -46,41 +75,30 @@ pub(super) fn identity_key(did: &str) -> Result<[u8; 32], ()> {
     Ok(digest(&preimage))
 }
 
-impl<'a> Session<'a> {
-    pub(super) fn open(config: &'a Config) -> Result<Self, ()> {
+impl Session {
+    pub(super) fn open(config: &Config) -> Result<Self, ()> {
         let sequencer = SequencerEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
         let network = PxEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
         let committed_height = sequencer.block_number().map_err(|_| ())?;
-        let block = layerx_paxeer_verifier::raw_call(
-            &config.chain_endpoint,
-            "eth_getBlockByNumber",
-            &[
-                layerx_paxeer_verifier::Json::Text(format!("{committed_height:#x}")),
-                layerx_paxeer_verifier::Json::Bool(false),
-            ],
-        )
-        .map_err(|_| ())?;
-        let block: Value = serde_json::from_str(&block.render()).map_err(|_| ())?;
-        let quantity = |name: &str| {
-            let text = block[name].as_str().ok_or(())?;
-            u64::from_str_radix(text.strip_prefix("0x").ok_or(())?, 16).map_err(|_| ())
-        };
-        let checkpoint_id = account_id(&block["hash"])?;
-        let state_root = account_id(&block["stateRoot"])?;
+        let block = sequencer
+            .block_by_number(committed_height)
+            .map_err(|_| ())?
+            .ok_or(())?;
+        let checkpoint_id = block.hash;
+        let state_root = sequencer.state_root(committed_height).map_err(|_| ())?;
         if committed_height == 0
-            || quantity("number")? != committed_height
+            || block.number != committed_height
             || checkpoint_id == [0; 32]
             || state_root == [0; 32]
         {
             return Err(());
         }
         Ok(Self {
-            config,
             sequencer,
             network,
             committed_height,
             checkpoint_id,
-            timestamp: quantity("timestamp")?.checked_mul(1000).ok_or(())?,
+            timestamp: block.timestamp.checked_mul(1000).ok_or(())?,
             state_root,
         })
     }
@@ -103,17 +121,12 @@ impl<'a> Session<'a> {
         if matches.next().is_some() {
             return Err(());
         }
-        let raw = layerx_paxeer_verifier::raw_call(
-            &self.config.chain_endpoint,
-            "px_getAccount",
-            &[layerx_paxeer_verifier::Json::Text(did.to_owned())],
-        )
-        .map_err(|_| ())?;
-        let raw: Value = serde_json::from_str(&raw.render()).map_err(|_| ())?;
-        if raw["layerx"] != Value::Object(layerx) {
+        let join = self.network.account(did).map_err(|_| ())?;
+        if join.layerx != Some(layerx) {
             return Err(());
         }
-        Ok((account, raw))
+        let join = serde_json::to_value(AccountJoinExport(join)).map_err(|_| ())?;
+        Ok((account, join))
     }
 
     fn balance(&self, id: [u8; 32], asset: [u8; 32]) -> Result<u128, ()> {
@@ -154,7 +167,7 @@ impl<'a> Session<'a> {
 }
 
 fn accounts(
-    session: &Session<'_>,
+    session: &Session,
     record: &Record,
     policy: &PrincipalPolicy,
     owner_did: Option<&str>,

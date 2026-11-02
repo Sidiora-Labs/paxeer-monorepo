@@ -17091,3 +17091,203 @@ symbol = "test_security_storage_suites_absent"
 observed = "Attempt 1 of task 16.97.3 (07ba0264f) implemented acceptance 16967.3 as written, scanning every suite under tests/solidity for imports of contracts/security or contracts/storage, and failed on the four names suites that import contracts/security/Governed.sol, a live contract (finding 6.80.2.1); the five retired suites of do_2 are absent and the storage imports are gone."
 assumption = "The criterion was broader than the retirement it gates: it narrows to the five named suites being absent and to contracts/storage imports; contracts/security imports are not a retired surface while Governed stays."
 severity = "minor"
+
+[finding.1.36.3.1]
+task = "1.36.3"
+file = "modules/layerxanchor/keeper/keeper_test.go:355"
+symbol = "testvectors.LoadAnchor"
+observed = "Attempt 1 of task 6.96.5 (c36e1554e) re-homed the availability class count and go build passed, but go vet of the keeper package stopped at modules/layerxanchor/keeper/keeper_test.go:355 (undefined: testvectors.LoadAnchor); task 1.36.3 deleted the loader from layerxproof/testvectors/load.go and named its consumers at modules/layerxanchor/keeper/keeper_test.go and precompiles/layerxanchor/layerxanchor_test.go a wiring request no task wrote, so the layerxanchor keeper test package (modules/layerxanchor/keeper/keeper_test.go:355, with the suite helpers vector, submit and attestation at :137-168 feeding bond_return_test.go:68, :155, :258, merge_handler_test.go:52, retire_merge_test.go:22 and retirement_rehearsal_test.go:72, :96, :106, :252) and the precompile test package (precompiles/layerxanchor/retire_read_gate_test.go:117, retired_wrapper_test.go:26 and :86) have not compiled since 3373522c3."
+assumption = "The anchor retirement tests are the evidence that bonds return and writes revert at the merge; they keep the deleted vectors as a module-local JSON fixture (decision 2258) through task 6.96.6, and 6.96.5 proves its own change through a test package that compiles on main."
+severity = "major"
+
+[finding.9.24.8.1]
+task = "9.24.8"
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs:24"
+symbol = "native_budget_versions_fields_and_extremes"
+observed = "Attempt 1 of task 9.24.8 (e85c8d887) deleted the grant vectors and both grant tests and the build passed; the verify failed before any test ran with `error: Option 'exact' given more than once`, because the declared command passed --exact twice to the libtest harness."
+assumption = "The verify names both budget tests after a single --exact; the implementation of attempt 1 is unchanged."
+severity = "minor"
+
+[finding.9.97.14.2]
+task = "9.97.14"
+file = "tests/agent/sdk/python/test_ai_market.py:412"
+symbol = "test_constants_enums_transitions_and_errors_match_the_frozen_schema"
+observed = "Attempt 3 of task 9.97.14 (8031fd3d2) completed do_1 through do_6 and the verify ran the three suites: 27 passed and 11 failed, all in tests/agent/sdk/python/test_ai_market.py and none touched by the task: the schema contract test reads native_call.protocol_version, a key the frozen schema no longer carries (KeyError at :435); six tests build NativeTerms with twelve positional fields while services/agent/sdk/python/layerx_sdk/ai_market.py:710-725 requires gas_limit, max_fee_per_gas and max_priority_fee_per_gas as well; and four JournalTests build records whose signed bytes are not the type-2 EIP-1559 transaction that _signed_identity (ai_market.py:1331-1353) decodes, so every record is refused as CorruptRecord. The suite was last changed on 2026-10-19 before the SDK's EVM port."
+assumption = "The suite is stale against the SDK on main, not broken by the task; aligning it is in the task's title and becomes do_7, with the SDK itself unchanged per do_5."
+severity = "major"
+
+[finding.10.21.4.3]
+task = "10.21.4"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs:510"
+symbol = "unsigned_envelope_bytes"
+observed = "Attempt 3 of task 10.1.10 (2bde72fe0) ported its eight files and the build of layerx-human-kms with test targets stopped in two targets the task does not touch: services/human/crates/layerx-human-kms/tests/provider.rs:510 and :770, services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:10 (used at :125, :278, :290, :310) and services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs:447, :451 and :700 call layerx_intents::canonical::unsigned_envelope_bytes, decode_unsigned_activity and unsigned_activity_bytes, which task 10.21.4 deleted; task 9.35.6 do_3 recorded that the provider target does not compile on main and did not build it. The two targets have not compiled since 10.21.4 landed."
+assumption = "Producer gap of 10.21.4, the class of findings 10.21.4.1 and 10.21.4.2 (decision 2253): the KMS tests belong to the kernel-path migration family and become task 9.35.9; 10.1.10 requires it because its verify compiles every KMS test target."
+severity = "major"
+
+[finding.9.28.1.4]
+task = "9.28.1"
+file = "services/platform/Cargo.lock"
+symbol = "layerx-paxeer-verifier"
+observed = "Attempt 1 of task 17.5.6 (cd5e1678c) ran the wave 5 gate and the human-build target stopped before its first cargo test: tools/runtime/run-with-clock.sh:12 builds layerx-runtime-clock from services/platform/Cargo.toml with --locked and cargo refused because services/platform/Cargo.lock needs updating. The lock still lists layerx-paxeer-verifier four times as a dependency of layerx-agentd, layerx-agentd-host and layerx-client, which task 9.28.1 (cca371de4) removed from those crates' manifests while refreshing services/agent/Cargo.lock and services/agent/fuzz/Cargo.lock only; services/platform/hosted/agent-boundary/Cargo.toml:24 resolves layerx-agentd by path, so the platform lock carries the agent crates' dependency graph."
+assumption = "Every --locked build under services/platform fails on main until the lock is refreshed; task 8.101.2 refreshes it and the gates that run run-with-clock.sh require it (decision 2259)."
+severity = "major"
+
+[finding.8.32.2.1]
+task = "8.32.2"
+file = "services/platform/relay_archive/README.md:262"
+symbol = "LAYERX_RELAY_ARCHIVE_"
+observed = "Attempt 1 of task 8.32.2 (72772f28c) deleted the six installer, deployment and configuration assets and added both tests; test_no_platform_file_reads_relay_archive_variables failed because services/platform/relay_archive/README.md:11, :136 and :262 still name LAYERX_RELAY_ARCHIVE_RUNTIME and the LAYERX_RELAY_ARCHIVE_* variables, and the README's Operator quickstart (:45-149) and Container deployment (:242-265) sections still document install.sh, deployment.yaml, deployment.example.yaml and fly.toml, which the task deleted."
+assumption = "The README is a consumer of the retired assets the task's touches omitted; do_7 rewrites it and the implementation of attempt 1 stands."
+severity = "minor"
+
+[finding.9.24.6.1]
+task = "9.24.6"
+file = "services/agent/crates/layerx-client/src/lni/mod.rs:7"
+symbol = "head_attestation"
+observed = "Attempts 1 (d2418f742) and 2 (6e303078b) of task 9.24.6 deleted the six files the touches name and the build of layerx-client stopped with E0583 for the modules head_attestation, preparation, program_read and simulate: services/agent/crates/layerx-client/src/lni/mod.rs:7-13 still declares the four submodules and :18 and :20 re-export PreparationState, PreparationStateError, SimulateError, SimulatedExecution, Simulation and SimulationEvidence from two of them; no other file of the crate or of another crate names those paths or types. The touches of the task omitted the module root."
+assumption = "Spec omission of 9.24.6: deleting a submodule file requires its `mod` declaration and re-exports to go with it; do_5 adds the module root and the six deletions of attempt 2 stand."
+severity = "minor"
+
+[finding.9.97.14.3]
+task = "9.97.14"
+file = "tests/agent/sdk/python/test_ai_market.py:1066"
+symbol = "test_pre_send_refusal_restores_and_terminal_core_refusal_fails_on_first_attempt"
+observed = "Attempt 5 of task 9.97.14 (2a7d81992) completed do_1 through do_7 and the verify ran the three suites: 36 passed and 2 failed, both JournalTests that drive ProgramEndpoint over HTTP with the actions drop, unknown and refuse. OperationJournal._deliver (services/agent/sdk/python/layerx_sdk/ai_market.py:1578-1600) delivers over JSON-RPC: it requires an operations object whose request attribute is callable and raises AiMarketError EvmTransportUnavailable before any state change otherwise, sends eth_sendRawTransaction with the 0x-prefixed signed bytes, moves the record to PENDING when the answer equals the 0x-prefixed activity id and to UNKNOWN on any exception or other answer; resolve (:1601-1610) returns the state for a None receipt and raises ProgramsReceiptVerifierUnavailable for receipt bytes; the journal has no finalize, and FAILED is reached only through expire (:1612). ProgramOperations (services/agent/sdk/python/layerx_sdk/programs.py:224) has no request method, so both tests stop at EvmTransportUnavailable, and their later assertions (bodies with an Idempotency-Key, ReceiptMismatch, EXECUTED, FINALIZED, FAILED on a terminal core refusal, result_code 17) name outcomes no code path of the SDK on main produces."
+assumption = "The two tests describe the HTTP transport and the receipt pipeline the SDK retired; they are rewritten against the JSON-RPC journal contract on main, and the SDK stays unchanged per do_5."
+severity = "major"
+
+[finding.8.14.2.2]
+task = "8.14.2"
+file = "modules/layerxanchor/bringup_genesis_test.go:25"
+symbol = "TestBringUpAnchorGenesisValidates"
+observed = "Attempt 3 of task 6.96.5 (11bf4fbf2) re-homed the availability class count and go build passed, but the verify test TestBringUpAnchorGenesisValidates (modules/layerxanchor/bringup_genesis_test.go:25) runs services/platform/hosted/paxeer/anchor-genesis.py through os/exec, and task 8.14.2 deleted that script at ec111950d without touching the test; the test fails on main with an exec error and has failed since 8.14.2 landed."
+assumption = "The test is an orphan of the deleted generator and goes with task 6.96.6 (do_6); 6.96.5 proves its change through TestAppRoutesAnchorUpdateParamsRetired of the same root package (module_retired_route_test.go, task 6.31.5), which does not depend on any script."
+severity = "major"
+
+[finding.9.28.1.5]
+task = "9.28.1"
+file = "services/platform/hosted/authority/Cargo.toml:18"
+symbol = "layerx-paxeer-verifier"
+observed = "Attempt 2 of task 9.28.2 (405266424) deleted the verifier crate and its verify grep found services/platform/hosted/authority/Cargo.toml:18 (path dependency, with the comment at :16 'Retained for receipt verification and LNI transport'), services/platform/hosted/authority/src/main.rs:88 (Config.chain_endpoint: layerx_paxeer_verifier::EndpointConfig), :322, :909-925 (chain_answers calls raw_call eth_chainId on the EndpointConfig and maps ChainMismatch to IdentityMismatch) and :1195-1215 (mod chain_readiness_tests), services/platform/hosted/authority/src/trust.rs:119-128 (chain_endpoint builds an EndpointConfig with transport LocalEmulator and expected_chain_id 125), services/platform/hosted/authority/src/human/budget_state.rs:50-117 (Session::open reads eth_getBlockByNumber through raw_call for the committed height's hash, stateRoot, number and timestamp; identity() re-reads px_getAccount through raw_call and compares the layerx section), services/platform/hosted/authority/tests/chain_receipts.rs:265 and :1046-1056 and services/platform/hosted/authority/tests/budget_proof_exports.rs:411; task 9.28.1 moved the hosted platform's verification onto layerx-client and listed the authority's remaining uses as a wiring request no task wrote."
+assumption = "The authority's four remaining uses are a chain identity read, a committed block read, a state root read and an account re-read, all of which layerx-client's SequencerEndpoint (chain_id, block_by_number, state_root) and PxEndpoint (account) already serve; task 9.28.3 ports them and 9.28.2 requires it."
+severity = "major"
+
+[finding.17.7.5.1]
+task = "17.7.5"
+file = "spec/layerx-merge/programme/runcards.py:112"
+symbol = "render_counts"
+observed = "Attempt 1 of task 17.7.5 (7478e60d2) implemented render_counts and the test, the build passed and the verify failed with a CardError for domain 15: runcards.py:112 requires the card's profile key to equal the most common profile among the domain's tasks, the card spec/layerx-merge/programme/data/runcards/fm-cosmos-fork.kvx declares go at line 4, and the 58 domain-15 tasks declare go-cgo 29 times, go 15, node 5, jvm 4, python 3 and swift 2."
+assumption = "The card is wrong, not the check: the three other chain cards (fm-kernel, fm-node-runtime, fm-ledger-auth-pay) declare go-cgo and the domain's kernel-bearing tasks need cgo; the task sets line 4 of the card to go-cgo and the implementation of attempt 1 stands."
+severity = "minor"
+
+[finding.9.35.9.1]
+task = "9.35.9"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs:1"
+symbol = "Host::new"
+observed = "Attempt 1 of task 9.35.9 (c81177dc6) completed do_1 through do_6 and the build passed; the verify ran cargo test directly and twelve provider.rs tests failed with Error: Unavailable because Host::new needs the runtime clock that the repository Makefile supplies by running every human-workspace cargo test under sh tools/runtime/run-with-clock.sh (Makefile:1640-1692), which builds layerx-runtime-clock from services/platform and exports its socket."
+assumption = "The verify runs the tests through tools/runtime/run-with-clock.sh as the Makefile does; the twelve tests are not evidence against the attempt."
+severity = "major"
+
+[finding.9.35.9.2]
+task = "9.35.9"
+file = "services/agent/crates/layerx-crypto/src/disclosure/call.rs:360"
+symbol = "PayBudgetCreate"
+observed = "The thirteenth failure of attempt 1 (c81177dc6) was native_setup.rs:409, where bind_call accepted corruptions of the budgetCreate call: the budgetCreate arm of call.rs:360-383 checks only the word count and the uint ranges and builds the 211-byte payload, and the PayBudgetCreate disclosure (:592-605) reads only the budget id, asset and amount, while the kernel path native.rs::budget (:285-333) refuses a zero budget id, zero asset, zero initial amount, zero per-period limit, zero period length, an expiry at or before the period start, a rollover outside 1 and 2 and rollover 1 with a non-zero carry cap; the same corrupted terms reach the ledger through an EIP-1559 call that bind_call discloses as valid."
+assumption = "The actor-independent rules of the kernel path belong to the EVM path too and move into one shared function (decision 2260); task 9.35.12 implements it and 9.35.9 requires it, keeping the corruption assertions that the rules make refusals."
+severity = "major"
+
+[finding.5.7.1.2]
+task = "5.7.1"
+file = "modules/layerxanchor/module_retired_route_test.go:21"
+symbol = "TestAppRoutesAnchorUpdateParamsRetired"
+observed = "Attempt 4 of task 6.96.5 (246896c3b) built and vetted, and the verify's only test failed at modules/layerxanchor/module_retired_route_test.go:21 with `Expected value not to be nil`: testApp.MsgServiceRouter().Handler(&types.MsgUpdateParams{}) is nil because task 5.7.1 (ae2beed63) removed the anchor AppModule from node/app.go and left only AppModuleBasic at node/app.go:301, so the module's RegisterServices (modules/layerxanchor/module.go:89) never runs in the test app; the test has failed on main since that commit and task 6.96.6 already deletes the other root test (bringup_genesis_test.go, finding 8.14.2.2)."
+assumption = "The module root package has no passing test on main; 6.96.5 verifies through build and vet alone and 6.96.6, which restores the keeper and precompile tests, deletes the route test whose premise 5.7.1 removed."
+severity = "major"
+
+[finding.9.24.6.2]
+task = "9.24.6"
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs:23"
+symbol = "native_budget_versions_fields_and_extremes"
+observed = "Attempt 5 of task 9.24.6 (bf016eb06) built, passed the verify's test and failed only the graph check `symbol native_grant_signatures_and_every_committed_field — not defined in the graph`: the symbols key still named the grant test that task 9.24.8 deleted, while committed_caps.rs on the attempt holds native_budget_versions_fields_and_extremes (:23) and budget_refuses_malformed_and_arithmetic_bounds (:85)."
+assumption = "The symbols key names the test the verify runs; the attempt's tree is unchanged and requalified."
+severity = "minor"
+
+[finding.17.7.5.2]
+task = "17.7.5"
+file = "spec/layerx-merge/programme/runcards.py:112"
+symbol = "check_against_spec"
+observed = "Attempt 2 of task 17.7.5 (cfe76dc81) set the domain-15 card to go-cgo and the verify then stopped at the next card with the profile key check `domain 4 requires one of ['go'], got 'mixed'`; against the installed spec the same check also refuses spec/layerx-merge/programme/data/runcards/fm-wallet.kvx (domain 12 declares node 97 times, the card says mixed), spec/layerx-merge/programme/data/runcards/fm-tools-ops.kvx (domain 16 declares python 84 times against mixed 52) and spec/layerx-merge/programme/data/runcards/fm-programme.kvx (domain 17 declares python 46 times against mixed 14), so a card-by-card repair would take three more attempts."
+assumption = "The four remaining cards take the profile their domain declares most often; the check and test of attempt 2 stay unchanged."
+severity = "minor"
+
+[finding.9.35.1.3]
+task = "9.35.1"
+file = "services/agent/crates/layerx-crypto/src/lib.rs:9"
+symbol = "pub mod disclosure"
+observed = "Attempt 3 of task 9.35.1 (415ee2b3b) deleted rotation.rs as do_1 says, but also deleted src/send.rs whole and the `pub mod disclosure;` and `pub mod send;` declarations of src/lib.rs and added a `domain()` accessor nothing calls, so cargo build of the crate's test targets failed with `could not find disclosure in layerx_crypto` and `could not find send in layerx_crypto` in tests/payments.rs and tests/native_fee_grant.rs (ledger_payment_call, bind_call and send_context_hash live in those modules); do_2 keeps send.rs and inlines one function, do_3 keeps the other modules as on main."
+assumption = "The attempt restores the two modules from main and finishes do_2 and do_4; the rotation deletion stands."
+severity = "major"
+
+[finding.12.95.1.1]
+task = "12.95.1"
+file = "services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/src/main.rs:22"
+symbol = "decode_unsigned"
+observed = "Task 12.18.2 (0b9902417) removed the layerx_wire::activity import from the attestor vectors generator and task 12.95.1 (16672eaf7, 2026-10-30) put `use layerx_wire::activity::{decode_unsigned, encode_unsigned}` back at services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/src/main.rs:22 for a round trip at :600-602 that checks the generator's local envelope encoder (:225) against the kernel codec; the task's test kernelvectors_use_no_kernel_codec (tests/no_kernel_codec.rs) scans the source for other retired names only, so the regression passed its own verify."
+assumption = "The generator keeps its local encoder and drops the kernel round trip; the test asserts the import absent so a later generator change cannot bring it back."
+severity = "major"
+
+[finding.9.27.3.2]
+task = "9.27.3"
+file = "services/agent/crates/layerx-proof/tests/export_complete.rs:124"
+symbol = "decode_signed"
+observed = "Task 9.27.3 ported the complete-export test onto the signed authority history but kept `decode_signed(HANDOVER, &genesis.registry)` at services/agent/crates/layerx-proof/tests/export_complete.rs:124 only to pass activity.payload() as the handover packet to SignedAuthorityHistory::advance (:131-138), while the same directory already holds that payload as fixtures/signed-authority/handover.payload; the test is the last layerx_wire::activity reader in layerx-proof."
+assumption = "The test reads the payload fixture directly; the signed activity fixture stays for layerx-agentd tests/export_offline_bounds.rs:23, which treats it as opaque bytes."
+severity = "minor"
+
+[finding.10.21.4.4]
+task = "10.21.4"
+file = "services/human/crates/layerx-intents/tests/budget_payloads.rs:112"
+symbol = "unsigned"
+observed = "Task 10.21.4 moved the owner bootstrap tests but services/human/crates/layerx-intents/tests/budget_payloads.rs:112 (unsigned) and services/human/crates/layerx-intents/tests/owner_bootstrap.rs:9 still build kernel envelopes with EnvelopeBuilder and encode_unsigned_envelope and bind them with layerx_crypto::disclosure::bind, so the budget tests (budget_fund_compiles_to_the_kernel_canonical_payload :157, budget_create :190, budget_defund :248) and the two bootstrap tests (:25, :85) prove the compiled payloads against the kernel disclosure path that task 9.35.7 deletes, not against bind_call."
+assumption = "The tests wrap each compiled payload in the EIP-1559 call its method takes and bind it with bind_call; a test with no EIP-1559 counterpart is deleted."
+severity = "major"
+
+[finding.8.47.10.2]
+task = "8.47.10"
+file = "tools/platform/cli/src/programs.rs:1782"
+symbol = "signed_program_with_signer"
+observed = "Task 8.47.10 removed the kernel fixture readers of the CLI but tools/platform/cli/src/programs.rs still signs and validates kernel program activities: signed_call (:1767) and signed_program_with_signer (:1782, EnvelopeBuilder and encode_signed_envelope), complete_call_response (:1637), render_call_result (:2015) and verify_simulation_evidence (:2625) through validate_signed_call and validate_signed_program (:2795, decode_signed), the preimage test at :3360 and the tests of :3314-3446 and :3696-3726, feeding /v1/programs/call and /v1/programs/simulate which the production gateway refuses since task 8.7.3 (lib.rs production_route_refuses_every_program_and_activity_route)."
+assumption = "The CLI retires its kernel program call and simulate path; program operations reach the chain through the EIP-1559 program call clients."
+severity = "major"
+
+[finding.8.51.1.2]
+task = "8.51.1"
+file = "tools/platform/emulator/src/main.rs:3291"
+symbol = "program_call"
+observed = "The emulator still serves the kernel activity surface the production gateway refuses: POST /v1/activities (submit :1327), /v1/moves and /v1/moves/quote (move_commit :2521, move_quote :2377, signed_move_activity :714 and execute_move_commit :5916), /v1/programs/call, deploy, upgrade, wind-down and simulate (program_call :1982, program_simulate :3461, decode_program_activity :1553, lifecycle_public_response :1963), with native_call.rs parse_json (:61-117) and program_lifecycle.rs validate (:45-55) decoding kernel activities and the tests authority.rs (signed_activity :219, conformance_verified_outcome :517) and gateway.rs (lifecycle_signed_activity_for_protocol :466, lifecycle_operations :629) building them; tasks 8.51.1 and 8.96.5 retired the C core's batch and history symbols but no task retired these routes."
+assumption = "The emulator keeps the production surface (health, sequencer identity, head, settle, receipts and state reads) and retires the kernel activity routes and their decoders with their tests."
+severity = "major"
+
+[finding.8.20.1.2]
+task = "8.20.1"
+file = "services/platform/hosted/core/src/lib.rs:153"
+symbol = "build_send_for_accounts"
+observed = "Task 8.20.1 retired the core's activity and program routes but left the kernel producers and validators compiled: lib.rs build_send_for_accounts (:153, EnvelopeBuilder, encode_unsigned_envelope, encode_signed_envelope, decode_signed and activity_id behind build_send_with_signer :150 and build_asset_send_with_signer :702), main.rs validate_fee_program_lifecycle (:744, no caller), PreparedFunding and FundingIntent (:128-147) with validate_funding_intent (:1648-1700, decode_signed, encode_signed, encode_unsigned, ed25519 verify_digest and layerx_crypto::disclosure::bind) under persist_funding_intent, funding_archive_facts, archived_funding_response and retain_funding_receipts, and the tests send.rs:29 and signer.rs:205; the treasury funding path therefore still produces kernel activities no route accepts."
+assumption = "The core produces and validates funding sends as signed type-2 ledger transactions."
+severity = "major"
+
+[finding.8.7.3.1]
+task = "8.7.3"
+file = "services/platform/hosted/gateway/src/main.rs:2313"
+symbol = "activity"
+observed = "Task 8.7.3 made production_route (lib.rs:774) answer Settle, State and Receipt reads only, and route_with_peer (main.rs:3250-3335) routes nothing else, but the kernel submission path stayed compiled with no caller: lib.rs verify_submission (:405-430) and VerifiedSubmission (:376), main.rs program_call_bytes (:741), verified_program_result (:1887), program_simulation (:1961), activity (:2313), decode_activity_request (:2435), reserve_activity (:2476), complete_activity (:2786), resolve_pending_program (:2991), read_program_receipt (:4469), read_program_activity (:4520), complete_activity_refusal (:4693) and tests/local/verifier.rs:73-79."
+assumption = "The gateway deletes the unreachable kernel submission path and its test; the production routes and their tests stay."
+severity = "major"
+
+[finding.8.8.3.1]
+task = "8.8.3"
+file = "services/platform/hosted/agent-boundary/src/main.rs:889"
+symbol = "complete_record"
+observed = "Tasks 8.8.3 and 8.8.4 retired the agent boundary's submission routes (main.rs:1182-1230 serves livez, readyz, deployment, relay and receipt reads only) and left decode_activity (:525), fetch_program_execution (:707), verify_lifecycle_record (:789), completed_response (:827), complete_record (:889) and idempotency_binding (:1002) compiled with no caller outside src/batch_maintenance_tests.rs:48, all decoding the kernel activity of JournalRecord.signed_activity (:140-152)."
+assumption = "The boundary deletes the dead helpers and their test; JournalRecord keeps signed_activity as the persisted string older journals carry."
+severity = "major"

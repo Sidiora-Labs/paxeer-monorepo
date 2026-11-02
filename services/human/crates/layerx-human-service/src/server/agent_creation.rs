@@ -433,10 +433,8 @@ impl<'a> ProductionAgentCreation<'a> {
         {
             return Err(AgentFailure::Refused("creation call disclosure differs"));
         }
-        let signed_activity = layerx_intents::owner_activity::attach_signature(
-            &call, signature, from,
-        )
-        .map_err(|_| AgentFailure::Refused("custody signature does not bind preparation"))?;
+        let signed_activity = crate::custody::attach_call_signature(&call, signature, from)
+            .map_err(|_| AgentFailure::Refused("custody signature does not bind preparation"))?;
         let signed = SignedCreationTransaction::decode(&signed_activity)?;
         let activity_id = signed.activity_id;
         if signed.disclosure != prepared.disclosure

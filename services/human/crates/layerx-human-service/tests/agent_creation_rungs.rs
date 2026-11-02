@@ -367,11 +367,13 @@ impl Fixture {
                             let (call, _) = checked(layerx_crypto::evm_transaction::decode_signed(
                                 &expected_owner_bytes,
                             ));
-                            let signed = checked(layerx_intents::owner_activity::attach_signature(
-                                &call,
-                                checked(request.operation.signature.as_slice().try_into()),
-                                checked(expected_owner_key[12..].try_into()),
-                            ));
+                            let signed = checked(
+                                layerx_human_service::custody::signer::attach_call_signature(
+                                    &call,
+                                    checked(request.operation.signature.as_slice().try_into()),
+                                    checked(expected_owner_key[12..].try_into()),
+                                ),
+                            );
                             assert_eq!(
                                 layerx_crypto::evm_transaction::transaction_hash(&signed),
                                 expected_owner_id,

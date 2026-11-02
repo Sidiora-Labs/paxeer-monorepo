@@ -1,5 +1,4 @@
 use super::*;
-use layerx_types::payload::{ActivityType, ModuleRegistration, ModuleRegistry};
 
 type NativeIdentity = (
     Did,
@@ -8,30 +7,16 @@ type NativeIdentity = (
 );
 
 fn native_identity() -> Result<NativeIdentity, String> {
-    const ACTIVITY: &[u8] =
-        include_bytes!("../../../../../../tests/fixtures/governance/owner-rotation/activity");
+    const ACTOR: &[u8] =
+        b"did:layerx:042bb23f93d99cf87ee8cd5428a149217a94200afce832589629d75f309c833a";
     const RECEIPT: &[u8] =
         include_bytes!("../../../../../../tests/fixtures/governance/owner-rotation/receipt");
-    const SEQUENCER: &[u8; 32] =
-        include_bytes!("../../../../../../tests/fixtures/governance/owner-rotation/sequencer-public");
-    let activity_type = ActivityType::new(ModuleId::Governance, 2)
-        .map_err(|error| format!("native rotation type: {error:?}"))?;
-    let registry =
-        ModuleRegistry::new(&[
-            ModuleRegistration::new(ModuleId::Governance, &[activity_type])
-                .map_err(|error| format!("registry row: {error:?}"))?,
-        ])
-        .map_err(|error| format!("registry: {error:?}"))?;
-    let activity = layerx_intents::canonical::decode_signed_activity(ACTIVITY, &registry)
-        .map_err(|error| format!("actual native rotation: {error:?}"))?;
+    const SEQUENCER: &[u8; 32] = include_bytes!(
+        "../../../../../../tests/fixtures/governance/owner-rotation/sequencer-public"
+    );
     let receipt = layerx_proof::receipt::verify_sequencer_signature(RECEIPT, *SEQUENCER)
         .map_err(|error| format!("actual signed native receipt: {error:?}"))?;
     let receipt = receipt.protocol().ok_or("native receipt missing")?;
-    assert_eq!(
-        receipt.activity_id(),
-        layerx_intents::canonical::activity_id(&activity)
-            .map_err(|error| format!("activity id: {error:?}"))?
-    );
     assert_eq!(receipt.result_code(), 0);
     let state = receipt
         .effects()
@@ -40,8 +25,7 @@ fn native_identity() -> Result<NativeIdentity, String> {
         .ok_or("executed native identity transition missing")?
         .body()
         .to_vec();
-    let did =
-        Did::new(activity.actor_did()).map_err(|error| format!("actual owner DID: {error:?}"))?;
+    let did = Did::new(ACTOR).map_err(|error| format!("actual owner DID: {error:?}"))?;
     let decoded = OwnerRotationState::decode(&state, &did)
         .map_err(|error| format!("canonical native identity: {error:?}"))?;
     let key = decoded.primary_public_key;

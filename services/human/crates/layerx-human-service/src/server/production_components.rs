@@ -1,6 +1,6 @@
 //! Production composition root for the privileged human component process.
 
-use layerx_types::clock::Clock;
+use layerx_types::clock::{Clock, Deadline};
 use std::env;
 use std::fs;
 use std::net::SocketAddr;
@@ -34,7 +34,7 @@ use layerx_types::intent::{
     BudgetId, PeriodLength, PurposeHash, RolloverPolicy, Sequence as ProtocolSequence,
     TimestampSeconds,
 };
-use layerx_types::payload::ModuleId;
+use layerx_types::payload::{ModuleId, ModuleRegistry};
 use layerx_types::rung::Rung;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::RootCertStore;
@@ -87,6 +87,44 @@ use super::production_auth::{
     SecurityProviderConfig,
 };
 use super::schema::{ApiSchema, Operation};
+
+pub(crate) fn verify_owner_activity(
+    bytes: &[u8],
+    registry: &ModuleRegistry,
+) -> Result<layerx_wire::activity::Activity, ApiFailure> {
+    let activity = layerx_wire::activity::decode_signed(bytes, registry)
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    if layerx_wire::activity::encode_signed(&activity)
+        .map_err(|_| ApiFailure::upstream_degraded())?
+        != bytes
+        || layerx_intents::canonical::payload_hash(&activity)
+            .map_err(|_| ApiFailure::upstream_degraded())?
+            != activity.payload_hash()
+    {
+        return Err(ApiFailure::upstream_degraded());
+    }
+    let owner = activity
+        .authority()
+        .try_into()
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let signature = activity
+        .signature()
+        .ok_or_else(ApiFailure::upstream_degraded)?
+        .try_into()
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let unsigned = layerx_wire::activity::encode_unsigned(&activity)
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let message = layerx_crypto::SignatureMessage::new(
+        layerx_intents::canonical::Domain::SignaturePreimage,
+        activity.protocol_version(),
+        activity.network_id(),
+        &unsigned,
+    )
+    .map_err(|_| ApiFailure::upstream_degraded())?;
+    layerx_crypto::ed25519::verify(owner, signature, message)
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    Ok(activity)
+}
 
 pub const PRODUCTION_OPERATIONS: &[&str] = &[
     "account.balance",
@@ -681,7 +719,7 @@ impl ProductionComponents {
         )?;
         let auth_index = production_auth_index(config.auth_index_root, config.auth_index_key)?;
         let (agent_contract, agent, native_asset) =
-            production_agent(config.agent_socket, config.agent_limits)?;
+            production_agent(config.agent_socket, config.agent_limits, Arc::clone(&clock))?;
         let (keystore, attestor) = match provider {
             ProductionKms::Attestor(attestor) => (
                 Keystore::open_production(config.custody_root, config.network_id, attestor.clone()),
@@ -1039,9 +1077,8 @@ impl HumanApiComponents for ProductionComponents {
         if context.assertion().is_some() {
             return Err(ApiFailure::forbidden());
         }
-        let deadline = std::time::Instant::now()
-            .checked_add(Duration::from_secs(lifetime))
-            .ok_or_else(ApiFailure::unavailable)?;
+        let mut deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(lifetime))
+            .map_err(|_| ApiFailure::unavailable())?;
         let maximum_bytes = maximum_bytes.min(1_048_576);
         let mut used = 0_usize;
         let mut count = 0_usize;
@@ -1050,7 +1087,10 @@ impl HumanApiComponents for ProductionComponents {
         loop {
             if cancelled()
                 || count == super::stream_journal::MAX_PAGE
-                || std::time::Instant::now() >= deadline
+                || deadline
+                    .remaining(self.clock.as_ref())
+                    .map_err(|_| ApiFailure::unavailable())?
+                    .is_zero()
                 || self.now()? >= context.expires_at()
             {
                 return Ok(());
@@ -1073,14 +1113,19 @@ impl HumanApiComponents for ProductionComponents {
                 .and_then(serde_json::Value::as_array)
                 .ok_or_else(ApiFailure::upstream_degraded)?;
             if events.is_empty() {
-                let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+                let remaining = deadline
+                    .remaining(self.clock.as_ref())
+                    .map_err(|_| ApiFailure::unavailable())?;
                 super::stream_journal::wait_for_change(observed_change, remaining)?;
                 continue;
             }
             for event in events {
                 if cancelled()
                     || count == super::stream_journal::MAX_PAGE
-                    || std::time::Instant::now() >= deadline
+                    || deadline
+                        .remaining(self.clock.as_ref())
+                        .map_err(|_| ApiFailure::unavailable())?
+                        .is_zero()
                     || self.now()? >= context.expires_at()
                 {
                     return Ok(());
@@ -1142,9 +1187,13 @@ impl HumanApiComponents for ProductionComponents {
             .agent_contract
             .daemon_endpoint()
             .is_some_and(|endpoint| {
-                AgentRuntime::connect(endpoint, self.agent_limits)
-                    .and_then(|mut runtime| runtime.head())
-                    .is_ok()
+                AgentRuntime::connect_with_clock(
+                    endpoint,
+                    self.agent_limits,
+                    Arc::clone(&self.clock),
+                )
+                .and_then(|mut runtime| runtime.head())
+                .is_ok()
             });
         let security_ready = self
             .security
@@ -2170,8 +2219,7 @@ fn creation_material(
         .get(Table::Journeys, &native_key)
         .or_else(|| scope.get(Table::Journeys, &protocol_key))
         .ok_or_else(ApiFailure::upstream_degraded)?;
-    let activity = layerx_intents::owner_activity::verify(signed.bytes(), agent.registry())
-        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let activity = verify_owner_activity(signed.bytes(), agent.registry())?;
     if activity.idempotency_key() != action_key
         || activity.network_id() != journey.projection().network_id
     {
@@ -5950,7 +5998,6 @@ impl ProductionComponents {
                 exports.push(ReceiptExport {
                     receipts: vec![fact],
                     inclusions: Vec::new(),
-                    checkpoints: Vec::new(),
                     derived_aggregates: Vec::new(),
                 });
             }
@@ -7995,13 +8042,14 @@ fn session_secrets(grant: &crate::auth::SessionGrant, now: u64) -> SessionSecret
 fn production_agent(
     socket: PathBuf,
     limits: Limits,
+    clock: Arc<dyn Clock>,
 ) -> Result<(layerx_sdk::Client, AgentRuntime, [u8; 32]), String> {
     let agent_contract = layerx_sdk::Client::daemon(
         socket.clone(),
         layerx_agent_api::agent_api_schema_v1().version,
     )
     .map_err(|_| "agent SDK contract refused startup".to_owned())?;
-    let mut agent = AgentRuntime::connect(socket, limits)
+    let mut agent = AgentRuntime::connect_with_clock(socket, limits, clock)
         .map_err(|_| "agent boundary refused startup".to_owned())?;
     let native_asset = agent
         .native_fee_policy()
