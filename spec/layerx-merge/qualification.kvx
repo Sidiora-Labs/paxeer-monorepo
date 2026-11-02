@@ -16547,3 +16547,299 @@ symbol = "--theme-bg-image"
 observed = "Attempt 1 (c4577e759) deleted the image and switched the Paxify preview in SettingsModal.tsx to its gradient, and tsc passed; the verify grep then found the two stylesheet references still present because the task named the stylesheet as apps/perps/src/app/globals.css, a path that does not exist, while the file is apps/perps/src/styles/globals.css (the comment at :631 and --theme-bg-image: url(/Paxify.png) at :933)."
 assumption = "The touches and do_3 name the real stylesheet; the attempt 1 tree stands and gains the two stylesheet edits."
 severity = "minor"
+
+[finding.9.25.19.3]
+task = "9.25.19"
+file = "services/agent/crates/layerx-agentd/tests/outbox_recover.rs:155"
+symbol = "module_witness"
+observed = "Attempt 3 (7b81963c7) added Display and Error for ChainProofError and built; the --tests build then failed in the daemon test outbox_recover.rs at :155, :453 and :466, which still call RawStateEvidence::module_witness with six arguments while 0e916bb08 (task 9.25.6, done) changed it to take one CommittedCall (protocol_evidence.rs:1732) without porting that test. Task 9.25.17 owns tests/outbox_recover.rs and its attempt 1 (5b4648003) already removes those call sites, so the break on main closes when 9.25.17 lands."
+assumption = "This task requires 9.25.17 (same wave) and continues from attempt 3 unchanged."
+severity = "major"
+
+[finding.9.25.17.2]
+task = "9.25.17"
+file = "programs/crates/layerx-programs-registry/host-tests/serve_routes.rs:91"
+symbol = "ChainProofError"
+observed = "Attempt 2 (d90cd5486) repointed the three consumer crates, unified RootSelector in rpc/evidence.rs with the re-export of finding 9.25.17.1, deleted the kernel-transport-only items with their tests and built; the --tests build then stopped in layerx-agentd-host at host-tests/serve_routes.rs:91, :94 and :96, where ? converts ChainProofError, which derives only Debug (chain_proof.rs:82). Finding 9.25.19.2 placed that impl in task 9.25.19, and finding 9.25.19.3 then sequenced 9.25.19 after this task, so neither task's --tests build can pass until the impl lands with the first of the two."
+assumption = "The Display and std::error::Error impls for ChainProofError land with this task; 9.25.19 keeps a single impl and continues otherwise unchanged."
+severity = "major"
+
+[finding.10.96.1.2]
+task = "10.96.1"
+file = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2128"
+symbol = "receipt_keys"
+observed = "Attempt 3 (65c195624) implemented the four declared files and the build of layerx-human-service then failed with unresolved import layerx_paxeer_client, because two files outside the touches still name the crate the task removes from the manifest: services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2128-2131, where AgentRuntime::receipt_keys(endpoint: &layerx_paxeer_client::EndpointConfig) issues px_getReceiptKeys through raw_call and has no caller (production_reads.rs:538 and production_components.rs:5961 read receipt keys through HumanNode, backed by SequencerEndpoint::receipt_keys at services/agent/crates/layerx-client/src/sequencer.rs:546), and services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:83, where TransactionHash::from_hex parses a leg's tx_hash. No pending task touches either site for that purpose; 10.1.2 edits only the manifest list in src/lib.rs."
+assumption = "The two files join this task's touches: the uncalled receipt_keys method is deleted and the test parses the hash locally; the verify also compiles the intent_plan_evm test target so the crate's tests build."
+severity = "major"
+
+[finding.10.92.1.5]
+task = "10.92.1"
+file = "services/human/crates/layerx-human-service/src/server/production_reads.rs:330"
+symbol = "verification"
+observed = "Attempt 5 (540b80d97) built, rewrote the test over the production fixture as finding 10.92.1.4 asked, drove the real submission route to a receipted and to a committed leg, and both GETs of /v1/evidence/{id} were refused by the response schema with 503 upstream-degraded: response.result.verification is not a declared VerificationLevel variant. EvidenceMaterial.verification (journeys.kvx:51) is a VerificationLevel whose variants are unverified, receipt-verified and checkpoint-finalised with rung_mapping receipted:receipt-verified and committed:checkpoint-finalised (journeys.kvx:25-28); do_1, do_4 and ac_2 of req.10961 named the Rung values receipted and committed as the verification value, which the attempt wrote faithfully, and the test also asserted a rung field that EvidenceMaterial does not declare."
+assumption = "verification carries the VerificationLevel the rung maps to; EvidenceMaterial gains the optional rung field AccountBalance already has, serving the Rung name; the task text and ac_2 are corrected and the attempt continues."
+severity = "major"
+
+[finding.9.25.13.3]
+task = "9.25.13"
+file = "services/agent/crates/layerx-client/tests/sequencer_reads.rs:176"
+symbol = "history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms"
+observed = "Attempt 3 (80a40a077) rebased onto main with 9.25.17 present, built, passed the grep and the storage-witness test, and the sequencer_reads test target then failed in history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms with Malformed at :17. The test still fixtures the pre-18.1238.1 page {items, next_cursor, indexedHeight, chainHeight, account, freshness} and serves no eth_blockNumber, while c98511e6c (task 18.1238.1, done) made decode_history_page (sequencer.rs:917) accept exactly the served keys items, next_cursor and indexedHeight (gateway history.rs:496-500), indexedHeight null as None, and history() (sequencer.rs:381-395) read chain_height from eth_blockNumber after each page; 18.1238.1 touched sequencer.rs but not this test, which only this task owns among pending tasks."
+assumption = "This task ports the history test to the served contract; the attempt 3 tree stands."
+severity = "major"
+
+[finding.9.25.20.1]
+task = "9.25.20"
+file = "services/agent/crates/layerx-agentd/src/read/committed.rs:1172"
+symbol = "tenant_budget_recovery_reconciles_over_committed_budget_state"
+observed = "Attempt 1 (2d9533ab8) wrote both tests over a budget_recovery_fixture that acquires the getBudget CommittedCall at the fixture checkpoint, removed the uncalled module_witness constructor, built, and the refusal test passed; the success test failed at assertion accounting.reconciled, because do_2 told it to expect protocol_consumed Some(25) from the shared budget_result() answer while supplying no receipts and no holds, and the restart rule (budget/hold.rs:134-138) reconciles only when the protocol spend lies between receipt_consumed and receipt_consumed plus held_unresolved, so a spend of 25 against nothing is correctly unreconciled. The retired test this task replaces served a record with zero spend."
+assumption = "The success test serves a zero-spend record and also proves the unreconciled outcome of the 25-spend record; the attempt 1 tree stands."
+severity = "major"
+
+[finding.10.92.1.6]
+task = "10.92.1"
+file = "services/human/Cargo.toml:8"
+symbol = "layerx-human-movement-provider"
+observed = "Attempt 6 (4e8fb8fbc) of 10.92.1, based on main at d36e3e991, implemented the mapped verification level, the rung field, the schema line and the test assertions of finding 10.92.1.5, and its single build failed before compiling anything: cargo could not load the manifest of the workspace member crates/layerx-human-movement-provider, which 10.10.1 (b55da7a91) had deleted together with the crate while leaving the member line in services/human/Cargo.toml:8, so every build of the human workspace at main between the 10.10.1 landing and 54f32cf9a (10.96.1, which removed the line) failed at manifest load. Main is consistent again at bc550acb1."
+assumption = "The failure is pre-existing and already repaired on main; attempt 6 continues rebased onto current main with its tree unchanged and builds and verifies once."
+severity = "major"
+
+[finding.10.1.2.1]
+task = "10.1.2"
+file = "services/human/Cargo.lock"
+symbol = "layerx-programs-registry"
+observed = "Attempt 1 of 10.1.2 (e3bdfe62c) and attempt 1 of each of the fifteen tasks 10.26.2 to 10.26.16, all based on main 8db301807, implemented their task and stopped at the first build with 'the lock file services/human/Cargo.lock needs to be updated but --locked was passed'. 68a345924 (task 13.8.2) removed layerx-proof and layerx-wire from programs/crates/layerx-programs-registry/Cargo.toml and regenerated programs/Cargo.lock only; the seventeen other lock files that resolve layerx-programs-registry (listed in task 13.8.3) still carry the two dependency rows, so every --locked build of the agent, human, interop, platform, tools and layerxctl workspaces refuses at main since 8db301807, and 9.25.18 attempt 1 (held on an account.rs merge conflict) and 10.92.1 attempt 7 meet the same refusal on relaunch."
+assumption = "Task 13.8.3 refreshes the seventeen lock files the way 9.25.16 did; every open task that builds one of those workspaces requires it, and the sixteen implemented trees continue unchanged once it is on main."
+severity = "critical"
+
+[finding.13.0.9.1]
+task = "13.0.9"
+file = "programs/fixtures/test_workspace_graph.py:27"
+symbol = "test_workspace_graph_has_no_adapter_or_kernel_proof_edges"
+observed = "Attempt 1 (43b5f46eb) implemented the completion gate and its build passed; the dependent-crate check (cargo check --locked --all-targets over the programs workspace) failed because three integration test files of layerx-programs-sandbox still import the crates 68a345924 (task 13.8.2, do_3) removed from that crate's manifest: tests/activity_chain.rs:437 imports layerx_wire::activity and layerx_wire::hash inside the kernel-signed-activity refusal test, tests/expiry_chain.rs:321 calls layerx_proof::receipt::verify_sequencer_signature in terminal_record_refuses_kernel_receipt_bytes, and tests/lease_chain.rs:15 and :403-405 use layerx_wire and layerx_proof::merkle::leaf_hash in lease_transition_refuses_kernel_batch_header_evidence and its helpers. 13.8.2 built library targets only and its verify checked the resolved graph, so the orphaned test targets went unnoticed."
+assumption = "Task 13.8.4 retires the two refusal tests that exist only to build kernel byte formats and keeps the expiry refusal over the fixture bytes without the kernel pre-check; 13.0.9 requires it and continues from attempt 1 unchanged."
+severity = "major"
+
+[finding.13.8.3.1]
+task = "13.8.3"
+file = "services/platform/Cargo.toml:52"
+symbol = "layerx-paxeer-client"
+observed = "Attempt 1 (7fa157518 on 95c9dd670) regenerated the seventeen lock files with no package version moves and its build passed; the verify chain stopped at cargo metadata --locked --manifest-path services/platform/Cargo.toml (exit 101) because workspace member services/platform/hosted/paxeer cannot load: its dev-dependency layerx-paxeer-client (services/platform/hosted/paxeer/Cargo.toml:19, workspace row services/platform/Cargo.toml:52, import services/platform/hosted/paxeer/tests/real_chain.rs:1) resolves by path to services/human/crates/layerx-paxeer-client/Cargo.toml, which task 10.26.1 (a47a944f9) deleted, and no open task owned the platform side of that retirement."
+assumption = "Task 8.52.1 removes the two manifest rows and the client-backed branch of the boundary's real-chain test and regenerates services/platform/Cargo.lock; task 13.8.3 requires it and continues from attempt 1 taking main's platform lock."
+severity = "critical"
+
+[finding.13.8.3.2]
+task = "13.8.3"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "layerx-programs-registry"
+observed = "Attempt 2 (b88301ce2 on bc97b8b38) kept the seventeen regenerated lock files, its build passed and all seventeen cargo metadata --locked reads passed; the completion record was refused by the graph check 'symbol layerx-programs-registry — not defined in the graph' because the task declared the package name as a code symbol while its touches are lock files, which define no symbol."
+assumption = "Spec defect: a lock-only task declares no symbols, as 9.25.16 did; the symbols list is emptied and the task continues from attempt 2 unchanged."
+severity = "major"
+
+[finding.10.1.2.2]
+task = "10.1.2"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs:8718"
+symbol = "verify_native_owner_outcome"
+observed = "Attempt 2 of 10.1.2 (4348ac32c on 8ee7a26e1), attempt 2 of each of 10.26.2 to 10.26.16 and attempt 8 of 10.92.1 (012e45a08) rebased their implemented trees onto main with the refreshed locks and all stopped at the first build: layerx-human-service fails with E0425 and E0422 at production_components.rs:8718, :8721, :8800 and :8803 because 2455fbc51 (task 9.27.5, decision 929) deleted layerx_proof::receipt::verify_native_owner_outcome and NativeOwnerOutcomeContext with owner_module.rs and ported only the agent-side consumers; the human service's two call sites were never ported."
+assumption = "Task 10.99.2 deletes the two calls, since both sites already bind the receipt through ProductionAgentCreation::protocol_evidence and verify it through verify_outcome or finalization_evidence; every open task whose gates compile the human workspace requires it and the seventeen implemented trees continue unchanged once it is on main."
+severity = "critical"
+
+[finding.10.26.6.1]
+task = "10.26.6"
+file = "services/human/crates/layerx-paxeer-client/tests/exit.rs:23"
+symbol = "state_proof"
+observed = "Attempt 3 (a275ad8a9 on 8a99461f5) deleted the state proof module, its test and its vectors and its build passed; the acceptance test retired_paxeer_client_state_proof_files_and_references_are_gone failed because services/human/crates/layerx-paxeer-client/tests/exit.rs:23 still imports layerx_paxeer_client::state_proof, and that file is deleted by task 10.26.14 (the emergency exit planner), which 10.26.6 did not require."
+assumption = "Ordering defect: 10.26.6 requires 10.26.14 in the same wave and continues from attempt 3 once 10.26.14 is on main; no file outside 10.26.14's touches references the module."
+severity = "major"
+
+[finding.10.26.9.1]
+task = "10.26.9"
+file = "services/human/crates/layerx-paxeer-client/tests/state_proof.rs:125"
+symbol = "custody"
+observed = "Attempt 3 (f64ca3cbe on 8a99461f5) deleted the custody ABI codec and its build passed; the acceptance test retired_paxeer_client_custody_files_and_references_are_gone failed because tests/custody_abi.rs, tests/exit.rs, tests/withdraw.rs and tests/state_proof.rs of the Paxeer client still imported layerx_paxeer_client::custody; the first three are deleted by tasks 10.26.10, 10.26.14 and 10.26.11, now on main, and tests/state_proof.rs by task 10.26.6."
+assumption = "Ordering defect: 10.26.9 requires 10.26.6 and continues from attempt 3 once it is on main."
+severity = "major"
+
+[finding.10.26.12.1]
+task = "10.26.12"
+file = "services/human/crates/layerx-paxeer-client/tests/deposit.rs"
+symbol = "wire"
+observed = "Attempt 3 (43bada0c5 on 8a99461f5) deleted the debit wire codec and its build passed; the acceptance test retired_paxeer_client_wire_files_and_references_are_gone failed because tests/deposit.rs of the Paxeer client still named the wire module; task 10.26.8 deleted that file and is on main."
+assumption = "Ordering defect: 10.26.12 requires 10.26.8 and continues from attempt 3 rebased onto main, where no file names the module."
+severity = "major"
+
+[finding.9.25.1.3]
+task = "9.25.1"
+file = "services/agent/crates/layerx-client/src/evidence/asset_record.rs:4"
+symbol = "Freshness"
+observed = "Attempt 2 (2dea00d58 on 8a99461f5) implemented every deletion of the task and ran no gate: the pre-build grep of do_5 over services/agent/crates/layerx-client/src matched `use crate::read::Freshness` in src/evidence/asset_record.rs, a submodule file that leaves the module tree with `pub mod evidence;` and is deleted by task 9.24.6 (which requires 9.25.1), and the file is outside this task's touches."
+assumption = "Spec defect in the precondition: the grep of do_5 excludes the orphaned src/evidence/ files, which the compiler no longer reads once the module declaration is gone; the task continues from attempt 2 and runs its declared build and verify."
+severity = "major"
+
+[finding.10.1.4.1]
+task = "10.1.4"
+file = "services/human/tools/boundary-check/src/main.rs:23"
+symbol = "human_boundary_policy"
+observed = "Attempt 1 (d3d6e63aa on 1395df7e0) wired the retired-surface gate and its build passed; the real-binary test failed because the binary's existing boundary policy reports 37 ambient-nondeterminism files (SystemTime::now and Instant::now in layerx-human-service, layerx-human-kms, layerx-human-identity-provider and layerx-human-test-support, 51 call sites) and one node-private-path hit at layerx-human-identity-provider/src/state.rs:319, where the identifier `snapshot.binding_tenant` contains the token `snapshot.bin`; the human tree had no such read when the rule was written (bb8cbfd44) and the human workflow runs the binary over services/human/crates."
+assumption = "Merge regression plus one rule-precision defect: tasks 10.1.5 to 10.1.10 restore a passing tree and 10.1.4 requires them and continues from attempt 1."
+severity = "major"
+
+[finding.6.60.5.1]
+task = "6.60.5"
+file = "Makefile:1663"
+symbol = "test-owner-movement-proof"
+observed = "Attempt 1 (934a62f64 on 1395df7e0) deleted the four scripts and its build passed; the retirement scan found Makefile:1663 running tests/bridge/owner-custody.py inside the test-owner-movement-proof target (Makefile:1657-1663 with its MOVEMENT_PROOF_TARGET variable); task 16.0.4 (done) was to drop that target at its former lines 2303-2309, yet it is on main."
+assumption = "Unowned live reference: new task 6.60.6 deletes the target and variable; 6.60.5 requires it and continues from attempt 1."
+severity = "major"
+
+[finding.8.23.2.2]
+task = "8.23.2"
+file = "services/platform/middleware/seller/src/rpc.ts:1"
+symbol = "MerkleProof"
+observed = "Attempt 1 (e72902b24 on 3c2c05d9f) implemented the buyer changes; the build, which compiles the seller first, failed with TS2305 because services/platform/middleware/seller/src/rpc.ts:1 imports MerkleProof, which task 9.97.8 (9192a4c02) removed from the TypeScript SDK; its only users are RpcBatchEvidence and rpcBatchEvidence (rpc.ts:134-157), re-exported at seller/src/index.ts:1152 and exercised by conformance/pay6/rpc.test.mjs:43 and :51; task 8.22.6 deletes rpcBatchEvidence in its do_3 but sits at wave 29 while 8.23.2 sits at wave 19."
+assumption = "Producer-to-consumer gap of 9.97.8 across workspaces: new task 8.22.8 deletes the reader and its import; 8.23.2 and 8.22.6 require it and 8.23.2 continues from attempt 1."
+severity = "major"
+
+[finding.9.97.8.5]
+task = "9.97.8"
+file = "services/agent/sdk/typescript/src/verifier.ts"
+symbol = "MerkleProof"
+observed = "Task 9.97.8 retired the MerkleProof export of the TypeScript SDK and its verify ran only the SDK's own build and tests; services/platform/middleware/seller/src/rpc.ts:1 still imports the type, so the seller middleware has not built since 9192a4c02."
+assumption = "The consumer removal is owned by task 8.22.8; a task that deletes an SDK export greps every workspace that depends on the package."
+severity = "major"
+
+[finding.9.25.1.4]
+task = "9.25.1"
+file = "services/agent/crates/layerx-client/src/evidence/asset_record.rs:4"
+symbol = "Freshness"
+observed = "Attempt 3 (69972d6e5 on 1395df7e0) kept attempt 2's deletions, its build and dependent-crate check passed, and the verify failed on its own second grep, which repeats the do_5 precondition over services/agent/crates/layerx-client/src and matches the orphaned src/evidence/asset_record.rs that finding 9.25.1.3 already excluded from the precondition."
+assumption = "Spec defect: the verify grep excludes the evidence directory as the precondition does; continue from attempt 3."
+severity = "major"
+
+[finding.9.28.1.1]
+task = "9.28.1"
+file = "services/agent/crates/layerx-agentd/examples/native_handover_reads.rs"
+symbol = "native_handover_reads"
+observed = "Attempt 1 (46665c3c6 on 1395df7e0) removed the workspace member, the three dependency lines and both lock entries; the build and the runtime_mode test passed; the graph check failed because the declared touch examples/native_handover_reads.rs, deleted earlier by task 9.25.9 per decision 2201, had no change to show."
+assumption = "Spec defect: the path leaves touches; the task continues from attempt 1."
+severity = "major"
+
+[finding.9.35.1.1]
+task = "9.35.1"
+file = "services/agent/crates/layerx-crypto/src/payments.rs:19"
+symbol = "OnboardingConsent"
+observed = "Attempt 1 (3877ce19d on 1bd205de3) deleted src/onboarding.rs and src/rotation.rs as do_1 says and the build failed with E0432 at src/payments.rs:19, where the pub use of OnboardingConsent, OnboardingError and SponsoredRegistration added by task 8.94.4 under decision 1905 still names crate::onboarding; payments.rs is outside the task's touches although do_7 also edits it, and the agent daemon (layerx-agentd/src/human_runtime/subject.rs:245), the KMS provider tests (layerx-human-kms/tests/provider/native_setup.rs:8), create_native.rs of the human service and the authority's dynamic.rs:215 still decode the sponsored registration through those types."
+assumption = "Spec defect: do_1 contradicts decision 1905, which keeps the onboarding definitions reachable through layerx_crypto::payments; the onboarding module stays and payments.rs joins the touches."
+severity = "major"
+
+[finding.18.670.1.16]
+task = "18.670.1"
+file = "services/platform/perps-data/e2e_test.go:584"
+symbol = "TestEndToEnd"
+observed = "Attempt 18 (e38561ca7 on 98eb0cf7f) builds, passes the fixture setup, restart_new_snapshot_id and websocket_dense_seq_after_restart against the replacement gateway and socket, and fails TestEndToEnd on four subtests outside the issue: postgres_rows finds no perps.funding_settlements or perps.funding_rates row with receipt_kind perps_endblock at e2e_test.go:584 although latestFunding saw the FundingSettled log and the indexer cursor passed head; rest_graphql decodes GET /api/markets into a slice at e2e_test.go:621 while serveAll (internal/rest/markets.go:77-84) answers the object {ts, markets} that markets_test.go:124-129 asserts; explorer_portal follows the account history's TxLink to /api/chain/tx/<deposit hash> and gets 404 unknown transaction because perps.tx_actions has no row for that deposit (internal/explorer/server.go:174-194); replay_identical fails with replay: writer lease lost over 313 heights because batch() renews the lease once at its start (internal/replay/replay.go) with the 30-second default TTL of cmd/perps-replay/main.go:34 and the batch took 80 seconds against the in-tree node."
+assumption = "Decision 2238: the issue's acceptance is the restart lifetime, proven by the two restart subtests; the four other failures are the end-to-end suite's own defects and move to task 3.54.7."
+severity = "owner"
+
+[finding.9.27.3.1]
+task = "9.27.3"
+file = "services/agent/crates/layerx-agentd/src/audit/export.rs:356"
+symbol = "verify_protocol_evidence"
+observed = "Task 9.27.3 (8401986db, on main since 2026-11-01) removed the settlement domain argument of layerx_proof::export::verify, the verified_checkpoints field of its VerificationReport, OfflineTrustError::NetworkId and FactSelector::Checkpoint; layerx-agentd still passes the domain at src/audit/export.rs:356 and :527 and examples/review_audit_export.rs:14, reads verified_checkpoints at src/audit/export.rs:540, returns OfflineTrustError::NetworkId at src/export.rs:64 and matches FactSelector::Checkpoint at src/export.rs:309, so cargo build -p layerx-agentd fails with E0061, E0609 and E0599 on every main since then; attempts 10.1.6 a1 (e28a394bf), 10.1.10 a1 (2bc64e607) and 9.25.1 a4 (bcd8a0772) failed on that build with their own changes complete, because layerx-human-service, layerx-human-kms and the agent build commands depend on layerx-agentd."
+assumption = "Producer gap: the retiring task's dependent-crate check built the interop crates only; task 9.27.9 ports the agent daemon and every task building it requires 9.27.9."
+severity = "major"
+
+[finding.8.22.8.1]
+task = "8.22.8"
+file = "services/platform/middleware/conformance/pay6/test_checkpoint.py:10"
+symbol = "MerkleProof"
+observed = "Attempt 1 (ce0e17c1b on 4914a1f0e) removed the reader, its imports, the re-export and the conformance callers and the seller package built; the verify's grep over services/platform/middleware/conformance matched pay6/test_checkpoint.py:10 and pay6/test_commitment.py:15, 99, 107 and 130, which import MerkleProof from layerx_sdk.verifier, the Python SDK that still defines the class (services/agent/sdk/python/layerx_sdk/verifier.py:69); only the TypeScript SDK retired the type in 9.97.8."
+assumption = "Spec defect: the grep over the conformance tree is limited to .mjs and .ts files; the task continues from attempt 1 unchanged."
+severity = "minor"
+
+[finding.9.35.1.2]
+task = "9.35.1"
+file = "services/agent/crates/layerx-client/src/ai_market.rs:9"
+symbol = "bind_call"
+observed = "Attempt 2 (f9e1a5ff0 on 4914a1f0e) implemented decision 2237 exactly (onboarding.rs restored, rotation.rs, disclosure.rs and send.rs deleted, the kept definitions in payments.rs) and the crate built; the dependent-crate check failed on layerx-client (ai_market.rs:9-10 and withdrawal.rs:62 import layerx_crypto::disclosure), and a census of main shows 94 files outside layerx-crypto still naming layerx_crypto::disclosure, layerx_crypto::send, layerx_crypto::rotation, sign_disclosed or the send envelope encoders: 58 under services/human/crates (about 190 sites), 31 under services/agent/crates (layerx-agentd 57 sites, layerx-mcp 12, layerx-sdk 8, layerx-client 3), 4 under services/platform/hosted, 2 under tools/platform/cli, 1 each under services/wallet/attestor, services/agent/tests, services/agent/qualification and tools/paxeer-x; wiring.J44.25 to J44.28 record the human, platform, x-websearch and attestor consumers as wave-4 needs with no owning task, and of the 94 files only 15 have a pending owner, each for the clock change of 10.1.6 to 10.1.10."
+assumption = "Owner decision: the module retirement waits for consumer port tasks; decision 2239 blocks 9.35.1 until they exist."
+severity = "owner"
+
+[finding.9.28.1.2]
+task = "9.28.1"
+file = "services/agent/crates/layerx-agentd/src/audit/export.rs:356"
+symbol = "verify_protocol_evidence"
+observed = "Attempt 3 (d2ca8c3792c on 4914a1f0e) kept the six-file dependency removal of attempts 1 and 2 unchanged and the declared build failed with the five layerx-agentd errors of finding 9.27.3.1 (E0061 at src/audit/export.rs:356 and :527, E0609 on verified_checkpoints, E0599 on OfflineTrustError::NetworkId and FactSelector::Checkpoint), because the build command builds layerx-agentd and layerx-agentd-host."
+assumption = "Same producer gap as finding 9.27.3.1: task 9.27.9 repairs the agent daemon; 9.28.1 requires it and continues from attempt 3 once it is on main."
+severity = "major"
+
+[finding.10.2.4.7]
+task = "10.2.4"
+file = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4446"
+symbol = "decode_receipt"
+observed = "Task 10.2.4 (e03138d96) and 10.2.7 extended the Human decoder of the owner receipt lookup (decode_receipt) to read, after the canonical receipt bytes, the five 32-byte authority fields and one level byte, a transaction hash, a receipt hash, a block height, a rung byte, the signed receipt bytes, a receipt key entry (key id, public key, first and last height) and an inclusion height; the daemon producer at services/agent/crates/layerx-agentd/src/human_runtime.rs:13150-13157 still writes presence 1, the canonical bytes, the five authority fields and one byte of Rung::wire_rank (0 to 2), which decode_receipt reads as a verification level code (1 to 5) before reaching the end of the frame; the daemon's not-ready frame (receipt_lookup_not_ready_bytes, :926) writes presence 2 with the transaction hash and nonce, which receipt_by_idempotency_key (agent_runtime.rs:4229) refuses as CorruptResponse because it knows presence 0 and 1 only. tests/agent_runtime_rungs.rs builds the expanded frame by hand, so no test feeds the daemon's bytes to the decoder."
+assumption = "Consumer gap: the frame is defined once in the daemon crate, both sides use it, and the Human test decodes bytes the daemon encoder produced (issue #1433)."
+severity = "major"
+
+[finding.10.20.5.5]
+task = "10.20.5"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs:8756"
+symbol = "advance_evm_intent"
+observed = "Task 10.20.5 (5ff108e0d) advances the Move money EVM intent in advance_evm_intent: the leg's submitted flag is set in the in-memory record at :8764 after eth_sendRawTransaction and the record reaches scope.put only at the end (:8841-8848); every error of the following receipt lookup and verification returns early, so a transient read failure leaves the stored flag false and the next advancement resends the same raw bytes, which the node refuses for the consumed nonce (seqhash parity: ErrWrongSequence) and the send error returns upstream_degraded before the lookup. tests/move_commit_bank_send.rs covers a normal reopen only."
+assumption = "Producer gap in the durable journey: the accepted submission is persisted before any fallible read and a resend refusal reconciles through the receipt lookup (issue #1434)."
+severity = "major"
+
+[finding.18.1430.1.1]
+task = "18.1430.1"
+file = "services/agent/sdk/typescript/src/agent-http.ts:978"
+symbol = "decodeVerificationStatus"
+observed = "Task 18.1430.1 (28ef2e98c) made the daemon answer a submitted-but-unreceipted program.receipt lookup with verification_status {state: pending, requested, achieved} and an absent lookup with {state: absent, requested} (services/agent/crates/layerx-agentd/src/agent_rpc.rs:534-549); the published contract services/agent/schema/agent-api/v1.kvx:119 still declares achieved and unverified only, and the agent envelope decoders of the four SDKs refuse both shapes as verification failures: TypeScript decodeVerificationStatus (agent-http.ts:978-988), Python _valid_verification_status (agent_http.py:758), Go acceptedAgentEnvelopeVerification (sdk/platform/go/http.go:598) and Swift validVerification (Transport.swift:664). The golden fixtures under services/agent/schema/agent-api/golden carry no not-ready success envelope."
+assumption = "Consumer gap: the contract and the daemon goldens change first (18.1435.2), then each SDK decoder consumes the goldens (18.1435.1 TypeScript, 18.1435.3 Python, 18.1435.4 Go, 18.1435.5 Swift); decision 2241."
+severity = "major"
+
+[finding.8.52.1.1]
+task = "8.52.1"
+file = "services/platform/hosted/paxeer/tests/real_chain.py:148"
+symbol = "real_paxd_boundary"
+observed = "Task 8.52.1 (8e305826a) deleted the Rust client probe branch of real_paxd_boundary in real_chain.rs but left real_chain.rs:8 passing the test executable and real_chain.py:146-148 running it with --exact real_paxd_boundary, so a qualification that reaches that line starts a second complete qualification whose success path reaches the same line again; the transfer, wrong-chain and node-loss assertions after it are unreachable through a completed callback."
+assumption = "Spec defect: 8.52.1's dos named the Rust branch and not its Python caller; task 18.1439.1 removes the callback and adds a re-entry guard (issue #1439)."
+severity = "major"
+
+[finding.10.21.3.2]
+task = "10.21.3"
+file = "services/human/crates/layerx-intents/tests/live_kinds.rs:6"
+symbol = "kind_index"
+observed = "Task 10.21.3 (25b936be8) retired EvmPayoutBinding, BridgeDepositCredit, BridgeWithdrawRequest and NativeCustodyCredit from layerx-intents and did not touch tests/live_kinds.rs, which imports them (:5-9), constructs them (:195, :273, :285, :360) and matches them in kind_index (:382, :392-395); the test target does not compile, so the retained-kind and Perps coverage of that file does not run."
+assumption = "Producer gap: the retirement task's touches omitted the integration test; task 18.1441.1 ports it (issue #1441)."
+severity = "major"
+
+[finding.9.27.9.1]
+task = "9.27.9"
+file = "services/agent/crates/layerx-agentd/tests/approval_events.rs:350"
+symbol = "assert_digest_evidence_exported"
+observed = "Attempt 1 (0f7b80f05 on 5fba30b5a) ported the six listed files; the build with --all-targets failed with E0061 at tests/approval_events.rs:340-351, which still passes SettlementDomain::new(31_337, [0x55; 20]) as the fifth argument of export, and tests/audit_export.rs calls export and review with settlement_domain() at :287, :296, :304, :315-320, :372-382, :401, :407 and :439-449; both files are outside the task's touches."
+assumption = "Spec defect: the touches omitted two test targets of the same crate; they are added and the task continues from attempt 1."
+severity = "minor"
+
+[finding.6.60.2.1]
+task = "6.60.2"
+file = "Makefile:944"
+symbol = "sign-credit"
+observed = "Attempt 1 (4ea8318b6 on 5fba30b5a) deleted the four harness files and added tests/bridge/retired/test_retired_credit_c_harness.py; the retirement check failed because Makefile:944-949 and :950-954 still define the rules $(BUILD_DIR)/tests/bridge/sign-credit and $(BUILD_DIR)/tests/bridge/test-credit from tests/bridge/sign_credit.c and tests/bridge/test_credit.c; no runner target references either rule."
+assumption = "Spec defect: the touches omitted the Makefile rules of the deleted sources; the Makefile is added and the task continues from attempt 1."
+severity = "minor"
+
+[finding.18.670.1.17]
+task = "18.670.1"
+file = "rpc/simulate.go:336"
+symbol = "ctxAtHeight"
+observed = "Attempt 19 (b8b5cd2d3 on 5fba30b5a) kept attempt 18 unchanged; the verify's restart subtests failed at e2e_test.go:503 with 'estimate transfer: method handler crashed', and the node log records eth_estimateGas panicking with the base app's 'cannot query with height in the future' (sdk/baseapp/abci.go:691) raised by RPCContextProvider at node/app.go:3449, reached from ctxAtHeight (rpc/simulate.go:336) through GetCustomPrecompiles (:930), which DoEstimateGas calls with the number of the header it was given for the pending tag: the open block 34742916 sealed between the pending state read and the precompile lookup while the committed state was still 34742915, resolvePending no longer matched the height, and the provider was asked for a query context above the committed height."
+assumption = "Product defect in the simulation backend, not in the task: task 5.5.25 answers a height above the committed one from the committed state after the seal, and 18.670.1 requires it and continues from attempt 19 unchanged."
+severity = "major"
+
+[finding.8.26.1.1]
+task = "8.26.1"
+file = "services/platform/middleware/conformance/src/scenarios.ts:48"
+symbol = "FixedBatchResolver"
+observed = "Attempt 1 (262c13e63) changed receipts.ts and support.ts as the task states and added the three tests; the declared build failed in the conformance package (tsc -p tsconfig.json compiles src/**/*.ts) with 21 errors in src/scenarios.ts, which task 8.26.2 ports: four from this task's own changes (FixedBatchResolver and CONFORMANCE_PROTOCOL_VERSION no longer exported, buyer construction, SignedReceipt fields) and the rest pre-existing on main since 8.22.4 (f362f37d5, 2026-10-27) and the seller and SDK ports: verifyReceipt is no longer exported by the TypeScript SDK, ReceiptVerification is not the seller's PaymentReceiptVerification, authorizedBatch, canonicalReceipt and evidence are not fields of SignedReceipt, protocolVersion is not a BuyerMiddlewareConfig field, InMemoryFulfillmentRepository lacks the get method FulfillmentRepository requires, and one byte parameter is untyped; the package has not compiled on main since then, so 8.26.1, 8.26.2, 8.26.3, 8.26.6 and 8.26.7 all fail their build as written."
+assumption = "Spec defect: the task's build compiles the package's own consumer that it leaves to a later task; 8.26.1 takes the scenarios.ts port so the package compiles, requires 8.23.3 so the buyer API it codes against is final, and continues from attempt 1."
+severity = "major"

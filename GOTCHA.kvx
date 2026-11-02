@@ -12946,3 +12946,143 @@ fix = "Qualification build and verify commands never pass --offline; --locked al
 title = "A touched path written from memory must be checked with ls before the task is published"
 symptom = "A task named a stylesheet under src/app/ while the file lives under src/styles/; the attempt made every other change, declined to edit a file outside its touches, and failed its verify grep on the two references in the real file."
 fix = "Run ls or git ls-files on every touches entry when authoring a task; a path that does not exist on main is a spec defect, not an implementation gap."
+
+[gotcha.2626]
+title = "A task that changes a constructor signature must build its crate's tests before it is done"
+symptom = "A done task narrowed a witness constructor from six arguments to one and left three call sites in a same-crate integration test unported; its verify built the library only, and every later task whose verify builds the crate with --tests inherited the compile error."
+fix = "A signature-changing task's verify includes cargo build --tests for its own crate, and its touches list every test file that calls the changed item; a later task that meets the break requires the task that owns the test file instead of patching it."
+
+[gotcha.2627]
+title = "Two tasks whose test builds each need the other's fix deadlock unless the shared fix moves to the first in requires order"
+symptom = "Task A's --tests build failed on a missing error impl assigned to task B, and task B's --tests build failed on a test file task A owns; after B was made to require A, A still could not pass, because the impl stayed in B."
+fix = "When a later task's finding sequences it after an earlier one, move every fix the earlier task's verify needs into the earlier task in the same batch, and leave the later task a do that drops its duplicate hunk on rebase."
+
+[gotcha.2628]
+title = "A task that removes a crate from a workspace manifest must list every file that names that crate"
+symptom = "A task deleted a crate from the human workspace manifest and the dependent service manifest, with its touches limited to the two manifests, the lock file and a boundary test; the service build failed on an uncalled method and a test that still imported the removed crate."
+fix = "Before authoring a dependency removal, grep the crate's snake_case identifier across the workspace sources and tests, add every hit to the touches with a do that ports or deletes it, and make the verify compile the test targets that named it."
+
+[gotcha.2629]
+title = "A spec that names a wire enum value must quote it from the schema type's variants list"
+symptom = "A task told the service to answer verification receipted or committed; the response type declares verification as a VerificationLevel whose variants are receipt-verified and checkpoint-finalised, with the rung names mapped beside them, so the faithful implementation was refused by the response schema at runtime and the test asserted an undeclared field."
+fix = "Before writing a wire value into a do or acceptance criterion, open the schema type the operation's response names and copy the variant spelling; when the task wants the rung as well, declare it as the schema already does for sibling types."
+
+[gotcha.2630]
+title = "A decoder contract change must port the crate's own fixture test, not only the consumer it was written for"
+symptom = "A done task changed the history page decoder to the served three-key shape and added a head read after each page, verified by a new daemon test, and left the client crate's integration test fixturing the old six-key page without a head exchange; the next task whose verify ran that test target failed on it."
+fix = "A task that changes what a decoder accepts lists every test in its own crate that fixtures the old shape in its touches and runs that test target in its verify; a later task that meets the stale test ports it when it owns the file, or requires the owner when it does not."
+
+[gotcha.2631]
+title = "A recovery fixture's protocol spend must be covered by the receipts and holds the test supplies"
+symptom = "A task text told a recovery test to expect the shared fixture record's spend of 25 to reconcile while the request carried no receipts and no holds; the restart rule reconciles only a spend between the receipt total and the receipt total plus unresolved holds, so the faithful test failed."
+fix = "When a do names the expected accounting of a recovery, read the reconcile rule first and either serve a record whose spend the supplied receipts cover or assert the unreconciled outcome; the retired test being replaced shows which record it used."
+
+[gotcha.2632]
+title = "A task that deletes a crate must also drop its workspace member line in the same tree"
+symptom = "A retirement task deleted a crate directory and its manifest but left the crate listed under [workspace] members, so every build of that workspace at main failed at manifest load until a later task removed the line; an unrelated attempt in the window was charged a failed build."
+fix = "When a do deletes a crate, name the workspace manifest among the touches and say the member line goes with it; when an attempt fails at manifest load, check whether main at its base revision is consistent before reading further."
+
+[gotcha.2633]
+title = "Dropping a dependency from a crate's manifest stales every workspace lock that resolves that crate"
+symptom = "A retirement removed two dependencies from a registry crate's manifest and regenerated only its own workspace lock; seventeen other lock files that resolve the crate by path still listed the two rows, so every --locked build of six other workspaces refused at main and sixteen implemented attempts failed before compiling."
+fix = "When a do edits [dependencies] of a crate other workspaces resolve by path, list every Cargo.lock that names the crate in the touches and regenerate them in the same task, as task 9.25.16 did; when many attempts fail at once with 'lock file needs to be updated', look for the manifest change on main before reading any attempt."
+
+[gotcha.2634]
+title = "A manifest dependency removal is qualified with the crate's test targets, not its library alone"
+symptom = "A task removed two crates from a test crate's manifest, built only the library target and verified the resolved dependency graph; three integration test files still imported the removed crates, and the workspace-wide dependent-crate check of the next programs task failed on them."
+fix = "When a do removes a dependency, make the build gate cargo build --tests (or cargo check --all-targets) of the edited crate and grep the removed crate names out of its tests directory in the verify."
+
+[gotcha.2635]
+title = "Deleting a crate manifest must sweep the path dependency rows of every other workspace"
+symptom = "A retirement deleted a crate's Cargo.toml inside its own workspace and verified only that workspace's metadata; another workspace still declared the crate as a path dependency for a member's test target, so that whole workspace stopped loading and every gate rooted in it failed at cargo metadata before building anything."
+fix = "Before a do deletes a crate manifest, git grep the crate name across every Cargo.toml in the repository; list the dependent manifests, their test files and locks in the same task's touches or make a same-wave task that the deletion requires retire those consumers first, and make the deleting task's verify read cargo metadata --locked of every workspace that named the crate."
+
+[gotcha.2636]
+title = "A task whose touches are only lock files or manifests declares no symbols"
+symptom = "A lock refresh task listed the resolved package name under symbols; the completion graph check looked for a code symbol of that name among the touched files, found none in seventeen lock files, and refused the record after every gate had passed."
+fix = "Put a name under symbols only when a touched source file defines it; for lock, manifest, fixture or documentation tasks leave symbols empty and name the package in the dos instead."
+
+[gotcha.2637]
+title = "Retiring a public verifier must sweep its callers in every workspace, not only the producer's"
+symptom = "A retirement deleted a proof verifier and ported the callers inside its own workspace; a service in another workspace still called the verifier at two sites, so that whole workspace stopped compiling and seventeen implemented tasks failed at their first build after rebasing."
+fix = "Before a do deletes a pub item, git grep its name across the repository and list every calling file in the task's touches or make a same-wave task the deletion requires port the other workspaces first; the verify of the deleting task compiles each workspace that named the item."
+
+[gotcha.2638]
+title = "An acceptance that asserts no reference remains must require every task that deletes a referencing file"
+symptom = "A module deletion whose acceptance test scans the workspace for the module name failed because a sibling deletion task in the same wave still owned the one remaining importer; the scan is only satisfiable after that sibling lands."
+fix = "When a do or acceptance scans for a retired name across sources, git grep the name at authoring time and add every task that deletes or ports a hit to the task's requires, or move the scan to the last deletion of the series."
+
+[gotcha.2639]
+title = "A precondition grep over a crate must skip files that the module tree no longer reaches"
+symptom = "A module-retirement task required a repository grep to print nothing before its build; the grep matched an import inside an orphaned submodule file that the compiler never reads once the parent module declaration is gone, the file sat outside the task's touches, and the attempt stopped without running a single gate."
+fix = "Scope a precondition grep to the files cargo compiles, or name the orphaned files the grep must skip and the task that deletes them; a task's gates run regardless, and a precondition hit outside the touches is a finding, not a reason to skip the build."
+
+[gotcha.2640]
+title = "A verify that repeats a precondition grep needs the same exclusions"
+symptom = "A precondition grep was amended to skip orphaned files, but the task's verify_cmd carried the same grep unamended; the next attempt built, passed its dependent-crate check and failed on the verify's grep over the same orphan."
+fix = "When a precondition grep changes, read the verify_cmd for the same expression and change both in one batch."
+
+[gotcha.2641]
+title = "A declared touch that another task already deleted fails the graph check"
+symptom = "A task declared a file in touches that an earlier task had deleted; the attempt made every other change, built and tested, and cg spec done refused because the touched path had no matching change."
+fix = "Before a task launches, drop touches that no longer exist on main and say so in a do line; the graph check needs a change for every declared touch."
+
+[gotcha.2642]
+title = "A done task's deletion is verified against the live tree before a dependent ruling"
+symptom = "A retirement scan hit a Makefile target that a done task's do line had promised to remove; the target was still on main at a different line and no pending task owned it."
+fix = "When a ruling leans on a done task's deletion, grep the live tree for the deleted item first and open a fix task when it survives."
+
+[gotcha.2643]
+title = "Substring rules in a policy check must respect identifier boundaries"
+symptom = "A private-path rule matched the token snapshot.bin inside the identifier snapshot.binding_tenant and reported a production file as reaching node-private state."
+fix = "Match path tokens only where the neighbouring characters are not identifier characters, and keep a fixture test for an identifier that merely contains the token."
+
+[gotcha.2644]
+title = "A later ruling that keeps a module must be written into the task that deletes it"
+symptom = "An owner decision kept a module reachable through a re-export, but the deleting task's do_1 still listed that module; the attempt followed do_1 and the build failed on the re-export."
+fix = "When a decision changes what a pending task deletes, add the decision as a do line and amend touches and verify in the same batch."
+
+[gotcha.2645]
+title = "An issue task's verify runs the subtests that prove the issue's path"
+symptom = "An issue task about a test's resource lifetime verified the whole end-to-end suite; eighteen attempts fixed the lifetime and then failed on four unrelated subtests of the same suite, each a separate defect."
+fix = "Scope an issue task's verify with -run to the subtests that prove the reported path, and give the suite's other failures their own task that requires the issue task."
+
+[gotcha.2646]
+title = "A retirement grep over a conformance tree must skip an SDK that still exports the name"
+symptom = "A verify grepped a conformance directory for a type the TypeScript SDK retired and matched Python conformance files that import the same name from the Python SDK, which keeps it."
+fix = "Limit a retirement grep to the file types of the SDK that retired the name, or exclude the trees that legitimately keep it."
+
+[gotcha.2647]
+title = "A shared crate's API change must build every crate that consumes it before the task is done"
+symptom = "A task retired four items of a proof crate's export API; its dependent-crate check built two interop crates and passed, while the agent daemon in the same workspace used all four items and has failed to build on every main since."
+fix = "List the consuming crates of a changed public item across every workspace from a grep before qualification and build each one in the task's verify."
+
+[gotcha.2648]
+title = "A module retirement needs a consumer census and a port task per consuming crate before it launches"
+symptom = "A task deleting three modules of a shared crate carried wiring requests for its consumers but no port tasks; the census after the second attempt found 94 consumer files across four workspaces with no owner."
+fix = "Grep every workspace for the module paths and the retired item names when the retirement task is written, give each consuming crate a port task, and make the retirement require all of them."
+
+[gotcha.2649]
+title = "A boundary decoder extended on one side needs the producer's bytes in its test, not a hand-built frame"
+symptom = "A consumer's receipt frame decoder was extended with nine fields and tested against a frame the test itself assembled; the producer kept writing the short frame and every real answer failed to decode."
+fix = "Define the frame once where both sides can import it and feed the producer's encoder output to the consumer's decoder in the test."
+
+[gotcha.2650]
+title = "A new status value in a producer lands with the published schema and every SDK decoder"
+symptom = "A daemon began answering not-ready lookups with two new verification statuses; the published contract and four SDK decoders still accepted the two old shapes, so a successful answer became an SDK verification failure."
+fix = "Change the contract file and add producer goldens first, then give each SDK decoder a task that consumes those goldens."
+
+[gotcha.2651]
+title = "Deleting a test branch must delete the script that invoked it"
+symptom = "A task removed the Rust probe branch of a qualification test and left the Python qualification calling the test executable for that branch, so the qualification re-entered itself."
+fix = "When a task removes a code path, grep the repository for every caller of its entry point, including scripts, and list them in touches."
+
+[gotcha.2652]
+title = "A simulation read must not hand the open block's height to the committed-state provider after the block seals"
+symptom = "An estimate read the open block's state and header, the block sealed before the precompile lookup, and the lookup asked the base app for a query context at the open height, which was above the committed height, so the handler panicked."
+fix = "Resolve every height above the committed height on the simulation path to the open-block snapshot while it is open and to the latest committed context otherwise; never pass a height above the committed one to the base app."
+
+[gotcha.2653]
+title = "A task changing a package's exports must compile the package's own consumers in the same task"
+symptom = "A task changed two source files of a TypeScript package and left the package's third file, which imports both, to a later task; the package's tsc project compiles every source file, so the task's build failed on the file it did not own, which was also broken on main by earlier ports."
+fix = "When a package port is split across tasks, each task's build target must compile at its end: keep in-package consumers of changed exports in the task that changes them, and check the package compiles on main before the split is written."

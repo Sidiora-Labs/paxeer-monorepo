@@ -1,6 +1,6 @@
-use crate::head::Head;
-use crate::payments::{CommittedSnapshot, FeeEstimate};
-use crate::read::ReadError;
+use crate::rpc::payments::{CommittedSnapshot, FeeEstimate};
+use crate::rpc::Head;
+use crate::sequencer::SequencerError;
 
 /// Largest canonical encoded size the native fee meter accepts.
 pub const MAX_FEE_METER_CANONICAL_BYTES: u64 = 1_048_576;
@@ -59,5 +59,5 @@ pub enum FeeEstimateError {
         head_sequence: u64,
         observed_sequence: u64,
     },
-    Read(ReadError),
+    Read(SequencerError),
 }

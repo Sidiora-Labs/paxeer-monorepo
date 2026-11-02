@@ -2,10 +2,6 @@
 
 use std::collections::BTreeSet;
 
-use layerx_client::evidence::{
-    verify_module_evidence, AccountEvidencePolicy, EvidenceError as ModuleEvidenceError,
-    RootSelector,
-};
 use layerx_programs::hex;
 use layerx_proof::inclusion::{
     verify_receipt as verify_receipt_inclusion, verify_state, InclusionError, InclusionEvidence,
@@ -28,7 +24,6 @@ use sha2::{Digest, Sha256};
 use crate::config::{read_protected_source, ProtectedSourceError, ReceiptKeySource, StartupConfig};
 use crate::human::HumanOperationError;
 use layerx_client::sequencer::SequencerEndpoint;
-mod native_owner;
 
 const MAX_AUTHORITY_SOURCE_BYTES: usize = 65_536;
 const AUTHORITY_SOURCE_VERSION: &str = "layerx-sequencer-authority-v1";
@@ -1289,7 +1284,6 @@ pub enum ReceiptEvidenceError {
     Policy(VerifierPolicyError),
     Inclusion(InclusionError),
     Receipt(VerificationFailure),
-    NativeOwner(layerx_proof::receipt::NativeOwnerOutcomeFailure),
     ProtocolVersion,
     SequenceRange,
     BatchIdentity,
@@ -1727,18 +1721,6 @@ impl RawStateEvidence {
         }
     }
 
-    /// Wraps a checked call and its repeated answer at one committed checkpoint.
-    #[must_use]
-    pub fn module_witness(committed: crate::read::committed::CommittedCall) -> Self {
-        Self {
-            canonical_state: committed.canonical_bytes().to_vec(),
-            shape: StateEvidenceShape::ModuleWitness {
-                committed,
-                budget_id: None,
-            },
-        }
-    }
-
     /// Decodes the getBudget result, retaining the call that establishes each record field.
     pub fn budget_witness(
         committed: crate::read::committed::CommittedCall,
@@ -1843,7 +1825,6 @@ pub enum StateEvidenceError {
     Committed,
     Policy(VerifierPolicyError),
     Inclusion(InclusionError),
-    Module(ModuleEvidenceError),
 }
 
 /// State bytes available only after configured policy and canonical proof verification.
