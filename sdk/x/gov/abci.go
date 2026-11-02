@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
@@ -18,8 +17,6 @@ func EndBlocker(ctx sdk.Context, keeper keeper.Keeper) {
 	endBlockerStart := time.Now()
 	defer func() {
 		govMetrics.endBlockerDuration.Record(ctx.Context(), time.Since(endBlockerStart).Seconds())
-		// TODO(PLT-414): remove once gov_end_blocker_duration verified
-		telemetry.ModuleMeasureSince(types.ModuleName, endBlockerStart, telemetry.MetricKeyEndBlocker)
 	}()
 
 	// delete inactive proposal from store and its deposits

@@ -33,7 +33,8 @@ export class FileFulfillmentRepository {
 
   async commit(proposed, release, reconciliation) {
     if (!/^[0-9a-f]{64}$/u.test(proposed.idempotencyKey)
-      || !/^[0-9a-f]{64}$/u.test(proposed.requestDigest)) {
+      || !/^[0-9a-f]{64}$/u.test(proposed.requestDigest)
+      || !/^0x[0-9a-f]{64}$/u.test(proposed.receiptDigest)) {
       throw new MiddlewareError("fulfillment-conflict");
     }
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
@@ -73,7 +74,7 @@ export class FileFulfillmentRepository {
             await legacyFile.close();
           }
           if (legacy.requestDigest !== proposed.requestDigest
-            || legacy.receipt !== Buffer.from(proposed.canonicalReceipt).toString("base64")
+            || legacy.receipt !== proposed.receiptDigest
             || legacy.resource === undefined) throw new MiddlewareError("fulfillment-conflict");
           stored = { request_digest: legacy.requestDigest, receipt: legacy.receipt, resource: JSON.stringify(legacy.resource) };
           database.prepare("INSERT INTO fulfillment VALUES (?, ?, ?, ?)").run(
@@ -85,14 +86,14 @@ export class FileFulfillmentRepository {
       }
       if (stored !== undefined) {
         if (stored.request_digest !== proposed.requestDigest
-          || stored.receipt !== Buffer.from(proposed.canonicalReceipt).toString("base64")) {
+          || stored.receipt !== proposed.receiptDigest) {
           throw new MiddlewareError("fulfillment-conflict");
         }
         database.exec("COMMIT");
         transaction = false;
         return { ...proposed, resource: JSON.parse(stored.resource) };
       }
-      const receipt = Buffer.from(proposed.canonicalReceipt).toString("base64");
+      const receipt = proposed.receiptDigest;
       const claim = database.prepare("SELECT request_digest, receipt FROM fulfillment_claim WHERE id = ?").get(proposed.idempotencyKey);
       if (claim !== undefined) {
         if (claim.request_digest !== proposed.requestDigest || claim.receipt !== receipt) {

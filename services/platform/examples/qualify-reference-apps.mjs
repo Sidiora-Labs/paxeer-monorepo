@@ -78,7 +78,8 @@ async function main() {
     const record = { source_revision: artifacts.source_revision, environment, tests: 6, skipped: 0,
       buyer_receipt: buyer.receiptDigest, buyer_transaction: buyer.transactionHash, buyer_rung: buyer.rung,
       merchant_receipt: merchant.receiptDigest, merchant_transaction: merchant.transactionHash, merchant_rung: merchant.rung,
-      marketplace: marketplace.map((row) => ({ action: row.action, receipt: row.receiptDigest, transactionHash: row.transactionHash, rung: row.rung })) };
+      marketplace: marketplace.map((row) => ({ action: row.action, receipt: row.receiptDigest, transactionHash: row.transactionHash,
+        rung: row.rung, resultCode: row.resultCode })) };
     const output = await open(resolve(directory, "outcomes.json"), "wx", 0o600);
     try { await output.writeFile(`${JSON.stringify(record, null, 2)}\n`); await output.sync(); } finally { await output.close(); }
     process.stdout.write(`${JSON.stringify({ source_revision: artifacts.source_revision, environment, evidence: directory, tests: 6, skipped: 0 })}\n`);
@@ -118,7 +119,7 @@ export async function qualifyReferenceAppOutcomes(outcomesFile, environment) {
     const outcome = only((row) => row.application === "marketplace" && row.environment === environment && row.action === action, `marketplace ${action}`);
     assert.equal(outcome.state, "completed");
     assert.ok(["receipted", "committed"].includes(outcome.rung), `marketplace ${action} rung must be receipted or committed`);
-    assert.equal(outcome.resultCode, 0);
+    assert.equal(outcome.resultCode, 0, `marketplace ${action} result code must indicate success`);
     assert.match(outcome.receiptDigest, /^[0-9a-f]{64}$/u);
     assert.match(outcome.transactionHash, /^0x[0-9a-fA-F]{64}$/u, `invalid marketplace ${action} transaction hash`);
     marketplace.push(outcome);
