@@ -27,7 +27,7 @@ evidence = "Commit adb2e7429 removed the deleted boot::handshake_gate import and
 finding = "9.3.1.3"
 status = "open"
 evidence = "The shared release harness still requires LAYERX_TEST_PAXEER_CHAIN_ID at services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1441, but services/agent/tools/run-real-node-tests.sh:48 invokes the generic make target without provisioning the chain variables that tools/qualification/paxeer-x/caps-codecs.py:74 supplies."
-follow_up = "closure"
+follow_up = "22.9.8"
 
 [disposition.9.3.1.4]
 finding = "9.3.1.4"

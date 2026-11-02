@@ -1,0 +1,443 @@
+[sweep.python-pytest-collect]
+revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+command = "python3 -m pytest -q --collect-only TARGET"
+targets_total = 82
+targets_passed = 69
+targets_failed = 13
+targets_not_run = 0
+
+[target.python-pytest-collect.1]
+target = "apps/launchpad/qualification/mobile"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.2]
+target = "apps/launchpad/web/src/widgets/create"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.3]
+target = "cmd/layerx-genesis"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.4]
+target = "cmd/layerx-module-registry"
+result = "failed"
+exit_code = 2
+observed = "cmd/layerx-module-registry/test_registry.py:15 raises FileNotFoundError while trying to execute pytest's -q argument as a binary during collection."
+assumption = "The standalone registry script consumes sys.argv at import time and expects a registry executable argument rather than pytest options."
+
+[target.python-pytest-collect.5]
+target = "cmd/retirement"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.6]
+target = "core/deps/geth/crypto/secp256k1/libsecp256k1/tools"
+result = "failed"
+exit_code = 2
+observed = "core/deps/geth/crypto/secp256k1/libsecp256k1/tools/test_vectors_musig2_generate.py:97 raises FileNotFoundError for -q/key_agg_vectors.json during collection."
+assumption = "The vendored vector generator consumes sys.argv at import time and expects a vector directory argument rather than pytest options."
+
+[target.python-pytest-collect.7]
+target = "deploy/launchpad/production/observability"
+result = "failed"
+exit_code = 2
+observed = "deploy/launchpad/production/observability/phase2/tests/test_phase4.py:13 cannot import phase4 because phase2/phase4.py:28 raises ModuleNotFoundError for jsonschema."
+assumption = "The collection environment lacks the jsonschema Python dependency."
+
+[target.python-pytest-collect.8]
+target = "deploy/launchpad/production/observability/phase2/tests"
+result = "failed"
+exit_code = 2
+observed = "deploy/launchpad/production/observability/phase2/tests/test_phase4.py:13 cannot import phase4 because phase2/phase4.py:28 raises ModuleNotFoundError for jsonschema."
+assumption = "The collection environment lacks the jsonschema Python dependency."
+
+[target.python-pytest-collect.9]
+target = "deploy/launchpad/production/observability/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.10]
+target = "deploy/launchpad/production/recovery"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.11]
+target = "deploy/launchpad/production/recovery/phase2"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.12]
+target = "deploy/launchpad/production/recovery/phase4"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.13]
+target = "deploy/launchpad/production/topology/phase2/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.14]
+target = "deploy/launchpad/production/topology/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.15]
+target = "layerxproof/retired"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.16]
+target = "programs/fixtures"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.17]
+target = "programs/fixtures/pay5"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.18]
+target = "scripts"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.19]
+target = "scripts/gates"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.20]
+target = "sdk/chainflow/python/tests"
+result = "failed"
+exit_code = 2
+observed = "sdk/chainflow/python/tests/test_response_parse.py:3 raises ModuleNotFoundError for httpx during collection."
+assumption = "The collection environment lacks the SDK's httpx dependency; the same run also reports a missing websockets dependency."
+
+[target.python-pytest-collect.21]
+target = "sdk/integrations/fastapi/tests"
+result = "failed"
+exit_code = 2
+observed = "sdk/integrations/fastapi/tests/test_package_surface.py:11 raises ModuleNotFoundError for fastapi during collection."
+assumption = "The collection environment lacks FastAPI and does not expose layerx_sdk on the import path, as also reported by the other collection errors."
+
+[target.python-pytest-collect.22]
+target = "sdk/launchpad/packages/sdk/test"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.23]
+target = "sdk/launchpad/protocol/bootstrap"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.24]
+target = "sdk/launchpad/protocol/generator-inputs"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.25]
+target = "sdk/platform/generators/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.26]
+target = "services/agent/sdk/python/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.27]
+target = "services/agent/tests/retired"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.28]
+target = "services/agent/tools"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.29]
+target = "services/explorer/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.30]
+target = "services/interop/deploy/gateway/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.31]
+target = "services/interop/deploy/mirror/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.32]
+target = "services/interop/deploy/search-front/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.33]
+target = "services/interop/deploy/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.34]
+target = "services/interop/deploy/x-websearch/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.35]
+target = "services/launchpad/pnl-tracker/internal/production/l18"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.36]
+target = "services/launchpad/security/policy"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.37]
+target = "services/launchpad/security/supplychain"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.38]
+target = "services/platform/docs/build"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.39]
+target = "services/platform/hosted/gateway/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.40]
+target = "services/platform/hosted/human"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.41]
+target = "services/platform/hosted/node/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.42]
+target = "services/platform/hosted/testnet/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.43]
+target = "services/platform/hosted/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.44]
+target = "services/platform/middleware/conformance/pay6"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.45]
+target = "services/platform/middleware/examples"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.46]
+target = "services/platform/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.47]
+target = "spec/layerx-merge/programme/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.48]
+target = "tests"
+result = "failed"
+exit_code = 2
+observed = "tests/agent/sdk/python/test_account_derivation.py:19 raises ModuleNotFoundError for layerx_sdk during collection of tests."
+assumption = "The collection environment does not install the local Python SDK or expose its source directory on the import path."
+
+[target.python-pytest-collect.49]
+target = "tests/agent/sdk/python"
+result = "failed"
+exit_code = 2
+observed = "tests/agent/sdk/python/test_account_derivation.py:19 raises ModuleNotFoundError for layerx_sdk during collection."
+assumption = "The collection environment does not install the local Python SDK or expose its source directory on the import path."
+
+[target.python-pytest-collect.50]
+target = "tests/bridge/retired"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.51]
+target = "tests/ci"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.52]
+target = "tests/daemon"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.53]
+target = "tests/explorer"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.54]
+target = "tests/qualification"
+result = "failed"
+exit_code = 5
+observed = "tests/qualification has no collectable pytest test name and exits with pytest status 5 after reporting no tests collected."
+assumption = "This explicitly requested directory contains Python qualification drivers whose filenames do not match pytest's default test discovery patterns."
+
+[target.python-pytest-collect.55]
+target = "tools/benchmark"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.56]
+target = "tools/benchmark/loadtest/contracts/evm"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.57]
+target = "tools/bringup/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.58]
+target = "tools/ci/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.59]
+target = "tools/containers"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.60]
+target = "tools/docs/gen"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.61]
+target = "tools/jev/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.62]
+target = "tools/launchpad"
+result = "failed"
+exit_code = 2
+observed = "Collection of tools/launchpad/production/integration/test_phase2.py fails with import file mismatch because test_phase2 already resolves to production/feature-acceptance/tests/test_phase2.py."
+assumption = "Duplicate test module basenames in directories without distinct package namespaces collide under pytest's default import mode."
+
+[target.python-pytest-collect.63]
+target = "tools/launchpad/cache"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.64]
+target = "tools/launchpad/delivery"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.65]
+target = "tools/launchpad/production/bootstrap"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.66]
+target = "tools/launchpad/production/bootstrap/build"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.67]
+target = "tools/launchpad/production/bootstrap/resources"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.68]
+target = "tools/launchpad/production/bootstrap/snapshot"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.69]
+target = "tools/launchpad/production/bootstrap/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.70]
+target = "tools/launchpad/production/dispatcher/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.71]
+target = "tools/launchpad/production/feature-acceptance/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.72]
+target = "tools/launchpad/production/integration"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.73]
+target = "tools/launchpad/production/interfaces"
+result = "failed"
+exit_code = 2
+observed = "tools/launchpad/production/interfaces/examples_check_test.py:12 raises ModuleNotFoundError for jsonschema during collection."
+assumption = "The collection environment lacks the jsonschema Python dependency."
+
+[target.python-pytest-collect.74]
+target = "tools/launchpad/production/load"
+result = "failed"
+exit_code = 2
+observed = "tools/launchpad/production/load/test_load.py:5 cannot import protocol because protocol.py:4 raises ModuleNotFoundError for jsonschema."
+assumption = "The collection environment lacks the jsonschema Python dependency."
+
+[target.python-pytest-collect.75]
+target = "tools/launchpad/production/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.76]
+target = "tools/paxeer-x/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.77]
+target = "tools/qualification"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.78]
+target = "tools/qualification/localnode/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.79]
+target = "tools/qualification/paxeer-x"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.80]
+target = "tools/qualification/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.81]
+target = "tools/release/rehearsal"
+result = "failed"
+exit_code = 2
+observed = "tools/release/rehearsal/test_rewrite_genesis.py:11 cannot import rewrite_genesis because its runpy call raises FileNotFoundError for services/platform/hosted/paxeer/anchor-genesis.py."
+assumption = "The rehearsal helper still depends on a legacy anchor-genesis source file that is absent from this checkout."
+
+[target.python-pytest-collect.82]
+target = "tools/release/tests"
+result = "passed"
+exit_code = 0
