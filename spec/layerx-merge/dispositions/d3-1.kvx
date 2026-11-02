@@ -1,0 +1,124 @@
+[disposition.3.5.3]
+finding = "3.5.3"
+status = "resolved"
+evidence = "Commit 220850ae7 supplies the Programs module argument at modules/lxphost/read_program.go:141, and 7e9750d69 landed the genesis round-trip test calling the real keeper methods without package-level ExportGenesis or InitGenesis helpers."
+
+[disposition.3.6.21]
+finding = "3.6.21"
+status = "resolved"
+evidence = "Commit 6faed64b6 changes BTC to TierClassB at modules/perps/keeper/governed_max_leverage_test.go:32, preserves MaxLeverage at 1000, and asserts that the previously accepted 600000 USD order at 500x is refused above the 200x tier limit."
+
+[disposition.3.9.5]
+finding = "3.9.5"
+status = "resolved"
+evidence = "Commit 27f21dbda asserts the unchanged smoothing formula at modules/pricefeed/gov_mark_ema_test.go:141, including the 1050e18 governed mark moving farther from the index and closer to the observed mark median when tau decreases."
+
+[disposition.3.9.5.1]
+finding = "3.9.5.1"
+status = "resolved"
+evidence = "Commit 27f21dbda removes the duplicate Aggregate function from modules/pricefeed/gov_disabled_market_test.go:24 and uses MidBlocker, leaving the single Aggregate type alias at modules/pricefeed/gov_appended_market_test.go:26."
+
+[disposition.3.10.1]
+finding = "3.10.1"
+status = "resolved"
+evidence = "Commit c6b8416d7 changes TierClass and OiCapUsd at precompiles/perps/governed_view_market_config_test.go:69 and checks that getMarketConfig reports both governed values while MaxLeverage remains 1000."
+
+[disposition.3.13.2]
+finding = "3.13.2"
+status = "resolved"
+evidence = "Commit f1bae5e04 registers all four pricefeed site codes at precompiles/common/lxp_errors.go:328, and 1f4d6593e adds the registry test asserting that all fifteen module codes and four site codes retain their names through LXPRevert."
+
+[disposition.3.13.2.1]
+finding = "3.13.2.1"
+status = "resolved"
+evidence = "The four site registrations from f1bae5e04 remain at precompiles/common/lxp_errors.go:328, and precompiles/pricefeed/lxp_registry_test.go:21 includes each site constant in the landed LXPRevert registry test."
+
+[disposition.3.18.1]
+finding = "3.18.1"
+status = "resolved"
+evidence = "Commit 3cdd4a058 removes EventTypeVote from modules/oracle/types/events.go, and spec/layerx-merge/spec.kvx:112440 declares only EndBlocker and TestOracleVotePeriodEmitsNoVoteEvent for the task graph check."
+
+[disposition.3.21.4]
+finding = "3.21.4"
+status = "resolved"
+evidence = "Commit afe7f7ee0 updates precompiles/spot/spot_abis_test.go:33 to call newPrecompileSet after the constructor rename, removing the stale NewPrecompileSet call."
+
+[disposition.3.41.3]
+finding = "3.41.3"
+status = "resolved"
+evidence = "Commit 1ab055090 replaces the removed records.MarketIDs reference with a local test map at services/platform/perps-data/internal/rest/symbol_test.go:23 and changes records/marketset_test.go to derive its initial market count from the database."
+
+[disposition.3.42.1]
+finding = "3.42.1"
+status = "environment"
+evidence = "The missing PostgreSQL connection was a qualification prerequisite: services/platform/perps-data/internal/store/migrate_test.go:49 still requires PERPS_DATA_TEST_DATABASE_URL, while 97bfd080f landed the seven nullable market-config columns and their schema assertions."
+
+[disposition.3.42.1.1]
+finding = "3.42.1.1"
+status = "resolved"
+evidence = "Commits 97bfd080f, 4e055beb4 and 9ed29331e supply migrations 0012, 0013 and 0014 respectively, so the current embedded SQL sequence through 0015 satisfies the contiguous-prefix check at services/platform/perps-data/internal/store/migrate_test.go:291."
+
+[disposition.3.42.2]
+finding = "3.42.2"
+status = "environment"
+evidence = "The absent test node was a qualification prerequisite: services/platform/perps-data/internal/markets/markets_test.go:72 still requires PERPS_DATA_TEST_RPC and dials that endpoint for the real getMarketConfig refresh test landed by 34798b9fc."
+
+[disposition.3.42.3]
+finding = "3.42.3"
+status = "resolved"
+evidence = "Commit b13a22839 replaces the 500 ms height-advance assumption with two waits for non-null refreshed_block separated by reseed, now at services/platform/perps-data/internal/markets/markets_test.go:738, each bounded to 30 seconds independently of height advancement."
+
+[disposition.3.42.7]
+finding = "3.42.7"
+status = "environment"
+evidence = "The missing RPC was a qualification prerequisite: the real margin-tier test landed by 573a4066d uses testClient at services/platform/perps-data/internal/markets/markets_test.go:72, which still fails explicitly unless PERPS_DATA_TEST_RPC names a running node."
+
+[disposition.3.42.8]
+finding = "3.42.8"
+status = "environment"
+evidence = "The missing PostgreSQL service was a qualification prerequisite: services/platform/perps-data/internal/store/chain_counters_test.go:43 calls testDB, whose check at services/platform/perps-data/internal/store/migrate_test.go:49 requires PERPS_DATA_TEST_DATABASE_URL before executing the real migrations."
+
+[disposition.3.42.8.1]
+finding = "3.42.8.1"
+status = "resolved"
+evidence = "The SQL table exists at services/platform/perps-data/migrations/0014_market_tiers.sql:1 from 9ed29331e, and spec/layerx-merge/spec.kvx:113825 declares only TestMarketTiersTable rather than the unindexed SQL name market_tiers."
+
+[disposition.3.45.1]
+finding = "3.45.1"
+status = "resolved"
+evidence = "The trigger function remains at services/platform/perps-data/migrations/0013_chain_counters.sql:6 from 4e055beb4, while spec/layerx-merge/spec.kvx:113977 declares only TestChainCounters for graph qualification, removing the unindexed bump_chain_counter requirement."
+
+[disposition.3.46.4]
+finding = "3.46.4"
+status = "environment"
+evidence = "The absent spot RPC was a qualification prerequisite: services/platform/perps-data/internal/rest/spotusers_test.go:194 still requires PERPS_DATA_TEST_RPC and reads registered tokens from the real vault for the single-fold test landed by 50d148cb4."
+
+[disposition.3.54.1]
+finding = "3.54.1"
+status = "resolved"
+evidence = "Commit 8a8ee9867 adds PERPS_DATA_TEST_COMET to the local-node environment output, and tools/qualification/localnode/v6120-node.sh:801 still writes the Comet RPC URL before copying the environment file to ENV_OUT."
+
+[disposition.3.54.3]
+finding = "3.54.3"
+status = "environment"
+evidence = "The absent local node was a qualification prerequisite: apps/perps/tests/local-market-config.test.ts:14 still fails explicitly when LOCAL_NODE_RPC is unset and uses that endpoint for the real contract reads landed by 69f400226."
+
+[disposition.3.54.6]
+finding = "3.54.6"
+status = "environment"
+evidence = "The missing NATS executable was a qualification prerequisite: tools/qualification/localnode/perps-gateway.sh:82 explicitly requires nats-server on PATH and line 86 requires a disposable PostgreSQL connection before starting the gateway."
+
+[disposition.3.55.1]
+finding = "3.55.1"
+status = "resolved"
+evidence = "Commit 609454c58 moves maxLeverage into TradeableMarket at apps/perps/src/core/perps/config.ts:56 and ports MarketRow, catalog rows and both mobile market props to that type while removing the static leverage assertions."
+
+[disposition.3.93.1]
+finding = "3.93.1"
+status = "resolved"
+evidence = "Commit 1ab8d6645 registers perps in lxphost_reset, and modules/lxphost/host.go:187 now registers its oracle transport interface, removing the missing-module condition for the submit and committed-read test landed by 893c100a2."
+
+[disposition.3.93.1.1]
+finding = "3.93.1.1"
+status = "resolved"
+evidence = "The formerly pending registration from 1ab8d6645 has landed and remains at modules/lxphost/host.go:185, while 893c100a2 supplies TestSubmitThenCommittedOraclePrice asserting successful submission followed by the committed price read."
