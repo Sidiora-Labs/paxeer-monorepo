@@ -133973,7 +133973,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.23.2]
 title = "Apply the agent deny rules, caps and modes to typed-data permits and personal messages in the attestor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -134004,7 +134004,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.23.1]
 title = "Refuse delegatecall in every spot vault precompile method"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -186678,7 +186678,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.23.5]
 title = "Measure the price aggregation quorum in bonded power instead of operator count"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -186708,7 +186708,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.23.4]
 title = "Cancel the attached take-profit and stop-loss pair whenever a perps position is removed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -186738,7 +186738,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.23.3]
 title = "Check the delegator as a bank recipient before the unbonding completion debits the not-bonded pool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
