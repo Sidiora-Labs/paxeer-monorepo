@@ -120178,7 +120178,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1481.1]
 title = "Issue #1481: Refresh the lock files that still record the removed verifier crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123233,7 +123233,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.4.1]
 title = "Serve each chain on its own JSON-RPC path with its derived chain id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.1.2"]
@@ -123293,7 +123293,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.3.3]
 title = "Index chain transactions, adjust each chain's base fee and pay the operator share at end of block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.1.2"]
@@ -199575,7 +199575,7 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 
 [task.18.1486.1]
 title = "Issue #1486: Read the capability qualification counts from the producers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199634,7 +199634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1483.1]
 title = "Issue #1483: Make the container exclusion-list tests agree on the retired localnode Dockerfile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199692,7 +199692,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1479.1]
 title = "Issue #1479: Drop the deleted daemon process source from the native-migration qualification producer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
