@@ -114483,7 +114483,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.137.1]
 title = "Prove the launchpad sdk sdk path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114647,7 +114647,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.132.1]
 title = "Prove the s27 embedded wallet gateway path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123926,7 +123926,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.127.1]
 title = "Prove the ramp reference http routes path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124969,7 +124969,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.15.1]
 title = "Prove the cli cli commands path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128443,7 +128443,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.119.1]
 title = "Prove the explorer path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128508,7 +128508,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.117.1]
 title = "Prove the pay genesis path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128706,7 +128706,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.106.1]
 title = "Prove the spot storage path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128771,7 +128771,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.104.1]
 title = "Prove the did binding path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129492,7 +129492,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.69.1]
 title = "Prove the launchpad social path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129560,7 +129560,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.67.1]
 title = "Prove the launchpad notifications path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129888,7 +129888,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.54.1]
 title = "Prove the paxload bounds path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130547,7 +130547,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.25.1]
 title = "Prove the perps governance path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130709,7 +130709,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.20.1]
 title = "Prove the layerxauth keeper path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130941,7 +130941,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.12.1]
 title = "Prove the layerxagent module path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131137,7 +131137,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.4.1]
 title = "Prove the s28 wallet attestors tss path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
