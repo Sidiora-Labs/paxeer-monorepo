@@ -47,7 +47,7 @@ evidence = "c27831fa2 added the log-position check retained at services/agent/cr
 finding = "8.47.10.1"
 status = "open"
 evidence = "Although 2e17b0fb1 removed the layerx-sdk includes, sdk/platform/go/native_program_lifecycle_test.go:169 still opens deleted receipt-programs-positive-v3.json and services/agent/crates/layerx-proof/tests/terminal_v4.rs:65 still loads deleted v4 fixtures, leaving the broader consumer finding unresolved."
-follow_up = "22.8.8"
+follow_up = "22.9.7"
 
 [disposition.8.48.1.1]
 finding = "8.48.1.1"
