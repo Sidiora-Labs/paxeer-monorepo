@@ -108,7 +108,10 @@ func (s *Symbol) serve(w http.ResponseWriter, r *http.Request) {
 // (Hyperpax:data_api.md:154).
 func parseLimit(q map[string][]string) (int, error) {
 	raw, ok := q["limit"]
-	if !ok || len(raw) == 0 || raw[0] == "" {
+	if ok && len(raw) != 1 {
+		return 0, errors.New("rest: limit must occur once")
+	}
+	if !ok || raw[0] == "" {
 		return defaultLimit, nil
 	}
 	n, err := strconv.ParseInt(raw[0], 10, 64)

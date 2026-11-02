@@ -9,6 +9,7 @@ REVERT_SELECTOR = bytes.fromhex("08c379a0")
 
 _WORD = 32
 _MAX_REASON_BYTES = 64 * 1024
+_MAX_RETURN_BYTES = len(REVERT_SELECTOR) + 2 * _WORD + _MAX_REASON_BYTES
 _CODE_CHARACTERS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
 _HEX = frozenset("0123456789abcdefABCDEF")
 
@@ -422,7 +423,9 @@ class RevertReasonError(Exception):
 
 
 def decode_revert_reason(return_data: bytes) -> RevertReasonError:
-    if not isinstance(return_data, bytes) or len(return_data) < len(REVERT_SELECTOR) + 2 * _WORD or return_data[:4] != REVERT_SELECTOR:
+    if (not isinstance(return_data, bytes) or len(return_data) > _MAX_RETURN_BYTES
+            or len(return_data) < len(REVERT_SELECTOR) + 2 * _WORD
+            or return_data[:4] != REVERT_SELECTOR):
         raise _decode_failure()
     body = return_data[4:]
     offset = int.from_bytes(body[:_WORD], "big")
@@ -451,7 +454,8 @@ def raise_for_receipt_status(receipt: Mapping[str, object]) -> None:
     if status == "0x1":
         return
     return_data = receipt.get("returnData")
-    if (status != "0x0" or not isinstance(return_data, str) or not return_data.startswith("0x") or len(return_data) % 2
+    if (status != "0x0" or not isinstance(return_data, str) or not return_data.startswith("0x")
+            or len(return_data) > 2 + 2 * _MAX_RETURN_BYTES or len(return_data) % 2
             or any(character not in _HEX for character in return_data[2:])):
         raise _decode_failure()
     raise decode_revert_reason(bytes.fromhex(return_data[2:]))

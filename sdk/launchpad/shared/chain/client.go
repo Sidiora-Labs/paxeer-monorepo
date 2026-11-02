@@ -1066,9 +1066,8 @@ func (a *ReadAdapter) identifyPool(ctx context.Context, pin BlockPin, pool commo
 	if err != nil {
 		return err
 	}
-	decoded, err := registryABI.Unpack("isRegisteredPool", membership[0])
-	if err != nil || len(decoded) != 1 || decoded[0] != true {
-		return errors.New("pool not registered at selected block")
+	if err := decodePoolMembership(membership); err != nil {
+		return err
 	}
 	_, err = readVerified(a.client, ctx, "pool_code_identity", func(ctx context.Context, e *ethclient.Client) (bool, error) {
 		err := a.client.atPinned(ctx, e, pin, func(height *big.Int, _ *types.Header) error {
@@ -1098,6 +1097,27 @@ func (a *ReadAdapter) identifyPool(ctx context.Context, pin BlockPin, pool commo
 		return err == nil, err
 	})
 	return err
+}
+
+// decodePoolMembership admits exactly one canonical ABI bool from the registry.
+// Check the response shape before indexing it or letting ABI unpack ignore a
+// trailing word; malformed membership must never authorize a pool read.
+func decodePoolMembership(membership [][]byte) error {
+	if len(membership) != 1 || len(membership[0]) != 32 {
+		return errors.New("malformed pool membership response")
+	}
+	registryABI, err := bindings.PoolRegistryMetaData.GetAbi()
+	if err != nil {
+		return err
+	}
+	decoded, err := registryABI.Unpack("isRegisteredPool", membership[0])
+	if err != nil {
+		return fmt.Errorf("malformed pool membership response: %w", err)
+	}
+	if len(decoded) != 1 || decoded[0] != true {
+		return errors.New("pool not registered at selected block")
+	}
+	return nil
 }
 
 var ErrReceiptPosition = errors.New("RECEIPT_POSITION_UNREPRESENTABLE: frozen receipt requires event logIndex for a log-free transaction")
