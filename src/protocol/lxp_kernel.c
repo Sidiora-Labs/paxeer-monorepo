@@ -2289,6 +2289,10 @@ lxp_result lxp_kernel_dispatch(const lxp_module_registration *registration,
     if (registration == NULL || ctx == NULL || activity == NULL ||
         authority == NULL || effects == NULL || module_result == NULL)
         return LXP_ERR_NON_CANONICAL;
+    if (registration->iface == NULL || registration->iface->decode == NULL ||
+        registration->iface->validate == NULL ||
+        registration->iface->execute == NULL)
+        return LXP_FATAL_INVARIANT;
     if (ctx->module_id == LXP_MODULE_ASSET) {
         if (lxp_activity_module_id(activity->activity_type) != LXP_MODULE_ASSET)
             return LXP_ERR_UNKNOWN_ACTIVITY;
