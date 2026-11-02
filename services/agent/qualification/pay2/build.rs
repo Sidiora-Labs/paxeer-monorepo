@@ -1,4 +1,4 @@
-#[path = "../../../../services/platform/hosted/gateway/tests/local/required.rs"]
+#[path = "required.rs"]
 mod required;
 
 use required::Required;
@@ -7,18 +7,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub(crate) fn pay2_build_inputs(manifest: &Path) -> [PathBuf; 3] {
-    let repository = manifest
-        .join("../../../..")
-        .canonicalize()
-        .required("repository");
-    let local = repository.join("services/platform/hosted/gateway/tests/local");
-    let pay2_source = manifest.join("pay2e_test.rs");
-    [
-        local.join("required.rs"),
-        local.join("verifier.rs"),
-        pay2_source,
-    ]
+pub(crate) fn pay2_build_inputs(manifest: &Path) -> [PathBuf; 2] {
+    [manifest.join("required.rs"), manifest.join("pay2e_test.rs")]
 }
 
 fn main() {
