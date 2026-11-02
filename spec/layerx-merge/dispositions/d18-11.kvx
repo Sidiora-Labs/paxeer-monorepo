@@ -22,7 +22,7 @@ evidence = "Commit 9fcd979bc made feed_loop mark TERM and INT shutdown successfu
 finding = "18.1310.1.1"
 status = "open"
 evidence = "Main still constructs only admission and current-head trust steps at services/agent/crates/layerx-agentd/src/read/program_node.rs:415, so the 14-day limit at programs/crates/layerx-programs-registry/src/chain_proof/trust.rs:27 and validator-overlap check at programs/crates/layerx-programs-registry/src/chain_proof/trust.rs:71 continue to refuse older admissions and nonadjacent full validator rotations without intermediate steps."
-follow_up = "closure"
+follow_up = "22.9.12"
 
 [disposition.18.1325.1.1]
 finding = "18.1325.1.1"
