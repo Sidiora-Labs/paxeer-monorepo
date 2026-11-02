@@ -28,6 +28,7 @@ typedef struct differential_fixture {
     lx_programs_transfer_runtime runtime;
     lxp_transfer_asset_state fee_asset_state;
     lxp_fee_params fees;
+    lxp_receipt deployment_receipt;
     lxp_authority_resolved authorities[DIFFERENTIAL_BATCH_SIZE];
     lxp_authority_scope scopes[DIFFERENTIAL_BATCH_SIZE];
     lxp_u128 actor_initial_balances[DIFFERENTIAL_BATCH_SIZE];
@@ -359,7 +360,9 @@ static int differential_fixture_init_balanced(
     (void)memset(fixture, 0, sizeof(*fixture));
     fixture->protocol_version = protocol_version;
     fixture->module_version = protocol_version == LXP_PROTOCOL_VERSION_LEGACY ?
-        LX_PROGRAMS_ABI_VERSION : LX_PROGRAMS_ACCOUNT_ABI_VERSION;
+        LX_PROGRAMS_ABI_VERSION :
+        protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT ?
+        LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION : LX_PROGRAMS_ACCOUNT_ABI_VERSION;
     fixture->parameters = 1U;
     fixture->fee_asset[0] = 9U;
     fixture->sequencer_private_key[0] = 0x71U;
@@ -374,6 +377,8 @@ static int differential_fixture_init_balanced(
         lxp_kernel_register_module(&fixture->kernel,
             protocol_version == LXP_PROTOCOL_VERSION_LEGACY ?
                 programs_module_registration() :
+            protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT ?
+                programs_module_registration_v4() :
                 programs_module_registration_v2()) != LXP_OK)
         return 1;
     for (index = 0U; index < DIFFERENTIAL_BATCH_SIZE; ++index) {
@@ -388,6 +393,8 @@ static int differential_fixture_init_balanced(
         fixture->did_lengths[index] = (size_t)length;
         length = snprintf((char *)fixture->account_names[index],
                           sizeof(fixture->account_names[index]),
+                          protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT ?
+                          "agent:did:lxp:parallel-%02zu:main" :
                           "agent:parallel-%02zu:main", index);
         if (length <= 0 ||
             (size_t)length >= sizeof(fixture->account_names[index]))
@@ -430,7 +437,9 @@ static int differential_fixture_init_balanced(
             (lxp_u128){UINT64_MAX, UINT64_MAX};
         (void)memcpy(fixture->authorities[index].actor,
                      identity->did_id, 32U);
-        (void)memcpy(fixture->authorities[index].principal, actor_id, 32U);
+        (void)memcpy(fixture->authorities[index].principal,
+            protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT ?
+            identity->did_id : actor_id, 32U);
         fixture->authorities[index].kind = LXP_AUTHORITY_OWNER;
         (void)memcpy(fixture->authorities[index].verified_key,
                      fixture->keys[index], 32U);
@@ -469,12 +478,20 @@ static int differential_fixture_init_balanced(
                                        &fixture->runtime) != LXP_OK ||
         lxp_programs_bind_fee_transaction(&fixture->kernel) != LXP_OK)
         return 1;
+    if (protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT &&
+        (lxp_kernel_set_capabilities(&fixture->kernel, NULL,
+                                     lxp_kernel_canonical_ledger_apply) != LXP_OK ||
+         lxp_state_root(&fixture->kernel,
+                         fixture->kernel.current_state_root) != LXP_OK))
+        return 1;
     fixture->fees.version = 1U;
     fixture->fees.multiplier_basis_points = 10000U;
     wasm_length = event_emitting_module(wasm);
     payload_length = deploy_payload(
         payload, fixture->program_id, fixture->authorities[0].principal,
-        wasm, wasm_length, code_hash, fixture->module_version,
+        wasm, wasm_length, code_hash,
+        protocol_version == LXP_PROTOCOL_VERSION_LEGACY ?
+            LX_PROGRAMS_ABI_VERSION : LX_PROGRAMS_GUEST_ABI_V2_VERSION,
         INTERFACE_CAPABILITIES_EMIT_EVENT);
     fill_activity(&deployment, LX_PROGRAMS_DEPLOY, payload, payload_length,
                   fixture->dids[0], fixture->did_lengths[0], fixture->keys[0]);
@@ -501,9 +518,29 @@ static int differential_fixture_init_balanced(
     execution.fee_parameters = &fixture->fees;
     execution.gas_limit = 1000000U;
     execution.arena = &arena;
-    return lxp_kernel_execute_activity(&fixture->kernel, &deployment,
-                                       &execution, &receipt) == LXP_OK &&
-           receipt.result_code == LXP_OK ? 0 : 1;
+    if (protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT) {
+        lxp_byte_span canonical;
+        lxp_batch_roots roots;
+        size_t mark = lxp_arena_mark(&arena);
+        if (lxp_activity_encode(&deployment, &arena, &canonical) != LXP_OK ||
+            bind_differential_prefix(&canonical, 1U,
+                fixture->kernel.current_state_root, 1U, 1U, &arena,
+                &execution, &roots, execution.batch_id) != LXP_OK ||
+            lxp_arena_reset(&arena, mark) != LXP_OK)
+            return 1;
+    }
+    {
+        lxp_result status = lxp_kernel_execute_activity(
+            &fixture->kernel, &deployment, &execution, &receipt);
+        if (status != LXP_OK || receipt.result_code != LXP_OK) {
+            (void)fprintf(stderr,
+                "programs/tests/differential/parallel.c deployment status=%d result=%d\n",
+                (int)status, (int)receipt.result_code);
+            return 1;
+        }
+    }
+    fixture->deployment_receipt = receipt;
+    return 0;
 }
 
 static int differential_fixture_init(differential_fixture *fixture)
@@ -1378,7 +1415,14 @@ static int programs_parallel_differential(void)
     return 0;
 }
 
-int main(void)
+int programs_parallel_differential_main(void)
 {
     return programs_parallel_differential();
 }
+
+#ifndef LXP_PROGRAMS_DIFFERENTIAL_EMBEDDED
+int main(void)
+{
+    return programs_parallel_differential_main();
+}
+#endif

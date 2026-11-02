@@ -30,6 +30,19 @@ pub const fn receipt_operation(ordinal: u16) -> u8 {
     }
 }
 
+/// Reports whether the header currently allocates this Programs ordinal.
+#[must_use]
+pub const fn allocated(ordinal: u16) -> bool {
+    let mut index = 0;
+    while index < ORDINALS.len() {
+        if ORDINALS[index].1 == ordinal {
+            return true;
+        }
+        index += 1;
+    }
+    false
+}
+
 /// Returns the activity type the kernel allocates for `ordinal`.
 ///
 /// # Errors
