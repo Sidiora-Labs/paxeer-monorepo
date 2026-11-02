@@ -247,6 +247,16 @@ func TestGasTable(t *testing.T) {
 		})
 	}
 	require.Equal(t, uint64(21080), common.MethodGas(selector(t, "40e58ee5"), 36))
+	// Bind the scheduler gas inventory to canonical ABI signatures, not only literal selectors.
+	for signature, id := range map[string]string{
+		"schedule(address,bytes,uint64,uint64)": "849ba0a3",
+		"cancel(uint256)":                       "40e58ee5",
+		"reschedule(uint256,uint64)":            "08e6f770",
+		"getJob(uint256)":                       "bf22c457",
+		"pending(address)":                      "5eebea20",
+	} {
+		require.Equal(t, selector(t, id), crypto.Keccak256([]byte(signature))[:4])
+	}
 }
 
 func TestFrameworkRefusalCodes(t *testing.T) {
