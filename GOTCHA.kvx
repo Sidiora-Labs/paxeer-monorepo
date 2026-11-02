@@ -13595,3 +13595,18 @@ fix = "Give run() tests a fixture authority public key file and the three variab
 title = "precompiles/xweb/XWeb.sol and contracts/src/precompiles/IXWeb.sol must stay byte-identical and match abi.json's events"
 symptom = "TestABIMatchesTheSolidityInterface compares the two files byte for byte and TestEventTopics counts 'event ' declarations against abi.json; a doc comment added to one file or an event added only to abi.json fails the package."
 fix = "Change the three files (abi.json, XWeb.sol, IXWeb.sol) and contracts/test/XWebConsumer.t.sol together."
+
+[gotcha.2756]
+title = "Removing a block from the agent API contract within one major breaks every dependent crate"
+symptom = "layerx-agent-api's build script compares services/agent/schema/agent-api/v1.kvx with golden/v1.kvx and panics at build.rs:324 'breaking contract removal without a major increment' when a baseline key is gone at the same major; the removal of a retired operation block (2ddf941d9) stopped every crate depending on layerx-agent-api from building."
+fix = "Retire an operation by setting disposition = retired and keeping the block; remove blocks only with a major increment that moves the golden baseline. A task that edits v1.kvx builds layerx-agent-api in its verify."
+
+[gotcha.2757]
+title = "kvx has no decimal values"
+symptom = "A sweep wrote elapsed_seconds = 600.071 and the kvx reader stopped with 'expected a quoted string, integer, boolean or string list value'."
+fix = "Write durations as integers (whole seconds or milliseconds) or quoted strings; check a generated kvx with grep -nE '^[a-z_]+ = [0-9]+[.][0-9]+' before committing it."
+
+[gotcha.2758]
+title = "A go test -run pattern that matches nothing passes silently"
+symptom = "go test prints '[no tests to run]' and exits 0 when -run matches no test; a verify leg naming a test file another task creates later proves nothing."
+fix = "Name tests that exist at the task's base with anchored patterns (^TestName$) and let the task that creates a test carry its own verify leg."

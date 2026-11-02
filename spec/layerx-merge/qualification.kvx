@@ -18179,3 +18179,59 @@ symbol = "encodesLedgerDrawCalldataWithDrawSelector"
 observed = "The first attempt committed sdk/integrations/next/example/.next build output, and the seller tests fail against the freshly built dist: ledger.test.mjs:139 encodesLedgerDrawCalldataWithDrawSelector expects a 32-byte field and observes the ASCII bytes 65..88 of the fixture string, and grant-draw.test.mjs:129 grantAuthorityForwardsLedgerDrawTransaction is refused with invalid-payment-payload by GrantPaymentAuthority.settle (dist/grant.js:39)."
 assumption = "Build output is never committed, and the seller source and tests disagree on how the ledger draw reference is encoded; the task reconciles them inside services/platform/middleware."
 severity = "medium"
+
+[finding.22.9.16.1]
+task = "22.9.16"
+file = "services/agent/schema/agent-api/v1.kvx"
+symbol = "compatibility_gate"
+observed = "At bases 17990ad65 and c1cc55d15 the build of every layerx-agent-api dependent panics at build.rs:324:33: breaking contract removal without a major increment: transport.agent_http.operation.faucet.claim.access (2ddf941d9 removed the block at major 2)."
+assumption = "22.9.24 restores the block; every open task that builds with cargo requires it and continues from its last attempt once it is done."
+severity = "high"
+
+[finding.22.2.4.2]
+task = "22.2.4"
+file = "modules/layerxauth/keeper/revoke.go"
+symbol = "RevokeGrant"
+observed = "Fourth attempt at base 17990ad65: TestRevokeGrantAdvancesRevocation/capability and /session (revoke_test.go:132) expect ErrIdempotentReplay from the second RevokeGrant with the same grant and idempotency key and get LXP_AUTH_SCOPE: now that the grant is retained with RevocationEpoch set, the repeat reaches the grant's scope validation before the replay check."
+assumption = "The replay check on (grant, idempotency key) precedes every state validation of the revoke; the test's expectation stands."
+severity = "medium"
+
+[finding.22.2.7.1]
+task = "22.2.7"
+file = "precompiles/layerxpay/execute.go"
+symbol = "IdempotencyKey"
+observed = "Second attempt at base 17990ad65 implemented the restart proof in modules/lxphost (TestPaymentReferenceStaysRefusedAfterReopen passes) and changed nothing in precompiles/layerxpay/execute.go, which already builds the activity with the idempotency key (do_1); the graph check refused the untouched file and the verify's layerxpay leg -run 'Proof.*0x101a|ProofLayerxledger' matched no test ([no tests to run]) because proof_layerxledger_0x101a_test.go is created by 21.11.1, which requires this task."
+assumption = "execute.go leaves the touches; the verify runs the lxphost proof and compiles layerxpay; 21.11.1 adds its own leg."
+severity = "low"
+
+[finding.22.9.10.2]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/test/program-executed-v3.test.ts"
+symbol = "fixture"
+observed = "Fourth attempt at base c1cc55d15: npm test fails with ENOENT on sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json, read by test/program-executed-v3.test.ts:5; 88faddb09 (task 8.47.5) removed the kernel programs-module receipt vectors v1 to v3 and their generators because no node serves that receipt."
+assumption = "The test belongs to the receipt shape this task retires (do_1); it is deleted with the decoder path it exercised."
+severity = "medium"
+
+[finding.22.10.7.2]
+task = "22.10.7"
+file = "services/platform/hosted/human/test_material.py"
+symbol = "required_path"
+observed = "Third attempt at base 17990ad65: test_custody_bindings_resolve_to_the_native_custody_precompile and test_generated_bootstrap_and_protected_inputs still fail with 'required genuine producer input is missing: PAXEER_X_HUMAN_EVIDENCE_DIR' (test_material.py:68, reached from :76) while the verify unsets the five variables on purpose."
+assumption = "The refusal at :68 is for inputs the test neither received nor built; the hermetic rewrite builds them with the producer functions of material.py first."
+severity = "medium"
+
+[finding.22.17.4.1]
+task = "22.17.4"
+file = "spec/layerx-merge/programme/sweeps/go-modules-2.kvx"
+symbol = "elapsed_seconds"
+observed = "First attempt at base 84dd3db40: sweeps_summary.py stops at go-modules-2.kvx:18 'expected a quoted string, integer, boolean or string list value' because the sweep (ad466647e) wrote elapsed_seconds = 600.071, a decimal, for a target that hit its 600-second budget."
+assumption = "kvx values are quoted strings, integers, booleans or string lists; the sweep file is repaired in this task and the summary tolerates nothing else."
+severity = "low"
+
+[finding.22.90.9.2]
+task = "22.90.9"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs"
+symbol = "ConstructMethod::ProgramCall"
+observed = "First attempt at base 17990ad65: cargo build --all-targets of layerx-human-kms compiles layerx-human-service and fails E0004 at create.rs:610, non-exhaustive match missing Some(ConstructMethod::ProgramCall { .. }); the candidate changed nothing because the failure sits outside its touches."
+assumption = "9.100.2 added the ProgramCall construct method without the human service following; this task adds the arm."
+severity = "medium"

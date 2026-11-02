@@ -6939,6 +6939,12 @@ value = "tests/fixtures/public-testnet-genesis-v3 and public-testnet-genesis are
 basis = "22.13.6 a5 at base 5e4cc2862: swapping the programs registration in the GATE_ALWAYS row verified both fixtures with LXP_ERR_ROOT_MISMATCH (-801)."
 affects = ["22.13.6"]
 
+[decision.2305]
+title = "Retired agent API operations stay in the contract within a major"
+value = "An operation of services/agent/schema/agent-api/v1.kvx that is retired keeps its block with disposition = retired and its reason entry; removing a block is a major increment that moves the golden baseline with it (build.rs:123-146 compatibility_gate). Generators and clients filter on the disposition, never on the block's absence."
+basis = "2ddf941d9 removed [transport.agent_http.operation.faucet.claim] at major 2; from 13:00Z every attempt that builds a dependent of layerx-agent-api fails at build.rs:324 (22.8.10 a3, 22.8.12 a2, 22.11.5 a3, 22.9.16 a2-a3, 9.35.9 a8, 21.63.1 a3, 21.111.1 a3, 22.9.17 a2, 22.13.8 a2, 22.13.9 a2, 22.11.4 a2)."
+affects = ["22.9.24", "18.1487.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20559,6 +20565,10 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22024]
+title = "The agent API contract keeps every golden-baseline key within one major"
+ac_1 = "Given services/agent/schema/agent-api/v1.kvx and its golden baseline golden/v1.kvx at the same major, when layerx-agent-api builds, then its build script's compatibility gate finds every baseline key present and the crate and its dependents compile"
 
 [req.22023]
 title = "The Python SDK history and receipt fixtures carry the hashes the validators accept"
@@ -35228,6 +35238,15 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.9.24]
+title = "Restore the retired faucet.claim operation entry of the agent API contract"
+reqs = ["22024.1"]
+touches = ["services/agent/schema/agent-api/v1.kvx"]
+tests = ["services/agent/crates/layerx-agent-api/build.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api && cargo run --locked --manifest-path sdk/platform/generators/Cargo.toml -- --check"
+do_1 = "2ddf941d9 (task 18.1487.1) deleted the block [transport.agent_http.operation.faucet.claim] (request, access, operation_class, surface, idempotency_key, disposition = retired) from services/agent/schema/agent-api/v1.kvx while major stayed 2 and services/agent/schema/agent-api/golden/v1.kvx:317-323 still carries it; the build script of layerx-agent-api (build.rs:123-146, compatibility_gate) refuses a key of the golden baseline that disappears within one major and panics at build.rs:324 with 'breaking contract removal without a major increment: transport.agent_http.operation.faucet.claim.access', so every crate that depends on layerx-agent-api (layerx-sdk, layerx-agentd, layerx-agentd-host, layerx-mcp, the human crates, the interop service, tools/platform through layerx-sdk) fails to build at main since 2ddf941d9."
+symbols = []
+
 [capability.22.9.23]
 title = "Reconcile the Python SDK history and receipt-key fixtures with the hash validators"
 reqs = ["22023.1"]
@@ -35899,7 +35918,7 @@ title = "Keep payment idempotency records authoritative across a restart"
 reqs = ["22017.1"]
 touches = ["modules/lxphost/ctx.go", "modules/lxphost/host.go", "modules/lxphost/idempotency_restart_test.go", "precompiles/layerxpay/execute.go"]
 tests = ["modules/lxphost/idempotency_restart_test.go"]
-verification_contract = "CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestPaymentReferenceStaysRefusedAfterReopen$' && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxpay/ -run 'Proof.*0x101a|ProofLayerxledger'"
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestPaymentReferenceStaysRefusedAfterReopen$' && CGO_ENABLED=1 go build ./precompiles/layerxpay/"
 do_1 = "precompiles/layerxpay/execute.go:33-60 builds the kernel activity with IdempotencyKey from the PaymentReference and the kernel validates duplicates against its in-memory idempotency set (src/protocol/lxp_kernel.c:2905, :3564); modules/lxphost/ctx.go:65 persists idempotency records under prefix 0x04. After Close and reopen the kernel starts empty so a duplicate reference is accepted. Make the host check the committed idempotency record for the key before handing the activity to the kernel (and refuse with the same duplicate reason the kernel uses), or reload the committed idempotency set into the kernel when the host opens; choose the path that keeps one source of truth and state it in a comment at the check."
 symbols = ["IdempotencyKey"]
 
@@ -115931,7 +115950,7 @@ do_1 = "services/agent/sdk/typescript/src/ai_market.ts:3273 decodeProgramsReceip
 do_2 = "Share d9-6.kvx with 22.9.11: set follow_up of [disposition.9.97.8.3] to 22.9.10."
 do_3 = "Set follow_up of [disposition.9.97.8.3] in spec/layerx-merge/dispositions/d9-6.kvx to 22.9.10 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
 symbols = ["decodeProgramsReceipt"]
-touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx"]
+touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx", "services/agent/sdk/typescript/test/program-executed-v3.test.ts"]
 tests = []
 planned_paths = ["services/agent/sdk/typescript/test/ai-market.test.ts"]
 build_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build"
@@ -115948,6 +115967,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 22.9.10.1: the lifecycle test's stale guest-ABI assertion is repaired by task 22.9.14, which this task requires; this task's own tests stay as written. Continue from attempt 2 once 22.9.14 is done."
+do_5 = "Finding 22.9.10.2: delete test/program-executed-v3.test.ts (its fixture receipt-programs-executed-v3.json was removed by 8.47.5 at 88faddb09 together with the receipt shape); the market operations finalize against commit finality (do_1) and no test reads a kernel-shaped programs receipt fixture any more. Continue from attempt 4."
 
 [task.22.91.38]
 title = "Inventory the platform examples packages"
@@ -126331,12 +126351,43 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.9.24]
+title = "Restore the retired faucet.claim operation entry of the agent API contract"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22024.1"]
+capabilities = ["22.9.24"]
+interfaces = []
+do_1 = "2ddf941d9 (task 18.1487.1) deleted the block [transport.agent_http.operation.faucet.claim] (request, access, operation_class, surface, idempotency_key, disposition = retired) from services/agent/schema/agent-api/v1.kvx while major stayed 2 and services/agent/schema/agent-api/golden/v1.kvx:317-323 still carries it; the build script of layerx-agent-api (build.rs:123-146, compatibility_gate) refuses a key of the golden baseline that disappears within one major and panics at build.rs:324 with 'breaking contract removal without a major increment: transport.agent_http.operation.faucet.claim.access', so every crate that depends on layerx-agent-api (layerx-sdk, layerx-agentd, layerx-agentd-host, layerx-mcp, the human crates, the interop service, tools/platform through layerx-sdk) fails to build at main since 2ddf941d9."
+do_2 = "Restore the block byte-identical to golden/v1.kvx:317-323 at the position it held at 243552138 (git show 2ddf941d9^:services/agent/schema/agent-api/v1.kvx), between the preceding operation block and [transport.agent_http.operation.policy.dry_run]; major stays 2 and the golden baseline is not touched (decision 2305: retired operations remain in the contract as entries with disposition retired; a removal is a major increment, never a same-major edit)."
+do_3 = "18.1487.1's generator test jvm_conformance_omits_retired_verification_entries (sdk/platform/generators/src/main.rs) concerns the verification keys batch_inclusion, checkpoint and receipt_in_batch and does not depend on this block; run cargo run --locked --manifest-path sdk/platform/generators/Cargo.toml -- --check after the restore and, if a generated file changes, regenerate it with make platform-sdk-generate and include it in the commit (add the file to touches)."
+do_4 = "Build layerx-agent-api and layerx-sdk from services/agent/Cargo.toml; the verify runs the layerx-agent-api tests (its build script is the compatibility gate) and the generator check."
+symbols = []
+touches = ["services/agent/schema/agent-api/v1.kvx"]
+tests = ["services/agent/crates/layerx-agent-api/build.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api -p layerx-sdk"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api && cargo run --locked --manifest-path sdk/platform/generators/Cargo.toml -- --check"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.11.7]
 title = "Repair the bridge relayer and interop service suites: commitment refusal, solana fixtures, in-test operator inventory, signer binary and listener startup"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.24"]
 reqs = ["22022.1"]
 capabilities = ["22.11.7"]
 interfaces = []
@@ -126369,7 +126420,7 @@ title = "Issue #1501: Reconcile ledger asset metadata with the closed OpenRPC sc
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.24"]
 reqs = ["8372.1"]
 capabilities = ["18.1501.1"]
 interfaces = []
@@ -126399,7 +126450,7 @@ title = "Issue #1499: Reconcile CLI chain enumeration with the accepted sparse r
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.8.10"]
+requires = ["22.8.10", "22.9.24"]
 reqs = ["8370.1"]
 capabilities = ["18.1499.1"]
 interfaces = []
@@ -126429,7 +126480,7 @@ title = "Let the platform CLI's credential tests skip with a named reason when d
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.8.10"]
+requires = ["22.8.10", "22.9.24"]
 reqs = ["22021.1"]
 capabilities = ["22.16.9"]
 interfaces = []
@@ -126488,7 +126539,7 @@ title = "Enable reference types for the runtime conformance vectors and repair t
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.24"]
 reqs = ["22012.1"]
 capabilities = ["22.13.9"]
 interfaces = []
@@ -126511,13 +126562,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fails inside layerx-agent-api's build script until 22.9.24 restores the faucet.claim operation block of the agent API contract; this task requires 22.9.24 and continues from its last candidate, which is not at fault."
 
 [task.22.13.8]
 title = "Order the program ABI validation so unsupported versions are refused first"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.24"]
 reqs = ["22012.1"]
 capabilities = ["22.13.8"]
 interfaces = []
@@ -126540,13 +126592,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fails inside layerx-agent-api's build script until 22.9.24 restores the faucet.claim operation block of the agent API contract; this task requires 22.9.24 and continues from its last candidate, which is not at fault."
 
 [task.22.8.12]
 title = "Reconcile the reference ramp route order, the authority native outcomes and the PaxAI transport identity fixture"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.24"]
 reqs = ["22012.1"]
 capabilities = ["22.8.12"]
 interfaces = []
@@ -126570,13 +126623,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 22.8.12.1: make budget_reader_uses_only_node_read_interfaces pass by moving the latestFinalized() and checkpoint(uint64) node reads of src/main.rs:682-693 into src/human/budget_state.rs (the budget reader owns its node reads) or, if main.rs must keep them, by making the test read both sources; in either case the assertion that no retired layerx_client module is named covers every file the test reads."
+do_4 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fails inside layerx-agent-api's build script until 22.9.24 restores the faucet.claim operation block of the agent API contract; this task requires 22.9.24 and continues from its last candidate, which is not at fault."
 
 [task.22.8.10]
 title = "Bring the platform tools workspace lockfile in step with its manifests"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.24"]
 reqs = ["22012.1"]
 capabilities = ["22.8.10"]
 interfaces = []
@@ -126600,13 +126654,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 22.8.10.1: the CLI's integration tests need dbus-daemon, which the qualification environment lacks; the verify now compiles every test target with --locked without running them (task 22.16.9 owns the skip). Continue from attempt 1: the regenerated lockfile is the deliverable."
+do_4 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fails inside layerx-agent-api's build script until 22.9.24 restores the faucet.claim operation block of the agent API contract; this task requires 22.9.24 and continues from its last candidate, which is not at fault."
 
 [task.22.11.5]
 title = "Repair the x402 profile fixture, the bridge relayer quorum fixture and the interop relay replacement test"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.24"]
 reqs = ["22012.1"]
 capabilities = ["22.11.5"]
 interfaces = []
@@ -126630,13 +126685,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 22.11.5.1: the verify runs only the three targets this task repairs (layerx-x402 --test e2e, layerx-bridge-relayer --test loops, layerx-interop-service --lib relay); the other failures of the two suites belong to 22.11.7 and are not repaired here."
+do_4 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fails inside layerx-agent-api's build script until 22.9.24 restores the faucet.claim operation block of the agent API contract; this task requires 22.9.24 and continues from its last candidate, which is not at fault."
 
 [task.22.11.4]
 title = "Regenerate the mirror, UCP and Visa tap receipt fixtures against the current verifier"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.24"]
 reqs = ["22012.1"]
 capabilities = ["22.11.4"]
 interfaces = []
@@ -126659,13 +126715,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fails inside layerx-agent-api's build script until 22.9.24 restores the faucet.claim operation block of the agent API contract; this task requires 22.9.24 and continues from its last candidate, which is not at fault."
 
 [task.22.9.18]
 title = "Reconcile the agent API schema, daemon freshness, SDK corpus and MCP schema tests"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.16"]
+requires = ["22.9.16", "22.9.24"]
 reqs = ["22012.1"]
 capabilities = ["22.9.18"]
 interfaces = []
@@ -126694,7 +126751,7 @@ title = "Reconcile the agent crates' vector counts, settlement fixtures and addr
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.24"]
 reqs = ["22012.1"]
 capabilities = ["22.9.17"]
 interfaces = []
@@ -126717,13 +126774,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fails inside layerx-agent-api's build script until 22.9.24 restores the faucet.claim operation block of the agent API contract; this task requires 22.9.24 and continues from its last candidate, which is not at fault."
 
 [task.22.9.16]
 title = "Make the agent daemon host crate build all its targets"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.24"]
 reqs = ["22019.1"]
 capabilities = ["22.9.16"]
 interfaces = []
@@ -126747,13 +126805,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fails inside layerx-agent-api's build script until 22.9.24 restores the faucet.claim operation block of the agent API contract; this task requires 22.9.24 and continues from its last candidate, which is not at fault."
 
 [task.22.9.13]
 title = "Restore indexed submissions by the outbox's transaction-hash key"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.16", "9.100.2"]
+requires = ["22.9.16", "9.100.2", "22.9.24"]
 reqs = ["22006.1"]
 capabilities = ["22.9.13"]
 interfaces = []
@@ -126783,7 +126842,7 @@ title = "Bridge historical deployment proofs with intermediate trust steps"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.16", "9.100.2"]
+requires = ["22.9.16", "9.100.2", "22.9.24"]
 reqs = ["22006.1"]
 capabilities = ["22.9.12"]
 interfaces = []
@@ -126842,7 +126901,7 @@ title = "Port the proof crate's terminal v4 test off the deleted v4 fixtures"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.16", "9.100.2"]
+requires = ["22.9.16", "9.100.2", "22.9.24"]
 reqs = ["22006.1"]
 capabilities = ["22.9.7"]
 interfaces = []
@@ -127382,7 +127441,7 @@ title = "Make every target of layerx-human-kms build on main"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["9.100.2"]
+requires = ["9.100.2", "22.9.24"]
 reqs = ["22002.1"]
 capabilities = ["22.90.9"]
 interfaces = []
@@ -127390,7 +127449,7 @@ do_1 = "Run cargo build --locked --manifest-path services/human/Cargo.toml -p la
 do_2 = "A failure caused by another crate's source (not under services/human/crates/layerx-human-kms) is not repaired here: record a finding in spec/layerx-merge/qualification.kvx naming the file, the symbol and the task that changed it, and stop; the finding is the task's result."
 do_3 = "The verify builds every target and compiles the tests without running them (the crate's tests may need services the qualification environment lacks); the dependent-crate check of later tasks includes this crate once the task is done."
 symbols = []
-touches = ["services/human/crates/layerx-human-kms", "services/human/Cargo.lock"]
+touches = ["services/human/crates/layerx-human-kms", "services/human/Cargo.lock", "services/human/crates/layerx-human-service/src/agents/create.rs"]
 tests = []
 planned_paths = ["services/human/crates/layerx-human-kms"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --all-targets"
@@ -127408,6 +127467,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "The task is a gate: when the build and the test compile already pass at main, no file changes and the verify record alone qualifies it."
 do_5 = "Finding 22.90.9.1: the library build fails at src/agents/create.rs:610 until task 9.100.2 adds the ProgramCall arm; this gate now requires 9.100.2 and runs after it is done. Continue from attempt 1."
+do_6 = "Finding 22.90.9.2: add the Some(ConstructMethod::ProgramCall { .. }) arm at create.rs:610 and handle it the way the other construct arms of that match hand their method to the agent constructor (the program-call method 9.100.2 defines in layerx_human_kms); the build of layerx-human-kms --all-targets then compiles layerx-human-service, and known-broken bookkeeping for layerx-human-service ends with this task."
 
 [task.22.90.8]
 title = "Make every target of layerx-mirror-signer build on main"
@@ -127661,7 +127721,7 @@ title = "Prove the runtime crate path end to end: producer, transport, consumer"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.24"]
 reqs = ["21130.1"]
 capabilities = ["21.130.1"]
 interfaces = []
@@ -127860,7 +127920,7 @@ title = "Prove the human test support path end to end: producer, transport, cons
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["9.100.2"]
+requires = ["9.100.2", "22.9.24"]
 reqs = ["21111.1"]
 capabilities = ["21.111.1"]
 interfaces = []
@@ -127887,13 +127947,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fails inside layerx-agent-api's build script until 22.9.24 restores the faucet.claim operation block of the agent API contract; this task requires 22.9.24 and continues from its last candidate, which is not at fault."
 
 [task.21.110.1]
 title = "Prove the human kms wire path end to end: producer, transport, consumer"
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["9.100.2", "9.35.9"]
+requires = ["9.100.2", "9.35.9", "22.9.24"]
 reqs = ["21110.1"]
 capabilities = ["21.110.1"]
 interfaces = []
@@ -128055,7 +128116,7 @@ title = "Prove the human intents path end to end: producer, transport, consumer"
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["9.100.2"]
+requires = ["9.100.2", "22.9.24"]
 reqs = ["21097.1"]
 capabilities = ["21.97.1"]
 interfaces = []
@@ -128120,7 +128181,7 @@ title = "Prove the native reads path end to end: producer, transport, consumer"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.24"]
 reqs = ["21095.1"]
 capabilities = ["21.95.1"]
 interfaces = []
@@ -128221,7 +128282,7 @@ title = "Prove the agent boundary conformance path end to end: producer, transpo
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.7.2", "18.1502.1"]
+requires = ["22.7.2", "18.1502.1", "22.9.24"]
 reqs = ["21092.1"]
 capabilities = ["21.92.1"]
 interfaces = []
@@ -128451,7 +128512,7 @@ title = "Prove the human kms path end to end: producer, transport, consumer"
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["9.100.2", "9.35.9"]
+requires = ["9.100.2", "9.35.9", "22.9.24"]
 reqs = ["21063.1"]
 capabilities = ["21.63.1"]
 interfaces = []
@@ -128479,6 +128540,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 do_7 = "Finding 21.63.1.1: the build compiles the layerx-human-kms tests, which name retired layerx_intents::canonical items until 9.35.9 ports them; this task requires 9.35.9 and does not touch the KMS tests."
+do_8 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fails inside layerx-agent-api's build script until 22.9.24 restores the faucet.claim operation block of the agent API contract; this task requires 22.9.24 and continues from its last candidate, which is not at fault."
 
 [task.21.62.1]
 title = "Prove the crypto path end to end: producer, transport, consumer"
@@ -128619,7 +128681,7 @@ title = "Prove the sdk path end to end: producer, transport, consumer"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.24"]
 reqs = ["21045.1"]
 capabilities = ["21.45.1"]
 interfaces = []
@@ -129032,7 +129094,7 @@ title = "Issue #1488: Decode chain status events with the registry's 1-based lif
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.24"]
 reqs = ["8356.1"]
 capabilities = ["18.1488.1"]
 interfaces = []
@@ -129337,7 +129399,7 @@ title = "Delete the hosted gateway's unreachable kernel activity submission path
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["9.35.13"]
+requires = ["9.35.13", "22.9.24"]
 reqs = ["8326.1"]
 capabilities = ["8.101.4"]
 interfaces = []
@@ -129722,7 +129784,7 @@ title = "Port the human service lifecycle evidence, owner verification and their
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["9.35.10", "10.21.8", "10.1.7", "18.1485.1", "9.100.2"]
+requires = ["9.35.10", "10.21.8", "10.1.7", "18.1485.1", "9.100.2", "22.9.24"]
 reqs = ["8314.1"]
 capabilities = ["9.35.11"]
 interfaces = []
@@ -129789,7 +129851,7 @@ title = "Port the KMS provider and signing tests off the kernel activity envelop
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["10.21.8", "9.35.12", "9.100.2"]
+requires = ["10.21.8", "9.35.12", "9.100.2", "22.9.24"]
 reqs = ["8312.1"]
 capabilities = ["9.35.9"]
 interfaces = []
@@ -129821,6 +129883,7 @@ do_8 = "Finding 9.35.9.3: port the four restart fixtures of services/human/crate
 do_9 = "Finding 9.35.9.4: in tests/provider/native_setup.rs the corruption loop of native_setup_refuses_wrong_accounts_limits_and_payload_shapes runs for budget version 1 only and drops the three version-2 cases (byte 211 flip, bytes 243.. fill, byte 66 flip under version 2); setup_call refuses a budget payload whose length is not 211 with an error naming the version (no ledger call form carries version 2) and the test asserts that refusal once for native_budget(2); the trailing-byte case stays and keeps appending the extra byte as trailing calldata so bind_call refuses it. The creation list of native_creation_disclosures_sign_through_real_kms_before_and_after_restart carries the version-1 budget only. Continue from attempt 5."
 do_10 = "Finding 9.35.9.5: owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart and session_registration_and_replacement_disclosures_survive_provider_restart follow do_1, not do_8: each signs the ledger payment call canonical_send returns, binds it with bind_call through construct_signing_call, and sets disclosure.authority_grant (:1657) or disclosure.session_grant (:1772) on the bound disclosure as main does; neither grant payload goes through setup_call. If native_creation_disclosures_sign_through_real_kms_before_and_after_restart still answers MalformedPayload, bind each target operation separately with the activity type in the error message, record the refused operation in a finding and keep the operations that bind."
 do_11 = "Finding 9.35.9.6: (1) in tests/provider/native_setup.rs bind every native creation fixture with layerx_crypto::disclosure::call::bind_call before signing; a fixture the binder refuses (Governance ordinal 1 has no recordLifecycle form, as the test already notes) leaves the signing set and is recorded in qualification.kvx as a finding naming the payload shape, never asserted; (2) the corruption loop of native_setup_refuses_wrong_accounts_limits_and_payload_shapes asserts bind_call refusals only for corruptions decode_method checks (call.rs:453-470: another target, another selector, payload[0] not 0x71, a (payload[1], payload[2], payload[3], length) tuple outside (1,0,2,68), (1,2,1,8..=1024), (3,0,3,70), (3,0,5,86), a length outside 4..=1024) and asserts a corrupted recovery or budget body at the provider: host.call answers result byte 1, and if the provider accepts it the case becomes a finding, not an assertion (do_5); (3) in tests/provider.rs owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart and session_registration_and_replacement_disclosures_survive_provider_restart check each stage of canonical_send with its own message (SendDebit accounts parse as AccountId, authorization_message, the DisclosedCall build, bind_call of the resulting ledger payment call) so the failing stage is named, and the ledger payment call takes the form decode_send accepts. Continue from attempt 6."
+do_12 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fails inside layerx-agent-api's build script until 22.9.24 restores the faucet.claim operation block of the agent API contract; this task requires 22.9.24 and continues from its last candidate, which is not at fault."
 
 [task.9.24.8]
 title = "Drop the grant vectors from the wallet capability vectors producer and its two grant tests"
@@ -129858,7 +129921,7 @@ title = "Remove the kernel activity codec items from layerx-crypto once the kern
 status = "blocked"
 mode = "BUILD"
 wave = 40
-requires = ["9.35.1", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5"]
+requires = ["9.35.1", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5", "22.9.24"]
 reqs = ["9341.1"]
 capabilities = ["9.35.7"]
 interfaces = []
@@ -130106,7 +130169,7 @@ title = "Issue #1434: Persist the accepted Move money submission before the rece
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["18.1433.1", "10.1.8", "10.21.8", "9.100.2"]
+requires = ["18.1433.1", "10.1.8", "10.21.8", "9.100.2", "22.9.24"]
 reqs = ["8298.1"]
 capabilities = ["18.1434.1"]
 interfaces = []
@@ -130205,7 +130268,7 @@ title = "Port the KMS tests and the identity provider off ambient clock reads"
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["9.27.9", "10.21.8", "9.35.9", "9.100.2"]
+requires = ["9.27.9", "10.21.8", "9.35.9", "9.100.2", "22.9.24"]
 reqs = ["10069.1"]
 capabilities = ["10.1.10"]
 interfaces = []
@@ -130238,7 +130301,7 @@ title = "Port the human service integration tests off ambient clock reads"
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["10.1.8", "9.27.9", "10.21.8", "9.35.10", "9.35.11", "9.100.2"]
+requires = ["10.1.8", "9.27.9", "10.21.8", "9.35.10", "9.35.11", "9.100.2", "22.9.24"]
 reqs = ["10068.1"]
 capabilities = ["10.1.9"]
 interfaces = []
@@ -130269,7 +130332,7 @@ title = "Give the human test support a deterministic clock and port the service 
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["9.27.9", "10.21.8", "9.35.10", "9.35.11", "9.100.2"]
+requires = ["9.27.9", "10.21.8", "9.35.10", "9.35.11", "9.100.2", "22.9.24"]
 reqs = ["10067.1"]
 capabilities = ["10.1.8"]
 interfaces = []
@@ -163301,7 +163364,7 @@ title = "Gate domain 9 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 42
-requires = ["9.0.1", "9.0.2", "9.0.3", "9.0.4", "9.1.4", "9.1.5", "9.11.3", "9.12.6", "9.13.3", "9.15.3", "9.18.2", "9.18.3", "9.18.5", "9.18.6", "9.18.7", "9.19.1", "9.24.6", "9.24.7", "9.26.3", "9.27.3", "9.27.4", "9.27.5", "9.29.1", "9.30.1", "9.33.9", "9.97.1", "9.97.2", "9.97.3", "9.97.4", "9.97.5", "18.1297.1", "9.25.16", "13.8.3", "21.9.1", "21.29.1", "21.42.1", "21.45.1", "21.51.1", "21.62.1", "21.70.1", "21.80.1", "21.92.1", "21.93.1", "21.94.1", "21.95.1", "21.96.1", "21.128.1", "21.156.1", "21.160.1", "21.161.1"]
+requires = ["9.0.1", "9.0.2", "9.0.3", "9.0.4", "9.1.4", "9.1.5", "9.11.3", "9.12.6", "9.13.3", "9.15.3", "9.18.2", "9.18.3", "9.18.5", "9.18.6", "9.18.7", "9.19.1", "9.24.6", "9.24.7", "9.26.3", "9.27.3", "9.27.4", "9.27.5", "9.29.1", "9.30.1", "9.33.9", "9.97.1", "9.97.2", "9.97.3", "9.97.4", "9.97.5", "18.1297.1", "9.25.16", "13.8.3", "21.9.1", "21.29.1", "21.42.1", "21.45.1", "21.51.1", "21.62.1", "21.70.1", "21.80.1", "21.92.1", "21.93.1", "21.94.1", "21.95.1", "21.96.1", "21.128.1", "21.156.1", "21.160.1", "21.161.1", "22.9.24"]
 reqs = ["9999.1"]
 capabilities = ["9.0.9"]
 interfaces = []
@@ -166412,7 +166475,7 @@ title = "Delete the LNI framing, handshake, schema and transport module"
 status = "blocked"
 mode = "BUILD"
 wave = 36
-requires = ["9.25.1", "9.24.4", "9.18.5", "9.13.1", "9.18.1", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.12.3", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "13.8.3"]
+requires = ["9.25.1", "9.24.4", "9.18.5", "9.13.1", "9.18.1", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.12.3", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "13.8.3", "22.9.24"]
 reqs = ["9277.1"]
 capabilities = ["9.24.7"]
 interfaces = ["interface.9.rs-client-lni-abi-abiversion-j44", "interface.9.rs-client-lni-abi-abiincompatible-j44", "interface.9.rs-client-lni-abi-fn-j44", "interface.9.rs-client-lni-abi-functions-j44", "interface.9.rs-client-lni-abi-handle-j44", "interface.9.rs-client-lni-abi-abiopenerror-j44", "interface.9.rs-client-lni-capabilities-capabilities", "interface.9.rs-client-lni-framing-decode-frame", "interface.9.rs-client-lni-framing-read-frame", "interface.9.rs-client-lni-framing-write-frame", "interface.9.rs-client-lni-framing-length-prefix-bytes-j44", "interface.9.rs-client-lni-framing-decodedframe-j44", "interface.9.rs-client-lni-handshake-noderole", "interface.9.rs-client-lni-handshake-nodeinfo", "interface.9.rs-client-lni-handshake-handshakeconfig", "interface.9.rs-client-lni-handshake-handshake", "interface.9.rs-client-lni-handshake-handshakeerror", "interface.9.rs-client-lni-handshake-perform", "interface.9.rs-client-lni-handshake-validate", "interface.9.rs-client-lni-handshake-encode-node-info", "interface.9.rs-client-lni-handshake-decode-node-info", "interface.9.rs-client-lni-handshake-sequencerkeychange-j44", "interface.9.rs-client-lni-handshake-perform-with-schema-j44", "interface.9.rs-client-lni-handshake-validate-with-schema-j44", "interface.9.rs-client-lni-refusal-corerefusal", "interface.9.rs-client-lni-refusal-decode-core-refusal", "interface.9.rs-client-lni-report-capabilityreport", "interface.9.rs-client-lni-report-capability-report", "interface.9.rs-client-lni-report-capabilitystatus-j44", "interface.9.rs-client-lni-report-capability-report-with-schema-j44", "interface.9.rs-client-lni-schema-version", "interface.9.rs-client-lni-schema-capability", "interface.9.rs-client-lni-schema-envelope", "interface.9.rs-client-lni-schema-schemaerror", "interface.9.rs-client-lni-schema-encode-envelope", "interface.9.rs-client-lni-schema-decode-envelope", "interface.9.rs-client-lni-schema-lni-v1-source-j44", "interface.9.rs-client-lni-schema-messagekind-j44", "interface.9.rs-client-lni-schema-messagedescriptor-j44", "interface.9.rs-client-lni-schema-schema-j44", "interface.9.rs-client-lni-schema-fn-j44", "interface.9.rs-client-lni-schema-fn-2-j44", "interface.9.rs-client-lni-schema-fn-2-3-j44", "interface.9.rs-client-lni-schema-goldenvector-j44", "interface.9.rs-client-lni-schema-fn-2-3-4-j44", "interface.9.rs-client-lni-schema-encode-envelope-with-schema-j44", "interface.9.rs-client-lni-schema-decode-envelope-with-schema-j44", "interface.9.rs-client-lni-transport-frameviolation", "interface.9.rs-client-lni-transport-transporterror", "interface.9.rs-client-lni-transport-limits", "interface.9.rs-client-lni-transport-connectiongate", "interface.9.rs-client-lni-transport-connectionpermit", "interface.9.rs-client-lni-transport-frametransport", "interface.9.rs-client-lni-transport-uds", "interface.9.rs-client-lni-transport-mutualtlsconfig", "interface.9.rs-client-lni-transport-tls", "interface.9.rs-client-lni-transport-trafficclass-j44", "interface.9.rs-client-lni-transport-outboundframe-j44", "interface.9.rs-client-lni-transport-multiplexer-j44"]
@@ -166585,7 +166648,7 @@ title = "Delete the checkpoint settlement document types from layerx-types"
 status = "pending"
 mode = "BUILD"
 wave = 42
-requires = ["9.27.4", "9.29.1", "9.12.6", "9.25.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "11.26.4", "18.1304.1", "8.4.5", "9.25.16", "13.8.3"]
+requires = ["9.27.4", "9.29.1", "9.12.6", "9.25.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "11.26.4", "18.1304.1", "8.4.5", "9.25.16", "13.8.3", "22.9.24"]
 reqs = ["9311.1"]
 capabilities = ["9.26.3"]
 interfaces = ["interface.9.rs-types-settlement-checkpoint-settlement-path", "interface.9.rs-types-settlement-declaredcheckpointsettlement", "interface.9.rs-types-settlement-settlementerror", "interface.9.rs-types-settlement-checkpoint-settlement-schema-j44", "interface.9.rs-types-settlement-declaredguarantor-j44", "interface.9.rs-types-settlement-declaredsettlementdomain-j44", "interface.9.rs-types-settlement-declaredfinalitypolicy-j44", "interface.9.rs-types-declaredcheckpointsettlement-parse-j70", "interface.9.rs-types-declaredcheckpointsettlement-protocol-version-j70", "interface.9.rs-types-declaredcheckpointsettlement-checkpoint-certificate-domain-j70", "interface.9.rs-types-declaredcheckpointsettlement-guarantor-attestation-domain-j70", "interface.9.rs-types-declaredcheckpointsettlement-header-encoding-prefix-j70", "interface.9.rs-types-declaredcheckpointsettlement-header-length-j70", "interface.9.rs-types-declaredcheckpointsettlement-finality-policy-j70", "interface.9.rs-types-declaredcheckpointsettlement-domain-j70"]
@@ -166715,7 +166778,7 @@ title = "Delete the guarantor certificate verifier and the embedded settlement d
 status = "pending"
 mode = "BUILD"
 wave = 42
-requires = ["9.27.3", "9.27.5", "9.28.2", "9.29.1", "9.5.4", "9.5.5", "9.6.1", "9.4.1", "9.1.4", "9.12.6", "9.25.2", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "9.27.8", "8.1.6", "18.1304.1", "9.25.16", "13.8.3"]
+requires = ["9.27.3", "9.27.5", "9.28.2", "9.29.1", "9.5.4", "9.5.5", "9.6.1", "9.4.1", "9.1.4", "9.12.6", "9.25.2", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "9.27.8", "8.1.6", "18.1304.1", "9.25.16", "13.8.3", "22.9.24"]
 reqs = ["9310.1"]
 capabilities = ["9.27.4"]
 interfaces = ["interface.9.rs-proof-checkpoint-checkpoint", "interface.9.rs-proof-checkpoint-attestation", "interface.9.rs-proof-checkpoint-guarantorkey", "interface.9.rs-proof-checkpoint-settlementdomain", "interface.9.rs-proof-checkpoint-certificate", "interface.9.rs-proof-checkpoint-thresholdreport", "interface.9.rs-proof-checkpoint-checkpointerror", "interface.9.rs-proof-checkpoint-checkpoint-id", "interface.9.rs-proof-checkpoint-verify-certificate", "interface.9.rs-proof-checkpoint-verify-declared-certificate", "interface.9.rs-proof-settlement-declareddomain", "interface.9.rs-proof-settlement-declared", "interface.9.rs-proof-settlement-maximum-attestation-delay-ms", "interface.9.rs-proof-settlement-declared-domain", "interface.9.rs-proof-settlement-declared-checkpoint-settlement-j44", "interface.9.rs-proof-evidence-evidence-j44", "interface.9.rs-proof-checkpoint-new-j70", "interface.9.rs-proof-checkpoint-header-bytes-j70", "interface.9.rs-proof-checkpoint-validity-proof-j70", "interface.9.rs-proof-attestation-new-j70", "interface.9.rs-proof-attestation-guarantor-id-j70", "interface.9.rs-proof-attestation-signature-j70", "interface.9.rs-proof-attestation-signer-j70", "interface.9.rs-proof-attestation-attested-at-ms-j70", "interface.9.rs-proof-attestation-canonical-statement-j70", "interface.9.rs-proof-settlementdomain-new-j70", "interface.9.rs-proof-settlementdomain-paxeer-chain-id-j70", "interface.9.rs-proof-settlementdomain-settlement-contract-j70", "interface.9.rs-proof-guarantorkey-new-j70", "interface.9.rs-proof-guarantorkey-guarantor-id-j70", "interface.9.rs-proof-guarantorkey-public-key-j70", "interface.9.rs-proof-certificate-new-j70", "interface.9.rs-proof-certificate-attestations-j70", "interface.9.rs-proof-certificate-threshold-j70", "interface.9.rs-proof-certificate-settlement-reference-j70", "interface.9.rs-proof-thresholdreport-level-j70", "interface.9.rs-proof-thresholdreport-evidence-j70", "interface.9.rs-proof-thresholdreport-protocol-version-j70", "interface.9.rs-proof-thresholdreport-network-id-j70", "interface.9.rs-proof-thresholdreport-batch-number-j70", "interface.9.rs-proof-thresholdreport-first-sequence-j70", "interface.9.rs-proof-thresholdreport-last-sequence-j70", "interface.9.rs-proof-thresholdreport-data-availability-root-j70", "interface.9.rs-proof-thresholdreport-record-roots-j70", "interface.9.rs-proof-thresholdreport-resulting-state-root-j70", "interface.9.rs-proof-evidence-checkpoint-id-j70", "interface.9.rs-proof-evidence-settlement-reference-j70", "interface.9.rs-proof-declareddomain-network-id-j70"]
@@ -166950,7 +167013,7 @@ title = "Retire the kernel activity envelope and signing preimage from layerx-wi
 status = "blocked"
 mode = "BUILD"
 wave = 41
-requires = ["9.30.1", "9.27.3", "9.27.5", "9.27.6", "9.1.5", "9.2.1", "9.2.2", "9.2.3", "9.2.4", "9.4.1", "9.5.5", "9.5.6", "9.5.7", "9.9.2", "9.9.3", "9.10.1", "9.10.2", "9.18.1", "9.18.2", "9.25.1", "9.25.2", "9.35.1", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "12.18.2", "13.4.6", "13.6.5", "13.8.2", "13.30.2", "18.1304.1", "8.4.5", "9.25.16", "13.8.3", "9.35.7", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5"]
+requires = ["9.30.1", "9.27.3", "9.27.5", "9.27.6", "9.1.5", "9.2.1", "9.2.2", "9.2.3", "9.2.4", "9.4.1", "9.5.5", "9.5.6", "9.5.7", "9.9.2", "9.9.3", "9.10.1", "9.10.2", "9.18.1", "9.18.2", "9.25.1", "9.25.2", "9.35.1", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "12.18.2", "13.4.6", "13.6.5", "13.8.2", "13.30.2", "18.1304.1", "8.4.5", "9.25.16", "13.8.3", "9.35.7", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5", "22.9.24"]
 reqs = ["9312.1", "9312.2", "9312.3"]
 capabilities = ["9.29.1"]
 interfaces = ["interface.9.rs-wire-activity-timestampbound", "interface.9.rs-wire-activity-activity", "interface.9.rs-wire-activity-decode-signed", "interface.9.rs-wire-activity-decode-unsigned", "interface.9.rs-wire-activity-encode-unsigned", "interface.9.rs-wire-activity-encode-unsigned-envelope", "interface.9.rs-wire-activity-encode-signed", "interface.9.rs-wire-activity-encode-signed-envelope", "interface.9.rs-wire-activity-signing-bytes", "interface.9.rs-wire-activity-signingbytes-j44", "interface.9.rs-wire-sign-signingpreimage-j44", "interface.9.rs-wire-hash-canonical-activity-j44", "interface.9.rs-wire-hash-canonical-payload-j44", "interface.9.rs-wire-hash-activity-id", "interface.9.rs-wire-hash-payload-hash", "interface.9.rs-wire-sign-preimage", "interface.9.rs-wire-sign-preimage-unsigned", "interface.9.rs-wire-activity-protocol-version-j70", "interface.9.rs-wire-activity-network-id-j70", "interface.9.rs-wire-activity-activity-type-j70", "interface.9.rs-wire-activity-actor-did-j70", "interface.9.rs-wire-activity-authority-j70", "interface.9.rs-wire-activity-account-sequence-j70", "interface.9.rs-wire-activity-timestamp-bound-j70", "interface.9.rs-wire-activity-idempotency-key-j70", "interface.9.rs-wire-activity-fee-limit-j70", "interface.9.rs-wire-activity-payload-j70", "interface.9.rs-wire-activity-payload-hash-j70", "interface.9.rs-wire-activity-signature-j70", "interface.9.rs-wire-signingpreimage-as-bytes-j70"]
@@ -168780,7 +168843,7 @@ title = "Gate domain 10 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 35
-requires = ["10.0.1", "10.0.2", "10.0.3", "10.0.4", "10.1.2", "10.1.3", "10.1.4", "10.10.1", "10.10.2", "10.14.1", "10.16.2", "10.21.4", "10.21.5", "10.21.6", "10.24.3", "10.25.4", "10.97.1", "18.1119.1", "10.16.4", "9.25.16", "10.2.10", "10.2.11", "21.52.1", "21.63.1", "21.97.1", "21.109.1", "21.110.1", "21.111.1"]
+requires = ["10.0.1", "10.0.2", "10.0.3", "10.0.4", "10.1.2", "10.1.3", "10.1.4", "10.10.1", "10.10.2", "10.14.1", "10.16.2", "10.21.4", "10.21.5", "10.21.6", "10.24.3", "10.25.4", "10.97.1", "18.1119.1", "10.16.4", "9.25.16", "10.2.10", "10.2.11", "21.52.1", "21.63.1", "21.97.1", "21.109.1", "21.110.1", "21.111.1", "22.9.24"]
 reqs = ["10999.1"]
 capabilities = ["10.0.9"]
 interfaces = []
@@ -168906,7 +168969,7 @@ title = "Run the retired-surface gate from the boundary check binary"
 status = "pending"
 mode = "BUILD"
 wave = 34
-requires = ["10.1.2", "10.1.3", "10.10.1", "10.10.2", "10.16.2", "10.14.1", "18.1119.1", "9.25.16", "10.1.5", "10.1.6", "10.1.7", "10.1.8", "10.1.9", "10.1.10"]
+requires = ["10.1.2", "10.1.3", "10.10.1", "10.10.2", "10.16.2", "10.14.1", "18.1119.1", "9.25.16", "10.1.5", "10.1.6", "10.1.7", "10.1.8", "10.1.9", "10.1.10", "22.9.24"]
 reqs = ["10063.1"]
 capabilities = ["10.1.4"]
 interfaces = []
@@ -170834,7 +170897,7 @@ title = "Prove the human service production startup against the merged node"
 status = "pending"
 mode = "BUILD"
 wave = 45
-requires = ["10.20.3", "5.50.7", "5.98.4", "9.25.16", "13.8.3", "10.99.2", "10.1.9", "10.21.8", "9.100.2"]
+requires = ["10.20.3", "5.50.7", "5.98.4", "9.25.16", "13.8.3", "10.99.2", "10.1.9", "10.21.8", "9.100.2", "22.9.24"]
 reqs = ["10034.1", "10034.2", "10034.3"]
 capabilities = ["10.20.6"]
 interfaces = ["interface.10.rs-human-service-server-production-components-production-components-config", "interface.10.rs-human-service-server-production-components-production-components-config-from-environment", "interface.10.env-layerx-human-onboarding-sponsor-principal", "interface.10.env-layerx-human-binding-statement-ttl-seconds", "interface.10.env-layerx-human-paxeer-rpc-url", "interface.10.env-layerx-human-paxeer-rpc-timeout-seconds", "interface.10.env-layerx-human-paxeer-trust-anchor-der", "interface.10.env-layerx-human-paxeer-chain-id", "interface.10.env-layerx-human-exit-required-confirmations", "interface.10.env-layerx-human-exit-poll-cadence-seconds", "interface.10.env-layerx-human-exit-delayed-after-polls", "interface.10.rs-human-service-server-production-components-production-components", "interface.10.rs-human-service-server-production-components-production-components-open", "interface.10.env-layerx-human-protocol-version", "interface.10.env-layerx-human-paxeer-minimum-agreement", "interface.10.env-layerx-human-paxeer-rpc-urls", "interface.10.rs-human-service-journeys-intent-submit-start-withdrawal-intent", "interface.10.fmt-human-recipient-packet", "interface.10.env-layerx-human-recipient-socket", "interface.10.env-layerx-human-recipient-caller-uid", "interface.10.env-layerx-human-recipient-caller-gid", "interface.10.env-layerx-human-recipient-deadline-seconds"]
@@ -184905,11 +184968,11 @@ do_1 = "precompiles/layerxpay/execute.go:33-60 builds the kernel activity with I
 do_2 = "Add TestPaymentReferenceStaysRefusedAfterReopen to modules/lxphost/idempotency_restart_test.go: pay once, commit, close the store, reopen, repeat with the same reference and assert the duplicate refusal; also assert a fresh reference after reopen succeeds."
 do_3 = "precompiles/layerxpay/proof_layerxledger_0x101a_test.go (task 21.11.1) stays untouched; the verify runs its restart leg."
 symbols = ["IdempotencyKey"]
-touches = ["modules/lxphost/ctx.go", "modules/lxphost/host.go", "modules/lxphost/idempotency_restart_test.go", "precompiles/layerxpay/execute.go"]
+touches = ["modules/lxphost/ctx.go", "modules/lxphost/host.go", "modules/lxphost/idempotency_restart_test.go"]
 tests = ["modules/lxphost/idempotency_restart_test.go"]
 planned_paths = ["modules/lxphost/idempotency_restart_test.go"]
 build_cmd = "CGO_ENABLED=1 go build ./modules/lxphost/ ./precompiles/layerxpay/"
-verify_cmd = "CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestPaymentReferenceStaysRefusedAfterReopen$' && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxpay/ -run 'Proof.*0x101a|ProofLayerxledger'"
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestPaymentReferenceStaysRefusedAfterReopen$' && CGO_ENABLED=1 go build ./precompiles/layerxpay/"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-ledger-auth-pay"
@@ -184921,6 +184984,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 22.2.7.1: precompiles/layerxpay/execute.go is observed, not changed (do_1 describes the existing key construction), so it is no longer in touches; the verify runs TestPaymentReferenceStaysRefusedAfterReopen and compiles precompiles/layerxpay, and the 0x101a proof leg belongs to 21.11.1 once it exists. Continue from attempt 2."
 
 [task.20.3.5]
 title = "Resolve chain operators through the EVM association for bond, fund and refund"
@@ -185042,6 +185106,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 22.2.4.1: update revoke_test.go:109-111 and proof_layerxauth_keeper_test.go:218-219 to assert the Cosmos authorization is retained after RevokeGrant with RevocationEpoch set to the revocation sequence (and that Accept refuses it with ErrAuthRevoked), instead of asserting nil; both files are under the touches. The verify runs the ante package and the keeper's revoke and proof tests; the capability replay ordering failure is task 22.2.5. Continue from attempt 2."
+do_4 = "Finding 22.2.4.2: in RevokeGrant (revoke.go:12) answer a repeat of an already-processed revoke (same grant id and idempotency key) with ErrIdempotentReplay before the grant's scope or actor validation runs, and leave the stores untouched on the repeat; revoke_test.go:132 keeps expecting ErrIdempotentReplay and an unchanged state for the capability and session cases."
 
 [task.22.13.6]
 title = "Select the storage-retirement programs registration at genesis"
@@ -206942,6 +207007,14 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.22.9.24.1]
+feature = "22"
+req = "22024.1"
+scenario = "Given v1.kvx with the faucet.claim operation block restored at major 2, when cargo test --locked builds layerx-agent-api, then compatibility_gate passes and the generator check reports no drift"
+contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api && cargo run --locked --manifest-path sdk/platform/generators/Cargo.toml -- --check"
+test = "services/agent/crates/layerx-agent-api/build.rs"
+qualification = "UNRUN"
+
 [acceptance.22.9.23.1]
 feature = "22"
 req = "22023.1"
@@ -217698,7 +217771,7 @@ interfaces = []
 do_1 = "spec/layerx-merge/programme/sweeps/summary.kvx consolidates the 41 first-pass reports (task 22.17.2); the second-pass reports go-modules-2.kvx and go-launchpad-modules-2.kvx must be folded in. Run python3 spec/layerx-merge/programme/sweeps_summary.py spec/layerx-merge, confirm the regenerated summary counts 43 reports and names every failing target of the two new reports once, and commit the regenerated summary.kvx; extend spec/layerx-merge/programme/tests/test_sweeps_summary.py with a case that a second-pass report whose targets were not_run in the first pass replaces those not_run entries rather than duplicating them, and make sweeps_summary.py do so if it does not."
 do_2 = "The verify regenerates the summary and asserts the committed file is unchanged, so the committed summary is current at HEAD."
 symbols = []
-touches = ["spec/layerx-merge/programme/sweeps_summary.py", "spec/layerx-merge/programme/tests/test_sweeps_summary.py", "spec/layerx-merge/programme/sweeps/summary.kvx"]
+touches = ["spec/layerx-merge/programme/sweeps_summary.py", "spec/layerx-merge/programme/tests/test_sweeps_summary.py", "spec/layerx-merge/programme/sweeps/summary.kvx", "spec/layerx-merge/programme/sweeps/go-modules-2.kvx"]
 tests = ["spec/layerx-merge/programme/tests/test_sweeps_summary.py"]
 planned_paths = []
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/sweeps_summary.py"
@@ -217714,6 +217787,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 22.17.4.1: rewrite every decimal value in spec/layerx-merge/programme/sweeps/*.kvx as an integer of whole seconds (elapsed_seconds = 600 at go-modules-2.kvx:18 and any other hit of grep -nE '^[a-z_]+ = [0-9]+[.][0-9]+' over the sweeps); then the summary regenerates and git diff --quiet holds."
 
 [task.22.16.7]
 title = "Repair the Python compile error, the import-time argv scripts and the duplicate test basenames"
@@ -217777,6 +217851,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Finding 22.10.7.1: the custody-binding test still reads PAXEER_X_HUMAN_EVIDENCE_DIR at test_material.py:76; carry out do_1 for it (build the evidence directory, deployment, module registry, genesis directory and legacy deployment under the temporary directory from the committed material and call the same resolution code), so no required_path call remains in the file."
 do_6 = "The bootstrap test's assemble_policy call (test_material.py:53-56) names the output 'output.json', which material.py:271 refuses as a non-canonical policy filename before it reads any input; name the output policy.json in the call and in the following assertFalse so the missing-deployment FileNotFoundError the test asserts is the path exercised. Continue from attempt 1; the verify runs the whole file with the five variables unset."
+do_7 = "Finding 22.10.7.2: build the evidence directory, deployment, module registry, genesis directory and legacy deployment inside the test's temporary directory with the producer functions of material.py (the same functions the hosted bring-up runs), then point the test at those paths instead of reading the five PAXEER_X_HUMAN_* variables; required_path (:60-76) is reached only for an input that was neither built nor supplied. The verify keeps the five variables unset and the whole file passes."
 
 [task.22.9.11]
 title = "Give the Python market journal a rung checkpoint and commit-finality finalize"
