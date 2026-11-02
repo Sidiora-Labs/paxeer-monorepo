@@ -21,7 +21,7 @@ import {
   toHex,
   type Hex,
 } from 'viem';
-import { WebDataView } from './WebDataView';
+import { WebDataView, buildWebDataRequest } from './WebDataView';
 import {
   GRANT_LOG_BATCH,
   GRANT_LOG_WINDOW,
@@ -843,3 +843,12 @@ describe('WebDataView', () => {
     expect(grants.methods).not.toContain('eth_getLogs');
   });
 });
+
+function web_data_view_refuses_nondecimal_callback_gas_before_building() {
+  const module = webData(chain);
+  const expected = module.search('network', 200000n, 1n);
+  expect(buildWebDataRequest(module, 'search', 'network', '200000', '', 1n)).toEqual(expected);
+  for (const gas of ['-1', '0x10', '1e3', '18446744073709551616'])
+    expect(() => buildWebDataRequest(module, 'search', 'network', gas, '', 1n)).toThrow();
+}
+test(web_data_view_refuses_nondecimal_callback_gas_before_building);
