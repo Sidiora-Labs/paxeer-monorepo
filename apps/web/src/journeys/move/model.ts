@@ -1,3 +1,4 @@
+import { receiptBacked as activityReceiptBacked } from "../activity/model.ts";
 import { copyEntry } from "../../../copy/runtime.ts";
 import { formatCopy } from "../../../copy/format.ts";
 import {
@@ -37,11 +38,6 @@ const REFUSAL_CODES = [
   "refused-by-capability",
   "refused-by-protocol",
   "refused-by-limit",
-] as const;
-
-const RECEIPT_VERIFICATIONS = [
-  "receipt-verified",
-  "checkpoint-finalised",
 ] as const;
 
 function copyMessageOr(key: string, fallbackKey: string): string {
@@ -384,10 +380,7 @@ export async function commitMove(
 }
 
 export function verifiedOutcomeEvidence(item: EvidenceRef): boolean {
-  if (item.class === "layerx-receipt") {
-    return (RECEIPT_VERIFICATIONS as readonly string[]).includes(item.verification);
-  }
-  return false;
+  return activityReceiptBacked(item);
 }
 
 export function receiptBacked(journey: Journey): boolean {
