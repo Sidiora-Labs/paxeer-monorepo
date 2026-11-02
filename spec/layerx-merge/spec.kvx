@@ -126594,7 +126594,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1501.1]
 title = "Issue #1501: Reconcile ledger asset metadata with the closed OpenRPC schema and the integration fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
@@ -126835,7 +126835,7 @@ do_4 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fail
 
 [task.22.11.5]
 title = "Repair the x402 profile fixture, the bridge relayer quorum fixture and the interop relay replacement test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
@@ -126866,7 +126866,7 @@ do_4 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fail
 
 [task.22.11.4]
 title = "Regenerate the mirror, UCP and Visa tap receipt fixtures against the current verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
