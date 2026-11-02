@@ -99986,7 +99986,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.31.1]
 title = "Retire guarantor attestation signing and the secp256k1 signer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "1.36.3", "5.97.1", "16.32.1", "16.32.2", "16.32.3", "16.32.4", "16.32.5", "16.32.8", "16.32.11", "16.33.1", "16.33.2", "16.33.6", "6.96.5"]
@@ -100019,7 +100019,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.31.2]
 title = "Retire the guarantor set and bond state in src/guarantor/lxp_bond_state.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.2", "16.32.4", "16.32.6", "16.32.11", "16.33.1", "16.36.2", "6.96.5"]
@@ -100052,7 +100052,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.31.3]
 title = "Retire guarantor batch processing in src/guarantor/lxp_guarantor.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.1", "16.33.6", "6.96.5"]
@@ -100118,7 +100118,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.31.5]
 title = "Retire guarantor equivocation evidence in src/guarantor/lxp_equivocation.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.1", "16.32.2", "6.96.5"]
