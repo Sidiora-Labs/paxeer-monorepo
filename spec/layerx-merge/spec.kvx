@@ -6927,6 +6927,18 @@ value = "21.92.1 requires 18.1502.1 (the node served the committed nonce for pen
 basis = "Attempt evidence of 21.92.1 a3/a4, 21.142.1 a4, 22.10.7 a1, 22.8.10 a1, 22.16.7 a1, 22.16.5 a5 at bases 5efa30a4c and 5e4cc2862; issues #1499 to #1502; qualification.kvx against spec/layerx-merge/dispositions/*.kvx."
 affects = ["21.92.1", "18.1502.1", "21.142.1", "22.12.5", "22.10.7", "22.8.10", "22.16.9", "22.16.7", "22.16.5", "18.1499.1", "18.1500.1", "18.1501.1", "22.0.1", "22.1.10", "22.2.8", "22.5.8", "22.6.9", "22.8.13", "22.8.14", "22.8.15", "22.9.19", "22.9.20", "22.9.21", "22.9.22", "22.10.8", "22.10.9", "22.10.10", "22.10.11", "22.11.6", "22.12.6", "22.13.11", "22.14.5", "22.15.2", "22.16.10", "22.17.5", "22.18.12", "22.18.13", "22.18.14", "22.19.2", "22.20.1", "22.21.1", "22.22.1"]
 
+[decision.2303]
+title = "Python SDK hash validators stand; fixtures move to 0x-prefixed hashes"
+value = "layerx_sdk/px.py decode_history_row and layerx_sdk/x402_rpc.py _transaction_bytes keep refusing transaction hashes that are not 0x-prefixed 64-hex; the six history and receipt-key tests move their fixtures to that form (22.9.23), and a validator accepts bare hex only for a documented interface that returns it, named in the commit."
+basis = "The node and gateway interfaces return 0x-prefixed hashes (rpc/tx.go, the gateway openrpc); 22.9.11 a4 evidence at base 5e4cc2862 shows the fixtures, not the validators, behind."
+affects = ["22.9.11", "22.9.23"]
+
+[decision.2304]
+title = "Published genesis fixtures pin the module-table root; new registrations join behind a gate"
+value = "tests/fixtures/public-testnet-genesis-v3 and public-testnet-genesis are the live network's genesis and are never regenerated; a module-table change that would move their root is selected behind a manifest flag (an enable flag resolved like LXP_GENESIS_MODULE_GATE_ENABLE_FLAG rows) that the fixtures do not set, and the fixture cases of tests/test_genesis_module_table.c remain the proof the published roots are unchanged."
+basis = "22.13.6 a5 at base 5e4cc2862: swapping the programs registration in the GATE_ALWAYS row verified both fixtures with LXP_ERR_ROOT_MISMATCH (-801)."
+affects = ["22.13.6"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20547,6 +20559,14 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22023]
+title = "The Python SDK history and receipt fixtures carry the hashes the validators accept"
+ac_1 = "Given the six history and receipt-key tests, when they run against px.py and x402_rpc.py, then every transaction hash is 0x-prefixed 64-hex and the tests pass without loosening the validators"
+
+[req.22022]
+title = "The bridge relayer and interop service test suites pass from their own fixtures"
+ac_1 = "Given cargo test --locked of layerx-bridge-relayer and layerx-interop-service, when the suites run with no environment inputs, then every test passes or skips with a printed reason naming the missing prerequisite"
 
 [req.8373]
 title = "Issue #1502: pending reads keep the open-versus-idle identity when they fall back to committed state"
@@ -35208,6 +35228,24 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.9.23]
+title = "Reconcile the Python SDK history and receipt-key fixtures with the hash validators"
+reqs = ["22023.1"]
+touches = ["services/agent/sdk/python/tests/test_px_commit.py", "services/agent/sdk/python/tests/test_sequencer_receipt.py", "services/agent/sdk/python/tests/test_x402_draw_sequencer.py", "services/agent/sdk/python/tests/test_x402_http_sequencer.py", "services/agent/sdk/python/layerx_sdk/px.py", "services/agent/sdk/python/layerx_sdk/x402_rpc.py"]
+tests = ["services/agent/sdk/python/tests/test_sequencer_receipt.py"]
+verification_contract = "cd services/agent/sdk/python && python3 -m pytest -q tests/test_px_commit.py tests/test_sequencer_receipt.py tests/test_x402_draw_sequencer.py tests/test_x402_http_sequencer.py"
+do_1 = "Six tests fail at HEAD: tests/test_px_commit.py::test_history_page_keeps_rows_tied_with_the_limit_row (layerx_sdk/px.py:689 decode_history_row refuses a tx_hash that is not 0x plus 64 hex), tests/test_sequencer_receipt.py::test_verify_rpc_payment_uses_receipt_keys, tests/test_x402_draw_sequencer.py::test_x402_draw_verifies_the_sequencer_receipt and ::test_grant_draws_verify_through_receipt_keys, tests/test_x402_http_sequencer.py::test_seller_verifies_a_sequencer_receipt_through_receipt_keys and ::test_buyer_verifies_sequencer_receipts_through_receipt_keys (layerx_sdk/x402_rpc.py:67 _transaction_bytes refuses a hash without 0x; the fixtures pass bare 64-hex strings)."
+symbols = []
+
+[capability.22.11.7]
+title = "Repair the bridge relayer and interop service suites: commitment refusal, solana fixtures, in-test operator inventory, signer binary and listener startup"
+reqs = ["22022.1"]
+touches = ["services/interop/crates/layerx-bridge-relayer/tests", "services/interop/crates/layerx-bridge-relayer/src", "services/interop/crates/layerx-interop-service/tests/plain_listener.rs", "services/interop/crates/layerx-interop-service/src"]
+tests = ["services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs", "services/interop/crates/layerx-bridge-relayer/tests/solana.rs", "services/interop/crates/layerx-interop-service/tests/plain_listener.rs"]
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer -p layerx-interop-service --no-fail-fast"
+do_1 = "operator_config.rs:484 invalid_commitments_are_refused_during_load: a solana commitment that is null, a number or an array must be refused with a message that starts with 'invalid type:' (the serde text); find where the configuration loader rewrites or wraps that message and keep the type refusal first."
+symbols = []
+
 [capability.22.22.1]
 title = "Disposition of qualification findings 22.91.22.1 to 22.5.5.1 (domain 22, part 1)"
 reqs = ["22001.1"]
@@ -35609,7 +35647,7 @@ title = "Repair the x402 profile fixture, the bridge relayer quorum fixture and 
 reqs = ["22012.1"]
 touches = ["services/interop/crates/layerx-x402/tests/e2e.rs", "services/interop/crates/layerx-bridge-relayer/tests/loops.rs", "services/interop/crates/layerx-interop-service/src/relay.rs", "services/interop/crates/layerx-interop-service/src"]
 tests = []
-verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 -p layerx-bridge-relayer -p layerx-interop-service --no-fail-fast"
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test e2e --no-fail-fast && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --test loops --no-fail-fast && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --lib relay"
 do_1 = "layerx-x402/tests/e2e.rs:131 fails seller creation with ProfileMismatch because the offer fixture advertises a payment profile the seller refuses: align the fixture with the published profile. layerx-bridge-relayer/tests/loops.rs:987 fails with 'mined: rpc quorum unavailable' because the test RPC peers do not reach quorum on the duplicate-submission and restart paths: make the fixture peers answer the quorum the relayer requires. layerx-interop-service relay::tests::a_replacement_under_one_key_is_refused fails with NotFound: create the fixture file or directory the test opens inside its temporary directory."
 symbols = []
 
@@ -35780,7 +35818,7 @@ title = "Preserve every key in the Litt 3-to-3 migration and open the anchor tre
 reqs = ["22011.1"]
 touches = ["storage/db_engine/litt", "storage/state_db/sc/memiavl/anchor_delete_test.go", "storage/state_db/sc/memiavl"]
 tests = []
-verification_contract = "CGO_ENABLED=1 go vet ./storage/db_engine/litt/test/ ./storage/state_db/sc/memiavl/ && CGO_ENABLED=1 go test -count=1 ./storage/db_engine/litt/test/ ./storage/state_db/sc/memiavl/"
+verification_contract = "CGO_ENABLED=1 go vet ./storage/db_engine/litt/test/ ./storage/state_db/sc/memiavl/ && CGO_ENABLED=1 go test -count=1 ./storage/db_engine/litt/test/ && CGO_ENABLED=1 go test -count=1 ./storage/state_db/sc/memiavl/ -skip 'TestWriterLoopErrors|TestSnapshotWriterErrorHandling'"
 do_1 = "storage/db_engine/litt/test/migration_test.go:138 TestMigration/3->3 fails because a key is missing after migration: trace the same-version migration path and make it copy every source key. storage/state_db/sc/memiavl/anchor_delete_test.go:39 TestApplyUpgradesDeletesAnchorTreeAndKeepsMergeTrees/0 fails applying initial stores because the fixture initialises the layerxanchor tree twice: build the initial store set once and assert the deletion against it."
 symbols = []
 
@@ -35969,7 +36007,7 @@ title = "Give the Python market journal a rung checkpoint and commit-finality fi
 reqs = ["22006.1"]
 touches = ["services/agent/sdk/python/layerx_sdk/ai_market.py", "services/agent/sdk/python/tests", "spec/layerx-merge/dispositions/d9-6.kvx"]
 tests = []
-verification_contract = "cd services/agent/sdk/python && python3 -m pytest -q tests"
+verification_contract = "cd services/agent/sdk/python && python3 -m pytest -q tests --deselect tests/test_px_commit.py::test_history_page_keeps_rows_tied_with_the_limit_row --deselect tests/test_sequencer_receipt.py::test_verify_rpc_payment_uses_receipt_keys --deselect tests/test_x402_draw_sequencer.py::test_x402_draw_verifies_the_sequencer_receipt --deselect tests/test_x402_draw_sequencer.py::test_grant_draws_verify_through_receipt_keys --deselect tests/test_x402_http_sequencer.py::test_seller_verifies_a_sequencer_receipt_through_receipt_keys --deselect tests/test_x402_http_sequencer.py::test_buyer_verifies_sequencer_receipts_through_receipt_keys"
 do_1 = "services/agent/sdk/python/layerx_sdk/ai_market.py:1381 persists a checkpoint without a rung, OperationJournal (:1529) has no finalize and refuses nonempty receipts with ProgramsReceiptVerifierUnavailable (:1610), while the Rust client finalizes against CommitFinality (services/agent/crates/layerx-client/src/ai_market.rs:146, :261). Port the Rust semantics: checkpoint persists the rung, OperationJournal.finalize resolves against the transaction receipt and commit finality, nonempty receipts are verified through the retained verifier instead of refused, and tests under services/agent/sdk/python/tests cover a committed, a reverted and a not-yet-final operation."
 symbols = ["OperationJournal"]
 
@@ -115793,7 +115831,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.12.5]
 title = "Make the wallet sdk type-check under the web app's exactOptionalPropertyTypes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -115849,6 +115887,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 22.8.11.1: sdk/integrations/next/example/.next is build output: list .next/ in sdk/integrations/next/example/.gitignore and commit none of it. The seller tests run against dist built by this verify: make services/platform/middleware/seller's source and tests agree on the ledger draw reference encoding (ledger.test.mjs:139 expects the 32-byte reference, not the ASCII bytes of the fixture string) and on the payment payload GrantPaymentAuthority.settle accepts (grant-draw.test.mjs:129), stating in the commit message which side was stale."
 
 [task.22.9.14]
 title = "Admit guest ABI 5 in the TypeScript lifecycle test"
@@ -119191,7 +119230,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1500.1]
 title = "Issue #1500: Give the real-node prerequisite script a POSIX function name and a syntax check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125676,7 +125715,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.0.9]
 title = "Gate domain 5 completion on its retired surfaces and planned paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["5.0.1", "5.0.2", "5.0.3", "5.0.4", "5.7.1", "5.41.3", "5.42.3", "5.47.4", "5.50.1", "5.50.2", "5.50.3", "5.50.4", "5.50.5", "5.50.6", "5.50.7", "5.51.1", "5.51.2", "5.51.3", "5.51.4", "5.52.1", "5.52.2", "5.52.3", "5.52.4", "5.53.1", "5.54.1", "5.54.2", "5.54.3", "5.54.7", "5.54.8", "5.54.9", "5.54.10", "5.54.11", "5.55.5", "5.62.6", "5.64.16", "5.69.1", "5.97.1", "5.97.3", "8.47.7", "5.7.3", "5.98.5", "5.98.9", "5.5.24", "6.96.5", "21.10.1", "21.14.1", "21.19.1", "21.26.1", "21.27.1", "21.32.1", "21.35.1", "21.36.1", "21.41.1", "21.47.1", "21.48.1", "21.59.1", "21.74.1", "21.87.1", "21.122.1"]
@@ -126292,6 +126331,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.11.7]
+title = "Repair the bridge relayer and interop service suites: commitment refusal, solana fixtures, in-test operator inventory, signer binary and listener startup"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22022.1"]
+capabilities = ["22.11.7"]
+interfaces = []
+do_1 = "operator_config.rs:484 invalid_commitments_are_refused_during_load: a solana commitment that is null, a number or an array must be refused with a message that starts with 'invalid type:' (the serde text); find where the configuration loader rewrites or wraps that message and keep the type refusal first."
+do_2 = "solana.rs:266 the_configuration_accepts_a_solana_entry_and_refuses_each_inconsistency: the fixture lacks the receipt_keys field the configuration grew; carry it. solana.rs:634 and solana_release.rs:1045 fail with 'restart: rpc quorum unavailable': the in-test RPC peers must answer the quorum the relayer re-establishes on restart."
+do_3 = "operator_cosign_contract.rs:68 and :1091 refuse without 'authorized operator inventory/configuration inputs' and the generated signers are not approved membership: build the operator inventory inside the test from the generated signers (decision 2292: no environment inputs), so the cardinality, durable-publication and inventory cases run."
+do_4 = "proof_bridge_relayer.rs:252 and :265: the proof needs the real signer binary (this task's build command builds layerx-mirror-signer; the test resolves it through the cargo binary path of its own build or builds it, never assuming target/debug exists) and the TypeScript consumer; when the consumer fails the test prints its stderr instead of an empty message."
+do_5 = "plain_listener.rs:335 plain_listener_refuses_tls_material_and_unknown_modes: the service refuses startup with 'LAYERX_INTEROP_SEQUENCER_URL is required' before the listener-mode refusal is evaluated; the test supplies a loopback URL for that variable, or the listener-mode check precedes the URL requirement, whichever the service contract names first."
+do_6 = "layerx-bridge-relayer and layerx-interop-service test clean with the verify; a test that needs a tool the repository cannot build skips with a printed reason naming it."
+symbols = []
+touches = ["services/interop/crates/layerx-bridge-relayer/tests", "services/interop/crates/layerx-bridge-relayer/src", "services/interop/crates/layerx-interop-service/tests/plain_listener.rs", "services/interop/crates/layerx-interop-service/src"]
+tests = ["services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs", "services/interop/crates/layerx-bridge-relayer/tests/solana.rs", "services/interop/crates/layerx-interop-service/tests/plain_listener.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror-signer -p layerx-bridge-relayer -p layerx-interop-service --tests"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer -p layerx-interop-service --no-fail-fast"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1501.1]
 title = "Issue #1501: Reconcile ledger asset metadata with the closed OpenRPC schema and the integration fixture"
 status = "pending"
@@ -126481,7 +126553,7 @@ interfaces = []
 do_1 = "services/platform/ramps/reference/tests/work_routes.rs:344 work_route_refuses_native_payload_field receives 404 order_not_found instead of the native payload refusal because order lookup runs before the payload check: refuse the native payload field before the lookup (the route contract names the payload check first) and keep the test. services/platform/hosted/authority/tests/support/native_module_outcomes.rs:130 original_native_module_successes_refusals_and_handover fails on the native module operation-zero refusal: align the expectation with the kernel's refusal for operation zero at HEAD, naming the kernel source in the commit. The hosted PaxAI service's tests/transport_identity.rs:2523 (the test that the binary refuses an unpinned leaf) fails because startup reports the configuration invalid before certificate pinning: make the fixture configuration valid so the pinning refusal is the one observed."
 do_2 = "The three crates test clean with cargo test --locked."
 symbols = []
-touches = ["services/platform/ramps/reference/src", "services/platform/ramps/reference/tests/work_routes.rs", "services/platform/hosted/authority/tests/support/native_module_outcomes.rs", "services/platform/hosted/paxai-worker/tests/transport_identity.rs"]
+touches = ["services/platform/ramps/reference/src", "services/platform/ramps/reference/tests/work_routes.rs", "services/platform/hosted/authority/tests/support/native_module_outcomes.rs", "services/platform/hosted/paxai-worker/tests/transport_identity.rs", "services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp -p layerx-platform-authority --tests"
@@ -126497,6 +126569,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 22.8.12.1: make budget_reader_uses_only_node_read_interfaces pass by moving the latestFinalized() and checkpoint(uint64) node reads of src/main.rs:682-693 into src/human/budget_state.rs (the budget reader owns its node reads) or, if main.rs must keep them, by making the test read both sources; in either case the assertion that no retired layerx_client module is named covers every file the test reads."
 
 [task.22.8.10]
 title = "Bring the platform tools workspace lockfile in step with its manifests"
@@ -126544,7 +126617,7 @@ touches = ["services/interop/crates/layerx-x402/tests/e2e.rs", "services/interop
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 -p layerx-bridge-relayer -p layerx-interop-service --tests"
-verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 -p layerx-bridge-relayer -p layerx-interop-service --no-fail-fast"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test e2e --no-fail-fast && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --test loops --no-fail-fast && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --lib relay"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-interop"
@@ -126556,6 +126629,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 22.11.5.1: the verify runs only the three targets this task repairs (layerx-x402 --test e2e, layerx-bridge-relayer --test loops, layerx-interop-service --lib relay); the other failures of the two suites belong to 22.11.7 and are not repaired here."
 
 [task.22.11.4]
 title = "Regenerate the mirror, UCP and Visa tap receipt fixtures against the current verifier"
@@ -127819,7 +127893,7 @@ title = "Prove the human kms wire path end to end: producer, transport, consumer
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["9.100.2"]
+requires = ["9.100.2", "9.35.9"]
 reqs = ["21110.1"]
 capabilities = ["21.110.1"]
 interfaces = []
@@ -127846,6 +127920,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Finding 21.63.1.1: the build compiles the layerx-human-kms tests, which name retired layerx_intents::canonical items until 9.35.9 ports them; this task requires 9.35.9 and does not touch the KMS tests."
 
 [task.21.109.1]
 title = "Prove the human tools path end to end: producer, transport, consumer"
@@ -128376,7 +128451,7 @@ title = "Prove the human kms path end to end: producer, transport, consumer"
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["9.100.2"]
+requires = ["9.100.2", "9.35.9"]
 reqs = ["21063.1"]
 capabilities = ["21.63.1"]
 interfaces = []
@@ -128403,6 +128478,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Finding 21.63.1.1: the build compiles the layerx-human-kms tests, which name retired layerx_intents::canonical items until 9.35.9 ports them; this task requires 9.35.9 and does not touch the KMS tests."
 
 [task.21.62.1]
 title = "Prove the crypto path end to end: producer, transport, consumer"
@@ -129014,7 +129090,7 @@ do_4 = "Finding 18.1487.1.2: before the generator change, repair the two drift t
 
 [task.18.1485.1]
 title = "Issue #1485: Pass the injected clock to the retained KMS and custody test constructors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.100.2"]
@@ -131990,7 +132066,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.4.6]
 title = "Finish the launchpad modules inventory for the five modules that exceeded their share"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132029,7 +132105,7 @@ interfaces = []
 do_1 = "services/wallet/attestor/go.mod fails go vet with 'updates to go.mod needed; to update it: go mod tidy' under the Go 1.25.8 toolchain: run go mod tidy in the module, commit go.mod and go.sum, and confirm no dependency version moved beyond what tidy requires (name any that did in the commit message)."
 do_2 = "go vet ./... and go test ./... pass in the module."
 symbols = []
-touches = ["services/wallet/attestor/go.mod", "services/wallet/attestor/go.sum"]
+touches = ["services/wallet/attestor/go.mod", "services/wallet/attestor/go.sum", "services/wallet/attestor/cmd/attestor/main_test.go"]
 tests = []
 planned_paths = []
 build_cmd = "cd services/wallet/attestor && go build ./..."
@@ -132045,6 +132121,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 22.12.4.1: in main_test.go write a fixture authority public key file into the test's temp dir and set ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE, ATTESTOR_AUTHORITY_ISSUER and ATTESTOR_AUTHORITY_TENANT (and whatever else agent.NewAuthority refuses at authority.go:118-130) in the env map at :127-141 so run() starts; the three TestRun tests then pass with the module's go vet and go test."
 
 [task.22.16.8]
 title = "Give every C proof main a build reference"
@@ -132074,6 +132151,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 22.16.8.1: add a Makefile target test-mcp-binding-receipt-keys that runs python3 -m pytest -q tests/qualification/test_mcp_binding_receipt_keys.py (the Human qualification recipe at Makefile:1664-1670 is the pattern for the prerequisite check) and hook it into the qualification aggregate target, so TestEveryPytestSuiteIsReferenced passes alongside TestEveryCTestMainHasBuildReference."
 
 [task.22.3.4]
 title = "Declare the trusted-proxy variable the perps gateway loads"
@@ -132256,7 +132334,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.4.3]
 title = "Point the social schema tests at the service's own migrations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.4.4"]
@@ -133319,7 +133397,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.87.1]
 title = "Prove the sequencer receipt path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["21.19.1", "22.5.5"]
@@ -133354,7 +133432,7 @@ do_8 = "Finding 21.87.1.1: the package build failure is node/sequencer/precompil
 
 [task.21.86.1]
 title = "Prove the precompile go path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136088,7 +136166,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.54.7]
 title = "End-to-end: pass the remaining perps data subtests against the in-tree node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["18.670.1", "6.96.5"]
@@ -184201,7 +184279,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.91.42]
 title = "Finish the Go modules inventory for the twenty-two packages the first pass did not run"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184230,7 +184308,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.13.10]
 title = "Admit the current protocol version in the programs environment activate-lease test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184346,7 +184424,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.3.3]
 title = "Reconcile the perps ADL refusal, legacy margin vector and spot error fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184444,7 +184522,7 @@ interfaces = []
 do_1 = "precompiles/pointer/pointer_test.go:59 TestAddNative expects gas 0x879c12 and observes 0x8786ad after the native pointer registration path changed; precompiles/xweb/xweb_test.go:746 expects three ABI events and the interface now declares four (XWebProgramRequested); precompiles/ibc/ibc_test.go:724 TestPrecompile_GetAdjustedTimestamp expects a default-time fallback where the implementation now refuses a missing consensus state. Update the gas expectation to the measured value with a one-line justification from the registration path, assert the four events, and decide from the IBC precompile contract whether the fallback is required (restore it) or the refusal is correct (assert it)."
 do_2 = "The three packages vet and test clean."
 symbols = []
-touches = ["precompiles/pointer/pointer_test.go", "precompiles/xweb/xweb_test.go", "precompiles/ibc/ibc_test.go", "precompiles/ibc/ibc.go"]
+touches = ["precompiles/pointer/pointer_test.go", "precompiles/xweb/xweb_test.go", "precompiles/ibc/ibc_test.go", "precompiles/ibc/ibc.go", "precompiles/xweb/XWeb.sol", "contracts/src/precompiles/IXWeb.sol", "contracts/test/XWebConsumer.t.sol"]
 tests = []
 planned_paths = []
 build_cmd = "CGO_ENABLED=1 go build ./precompiles/pointer/ ./precompiles/xweb/ ./precompiles/ibc/"
@@ -184460,6 +184538,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 22.6.8.1: declare event XWebProgramRequested(bytes32 indexed programId, uint64 indexed requestId, uint8 method, bytes payload, uint64 deadline) with the parameter names of the emitting code (precompiles/xweb/xweb.go) in precompiles/xweb/XWeb.sol and contracts/src/precompiles/IXWeb.sol, carry IXWeb.sol's three selector doc comments into XWeb.sol so the two files are byte-identical again, quote the new signature in contracts/test/XWebConsumer.t.sol, and give TestEventTopics a fourth want entry with the event's topic hash computed from the signature."
 
 [task.22.6.7]
 title = "Reconcile the retired custody, exchange, verify and anchor consumers' tests with the retirement gates"
@@ -184473,7 +184552,7 @@ interfaces = []
 do_1 = "node/gov_custody_test.go:93 and modules/layerxcustody/handler_test.go:356 (through :309) fail with 'custody module retired by the merge plan'; precompiles/layerxcustody/layerxcustody_test.go:289 receives execution reverted on a withdrawal; precompiles/layerxverify/layerxverify_test.go:114 TestVerifyEd25519 expects success but receives the LXP_MODULE_DISABLED retirement reason; precompiles/layerxexchange/errors_test.go:72 expects the pre-registry retirement message; modules/layerxexchange/keeper/keeper_test.go:288 expects a 2500 margin balance and receives zero; modules/layerxanchor/bringup_genesis_test.go:39 runs services/platform/hosted/paxeer/anchor-genesis.py which no longer exists; tools/release/rehearsal/test_rewrite_genesis.py:11 imports the same absent script. For each retired module the test asserts the retirement refusal (the exact LXP reason the registry names) instead of the retired behaviour; a test whose only subject was the retired script is deleted and named in the commit message."
 do_2 = "Every listed package vets and tests clean and the rehearsal test collects and passes."
 symbols = []
-touches = ["node/gov_custody_test.go", "modules/layerxcustody/handler_test.go", "precompiles/layerxcustody/layerxcustody_test.go", "precompiles/layerxverify/layerxverify_test.go", "precompiles/layerxexchange/errors_test.go", "modules/layerxexchange/keeper/keeper_test.go", "modules/layerxanchor/bringup_genesis_test.go", "tools/release/rehearsal/test_rewrite_genesis.py", "tools/release/rehearsal/rewrite_genesis.py"]
+touches = ["node/gov_custody_test.go", "modules/layerxcustody/handler_test.go", "precompiles/layerxcustody/layerxcustody_test.go", "precompiles/layerxverify/layerxverify_test.go", "precompiles/layerxexchange/errors_test.go", "modules/layerxexchange/keeper/keeper_test.go", "modules/layerxanchor/bringup_genesis_test.go", "tools/release/rehearsal/test_rewrite_genesis.py", "tools/release/rehearsal/rewrite_genesis.py", "precompiles/layerxverify/retire_gate_test.go"]
 tests = []
 planned_paths = []
 build_cmd = "CGO_ENABLED=1 go build ./node/ ./modules/layerxcustody/... ./precompiles/layerxcustody/ ./precompiles/layerxverify/ ./precompiles/layerxexchange/ ./modules/layerxexchange/... ./modules/layerxanchor/"
@@ -184489,10 +184568,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 22.6.7.1: TestLayerXVerifyBelowTheMergeKeepsItsResults (retire_gate_test.go:130) must pass: the legacy harness of layerxverify_test.go stays below the merge height and the pre-merge precompile keeps answering verifyEd25519 and verifyReceiptInclusion there; if the harness moved above the merge height, give this test its own below-merge harness; if the precompile reverts regardless of height, the gate check is wrong and is repaired, not the test."
 
 [task.22.6.6]
 title = "Reconcile the EVM module genesis export and CLI error expectations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184564,7 +184644,7 @@ touches = ["storage/db_engine/litt", "storage/state_db/sc/memiavl/anchor_delete_
 tests = []
 planned_paths = []
 build_cmd = "CGO_ENABLED=1 go build ./storage/..."
-verify_cmd = "CGO_ENABLED=1 go vet ./storage/db_engine/litt/test/ ./storage/state_db/sc/memiavl/ && CGO_ENABLED=1 go test -count=1 ./storage/db_engine/litt/test/ ./storage/state_db/sc/memiavl/"
+verify_cmd = "CGO_ENABLED=1 go vet ./storage/db_engine/litt/test/ ./storage/state_db/sc/memiavl/ && CGO_ENABLED=1 go test -count=1 ./storage/db_engine/litt/test/ && CGO_ENABLED=1 go test -count=1 ./storage/state_db/sc/memiavl/ -skip 'TestWriterLoopErrors|TestSnapshotWriterErrorHandling'"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-node-runtime"
@@ -184576,6 +184656,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 22.5.7.1: the verify now runs the memiavl package with -skip 'TestWriterLoopErrors|TestSnapshotWriterErrorHandling' because the qualification environment runs as root and the two error-path tests cannot fail there; do not change those tests."
 
 [task.22.5.6]
 title = "Seal through the application sequencer source at the activation height and persist added receipt keys"
@@ -184755,7 +184836,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.1.5]
 title = "Drop the removed lx_web.h include from the protocol and programs web-read tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184904,7 +184985,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.5.4]
 title = "Return the committed block's own id from LastBlockID"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.5.5"]
@@ -184974,7 +185055,7 @@ interfaces = []
 do_1 = "src/protocol/lxp_genesis.c:55 registers LXP_MODULE_PROGRAMS with programs_module_registration_v4 (src/modules/programs/registration.c:300), whose activity list (:46) omits storage retirement, although programs_module_registration_v4_storage_retirement (:311) carries it under the same ABI version. Make the genesis module table select the storage-retirement variant, and extend the test behind make test-genesis-module-table to assert the genesis programs registration lists the storage retirement activity type. If a consumer test asserts the shorter list, update it to the retained registration and name it in the commit message."
 do_2 = "Set follow_up of [disposition.13.27.4] in spec/layerx-merge/dispositions/d13-3.kvx to 22.13.6 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
 symbols = []
-touches = ["src/protocol/lxp_genesis.c", "tests/protocol", "spec/layerx-merge/dispositions/d13-3.kvx", "tests/test_genesis_module_table.c"]
+touches = ["src/protocol/lxp_genesis.c", "tests/protocol", "spec/layerx-merge/dispositions/d13-3.kvx", "tests/test_genesis_module_table.c", "include/layerx/lxp_genesis.h"]
 tests = []
 planned_paths = ["tests/protocol"]
 build_cmd = "make -s all"
@@ -184991,6 +185072,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 22.13.6.1: tests/test_genesis_module_table.c is under the touches; put the storage-retirement assertion of do_1 there (the genesis programs registration lists the storage retirement activity type) and keep the registration selection in src/protocol/lxp_genesis.c. The sweep also saw tests/test_genesis_module_table.c:170 fail genesis.module-table.defaults because lxp_genesis_module_plan_default did not return LXP_OK; make the default plan agree with the selected registration so that case passes too. Continue from attempt 2."
+do_4 = "Finding 22.13.6.2 and decision 2304: the published fixtures tests/fixtures/public-testnet-genesis-v3 and public-testnet-genesis keep their module-table roots, so the programs row keeps programs_module_registration_v4 for the default plan and for every manifest without the new flag. Add a programs storage-retirement enable flag resolved like the LXP_GENESIS_MODULE_GATE_ENABLE_FLAG rows (lxp_genesis_module_plan_resolve reads it from the manifest; lxp_genesis_module_enable_key gives its key), off by default; when the manifest sets it the row registers programs_module_registration_v4_storage_retirement. tests/test_genesis_module_table.c asserts both: the default plan and both public fixtures still register v4 and verify with LXP_OK, and a manifest with the flag registers the storage-retirement interface whose activity list carries the storage retirement activity type. The header include/layerx/lxp_genesis.h is under touches for the flag."
 
 [task.22.13.5]
 title = "Bind ledger admission for the programs environment execute activity"
@@ -206860,6 +206942,22 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.22.9.23.1]
+feature = "22"
+req = "22023.1"
+scenario = "Given 0x-prefixed fixtures, when the four test files run, then the history and receipt-key tests pass and px.py and x402_rpc.py still refuse unprefixed hashes"
+contract = "cd services/agent/sdk/python && python3 -m pytest -q tests/test_px_commit.py tests/test_sequencer_receipt.py tests/test_x402_draw_sequencer.py tests/test_x402_http_sequencer.py"
+test = "services/agent/sdk/python/tests/test_sequencer_receipt.py"
+qualification = "UNRUN"
+
+[acceptance.22.11.7.1]
+feature = "22"
+req = "22022.1"
+scenario = "Given the two interop crates, when cargo test --locked runs them with no environment inputs, then operator_config, solana, solana_release, operator_cosign_contract, proof_bridge_relayer and plain_listener pass"
+contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer -p layerx-interop-service --no-fail-fast"
+test = "services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs"
+qualification = "UNRUN"
+
 [acceptance.22.22.1.1]
 feature = "22"
 req = "22001.1"
@@ -216630,9 +216728,39 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx-merge/programme/tests/test_issue_closure.py: a temporary spec with one done and one superseded 18.x task returns an empty list."
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 
+[task.22.9.23]
+title = "Reconcile the Python SDK history and receipt-key fixtures with the hash validators"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22023.1"]
+capabilities = ["22.9.23"]
+interfaces = []
+do_1 = "Six tests fail at HEAD: tests/test_px_commit.py::test_history_page_keeps_rows_tied_with_the_limit_row (layerx_sdk/px.py:689 decode_history_row refuses a tx_hash that is not 0x plus 64 hex), tests/test_sequencer_receipt.py::test_verify_rpc_payment_uses_receipt_keys, tests/test_x402_draw_sequencer.py::test_x402_draw_verifies_the_sequencer_receipt and ::test_grant_draws_verify_through_receipt_keys, tests/test_x402_http_sequencer.py::test_seller_verifies_a_sequencer_receipt_through_receipt_keys and ::test_buyer_verifies_sequencer_receipts_through_receipt_keys (layerx_sdk/x402_rpc.py:67 _transaction_bytes refuses a hash without 0x; the fixtures pass bare 64-hex strings)."
+do_2 = "Decision 2303: the node and the gateway return 0x-prefixed hashes, so the validators stand; move the fixtures to 0x-prefixed 64-hex transaction hashes and history rows whose tx_hash conforms. Where a test exercises a documented interface that returns bare hex, name that interface in the commit message and make the validator accept both forms for it alone."
+do_3 = "The four test files pass with python3 -m pytest; no test is deselected or skipped."
+symbols = []
+touches = ["services/agent/sdk/python/tests/test_px_commit.py", "services/agent/sdk/python/tests/test_sequencer_receipt.py", "services/agent/sdk/python/tests/test_x402_draw_sequencer.py", "services/agent/sdk/python/tests/test_x402_http_sequencer.py", "services/agent/sdk/python/layerx_sdk/px.py", "services/agent/sdk/python/layerx_sdk/x402_rpc.py"]
+tests = ["services/agent/sdk/python/tests/test_sequencer_receipt.py"]
+planned_paths = []
+build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/px.py services/agent/sdk/python/layerx_sdk/x402_rpc.py"
+verify_cmd = "cd services/agent/sdk/python && python3 -m pytest -q tests/test_px_commit.py tests/test_sequencer_receipt.py tests/test_x402_draw_sequencer.py tests/test_x402_http_sequencer.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.22.1]
 title = "Disposition of qualification findings 22.91.22.1 to 22.5.5.1 (domain 22, part 1)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216664,7 +216792,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.21.1]
 title = "Disposition of qualification findings 21.41.1.1 to 21.44.1.1 (domain 21, part 1)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216696,7 +216824,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.20.1]
 title = "Disposition of qualification findings 20.6.1.1 to 20.7.1.1 (domain 20, part 1)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216728,7 +216856,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.19.2]
 title = "Disposition of qualification findings 19.4.1.1 to 19.2.3.1 (domain 19, part 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216760,7 +216888,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.18.14]
 title = "Disposition of qualification findings 18.670.1.17 to 18.1484.1.3 (domain 18, part 14)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216792,7 +216920,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.18.13]
 title = "Disposition of qualification findings 18.1151.1.7 to 18.1430.1.1 (domain 18, part 13)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216824,7 +216952,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.18.12]
 title = "Disposition of qualification findings 18.1154.1.1 to 18.1156.1.7 (domain 18, part 12)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216856,7 +216984,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.17.5]
 title = "Disposition of qualification findings 17.0.3.1 to 17.7.5.2 (domain 17, part 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216888,7 +217016,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.16.10]
 title = "Disposition of qualification findings 16.33.2.2 to 16.12.1.4 (domain 16, part 4)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216920,7 +217048,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.15.2]
 title = "Disposition of qualification findings 15.0.4.2 to 15.0.4.4 (domain 15, part 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216952,7 +217080,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.14.5]
 title = "Disposition of qualification findings 14.0.6.2 to 14.0.6.5 (domain 14, part 4)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216984,7 +217112,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.13.11]
 title = "Disposition of qualification findings 13.34.2.1 to 13.8.3.2 (domain 13, part 5)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217016,7 +217144,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.12.6]
 title = "Disposition of qualification findings 12.10.4.1 to 12.95.1.1 (domain 12, part 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217048,7 +217176,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.11.6]
 title = "Disposition of qualification findings 11.1.4.2 to 11.14.3.2 (domain 11, part 4)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217080,7 +217208,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.10.11]
 title = "Disposition of qualification findings 10.1.6.1 to 10.21.9.1 (domain 10, part 9)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217112,7 +217240,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.10.10]
 title = "Disposition of qualification findings 10.2.4.3 to 10.26.12.1 (domain 10, part 8)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217144,7 +217272,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.10.9]
 title = "Disposition of qualification findings 10.98.6.2 to 10.2.4.2 (domain 10, part 7)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217176,7 +217304,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.10.8]
 title = "Disposition of qualification findings 10.2.9.1 to 10.95.1.2 (domain 10, part 6)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217208,7 +217336,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.22]
 title = "Disposition of qualification findings 9.35.13.2 to 9.100.2.2 (domain 9, part 10)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217240,7 +217368,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.21]
 title = "Disposition of qualification findings 9.25.1.3 to 9.100.2.1 (domain 9, part 9)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217272,7 +217400,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.20]
 title = "Disposition of qualification findings 9.25.6.1 to 9.25.20.1 (domain 9, part 8)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217304,7 +217432,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.19]
 title = "Disposition of qualification findings 9.33.8.1 to 9.25.9.1 (domain 9, part 7)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217336,7 +217464,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.8.15]
 title = "Disposition of qualification findings 8.8.3.2 to 8.47.12.1 (domain 8, part 9)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217368,7 +217496,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.8.14]
 title = "Disposition of qualification findings 8.98.15.4 to 8.0.9.1 (domain 8, part 8)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217400,7 +217528,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.8.13]
 title = "Disposition of qualification findings 8.43.8.1 to 8.98.15.3 (domain 8, part 7)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217432,7 +217560,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.6.9]
 title = "Disposition of qualification findings 6.96.3.1 to 6.60.2.1 (domain 6, part 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217464,7 +217592,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.5.8]
 title = "Disposition of qualification findings 5.7.6.1 to 5.97.1.2 (domain 5, part 4)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217496,7 +217624,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.2.8]
 title = "Disposition of qualification findings 2.28.5.1 to 2.24.7.1 (domain 2, part 4)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217528,7 +217656,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.1.10]
 title = "Disposition of qualification findings 1.4.3.3 to 1.32.1.1 (domain 1, part 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217589,7 +217717,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.16.7]
 title = "Repair the Python compile error, the import-time argv scripts and the duplicate test basenames"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217667,7 +217795,7 @@ touches = ["services/agent/sdk/python/layerx_sdk/ai_market.py", "services/agent/
 tests = []
 planned_paths = ["services/agent/sdk/python/tests"]
 build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/ai_market.py"
-verify_cmd = "cd services/agent/sdk/python && python3 -m pytest -q tests"
+verify_cmd = "cd services/agent/sdk/python && python3 -m pytest -q tests --deselect tests/test_px_commit.py::test_history_page_keeps_rows_tied_with_the_limit_row --deselect tests/test_sequencer_receipt.py::test_verify_rpc_payment_uses_receipt_keys --deselect tests/test_x402_draw_sequencer.py::test_x402_draw_verifies_the_sequencer_receipt --deselect tests/test_x402_draw_sequencer.py::test_grant_draws_verify_through_receipt_keys --deselect tests/test_x402_http_sequencer.py::test_seller_verifies_a_sequencer_receipt_through_receipt_keys --deselect tests/test_x402_http_sequencer.py::test_buyer_verifies_sequencer_receipts_through_receipt_keys"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-agent"
@@ -217679,6 +217807,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 22.9.11.1: the verify deselects the six history and receipt-key tests that fail at base on the hash validators; 22.9.23 repairs them and nothing of this task touches px.py or x402_rpc.py."
 
 [task.22.9.9]
 title = "Drop the retired settlement anchoring refusal from the envelope qualification"

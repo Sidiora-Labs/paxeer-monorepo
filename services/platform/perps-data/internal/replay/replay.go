@@ -275,10 +275,37 @@ func (r *Runner) Run(ctx context.Context, req Request) (rep Report, err error) {
 }
 
 // batch rewrites [from, to] in one transaction and returns its counts.
-func (r *Runner) batch(ctx context.Context, tables []table, from, to int64, dryRun bool) ([]TableCount, error) {
+func (r *Runner) batch(ctx context.Context, tables []table, from, to int64, dryRun bool) (_ []TableCount, err error) {
 	if err := renewLease(ctx, r.DB, r.Holder, r.LeaseTTL); err != nil {
 		return nil, err
 	}
+	ctx, cancelBatch := context.WithCancelCause(ctx)
+	renewCtx, stopRenewing := context.WithCancel(ctx)
+	renewed := make(chan struct{})
+	go func() {
+		defer close(renewed)
+		ticker := time.NewTicker(r.LeaseTTL / 3)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-renewCtx.Done():
+				return
+			case <-ticker.C:
+				if err := renewLease(renewCtx, r.DB, r.Holder, r.LeaseTTL); err != nil {
+					if renewCtx.Err() == nil {
+						cancelBatch(err)
+					}
+					return
+				}
+			}
+		}
+	}()
+	defer func() {
+		stopRenewing()
+		<-renewed
+		err = errors.Join(err, context.Cause(ctx))
+		cancelBatch(nil)
+	}()
 	tx, err := r.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("begin: %w", err)
@@ -341,6 +368,11 @@ func (r *Runner) batch(ctx context.Context, tables []table, from, to int64, dryR
 	}
 	counts, err := diff(ctx, tx, tables, from, to, maxSeq)
 	if err != nil {
+		return nil, err
+	}
+	stopRenewing()
+	<-renewed
+	if err := context.Cause(ctx); err != nil {
 		return nil, err
 	}
 	if err := renewLease(ctx, tx, r.Holder, r.LeaseTTL); err != nil {
@@ -602,9 +634,9 @@ func waitLease(ctx context.Context, db *sql.DB, holder string, ttl, retry time.D
 	}
 }
 
-// renewLease extends the unexpired lease of holder through e. Run calls it
-// before each batch and again inside the batch transaction before commit, so
-// the commit is fenced by the lease row lock.
+// renewLease extends the unexpired lease of holder through e. A batch renews
+// through the database every LeaseTTL/3, then stops that renewal before
+// renewing inside the transaction to fence the commit with the lease row lock.
 func renewLease(ctx context.Context, e execer, holder string, ttl time.Duration) error {
 	res, err := e.ExecContext(ctx, `UPDATE perps.writer_lease SET expires_at = clock_timestamp() + $3::bigint * interval '1 millisecond'
 WHERE name = $1 AND holder = $2 AND expires_at > clock_timestamp()`, leaseName, holder, ttl.Milliseconds())

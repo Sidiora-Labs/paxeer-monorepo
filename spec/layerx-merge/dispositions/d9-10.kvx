@@ -1,0 +1,11 @@
+[disposition.9.35.13.2]
+finding = "9.35.13.2"
+status = "resolved"
+evidence = "Commit 808af49bb03140d65fc8e48253f0caee2a62e702 made pay2 self-contained by adding its own required.rs, restricting build inputs to local sources, removing the gateway verifier binary target, and deleting funded.rs and its dead test target, as retained on current main."
+follow_up = "closure"
+
+[disposition.9.100.2.2]
+finding = "9.100.2.2"
+status = "resolved"
+evidence = "Commit fc892032fb655915634e6f21ffec831f8409a989 changed the creation test to take signed_creation from prepare_call, which serializes and signs the same prepared call, preserving assert_eq!(signed_call, call) and testing ProgramCall refusal separately, as retained on current main."
+follow_up = "closure"

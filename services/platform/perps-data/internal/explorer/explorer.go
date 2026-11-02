@@ -1,8 +1,7 @@
 // Package explorer serves the chain explorer queries of the perps data services
 // (contracts/data-services.md section 16): recent blocks, venue transactions
-// mapped to the six actions of the application data protocol
-// (Hyperpax:data_api.md:600-601), account and market history paged with a
-// keyset cursor, and links into the network explorer.
+// mapped to the seven actions of section 16, account and market history paged
+// with a keyset cursor, and links into the network explorer.
 package explorer
 
 import (
@@ -23,8 +22,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/pnl"
 )
 
-// The six action values of the application data protocol
-// (Hyperpax:data_api.md:600-601).
+// The seven action values of contracts/data-services.md section 16.
 const (
 	ActionPlaceOrder          = "Place Order"
 	ActionCancelOrder         = "Cancel Order"
@@ -32,6 +30,7 @@ const (
 	ActionOROBFill            = "OROB Fill"
 	ActionOracleUpdated       = "Oracle Updated"
 	ActionSealedBatchExecuted = "Sealed Batch Executed"
+	ActionCollateralDeposited = "Collateral Deposited"
 )
 
 // The tx_actions kinds of the rows that do not stand for one log: the per-block
@@ -44,6 +43,7 @@ const (
 
 // actions is the action mapping of contracts/data-services.md section 16.
 var actions = map[string]string{
+	"CollateralDeposited":    ActionCollateralDeposited,
 	"OrderPlaced":            ActionPlaceOrder,
 	"LimitOrderCreated":      ActionPlaceOrder,
 	"StopLimitOrderCreated":  ActionPlaceOrder,
@@ -459,6 +459,8 @@ func (e *Explorer) scanAction(rows *sql.Rows) (actionRow, error) {
 	switch {
 	case action == ActionOracleUpdated || action == ActionSealedBatchExecuted:
 		sizeScale = unitScale
+	case action == ActionCollateralDeposited:
+		sizeScale = spotScale
 	case common.BytesToAddress(emitter) == perpsAddress:
 		sizeScale = usdScale
 	}

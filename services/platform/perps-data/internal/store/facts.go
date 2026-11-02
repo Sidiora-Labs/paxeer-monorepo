@@ -697,6 +697,10 @@ func txActions(ctx context.Context, tx *sql.Tx, rows *decode.Result) ([]txAction
 			a.Side = ptr(map[bool]string{true: "buy", false: "sell"}[fill.TakerIsLong])
 			a.Price, a.Size = ptr(fill.Price), ptr(fill.SizeUSD)
 		}
+		if deposit, ok := first.(decode.CollateralDepositedRow); ok {
+			a.Account = deposit.AccountArg
+			a.Size = ptr(deposit.Amount)
+		}
 		out = append(out, a)
 	}
 	if oracle != nil {
