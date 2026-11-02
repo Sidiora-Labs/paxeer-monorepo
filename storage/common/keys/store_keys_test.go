@@ -96,7 +96,7 @@ func TestXWebStoreKeyFollowsTheV6120StoreKeys(t *testing.T) {
 		"perps", "spot", "pricefeed",
 		"xweb",
 		"sequencer",
-		"layerxledger", "layerxauth", "layerxpay", "layerxprograms", "layerxagent", "lxphost",
+		"layerxledger", "layerxauth", "layerxpay", "layerxchains", "layerxprograms", "layerxagent", "lxphost",
 	}, MemIAVLStoreKeys)
 	xweb := slices.Index(MemIAVLStoreKeys, XWebStoreKey)
 	require.GreaterOrEqual(t, xweb, 4)
@@ -117,7 +117,10 @@ func TestMergeStoreKeyConstants(t *testing.T) {
 		{LayerXLedgerStoreKey, "layerxledger"},
 		{LayerXAuthStoreKey, "layerxauth"},
 		{LayerXPayStoreKey, "layerxpay"},
+		{LayerXChainsStoreKey, "layerxchains"},
 		{LayerXProgramsStoreKey, "layerxprograms"},
+		{LayerXAgentStoreKey, "layerxagent"},
+		{LayerXHostStoreKey, "lxphost"},
 		{SequencerStoreKey, "sequencer"},
 	}
 
@@ -135,9 +138,20 @@ func TestMergeStoreKeyConstants(t *testing.T) {
 				mounted++
 			}
 		}
-		require.LessOrEqual(t, mounted, 1, "merge store key %q shares its name with another mounted store", m.got)
+		require.Equal(t, 1, mounted, "merge store key %q must be mounted exactly once", m.got)
 	}
-	require.Len(t, seen, 5)
+	require.Len(t, seen, 8)
+}
+
+// Include the existing exact inventory and consumer contract assertions in the
+// focused node-storage gate, which otherwise only selects proof tests.
+func TestProofNodeStorageKeyConsumers(t *testing.T) {
+	t.Run("inventory", TestXWebStoreKeyFollowsTheV6120StoreKeys)
+	t.Run("merge-constants", TestMergeStoreKeyConstants)
+	t.Run("membership", TestMergeStoreKeysAreMemIAVLStoreKeys)
+	t.Run("anchor-retained", TestAnchorStoreKeyStaysMountedUntilDelete)
+	t.Run("exclusion-refusal", TestAllModulesExcept_UnknownModuleAmongValidOnesReturnsError)
+	t.Run("duplicate-exclusions", TestAllModulesExcept_DuplicateExclusionsAreIdempotent)
 }
 
 func TestAnchorStoreKeyStaysMountedUntilDelete(t *testing.T) {

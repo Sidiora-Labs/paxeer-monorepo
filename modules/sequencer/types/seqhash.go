@@ -6,9 +6,11 @@ import (
 )
 
 const (
+	// SeqHashDomain separates the activity chain from signed batch envelopes.
 	SeqHashDomain = "PAXEER/v1/sequence\x00"
 )
 
+// SeqHash advances the chain with sha256(domain || prev || u64be seq || activityID).
 func SeqHash(prev [32]byte, seq uint64, activityID [32]byte) [32]byte {
 	var seqBytes [8]byte
 	binary.BigEndian.PutUint64(seqBytes[:], seq)

@@ -129,6 +129,19 @@ func publicOf(seed []byte) [32]byte {
 	return [32]byte(ed25519.NewKeyFromSeed(seed).Public().(ed25519.PublicKey))
 }
 
+// assertReceiptKeySignature exercises the receipt consumer with a loaded key.
+func assertReceiptKeySignature(t *testing.T, key *sequencer.ReceiptKey, in *sequencer.ReceiptInput) []byte {
+	t.Helper()
+	signed, err := key.SignReceipt(in)
+	require.NoError(t, err)
+	verified, err := verify.ReceiptSignature(signed, key.PublicKey())
+	require.NoError(t, err)
+	unsigned, err := sequencer.BuildReceipt(in, verified.Receipt.ContextHash)
+	require.NoError(t, err)
+	require.Equal(t, codec.ReceiptDigest(unsigned), verified.Digest)
+	return signed
+}
+
 func loadKey(t *testing.T, seed []byte, pins []verify.SequencerAuthorization, height int64) (*sequencer.ReceiptKey, error) {
 	t.Helper()
 	dir := t.TempDir()
@@ -762,10 +775,7 @@ func TestReceiptKeySeparateFromConsensusKey(t *testing.T) {
 	require.NotEqual(t, consensusPub, pub[:])
 	in := vectorInput()
 	in.Accepted.Height = 2
-	signed, err := key.SignReceipt(in)
-	require.NoError(t, err)
-	_, err = verify.ReceiptSignature(signed, pub)
-	require.NoError(t, err)
+	signed := assertReceiptKeySignature(t, key, in)
 	_, err = verify.ReceiptSignature(signed, [32]byte(consensusPub))
 	require.ErrorIs(t, err, verify.ErrSequencerSignature)
 }
