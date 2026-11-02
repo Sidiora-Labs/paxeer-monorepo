@@ -65,6 +65,7 @@ class MakefileWaveTwoTest(unittest.TestCase):
             "test_batch_publish",
             "test_gateway_receive",
             "cmd/layerx-module-registry/node.c",
+            "lxp_guarantor",
         ):
             with self.subTest(retired=retired):
                 self.assertNotIn(retired, result.stdout)
@@ -75,7 +76,6 @@ class MakefileWaveTwoTest(unittest.TestCase):
             "lxp_da_",
             "lxp_replica",
             "lxp_batch_seal",
-            "lxp_guarantor",
         ):
             with self.subTest(retired=retired):
                 self.assertNotIn(retired, non_library_stdout)
