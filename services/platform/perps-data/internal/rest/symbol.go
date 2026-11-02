@@ -25,7 +25,8 @@ const (
 	maxLimit     = 1000
 )
 
-// Symbol serves the symbol REST routes from schema perps.
+// Symbol serves the symbol REST routes from schema perps. Every request calls
+// records.Symbol; Cache-Control is a client hint, not a server response cache.
 type Symbol struct {
 	data *records.Symbol
 }
