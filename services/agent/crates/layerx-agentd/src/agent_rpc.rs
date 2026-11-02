@@ -537,6 +537,10 @@ fn verification_json(
                 "rung": level_name(Rung::Submitted),
             })),
             Some(Some(requested)) => match achieved {
+                Some(Rung::Submitted) if requested == Rung::Submitted => Ok(serde_json::json!({
+                    "state": "achieved",
+                    "rung": level_name(Rung::Submitted),
+                })),
                 Some(Rung::Submitted) => Ok(serde_json::json!({
                     "state": "pending",
                     "requested": level_name(requested),

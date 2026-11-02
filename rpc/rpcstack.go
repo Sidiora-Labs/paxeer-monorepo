@@ -105,9 +105,11 @@ type HTTPServer struct {
 	apis        []rpc.API
 
 	// WebSocket handler things.
-	WsConfig  WsConfig
-	wsHandler atomic.Value // *rpcHandler
-	wsAPIs    []rpc.API
+	WsConfig        WsConfig
+	wsHandler       atomic.Value // *rpcHandler
+	wsAPIs          []rpc.API
+	domainResolver  DomainResolver
+	domainWSServers map[*rpc.Server]struct{}
 
 	// These are set by SetListenAddr.
 	endpoint string
@@ -124,7 +126,7 @@ const (
 
 func NewHTTPServer(timeouts rpc.HTTPTimeouts) *HTTPServer {
 	CheckTimeouts(&timeouts)
-	h := &HTTPServer{timeouts: timeouts, handlerNames: make(map[string]string)}
+	h := &HTTPServer{timeouts: timeouts, handlerNames: make(map[string]string), domainWSServers: make(map[*rpc.Server]struct{})}
 
 	h.httpHandler.Store((*rpcHandler)(nil))
 	h.wsHandler.Store((*rpcHandler)(nil))
@@ -232,6 +234,33 @@ func (h *HTTPServer) Start() error {
 }
 
 func (h *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/chain" || strings.HasPrefix(r.URL.Path, "/chain/") {
+		idText := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/chain/"), "/")
+		valid := idText != ""
+		for _, c := range idText {
+			if c < '0' || c > '9' {
+				valid = false
+				break
+			}
+		}
+		id, err := strconv.ParseUint(idText, 10, 32)
+		var scope DomainScope
+		var resolved bool
+		if valid && err == nil && h.domainResolver != nil {
+			scope, resolved = h.domainResolver(uint32(id))
+		}
+		if !resolved {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = io.WriteString(w, `{"error":"unknown_chain"}`)
+			return
+		}
+		r = r.WithContext(WithDomainScope(r.Context(), scope))
+		requestURL := *r.URL
+		requestURL.Path = "/"
+		requestURL.RawPath = ""
+		r.URL = &requestURL
+	}
 	// check if ws request and serve if ws enabled
 	ws := h.wsHandler.Load().(*rpcHandler)
 	if ws != nil && websocket.IsWebSocketUpgrade(r) {
@@ -408,11 +437,57 @@ func (h *HTTPServer) EnableWS(apis []rpc.API, config WsConfig) error {
 	h.wsAPIs = registeredAPIs(apis, config.Modules)
 	limiter := newIPRateLimiter(config.ipRateLimitRPS, config.ipRateLimitBurst)
 	h.wsHandler.Store(&rpcHandler{
-		Handler: limiter.wrap(NewWSHandlerStack(newDenyListWSHandler(srv, config), config.JwtSecret)),
+		Handler: limiter.wrap(NewWSHandlerStack(h.newDomainWSHandler(srv, config, h.wsAPIs), config.JwtSecret)),
 		server:  srv,
 		limiter: limiter,
 	})
 	return nil
+}
+
+func (h *HTTPServer) newDomainWSHandler(srv *rpc.Server, config WsConfig, apis []rpc.API) http.Handler {
+	rootHandler := newDenyListWSHandler(srv, config)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		scope, ok := DomainScopeFrom(r.Context())
+		if !ok {
+			rootHandler.ServeHTTP(w, r)
+			return
+		}
+		scopedServer := rpc.NewServer()
+		defer scopedServer.Stop()
+		scopedServer.SetBatchLimits(config.batchItemLimit, config.batchResponseSizeLimit)
+		scopedServer.SetReadLimits(config.readLimit)
+		scopedAPIs := make([]rpc.API, len(apis))
+		for idx, api := range apis {
+			switch service := api.Service.(type) {
+			case *InfoAPI:
+				api.Service = &domainInfoAPI{InfoAPI: service, scope: scope}
+			case *domainNetAPI:
+				api.Service = &domainNetAPI{NetAPI: service.NetAPI, scope: &scope}
+			}
+			scopedAPIs[idx] = api
+		}
+		if err := RegisterApis(scopedAPIs, config.Modules, scopedServer); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		for _, method := range config.DenyList {
+			scopedServer.RegisterDenyList(method)
+		}
+		h.mu.Lock()
+		if !h.wsAllowed() {
+			h.mu.Unlock()
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		h.domainWSServers[scopedServer] = struct{}{}
+		h.mu.Unlock()
+		defer func() {
+			h.mu.Lock()
+			delete(h.domainWSServers, scopedServer)
+			h.mu.Unlock()
+		}()
+		newDenyListWSHandler(scopedServer, config).ServeHTTP(w, r)
+	})
 }
 
 type denyListWSConn struct {
@@ -621,6 +696,9 @@ func (h *HTTPServer) disableWS() bool {
 	if ws != nil {
 		h.wsHandler.Store((*rpcHandler)(nil))
 		ws.server.Stop()
+		for server := range h.domainWSServers {
+			server.Stop()
+		}
 		ws.limiter.stop()
 		h.wsAPIs = nil
 	}
