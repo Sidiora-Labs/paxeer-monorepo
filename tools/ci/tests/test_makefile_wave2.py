@@ -64,6 +64,7 @@ class MakefileWaveTwoTest(unittest.TestCase):
         for retired in (
             "test_batch_publish",
             "test_gateway_receive",
+            "lxp_replica",
             "cmd/layerx-module-registry/node.c",
         ):
             with self.subTest(retired=retired):
@@ -73,7 +74,6 @@ class MakefileWaveTwoTest(unittest.TestCase):
         )
         for retired in (
             "lxp_da_",
-            "lxp_replica",
             "lxp_batch_seal",
             "lxp_guarantor",
         ):
