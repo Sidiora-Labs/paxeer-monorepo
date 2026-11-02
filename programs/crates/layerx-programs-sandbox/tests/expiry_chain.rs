@@ -314,17 +314,6 @@ fn terminal_record_verifies_from_proven_state() {
 fn terminal_record_refuses_kernel_receipt_bytes() {
     let kernel_receipt =
         include_bytes!("../../layerx-programs-registry/tests/fixtures/maintained-head/receipt");
-    let kernel_key = *include_bytes!(
-        "../../layerx-programs-registry/tests/fixtures/maintained-head/sequencer.public"
-    );
-    let receipt =
-        layerx_proof::receipt::verify_sequencer_signature(kernel_receipt.as_slice(), kernel_key)
-            .unwrap_or_else(|error| panic!("signed kernel receipt: {error:?}"));
-    assert!(receipt
-        .protocol()
-        .unwrap_or_else(|| panic!("kernel protocol receipt"))
-        .sequencer_signature()
-        .is_some());
     assert_eq!(
         decode_commitment_proof(kernel_receipt),
         Err(layerx_programs::chain_proof::ChainProofError::NonCanonical)

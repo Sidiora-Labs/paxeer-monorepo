@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -27,6 +28,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
@@ -95,15 +97,38 @@ type sendSeqReceipter struct {
 	receipts [][]byte
 }
 
-func (s *sendSeqReceipter) Accept(txBytes []byte) ([]byte, error) {
+func (s *sendSeqReceipter) Accept(txBytes []byte) (evmrpc.AcceptedSend, error) {
 	s.txBytes = append(s.txBytes, txBytes)
 	acc, signed, err := s.r.Accept(txBytes)
 	if err != nil {
-		return nil, err
+		return evmrpc.AcceptedSend{}, err
 	}
 	s.accepted = append(s.accepted, acc)
 	s.receipts = append(s.receipts, signed)
-	return signed, nil
+	exec, err := sendSeqExecutionReceipt(acc)
+	if err != nil {
+		return evmrpc.AcceptedSend{}, err
+	}
+	return evmrpc.AcceptedSend{Receipt: signed, Height: acc.Height, Exec: exec}, nil
+}
+
+// sendSeqExecutionReceipt reads the real execution output retained by the accepter.
+func sendSeqExecutionReceipt(acc *sequencer.Accepted) (*evmtypes.Receipt, error) {
+	for _, key := range acc.ReceiptContext.MultiStore().StoreKeys() {
+		if key.Name() != evmtypes.TransientStoreKey {
+			continue
+		}
+		encoded := acc.ReceiptContext.TransientStore(key).Get(evmtypes.NewTransientReceiptKey(uint64(acc.TxIndex), common.Hash(acc.ActivityID)))
+		if encoded == nil {
+			return nil, fmt.Errorf("execution receipt missing at height %d index %d", acc.Height, acc.TxIndex)
+		}
+		receipt := &evmtypes.Receipt{}
+		if err := receipt.Unmarshal(encoded); err != nil {
+			return nil, err
+		}
+		return receipt, nil
+	}
+	return nil, fmt.Errorf("execution receipt store missing")
 }
 
 type sendSeqHarness struct {

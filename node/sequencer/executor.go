@@ -25,7 +25,7 @@ const ModeSequential Mode = 0
 
 var (
 	ErrLayerOpen     = errors.New("sequencer: a block is already open")
-	ErrLayerNotOpen  = errors.New("sequencer: no block is open")
+	ErrLayerNotOpen  = evmrpc.ErrLayerNotOpen
 	ErrOpenHeight    = errors.New("sequencer: open height is not the next height")
 	ErrOpenTimestamp = errors.New("sequencer: open timestamp must be positive")
 	ErrSealHeight    = errors.New("sequencer: seal height is not the open height")

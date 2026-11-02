@@ -1,106 +1,5 @@
-mod canonical_owner {
-    use std::fmt::Debug;
-
-    use ed25519_dalek::{Signer as _, SigningKey};
-    use layerx_crypto::SignatureMessage;
-    use layerx_intents::canonical;
-    use layerx_types::activity::{Authority, EnvelopeBuilder, Signature, TimestampBound};
-    use layerx_types::amount::Amount;
-    use layerx_types::ids::{Did, IdempotencyKey};
-    use layerx_types::payload::{ModuleRegistration, ModuleRegistry, Payload};
-    use sha2::{Digest as _, Sha256};
-
-    pub struct SignedOwner {
-        pub bytes: Vec<u8>,
-        pub id: [u8; 32],
-        pub public_key: [u8; 32],
-        pub actor: Vec<u8>,
-    }
-
-    fn checked<T, E: Debug>(value: Result<T, E>) -> T {
-        value.unwrap_or_else(|error| panic!("canonical owner encoding: {error:?}"))
-    }
-
-    pub fn sign(
-        payload: &Payload,
-        action_key: [u8; 32],
-        version: u16,
-        network: u32,
-    ) -> SignedOwner {
-        let signer = SigningKey::from_bytes(&[0x68; 32]);
-        let public_key = signer.verifying_key().to_bytes();
-        let actor = b"did:layerx:owner-receipt-fixture".to_vec();
-        let mut builder = EnvelopeBuilder::new();
-        checked(builder.protocol_version(version));
-        checked(builder.network_id(network));
-        checked(builder.activity_type(payload.activity_type()));
-        checked(builder.actor_did(checked(Did::new(&actor))));
-        checked(builder.authority(checked(Authority::owner(&public_key))));
-        checked(builder.account_sequence(1));
-        checked(builder.timestamp_bound(checked(TimestampBound::new(900, 2000))));
-        checked(builder.idempotency_key(IdempotencyKey::new(action_key)));
-        checked(builder.fee_limit(Amount::from_u128(10)));
-        checked(builder.payload_hash(checked(canonical::payload_hash_for(payload))));
-        checked(builder.payload(payload.clone()));
-        let unsigned = checked(builder.build());
-        let canonical = checked(canonical::unsigned_envelope_bytes(&unsigned));
-        let digest = checked(SignatureMessage::new(
-            canonical::Domain::SignaturePreimage,
-            version,
-            network,
-            &canonical,
-        ))
-        .digest();
-        let signature = signer.sign(&digest).to_bytes();
-        let bytes = checked(canonical::signed_envelope_bytes(
-            &unsigned.attach_signature(checked(Signature::new(&signature))),
-        ));
-        let registry = checked(ModuleRegistry::new(&[checked(ModuleRegistration::new(
-            payload.activity_type().module(),
-            &[payload.activity_type()],
-        ))]));
-        let decoded = checked(canonical::decode_signed_activity(&bytes, &registry));
-        SignedOwner {
-            id: checked(canonical::activity_id(&decoded)),
-            bytes,
-            public_key,
-            actor,
-        }
-    }
-
-    pub fn assert_outcome(
-        evidence: &layerx_human_service::agents::ProtocolEvidence,
-        kind: layerx_types::payload::ActivityType,
-        authorized_batch: &layerx_proof::receipt::AuthorizedBatch,
-    ) {
-        checked(evidence.bound_activity(kind));
-        let receipt = checked(evidence.verify_outcome(kind));
-        let protocol = receipt.protocol().expect("protocol receipt");
-        assert_eq!(evidence.tx_hash, protocol.activity_id());
-        assert_eq!(evidence.tx_hash, evidence.activity_id);
-        assert_eq!(evidence.rung, layerx_types::rung::Rung::Committed);
-        assert_eq!(
-            &protocol.batch_id()[24..],
-            &evidence.block_height.to_be_bytes()
-        );
-        assert_eq!(
-            evidence.receipt_hash,
-            <[u8; 32]>::from(Sha256::digest(&evidence.receipt_bytes))
-        );
-        checked(layerx_proof::receipt::verify_native_owner_outcome(
-            &evidence.receipt_bytes,
-            authorized_batch,
-            &layerx_proof::receipt::NativeOwnerOutcomeContext {
-                canonical_activity: &evidence.signed_activity,
-                actor: &evidence.actor,
-                action_key: evidence.action_key,
-                activity_type: kind,
-                owner_public_key: evidence.owner_public_key,
-                network_id: evidence.network_id,
-            },
-        ));
-    }
-}
+#[path = "support/canonical_owner.rs"]
+mod canonical_owner;
 
 use layerx_human_test_support as support;
 
@@ -127,11 +26,12 @@ use layerx_human_service::agents::{
     ProtocolEvidence, PurposePresetCatalog, SessionProvision, StageState,
 };
 use layerx_human_service::custody::{EnvelopeKms, Keystore};
+use layerx_human_service::server::agent_creation::verify_creation_call_disclosure;
 use layerx_human_service::server::schema::ApiSchema;
 use layerx_human_service::store::{PrincipalStore, TenancyDigest};
 use layerx_intents::{DisclosureCheck, IntentKind};
 use layerx_proof::receipt::AuthorizedBatch;
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
 use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use serde_json::json;
@@ -141,6 +41,93 @@ use support::{directory, install_and_open, principal, retention_uniform, tenancy
 
 const NETWORK_ID: u32 = 77;
 const CORE_SEQUENCE: u64 = 10;
+
+fn prepare_call(
+    payload: &Payload,
+) -> (
+    Vec<u8>,
+    layerx_crypto::disclosure::Disclosure,
+    canonical_owner::SignedOwner,
+) {
+    fn checked<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
+        value.unwrap_or_else(|error| panic!("canonical owner encoding: {error:?}"))
+    }
+
+    use layerx_agentd::prepare::{
+        prepare_bound, AbiArgument, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest,
+        PrecompileCall, PrecompileTarget,
+    };
+
+    let mut budget = layerx_wire::decode::Decoder::new(payload.as_bytes(), 0);
+    assert_eq!(checked(budget.u16()), 1);
+    let mut arguments = Vec::new();
+    for _ in 0..4 {
+        arguments.push(AbiArgument::Word(checked(
+            checked(budget.fixed(32)).try_into(),
+        )));
+    }
+    for _ in 0..3 {
+        let mut word = [0; 32];
+        word[16..].copy_from_slice(&checked(budget.u128()).to_be_bytes());
+        arguments.push(AbiArgument::Word(word));
+    }
+    for _ in 0..4 {
+        let mut word = [0; 32];
+        word[24..].copy_from_slice(&checked(budget.u64()).to_be_bytes());
+        arguments.push(AbiArgument::Word(word));
+    }
+    let mut word = [0; 32];
+    word[31] = checked(budget.u8());
+    arguments.push(AbiArgument::Word(word));
+    checked(budget.finish());
+    let key = checked(k256::ecdsa::SigningKey::from_slice(&[0x68; 32]));
+    let sender = checked(layerx_crypto::secp256k1::evm_address(
+        key.verifying_key().to_encoded_point(false).as_bytes(),
+    ));
+    let prepared = checked(prepare_bound(
+        EvmPreparationState {
+            chain_id: u64::from(NETWORK_ID),
+            pending_nonce: 1,
+            base_fee_per_gas: 1,
+            head_height: CORE_SEQUENCE,
+        },
+        EvmPreparationDefaults {
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 10,
+            maximum_payload_bytes: 4096,
+        },
+        EvmPrepareRequest {
+            from: sender,
+            call: PrecompileCall {
+                target: PrecompileTarget::Pay,
+                selector: layerx_crypto::disclosure::call::ledger_selector(
+                    "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
+                ),
+                arguments,
+            },
+            expected_nonce: Some(1),
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
+            declared_payload_limit: 4096,
+        },
+        100_000,
+    ));
+    let canonical = layerx_human_kms::attestor::unsigned_evm_transaction(&prepared.call);
+    let disclosure = checked(layerx_crypto::disclosure::call::bind_call(
+        &prepared.call,
+        sender,
+    ));
+    let bytes = checked(prepared.call.sign(&[0x68; 32]));
+    let mut public_key = [0; 32];
+    public_key[12..].copy_from_slice(&sender);
+    let owner = canonical_owner::SignedOwner {
+        id: layerx_crypto::evm_transaction::transaction_hash(&bytes),
+        bytes,
+        public_key,
+        actor: disclosure.actor.clone(),
+    };
+    (canonical, disclosure, owner)
+}
 
 struct Fixture {
     root: std::path::PathBuf,
@@ -282,6 +269,7 @@ struct InProcessAgentLayer {
     agent_cache: BTreeMap<[u8; 32], AgentEvidence>,
     effects: BTreeMap<CreationStage, usize>,
     last_capability: Option<CapabilityProvision>,
+    creation_call: Option<(Vec<u8>, layerx_crypto::disclosure::Disclosure)>,
 }
 
 impl InProcessAgentLayer {
@@ -302,6 +290,7 @@ impl InProcessAgentLayer {
             agent_cache: BTreeMap::new(),
             effects: BTreeMap::new(),
             last_capability: None,
+            creation_call: None,
         }
     }
 
@@ -351,7 +340,14 @@ impl AgentCreationContract for InProcessAgentLayer {
         {
             return Err(AgentFailure::Refused("typed intent mismatch"));
         }
-        let receipt = receipt(&action);
+        let receipt = if action.stage == CreationStage::BudgetCreation {
+            let (canonical, disclosure, owner) = prepare_call(action.compiled.payload());
+            verify_creation_call_disclosure(&canonical, &disclosure)?;
+            self.creation_call = Some((canonical, disclosure));
+            receipt_with_owner(&action, owner)
+        } else {
+            receipt(&action)
+        };
         receipt
             .verify_outcome(action.compiled.activity_type())
             .map_err(|_| AgentFailure::Refused("core receipt verification failed"))?;
@@ -639,14 +635,21 @@ struct ReceiptFields {
 }
 
 fn receipt(action: &ProtocolAction) -> ProtocolEvidence {
-    let stage = action.stage;
-    let action_key = action.action_key;
-    let owner = canonical_owner::sign(
+    let owner = canonical_owner::sign_transaction(
         action.compiled.payload(),
-        action_key,
+        action.action_key,
         layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION,
         NETWORK_ID,
     );
+    receipt_with_owner(action, owner)
+}
+
+fn receipt_with_owner(
+    action: &ProtocolAction,
+    owner: canonical_owner::SignedOwner,
+) -> ProtocolEvidence {
+    let stage = action.stage;
+    let action_key = action.action_key;
     let marker = stage as u8 + 11;
     let previous_state_root = [marker; 32];
     let block_height = CORE_SEQUENCE;
@@ -809,6 +812,88 @@ fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
     )
     .unwrap_or_else(|error| panic!("start: {error}"));
     assert_eq!(journey.status().state, CreationState::GettingReady);
+    let projection = journey.projection();
+    let intent = layerx_intents::Intent::v1(IntentKind::BudgetCreate(
+        layerx_intents::BudgetCreate::new(
+            layerx_types::intent::BudgetId::new(projection.agent_id),
+            layerx_types::account::AccountId::parse(&projection.owner_account)
+                .expect("creation owner account"),
+            layerx_types::account::AccountId::parse(&projection.budget_account)
+                .expect("creation budget account"),
+            layerx_types::ids::AssetId::new(projection.budget_asset),
+            layerx_types::amount::Amount::from_u128(projection.monthly_limit),
+            layerx_types::intent::PeriodLength::new(projection.period_seconds)
+                .expect("creation budget period"),
+            layerx_types::intent::RolloverPolicy::None,
+            layerx_types::amount::Amount::ZERO,
+            layerx_types::intent::PurposeHash::new(projection.purpose_hash),
+            layerx_types::intent::TimestampSeconds::from_u64(
+                projection.started_at + projection.budget_expiry_seconds,
+            ),
+        )
+        .expect("creation budget intent"),
+    ));
+    let compiled =
+        layerx_intents::compile(&intent, &fixture.registry).expect("compiled creation budget");
+    let (canonical, disclosure, _) = prepare_call(compiled.payload());
+    let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(&canonical)
+        .expect("unsigned EIP-1559 creation preparation");
+    assert!(matches!(
+        disclosure.construct_method().expect("creation call source"),
+        Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { .. })
+    ));
+    assert_eq!(
+        verify_creation_call_disclosure(&canonical, &disclosure),
+        Ok(())
+    );
+    let from: [u8; 20] = disclosure.actor.as_slice().try_into().expect("call sender");
+    assert_eq!(
+        layerx_crypto::disclosure::call::bind_call(&call, from).expect("bind creation call"),
+        disclosure,
+    );
+    let mut mismatched = disclosure.clone();
+    mismatched.actor[0] ^= 1;
+    assert_ne!(mismatched.actor, from);
+    assert_eq!(
+        verify_creation_call_disclosure(&canonical, &mismatched),
+        Err(AgentFailure::Refused(
+            "agent preparation differs from creation intent"
+        )),
+    );
+    let mut changed_call = call.clone();
+    changed_call.nonce += 1;
+    assert_eq!(
+        verify_creation_call_disclosure(
+            &layerx_human_kms::attestor::unsigned_evm_transaction(&changed_call),
+            &disclosure,
+        ),
+        Err(AgentFailure::Refused(
+            "agent preparation differs from creation intent"
+        )),
+    );
+    let mut invalid_actor = disclosure.clone();
+    invalid_actor.actor.pop();
+    assert_eq!(
+        verify_creation_call_disclosure(&canonical, &invalid_actor),
+        Err(AgentFailure::Refused(
+            "agent preparation differs from creation intent"
+        )),
+    );
+    let signed_creation = canonical_owner::sign_transaction(
+        compiled.payload(),
+        projection.agent_id,
+        layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION,
+        NETWORK_ID,
+    );
+    let (signed_call, _) = layerx_crypto::evm_transaction::decode_signed(&signed_creation.bytes)
+        .expect("signed creation transaction");
+    assert_eq!(signed_call, call);
+    assert_eq!(
+        verify_creation_call_disclosure(&signed_creation.bytes, &disclosure),
+        Err(AgentFailure::Refused(
+            "agent preparation differs from creation intent"
+        )),
+    );
     let mut agent = InProcessAgentLayer::new(&fixture.root.join("agent-store"), None);
     let active = journey
         .resume(
@@ -828,6 +913,55 @@ fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
         assert_eq!(agent.count(stage), 1, "one effect for {stage:?}");
     }
     assert_eq!(agent.sessions.open_count(), 1);
+
+    let (canonical, disclosure) = agent
+        .creation_call
+        .as_ref()
+        .expect("prepared creation call");
+    assert!(matches!(
+        disclosure.construct_method().expect("creation call source"),
+        Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { .. })
+    ));
+    let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(canonical)
+        .expect("unsigned EIP-1559 creation preparation");
+    let from: [u8; 20] = disclosure.actor.as_slice().try_into().expect("call sender");
+    assert_eq!(
+        layerx_crypto::disclosure::call::bind_call(&call, from).expect("bind creation call"),
+        *disclosure,
+    );
+    let evidence = agent
+        .protocol_cache
+        .values()
+        .find(|evidence| {
+            let (signed_call, _) =
+                layerx_crypto::evm_transaction::decode_signed(&evidence.signed_activity)
+                    .expect("signed lifecycle call");
+            signed_call == call
+        })
+        .expect("receipt-gated creation evidence");
+    let (signed_call, signature) =
+        layerx_crypto::evm_transaction::decode_signed(&evidence.signed_activity)
+            .expect("signed creation call");
+    assert_eq!(signed_call, call);
+    assert_eq!(
+        layerx_crypto::evm_transaction::recover_sender(&signed_call, &signature)
+            .expect("creation sender"),
+        from
+    );
+    assert_eq!(
+        verify_creation_call_disclosure(canonical, disclosure),
+        Ok(())
+    );
+
+    let mut mismatched = disclosure.clone();
+    mismatched.actor[0] ^= 1;
+    assert_ne!(mismatched.actor, from);
+    assert_eq!(
+        verify_creation_call_disclosure(canonical, &mismatched),
+        Err(AgentFailure::Refused(
+            "agent preparation differs from creation intent"
+        )),
+    );
 
     let agent_id = journey.agent_id();
     drop(scope);

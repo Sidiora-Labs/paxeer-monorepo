@@ -8,9 +8,8 @@ use layerx_agent_api::export::{FactRef, OfflineExport};
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::proof::ProofBundle;
 use layerx_agent_api::read::{Freshness, RelativeTo, VerifiedRead};
-use layerx_client::availability::FetchError;
-use layerx_client::evidence::EvidenceError;
 use layerx_client::sequencer::ReceiptKeyEntry;
+pub type SequencerError = layerx_client::sequencer::SequencerError;
 use layerx_crypto::evm_transaction::transaction_hash;
 use layerx_proof::export::{CompleteExportError, OfflineTrustError};
 use layerx_proof::export_codec::{
@@ -35,6 +34,11 @@ use crate::store::{ObjectKind, Store, TenantId, TenantKey};
 
 pub const MAX_EXPORT_BYTES: usize = crate::agent_rpc::MAX_BODY_BYTES;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ExportTrustError {
+    InvalidEntry,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExportTrustSource {
     receipt_keys: Vec<ReceiptKeyEntry>,
@@ -45,7 +49,7 @@ impl ExportTrustSource {
     pub fn new(
         receipt_keys: Vec<ReceiptKeyEntry>,
         validator_set: Vec<CommitValidator>,
-    ) -> Result<Self, OfflineTrustError> {
+    ) -> Result<Self, ExportTrustError> {
         let mut keys = BTreeSet::new();
         let mut validators = BTreeSet::new();
         if receipt_keys.is_empty()
@@ -62,7 +66,7 @@ impl ExportTrustSource {
                     || !validators.insert(validator.address)
             })
         {
-            return Err(OfflineTrustError::NetworkId);
+            return Err(ExportTrustError::InvalidEntry);
         }
         Ok(Self {
             receipt_keys,
@@ -97,7 +101,6 @@ pub struct ExportOwnerContext<'a> {
 pub struct VerificationReport {
     pub verified_receipts: usize,
     pub verified_inclusions: usize,
-    pub verified_checkpoints: usize,
     pub height: u64,
     pub block_hash: [u8; 32],
     pub achieved_rung: Rung,
@@ -130,10 +133,6 @@ pub enum ExportProduceError {
     },
     Store,
     Correlation,
-    Evidence {
-        fact: usize,
-        error: EvidenceError,
-    },
     ReceiptEvidence {
         fact: usize,
         error: ReceiptEvidenceError,
@@ -146,7 +145,7 @@ pub enum ExportProduceError {
     },
     Availability {
         fact: usize,
-        error: FetchError,
+        error: SequencerError,
     },
     AvailabilityIncomplete {
         fact: usize,
@@ -311,9 +310,6 @@ pub fn verify(
                     header.app_hash,
                 )?;
             }
-            FactSelector::Checkpoint { batch_number, .. } if *batch_number != artifact.height => {
-                return Err(refusal())
-            }
             _ if bundle.account_proof.is_some() => return Err(refusal()),
             _ => {}
         }
@@ -321,7 +317,6 @@ pub fn verify(
     Ok(VerificationReport {
         verified_receipts: selectors.len(),
         verified_inclusions: selectors.len(),
-        verified_checkpoints: 1,
         height: artifact.height,
         block_hash: block.ok_or(ExportProduceError::Contract)?,
         achieved_rung: Rung::Committed,

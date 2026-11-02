@@ -1,13 +1,21 @@
 //! Evidence reads over JSON-RPC.
 
-use crate::rpc::batch;
-use crate::sequencer::{AccountProof, SequencerBlock, SequencerEndpoint, SequencerError};
+use crate::sequencer::{SequencerBlock, SequencerError};
+
+pub type SequencerEndpoint = crate::sequencer::SequencerEndpoint;
+pub type PxEndpoint = crate::px::PxEndpoint;
 
 pub type Rung = layerx_types::rung::Rung;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RootSelector {
+    Latest,
+    Batch(u64),
+    Checkpoint([u8; 32]),
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProofBundle {
-    pub account_proof: AccountProof,
     pub landing_block: SequencerBlock,
 }
 
@@ -26,21 +34,19 @@ pub fn checkpoint(
     endpoint: &SequencerEndpoint,
     height: u64,
 ) -> Result<SequencerBlock, EvidenceError> {
-    Ok(batch::lookup(endpoint, height)?)
+    endpoint
+        .block_by_number(height)?
+        .ok_or(EvidenceError::Rpc(SequencerError::Unavailable))
 }
 
 pub fn proof_bundle(
     endpoint: &SequencerEndpoint,
-    address: [u8; 20],
-    slots: &[[u8; 32]],
+    _address: [u8; 20],
+    _slots: &[[u8; 32]],
     height: u64,
 ) -> Result<ProofBundle, EvidenceError> {
-    let account_proof = endpoint.account_proof(&address, slots, height)?;
     let landing_block = checkpoint(endpoint, height)?;
-    Ok(ProofBundle {
-        account_proof,
-        landing_block,
-    })
+    Ok(ProofBundle { landing_block })
 }
 
 pub fn proof_bundle_with_history(

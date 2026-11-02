@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fs, path::Path};
 
-use layerx_client::evidence::{verify_arbiter_admission_v3, VerifiedAdmissionPrestate};
+use layerx_programs_arbiter::AdmissionEvidence;
 use layerx_programs_arbiter::{
     ics23::{decode_existence, ExistenceProof},
     AuthenticatedCatalogue, BoundaryProof, ChainCommitProof, ReplayError, VerifiedReplay,
@@ -44,7 +44,7 @@ fn hex(v: &Value, key: &str) -> Vec<u8> {
 
 fn committed_vector() -> Value {
     serde_json::from_str(include_str!(
-        "../../../tests/vectors/ics23-receipt-keys-app-hash.json"
+        "../../../tests/vectors/ics23-admission-evidence-app-hash.json"
     ))
     .expect("committed receipt-key list and multistore proof vector")
 }
@@ -66,7 +66,7 @@ fn chain_commit(entry: &Value) -> ChainCommitProof {
 #[test]
 fn chain_commit_proof_verifies_pinned_receipt_keys_under_app_hash() {
     let vector = committed_vector();
-    let entries = vector["entries"].as_array().expect("host entries");
+    let entries = vector["receipt_entries"].as_array().expect("host entries");
     assert!(!entries.is_empty(), "committed receipt-key list proofs");
     for entry in entries {
         let commit = chain_commit(entry);
@@ -120,7 +120,7 @@ fn chain_commit_proof_verifies_pinned_receipt_keys_under_app_hash() {
 #[test]
 fn authority_refuses_receipt_proof_for_another_app_hash() {
     let vector = committed_vector();
-    let entries = vector["entries"].as_array().expect("host entries");
+    let entries = vector["receipt_entries"].as_array().expect("host entries");
     assert!(!entries.is_empty(), "committed receipt-key list proofs");
     for entry in entries {
         let commit = chain_commit(entry);
@@ -258,7 +258,7 @@ struct Capture {
     receipt: VerifiedReceipt,
     header: VerifiedBatchHeader,
     receipt_proof: ChainCommitProof,
-    admission: VerifiedAdmissionPrestate,
+    admission: AdmissionEvidence,
     host_store_root: [u8; 32],
     host_multistore_proof: Vec<u8>,
     code_proofs: BTreeMap<[u8; 32], ExistenceProof>,
@@ -321,8 +321,12 @@ impl Fixture {
                 receipt_proof
                     .verify_receipt(&receipt)
                     .expect("genuine app-hash authenticated receipt keys");
-                let admission = verify_arbiter_admission_v3(&read(v, "v3_path"), &receipt, network)
-                    .expect("genuine sealed V3 prestate");
+                let admission = admission_from_proofs(&v["admission"]);
+                assert_eq!(admission.network_id(), network);
+                assert_eq!(
+                    admission.receipt_digest(),
+                    receipt.evidence().receipt_digest().expect("receipt digest")
+                );
                 if admission.activity().activity_type().module()
                     == layerx_types::payload::ModuleId::Programs
                     && admission.activity().activity_type().ordinal() == 1
@@ -715,4 +719,197 @@ fn assert_native_field_refusals(authority: &VerifiedReplayAuthority, bytes: &[u8
     let mut trailing = bytes.to_vec();
     trailing.push(0);
     assert!(authority.verify_native(&trailing).is_err());
+}
+
+fn admission_from_proofs(entry: &Value) -> layerx_programs_arbiter::AdmissionEvidence {
+    let records = entry["records"]
+        .as_array()
+        .expect("app-hash admission record proofs");
+    assert!(!records.is_empty());
+    let first = &records[0];
+    let mut proofs = BTreeMap::new();
+    for record in records {
+        assert_eq!(hash(record, "app_hash"), hash(first, "app_hash"));
+        assert_eq!(hash(record, "store_root"), hash(first, "store_root"));
+        assert_eq!(
+            hex(record, "multistore_proof"),
+            hex(first, "multistore_proof")
+        );
+        let proof =
+            decode_existence(&hex(record, "proof")).expect("real admission existence proof");
+        assert_eq!(proof.key, hex(record, "key"));
+        assert_eq!(proof.value, hex(record, "value"));
+        assert!(proofs.insert(proof.key.clone(), proof).is_none());
+    }
+    layerx_programs_arbiter::AdmissionEvidence::verify_under_app_hash(
+        hash(first, "app_hash"),
+        hash(first, "store_root"),
+        &hex(first, "multistore_proof"),
+        &hash(entry, "activity_id"),
+        &proofs,
+    )
+    .expect("admission records authenticated under the block app hash")
+}
+
+#[test]
+fn admission_evidence_verifies_under_ics23_app_hash() {
+    let vector = committed_vector();
+    let entries = vector["entries"].as_array().expect("keeper admissions");
+    assert_eq!(entries.len(), 2);
+    for entry in entries {
+        let admission = admission_from_proofs(entry);
+        assert_eq!(
+            admission.network_id(),
+            entry["network_id"].as_u64().unwrap() as u32
+        );
+        assert_eq!(admission.activity_id(), hash(entry, "activity_id"));
+        assert_eq!(
+            admission.execution_sequence(),
+            entry["sequence"].as_u64().unwrap()
+        );
+        assert_eq!(admission.state_root(), hash(entry, "state_root"));
+        assert_eq!(admission.receipt_digest(), hash(entry, "receipt_digest"));
+        assert_eq!(
+            layerx_wire::activity::encode_signed(admission.activity()).unwrap(),
+            hex(entry, "signed_activity")
+        );
+        let native = admission.legacy().legacy();
+        assert_eq!(native.canonical_bytes(), hex(entry, "native"));
+        assert_eq!(native.program_records().len(), 1);
+        assert_eq!(native.all_accounts().len(), 1);
+        assert_eq!(admission.governance_records().len(), 1);
+        for record in entry["records"].as_array().unwrap() {
+            let key = hex(record, "key");
+            let value = hex(record, "value");
+            if key.starts_with(&[1, 0, 9]) && key[3..].starts_with(b"admission/v1/") {
+                assert_eq!(admission.header(), value);
+            } else if key.starts_with(&[1, 0, 9]) {
+                assert_eq!(native.program_records().get(&key[3..]), Some(&value));
+            } else if key.starts_with(&[1, 0, 7]) {
+                assert_eq!(admission.governance_records().get(&key[3..]), Some(&value));
+            } else {
+                assert_eq!(key[0], 6);
+                let id: [u8; 32] = key[1..].try_into().unwrap();
+                let account = layerx_proof::state::decode_account_value(id, &value).unwrap();
+                assert_eq!(native.all_accounts().get(&id), Some(&account));
+                assert_eq!(account.balance(), 1_000_000);
+            }
+        }
+    }
+}
+
+#[test]
+fn admission_evidence_refuses_record_absent_from_app_hash() {
+    let vector = committed_vector();
+    let entries = vector["entries"].as_array().expect("keeper admissions");
+    assert_eq!(entries.len(), 2);
+    for name in ["absent", "mismatch"] {
+        let entry = &vector[name];
+        let records = entry["records"]
+            .as_array()
+            .expect("real negative keeper snapshot");
+        assert!(!records.is_empty());
+        let first = &records[0];
+        let proofs: BTreeMap<_, _> = records
+            .iter()
+            .map(|record| {
+                let proof = decode_existence(&hex(record, "proof")).unwrap();
+                assert_eq!(proof.key, hex(record, "key"));
+                assert_eq!(proof.value, hex(record, "value"));
+                layerx_programs_arbiter::ics23::verify_existence(
+                    &proof,
+                    hash(first, "store_root"),
+                    &proof.key,
+                    &proof.value,
+                )
+                .expect("real negative snapshot record still has valid membership");
+                (proof.key.clone(), proof)
+            })
+            .collect();
+        assert!(matches!(
+            AdmissionEvidence::verify_under_app_hash(
+                hash(first, "app_hash"),
+                hash(first, "store_root"),
+                &hex(first, "multistore_proof"),
+                &hash(entry, "activity_id"),
+                &proofs
+            ),
+            Err(ReplayError::Admission)
+        ));
+    }
+    for (index, entry) in entries.iter().enumerate() {
+        admission_from_proofs(entry);
+        let records = entry["records"].as_array().unwrap();
+        let first = &records[0];
+        let proofs: BTreeMap<_, _> = records
+            .iter()
+            .map(|r| {
+                let proof = decode_existence(&hex(r, "proof")).unwrap();
+                (hex(r, "key"), proof)
+            })
+            .collect();
+        let verify = |app_hash, candidate: &BTreeMap<Vec<u8>, ExistenceProof>| {
+            AdmissionEvidence::verify_under_app_hash(
+                app_hash,
+                hash(first, "store_root"),
+                &hex(first, "multistore_proof"),
+                &hash(entry, "activity_id"),
+                candidate,
+            )
+        };
+        let app_hash = hash(first, "app_hash");
+        for key in proofs.keys() {
+            let mut missing = proofs.clone();
+            missing.remove(key);
+            assert!(matches!(
+                verify(app_hash, &missing),
+                Err(ReplayError::Admission)
+            ));
+            let mut mismatch = proofs.clone();
+            mismatch.get_mut(key).unwrap().value[0] ^= 1;
+            assert!(matches!(
+                verify(app_hash, &mismatch),
+                Err(ReplayError::Admission)
+            ));
+            let mut wrong_key = proofs.clone();
+            wrong_key.get_mut(key).unwrap().key[0] ^= 1;
+            assert!(matches!(
+                verify(app_hash, &wrong_key),
+                Err(ReplayError::Admission)
+            ));
+            let mut wrong_path = proofs.clone();
+            wrong_path.get_mut(key).unwrap().leaf.prefix[0] ^= 1;
+            assert!(matches!(
+                verify(app_hash, &wrong_path),
+                Err(ReplayError::Admission)
+            ));
+        }
+        let other = &entries[1 - index]["records"][0];
+        assert_ne!(app_hash, hash(other, "app_hash"));
+        assert!(matches!(
+            verify(hash(other, "app_hash"), &proofs),
+            Err(ReplayError::Admission)
+        ));
+        let mut extra = proofs.clone();
+        extra.insert(
+            b"absent-record".to_vec(),
+            proofs.values().next().unwrap().clone(),
+        );
+        assert!(matches!(
+            verify(app_hash, &extra),
+            Err(ReplayError::Admission)
+        ));
+        let mut other_activity = hash(entry, "activity_id");
+        other_activity[0] ^= 1;
+        assert!(matches!(
+            AdmissionEvidence::verify_under_app_hash(
+                app_hash,
+                hash(first, "store_root"),
+                &hex(first, "multistore_proof"),
+                &other_activity,
+                &proofs
+            ),
+            Err(ReplayError::Admission)
+        ));
+    }
 }

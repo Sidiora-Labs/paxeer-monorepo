@@ -3,11 +3,12 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::thread::JoinHandle;
 
+use layerx_crypto::evm_transaction::Eip1559Call;
+
 use layerx_client::sequencer::{
     CallRequest, ExecutedReceipt, ReceiptKeyEntry, RpcRefusal, SequencerBlock, SequencerEndpoint,
     SequencerError, SequencerLog, SequencerReceipt,
 };
-use layerx_crypto::evm_transaction::Eip1559Call;
 use serde_json::{json, Value};
 
 trait Must<T> {
@@ -94,6 +95,31 @@ fn serve(exchanges: Vec<Exchange>) -> (String, JoinHandle<Vec<Value>>) {
 
 fn endpoint(url: &str) -> SequencerEndpoint {
     SequencerEndpoint::new(url, &[]).must()
+}
+
+#[test]
+fn endpoint_refuses_plain_remote_urls_and_unpinned_https() {
+    assert_eq!(
+        SequencerEndpoint::new("http://router.example/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("https://router.example/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("https://router.example/", &[&[]]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("ftp://127.0.0.1/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert!(SequencerEndpoint::new("https://router.example/", &[&[0x30, 0x82]]).is_ok());
+    assert_eq!(
+        SequencerEndpoint::new("http://router.railway.internal:9443", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
 }
 
 fn receipted_members() -> String {
@@ -353,6 +379,43 @@ fn revert_data(reason: &str) -> String {
 }
 
 #[test]
+fn call_at_sends_the_explicit_height_and_keeps_a_revert_at_that_height() {
+    let reason = revert_data("LXP_ADDR_DID_NOT_BOUND: no binding at this height");
+    let (url, server) = serve(vec![
+        ("eth_call", Some(r#""result":"0x00ff10""#.to_owned())),
+        (
+            "eth_call",
+            Some(format!(
+                r#""error":{{"code":3,"message":"execution reverted","data":"0x{reason}"}}"#
+            )),
+        ),
+    ]);
+    let endpoint = endpoint(&url);
+    let mut to = [0_u8; 20];
+    to[18] = 0x10;
+    to[19] = 0x04;
+    assert_eq!(
+        endpoint.call_at(1000, &to, &[0xc4, 0x13, 0xba, 0xd3]),
+        Ok(vec![0x00, 0xff, 0x10])
+    );
+    assert_eq!(
+        endpoint.call_at(0, &to, &[]),
+        Err(SequencerError::Rpc(RpcRefusal {
+            code: 3,
+            message: "execution reverted".to_owned(),
+            data: Some(Value::String(format!("0x{reason}"))),
+        }))
+    );
+    assert_eq!(
+        server.join().must(),
+        vec![
+            json!([{"to": "0x0000000000000000000000000000000000001004", "data": "0xc413bad3"}, "0x3e8"]),
+            json!([{"to": "0x0000000000000000000000000000000000001004", "data": "0x"}, "0x0"]),
+        ]
+    );
+}
+
+#[test]
 fn bound_address_reads_the_addr_precompile_and_decodes_the_unbound_revert() {
     let did = [0x61_u8; 32];
     let unbound = "LXP_ADDR_DID_NOT_BOUND: LayerX DID is not bound to an EVM address; did:lx:abc";
@@ -601,31 +664,6 @@ fn unusable_send_answer_is_unavailable() {
 }
 
 #[test]
-fn endpoint_refuses_plain_remote_urls_and_unpinned_https() {
-    assert_eq!(
-        SequencerEndpoint::new("http://router.example/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("https://router.example/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("https://router.example/", &[&[]]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("ftp://127.0.0.1/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert!(SequencerEndpoint::new("https://router.example/", &[&[0x30, 0x82]]).is_ok());
-    assert_eq!(
-        SequencerEndpoint::new("http://router.railway.internal:9443", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-}
-
-#[test]
 fn railway_private_network_opt_in_accepts_only_strict_private_urls() {
     for url in [
         "http://router.railway.internal:9443",
@@ -871,41 +909,4 @@ fn closed_connection_during_block_read_is_unavailable() {
         Err(SequencerError::Unavailable)
     );
     assert_eq!(server.join().must(), vec![json!(["0x3e8", true])]);
-}
-
-#[test]
-fn call_at_sends_the_explicit_height_and_keeps_a_revert_at_that_height() {
-    let reason = revert_data("LXP_ADDR_DID_NOT_BOUND: no binding at this height");
-    let (url, server) = serve(vec![
-        ("eth_call", Some(r#""result":"0x00ff10""#.to_owned())),
-        (
-            "eth_call",
-            Some(format!(
-                r#""error":{{"code":3,"message":"execution reverted","data":"0x{reason}"}}"#
-            )),
-        ),
-    ]);
-    let endpoint = endpoint(&url);
-    let mut to = [0_u8; 20];
-    to[18] = 0x10;
-    to[19] = 0x04;
-    assert_eq!(
-        endpoint.call_at(1000, &to, &[0xc4, 0x13, 0xba, 0xd3]),
-        Ok(vec![0x00, 0xff, 0x10])
-    );
-    assert_eq!(
-        endpoint.call_at(0, &to, &[]),
-        Err(SequencerError::Rpc(RpcRefusal {
-            code: 3,
-            message: "execution reverted".to_owned(),
-            data: Some(Value::String(format!("0x{reason}"))),
-        }))
-    );
-    assert_eq!(
-        server.join().must(),
-        vec![
-            json!([{"to": "0x0000000000000000000000000000000000001004", "data": "0xc413bad3"}, "0x3e8"]),
-            json!([{"to": "0x0000000000000000000000000000000000001004", "data": "0x"}, "0x0"]),
-        ]
-    );
 }

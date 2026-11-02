@@ -14,6 +14,7 @@ import urllib.request
 TOOLCHAIN_IMAGE = "task23-1-toolchain:local"
 POSTGRES_IMAGE = "postgres:15-alpine"
 CASES = ("history-readiness", "unified-pagination")
+MISSING_EVM_SOURCE_REFUSAL = "layerx-indexer: configuration invalid: set LAYERX_INDEXER_EVM_URL"
 
 
 class MissingPrerequisite(Exception):
@@ -327,8 +328,7 @@ def history_readiness():
         until(lambda: indexer.poll() is not None, "missing ingestion source refused at startup")
         require(indexer.returncode != 0, "missing ingestion source was accepted")
         refusal = (work / "history-indexer-unconfigured.log").read_text()
-        require("layerx-indexer: configuration invalid: set LAYERX_INDEXER_RELAY_URL, "
-                "LAYERX_INDEXER_EVM_URL or both" in refusal,
+        require(MISSING_EVM_SOURCE_REFUSAL in refusal,
                 "missing EVM source did not produce the expected configuration refusal")
         with urllib.request.urlopen(gateway_url + "/v1/status", timeout=5) as response:
             require(response.status == 200, "gateway status endpoint is not live")

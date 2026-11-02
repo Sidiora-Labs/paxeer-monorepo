@@ -2,9 +2,11 @@ package layerx
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,6 +66,49 @@ func TestAgentEnvelopeEncodesDaemonRequestGolden(t *testing.T) {
 	defer clear(encoded)
 	if !bytes.Equal(encoded, golden) {
 		t.Fatalf("encoded readiness request = %s, want %s", encoded, golden)
+	}
+}
+
+func TestAgentEnvelopeRefusesResponseWithoutSchemaFields(t *testing.T) {
+	golden, err := os.ReadFile(filepath.Join("..", "..", "..", "services", "agent", "schema", "agent-api", "golden", "agent-http-success.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(golden, &fields); err != nil {
+		t.Fatal(err)
+	}
+	var requestID string
+	if err := json.Unmarshal(fields["request_id"], &requestID); err != nil {
+		t.Fatal(err)
+	}
+	if requestID == "" {
+		t.Fatal("success golden has no request id")
+	}
+	value, decodeErr := decodeAgentEnvelopeResponse(http.StatusOK, golden, requestID)
+	if decodeErr != nil || string(value) != `{"account":"ready"}` {
+		t.Fatalf("daemon success: value = %s, error = %#v", value, decodeErr)
+	}
+	for _, field := range []string{"verification_status", "request_id"} {
+		t.Run("missing_"+field, func(t *testing.T) {
+			if _, exists := fields[field]; !exists {
+				t.Fatalf("success golden lacks %s", field)
+			}
+			incomplete := make(map[string]json.RawMessage, len(fields)-1)
+			for name, value := range fields {
+				if name != field {
+					incomplete[name] = value
+				}
+			}
+			encoded, err := json.Marshal(incomplete)
+			if err != nil {
+				t.Fatal(err)
+			}
+			value, decodeErr := decodeAgentEnvelopeResponse(http.StatusOK, encoded, requestID)
+			if value != nil || decodeErr == nil || decodeErr.Code != ErrorDecodeFailure || decodeErr.Retry != RetryNever {
+				t.Fatalf("response without %s: value = %s, error = %#v; want nil value, ErrorDecodeFailure and RetryNever", field, value, decodeErr)
+			}
+		})
 	}
 }
 
@@ -206,5 +251,128 @@ func TestAgentEnvelopeDecodesDaemonResponseGoldens(t *testing.T) {
 	value, decodeErr = decodeAgentEnvelopeResponse(http.StatusBadRequest, versionRefusal, "7")
 	if value != nil || decodeErr == nil || decodeErr.Code != ErrorProtocolIncompatible || decodeErr.Retry != RetryNever || decodeErr.ServiceCode != "envelope.version" || !errors.Is(decodeErr, ErrIncompatibleService) {
 		t.Fatalf("version refusal lost: value = %s, error = %#v", value, decodeErr)
+	}
+}
+
+func TestAgentEnvelopeAcceptsNotReadyVerificationStatus(t *testing.T) {
+	token, err := NewSecretBytes([]byte(strings.Repeat("ab", 32)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(token.Destroy)
+	credential, err := NewAgentSessionCredential("tenant-a", strings.Repeat("cd", 32), token, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	throughTransport := func(t *testing.T, fields map[string]json.RawMessage) (json.RawMessage, error) {
+		t.Helper()
+		server := httptest.NewTLSServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			if request.Method != http.MethodPost || request.URL.Path != agentDaemonEnvelopePath {
+				t.Errorf("unexpected envelope route: %s %s", request.Method, request.URL.Path)
+				http.Error(response, "unexpected route", http.StatusNotFound)
+				return
+			}
+			var envelope agentEnvelope
+			if err := json.NewDecoder(request.Body).Decode(&envelope); err != nil {
+				t.Errorf("decode transport request: %v", err)
+				http.Error(response, "invalid request", http.StatusBadRequest)
+				return
+			}
+			if envelope.Operation != "program.receipt" || envelope.RequestID == "" {
+				t.Errorf("unexpected envelope operation or request id: %#v", envelope)
+				http.Error(response, "invalid envelope", http.StatusBadRequest)
+				return
+			}
+			correlated := make(map[string]json.RawMessage, len(fields))
+			for name, value := range fields {
+				correlated[name] = value
+			}
+			correlated["request_id"], _ = json.Marshal(envelope.RequestID)
+			response.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(response).Encode(correlated); err != nil {
+				t.Errorf("write daemon golden: %v", err)
+			}
+		}))
+		defer server.Close()
+		transport, err := NewAgentDaemonEnvelopeHTTPTransport(server.URL, server.Client(), credential)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return transport.Call(context.Background(), TransportCall{
+			Plane: PlaneAgent, Operation: "program.receipt",
+			Request: json.RawMessage(`{"requested_rung":"receipted","idempotency_key":"` + strings.Repeat("12", 32) + `"}`),
+		})
+	}
+
+	for _, state := range []string{"pending", "absent"} {
+		t.Run(state, func(t *testing.T) {
+			golden, err := os.ReadFile(filepath.Join("..", "..", "..", "services", "agent", "schema", "agent-api", "golden", "agent-http-success-"+state+".json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(golden, &fields); err != nil {
+				t.Fatal(err)
+			}
+			value, err := throughTransport(t, fields)
+			if err != nil || !bytes.Equal(value, fields["value"]) {
+				t.Fatalf("daemon %s golden: value = %s, error = %v", state, value, err)
+			}
+			var result struct {
+				Found     *bool `json:"found"`
+				Submitted *struct {
+					Nonce  string `json:"nonce"`
+					TxHash string `json:"tx_hash"`
+				} `json:"submitted"`
+				Receipt json.RawMessage `json:"receipt"`
+			}
+			if err := json.Unmarshal(value, &result); err != nil {
+				t.Fatal(err)
+			}
+			if result.Found == nil || *result.Found || result.Receipt != nil {
+				t.Fatalf("%s golden reported a ready receipt: %s", state, value)
+			}
+			if state == "pending" {
+				if result.Submitted == nil || result.Submitted.Nonce != "7" || result.Submitted.TxHash != "0x"+strings.Repeat("ab", 32) {
+					t.Fatalf("pending submission metadata lost: %s", value)
+				}
+			} else if result.Submitted != nil {
+				t.Fatalf("absent result reported a submission: %s", value)
+			}
+
+			invalid := map[string]string{
+				"unknown_field":     `{"state":"` + state + `","requested":"receipted","extra":true}`,
+				"missing_requested": `{"state":"` + state + `"}`,
+				"unknown_requested": `{"state":"` + state + `","requested":"finalised"}`,
+				"null_requested":    `{"state":"` + state + `","requested":null}`,
+			}
+			if state == "pending" {
+				invalid = map[string]string{
+					"equal_rung":        `{"state":"pending","requested":"receipted","achieved":"receipted"}`,
+					"higher_rung":       `{"state":"pending","requested":"receipted","achieved":"committed"}`,
+					"unknown_field":     `{"state":"pending","requested":"receipted","achieved":"submitted","extra":true}`,
+					"reason_field":      `{"state":"pending","requested":"receipted","achieved":"submitted","reason":"pending"}`,
+					"missing_requested": `{"state":"pending","achieved":"submitted"}`,
+					"missing_achieved":  `{"state":"pending","requested":"receipted"}`,
+					"unknown_requested": `{"state":"pending","requested":"finalised","achieved":"submitted"}`,
+					"unknown_achieved":  `{"state":"pending","requested":"receipted","achieved":"finalised"}`,
+					"null_requested":    `{"state":"pending","requested":null,"achieved":"submitted"}`,
+					"null_achieved":     `{"state":"pending","requested":"receipted","achieved":null}`,
+				}
+			} else {
+				invalid["achieved_field"] = `{"state":"absent","requested":"receipted","achieved":"submitted"}`
+				invalid["null_achieved_field"] = `{"state":"absent","requested":"receipted","achieved":null}`
+			}
+			for name, verification := range invalid {
+				t.Run(name, func(t *testing.T) {
+					fields["verification_status"] = json.RawMessage(verification)
+					value, err := throughTransport(t, fields)
+					var failure *SDKError
+					if value != nil || !errors.As(err, &failure) || failure.Code != ErrorVerificationFailure || failure.Retry != RetryNever {
+						t.Fatalf("invalid %s status accepted: value = %s, error = %#v", state, value, err)
+					}
+				})
+			}
+		})
 	}
 }

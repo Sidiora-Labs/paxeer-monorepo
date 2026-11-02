@@ -61,7 +61,7 @@ export class PaxeerWalletError extends Error {
     message: string,
     public readonly code: string,
     public readonly status?: number,
-    public readonly detail?: unknown,
+    public readonly detail?: unknown
   ) {
     super(message);
     this.name = 'PaxeerWalletError';
@@ -73,7 +73,7 @@ export class FundedUnsupportedError extends PaxeerWalletError {
     super(
       'Funded accounts are retired; use an embedded or injected wallet.',
       'FUNDED_UNSUPPORTED',
-      410,
+      410
     );
     this.name = 'FundedUnsupportedError';
   }
@@ -270,12 +270,12 @@ export interface Balances {
 
 export interface BankAsset {
   asset_id: string;
-  denom: string;
+  denom: string | null;
   kind: string;
-  name: string;
-  symbol: string;
-  decimals: number;
-  supply: string;
+  name: string | null;
+  symbol: string | null;
+  decimals: number | null;
+  supply: string | null;
 }
 
 export interface AssetPage {

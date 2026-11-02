@@ -1,6 +1,7 @@
+use crate::read::committed::SourceAccount;
 use std::collections::BTreeMap;
 
-use layerx_client::evidence::VerifiedNativeExecutionPrestate;
+use super::execution_state::CommittedExecutionState;
 use layerx_programs::{ProgramId, ProgramValueAccountBinding};
 use layerx_proof::state::CanonicalAccount;
 use layerx_types::activity::Authority;
@@ -15,7 +16,7 @@ use crate::prepare::{verify_disclosure_binding, Prepared};
 use crate::protocol_evidence::VerifiedReceiptEvidence;
 use crate::sign::VerifiedSubmission;
 
-use super::{ProgramExecutedDebit, ProgramSettlementError};
+use super::program_settlement::{ProgramExecutedDebit, ProgramSettlementError};
 
 type DebitKey = ([u8; 32], [u8; 32], ProgramChargeKind, Option<[u8; 32]>);
 
@@ -24,7 +25,7 @@ pub(super) fn verify_wind_down_debits(
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
     registry: &ModuleRegistry,
-    prestate: &VerifiedNativeExecutionPrestate,
+    prestate: &CommittedExecutionState,
     reservation: &ProgramBudgetReservation,
 ) -> Result<Vec<ProgramExecutedDebit>, ProgramSettlementError> {
     verify_disclosure_binding(prepared).map_err(|_| ProgramSettlementError::Preparation)?;
@@ -61,11 +62,7 @@ pub(super) fn verify_wind_down_debits(
     let decoded = layerx_wire::receipt::decode(receipt.canonical_receipt())
         .map_err(|_| ProgramSettlementError::Receipt)?;
     let protocol = decoded.protocol().ok_or(ProgramSettlementError::Receipt)?;
-    let digest = layerx_wire::hash::receipt_digest(
-        &layerx_wire::receipt::encode_unsigned(&decoded)
-            .map_err(|_| ProgramSettlementError::Receipt)?,
-    )
-    .map_err(|_| ProgramSettlementError::Receipt)?;
+    prestate.validate_receipt(receipt)?;
     if receipt.level() < VerificationLevel::BATCH_INCLUDED
         || receipt.activity_id() != submission.activity_id()
         || receipt.global_sequence() != protocol.global_sequence()
@@ -75,11 +72,6 @@ pub(super) fn verify_wind_down_debits(
         || protocol.program_outcome().is_some()
         || protocol.activity_id() != submission.activity_id()
         || protocol.transfer_set_root() != [0; 32]
-        || prestate.network_id() != activity.network_id()
-        || prestate.activity_id() != submission.activity_id()
-        || prestate.receipt_digest() != digest
-        || prestate.execution_sequence() != protocol.global_sequence()
-        || prestate.state_root() != protocol.previous_state_root()
     {
         return Err(ProgramSettlementError::SourceSnapshot);
     }
@@ -111,9 +103,8 @@ pub(super) fn verify_wind_down_debits(
     }
     let mut actual = BTreeMap::new();
     if protocol.result_code() == 0 {
-        let debit = exit_debit(
-            prestate.program_records(),
-            prestate.all_accounts(),
+        let debit = committed_exit_debit(
+            prestate,
             actor,
             wind_down.program_id.bytes(),
             account,
@@ -152,9 +143,7 @@ pub(super) fn verify_wind_down_debits(
             prepared.envelope.actor_did(),
             asset,
         )?;
-        if (protocol.result_code() == 0 && payer.account_id == account)
-            || payer.balance() < protocol.fee_charged()
-        {
+        if protocol.result_code() == 0 && payer.account_id == account {
             return Err(ProgramSettlementError::FeeProvenance);
         }
         add_actual(
@@ -188,7 +177,7 @@ pub(super) fn verify_remaining_lifecycle_debits(
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
     registry: &ModuleRegistry,
-    prestate: &VerifiedNativeExecutionPrestate,
+    prestate: &CommittedExecutionState,
     reservation: &ProgramBudgetReservation,
 ) -> Result<Vec<ProgramExecutedDebit>, ProgramSettlementError> {
     verify_disclosure_binding(prepared).map_err(|_| ProgramSettlementError::Preparation)?;
@@ -217,11 +206,7 @@ pub(super) fn verify_remaining_lifecycle_debits(
     let decoded = layerx_wire::receipt::decode(receipt.canonical_receipt())
         .map_err(|_| ProgramSettlementError::Receipt)?;
     let protocol = decoded.protocol().ok_or(ProgramSettlementError::Receipt)?;
-    let digest = layerx_wire::hash::receipt_digest(
-        &layerx_wire::receipt::encode_unsigned(&decoded)
-            .map_err(|_| ProgramSettlementError::Receipt)?,
-    )
-    .map_err(|_| ProgramSettlementError::Receipt)?;
+    prestate.validate_receipt(receipt)?;
     if receipt.level() < VerificationLevel::BATCH_INCLUDED
         || receipt.activity_id() != submission.activity_id()
         || receipt.global_sequence() != protocol.global_sequence()
@@ -231,11 +216,6 @@ pub(super) fn verify_remaining_lifecycle_debits(
         || protocol.program_outcome().is_some()
         || protocol.activity_id() != submission.activity_id()
         || protocol.transfer_set_root() != [0; 32]
-        || prestate.network_id() != activity.network_id()
-        || prestate.activity_id() != submission.activity_id()
-        || prestate.receipt_digest() != digest
-        || prestate.execution_sequence() != protocol.global_sequence()
-        || prestate.state_root() != protocol.previous_state_root()
     {
         return Err(ProgramSettlementError::SourceSnapshot);
     }
@@ -279,7 +259,7 @@ pub(super) fn verify_remaining_lifecycle_debits(
         {
             return Err(ProgramSettlementError::Terminal);
         }
-        lifecycle.verify_success(
+        lifecycle.verify_committed_success(
             prestate.program_records(),
             actor,
             protocol.global_sequence(),
@@ -299,9 +279,6 @@ pub(super) fn verify_remaining_lifecycle_debits(
             prepared.envelope.actor_did(),
             asset,
         )?;
-        if payer.balance() < protocol.fee_charged() {
-            return Err(ProgramSettlementError::FeeProvenance);
-        }
         add_actual(
             &mut actual,
             &expected,
@@ -335,6 +312,144 @@ enum FeeOnlyLifecycle<'a> {
 }
 
 impl<'a> FeeOnlyLifecycle<'a> {
+    fn verify_committed_success(
+        &self,
+        records: &super::execution_state::CommittedProgramRecords,
+        actor: [u8; 32],
+        sequence: u64,
+        event_type: u16,
+        body: &[u8],
+    ) -> Result<(), ProgramSettlementError> {
+        use layerx_types::program_lifecycle::ProgramUpgradePolicy;
+
+        match self {
+            Self::Deploy(value) => {
+                if records.program.is_some() || records.interface.is_some() {
+                    return Err(ProgramSettlementError::SourceSnapshot);
+                }
+                let hash: [u8; 32] = Sha256::digest(value.wasm).into();
+                if hash != value.new_hash || event_type != 1 || body != value.new_hash {
+                    return Err(ProgramSettlementError::Terminal);
+                }
+                if matches!(value.policy, ProgramUpgradePolicy::Authority(authority) if authority == [0;32])
+                {
+                    return Err(ProgramSettlementError::Preparation);
+                }
+            }
+            Self::Upgrade(value) => {
+                let deployed = records
+                    .program
+                    .as_ref()
+                    .ok_or(ProgramSettlementError::SourceSnapshot)?;
+                let wind_down = records
+                    .wind_down
+                    .as_ref()
+                    .ok_or(ProgramSettlementError::SourceSnapshot)?;
+                if wind_down.status != 1 {
+                    return Err(ProgramSettlementError::SourceSnapshot);
+                }
+                let hash: [u8; 32] = Sha256::digest(value.wasm).into();
+                if deployed.policy != 1
+                    || deployed.code_hash != value.old_hash
+                    || deployed.version == u32::MAX
+                    || !deployed.active
+                    || hash != value.new_hash
+                    || event_type != 2
+                    || body.len() != 64
+                    || body[..32] != value.old_hash
+                    || body[32..] != value.new_hash
+                {
+                    return Err(ProgramSettlementError::Terminal);
+                }
+            }
+            Self::WindDown(value) => {
+                let deployed = records
+                    .program
+                    .as_ref()
+                    .ok_or(ProgramSettlementError::SourceSnapshot)?;
+                let wind_down = records
+                    .wind_down
+                    .as_ref()
+                    .ok_or(ProgramSettlementError::SourceSnapshot)?;
+                let program = value.program_id.bytes();
+                if deployed.abi_version != 2 || records.owner != actor {
+                    return Err(ProgramSettlementError::Preparation);
+                }
+                match value.operation {
+                    ProgramWindDownOperation::Route {
+                        account,
+                        asset,
+                        destination,
+                        seed,
+                    } => {
+                        if wind_down.status != 1 {
+                            return Err(ProgramSettlementError::SourceSnapshot);
+                        }
+                        let registered = records
+                            .accounts
+                            .get(&account)
+                            .ok_or(ProgramSettlementError::SourceSnapshot)?;
+                        if registered.program != program
+                            || registered.asset != asset
+                            || registered.seed != seed
+                            || registered.registered_sequence >= sequence
+                            || event_type != 9
+                            || body.len() != 128
+                            || body[..32] != program
+                            || body[32..64] != account
+                            || body[64..96] != asset
+                            || body[96..] != destination
+                        {
+                            return Err(ProgramSettlementError::Terminal);
+                        }
+                    }
+                    ProgramWindDownOperation::Deprecate {
+                        exit_program,
+                        deadline_batch,
+                    } => {
+                        if wind_down.status != 1 {
+                            return Err(ProgramSettlementError::SourceSnapshot);
+                        }
+                        if exit_program != program || deadline_batch <= sequence || event_type != 10
+                        {
+                            return Err(ProgramSettlementError::Terminal);
+                        }
+                        verify_lifecycle_history(
+                            body,
+                            1,
+                            2,
+                            actor,
+                            program,
+                            deadline_batch,
+                            sequence,
+                        )?;
+                    }
+                    ProgramWindDownOperation::Tombstone => {
+                        if wind_down.status != 2
+                            || wind_down.exit_program != program
+                            || wind_down.deadline == 0
+                            || wind_down.effective_sequence == 0
+                            || wind_down.effective_sequence >= sequence
+                            || event_type != 11
+                        {
+                            return Err(ProgramSettlementError::Terminal);
+                        }
+                        verify_lifecycle_history(
+                            body,
+                            2,
+                            3,
+                            actor,
+                            program,
+                            wind_down.deadline,
+                            sequence,
+                        )?;
+                    }
+                    _ => return Err(ProgramSettlementError::UnsupportedOperation),
+                }
+            }
+        }
+        Ok(())
+    }
     fn decode(ordinal: u16, payload: &'a [u8]) -> Result<Self, ProgramSettlementError> {
         use layerx_types::program_lifecycle::{NativeProgramDeploy, NativeProgramUpgrade};
         match ordinal {
@@ -356,6 +471,7 @@ impl<'a> FeeOnlyLifecycle<'a> {
         .map_err(|_| ProgramSettlementError::UnsupportedOperation)
     }
 
+    #[cfg(test)]
     fn verify_success(
         &self,
         records: &BTreeMap<Vec<u8>, Vec<u8>>,
@@ -472,6 +588,7 @@ impl<'a> FeeOnlyLifecycle<'a> {
     }
 }
 
+#[cfg(test)]
 fn require_absent(
     records: &BTreeMap<Vec<u8>, Vec<u8>>,
     prefix: &[u8],
@@ -485,6 +602,7 @@ fn require_absent(
     Ok(())
 }
 
+#[cfg(test)]
 fn deployed_record(
     records: &BTreeMap<Vec<u8>, Vec<u8>>,
     program: [u8; 32],
@@ -548,6 +666,7 @@ fn add_actual(
     Ok(())
 }
 
+#[cfg(test)]
 fn state<'a>(
     records: &'a BTreeMap<Vec<u8>, Vec<u8>>,
     prefix: &[u8],
@@ -567,6 +686,7 @@ fn fixed<const N: usize>(bytes: &[u8]) -> Result<[u8; N], ProgramSettlementError
         .map_err(|_| ProgramSettlementError::SourceSnapshot)
 }
 
+#[cfg(test)]
 fn binding(
     records: &BTreeMap<Vec<u8>, Vec<u8>>,
     account: [u8; 32],
@@ -601,6 +721,7 @@ fn binding(
     Ok(value)
 }
 
+#[cfg(test)]
 fn exit_debit(
     records: &BTreeMap<Vec<u8>, Vec<u8>>,
     accounts: &BTreeMap<[u8; 32], CanonicalAccount>,
@@ -691,6 +812,86 @@ fn exit_debit(
     })
 }
 
+fn committed_exit_debit(
+    state: &CommittedExecutionState,
+    actor: [u8; 32],
+    program: [u8; 32],
+    account: [u8; 32],
+    maximum: Option<u128>,
+    sequence: u64,
+) -> Result<ProgramExecutedDebit, ProgramSettlementError> {
+    let balance = state.program_balance(program, account)?;
+    let records = state.program_records();
+    let deployed = records
+        .program
+        .as_ref()
+        .ok_or(ProgramSettlementError::SourceSnapshot)?;
+    let lifecycle = records
+        .wind_down
+        .as_ref()
+        .ok_or(ProgramSettlementError::SourceSnapshot)?;
+    if deployed.code_hash == [0; 32]
+        || deployed.abi_version != 2
+        || deployed.version == 0
+        || !matches!(deployed.policy, 0 | 1)
+        || (deployed.policy == 0) != (deployed.authority == [0; 32])
+    {
+        return Err(ProgramSettlementError::SourceSnapshot);
+    }
+    if records.owner != actor {
+        return Err(ProgramSettlementError::Preparation);
+    }
+    if !matches!(lifecycle.status, 2 | 3)
+        || lifecycle.exit_program != program
+        || lifecycle.deadline == 0
+        || lifecycle.effective_sequence == 0
+        || lifecycle.effective_sequence >= sequence
+    {
+        return Err(ProgramSettlementError::SourceSnapshot);
+    }
+    let binding = records
+        .accounts
+        .get(&account)
+        .ok_or(ProgramSettlementError::SourceSnapshot)?;
+    let route = records
+        .exit_routes
+        .get(&account)
+        .ok_or(ProgramSettlementError::SourceSnapshot)?;
+    if binding.program != program
+        || binding.asset != route.asset
+        || binding.seed != route.seed
+        || binding.registered_sequence >= sequence
+        || balance.asset != route.asset
+    {
+        return Err(ProgramSettlementError::SourceSnapshot);
+    }
+    let target = state
+        .all_accounts()
+        .get(&route.destination)
+        .ok_or(ProgramSettlementError::SourceSnapshot)?;
+    if binding.frozen
+        || balance.amount == 0
+        || route.destination == account
+        || !target.has_asset()
+        || target.asset_id() != route.asset
+        || target.frozen
+        || state
+            .all_accounts()
+            .get(&account)
+            .is_some_and(|source| source.frozen)
+        || maximum.is_some_and(|bound| bound == 0 || balance.amount > bound)
+    {
+        return Err(ProgramSettlementError::UnreservedDebit);
+    }
+    Ok(ProgramExecutedDebit {
+        kind: ProgramChargeKind::ProgramSpend,
+        source: account,
+        asset: route.asset,
+        destination: Some(route.destination),
+        actual_amount: balance.amount,
+    })
+}
+
 fn verify_exit_transfer_root(
     debit: &ProgramExecutedDebit,
     root: [u8; 32],
@@ -707,7 +908,8 @@ fn verify_exit_transfer_root(
         .map_err(|_| ProgramSettlementError::Terminal)
 }
 
-pub(super) fn active_fee_asset(
+#[cfg(test)]
+fn legacy_active_fee_asset(
     records: &BTreeMap<Vec<u8>, Vec<u8>>,
 ) -> Result<[u8; 32], ProgramSettlementError> {
     let bytes = state(records, b"progfee/active/v1", &[])
@@ -744,20 +946,44 @@ pub(super) fn active_fee_asset(
     Ok(asset)
 }
 
-fn principal_fee_account<'a>(
-    accounts: &'a BTreeMap<[u8; 32], CanonicalAccount>,
+pub(super) trait FeeAsset {
+    fn fee_asset(&self) -> Result<[u8; 32], ProgramSettlementError>;
+}
+impl FeeAsset for super::execution_state::CommittedProgramRecords {
+    fn fee_asset(&self) -> Result<[u8; 32], ProgramSettlementError> {
+        let fee = &self.fee_schedule;
+        if fee.version == 0 || fee.prices.contains(&0) || fee.fee_asset == [0; 32] {
+            return Err(ProgramSettlementError::FeeProvenance);
+        }
+        Ok(fee.fee_asset)
+    }
+}
+#[cfg(test)]
+impl FeeAsset for BTreeMap<Vec<u8>, Vec<u8>> {
+    fn fee_asset(&self) -> Result<[u8; 32], ProgramSettlementError> {
+        legacy_active_fee_asset(self)
+    }
+}
+pub(super) fn active_fee_asset(
+    records: &impl FeeAsset,
+) -> Result<[u8; 32], ProgramSettlementError> {
+    records.fee_asset()
+}
+
+fn principal_fee_account<'a, A: SourceAccount>(
+    accounts: &'a BTreeMap<[u8; 32], A>,
     actor: &Did,
     asset: [u8; 32],
-) -> Result<&'a CanonicalAccount, ProgramSettlementError> {
+) -> Result<&'a A, ProgramSettlementError> {
     let expected = layerx_wire::hash::did_id_for_protocol(actor, 3)
         .map_err(|_| ProgramSettlementError::FeeProvenance)?;
     let mut selected = None;
     for account in accounts.values() {
-        if !matches!(account.kind, 1 | 14) || account.asset_id() != asset {
+        if !matches!(account.kind(), 1 | 14) || account.asset_id() != asset {
             continue;
         }
-        let name = &account.name;
-        let end = match account.kind {
+        let name = account.name();
+        let end = match account.kind() {
             1 if name.starts_with(b"agent:") && name.ends_with(b":main") => {
                 name.len().checked_sub(5)
             }
@@ -786,10 +1012,54 @@ fn principal_fee_account<'a>(
         }
     }
     let account = selected.ok_or(ProgramSettlementError::FeeProvenance)?;
-    if !account.has_asset() || account.frozen {
+    if !account.has_asset() || account.frozen() {
         return Err(ProgramSettlementError::FeeProvenance);
     }
     Ok(account)
+}
+
+#[cfg(test)]
+impl super::execution_state::CommittedProgramRecords {
+    pub(crate) fn assert_committed_lifecycle(
+        &self,
+        program: [u8; 32],
+        account: [u8; 32],
+        asset: [u8; 32],
+    ) {
+        let value = NativeProgramWindDown {
+            program_id: layerx_types::intent::ProgramId::new(program),
+            operation: ProgramWindDownOperation::Route {
+                account,
+                asset,
+                destination: [9; 32],
+                seed: &[1, 2, 3],
+            },
+        };
+        let body = [program, account, asset, [9; 32]].concat();
+        let lifecycle = FeeOnlyLifecycle::WindDown(value);
+        assert_eq!(
+            lifecycle.verify_committed_success(self, [4; 32], 9, 9, &body),
+            Ok(())
+        );
+        assert_eq!(active_fee_asset(self), Ok(asset));
+        let mut changed = self.clone();
+        changed.owner = [8; 32];
+        assert!(lifecycle
+            .verify_committed_success(&changed, [4; 32], 9, 9, &body)
+            .is_err());
+        let mut changed = self.clone();
+        changed
+            .accounts
+            .get_mut(&account)
+            .expect("account")
+            .registered_sequence = 9;
+        assert!(lifecycle
+            .verify_committed_success(&changed, [4; 32], 9, 9, &body)
+            .is_err());
+        let mut changed = self.clone();
+        changed.fee_schedule.prices[0] = 0;
+        assert!(active_fee_asset(&changed).is_err());
+    }
 }
 
 #[cfg(test)]
@@ -914,6 +1184,211 @@ mod tests {
             binding,
             destination,
         )
+    }
+
+    fn committed_exit_state(amount: u128) -> (CommittedExecutionState, ProgramValueAccountBinding) {
+        use crate::read::{
+            CommittedProgramBalanceFreshness, ProgramBalanceRead, ProgramValueBalance,
+        };
+        let (records, accounts, binding, _) = exit_state(0);
+        let state = CommittedExecutionState {
+            block_number: 3,
+            block_hash: [7; 32],
+            prestate_height: 2,
+            prestate_block_hash: [8; 32],
+            balances: Some(ProgramBalanceRead {
+                program: binding.program.bytes(),
+                lifecycle: layerx_programs::ProgramLifecycle::Deprecated,
+                accounts: vec![ProgramValueBalance {
+                    account: binding.account_id,
+                    asset: binding.asset_id,
+                    amount,
+                    frozen: None,
+                }],
+                freshness: CommittedProgramBalanceFreshness {
+                    height: 2,
+                    block_hash: [8; 32],
+                    timestamp: 1,
+                },
+            }),
+            program_records: {
+                use super::super::execution_state::*;
+                let deployed = must(deployed_record(&records, binding.program.bytes()));
+                let route = must(state(
+                    &records,
+                    b"wind-down\0r",
+                    &[binding.program.bytes(), binding.account_id].concat(),
+                ));
+                CommittedProgramRecords {
+                    program: Some(ProgramView {
+                        policy: deployed[0],
+                        authority: must(fixed(&deployed[1..33])),
+                        code_hash: must(fixed(&deployed[33..65])),
+                        abi_version: 2,
+                        version: 1,
+                        active: false,
+                    }),
+                    owner: [4; 32],
+                    wind_down: Some(WindDownView {
+                        status: 2,
+                        exit_program: binding.program.bytes(),
+                        deadline: 100,
+                        effective_sequence: 2,
+                        account_count: 1,
+                        live_count: 1,
+                    }),
+                    interface: Some(InterfaceView {
+                        version: 0,
+                        digest: [0; 32],
+                        encoding: Vec::new(),
+                    }),
+                    fee_schedule: ProgramFeeView {
+                        version: 1,
+                        prices: [1; 7],
+                        fee_asset: [2; 32],
+                    },
+                    accounts: BTreeMap::from([(
+                        binding.account_id,
+                        ProgramAccountView {
+                            program: binding.program.bytes(),
+                            asset: binding.asset_id,
+                            seed: binding.seed.clone(),
+                            registered_sequence: binding.registered_sequence,
+                            balance: amount,
+                            frozen: false,
+                        },
+                    )]),
+                    exit_routes: BTreeMap::from([(
+                        binding.account_id,
+                        ProgramExitRoute {
+                            asset: binding.asset_id,
+                            destination: must(fixed(&route[33..65])),
+                            seed: binding.seed.clone(),
+                        },
+                    )]),
+                }
+            },
+            accounts: accounts
+                .into_iter()
+                .map(|(id, account)| (id, account.into()))
+                .collect(),
+            observed_head_sequence: 3,
+            activity_id: [9; 32],
+            global_sequence: 3,
+            receipt_ref: [10; 32],
+        };
+        (state, binding)
+    }
+
+    #[test]
+    fn committed_wind_down_amount_uses_prestate_balance_and_preserves_both_maxima() {
+        let (mut state, binding) = committed_exit_state(37);
+        let debit = must(committed_exit_debit(
+            &state,
+            [4; 32],
+            binding.program.bytes(),
+            binding.account_id,
+            Some(40),
+            3,
+        ));
+        assert_eq!(debit.actual_amount, 37);
+        assert_eq!(state.all_accounts()[&binding.account_id].balance(), 0);
+        assert_eq!(
+            committed_exit_debit(
+                &state,
+                [4; 32],
+                binding.program.bytes(),
+                binding.account_id,
+                Some(36),
+                3
+            ),
+            Err(ProgramSettlementError::UnreservedDebit)
+        );
+        let key = (debit.asset, debit.source, debit.kind, debit.destination);
+        assert_eq!(
+            add_actual(&mut BTreeMap::new(), &BTreeMap::from([(key, 36)]), debit),
+            Err(ProgramSettlementError::UnreservedDebit)
+        );
+        state.balances.as_mut().expect("balances").accounts[0].amount = 41;
+        assert_eq!(
+            committed_exit_debit(
+                &state,
+                [4; 32],
+                binding.program.bytes(),
+                binding.account_id,
+                Some(40),
+                3
+            ),
+            Err(ProgramSettlementError::UnreservedDebit)
+        );
+        state.balances.as_mut().expect("balances").accounts[0].amount = 37;
+        state.balances.as_mut().expect("balances").accounts[0].frozen = Some(true);
+        assert!(committed_exit_debit(
+            &state,
+            [4; 32],
+            binding.program.bytes(),
+            binding.account_id,
+            Some(40),
+            3
+        )
+        .is_ok());
+        state
+            .accounts
+            .get_mut(&binding.account_id)
+            .unwrap_or_else(|| panic!("source"))
+            .frozen = true;
+        assert_eq!(
+            committed_exit_debit(
+                &state,
+                [4; 32],
+                binding.program.bytes(),
+                binding.account_id,
+                Some(40),
+                3
+            ),
+            Err(ProgramSettlementError::UnreservedDebit)
+        );
+    }
+
+    #[test]
+    fn committed_lifecycle_fee_retains_allocation_maximum() {
+        let (mut state, _) = committed_exit_state(37);
+        let actor = must(Did::new(b"did:layerx:fee-payer"));
+        let payer = account(
+            b"agent:did:layerx:fee-payer:main".to_vec(),
+            1,
+            [2; 32],
+            0,
+            false,
+        );
+        let source = payer.account_id;
+        state.accounts.insert(source, payer.into());
+        assert_eq!(
+            must(principal_fee_account(state.all_accounts(), &actor, [2; 32])).account_id,
+            source
+        );
+        must(state.validate_binding([9; 32], 3, [10; 32]));
+        let fee = ProgramExecutedDebit {
+            kind: ProgramChargeKind::Fee,
+            source,
+            asset: [2; 32],
+            destination: None,
+            actual_amount: 5,
+        };
+        let key = (fee.asset, fee.source, fee.kind, fee.destination);
+        let expected = BTreeMap::from([(key, 5)]);
+        let mut actual = BTreeMap::new();
+        must(add_actual(&mut actual, &expected, fee.clone()));
+        assert_eq!(actual.get(&key), Some(&5));
+        assert_eq!(
+            add_actual(&mut BTreeMap::new(), &BTreeMap::from([(key, 4)]), fee),
+            Err(ProgramSettlementError::UnreservedDebit)
+        );
+        state.balances.as_mut().expect("balances").freshness.height = 3;
+        assert_eq!(
+            state.validate_binding([9; 32], 3, [10; 32]),
+            Err(ProgramSettlementError::SourceSnapshot)
+        );
     }
 
     #[test]

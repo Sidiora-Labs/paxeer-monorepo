@@ -32,6 +32,28 @@ use super::poll_once_ready;
 pub type Rung = layerx_types::rung::Rung;
 pub type ProtocolEvidence = crate::agents::ProtocolEvidence;
 
+/// # Errors
+/// Refuses a disclosure that does not bind the unsigned creation call and its sender.
+pub fn verify_creation_call_disclosure(
+    canonical: &[u8],
+    disclosure: &layerx_crypto::disclosure::Disclosure,
+) -> Result<(), AgentFailure> {
+    let refused = || AgentFailure::Refused("agent preparation differs from creation intent");
+    let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(canonical)
+        .map_err(|_| refused())?;
+    let from: [u8; 20] = disclosure
+        .actor
+        .as_slice()
+        .try_into()
+        .map_err(|_| refused())?;
+    if layerx_crypto::disclosure::call::bind_call(&call, from).map_err(|_| refused())?
+        != *disclosure
+    {
+        return Err(refused());
+    }
+    Ok(())
+}
+
 const PREPARE_DOMAIN: &[u8] = b"layerx-human-journey-prepare/v1";
 const SUBMIT_DOMAIN: &[u8] = b"layerx-human-journey-submit/v1";
 
@@ -78,7 +100,8 @@ impl SignedCreationTransaction {
         {
             Some(
                 layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }
-                | layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { payload },
+                | layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { payload }
+                | layerx_crypto::disclosure::call::ConstructMethod::AuthLifecycle { payload, .. },
             ) => payload,
             Some(_) => self.disclosure.canonical_payload().to_vec(),
             None => return Err(AgentFailure::Refused("missing creation transaction method")),
@@ -313,11 +336,11 @@ impl<'a> ProductionAgentCreation<'a> {
             || prepared.payload.as_slice() != action.compiled.payload().as_bytes()
             || prepared.payload_hash != action.compiled.payload_hash()
             || prepared.idempotency_key != action.action_key
-            || prepared
-                .disclosure
-                .reencode()
-                .map_err(|_| AgentFailure::Refused("invalid prepared disclosure"))?
-                != prepared.unsigned_canonical_bytes
+            || verify_creation_call_disclosure(
+                &prepared.unsigned_canonical_bytes,
+                &prepared.disclosure,
+            )
+            .is_err()
         {
             return Err(AgentFailure::Refused(
                 "agent preparation differs from creation intent",
@@ -410,16 +433,18 @@ impl<'a> ProductionAgentCreation<'a> {
         {
             return Err(AgentFailure::Refused("creation call disclosure differs"));
         }
-        let signed_activity = layerx_intents::owner_activity::attach_signature(
-            &call, signature, from,
-        )
-        .map_err(|_| AgentFailure::Refused("custody signature does not bind preparation"))?;
+        let signed_activity = crate::custody::attach_call_signature(&call, signature, from)
+            .map_err(|_| AgentFailure::Refused("custody signature does not bind preparation"))?;
         let signed = SignedCreationTransaction::decode(&signed_activity)?;
         let activity_id = signed.activity_id;
         if signed.disclosure != prepared.disclosure
             || signed.owner_public_key[12..] != wallet
             || signed.network_id != binding.network_id()
-            || signed.disclosure.idempotency_key != action.action_key
+            || signed.disclosure.idempotency_key
+                != ProtocolEvidence::creation_idempotency_key(
+                    &signed.disclosure,
+                    action.action_key,
+                )?
         {
             return Err(AgentFailure::Refused("signed creation action differs"));
         }
@@ -471,7 +496,8 @@ impl<'a> ProductionAgentCreation<'a> {
         let signed = SignedCreationTransaction::decode(&signed_activity)?;
         if signed.disclosure.actor != signed.owner_public_key[12..]
             || signed.owner_public_key != public_key
-            || signed.disclosure.idempotency_key != action_key
+            || signed.disclosure.idempotency_key
+                != ProtocolEvidence::creation_idempotency_key(&signed.disclosure, action_key)?
             || signed.network_id != network_id
             || signed.activity_id != activity_id
         {

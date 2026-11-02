@@ -5,9 +5,7 @@ mod trust;
 
 use chain_receipt::{ChainReceipts, ReceiptSource};
 
-use layerx_client::lni::handshake::{perform, HandshakeConfig};
-use layerx_client::lni::schema::{decode_envelope, encode_envelope, Envelope, Version};
-use layerx_client::lni::transport::{ConnectionGate, Uds};
+use layerx_client::sequencer::SequencerEndpoint;
 use layerx_platform_authority::{
     authorized_batch_by_activity, hex, receipt_locator, EvidenceRefusal,
 };
@@ -22,11 +20,12 @@ use std::fs;
 use std::io::{Read, Write};
 use std::net::{Ipv6Addr, SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 use subtle::ConstantTimeEq;
+use trust::CommittedCheckpoint;
 use zeroize::{Zeroize, Zeroizing};
 
 const MAX_REQUEST_BYTES: usize = 16 * 1024;
@@ -37,12 +36,9 @@ const REPLICA_TIMEOUT: Duration = Duration::from_secs(8);
 const READINESS_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_CONNECTIONS: usize = 128;
 const MAX_REQUESTS_PER_CONNECTION: usize = 64;
-const MAX_LNI_CONNECTIONS: usize = 16;
-const LNI_FRAME_BYTES: usize = 1_212_416;
-const ERROR_RESPONSE: u16 = 25;
+const MAX_READINESS_CHECKS: usize = 16;
 const ZERO_HEX32: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
-static CORRELATION: AtomicU64 = AtomicU64::new(1);
 
 const USAGE: &str = "layerx-receipt-authority serves verified authorised-batch facts over TLS.
 
@@ -68,14 +64,11 @@ Environment:
   LAYERX_AUTHORITY_REPLICA_ID                64-hex replica identity every evidence document must carry
   LAYERX_AUTHORITY_CHAIN_RPC_URL             loopback http://host:port endpoint serving pax_sequencerReceipt
   LAYERX_AUTHORITY_RECEIPT_KEYS_FILE         protected ReceiptKeyList JSON with pinned keys and height ranges
-  LAYERX_AUTHORITY_LNI_SOCKET                LNI unix socket used for checkpoint reads
   LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID       numeric protocol network id expected in signed receipt evidence
   LAYERX_AUTHORITY_NETWORK_ID                deployment network identifier echoed in every answer
   LAYERX_AUTHORITY_WIRE_VERSION              wire version echoed in every answer, must be the built protocol version (default 3)
   LAYERX_AUTHORITY_SEQUENCER_ID              64-hex sequencer identity pinned for header verification
   LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY      64-hex sequencer public key pinned for header and receipt signatures
-  LAYERX_AUTHORITY_GENESIS_TRUST             protected native genesis trust artifact; requires HANDOVER_FINALITY
-  LAYERX_AUTHORITY_HANDOVER_FINALITY         protected independent Paxeer verification policy
   LAYERX_AUTHORITY_FIRST_BATCH               first authorised batch number
   LAYERX_AUTHORITY_LAST_BATCH                last authorised batch number
 ";
@@ -92,15 +85,11 @@ struct Config {
     replica_id: [u8; 32],
     chain_receipts: ChainReceipts,
     chain_rpc_url: String,
-    lni_socket: PathBuf,
-    lni_gate: ConnectionGate,
-    chain_endpoint: layerx_paxeer_verifier::EndpointConfig,
     protocol_network_id: u32,
     network_id: String,
     wire_version: String,
     authorization: SequencerAuthorization,
     sequencer_public_key: [u8; 32],
-    trust: Option<trust::Trust>,
 }
 
 struct Request {
@@ -286,12 +275,6 @@ fn config() -> Result<Config, String> {
     let receipt_keys_file = env::var("LAYERX_AUTHORITY_RECEIPT_KEYS_FILE")
         .map_err(|_| "LAYERX_AUTHORITY_RECEIPT_KEYS_FILE is required")?;
     let chain_receipts = ChainReceipts::load(&chain_rpc_url, &PathBuf::from(receipt_keys_file))?;
-    let lni_socket = env::var("LAYERX_AUTHORITY_LNI_SOCKET")
-        .map(PathBuf::from)
-        .map_err(|_| "LAYERX_AUTHORITY_LNI_SOCKET is required".to_owned())?;
-    if !lni_socket.is_absolute() {
-        return Err("LAYERX_AUTHORITY_LNI_SOCKET must be an absolute path".to_owned());
-    }
     let protocol_network_id = parse_u64("LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID")?;
     let protocol_network_id = u32::try_from(protocol_network_id)
         .ok()
@@ -325,7 +308,6 @@ fn config() -> Result<Config, String> {
         );
     }
     Ok(Config {
-        trust: trust::Trust::load(protocol_network_id, sequencer_id, sequencer_public_key)?,
         listen,
         tls,
         human: human::Human::load(&human_peers)?,
@@ -336,9 +318,6 @@ fn config() -> Result<Config, String> {
         evidence_read_token,
         replica_id,
         chain_receipts,
-        lni_socket,
-        lni_gate: ConnectionGate::new(MAX_LNI_CONNECTIONS),
-        chain_endpoint: trust::chain_endpoint(&chain_rpc_url, READINESS_TIMEOUT),
         chain_rpc_url,
         protocol_network_id,
         network_id,
@@ -673,57 +652,73 @@ fn lookup_receipt(
     config.chain_receipts.lookup(activity_id)
 }
 
-fn checkpoint_header(
-    config: &Config,
-    batch: u64,
-) -> Result<layerx_client::evidence::VerifiedCheckpoint, ()> {
+fn checkpoint_header(config: &Config, batch: u64) -> Result<CommittedCheckpoint, ()> {
     checkpoint_for(config, Some(batch))
 }
 
-fn checkpoint_for(
-    config: &Config,
-    batch: Option<u64>,
-) -> Result<layerx_client::evidence::VerifiedCheckpoint, ()> {
-    let deadline = Instant::now().checked_add(IO_TIMEOUT).ok_or(())?;
-    let mut transport = Uds::connect(
-        &config.lni_socket,
-        &config.lni_gate,
-        trust::limits(deadline)?,
-    )
-    .map_err(|_| ())?;
-    let handshake = perform(
-        &mut transport,
-        &HandshakeConfig {
-            built_interface_version: Version::V1_5,
-            expected_protocol_version: PROTOCOL_VERSION,
-            expected_network_id: config.protocol_network_id,
-        },
-        None,
-    )
-    .map_err(|_| ())?;
-    let history = trust::snapshot(
-        config,
-        handshake.node().latest_sealed_batch,
-        handshake.node().authorised_sequencer_key,
-        deadline,
-    )?;
-    let verified = trust::checkpoint(
-        config,
-        &mut transport,
-        batch.unwrap_or(handshake.node().latest_sealed_batch),
-        handshake.node().interface_version,
-        history.as_ref(),
-    )?;
-    if batch.is_none() {
-        let header = layerx_wire::receipt::decode_batch_header(verified.canonical_header())
-            .map_err(|_| ())?;
-        if header.last_sequence() != handshake.node().chain_head_sequence
-            || header.batch_number() != handshake.node().latest_sealed_batch
-        {
+fn checkpoint_for(config: &Config, batch: Option<u64>) -> Result<CommittedCheckpoint, ()> {
+    const ANCHOR: [u8; 20] = [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x14,
+    ];
+    fn word(bytes: &[u8], index: usize) -> Result<[u8; 32], ()> {
+        bytes
+            .get(index * 32..(index + 1) * 32)
+            .ok_or(())?
+            .try_into()
+            .map_err(|_| ())
+    }
+    fn number(bytes: &[u8], index: usize) -> Result<u64, ()> {
+        let value = word(bytes, index)?;
+        if value[..24] != [0; 24] {
             return Err(());
         }
+        Ok(u64::from_be_bytes(value[24..].try_into().map_err(|_| ())?))
     }
-    Ok(verified)
+    let sequencer = SequencerEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
+    let committed_height = sequencer.block_number().map_err(|_| ())?;
+    let batch_number = match batch {
+        Some(batch) => batch,
+        None => {
+            let selector = layerx_crypto::evm_transaction::transaction_hash(b"latestFinalized()");
+            let latest = sequencer
+                .call_at(committed_height, &ANCHOR, &selector[..4])
+                .map_err(|_| ())?;
+            if latest.len() != 64 || number(&latest, 1)? != 1 {
+                return Err(());
+            }
+            number(&latest, 0)?
+        }
+    };
+    let mut data =
+        layerx_crypto::evm_transaction::transaction_hash(b"checkpoint(uint64)")[..4].to_vec();
+    data.extend_from_slice(&[0; 24]);
+    data.extend_from_slice(&batch_number.to_be_bytes());
+    let checkpoint_call = sequencer
+        .call_at(committed_height, &ANCHOR, &data)
+        .map_err(|_| ())?;
+    if checkpoint_call.len() != 18 * 32
+        || number(&checkpoint_call, 0)? != batch_number
+        || number(&checkpoint_call, 12)? != 2
+    {
+        return Err(());
+    }
+    let checkpoint_id = word(&checkpoint_call, 1)?;
+    let state_root = word(&checkpoint_call, 7)?;
+    let finalized_height = number(&checkpoint_call, 17)?;
+    if checkpoint_id == [0; 32] || state_root == [0; 32] || finalized_height > committed_height {
+        return Err(());
+    }
+    Ok(CommittedCheckpoint {
+        batch_number,
+        checkpoint_id,
+        header_digest: word(&checkpoint_call, 2)?,
+        last_sequence: number(&checkpoint_call, 5)?,
+        previous_state_root: word(&checkpoint_call, 6)?,
+        state_root,
+        timestamp_ms: number(&checkpoint_call, 11)?,
+        finalized_height,
+        checkpoint_call,
+    })
 }
 
 fn evidence_refusal(refusal_kind: &EvidenceRefusal) -> Response {
@@ -884,7 +879,7 @@ impl ReadinessPermit {
     fn acquire() -> Option<Arc<Self>> {
         ACTIVE_READINESS
             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |active| {
-                (active < MAX_LNI_CONNECTIONS).then_some(active + 1)
+                (active < MAX_READINESS_CHECKS).then_some(active + 1)
             })
             .ok()
             .map(|_| Arc::new(Self))
@@ -910,21 +905,19 @@ fn replica_answers(
 }
 
 fn chain_answers(config: &Config, deadline: Instant) -> Result<DependencyReason, DependencyReason> {
-    let remaining = deadline
-        .checked_duration_since(Instant::now())
-        .filter(|duration| !duration.is_zero())
-        .ok_or(DependencyReason::Timeout)?;
-    let mut endpoint = config.chain_endpoint.clone();
-    endpoint.request_timeout = remaining;
-    layerx_paxeer_verifier::raw_call(&endpoint, "eth_chainId", &[]).map_err(|error| match error
-        .fault
-    {
-        layerx_paxeer_verifier::EndpointFault::ChainMismatch { .. } => {
-            DependencyReason::IdentityMismatch
+    if Instant::now() >= deadline {
+        return Err(DependencyReason::Timeout);
+    }
+    let result =
+        SequencerEndpoint::new(&config.chain_rpc_url, &[]).and_then(|endpoint| endpoint.chain_id());
+    match result {
+        Ok(id) if id != trust::EXPECTED_CHAIN_ID => {
+            return Err(DependencyReason::IdentityMismatch);
         }
-        _ if Instant::now() >= deadline => DependencyReason::Timeout,
-        _ => DependencyReason::Unavailable,
-    })?;
+        Err(_) if Instant::now() >= deadline => return Err(DependencyReason::Timeout),
+        Err(_) => return Err(DependencyReason::Unavailable),
+        Ok(_) => {}
+    }
     if Instant::now() >= deadline {
         return Err(DependencyReason::Timeout);
     }
@@ -1197,21 +1190,327 @@ fn main() {
 #[cfg(test)]
 mod chain_readiness_tests {
     use super::*;
+    use std::io::{BufRead as _, BufReader};
+    use std::os::unix::fs::PermissionsExt as _;
+    use std::path::Path;
+    use std::process::Command;
+    use std::sync::Mutex;
+
+    pub(super) fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
+        value.unwrap_or_else(|error| panic!("{error:?}"))
+    }
+
+    pub(super) fn receipt_vectors() -> serde_json::Value {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(4)
+            .unwrap();
+        must(serde_json::from_slice(&must(fs::read(root.join(
+            "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+        )))))
+    }
+
+    pub(super) fn vector(document: &serde_json::Value, id: &str) -> serde_json::Value {
+        document["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["id"] == id)
+            .unwrap()
+            .clone()
+    }
+
+    pub(super) fn hex_bytes(value: &serde_json::Value) -> Vec<u8> {
+        must(hex::decode(
+            value.as_str().unwrap().strip_prefix("0x").unwrap(),
+        ))
+    }
+
+    pub(super) fn base64(bytes: &[u8]) -> String {
+        const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut text = String::new();
+        for chunk in bytes.chunks(3) {
+            let a = chunk[0];
+            let b = chunk.get(1).copied().unwrap_or(0);
+            let c = chunk.get(2).copied().unwrap_or(0);
+            text.push(char::from(ALPHABET[usize::from(a >> 2)]));
+            text.push(char::from(ALPHABET[usize::from(((a & 3) << 4) | (b >> 4))]));
+            text.push(if chunk.len() > 1 {
+                char::from(ALPHABET[usize::from(((b & 15) << 2) | (c >> 6))])
+            } else {
+                '='
+            });
+            text.push(if chunk.len() > 2 {
+                char::from(ALPHABET[usize::from(c & 63)])
+            } else {
+                '='
+            });
+        }
+        text
+    }
+
+    pub(super) struct ReceiptHarness {
+        pub(super) directory: PathBuf,
+        pub(super) config: Config,
+        pub(super) calls: Arc<Mutex<Vec<serde_json::Value>>>,
+        pub(super) stopped: Arc<AtomicBool>,
+        pub(super) server: Option<thread::JoinHandle<()>>,
+    }
+
+    impl ReceiptHarness {
+        pub(super) fn start(cases: &[serde_json::Value], pinned: &serde_json::Value) -> Self {
+            Self::start_with_pins(cases, std::slice::from_ref(pinned))
+        }
+
+        pub(super) fn start_with_pins(
+            cases: &[serde_json::Value],
+            pinned: &[serde_json::Value],
+        ) -> Self {
+            Self::start_with_chain_id(cases, pinned, 125)
+        }
+
+        pub(super) fn start_with_chain_id(
+            cases: &[serde_json::Value],
+            pinned: &[serde_json::Value],
+            chain_id: u64,
+        ) -> Self {
+            let mut nonce = [0; 16];
+            must(getrandom::fill(&mut nonce));
+            let directory = std::env::temp_dir()
+                .join(format!("authority-chain-receipts-{}", hex::encode(&nonce)));
+            must(fs::create_dir(&directory));
+            must(fs::set_permissions(
+                &directory,
+                fs::Permissions::from_mode(0o700),
+            ));
+            let keys_file = directory.join("receipt-keys.json");
+            let pin = &pinned[0]["pinnedKey"];
+            let keys: Vec<_> = pinned
+                .iter()
+                .map(|case| {
+                    let pin = &case["pinnedKey"];
+                    serde_json::json!({
+                        "keyId": base64(&hex_bytes(&pin["keyId"])),
+                        "publicKey": base64(&hex_bytes(&pin["publicKey"])),
+                        "firstHeight": pin["firstHeight"], "lastHeight": pin["lastHeight"],
+                    })
+                })
+                .collect();
+            let keys = serde_json::json!(keys);
+            must(fs::write(&keys_file, keys.to_string()));
+            must(fs::set_permissions(
+                &keys_file,
+                fs::Permissions::from_mode(0o600),
+            ));
+
+            let listener = must(TcpListener::bind("127.0.0.1:0"));
+            must(listener.set_nonblocking(true));
+            let address = must(listener.local_addr());
+            let mut recorded = BTreeMap::new();
+            for case in cases {
+                let mut result = case["receiptJson"].clone();
+                result["signingKey"] = case["pinnedKey"]["publicKey"].clone();
+                recorded.insert(result["txHash"].as_str().unwrap().to_owned(), result);
+            }
+            let calls = Arc::new(Mutex::new(Vec::new()));
+            let seen = Arc::clone(&calls);
+            let stopped = Arc::new(AtomicBool::new(false));
+            let stop = Arc::clone(&stopped);
+            let server = thread::spawn(move || {
+                while !stop.load(Ordering::Acquire) {
+                    let (stream, _) = match listener.accept() {
+                        Ok(connection) => connection,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            thread::sleep(Duration::from_millis(2));
+                            continue;
+                        }
+                        Err(error) => panic!("recorded chain listener: {error}"),
+                    };
+                    must(stream.set_read_timeout(Some(Duration::from_secs(2))));
+                    let mut reader = BufReader::new(stream);
+                    let mut line = String::new();
+                    must(reader.read_line(&mut line));
+                    let replica_probe = line.starts_with("GET /v1/batches/");
+                    if !replica_probe {
+                        assert!(matches!(
+                            line.as_str(),
+                            "POST /evm HTTP/1.0\r\n" | "POST /evm HTTP/1.1\r\n"
+                        ));
+                    }
+                    let mut length = None;
+                    loop {
+                        line.clear();
+                        assert_ne!(must(reader.read_line(&mut line)), 0);
+                        if line == "\r\n" {
+                            break;
+                        }
+                        if let Some(value) =
+                            line.to_ascii_lowercase().strip_prefix("content-length:")
+                        {
+                            length = Some(must(value.trim().parse::<usize>()));
+                        }
+                    }
+                    if replica_probe {
+                        let mut stream = reader.into_inner();
+                        must(write!(
+                            stream,
+                            "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                        ));
+                        continue;
+                    }
+                    let length = length.unwrap();
+                    assert!(length <= 1024);
+                    let mut bytes = vec![0; length];
+                    must(reader.read_exact(&mut bytes));
+                    let request: serde_json::Value = must(serde_json::from_slice(&bytes));
+                    assert_eq!(request["jsonrpc"], "2.0");
+                    let result = match request["method"].as_str().unwrap() {
+                        "eth_chainId" => {
+                            assert_eq!(request["params"], serde_json::json!([]));
+                            serde_json::json!(format!("0x{chain_id:x}"))
+                        }
+                        "pax_sequencerReceipt" => {
+                            assert_eq!(request["params"].as_array().unwrap().len(), 1);
+                            let hash = request["params"][0].as_str().unwrap();
+                            recorded
+                                .get(hash)
+                                .cloned()
+                                .unwrap_or(serde_json::Value::Null)
+                        }
+                        method => panic!("unexpected chain method: {method}"),
+                    };
+                    let answer =
+                        serde_json::json!({"jsonrpc": "2.0", "id": request["id"], "result": result})
+                            .to_string();
+                    must(seen.lock()).push(request);
+                    let mut stream = reader.into_inner();
+                    must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", answer.len(), answer));
+                }
+            });
+
+            let key_file = directory.join("tls-key.der");
+            let cert_file = directory.join("tls-cert.der");
+            let output = must(
+                Command::new("openssl")
+                    .args([
+                        "req",
+                        "-x509",
+                        "-newkey",
+                        "ed25519",
+                        "-nodes",
+                        "-subj",
+                        "/CN=localhost",
+                        "-keyout",
+                        directory.join("tls-key.pem").to_str().unwrap(),
+                        "-outform",
+                        "DER",
+                        "-out",
+                        cert_file.to_str().unwrap(),
+                    ])
+                    .output(),
+            );
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let output = must(
+                Command::new("openssl")
+                    .args([
+                        "pkcs8",
+                        "-topk8",
+                        "-nocrypt",
+                        "-in",
+                        directory.join("tls-key.pem").to_str().unwrap(),
+                        "-outform",
+                        "DER",
+                        "-out",
+                        key_file.to_str().unwrap(),
+                    ])
+                    .output(),
+            );
+            assert!(output.status.success());
+            let _ = rustls::crypto::ring::default_provider().install_default();
+            let tls = must(
+                ServerConfig::builder()
+                    .with_no_client_auth()
+                    .with_single_cert(
+                        vec![CertificateDer::from(must(fs::read(cert_file)))],
+                        must(PrivateKeyDer::try_from(must(fs::read(key_file)))),
+                    ),
+            );
+            let public_key: [u8; 32] = hex_bytes(&pin["publicKey"]).try_into().unwrap();
+            let config = Config {
+                listen: "127.0.0.1:0".parse().unwrap(),
+                tls: Arc::new(tls),
+                tokens: vec![Zeroizing::new("chain-receipts-test-token".to_owned())],
+                human: None,
+                replica_address: address,
+                replica_host: address.to_string(),
+                replica_token: Zeroizing::new("replica-test-token".to_owned()),
+                evidence_read_token: None,
+                replica_id: [1; 32],
+                chain_receipts: must(ChainReceipts::load(
+                    &format!("http://{address}/evm"),
+                    &keys_file,
+                )),
+                chain_rpc_url: format!("http://{address}/evm"),
+                protocol_network_id: 125,
+                network_id: "chain-receipts-test".to_owned(),
+                wire_version: PROTOCOL_VERSION.to_string(),
+                authorization: SequencerAuthorization::new(
+                    hex_bytes(&pin["keyId"]).try_into().unwrap(),
+                    public_key,
+                    pin["firstHeight"].as_u64().unwrap(),
+                    pin["lastHeight"].as_u64().unwrap(),
+                ),
+                sequencer_public_key: public_key,
+            };
+            Self {
+                directory,
+                config,
+                calls,
+                stopped,
+                server: Some(server),
+            }
+        }
+
+        pub(super) fn stop_chain(&mut self) {
+            self.stopped.store(true, Ordering::Release);
+            if let Some(server) = self.server.take() {
+                server.join().unwrap();
+            }
+        }
+
+        pub(super) fn files(&self) -> Vec<PathBuf> {
+            let mut files: Vec<_> = must(fs::read_dir(&self.directory))
+                .map(|entry| must(entry).path())
+                .collect();
+            files.sort();
+            files
+        }
+    }
+
+    impl Drop for ReceiptHarness {
+        fn drop(&mut self) {
+            self.stop_chain();
+            must(fs::remove_dir_all(&self.directory));
+        }
+    }
 
     #[test]
-    fn actual_node_info_refuses_incompatible_receipt_admission() {
-        let url =
-            env::var("LAYERX_AUTHORITY_CHAIN_RPC_URL").expect("actual chain RPC endpoint required");
-        let mut endpoint = trust::chain_endpoint(&url, READINESS_TIMEOUT);
-        endpoint.expected_chain_id = u64::MAX;
-        let error = layerx_paxeer_verifier::raw_call(&endpoint, "eth_chainId", &[])
-            .expect_err("another chain id must be refused");
-        assert!(matches!(
-            error.fault,
-            layerx_paxeer_verifier::EndpointFault::ChainMismatch {
-                expected: u64::MAX,
-                actual: 125
-            }
-        ));
+    pub(super) fn actual_node_info_refuses_incompatible_receipt_admission() {
+        let document = receipt_vectors();
+        let case = vector(&document, "V1-pax-transfer");
+        let harness = ReceiptHarness::start(&[case.clone()], &case);
+        assert_eq!(
+            chain_answers(&harness.config, Instant::now() + READINESS_TIMEOUT),
+            Ok(DependencyReason::Ready)
+        );
+        let incompatible = ReceiptHarness::start_with_chain_id(&[case.clone()], &[case], 126);
+        assert_eq!(
+            chain_answers(&incompatible.config, Instant::now() + READINESS_TIMEOUT),
+            Err(DependencyReason::IdentityMismatch)
+        );
     }
 }

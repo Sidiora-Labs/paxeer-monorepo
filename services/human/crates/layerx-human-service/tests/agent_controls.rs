@@ -620,7 +620,7 @@ fn protocol_and_app_limit_changes_keep_their_real_enforcement_labels() {
         ))
     ));
     assert!(matches!(
-        ProductionAgentCreation::finalization_evidence(&finalized, ModuleId::Budget, 7, 1_002,),
+        ProductionAgentCreation::finalization_evidence(&finalized, ModuleId::Budget, 8, 1_002,),
         Err(AgentFailure::Refused(
             "lifecycle receipt does not prove successful action"
         ))

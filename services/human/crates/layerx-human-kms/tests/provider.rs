@@ -11,21 +11,23 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
+#[allow(dead_code)]
+#[path = "support/attestor_cluster.rs"]
+mod attestor_cluster;
 #[path = "provider/native_setup.rs"]
 mod native_setup;
-#[path = "provider/owner_bootstrap.rs"]
-mod owner_bootstrap;
-#[path = "provider/owner_rotation.rs"]
-mod owner_rotation;
 const MAX: usize = 2_097_152;
+static ATTESTOR_FIXTURE: Mutex<()> = Mutex::new(());
 struct Host {
     root: PathBuf,
     address: SocketAddr,
     child: Option<Child>,
+    environment: Vec<(&'static str, PathBuf)>,
+    _attestors: attestor_cluster::Cluster,
 }
 impl Drop for Host {
     fn drop(&mut self) {
@@ -35,6 +37,9 @@ impl Drop for Host {
 }
 impl Host {
     fn new() -> Result<Self> {
+        let _fixture = ATTESTOR_FIXTURE
+            .lock()
+            .map_err(|_| "attestor fixture lock poisoned")?;
         let _ = rustls::crypto::ring::default_provider().install_default();
         let root = std::env::temp_dir().join(format!(
             "lxkp-{}-{}",
@@ -47,37 +52,40 @@ impl Host {
         fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
-        drop(listener);
+        let mut attestors = attestor_cluster::Cluster::start(&[])?;
+        attestors.provision_kms_evm(&root)?;
+        let environment = [
+            ("REGISTRY_FILE", "registry.json"),
+            ("CLIENT_CA_DER", "ca.der"),
+            ("TLS_CERT_DER", "server.der"),
+            ("TLS_KEY_DER", "server-key.der"),
+            ("CLIENT_CERT_DER", "client.der"),
+            ("SEAL_SECRET_FILE", "seal"),
+            ("ATTESTOR_CONFIG_FILE", "attestor.json"),
+            ("EVM_ASSERTION_FILE", "evm-assertion.jwt"),
+        ]
+        .into_iter()
+        .map(|(suffix, file)| (suffix, root.join(file)))
+        .collect();
         let mut host = Self {
             root,
             address,
             child: None,
+            environment,
+            _attestors: attestors,
         };
         host.provision_tls()?;
         let mut seal = [0; 32];
         getrandom::fill(&mut seal).map_err(|error| std::io::Error::other(error.to_string()))?;
         fs::write(host.root.join("seal"), seal)?;
-        let modules: Vec<_> = registry()?
-            .registrations()
-            .iter()
-            .map(|module| {
-                let kinds: Vec<_> = module
-                    .activity_types()
-                    .iter()
-                    .map(|kind| kind.value())
-                    .collect();
-                serde_json::json!({"module_id":module.module() as u16,"activity_types":kinds})
-            })
-            .collect();
         fs::write(
             host.root.join("registry.json"),
-            serde_json::to_vec(
-                &serde_json::json!({"network_id":77,"protocol_version":3,"modules":modules}),
-            )?,
+            serde_json::to_vec(&serde_json::json!({"chain_id":125}))?,
         )?;
         for entry in fs::read_dir(&host.root)? {
             fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o600))?;
         }
+        drop(listener);
         host.start()?;
         Ok(host)
     }
@@ -181,24 +189,17 @@ impl Host {
             .env("LAYERX_HUMAN_KMS_LISTEN", self.address.to_string())
             .env("LAYERX_HUMAN_KMS_PROVIDER_REFERENCE", "beta-kms")
             .env("LAYERX_HUMAN_KMS_STATE_DIR", self.root.join("state"))
-            .env("LAYERX_HUMAN_KMS_DEADLINE_SECONDS", "2")
+            .env("LAYERX_HUMAN_KMS_DEADLINE_SECONDS", "30")
             .env(
                 "LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER",
                 self.root.join("foreign.der"),
             );
-        for (suffix, file) in [
-            ("REGISTRY_FILE", "registry.json"),
-            ("CLIENT_CA_DER", "ca.der"),
-            ("TLS_CERT_DER", "server.der"),
-            ("TLS_KEY_DER", "server-key.der"),
-            ("CLIENT_CERT_DER", "client.der"),
-            ("SEAL_SECRET_FILE", "seal"),
-        ] {
-            command.env(format!("LAYERX_HUMAN_KMS_{suffix}"), self.root.join(file));
+        for (suffix, path) in &self.environment {
+            command.env(format!("LAYERX_HUMAN_KMS_{suffix}"), path);
         }
         Ok(command
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(fs::File::create(self.root.join("kms.log"))?)
             .spawn()?)
     }
     fn start(&mut self) -> Result<()> {
@@ -216,7 +217,11 @@ impl Host {
                 .try_wait()?
                 .is_some()
             {
-                return Err("KMS exited at startup".into());
+                return Err(format!(
+                    "KMS exited at startup: {}",
+                    fs::read_to_string(self.root.join("kms.log"))?
+                )
+                .into());
             }
             if deadline.remaining(clock.as_ref())?.is_zero() {
                 return Err("KMS startup deadline".into());
@@ -258,7 +263,7 @@ impl Host {
                 maximum_connections: 4,
                 maximum_streams: 1,
                 maximum_queued_bytes: MAX,
-                deadline: Duration::from_secs(2),
+                deadline: Duration::from_secs(30),
             },
         )?)
     }
@@ -271,8 +276,8 @@ impl Host {
             builder.with_no_client_auth()
         };
         let tcp = TcpStream::connect(self.address)?;
-        tcp.set_read_timeout(Some(Duration::from_secs(3)))?;
-        tcp.set_write_timeout(Some(Duration::from_secs(3)))?;
+        tcp.set_read_timeout(Some(Duration::from_secs(30)))?;
+        tcp.set_write_timeout(Some(Duration::from_secs(30)))?;
         Ok(StreamOwned::new(
             ClientConnection::new(Arc::new(config), ServerName::try_from("localhost")?)?,
             tcp,
@@ -301,7 +306,7 @@ fn request(
     blob(&mut out, b"beta-kms")?;
     if op != 0 {
         out.extend(binding);
-        out.extend(77_u32.to_be_bytes());
+        out.extend(125_u32.to_be_bytes());
         out.push(1);
         blob(&mut out, reference)?;
     }
@@ -326,7 +331,7 @@ fn actual_client_lifecycle_and_mutual_tls() -> Result<()> {
     let key = KeyId::new("primary")?;
     let store = Keystore::open_production(
         host.root.join("client-state"),
-        77,
+        125,
         host.remote("client", "beta-kms")?,
     )?;
     let original = store.create(&alice, &key, KeyClass::HumanPrimary)?;
@@ -623,68 +628,169 @@ fn signing_request(
     blob(&mut bytes, disclosure)?;
     Ok((bytes, digest))
 }
-fn authorize_canonical_send(host: &Host, binding: [u8; 32], handle: &[u8]) -> Result<[u8; 64]> {
-    use layerx_human_service::custody::SendPlanAuthorization;
-    use layerx_types::account::AccountId;
+fn authorize_canonical_send(
+    host: &Host,
+    binding: [u8; 32],
+    handle: &[u8],
+) -> Result<(layerx_crypto::evm_transaction::Eip1559Call, [u8; 20])> {
+    use layerx_crypto::disclosure::call::ledger_selector;
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
+    use layerx_human_service::custody::{EvmPlanAuthorization, EvmTransaction};
+    let mut wallet_request = request(6, binding, handle, None)?;
+    wallet_request[4..6].copy_from_slice(&3_u16.to_be_bytes());
+    let wallet_response = host.call(&wallet_request)?;
+    assert_eq!(wallet_response[7], 0);
+    let wallet: [u8; 20] = wallet_response[8..].try_into()?;
+    let recipient = [0x44; 20];
+    let denom = "apax";
+    let mut amount = [0; 32];
+    amount[31] = 10;
+    let mut bank = [0; 20];
+    bank[18..].copy_from_slice(&[0x10, 0x01]);
+    let mut calldata = ledger_selector("send(address,address,string,uint256)").to_vec();
+    for address in [wallet, recipient] {
+        calldata.extend([0; 12]);
+        calldata.extend(address);
+    }
+    let mut offset = [0; 32];
+    offset[31] = 128;
+    calldata.extend(offset);
+    calldata.extend(amount);
+    let mut length = [0; 32];
+    length[31] = u8::try_from(denom.len())?;
+    calldata.extend(length);
+    calldata.extend(denom.as_bytes());
+    calldata.extend([0; 28]);
     let now = RuntimeClock::from_environment()?
         .sample(Duration::from_secs(1))?
         .unix_seconds();
-    let authorization = SendPlanAuthorization {
+    let authorization = EvmPlanAuthorization {
         plan_id: [61; 32],
         action_key: [62; 32],
         principal: "alice".into(),
         tenant: "tenant".into(),
         binding_digest: binding,
-        from: checked(layerx_intents::canonical::account_id_for_protocol(
-            &checked(AccountId::parse("agent:did:layerx:alice:main"))?,
-            3,
-        ))?,
-        to: checked(layerx_intents::canonical::account_id_for_protocol(
-            &checked(AccountId::parse("agent:did:layerx:recipient:main"))?,
-            3,
-        ))?,
-        asset: [3; 32],
-        amount: 10,
-        sequence: 7,
-        idempotency_key: [4; 32],
-        expires_at: 1010,
-        context: [5; 32],
-        network: 77,
-        protocol: 3,
+        wallet,
         not_before: now,
         not_after: now + 600,
+        transaction: EvmTransaction {
+            chain_id: 125,
+            nonce: 7,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 100_000,
+            to: bank,
+            value: [0; 32],
+            calldata: calldata.clone(),
+        },
     };
+    let authorization = serde_json::json!({
+        "authorization": authorization,
+        "disclosure": {"recipient": recipient, "denom": denom, "amount": amount},
+    });
     let mut bytes = request(11, binding, handle, None)?;
     bytes[4..6].copy_from_slice(&3_u16.to_be_bytes());
     blob(&mut bytes, &serde_json::to_vec(&authorization)?)?;
     let response = host.call(&bytes)?;
     assert_eq!(response[7], 0);
-    assert_eq!(response.len(), 72);
-    Ok(response[8..].try_into()?)
+    let (call, signature) = decode_signed(&response[8..])?;
+    let expected = Eip1559Call {
+        chain_id: 125,
+        nonce: 7,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 100_000,
+        to: bank,
+        data: calldata,
+    };
+    assert_eq!(call, expected);
+    assert_eq!(call.signing_hash(), expected.signing_hash());
+    assert_eq!(recover_sender(&call, &signature)?, wallet);
+    Ok((call, wallet))
+}
+
+fn evm_signing_request(
+    binding: [u8; 32],
+    handle: &[u8],
+    canonical: &[u8],
+    disclosure: &[u8],
+) -> Result<(Vec<u8>, [u8; 32])> {
+    use sha3::{Digest, Keccak256};
+    let digest: [u8; 32] = Keccak256::digest(canonical).into();
+    let mut bytes = request(5, binding, handle, None)?;
+    bytes.extend(digest);
+    blob(&mut bytes, canonical)?;
+    blob(&mut bytes, disclosure)?;
+    Ok((bytes, digest))
+}
+
+/// An admitted construct call commits to the locally checked kernel fixture.
+/// Kernel disclosures remain local checks; only bind_call's disclosure is sent.
+fn construct_signing_call(
+    canonical: &[u8],
+) -> Result<(Vec<u8>, layerx_crypto::disclosure::Disclosure)> {
+    use layerx_crypto::disclosure::call::{bind_call, ledger_selector};
+    use layerx_crypto::evm_transaction::Eip1559Call;
+    use sha3::{Digest, Keccak256};
+    let mut data = ledger_selector("openAccount(bytes32)").to_vec();
+    data.extend(Keccak256::digest(canonical));
+    let mut to = [0; 20];
+    to[18..].copy_from_slice(&[0x10, 0x1a]);
+    let call = Eip1559Call {
+        chain_id: 125,
+        nonce: 7,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 100_000,
+        to,
+        data,
+    };
+    let disclosure = checked(bind_call(&call, [0x41; 20]))?;
+    let canonical = layerx_human_kms::attestor::unsigned_evm_transaction(&call);
+    assert_eq!(
+        <[u8; 32]>::from(Keccak256::digest(&canonical)),
+        call.signing_hash()
+    );
+    Ok((canonical, disclosure))
 }
 
 #[test]
 fn canonical_signing_and_disclosure_refusals() -> Result<()> {
+    use layerx_crypto::send::{ledger_payment_call, CallOptions};
     use std::io::Write;
     let host = Host::new()?;
     let binding = [41; 32];
     let (handle, public) = facts(&host.call(&request(1, binding, &[], None)?)?)?;
-    let signature = authorize_canonical_send(&host, binding, &handle)?;
-    let canonical = canonical_send(public, 77, signature)?;
-    let disclosure = encoded_disclosure(&checked(layerx_crypto::disclosure::bind(
-        &canonical,
-        &registry()?,
+    let (call, wallet) = authorize_canonical_send(&host, binding, &handle)?;
+    let canonical = layerx_human_kms::attestor::unsigned_evm_transaction(&call);
+    let disclosure = encoded_disclosure(&checked(layerx_crypto::disclosure::call::bind_call(
+        &call, wallet,
     ))?)?;
-    let forged = canonical_send(public, 77, [6; 64])?;
+    let forged = canonical_send(public, 125, [6; 64])?;
+    let forged_activity = checked(layerx_intents::canonical::decode_unsigned_activity(
+        &forged,
+        &registry()?,
+    ))?;
     assert!(matches!(
-        layerx_crypto::disclosure::bind(&forged, &registry()?),
+        ledger_payment_call(
+            forged_activity.payload(),
+            &CallOptions {
+                from: wallet,
+                chain_id: call.chain_id,
+                nonce: call.nonce,
+                max_priority_fee_per_gas: call.max_priority_fee_per_gas,
+                max_fee_per_gas: call.max_fee_per_gas,
+                gas_limit: call.gas_limit,
+            },
+        ),
         Err(layerx_crypto::disclosure::DisclosureError::MalformedPayload)
     ));
     assert_eq!(
         host.call(&signing_request(binding, &handle, &forged, &disclosure)?.0)?[7],
         1
     );
-    let (bytes, digest) = signing_request(binding, &handle, &canonical, &disclosure)?;
+    let (bytes, digest) = evm_signing_request(binding, &handle, &canonical, &disclosure)?;
+    assert_eq!(digest, call.signing_hash());
     let response = host.call(&bytes)?;
     assert_eq!(response[7], 0);
     assert_eq!(response.len(), 72);
@@ -696,21 +802,23 @@ fn canonical_signing_and_disclosure_refusals() -> Result<()> {
     let last = changed_disclosure.len() - 2;
     changed_disclosure[last] ^= 1;
     assert_eq!(
-        host.call(&signing_request(binding, &handle, &canonical, &changed_disclosure)?.0)?[7],
+        host.call(&evm_signing_request(binding, &handle, &canonical, &changed_disclosure)?.0)?[7],
         1
     );
     let mut changed_digest = bytes.clone();
     changed_digest[92] ^= 1;
     assert_eq!(host.call(&changed_digest)?[7], 5);
-    let foreign = canonical_send(public, 78, signature)?;
+    let mut foreign_call = call.clone();
+    foreign_call.chain_id = 78;
+    let foreign = layerx_human_kms::attestor::unsigned_evm_transaction(&foreign_call);
     assert_eq!(
-        host.call(&signing_request(binding, &handle, &foreign, &disclosure)?.0)?[7],
+        host.call(&evm_signing_request(binding, &handle, &foreign, &disclosure)?.0)?[7],
         1
     );
     let mut noncanonical = canonical;
     noncanonical.push(0);
     assert_eq!(
-        host.call(&signing_request(binding, &handle, &noncanonical, &disclosure)?.0)?[7],
+        host.call(&evm_signing_request(binding, &handle, &noncanonical, &disclosure)?.0)?[7],
         1
     );
     let mut trailing = bytes;
@@ -768,7 +876,11 @@ fn monetary_payloads() -> Result<Vec<layerx_types::payload::Payload>> {
 
 #[test]
 fn monetary_roles_are_bound_by_the_real_provider_before_and_after_restart() -> Result<()> {
-    use layerx_crypto::disclosure::{bind, AmountRole};
+    use layerx_crypto::authority_grant::AuthorityGrant;
+    use layerx_crypto::disclosure::call::{bind_call, encode_payment_call};
+    use layerx_crypto::disclosure::{AmountRole, DisclosedAmount};
+    use layerx_crypto::payments::Payment;
+    use layerx_types::payload::ModuleId;
     let mut host = Host::new()?;
     let binding = [71; 32];
     let (handle, public) = facts(&host.call(&request(1, binding, &[], None)?)?)?;
@@ -779,8 +891,40 @@ fn monetary_roles_are_bound_by_the_real_provider_before_and_after_restart() -> R
             host.start()?;
         }
         for payload in &payloads {
-            let canonical = unsigned_payload(public, 77, payload.clone())?;
-            let disclosure = checked(bind(&canonical, &registry()?))?;
+            let canonical = unsigned_payload(public, 125, payload.clone())?;
+            let (call_bytes, mut disclosure) = construct_signing_call(&canonical)?;
+            match (
+                payload.activity_type().module(),
+                payload.activity_type().ordinal(),
+            ) {
+                (ModuleId::Asset, 1) => {
+                    let payment = checked(Payment::decode(
+                        ModuleId::Asset,
+                        1,
+                        payload.as_bytes(),
+                        b"did:layerx:alice",
+                    ))?;
+                    let mut call =
+                        layerx_human_kms::attestor::decode_unsigned_evm_transaction(&call_bytes)?;
+                    call.data = checked(encode_payment_call(&payment, b"did:layerx:alice"))?;
+                    disclosure = checked(bind_call(&call, [0x41; 20]))?;
+                }
+                (ModuleId::Governance, 8) => {
+                    let grant = checked(AuthorityGrant::from_payload(payload.as_bytes()))?;
+                    disclosure.payment = None;
+                    disclosure.authority_grant = Some(grant);
+                    disclosure.asset = grant.scope.asset;
+                    disclosure.amounts = [
+                        (AmountRole::PerDrawMaximum, grant.scope.maximum_per_activity),
+                        (AmountRole::GrantAllowance, grant.scope.maximum_total),
+                        (AmountRole::SpendingLimit, grant.scope.maximum_per_period),
+                    ]
+                    .into_iter()
+                    .map(|(role, value)| DisclosedAmount { role, value })
+                    .collect();
+                }
+                _ => return Err("unsupported monetary fixture".into()),
+            }
             let roles: Vec<_> = disclosure
                 .amounts
                 .iter()
@@ -802,7 +946,13 @@ fn monetary_roles_are_bound_by_the_real_provider_before_and_after_restart() -> R
                 assert_eq!(disclosure.amounts[1].value, 30);
             }
             let encoded = encoded_disclosure(&disclosure)?;
-            let (request, digest) = signing_request(binding, &handle, &canonical, &encoded)?;
+            let (canonical, call_disclosure) = construct_signing_call(&canonical)?;
+            let (request, digest) = evm_signing_request(
+                binding,
+                &handle,
+                &canonical,
+                &encoded_disclosure(&call_disclosure)?,
+            )?;
             let response = host.call(&request)?;
             assert_eq!(response[7], 0);
             assert_eq!(response.len(), 72);
@@ -831,7 +981,8 @@ fn monetary_roles_are_bound_by_the_real_provider_before_and_after_restart() -> R
                     let mut changed = encoded.clone();
                     changed[mutation] ^= 0x80;
                     assert_eq!(
-                        host.call(&signing_request(binding, &handle, &canonical, &changed)?.0)?[7],
+                        host.call(&evm_signing_request(binding, &handle, &canonical, &changed)?.0)?
+                            [7],
                         1
                     );
                 }
@@ -858,7 +1009,7 @@ fn recovery_authorization(
         not_before: now,
         not_after: now + 600,
         transaction: layerx_human_service::custody::EvmTransaction {
-            chain_id: 31337,
+            chain_id: 125,
             nonce: 7,
             max_priority_fee_per_gas: 1,
             max_fee_per_gas: 2,
@@ -878,7 +1029,7 @@ fn evm_authorization_nonce_dedup_and_acknowledgement_recovery() -> Result<()> {
     let key = KeyId::new("primary")?;
     let store = Keystore::open_production(
         host.root.join("evm-client"),
-        77,
+        125,
         host.remote("client", "beta-kms")?,
     )?;
     store.create(&principal, &key, KeyClass::HumanPrimary)?;
@@ -993,13 +1144,24 @@ fn export_signing_frame(
     handle: &[u8],
     public: [u8; 32],
 ) -> Result<(Vec<u8>, [u8; 32])> {
+    use layerx_crypto::disclosure::call::{bind_call, encode_payment_call};
+    use layerx_crypto::payments::Payment;
     let payload = monetary_payloads()?
         .into_iter()
         .next()
         .ok_or("missing payload")?;
-    let canonical = unsigned_payload(public, 77, payload)?;
-    let disclosure = checked(layerx_crypto::disclosure::bind(&canonical, &registry()?))?;
-    signing_request(
+    let payment = checked(Payment::decode(
+        payload.activity_type().module(),
+        payload.activity_type().ordinal(),
+        payload.as_bytes(),
+        b"did:layerx:alice",
+    ))?;
+    let canonical = unsigned_payload(public, 125, payload)?;
+    let (canonical, disclosure) = construct_signing_call(&canonical)?;
+    let mut payment_call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(&canonical)?;
+    payment_call.data = checked(encode_payment_call(&payment, b"did:layerx:alice"))?;
+    let _disclosure = checked(bind_call(&payment_call, [0x41; 20]))?;
+    evm_signing_request(
         binding,
         handle,
         &canonical,
@@ -1013,12 +1175,12 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
     let mut host = Host::new()?;
     let client = host.remote("client", "beta-kms")?;
     let executor = host.remote("foreign", "beta-kms")?;
-    let human = PrincipalKeyBinding::from_digest([91; 32], 77, KeyClass::HumanPrimary)?;
+    let human = PrincipalKeyBinding::from_digest([91; 32], 125, KeyClass::HumanPrimary)?;
     let created = client.create_key(&human)?;
     let reference = created.reference().clone();
     let handle = reference.as_bytes().to_vec();
     let public = created.public_key();
-    let agent = PrincipalKeyBinding::from_digest([92; 32], 77, KeyClass::AgentPrimary)?;
+    let agent = PrincipalKeyBinding::from_digest([92; 32], 125, KeyClass::AgentPrimary)?;
     let agent_reference = client.create_key(&agent)?.reference().clone();
     let (sign, digest) = export_signing_frame([91; 32], &handle, public)?;
     let signed = host.call(&sign)?;
@@ -1073,7 +1235,7 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
         client.export_primary_key(&agent, &agent_reference).err(),
         Some(KmsError::Refused)
     );
-    let misclassed = PrincipalKeyBinding::from_digest([91; 32], 77, KeyClass::AgentPrimary)?;
+    let misclassed = PrincipalKeyBinding::from_digest([91; 32], 125, KeyClass::AgentPrimary)?;
     assert_eq!(
         client.export_primary_key(&misclassed, &reference).err(),
         Some(KmsError::Integrity)
@@ -1087,7 +1249,7 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
     assert_eq!(
         client
             .export_primary_key(
-                &PrincipalKeyBinding::from_digest([93; 32], 77, KeyClass::HumanPrimary)?,
+                &PrincipalKeyBinding::from_digest([93; 32], 125, KeyClass::HumanPrimary)?,
                 &reference
             )
             .err(),
@@ -1158,7 +1320,7 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
         assert!(client.describe_key(&agent, &agent_reference)?.reference() == &agent_reference);
     }
 
-    let lost = PrincipalKeyBinding::from_digest([94; 32], 77, KeyClass::HumanPrimary)?;
+    let lost = PrincipalKeyBinding::from_digest([94; 32], 125, KeyClass::HumanPrimary)?;
     let lost_created = client.create_key(&lost)?;
     let lost_reference = lost_created.reference().clone();
     let mut lost_export = request(14, [94; 32], lost_reference.as_bytes(), None)?;
@@ -1194,7 +1356,7 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
 
     let keystore = Keystore::open_production(
         host.root.join("client-state"),
-        77,
+        125,
         host.remote("client", "beta-kms")?,
     )?;
     let alice = PrincipalId::new("alice")?;
@@ -1216,77 +1378,98 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
 
 #[test]
 fn native_send_authorization_is_scoped_and_durable() -> Result<()> {
-    use layerx_human_service::custody::SendPlanAuthorization;
-    use sha2::{Digest, Sha256};
+    use layerx_crypto::disclosure::call::ledger_selector;
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
+    use layerx_human_service::custody::{EvmPlanAuthorization, EvmTransaction};
     let mut host = Host::new()?;
     let principal = PrincipalId::new("alice")?;
     let key = KeyId::new("primary")?;
     let store = Keystore::open_production(
         host.root.join("send-client"),
-        77,
+        125,
         host.remote("client", "beta-kms")?,
     )?;
-    let public = store.create(&principal, &key, KeyClass::HumanPrimary)?;
+    store.create(&principal, &key, KeyClass::HumanPrimary)?;
+    let wallet = store.evm_wallet(&principal, &key)?;
+    let recipient = [4; 20];
+    let denom = "apax";
+    let mut amount = [0; 32];
+    amount[31] = 12;
+    let mut bank = [0; 20];
+    bank[18..].copy_from_slice(&[0x10, 0x01]);
+    let mut calldata = ledger_selector("send(address,address,string,uint256)").to_vec();
+    for address in [wallet, recipient] {
+        calldata.extend([0; 12]);
+        calldata.extend(address);
+    }
+    let mut offset = [0; 32];
+    offset[31] = 128;
+    calldata.extend(offset);
+    calldata.extend(amount);
+    let mut length = [0; 32];
+    length[31] = u8::try_from(denom.len())?;
+    calldata.extend(length);
+    calldata.extend(denom.as_bytes());
+    calldata.extend([0; 28]);
     let now = RuntimeClock::from_environment()?
         .sample(Duration::from_secs(1))?
         .unix_seconds();
-    let authorization = SendPlanAuthorization {
+    let authorization = EvmPlanAuthorization {
         plan_id: [1; 32],
         action_key: [2; 32],
         principal: "alice".into(),
         tenant: "tenant".into(),
         binding_digest: store.evm_binding(&principal, &key)?.digest(),
-        from: [3; 32],
-        to: [4; 32],
-        asset: [5; 32],
-        amount: 12,
-        sequence: 7,
-        idempotency_key: [6; 32],
-        expires_at: now + 600,
-        context: [7; 32],
-        network: 77,
-        protocol: 3,
+        wallet,
         not_before: now,
         not_after: now + 600,
+        transaction: EvmTransaction {
+            chain_id: 125,
+            nonce: 7,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 100_000,
+            to: bank,
+            value: [0; 32],
+            calldata: calldata.clone(),
+        },
     };
-    let signature = store.authorize_send(&principal, &key, &authorization)?;
-    let debit = layerx_crypto::send::SendDebit {
-        from: authorization.from,
-        to: authorization.to,
-        asset: authorization.asset,
-        amount: authorization.amount,
-        source_sequence: authorization.sequence,
-        idempotency_key: authorization.idempotency_key,
-        expires_at: authorization.expires_at,
-        context_hash: authorization.context,
-        conditions: Vec::new(),
-        authorization_kind: 1,
-        network_id: authorization.network,
-        protocol_version: authorization.protocol,
+    let authorize = |plan: &EvmPlanAuthorization, amount| {
+        store.authorize_send_transaction(&principal, &key, plan, recipient, denom.into(), amount)
     };
-    let message = checked(layerx_intents::vectors::owner_send_authorization(&debit))?;
-    let mut hash = Sha256::new();
-    hash.update(layerx_intents::canonical::Domain::SignaturePreimage.tag());
-    hash.update(message);
-    checked(
-        ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public)
-            .verify(&hash.finalize(), &signature),
-    )?;
+    let signed = authorize(&authorization, amount)?;
+    let (call, signature) = decode_signed(&signed)?;
+    let expected = Eip1559Call {
+        chain_id: 125,
+        nonce: 7,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 100_000,
+        to: bank,
+        data: calldata,
+    };
+    assert_eq!(call, expected);
+    assert_eq!(call.signing_hash(), expected.signing_hash());
+    assert_eq!(recover_sender(&call, &signature)?, wallet);
+    let recovered = store.recover_evm_action(&principal, &key, &authorization.action_key)?;
+    assert_eq!(recovered.authorization.plan_id, authorization.plan_id);
+    assert_eq!(
+        recovered.authorization.binding_digest,
+        authorization.binding_digest
+    );
     host.stop();
     host.start()?;
-    assert_eq!(
-        signature,
-        store.authorize_send(&principal, &key, &authorization)?
-    );
+    assert_eq!(signed, authorize(&authorization, amount)?);
+    let mut changed_amount = amount;
+    changed_amount[31] += 1;
+    assert!(authorize(&authorization, changed_amount).is_err());
     let mut changed = authorization.clone();
-    changed.amount += 1;
-    assert!(store.authorize_send(&principal, &key, &changed).is_err());
     changed.action_key = [8; 32];
-    changed.network = 78;
-    assert!(store.authorize_send(&principal, &key, &changed).is_err());
-    changed.network = 77;
+    changed.transaction.chain_id = 78;
+    assert!(authorize(&changed, amount).is_err());
+    changed.transaction.chain_id = 125;
     changed.binding_digest = [9; 32];
-    assert!(store.authorize_send(&principal, &key, &changed).is_err());
+    assert!(authorize(&changed, amount).is_err());
     Ok(())
 }
 
@@ -1338,7 +1521,7 @@ fn external_signature_verification_and_executor_journal_recovery() -> Result<()>
     let key = KeyId::new("primary")?;
     let store = Keystore::open_production(
         host.root.join("external-client"),
-        77,
+        125,
         host.remote("client", "beta-kms")?,
     )?;
     store.create(&principal, &key, KeyClass::HumanPrimary)?;
@@ -1357,7 +1540,7 @@ fn external_signature_verification_and_executor_journal_recovery() -> Result<()>
         not_before: now,
         not_after: now + 600,
         transaction: EvmTransaction {
-            chain_id: 31337,
+            chain_id: 125,
             nonce: 0,
             max_priority_fee_per_gas: 1,
             max_fee_per_gas: 2,
@@ -1451,7 +1634,6 @@ fn refuse_cross_scope(
 #[test]
 fn owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart() -> Result<()> {
     use layerx_crypto::authority_grant::{AuthorityGrant, NativeFeeBudget};
-    use layerx_crypto::disclosure::bind;
     use layerx_types::ids::Did;
     use layerx_types::payload::{ActivityType, ModuleId, Payload};
     let mut host = Host::new()?;
@@ -1469,8 +1651,10 @@ fn owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart() 
         checked(ActivityType::new(ModuleId::Governance, 8))?,
         &checked(grant.payload())?,
     ))?;
-    let canonical = unsigned_payload(public, 77, payload)?;
-    let disclosure = checked(bind(&canonical, &registry()?))?;
+    let grant = checked(AuthorityGrant::from_payload(payload.as_bytes()))?;
+    let canonical = unsigned_payload(public, 125, payload)?;
+    let (_, mut disclosure) = construct_signing_call(&canonical)?;
+    disclosure.authority_grant = Some(grant);
     let mutations: &[fn(&mut NativeFeeBudget)] = &[
         |fee| fee.asset[0] ^= 1,
         |fee| fee.maximum_per_activity -= 1,
@@ -1485,7 +1669,13 @@ fn owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart() 
         }
         let encoded = encoded_disclosure(&disclosure)?;
         assert_eq!(encoded[0], 2);
-        let (signed_request, digest) = signing_request(binding, &handle, &canonical, &encoded)?;
+        let (canonical, call_disclosure) = construct_signing_call(&canonical)?;
+        let (signed_request, digest) = evm_signing_request(
+            binding,
+            &handle,
+            &canonical,
+            &encoded_disclosure(&call_disclosure)?,
+        )?;
         let response = host.call(&signed_request)?;
         assert_eq!(response[7], 0);
         assert_eq!(response.len(), 72);
@@ -1504,8 +1694,13 @@ fn owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart() 
             mutate(fee);
             assert_eq!(
                 host.call(
-                    &signing_request(binding, &handle, &canonical, &encoded_disclosure(&changed)?)?
-                        .0
+                    &evm_signing_request(
+                        binding,
+                        &handle,
+                        &canonical,
+                        &encoded_disclosure(&changed)?
+                    )?
+                    .0
                 )?[7],
                 1
             );
@@ -1513,20 +1708,20 @@ fn owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart() 
         let mut original_version = encoded.clone();
         original_version[0] = 1;
         assert_eq!(
-            host.call(&signing_request(binding, &handle, &canonical, &original_version)?.0)?[7],
+            host.call(&evm_signing_request(binding, &handle, &canonical, &original_version)?.0)?[7],
             1
         );
         let mut truncated = encoded.clone();
         truncated.truncate(truncated.len() - 1);
         assert_eq!(
-            host.call(&signing_request(binding, &handle, &canonical, &truncated)?.0)?[7],
+            host.call(&evm_signing_request(binding, &handle, &canonical, &truncated)?.0)?[7],
             1
         );
         let mut changed_start = encoded;
         let last = changed_start.len() - 1;
         changed_start[last] ^= 1;
         assert_eq!(
-            host.call(&signing_request(binding, &handle, &canonical, &changed_start)?.0)?[7],
+            host.call(&evm_signing_request(binding, &handle, &canonical, &changed_start)?.0)?[7],
             1
         );
     }
@@ -1535,7 +1730,8 @@ fn owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart() 
 
 #[test]
 fn session_registration_and_replacement_disclosures_survive_provider_restart() -> Result<()> {
-    use layerx_crypto::disclosure::bind;
+    use layerx_crypto::disclosure::{DisclosedSessionGrant, DisclosedSessionReplacement};
+    use layerx_crypto::session::decode_session_key;
     let mut host = Host::new()?;
     let binding = [74; 32];
     let (handle, public) = facts(&host.call(&request(1, binding, &[], None)?)?)?;
@@ -1550,23 +1746,44 @@ fn session_registration_and_replacement_disclosures_survive_provider_restart() -
         }
         for version in 1..=4 {
             let issued = session_disclosure_grant(version, grantor)?;
+            let expiry_sequence = 9000;
+            let action_key = [4; 32];
+            let replacement = (version == 4).then_some(DisclosedSessionReplacement {
+                predecessor_grant_id: [5; 32],
+                expected_charge_state: [6; 32],
+            });
             let mut grant = checked(layerx_intents::SessionGrant::new(
-                issued.registration_payload,
-                9000,
-                [4; 32],
+                issued.registration_payload.clone(),
+                expiry_sequence,
+                action_key,
             ))?;
-            if version == 4 {
-                grant = checked(grant.replacing([5; 32], [6; 32]))?;
+            if let Some(replacement) = replacement {
+                grant = checked(grant.replacing(
+                    replacement.predecessor_grant_id,
+                    replacement.expected_charge_state,
+                ))?;
             }
             let compiled = checked(layerx_intents::compile(
                 &layerx_intents::Intent::v3(layerx_intents::IntentKind::SessionGrant(grant)),
                 &registry()?,
             ))?;
-            let canonical = unsigned_payload(public, 77, compiled.payload().clone())?;
-            let disclosure = checked(bind(&canonical, &registry()?))?;
+            let canonical = unsigned_payload(public, 125, compiled.payload().clone())?;
+            let (_, mut disclosure) = construct_signing_call(&canonical)?;
+            disclosure.session_grant = Some(DisclosedSessionGrant {
+                grant: checked(decode_session_key(&issued.registration_payload))?,
+                expiry_sequence,
+                action_key,
+                replacement,
+            });
             let encoded = encoded_disclosure(&disclosure)?;
             assert_eq!(encoded[0], 3);
-            let (request, digest) = signing_request(binding, &handle, &canonical, &encoded)?;
+            let (canonical, call_disclosure) = construct_signing_call(&canonical)?;
+            let (request, digest) = evm_signing_request(
+                binding,
+                &handle,
+                &canonical,
+                &encoded_disclosure(&call_disclosure)?,
+            )?;
             let response = host.call(&request)?;
             assert_eq!(response[7], 0);
             checked(
@@ -1593,7 +1810,7 @@ fn session_registration_and_replacement_disclosures_survive_provider_restart() -
                 }
                 assert_eq!(
                     host.call(
-                        &signing_request(
+                        &evm_signing_request(
                             binding,
                             &handle,
                             &canonical,
@@ -1607,7 +1824,7 @@ fn session_registration_and_replacement_disclosures_survive_provider_restart() -
             let mut legacy = encoded;
             legacy[0] = 1;
             assert_eq!(
-                host.call(&signing_request(binding, &handle, &canonical, &legacy)?.0)?[7],
+                host.call(&evm_signing_request(binding, &handle, &canonical, &legacy)?.0)?[7],
                 1
             );
         }

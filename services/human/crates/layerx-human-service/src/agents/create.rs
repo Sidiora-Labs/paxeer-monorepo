@@ -478,6 +478,31 @@ pub struct ProtocolEvidence {
 
 impl ProtocolEvidence {
     /// # Errors
+    /// Refuses malformed lifecycle methods or budget identifiers.
+    pub fn creation_idempotency_key(
+        disclosure: &layerx_crypto::disclosure::Disclosure,
+        action_key: [u8; 32],
+    ) -> Result<[u8; 32], AgentFailure> {
+        Ok(
+            match disclosure
+                .construct_method()
+                .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction method"))?
+            {
+                Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate {
+                    payload,
+                }) => payload
+                    .get(2..34)
+                    .and_then(|word| word.try_into().ok())
+                    .ok_or(AgentFailure::Refused("invalid lifecycle budget id"))?,
+                Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetFund {
+                    ..
+                }) => [0; 32],
+                _ => action_key,
+            },
+        )
+    }
+
+    /// # Errors
     /// Refuses signed transaction or native receipt authority mismatches.
     pub fn verify_outcome(
         &self,
@@ -542,18 +567,45 @@ impl ProtocolEvidence {
         authority[12..].copy_from_slice(&sender);
         let transaction_hash =
             layerx_crypto::evm_transaction::transaction_hash(&self.signed_activity);
-        if disclosure.activity_type != expected
-            || disclosure.actor != self.actor
-            || authority != self.owner_public_key
-            || call.chain_id != u64::from(self.network_id)
-            || self.network_id == 0
-            || disclosure.idempotency_key != self.action_key
-            || transaction_hash != self.activity_id
-            || transaction_hash != self.tx_hash
-        {
-            return Err(AgentFailure::Refused(
-                "lifecycle transaction binding differs",
-            ));
+        let expected_idempotency_key =
+            Self::creation_idempotency_key(&disclosure, self.action_key)?;
+        for (differs, binding) in [
+            (
+                disclosure.activity_type != expected,
+                "lifecycle activity_type binding differs",
+            ),
+            (
+                disclosure.actor != self.actor,
+                "lifecycle actor binding differs",
+            ),
+            (
+                authority != self.owner_public_key,
+                "lifecycle owner_public_key authority binding differs",
+            ),
+            (
+                call.chain_id != u64::from(self.network_id),
+                "lifecycle chain_id network_id binding differs",
+            ),
+            (
+                self.network_id == 0,
+                "lifecycle network_id must be non-zero",
+            ),
+            (
+                disclosure.idempotency_key != expected_idempotency_key,
+                "lifecycle idempotency_key binding differs",
+            ),
+            (
+                transaction_hash != self.activity_id,
+                "lifecycle transaction hash activity_id binding differs",
+            ),
+            (
+                transaction_hash != self.tx_hash,
+                "lifecycle transaction hash tx_hash binding differs",
+            ),
+        ] {
+            if differs {
+                return Err(AgentFailure::Refused(binding));
+            }
         }
         let (payload, protocol_version) = match disclosure
             .construct_method()
@@ -583,6 +635,24 @@ impl ProtocolEvidence {
                     layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
                 )
             }
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetFund {
+                budget,
+                amount,
+            }) => {
+                if amount == 0 {
+                    return Err(AgentFailure::Refused(
+                        "lifecycle budget funding amount is zero",
+                    ));
+                }
+                let mut payload = Vec::with_capacity(50);
+                payload.extend_from_slice(&1_u16.to_be_bytes());
+                payload.extend_from_slice(&budget);
+                payload.extend_from_slice(&amount.to_be_bytes());
+                (
+                    payload,
+                    layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+                )
+            }
             Some(layerx_crypto::disclosure::call::ConstructMethod::AuthLifecycle {
                 payload,
                 ..
@@ -601,6 +671,11 @@ impl ProtocolEvidence {
                 | layerx_crypto::disclosure::call::ConstructMethod::PayBudgetDefund { .. }
                 | layerx_crypto::disclosure::call::ConstructMethod::BankSend { .. },
             ) => (disclosure.canonical_payload().to_vec(), 3),
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer { .. }) => {
+                return Err(AgentFailure::Refused(
+                    "lifecycle transaction is a pointer transfer",
+                ))
+            }
             None => {
                 return Err(AgentFailure::Refused(
                     "missing lifecycle transaction method",

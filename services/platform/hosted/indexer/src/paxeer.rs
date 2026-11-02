@@ -5,7 +5,7 @@
 //! EVM: native value transfers, ERC-20 `Transfer` (a registered pointer
 //! contract's transfer is labelled `pointer_transfer`), and every event a
 //! loaded precompile ABI declares; custody deposits, releases and emergency
-//! exits also become transfer legs. Cosmos: bank `transfer`, tokenfactory
+//! exits record no transfer leg. Cosmos: bank `transfer`, tokenfactory
 //! `create_denom`/`mint`/`burn`/`change_admin`, and every `layerx_*` anchor
 //! string event. Cosmos transactions that carry EVM execution are skipped
 //! there because the EVM walk already indexed them.
@@ -246,6 +246,25 @@ pub fn decode_block(block: &Value, inputs: &BlockInputs<'_>) -> Result<Unit, Ind
                 "receipt of {tx_hash} belongs to another block"
             )));
         }
+        if let Some(chain_id) = transaction.get("chainId").and_then(Value::as_str) {
+            let chain_id = quantity_u64(chain_id)?;
+            if let Some(id) = chain_id
+                .checked_sub(125_000_000)
+                .and_then(|id| u32::try_from(id).ok())
+            {
+                unit.events.push(EventRow {
+                    height_or_seq: height,
+                    source: "chain-transaction".to_owned(),
+                    name: "ChainTransaction".to_owned(),
+                    contract: None,
+                    account: None,
+                    tx_id: tx_hash.clone(),
+                    ordinal: 0,
+                    decoded: json!({"chain": format!("pax:{id}"),
+                        "gas_used": quantity_u64(field_str(receipt, "gasUsed")?)?}),
+                });
+            }
+        }
         if field_str(receipt, "status")? != "0x1" {
             continue;
         }
@@ -303,6 +322,7 @@ pub fn decode_block(block: &Value, inputs: &BlockInputs<'_>) -> Result<Unit, Ind
                 tx_hash: &tx_hash,
                 tx_index,
                 sender: &from,
+                timestamp: block.get("timestamp").and_then(Value::as_str),
             };
             decode_log(&mut unit, log, &source, inputs)?;
         }
@@ -320,6 +340,7 @@ struct LogSource<'a> {
     tx_index: u32,
     /// The transaction sender, the holder of the records it touches.
     sender: &'a str,
+    timestamp: Option<&'a str>,
 }
 
 fn decode_log(
@@ -333,6 +354,7 @@ fn decode_log(
         tx_hash,
         tx_index,
         sender,
+        timestamp,
     } = *source;
     let emitter = unhex_fixed::<20>(field_str(log, "address")?)?;
     let emitter_text = address_text(emitter);
@@ -466,6 +488,48 @@ fn decode_log(
             return Ok(());
         }
     };
+    if decoded.contract == "chains_registry"
+        && inputs
+            .registry
+            .abis()
+            .iter()
+            .any(|abi| abi.contract == "chains_registry" && abi.address == Some(emitter))
+    {
+        let row = crate::chains::decode(&decoded, height, tx_hash).ok_or_else(|| {
+            IndexError::Decode(format!("invalid chain registry event {}", decoded.name))
+        })?;
+        unit.events.push(EventRow {
+            height_or_seq: height,
+            source: "chain-registry-change".to_owned(),
+            name: decoded.name.clone(),
+            contract: Some(decoded.contract.clone()),
+            account: None,
+            tx_id: tx_hash.to_owned(),
+            ordinal,
+            decoded: serde_json::to_value(row)
+                .map_err(|error| IndexError::Decode(error.to_string()))?,
+        });
+    }
+    let bound_names = inputs.registry.abis().iter().any(|abi| {
+        abi.address == Some(emitter)
+            && abi.contract == decoded.contract
+            && matches!(
+                abi.contract.as_str(),
+                "names_registry" | "names_registrar" | "names_controller" | "names_resolver"
+            )
+    });
+    if bound_names {
+        let timestamp = quantity_u64(
+            timestamp
+                .ok_or_else(|| IndexError::Decode("names block has no timestamp".to_owned()))?,
+        )?;
+        if let Some(mut row) = crate::names::decode(&decoded, sender, timestamp) {
+            row.height = height;
+            row.tx_hash = tx_hash.to_owned();
+            row.log_index = log_index;
+            unit.name_events.push(row);
+        }
+    }
     let account = decoded
         .first_address(&event.params)
         .or_else(|| decoded.arg("account").and_then(bare_bytes32))

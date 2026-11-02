@@ -4,15 +4,18 @@ import re
 from collections.abc import Mapping
 from os import PathLike
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
-from programme.kvx import KvxError, load
+from programme.kvx import KvxError, KvxValue, load
 
 
 class Decision(TypedDict):
     carry: Literal["kept", "rewritten", "superseded"]
     record: str
     binds: list[str]
+    basis: NotRequired[str]
+    basis_revision: NotRequired[str]
+    value: NotRequired[str]
 
 
 def load_index(
@@ -50,8 +53,49 @@ def load_index(
             or len(set(binds)) != len(binds)
         ):
             raise KvxError(f"{path}: [{name}] needs distinct bound task ids")
-        index[int(match[1])] = {"carry": carry, "record": record, "binds": binds}
+        identifier = int(match[1])
+        decision: Decision = {"carry": carry, "record": record, "binds": binds}
+        if identifier <= 33 or "basis" in entry or "basis_revision" in entry:
+            basis = entry.get("basis")
+            revision = entry.get("basis_revision")
+            if not isinstance(basis, str) or not basis.strip():
+                raise KvxError(f"{path}: [{name}] needs a nonempty basis string")
+            if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{40}", revision):
+                raise KvxError(f"{path}: [{name}] needs a full basis revision")
+            decision["basis"] = basis
+            decision["basis_revision"] = revision
+        if "value" in entry:
+            value = entry["value"]
+            if not isinstance(value, str) or not value.strip():
+                raise KvxError(f"{path}: [{name}] needs a nonempty value string")
+            decision["value"] = value
+        index[identifier] = decision
     return index
+
+
+def render_record(entry: Decision, spec: Mapping[str, Mapping[str, KvxValue]]) -> str:
+    identifier = int(Path(entry["record"]).stem.removeprefix("D"))
+    name = f"decision.{identifier}"
+    decision = spec[name]
+    value = entry["value"] if "value" in entry else decision["value"]
+    targets = decision["affects"]
+    if not isinstance(targets, list):
+        raise KvxError(f"[{name}] needs an affects string list")
+    affects = "\n".join(f"- {target}" for target in targets)
+    binds = "\n".join(f"- `task.{task}`" for task in entry["binds"])
+    return (
+        f"# D{identifier}: {decision['title']}\n\n"
+        f"Carry status: `{entry['carry']}`.\n\n"
+        f"Source: `[{name}]` in [spec.kvx](../../spec.kvx). "
+        "Carry status, code basis, bound tasks and any rewritten value come from "
+        "[the carry-forward index](../../programme/data/decisions.kvx).\n\n"
+        f"## Value\n\n{value}\n\n"
+        f"## Code basis\n\nBasis revision: `{entry['basis_revision']}`.\n\n"
+        f"{entry['basis']}\n\n"
+        f"## Affects\n\n{affects}\n\n"
+        f"## Bound tasks\n\n{binds}\n\n"
+        "[Decision index](INDEX.md)\n"
+    )
 
 
 def records_missing(
@@ -63,3 +107,24 @@ def records_missing(
         for identifier, entry in index.items()
         if not (root / entry["record"]).is_file()
     )
+
+
+def unbound(spec_path: str | PathLike[str]) -> list[int | str]:
+    sections = load(spec_path)
+    decisions = sorted(
+        identifier
+        for identifier, entry in load_index().items()
+        if any(f"task.{task}" not in sections for task in entry["binds"])
+    )
+    resolutions: list[str] = []
+    for name, section in sections.items():
+        if not name.startswith("resolution.17."):
+            continue
+        targets = section.get("applies_to")
+        if not isinstance(targets, list) or not all(
+            isinstance(target, str) for target in targets
+        ):
+            raise KvxError(f"{spec_path}: [{name}] needs an applies_to string list")
+        if any(target not in sections for target in targets):
+            resolutions.append(name)
+    return [*decisions, *sorted(resolutions)]

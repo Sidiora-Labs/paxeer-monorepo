@@ -13,6 +13,7 @@ import (
 
 func TestAdministrationIsRefusedFromTheMergePlanHeight(t *testing.T) {
 	e := newEnvWithoutCheckpoint(t, 0)
+	e.ctx, _ = e.ctx.CacheContext()
 	assetID := vectorArray(t, e.exit, "asset")
 	asset, found := e.k.GetAsset(e.ctx, assetID)
 	require.True(t, found)

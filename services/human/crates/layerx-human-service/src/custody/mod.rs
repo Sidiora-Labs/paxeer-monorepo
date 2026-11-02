@@ -8,7 +8,7 @@ pub use evm::{
     SendPlanAuthorization,
 };
 mod sessions;
-mod signer;
+pub mod signer;
 
 pub use gateway::{GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, GATEWAY_FRAME_LIMIT};
 pub use provider::{
@@ -25,6 +25,7 @@ pub use sessions::{
     SessionLeaseState, SessionPolicy, SessionTarget, SuspensionEvidence,
 };
 
+pub(crate) use signer::attach_call_signature;
 pub use signer::{
     CustodySigner, NativeConsentRequest, Operation, SignAuthorization, SignRequest, SignatureGrant,
     SigningLimits, StepUpEvidence,
@@ -941,7 +942,7 @@ impl Keystore {
         ))
     }
 
-    fn binding(
+    pub fn binding(
         &self,
         principal: &PrincipalId,
         key: &KeyId,

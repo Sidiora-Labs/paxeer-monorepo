@@ -2,8 +2,7 @@
 
 use layerx_types::amount::Amount;
 
-use crate::handover::{HistoryError, SequencerHistory};
-use crate::sequencer::{AccountProof, SequencerEndpoint, SequencerError};
+use crate::sequencer::{SequencerEndpoint, SequencerError};
 
 pub type Rung = layerx_types::rung::Rung;
 
@@ -40,7 +39,6 @@ pub struct ReadContext {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ReadError {
     Rpc(SequencerError),
-    History(HistoryError),
     MalformedValue,
     Submitted,
 }
@@ -70,35 +68,11 @@ pub fn balance(
         .map_err(|_| ReadError::MalformedValue)?;
     Ok(Amount::from_be_bytes(amount))
 }
-
-pub fn account(
-    endpoint: &SequencerEndpoint,
-    address: [u8; 20],
-    context: ReadContext,
-) -> Result<AccountProof, ReadError> {
-    Ok(endpoint.account_proof(&address, &[], context.committed_height)?)
-}
-
-pub fn account_with_history(
-    endpoint: &SequencerEndpoint,
-    address: [u8; 20],
-    context: ReadContext,
-    history: &SequencerHistory,
-) -> Result<AccountProof, ReadError> {
-    let height = history
-        .verified_head()
-        .ok_or(ReadError::History(HistoryError::UnverifiedRange))?
-        .header()
-        .batch_number();
-    if height > context.committed_height {
-        return Err(ReadError::History(HistoryError::UnverifiedRange));
-    }
-    account(
-        endpoint,
-        address,
-        ReadContext {
-            committed_height: height,
-            ..context
-        },
-    )
+/// Freshness coordinates inseparable from a returned read value.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Freshness {
+    pub global_sequence: u64,
+    pub batch_number: u64,
+    pub observed_head_sequence: u64,
+    pub observed_checkpoint: [u8; 32],
 }

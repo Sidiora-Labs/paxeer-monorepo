@@ -37,6 +37,7 @@ export = "Every evidence reference is sufficient to fetch the receipt or proof m
 
 [type.JourneyStage]
 required = ["stage_id:StageId","copy_key:CopyKey","state:JourneyState","evidence:EvidenceRef[]"]
+optional = ["tx_hash:TransactionHash","nonce:integer"]
 
 [type.Journey]
 required = ["journey_id:JourneyId","kind:JourneyKind","state:JourneyState","state_copy_key:CopyKey","stages:JourneyStage[]","evidence:EvidenceRef[]","started_at:Timestamp","updated_at:Timestamp"]
@@ -48,7 +49,7 @@ required = ["journeys:Journey[]","next_cursor:Cursor"]
 
 [type.EvidenceMaterial]
 required = ["evidence_id:EvidenceId","class:EvidenceClass","verification:VerificationLevel","content_type:string","bytes_base64:string"]
-optional = ["settlement_domain:SettlementDomain"]
+optional = ["settlement_domain:SettlementDomain","rung:Rung","inclusion_height:integer"]
 settlement_domain = "paxeer"
 settlement_domain.retired = "true"
 material = "The referenced receipt or proof in its canonical bytes, exactly as the protocol produced them, sufficient for export and for verification independent of this plane."

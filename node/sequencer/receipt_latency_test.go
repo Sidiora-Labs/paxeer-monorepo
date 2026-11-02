@@ -115,7 +115,7 @@ func TestReceiptLatencyP99UnderBound(t *testing.T) {
 	for i, tx := range txs {
 		receipt, err := accepter.Accept(tx)
 		require.NoError(t, err, "transfer %d", i)
-		receipts[i] = receipt
+		receipts[i] = receipt.Receipt
 		standbySeqs[i] = standby.LastSeq()
 	}
 	var data metricdata.ResourceMetrics
