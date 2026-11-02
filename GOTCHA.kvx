@@ -13815,3 +13815,33 @@ fix = "Validate a genesis with every field the init path will resolve into it, i
 title = "A retirement test removed a store before the height that deletes it"
 symptom = "TestEveryAnchorSelectorRetired unmounted the anchor store at the merge height while the precompile keeps serving views until the store-delete upgrade; the views reverted with an unregistered-store message instead of the retirement text."
 fix = "Model the retirement heights the precompile implements (write height, view/store-delete height) in the test's store setup; remove a store only at the height the upgrade deletes it."
+
+[gotcha.2800]
+area = "human kms"
+symptom = "The retained KMS material producer emits modules, module_id and activity_types, while Config::load accepts only a chain_id snapshot."
+cause = "material.py::kms_prerequisite still serves the retired module registry contract."
+do = "Keep the retained producer manifest intact; project a protected chain snapshot for the KMS consumer, and prove both the legacy refusal and the current path with proof_human_kms."
+
+[gotcha.2801]
+area = "human kms"
+symptom = "A malformed executor certificate could be pinned at startup and a zero EVM address could be accepted by AttestorSigner::from_config."
+cause = "Certificate bytes were hashed without parsing and the public signer constructor relied on its caller to validate the address."
+do = "Decode executor DER before pinning it and refuse the zero address in the public constructor; exercise these refusals with producer-owned protected files."
+
+[gotcha.2802]
+area = "human kms qualification"
+symptom = "The declared all-tests build fails in unchanged provider.rs and sign_eip1559_requests.rs on removed canonical activity APIs, removed owner-rotation variants, and a missing RemoteKmsProvider::new clock argument."
+cause = "Those test targets were not migrated with the interfaces they consume; both paths are outside the proof task scope."
+do = "Record once and stop without changing these tests or running verification: revision 06b17620f8ca0d7f258ea171b401827f478591e7; command cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --tests; exit 101; private evidence /out/logs/build-1.log."
+
+[gotcha.2803]
+area = "human kms proof"
+symptom = "Carried-over gotcha entries conflicted with newly landed entries, and the proof duplicated the entrypoint environment mapping."
+cause = "The appended entry identifiers collided and the test constructed its own material bindings."
+do = "Preserve both ledger histories with distinct identifiers and consume kms_environment output for direct Config::load calls as well as binary startup."
+
+[gotcha.2804]
+area = "human kms qualification"
+symptom = "The declared build stops in services/agent/crates/layerx-agent-api/build.rs:324 because its compatibility check rejects removal of transport.agent_http.operation.faucet.claim.access without a major increment."
+cause = "The dependency schema contract is inconsistent before the KMS test targets compile; the dependency and schema paths are outside task 21.63.1 scope."
+do = "Record without repairing or rerunning this unrelated failure: revision a0bb928babae3964ae304283c926e54a342af0b3; command cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --tests; exit 101; private evidence /out/logs/build-1.log. Verification did not run."
