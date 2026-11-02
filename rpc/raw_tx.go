@@ -15,6 +15,12 @@ import (
 	receiptpkg "github.com/Sidiora-Labs/Paxeer-X-Network/storage/ledger_db/receipt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+)
+
+// JSON-RPC names shared with metrics and the client parity contract.
+const (
+	eth_getRawTransactionByHash = "eth_getRawTransactionByHash"
 )
 
 type RawTransactionAPI struct {
@@ -43,7 +49,7 @@ func (r *RawTransactionAPI) GetRawTransactionByHash(ctx context.Context, hash co
 	t := r.transactions
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_getRawTransactionByHash", t.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, eth_getRawTransactionByHash, t.connectionType, startTime, returnErr, recover())
 	}()
 	if t.watermarks != nil && t.watermarks.pending != nil {
 		if ptx, ok := t.watermarks.pending.PendingTx(hash); ok {
@@ -57,12 +63,12 @@ func (r *RawTransactionAPI) GetRawTransactionByHash(ctx context.Context, hash co
 			if etx == nil {
 				return nil, errors.New("transaction is not an EVM transaction and thus cannot be represented in _getTransaction* endpoints")
 			}
-			return etx.MarshalBinary()
+			return rawEnvelopeForHash(etx, hash)
 		}
 	}
 	if tx, ok := t.tmClient.EvmTxByHash(hash); ok {
 		if etx := getEthTxForTxBz(tx, t.txConfigProvider(LatestCtxHeight).TxDecoder()); etx != nil {
-			return etx.MarshalBinary()
+			return rawEnvelopeForHash(etx, hash)
 		}
 	}
 
@@ -95,5 +101,14 @@ func (r *RawTransactionAPI) GetRawTransactionByHash(ctx context.Context, hash co
 	if etx == nil {
 		return nil, errors.New("transaction is not an EVM transaction and thus cannot be represented in _getTransaction* endpoints")
 	}
-	return etx.MarshalBinary()
+	return rawEnvelopeForHash(etx, hash)
+}
+
+// rawEnvelopeForHash refuses a corrupt pending, mempool or receipt index rather
+// than returning another transaction's otherwise valid binary envelope.
+func rawEnvelopeForHash(tx *ethtypes.Transaction, hash common.Hash) (hexutil.Bytes, error) {
+	if tx.Hash() != hash {
+		return nil, fmt.Errorf("raw transaction hash mismatch: requested %s, found %s", hash.Hex(), tx.Hash().Hex())
+	}
+	return tx.MarshalBinary()
 }

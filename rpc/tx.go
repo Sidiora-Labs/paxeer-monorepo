@@ -264,7 +264,7 @@ func (t *TransactionAPI) getTransactionByBlockNumberAndIndex(ctx context.Context
 	if block == nil {
 		return nil, nil
 	}
-	return t.getTransactionWithBlock(block, txIndex, t.includeSynthetic)
+	return t.getTransactionWithBlock(ctx, block, txIndex, t.includeSynthetic)
 }
 
 func (t *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, blockHash common.Hash, txIndex hexutil.Uint) (result *export.RPCTransaction, _err error) {
@@ -289,7 +289,7 @@ func (t *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	return t.getTransactionWithBlock(block, idx, t.includeSynthetic)
+	return t.getTransactionWithBlock(ctx, block, idx, t.includeSynthetic)
 }
 
 // TODO(gprusak): for autobahn txs sharding, we might need to proxy this rpc as well,
@@ -508,7 +508,7 @@ func (t *TransactionAPI) forwardPendingNonce(ctx context.Context, address common
 	return &nonce, nil
 }
 
-func (t *TransactionAPI) getTransactionWithBlock(block *coretypes.ResultBlock, txIndex uint32, includeSynthetic bool) (*export.RPCTransaction, error) {
+func (t *TransactionAPI) getTransactionWithBlock(ctx context.Context, block *coretypes.ResultBlock, txIndex uint32, includeSynthetic bool) (*export.RPCTransaction, error) {
 	msgs := filterTransactions(t.keeper, t.ctxProvider, t.txConfigProvider, block, includeSynthetic, false, t.cacheCreationMutex, t.globalBlockCache)
 	if txIndex >= uint32(len(msgs)) { //nolint:gosec
 		// Ethereum JSON-RPC: eth_getTransactionByBlock*AndIndex returns null when the index has no transaction.
@@ -522,6 +522,9 @@ func (t *TransactionAPI) getTransactionWithBlock(block *coretypes.ResultBlock, t
 	ethtx, _ := evmTx.AsTransaction()
 	if ethtx == nil {
 		return nil, errors.New("transaction contains malformed EVM message data")
+	}
+	if !domainAllowsTransaction(ctx, t.domainIndex, ethtx) {
+		return nil, nil
 	}
 
 	return t.encodeRPCTransaction(ethtx, block, txIndex)

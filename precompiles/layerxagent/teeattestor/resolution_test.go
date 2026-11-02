@@ -74,10 +74,13 @@ func TestResolutionRegistered(t *testing.T) {
 	set := precompiles.GetCustomPrecompiles(app.LatestUpgrade, keepers)
 	versions, found := set[address]
 	require.True(t, found)
-	require.Len(t, versions, 2)
+	plans := map[string]struct{}{precompiles.MergeUpgrade: {}, app.LatestUpgrade: {}}
+	require.Len(t, versions, len(plans))
 	served, ok := versions[precompiles.MergeUpgrade].(precompiles.IPrecompile)
 	require.True(t, ok)
-	require.Same(t, served, versions[app.LatestUpgrade])
+	for plan := range plans {
+		require.Same(t, served, versions[plan], plan)
+	}
 	require.Equal(t, address, served.Address())
 	require.Equal(t, "tee attestor", served.GetName())
 	require.EqualError(t, precompiles.RegisterMergeConstructor(address, teeattestor.NewMergePrecompile),

@@ -18,6 +18,7 @@ import (
 	lc "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxchains"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -47,8 +48,6 @@ func newChainsHarness(t *testing.T) *chainsHarness {
 	authority := common.HexToAddress("0x2222222222222222222222222222222222222222")
 	params := chains.DefaultParams()
 	params.Authority = authority
-	params.MinBond = sdk.NewInt(100000000)
-	params.CreationFee = sdk.NewInt(1000000)
 	params.MinGasAllowance = 100000
 	params.MaxGasAllowance = 10000000
 	params.MaxTotalGasAllowance = 10000000
@@ -139,6 +138,88 @@ func TestChainsPrecompileRegistersMergeConstructor(t *testing.T) {
 	require.Len(t, a.Events, 4)
 }
 
+func TestDefaultParamsQuoteOneHundredAndTenPax(t *testing.T) {
+	h := newChainsHarness(t)
+	require.NoError(t, h.keeper.InitGenesis(h.db.Ctx(), *chains.DefaultGenesis()))
+	require.Equal(t, []interface{}{uint32(0)}, h.read(t, "chainCount"))
+	params := h.read(t, "params")
+	onePax := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	minBond := new(big.Int).Mul(big.NewInt(100), onePax)
+	creationFee := new(big.Int).Mul(big.NewInt(10), onePax)
+	require.Equal(t, minBond, params[1])
+	require.Equal(t, creationFee, params[2])
+
+	value := new(big.Int).Mul(big.NewInt(110), onePax)
+	before := h.app.BankKeeper.GetBalance(h.db.Ctx(), sdk.AccAddress(h.caller.Bytes()), h.app.EvmKeeper.GetBaseDenom(h.db.Ctx()))
+	output, _, err := h.call(t, h.caller, value, "createChain", "default-chain", uint64(500000), uint64(65536), uint16(100))
+	require.NoError(t, err)
+	a := h.precompile.GetABI()
+	created, err := a.Methods["createChain"].Outputs.Unpack(output)
+	require.NoError(t, err)
+	require.Equal(t, []interface{}{uint32(1)}, created)
+	require.Equal(t, minBond, h.read(t, "getChain", uint32(1))[8])
+	after := h.app.BankKeeper.GetBalance(h.db.Ctx(), sdk.AccAddress(h.caller.Bytes()), h.app.EvmKeeper.GetBaseDenom(h.db.Ctx()))
+	require.Equal(t, sdk.NewInt(110_000_000), before.Amount.Sub(after.Amount))
+	require.Len(t, h.db.GetAllLogs(), 1)
+
+	below := new(big.Int).Sub(value, big.NewInt(1_000_000_000_000))
+	output, _, err = h.call(t, h.caller, below, "createChain", "underfunded", uint64(500000), uint64(65536), uint16(100))
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	reason, err := abi.UnpackRevert(output)
+	require.NoError(t, err)
+	require.Equal(t, "LXP_INVALID_AMOUNT: invalid amount; "+chains.ErrBondTooLow.Error(), reason)
+	require.Equal(t, after, h.app.BankKeeper.GetBalance(h.db.Ctx(), sdk.AccAddress(h.caller.Bytes()), h.app.EvmKeeper.GetBaseDenom(h.db.Ctx())))
+	require.Equal(t, []interface{}{uint32(1)}, h.read(t, "chainCount"))
+	require.Equal(t, []interface{}{uint32(0)}, h.read(t, "chainByName", "underfunded"))
+	require.Len(t, h.db.GetAllLogs(), 1)
+
+	withRemainder := new(big.Int).Sub(value, big.NewInt(1))
+	output, _, err = h.call(t, h.caller, withRemainder, "createChain", "remainder", uint64(500000), uint64(65536), uint16(100))
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	reason, err = abi.UnpackRevert(output)
+	require.NoError(t, err)
+	require.Equal(t, "LXP_PRECOMPILE_WEI_REMAINDER: selected precompile function does not allow payment with non-zero wei remainder: received "+withRemainder.String(), reason)
+	require.Equal(t, after, h.app.BankKeeper.GetBalance(h.db.Ctx(), sdk.AccAddress(h.caller.Bytes()), h.app.EvmKeeper.GetBaseDenom(h.db.Ctx())))
+	require.Equal(t, []interface{}{uint32(1)}, h.read(t, "chainCount"))
+	require.Equal(t, []interface{}{uint32(0)}, h.read(t, "chainByName", "remainder"))
+	require.Len(t, h.db.GetAllLogs(), 1)
+}
+
+func TestChainByNameReturnsZeroForAnUnusedName(t *testing.T) {
+	h := newChainsHarness(t)
+	address := common.HexToAddress("0x000000000000000000000000000000000000101E")
+	require.Equal(t, address, h.precompile.Address())
+	require.Equal(t, []interface{}{uint32(0)}, h.read(t, "chainCount"))
+	a := h.precompile.GetABI()
+	lookup := func(name string, id uint32) {
+		t.Helper()
+		input, err := a.Pack("chainByName", name)
+		require.NoError(t, err)
+		output, _, err := h.evm.StaticCall(h.caller, address, input, 2000000)
+		require.NoError(t, err)
+		expected := make([]byte, 32)
+		new(big.Int).SetUint64(uint64(id)).FillBytes(expected)
+		require.Equal(t, expected, output)
+		values, err := a.Methods["chainByName"].Outputs.Unpack(output)
+		require.NoError(t, err)
+		require.Equal(t, []interface{}{id}, values)
+	}
+	lookup("unused-name", 0)
+	input, err := a.Pack("getChain", uint32(0))
+	require.NoError(t, err)
+	_, _, err = h.evm.StaticCall(h.caller, address, input, 2000000)
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+
+	id := h.create(t)
+	lookup("demo", id)
+	lookup("unused-name", 0)
+	_, _, err = h.call(t, h.caller, big.NewInt(0), "retireChain", id)
+	require.NoError(t, err)
+	require.Equal(t, uint8(4), h.read(t, "getChain", id)[3])
+	lookup("demo", id)
+	lookup("unused-name", 0)
+}
+
 func TestChainsPrecompileCreatesReadsAndPausesAChain(t *testing.T) {
 	h := newChainsHarness(t)
 	before := h.app.BankKeeper.GetBalance(h.db.Ctx(), sdk.AccAddress(h.caller.Bytes()), h.app.EvmKeeper.GetBaseDenom(h.db.Ctx())).Amount
@@ -186,7 +267,7 @@ func TestChainsPrecompileCreatesReadsAndPausesAChain(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, eventData, logs[0].Data)
 	after := h.app.BankKeeper.GetBalance(h.db.Ctx(), sdk.AccAddress(h.caller.Bytes()), h.app.EvmKeeper.GetBaseDenom(h.db.Ctx())).Amount
-	require.True(t, before.Sub(after).Equal(sdk.NewInt(101000000)))
+	require.True(t, before.Sub(after).Equal(sdk.NewInt(110_000_000)))
 	require.True(t, h.app.BankKeeper.GetBalance(h.db.Ctx(), h.app.EvmKeeper.GetPaxAddressOrDefault(h.db.Ctx(), h.precompile.Address()), h.app.EvmKeeper.GetBaseDenom(h.db.Ctx())).IsZero())
 	_, _, err = h.call(t, h.caller, big.NewInt(0), "pauseChain", id)
 	require.NoError(t, err)
@@ -228,6 +309,50 @@ func TestChainsPrecompileCreatesReadsAndPausesAChain(t *testing.T) {
 	require.Equal(t, uint8(4), retired[3])
 	require.Zero(t, retired[8].(*big.Int).Sign())
 	require.Equal(t, []interface{}{id}, h.read(t, "chainByName", "demo"))
+}
+
+func TestChainsPrecompileCreatesChainFromAssociatedCaller(t *testing.T) {
+	h := newChainsHarness(t)
+	ctx := h.db.Ctx()
+	baseDenom := h.app.EvmKeeper.GetBaseDenom(ctx)
+	raw := sdk.AccAddress(h.caller.Bytes())
+	account := sdk.AccAddress(common.HexToAddress("0xaabbccdd").Bytes())
+	require.NotEqual(t, raw, account)
+	funds := h.app.BankKeeper.GetBalance(ctx, raw, baseDenom)
+	require.NoError(t, h.app.BankKeeper.SendCoins(ctx, raw, account, sdk.NewCoins(funds)))
+	h.app.EvmKeeper.SetAddressMapping(ctx, account, h.caller)
+	require.False(t, h.app.EvmKeeper.CanAddressReceive(ctx, raw))
+	require.True(t, h.app.EvmKeeper.CanAddressReceive(ctx, account))
+	probe, _ := ctx.CacheContext()
+	err := h.app.BankKeeper.SendCoins(probe, account, raw, sdk.NewCoins(sdk.NewCoin(baseDenom, sdk.OneInt())))
+	require.ErrorContains(t, err, "invalid bank recipient")
+	balance := func(address sdk.AccAddress) sdk.Int {
+		return h.app.BankKeeper.GetBalance(h.db.Ctx(), address, baseDenom).Amount
+	}
+	p := h.keeper.GetParams(ctx)
+	module := authtypes.NewModuleAddress(chains.ModuleName)
+	collector := authtypes.NewModuleAddress(authtypes.FeeCollectorName)
+	moduleBefore, feesBefore := balance(module), balance(collector)
+	id := h.create(t)
+	require.Equal(t, h.caller, h.read(t, "getChain", id)[2])
+	require.True(t, balance(account).Equal(funds.Amount.Sub(p.MinBond).Sub(p.CreationFee)))
+	require.True(t, balance(raw).IsZero())
+	require.True(t, balance(module).Equal(moduleBefore.Add(p.MinBond)))
+	require.True(t, balance(collector).Equal(feesBefore.Add(p.CreationFee)))
+	extra := sdk.NewInt(123)
+	value := new(big.Int).Mul(extra.BigInt(), state.UhpxToSweiMultiplier)
+	_, _, err = h.call(t, h.caller, value, "fundChain", id)
+	require.NoError(t, err)
+	require.True(t, balance(account).Equal(funds.Amount.Sub(p.MinBond).Sub(p.CreationFee).Sub(extra)))
+	require.True(t, balance(module).Equal(moduleBefore.Add(p.MinBond).Add(extra)))
+	require.True(t, balance(raw).IsZero())
+	_, _, err = h.call(t, h.caller, big.NewInt(0), "retireChain", id)
+	require.NoError(t, err)
+	require.True(t, balance(account).Equal(funds.Amount.Sub(p.CreationFee)))
+	require.True(t, balance(module).Equal(moduleBefore))
+	require.True(t, balance(raw).IsZero())
+	require.True(t, balance(h.app.EvmKeeper.GetPaxAddressOrDefault(h.db.Ctx(), h.precompile.Address())).IsZero())
+	require.Equal(t, chains.StatusRetired, h.read(t, "getChain", id)[3])
 }
 
 func TestChainsPrecompileRefusesNonOperatorAndNonAuthority(t *testing.T) {

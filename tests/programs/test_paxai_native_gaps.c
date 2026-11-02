@@ -30,7 +30,7 @@ enum {
     WITNESS_BYTES = 600,
     ORIGIN_SEQUENCE = 1,
     CUTOFF_SEQUENCE = 2,
-    V4_ACTIVITY_TYPES = 10,
+    V4_ACTIVITY_TYPES = 9,
     CONTROL_LAST_CUTOFF = 179,
     CONTROL_RETIREMENTS = 187,
     CONTROL_BLOBS = 195,
@@ -88,6 +88,19 @@ static size_t passed, failed;
             (void)printf("NATIVE_GAPS_FAIL %s line %d: %s\n", name, __LINE__, \
                          #condition); \
             (void)fflush(stdout); \
+            return 1; \
+        } \
+    } while (0)
+
+#define CHECK_VALUE(observed, expected, name) \
+    do { \
+        uint64_t actual_value = (uint64_t)(observed); \
+        uint64_t expected_value = (uint64_t)(expected); \
+        if (actual_value != expected_value) { \
+            (void)printf("NATIVE_GAPS_FAIL %s line %d: %s expected=%llu observed=%llu\n", \
+                         name, __LINE__, #observed, \
+                         (unsigned long long)expected_value, \
+                         (unsigned long long)actual_value); \
             return 1; \
         } \
     } while (0)
@@ -671,12 +684,21 @@ static int case_module5_retirement(void)
 
 static bool lists_v4(const lxp_module_iface *iface)
 {
+    static const uint32_t expected[] = {
+        LX_PROGRAMS_DEPLOY, LX_PROGRAMS_UPGRADE, LX_PROGRAMS_CALL,
+        LX_PROGRAMS_REGISTRY, LX_PROGRAMS_TRANSFER, LX_PROGRAMS_ACCOUNT,
+        LX_PROGRAMS_WIND_DOWN, LX_PROGRAMS_SANDBOX, LX_PROGRAMS_SANDBOX_DESTROY
+    };
     size_t i;
+    _Static_assert(sizeof(expected) / sizeof(expected[0]) == V4_ACTIVITY_TYPES,
+                   "v4 activity count must match its catalogue");
     if (iface->activity_type_count < V4_ACTIVITY_TYPES) return false;
     for (i = 0U; i < V4_ACTIVITY_TYPES; ++i)
-        if (iface->activity_types[i] !=
-            programs_module_registration_v4()->activity_types[i])
+        if (iface->activity_types[i] != expected[i]) {
+            (void)printf("activity type %zu expected=%u observed=%u\n", i,
+                         expected[i], iface->activity_types[i]);
             return false;
+        }
     return true;
 }
 
@@ -711,37 +733,39 @@ static int case_module_pin(void)
     const lxp_module_iface *v4_then_v5[] = {v4, v5};
     const lxp_module_iface *v4r_then_v5[] = {v4r, v5};
     uint32_t pin = 0U;
-    CHECK(v4->abi_version == LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION &&
-          v4->activity_type_count == V4_ACTIVITY_TYPES &&
-          !lists(v4, LX_PROGRAMS_STORAGE_RETIREMENT), name);
-    CHECK(v4r->abi_version == LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION &&
-          v4r->activity_type_count == V4_ACTIVITY_TYPES + 1U && lists_v4(v4r) &&
-          v4r->activity_types[V4_ACTIVITY_TYPES] ==
-              LX_PROGRAMS_STORAGE_RETIREMENT, name);
-    CHECK(v5->module_id == LXP_MODULE_PROGRAMS &&
-          v5->abi_version == LX_PROGRAMS_GUEST_ABI_V5_VERSION &&
-          v5->activity_type_count == V4_ACTIVITY_TYPES + 1U && lists_v4(v5) &&
-          v5->activity_types[V4_ACTIVITY_TYPES] ==
-              LX_PROGRAMS_STORAGE_RETIREMENT &&
-          memcmp(v5->activity_types, v4r->activity_types,
+    CHECK_VALUE(v4->abi_version, LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION, name);
+    CHECK_VALUE(v4->activity_type_count, V4_ACTIVITY_TYPES, name);
+    CHECK_VALUE(v4r->abi_version, LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION, name);
+    CHECK_VALUE(v4r->activity_type_count, V4_ACTIVITY_TYPES + 1U, name);
+    CHECK_VALUE(v5->abi_version, LX_PROGRAMS_GUEST_ABI_V5_VERSION, name);
+    CHECK_VALUE(v5->activity_type_count, V4_ACTIVITY_TYPES + 1U, name);
+    CHECK(lists_v4(v4) && !lists(v4, LX_PROGRAMS_STORAGE_RETIREMENT), name);
+    CHECK(lists_v4(v4r), name);
+    CHECK_VALUE(v4r->activity_types[V4_ACTIVITY_TYPES],
+                LX_PROGRAMS_STORAGE_RETIREMENT, name);
+    CHECK_VALUE(v5->module_id, LXP_MODULE_PROGRAMS, name);
+    CHECK(lists_v4(v5), name);
+    CHECK_VALUE(v5->activity_types[V4_ACTIVITY_TYPES],
+                LX_PROGRAMS_STORAGE_RETIREMENT, name);
+    CHECK(memcmp(v5->activity_types, v4r->activity_types,
                  v5->activity_type_count * sizeof(v5->activity_types[0])) == 0,
           name);
-    CHECK(lxp_programs_module_version(NULL) ==
-          LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION, name);
-    CHECK(pin_for(NULL, 0U, &pin) == 0 &&
-          pin == LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION, name);
-    CHECK(pin_for(only_v4, 1U, &pin) == 0 &&
-          pin == LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION, name);
-    CHECK(pin_for(only_v4r, 1U, &pin) == 0 &&
-          pin == LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION, name);
-    CHECK(pin_for(only_v5, 1U, &pin) == 0 &&
-          pin == LX_PROGRAMS_GUEST_ABI_V5_VERSION, name);
-    CHECK(pin_for(v4_then_v5, 2U, &pin) == 0 &&
-          pin == LX_PROGRAMS_GUEST_ABI_V5_VERSION, name);
-    CHECK(pin_for(v4r_then_v5, 2U, &pin) == 0 &&
-          pin == LX_PROGRAMS_GUEST_ABI_V5_VERSION, name);
-    CHECK(lxp_programs_module_version(&primary->kernel) ==
-          LX_PROGRAMS_GUEST_ABI_V5_VERSION, name);
+    CHECK_VALUE(lxp_programs_module_version(NULL),
+                LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION, name);
+    CHECK_VALUE(pin_for(NULL, 0U, &pin), 0U, name);
+    CHECK_VALUE(pin, LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION, name);
+    CHECK_VALUE(pin_for(only_v4, 1U, &pin), 0U, name);
+    CHECK_VALUE(pin, LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION, name);
+    CHECK_VALUE(pin_for(only_v4r, 1U, &pin), 0U, name);
+    CHECK_VALUE(pin, LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION, name);
+    CHECK_VALUE(pin_for(only_v5, 1U, &pin), 0U, name);
+    CHECK_VALUE(pin, LX_PROGRAMS_GUEST_ABI_V5_VERSION, name);
+    CHECK_VALUE(pin_for(v4_then_v5, 2U, &pin), 0U, name);
+    CHECK_VALUE(pin, LX_PROGRAMS_GUEST_ABI_V5_VERSION, name);
+    CHECK_VALUE(pin_for(v4r_then_v5, 2U, &pin), 0U, name);
+    CHECK_VALUE(pin, LX_PROGRAMS_GUEST_ABI_V5_VERSION, name);
+    CHECK_VALUE(lxp_programs_module_version(&primary->kernel),
+                LX_PROGRAMS_GUEST_ABI_V5_VERSION, name);
     return pass(name);
 }
 

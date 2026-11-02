@@ -28,7 +28,9 @@
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 
-use layerx_network_gateway::{AccountBalances, AccountIdentifier, GatewayEndpoint, GatewayError};
+use layerx_network_gateway::{
+    AccountBalances, AccountIdentifier, GatewayEndpoint, GatewayError, WalletObservation,
+};
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
 use layerx_types::ids::AssetId;
@@ -156,8 +158,7 @@ fn hex(bytes: &[u8]) -> String {
 /// confused for one another.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NetworkObservation {
-    wallet: EvmAddress,
-    balances: AccountBalances,
+    wallet: WalletObservation,
 }
 
 impl NetworkObservation {
@@ -178,44 +179,41 @@ impl NetworkObservation {
     ///
     /// # Errors
     ///
-    /// Refuses an answer that reports no bound wallet.
+    /// Refuses an answer that reports no bound wallet or duplicate denominations.
     pub fn accept(balances: AccountBalances) -> Result<Self, ObservationError> {
-        if !balances.account.bound {
-            return Err(ObservationError::WalletNotBound);
+        WalletObservation::accept(balances)
+            .map(|wallet| Self { wallet })
+            .map_err(Self::observation_error)
+    }
+
+    fn observation_error(error: GatewayError) -> ObservationError {
+        match error {
+            GatewayError::Unbound => ObservationError::WalletNotBound,
+            other => ObservationError::Gateway(other),
         }
-        let wallet = balances
-            .account
-            .evm_address
-            .ok_or(ObservationError::WalletNotBound)?;
-        Ok(Self {
-            wallet: EvmAddress::new(wallet),
-            balances,
-        })
     }
 
     #[must_use]
     pub fn balance(&self, denom: &str) -> Option<Amount> {
-        self.balances
-            .asset(denom)
-            .map(|row| Amount::from_u128(row.amount))
+        self.wallet.balance(denom).map(Amount::from_u128)
     }
 
     /// The bound Paxeer wallet the custody context is built around.
     #[must_use]
     pub const fn wallet(&self) -> EvmAddress {
-        self.wallet
+        EvmAddress::new(self.wallet.wallet())
     }
 
     /// The joined answer exactly as the gateway reported it.
     #[must_use]
     pub const fn joined(&self) -> &AccountBalances {
-        &self.balances
+        self.wallet.joined()
     }
 
     /// The block height of the bank balance observation.
     #[must_use]
     pub const fn height(&self) -> u64 {
-        self.balances.height
+        self.wallet.joined().height
     }
 
     /// The wallet holding of one asset.
@@ -226,7 +224,7 @@ impl NetworkObservation {
     /// the requested asset identifier. An unobserved holding is never zero.
     pub fn wallet_balance(&self, asset: AssetId) -> Result<Amount, ObservationError> {
         let row = self
-            .balances
+            .joined()
             .balances
             .iter()
             .find(|row| {
@@ -401,7 +399,7 @@ mod tests {
 
     use layerx_network_gateway::{AssetBalance, Evidence, ResolvedIdentities};
 
-    use crate::journeys::{Constraints, LegMechanism, Mechanism, UnifiedIntent, plan};
+    use crate::journeys::{plan, Constraints, LegMechanism, Mechanism, UnifiedIntent};
 
     const ASSET: AssetId = AssetId::new([
         2, 206, 242, 193, 14, 117, 99, 18, 184, 58, 167, 231, 5, 25, 84, 22, 17, 70, 224, 51, 113,

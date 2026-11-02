@@ -30,6 +30,7 @@ The virtual mapping is limited to nonzero `uint32` IDs; every other value is unk
 `Create`, `Fund`, `Pause`, `Resume`, `GovernancePause`, `Retire` and `SetOperator` update the record through the keeper. Create validates name, uniqueness, parameter ranges, remaining active allowance, maximum records and payment. The creation fee moves to the fee collector, the remaining value becomes bond held by the module account, and `TargetGasPerBlock = GasAllowance / 2`. Funding increases the bond. Retirement returns the bond to the operator and preserves the record and name. An operator cannot resume a governance-paused record.
 
 The sum of active gas allowances never exceeds `MaxTotalGasAllowance`. Defaults are `MinBond = 100 PAX`, `CreationFee = 10 PAX`, gas range 250000 to 4000000, total gas allowance 6250000, byte range 16384 to 1048576, `MaxChains = 1024`, and `MaxFeeShareBps = 5000`. Monetary parameters use base units. Live parameters govern admission and payment; defaults are not a fixed launch quote.
+The keeper stores `MinBond` and `CreationFee` in bank base units (10^6 per PAX), and the precompile reports them in wei.
 
 Genesis imports and exports parameters, all records, the next ID and next base fees. Validation rejects duplicate IDs or names, a next ID not above every record, and excessive active allowance. Round-trip qualification must preserve retired records as well as active ones.
 
@@ -54,7 +55,7 @@ function retireChain(uint32 id) external;
 function governancePause(uint32 id,bool paused) external;
 function setOperator(uint32 id,address operator) external;
 function getChain(uint32 id) external view returns (uint32 id,string name,address operator,uint8 status,uint64 chainId,uint64 gasAllowance,uint64 byteAllowance,uint16 feeShareBps,uint256 bond,uint256 baseFeePerGas,uint64 createdHeight);
-function chainByName(string name) external view returns (uint32);
+function chainByName(string name) external view returns (uint32); // Zero for an unused name; retained ID for any existing record, including retired chains.
 function chainCount() external view returns (uint32);
 function chainIdOf(uint32 id) external pure returns (uint64);
 function params() external view returns (address authority,uint256 minBond,uint256 creationFee,uint64 minGasAllowance,uint64 maxGasAllowance,uint64 totalGasAllowanceLeft,uint32 maxChains);

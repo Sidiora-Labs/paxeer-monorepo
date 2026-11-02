@@ -181,6 +181,56 @@ func TestChainPathBlocksListOnlyTheChainsTransactions(t *testing.T) {
 	}
 }
 
+func TestChainPathIndexedReadsHideOtherChainsTransactions(t *testing.T) {
+	h := newDomainReadsHarness(t)
+	ctx := context.Background()
+	for _, path := range []struct {
+		name    string
+		client  *rpc.Client
+		indices []int
+	}{
+		{"chain/1", h.chain, []int{1, 2}},
+		{"chain/2", h.other, []int{3}},
+		{"root", h.root, []int{0, 1, 2, 3}},
+	} {
+		t.Run(path.name, func(t *testing.T) {
+			for _, call := range []struct {
+				method, block, missing string
+			}{
+				{"eth_getTransactionByBlockNumberAndIndex", "0x2", "0x1000"},
+				{"eth_getTransactionByBlockHashAndIndex", MultiTxBlockHash, (common.Hash{}).Hex()},
+			} {
+				t.Run(call.method, func(t *testing.T) {
+					for i := 0; i <= len(h.hashes); i++ {
+						var result *struct {
+							Hash             common.Hash
+							TransactionIndex *hexutil.Uint64
+						}
+						require.NoError(t, path.client.CallContext(ctx, &result, call.method, call.block, hexutil.Uint(i)))
+						visible := false
+						for _, index := range path.indices {
+							if i == index {
+								visible = true
+							}
+						}
+						if visible {
+							require.NotNil(t, result, "canonical index %d", i)
+							require.Equal(t, h.hashes[i], result.Hash)
+							require.NotNil(t, result.TransactionIndex)
+							require.Equal(t, hexutil.Uint64(i), *result.TransactionIndex)
+						} else {
+							require.Nil(t, result, "canonical index %d", i)
+						}
+					}
+					var missing json.RawMessage
+					require.NoError(t, path.client.CallContext(ctx, &missing, call.method, call.missing, "0x0"))
+					require.JSONEq(t, "null", string(missing))
+				})
+			}
+		})
+	}
+}
+
 func TestChainPathHidesOtherChainsTransactionsAndReceipts(t *testing.T) {
 	h := newDomainReadsHarness(t)
 	ctx := context.Background()
