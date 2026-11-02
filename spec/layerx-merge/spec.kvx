@@ -6669,6 +6669,12 @@ value = "services/platform/hosted/agent-boundary/Cargo.toml:24 and the other pat
 basis = "Finding 9.28.1.4: task 9.28.1 refreshed the agent locks and not the platform lock, and the wave gates have failed on that lock since."
 affects = ["8.101.2", "9.28.1", "17.5.2", "17.5.4", "17.5.6"]
 
+[decision.2260]
+title = "The budget-create payload rules of the kernel path apply to the EVM budgetCreate call through one shared function in layerx-crypto"
+value = "native.rs::budget and the budgetCreate arm of call.rs call the same `pub(crate) fn budget_create_terms(...) -> Result<(), DisclosureError>` in native.rs, which refuses with MalformedPayload a zero budget id, a zero budget account, a zero asset, a zero initial amount, a zero per-period limit, a zero period length, an expiry at or before the period start, a rollover outside 1 and 2, and rollover 1 with a non-zero carry cap; the actor-dependent checks (derived budget account, source account and sequence, expiry against the timestamp bound) stay in native.rs::budget alone because an EIP-1559 call carries no actor DID."
+basis = "Finding 9.35.9.2: bind_call disclosed budgetCreate calls whose terms the kernel path refuses, so a signer could bind a budget the ledger will reject or that encodes terms no policy allows; one function keeps the two paths from drifting again."
+affects = ["9.35.12", "9.35.9"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20289,6 +20295,14 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.8317]
+title = "bind_call refuses budgetCreate calls whose terms the kernel path refuses"
+ac_1 = "A budgetCreate call with a zero budget id, zero budget account, zero asset, zero initial amount, zero per-period limit, zero period length, an expiry at or before the period start, a rollover outside 1 and 2 or rollover 1 with a non-zero carry cap is refused by bind_call with DisclosureError::MalformedPayload, the rules are one function shared with native.rs::budget, and a well-formed call still discloses PayBudgetCreate."
+
+[req.8316]
+title = "The hosted authority reads chain identity, committed blocks and account joins through layerx-client only"
+ac_1 = "services/platform/hosted/authority/ has no dependency on the verifier crate; readiness compares SequencerEndpoint::chain_id() with 125, the budget session reads the committed block and state root through SequencerEndpoint::block_by_number and state_root, identity re-reads through PxEndpoint::account, and the receipt admission test passes without a kernel socket."
 
 [req.8315]
 title = "The platform workspace lock resolves without updates"
@@ -33914,6 +33928,24 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.9.35.12]
+title = "Apply the kernel budget-create payload rules to the EVM budgetCreate call in layerx-crypto"
+reqs = ["8317.1"]
+touches = ["services/agent/crates/layerx-crypto/src/disclosure/native.rs", "services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/tests/budget_call.rs"]
+tests = ["services/agent/crates/layerx-crypto/tests/budget_call.rs::bind_call_refuses_budget_create_payload_rule_violations", "services/agent/crates/layerx-crypto/tests/budget_call.rs::bind_call_discloses_budget_fund"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test budget_call --test disclosure_call"
+do_1 = "In services/agent/crates/layerx-crypto/src/disclosure/native.rs add `pub(crate) fn budget_create_terms(budget_id: &[u8; 32], budget_account: &[u8; 32], asset: &[u8; 32], per_period_limit: u128, carry_cap: u128, initial_amount: u128, period_length_ms: u64, period_start_ms: u64, expiry_ms: u64, rollover: u8) -> Result<(), DisclosureError>` holding the actor-independent rules now inlined in budget() (:316-331): zero budget id, zero budget account, zero asset, zero initial amount, zero per-period limit, zero period length, expiry_ms <= period_start_ms, rollover outside 1 and 2, and rollover == 1 with carry_cap != 0 are MalformedPayload; budget() calls it and keeps only the derived budget account, source account, source sequence and timestamp-bound checks inline."
+symbols = ["budget_create_terms", "bind_call_refuses_budget_create_payload_rule_violations"]
+
+[capability.9.28.3]
+title = "Port the hosted authority's chain identity, block and account reads from the verifier crate onto layerx-client"
+reqs = ["8316.1"]
+touches = ["services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/src/trust.rs", "services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/tests/chain_receipts.rs", "services/platform/hosted/authority/tests/budget_proof_exports.rs", "services/platform/Cargo.lock"]
+tests = ["services/platform/hosted/authority/tests/chain_receipts.rs::receipt_admission_needs_no_kernel_socket", "services/platform/hosted/authority/src/main.rs::chain_readiness_tests::actual_node_info_refuses_incompatible_receipt_admission"]
+verification_contract = "! grep -rnE 'layerx[-_]paxeer[-_]verifier' services/platform/hosted/authority/ && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test chain_receipts -- --exact receipt_admission_needs_no_kernel_socket"
+do_1 = "Delete the layerx-paxeer-verifier path dependency and its comment from services/platform/hosted/authority/Cargo.toml (:16-18) and refresh services/platform/Cargo.lock (the authority is a member of the services/platform workspace, so the lock changes); add nothing else to the dependency list, layerx-client is already a dependency."
+symbols = ["EXPECTED_CHAIN_ID", "chain_answers", "Session::open"]
+
 [capability.8.101.2]
 title = "Refresh the platform workspace lock file after the agent crate manifest changes"
 reqs = ["8315.1"]
@@ -33955,7 +33987,7 @@ title = "Restore the anchor retirement vectors as a module-local fixture and por
 reqs = ["8311.1"]
 touches = ["modules/layerxanchor/testdata/anchor_vectors.json", "modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/layerxanchor_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go"]
 tests = ["modules/layerxanchor/keeper/keeper_test.go", "modules/layerxanchor/keeper/bond_return_test.go", "modules/layerxanchor/keeper/retirement_rehearsal_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go"]
-verification_contract = "test -s modules/layerxanchor/testdata/anchor_vectors.json && ! grep -rn 'LoadAnchor' layerxproof/testvectors/ && ! test -e layerxproof/testdata/anchor_vectors.json && go vet ./modules/layerxanchor/keeper/ ./precompiles/layerxanchor/ && go test -count=1 ./modules/layerxanchor/keeper/ ./precompiles/layerxanchor/ && go test -count=1 ./layerxproof/exportcheck/ -run '^TestTestvectorsAnchorLoaderAbsent$'"
+verification_contract = "! test -e modules/layerxanchor/bringup_genesis_test.go && test -s modules/layerxanchor/testdata/anchor_vectors.json && ! grep -rn 'LoadAnchor' layerxproof/testvectors/ && ! test -e layerxproof/testdata/anchor_vectors.json && go vet ./modules/layerxanchor/keeper/ ./precompiles/layerxanchor/ && go test -count=1 ./modules/layerxanchor/keeper/ ./precompiles/layerxanchor/ && go test -count=1 ./layerxproof/exportcheck/ -run '^TestTestvectorsAnchorLoaderAbsent$'"
 do_1 = "Create modules/layerxanchor/testdata/anchor_vectors.json with the exact content of layerxproof/testdata/anchor_vectors.json as it stood before task 1.36.3 (git show 3373522c3^:layerxproof/testdata/anchor_vectors.json; sections generator, context, guarantors, checkpoints with thirteen vectors and attestations with six); it is static test data, not a generated artefact, and no generator returns."
 symbols = ["loadAnchorFixture"]
 
@@ -33973,7 +34005,7 @@ title = "Re-home the availability class count in the layerxanchor keeper after t
 reqs = ["8309.1"]
 touches = ["modules/layerxanchor/keeper/checkpoints.go"]
 tests = ["modules/layerxanchor/keeper/keeper_test.go"]
-verification_contract = "! grep -n 'codec.AvailabilityClassCount' modules/layerxanchor/keeper/checkpoints.go && go build ./modules/layerxanchor/... ./daemon/... && go test -count=1 ./modules/layerxanchor/ -run '^TestBringUpAnchorGenesisValidates$'"
+verification_contract = "! grep -n 'codec.AvailabilityClassCount' modules/layerxanchor/keeper/checkpoints.go && go build ./modules/layerxanchor/... ./daemon/... && go vet ./modules/layerxanchor/ && go test -count=1 ./modules/layerxanchor/ -run '^TestAppRoutesAnchorUpdateParamsRetired$'"
 do_1 = "In modules/layerxanchor/keeper/checkpoints.go add `const availabilityClassCount = 5` next to availabilityMask (:144-146) with a comment that it is the number of availability classes the attestation ClassMask carries, formerly codec.AvailabilityClassCount, and use it for the counts array (:147) and the class loop (:154)."
 symbols = ["availabilityClassCount"]
 
@@ -118504,9 +118536,73 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.35.12]
+title = "Apply the kernel budget-create payload rules to the EVM budgetCreate call in layerx-crypto"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8317.1"]
+capabilities = ["9.35.12"]
+interfaces = []
+do_1 = "In services/agent/crates/layerx-crypto/src/disclosure/native.rs add `pub(crate) fn budget_create_terms(budget_id: &[u8; 32], budget_account: &[u8; 32], asset: &[u8; 32], per_period_limit: u128, carry_cap: u128, initial_amount: u128, period_length_ms: u64, period_start_ms: u64, expiry_ms: u64, rollover: u8) -> Result<(), DisclosureError>` holding the actor-independent rules now inlined in budget() (:316-331): zero budget id, zero budget account, zero asset, zero initial amount, zero per-period limit, zero period length, expiry_ms <= period_start_ms, rollover outside 1 and 2, and rollover == 1 with carry_cap != 0 are MalformedPayload; budget() calls it and keeps only the derived budget account, source account, source sequence and timestamp-bound checks inline."
+do_2 = "In the budgetCreate arm of services/agent/crates/layerx-crypto/src/disclosure/call.rs (:360-383) decode the twelve words into the named fields in the payload order (budget id, budget account, asset, purpose, per-period limit, carry cap, initial amount, period length, period start, expiry, revocation sequence, rollover), call budget_create_terms before building the payload, and return its error; the payload bytes and the PayBudgetCreate disclosure (:592-605) are unchanged for a call that passes."
+do_3 = "Add `bind_call_refuses_budget_create_payload_rule_violations` to services/agent/crates/layerx-crypto/tests/budget_call.rs: build one well-formed budgetCreate call (a non-zero id, account and asset, amounts and periods that satisfy every rule, rollover 2) and assert bind_call discloses PayBudgetCreate with the id, asset and initial amount; then for each rule (zero id, zero account, zero asset, zero initial amount, zero per-period limit, zero period length, expiry equal to the period start, rollover 0, rollover 3, rollover 1 with carry cap 1) assert bind_call returns Err(DisclosureError::MalformedPayload); the helpers of the file (budget_defund_call, budget_fund_call) show the call shape."
+do_4 = "Run the verify: the budget_call and disclosure_call suites pass; the existing budget tests of layerx-crypto are unchanged and keep passing."
+symbols = ["budget_create_terms", "bind_call_refuses_budget_create_payload_rule_violations"]
+touches = ["services/agent/crates/layerx-crypto/src/disclosure/native.rs", "services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/tests/budget_call.rs"]
+tests = ["services/agent/crates/layerx-crypto/tests/budget_call.rs::bind_call_refuses_budget_create_payload_rule_violations", "services/agent/crates/layerx-crypto/tests/budget_call.rs::bind_call_discloses_budget_fund"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test budget_call --test disclosure_call"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; bind_call discloses malformed budgetCreate terms again and 9.35.9's corruption assertions fail."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.28.3]
+title = "Port the hosted authority's chain identity, block and account reads from the verifier crate onto layerx-client"
+status = "pending"
+mode = "BUILD"
+wave = 36
+requires = ["9.28.1"]
+reqs = ["8316.1"]
+capabilities = ["9.28.3"]
+interfaces = []
+do_1 = "Delete the layerx-paxeer-verifier path dependency and its comment from services/platform/hosted/authority/Cargo.toml (:16-18) and refresh services/platform/Cargo.lock (the authority is a member of the services/platform workspace, so the lock changes); add nothing else to the dependency list, layerx-client is already a dependency."
+do_2 = "In services/platform/hosted/authority/src/main.rs remove Config.chain_endpoint (:88, built at :322 and in the test harnesses) and add `pub(crate) const EXPECTED_CHAIN_ID: u64 = 125;` to src/trust.rs in place of chain_endpoint (:119-128); chain_answers (:909-925) builds `SequencerEndpoint::new(&config.chain_rpc_url, &[])` and calls chain_id(): Ok(id) with id != EXPECTED_CHAIN_ID is the existing IdentityMismatch outcome, Err(_) is Timeout once the readiness deadline has passed and Unavailable before it, exactly the outcomes the raw_call path produced for ChainMismatch and transport errors."
+do_3 = "In services/platform/hosted/authority/src/human/budget_state.rs Session::open (:50-86) reads the committed block through `sequencer.block_by_number(committed_height)` (number, hash and timestamp of SequencerBlock; None is the same refusal an absent block produced) and the state root through `sequencer.state_root(committed_height)`; identity() (:88-117) performs its second read through `self.network.account(did)` and compares the join's layerx section with the first read's (`join.layerx == Some(layerx)`), returning the join converted with serde_json::to_value so the callers at :166 and :176 keep receiving a Value."
+do_4 = "Rewrite mod chain_readiness_tests in src/main.rs (:1195-1215) so actual_node_info_refuses_incompatible_receipt_admission asserts through chain_answers that a node answering chain id 125 is accepted and that the harness configured for chain 126 reports IdentityMismatch; drop every EndpointConfig and ChainMismatch reference."
+do_5 = "In services/platform/hosted/authority/tests/chain_receipts.rs replace the raw_call ChainMismatch assertion of receipt_admission_needs_no_kernel_socket (:1046-1056) with `SequencerEndpoint::new(&harness.config.chain_rpc_url, &[]).chain_id()` returning 125, and keep the following start_with_chain_id(.., 126) readiness 503 checks as the mismatch proof; drop chain_endpoint from the harness Config at :265 and from services/platform/hosted/authority/tests/budget_proof_exports.rs:411."
+do_6 = "Run the verify: the grep finds no verifier reference under services/platform/hosted/authority/, the authority builds with --tests and receipt_admission_needs_no_kernel_socket passes; a test that fails for a reason outside this port is a finding in qualification.kvx."
+symbols = ["EXPECTED_CHAIN_ID", "chain_answers", "Session::open"]
+touches = ["services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/src/trust.rs", "services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/tests/chain_receipts.rs", "services/platform/hosted/authority/tests/budget_proof_exports.rs", "services/platform/Cargo.lock"]
+tests = ["services/platform/hosted/authority/tests/chain_receipts.rs::receipt_admission_needs_no_kernel_socket", "services/platform/hosted/authority/src/main.rs::chain_readiness_tests::actual_node_info_refuses_incompatible_receipt_admission"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
+verify_cmd = "! grep -rnE 'layerx[-_]paxeer[-_]verifier' services/platform/hosted/authority/ && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test chain_receipts -- --exact receipt_admission_needs_no_kernel_socket"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit; the authority depends on the verifier crate again and task 9.28.2 cannot delete it."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.8.101.2]
 title = "Refresh the platform workspace lock file after the agent crate manifest changes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -118554,7 +118650,7 @@ touches = ["services/human/crates/layerx-human-service/src/agents/create.rs", "s
 tests = ["services/human/crates/layerx-human-service/tests/native_lifecycle.rs::native_lifecycle_binds_distinct_action_and_activity_without_inventing_finality", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs::engine_refuses_a_leg_whose_canonical_bytes_are_not_a_type2_transaction", "services/human/crates/layerx-human-service/tests/approval_rungs.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
-verify_cmd = "! grep -rnE 'layerx_wire::activity|layerx_intents::canonical::(unsigned_envelope_bytes|decode_unsigned_activity|unsigned_activity_bytes|decode_signed_activity|signed_envelope_bytes)' services/human/crates/layerx-human-service/src services/human/crates/layerx-human-service/tests && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --no-run && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_lifecycle --test approval_rungs --test agent_runtime_eip1559"
+verify_cmd = "! grep -rnE 'layerx_wire::activity|layerx_intents::canonical::(unsigned_envelope_bytes|decode_unsigned_activity|unsigned_activity_bytes|decode_signed_activity|signed_envelope_bytes)' services/human/crates/layerx-human-service/src services/human/crates/layerx-human-service/tests && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --no-run && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_lifecycle --test approval_rungs --test agent_runtime_eip1559"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -118566,10 +118662,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "Finding 9.35.9.1: the verify runs the three suites through tools/runtime/run-with-clock.sh, as the Makefile runs every human-workspace test, so services that open the runtime clock find it; the --no-run step stays bare."
 
 [task.9.35.10]
 title = "Port the production owner tests and the evidence node test off the kernel activity codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["10.21.8"]
@@ -118603,7 +118700,7 @@ title = "Port the KMS provider and signing tests off the kernel activity envelop
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["10.21.8"]
+requires = ["10.21.8", "9.35.12"]
 reqs = ["8312.1"]
 capabilities = ["9.35.9"]
 interfaces = []
@@ -118618,7 +118715,7 @@ touches = ["services/human/crates/layerx-human-kms/tests/provider.rs", "services
 tests = ["services/human/crates/layerx-human-kms/tests/provider.rs::canonical_signing_and_disclosure_refusals", "services/human/crates/layerx-human-kms/tests/provider.rs::monetary_roles_are_bound_by_the_real_provider_before_and_after_restart", "services/human/crates/layerx-human-kms/tests/provider.rs::session_registration_and_replacement_disclosures_survive_provider_restart", "services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs::lxkp_sign_refuses_bytes_that_are_not_a_type2_transaction", "services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs::lxkp_sign_accepts_an_unsigned_type2_transaction"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --tests"
-verify_cmd = "! grep -rnE 'layerx_intents::canonical::(unsigned_envelope_bytes|decode_unsigned_activity|unsigned_activity_bytes|decode_signed_activity|signed_envelope_bytes)|EnvelopeBuilder|UnsignedEnvelope' services/human/crates/layerx-human-kms/tests/ && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test provider --test sign_eip1559_requests"
+verify_cmd = "! grep -rnE 'layerx_intents::canonical::(unsigned_envelope_bytes|decode_unsigned_activity|unsigned_activity_bytes|decode_signed_activity|signed_envelope_bytes)|EnvelopeBuilder|UnsignedEnvelope' services/human/crates/layerx-human-kms/tests/ && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test provider --test sign_eip1559_requests"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -118630,6 +118727,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "Findings 9.35.9.1 and 9.35.9.2: the verify now runs the two suites through tools/runtime/run-with-clock.sh, which the Makefile uses for every human-workspace test, so Host::new finds the runtime clock; and task 9.35.12 (required) makes bind_call refuse budgetCreate terms the kernel path refuses. In tests/provider/native_setup.rs replace the two single-byte flips at offsets 2 and 34 of the corruption loop (:377-409) with zero fills of [2..34] (budget id) and [34..66] (budget account), keep the zero fills of the per-period limit, initial amount, period length, expiry and rollover and the version-2 and trailing-byte cases, and add rollover 3 and rollover 1 with a non-zero carry cap; every case is refused by bind_call once 9.35.12 is on main. Attempt 1 (c81177dc6) holds do_1 through do_6; continue from it."
 
 [task.9.24.8]
 title = "Drop the grant vectors from the wallet capability vectors producer and its two grant tests"
@@ -120824,11 +120922,11 @@ do_3 = "In precompiles/layerxanchor/layerxanchor_test.go add the same helper rea
 do_4 = "Add nothing to layerxproof/testvectors and recreate nothing under layerxproof/testdata: TestTestvectorsAnchorLoaderAbsent of layerxproof/exportcheck (task 1.36.3) keeps passing, and the verify runs it."
 do_5 = "Run go vet and go test of both packages; a test that fails for a reason other than the fixture is a finding in qualification.kvx, not a change to the module."
 symbols = ["loadAnchorFixture"]
-touches = ["modules/layerxanchor/testdata/anchor_vectors.json", "modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/layerxanchor_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go"]
+touches = ["modules/layerxanchor/testdata/anchor_vectors.json", "modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/layerxanchor_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go", "modules/layerxanchor/bringup_genesis_test.go"]
 tests = ["modules/layerxanchor/keeper/keeper_test.go", "modules/layerxanchor/keeper/bond_return_test.go", "modules/layerxanchor/keeper/retirement_rehearsal_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go"]
 planned_paths = []
 build_cmd = "go build ./modules/layerxanchor/... ./precompiles/layerxanchor/..."
-verify_cmd = "test -s modules/layerxanchor/testdata/anchor_vectors.json && ! grep -rn 'LoadAnchor' layerxproof/testvectors/ && ! test -e layerxproof/testdata/anchor_vectors.json && go vet ./modules/layerxanchor/keeper/ ./precompiles/layerxanchor/ && go test -count=1 ./modules/layerxanchor/keeper/ ./precompiles/layerxanchor/ && go test -count=1 ./layerxproof/exportcheck/ -run '^TestTestvectorsAnchorLoaderAbsent$'"
+verify_cmd = "! test -e modules/layerxanchor/bringup_genesis_test.go && test -s modules/layerxanchor/testdata/anchor_vectors.json && ! grep -rn 'LoadAnchor' layerxproof/testvectors/ && ! test -e layerxproof/testdata/anchor_vectors.json && go vet ./modules/layerxanchor/keeper/ ./precompiles/layerxanchor/ && go test -count=1 ./modules/layerxanchor/keeper/ ./precompiles/layerxanchor/ && go test -count=1 ./layerxproof/exportcheck/ -run '^TestTestvectorsAnchorLoaderAbsent$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-chain-modules"
@@ -120840,6 +120938,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Finding 8.14.2.2: delete modules/layerxanchor/bringup_genesis_test.go; it runs services/platform/hosted/paxeer/anchor-genesis.py, deleted by task 8.14.2, and the genesis it validated is now built by the module's own genesis code under test in the keeper package. Nothing replaces the file; the verify asserts it is gone."
 
 [task.6.96.5]
 title = "Re-home the availability class count in the layerxanchor keeper after the codec retirement"
@@ -120855,10 +120954,10 @@ do_2 = "Drop the github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec impo
 do_3 = "Run go build ./modules/layerxanchor/... ./daemon/... and the keeper tests of the verify command; the keeper tests that compile today keep passing."
 symbols = ["availabilityClassCount"]
 touches = ["modules/layerxanchor/keeper/checkpoints.go"]
-tests = ["modules/layerxanchor/bringup_genesis_test.go::TestBringUpAnchorGenesisValidates"]
+tests = ["modules/layerxanchor/module_retired_route_test.go::TestAppRoutesAnchorUpdateParamsRetired"]
 planned_paths = []
 build_cmd = "go build ./modules/layerxanchor/... ./daemon/..."
-verify_cmd = "! grep -n 'codec.AvailabilityClassCount' modules/layerxanchor/keeper/checkpoints.go && go build ./modules/layerxanchor/... ./daemon/... && go test -count=1 ./modules/layerxanchor/ -run '^TestBringUpAnchorGenesisValidates$'"
+verify_cmd = "! grep -n 'codec.AvailabilityClassCount' modules/layerxanchor/keeper/checkpoints.go && go build ./modules/layerxanchor/... ./daemon/... && go vet ./modules/layerxanchor/ && go test -count=1 ./modules/layerxanchor/ -run '^TestAppRoutesAnchorUpdateParamsRetired$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-chain-modules"
@@ -120871,6 +120970,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 1.36.3.1: the keeper test package does not compile on main because modules/layerxanchor/keeper/keeper_test.go:355 still calls the deleted testvectors.LoadAnchor; this task does not touch the test package. The verify builds modules/layerxanchor/... and daemon/... and runs TestBringUpAnchorGenesisValidates of the module root package, which compiles on main; task 6.96.6 restores the fixture and the keeper tests. Attempt 1 (c36e1554e) holds the constant, both uses and the dropped import unchanged."
+do_5 = "Finding 8.14.2.2: TestBringUpAnchorGenesisValidates runs services/platform/hosted/paxeer/anchor-genesis.py, which task 8.14.2 deleted, so it fails on main for a reason outside this task. The verify now vets the module root package and runs TestAppRoutesAnchorUpdateParamsRetired (module_retired_route_test.go), which passes on main; the orphaned test is deleted by task 6.96.6. Attempt 3 (11bf4fbf2) holds the constant change unchanged; continue from it and change no test file."
 
 [task.5.5.25]
 title = "Serve open-block heights from the committed state once the block seals"
@@ -151617,7 +151717,7 @@ title = "Delete the layerx-paxeer-verifier crate sources"
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.28.1", "18.1304.1", "9.25.16", "13.8.3"]
+requires = ["9.28.1", "18.1304.1", "9.25.16", "13.8.3", "9.28.3"]
 reqs = ["9307.1"]
 capabilities = ["9.28.2"]
 interfaces = ["interface.9.rs-paxeer-verifier-checkpoint-paxeercheckpointpolicy", "interface.9.rs-paxeer-verifier-checkpoint-paxeercheckpointverifier", "interface.9.rs-paxeer-verifier-checkpoint-verifiedcheckpointpublication", "interface.9.rs-paxeer-verifier-rpc-endpointtransport", "interface.9.rs-paxeer-verifier-rpc-endpointconfig", "interface.9.rs-paxeer-verifier-rpc-endpointfault", "interface.9.rs-paxeer-verifier-rpc-endpointfailure", "interface.9.rs-paxeer-verifier-rpc-canonical-endpoint-identity", "interface.9.rs-paxeer-verifier-rpc-raw-call", "interface.9.rs-paxeer-verifier-json-json", "interface.9.rs-paxeer-verifier-json-jsonerrorreason", "interface.9.rs-paxeer-verifier-json-jsonerror", "interface.9.rs-paxeer-verifier-json-parse", "interface.9.rs-paxeer-verifier-publication-publication", "interface.9.rs-paxeer-verifier-publication-publication-at", "interface.9.rs-paxeer-verifier-publication-blockanchor-j44", "interface.9.rs-paxeer-verifier-publication-publication-type-j44", "interface.9.rs-paxeer-verifier-verifiedcheckpointpublication-policy-j70", "interface.9.rs-paxeer-verifier-verifiedcheckpointpublication-checkpoint-id-j70", "interface.9.rs-paxeer-verifier-verifiedcheckpointpublication-canonical-header-j70", "interface.9.rs-paxeer-verifier-verifiedcheckpointpublication-settlement-reference-j70", "interface.9.rs-paxeer-verifier-verifiedcheckpointpublication-set-version-j70", "interface.9.rs-paxeer-verifier-verifiedcheckpointpublication-protocol-version-j70", "interface.9.rs-paxeer-verifier-verifiedcheckpointpublication-network-id-j70", "interface.9.rs-paxeer-verifier-verifiedcheckpointpublication-canonical-genesis-root-j70", "interface.9.rs-paxeer-verifier-verifiedcheckpointpublication-registration-j70", "interface.9.rs-paxeer-verifier-paxeercheckpointverifier-new-j70", "interface.9.rs-paxeer-verifier-paxeercheckpointverifier-policy-j70", "interface.9.rs-paxeer-verifier-paxeercheckpointverifier-verify-j70", "interface.9.rs-paxeer-verifier-json-member-j70", "interface.9.rs-paxeer-verifier-json-as-text-j70", "interface.9.rs-paxeer-verifier-json-as-integer-j70", "interface.9.rs-paxeer-verifier-json-is-null-j70", "interface.9.rs-paxeer-verifier-json-render-j70"]
@@ -151643,6 +151743,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "The verify proves the deletion by absence of the crate directory, a repository grep for the crate name and a build of layerx-proof's test targets; transported_registration_never_invents_paxeer_chain_finality fails on main for the settlement-document drift of finding 9.28.2.1 and is not a gate of this task. Attempt 1 (821a87956) holds the deletion unchanged."
+do_5 = "Finding 9.28.1.5: the hosted authority's dependency on the crate is ported by task 9.28.3, which this task now requires; start from current main once 9.28.3 has landed and delete the crate as do_1 through do_4 state. Attempt 2 (405266424) holds the deletion; continue from it after a rebase onto main."
 
 [task.9.29.1]
 title = "Retire the kernel activity envelope and signing preimage from layerx-wire"
@@ -183851,7 +183952,7 @@ do_1 = "Run runcards.check_against_spec over the seventeen cards of spec/layerx-
 do_2 = "Write the counts into each card's waves key in spec/layerx-merge/programme/runcards.py (planned) render_counts so the card shows tasks per wave."
 do_3 = "Create spec/layerx-merge/programme/tests/test_runcards_final.py (planned) with the test named below."
 symbols = ["render_counts"]
-touches = ["spec/layerx-merge/programme/runcards.py", "spec/layerx-merge/programme/tests/test_runcards_final.py"]
+touches = ["spec/layerx-merge/programme/runcards.py", "spec/layerx-merge/programme/tests/test_runcards_final.py", "spec/layerx-merge/programme/data/runcards/fm-cosmos-fork.kvx"]
 tests = ["spec/layerx-merge/programme/tests/test_runcards_final.py::test_cards_agree_with_installed_spec"]
 planned_paths = ["spec/layerx-merge/programme/runcards.py", "spec/layerx-merge/programme/tests/test_runcards_final.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/runcards.py"
@@ -183867,6 +183968,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 17.7.5.1: set the profile key at line 4 of spec/layerx-merge/programme/data/runcards/fm-cosmos-fork.kvx to go-cgo, the profile 29 of the 58 domain-15 tasks declare; render_counts and test_cards_agree_with_installed_spec from attempt 1 (7478e60d2) stay unchanged; continue from it."
 
 [task.17.8.1]
 title = "Index the carry-forward status of every decision"
@@ -190167,6 +190269,22 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.9.35.12.1]
+feature = "9"
+req = "8317.1"
+scenario = "Given a budgetCreate EIP-1559 call to the ledger precompile, when a term violates one of the kernel path's actor-independent rules, then bind_call returns MalformedPayload, and when every term is well formed it discloses PayBudgetCreate with the same bytes as before"
+contract = "contracts/agent-formats.md"
+test = "services/agent/crates/layerx-crypto/tests/budget_call.rs"
+qualification = "UNRUN"
+
+[acceptance.9.28.3.1]
+feature = "9"
+req = "8316.1"
+scenario = "Given the hosted authority built without the verifier crate, when readiness runs against a node answering chain id 125 and the receipt admission test starts with no kernel socket, then readiness passes, a node answering 126 reports IdentityMismatch, the budget session reads the committed block and state root through layerx-client and the test passes"
+contract = "contracts/platform.md"
+test = "services/platform/hosted/authority/tests/chain_receipts.rs"
+qualification = "UNRUN"
+
 [acceptance.8.101.2.1]
 feature = "8"
 req = "8315.1"
@@ -196147,7 +196265,7 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 
 [task.9.97.14]
 title = "Port the Python SDK integration and AI market suites off the retired checkpoint verifier and align the stubs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["18.1435.3", "9.97.7"]

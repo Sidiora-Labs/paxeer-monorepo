@@ -367,18 +367,42 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
                         "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
                     ) && args.len() == 384 =>
             {
+                let budget_id = word(args, 0)?;
+                let budget_account = word(args, 1)?;
+                let asset = word(args, 2)?;
+                let purpose = word(args, 3)?;
+                let per_period_limit = u128::from_be_bytes(uint(word(args, 4)?)?);
+                let carry_cap = u128::from_be_bytes(uint(word(args, 5)?)?);
+                let initial_amount = u128::from_be_bytes(uint(word(args, 6)?)?);
+                let period_length_ms = u64::from_be_bytes(uint(word(args, 7)?)?);
+                let period_start_ms = u64::from_be_bytes(uint(word(args, 8)?)?);
+                let expiry_ms = u64::from_be_bytes(uint(word(args, 9)?)?);
+                let revocation_sequence = u64::from_be_bytes(uint(word(args, 10)?)?);
+                let rollover = u8::from_be_bytes(uint(word(args, 11)?)?);
+                native::budget_create_terms(
+                    &budget_id,
+                    &budget_account,
+                    &asset,
+                    per_period_limit,
+                    carry_cap,
+                    initial_amount,
+                    period_length_ms,
+                    period_start_ms,
+                    expiry_ms,
+                    rollover,
+                )?;
                 let mut payload = Vec::with_capacity(211);
                 payload.extend_from_slice(&1_u16.to_be_bytes());
-                for index in 0..4 {
-                    payload.extend_from_slice(&word(args, index)?);
+                for value in [budget_id, budget_account, asset, purpose] {
+                    payload.extend_from_slice(&value);
                 }
-                for index in 4..7 {
-                    payload.extend_from_slice(&uint::<16>(word(args, index)?)?);
+                for value in [per_period_limit, carry_cap, initial_amount] {
+                    payload.extend_from_slice(&value.to_be_bytes());
                 }
-                for index in 7..11 {
-                    payload.extend_from_slice(&uint::<8>(word(args, index)?)?);
+                for value in [period_length_ms, period_start_ms, expiry_ms, revocation_sequence] {
+                    payload.extend_from_slice(&value.to_be_bytes());
                 }
-                payload.extend_from_slice(&uint::<1>(word(args, 11)?)?);
+                payload.push(rollover);
                 Ok(ConstructMethod::PayBudgetCreate { payload })
             }
             value
