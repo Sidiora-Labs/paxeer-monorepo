@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"fmt"
 	"io"
 	"maps"
 	"slices"
@@ -93,7 +94,7 @@ func TestCallPrecompileResolvesPerps(t *testing.T) {
 			cmd.SetErr(io.Discard)
 			cmd.SetArgs([]string{entry.name, entry.method})
 			require.NotPanics(t, func() {
-				require.EqualError(t, cmd.Execute(), "not enough arguments")
+				require.EqualError(t, cmd.Execute(), fmt.Sprintf("method %s expects %d arguments, got 0", entry.method, len(method.Inputs)))
 			})
 		})
 	}
