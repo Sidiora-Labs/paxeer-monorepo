@@ -118200,7 +118200,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1439.1]
 title = "Issue #1439: Remove the Python callback into the retired Rust probe and refuse qualification re-entry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -195252,7 +195252,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1437.1]
 title = "Issue #1437: Document the vulnerability report response targets in SECURITY.md"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
