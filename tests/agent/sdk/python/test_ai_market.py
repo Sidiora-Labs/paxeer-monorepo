@@ -966,7 +966,7 @@ class ProgramEndpoint:
                 "request_id": "r1",
                 "value": {"state": "unknown", "activity_id": sha256(b"LXP/v1/activity-id\0" + body).hexdigest(),
                           "idempotency_key": key},
-                "verification_status": {"state": "Unverified", "requested": "SequencerSigned", "achieved": "Unverified",
+                "verification_status": {"state": "Unverified", "requested": "receipted", "achieved": "submitted",
                                         "reason": "receipt_pending"}})
             return
         send_json(handler, 422, {"class": "CoreRejection", "protocol_result_code": 17, "retriability": "Terminal",
