@@ -319,7 +319,7 @@ test-receipts: $(BUILD_DIR)/tests/lxp_test_receipts
 $(BUILD_DIR)/tests/lxp_test_state_root: tests/state/lxp_test_state_root.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) -g $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-state-root: $(BUILD_DIR)/tests/lxp_test_state_root
@@ -841,7 +841,7 @@ test-wave-10: test-batch
 $(BUILD_DIR)/tests/test_snapshot: tests/test_snapshot.c $(LIBRARY) \
 		$(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) -g $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-snapshot: $(BUILD_DIR)/tests/test_snapshot
@@ -1797,9 +1797,14 @@ human-e2e: human-test-e2e
 
 .PHONY: qualification-runner-test human-qualify-journeys \
 	human-qualify-fabrication human-qualify-faults human-qualify-perf \
-	human-qualify platform-qualify
+	human-qualify platform-qualify test-mcp-binding-receipt-keys
 
-qualification-runner-test:
+test-mcp-binding-receipt-keys:
+	@python3 -c 'import pytest' || \
+		{ echo "pytest is required for MCP binding receipt-key qualification" >&2; exit 1; }
+	python3 -m pytest -q tests/qualification/test_mcp_binding_receipt_keys.py
+
+qualification-runner-test: test-mcp-binding-receipt-keys
 	python3 -m unittest tools.qualification.test_release_runner
 
 human-qualify-journeys:
@@ -2783,7 +2788,7 @@ $(BUILD_DIR)/tests/test_programs_oracle_read: tests/test_programs_oracle_read.c 
 		tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) -g $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
@@ -3159,3 +3164,4 @@ include tools/paxeer-x/build/6.6.mk
 include tools/paxeer-x/build/104.35.15.mk
 include tools/paxeer-x/build/104.35.20.mk
 include tools/paxeer-x/build/104.35.29.mk
+include tools/paxeer-x/build/proof.mk

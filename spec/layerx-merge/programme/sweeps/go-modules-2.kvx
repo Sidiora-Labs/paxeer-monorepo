@@ -15,7 +15,7 @@ target = "modules/epoch"
 result = "not_run"
 exit_code = 124
 reason = "The per-target vet/test command did not finish within its 600-second budget and was terminated with exit code 124."
-elapsed_seconds = 600.071
+elapsed_seconds = 600
 log = "/out/logs/go-modules-2/01-modules-epoch.log"
 
 [target.go-modules-2.2]
@@ -23,7 +23,7 @@ target = "modules/pricefeed/keeper"
 result = "not_run"
 exit_code = 124
 reason = "The per-target vet/test command did not finish within its 600-second budget and was terminated with exit code 124."
-elapsed_seconds = 600.066
+elapsed_seconds = 600
 log = "/out/logs/go-modules-2/02-modules-pricefeed-keeper.log"
 
 [target.go-modules-2.3]
@@ -31,14 +31,14 @@ target = "modules/pricefeed/types"
 result = "not_run"
 exit_code = 124
 reason = "The per-target vet/test command did not finish within its 600-second budget and was terminated with exit code 124."
-elapsed_seconds = 600.067
+elapsed_seconds = 600
 log = "/out/logs/go-modules-2/03-modules-pricefeed-types.log"
 
 [target.go-modules-2.4]
 target = "modules/sequencer"
 result = "passed"
 exit_code = 0
-elapsed_seconds = 448.961
+elapsed_seconds = 448
 log = "/out/logs/go-modules-2/04-modules-sequencer.log"
 
 [target.go-modules-2.5]
@@ -46,14 +46,14 @@ target = "modules/sequencer/keeper"
 result = "not_run"
 exit_code = 124
 reason = "The per-target vet/test command did not finish within its 600-second budget and was terminated with exit code 124."
-elapsed_seconds = 600.053
+elapsed_seconds = 600
 log = "/out/logs/go-modules-2/05-modules-sequencer-keeper.log"
 
 [target.go-modules-2.6]
 target = "modules/sequencer/types"
 result = "passed"
 exit_code = 0
-elapsed_seconds = 157.799
+elapsed_seconds = 157
 log = "/out/logs/go-modules-2/06-modules-sequencer-types.log"
 
 [target.go-modules-2.7]
@@ -61,7 +61,7 @@ target = "modules/spot"
 result = "not_run"
 exit_code = 124
 reason = "The per-target vet/test command did not finish within its 600-second budget and was terminated with exit code 124."
-elapsed_seconds = 600.054
+elapsed_seconds = 600
 log = "/out/logs/go-modules-2/07-modules-spot.log"
 
 [target.go-modules-2.8]
@@ -69,28 +69,28 @@ target = "modules/spot/keeper"
 result = "not_run"
 exit_code = 124
 reason = "The per-target vet/test command did not finish within its 600-second budget and was terminated with exit code 124."
-elapsed_seconds = 600.058
+elapsed_seconds = 600
 log = "/out/logs/go-modules-2/08-modules-spot-keeper.log"
 
 [target.go-modules-2.9]
 target = "modules/spot/types"
 result = "passed"
 exit_code = 0
-elapsed_seconds = 444.188
+elapsed_seconds = 444
 log = "/out/logs/go-modules-2/09-modules-spot-types.log"
 
 [target.go-modules-2.10]
 target = "modules/store"
 result = "passed"
 exit_code = 0
-elapsed_seconds = 167.63
+elapsed_seconds = 167
 log = "/out/logs/go-modules-2/10-modules-store.log"
 
 [target.go-modules-2.11]
 target = "modules/tokenfactory"
 result = "passed"
 exit_code = 0
-elapsed_seconds = 446.979
+elapsed_seconds = 446
 log = "/out/logs/go-modules-2/11-modules-tokenfactory.log"
 
 [target.go-modules-2.12]
@@ -99,21 +99,21 @@ result = "failed"
 exit_code = 1
 observed = "TestProofCli at modules/tokenfactory/client/cli/proof_cli_test.go:112 failed because its real paxd build returned signal: killed."
 assumption = "The proof CLI fixture appears to exhaust its internal build budget while compiling paxd from a cold cache."
-elapsed_seconds = 591.78
+elapsed_seconds = 591
 log = "/out/logs/go-modules-2/12-modules-tokenfactory-client-cli.log"
 
 [target.go-modules-2.13]
 target = "modules/tokenfactory/client/wasm"
 result = "passed"
 exit_code = 0
-elapsed_seconds = 279.338
+elapsed_seconds = 279
 log = "/out/logs/go-modules-2/13-modules-tokenfactory-client-wasm.log"
 
 [target.go-modules-2.14]
 target = "modules/tokenfactory/client/wasm/bindings"
 result = "passed"
 exit_code = 0
-elapsed_seconds = 10.442
+elapsed_seconds = 10
 log = "/out/logs/go-modules-2/14-modules-tokenfactory-client-wasm-bindings.log"
 
 [target.go-modules-2.15]
@@ -122,7 +122,7 @@ result = "failed"
 exit_code = 1
 observed = "go vet failed at modules/tokenfactory/keeper/proof_issuer_did_test.go:88:41 because a literal copies a KeeperTestHelper containing a sync.RWMutex from *restored."
 assumption = "The restored keeper fixture appears to copy a test helper by value even though the helper embeds a mutex."
-elapsed_seconds = 463.786
+elapsed_seconds = 463
 log = "/out/logs/go-modules-2/15-modules-tokenfactory-keeper.log"
 
 [target.go-modules-2.16]
@@ -131,7 +131,7 @@ result = "failed"
 exit_code = 1
 observed = "TestEventAttributeNamesFrozen at modules/tokenfactory/types/events_test.go:48 reported unexpected event constant set_denom_paused and subsequently counted 15 constants instead of 12."
 assumption = "The frozen event attribute fixture appears to retain an older constant list than the module currently declares."
-elapsed_seconds = 25.42
+elapsed_seconds = 25
 log = "/out/logs/go-modules-2/16-modules-tokenfactory-types.log"
 
 [target.go-modules-2.17]
@@ -140,14 +140,14 @@ result = "failed"
 exit_code = 1
 observed = "The modules/xweb test binary failed to link the native libraries requested by modules/lxphost/host.go:7 because the linker could not find -llayerx and -llayerx_programs_sandbox."
 assumption = "The sandbox appears to lack the native kernel and programs sandbox archives required by the cgo host."
-elapsed_seconds = 560.238
+elapsed_seconds = 560
 log = "/out/logs/go-modules-2/17-modules-xweb.log"
 
 [target.go-modules-2.18]
 target = "modules/xweb/client/cli"
 result = "passed"
 exit_code = 0
-elapsed_seconds = 16.861
+elapsed_seconds = 16
 log = "/out/logs/go-modules-2/18-modules-xweb-client-cli.log"
 
 [target.go-modules-2.19]
@@ -156,14 +156,14 @@ result = "failed"
 exit_code = 1
 observed = "The modules/xweb/keeper test binary failed to link the native libraries requested by modules/lxphost/host.go:7 because the linker could not find -llayerx and -llayerx_programs_sandbox."
 assumption = "The sandbox appears to lack the native kernel and programs sandbox archives required by the cgo host."
-elapsed_seconds = 537.628
+elapsed_seconds = 537
 log = "/out/logs/go-modules-2/19-modules-xweb-keeper.log"
 
 [target.go-modules-2.20]
 target = "modules/xweb/testutil"
 result = "passed"
 exit_code = 0
-elapsed_seconds = 536.57
+elapsed_seconds = 536
 log = "/out/logs/go-modules-2/20-modules-xweb-testutil.log"
 
 [target.go-modules-2.21]
@@ -172,5 +172,5 @@ result = "failed"
 exit_code = 1
 observed = "The modules/xweb/types test binary failed to link the native libraries requested by modules/lxphost/host.go:7 because the linker could not find -llayerx and -llayerx_programs_sandbox."
 assumption = "The sandbox appears to lack the native kernel and programs sandbox archives required by the cgo host."
-elapsed_seconds = 408.977
+elapsed_seconds = 408
 log = "/out/logs/go-modules-2/21-modules-xweb-types.log"
