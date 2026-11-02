@@ -70,18 +70,11 @@ class MakefileWaveTwoTest(unittest.TestCase):
             "cmd/layerx-module-registry/node.c",
             "lxp_guarantor",
             "src/network/lxp_da_bundle.c",
-        ):
-            with self.subTest(retired=retired):
-                self.assertNotIn(retired, result.stdout)
-        non_library_stdout = "\n".join(
-            line for line in result.stdout.splitlines() if not LIBRARY_LINE.match(line)
-        )
-        for retired in (
-            # The DA service source remains in the library.
+            "src/network/lxp_da_service.c",
             "lxp_da_",
         ):
             with self.subTest(retired=retired):
-                self.assertNotIn(retired, non_library_stdout)
+                self.assertNotIn(retired, result.stdout)
 
     def test_library_exclusions_exact(self):
         result = subprocess.run(
