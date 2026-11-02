@@ -113989,7 +113989,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.152.1]
 title = "Prove the solana route path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114516,7 +114516,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.136.1]
 title = "Prove the core path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128376,7 +128376,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.121.1]
 title = "Prove the launchpad pnl tracker path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
