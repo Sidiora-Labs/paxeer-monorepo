@@ -117419,7 +117419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.172.1]
 title = "Prove the IXWeb path end to end: consumer contract, pinned selectors, precompile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130766,7 +130766,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.56.1]
 title = "Prove the go exported modules spot keeper path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -212448,7 +212448,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.3.2]
 title = "Disposition of qualification findings 3.93.1.2 to 3.93.1.4 (domain 3, part 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
