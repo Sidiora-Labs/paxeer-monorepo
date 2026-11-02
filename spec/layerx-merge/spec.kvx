@@ -129148,7 +129148,7 @@ do_7 = "Decision 2294: attempt 1 (5d25bd4f1) was refused for changes outside sco
 
 [task.21.85.1]
 title = "Prove the rest path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129804,7 +129804,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.57.1]
 title = "Prove the launchpad sdk protocol go path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130067,7 +130067,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.46.1]
 title = "Prove the payload codec path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["21.115.1"]
