@@ -384,6 +384,7 @@ struct ProgramsActivityTable {
     upgrade: u16,
     call: u16,
     call_operation: u8,
+    account: u16,
 }
 
 fn programs_activity_ordinal(table: &[(String, u16)], name: &str) -> Result<u16, String> {
@@ -437,6 +438,7 @@ fn programs_activity_table(source: &str) -> Result<ProgramsActivityTable, String
     let deploy = programs_activity_ordinal(&types, "LX_PROGRAMS_DEPLOY")?;
     let upgrade = programs_activity_ordinal(&types, "LX_PROGRAMS_UPGRADE")?;
     let call = programs_activity_ordinal(&types, "LX_PROGRAMS_CALL")?;
+    let account = programs_activity_ordinal(&types, "LX_PROGRAMS_ACCOUNT")?;
     let call_operation = u8::try_from(call).map_err(|error| {
         format!("LX_PROGRAMS_CALL ordinal {call} does not fit the receipt operation tag: {error}")
     })?;
@@ -447,6 +449,7 @@ fn programs_activity_table(source: &str) -> Result<ProgramsActivityTable, String
         upgrade,
         call,
         call_operation,
+        account,
     })
 }
 
@@ -462,6 +465,7 @@ fn programs_activity_body(table: &ProgramsActivityTable) -> String {
     let upgrade = table.upgrade;
     let call = table.call;
     let call_operation = table.call_operation;
+    let account = table.account;
     format!(
         "// Generated from include/layerx/programs.h by build.rs. Do not edit.\n\n\
 /// The protocol module every Programs activity type of the kernel header carries.\n\
@@ -475,7 +479,9 @@ pub const UPGRADE_ORDINAL: u16 = {upgrade};\n\n\
 /// The ordinal the kernel header allocates to `LX_PROGRAMS_CALL`.\n\
 pub const CALL_ORDINAL: u16 = {call};\n\n\
 /// The one-byte ledger operation tag the kernel binds into a call receipt.\n\
-pub const CALL_OPERATION: u8 = {call_operation};\n"
+pub const CALL_OPERATION: u8 = {call_operation};\n\n\
+/// The ordinal the kernel header allocates to `LX_PROGRAMS_ACCOUNT`.\n\
+pub const ACCOUNT_ORDINAL: u16 = {account};\n"
     )
 }
 
