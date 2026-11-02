@@ -118923,7 +118923,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.27.10]
 title = "Feed the complete-export test the handover payload fixture instead of decoding the kernel activity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
