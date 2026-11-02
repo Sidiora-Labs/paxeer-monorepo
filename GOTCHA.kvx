@@ -13231,3 +13231,13 @@ fix = "Write `-- --exact a b`; the filter names after one --exact are all matche
 title = "A verify that compiles a test package must be checked against the package's state on main, not only the file the task changes"
 symptom = "6.96.5 changed one non-test file and its verify ran go vet and go test of the keeper package, whose test file had not compiled since a loader retirement; the task failed on an error it did not cause."
 fix = "Before declaring go vet or go test of a package, grep the package's _test.go files for symbols retired by done tasks; if the package is broken on main, verify through another package and write the repair as its own task."
+
+[gotcha.2683]
+title = "A manifest change in a crate that another workspace resolves by path drifts that workspace's lock file"
+symptom = "9.28.1 removed a dependency from three agent crates and refreshed the agent locks; services/platform/Cargo.lock, which carries those crates through a path dependency, kept the removed package, and every --locked build under services/platform failed, including the clock runner the human gates start with."
+fix = "When a task edits a Cargo.toml, list every Cargo.lock whose workspace resolves that crate by path (grep for the crate's directory in */Cargo.toml path = entries) and add the lock to touches with a cargo metadata --locked check in the verify."
+
+[gotcha.2684]
+title = "A retirement task that adds a reference-scan test must list the documents that name the retired assets"
+symptom = "8.32.2 deleted the relay archive installer and added a test asserting no platform file names its variables; the directory's README documented the installer and its variables and failed the task's own test."
+fix = "Before writing a scan test, grep the scanned tree for the retired names and add every hit, documentation included, to touches with a do that rewrites or deletes it."

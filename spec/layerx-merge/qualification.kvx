@@ -17115,3 +17115,27 @@ symbol = "test_constants_enums_transitions_and_errors_match_the_frozen_schema"
 observed = "Attempt 3 of task 9.97.14 (8031fd3d2) completed do_1 through do_6 and the verify ran the three suites: 27 passed and 11 failed, all in tests/agent/sdk/python/test_ai_market.py and none touched by the task: the schema contract test reads native_call.protocol_version, a key the frozen schema no longer carries (KeyError at :435); six tests build NativeTerms with twelve positional fields while services/agent/sdk/python/layerx_sdk/ai_market.py:710-725 requires gas_limit, max_fee_per_gas and max_priority_fee_per_gas as well; and four JournalTests build records whose signed bytes are not the type-2 EIP-1559 transaction that _signed_identity (ai_market.py:1331-1353) decodes, so every record is refused as CorruptRecord. The suite was last changed on 2026-10-19 before the SDK's EVM port."
 assumption = "The suite is stale against the SDK on main, not broken by the task; aligning it is in the task's title and becomes do_7, with the SDK itself unchanged per do_5."
 severity = "major"
+
+[finding.10.21.4.3]
+task = "10.21.4"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs:510"
+symbol = "unsigned_envelope_bytes"
+observed = "Attempt 3 of task 10.1.10 (2bde72fe0) ported its eight files and the build of layerx-human-kms with test targets stopped in two targets the task does not touch: services/human/crates/layerx-human-kms/tests/provider.rs:510 and :770, services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:10 (used at :125, :278, :290, :310) and services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs:447, :451 and :700 call layerx_intents::canonical::unsigned_envelope_bytes, decode_unsigned_activity and unsigned_activity_bytes, which task 10.21.4 deleted; task 9.35.6 do_3 recorded that the provider target does not compile on main and did not build it. The two targets have not compiled since 10.21.4 landed."
+assumption = "Producer gap of 10.21.4, the class of findings 10.21.4.1 and 10.21.4.2 (decision 2253): the KMS tests belong to the kernel-path migration family and become task 9.35.9; 10.1.10 requires it because its verify compiles every KMS test target."
+severity = "major"
+
+[finding.9.28.1.4]
+task = "9.28.1"
+file = "services/platform/Cargo.lock"
+symbol = "layerx-paxeer-verifier"
+observed = "Attempt 1 of task 17.5.6 (cd5e1678c) ran the wave 5 gate and the human-build target stopped before its first cargo test: tools/runtime/run-with-clock.sh:12 builds layerx-runtime-clock from services/platform/Cargo.toml with --locked and cargo refused because services/platform/Cargo.lock needs updating. The lock still lists layerx-paxeer-verifier four times as a dependency of layerx-agentd, layerx-agentd-host and layerx-client, which task 9.28.1 (cca371de4) removed from those crates' manifests while refreshing services/agent/Cargo.lock and services/agent/fuzz/Cargo.lock only; services/platform/hosted/agent-boundary/Cargo.toml:24 resolves layerx-agentd by path, so the platform lock carries the agent crates' dependency graph."
+assumption = "Every --locked build under services/platform fails on main until the lock is refreshed; task 8.101.2 refreshes it and the gates that run run-with-clock.sh require it (decision 2259)."
+severity = "major"
+
+[finding.8.32.2.1]
+task = "8.32.2"
+file = "services/platform/relay_archive/README.md:262"
+symbol = "LAYERX_RELAY_ARCHIVE_"
+observed = "Attempt 1 of task 8.32.2 (72772f28c) deleted the six installer, deployment and configuration assets and added both tests; test_no_platform_file_reads_relay_archive_variables failed because services/platform/relay_archive/README.md:11, :136 and :262 still name LAYERX_RELAY_ARCHIVE_RUNTIME and the LAYERX_RELAY_ARCHIVE_* variables, and the README's Operator quickstart (:45-149) and Container deployment (:242-265) sections still document install.sh, deployment.yaml, deployment.example.yaml and fly.toml, which the task deleted."
+assumption = "The README is a consumer of the retired assets the task's touches omitted; do_7 rewrites it and the implementation of attempt 1 stands."
+severity = "minor"
