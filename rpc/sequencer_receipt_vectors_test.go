@@ -768,6 +768,8 @@ func seqVecAssertFields(t *testing.T, c seqVecCase) {
 	require.Equal(t, uint16(2), decoded.ProtocolVersion)
 	require.Equal(t, seqVecModuleID, decoded.ModuleID)
 	require.Equal(t, uint32(seqnode.ReceiptLayoutVersion), decoded.ModuleVersion)
+	require.Equal(t, c.PinnedKey.KeyID, common.Hash(decoded.ContextHash))
+	require.Equal(t, uint64(result.Height), binary.BigEndian.Uint64(decoded.BatchID[24:]))
 	require.Equal(t, uint8(ethtypes.DynamicFeeTxType), decoded.Operation)
 	require.Equal(t, sha256.Sum256([]byte(evmkeeper.BaseDenom)), decoded.Asset)
 	require.Equal(t, evmkeeper.BaseDenom, result.FeeDenom)

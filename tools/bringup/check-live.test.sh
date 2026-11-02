@@ -712,6 +712,29 @@ expect() {
 	fi
 }
 
+# This check needs no listener or remote machine. Run it before the other
+# cases so their setup cannot prevent the missing-origin assertion.
+check_live_relay_env_absent() {
+	local CHECK_LIVE_RELAY_ORIGIN CHECK_LIVE_RELAY_CA=-
+	local CHECK_LIVE_TEST_PROGRAM="$checker"
+	unset CHECK_LIVE_RELAY_ORIGIN
+	mkdir -p "$work/relay"
+	printf 'signed relay fixture activity' >"$work/relay/activity"
+	printf 'fixture-key\n' >"$work/relay/key"
+	CHECK_LIVE_RELAY_ACTIVITY="$work/relay/activity" \
+		CHECK_LIVE_RELAY_ACTIVITY_ID="$(sha256sum "$work/relay/activity" | cut -d' ' -f1)" \
+		CHECK_LIVE_RELAY_KEY_FILE="$work/relay/key" \
+		expect check_live_relay_env_absent - 1 relay -- \
+		"fail relay env=absent services=absent" \
+		"check-live: 1 check(s) failed"
+	if [ -s "$CHECK_LIVE_TEST_CALLS" ]; then
+		echo "not ok check_live_relay_env_absent: missing origin made a remote call"
+		failures=$((failures + 1))
+	fi
+}
+
+check_live_relay_env_absent
+
 expect check_live_no_subcommand "$work/hosts-good.env" 2 -- \
 	"usage: tools/bringup/check-live.sh"
 
@@ -3594,8 +3617,7 @@ CHECK_LIVE_HUMAN_BASE="$origin/good" expect check_live_human_no_probe_email "$wo
 # fault: a stale origin, a replica with a wrong genesis pin, a replica two
 # batches behind, or a route that accepts flipped activity bytes. A service
 # without a loopback file stands for a missing replica.
-mkdir -p "$fx/services/platform/relay_archive" "$fx/deploy" "$work/relay"
-cp "$root/services/platform/relay_archive/railway.env.example" "$fx/services/platform/relay_archive/"
+mkdir -p "$fx/deploy" "$work/relay"
 cp "$root/deploy/rollout.kvx" "$fx/deploy/"
 export CHECK_LIVE_TEST_RAILWAY_SSH="$work/railway-ssh"
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj /CN=relay-test-ca \
@@ -3610,8 +3632,6 @@ mkdir -p "$fly/$kernel/app/data/tls/relay-archive" "$fly/$kernel/app/data/layerx
 cp "$work/relay/ca.pem" "$fly/$kernel/app/data/tls/relay-archive/ca.pem"
 printf 'relay fixture genesis\n' >"$fly/$kernel/app/data/layerx/node/genesis/genesis.manifest"
 relay_genesis="$(sha256sum "$fly/$kernel/app/data/layerx/node/genesis/genesis.manifest" | cut -d' ' -f1)"
-printf 'signed relay fixture activity' >"$work/relay/activity"
-printf 'fixture-key\n' >"$work/relay/key"
 cat >"$work/relay/responder.py" <<'PY'
 import hashlib
 import http.server
@@ -3686,7 +3706,7 @@ for role in ("origin", "plain"):
         server.socket = context.wrap_socket(server.socket, server_side=True)
     servers.append(server)
 with open(ports, "w", encoding="ascii") as handle:
-    handle.write(" ".join(str(s.server_address[1]) for s in servers))
+    handle.write(" ".join(str(s.server_address[1]) for s in servers) + "\n")
 for server in servers[1:]:
     threading.Thread(target=server.serve_forever, daemon=True).start()
 servers[0].serve_forever()
@@ -3738,12 +3758,6 @@ CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_relay_missing_replica - 
 	"fail relay-replica service=relay-archive-b head=none" \
 	"check-live: 2 check(s) failed"
 mv "$work/relay/b-loopback" "$CHECK_LIVE_TEST_RAILWAY_SSH/relay-archive-b/loopback"
-
-mv "$fx/services/platform/relay_archive/railway.env.example" "$work/relay/env.example"
-CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_relay_env_absent - 1 relay -- \
-	"fail relay env=absent services=relay-archive-a,relay-archive-b" \
-	"check-live: 1 check(s) failed"
-mv "$work/relay/env.example" "$fx/services/platform/relay_archive/railway.env.example"
 
 echo wrong-pin >"$work/relay/scenario"
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" \

@@ -327,6 +327,7 @@ func (c Config) MicroBatchOptions() MicroBatchOptions {
 }
 
 // ConfigTemplate is the sequencer section of app.toml with the DefaultConfig values.
+// Enabling it also requires positive queue bounds and a positive lease duration.
 const ConfigTemplate = `
 ###############################################################################
 ###                         Sequencer Configuration                         ###

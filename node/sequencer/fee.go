@@ -35,7 +35,8 @@ type FeeFloor struct {
 }
 
 // NewFeeFloor wraps exec with the node floor minGasPrices, given in the
-// minimum-gas-prices config form (for example "0.01uhpx").
+// minimum-gas-prices config form (for example "0.01uhpx"). Replay must use this
+// same wrapper so that a recovered block fixes its base fee at Open as before.
 func NewFeeFloor(exec Executor, host Host, minGasPrices string, params paramskeeper.Keeper, oracle oraclekeeper.Keeper, pricefeed pricefeedkeeper.Keeper, evm *evmkeeper.Keeper) (*FeeFloor, error) {
 	if exec == nil {
 		return nil, errors.New("sequencer: nil executor")

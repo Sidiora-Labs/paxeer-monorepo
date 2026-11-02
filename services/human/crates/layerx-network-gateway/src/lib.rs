@@ -323,10 +323,63 @@ pub struct AccountBalances {
 }
 
 impl AccountBalances {
+    fn validate_denominations(&self) -> Result<(), GatewayError> {
+        let mut seen = std::collections::BTreeSet::new();
+        for row in &self.balances {
+            if !seen.insert(row.denom.as_str()) {
+                return Err(GatewayError::MalformedAnswer);
+            }
+        }
+        Ok(())
+    }
+
     /// The row for one bank denomination, when the table carries it.
     #[must_use]
     pub fn asset(&self, denom: &str) -> Option<&AssetBalance> {
         self.balances.iter().find(|row| row.denom == denom)
+    }
+}
+
+/// The dependency-free wallet observation consumed by human journeys.
+///
+/// Domain-specific address and amount wrappers are applied by the human
+/// service after this shared read and acceptance boundary.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WalletObservation {
+    wallet: [u8; 20],
+    balances: AccountBalances,
+}
+
+impl WalletObservation {
+    /// Accepts the public balance result at the human consumer boundary.
+    ///
+    /// # Errors
+    /// Refuses an unbound wallet or ambiguous denomination rows.
+    pub fn accept(balances: AccountBalances) -> Result<Self, GatewayError> {
+        balances.validate_denominations()?;
+        if !balances.account.bound {
+            return Err(GatewayError::Unbound);
+        }
+        let wallet = balances.account.evm_address.ok_or(GatewayError::Unbound)?;
+        Ok(Self { wallet, balances })
+    }
+
+    /// The bound wallet reported by the producer.
+    #[must_use]
+    pub const fn wallet(&self) -> [u8; 20] {
+        self.wallet
+    }
+
+    /// The exact bank amount, absent when the producer supplied no row.
+    #[must_use]
+    pub fn balance(&self, denom: &str) -> Option<u128> {
+        self.balances.asset(denom).map(|row| row.amount)
+    }
+
+    /// The original joined result, including its evidence and height.
+    #[must_use]
+    pub const fn joined(&self) -> &AccountBalances {
+        &self.balances
     }
 }
 
@@ -913,12 +966,14 @@ pub fn decode_account_balances(result: &Value) -> Result<AccountBalances, Gatewa
             amount: quantity(&row["amount"])?,
         });
     }
-    Ok(AccountBalances {
+    let balances = AccountBalances {
         account: decode_identities(&result["account"])?,
         height: counted(&result["height"])?,
         balances,
         evidence: Evidence::GatewayReported,
-    })
+    };
+    balances.validate_denominations()?;
+    Ok(balances)
 }
 
 /// Decodes the `px_listAssets` result.
