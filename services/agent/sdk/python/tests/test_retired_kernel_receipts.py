@@ -41,7 +41,10 @@ def test_kernel_receipt_paths_are_gone():
     assert not hasattr(programs, "verify_program_receipt")
     assert not hasattr(ai_market, "CheckpointVerification")
     assert not hasattr(ai_market.SnapshotBinding, "require_checkpoint")
-    assert not hasattr(ai_market.OperationJournal, "finalize")
+    assert (
+        get_type_hints(ai_market.OperationJournal.finalize)["finality"]
+        is ai_market.CommitFinality
+    )
     for name in ("submit", "resend_exact", "expire"):
         assert callable(getattr(ai_market.OperationJournal, name)), name
     for name in (
