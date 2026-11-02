@@ -909,7 +909,8 @@ lxp_result layerx_programs_call_arbiter_authority_begin(
     value->arbiter_authority_active = false;
     (void)memset(value->arbiter_authority, 0,
                  sizeof(value->arbiter_authority));
-    if (value->ctx == NULL || value->authority == NULL ||
+    if (value->ctx == NULL || value->ctx->module_id != LXP_MODULE_PROGRAMS ||
+        value->authority == NULL ||
         value->network_id == 0U || expected_height == 0U)
         return LXP_ERR_NON_CANONICAL;
     write_u64(digest, d0);

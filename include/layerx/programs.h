@@ -885,6 +885,9 @@ lxp_result lxp_programs_program_abi(
     lxp_module_ctx *ctx, const uint8_t program_id[32], uint16_t *abi_version);
 lxp_result lxp_programs_program_active(
     lxp_module_ctx *ctx, const uint8_t program_id[32]);
+/* Returns the stored interface registry record, including its version and
+ * provenance prefix. The borrowed bytes belong to the module context; this
+ * does not return only the embedded interface declaration. */
 lxp_result lxp_programs_interface_read(
     lxp_module_ctx *ctx, const uint8_t program_id[32],
     const uint8_t **bytes, size_t *length);
