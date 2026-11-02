@@ -130795,7 +130795,7 @@ do_4 = "Tasks 9.35.10 and 9.35.11 port tests/evidence_node.rs, tests/native_life
 
 [task.10.1.8]
 title = "Give the human test support a deterministic clock and port the service test fixtures off ambient clock reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.27.9", "10.21.8", "9.35.10", "9.35.11", "9.100.2", "22.9.24"]
