@@ -1,6 +1,16 @@
 #!/bin/sh
 set -eu
 umask 077
+kms_environment() {
+    export LAYERX_HUMAN_KMS_REGISTRY_FILE="$1/registry.json"
+    export LAYERX_HUMAN_KMS_CLIENT_CA_DER="$1/ca.der"
+    export LAYERX_HUMAN_KMS_TLS_CERT_DER="$1/kms-server.der"
+    export LAYERX_HUMAN_KMS_TLS_KEY_DER="$1/kms-server-key.der"
+    export LAYERX_HUMAN_KMS_CLIENT_CERT_DER="$1/kms-client.der"
+    export LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER="$1/kms-executor.der"
+    export LAYERX_HUMAN_KMS_SEAL_SECRET_FILE="$1/kms-seal"
+}
+
 role=${1:?Human role is required}
 shift
 case "$role" in
@@ -117,6 +127,7 @@ case "$role" in
         for name in kms-server.der kms-server-key.der kms-client.der kms-executor.der ca.der kms-seal registry.json; do
             copy_material "$name"
         done
+        kms_environment "$private"
         exec /usr/local/bin/layerx-runtime-clock --runtime-dir "$private" -- /usr/local/bin/layerx-human-kms "$@"
         ;;
     agent)

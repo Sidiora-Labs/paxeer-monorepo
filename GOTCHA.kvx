@@ -13815,3 +13815,83 @@ fix = "Validate a genesis with every field the init path will resolve into it, i
 title = "A retirement test removed a store before the height that deletes it"
 symptom = "TestEveryAnchorSelectorRetired unmounted the anchor store at the merge height while the precompile keeps serving views until the store-delete upgrade; the views reverted with an unregistered-store message instead of the retirement text."
 fix = "Model the retirement heights the precompile implements (write height, view/store-delete height) in the test's store setup; remove a store only at the height the upgrade deletes it."
+
+[gotcha.2800]
+area = "human kms"
+symptom = "The retained KMS material producer emits modules, module_id and activity_types, while Config::load accepts only a chain_id snapshot."
+cause = "material.py::kms_prerequisite still serves the retired module registry contract."
+do = "Keep the retained producer manifest intact; project a protected chain snapshot for the KMS consumer, and prove both the legacy refusal and the current path with proof_human_kms."
+
+[gotcha.2801]
+area = "human kms"
+symptom = "A malformed executor certificate could be pinned at startup and a zero EVM address could be accepted by AttestorSigner::from_config."
+cause = "Certificate bytes were hashed without parsing and the public signer constructor relied on its caller to validate the address."
+do = "Decode executor DER before pinning it and refuse the zero address in the public constructor; exercise these refusals with producer-owned protected files."
+
+[gotcha.2802]
+area = "human kms qualification"
+symptom = "The declared all-tests build fails in unchanged provider.rs and sign_eip1559_requests.rs on removed canonical activity APIs, removed owner-rotation variants, and a missing RemoteKmsProvider::new clock argument."
+cause = "Those test targets were not migrated with the interfaces they consume; both paths are outside the proof task scope."
+do = "Record once and stop without changing these tests or running verification: revision 06b17620f8ca0d7f258ea171b401827f478591e7; command cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --tests; exit 101; private evidence /out/logs/build-1.log."
+
+[gotcha.2803]
+area = "human kms proof"
+symptom = "Carried-over gotcha entries conflicted with newly landed entries, and the proof duplicated the entrypoint environment mapping."
+cause = "The appended entry identifiers collided and the test constructed its own material bindings."
+do = "Preserve both ledger histories with distinct identifiers and consume kms_environment output for direct Config::load calls as well as binary startup."
+
+[gotcha.2804]
+area = "human kms qualification"
+symptom = "The declared build stops in services/agent/crates/layerx-agent-api/build.rs:324 because its compatibility check rejects removal of transport.agent_http.operation.faucet.claim.access without a major increment."
+cause = "The dependency schema contract is inconsistent before the KMS test targets compile; the dependency and schema paths are outside task 21.63.1 scope."
+do = "Record without repairing or rerunning this unrelated failure: revision a0bb928babae3964ae304283c926e54a342af0b3; command cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --tests; exit 101; private evidence /out/logs/build-1.log. Verification did not run."
+
+[gotcha.2805]
+title = "A hand-edited fixture list diverged from the golden it was derived from"
+symptom = "holders.json gained 13 addresses in a sweep commit with no matching read in golden.json; two count assertions failed for one token while every other token matched."
+fix = "A derived fixture (holder list, address table) is regenerated from its golden, never edited by hand; when a count assertion fails for one token, diff the fixture's history against the golden's before touching the test."
+
+[gotcha.2806]
+title = "A wrapped SDK error leaked its call site into a revert reason"
+symptom = "sdkerrors.Wrapf appends the wrapping file and line in brackets; a precompile that copies the error text into the revert reason exposed a source path and two pinned-text tests failed only on that suffix."
+fix = "Build kernel-side refusals with fmt.Errorf and %w; when a revert-reason test fails on a trailing bracketed path, repair the error construction site, never the expectation."
+
+[gotcha.2807]
+title = "A daemon logged a reason code and dropped the error behind it"
+symptom = "livestreamd exited 1 with reason=livestream_runtime_failed and no error text, so a proof that starts it saw only the exit status and could not tell which configuration refusal fired."
+fix = "A process exit on error logs err.Error() beside the reason code; a proof that spawns a daemon captures its stderr into the failure message."
+
+[gotcha.2808]
+title = "A crate-root test helper carried pub(super) and broke every dependent build"
+symptom = "Three helpers placed at the crate root of an integration-test file between two cfg(test) modules were declared pub(super); rustc refused with E0433 and five tasks whose dependent-crate check builds layerx-agentd tests failed on a file none of them may edit."
+fix = "Items at the root of a tests/*.rs file are private or pub, never pub(super); a dependents build failure on a file outside the task's scope becomes a root-cause task the others require."
+
+[gotcha.2809]
+title = "A test and a Go producer still routed activity types the kernel had retired"
+symptom = "The kernel asset module shrank to eight activity types and its retirement tests asserted the three dropped types refuse, but the genesis manifest test and the ledger grant keeper kept submitting them and both failed with LXP_ERR_UNKNOWN_ACTIVITY."
+fix = "When a kernel activity type is retired, grep every list of activity types (C tests, Go keepers, contract documents) in the same change; a -106 routing result in a test is a stale list until the registry table says otherwise."
+
+[gotcha.2810]
+title = "A fixture, its decoder and its producer carried three different leg shapes"
+symptom = "The intent plan fixture legs carried chainId, data and payment, the TypeScript decoder required call and nonce, and the human service emitted flat snake_case EVM fields; the decoder failed the fixture and the fixture never matched a real response."
+fix = "Before repairing a decoder against a fixture, read the producer's json! site and the published schema; the fixture is regenerated from the producer and both consumers follow it."
+
+[gotcha.2811]
+title = "A touches entry for a file a prerequisite had already deleted blocked a passing candidate"
+symptom = "The completion check requires a matching change for every touches entry; a test file the task was told to delete had been deleted by a prerequisite task first, so the otherwise green candidate was refused."
+fix = "When a prerequisite lands the deletion or creation a task was told to make, drop that path from the task's touches in the same ruling; never add a path to touches that the task will not change."
+
+[gotcha.2812]
+title = "A fee estimate without a payer address was refused by the real node"
+symptom = "eth_estimateGas with maxFeePerGas set and no from is checked against the zero address's balance and answers insufficient funds for transfer even for a zero-value call; the funded account one line earlier was never consulted."
+fix = "Estimate a fee-bearing call with from set to the account that will sign; keep the fromless estimate for calls whose fee fields are zero and say so in its doc comment."
+
+[gotcha.2813]
+title = "A harness repair let a panicking test run for the first time and it failed on an older change"
+symptom = "A chain test that had panicked for weeks on a missing merge-table dependency ran again once the harness registered the keepers, and failed on fee collection that no run had checked since the last green revision."
+fix = "When a repair makes a long-panicking test run, treat its failure as unlocated: bisect from the last green revision with exit 125 on the old panic before changing the test or the product, and name the commit the bisect finds in the commit message."
+
+[gotcha.2814]
+title = "A proof read its funded key from the process environment and failed where none was set"
+symptom = "The proof declared the node build outside its scope and read LOCAL_NODE_KEY and the RPC URL from the environment; seven of eight tests passed and the eighth found no key."
+fix = "A proof that needs a node builds it in build_cmd and starts it itself, reading key material from the file the node script writes; a doc comment declaring the producer out of scope is a ruling request, not a substitute for one."
