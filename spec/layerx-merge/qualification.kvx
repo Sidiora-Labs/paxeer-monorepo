@@ -17579,3 +17579,19 @@ symbol = "TestAppRoutesAnchorUpdateParamsRetired"
 observed = "the same verify runs TestAppRoutesAnchorUpdateParamsRetired, which requires the app to route MsgUpdateParams; task 5.7.1 (ae2beed63) removed the anchor module from the application's module manager (node/app.go keeps only the AppModuleBasic at :304), so MsgServiceRouter().Handler returns nil and the test fails at the base."
 assumption = "the test asserts the state 5.7.1 left: the application routes no anchor message, and the keeper's params read still answers; it is renamed accordingly."
 severity = "medium"
+
+[finding.18.1484.1.2]
+task = "18.1484.1"
+file = "tools/bringup/check-live.test.sh:3742"
+symbol = "check_live_relay_env_absent"
+observed = "attempt 3 (7bcbed7dc) removes every mention of the deleted relay env template and rewrites the relay case to unset CHECK_LIVE_RELAY_ORIGIN, yet the verify fails: the suite runs under set -euo pipefail (check-live.test.sh:2), so any command failing before line 3742 ends the run without printing the ok line, and the verify reads the saved log for that line and never prints it, so attempts 1 to 3 left no record of which case stopped the suite."
+assumption = "the verify prints the saved log when the ok line is missing; the next attempt reads the stopping case and repairs it only when its cause lies in the relay section or check_relay."
+severity = "medium"
+
+[finding.18.1451.1.1]
+task = "18.1451.1"
+file = "services/agent/tools/run-real-node-tests.sh"
+symbol = "run-real-node-tests"
+observed = "attempt 2 (76ea1ee32) passes the verify (the pytest file, the real_node_script cargo test and the Makefile grep), but the done record refuses with 'symbol run-real-node-tests not defined in the graph': the task's symbols list names the shell script's file stem, which the symbol graph does not index, while every touched path checks."
+assumption = "the symbols list is emptied (the script is a touched path, not a graph symbol); the implementation of attempt 2 stands."
+severity = "minor"

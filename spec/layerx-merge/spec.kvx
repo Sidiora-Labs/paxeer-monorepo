@@ -6837,6 +6837,12 @@ value = "Tasks 21.131.1 to 21.164.1 extend feature 21 with one proof per landed 
 basis = "The per-package runner shapes are the ones every done node task of that package already uses (vitest for sdk/wallet, services/wallet/gateway, apps/wallet, apps/launchpad/web, apps/launchpad/mobile and apps/bridge; node --test elsewhere); findings 18.1453.1, 18.1468.1 and 18.1477.1 showed that a verify that skips the dependency builds fails before the test runs."
 affects = ["21.0.1", "21.131.1", "21.132.1", "21.133.1", "21.134.1", "21.135.1", "21.136.1", "21.137.1", "21.138.1", "21.139.1", "21.140.1"]
 
+[decision.2288]
+title = "A verify that reads a saved test log prints that log when its assertion fails"
+value = "Every verify_cmd of the shape 'run suite > log 2>&1; grep -q <ok line> log' ends with '|| { cat log; exit 1; }' so a failed attempt leaves the suite's output in the verify log; 18.1484.1 adopts it now and new tasks follow it. A shell script's file stem is never a graph symbol: scripts are touched paths."
+basis = "18.1484.1 failed three attempts with no record of the case that stopped the suite because the verify read the log and discarded it, while 18.776.1 and 18.821.1 already print theirs; 18.1451.1 passed its verify and was refused on a script name in symbols."
+affects = ["18.1484.1", "18.1451.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -36467,7 +36473,7 @@ title = "Issue #1484: Remove the retired relay template from the bring-up harnes
 reqs = ["8351.1"]
 touches = ["tools/bringup/check-live.sh", "tools/bringup/check-live.test.sh"]
 tests = ["tools/bringup/check-live.test.sh"]
-verification_contract = "! grep -n 'relay_archive/' tools/bringup/check-live.sh tools/bringup/check-live.test.sh && bash tools/bringup/check-live.test.sh > /tmp/check-live-test.log 2>&1; grep -q '^ok   check_live_relay_env_absent$' /tmp/check-live-test.log && ! grep -q '^not ok' /tmp/check-live-test.log"
+verification_contract = "! grep -n 'relay_archive/' tools/bringup/check-live.sh tools/bringup/check-live.test.sh && bash tools/bringup/check-live.test.sh > /tmp/check-live-test.log 2>&1; grep -q '^ok   check_live_relay_env_absent$' /tmp/check-live-test.log && ! grep -q '^not ok' /tmp/check-live-test.log || { cat /tmp/check-live-test.log; exit 1; }"
 do_1 = "Decision 2276: in tools/bringup/check-live.sh check_relay (:3213-3290) drops the sed over the deleted relay env template under services/platform/relay_archive/ (:3268) and takes the origin from CHECK_LIVE_RELAY_ORIGIN alone, reporting env=absent when unset; the usage lines :206 and :246 describe that, and every mention of services/platform/relay_archive/ in both files goes."
 symbols = ["check_relay"]
 
@@ -36631,7 +36637,7 @@ touches = ["services/agent/tools/run-real-node-tests.sh", "services/agent/tests/
 tests = ["services/agent/tools/test_run_real_node_script.py", "services/agent/tests/qualify/tests/real_node_script.rs"]
 verification_contract = "python3 -m pytest -q services/agent/tools/test_run_real_node_script.py && cargo test --locked --manifest-path services/agent/tests/qualify/Cargo.toml --test real_node_script && ! grep -n 'LAYERX_CUSTODY_PROOF_BIN' Makefile"
 do_1 = "In services/agent/tools/run-real-node-tests.sh remove the prepare step at :61-62 that builds the deleted sign-credit target, and in services/agent/tests/qualify/tests/real_node_script.rs (:38-39) drop the assertion that the script names it; the script's remaining steps and their order are asserted as before."
-symbols = ["run-real-node-tests"]
+symbols = []
 
 [capability.18.1446.1]
 title = "Issues #1446 and #1466: Render an operation submitted at its requested rung as achieved"
@@ -116460,7 +116466,7 @@ interfaces = []
 do_1 = "In services/agent/tools/run-real-node-tests.sh remove the prepare step at :61-62 that builds the deleted sign-credit target, and in services/agent/tests/qualify/tests/real_node_script.rs (:38-39) drop the assertion that the script names it; the script's remaining steps and their order are asserted as before."
 do_2 = "In the Makefile remove the LAYERX_CUSTODY_PROOF_BIN export at :1876 that points at the deleted daemon binary and every rule that consumes only it; nothing else in the Makefile changes."
 do_3 = "services/agent/tools/test_run_real_node_script.py asserts the script contains neither sign-credit nor LAYERX_CUSTODY_PROOF_BIN and that make -n of the real-node target names no custody-proof path."
-symbols = ["run-real-node-tests"]
+symbols = []
 touches = ["services/agent/tools/run-real-node-tests.sh", "services/agent/tests/qualify/tests/real_node_script.rs", "Makefile", "services/agent/tools/test_run_real_node_script.py"]
 tests = ["services/agent/tools/test_run_real_node_script.py", "services/agent/tests/qualify/tests/real_node_script.rs"]
 planned_paths = []
@@ -116477,6 +116483,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 18.1451.1.1: the task declares no graph symbols; its deliverables are the four touched paths. Continue from attempt 2 and rerun the verify."
 
 [task.18.1435.5]
 title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Swift agent envelope decoder"
@@ -208357,7 +208364,7 @@ touches = ["tools/bringup/check-live.sh", "tools/bringup/check-live.test.sh"]
 tests = ["tools/bringup/check-live.test.sh"]
 planned_paths = []
 build_cmd = "bash -n tools/bringup/check-live.sh && bash -n tools/bringup/check-live.test.sh"
-verify_cmd = "! grep -n 'relay_archive/' tools/bringup/check-live.sh tools/bringup/check-live.test.sh && bash tools/bringup/check-live.test.sh > /tmp/check-live-test.log 2>&1; grep -q '^ok   check_live_relay_env_absent$' /tmp/check-live-test.log && ! grep -q '^not ok' /tmp/check-live-test.log"
+verify_cmd = "! grep -n 'relay_archive/' tools/bringup/check-live.sh tools/bringup/check-live.test.sh && bash tools/bringup/check-live.test.sh > /tmp/check-live-test.log 2>&1; grep -q '^ok   check_live_relay_env_absent$' /tmp/check-live-test.log && ! grep -q '^not ok' /tmp/check-live-test.log || { cat /tmp/check-live-test.log; exit 1; }"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-tools-ops"
@@ -208370,6 +208377,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 18.1484.1.1: the comment block above check_relay (tools/bringup/check-live.sh:3213-3220) is rewritten to describe the current check (origin from CHECK_LIVE_RELAY_ORIGIN, env=absent when unset, the internal-CA listener of the kernel machine) and carries no path under services/platform/relay_archive/ and no mention of the deleted template; continue from attempt 1, whose function body and harness cases stand."
+do_5 = "Finding 18.1484.1.2: the verify prints /tmp/check-live-test.log when the relay case's ok line is missing. Continue from attempt 3: run bash tools/bringup/check-live.test.sh once before the verify and read its last lines; the suite stops at its first failing command (set -euo pipefail at :2), so a case that stops it before check_live_relay_env_absent is repaired when its cause is in the relay section (:3594 onward) or in check_relay of tools/bringup/check-live.sh, and is otherwise named in the commit message with its last printed line and left as it is, because the earlier cases pass on main under tasks 18.776.1 and 18.821.1."
 
 [task.18.1483.1]
 title = "Issue #1483: Make the container exclusion-list tests agree on the retired localnode Dockerfile"

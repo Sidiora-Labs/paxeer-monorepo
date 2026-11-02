@@ -13381,3 +13381,8 @@ fix = "Sign pre-EIP-155 cases with ethtypes.FrontierSigner{} and give typed tran
 title = "A package verify of ./modules/<x>/... runs every test of the package, including ones broken at the base"
 symptom = "A task that ported four tests was failed by two others in the same package that had been broken since earlier tasks deleted the module from the app and removed the script they drove."
 fix = "Before naming a package-wide verify, run the package once at the base and claim the pre-existing failures in the task (fix, delete with reason, or record a finding); a package-wide verify is a statement about the whole package."
+
+[gotcha.2713]
+title = "A verify that greps a saved test log and never prints it leaves nothing to read"
+symptom = "tools/bringup/check-live.test.sh runs under set -euo pipefail, so its first failing command ends the suite; a verify of the shape 'suite > log 2>&1; grep -q <ok line> log' then fails with an empty verify log, and 18.1484.1 burned three attempts without a record of the stopping case."
+fix = "End such verifies with || { cat <log>; exit 1; } as 18.776.1 does, and never list a shell script's file stem under symbols (the done record checks symbols against the graph; scripts are touched paths)."
