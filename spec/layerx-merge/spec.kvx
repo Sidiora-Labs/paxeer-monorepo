@@ -116424,7 +116424,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.160.1]
 title = "Prove the exchange path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -116982,7 +116982,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.142.1]
 title = "Prove the explorer path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.12.5"]
@@ -126594,7 +126594,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1501.1]
 title = "Issue #1501: Reconcile ledger asset metadata with the closed OpenRPC schema and the integration fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
@@ -126624,7 +126624,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1499.1]
 title = "Issue #1499: Reconcile CLI chain enumeration with the accepted sparse registry genesis"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.8.10", "22.9.24"]
@@ -126773,7 +126773,7 @@ do_3 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fail
 
 [task.22.8.12]
 title = "Reconcile the reference ramp route order, the authority native outcomes and the PaxAI transport identity fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
@@ -126835,7 +126835,7 @@ do_4 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fail
 
 [task.22.11.5]
 title = "Repair the x402 profile fixture, the bridge relayer quorum fixture and the interop relay replacement test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
@@ -126866,7 +126866,7 @@ do_4 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fail
 
 [task.22.11.4]
 title = "Regenerate the mirror, UCP and Visa tap receipt fixtures against the current verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
@@ -127616,7 +127616,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.90.9]
 title = "Make every target of layerx-human-kms build on main"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.100.2", "22.9.24"]
@@ -127896,7 +127896,7 @@ do_4 = "The task is a gate: when the build and the test compile already pass at 
 
 [task.21.130.1]
 title = "Prove the runtime crate path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
@@ -128096,7 +128096,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.111.1]
 title = "Prove the human test support path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.100.2", "22.9.24"]
@@ -128292,7 +128292,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.97.1]
 title = "Prove the human intents path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.100.2", "22.9.24"]
@@ -129577,7 +129577,7 @@ do_4 = "Finding 8.8.3.2: in services/platform/hosted/agent-boundary/src/lifecycl
 
 [task.8.101.4]
 title = "Delete the hosted gateway's unreachable kernel activity submission path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.35.13", "22.9.24"]
@@ -132343,7 +132343,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1502.1]
 title = "Issue #1502: Preserve open-versus-idle state when pending reads fall back to the committed block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.5.9"]
@@ -185213,7 +185213,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.1.6]
 title = "Repair the kernel link recipes, the missing storage script and the float scanner false positive"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200232,7 +200232,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.3.4]
 title = "Run the migration rehearsal once on the merged revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 45
 requires = ["17.3.3", "17.11.1", "5.0.9", "22.6.10"]
@@ -218345,7 +218345,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.16.5]
 title = "Place the six remaining tracked Dockerfiles in the container check's scope list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

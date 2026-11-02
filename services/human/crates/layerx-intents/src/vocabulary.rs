@@ -115,7 +115,37 @@ pub enum IntentKind {
     Perps(layerx_types::payload::PerpsPayload),
 }
 
+impl From<IntentKind> for Intent {
+    fn from(kind: IntentKind) -> Self {
+        Self::v1(kind)
+    }
+}
+
 impl IntentKind {
+    /// The V1 inspection discriminant, when this kind has a V1 envelope.
+    #[must_use]
+    pub const fn tag(&self) -> Option<crate::IntentKindTag> {
+        use crate::IntentKindTag as Tag;
+        Some(match self {
+            Self::DidRegistration(_) => Tag::DidRegistration,
+            Self::KeyRotation(_) => Tag::KeyRotation,
+            Self::RecoveryRegistration(_) => Tag::RecoveryRegistration,
+            Self::SessionGrant(_) => Tag::SessionGrant,
+            Self::AuthorityGrant(_) => Tag::AuthorityGrant,
+            Self::SessionRevoke(_) => Tag::SessionRevoke,
+            Self::LxpSend(_) => Tag::LxpSend,
+            Self::LxpReceive(_) => Tag::LxpReceive,
+            Self::PayerGrantRegistration(_) => Tag::PayerGrantRegistration,
+            Self::BudgetCreate(_) => Tag::BudgetCreate,
+            Self::BudgetFund(_) => Tag::BudgetFund,
+            Self::BudgetDefund(_) => Tag::BudgetDefund,
+            Self::NativeReceive(_) => Tag::NativeReceive,
+            Self::NativeBudgetCreate(_) | Self::NativeAssetAccountOpen(_) | Self::Perps(_) => {
+                return None
+            }
+        })
+    }
+
     #[must_use]
     pub const fn module(&self) -> ModuleId {
         match self {
@@ -268,7 +298,7 @@ impl KeyRotation {
     ///
     /// # Errors
     ///
-    /// Refuses the reserved all-zero key.
+    /// Refuses the reserved all-zero key and zero effective sequence.
     pub fn new(
         did: Did,
         pending_key: PublicKey,
@@ -276,6 +306,9 @@ impl KeyRotation {
         effective_sequence: Sequence,
     ) -> Result<Self, IntentError> {
         nonzero_key(pending_key, IntentField::PendingKey)?;
+        if effective_sequence.value() == 0 {
+            return Err(IntentError::zero(IntentField::EffectiveSequence));
+        }
         Ok(Self {
             did,
             pending_key,
