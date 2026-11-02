@@ -18,15 +18,7 @@ func (k *Keeper) Mint(ctx sdk.Context, actor Actor, assetID, toAccount [32]byte,
 	if err != nil {
 		return Result{}, err
 	}
-	result, err := k.execute(ctx, actor, assetMintActivity, payload, idempotencyKey)
-	if err != nil {
-		return result, err
-	}
-	if err := k.Mirror(ctx, assetMintActivity, result.Receipt); err != nil {
-		return result, err
-	}
-	_, err = LedgerEvents(assetMintActivity, result.Receipt, EventArgs{})
-	return result, err
+	return k.executeSupplyActivity(ctx, actor, assetMintActivity, payload, idempotencyKey)
 }
 
 func (k *Keeper) Burn(ctx sdk.Context, actor Actor, assetID, fromAccount [32]byte, amount sdk.Int, idempotencyKey [32]byte) (Result, error) {
@@ -37,13 +29,27 @@ func (k *Keeper) Burn(ctx sdk.Context, actor Actor, assetID, fromAccount [32]byt
 	if err != nil {
 		return Result{}, err
 	}
-	result, err := k.execute(ctx, actor, assetBurnActivity, payload, idempotencyKey)
+	return k.executeSupplyActivity(ctx, actor, assetBurnActivity, payload, idempotencyKey)
+}
+
+// executeSupplyActivity commits kernel and bank transfers together. A rejected
+// kernel activity still records its refusal, while a failed mirror publishes
+// neither the accepted kernel transfer nor any bank state or events.
+func (k *Keeper) executeSupplyActivity(ctx sdk.Context, actor Actor, activityType uint32, payload []byte, idempotencyKey [32]byte) (Result, error) {
+	cached, write := ctx.CacheContext()
+	result, err := k.execute(cached, actor, activityType, payload, idempotencyKey)
 	if err != nil {
+		write()
+		ctx.EventManager().EmitEvents(cached.EventManager().Events())
 		return result, err
 	}
-	if err := k.Mirror(ctx, assetBurnActivity, result.Receipt); err != nil {
+	if err := k.Mirror(cached, activityType, result.Receipt); err != nil {
 		return result, err
 	}
-	_, err = LedgerEvents(assetBurnActivity, result.Receipt, EventArgs{})
-	return result, err
+	if _, err := LedgerEvents(activityType, result.Receipt, EventArgs{}); err != nil {
+		return result, err
+	}
+	write()
+	ctx.EventManager().EmitEvents(cached.EventManager().Events())
+	return result, nil
 }

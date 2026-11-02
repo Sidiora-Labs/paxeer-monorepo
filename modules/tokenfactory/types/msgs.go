@@ -14,7 +14,7 @@ const (
 	TypeMsgBurn             = "burn"
 	TypeMsgChangeAdmin      = "change_admin"
 	TypeMsgSetDenomMetadata = "set_denom_metadata"
-	TypeMsgSetDenomPaused   = "set_denom_paused"
+	TypeMsgSetDenomPaused   = set_denom_paused
 )
 
 var _ sdk.Msg = &MsgCreateDenom{}

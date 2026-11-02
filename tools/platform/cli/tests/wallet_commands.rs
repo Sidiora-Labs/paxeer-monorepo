@@ -131,3 +131,26 @@ fn unpublished_registration_and_history_preserve_local_keys() {
     assert!(after.status.success());
     assert_eq!(envelope(&before)["data"], envelope(&after)["data"]);
 }
+
+#[test]
+fn malformed_balance_asset_is_refused_before_rpc() {
+    let cli = Cli::new();
+    let output = cli.run(&[
+        "--json",
+        "--rpc",
+        "http://127.0.0.1:1/rpc",
+        "wallet",
+        "balance",
+        "--did",
+        "did:layerx:alice",
+        "--asset",
+        "bad-asset",
+    ]);
+    assert!(!output.status.success());
+    let detail = error_envelope(&output)["error"]["detail"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(detail.contains("asset"), "{detail}");
+    assert!(!detail.contains("connect"), "{detail}");
+}

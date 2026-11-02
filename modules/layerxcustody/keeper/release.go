@@ -12,6 +12,9 @@ type retirementUpgradeReader interface {
 	GetUpgradePlan(sdk.Context) (upgradetypes.Plan, bool)
 }
 
+// ReleaseRetired atomically releases balances and cancels pending claims during
+// the merge plan. The upgrade keeper's done height closes this path afterward;
+// custody keeps no separate retirement flag.
 func (k *Keeper) ReleaseRetired(ctx sdk.Context) error {
 	if k.Retired(ctx) {
 		return sdkerrors.Wrap(types.ErrModuleRetired, "already released")

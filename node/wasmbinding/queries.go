@@ -101,6 +101,9 @@ func (qp QueryPlugin) HandleTokenFactoryQuery(ctx sdk.Context, queryData json.Ra
 	if err := json.Unmarshal(queryData, &parsedQuery); err != nil {
 		return nil, tokenfactorytypes.ErrParsingPaxTokenFactoryQuery
 	}
+	if err := parsedQuery.Validate(); err != nil {
+		return nil, err
+	}
 	switch {
 	case parsedQuery.DenomAuthorityMetadata != nil:
 		res, err := qp.tokenfactoryHandler.GetDenomAuthorityMetadata(ctx, parsedQuery.DenomAuthorityMetadata)

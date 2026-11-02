@@ -10,10 +10,14 @@ import {
   HttpError,
   type TransportConfig,
 } from '../../../../../sdk/launchpad/packages/sdk/src/index.ts';
-import {
-  nativeRequestId,
-  protectedCookieFetch,
-} from '../platform/protected-storage.ts';
+async function protectedCookieFetch(url: string, init: RequestInit = {}) {
+  init.signal?.throwIfAborted();
+  const native = await import('../platform/protected-storage.ts');
+  return native.protectedCookieFetch(url, init);
+}
+async function nativeRequestId() {
+  return (await import('../platform/protected-storage.ts')).nativeRequestId();
+}
 import type {
   ContractTypes,
   ProfilePatchBody,
@@ -184,6 +188,8 @@ export class MobileServices {
         );
         const headers = new Headers(init?.headers);
         headers.set('Origin', config.canonicalOrigin);
+        if (init?.credentials === 'omit')
+          return fetch(url.href, { ...init, headers });
         return protectedCookieFetch(url.href, { ...init, headers });
       },
     );

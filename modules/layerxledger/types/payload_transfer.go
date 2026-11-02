@@ -85,6 +85,8 @@ func encodeTransferAuthorization(out []byte, controller, publicKey, contextHash 
 	binary.BigEndian.PutUint16(out[165:167], protocolVersion)
 }
 
+// EncodeSendPayload produces an owner-authorized send envelope with an empty
+// signature slot. The caller must sign it or supply verified binding authority.
 func EncodeSendPayload(args SendArgs) ([]byte, error) {
 	amount, err := transferAmount(args.Amount)
 	if err != nil {
@@ -105,6 +107,8 @@ func EncodeSendPayload(args SendArgs) ([]byte, error) {
 	return payload, nil
 }
 
+// EncodeReceivePayload encodes the legacy receive wire, including a copy of the
+// structurally validated payer grant. The kernel's receive activity is retired.
 func EncodeReceivePayload(args ReceiveArgs) ([]byte, error) {
 	amount, err := transferAmount(args.Amount)
 	if err != nil {
@@ -129,6 +133,8 @@ func EncodeReceivePayload(args ReceiveArgs) ([]byte, error) {
 	return payload, nil
 }
 
+// ValidateIssueGrantPayload checks only the legacy grant's length and boolean
+// encodings. It does not authenticate a grant or make its retired route live.
 func ValidateIssueGrantPayload(payload []byte) error {
 	if len(payload) != issueGrantPayloadLength || payload[grantRecurringOffset] > 1 || payload[grantReferenceOffset] > 1 {
 		return ErrNonCanonical

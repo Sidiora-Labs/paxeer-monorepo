@@ -9,6 +9,7 @@ import type {
   ApprovalState,
   ApprovalSummary,
   ErrorCode,
+  EvidenceRef,
   JourneyState,
   Money,
   OperationDigest,
@@ -93,6 +94,13 @@ const VERIFICATION_COPY: Readonly<Record<VerificationRung, string>> = Object.fre
 
 export function verificationLabel(level: string): string {
   return copyEntry(VERIFICATION_COPY[verificationRung(level)]).message;
+}
+
+export function evidenceReferenceLabel(reference: EvidenceRef): string {
+  return formatCopy("approval.technical.evidence_reference", {
+    evidenceClass: reference.class,
+    verification: verificationLabel(reference.verification),
+  });
 }
 
 export function verifiedMoneyLabel(budget: VerifiedMoney): string {

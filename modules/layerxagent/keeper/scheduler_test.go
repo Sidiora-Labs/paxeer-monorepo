@@ -51,16 +51,25 @@ func mounted(parent storetypes.MultiStore, key storetypes.StoreKey) (store store
 
 // withStore adds the scheduler store to ctx's multistore next to the app's.
 func withStore(ctx sdk.Context, key storetypes.StoreKey) sdk.Context {
+	return withKVStore(ctx, key, dbadapter.Store{DB: tmdb.NewMemDB()})
+}
+
+// withKVStore mounts a real store alongside the EVM application's stores. A
+// replacement skips the old store so reopening cannot retain its cached jobs.
+func withKVStore(ctx sdk.Context, key storetypes.StoreKey, replacement storetypes.KVStore) sdk.Context {
 	parent := ctx.MultiStore()
 	stores := map[storetypes.StoreKey]storetypes.CacheWrapper{}
 	keys := map[string]storetypes.StoreKey{}
 	for _, existing := range parent.StoreKeys() {
+		if existing.Name() == key.Name() {
+			continue
+		}
 		if store, ok := mounted(parent, existing); ok {
 			stores[existing] = store
 			keys[existing.Name()] = existing
 		}
 	}
-	stores[key] = dbadapter.Store{DB: tmdb.NewMemDB()}
+	stores[key] = replacement
 	keys[key.Name()] = key
 	return ctx.WithMultiStore(cachemulti.NewStore(tmdb.NewMemDB(), stores, keys, nil, nil, nil, 0))
 }

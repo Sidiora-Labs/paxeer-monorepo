@@ -1,4 +1,5 @@
 import {
+  isAddress,
   numberToHex,
   zeroAddress,
   type AbiStateMutability,
@@ -74,6 +75,7 @@ function requireLeverage(leverage: bigint): bigint {
 }
 
 function requireAccount(account: Address): Address {
+  if (!isAddress(account)) refuse("VALIDATION_AMOUNT_INVALID");
   if (account.toLowerCase() === zeroAddress) refuse("WALLET_NOT_CONNECTED");
   return account;
 }
@@ -384,16 +386,23 @@ export function buildWithdrawAll(accountState: Pick<AccountState, "withdrawable"
 
 /* ── reads ──────────────────────────────────────────────────────── */
 
+function requireMarketId(marketId: bigint): bigint {
+  if (typeof marketId !== "bigint" || marketId < 0n || marketId >= 1n << 256n) {
+    refuse("VALIDATION_AMOUNT_INVALID");
+  }
+  return marketId;
+}
+
 export function buildGetMarketConfig(marketId: bigint) {
-  return call("getMarketConfig", [marketId] as const);
+  return call("getMarketConfig", [requireMarketId(marketId)] as const);
 }
 
 export function buildGetMarginTiers(marketId: bigint) {
-  return call("getMarginTiers", [marketId] as const);
+  return call("getMarginTiers", [requireMarketId(marketId)] as const);
 }
 
 export function buildGetMarkPriceDetails(marketId: bigint) {
-  return call("getMarkPriceDetails", [marketId] as const);
+  return call("getMarkPriceDetails", [requireMarketId(marketId)] as const);
 }
 
 export function buildGetFeeTier(account: Address) {

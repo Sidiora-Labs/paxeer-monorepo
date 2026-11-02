@@ -506,6 +506,9 @@ pub fn enrolment_charge_limits(
     disclosure: &layerx_crypto::disclosure::Disclosure,
     presented: &[LimitScope],
 ) -> Result<Vec<LimitId>, DaemonLimitError> {
+    disclosure
+        .validate()
+        .map_err(|_| DaemonLimitError::Corrupt)?;
     let mut limits = Vec::new();
     for config in verified {
         let hit = presented.contains(&config.scope)

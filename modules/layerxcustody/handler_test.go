@@ -496,3 +496,14 @@ func TestCustodyProposalRollsBackAllGovernanceStateAndEvents(t *testing.T) {
 		})
 	}
 }
+
+func TestCustodyProposalRefusesTypedNilWithoutMutation(t *testing.T) {
+	ctx := newCtx()
+	k := custodyApp.LayerXCustodyKeeper
+	before := k.ExportGenesis(ctx)
+	events := len(ctx.EventManager().Events())
+	var proposal *types.CustodyProposal
+	require.ErrorIs(t, layerxcustody.NewProposalHandler(k)(ctx, proposal), govtypes.ErrInvalidProposalContent)
+	require.Equal(t, before, k.ExportGenesis(ctx))
+	require.Len(t, ctx.EventManager().Events(), events)
+}

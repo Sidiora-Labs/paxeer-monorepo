@@ -17,6 +17,7 @@ import {
   InvalidParamsError,
   ChainDisconnectedError,
   UnsupportedMethodError,
+  type PaxeerProviderConfig,
   type RequestArguments,
   type CustodyMode,
   type Eip6963ProviderDetail,
@@ -41,6 +42,19 @@ import {
 import { WalletSigner } from './signer';
 
 export class WalletNetworkProvider extends PaxeerProvider {
+  constructor(config: PaxeerProviderConfig) {
+    super(config);
+    const preferences = preferencesRepository.read();
+    const active = preferences.networks.find(
+      (network) => network.chainId === preferences.activeChainId
+    );
+    if (active) {
+      this.switchActiveChain(active.chainId, getActiveRpcUrl());
+    } else if (preferences.customRpc) {
+      this.switchActiveChain(config.chainId ?? PAXEER_CONFIG.chainId, getActiveRpcUrl());
+    }
+  }
+
   override async request(args: RequestArguments): Promise<unknown> {
     if (args.method !== 'wallet_addEthereumChain' && args.method !== 'wallet_switchEthereumChain') {
       return super.request(args);
@@ -85,14 +99,15 @@ export class WalletNetworkProvider extends PaxeerProvider {
         if (!preferencesRepository.read().networks.some((network) => network.chainId === chainId)) {
           throw new ChainDisconnectedError(chainId, PAXEER_CONFIG.chainId);
         }
-      } else {
-        await super.request(args);
+      } else if (chainId !== PAXEER_CONFIG.chainId) {
+        throw new ChainDisconnectedError(chainId, PAXEER_CONFIG.chainId);
       }
       const activeChainId = isVirtualChainId(chainId) ? chainId : null;
       preferencesRepository.update((current) => ({ ...current, activeChainId }));
       if (preferencesRepository.read().activeChainId !== activeChainId) {
         throw new WalletUnavailableError('the active network could not be saved');
       }
+      this.switchActiveChain(chainId, getActiveRpcUrl());
     }
     announceRpcChanged();
     return null;

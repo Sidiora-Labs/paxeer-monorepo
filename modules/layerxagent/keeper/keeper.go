@@ -104,6 +104,9 @@ func (k Keeper) GetParams(ctx sdk.Context) Params {
 	if err := json.Unmarshal(encoded, &params); err != nil {
 		panic(fmt.Errorf("layerxagent params: %w", err))
 	}
+	if err := params.Validate(); err != nil {
+		panic(fmt.Errorf("layerxagent stored params: %w", err))
+	}
 	return params
 }
 
