@@ -523,7 +523,6 @@ dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
  "layerx-crypto",
- "layerx-paxeer-verifier",
  "layerx-programs-ai-market",
  "layerx-programs-registry",
  "layerx-proof",
@@ -555,17 +554,6 @@ dependencies = [
  "sha3",
  "subtle",
  "zeroize",
-]
-
-[[package]]
-name = "layerx-paxeer-verifier"
-version = "0.1.0"
-dependencies = [
- "layerx-proof",
- "layerx-types",
- "layerx-wire",
- "rustls",
- "sha3",
 ]
 
 [[package]]

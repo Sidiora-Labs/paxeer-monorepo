@@ -17363,3 +17363,219 @@ symbol = "ReceiptLookup::Submitted"
 observed = "Attempt 1 of task 18.1433.1 added ReceiptLookup::Submitted and the crate failed to build with `non-exhaustive patterns: journeys::engine::ReceiptLookup::Submitted { .. } not covered` at services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:349, services/human/crates/layerx-human-service/src/server/agent_creation.rs:538 and services/human/crates/layerx-human-service/src/server/production_onboarding.rs:245; none of the three files is in the task's touches."
 assumption = "Each match treats Submitted as not-yet-receipted (the same branch as Absent where the journey waits, with the transaction hash carried into the pending record), and the three files join the touches."
 severity = "major"
+
+[finding.1.36.1.2]
+task = "1.36.1"
+file = "modules/layerxanchor/keeper/keeper_test.go:360"
+symbol = "proofcodec.DecodeCheckpointCertificate"
+observed = "Attempt 2 of task 6.96.6 (5b41c3073) restored the fixture and the loaders and go build passed, but go vet of both test packages stopped at modules/layerxanchor/keeper/keeper_test.go:394 and precompiles/layerxanchor/retire_read_gate_test.go:117 (undefined: proofcodec.DecodeCheckpointCertificate): task 1.36.1 (9dd2a2c72) deleted the decoder from layerxproof/codec/checkpoint.go and layerxproof/exportcheck/checkpoint_exports_test.go:17 asserts it stays gone, while the anchor tests at modules/layerxanchor/keeper/keeper_test.go:360 and precompiles/layerxanchor/retire_read_gate_test.go:121 and the custody tests at modules/layerxcustody/keeper/anchor_reader_test.go:131, modules/layerxcustody/keeper/deposit_root_test.go:108 and modules/layerxcustody/keeper/retire_deposit_root_test.go:65 still decode a certificate to read its batch number, checkpoint id, attestation count and threshold."
+assumption = "The decoder never returns; each test reads those values from what it already holds: the anchor vectors carry batch_number, checkpoint_id and signers fields, and the custody tests build the certificate from one guarantor id and threshold 1 themselves."
+severity = "major"
+
+[finding.5.97.1.1]
+task = "5.97.1"
+file = "cmd/retirement/test_kernel_symbol_consumers_retired.py:156"
+symbol = "test_no_daemon_consumer_of_retired_kernel_symbols"
+observed = "Attempt 3 of task 5.97.1 wrote the test and the absent-path and make -n checks passed, but the `go build ./daemon/...` step failed in the linker: modules/lxphost/host.go:7 declares cgo LDFLAGS naming -llayerx and the programs runtime archive under build/ and programs/target/, archives that only the make build and the programs release build produce, so a go build of the daemon main package cannot link in a tree that has not run make."
+assumption = "The gate proves the daemon tree compiles with no reference to the retired symbols; go vet type-checks every package and compiles the cgo stubs without linking, which is the check the daemon tasks 5.43.3 already use as their build command."
+severity = "minor"
+
+[finding.8.51.3.1]
+task = "8.51.3"
+file = "tools/platform/emulator/tests/core_linkage.rs:224"
+symbol = "emulator_head_proof_still_verifies"
+observed = "Attempt 2 of task 8.51.3 retired the activity, move and program routes and the gateway and authority targets passed, but core_linkage.rs failed: emulator_head_proof_still_verifies (:224) posts /v1/moves/quote and /v1/moves to make the core seal a batch and then verifies the head proof, and with the routes gone the quote answers 404 not_found; the emulator core seals a batch only when an activity executes (tools/platform/emulator/src/main.rs:6379-6420 shows the head answering 503 until a move commits), so after this task no route can produce a head."
+assumption = "The head proof over a sealed batch was evidence of the kernel activity path and retires with it; the surviving head route is tested for its refusal, and the core symbol test stays."
+severity = "major"
+
+[finding.9.24.9.1]
+task = "9.24.9"
+file = "services/agent/crates/layerx-crypto/src/disclosure/call.rs:246"
+symbol = "decode_method"
+observed = "Attempt 2 of task 9.24.9 built the EIP-1559 program call (chain id 125, to 0x...101d, calldata call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128) as the Python SDK's _encode_programs_call writes it) and the build passed, but prepared_operation_signs_as_eip1559_program_call and journal_finalize_records_the_block_hash failed with Disclosure(MalformedPayload): decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:246-475) recognises the ledger, pay, auth and bank precompiles and ERC-20 pointer transfers only, so bind_call refuses a call to the programs precompile before any field is read."
+assumption = "The programs precompile call is disclosed through the same decoder as the other native calls; its encoder and decoder live in layerx-crypto so the client and every verifier share one layout with the Python SDK."
+severity = "major"
+
+[finding.9.25.17.3]
+task = "9.25.17"
+file = "tools/platform/cli/src/wallet.rs:1255"
+symbol = "VerifiedRpcAccount::from_rpc_result"
+observed = "Attempt 1 of task 8.47.12 retired the program call and simulate path of the platform CLI, but the --all-targets build failed in tools/platform/cli/src/wallet.rs: layerx_sdk::rpc_verification::AccountPolicy (:510, :797, :1248, :1594, :1603, :1683), VerifiedRpcAccount::from_rpc_result (:1255) and VerifiedRpcBalances::from_rpc_result (:1606) were deleted by task 9.25.17 (0ad81030b) with layerx_client::evidence (decision 2232), whose consumer list named services/agent only; the CLI binary has not compiled since that commit, and decisions 1846 and 1862 forbid the other CLI tasks, all done, from touching wallet.rs."
+assumption = "The CLI's account and balance reads keep the structural checks they already make (account_id and asset_id equality, validated_account_records) and drop the proof-material verification that retired with the evidence module; 8.47.12 is the pending task that compiles the CLI and makes the deletion."
+severity = "major"
+
+[finding.8.47.12.1]
+task = "8.47.12"
+file = "tools/platform/cli/tests/wallet_evm_writes.rs"
+symbol = "AccountPolicy"
+observed = "attempt 2 (1f58c921b) stops in the test target wallet_evm_writes: E0433 VerifiedRpcAccount in rpc_verification and E0422 AccountPolicy in layerx_sdk::rpc_verification; the ruling of decision 2267 named only the wallet.rs sites."
+assumption = "every file under tools/platform/cli that names AccountPolicy, VerifiedRpcAccount or VerifiedRpcBalances is a consumer of the deleted SDK items and is ported the same way."
+severity = "medium"
+
+[finding.5.97.1.2]
+task = "5.97.1"
+file = "cmd/retirement/test_kernel_symbol_consumers_retired.py"
+symbol = "test_no_daemon_consumer_of_retired_kernel_symbols"
+observed = "attempt 4 (1f58c921b) still runs ['go', 'build', './daemon/...'] at :156 and fails in the linker on the C archives only make produces, exactly as attempt 3 did after do_5 ruled go vet."
+assumption = "do_5 stands: the subprocess at :156 is ['go', 'vet', './daemon/...'] and the assertion is returncode == 0; no archive is built in the qualification environment."
+severity = "medium"
+
+[finding.9.24.9.2]
+task = "9.24.9"
+file = "services/agent/crates/layerx-client/tests/ai_market_rpc.rs:176"
+symbol = "signed_receipt"
+observed = "attempt 4 (f910fd21b) passes ai_market_commit and disclosure_call; operation_journal_resolve_records_the_receipted_rung fails at :429 because the receipted view signed_receipt serves ends at keyId and receipt, while decode_receipt (services/agent/crates/layerx-client/src/sequencer.rs, RECEIPTED_FIELDS) has required a 32-byte signingKey field since task 9.21.8 (98b857055), so Fields::exact refuses the view and resolve answers a Sequencer error before verify_sequencer_signature runs."
+assumption = "the fixture view is the only producer behind the test; it gains the field the decoder requires and the verification path is reached as the test expects."
+severity = "medium"
+
+[finding.9.35.9.4]
+task = "9.35.9"
+file = "services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:377"
+symbol = "native_setup_refuses_wrong_accounts_limits_and_payload_shapes"
+observed = "attempt 5 (f910fd21b) fails 'budget version 2, corruption 9 was admitted': the corruption loop runs for budget versions 1 and 2, but setup_call encodes a budget payload as the twelve-word budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8) call and bind_call (services/agent/crates/layerx-crypto/src/disclosure/call.rs:395-406) rebuilds a version-1 payload from those words, so bytes 211..251 of a version-2 payload (source account and source sequence) never reach the disclosure and a flip at byte 211 or 243 is invisible by construction; no ledger call form carries a version-2 budget create."
+assumption = "the EVM path proves the version-1 layout only: the corruption loop runs for version 1, and a version-2 payload is asserted refused by setup_call itself (no call form) instead of being admitted and compared."
+severity = "medium"
+
+[finding.9.35.9.5]
+task = "9.35.9"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs:1635"
+symbol = "owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart"
+observed = "attempt 5 (f910fd21b) routes the authority grant (Governance ordinal 8) and the compiled session grant through setup_call, whose Governance arm emits recordLifecycle(bytes,bytes32) to 0x...101C; decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:437-455) admits only lifecycle payloads of ordinals 1 and 3 there, so bind_call answers MalformedPayload in owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart, session_registration_and_replacement_disclosures_survive_provider_restart and native_creation_disclosures_sign_through_real_kms_before_and_after_restart."
+assumption = "do_1 governs the two grant tests: they sign the ledger payment call canonical_send returns, bound with bind_call, and attach the grant to the disclosure as main does at :1657 (disclosure.authority_grant = Some(grant)) and :1772 (disclosure.session_grant = Some(...)); the port of do_8 covers the monetary roles loop and the native creation disclosures only."
+severity = "major"
+
+[finding.18.1433.1.2]
+task = "18.1433.1"
+file = "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs:30"
+symbol = "Peer::serve"
+observed = "attempt 3 (f910fd21b) fails all three agent_runtime_receipt_frame tests in 0.00s with 'agent runtime peer: Unavailable': AgentRuntime::new (services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2204) reads RuntimeClock::from_environment and maps its failure to AgentBoundaryError::Unavailable, and the verify runs the human test targets without tools/runtime/run-with-clock.sh, which the Makefile (:1640, :1679) puts in front of every human-workspace cargo test."
+assumption = "the verify runs the human-workspace targets through the clock wrapper, as 9.35.9 and 9.35.11 already do (finding 9.35.9.1); the daemon target stays bare."
+severity = "medium"
+
+[finding.20.6.1.1]
+task = "20.6.1"
+file = "apps/explorer/tsconfig.json"
+symbol = "tsc -p"
+observed = "attempt 1 (da98739ad) fails the build with TS5058 'The specified path does not exist: apps/explorer/tsconfig.json': yarn --cwd apps/explorer runs tsc inside the package, so the -p argument is resolved against apps/explorer and the repository-relative path points at apps/explorer/apps/explorer/tsconfig.json."
+assumption = "the build names the project as tsconfig.json; every other explorer type check in the spec (18.1402.1 and its siblings) already does."
+severity = "minor"
+
+[finding.9.35.11.2]
+task = "9.35.11"
+file = "services/human/crates/layerx-human-service/tests/native_journey_approval.rs:233"
+symbol = "RemoteKmsProvider::new"
+observed = "attempt 3 (0c0a78a0293) completes its 13 files and fails the build cargo build --locked -p layerx-human-service --tests on two targets it does not touch: tests/native_journey_approval.rs:233 calls RemoteKmsProvider::new with five arguments while src/custody/provider.rs:750 has taken a sixth Arc<dyn Clock> since e557e4440 (issue #1485), and tests/support/canonical_owner.rs:190 calls activity.protocol_version() on the value bound_activity returns, which do_8 turns into BoundLifecycleCall without that accessor."
+assumption = "the clock argument is repaired by task 18.1485.1, which 9.35.11 now requires; BoundLifecycleCall gains protocol_version() so canonical_owner.rs compiles unchanged; attempt 3's tree is otherwise the implementation."
+severity = "major"
+
+[finding.1.32.1.1]
+task = "1.32.1"
+file = "modules/lxphost/retired_checkpoint_cert_test.go:18"
+symbol = "TestRetiredCheckpointCertSymbolsAbsent"
+observed = "attempt 1 (87517e38f) deleted src/paxeer/lxp_checkpoint_cert.c and the Makefile lines, and its test failed on 'kernel archive defines retired checkpoint certificate symbol lxp_guarantor_attestation_verify': at that revision src/guarantor/lxp_attestation.c still defined the same symbol (its object is member 10 of the ar line in the build log) and task 1.31.1 (a91c89ed0), which deletes that file, landed afterwards; 1.32.1 did not require 1.31.1."
+assumption = "1.32.1 requires 1.31.1; rebased onto a main that carries a91c89ed0 the attempt's tree passes unchanged."
+severity = "minor"
+
+[finding.5.0.9.1]
+task = "5.0.9"
+file = "node/sequencer/completion_gate_test.go"
+symbol = "TestNodeCompletionRetiredSurfacesAbsent"
+observed = "attempt 1 (ce3110d14) writes the gate with a 161-entry inventory and fails on exactly two entries, interface.5.go-storage-common-keys-layer-x-anchor-store-key and interface.5.key-storage-common-keys-layer-x-anchor-store-key (LayerXAnchorStoreKey at storage/common/keys/store_keys.go:35 and :79): decision 1954 keeps that key until the v7.0 anchor-store-delete step has run and capability 5.7.5 do_1 restored it, so no task of the domain drops it before 17.0.9."
+assumption = "the two interfaces are status keep in interfaces.kvx (decision 2278) and the inventory is the 159 remaining retire interfaces; attempt 1 otherwise passes."
+severity = "medium"
+
+[finding.20.9.8.1]
+task = "20.9.8"
+file = "tools/platform/cli/src/chains.rs:438"
+symbol = "sign"
+observed = "attempt 1 (15043ea91) fails the build with E0433 'use of unresolved module or unlinked crate k256': chains.rs:438 calls k256::ecdsa::SigningKey::from_slice while tools/platform/cli/Cargo.toml:15-41 lists no k256 dependency; the crate signs EVM transactions through layerx_crypto::evm_transaction::Eip1559Call::sign (services/agent/crates/layerx-crypto/src/evm_transaction.rs:212) and its own wallet_signing::EvmSigningKey (tools/platform/cli/src/wallet.rs:779-786)."
+assumption = "chains create builds an Eip1559Call and signs it with Eip1559Call::sign over the wallet key file's secret, as wallet_signing does; k256 is not added to the CLI's dependencies."
+severity = "medium"
+
+[finding.18.1453.1.1]
+task = "18.1453.1"
+file = "sdk/integrations/next/example/lib/fulfillment.mjs:5"
+symbol = "MiddlewareError"
+observed = "attempts 1 and 2 (c6078bd05 and its rerun) fail before any test runs with ERR_MODULE_NOT_FOUND for node_modules/@sidiora/layerx-seller-middleware/dist/index.js: the verify runs node --test on a file whose module imports the seller middleware through its dist entry, and nothing in the task builds that package (its own build is tsc -p tsconfig.json and it depends on @sidiora/layerx-sdk)."
+assumption = "the qualification environment installs the workspace but builds nothing; the verify builds the imported packages in dependency order before the test, as the merchant example verify already does."
+severity = "medium"
+
+[finding.18.1468.1.1]
+task = "18.1468.1"
+file = "services/platform/examples/run-reference-apps.mjs:6"
+symbol = "BuyerMiddleware"
+observed = "attempt 1 (bf12f2fea) fails with ERR_MODULE_NOT_FOUND for node_modules/@sidiora/layerx-sdk/dist/src/index.js: run-reference-apps.mjs imports the buyer middleware and the SDK, and services/platform/examples/support/runtime.mjs imports the merchant and seller middleware, none of which the verify builds."
+assumption = "the qualification environment installs the workspace but builds nothing; the verify builds SDK, seller, buyer and merchant before the two tests."
+severity = "medium"
+
+[finding.18.1477.1.1]
+task = "18.1477.1"
+file = "services/platform/middleware/conformance/connected.mjs:8"
+symbol = "authenticatedAgentTransport"
+observed = "attempt 1 (fb76aecd6) fails with ERR_MODULE_NOT_FOUND for node_modules/@sidiora/layerx-agent-integrations/dist/index.js: connected.mjs imports the agent integrations, the SDK and the seller middleware, and the integrations package builds on the SDK, the agent middleware and the seller middleware (sdk/integrations/agents/package.json:62-64)."
+assumption = "the qualification environment installs the workspace but builds nothing; the verify builds SDK, seller, merchant, agent middleware and agent integrations before the test."
+severity = "medium"
+
+[finding.18.1463.1.1]
+task = "18.1463.1"
+file = "services/agent/sdk/python/layerx_sdk/x402_agent.py:68"
+symbol = "PaymentBudget.verify_and_commit"
+observed = "attempt 1 (bundle head on 0846268cf) changes verify_payment_receipt to (signed_receipt, raw_transaction, receipt_keys, *, amount, asset, pay_to, payer, return_data, commitment) and the pay6 agent test builds PaymentEvidence(wire, raw_transaction), but x402_agent.py:66-80 (outside the task's touches) still passes evidence.authorized_batch and evidence=evidence.commitment_evidence, so test_budget_receipt_commit_and_replay and test_budget_requires_requested_commitment fail with AttributeError on authorized_batch (21 other tests pass)."
+assumption = "x402_rpc.py:236 already calls the new shape; x402_agent.py is the last caller and joins the task's touches."
+severity = "medium"
+
+[finding.18.1484.1.1]
+task = "18.1484.1"
+file = "tools/bringup/check-live.sh:3213"
+symbol = "check_relay"
+observed = "attempt 1 (f41ad6256) rewrote check_relay and the harness, but the comment block above the function (:3213-3220) still names the deleted relay env template path and the hosted services it used to walk, so the verify's first clause (no services/platform/relay_archive/ mention in either file) exits 1 and the harness never runs."
+assumption = "the comment block is rewritten to describe the CHECK_LIVE_RELAY_ORIGIN form; the function body of the attempt stands."
+severity = "minor"
+
+[finding.18.1485.1.1]
+task = "18.1485.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:610"
+symbol = "bound_activity"
+observed = "attempt 1 (48e87d7e9) fails to build layerx-human-service at the base: task 9.24.9 (1c029af18) added ConstructMethod::ProgramCall to services/agent/crates/layerx-crypto/src/disclosure/call.rs:9 and the bound_activity match of create.rs:610-683 has no arm for it (E0004), so every human-workspace task is red until the arm lands."
+assumption = "one task (9.100.2) owns the arm, as 9.99.2 owned the AuthLifecycle arm (decision 2146); every pending task whose verify runs services/human/Cargo.toml requires it."
+severity = "major"
+
+[finding.18.1487.1.1]
+task = "18.1487.1"
+file = "sdk/platform/pipeline.kvx"
+symbol = "drift_gate"
+observed = "attempt 1 (f0add4331) fails the --check verify with 'stale generated SDKs: schema agent-api at services/agent/schema/agent-api changed after the last generation': tasks 18.1435.1 (f64c4ec41) and 18.1456.1 (16e9b1e3f) changed the agent-api schema and neither ran make platform-sdk-generate, so the digest recorded in sdk/platform/pipeline.kvx no longer matches the schema and every --check fails at the base; the generator change of this task would also move the generator digest."
+assumption = "this task regenerates: it runs make platform-sdk-generate after its generator change and commits sdk/platform/pipeline.kvx with every regenerated output, so --check passes against the committed state."
+severity = "major"
+
+[finding.20.2.2.1]
+task = "20.2.2"
+file = "precompiles/layerxchains/layerxchains_test.go:58"
+symbol = "newChainsHarness"
+observed = "attempt 1 (1d57a01a1) panics in every test from the harness: it sets evmParams.MinimumFeePerGas to 1000000000 and EvmKeeper.SetParams refuses it because MaxMinFeePerGas is 67000000 (modules/evm/types/params.go:55, :286); the four tests never run."
+assumption = "the harness keeps the EVM params it reads from the test app and sizes the chain's funding from GetNextBaseFeePerGas as the ante test of 20.3.1 does; the precompile code of the attempt stands."
+severity = "medium"
+
+[finding.20.3.1.1]
+task = "20.3.1"
+file = "node/ante/evm_checktx_domain_test.go:45"
+symbol = "signedDomainTx"
+observed = "attempt 1 verified at e98728ebb, where the legacy zero case built its signer with LatestSignerForChainID(0), which panics 'invalid chainID 0' in the EVM library; the attempt then repaired the helper (FrontierSigner for the legacy case, chain id 125 for the typed zero case) at efbea67f but had no verify run left, so the bundle head is unqualified."
+assumption = "the repair at efbea67f is the fix; the next attempt continues from it and runs the verify."
+severity = "minor"
+
+[finding.18.1471.1.1]
+task = "18.1471.1"
+file = "modules/layerxanchor/bringup_genesis_test.go:25"
+symbol = "TestBringUpAnchorGenesisValidates"
+observed = "attempt 1 (739639b18) ports the four vector-loader tests but the package verify (go test ./modules/layerxanchor/...) also runs TestBringUpAnchorGenesisValidates, which executes services/platform/hosted/paxeer/anchor-genesis.py; task 8.14.2 (ec111950d) deleted that script, so the test fails with exit status 2 at the base."
+assumption = "the test is deleted with the script it drove; the anchor genesis is retired."
+severity = "medium"
+
+[finding.18.1471.1.2]
+task = "18.1471.1"
+file = "modules/layerxanchor/module_retired_route_test.go:21"
+symbol = "TestAppRoutesAnchorUpdateParamsRetired"
+observed = "the same verify runs TestAppRoutesAnchorUpdateParamsRetired, which requires the app to route MsgUpdateParams; task 5.7.1 (ae2beed63) removed the anchor module from the application's module manager (node/app.go keeps only the AppModuleBasic at :304), so MsgServiceRouter().Handler returns nil and the test fails at the base."
+assumption = "the test asserts the state 5.7.1 left: the application routes no anchor message, and the keeper's params read still answers; it is renamed accordingly."
+severity = "medium"

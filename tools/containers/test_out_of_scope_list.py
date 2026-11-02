@@ -12,7 +12,6 @@ def test_out_of_scope_omits_consensus_test_dockerfile():
     assert "consensus/test/docker/Dockerfile" not in out_of_scope
     assert out_of_scope == [
         ".devcontainer/Dockerfile",
-        "consensus/networks/local/localnode/Dockerfile",
         "consensus/spec/ivy-proofs/Dockerfile",
         "consensus/test/e2e/docker/Dockerfile",
         "services/explorer/backend/.devcontainer/Dockerfile",

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import test from "node:test";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
@@ -20,6 +21,7 @@ const draw = {
   from: word(0x11), assetId: word(0x22), amount: 25n, grantId: word(0x33), receiverSequence: 1n,
   idempotencyKey: word(0x44), contextHash: word(0x55),
 };
+const asset = word(0x88);
 const payee = word(0x66);
 const keyId = word(0x77);
 const pair = generateKeyPairSync("ed25519");
@@ -29,8 +31,10 @@ const drawnTopic = keccak256(new TextEncoder().encode("PaymentDrawn(bytes32,byte
 
 function offer(scheme = "metered") {
   const accepted = {
-    scheme, network: "eip155:125", amount: "25", asset: hex(draw.assetId), payTo: hex(payee), maxTimeoutSeconds: 120,
-    extra: { layerx: { commitment: "receipted", payer: draw.from.toString("hex"), purposeHash: draw.contextHash.toString("hex"),
+    scheme, network: "eip155:125", amount: "25", asset: hex(asset), payTo: hex(payee), maxTimeoutSeconds: 120,
+    extra: { layerx: { commitment: "receipted", payer: draw.from.toString("hex"),
+      purposeHash: draw.assetId.toString("hex"), contextHash: draw.contextHash.toString("hex"),
+      grant: { grantId: draw.grantId.toString("hex"), asset: hex(asset) },
       ...(scheme === "subscription" ? { windowSeconds: "3600" } : {}) } },
   };
   return { x402Version: 2, resource: { url: "https://seller.example/paid" }, accepts: [accepted],
@@ -91,9 +95,9 @@ function effect(ordinal, kind, body) {
 
 function signedProof(rawTransaction, { grantId = draw.grantId, count = 1, address = LAYERX_LEDGER_ADDRESS,
   topic = drawnTopic, amount = draw.amount, resultCode = 0n, recipient = payee, contextHash = draw.contextHash,
-  idempotencyKey = draw.idempotencyKey, from = draw.from } = {}) {
+  idempotencyKey = draw.idempotencyKey, from = draw.from, paymentAsset = asset } = {}) {
   const txHash = keccak256(bytes(rawTransaction));
-  const logData = Buffer.concat([draw.assetId, uint(amount, 32), idempotencyKey, contextHash]);
+  const logData = Buffer.concat([paymentAsset, uint(amount, 32), idempotencyKey, contextHash]);
   const logBody = Buffer.concat([bytes(address), Buffer.of(4), topic, grantId, from, recipient, sha256(logData)]);
   const summary = Buffer.concat([uint(50000n, 8), uint(50000n, 8), uint(2n, 8), uint(0n, 4), Buffer.alloc(40),
     sha256(Buffer.alloc(0)), uint(0n, 4), uint(BigInt(count), 4), Buffer.of(4), Buffer.from("uhpx")]);
@@ -161,6 +165,7 @@ async function grantHeaderCarriesRawDrawTransaction() {
     assert.equal(await result.response.text(), "paid");
     assert.equal(result.settlement.txHash, hex(keccak256(bytes(rawTransaction))));
     assert.equal(result.settlement.verification.payment.amount, 25n);
+    assert.equal(hex(result.settlement.verification.payment.assetId), hex(asset));
     assert.deepEqual(received.map((payload) => payload.payload),
       [{ rawTransaction, idempotencyKey: draw.idempotencyKey.toString("hex") }]);
   } finally {
@@ -181,10 +186,13 @@ function grantHeaderRefusesAmountMismatch() {
   badSelector[0] ^= 1;
   const overflow = encodeLedgerDraw(draw);
   overflow[132] = 1;
+  const amountOverflow = encodeLedgerDraw(draw);
+  amountOverflow[68] = 1;
   for (const invalid of [
     transaction({ to: bytes("0x000000000000000000000000000000000000101b") }),
     transaction({ chainId: 1n }), transaction({ value: 1n }), transaction({ data: badSelector }),
-    transaction({ data: overflow }), transaction({ data: encodeLedgerDraw(draw).slice(0, -1) }),
+    transaction({ data: overflow }), transaction({ data: amountOverflow }),
+    transaction({ data: encodeLedgerDraw(draw).slice(0, -1) }),
     ...[{ from: word(1) }, { assetId: word(1) }, { contextHash: word(1) }]
       .map((changes) => transaction({ data: encodeLedgerDraw({ ...draw, ...changes }) })),
     "ab".repeat(733), "0x02", rawTransaction.slice(2), `${rawTransaction}f`,
@@ -216,7 +224,7 @@ async function captureGrantSettlementRequiresDrawHash() {
   for (const changes of [{ grantId: word(0xaa) }, { count: 0 }, { count: 2 }, { amount: 24n },
     { address: "0x000000000000000000000000000000000000101b" }, { topic: word(0xbb) },
     { resultCode: 1n }, { recipient: word(0xcc) }, { contextHash: word(0xcc) },
-    { idempotencyKey: word(0xcc) }, { from: word(0xcc) }]) {
+    { idempotencyKey: word(0xcc) }, { from: word(0xcc) }, { paymentAsset: draw.assetId }]) {
     await assert.rejects(middleware.captureGrantSettlement(settlement(signedProof(rawTransaction, changes)), paymentHeader, txHash),
       refuses("verification-failure"));
   }
@@ -240,3 +248,41 @@ async function captureGrantSettlementRequiresDrawHash() {
 test(grantHeaderCarriesRawDrawTransaction);
 test(grantHeaderRefusesAmountMismatch);
 test(captureGrantSettlementRequiresDrawHash);
+
+function grantHeaderUsesPrecompileWordOrder() {
+  // precompiles/layerxledger/abi.json: draw(grantId, recipient, amount,
+  // idempotencyKey, sequence, purposeHash, contextHash).
+  const abi = JSON.parse(readFileSync(new URL("../../../../../precompiles/layerxledger/abi.json", import.meta.url), "utf8"));
+  const definition = abi.find((entry) => entry.type === "function" && entry.name === "draw");
+  assert.deepEqual(definition.inputs.map((input) => input.name),
+    ["grantId", "recipient", "amount", "idempotencyKey", "sequence", "purposeHash", "contextHash"]);
+  const values = { grantId: draw.grantId, recipient: draw.from, amount: uint(draw.amount, 32),
+    idempotencyKey: draw.idempotencyKey, sequence: uint(draw.receiverSequence, 32),
+    purposeHash: draw.assetId, contextHash: draw.contextHash };
+  const signature = `draw(${definition.inputs.map((input) => input.type).join(",")})`;
+  const selector = keccak256(new TextEncoder().encode(signature)).slice(0, 4);
+  const words = definition.inputs.map((input) => values[input.name]);
+  const data = Buffer.concat([selector, ...words]);
+  assert.deepEqual(encodeLedgerDraw(draw), new Uint8Array(data));
+  const required = offer();
+  const accepted = required.accepts[0];
+  const header = grantPaymentHeader(required, accepted, transaction({ data }));
+  assert.equal(decodePaymentPayloadHeader(header).payload.idempotencyKey, draw.idempotencyKey.toString("hex"));
+  for (let left = 0; left < words.length; left += 1) {
+    for (let right = left + 1; right < words.length; right += 1) {
+      const permuted = words.slice();
+      [permuted[left], permuted[right]] = [permuted[right], permuted[left]];
+      const invalid = transaction({ data: Buffer.concat([selector, ...permuted]) });
+      assert.throws(() => grantPaymentHeader(required, accepted, invalid), refuses("requirements-mismatch"),
+        `swapped ${definition.inputs[left].name} and ${definition.inputs[right].name}`);
+    }
+  }
+  for (const grant of [undefined, { ...accepted.extra.layerx.grant, grantId: word(0xaa).toString("hex") },
+    { ...accepted.extra.layerx.grant, asset: hex(word(0xaa)) }]) {
+    const changed = { ...accepted, extra: { layerx: { ...accepted.extra.layerx, grant } } };
+    assert.throws(() => grantPaymentHeader({ ...required, accepts: [changed] }, changed, transaction()),
+      refuses("requirements-mismatch"));
+  }
+}
+
+test(grantHeaderUsesPrecompileWordOrder);

@@ -29,6 +29,10 @@ fn main() -> ExitCode {
         || PathBuf::from("apps/web/src/api/generated"),
         PathBuf::from,
     );
+    if arguments.next().is_some() {
+        eprintln!("usage: layerx-human-api-gen [--check] [schema-dir] [out-dir]");
+        return ExitCode::FAILURE;
+    }
     if checking {
         match human_api_drift_gate(&root, &out_dir) {
             Ok(generated) => {

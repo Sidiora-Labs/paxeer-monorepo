@@ -1,5 +1,6 @@
 //! Bounded, typed production transport for the Human journey engine.
 
+use layerx_agentd::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
 use layerx_types::clock::Clock;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -2108,14 +2109,7 @@ impl AgentRuntime {
         writer.fixed(&idempotency_key);
         writer.fixed(&expected_activity_id);
         let mut reader = self.exchange(&writer.finish())?;
-        let found = reader.u8()?;
-        let value = match found {
-            0 => ReceiptLookup::Absent,
-            1 => ReceiptLookup::Found(decode_receipt(&mut reader)?),
-            _ => return Err(AgentBoundaryError::CorruptResponse),
-        };
-        reader.finish()?;
-        Ok(value)
+        decode_receipt_lookup(&mut reader)
     }
     /// Repeats the authenticated registry negotiation as a live readiness
     /// probe; a lockable adapter is not itself evidence that agentd is alive.
@@ -4263,14 +4257,7 @@ impl AgentBoundary for AgentRuntime {
         writer.fixed(&idempotency_key);
         writer.fixed(&expected_activity_id);
         let mut reader = self.exchange(&writer.finish())?;
-        let found = reader.u8()?;
-        let result = match found {
-            0 => ReceiptLookup::Absent,
-            1 => ReceiptLookup::Found(decode_receipt(&mut reader)?),
-            _ => return Err(AgentBoundaryError::CorruptResponse),
-        };
-        reader.finish()?;
-        Ok(result)
+        decode_receipt_lookup(&mut reader)
     }
 }
 
@@ -4471,35 +4458,49 @@ fn decode_optional_receipt(
     }
 }
 
+fn decode_receipt_lookup(reader: &mut Reader) -> Result<ReceiptLookup, AgentBoundaryError> {
+    let answer = ReceiptLookupAnswer::decode(&reader.bytes[reader.offset..])
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+    reader.offset = reader.bytes.len();
+    match answer {
+        ReceiptLookupAnswer::Absent => Ok(ReceiptLookup::Absent),
+        ReceiptLookupAnswer::Submitted { tx_hash, nonce } => {
+            Ok(ReceiptLookup::Submitted { tx_hash, nonce })
+        }
+        ReceiptLookupAnswer::Found(frame) => receipt_material(frame).map(ReceiptLookup::Found),
+    }
+}
+
 fn decode_receipt(reader: &mut Reader) -> Result<ReceiptMaterial, AgentBoundaryError> {
-    let canonical_bytes = reader.bytes()?;
-    let authorised_batch = AuthorizedBatch::new(
-        reader.fixed::<32>()?,
-        reader.fixed::<32>()?,
-        reader.fixed::<32>()?,
-        reader.fixed::<32>()?,
-        reader.fixed::<32>()?,
-    );
-    let verification_level = match reader.u8()? {
-        1 => VerificationLevel::SEQUENCER_SIGNED,
-        2 => VerificationLevel::BATCH_INCLUDED,
-        3 => VerificationLevel::STATE_PROVEN,
-        4 => VerificationLevel::CHECKPOINT_FINALISED,
-        5 => VerificationLevel::SETTLEMENT_ANCHORED,
-        _ => return Err(AgentBoundaryError::CorruptResponse),
-    };
-    let tx_hash = reader.fixed::<32>()?;
-    let receipt_hash = reader.fixed::<32>()?;
-    let block_height = reader.u64()?;
-    let rung = decode_rung(reader.u8()?)?;
-    let signed_receipt = reader.bytes()?;
+    let mut decoder = layerx_wire::decode::Decoder::new(&reader.bytes[reader.offset..], MAX_BYTES);
+    let frame = ReceiptLookupFrame::decode_from(&mut decoder)
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+    reader.offset += decoder.offset();
+    receipt_material(frame)
+}
+
+fn receipt_material(frame: ReceiptLookupFrame) -> Result<ReceiptMaterial, AgentBoundaryError> {
+    let ReceiptLookupFrame {
+        canonical_bytes,
+        authorised_batch,
+        verification_level,
+        tx_hash,
+        receipt_hash,
+        block_height,
+        rung,
+        signed_receipt,
+        receipt_key_id,
+        public_key,
+        first_height,
+        last_height,
+        inclusion_height,
+    } = frame;
     let receipt_key = crate::journeys::ReceiptKeyEntry {
-        key_id: reader.fixed()?,
-        public_key: reader.fixed()?,
-        first_height: reader.u64()?,
-        last_height: reader.u64()?,
+        key_id: receipt_key_id,
+        public_key,
+        first_height,
+        last_height,
     };
-    let inclusion_height = reader.u64()?;
     if rung < Rung::Receipted
         || signed_receipt != canonical_bytes
         || inclusion_height == 0

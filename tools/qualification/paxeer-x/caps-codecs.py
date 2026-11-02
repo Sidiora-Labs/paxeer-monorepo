@@ -13,6 +13,27 @@ import shutil
 sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parents[3]
+TEST_SOURCES = {
+    'client': ROOT / 'services/agent/crates/layerx-client/tests/committed_caps.rs',
+    'agentd': ROOT / 'services/agent/crates/layerx-agentd/tests/budget_schema.rs',
+}
+
+
+def qualification_counts(test_sources, native_vectors):
+    counts = {}
+    for name, source in test_sources.items():
+        count = len(re.findall(r'^\s*#\[test\]\s*$', source.read_text(), re.M))
+        if not count:
+            raise RuntimeError('missing test cases in source: ' + name)
+        counts[name] = count
+    if isinstance(native_vectors, dict):
+        native_vectors = {name: value for name, value in native_vectors.items()
+                          if name not in ('producer', 'budget_key')}
+    elif not isinstance(native_vectors, list):
+        raise ValueError('native vectors must be an object or array')
+    if not native_vectors:
+        raise RuntimeError('missing native vectors')
+    return {'test_groups': counts, 'native_vectors': len(native_vectors)}
 
 
 def codec_gate(runtime):
@@ -39,6 +60,7 @@ def codec_gate(runtime):
     native = json.loads(vectors.read_text())
     if native.get('producer') != 'native-budget-codec-and-grant-save':
         raise RuntimeError('unexpected native producer contract')
+    expected = qualification_counts(TEST_SOURCES, native)
     native_inputs = Path('/tmp/caps-native')
     native_inputs.mkdir(mode=0o755)
     for name, artifact in manifest['authority_binaries'].items():
@@ -62,10 +84,10 @@ def codec_gate(runtime):
         if result.returncode:
             raise RuntimeError(name + ' test exit ' + str(result.returncode))
         match = re.search(r'test result: ok\. (\d+) passed; 0 failed; 0 ignored;', result.stdout)
-        if not match or int(match[1]) != {'client': 4, 'agentd': 5}[name]:
+        if not match or int(match[1]) != expected['test_groups'][name]:
             raise RuntimeError('missing cases or skipped tests: ' + name)
         counts[name] = int(match[1])
-    record = {'revision': revision, 'exit_code': 0, 'tests': sum(counts.values()), 'test_groups': counts, 'native_vectors': 6, 'skipped': 0, 'claim': 'canonical codecs and existing reconciliation compatibility only'}
+    record = {'revision': revision, 'exit_code': 0, 'tests': sum(counts.values()), 'test_groups': counts, 'native_vectors': expected['native_vectors'], 'skipped': 0, 'claim': 'canonical codecs and existing reconciliation compatibility only'}
     path = output / 'gate-result.json'
     path.write_text(json.dumps(record, indent=2) + '\n')
     path.chmod(0o600)

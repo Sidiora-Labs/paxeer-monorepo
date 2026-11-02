@@ -121,14 +121,7 @@ case "$role" in
         ;;
     agent)
         copy_material ca.der
-        if [ -n "${LAYERX_AGENT_GENESIS_TRUST:-}${LAYERX_AGENT_HANDOVER_FINALITY:-}" ]; then
-            [ "$LAYERX_AGENT_GENESIS_TRUST" = "$private/genesis-handover-trust.lxt" ]
-            [ "$LAYERX_AGENT_HANDOVER_FINALITY" = "$private/handover-finality.conf" ]
-            copy_material genesis-handover-trust.lxt
-            copy_material handover-finality.conf
-        fi
         copy_material session-operator
-        copy_material trust-history
         test -d /run/human-material/journal
         mkdir -p "$private/journal"
         chmod 0700 "$private/journal"

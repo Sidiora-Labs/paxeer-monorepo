@@ -13296,3 +13296,88 @@ fix = "Before declaring --test <name>, check that tests/<name>.rs or tests/<name
 title = "A --locked build of a standalone qualification package needs a committed Cargo.lock"
 symptom = "services/agent/qualification/pay2 had no Cargo.lock on main; `cargo build --locked` failed before compiling anything."
 fix = "When a task declares --locked against a manifest outside the main workspaces, confirm the lock file exists on main or make the task generate and commit it."
+
+[gotcha.2696]
+title = "go build of a tree whose cgo packages link make-built archives fails in the linker; prove compilation with go vet"
+symptom = "A gate that ran `go build ./daemon/...` failed with `cannot find -llayerx` because modules/lxphost declares LDFLAGS against build/ and programs/target/, which only make produces."
+fix = "Use `go vet <tree>` to type-check and compile cgo without linking, as the daemon build commands already do; reserve go build for trees with no cgo archive dependency or for a verify that runs make first."
+
+[gotcha.2697]
+title = "A deleted exported SDK type can have consumers outside the services tree; grep tools/ and apps/ before deleting"
+symptom = "9.25.17 deleted three rpc_verification types after grepping services/agent; tools/platform/cli/src/wallet.rs constructed them at eight sites and the CLI stopped compiling for every later task."
+fix = "Before a task deletes an exported item, grep the whole repository for its path and name, and list each consumer workspace in the task's do items or in a follow-up task that the deletion task requires."
+
+[gotcha.2698]
+title = "Explorer unit tests are *.spec.ts under vitest, not *.test.ts"
+symptom = "A new apps/explorer test file named *.test.ts is never collected: apps/explorer/vitest.config.ts:18 includes only **/*.spec.ts and **/*.spec.tsx, and the package has no jest."
+fix = "Name explorer unit tests *.spec.ts and run them with yarn --cwd apps/explorer vitest run <file>; the playwright scripts (test:pw) are for component screenshots only."
+
+[gotcha.2699]
+title = "Launchpad vitest collects src/**/*.test.ts(x) only"
+symptom = "A verify naming a node:test *.test.mjs file under apps/launchpad/web exits 1 with 'No test files found': apps/launchpad/web/vitest.config.ts:11 includes only src/**/*.test.ts and src/**/*.test.tsx, and the existing creation-domain.test.mjs is not part of any verify."
+fix = "Name launchpad unit tests *.test.ts or *.test.tsx and run them with pnpm --dir apps/launchpad/web exec vitest run <file>."
+
+[gotcha.2700]
+title = "Human-service tests that panic 'agent runtime peer: Unavailable' in 0.00s are missing the runtime clock"
+symptom = "AgentRuntime::new and connect read RuntimeClock::from_environment (services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2141, :2204) and map its absence to AgentBoundaryError::Unavailable, so every test that builds a runtime fails instantly when the clock is not running."
+fix = "Run human-workspace cargo tests through sh tools/runtime/run-with-clock.sh as the Makefile does (Makefile:1640, :1679); only --no-run invocations may stay bare."
+
+[gotcha.2701]
+title = "An explorer type check run with yarn --cwd resolves -p against the package"
+symptom = "yarn --cwd apps/explorer tsc --noEmit -p apps/explorer/tsconfig.json fails with TS5058 'The specified path does not exist' because tsc runs inside apps/explorer and looks for apps/explorer/apps/explorer/tsconfig.json."
+fix = "Write the project path relative to the package: yarn --cwd apps/explorer tsc --noEmit -p tsconfig.json."
+
+[gotcha.2702]
+title = "cargo build --tests compiles every test target of the crate, including files the task never touches"
+symptom = "A build_cmd of cargo build -p <crate> --tests fails on a pre-existing compile error in an unrelated tests/*.rs file (9.35.11 attempt 3 failed on tests/native_journey_approval.rs:233 and tests/support/canonical_owner.rs:190, neither in its touches)."
+fix = "Before declaring a --tests build, confirm every test target of the crate compiles on main or make the task require the task that repairs the broken target; when a build fails outside the touches, record the finding and add the requirement rather than widening the task."
+
+[gotcha.2703]
+title = "A retirement test that asserts a symbol absent from the kernel archive needs every task that deletes a definer of that symbol"
+symptom = "1.32.1 attempt 1 deleted src/paxeer/lxp_checkpoint_cert.c and still found lxp_guarantor_attestation_verify in build/liblayerx.a because src/guarantor/lxp_attestation.c (deleted by 1.31.1, which landed later) defined it too; 1.32.1 did not require 1.31.1."
+fix = "When a task's test asserts symbols absent from an archive, grep the whole source tree for every definer and add each deleting task to requires."
+
+[gotcha.2704]
+title = "Completion gates must skip retire interfaces a later decision keeps"
+symptom = "5.0.9 attempt 1 inventoried every retire-status interface of its domain and failed on the two LayerXAnchorStoreKey entries that decision 1954 keeps until the anchor-store-delete step; the gate was asserting against the design, not the code."
+fix = "Before writing a completion gate, set each superseded interface to status keep in interfaces.kvx with a notes line naming the decision, and size the inventory on the remaining retire entries (decision 2278)."
+
+[gotcha.2705]
+title = "k256 is not a dependency of the platform CLI"
+symptom = "A CLI change that calls k256::ecdsa::SigningKey directly fails the build with E0433 'unresolved module or unlinked crate k256': tools/platform/cli/Cargo.toml lists layerx-crypto, not k256."
+fix = "Sign EIP-1559 calls through layerx_crypto::evm_transaction::Eip1559Call::sign and derive addresses with layerx_crypto::secp256k1::evm_address, as wallet_signing::EvmSigningKey does."
+
+[gotcha.2706]
+title = "Retired env names survive on purpose in refusal lists"
+symptom = "A search for a retired setting's bare name finds refuse_retired_environment in the agent daemon, RETIRED_VARIABLES in the boundary harness and the host test asserting the refusal; none of them reads the setting."
+fix = "Judge an env_var retirement by the absence of std::env::var and var_os reads outside the refusal list (decision 2279); a test that still sets a retired name before asserting a later required-variable error cannot pass and must drop the setting."
+
+[gotcha.2707]
+title = "A node verify that imports workspace packages lists their builds in dependency order"
+symptom = "Three tasks failed with ERR_MODULE_NOT_FOUND on dist entries of @sidiora packages their tests imported directly or through a support module; the workspace was installed but nothing built, and one build was not enough when the imported package itself depended on another unbuilt one."
+fix = "Prefix the verify with npm --prefix <package> run build for every imported package and its dependencies, ordered SDK, seller, buyer and merchant middleware, agent middleware, then integrations (decision 2282)."
+
+[gotcha.2708]
+title = "Adding a variant to ConstructMethod breaks every exhaustive match in the human service"
+symptom = "A task added ConstructMethod::ProgramCall in layerx-crypto and its gates built the agent workspace; the human service's bound_activity match was non-exhaustive (E0004) and no human-workspace task could build until an arm landed."
+fix = "A task that adds a variant to a cross-workspace enum lists every exhaustive match in every workspace (grep 'ConstructMethod::' under services/) and adds the arm, or spawns the arm task before it qualifies; the human-workspace tasks then require that task."
+
+[gotcha.2709]
+title = "A schema change without make platform-sdk-generate fails every later --check at the base"
+symptom = "Two tasks changed the agent-api schema; sdk/platform/pipeline.kvx kept the old digest and the drift gate reported stale generated SDKs for every unrelated generator task afterwards."
+fix = "Run make platform-sdk-generate in the task that changes a schema or generator and commit pipeline.kvx with the outputs; the first task that meets the stale gate absorbs the regeneration."
+
+[gotcha.2710]
+title = "A Go EVM test harness cannot raise MinimumFeePerGas above the module maximum"
+symptom = "A precompile harness set MinimumFeePerGas to 1 gwei and EvmKeeper.SetParams panicked 'min fee per gas ... exceeds maximum 67000000' before any test body ran."
+fix = "Keep the EVM params the test app provides and size funding from GetNextBaseFeePerGas; MaxMinFeePerGas is 67000000 (modules/evm/types/params.go:55)."
+
+[gotcha.2711]
+title = "LatestSignerForChainID(0) panics; legacy transactions sign with FrontierSigner"
+symptom = "An ante test built a chain-id-zero legacy transaction through LatestSignerForChainID and the EVM library panicked 'invalid chainID 0'."
+fix = "Sign pre-EIP-155 cases with ethtypes.FrontierSigner{} and give typed transactions a real chain id; a repair made after the last verify run is unqualified until the next attempt reruns the verify."
+
+[gotcha.2712]
+title = "A package verify of ./modules/<x>/... runs every test of the package, including ones broken at the base"
+symptom = "A task that ported four tests was failed by two others in the same package that had been broken since earlier tasks deleted the module from the app and removed the script they drove."
+fix = "Before naming a package-wide verify, run the package once at the base and claim the pre-existing failures in the task (fix, delete with reason, or record a finding); a package-wide verify is a statement about the whole package."

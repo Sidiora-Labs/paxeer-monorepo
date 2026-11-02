@@ -1,4 +1,19 @@
 from .agent_http import AgentHttpTransport, LayerXKeyCredential, ProgramBoundaryError
+from .chains import (
+    CHAINS_EVENT_SIGNATURES,
+    CHAINS_EVENT_TOPICS,
+    CHAINS_PRECOMPILE,
+    CHAINS_SELECTORS,
+    CHAINS_SIGNATURES,
+    ChainsClient,
+    chain_rpc_url,
+    chains_call,
+    decode_chains_call,
+    decode_chains_event,
+    decode_chains_params,
+    decode_get_chain,
+    virtual_chain_id,
+)
 from .generated.client import (
     APPROVAL_CONTRACT_INTRODUCED,
     APPROVAL_DECISION_OUTCOMES,
@@ -295,6 +310,19 @@ from .x402_rpc import (
 from . import ai_market
 
 __all__ = [
+    "CHAINS_PRECOMPILE",
+    "CHAINS_SIGNATURES",
+    "CHAINS_SELECTORS",
+    "CHAINS_EVENT_SIGNATURES",
+    "CHAINS_EVENT_TOPICS",
+    "ChainsClient",
+    "chains_call",
+    "decode_chains_call",
+    "decode_get_chain",
+    "decode_chains_params",
+    "decode_chains_event",
+    "virtual_chain_id",
+    "chain_rpc_url",
     "ai_market",
     "AGENT_OPERATIONS",
     "APPROVAL_CONTRACT_INTRODUCED",
