@@ -95,6 +95,8 @@ func (s *ReceiptSource) Record(hash common.Hash, send evmrpc.SequencerSend) {
 }
 
 // SequencerSend returns an owned copy of the recorded send, or nil for an unknown hash.
+// Each lookup reads the current record; modifying a returned send cannot change
+// what the RPC consumer decodes on its next lookup.
 func (s *ReceiptSource) SequencerSend(hash common.Hash) (*evmrpc.SequencerSend, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

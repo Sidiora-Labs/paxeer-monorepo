@@ -49,11 +49,11 @@ class MaterialTests(unittest.TestCase):
             os.link(protected, Path(directory) / 'hardlink.json')
             with self.assertRaises(ValueError):
                 material.protected_json(protected)
-            with self.assertRaises(FileNotFoundError):
+            with self.assertRaisesRegex(ValueError, r'protected producer file unavailable: components\.json$'):
                 material.assemble_policy(Path(directory), Path(directory) / 'missing-deployment.json',
                                          Path(directory) / 'missing-registry.json',
-                                         Path(directory) / 'output.json', 402, 31337)
-            self.assertFalse((Path(directory) / 'output.json').exists())
+                                         root / 'policy.json', 402, 31337)
+            self.assertFalse((root / 'policy.json').exists())
 
     def test_custody_bindings_resolve_to_the_native_custody_precompile(self):
         import re
@@ -61,6 +61,13 @@ class MaterialTests(unittest.TestCase):
 
         precompile = '0x0000000000000000000000000000000000001013'
         self.assertEqual(material.CUSTODY_PRECOMPILE, precompile)
+
+        required_inputs = ('PAXEER_X_HUMAN_EVIDENCE_DIR', 'PAXEER_X_HUMAN_DEPLOYMENT',
+                           'PAXEER_X_MODULE_REGISTRY', 'PAXEER_X_HUMAN_GENESIS_DIR',
+                           'PAXEER_X_HUMAN_LEGACY_DEPLOYMENT')
+        missing = [name for name in required_inputs if not os.environ.get(name)]
+        if missing:
+            self.skipTest('operator evidence inputs are not set: ' + ' '.join(missing))
 
         def required_path(name, directory=False):
             raw = os.environ.get(name)
@@ -141,6 +148,49 @@ class MaterialTests(unittest.TestCase):
             for name in ('vault', 'withdrawal_claims', 'emergency_exit'):
                 self.assertNotIn(deployed[name].lower(), written)
 
+    def test_custody_components_resolve_to_the_native_custody_precompile(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            material.protected_file(root, 0o700)
+            legacy = {'network_id': 402, 'chain_id': 31337, 'addresses': {
+                'checkpoint_registry': '0x0000000000000000000000000000000000001001',
+                'vault': '0x0000000000000000000000000000000000002001',
+                'withdrawal_claims': '0x0000000000000000000000000000000000002002',
+                'emergency_exit': '0x0000000000000000000000000000000000002003'}}
+            native = dict(legacy, addresses=dict(legacy['addresses'], **{
+                name: material.CUSTODY_PRECOMPILE
+                for name in ('vault', 'withdrawal_claims', 'emergency_exit')}))
+            for name, deployment in (('native', native), ('legacy', legacy)):
+                material.write_bytes(root / (name + '.json'), json.dumps(deployment).encode())
+            native = material.protected_json(root / 'native.json')
+            legacy = material.protected_json(root / 'legacy.json')
+            self.assertEqual((native['network_id'], native['chain_id']),
+                             (legacy['network_id'], legacy['chain_id']))
+            for name, deployment in (('native', native), ('legacy', legacy)):
+                with self.subTest(deployment=name):
+                    policy = {'components': {
+                        'PAXEER_EXIT_CONTRACT': legacy['addresses']['emergency_exit'],
+                        'PAXEER_WITHDRAWAL_CLAIMS_CONTRACT': legacy['addresses']['withdrawal_claims']},
+                        'movement': {'PAXEER_VAULT': legacy['addresses']['vault'],
+                                     'PAXEER_CLAIMS_CONTRACT': legacy['addresses']['withdrawal_claims'],
+                                     'PAXEER_EXIT_CONTRACT': legacy['addresses']['emergency_exit']}}
+                    material.resolve_custody_components(policy, deployment)
+                    for key in ('PAXEER_EXIT_CONTRACT', 'PAXEER_WITHDRAWAL_CLAIMS_CONTRACT'):
+                        self.assertEqual(policy['components'][key], material.CUSTODY_PRECOMPILE)
+                    for key in ('PAXEER_VAULT', 'PAXEER_CLAIMS_CONTRACT', 'PAXEER_EXIT_CONTRACT'):
+                        self.assertEqual(policy['movement'][key], material.CUSTODY_PRECOMPILE)
+                    self.assertEqual(policy['movement']['PAXEER_CHECKPOINT_REGISTRY'],
+                                     native['addresses']['checkpoint_registry'])
+                    for key in ('vault', 'withdrawal_claims', 'emergency_exit'):
+                        self.assertNotIn(legacy['addresses'][key], json.dumps(policy))
+            for checkpoint in ('0x' + '0' * 40, 'invalid', None):
+                with self.subTest(checkpoint=checkpoint):
+                    policy = {'components': {}, 'movement': {}}
+                    with self.assertRaisesRegex(ValueError, 'deployed checkpoint registry$'):
+                        material.resolve_custody_components(
+                            policy, {'addresses': {'checkpoint_registry': checkpoint}})
+                    self.assertEqual(policy, {'components': {}, 'movement': {}})
+
     def test_passkey_relying_party_follows_the_deployed_web_origin(self):
         self.assertEqual(material.passkey_relying_party(''),
                          ('paxportwallet.com', 'https://paxportwallet.com'))
@@ -186,7 +236,7 @@ class MaterialTests(unittest.TestCase):
         self.assertIn('openssl genpkey -algorithm ed25519 -out "$d/explorer-read.key"', cluster)
         self.assertNotIn('LAYERX_BETA_EXPLORER_READ', cluster)
         self.assertNotIn('LAYERX_BETA_EXPLORER_READ', provision)
-        published = next(line + following for line, following in zip(cluster.splitlines(), cluster.splitlines()[1:])
+        published = next(line for line in cluster.replace('\\\n', '').splitlines()
                          if 'apply_secret "$ns" layerx-explorer-index ' in line)
         self.assertIn('--from-file=program-token="$s/explorer-program.token"', published)
         self.assertIn('--from-file=read-key="$s/explorer-read.seed.hex"', published)
@@ -223,14 +273,21 @@ class MaterialTests(unittest.TestCase):
         self.assertIn({'protocol': 'TCP', 'port': 9443}, bridge['spec']['ingress'][0]['ports'])
 
     def test_bootstrap_has_no_unpublished_human_secret_dependencies(self):
+        deployment = ROOT / 'services/platform/hosted/node/deployment.yaml'
+        declared = next(d for d in yaml.safe_load_all(deployment.read_text()) if d['kind'] == 'StatefulSet')
+        self.assertFalse(any(c['name'].startswith('guarantor')
+                             for c in declared['spec']['template']['spec']['containers']))
+        expected = {c['name'] for c in declared['spec']['template']['spec']['containers']
+                    if c['name'] not in {'human', 'components'} and not c['name'].startswith('human-')}
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / 'node.yaml'
             subprocess.run([sys.executable, str(HERE / 'bootstrap.py'),
-                            str(ROOT / 'services/platform/hosted/node/deployment.yaml'), str(output)], check=True)
+                            str(deployment), str(output)], check=True)
             stateful = next(d for d in yaml.safe_load_all(output.read_text()) if d['kind'] == 'StatefulSet')
             pod = stateful['spec']['template']['spec']
             self.assertIn('layerxd', {c['name'] for c in pod['containers']})
-            self.assertTrue({'guarantor-1', 'guarantor-2'} <= {c['name'] for c in pod['containers']})
+            self.assertEqual({c['name'] for c in pod['containers']}, expected)
+            self.assertFalse(any(c['name'].startswith('guarantor') for c in pod['containers']))
             self.assertFalse(any(c['name'].startswith('human') for c in pod['containers']))
             self.assertFalse(any(v.get('secret', {}).get('secretName', '').startswith('layerx-human-')
                                  for v in pod['volumes']))

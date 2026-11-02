@@ -185,6 +185,13 @@ func answer(w http.ResponseWriter, body any, err error) {
 const txQuery = `SELECT ` + actionColumns + ` FROM perps.tx_actions WHERE tx_hash = $1
     ORDER BY tx_index, log_index, sub`
 
+// TransactionDetail is the stored action list of GET /api/chain/tx/<hash>.
+type TransactionDetail struct {
+	Hash         string        `json:"hash"`
+	Link         string        `json:"link,omitempty"`
+	Transactions []Transaction `json:"transactions"`
+}
+
 // tx answers the stored tx_actions rows of a transaction or synthetic
 // receipt; it never asks the node, so a synthetic receipt hash renders from
 // the rows alone.
@@ -209,11 +216,7 @@ func (s *Server) tx(w http.ResponseWriter, r *http.Request) {
 	for i, row := range rows {
 		txs[i] = row.tx
 	}
-	body := struct {
-		Hash         string        `json:"hash"`
-		Link         string        `json:"link,omitempty"`
-		Transactions []Transaction `json:"transactions"`
-	}{hash.Hex(), s.ex.TxLink(hash), txs}
+	body := TransactionDetail{Hash: hash.Hex(), Link: s.ex.TxLink(hash), Transactions: txs}
 	writeRows(w, body)
 }
 

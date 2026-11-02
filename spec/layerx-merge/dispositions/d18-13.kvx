@@ -1,0 +1,149 @@
+[disposition.18.1151.1.7]
+finding = "18.1151.1.7"
+status = "resolved"
+evidence = "2a426ffcc added the PayBudgetFund handling, which remains in services/human/crates/layerx-human-service/src/agents/create.rs:497 and services/human/crates/layerx-human-service/src/agents/create.rs:638, eliminating the missing match arms of the old base."
+follow_up = "closure"
+
+[disposition.18.670.1.12]
+finding = "18.670.1.12"
+status = "resolved"
+evidence = "a5b872224 changed recordReceiptLogs to use the height and execution returned by Accept, and rpc/send.go:345 now validates and records that accepted receipt without rereading PendingContext after a seal."
+follow_up = "closure"
+
+[disposition.18.1151.1.8]
+finding = "18.1151.1.8"
+status = "resolved"
+evidence = "e799e1b54 ported the wallet test to EIP-1559 actions, with authorize_send_transaction at services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:303 and the six-argument start_kernel_journey followed by submission-record assertions at services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:1272."
+follow_up = "closure"
+
+[disposition.18.1156.1.8]
+finding = "18.1156.1.8"
+status = "resolved"
+evidence = "29ec808cc removed the SponsoredRegistration and owner-envelope consumers of the KMS digest signatures, while services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:128 now constructs an EVM signing request and verifies its returned digest signature at services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:140."
+follow_up = "closure"
+
+[disposition.18.670.1.13]
+finding = "18.670.1.13"
+status = "resolved"
+evidence = "88e4603c6 added consensus mempool admission before sealing, and consensus/internal/state/execution.go:269 now reaps transactions and calls sequencer.Admit before sequencer.Seal so feed broadcasts can enter sequenced proposals."
+follow_up = "closure"
+
+[disposition.18.670.1.14]
+finding = "18.670.1.14"
+status = "resolved"
+evidence = "02b17a1e8 made pendingBaseFee return no pending fee on ErrLayerNotOpen, and rpc/info.go:423 and rpc/info.go:430 retain the committed-fee fallback during the seal-to-open window."
+follow_up = "closure"
+
+[disposition.18.1337.1.1]
+finding = "18.1337.1.1"
+status = "resolved"
+evidence = "707178ae7 updated the wallet live-check fixture alongside the judges, and tests/wallet/check-live.test.sh:109 now serves px_getAccount with the current account answer instead of the retired lx_getAccount method."
+follow_up = "closure"
+
+[disposition.18.1312.1.1]
+finding = "18.1312.1.1"
+status = "superseded"
+evidence = "1c81ed369 retired budgetPull and replaced TestBudgetPullWithPayerGrant with TestBudgetPullIsRetired in modules/layerxpay/keeper/budget_pull_test.go:59, removing both ReadPayerGrant calls with the retired payer-grant success surface."
+follow_up = "closure"
+
+[disposition.18.1326.1.1]
+finding = "18.1326.1.1"
+status = "resolved"
+evidence = "dea3bf5de added the missing method, and node/sequencer_seams_test.go:25 now declares seamsSequencerSource.Admit with the required context, height and transaction parameters."
+follow_up = "closure"
+
+[disposition.18.1382.1.1]
+finding = "18.1382.1.1"
+status = "environment"
+evidence = "The link failure came from absent generated native libraries in the qualification environment, and spec/layerx-merge/spec.kvx:215604 now explicitly runs make paxd-native-libs before the Go producer in rpc/names_proof_test.go:52 and the TypeScript check."
+follow_up = "closure"
+
+[disposition.18.1317.1.1]
+finding = "18.1317.1.1"
+status = "resolved"
+evidence = "a0a9db256 introduced HOST_STORE_NAME as lxphost in programs/crates/layerx-programs-registry/src/chain_evidence.rs:7, and programs/crates/layerx-programs-registry/src/chain_evidence/verify_bundle.rs:175 validates the bundle against that constant instead of layerx."
+follow_up = "closure"
+
+[disposition.18.1376.1.1]
+finding = "18.1376.1.1"
+status = "resolved"
+evidence = "7d75cce51 removed the obsolete account_proof access, and services/platform/hosted/core/src/public_reads.rs:497 now serializes bundle.landing_block through landing_block_json."
+follow_up = "closure"
+
+[disposition.18.1331.1.1]
+finding = "18.1331.1.1"
+status = "resolved"
+evidence = "da7c2d5dd explicitly mapped the WireError before applying the question-mark operator, and tools/platform/cli/tests/wallet_estimate_fee.rs:364 now loads the retired kernel-envelope rejection input from its conformance fixture without calling encode_unsigned_envelope."
+follow_up = "closure"
+
+[disposition.18.1271.1.1]
+finding = "18.1271.1.1"
+status = "resolved"
+evidence = "63961a63d replaced propagation of VerifyError with the explicit match at services/human/crates/layerx-human-kms/tests/attestor.rs:1048 and passed the payload slice directly at services/human/crates/layerx-human-kms/tests/provider.rs:776, removing both reported type errors."
+follow_up = "closure"
+
+[disposition.18.1408.1.2]
+finding = "18.1408.1.2"
+status = "resolved"
+evidence = "3260f6253 changed the planned-task subset rule to include dropped selectors at spec/layerx-merge/programme/tests/test_parity_rows.py:202 and permits planned selectors whose files are absent at spec/layerx-merge/programme/tests/test_parity_rows.py:215."
+follow_up = "closure"
+
+[disposition.18.1311.1.1]
+finding = "18.1311.1.1"
+status = "resolved"
+evidence = "bc533a9cd replaced the missing recorded-receipt lookup with a signed PayerGrantIssued receipt constructed from the new grant at services/agent/crates/layerx-mcp/src/tools/web.rs:2353, so the distinct-account test no longer needs an extra metered.json recording."
+follow_up = "closure"
+
+[disposition.18.1392.1.1]
+finding = "18.1392.1.1"
+status = "resolved"
+evidence = "7d2c6993d added the budget creation and funding cases to validate_call, which now encodes budgetCreate at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:50 and budgetFund at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:69."
+follow_up = "closure"
+
+[disposition.18.1311.1.2]
+finding = "18.1311.1.2"
+status = "resolved"
+evidence = "bc533a9cd signs the encoded issue receipt with the test sequencer key at services/agent/crates/layerx-mcp/src/tools/web.rs:2366 and trusts that same key at services/agent/crates/layerx-mcp/src/tools/web.rs:2518, binding its transaction hash and authenticated PayerGrantIssued log through the unchanged check_grant verifier."
+follow_up = "closure"
+
+[disposition.18.1408.1.3]
+finding = "18.1408.1.3"
+status = "resolved"
+evidence = "3260f6253 added the declaration-aware retirement rule at spec/layerx-merge/programme/tests/test_parity_rows.py:216, allowing planned dropped tests whose functions no longer exist even when their source file remains."
+follow_up = "closure"
+
+[disposition.18.670.1.15]
+finding = "18.670.1.15"
+status = "resolved"
+evidence = "e82c3d88f added the latest-committed fallback for pending simulation reads at rpc/simulate.go:395, and rpc/watermark_manager.go:108 also resolves the committed height when the sequencer has no open block."
+follow_up = "closure"
+
+[disposition.18.1382.1.2]
+finding = "18.1382.1.2"
+status = "resolved"
+evidence = "c3bd807df committed tests/vectors/names/storage_absence_v1.json, while rpc/names_proof_test.go:213 restricts regeneration to NAMES_WRITE_VECTOR=1 and spec/layerx-merge/spec.kvx:215604 runs the producer without that variable so qualification no longer rewrites the candidate."
+follow_up = "closure"
+
+[disposition.18.1402.1.1]
+finding = "18.1402.1.1"
+status = "resolved"
+evidence = "91b81c303 corrected the catalog and asset digest, now retained as denom:alxp at services/human/crates/layerx-human-service/tests/support/production_fixture.rs:707 and the SHA-256 asset constant at services/human/crates/layerx-human-service/tests/support/production_fixture.rs:138 with its assertion in services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:30."
+follow_up = "closure"
+
+[disposition.18.963.1.1]
+finding = "18.963.1.1"
+status = "resolved"
+evidence = "69c9d5b60 removed Paxify.png and corrected the actual stylesheet, whose greenify backdrop is now none at apps/perps/src/styles/globals.css:933 and whose theme comment specifies a gradient at apps/perps/src/styles/globals.css:631."
+follow_up = "closure"
+
+[disposition.18.670.1.16]
+finding = "18.670.1.16"
+status = "open"
+evidence = "services/platform/perps-data/e2e_test.go:620 still decodes the markets object as a slice and services/platform/perps-data/internal/replay/replay.go:278 still lacks lease renewal during height traversal, while the funding-row and deposit-link failures remain assigned alongside them to pending task 3.54.7 at spec/layerx-merge/spec.kvx:136089."
+follow_up = "3.54.7"
+
+[disposition.18.1430.1.1]
+finding = "18.1430.1.1"
+status = "resolved"
+evidence = "f64c4ec41 published pending and absent statuses with daemon goldens, and cef5b52aa, 2fae67e81, e8b41df37 and a30b9c878 added their decoding in TypeScript, Python, Go and Swift respectively, retained at services/agent/sdk/typescript/src/agent-http.ts:984, services/agent/sdk/python/layerx_sdk/agent_http.py:760, sdk/platform/go/http.go:612 and sdk/platform/swift/Sources/LayerXSDK/Transport.swift:671."
+follow_up = "closure"

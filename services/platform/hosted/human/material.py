@@ -144,6 +144,16 @@ ONBOARDING_FILES = {'LAYERX_HUMAN_TENANCY_DIGEST', 'LAYERX_HUMAN_AUTH_INDEX_KEY'
                     'LAYERX_HUMAN_STREAM_CURSOR_KEY', 'recovery-policy.json', 'registry.json'}
 
 
+def resolve_custody_components(policy, deployment):
+    checkpoint = deployment['addresses']['checkpoint_registry']
+    if type(checkpoint) is not str or not re.fullmatch('0x[0-9a-fA-F]{40}', checkpoint) or int(checkpoint, 16) == 0:
+        refuse('deployed checkpoint registry')
+    policy['components'].update(PAXEER_EXIT_CONTRACT=CUSTODY_PRECOMPILE,
+                                PAXEER_WITHDRAWAL_CLAIMS_CONTRACT=CUSTODY_PRECOMPILE)
+    policy['movement'].update(PAXEER_VAULT=CUSTODY_PRECOMPILE, PAXEER_CHECKPOINT_REGISTRY=checkpoint,
+                             PAXEER_CLAIMS_CONTRACT=CUSTODY_PRECOMPILE, PAXEER_EXIT_CONTRACT=CUSTODY_PRECOMPILE)
+
+
 def policy_from_inputs(inputs, records, network, chain):
     from provision import identity, recovery_policy, peer_binding, validate_native_records
     from owner_native import receipt_fields, digest as native_digest
@@ -237,13 +247,7 @@ def policy_from_inputs(inputs, records, network, chain):
                 or preset.get('budget_asset') != list(bytes.fromhex(asset))):
             refuse('purpose catalogue registry, asset or counterparty binding')
     policy['registry'] = {'network_id': network, 'protocol_version': 3, 'modules': modules}
-    checkpoint = deployment['addresses']['checkpoint_registry']
-    if type(checkpoint) is not str or not re.fullmatch('0x[0-9a-fA-F]{40}', checkpoint) or int(checkpoint, 16) == 0:
-        refuse('deployed checkpoint registry')
-    policy['components'].update(PAXEER_EXIT_CONTRACT=CUSTODY_PRECOMPILE,
-                                PAXEER_WITHDRAWAL_CLAIMS_CONTRACT=CUSTODY_PRECOMPILE)
-    policy['movement'].update(PAXEER_VAULT=CUSTODY_PRECOMPILE, PAXEER_CHECKPOINT_REGISTRY=checkpoint,
-                             PAXEER_CLAIMS_CONTRACT=CUSTODY_PRECOMPILE, PAXEER_EXIT_CONTRACT=CUSTODY_PRECOMPILE)
+    resolve_custody_components(policy, deployment)
     profile = producer['custody.profile']
     custody = parse(producer['owner-custody.json'])
     if (len(profile) != 223 or policy['movement'].get('CUSTODY_PROFILE') != '/run/human-private/movement/custody.profile'

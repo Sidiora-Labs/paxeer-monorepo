@@ -685,7 +685,10 @@ def decode_unified_history_page(
 def decode_history_row(value: object, unified: bool = False) -> HistoryRow:
     row = _document(value)
     tx_hash = row.get("tx_hash")
-    if not isinstance(tx_hash, str) or re.fullmatch(r"0x[0-9a-fA-F]{64}", tx_hash) is None:
+    if (
+        not isinstance(tx_hash, str)
+        or re.fullmatch(r"0x[0-9a-fA-F]{64}", tx_hash) is None
+    ):
         raise ValueError("invalid-history-transaction-hash")
     _present(
         row,

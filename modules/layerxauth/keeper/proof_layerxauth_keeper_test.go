@@ -28,6 +28,7 @@ import (
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
@@ -205,18 +206,38 @@ func TestProofLayerxauthKeeperCapability(t *testing.T) {
 	require.NotEmpty(t, replay.Encoded)
 	stored, _ := az.GetCleanAuthorization(*f.Context(), grantee, granter, keeper.CapabilityAuthorizationTypeURL)
 	require.Equal(t, grantID[:], stored.(*types.LayerXScopeAuthorization).GrantId)
+	message := banktypes.NewMsgSend(granter, grantee, sdk.NewCoins(sdk.NewInt64Coin("upax", 1)))
+	authorization := *stored.(*types.LayerXScopeAuthorization)
+	authorization.MsgTypeUrl = sdk.MsgTypeURL(message)
+	expiration := time.UnixMilli(int64(authorization.NotAfter)).UTC()
+	require.NoError(t, az.SaveGrant(*f.Context(), grantee, granter, &authorization, expiration))
+	accepted, err := authorization.Accept(types.WithGrantorRevocation(*f.Context(), granter, authorization.RevocationEpoch), message)
+	require.NoError(t, err)
+	require.True(t, accepted.Accept)
 
 	// A later host write must be visible, rather than a cached liveness result.
 	sequence, err := lxphost.NextSequence(*f.Context(), f.HostKey())
 	require.NoError(t, err)
 	_, err = f.Keeper().RevokeGrant(*f.Context(), actor, grantID, 1, sequence, [32]byte{0xd2})
 	require.NoError(t, err)
+	revocation, err := f.Keeper().RevocationSequence(*f.Context(), *f.Public())
+	require.NoError(t, err)
+	require.Equal(t, sequence, revocation)
 	for read := 0; read < 2; read++ {
 		reason, err := f.Keeper().CheckActivity(*f.Context(), grantID, 0x00090004, *f.Asset(), sdk.NewInt(5))
 		require.NoError(t, err)
 		require.Equal(t, "LXP_AUTH_REVOKED", reason)
 		stored, _ := az.GetCleanAuthorization(*f.Context(), grantee, granter, keeper.CapabilityAuthorizationTypeURL)
-		require.Nil(t, stored)
+		require.IsType(t, &types.LayerXScopeAuthorization{}, stored)
+		require.Equal(t, grantID[:], stored.(*types.LayerXScopeAuthorization).GrantId)
+		require.Equal(t, uint64(41), stored.(*types.LayerXScopeAuthorization).RevocationEpoch)
+		retained, expiry := az.GetCleanAuthorization(*f.Context(), grantee, granter, sdk.MsgTypeURL(message))
+		require.Equal(t, &authorization, retained)
+		require.Equal(t, expiration, expiry)
+		refused, err := retained.Accept(types.WithGrantorRevocation(*f.Context(), granter, revocation), message)
+		require.ErrorIs(t, err, types.ErrAuthRevoked)
+		require.ErrorContains(t, err, "revocation epoch 41, grantor revocation ")
+		require.False(t, refused.Accept)
 	}
 }
 

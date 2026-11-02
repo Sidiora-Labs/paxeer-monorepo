@@ -7,6 +7,7 @@ import (
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
@@ -14,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOpenHeaderCarriesCommittedAppHash(t *testing.T) {
+func TestExecutorHeaderCarriesCommittedAppHash(t *testing.T) {
 	h := newHarness(t)
 	committed := h.app.CommitMultiStore().LastCommitID()
 	require.Equal(t, committedTip, committed.Version)
@@ -29,7 +30,7 @@ func TestOpenHeaderCarriesCommittedAppHash(t *testing.T) {
 	require.Equal(t, want, batch.Ctx.BlockHeader().AppHash)
 }
 
-func TestOpenHeaderCarriesLastBlockID(t *testing.T) {
+func TestExecutorHeaderCarriesLastBlockID(t *testing.T) {
 	tm := time.Now().UTC()
 	valPub := secp256k1.GenPrivKey().PubKey()
 	tw := app.NewTestWrapper(t, tm, valPub, false)
@@ -41,6 +42,10 @@ func TestOpenHeaderCarriesLastBlockID(t *testing.T) {
 	block.ProposerAddress = valPub.Address().Bytes()
 	block.ValidatorsHash = validatorsHash[:]
 	block.NextValidatorsHash = validatorsHash[:]
+	parent := a.LastBlockID()
+	parentID, err := tmtypes.BlockIDFromProto(&parent)
+	require.NoError(t, err)
+	block.LastBlockID = *parentID
 	parts, err := block.MakePartSet(tmtypes.BlockPartSizeBytes)
 	require.NoError(t, err)
 	id := tmtypes.BlockID{Hash: block.Hash(), PartSetHeader: parts.Header()}
@@ -48,8 +53,8 @@ func TestOpenHeaderCarriesLastBlockID(t *testing.T) {
 	require.NotEmpty(t, want.Hash)
 	require.Positive(t, want.PartSetHeader.Total)
 	require.NotEmpty(t, want.PartSetHeader.Hash)
+	want.PartSetHeader = tmproto.PartSetHeader{}
 
-	block.LastBlockID = id
 	_, err = a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
 		Hash: block.Hash(), Header: block.Header.ToProto(),
 	})
@@ -58,7 +63,7 @@ func TestOpenHeaderCarriesLastBlockID(t *testing.T) {
 	_, err = a.Commit(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, committedTip, a.LastBlockHeight())
-	require.Equal(t, want, a.GetCheckCtx().BlockHeader().LastBlockId)
+	require.Equal(t, parent, a.GetCheckCtx().BlockHeader().LastBlockId)
 	require.Equal(t, want, a.LastBlockID())
 
 	exec, err := sequencer.NewExecutor(a, sequencer.Options{

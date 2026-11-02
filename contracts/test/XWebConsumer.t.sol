@@ -148,6 +148,9 @@ contract XWebConsumerTest is Test {
             IXWeb.XWebRequested.selector, keccak256("XWebRequested(uint64,address,uint8,bytes,uint64,uint256,uint64)")
         );
         assertEq(
+            IXWeb.XWebProgramRequested.selector, keccak256("XWebProgramRequested(bytes32,uint64,uint8,bytes,uint64)")
+        );
+        assertEq(
             IXWeb.XWebFulfilled.selector, keccak256("XWebFulfilled(uint64,address,bytes32,uint32,uint8,uint8,uint64)")
         );
         assertEq(IXWeb.XWebRefunded.selector, keccak256("XWebRefunded(uint64,address,uint256)"));

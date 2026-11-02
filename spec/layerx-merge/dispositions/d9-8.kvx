@@ -1,0 +1,149 @@
+[disposition.9.25.6.1]
+finding = "9.25.6.1"
+status = "resolved"
+evidence = "Commit 0e916bb08 replaced the account-proof design with CommittedReads, whose capabilities and budget_state delegate to checkpoint-bound eth_call reads at services/agent/crates/layerx-agentd/src/read/committed.rs:659 and whose call implementation repeats the read and checks the committed block and state root at :718."
+follow_up = "closure"
+
+[disposition.9.25.5.1]
+finding = "9.25.5.1"
+status = "resolved"
+evidence = "Commit aff111cc9 moved policy usage to committed history receipts, with services/agent/crates/layerx-agentd/src/protocol_evidence.rs:2478 proving each item through eth_getTransactionReceipt, the committed sequencer receipt and block material, while human_runtime.rs:21881 acquires the window checkpoint and :21926 invokes that proof."
+follow_up = "closure"
+
+[disposition.9.25.8.2]
+finding = "9.25.8.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:131222 now selects read::checkpoint_impl::tests, commit 9f2f0adf8 removed test_committed_reads and its committed_time wrapper, and services/agent/crates/layerx-agentd/src/protocol_evidence.rs:1931 pins the captured fixture to header.network_id()."
+follow_up = "closure"
+
+[disposition.9.25.2.3]
+finding = "9.25.2.3"
+status = "resolved"
+evidence = "Commit 0e916bb08 ported the capability consumers to CommittedCaps, now accepted by services/agent/crates/layerx-agentd/src/budget/execution_state.rs:197 and budget/program_sources.rs:222, before d911e2eb1 deleted evidence/caps.rs and updated the remaining human_runtime capability sites."
+follow_up = "closure"
+
+[disposition.9.25.7.2]
+finding = "9.25.7.2"
+status = "resolved"
+evidence = "Commit de059fa2e extended chain_peer at services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:281 to answer getFeeDenom at 0x1018 and bank symbol and decimals at 0x1001, and changed the preview asset to the hash of upax."
+follow_up = "closure"
+
+[disposition.9.25.11.1]
+finding = "9.25.11.1"
+status = "resolved"
+evidence = "Commit 021ce67fb introduced the ICS23 storage witness and ported proof_bundle_v2.rs without prematurely deleting AccountProof, then 248f109c1 retired that API with its remaining readers, including services/agent/crates/layerx-agentd/src/human_node.rs:17 and :82 now using StorageWitness."
+follow_up = "closure"
+
+[disposition.9.25.11.2]
+finding = "9.25.11.2"
+status = "resolved"
+evidence = "Commit 021ce67fb changed ProofBundleRequest.account_proof to a StorageWitness slice and ServedProofBundle.account_proof to AccountState at services/agent/crates/layerx-agentd/src/read/checkpoint.rs:461 and :484, and verified_program_record now uses checkpoint-bound CommittedReads instead of ModuleStateValue.evidence() at protocol_evidence.rs:1878."
+follow_up = "closure"
+
+[disposition.9.25.6.2]
+finding = "9.25.6.2"
+status = "resolved"
+evidence = "Commit 0e916bb08 replaced production module-store key reads with read_program_records at services/agent/crates/layerx-agentd/src/budget/execution_state.rs:414, which builds ABI selectors for getProgram, getWindDown and the other precompile views and passes the ServedCheckpoint to verified_program_record."
+follow_up = "closure"
+
+[disposition.9.25.11.3]
+finding = "9.25.11.3"
+status = "resolved"
+evidence = "Commit 62ae7fa58 removed the stale CommittedBudgetProofTrust import and obsolete test from services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs:1, retaining the fixture and tampering coverage under BudgetProofTrust in src/budget/budget_proof.rs:599 and :734."
+follow_up = "closure"
+
+[disposition.9.25.15.1]
+finding = "9.25.15.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:130832 now declares only BudgetProofTrust and budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering, both present in services/agent/crates/layerx-agentd/src/budget/budget_proof.rs:26 and :734, so qualification no longer requires the symbols removed by 62ae7fa58."
+follow_up = "closure"
+
+[disposition.9.25.11.4]
+finding = "9.25.11.4"
+status = "resolved"
+evidence = "Commit 021ce67fb landed the regenerated vector, whose programs/tests/vectors/ics23-evm-storage-app-hash.json:5 app_hash starts a10d2e72 and :33 store_root starts 4a516195, with the Go generator comparison at modules/sequencer/keeper/ics23_evm_storage_vector_test.go:89 and the Rust consumer including that same file at services/agent/crates/layerx-client/tests/storage_witness.rs:61."
+follow_up = "closure"
+
+[disposition.9.25.6.3]
+finding = "9.25.6.3"
+status = "resolved"
+evidence = "Commit 0e916bb08 ported both omitted consumers, with services/agent/crates/layerx-agentd/src/budget/program_sources.rs:4 importing CommittedCaps and budget/program_lifecycle_settlement.rs:315 consuming the typed CommittedProgramRecords views, while b8137deb6 refreshed the agent Cargo lock file."
+follow_up = "closure"
+
+[disposition.9.25.2.4]
+finding = "9.25.2.4"
+status = "resolved"
+evidence = "Commit d911e2eb1 wrapped indexed_height and chain_height in Some in both test targets, now visible at services/agent/crates/layerx-client/tests/history_rpc.rs:118 and :128 and tests/sequencer_reads.rs:224 and :233."
+follow_up = "closure"
+
+[disposition.9.25.13.1]
+finding = "9.25.13.1"
+status = "resolved"
+evidence = "Commit 248f109c1 ported HumanNode with the AccountProof retirement, and services/agent/crates/layerx-agentd/src/human_node.rs:17 declares storage_witness returning Vec<StorageWitness> with the NodeRpc delegation at :82."
+follow_up = "closure"
+
+[disposition.9.27.5.1]
+finding = "9.27.5.1"
+status = "superseded"
+evidence = "Commit 2455fbc51 deleted services/agent/crates/layerx-agentd/src/protocol_evidence/native_owner.rs and its tests with the retired owner_module verifier, and removed the client lookup_native_owner, daemon store_native_owner_if_absent and NativeOwnerOutcomeContext consumers."
+follow_up = "closure"
+
+[disposition.9.25.1.2]
+finding = "9.25.1.2"
+status = "resolved"
+evidence = "Commit 16d5b4f04 moved the fee and withdrawal types to their RPC owners, now imported at services/agent/crates/layerx-client/src/fee.rs:1 and declared in src/rpc/withdrawal.rs:9, and 0ad81030b and 0d75c2e76 ported the downstream consumers before 036a1da1b deleted the kernel-era client modules."
+follow_up = "closure"
+
+[disposition.9.25.13.2]
+finding = "9.25.13.2"
+status = "resolved"
+evidence = "Commit 0ad81030b removed the six-argument module_witness helper and its kernel-witness tests from services/agent/crates/layerx-agentd/tests/outbox_recover.rs, and 7272c037f supplied committed budget-call recovery coverage at src/read/committed.rs:1167 and removed the unused module_witness constructor."
+follow_up = "closure"
+
+[disposition.9.25.19.1]
+finding = "9.25.19.1"
+status = "resolved"
+evidence = "Commit 0d75c2e76 ported the surviving daemon test Head imports to layerx_client::rpc::Head at services/agent/crates/layerx-agentd/tests/approval_events.rs:40, gaps.rs and subscription_ops_cursor.rs and deleted the retired tests/history.rs surface, eliminating the four old head-module imports."
+follow_up = "closure"
+
+[disposition.9.27.5.2]
+finding = "9.27.5.2"
+status = "resolved"
+evidence = "Commit 2455fbc51 removed the remaining NativeOwnerOutcomeContext imports, context method, native parameters and native_owner_receipts.rs test, with services/agent/crates/layerx-agentd/src/human_runtime/native_receipt.rs:56 now persisting through store_verified_if_absent, while 0ad81030b removed the stale outbox module_witness calls."
+follow_up = "closure"
+
+[disposition.9.25.17.1]
+finding = "9.25.17.1"
+status = "resolved"
+evidence = "Commit 0ad81030b unified RootSelector in services/agent/crates/layerx-client/src/rpc/evidence.rs:11 and re-exported it from evidence.rs, and 036a1da1b subsequently deleted evidence.rs after the consumers were ported, leaving the single RPC enum definition."
+follow_up = "closure"
+
+[disposition.9.25.19.2]
+finding = "9.25.19.2"
+status = "resolved"
+evidence = "Commit 0ad81030b added Display and std::error::Error for ChainProofError at programs/crates/layerx-programs-registry/src/chain_proof.rs:93 and :107, supporting the question-mark conversions retained in services/agent/crates/layerx-agentd/host-tests/serve_routes.rs:91 and :94."
+follow_up = "closure"
+
+[disposition.9.25.19.3]
+finding = "9.25.19.3"
+status = "resolved"
+evidence = "Commit 0ad81030b removed the obsolete module_witness_evidence helper and all six-argument module_witness calls from services/agent/crates/layerx-agentd/tests/outbox_recover.rs before 16d5b4f04 landed the payments port, and 7272c037f replaced the retired recovery coverage with committed budget-state tests."
+follow_up = "closure"
+
+[disposition.9.25.17.2]
+finding = "9.25.17.2"
+status = "resolved"
+evidence = "Commit 0ad81030b landed the ChainProofError Display and Error implementations in programs/crates/layerx-programs-registry/src/chain_proof.rs:93 and :107 with task 9.25.17, resolving the dependency cycle for the actual caller services/agent/crates/layerx-agentd/host-tests/serve_routes.rs:91 rather than the finding's nonexistent registry host-test path."
+follow_up = "closure"
+
+[disposition.9.25.13.3]
+finding = "9.25.13.3"
+status = "resolved"
+evidence = "Commit 248f109c1 ported history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms at services/agent/crates/layerx-client/tests/sequencer_reads.rs:179 to the three served page keys at :187, separate eth_blockNumber answers at :192 and :216, and null indexedHeight handling at :213."
+follow_up = "closure"
+
+[disposition.9.25.20.1]
+finding = "9.25.20.1"
+status = "resolved"
+evidence = "Commit 7272c037f changed services/agent/crates/layerx-agentd/src/read/committed.rs:1168 to recover a zero-spend record and assert reconciliation, then at :1193 recovers the 25-spend record and asserts unreconciled accounting and refused write admission."
+follow_up = "closure"

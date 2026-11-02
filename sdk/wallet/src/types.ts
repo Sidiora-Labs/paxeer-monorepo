@@ -51,10 +51,15 @@ export interface SendTxResponse {
   receipt?: SequencerReceiptAnswer;
 }
 
+type SendTxResponseExpectation = {
+  readonly chainId?: number;
+  readonly account?: string;
+};
+
 /** Reject a send answer that does not identify the requested chain and signer. */
 export function assertSendTxResponse(
   value: unknown,
-  expected: { readonly chainId?: number; readonly account?: string } = {}
+  expected: SendTxResponseExpectation = {}
 ): asserts value is SendTxResponse {
   if (typeof value !== 'object' || value === null || Array.isArray(value))
     throw new TypeError('malformed send transaction response');

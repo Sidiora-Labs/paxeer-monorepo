@@ -11,7 +11,7 @@ from .account_derivation import keccak256
 from .evm_transaction import decode_signed
 from .production import PlatformSdkError, SdkErrorCode
 from .revert import decode_revert_reason, raise_for_receipt_status
-from .verifier import ReceiptKey
+from .verifier import ReceiptKey, SequencerReceiptVerificationError
 from .x402 import payment_commitment, verify_payment_receipt
 
 
@@ -63,7 +63,9 @@ class PaymentRpcError(Exception):
 
 
 def _transaction_bytes(value: object, size: int | None = None) -> bytes:
-    if not isinstance(value, str) or not value.startswith("0x"):
+    if not isinstance(value, str):
+        raise ValueError("invalid-rpc-hex")
+    if not value.startswith("0x"):
         raise ValueError("invalid-rpc-hex")
     return rpc_hex(value[2:].lower(), size)
 
@@ -295,6 +297,8 @@ def verify_rpc_payment(
                 _return_data(result["returnData"]) if "returnData" in result else None
             ),
         )
+    except SequencerReceiptVerificationError:
+        raise
     except PlatformSdkError as error:
         raise ValueError("payment-binding-mismatch") from error
     if (
