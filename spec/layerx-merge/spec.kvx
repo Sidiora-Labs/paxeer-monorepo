@@ -127263,7 +127263,7 @@ do_5 = "The build of the host crate with --all-targets compiles services/agent/c
 
 [task.22.9.13]
 title = "Restore indexed submissions by the outbox's transaction-hash key"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.16", "9.100.2", "22.9.24", "22.9.25"]
@@ -127354,7 +127354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.7]
 title = "Port the proof crate's terminal v4 test off the deleted v4 fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.16", "9.100.2", "22.9.24", "22.9.25"]
@@ -135913,7 +135913,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.11.1]
 title = "Prove the layerxledger 0x101a path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.2.7", "22.9.24"]
@@ -136244,7 +136244,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.4.4]
 title = "Filter WebSocket log subscriptions on the chain path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["20.4.2", "20.3.4"]
