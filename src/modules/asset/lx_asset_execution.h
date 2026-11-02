@@ -114,6 +114,7 @@ static lxp_result asset_execute_typed(lxp_module_ctx *ctx, const lxp_activity *a
     lxp_result status;
     if (authority == NULL || activity == NULL || value->typed == NULL ||
         authority->kind != LXP_AUTHORITY_OWNER || activity->authority.length != 32U ||
+        activity->authority.bytes == NULL ||
         memcmp(authority->verified_key, activity->authority.bytes, 32U) != 0 ||
         activity->activity_type != ((uint32_t)LXP_MODULE_ASSET << 16U | value->ordinal))
         return LXP_ERR_UNAUTHORIZED_DEBIT;
