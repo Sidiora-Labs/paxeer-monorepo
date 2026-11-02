@@ -132264,7 +132264,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.12.4]
 title = "Tidy the wallet attestor module so it vets under the inherited toolchain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
