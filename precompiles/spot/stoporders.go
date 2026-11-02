@@ -341,6 +341,7 @@ func (p *stopOrdersExecutor) view(ctx sdk.Context, method *abi.Method, args []in
 		}
 		return pack(o.Id, o.User, o.Stablecoin, o.Token, o.Amount, o.TriggerPrice, o.Status, o.CreatedAt, o.ExpiresAt)
 	case "activeStopLimitOrderIds", "activeStopLossOrderIds":
+		// Both views propagate the keeper's validated position lookup errors.
 		index := args[0].(*big.Int)
 		if !index.IsUint64() {
 			return nil, fmt.Errorf("spot: active index out of bounds")

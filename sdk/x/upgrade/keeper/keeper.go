@@ -10,14 +10,12 @@ import (
 	"sort"
 
 	tmos "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/os"
-	"github.com/armon/go-metrics"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/prefix"
 	store "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
@@ -203,15 +201,6 @@ func (k Keeper) ScheduleUpgrade(ctx sdk.Context, plan types.Plan) error {
 	upgradeKeeperMetrics.pendingPlanHeight.Record(ctx.Context(), plan.Height, otelmetric.WithAttributes(
 		attribute.String("name", plan.Name),
 	))
-	// TODO(PLT-353): remove once upgrade_pending_plan_height verified
-	telemetry.SetGaugeWithLabels(
-		[]string{"cosmos", "upgrade", "plan", "height"},
-		float32(plan.Height),
-		[]metrics.Label{
-			{Name: "name", Value: plan.Name},
-			{Name: "info", Value: plan.Info},
-		},
-	)
 	return nil
 }
 

@@ -3,21 +3,46 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { keccak_256 as keccak256 } from "@noble/hashes/sha3.js";
 import { FileFulfillmentRepository } from "../lib/fulfillment.mjs";
 
-const fixture = JSON.parse(await readFile(new URL("../../../../platform/conformance/fixtures/receipt-positive-v2.json", import.meta.url), "utf8"));
-const decode = value => Uint8Array.from(Buffer.from(value, "hex"));
+const fixture = JSON.parse(await readFile(new URL("../../../../platform/conformance/fixtures/vector-v5-portable.json", import.meta.url), "utf8"));
+const proof = fixture.bundles.find(value => value.verificationLevel === "receipted");
+const hex = value => `0x${Buffer.from(value).toString("hex")}`;
 const proposed = {
+  ...proof,
   idempotencyKey: "ab".repeat(32), requestDigest: "cd".repeat(32),
-  canonicalReceipt: decode(fixture.canonical_receipt_hex),
-  authorizedBatch: {
-    batchId: decode(fixture.authorized_batch.batch_id_hex),
-    asset: decode(fixture.authorized_batch.asset_hex),
-    previousStateRoot: decode(fixture.authorized_batch.previous_state_root_hex),
-    resultingStateRoot: decode(fixture.authorized_batch.resulting_state_root_hex),
-    sequencerPublicKey: decode(fixture.authorized_batch.sequencer_public_key_hex),
-  },
+  receiptDigest: hex(keccak256(Buffer.from(proof.signedReceipt.slice(2), "hex"))),
+  txHash: hex(keccak256(Buffer.from(proof.rawTransaction.slice(2), "hex"))),
 };
+
+async function parseReceiptKeys() {
+  const environment = await readFile(new URL("../../../../../services/platform/docs/samples/paid-route-next/.env", import.meta.url), "utf8");
+  const declared = environment.split("\n").find(line => line.startsWith("LAYERX_RECEIPT_KEYS_JSON="));
+  assert.ok(declared);
+  const keys = JSON.parse(declared.slice(declared.indexOf("=") + 1));
+  assert.ok(Array.isArray(keys));
+  assert.ok(keys.length >= 1 && keys.length <= 32);
+  const seen = new Set();
+  for (const key of keys) {
+    assert.deepEqual(Object.keys(key).sort(), ["firstHeight", "keyId", "lastHeight", "publicKey"]);
+    for (const field of ["keyId", "publicKey"]) {
+      assert.match(key[field], /^(?:0x)?[0-9a-fA-F]{64}$/u);
+      assert.notEqual(BigInt(`0x${key[field].replace(/^0x/u, "")}`), 0n);
+    }
+    const keyId = key.keyId.replace(/^0x/u, "").toLowerCase();
+    assert.ok(!seen.has(keyId));
+    seen.add(keyId);
+    for (const field of ["firstHeight", "lastHeight"]) {
+      assert.match(key[field], /^(0|[1-9][0-9]*)$/u);
+      assert.ok(BigInt(key[field]) <= 0xffff_ffff_ffff_ffffn);
+    }
+    assert.ok(BigInt(key.firstHeight) <= BigInt(key.lastHeight));
+  }
+}
+
+test(parseReceiptKeys);
 
 test("concurrent fulfillment and reopen release one durable resource", async () => {
   const root = await mkdtemp(join(tmpdir(), "next-fulfillment-"));
@@ -32,17 +57,28 @@ test("concurrent fulfillment and reopen release one durable resource", async () 
     const repository = new FileFulfillmentRepository(join(root, "state"));
     const results = await Promise.all(Array.from({ length: 16 }, () => repository.fulfill(proposed, release)));
     assert.equal(releases, 1);
+    assert(results.every(value => value.receiptDigest === proposed.receiptDigest));
     assert(results.every(value => value.resource.body === "paid resource"));
     const reopened = new FileFulfillmentRepository(join(root, "state"));
     assert.equal((await reopened.fulfill(proposed, release)).resource.body, "paid resource");
     assert.equal(releases, 1);
-    await assert.rejects(reopened.fulfill({ ...proposed, requestDigest: "ef".repeat(32) }, release));
+    const database = new DatabaseSync(join(root, "state", "fulfillments.sqlite"));
+    try {
+      const stored = database.prepare("SELECT request_digest, receipt, resource FROM fulfillment WHERE id = ?").get(proposed.idempotencyKey);
+      assert.equal(stored.receipt, proposed.receiptDigest);
+      assert.equal(stored.request_digest, proposed.requestDigest);
+      assert.equal(JSON.parse(stored.resource).body, "paid resource");
+      assert.equal(database.prepare("SELECT COUNT(*) AS count FROM fulfillment_claim").get().count, 0);
+    } finally {
+      database.close();
+    }
+    await assert.rejects(reopened.fulfill({ ...proposed, requestDigest: "ef".repeat(32) }, release), { code: "fulfillment-conflict" });
+    await assert.rejects(reopened.fulfill({ ...proposed, receiptDigest: `0x${"ef".repeat(32)}` }, release), { code: "fulfillment-conflict" });
     assert.equal(releases, 1);
   } finally {
     await rm(root, { recursive: true });
   }
 });
-
 
 test("legacy committed fulfillment migrates without another release", async () => {
   const root = await mkdtemp(join(tmpdir(), "next-fulfillment-legacy-"));
@@ -52,10 +88,11 @@ test("legacy committed fulfillment migrates without another release", async () =
     const resource = { contentType: "text/plain", body: "previously released" };
     await writeFile(join(directory, `${proposed.idempotencyKey}.json`), JSON.stringify({
       requestDigest: proposed.requestDigest,
-      receipt: Buffer.from(proposed.canonicalReceipt).toString("base64"),
+      receipt: proposed.receiptDigest,
       resource,
     }), { mode: 0o600 });
     const repository = new FileFulfillmentRepository(directory);
+    await assert.rejects(repository.fulfill({ ...proposed, receiptDigest: `0x${"ef".repeat(32)}` }, async () => resource), { code: "fulfillment-conflict" });
     let releases = 0;
     const release = async () => { releases += 1; return resource; };
     assert.deepEqual((await repository.fulfill(proposed, release)).resource, resource);
@@ -73,6 +110,14 @@ test("failed resource read requires explicit reconciliation before a real retry"
     const directory = join(root, "state");
     const release = async () => ({ contentType: "text/plain", body: await readFile(source, "utf8") });
     await assert.rejects(new FileFulfillmentRepository(directory).fulfill(proposed, release), { code: "ENOENT" });
+    const database = new DatabaseSync(join(directory, "fulfillments.sqlite"));
+    try {
+      assert.equal(database.prepare("SELECT receipt FROM fulfillment_claim WHERE id = ?").get(proposed.idempotencyKey).receipt, proposed.receiptDigest);
+      assert.equal(database.prepare("SELECT COUNT(*) AS count FROM fulfillment").get().count, 0);
+    } finally {
+      database.close();
+    }
+    await assert.rejects(new FileFulfillmentRepository(directory).reconcile({ ...proposed, receiptDigest: `0x${"ef".repeat(32)}` }, release), { code: "fulfillment-conflict" });
     await writeFile(source, "available after retry");
     await assert.rejects(new FileFulfillmentRepository(directory).fulfill(proposed, release), { code: "fulfillment-outcome-unknown" });
     await new FileFulfillmentRepository(directory).reconcile(proposed, release);
@@ -82,7 +127,6 @@ test("failed resource read requires explicit reconciliation before a real retry"
   }
 });
 
-
 test("a process crash after release retains its durable claim until actual reconciliation", async () => {
   const { spawn } = await import("node:child_process");
   const { once } = await import("node:events");
@@ -91,13 +135,12 @@ test("a process crash after release retains its durable claim until actual recon
     const source = join(root, "released.json");
     const directory = join(root, "state");
     const input = join(root, "input.json");
-    await writeFile(input, JSON.stringify({ ...proposed, canonicalReceipt: [...proposed.canonicalReceipt] }));
+    await writeFile(input, JSON.stringify(proposed));
     const module = new URL("../lib/fulfillment.mjs", import.meta.url).href;
     const child = spawn(process.execPath, ["--input-type=module", "-e", `
       import { readFile, open } from "node:fs/promises";
       import { FileFulfillmentRepository } from ${JSON.stringify(module)};
       const proposed = JSON.parse(await readFile(process.argv[1], "utf8"));
-      proposed.canonicalReceipt = Uint8Array.from(proposed.canonicalReceipt);
       await new FileFulfillmentRepository(process.argv[2]).fulfill(proposed, async () => {
         const file = await open(process.argv[3], "wx", 0o600);
         await file.writeFile(JSON.stringify({ contentType: "text/plain", body: "released before crash" }));
