@@ -246,6 +246,25 @@ pub fn decode_block(block: &Value, inputs: &BlockInputs<'_>) -> Result<Unit, Ind
                 "receipt of {tx_hash} belongs to another block"
             )));
         }
+        if let Some(chain_id) = transaction.get("chainId").and_then(Value::as_str) {
+            let chain_id = quantity_u64(chain_id)?;
+            if let Some(id) = chain_id
+                .checked_sub(125_000_000)
+                .and_then(|id| u32::try_from(id).ok())
+            {
+                unit.events.push(EventRow {
+                    height_or_seq: height,
+                    source: "chain-transaction".to_owned(),
+                    name: "ChainTransaction".to_owned(),
+                    contract: None,
+                    account: None,
+                    tx_id: tx_hash.clone(),
+                    ordinal: 0,
+                    decoded: json!({"chain": format!("pax:{id}"),
+                        "gas_used": quantity_u64(field_str(receipt, "gasUsed")?)?}),
+                });
+            }
+        }
         if field_str(receipt, "status")? != "0x1" {
             continue;
         }
@@ -469,6 +488,28 @@ fn decode_log(
             return Ok(());
         }
     };
+    if decoded.contract == "chains_registry"
+        && inputs
+            .registry
+            .abis()
+            .iter()
+            .any(|abi| abi.contract == "chains_registry" && abi.address == Some(emitter))
+    {
+        let row = crate::chains::decode(&decoded, height, tx_hash).ok_or_else(|| {
+            IndexError::Decode(format!("invalid chain registry event {}", decoded.name))
+        })?;
+        unit.events.push(EventRow {
+            height_or_seq: height,
+            source: "chain-registry-change".to_owned(),
+            name: decoded.name.clone(),
+            contract: Some(decoded.contract.clone()),
+            account: None,
+            tx_id: tx_hash.to_owned(),
+            ordinal,
+            decoded: serde_json::to_value(row)
+                .map_err(|error| IndexError::Decode(error.to_string()))?,
+        });
+    }
     let bound_names = inputs.registry.abis().iter().any(|abi| {
         abi.address == Some(emitter)
             && abi.contract == decoded.contract

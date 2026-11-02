@@ -538,6 +538,72 @@ pub fn route_with(store: &Store, readiness: &Readiness, method: &str, target: &s
         return names_route(store, path, query)
             .map_or_else(|response| response, |body| json(200, &body));
     }
+    if path == "/v1/chains" {
+        if query.is_some_and(|query| !query.is_empty()) {
+            return refusal(400, "unknown_query_parameter", None);
+        }
+        return store.chains().map_or_else(
+            |error| failure(&error),
+            |chains| json(200, &json!({"chains": chains})),
+        );
+    }
+    if let Some(segment) = path.strip_prefix("/v1/chains/") {
+        let unknown = || json(404, &json!({"error": "unknown_chain"}));
+        if let Some(name) = segment.strip_prefix("by-name/") {
+            if query.is_some_and(|query| !query.is_empty()) {
+                return refusal(400, "unknown_query_parameter", None);
+            }
+            let name = match identifier(name) {
+                Ok(name) => name,
+                Err(response) => return response,
+            };
+            return match store.chain_by_name(&name) {
+                Ok(Some(chain)) => json(200, &json!(chain)),
+                Ok(None) => unknown(),
+                Err(error) => failure(&error),
+            };
+        }
+        let (id, feed) = segment
+            .split_once('/')
+            .map_or((segment, None), |(id, feed)| (id, Some(feed)));
+        let id = match id.parse::<u32>() {
+            Ok(id) => id,
+            Err(_) => return unknown(),
+        };
+        let chain = match store.chain(id) {
+            Ok(Some(chain)) => chain,
+            Ok(None) => return unknown(),
+            Err(error) => return failure(&error),
+        };
+        if matches!(feed, Some("transfers" | "events")) {
+            let query = match parse_query(query, CursorForm::Row, true) {
+                Ok(query) => query,
+                Err(response) => return response,
+            };
+            return fresh_page(
+                store,
+                readiness,
+                store.chain_page(
+                    id,
+                    feed == Some("events"),
+                    query.cursor,
+                    query.limit,
+                    query.kind.as_deref(),
+                ),
+                None,
+            );
+        }
+        if query.is_some_and(|query| !query.is_empty()) {
+            return refusal(400, "unknown_query_parameter", None);
+        }
+        return match feed {
+            None => json(200, &json!(chain)),
+            Some("summary") => store
+                .chain_summary(id)
+                .map_or_else(|error| failure(&error), |summary| json(200, &summary)),
+            _ => refusal(404, "not_found", None),
+        };
+    }
     if path == "/healthz" {
         return match store.ping() {
             Ok(()) => json(200, &json!({ "status": "ok" })),

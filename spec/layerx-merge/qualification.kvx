@@ -17419,3 +17419,35 @@ symbol = "test_no_daemon_consumer_of_retired_kernel_symbols"
 observed = "attempt 4 (1f58c921b) still runs ['go', 'build', './daemon/...'] at :156 and fails in the linker on the C archives only make produces, exactly as attempt 3 did after do_5 ruled go vet."
 assumption = "do_5 stands: the subprocess at :156 is ['go', 'vet', './daemon/...'] and the assertion is returncode == 0; no archive is built in the qualification environment."
 severity = "medium"
+
+[finding.9.24.9.2]
+task = "9.24.9"
+file = "services/agent/crates/layerx-client/tests/ai_market_rpc.rs:176"
+symbol = "signed_receipt"
+observed = "attempt 4 (f910fd21b) passes ai_market_commit and disclosure_call; operation_journal_resolve_records_the_receipted_rung fails at :429 because the receipted view signed_receipt serves ends at keyId and receipt, while decode_receipt (services/agent/crates/layerx-client/src/sequencer.rs, RECEIPTED_FIELDS) has required a 32-byte signingKey field since task 9.21.8 (98b857055), so Fields::exact refuses the view and resolve answers a Sequencer error before verify_sequencer_signature runs."
+assumption = "the fixture view is the only producer behind the test; it gains the field the decoder requires and the verification path is reached as the test expects."
+severity = "medium"
+
+[finding.9.35.9.4]
+task = "9.35.9"
+file = "services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:377"
+symbol = "native_setup_refuses_wrong_accounts_limits_and_payload_shapes"
+observed = "attempt 5 (f910fd21b) fails 'budget version 2, corruption 9 was admitted': the corruption loop runs for budget versions 1 and 2, but setup_call encodes a budget payload as the twelve-word budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8) call and bind_call (services/agent/crates/layerx-crypto/src/disclosure/call.rs:395-406) rebuilds a version-1 payload from those words, so bytes 211..251 of a version-2 payload (source account and source sequence) never reach the disclosure and a flip at byte 211 or 243 is invisible by construction; no ledger call form carries a version-2 budget create."
+assumption = "the EVM path proves the version-1 layout only: the corruption loop runs for version 1, and a version-2 payload is asserted refused by setup_call itself (no call form) instead of being admitted and compared."
+severity = "medium"
+
+[finding.9.35.9.5]
+task = "9.35.9"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs:1635"
+symbol = "owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart"
+observed = "attempt 5 (f910fd21b) routes the authority grant (Governance ordinal 8) and the compiled session grant through setup_call, whose Governance arm emits recordLifecycle(bytes,bytes32) to 0x...101C; decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:437-455) admits only lifecycle payloads of ordinals 1 and 3 there, so bind_call answers MalformedPayload in owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart, session_registration_and_replacement_disclosures_survive_provider_restart and native_creation_disclosures_sign_through_real_kms_before_and_after_restart."
+assumption = "do_1 governs the two grant tests: they sign the ledger payment call canonical_send returns, bound with bind_call, and attach the grant to the disclosure as main does at :1657 (disclosure.authority_grant = Some(grant)) and :1772 (disclosure.session_grant = Some(...)); the port of do_8 covers the monetary roles loop and the native creation disclosures only."
+severity = "major"
+
+[finding.18.1433.1.2]
+task = "18.1433.1"
+file = "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs:30"
+symbol = "Peer::serve"
+observed = "attempt 3 (f910fd21b) fails all three agent_runtime_receipt_frame tests in 0.00s with 'agent runtime peer: Unavailable': AgentRuntime::new (services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2204) reads RuntimeClock::from_environment and maps its failure to AgentBoundaryError::Unavailable, and the verify runs the human test targets without tools/runtime/run-with-clock.sh, which the Makefile (:1640, :1679) puts in front of every human-workspace cargo test."
+assumption = "the verify runs the human-workspace targets through the clock wrapper, as 9.35.9 and 9.35.11 already do (finding 9.35.9.1); the daemon target stays bare."
+severity = "medium"
