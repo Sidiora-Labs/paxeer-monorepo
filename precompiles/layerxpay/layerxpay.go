@@ -94,6 +94,9 @@ func (p *Precompile) RunAndCalculateGas(evm *vm.EVM, caller, callingContract com
 			ret, remainingGas, err = nil, 0, vm.ErrOutOfGas
 		}
 		pcommon.HandlePrecompileError(err, evm, operation)
+		if errors.Is(err, vm.ErrExecutionReverted) && bytes.Equal(ret, pcommon.RetiredRevert(PrecompileName)) {
+			return
+		}
 		if err != nil && !errors.Is(err, vm.ErrOutOfGas) {
 			ret, err = pcommon.LXPReason(err), vm.ErrExecutionReverted
 		}
@@ -162,6 +165,9 @@ func (p *Executor) Execute(ctx sdk.Context, method *abi.Method, caller common.Ad
 		return nil, fmt.Errorf("LXP_PRECOMPILE_UNKNOWN_METHOD: %w", err)
 	}
 	method = canonical
+	if method.Name == "budgetPull" {
+		return pcommon.RetiredRevert(PrecompileName), vm.ErrExecutionReverted
+	}
 	if readOnly && !method.IsConstant() {
 		return nil, fmt.Errorf("LXP_UNAUTHORIZED_DEBIT: layerxpay write under staticcall")
 	}

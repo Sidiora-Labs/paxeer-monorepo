@@ -44,6 +44,7 @@ struct StoredEndpoint {
     id: EndpointId,
     url: String,
     kinds: Vec<EventKind>,
+    #[serde(deserialize_with = "crate::events::deserialize_stored_verification")]
     minimum_verification: Verification,
     key: SigningKeyRef,
     pending_key: Option<SigningKeyRef>,

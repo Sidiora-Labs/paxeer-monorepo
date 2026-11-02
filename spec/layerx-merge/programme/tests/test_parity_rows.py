@@ -1,18 +1,21 @@
 import ast
 import re
+from hashlib import sha256
 from pathlib import Path, PurePosixPath
 
 from programme.kvx import load
+from programme.parity import render_doc
 
 ROOT = Path(__file__).resolve().parents[4]
 FEATURE = ROOT / "spec/layerx-merge"
 DATA = FEATURE / "programme/data/parity.kvx"
+INVENTORY_REFERENCE = FEATURE / "programme/data/parity-inventory-original.md"
 
 
 def _inventory_rows() -> dict[tuple[int, str], list[str]]:
     rows = {}
     section = 0
-    for line in (FEATURE / "docs/parity-inventory.md").read_text().splitlines():
+    for line in INVENTORY_REFERENCE.read_text().splitlines():
         heading = re.match(r"## (\d+) ", line)
         if heading:
             section = int(heading[1])
@@ -58,6 +61,81 @@ def _declares_test(selector: str) -> bool:
             for node in ast.parse(text).body
         )
     return False
+
+
+def test_inventory_reference_is_the_frozen_original() -> None:
+    original = INVENTORY_REFERENCE.read_bytes()
+    assert sha256(original).hexdigest() == (
+        "671ca477247cd9d2d9fd7a3e8a2d33d4d107739527db22f926cb06c81c8d4dc8"
+    )
+    assert original != (FEATURE / "docs/parity-inventory.md").read_bytes()
+    assert b"Generated from `programme/data/parity.kvx`" not in original
+    assert {section for section, _ in _inventory_rows()} == {2, 3, 5}
+
+
+def test_kernel_replay_corpus_row_selects_the_qualification_replay() -> None:
+    sections = load(DATA)
+    replay = sections["construct.existing-kernel-replay-corpus"]
+    assert replay["selectors"] == ["tests/test_qual_replay.c::main"]
+    assert re.search(
+        r"(?m)^int\s+main\s*\(",
+        (ROOT / "tests/test_qual_replay.c").read_text(encoding="utf-8"),
+    )
+    assert "tests/test_replay_crossarch.c::main" in replay["dropped"]
+
+    web = sections["construct.existing-web-search-sidecar-and-402lxp-payment"]
+    web_tests = "services/interop/crates/x-websearch/tests"
+    assert web["selectors"] == [
+        f"{web_tests}/submit.rs::the_kernel_network_id_is_read_from_the_xweb_precompile",
+        f"{web_tests}/submit.rs::fulfil_calldata_and_the_signed_transaction_match_an_independent_encoder",
+        f"{web_tests}/payment.rs::a_pending_draw_recovers_from_the_sequencer_receipt_and_releases_once",
+        f"{web_tests}/attest.rs::the_watcher_follows_requested_logs_to_the_confirmation_depth",
+        f"{web_tests}/attest.rs::scanned_requests_stay_journalled_across_restart_until_retired",
+        f"{web_tests}/api.rs::the_api_payload_codec_matches_every_pinned_vector_and_refusal",
+    ]
+    kernel_path = "services/interop/crates/x-websearch/tests/kernel.rs"
+    retired_web_tests = [
+        "a_request_record_decodes_only_in_its_canonical_form",
+        "a_program_attestation_matches_the_shared_origin_two_vector",
+        "the_observation_activity_equals_the_kernel_adapter_fixture",
+        "the_watcher_follows_request_records_through_the_recorded_gateway",
+        "the_watcher_reads_only_request_topics",
+        "the_program_exchange_route_serves_records_by_program_and_request",
+        "two_programs_with_the_same_request_id_are_both_answered_through_the_exchange",
+        "the_relay_answers_a_program_request_and_posts_its_observation",
+    ]
+    assert {f"{kernel_path}::{name}" for name in retired_web_tests}.issubset(
+        web["dropped"]
+    )
+
+    mirror = sections["construct.existing-mirror"]
+    mirror_tests = "services/interop/crates/layerx-mirror/tests"
+    assert mirror["selectors"] == [
+        f"{mirror_tests}/publish.rs::confirms_and_retrieves_the_same_archive_on_both_test_networks",
+        f"{mirror_tests}/publish.rs::publishes_pure_archives_without_custody_semantics",
+        f"{mirror_tests}/sequencer_vectors.rs::every_shared_receipted_case_verifies_in_the_mirror",
+        f"{mirror_tests}/sequencer_vectors.rs::every_shared_refusal_case_is_refused_by_the_mirror",
+        f"{mirror_tests}/committed_freshness.rs::freshness_reports_committed_lag_in_blocks",
+    ]
+    assert (
+        "services/interop/crates/layerx-mirror/tests/checkpoint_vectors.rs"
+        "::mirror_checkpoint_identity_and_freshness_follow_the_shared_vectors"
+    ) in mirror["dropped"]
+    for row in (replay, web, mirror):
+        for selector in row["selectors"]:
+            assert _declares_test(selector), selector
+
+    assert (FEATURE / "docs/parity-inventory.md").read_bytes() == render_doc(
+        sections
+    ).encode("utf-8")
+
+    for name, row in sections.items():
+        if not name.startswith("construct."):
+            continue
+        for selector in row["selectors"]:
+            path = selector.split("::")[0]
+            assert path != "tests/test_replay_crossarch.c", (name, selector)
+            assert (ROOT / path).is_file(), (name, selector)
 
 
 def test_every_row_has_exact_selectors() -> None:
@@ -121,7 +199,9 @@ def test_every_row_has_exact_selectors() -> None:
                 active_selectors.add(selector)
             for task_id in row["planned_by"]:
                 task = spec[f"task.{task_id}"]
-                assert set(task["tests"]).issubset(selectors), (name, task_id)
+                assert set(task["tests"]).issubset(
+                    set(selectors) | set(row.get("dropped", []))
+                ), (name, task_id)
                 owner = spec[f"feature.{row['owner_domain']}"]["name"]
                 assert task["owner_role"] == f"fm-{owner}", name
         else:
@@ -130,7 +210,11 @@ def test_every_row_has_exact_selectors() -> None:
             assert isinstance(row["dropped"], list) and row["dropped"], name
 
         for selector in row.get("dropped", []):
-            assert selector not in planned, (name, selector)
+            assert (
+                selector not in planned
+                or not (ROOT / selector.split("::")[0]).is_file()
+                or ("::" in selector and not _declares_test(selector))
+            ), (name, selector)
             if "::" in selector:
                 assert not _declares_test(selector), (name, selector)
             dropped_selectors.add(selector)

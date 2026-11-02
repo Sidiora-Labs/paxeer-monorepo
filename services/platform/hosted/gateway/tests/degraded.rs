@@ -644,7 +644,7 @@ fn degraded_endpoint_starts_chain_only_through_its_real_configuration() {
     let chain = payment_events::Listener::start(Arc::clone(&tls), move |request| {
         chain_answer(&answers, request)
     });
-    let gateway = start_gateway(&redis, chain.port, true, None);
+    let gateway = start_gateway(&redis, chain.port, false, None);
 
     let chain_id = gateway.rpc("eth_chainId", &json!([]));
     assert_eq!(chain_id["result"], CHAIN_ID, "{chain_id}");
@@ -664,13 +664,13 @@ fn degraded_endpoint_starts_chain_only_through_its_real_configuration() {
 
     assert_method_not_found(&gateway.rpc("lx_sendActivity", &json!(["00"])));
 
-    let activity = gateway
+    let settlement = gateway
         .client
-        .post("/v1/activities", b"{}")
-        .unwrap_or_else(|error| panic!("activity route must be answered: {error:?}"));
-    assert_eq!(activity.status, 503);
-    let refusal: Value = serde_json::from_slice(&activity.body)
-        .unwrap_or_else(|error| panic!("activity refusal must be JSON: {error}"));
+        .post("/v1/settle", b"{}")
+        .unwrap_or_else(|error| panic!("settlement route must be answered: {error:?}"));
+    assert_eq!(settlement.status, 503);
+    let refusal: Value = serde_json::from_slice(&settlement.body)
+        .unwrap_or_else(|error| panic!("settlement refusal must be JSON: {error}"));
     assert_eq!(
         refusal,
         json!({"ok": false, "error": {"code": "kernel_unavailable", "backend": "core_agent_boundary", "reason": "not_configured"}})
@@ -678,18 +678,32 @@ fn degraded_endpoint_starts_chain_only_through_its_real_configuration() {
 
     let (status, readiness) = gateway.get("/readyz");
     assert_eq!(status, 200, "{readiness}");
-    assert_eq!(readiness["status"], "degraded");
-    for kernel in [
-        "core_agent_boundary",
-        "independent_receipt_authority",
-        "program_registry",
-    ] {
+    assert_eq!(readiness["status"], "ready", "{readiness}");
+    assert!(
+        readiness["backends"].get("event_producer").is_none(),
+        "{readiness}"
+    );
+    for backend in ["durable_store", "paxeer_chain"] {
         assert_eq!(
-            readiness["backends"][kernel],
-            json!({"state": "unavailable", "reason": "not_configured"}),
-            "{kernel}"
+            readiness["backends"][backend],
+            json!({"state": "ready", "reason": "ready"}),
+            "{readiness}"
         );
     }
+    for kernel in [
+        "core_agent_boundary",
+        "public_core",
+        "independent_receipt_authority",
+        "identity",
+        "program_registry",
+    ] {
+        assert!(readiness["backends"].get(kernel).is_none(), "{readiness}");
+    }
+    assert_eq!(
+        readiness["components"],
+        json!({"durable_store": "ready"}),
+        "{readiness}"
+    );
     drop(gateway);
     drop(chain);
 }
@@ -792,10 +806,9 @@ fn degraded_endpoint_starts_without_the_event_producer_and_reports_it_unconfigur
 
     let (status, readiness) = gateway.get("/readyz");
     assert_eq!(status, 200, "{readiness}");
-    assert_eq!(readiness["status"], "degraded");
-    assert_eq!(
-        readiness["backends"]["event_producer"],
-        json!({"state": "unavailable", "reason": "not_configured"}),
+    assert_eq!(readiness["status"], "ready", "{readiness}");
+    assert!(
+        readiness["backends"].get("event_producer").is_none(),
         "{readiness}"
     );
     assert_eq!(
@@ -806,6 +819,20 @@ fn degraded_endpoint_starts_without_the_event_producer_and_reports_it_unconfigur
     assert_eq!(
         readiness["backends"]["paxeer_chain"],
         json!({"state": "ready", "reason": "ready"}),
+        "{readiness}"
+    );
+    for kernel in [
+        "core_agent_boundary",
+        "public_core",
+        "independent_receipt_authority",
+        "identity",
+        "program_registry",
+    ] {
+        assert!(readiness["backends"].get(kernel).is_none(), "{readiness}");
+    }
+    assert_eq!(
+        readiness["components"],
+        json!({"durable_store": "ready"}),
         "{readiness}"
     );
     drop(gateway);
@@ -900,7 +927,7 @@ fn degraded_endpoint_serves_the_chain_over_the_plain_listener() {
 
     let (status, readiness) = gateway.get("/readyz");
     assert_eq!(status, 200, "{readiness}");
-    assert_eq!(readiness["status"], "degraded");
+    assert_eq!(readiness["status"], "ready", "{readiness}");
     assert_eq!(
         readiness["backends"]["paxeer_chain"],
         json!({"state": "ready", "reason": "ready"}),
@@ -911,22 +938,24 @@ fn degraded_endpoint_serves_the_chain_over_the_plain_listener() {
         json!({"state": "ready", "reason": "ready"}),
         "{readiness}"
     );
-    assert_eq!(
-        readiness["backends"]["event_producer"],
-        json!({"state": "unavailable", "reason": "not_configured"}),
+    assert!(
+        readiness["backends"].get("event_producer").is_none(),
         "{readiness}"
     );
     for kernel in [
         "core_agent_boundary",
+        "public_core",
         "independent_receipt_authority",
+        "identity",
         "program_registry",
     ] {
-        assert_eq!(
-            readiness["backends"][kernel],
-            json!({"state": "unavailable", "reason": "not_configured"}),
-            "{kernel}"
-        );
+        assert!(readiness["backends"].get(kernel).is_none(), "{readiness}");
     }
+    assert_eq!(
+        readiness["components"],
+        json!({"durable_store": "ready"}),
+        "{readiness}"
+    );
     drop(gateway);
     drop(chain);
 }

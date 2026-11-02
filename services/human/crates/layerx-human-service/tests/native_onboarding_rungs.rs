@@ -119,6 +119,7 @@ fn context(sequence: u64, timestamp: u64) -> AgentPreparationContext {
         AuthorityRef::new("custody:human-primary")
             .unwrap_or_else(|error| panic!("authority: {error:?}")),
         sequence,
+        sequence,
         timestamp,
         timestamp.saturating_add(30),
         10,

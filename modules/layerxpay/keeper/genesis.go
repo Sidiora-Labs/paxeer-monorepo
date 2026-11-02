@@ -17,6 +17,10 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) error {
 	for _, record := range gs.KernelRecords {
 		store.Set(record.Key, append([]byte{}, record.Value...))
 	}
+	payStore := ctx.KVStore(k.storeKey)
+	for _, record := range gs.AgentStreamMetadata {
+		payStore.Set(record.Key, bytes.Clone(record.Value))
+	}
 	return nil
 }
 
@@ -35,5 +39,12 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 		}
 		iterator.Close()
 	}
+	iterator := sdk.KVStorePrefixIterator(ctx.KVStore(k.storeKey), []byte(types.AgentStreamMetadataPrefix))
+	for ; iterator.Valid(); iterator.Next() {
+		gs.AgentStreamMetadata = append(gs.AgentStreamMetadata, kv.Pair{
+			Key: bytes.Clone(iterator.Key()), Value: bytes.Clone(iterator.Value()),
+		})
+	}
+	iterator.Close()
 	return gs
 }

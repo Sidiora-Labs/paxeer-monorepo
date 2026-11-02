@@ -1,7 +1,8 @@
 # Getting started
 
-This checklist uses the router and the custody-credit funding path available to approved developers; access still requires credentials
-and independently supplied verification policy.
+This checklist uses the router and the Human service ledger payment path
+available to approved developers; access still requires credentials and
+independently supplied verification policy.
 
 ## Endpoints and trust
 
@@ -31,38 +32,12 @@ layerx key default alice
 layerx wallet list
 ```
 
-There is no public faucet. An account is funded by an authenticated custody
-credit: deposit into the custody precompile
-`0x0000000000000000000000000000000000001013` on Paxeer chain `125` through one
-of the [public RPC names](../reference/public-rpc.md), then build the credit from that deposit's
-evidence, sign the funding activity with the account's own key, and submit it
-through the router. [Custody credit](../human/custody.md) documents every input and
-refusal.
-
-```sh
-python tests/bridge/custody_credit.py attest \
-  --rpc "$FIRST_RPC" --rpc "$SECOND_RPC" --comet-rpc "$COMET_RPC" \
-  --ca-bundle "$CA_BUNDLE" --disposable-identity "$IDENTITY" \
-  --profile custody.profile --network-id "$NETWORK_ID" \
-  --transaction "$DEPOSIT_TRANSACTION" --beneficiary "$WALLET_DID" \
-  --beneficiary-key "$WALLET_PUBLIC_KEY" --expected-amount "$AMOUNT" \
-  --output custody.credit
-build/tests/bridge/sign-credit custody.profile custody.credit "$WALLET_DID" \
-  "$WALLET_KEY" "$WALLET_SEQUENCE" "$TIMESTAMP_MS" funding.activity
-
-jq -cn --arg canonical "$(xxd -p funding.activity | tr -d '\n')" \
-  '{jsonrpc:"2.0",id:1,method:"lx_sendActivity",params:[$canonical,"executed"]}' |
-  curl --fail-with-body --silent --show-error "$RPC_URL" \
-    --header 'Content-Type: application/json' \
-    --header "Authorization: LayerX-Key $GATEWAY_KEY_ID:$GATEWAY_KEY_SECRET" \
-    --data-binary @- > funding-response.json
-```
-
-The credit's idempotency is the deposit nullifier in `custody.credit.nullifier`,
-so a repeated submission of the same deposit cannot credit it twice. A signed
-credit is admissible for five minutes; sign it right before submitting. Accept
-funding only after the `executed` outcome and a confirming `lx_getAccount`,
-`lx_getBalance`, or `lx_getBalances` read.
+There is no public faucet. The local custody-credit funding procedure is
+retired: credit evidence is produced by the chain, not by a local script.
+For current ledger payments through the Human service, follow the
+[Human service payment path](../human/payments). See
+[Custody credit](../human/custody.md) for the retirement notice and protocol
+background.
 
 ## Run the register, open, mint, send flow
 

@@ -1,3 +1,4 @@
+use layerx_types::clock::{Clock, Deadline};
 use std::fs;
 use std::io::{self, Read, Write};
 use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
@@ -7,7 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crate::frame::{read_frame, write_frame, Limits};
 use rustix::net::sockopt::socket_peercred;
@@ -104,6 +105,7 @@ impl ComponentShutdown {
 
 /// Production server for the existing bounded human component protocol.
 pub struct HumanComponentServer {
+    clock: Option<Arc<dyn Clock>>,
     backend: Arc<dyn HumanApiComponents>,
     maintenance: Option<MaintenanceRuntime>,
 }
@@ -120,6 +122,16 @@ impl HumanComponentServer {
     #[must_use]
     pub fn new(backend: Arc<dyn HumanApiComponents>) -> Self {
         Self {
+            clock: None,
+            backend,
+            maintenance: None,
+        }
+    }
+
+    #[must_use]
+    pub fn new_with_clock(backend: Arc<dyn HumanApiComponents>, clock: Arc<dyn Clock>) -> Self {
+        Self {
+            clock: Some(clock),
             backend,
             maintenance: None,
         }
@@ -142,11 +154,12 @@ impl HumanComponentServer {
     {
         if interval.is_zero()
             || maximum_items == 0
-            || Instant::now().checked_add(interval).is_none()
+            || Deadline::start(clock.as_ref(), interval).is_err()
         {
             return Err(ComponentServerError::Configuration);
         }
         Ok(Self {
+            clock: Some(Arc::clone(&clock)),
             backend: Arc::clone(&backend) as Arc<dyn HumanApiComponents>,
             maintenance: Some(MaintenanceRuntime {
                 clock,
@@ -167,6 +180,11 @@ impl HumanComponentServer {
         configuration: ComponentServerConfig,
     ) -> Result<BoundHumanComponentServer, ComponentServerError> {
         configuration.validate()?;
+        let clock = match self.clock {
+            Some(clock) => clock,
+            None => layerx_client::runtime_clock::RuntimeClock::from_environment()
+                .map_err(|_| ComponentServerError::Protocol)?,
+        };
         prepare_socket_path(&configuration.socket_path, configuration.allowed_uid)?;
         let listener =
             UnixListener::bind(&configuration.socket_path).map_err(ComponentServerError::Io)?;
@@ -190,6 +208,7 @@ impl HumanComponentServer {
         Ok(BoundHumanComponentServer {
             listener,
             dispatcher: Arc::new(Dispatcher {
+                clock,
                 backend: self.backend,
                 schema,
             }),
@@ -242,12 +261,17 @@ impl BoundHumanComponentServer {
             let shutdown = self.shutdown.clone();
             Some(thread::spawn(move || {
                 while !shutdown.requested() {
-                    let Some(next) = Instant::now().checked_add(maintenance.interval) else {
+                    let Ok(mut next) =
+                        Deadline::start(maintenance.clock.as_ref(), maintenance.interval)
+                    else {
                         maintenance.backend.set_maintenance_health(false);
                         break;
                     };
                     while !shutdown.requested() {
-                        let remaining = next.saturating_duration_since(Instant::now());
+                        let Ok(remaining) = next.remaining(maintenance.clock.as_ref()) else {
+                            maintenance.backend.set_maintenance_health(false);
+                            return;
+                        };
                         if remaining.is_zero() {
                             break;
                         }
@@ -316,6 +340,7 @@ fn epoch_seconds(clock: &dyn layerx_types::clock::Clock) -> Result<u64, Componen
 }
 
 struct Dispatcher {
+    clock: Arc<dyn Clock>,
     backend: Arc<dyn HumanApiComponents>,
     schema: ApiSchema,
 }
@@ -684,11 +709,15 @@ fn serve_one(
         .set_read_timeout(Some(limits.deadline))
         .and_then(|()| stream.set_write_timeout(Some(limits.deadline)))
         .map_err(ComponentServerError::Io)?;
-    let deadline = Instant::now()
-        .checked_add(limits.deadline)
-        .ok_or(ComponentServerError::Configuration)?;
+    let clock = dispatcher.clock.as_ref();
+    let deadline =
+        Deadline::start(clock, limits.deadline).map_err(|_| ComponentServerError::Protocol)?;
     let mut frame = read_frame(
-        &mut DeadlineStream { stream, deadline },
+        &mut DeadlineStream {
+            stream,
+            deadline,
+            clock,
+        },
         limits.maximum_frame_bytes,
     )
     .map_err(|_| ComponentServerError::Protocol)?;
@@ -718,25 +747,26 @@ fn serve_one(
             } => principal.expires_at,
             _ => 0,
         };
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|_| ComponentServerError::Protocol)?
-            .as_secs();
-        let deadline =
-            std::time::Instant::now() + Duration::from_secs(expiry.saturating_sub(now).min(60));
-        let cancellation =
-            super::StreamCancellation::watch(stream.try_clone().map_err(ComponentServerError::Io)?)
-                .map_err(ComponentServerError::Io)?;
-        if let Ok(now) = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
-            if let Some(remaining) = Duration::from_secs(expiry)
-                .checked_sub(now)
-                .filter(|remaining| !remaining.is_zero() && *remaining <= Duration::from_secs(60))
-            {
-                cancellation
-                    .set_deadline(std::time::Instant::now() + remaining)
-                    .map_err(ComponentServerError::Io)?;
-            }
-        }
+        let now = Duration::from_millis(
+            clock
+                .sample(Duration::from_secs(1))
+                .map_err(|_| ComponentServerError::Protocol)?
+                .unix_milliseconds,
+        );
+        let remaining = Duration::from_secs(expiry)
+            .checked_sub(now)
+            .filter(|remaining| !remaining.is_zero() && *remaining <= Duration::from_secs(60))
+            .ok_or(ComponentServerError::Protocol)?;
+        let mut deadline =
+            Deadline::start(clock, remaining).map_err(|_| ComponentServerError::Protocol)?;
+        let cancellation = super::StreamCancellation::watch(
+            stream.try_clone().map_err(ComponentServerError::Io)?,
+            Arc::clone(&dispatcher.clock),
+        )
+        .map_err(ComponentServerError::Io)?;
+        cancellation
+            .set_deadline(deadline)
+            .map_err(ComponentServerError::Io)?;
         let trace = match &request {
             ComponentRequest::Execute { trace, .. } => trace.clone(),
             _ => return Err(ComponentServerError::Protocol),
@@ -755,9 +785,11 @@ fn serve_one(
                     &trace,
                 )?;
                 let remaining = deadline
-                    .checked_duration_since(std::time::Instant::now())
-                    .filter(|duration| !duration.is_zero())
-                    .ok_or_else(ApiFailure::session_expired)?;
+                    .remaining(clock)
+                    .map_err(|_| ApiFailure::unavailable())?;
+                if remaining.is_zero() {
+                    return Err(ApiFailure::session_expired());
+                }
                 stream
                     .set_write_timeout(Some(remaining))
                     .map_err(|_| ApiFailure::unavailable())?;
@@ -787,7 +819,11 @@ fn serve_one(
     }
     let mut response = dispatcher.dispatch_frame(&mut frame);
     let result = write_frame(
-        &mut DeadlineStream { stream, deadline },
+        &mut DeadlineStream {
+            stream,
+            deadline,
+            clock,
+        },
         &response,
         limits.maximum_frame_bytes,
     )
@@ -798,28 +834,38 @@ fn serve_one(
 
 struct DeadlineStream<'a> {
     stream: &'a mut UnixStream,
-    deadline: Instant,
+    deadline: Deadline,
+    clock: &'a dyn Clock,
 }
 
 impl DeadlineStream<'_> {
-    fn remaining(&self) -> io::Result<Duration> {
-        self.deadline
-            .checked_duration_since(Instant::now())
-            .filter(|remaining| !remaining.is_zero())
-            .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "component frame deadline"))
+    fn remaining(&mut self) -> io::Result<Duration> {
+        let remaining = self
+            .deadline
+            .remaining(self.clock)
+            .map_err(io::Error::other)?;
+        if remaining.is_zero() {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "component frame deadline",
+            ));
+        }
+        Ok(remaining)
     }
 }
 
 impl Read for DeadlineStream<'_> {
     fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
-        self.stream.set_read_timeout(Some(self.remaining()?))?;
+        let remaining = self.remaining()?;
+        self.stream.set_read_timeout(Some(remaining))?;
         self.stream.read(bytes)
     }
 }
 
 impl Write for DeadlineStream<'_> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        self.stream.set_write_timeout(Some(self.remaining()?))?;
+        let remaining = self.remaining()?;
+        self.stream.set_write_timeout(Some(remaining))?;
         self.stream.write(bytes)
     }
 
@@ -922,10 +968,27 @@ mod tests {
     use std::io::{Read as _, Write as _};
 
     use super::{
-        reject_buffered_second_frame, ComponentServerError, DeadlineStream, Duration, Instant,
-        UnixStream,
+        reject_buffered_second_frame, Clock, ComponentServerError, Deadline, DeadlineStream,
+        Duration, UnixStream,
     };
     use crate::frame::{read_frame, write_frame, FrameViolation, TransportError};
+
+    #[derive(Default)]
+    struct TestClock(std::sync::atomic::AtomicU64);
+
+    impl Clock for TestClock {
+        fn sample(
+            &self,
+            _budget: Duration,
+        ) -> Result<layerx_types::clock::ClockReading, layerx_types::clock::ClockError> {
+            let milliseconds = self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(layerx_types::clock::ClockReading {
+                generation: [1; 16],
+                unix_milliseconds: milliseconds,
+                monotonic_nanoseconds: milliseconds * 1_000_000,
+            })
+        }
+    }
 
     #[test]
     fn second_frame_probe_is_nonblocking_and_does_not_consume_bytes(
@@ -952,9 +1015,11 @@ mod tests {
         let payload =
             br#"{"kind":"readiness","version":1,"trace":"trc_00112233445566778899aabbccddeeff"}"#;
         write_frame(&mut client, payload, 4096).map_err(|error| format!("{error:?}"))?;
+        let clock = TestClock::default();
         let mut bounded = DeadlineStream {
             stream: &mut server,
-            deadline: Instant::now() + Duration::from_secs(1),
+            deadline: Deadline::start(&clock, Duration::from_secs(1))?,
+            clock: &clock,
         };
         let received = read_frame(&mut bounded, 4096).map_err(|error| format!("{error:?}"))?;
         assert_eq!(received, payload);
@@ -965,9 +1030,11 @@ mod tests {
     fn component_deadline_refuses_oversized_prefix() -> Result<(), Box<dyn std::error::Error>> {
         let (mut server, mut client) = UnixStream::pair()?;
         client.write_all(&4097_u32.to_be_bytes())?;
+        let clock = TestClock::default();
         let mut bounded = DeadlineStream {
             stream: &mut server,
-            deadline: Instant::now() + Duration::from_secs(1),
+            deadline: Deadline::start(&clock, Duration::from_secs(1))?,
+            clock: &clock,
         };
         assert_eq!(
             read_frame(&mut bounded, 4096),
@@ -984,15 +1051,25 @@ mod tests {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let (mut server, mut client) = UnixStream::pair()?;
         client.write_all(&[0])?;
+        let clock = std::sync::Arc::new(TestClock::default());
+        let sender_clock = std::sync::Arc::clone(&clock);
+        let deadline = Deadline::start(clock.as_ref(), Duration::from_millis(150))?;
         let sender = std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(100));
+            for _ in 0..100 {
+                let _ = sender_clock.sample(Duration::from_secs(1));
+            }
             let _ = client.write_all(&[0, 0, 1]);
             std::thread::sleep(Duration::from_millis(100));
+            for _ in 0..100 {
+                let _ = sender_clock.sample(Duration::from_secs(1));
+            }
             let _ = client.write_all(&[1]);
         });
         let mut bounded = DeadlineStream {
             stream: &mut server,
-            deadline: Instant::now() + Duration::from_millis(150),
+            deadline,
+            clock: clock.as_ref(),
         };
         let outcome = read_frame(&mut bounded, 4096);
         sender.join().map_err(|_| "real socket sender panicked")?;
@@ -1003,9 +1080,11 @@ mod tests {
     #[test]
     fn component_deadline_refuses_write_after_expiry() -> Result<(), Box<dyn std::error::Error>> {
         let (mut server, _client) = UnixStream::pair()?;
+        let clock = TestClock::default();
         let mut bounded = DeadlineStream {
             stream: &mut server,
-            deadline: Instant::now(),
+            deadline: Deadline::start(&clock, Duration::ZERO)?,
+            clock: &clock,
         };
         assert_eq!(
             write_frame(&mut bounded, b"{}", 4096),

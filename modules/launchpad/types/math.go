@@ -171,6 +171,14 @@ type FeeInputs struct {
 // maxFee before it is added so that a component above the budget saturates
 // at maxFee, and the sum raised to minFee.
 func CalculateDynamicFee(in FeeInputs) (*big.Int, error) {
+	// Solidity supplies uint256 words. Refuse malformed native inputs before
+	// dereferencing them or taking a saturation shortcut.
+	for _, value := range []*big.Int{in.BaseFee, in.MinFee, in.MaxFee, in.FeeDecayRate,
+		in.VolatilityWeight, in.ConcentrationWeight, in.PoolAgeSeconds, in.Volatility, in.TopHolderBps} {
+		if value == nil || fits(value) != nil {
+			return nil, ErrInvalidParams
+		}
+	}
 	if in.MinFee.Cmp(in.MaxFee) > 0 || in.MaxFee.Cmp(bps) >= 0 {
 		return nil, ErrInvalidParams
 	}

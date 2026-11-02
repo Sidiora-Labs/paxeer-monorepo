@@ -1,9 +1,8 @@
 use std::fmt::Debug;
 
 use layerx_client::sequencer::{
-    AccountProof, CallRequest, ReceiptKeyEntry, SequencerBlock, SequencerError, SequencerReceipt,
+    CallRequest, ReceiptKeyEntry, SequencerBlock, SequencerError, SequencerReceipt, StorageWitness,
 };
-use serde_json::Value;
 
 use crate::node_rpc::{NodeRpc, NodeRpcError};
 
@@ -15,23 +14,18 @@ pub trait HumanNode: Send + Sync + Debug {
     fn bound_address(&self, public_key: &[u8; 32]) -> Result<Option<[u8; 20]>, NodeRpcError>;
     fn pending_nonce(&self, address: &[u8; 20]) -> Result<u64, NodeRpcError>;
     fn call_at(&self, height: u64, to: &[u8; 20], data: &[u8]) -> Result<Vec<u8>, NodeRpcError>;
-    fn account_proof(
+    fn storage_witness(
         &self,
         address: &[u8; 20],
         slots: &[[u8; 32]],
         height: u64,
-    ) -> Result<AccountProof, NodeRpcError>;
+    ) -> Result<Vec<StorageWitness>, NodeRpcError>;
     fn estimate_gas(&self, call: &CallRequest) -> Result<u64, NodeRpcError>;
     fn send_raw_transaction(&self, raw: &[u8]) -> Result<[u8; 32], NodeRpcError>;
     fn sequencer_receipt(
         &self,
         tx_hash: &[u8; 32],
     ) -> Result<Option<SequencerReceipt>, NodeRpcError>;
-    fn history_page(
-        &self,
-        params: Value,
-        maximum_response_bytes: usize,
-    ) -> Result<Vec<u8>, NodeRpcError>;
 
     fn committed_block(&self, height: u64) -> Result<SequencerBlock, NodeRpcError> {
         let head = self.head()?;
@@ -85,13 +79,13 @@ impl HumanNode for NodeRpc {
     fn call_at(&self, height: u64, to: &[u8; 20], data: &[u8]) -> Result<Vec<u8>, NodeRpcError> {
         NodeRpc::call_at(self, height, to, data)
     }
-    fn account_proof(
+    fn storage_witness(
         &self,
         address: &[u8; 20],
         slots: &[[u8; 32]],
         height: u64,
-    ) -> Result<AccountProof, NodeRpcError> {
-        NodeRpc::account_proof(self, address, slots, height)
+    ) -> Result<Vec<StorageWitness>, NodeRpcError> {
+        NodeRpc::storage_witness(self, address, slots, height)
     }
     fn estimate_gas(&self, call: &CallRequest) -> Result<u64, NodeRpcError> {
         NodeRpc::estimate_gas(self, call)
@@ -104,12 +98,5 @@ impl HumanNode for NodeRpc {
         tx_hash: &[u8; 32],
     ) -> Result<Option<SequencerReceipt>, NodeRpcError> {
         NodeRpc::sequencer_receipt(self, tx_hash)
-    }
-    fn history_page(
-        &self,
-        params: Value,
-        maximum_response_bytes: usize,
-    ) -> Result<Vec<u8>, NodeRpcError> {
-        NodeRpc::history_page(self, params, maximum_response_bytes)
     }
 }

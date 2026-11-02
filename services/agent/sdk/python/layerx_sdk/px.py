@@ -554,19 +554,23 @@ def decode_px_asset_table(value: object) -> PxAssetTable:
 
 def decode_px_network_head(value: object) -> PxNetworkHead:
     document = _document(value)
-    _present(document, ("network_id", "paxeer", "layerx", "latest_committed_height"))
+    _present(document, ("network_id", "paxeer", "consensus"))
     if "anchor" in document:
         raise ValueError("invalid-px-finality")
+    if document["consensus"] is None:
+        raise ValueError("px-consensus-unavailable")
+    consensus = _document(document["consensus"])
+    _present(consensus, ("latest_height",))
     paxeer = _document(document["paxeer"])
     _present(paxeer, ("chain_id", "latest_block"))
     latest_block = _px_counted(paxeer["latest_block"])
-    latest_committed_height = _px_counted(document["latest_committed_height"])
+    latest_committed_height = _px_counted(consensus["latest_height"])
     if latest_committed_height > latest_block:
         raise ValueError("invalid-px-finality")
     return PxNetworkHead(
         _text(document["network_id"], 128),
         PxPaxeerHead(_px_counted(paxeer["chain_id"]), latest_block),
-        _document_or_none(document["layerx"]),
+        _document_or_none(document.get("layerx")),
         latest_committed_height,
     )
 

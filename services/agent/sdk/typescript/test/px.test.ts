@@ -395,24 +395,69 @@ assert.equal(assets.assets[1]!.layerx, null);
 const networkDocument = {
   network_id: "eip155:125",
   paxeer: { chain_id: "0x7d", latest_block: "0x2b67" },
-  layerx: { node_info: { network: "eip155:125" } },
-  latest_committed_height: "11110",
+  consensus: {
+    latest_height: "11110",
+    latest_block_hash: "12".repeat(32),
+    latest_app_hash: "34".repeat(32),
+    catching_up: false,
+  },
 };
 const maximumHeight = "18446744073709551615";
-const networkCases = [
+const networkDocuments = [
   networkDocument,
   {
     ...networkDocument,
-    latest_committed_height: "0",
+    consensus: { ...networkDocument.consensus, latest_height: "0" },
     layerx: { node_info: null },
   },
-  { ...networkDocument, latest_committed_height: "0x2b67", layerx: null },
+  {
+    ...networkDocument,
+    consensus: { ...networkDocument.consensus, latest_height: "0x2b67" },
+    layerx: null,
+  },
   {
     ...networkDocument,
     paxeer: { chain_id: 125, latest_block: maximumHeight },
-    latest_committed_height: maximumHeight,
+    consensus: { ...networkDocument.consensus, latest_height: maximumHeight },
   },
 ];
+function networkCases() {
+  const document = {
+    network_id: "eip155:125",
+    paxeer: { chain_id: "0x7d", latest_block: 16 },
+    consensus: { ...networkDocument.consensus, latest_height: 9 },
+  };
+  const network = decodePxNetworkHead(document);
+  assert.deepEqual(network, {
+    networkId: "eip155:125",
+    paxeer: { chainId: 125n, latestBlock: 16n },
+    layerx: null,
+    latestCommittedHeight: 9n,
+  });
+  assert.throws(
+    () =>
+      decodePxNetworkHead({
+        ...document,
+        consensus: null,
+        reason: "consensus_unavailable",
+      }),
+    { message: "Gateway consensus unavailable" },
+  );
+  assert.throws(
+    () =>
+      decodePxNetworkHead({
+        ...document,
+        consensus: { ...document.consensus, latest_height: 17 },
+      }),
+    { message: "Invalid gateway finality" },
+  );
+  assert.throws(
+    () => decodePxNetworkHead({ ...document, anchor: null }),
+    { message: "Invalid gateway finality" },
+  );
+}
+await test(networkCases);
+
 const invalidNetworks: readonly {
   readonly value: unknown;
   readonly ts: string;
@@ -429,12 +474,25 @@ const invalidNetworks: readonly {
     py: "incomplete-px-document",
   },
   {
+    value: { ...networkDocument, consensus: null, reason: "consensus_unavailable" },
+    ts: "Gateway consensus unavailable",
+    py: "px-consensus-unavailable",
+  },
+  {
+    value: { ...networkDocument, consensus: {} },
+    ts: "Incomplete gateway document",
+    py: "incomplete-px-document",
+  },
+  {
     value: { ...networkDocument, anchor: null },
     ts: "Invalid gateway finality",
     py: "invalid-px-finality",
   },
   {
-    value: { ...networkDocument, latest_committed_height: "11112" },
+    value: {
+      ...networkDocument,
+      consensus: { ...networkDocument.consensus, latest_height: "11112" },
+    },
     ts: "Invalid gateway finality",
     py: "invalid-px-finality",
   },
@@ -450,7 +508,10 @@ const invalidNetworks: readonly {
   },
   ...[null, true, -1, 1.5, "-1", "01", "18446744073709551616"].map(
     (height) => ({
-      value: { ...networkDocument, latest_committed_height: height },
+      value: {
+        ...networkDocument,
+        consensus: { ...networkDocument.consensus, latest_height: height },
+      },
       ts:
         height === "18446744073709551616"
           ? "Invalid gateway count"
@@ -468,23 +529,23 @@ await test("network_finality_from_commit", () => {
   assert.deepEqual(network, {
     networkId: "eip155:125",
     paxeer: { chainId: 125n, latestBlock: 11111n },
-    layerx: { node_info: { network: "eip155:125" } },
+    layerx: null,
     latestCommittedHeight: 11110n,
   });
   assert.equal("anchor" in network, false);
   assert.equal(Object.isFrozen(network), true);
   assert.equal(Object.isFrozen(network.paxeer), true);
-  assert.equal(decodePxNetworkHead(networkCases[1]).latestCommittedHeight, 0n);
-  assert.deepEqual(decodePxNetworkHead(networkCases[1]).layerx, {
+  assert.equal(decodePxNetworkHead(networkDocuments[1]).latestCommittedHeight, 0n);
+  assert.deepEqual(decodePxNetworkHead(networkDocuments[1]).layerx, {
     node_info: null,
   });
-  assert.equal(decodePxNetworkHead(networkCases[2]).layerx, null);
+  assert.equal(decodePxNetworkHead(networkDocuments[2]).layerx, null);
   assert.equal(
-    decodePxNetworkHead(networkCases[2]).latestCommittedHeight,
+    decodePxNetworkHead(networkDocuments[2]).latestCommittedHeight,
     11111n,
   );
   assert.equal(
-    decodePxNetworkHead(networkCases[3]).latestCommittedHeight,
+    decodePxNetworkHead(networkDocuments[3]).latestCommittedHeight,
     18446744073709551615n,
   );
   for (const { value, ts } of invalidNetworks)
@@ -493,7 +554,10 @@ await test("network_finality_from_commit", () => {
     () =>
       decodePxNetworkHead({
         ...networkDocument,
-        latest_committed_height: Number.MAX_SAFE_INTEGER + 1,
+        consensus: {
+          ...networkDocument.consensus,
+          latest_height: Number.MAX_SAFE_INTEGER + 1,
+        },
       }),
     { message: "Invalid gateway quantity" },
   );
@@ -504,19 +568,19 @@ function px_network_head_carries_the_commit_finality_and_no_anchor() {
   assert.deepEqual(network, {
     networkId: "eip155:125",
     paxeer: { chainId: 125n, latestBlock: 11111n },
-    layerx: { node_info: { network: "eip155:125" } },
+    layerx: null,
     latestCommittedHeight: 11110n,
   });
   assert.equal("anchor" in network, false);
   assert.equal(Object.isFrozen(network), true);
   assert.equal(Object.isFrozen(network.paxeer), true);
-  assert.equal(decodePxNetworkHead(networkCases[1]).latestCommittedHeight, 0n);
+  assert.equal(decodePxNetworkHead(networkDocuments[1]).latestCommittedHeight, 0n);
   assert.equal(
-    decodePxNetworkHead(networkCases[2]).latestCommittedHeight,
+    decodePxNetworkHead(networkDocuments[2]).latestCommittedHeight,
     11111n,
   );
   assert.equal(
-    decodePxNetworkHead(networkCases[3]).latestCommittedHeight,
+    decodePxNetworkHead(networkDocuments[3]).latestCommittedHeight,
     18446744073709551615n,
   );
   for (const anchor of [
@@ -766,7 +830,7 @@ print(json.dumps({"networks": networks, "keys": keys}))
     },
     input: JSON.stringify({
       methods: PX_METHODS,
-      networks: networkCases,
+      networks: networkDocuments,
       keys: receiptKeyCases,
       invalidNetworks,
       invalidKeys: invalidReceiptKeys,
@@ -779,7 +843,7 @@ print(json.dumps({"networks": networks, "keys": keys}))
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);
   const expected = {
-    networks: networkCases.map(decodePxNetworkHead),
+    networks: networkDocuments.map(decodePxNetworkHead),
     keys: receiptKeyCases.map(decodePxReceiptKeys),
   };
   assert.deepEqual(

@@ -5,11 +5,12 @@
 #
 #   value-loop.sh [ASSET=PAX|SID|USDC|USDL]
 #
-# Requires the genesis asset id, the sequencer's LNI socket and the receipt
-# authority answering /readyz on 9445. The sender must already be funded.
+# Requires the genesis asset id, the node RPC and trust anchor, the sequencer's
+# LNI socket and the receipt authority answering /readyz on 9445. The sender must
+# already be funded.
 # Sender and recipient seeds are retained under /data/layerx/keys/value-loop.
-# Sends one unit, then reports both balances and the sealed batch from the
-# receipt authority. A rerun reuses the retained SEND activity.
+# Sends one unit, then reports both balances, the node's committed height and
+# the batch from the receipt authority. A rerun reuses the retained SEND activity.
 # Output lines: account, asset, activity, balance, batch; exits 0 on success,
 # 1 on failure, or 3 when a precondition is absent.
 # Nothing secret is printed.
@@ -61,19 +62,19 @@ name = ("agent:" + sys.argv[1] + ":main").encode()
 print(hashlib.sha256(b"LX:ACCOUNT:v1" + len(name).to_bytes(4, "big") + name).hexdigest())' "$1"
 }
 
-handshake_sealed() {
-	as_lni layerx-node-probe handshake --socket "$lni" --network-id "$network_id" 2>/dev/null |
-		jq -er '.latest_sealed_batch'
+handshake_committed() {
+	as_lni layerx-node-probe handshake --rpc "$rpc" --trust-anchor "$trust_anchor" --network-id "$network_id" 2>/dev/null |
+		jq -er '.latest_committed_height'
 }
 
 balance() {
-	as_lni layerx-node-probe balance --socket "$lni" --network-id "$network_id" \
+	as_lni layerx-node-probe balance --rpc "$rpc" --trust-anchor "$trust_anchor" --network-id "$network_id" \
 		--account "agent:$1:main" --asset "$asset" 2>/dev/null
 }
 
 main() {
 	local argument file pid bearer="" role seed public did id
-	local answer activity sealed batch deadline token_files
+	local answer activity committed_height batch deadline token_files
 	local symbol=PAX explicit_asset=0
 	for argument in "$@"; do
 		case "$argument" in
@@ -90,6 +91,8 @@ main() {
 		state="$layerx/value-loop/assets/$symbol"
 	fi
 	[ -S "$lni" ] || precondition kernel-node "$lni absent; the sequencer has not bootstrapped the genesis"
+	[ -n "$rpc" ] || precondition custody-rpc "LAYERX_NODE_RPC must be set"
+	[ -n "$trust_anchor" ] || precondition custody-trust-anchor "LAYERX_NODE_TRUST_ANCHOR_DER must be set"
 	for pid in /proc/[0-9]*; do
 		[ "$(basename "$(readlink "$pid/exe" 2>/dev/null)")" = layerx-receipt-authority ] || continue
 		token_files=$(tr '\000' '\n' <"$pid/environ" 2>/dev/null | sed -n 's/^LAYERX_AUTHORITY_TOKEN_FILES=//p' | head -n 1) || true
@@ -139,14 +142,10 @@ main() {
 	if [ ! -s "$state/send.activity-id" ]; then
 		rm -f "$state/send.bin"
 		local send_command=write-send
-		local -a send_endpoint=(--socket "$lni")
 		if [ "$explicit_asset" = 1 ]; then
-			[ -n "$rpc" ] || precondition custody-rpc "LAYERX_NODE_RPC must be set for an explicit asset"
-			[ -n "$trust_anchor" ] || precondition custody-trust-anchor "LAYERX_NODE_TRUST_ANCHOR_DER must be set for an explicit asset"
 			send_command=write-asset-send
-			send_endpoint=(--rpc "$rpc" --trust-anchor "$trust_anchor")
 		fi
-		activity=$(as_lni layerx-node-probe "$send_command" "${send_endpoint[@]}" --network-id "$network_id" \
+		activity=$(as_lni layerx-node-probe "$send_command" --rpc "$rpc" --trust-anchor "$trust_anchor" --network-id "$network_id" \
 			--seed-file "$keys/value-loop/sender.key" --destination-did "${dids[recipient]}" \
 			--asset "$asset" --output "$state/send.bin" 2>/dev/null) || failed "activity write-send refused"
 		answer=$(as_lni layerxctl submit --socket "$lni" --network-id "$network_id" --protocol-version 3 \
@@ -177,8 +176,8 @@ main() {
 		[ "$(date +%s)" -lt "$deadline" ] || failed "batch activity=$activity authority=${answer:-none}"
 		sleep 2
 	done
-	sealed=$(handshake_sealed) || failed "batch id=$batch sealed=unreadable"
-	echo "batch id=$batch sealed=$sealed"
+	committed_height=$(handshake_committed) || failed "batch id=$batch committed_height=unreadable"
+	echo "batch id=$batch committed_height=$committed_height"
 }
 
 main "$@" </dev/null

@@ -315,7 +315,7 @@ For each validator operator (`$PAXD_UNIT`, `$PAXD_HOME` and `$COMET_RPC_PORT` fr
    curl -s -H 'content-type: application/json' "localhost:$EVM_RPC_PORT" \
      --data '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":"0x0000000000000000000000000000000000001013","data":"0x2dfdf0b5"},"latest"]}'
    ```
-   (0x1014 with `0x42cde4e8`; 0x1015–0x1017 with the calldata used in the rehearsal.)
+   (0x1014 with `0x42cde4e8`; 0x1015 with `0x8162486b` (totalMarkets()); 0x1016 with `0xb187bd26` (isPaused()); 0x1017 with `0x8eec5d70` (getPoolCount()).)
 
 Record per validator, locally: halt log seen (Y/N), upgrade-info.json OK, sha256 OK, restarted at
 (UTC), first signed height after H.
@@ -371,7 +371,7 @@ Lagging or stalled nodes are not upgraded in place:
 
 - [ ] Section 0 table complete and checked by a second person; no key in two homes.
 - [ ] Proposal passed; `paxd q upgrade plan` shows `$UPGRADE_NAME` at the height announced.
-- [ ] Rehearsal passed on the release binary (`rehearsal-result.env` new_bin_sha256 equals section 3).
+- [ ] Rehearsal passed: the section 4 pytest selector exited 0 on the merged release revision, and that revision is the section 3 Source commit.
 - [ ] `sha256sum "$PAXD_BIN.$UPGRADE_NAME"` matches section 3 on every validator and full node host.
 - [ ] Validators holding more than two thirds of the voting power, plus margin, confirmed with the
       new binary staged and operators on call before H.

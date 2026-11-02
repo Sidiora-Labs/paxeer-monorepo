@@ -4,6 +4,56 @@ Source revision: `2a1033aa2`. This contract freezes the cited interface and acce
 
 The context and decision tables reproduce the rules linked by interface identifiers. An anchor without a linked context gains no additional storage, gas, activation or pause rule here. Acceptance qualification remains UNRUN until its declared gate succeeds.
 
+## AI market EIP-1559 preparation
+
+`ai_market::NativeTerms` retains `network_id: u32`, `actor_did: &[u8]`,
+`owner_public_key: [u8; 32]`, `account_sequence: u64`, `idempotency_key: [u8; 32]`,
+`not_before: u64`, `not_after: u64`, `fee_limit: u128`, `capabilities: &[u8]`,
+`access_declaration: &[u8]`, `response_capacity: u32`, and `resources: Resources`,
+and adds `gas_limit: u64`, `max_fee_per_gas: u128`, and
+`max_priority_fee_per_gas: u128`. As in the Python SDK, preparation requires
+network 125, zero `not_before`, positive gas, priority fee at most maximum fee,
+`not_after` equal to the PAXAI expiry and `idempotency_key` equal to its request ID.
+The maximum gas fee must fit the disclosure's `u128` fee bound.
+
+`FinalizedSnapshot::prepare` encodes the request as a `NativeProgramCall` with
+ABI 5 and entrypoint `layerx_call`, then ABI-encodes
+`call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)` for
+`0x000000000000000000000000000000000000101d`. `PreparedOperation` stores the
+`Eip1559Call` and its unsigned type-2 RLP (`canonical_bytes()`), with chain ID 125,
+nonce from `account_sequence`, the three gas fields, zero value and an empty
+access list. It retains the native call, program fee limit, owner key, snapshot
+binding, intent and effect for review. `payload_digest()` hashes the encoded
+native call with SHA-256.
+
+`review(registry, from)` binds the stored transaction through
+`layerx_crypto::payments::bind_call`; the sender is explicit because unsigned RLP
+does not encode it. `review_call(registry, call, from)` additionally requires the
+supplied call to equal the stored transaction, including nonce and gas terms.
+Review checks the decoded native operation, PAXAI domain, intent, effect and
+snapshot. `ApprovalTerms::transaction` contains the complete call and sender;
+`fee_limit` is the Programs execution budget, while the disclosure fee bound is
+`gas_limit * max_fee_per_gas`. Validity and retry identity come from the PAXAI
+expiry and request ID. Approval compares every reviewed field, checks the retained
+owner key and rebinds the transaction. Signing uses `sign_disclosed_call` and
+verifies the recovered EVM sender.
+
+The shared `layerx_crypto::disclosure::call::{encode_program_call,
+decode_program_call}` codec uses the Python SDK's fifteen ABI head words and
+four ordered dynamic tails. Decoding refuses overflowing integers, invalid native
+calls, offsets, padding, truncation and trailing bytes. `ConstructMethod::ProgramCall`
+exposes the decoded native call and Programs fee budget; its disclosure uses
+Programs ordinal 3 and carries the PAXAI envelope's request ID and expiry.
+
+`OperationRecord::from_signed_transaction(signed_bytes, intent, not_after)` remains
+the durable record producer. Its identity and idempotency key are the signed
+transaction hash, protocol version is 2, network ID is the transaction chain ID,
+and `signer_public_key` stores the recovered 20-byte sender left-padded to 32 bytes.
+The record retains intent, approved expiry, exact signed bytes, lifecycle/domain
+states, attempt count, optional result code, sequence, checkpoint and receipt rung.
+Encoding and journal reload preserve these fields and revalidate transaction
+identity; submissions retain the exact signed bytes across restart and resend.
+
 ## agent-api
 
 | Interface | Kind | Status | Source at pinned revision | Signature |

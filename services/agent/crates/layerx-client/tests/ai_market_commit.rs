@@ -9,10 +9,15 @@ use std::task::{Context, Poll, Wake, Waker};
 
 use layerx_client::ai_market::{
     AiClientError, CommitFinality, NativeTerms, ObservedSnapshot, OperationJournal,
-    OperationRecord, OperationRequest, OperationState, PROGRAM_CALL_ORDINAL,
+    OperationRecord, OperationRequest, OperationState, PreparedOperation, ReviewField, ENTRYPOINT,
+    GUEST_ABI, PROGRAM_CALL_ORDINAL,
 };
+use layerx_crypto::account_derivation::derive_from_seed;
+use layerx_crypto::disclosure::DisclosedNativeOperation;
+use layerx_crypto::evm_transaction::{self, Eip1559Call};
 use layerx_crypto::local::LocalSigner;
-use layerx_crypto::signer::Signer;
+use layerx_crypto::payments::bind_call;
+use layerx_crypto::signer::{sign_disclosed_call, Signer};
 use layerx_programs_ai_market::codec::{decode_envelope, derive_market, encode_envelope, Envelope};
 use layerx_programs_ai_market::dispatch;
 use layerx_programs_ai_market::errors::ApplicationError;
@@ -37,7 +42,7 @@ const ASSET: [u8; 32] = [13; 32];
 const REFUND: [u8; 32] = [14; 32];
 const OWNER_SEED: [u8; 32] = [0x41; 32];
 const ORIGIN: u64 = 1;
-const NETWORK: u32 = 42;
+const NETWORK: u32 = 125;
 static NEXT_JOURNAL: AtomicU64 = AtomicU64::new(1);
 
 enum Failure {
@@ -110,8 +115,9 @@ fn digest(byte: u8) -> Checked<Digest32> {
     Ok(Digest32::new([byte; 32])?)
 }
 
-fn public_key(seed: [u8; 32]) -> [u8; 32] {
-    LocalSigner::new(seed).public_key()
+fn owner_signer() -> Checked<LocalSigner> {
+    let account = derive_from_seed(&OWNER_SEED, 0).map_err(setup("owner derivation"))?;
+    Ok(LocalSigner::from_derived_account(&account))
 }
 
 fn policy_with(rubric: u8) -> Checked<TaskPolicyV1> {
@@ -267,7 +273,7 @@ fn finalize_refuses_a_zero_app_hash_or_an_older_commit() -> Checked {
     Ok(())
 }
 
-fn signed_operation(registry: &ModuleRegistry) -> Checked<OperationRecord> {
+fn prepared_operation(registry: &ModuleRegistry) -> Checked<PreparedOperation> {
     let commit = CommitFinality::new(9, [31; 32], [32; 32], [33; 32])?;
     let snapshot = observed()?.finalize(Some(&commit), 5000)?;
     let mut payload = vec![0; 57];
@@ -279,7 +285,7 @@ fn signed_operation(registry: &ModuleRegistry) -> Checked<OperationRecord> {
     }
     .encode(&mut payload)?;
     payload.truncate(length);
-    let prepared = snapshot.prepare(
+    Ok(snapshot.prepare(
         registry,
         9,
         &OperationRequest {
@@ -288,33 +294,153 @@ fn signed_operation(registry: &ModuleRegistry) -> Checked<OperationRecord> {
             actor: principal(OWNER)?,
             roster: None,
             sequence: 1,
-            expiry: 1000000,
+            expiry: 200,
             request: RequestId::new([34; 32])?,
             required_rank: FINALIZED_RANK,
         },
         &NativeTerms {
             network_id: NETWORK,
             actor_did: b"did:layerx:paxai-owner",
-            owner_public_key: public_key(OWNER_SEED),
+            owner_public_key: owner_signer()?.public_key(),
             account_sequence: 1,
-            idempotency_key: [35; 32],
-            not_before: 100,
+            idempotency_key: [34; 32],
+            not_before: 0,
             not_after: 200,
             fee_limit: 1000,
             capabilities: &[0, 0],
             access_declaration: b"LayerX/programs/access-declaration/v1\0\0",
             response_capacity: 16,
             resources: Resources([1000000, 16777216, 1048576, 1048576, 64, 1048576, 4096]),
+            gas_limit: 100_000,
+            max_fee_per_gas: 30,
+            max_priority_fee_per_gas: 2,
         },
-    )?;
-    let review = prepared.review(registry)?;
+    )?)
+}
+
+fn signed_operation(registry: &ModuleRegistry) -> Checked<OperationRecord> {
+    let signer = owner_signer()?;
+    let from = signer
+        .evm_address()
+        .ok_or_else(|| Failure::Setup("missing EVM key".to_owned()))?;
+    let prepared = prepared_operation(registry)?;
+    let call = evm_transaction::decode_unsigned(prepared.canonical_bytes())
+        .map_err(setup("unsigned transaction"))?;
+    let review = prepared.review_call(registry, call, from)?;
     let terms = review.terms().clone();
-    let approval = review.approve(&terms, public_key(OWNER_SEED))?;
-    Ok(ready(approval.sign(
-        &LocalSigner::new(OWNER_SEED),
-        registry,
-        9,
-    ))?)
+    let approval = review.approve(&terms, signer.public_key())?;
+    Ok(ready(approval.sign(&signer, registry, 9))?)
+}
+
+#[test]
+fn prepared_operation_signs_as_eip1559_program_call() -> Checked {
+    let registry = registry()?;
+    let prepared = prepared_operation(&registry)?;
+    let intent = prepared.intent().bytes();
+    let call = evm_transaction::decode_unsigned(prepared.canonical_bytes())
+        .map_err(setup("unsigned transaction"))?;
+    assert_eq!(prepared.canonical_bytes(), call.encode_unsigned());
+    assert_eq!(call.chain_id, 125);
+    assert_eq!(call.nonce, 1);
+    assert_eq!(call.gas_limit, 100_000);
+    assert_eq!(call.max_fee_per_gas, 30);
+    assert_eq!(call.max_priority_fee_per_gas, 2);
+    assert_eq!(&call.to[..18], &[0; 18]);
+    assert_eq!(&call.to[18..], &[0x10, 0x1d]);
+    assert_eq!(&call.data[..4], &[0x54, 0xbd, 0x2b, 0x48]);
+    let signer = owner_signer()?;
+    let from = signer
+        .evm_address()
+        .ok_or_else(|| Failure::Setup("missing EVM key".to_owned()))?;
+    for changed in [
+        Eip1559Call {
+            gas_limit: call.gas_limit + 1,
+            ..call.clone()
+        },
+        Eip1559Call {
+            nonce: call.nonce + 1,
+            ..call.clone()
+        },
+        Eip1559Call {
+            max_fee_per_gas: call.max_fee_per_gas + 1,
+            ..call.clone()
+        },
+        Eip1559Call {
+            max_priority_fee_per_gas: call.max_priority_fee_per_gas + 1,
+            ..call.clone()
+        },
+    ] {
+        assert_eq!(
+            prepared.clone().review_call(&registry, changed, from),
+            Err(AiClientError::ReviewMismatch(ReviewField::Transaction))
+        );
+    }
+    let disclosure = bind_call(&call, from).map_err(setup("program call disclosure"))?;
+    assert_eq!(disclosure.fee_limit, 3_000_000);
+    assert_eq!(disclosure.idempotency_key, [34; 32]);
+    assert_eq!(disclosure.expiry.not_before, 0);
+    assert_eq!(disclosure.expiry.not_after, 200);
+    assert_eq!(disclosure.expiry.payload_expires_at, 200);
+    let Some(DisclosedNativeOperation::ProgramCall(native)) = &disclosure.native_operation else {
+        return Err(Failure::Setup("missing disclosed program call".to_owned()));
+    };
+    assert_eq!(native.program_id.bytes(), PROGRAM);
+    assert_eq!(native.guest_abi, GUEST_ABI);
+    assert_eq!(native.entrypoint, ENTRYPOINT);
+    assert_eq!(
+        decode_envelope(&native.calldata)?.request_digest()?.bytes(),
+        intent
+    );
+    let review = prepared.clone().review(&registry, from)?;
+    assert_eq!(review.terms().snapshot, prepared.snapshot_id());
+    assert_eq!(review.terms().fee_limit, 1000);
+    assert_eq!(review.terms().not_before, 0);
+    assert_eq!(review.terms().not_after, 200);
+    assert_eq!(review.terms().idempotency_key, [34; 32]);
+    let approved = review.terms().clone();
+    assert_eq!(
+        review.clone().approve(&approved, [0; 32]),
+        Err(AiClientError::UnauthorizedKey)
+    );
+    let mut changed = approved.clone();
+    changed
+        .transaction
+        .as_mut()
+        .ok_or_else(|| Failure::Setup("missing reviewed transaction".to_owned()))?
+        .0
+        .gas_limit += 1;
+    assert_eq!(
+        review.clone().approve(&changed, signer.public_key()),
+        Err(AiClientError::ReviewMismatch(ReviewField::Transaction))
+    );
+    let signature = ready(sign_disclosed_call(&signer, &call, &disclosure, from))
+        .map_err(setup("disclosed signing"))?;
+    let raw = evm_transaction::assemble(&call, &signature);
+    let (signed_call, signed_signature) =
+        evm_transaction::decode_signed(&raw).map_err(setup("signed transaction"))?;
+    assert_eq!(signed_call, call);
+    assert_eq!(
+        evm_transaction::recover_sender(&signed_call, &signed_signature)
+            .map_err(setup("sender"))?,
+        from
+    );
+    let record = OperationRecord::from_signed_transaction(raw.clone(), intent, approved.not_after)?;
+    assert_eq!(record.intent(), intent);
+    assert_eq!(record.signed_bytes(), raw);
+    assert_eq!(record.protocol_version(), 2);
+    assert_eq!(record.network_id(), NETWORK);
+    assert_eq!(
+        record.activity_id(),
+        evm_transaction::transaction_hash(&raw)
+    );
+    assert_eq!(record.idempotency_key(), record.activity_id());
+    assert_eq!(
+        OperationRecord::decode(&record.encode()?, &registry)?,
+        record
+    );
+    let approval = review.approve(&approved, signer.public_key())?;
+    assert_eq!(ready(approval.sign(&signer, &registry, 9))?, record);
+    Ok(())
 }
 
 fn ready<F: Future>(future: F) -> F::Output {
@@ -346,13 +472,14 @@ fn journal_finalize_records_the_block_hash() -> Checked {
     let mut encoded = signed.encode()?;
     encoded[8] = OperationState::Executed.code();
     encoded[152..156].copy_from_slice(&1_u32.to_be_bytes());
-    let signed_body = encoded.split_off(159);
+    let signed_body = encoded.split_off(160);
     encoded.truncate(156);
     encoded.push(1);
     encoded.extend_from_slice(&0_i32.to_be_bytes());
     encoded.push(1);
     encoded.extend_from_slice(&12_u64.to_be_bytes());
     encoded.push(0);
+    encoded.extend_from_slice(&[1, 1]); // Receipted rung.
     encoded.extend_from_slice(&signed_body);
     let mut record = OperationRecord::decode(&encoded, &registry)?;
     assert_eq!(record.state(), OperationState::Executed);

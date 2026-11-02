@@ -16,97 +16,70 @@ use sha2::{Digest, Sha256};
 use sha3::Keccak256;
 
 use ed25519_dalek::{Signer as _, SigningKey};
+use k256::ecdsa::SigningKey as EvmSigningKey;
 use layerx_crypto::evm_transaction::{
-    decode_signed as decode_transaction, recover_sender, Eip1559Call,
+    decode_signed as decode_transaction, recover_sender, Eip1559Call, EvmTransactionError,
 };
+use layerx_crypto::send::{ledger_payment_call, send_context_hash, CallOptions, SendDebit};
 use layerx_crypto::SignatureMessage;
-use layerx_intents::canonical::{activity_id, payload_hash_for, Domain};
-use layerx_intents::canonical::{
-    decode_signed_activity as decode_signed, signed_envelope_bytes as encode_signed_envelope,
-    unsigned_envelope_bytes as encode_unsigned_envelope,
-};
-use layerx_intents::canonical::{MAX_MESSAGE_BYTES, PROTOCOL_VERSION};
-use layerx_types::activity::{Authority, EnvelopeBuilder, Signature, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistry, Payload};
+use layerx_intents::canonical::MAX_MESSAGE_BYTES;
 use layerx_types::result::{KnownResult, ResultCode};
+use layerx_wire::hash::Domain;
+use layerx_wire::limits::PROTOCOL_VERSION;
 
 use support::evidence_node::AdmissionJournal;
 use support::EVIDENCE_NETWORK_ID;
 
-fn signed_activity(
-    registry: &ModuleRegistry,
-    actor_did: &[u8],
-    authority_key: [u8; 32],
-    signer: &SigningKey,
-    sequence: u64,
-    idempotency: u8,
-) -> Vec<u8> {
-    let activity_type = ActivityType::new(ModuleId::Asset, 1)
-        .unwrap_or_else(|error| panic!("activity type: {error:?}"));
-    let sequence_byte =
-        u8::try_from(sequence).unwrap_or_else(|error| panic!("sequence byte: {error}"));
-    let payload = Payload::new(registry, activity_type, &[sequence_byte, idempotency, 3])
-        .unwrap_or_else(|error| panic!("payload: {error:?}"));
-    let digest =
-        payload_hash_for(&payload).unwrap_or_else(|error| panic!("payload hash: {error:?}"));
-    let mut builder = EnvelopeBuilder::new();
-    builder
-        .protocol_version(PROTOCOL_VERSION)
-        .and_then(|builder| builder.network_id(EVIDENCE_NETWORK_ID))
-        .and_then(|builder| builder.activity_type(activity_type))
-        .and_then(|builder| {
-            builder.actor_did(Did::new(actor_did).unwrap_or_else(|error| panic!("did: {error:?}")))
-        })
-        .and_then(|builder| {
-            builder.authority(
-                Authority::owner(&authority_key)
-                    .unwrap_or_else(|error| panic!("authority: {error:?}")),
-            )
-        })
-        .and_then(|builder| builder.account_sequence(sequence))
-        .and_then(|builder| {
-            builder.timestamp_bound(
-                TimestampBound::new(1, 1_000)
-                    .unwrap_or_else(|error| panic!("timestamp bound: {error:?}")),
-            )
-        })
-        .and_then(|builder| builder.idempotency_key(IdempotencyKey::new([idempotency; 32])))
-        .and_then(|builder| builder.fee_limit(Amount::from_u128(99)))
-        .and_then(|builder| builder.payload_hash(digest))
-        .and_then(|builder| builder.payload(payload))
-        .unwrap_or_else(|error| panic!("envelope builder: {error:?}"));
-    let unsigned = builder
-        .build()
-        .unwrap_or_else(|error| panic!("unsigned envelope: {error:?}"));
-    let unsigned_bytes = encode_unsigned_envelope(&unsigned)
-        .unwrap_or_else(|error| panic!("unsigned encoding: {error:?}"));
-    let message = SignatureMessage::new(
+fn sender(signer: &EvmSigningKey) -> [u8; 20] {
+    checked(layerx_crypto::secp256k1::evm_address(
+        signer.verifying_key().to_encoded_point(false).as_bytes(),
+    ))
+}
+
+fn signed_activity(signer: &EvmSigningKey, sequence: u64, idempotency: u8) -> Vec<u8> {
+    let from = [1; 32];
+    let to = [2; 32];
+    let asset = [3; 32];
+    let idempotency_key = [idempotency; 32];
+    let debit = SendDebit {
+        from,
+        to,
+        asset,
+        amount: 3,
+        source_sequence: sequence,
+        idempotency_key,
+        expires_at: 1_000,
+        context_hash: send_context_hash(&from, &to, &asset, 3, &idempotency_key),
+        conditions: vec![],
+        authorization_kind: 1,
+        network_id: EVIDENCE_NETWORK_ID,
+        protocol_version: PROTOCOL_VERSION,
+    };
+    let authorization_key = SigningKey::from_bytes(&[0x41; 32]);
+    let authorization = checked(debit.authorization_message());
+    let message = checked(SignatureMessage::new(
         Domain::SignaturePreimage,
         PROTOCOL_VERSION,
         EVIDENCE_NETWORK_ID,
-        &unsigned_bytes,
-    )
-    .unwrap_or_else(|error| panic!("signature message: {error:?}"));
-    let signature = signer.sign(&message.digest()).to_bytes();
-    let envelope = unsigned.attach_signature(
-        Signature::new(&signature).unwrap_or_else(|error| panic!("signature: {error:?}")),
-    );
-    let data = encode_signed_envelope(&envelope)
-        .unwrap_or_else(|error| panic!("signed encoding: {error:?}"));
-    checked(
-        Eip1559Call {
+        &authorization,
+    ));
+    let payload = checked(debit.encode_signed(
+        authorization_key.verifying_key().to_bytes(),
+        authorization_key.sign(&message.digest()).to_bytes(),
+    ));
+    let disclosed = checked(ledger_payment_call(
+        &payload,
+        &CallOptions {
+            from: sender(signer),
             chain_id: 125,
             nonce: sequence,
             max_priority_fee_per_gas: 1,
             max_fee_per_gas: 10,
             gas_limit: 100_000,
-            to: [7; 20],
-            data,
-        }
-        .sign(&signer.to_bytes()),
-    )
+        },
+    ));
+    let call: Eip1559Call = disclosed.call;
+    checked(call.sign(&signer.to_bytes().into()))
 }
 
 fn checked<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
@@ -135,8 +108,8 @@ fn unhex(value: &Value) -> Vec<u8> {
 
 struct AdmissionSequencer {
     journal: AdmissionJournal,
-    registry: ModuleRegistry,
-    identities: BTreeMap<Vec<u8>, [u8; 32]>,
+    identities: BTreeMap<Vec<u8>, [u8; 20]>,
+    senders: BTreeMap<[u8; 20], Vec<u8>>,
     queue: Vec<[u8; 32]>,
     authentication_refusals: u64,
     fail_stopped: bool,
@@ -149,8 +122,8 @@ impl AdmissionSequencer {
     fn new(signer: &SigningKey, label: &str) -> Self {
         Self {
             journal: AdmissionJournal::open(&support::directory(label), EVIDENCE_NETWORK_ID),
-            registry: support::evidence_registry(),
             identities: BTreeMap::new(),
+            senders: BTreeMap::new(),
             queue: Vec::new(),
             authentication_refusals: 0,
             fail_stopped: false,
@@ -160,58 +133,33 @@ impl AdmissionSequencer {
         }
     }
 
-    fn register_identity(&mut self, did: &[u8], key: [u8; 32]) {
-        self.identities.insert(did.to_vec(), key);
+    fn register_identity(&mut self, did: &[u8], sender: [u8; 20]) {
+        self.identities.insert(did.to_vec(), sender);
+        self.senders.insert(sender, did.to_vec());
     }
 
     fn admit(&mut self, raw: &[u8]) -> Result<[u8; 32], KnownResult> {
-        if raw.is_empty() || raw.len() > MAX_MESSAGE_BYTES {
-            return Err(KnownResult::MalformedEnvelope);
-        }
-        let (transaction, signature) =
-            decode_transaction(raw).map_err(|_| KnownResult::MalformedEnvelope)?;
-        recover_sender(&transaction, &signature).map_err(|_| KnownResult::BadSignature)?;
-        if transaction.chain_id != 125 {
-            return Err(KnownResult::WrongNetwork);
-        }
-        let activity = decode_signed(&transaction.data, &self.registry)
-            .map_err(|_| KnownResult::MalformedEnvelope)?;
-        if activity.protocol_version() != PROTOCOL_VERSION {
-            return Err(KnownResult::VersionUnsupported);
-        }
-        if activity.network_id() != EVIDENCE_NETWORK_ID {
-            return Err(KnownResult::WrongNetwork);
-        }
-        if checked(layerx_intents::canonical::payload_hash(&activity)) != activity.payload_hash() {
-            return Err(KnownResult::PayloadHashMismatch);
-        }
-        let key = match self.identities.get(activity.actor_did()) {
-            Some(key) => *key,
-            None => {
-                self.authentication_refusals += 1;
+        let authenticated = (|| {
+            if raw.is_empty() || raw.len() > MAX_MESSAGE_BYTES {
+                return Err(KnownResult::MalformedEnvelope);
+            }
+            let (transaction, signature) =
+                decode_transaction(raw).map_err(|error| match error {
+                    EvmTransactionError::BadSignature => KnownResult::BadSignature,
+                    _ => KnownResult::MalformedEnvelope,
+                })?;
+            let sender =
+                recover_sender(&transaction, &signature).map_err(|_| KnownResult::BadSignature)?;
+            if transaction.chain_id != 125 {
+                return Err(KnownResult::WrongNetwork);
+            }
+            let did = self.senders.get(&sender).ok_or(KnownResult::BadSignature)?;
+            if self.identities.get(did) != Some(&sender) {
                 return Err(KnownResult::UnknownDid);
             }
-        };
-        let signature = activity
-            .signature()
-            .and_then(|bytes| <[u8; 64]>::try_from(bytes).ok());
-        let unsigned = checked(layerx_intents::canonical::unsigned_activity_bytes(
-            &activity,
-        ));
-        let message = checked(SignatureMessage::new(
-            Domain::SignaturePreimage,
-            PROTOCOL_VERSION,
-            EVIDENCE_NETWORK_ID,
-            &unsigned,
-        ));
-        if activity.authority() != key.as_slice()
-            || signature.is_none_or(|signature| {
-                layerx_crypto::ed25519::verify(&key, &signature, message).is_err()
-            })
-        {
-            self.authentication_refusals += 1;
-            return Err(KnownResult::BadSignature);
-        }
+            Ok(transaction)
+        })();
+        let transaction = authenticated.inspect_err(|_| self.authentication_refusals += 1)?;
         let tx_hash: [u8; 32] = Keccak256::digest(raw).into();
         if self.journal.contains(&tx_hash) {
             return Ok(tx_hash);
@@ -243,7 +191,7 @@ impl AdmissionSequencer {
         }
         self.journal = AdmissionJournal::open(self.journal.directory(), EVIDENCE_NETWORK_ID);
         self.queue.push(tx_hash);
-        self.admitted.insert(tx_hash, activity.account_sequence());
+        self.admitted.insert(tx_hash, transaction.nonce);
         Ok(tx_hash)
     }
 
@@ -356,6 +304,8 @@ impl AdmissionSequencer {
 
 fn refusal(result: KnownResult) -> Value {
     let data = match result {
+        KnownResult::MalformedEnvelope => "LXP_MALFORMED_ENVELOPE: authentication refused",
+        KnownResult::WrongNetwork => "LXP_WRONG_NETWORK: authentication refused",
         KnownResult::BadSignature => "LXP_BAD_SIGNATURE: authentication refused",
         KnownResult::UnknownDid => "LXP_UNKNOWN_DID: authentication refused",
         KnownResult::LengthLimit => "LXP_LENGTH_LIMIT: admission capacity exhausted",
@@ -379,14 +329,12 @@ fn refused(result: KnownResult) -> SubmitError {
 #[test]
 fn advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission() {
     let receipt_signer = SigningKey::from_bytes(&[0x51; 32]);
-    let actor = SigningKey::from_bytes(&[0x52; 32]);
-    let actor_key = actor.verifying_key().to_bytes();
-    let registry = support::evidence_registry();
+    let actor = checked(EvmSigningKey::from_slice(&[0x52; 32]));
     let mut gate = support::evidence_gate(&receipt_signer);
     let mut node = AdmissionSequencer::new(&receipt_signer, "durable-admission");
-    node.register_identity(b"did:layerx:actor", actor_key);
+    node.register_identity(b"did:layerx:actor", sender(&actor));
     let admission_directory = node.journal.directory().to_path_buf();
-    let (endpoint, config, server) = node.serve(12, true);
+    let (endpoint, config, server) = node.serve(11, true);
     let readiness = checked(NodeRpc::connect(&config));
     let ready = checked(gate.readiness_gate(&readiness));
     assert_eq!(ready.chain_id, 125);
@@ -405,10 +353,15 @@ fn advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission() {
     );
     assert_eq!((keys[0].first_height, keys[0].last_height), (7, 7));
 
-    let first = signed_activity(&registry, b"did:layerx:actor", actor_key, &actor, 1, 0x11);
-    let (transaction, _) = checked(decode_transaction(&first));
-    let first_activity = checked(decode_signed(&transaction.data, &registry));
-    let _first_id = checked(activity_id(&first_activity));
+    let first = signed_activity(&actor, 1, 0x11);
+    let (transaction, signature) = checked(decode_transaction(&first));
+    assert_eq!(
+        checked(recover_sender(&transaction, &signature)),
+        sender(&actor)
+    );
+    assert_eq!(transaction.chain_id, 125);
+    assert_eq!(transaction.nonce, 1);
+    assert_eq!(&transaction.data[..4], &[0x2b, 0xb1, 0xae, 0x7c]);
     let first_hash: [u8; 32] = Keccak256::digest(&first).into();
     let Submission::Unknown(unknown) = checked(submit_signed(&endpoint, &first)) else {
         panic!("interrupted durable admission must have an unknown outcome");
@@ -447,9 +400,8 @@ fn advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission() {
     assert_eq!(block.hash, [0x91; 32]);
     let bundle = checked(proof_bundle(&endpoint, [0x52; 20], &[], 7));
     assert_eq!(bundle.landing_block, block);
-    assert_eq!(bundle.account_proof.address, [0x52; 20]);
-    assert_eq!(bundle.account_proof.nonce, 0);
-    let second = signed_activity(&registry, b"did:layerx:actor", actor_key, &actor, 2, 0x22);
+    assert_eq!(bundle.landing_block.number, 7);
+    let second = signed_activity(&actor, 2, 0x22);
     assert_eq!(
         submit_signed(&endpoint, &second),
         Err(refused(KnownResult::LengthLimit))
@@ -475,45 +427,56 @@ fn advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission() {
 #[test]
 fn authentication_refusals_are_typed_and_consume_no_admission_capacity() {
     let receipt_signer = SigningKey::from_bytes(&[0x61; 32]);
-    let actor = SigningKey::from_bytes(&[0x62; 32]);
-    let impostor = SigningKey::from_bytes(&[0x63; 32]);
-    let actor_key = actor.verifying_key().to_bytes();
-    let impostor_key = impostor.verifying_key().to_bytes();
-    let registry = support::evidence_registry();
+    let actor = checked(EvmSigningKey::from_slice(&[0x62; 32]));
+    let impostor = checked(EvmSigningKey::from_slice(&[0x63; 32]));
+    let stranger = checked(EvmSigningKey::from_slice(&[0x64; 32]));
     let mut gate = support::evidence_gate(&receipt_signer);
     let mut node = AdmissionSequencer::new(&receipt_signer, "refused-admission");
-    node.register_identity(b"did:layerx:actor", actor_key);
+    node.register_identity(b"did:layerx:actor", sender(&actor));
+    node.register_identity(b"did:layerx:stranger", sender(&stranger));
+    assert!(node
+        .identities
+        .remove(b"did:layerx:stranger".as_slice())
+        .is_some());
     let admission_directory = node.journal.directory().to_path_buf();
-    let (endpoint, config, server) = node.serve(5, false);
+    let (endpoint, config, server) = node.serve(8, false);
     let readiness = checked(NodeRpc::connect(&config));
     checked(gate.readiness_gate(&readiness));
     assert!(gate.evidence_authority().is_ok());
     assert!(gate.guard_write(|| ()).is_ok());
-    let forged = signed_activity(
-        &registry,
-        b"did:layerx:actor",
-        impostor_key,
-        &impostor,
-        1,
-        0x31,
+    let genuine = signed_activity(&actor, 1, 0x33);
+    let mut malformed = genuine.clone();
+    malformed[0] = 0x01;
+    assert_eq!(
+        submit_signed(&endpoint, &malformed),
+        Err(refused(KnownResult::MalformedEnvelope))
     );
+    let mut bad_signature = genuine.clone();
+    let parity = bad_signature.len() - 67;
+    assert_eq!(bad_signature[parity + 1], 0xa0);
+    assert_eq!(bad_signature[parity + 34], 0xa0);
+    bad_signature[parity] = 0x02;
+    assert_eq!(
+        submit_signed(&endpoint, &bad_signature),
+        Err(refused(KnownResult::BadSignature))
+    );
+    let forged = signed_activity(&impostor, 1, 0x31);
     assert_eq!(
         submit_signed(&endpoint, &forged),
         Err(refused(KnownResult::BadSignature))
     );
-    let unknown = signed_activity(
-        &registry,
-        b"did:layerx:stranger",
-        actor_key,
-        &actor,
-        1,
-        0x32,
+    let (mut foreign, _) = checked(decode_transaction(&genuine));
+    foreign.chain_id = 126;
+    let wrong_network = checked(foreign.sign(&actor.to_bytes().into()));
+    assert_eq!(
+        submit_signed(&endpoint, &wrong_network),
+        Err(refused(KnownResult::WrongNetwork))
     );
+    let unknown = signed_activity(&stranger, 1, 0x32);
     assert_eq!(
         submit_signed(&endpoint, &unknown),
         Err(refused(KnownResult::UnknownDid))
     );
-    let genuine = signed_activity(&registry, b"did:layerx:actor", actor_key, &actor, 1, 0x33);
     let hash: [u8; 32] = Keccak256::digest(&genuine).into();
     assert_eq!(
         checked(submit_signed(&endpoint, &genuine)),
@@ -524,7 +487,7 @@ fn authentication_refusals_are_typed_and_consume_no_admission_capacity() {
     );
     let node = checked(server.join());
     assert!(!node.fail_stopped);
-    assert_eq!(node.authentication_refusals, 2);
+    assert_eq!(node.authentication_refusals, 5);
     assert_eq!(node.queue.len(), 1);
     assert_eq!(node.journal.records().len(), 1);
     drop(node);
