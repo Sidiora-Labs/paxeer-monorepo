@@ -241,7 +241,7 @@ export async function runScenarios(): Promise<Suite> {
   const asset = fixedBytes(0xbb);
   const amount = 250_000n;
   const offer = offerFixture(payTo, asset, amount);
-  const facts = {
+  const facts: ReceiptFacts = {
     asset,
     payTo,
     amount,
