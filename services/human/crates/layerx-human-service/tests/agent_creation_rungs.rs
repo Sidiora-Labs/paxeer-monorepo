@@ -1,3 +1,5 @@
+use layerx_human_test_support::StepClock;
+use layerx_types::clock::{Clock, Deadline};
 #[path = "support/canonical_owner.rs"]
 mod canonical_owner;
 
@@ -6,7 +8,7 @@ use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
@@ -334,14 +336,20 @@ impl Fixture {
         let socket = root.join("peer.sock");
         let listener = checked(UnixListener::bind(&socket));
         checked(listener.set_nonblocking(true));
+        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(1000000000));
+        let peer_clock = Arc::clone(&clock);
         let server = thread::spawn(move || {
             for (request, answer) in exchanges {
-                let deadline = Instant::now() + Duration::from_secs(5);
+                let mut deadline =
+                    checked(Deadline::start(peer_clock.as_ref(), Duration::from_secs(5)));
                 let mut stream = loop {
                     match listener.accept() {
                         Ok((stream, _)) => break stream,
                         Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            assert!(Instant::now() < deadline, "creation peer request deadline");
+                            assert!(
+                                !checked(deadline.remaining(peer_clock.as_ref())).is_zero(),
+                                "creation peer request deadline"
+                            );
                             thread::sleep(Duration::from_millis(1));
                         }
                         Err(error) => panic!("creation peer accept: {error}"),
@@ -385,7 +393,7 @@ impl Fixture {
                 checked(write_frame(&mut stream, &answer, MAX_FRAME));
             }
         });
-        let mut runtime = checked(AgentRuntime::new(
+        let mut runtime = checked(AgentRuntime::new_with_clock(
             &socket,
             Limits {
                 maximum_frame_bytes: MAX_FRAME,
@@ -395,6 +403,7 @@ impl Fixture {
                 deadline: Duration::from_secs(5),
             },
             registry(),
+            clock,
         ));
         if fresh {
             checked(runtime.bind_transaction_sender(checked(owner.actor.as_slice().try_into())));

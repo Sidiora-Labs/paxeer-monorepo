@@ -18,6 +18,8 @@ func init() {
 	}
 }
 
+// NewMergePrecompile binds the stateless OROB methods to the application's
+// upgrade reader and the merge batch cap; construction does not activate them.
 func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPrecompile, error) {
 	if keepers == nil {
 		return nil, fmt.Errorf("%w: precompile keepers are unavailable", agentcommon.ErrNoContext)

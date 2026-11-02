@@ -249,7 +249,7 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		connectedError(w, 503, "upstream_unavailable")
 		return
 	}
-	for _, name := range []string{"Content-Type", "Accept", "If-None-Match", "If-Match", "Idempotency-Key", "X-Action-Signature", "X-Action-Nonce", "X-Action-Expires", "X-Action-Audience", "X-Kindle-Operation", "X-Kindle-Operation-Signature", "X-Request-ID", "Origin", "X-CSRF-Token", "X-Recovery-Receipt"} {
+	for _, name := range []string{"Content-Type", "Accept", "If-None-Match", "If-Match", "Idempotency-Key", "X-Action-Signature", "X-Action-Nonce", "X-Action-Expires", "X-Action-Audience", "X-Kindle-Operation", "X-Kindle-Operation-Signature", "X-Kindle-Signature", "X-Request-ID", "Origin", "X-CSRF-Token", "X-Recovery-Receipt"} {
 		if values := r.Header.Values(name); len(values) == 1 {
 			req.Header.Set(name, values[0])
 		} else if len(values) > 1 {
