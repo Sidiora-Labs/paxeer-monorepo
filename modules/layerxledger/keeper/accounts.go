@@ -8,6 +8,7 @@ import (
 
 const accountOpenActivity uint32 = 0x00010004
 
+// AccountID derives the canonical asset account ID without opening an account.
 func AccountID(didKey, assetID [32]byte) ([32]byte, error) {
 	_, id, err := lxphost.AssetAccountID(didKey, assetID)
 	return id, ledgerReadError(err)
