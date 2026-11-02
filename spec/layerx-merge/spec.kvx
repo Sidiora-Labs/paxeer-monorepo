@@ -127582,7 +127582,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.62.6]
 title = "Retire the distribution and dependency-graph targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["5.62.5", "6.96.5"]
@@ -177264,7 +177264,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.3.15]
 title = "Delete the legacy telemetry calls of baseapp ABCI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.15", "15.0.4", "15.0.5", "6.96.5"]
