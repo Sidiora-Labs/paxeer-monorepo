@@ -19,6 +19,7 @@ const RECIPIENT_MAGIC = new TextEncoder().encode('PXBRREC0');
 const LAYOUT_VERSION = 1;
 const RECIPIENT_SEED = new TextEncoder().encode('recipient');
 const PDA_MARKER = new TextEncoder().encode('ProgramDerivedAddress');
+const RECIPIENT_REQUEST_ID = 1;
 
 /** Decode a base58 string to bytes. Returns undefined on any invalid input. */
 export function base58Decode(input: string): Uint8Array | undefined {
@@ -117,7 +118,7 @@ export function recipientRecordRequest(programId: string, destination: string) {
   if (!record) return undefined;
   return {
     jsonrpc: '2.0',
-    id: 1,
+    id: RECIPIENT_REQUEST_ID,
     method: 'getAccountInfo',
     params: [ record.address, { encoding: 'base64' } ],
   } as const;
@@ -127,7 +128,12 @@ export function recipientRecordFromResponse(
   response: unknown,
   handle: Address,
 ): { registered: false } | { registered: true; key: Uint8Array } {
-  if (typeof response !== 'object' || response === null || 'error' in response || !('result' in response)) {
+  if (
+    typeof response !== 'object' || response === null ||
+    !('jsonrpc' in response) || response.jsonrpc !== '2.0' ||
+    !('id' in response) || response.id !== RECIPIENT_REQUEST_ID ||
+    'error' in response || !('result' in response)
+  ) {
     throw new Error('The Solana RPC returned an invalid recipient record response.');
   }
   const result = response.result;
