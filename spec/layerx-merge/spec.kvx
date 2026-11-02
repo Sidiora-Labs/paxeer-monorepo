@@ -20182,6 +20182,10 @@ title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
 
+[req.8301]
+title = "Simulation reads survive the seal of the open block"
+ac_1 = "A simulation read that received the open block's header keeps answering after that block seals: a height above the committed height is served from the latest committed context instead of being handed to the base app, so eth_estimateGas, eth_call and eth_createAccessList never crash the handler during a seal."
+
 [req.3538]
 title = "SECURITY.md states the response targets of decision 2240"
 ac_1 = "SECURITY.md carries a Response targets section stating the acknowledgement, triage, update cadence, per-severity remediation, disclosure and escalation targets of decision 2240 in plain prose, next to the existing handling and disclosure text."
@@ -33745,6 +33749,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.5.5.25]
+title = "Serve open-block heights from the committed state once the block seals"
+reqs = ["8301.1"]
+touches = ["rpc/simulate.go", "rpc/pending_block_test.go"]
+tests = ["rpc/pending_block_test.go::TestCustomPrecompilesAfterSealUseCommittedState"]
+verification_contract = "go test -count=1 -v ./rpc/ -run '^(TestEstimateGasWithoutOpenBlockUsesLatestState|TestCustomPrecompilesAfterSealUseCommittedState)$' 2>&1 | tee /dev/stderr | grep -c -- '^--- PASS: ' | grep -qx 2"
+do_1 = "In rpc/simulate.go ctxAtHeight (:330-337) keep returning the open-block snapshot (b.ctxProvider(PendingCtxHeight)) when resolvePending answers the requested height; otherwise, when the height is above the committed height read from b.ctxProvider(LatestCtxHeight).BlockHeight(), return that latest committed context instead of calling the provider with the height, because the open block is built over the latest committed state and RPCContextProvider (node/app.go:3447-3449) panics on a query context above the committed height; heights at or below the committed height keep calling the provider unchanged. This one change covers chainConfigForHeight (:580), GetEVM (:808) and GetCustomPrecompiles (:930), the callers DoEstimateGas, DoCall and CreateAccessList reach with the open header's number."
+symbols = ["ctxAtHeight"]
 
 [capability.18.1437.1]
 title = "Issue #1437: Document the vulnerability report response targets in SECURITY.md"
@@ -118200,7 +118213,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1439.1]
 title = "Issue #1439: Remove the Python callback into the retired Rust probe and refuse qualification re-entry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -120149,6 +120162,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.5.5.25]
+title = "Serve open-block heights from the committed state once the block seals"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["5.5.24"]
+reqs = ["8301.1"]
+capabilities = ["5.5.25"]
+interfaces = []
+do_1 = "In rpc/simulate.go ctxAtHeight (:330-337) keep returning the open-block snapshot (b.ctxProvider(PendingCtxHeight)) when resolvePending answers the requested height; otherwise, when the height is above the committed height read from b.ctxProvider(LatestCtxHeight).BlockHeight(), return that latest committed context instead of calling the provider with the height, because the open block is built over the latest committed state and RPCContextProvider (node/app.go:3447-3449) panics on a query context above the committed height; heights at or below the committed height keep calling the provider unchanged. This one change covers chainConfigForHeight (:580), GetEVM (:808) and GetCustomPrecompiles (:930), the callers DoEstimateGas, DoCall and CreateAccessList reach with the open header's number."
+do_2 = "In rpc/pending_block_test.go add TestCustomPrecompilesAfterSealUseCommittedState over newPendingSequencer: wrap its ctxProvider so that any height above committed panics with the base app's invalid-height error, as node/app.go:3449 does, build a backend with evmrpc.NewBackend as NewSimulationAPI (:71) does, read StateAndHeaderByNumberOrHash with the pending tag and keep the returned header; while the layer is open assert GetCustomPrecompiles and ChainConfigAtHeight with the header's number equal the answers for PendingCtxHeight; then seal the layer with s.exec.Seal(committed+1) and assert the same two calls with the header's number return the answers for LatestCtxHeight without panicking."
+do_3 = "Run the declared build and verify; change nothing in node/app.go or in the base app."
+symbols = ["ctxAtHeight"]
+touches = ["rpc/simulate.go", "rpc/pending_block_test.go"]
+tests = ["rpc/pending_block_test.go::TestCustomPrecompilesAfterSealUseCommittedState"]
+planned_paths = []
+build_cmd = "go build ./rpc/"
+verify_cmd = "go test -count=1 -v ./rpc/ -run '^(TestEstimateGasWithoutOpenBlockUsesLatestState|TestCustomPrecompilesAfterSealUseCommittedState)$' 2>&1 | tee /dev/stderr | grep -c -- '^--- PASS: ' | grep -qx 2"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = ""
+rollback = "Revert the task's commit; rpc/simulate.go returns to its prior state."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.18.1435.4]
 title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Go agent envelope decoder"
@@ -132485,7 +132528,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.52.1]
 title = "Retire contracts/CheckpointRegistry.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["6.51.1", "5.54.2", "5.54.9", "8.19.11", "16.0.3", "16.6.1", "16.8.3", "16.30.1", "16.36.2"]
@@ -142374,7 +142417,7 @@ do_11 = "Finding 8.23.2.2: continue from attempt 1 (e72902b24) rebased onto main
 
 [task.8.23.3]
 title = "Build buyer grant headers from signed 0x101A draw transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.23.2", "8.22.5", "8.22.7"]
@@ -142612,7 +142655,7 @@ title = "Produce conformance receipts as signed sequencer receipts over EIP-1559
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["8.22.4", "8.23.2", "8.33.1", "8.22.7"]
+requires = ["8.22.4", "8.23.2", "8.33.1", "8.22.7", "8.23.3"]
 reqs = ["8258.1", "8258.2", "8258.3"]
 capabilities = ["8.26.1"]
 interfaces = ["interface.8.ts-middleware-conformance-receipts-conformance-protocol-version-j41", "interface.8.ts-middleware-conformance-receipts-conformancesequencer-j41", "interface.8.ts-middleware-conformance-receipts-receiptfacts-j41", "interface.8.ts-middleware-conformance-receipts-signedreceipt-j41", "interface.8.ts-middleware-conformance-receipts-buildsignedreceipt-j41", "interface.8.ts-middleware-conformance-receipts-offerfixture-j41", "interface.8.ts-middleware-conformance-receipts-buyerpayload-j41", "interface.8.ts-middleware-conformance-support-fixedbatchresolver-j41", "interface.8.ts-middleware-conformance-support-fixedreceiptkeys-j41"]
@@ -142623,7 +142666,7 @@ do_4 = "services/platform/middleware/conformance/src/receipts.ts:162-197 offerFi
 do_5 = "services/platform/middleware/conformance/src/support.ts:12-24 FixedBatchResolver resolves a fixed AuthorizedReceiptBatch; replace it with FixedReceiptKeys returning the pinned key entries."
 do_6 = "Create services/platform/middleware/conformance/test/receipts.test.mjs (planned) with the three tests below."
 symbols = ["ConformanceSequencer", "buildSignedReceipt", "offerFixture", "buyerPayload", "FixedReceiptKeys"]
-touches = ["services/platform/middleware/conformance/src/receipts.ts", "services/platform/middleware/conformance/src/support.ts", "services/platform/middleware/conformance/test/receipts.test.mjs"]
+touches = ["services/platform/middleware/conformance/src/receipts.ts", "services/platform/middleware/conformance/src/support.ts", "services/platform/middleware/conformance/test/receipts.test.mjs", "services/platform/middleware/conformance/src/scenarios.ts"]
 tests = ["services/platform/middleware/conformance/test/receipts.test.mjs::conformanceReceiptVerifiesUnderSellerVerifier", "services/platform/middleware/conformance/test/receipts.test.mjs::conformanceReceiptRefusesTamperedLog", "services/platform/middleware/conformance/test/receipts.test.mjs::offerFixtureUsesEip155Network"]
 planned_paths = ["services/platform/middleware/conformance/test/receipts.test.mjs"]
 build_cmd = "npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/buyer run build && npm --prefix services/platform/middleware/merchant run build && npm --prefix services/platform/middleware/agent run build && npm --prefix services/platform/middleware/conformance run build"
@@ -142641,6 +142684,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_8 = "Finding %s: port services/platform/middleware/conformance/src/scenarios.ts so the package compiles against this task's receipts.ts and support.ts and against current main: construct the buyer and seller with receiptKeys from FixedReceiptKeys and no protocolVersion; drop the CONFORMANCE_PROTOCOL_VERSION import; verify receipts with the seller middleware's verifyPaymentReceipt and PaymentReceiptVerification (rung, txHash, payment, height) in place of the SDK's retired verifyReceipt and ReceiptVerification; read the signed receipt through the fields receipts.ts now exports instead of authorizedBatch, canonicalReceipt and evidence; give InMemoryFulfillmentRepository in support.ts the get(idempotencyKey) method of FulfillmentRepository (services/platform/middleware/seller/src/index.ts:150-156); type the byte parameter; then continue from attempt 1 (262c13e63) rebased onto current main, keeping its three files, and run the declared build and verify once as written. The scenario tests and the mutation check of task 8.26.2 stay there."
 
 [task.8.26.2]
 title = "Run the in-process conformance scenarios on rungs and transaction hashes"
@@ -142651,7 +142695,7 @@ requires = ["8.26.1", "8.24.3", "8.25.2", "8.23.3", "8.22.7"]
 reqs = ["8259.1", "8259.2"]
 capabilities = ["8.26.2"]
 interfaces = ["interface.8.ts-middleware-conformance-scenarios-runscenarios-j41"]
-do_1 = "services/platform/middleware/conformance/src/scenarios.ts:59-71 constructs the buyer with protocolVersion and an authorizedBatches placeholder; construct them with receiptKeys from FixedReceiptKeys of task 8.26.1."
+do_1 = "services/platform/middleware/conformance/src/scenarios.ts constructs the buyer and seller with receiptKeys from FixedReceiptKeys since task 8.26.1 (finding 8.26.1.1); keep that construction and add nothing to it here."
 do_2 = "services/platform/middleware/conformance/src/scenarios.ts:219-240 checks that caller mutation of an authorised batch does not change verification; check that mutation of the receiptKey entry passed in does not change an in-flight verification."
 do_3 = "services/platform/middleware/conformance/src/scenarios.ts:257-270 asserts settlement.transaction is lxp:<receiptDigest> and level sequencer-signed; assert the 0x transaction hash and rung receipted."
 do_4 = "services/platform/middleware/conformance/src/scenarios.ts:332 refuses network layerx:mainnet as unsupported; refuse eip155:1 instead."
@@ -142715,7 +142759,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.26.4]
 title = "Replace the kernel receive and draw payment fixtures with a 0x101A draw fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.22.5", "8.21.1", "8.23.2", "8.22.7"]
@@ -143689,7 +143733,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.33.4]
 title = "Pay from the buyer agent on eip155 and report the receipt rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.33.1", "8.23.2"]
@@ -183633,7 +183677,7 @@ title = "Issue #670: Keep the restarted perps data gateway and socket alive thro
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["5.98.2", "5.98.3", "5.98.5", "5.98.7", "5.98.8", "5.5.23", "5.5.24"]
+requires = ["5.98.2", "5.98.3", "5.98.5", "5.98.7", "5.98.8", "5.5.23", "5.5.24", "5.5.25"]
 reqs = ["18670.1"]
 capabilities = []
 interfaces = []
@@ -183674,6 +183718,7 @@ do_17 = "Finding 18.670.1.13, decision 2212: continue from attempt 15 (1ee69fb2b
 do_18 = "Finding 18.670.1.14: continue from attempt 16 (afb1fe953) unchanged once task 5.5.23 (decision 2216) is on main, so eth_gasPrice answers between blocks and the end-to-end test reaches its restart checks. Rebase onto main, change nothing, build once and verify once."
 do_19 = "Finding 18.670.1.15: continue from attempt 17 (7d151e916) unchanged once task 5.5.24 (decision 2229) is on main, so the gas estimates between blocks answer and the end-to-end test reaches its restart checks. Rebase onto main, change nothing, build once and verify once."
 do_20 = "Decision 2238 (finding 18.670.1.16): continue from attempt 18 (e38561ca7) unchanged, rebased onto current main; the verify now runs only the restart_new_snapshot_id and websocket_dense_seq_after_restart subtests of TestEndToEnd, which prove the restart lifetime of this issue; postgres_rows, rest_graphql, explorer_portal and replay_identical belong to task 3.54.7. Build once and verify once as declared."
+do_21 = "Finding 18.670.1.17: attempt 19 (b8b5cd2d3) kept attempt 18 unchanged and failed only on the verify's estimate call, which crashed in the node for the reason task 5.5.25 repairs; once 5.5.25 is on main, continue from attempt 19 rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 
 [req.18670]
 title = "Keep the restarted perps data gateway alive through the post-restart end-to-end checks"
@@ -189392,6 +189437,14 @@ req = "18790.1"
 scenario = "Given two recipients of 1 ether each, when batchTransferEqualAmount is called with 3 ether, then it reverts with Incorrect amount sent, and with 2 ether it succeeds leaving the contract balance at zero"
 contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
+qualification = "UNRUN"
+
+[acceptance.5.5.25.1]
+feature = "5"
+req = "8301.1"
+scenario = "Given the proposer with a simulation read holding the open block's header, when the open block seals before the read finishes, then the read answers from the latest committed state instead of crashing the handler"
+contract = "contracts/node-rpc.md#pending-block"
+test = "rpc/pending_block_test.go::TestCustomPrecompilesAfterSealUseCommittedState"
 qualification = "UNRUN"
 
 [acceptance.18.1437.1.1]
@@ -195252,7 +195305,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1437.1]
 title = "Issue #1437: Document the vulnerability report response targets in SECURITY.md"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
