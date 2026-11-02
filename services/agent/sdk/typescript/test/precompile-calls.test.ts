@@ -48,6 +48,10 @@ import {
   type PrecompileEventSpec,
   type PrecompileLog,
 } from "../src/index.js";
+import {
+  consumeExchangeCall,
+  consumeExchangeSettlementRequest,
+} from "./support/exchange_consumers.js";
 
 interface AbiEntry {
   readonly type: string;
@@ -185,6 +189,13 @@ for (const [directory, signature, call, to, body] of writes) {
   const entry = abi(directory).find((candidate) =>
     candidate.type === "function" && `${candidate.name ?? ""}(${(candidate.inputs ?? []).map(canonical).join(",")})` === signature);
   assert.ok(entry, signature);
+  if (directory === "layerxexchange" &&
+      (signature.startsWith("placeOrder(") || signature.startsWith("requestSettlement("))) {
+    const request = consumeExchangeCall(call, signature, body, address("12"));
+    if (signature === "requestSettlement(bytes32)") {
+      consumeExchangeSettlementRequest(request, address("12"), id("41"));
+    }
+  }
 }
 const launchpadWrites = new Set(abi("launchpad")
   .filter((entry) => entry.type === "function" && entry.stateMutability !== "view" && entry.stateMutability !== "pure")

@@ -440,22 +440,6 @@ fn signing_request(
     Ok(out)
 }
 
-fn decode_unsigned_activity(
-    canonical: &[u8],
-    registry: &layerx_types::payload::ModuleRegistry,
-) -> Result<layerx_intents::canonical::Activity> {
-    let activity = checked(layerx_intents::canonical::decode_unsigned_activity(
-        canonical, registry,
-    ))?;
-    assert_eq!(
-        checked(layerx_intents::canonical::unsigned_activity_bytes(
-            &activity
-        ))?,
-        canonical
-    );
-    Ok(activity)
-}
-
 #[test]
 fn lxkp_sign_accepts_an_unsigned_type2_transaction() -> Result<()> {
     let host = Host::new()?;
@@ -661,63 +645,22 @@ fn lxkp_sign_refuses_a_zero_sender() -> Result<()> {
 }
 
 #[test]
-fn lxkp_sign_refuses_a_kernel_activity_envelope() -> Result<()> {
-    use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
-    use layerx_types::amount::Amount;
-    use layerx_types::ids::{Did, IdempotencyKey};
-    use layerx_types::payload::{
-        ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload,
-    };
+fn lxkp_sign_refuses_bytes_that_are_not_a_type2_transaction() -> Result<()> {
     let host = Host::new()?;
-    let (handle, public) = facts(&host.call(&request(1, [31; 32], &[], None)?)?)?;
+    let (handle, _) = facts(&host.call(&request(1, [31; 32], &[], None)?)?)?;
     let from = host.sender(&handle)?;
-    let kind = checked(ActivityType::new(ModuleId::Asset, 4))?;
-    let registry = checked(ModuleRegistry::new(&[checked(ModuleRegistration::new(
-        ModuleId::Asset,
-        &[kind],
-    ))?]))?;
-    let payment = checked(
-        layerx_crypto::payments::Payment::OpenAccount { asset: [3; 32] }
-            .encode(b"did:layerx:alice"),
-    )?;
-    let payload = checked(Payload::new(&registry, kind, &payment))?;
-    let mut builder = EnvelopeBuilder::new();
-    checked(builder.protocol_version(3))?;
-    checked(builder.network_id(125))?;
-    checked(builder.activity_type(kind))?;
-    checked(builder.actor_did(checked(Did::new(b"did:layerx:alice"))?))?;
-    checked(builder.authority(checked(Authority::owner(&public))?))?;
-    checked(builder.account_sequence(7))?;
-    checked(builder.timestamp_bound(checked(TimestampBound::new(1000, 1010))?))?;
-    checked(builder.idempotency_key(IdempotencyKey::new([4; 32])))?;
-    checked(builder.fee_limit(Amount::from_u128(1)))?;
-    checked(
-        builder.payload_hash(checked(layerx_intents::canonical::payload_hash_for(
-            &payload,
-        ))?),
-    )?;
-    checked(builder.payload(payload))?;
-    let canonical = checked(layerx_intents::canonical::unsigned_envelope_bytes(
-        &checked(builder.build())?,
-    ))?;
-    let activity = decode_unsigned_activity(&canonical, &registry)?;
-    assert_eq!(activity.network_id(), 125);
-    assert_eq!(activity.activity_type(), kind);
-    let disclosure = checked(layerx_crypto::disclosure::bind(&canonical, &registry))?;
-    let mut request = signing_request(
+    let canonical = b"not a type-2 transaction";
+    assert_ne!(canonical[0], 0x02);
+    let disclosure = checked(layerx_crypto::disclosure::call::bind_call(&call(), from))?;
+    let request = signing_request(
         &handle,
         from,
-        &canonical,
+        canonical,
         &checked(wire::disclosure(&disclosure))?,
     )?;
-    assert_eq!(host.call(&request)?, b"LXKP\0\x07\x05\x01");
-    let offset = request.len()
-        - canonical.len()
-        - checked(wire::disclosure(&disclosure))?.len()
-        - 8
-        - 20
-        - 32;
-    request[offset..offset + 32].copy_from_slice(&layerx_human_kms::attestor::preimage(&canonical));
-    assert_eq!(host.call(&request)?, b"LXKP\0\x07\x05\x01");
+    let response = host.call(&request)?;
+    assert_ne!(response[7], 0);
+    assert_eq!(response, b"LXKP\0\x07\x05\x01");
+    assert_eq!(response.len(), 8);
     Ok(())
 }

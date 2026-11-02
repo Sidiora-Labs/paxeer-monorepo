@@ -4,6 +4,7 @@ import test from "node:test";
 import { copyEntries } from "../copy/catalog.ts";
 import { copyEntry } from "../copy/runtime.ts";
 import {
+  EXPLORER_ANCHOR_PATH,
   EXPLORER_LINK_KINDS,
   EXPLORER_NAVIGATION,
   explorerLinkPath,
@@ -17,6 +18,7 @@ const TRANSACTION = `0x${"b".repeat(64)}`;
 const ADDRESS = `0x${"1".repeat(40)}`;
 
 const RETIRED_ROUTES = [
+  EXPLORER_ANCHOR_PATH,
   "/explorer/batches",
   "/explorer/batches/[batchNumber]",
   "/explorer/checkpoints",
@@ -197,3 +199,16 @@ test("the surfaces the beta contract requires of the control plane are kept", ()
     assert.ok(copyEntry(key).message.length > 0, key);
   }
 });
+
+function explorer_links_refuse_path_injection() {
+  for (const identifier of [
+    "../anchors",
+    `${RECEIPT}/../anchors`,
+    `${RECEIPT}?next=/paxeer-x/anchors`,
+    `${RECEIPT}#anchors`,
+  ]) {
+    assert.throws(() => explorerLinkPath({ kind: "receipt", receiptId: identifier }), TypeError);
+  }
+}
+
+test(explorer_links_refuse_path_injection);

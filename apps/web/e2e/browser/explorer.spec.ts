@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { copyEntry } from "../../copy/catalog.ts";
-import { EXPLORER_NAVIGATION } from "../../src/explorer/links.ts";
+import { EXPLORER_ANCHOR_PATH, EXPLORER_NAVIGATION } from "../../src/explorer/links.ts";
 
 const RECEIPT_IDENTIFIER = "d".repeat(64);
 const ACCOUNT_IDENTIFIER = "e".repeat(64);
@@ -31,7 +31,7 @@ test.describe("Public Explorer Plane", () => {
   test("@explorer the overview offers no retired anchor link", async ({ page }) => {
     await page.goto("/explorer", { waitUntil: "networkidle" });
 
-    await expect(page.locator('a[href*="/paxeer-x/anchors"]')).toHaveCount(0);
+    await expect(page.locator(`a[href*="${EXPLORER_ANCHOR_PATH}"]`)).toHaveCount(0);
     await expect(page.getByRole("link", {
       name: copyEntry("explorer.anchors.action").message,
       exact: true,

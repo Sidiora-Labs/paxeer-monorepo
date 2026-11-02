@@ -143,6 +143,9 @@ impl<'a> Request<'a> {
         }
         if kind.carries_payload() {
             value.evm = r.blob(MAX_FRAME)?;
+            if value.evm.is_empty() {
+                return Err(Error::Refused);
+            }
         }
         if r.at != bytes.len() {
             return Err(Error::Refused);

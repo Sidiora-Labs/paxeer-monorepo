@@ -79,6 +79,13 @@ interface IXWeb {
         uint256 paid,
         uint64 timeoutHeight
     );
+    event XWebProgramRequested(
+        bytes32 indexed programId,
+        uint64 indexed requestId,
+        uint8 method,
+        bytes payload,
+        uint64 deadline
+    );
     event XWebFulfilled(
         uint64 indexed requestId,
         address indexed requester,

@@ -2,9 +2,10 @@ package layerxanchor_test
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/testvectors"
+	anchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
@@ -23,8 +24,6 @@ func (k retiredWrapperKeepers) AnchorK() utils.AnchorKeeper { return k.anchor }
 func TestAnchorRetirementSurvivesTheWrapper(t *testing.T) {
 	h := newHarness(t, nil)
 	var err error
-	h.fixture, err = testvectors.LoadAnchor()
-	require.NoError(t, err)
 	h.precompile, err = layerxanchor.NewPrecompile(retiredWrapperKeepers{
 		Keepers: h.app.GetPrecompileKeepers(),
 		anchor:  h.anchor,
@@ -54,7 +53,20 @@ func TestAnchorRetirementSurvivesTheWrapper(t *testing.T) {
 			})
 		}
 	}
-	writes := anchorRetirementWrites(h)
+	writes := map[string][]interface{}{
+		layerxanchor.SubmitCheckpointMethod:          h.checkpointArgs("batch_1_quorum"),
+		layerxanchor.SubmitAvailabilityMethod:        {h.attestation("batch_1_attestation_1")},
+		layerxanchor.FinalizeMethod:                  {uint64(1)},
+		layerxanchor.RegisterGuarantorMethod:         {h.ids[0], h.signers[0]},
+		layerxanchor.IncreaseBondMethod:              {h.ids[0]},
+		layerxanchor.BeginUnbondMethod:               {h.ids[0], big.NewInt(bond / 2)},
+		layerxanchor.CompleteUnbondMethod:            {h.ids[0]},
+		layerxanchor.SubmitEquivocationMethod:        {[]byte{5}, []byte{6}},
+		layerxanchor.OpenChallengeMethod:             {uint64(1), anchortypes.ChallengeFraud, [32]byte{1}},
+		layerxanchor.ResolveChallengeMethod:          {uint64(1), false},
+		layerxanchor.ActivateGuarantorMethod:         {h.ids[0]},
+		layerxanchor.SetSequencerAuthorizationMethod: {[32]byte{1}, [32]byte{2}, uint64(1), uint64(8)},
+	}
 	writeCount := 0
 	for name, method := range h.precompile.GetABI().Methods {
 		if method.StateMutability == "view" || method.StateMutability == "pure" {
@@ -66,7 +78,9 @@ func TestAnchorRetirementSurvivesTheWrapper(t *testing.T) {
 		writeCount++
 	}
 	require.Equal(t, 12, writeCount)
-	reads := anchorRetirementReads(h)
+	checkpointID, err := h.vector("checkpoints", "batch_1_quorum").Array32("checkpoint_id")
+	require.NoError(t, err)
+	reads := anchorRetirementReads(h, checkpointID)
 	viewCount := 0
 	for name, method := range h.precompile.GetABI().Methods {
 		if method.StateMutability != "view" && method.StateMutability != "pure" {
@@ -83,8 +97,6 @@ func TestAnchorRetirementSurvivesTheWrapper(t *testing.T) {
 func TestAnchorRetiredWriteMalformedCalldata(t *testing.T) {
 	h := newHarness(t, nil)
 	var err error
-	h.fixture, err = testvectors.LoadAnchor()
-	require.NoError(t, err)
 	h.precompile, err = layerxanchor.NewPrecompile(retiredWrapperKeepers{
 		Keepers: h.app.GetPrecompileKeepers(),
 		anchor:  h.anchor,
@@ -99,7 +111,20 @@ func TestAnchorRetiredWriteMalformedCalldata(t *testing.T) {
 
 	want := pcommon.RetiredRevert(layerxanchor.PrecompileName)
 	require.Len(t, want, 132)
-	writes := anchorRetirementWrites(h)
+	writes := map[string][]interface{}{
+		layerxanchor.SubmitCheckpointMethod:          h.checkpointArgs("batch_1_quorum"),
+		layerxanchor.SubmitAvailabilityMethod:        {h.attestation("batch_1_attestation_1")},
+		layerxanchor.FinalizeMethod:                  {uint64(1)},
+		layerxanchor.RegisterGuarantorMethod:         {h.ids[0], h.signers[0]},
+		layerxanchor.IncreaseBondMethod:              {h.ids[0]},
+		layerxanchor.BeginUnbondMethod:               {h.ids[0], big.NewInt(bond / 2)},
+		layerxanchor.CompleteUnbondMethod:            {h.ids[0]},
+		layerxanchor.SubmitEquivocationMethod:        {[]byte{5}, []byte{6}},
+		layerxanchor.OpenChallengeMethod:             {uint64(1), anchortypes.ChallengeFraud, [32]byte{1}},
+		layerxanchor.ResolveChallengeMethod:          {uint64(1), false},
+		layerxanchor.ActivateGuarantorMethod:         {h.ids[0]},
+		layerxanchor.SetSequencerAuthorizationMethod: {[32]byte{1}, [32]byte{2}, uint64(1), uint64(8)},
+	}
 	writeCount := 0
 	for name, method := range h.precompile.GetABI().Methods {
 		if method.StateMutability == "view" || method.StateMutability == "pure" {

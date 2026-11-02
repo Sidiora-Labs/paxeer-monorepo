@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -93,6 +94,7 @@ type nativeInventoryAuthority struct {
 	cluster      *testCluster
 	sequence     uint64
 	keys         []InventoryKey
+	members      []string
 }
 
 func (a *nativeInventoryAuthority) publish(t *testing.T) {
@@ -101,7 +103,9 @@ func (a *nativeInventoryAuthority) publish(t *testing.T) {
 	now := time.Now().Unix()
 	members := make([]InventoryMember, 0, 5)
 	for _, peer := range a.cluster.peers {
-		members = append(members, InventoryMember{ID: peer.ID, Pin: peer.SPKISHA256})
+		if a.members == nil || slices.Contains(a.members, peer.ID) {
+			members = append(members, InventoryMember{ID: peer.ID, Pin: peer.SPKISHA256})
+		}
 	}
 	document := WalletInventory{SignedClaims: agent.SignedClaims{Version: 1, Issuer: "native-corpus", Audience: agent.InventoryAudience, Tenant: "tenant-a", Sequence: strconv.FormatUint(a.sequence, 10), IssuedAt: now - 1, ExpiresAt: now + 3600}, Protocol: "wallet", Threshold: 3, Members: members, Keys: a.keys}
 	header, _ := json.Marshal(map[string]string{"alg": "ES256", "typ": agent.InventoryAudience + "+jwt"})
@@ -122,15 +126,21 @@ func (a *nativeInventoryAuthority) publish(t *testing.T) {
 		t.Fatal(err)
 	}
 	pins := map[string]string{}
-	for _, peer := range a.cluster.peers {
-		pins[peer.ID] = peer.SPKISHA256
+	for _, member := range members {
+		pins[member.ID] = member.Pin
 	}
 	for _, node := range a.cluster.nodes {
+		if node.stopped.Load() {
+			continue
+		}
 		inventory, err := NewInventory(a.path, a.public, "native-corpus", "tenant-a", node.store, pins)
 		if err != nil {
 			t.Fatal(err)
 		}
 		node.server.opts.Inventory = inventory
+		if a.members != nil {
+			node.server.opts.Participants = append([]string(nil), a.members...)
+		}
 	}
 }
 
