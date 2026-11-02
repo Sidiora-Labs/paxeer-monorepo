@@ -13945,3 +13945,18 @@ fix = "Run the dependent-crate check once per candidate revision and let a gates
 title = "A handwritten test landed in a generated markdown root without its manifest declaration"
 symptom = "A task added a proof test under a directory the platform generator owns; the generator's check refused the unclassified file and every later task whose build runs the generate target failed at the base."
 fix = "A file placed under a generated root is declared in the pipeline manifest in the same change; a generator refusal naming a file none of the candidate's hunks touch is a base break, repaired by declaring the file, never by deleting it."
+
+[gotcha.2825]
+title = "A task whose spec status read blocked never starts, and the attempt record shows only the start refusal"
+symptom = "Three attempts of one task failed at the start step within eleven minutes because the spec block said blocked at the time; the status flipped to pending an hour later and the task sat idle because every attempt record carried no revision and no note could attach to it."
+fix = "When a spec status flips from blocked to pending, relaunch the task fresh from main; a start refusal is never a candidate to continue from, and the attempt history of a blocked period is not counted against the task."
+
+[gotcha.2826]
+title = "A negative text search in a verify must cover only files the task may edit"
+symptom = "A port task listed six files and a verify that searched the whole crate for the retired module; the census outside the six files named ten more consumers, the agent stopped by its own rule and the verify failed on a file the task could not touch."
+fix = "Scope the negative search to the touches list, split the remaining consumers into sibling tasks per group, and let the deletion task search the whole tree once every sibling has published."
+
+[gotcha.2827]
+title = "A generic frame codec filed under a retired protocol module is product, not retired code"
+symptom = "The module slated for deletion held the length-prefixed codec and the Unix-socket transport the daemon's live Human peer socket speaks, beside the kernel handshake that is retired."
+fix = "Before deleting a module, classify each file by who speaks it at runtime; re-home the live wire under a neutral module with re-exports from the old path, and delete only the protocol no runtime peer speaks."
