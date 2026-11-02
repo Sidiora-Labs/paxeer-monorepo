@@ -9,6 +9,37 @@ use std::time::Duration;
 
 use super::{hex_decode, hex_encode, parse_node_url, refusal, NodeEndpoint, Response};
 
+pub(super) const LAYERX_CORE_CHAIN_RPC_URL: &str = "LAYERX_CORE_CHAIN_RPC_URL";
+pub(super) const LAYERX_CORE_FUNDING_SENDER_KEY_FILE: &str = "LAYERX_CORE_FUNDING_SENDER_KEY_FILE";
+pub(super) const LAYERX_CORE_FUNDING_SENDER_KMS_KEY_ID: &str =
+    "LAYERX_CORE_FUNDING_SENDER_KMS_KEY_ID";
+
+/// Decoded funding configuration, before any connection to the chain.
+pub(super) struct FundingEnvironment {
+    pub(super) endpoint: NodeEndpoint,
+    pub(super) sender: EvmSender,
+}
+
+impl FundingEnvironment {
+    pub(super) fn from_env() -> Result<Self, &'static str> {
+        let endpoint = parse_node_url(
+            &std::env::var(LAYERX_CORE_CHAIN_RPC_URL).map_err(|_| "chain_unavailable")?,
+        )
+        .map_err(|_| "chain_unavailable")?;
+        // EvmSender reads the KEY_FILE and KMS_KEY_ID alternatives under this
+        // prefix and refuses ambiguous sources before opening either one.
+        let prefix = LAYERX_CORE_FUNDING_SENDER_KEY_FILE
+            .strip_suffix("_KEY_FILE")
+            .ok_or("sender_unavailable")?;
+        debug_assert_eq!(
+            LAYERX_CORE_FUNDING_SENDER_KMS_KEY_ID,
+            format!("{prefix}_KMS_KEY_ID")
+        );
+        let sender = EvmSender::from_env(prefix).map_err(|_| "sender_unavailable")?;
+        Ok(Self { endpoint, sender })
+    }
+}
+
 pub(super) struct ChainFunding {
     endpoint: NodeEndpoint,
     sender: Arc<EvmSender>,
@@ -60,12 +91,7 @@ impl SignedFunding {
 
 impl ChainFunding {
     pub(super) fn from_env() -> Result<Self, &'static str> {
-        let endpoint = parse_node_url(
-            &std::env::var("LAYERX_CORE_CHAIN_RPC_URL").map_err(|_| "chain_unavailable")?,
-        )
-        .map_err(|_| "chain_unavailable")?;
-        let sender =
-            EvmSender::from_env("LAYERX_CORE_FUNDING_SENDER").map_err(|_| "sender_unavailable")?;
+        let FundingEnvironment { endpoint, sender } = FundingEnvironment::from_env()?;
         Ok(Self {
             endpoint,
             sender: Arc::new(sender),

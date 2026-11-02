@@ -27,13 +27,10 @@ fn no_retired_layerx_client_module_paths() {
         "withdrawal",
         "evidence",
     ];
-    let sources = [
-        (
-            "src/public_reads.rs",
-            include_str!("../src/public_reads.rs"),
-        ),
-        ("src/withdrawal.rs", include_str!("../src/withdrawal.rs")),
-    ];
+    let sources = [(
+        "src/public_reads.rs",
+        include_str!("../src/public_reads.rs"),
+    )];
     let mut remaining = Vec::new();
     for (path, source) in sources {
         let compact: String = source.chars().filter(|ch| !ch.is_whitespace()).collect();

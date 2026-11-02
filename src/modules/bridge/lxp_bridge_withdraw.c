@@ -18,6 +18,7 @@ lxp_result lxp_withdrawal_nullifier(const lx_withdrawal_request *request,
         lxp_ct_is_zero(request->account_id, 32U) ||
         lxp_ct_is_zero(request->asset_id, 32U) ||
         lxp_ct_is_zero(request->checkpoint_id, 32U) ||
+        lxp_ct_is_zero(request->payout_recipient, 32U) ||
         lxp_u128_is_zero(request->amount)) return LXP_ERR_NON_CANONICAL;
     status = lxp_u128_to_be(request->amount, amount);
     if (status != LXP_OK) return status;
@@ -121,4 +122,3 @@ lxp_result lxp_paxeer_challenge_window(
         return LXP_ERR_CHALLENGE_WINDOW_OPEN;
     return LXP_OK;
 }
-
