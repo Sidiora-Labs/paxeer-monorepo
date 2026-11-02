@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePerpsWallet } from "./usePerpsWallet";
-import { subgraphQuery, POSITIONS_QUERY } from "./useSubgraph";
+import { subgraphQuery, POSITIONS_QUERY, rawUint256 } from "./useSubgraph";
+import { z } from "zod";
 import { buildGetAccount, type AccountState } from "@/core/perps/calls";
 import { portfolioFromAccount } from "@/core/perps/portfolio";
 import { getPublicClient } from "@/core/viem/clients";
@@ -13,6 +14,33 @@ import { activePoll, isPageActive, onStreamResync, type CancelTask } from "@/cor
 type AccountTotals = Pick<AccountState, "collateral" | "equityUsd" | "withdrawable">;
 
 const EMPTY_ACCOUNT: AccountTotals = { collateral: 0n, equityUsd: 0n, withdrawable: 0n };
+
+const portfolioPositionsSchema = z.object({
+  positions: z.array(z.object({
+    positionId: rawUint256,
+    userAddress: z.string(),
+    marketId: z.number().int().nonnegative(),
+    isLong: z.boolean(),
+    sizeUsd: rawUint256,
+    leverage: rawUint256,
+    entryPrice: rawUint256,
+    collateralToken: z.string().nullable(),
+    collateralAmount: rawUint256,
+    collateralUsd: rawUint256,
+    status: z.literal("open"),
+    openedAt: z.string().nullable(),
+    openTxHash: z.string().nullable(),
+    market: z.object({ symbol: z.string() }).nullable(),
+  })),
+});
+
+export function decodePortfolioPositions(data: unknown) {
+  return portfolioPositionsSchema.parse(data).positions;
+}
+
+export async function fetchPortfolioPositions(addr: string) {
+  return subgraphQuery(POSITIONS_QUERY, { userAddress: addr }, decodePortfolioPositions);
+}
 
 export interface PortfolioStats {
   totalVaultUsd: number;
@@ -150,9 +178,8 @@ const POSITION_CHANGED_QUERY = /* GraphQL */ `
 
 async function _fetchPositionsOnce(addr: string) {
   try {
-    const res = await subgraphQuery<{ positions: any[] }>(POSITIONS_QUERY, { userAddress: addr });
+    const positions = await fetchPortfolioPositions(addr);
     if (_activeAddress !== addr) return;
-    const positions = res.positions ?? [];
     _reconcileLocallyClosed(positions);
     _setRaw({ positions });
   } catch {}

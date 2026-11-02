@@ -45,6 +45,7 @@ type Market {
 
 type MarginTier {
   tier: Int!
+  "Raw unsigned 256-bit integer, encoded as a canonical decimal string."
   lowerBoundUsd: BigInt!
   maxLeverage: BigInt!
   maintenanceBps: BigInt!
@@ -539,6 +540,7 @@ type Query {
     offset: Int
   ): [Liquidation!]!
 
+  "Looks up a non-negative market identifier; unknown identifiers return null."
   market(marketId: Int!): Market
   markets: [Market!]!
 
