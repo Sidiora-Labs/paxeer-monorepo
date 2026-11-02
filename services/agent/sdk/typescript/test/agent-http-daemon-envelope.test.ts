@@ -56,4 +56,52 @@ function agent_envelope_matches_daemon_goldens(): void {
   }
 }
 
+function agent_envelope_accepts_not_ready_verification_status(): void {
+  const goldens = new URL("../../../../schema/agent-api/golden/", import.meta.url);
+  for (const [filename, expectedStatus] of [
+    ["agent-http-success-pending.json", { state: "pending", requested: Rung.Receipted, achieved: Rung.Submitted }],
+    ["agent-http-success-absent.json", { state: "absent", requested: Rung.Receipted }],
+  ] as const) {
+    const bytes = readFileSync(new URL(filename, goldens));
+    const envelope = JSON.parse(bytes.toString("utf8")) as {
+      request_id: string;
+      value: { found: boolean };
+      verification_status: Record<string, unknown>;
+    };
+    const decoded = decodeAgentEnvelopeResponse(200, bytes, false, envelope.request_id);
+    assert.equal(decoded.request_id, "7");
+    assert.deepEqual(decoded.value, envelope.value);
+    assert.equal(envelope.value.found, false);
+    assert.deepEqual(decoded.verification_status, expectedStatus);
+    assert.equal(Object.isFrozen(decoded), true);
+    assert.equal(Object.isFrozen(decoded.verification_status), true);
+
+    const status = envelope.verification_status;
+    const invalidStatuses = [
+      { ...status, unexpected: true },
+      { ...status, state: "unknown" },
+      { ...status, requested: "unknown" },
+      ...(status.state === "pending" ? [
+        { ...status, achieved: status.requested },
+        { ...status, achieved: "committed" },
+        { ...status, achieved: "unknown" },
+        { ...status, reason: "receipt_pending" },
+      ] : [
+        { ...status, achieved: "submitted" },
+      ]),
+    ];
+    for (const verification_status of invalidStatuses) {
+      const invalidBytes = Buffer.from(JSON.stringify({ ...envelope, verification_status }));
+      assert.throws(() => decodeAgentEnvelopeResponse(200, invalidBytes, false, envelope.request_id), (error: unknown) => {
+        assert(error instanceof PlatformSdkError);
+        assert.equal(error.code, "verification-failure");
+        assert.equal(error.retry, "never");
+        assert.equal(error.requestId, "7");
+        return true;
+      });
+    }
+  }
+}
+
 test(agent_envelope_matches_daemon_goldens);
+test(agent_envelope_accepts_not_ready_verification_status);
