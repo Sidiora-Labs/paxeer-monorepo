@@ -18179,3 +18179,131 @@ symbol = "encodesLedgerDrawCalldataWithDrawSelector"
 observed = "The first attempt committed sdk/integrations/next/example/.next build output, and the seller tests fail against the freshly built dist: ledger.test.mjs:139 encodesLedgerDrawCalldataWithDrawSelector expects a 32-byte field and observes the ASCII bytes 65..88 of the fixture string, and grant-draw.test.mjs:129 grantAuthorityForwardsLedgerDrawTransaction is refused with invalid-payment-payload by GrantPaymentAuthority.settle (dist/grant.js:39)."
 assumption = "Build output is never committed, and the seller source and tests disagree on how the ledger draw reference is encoded; the task reconciles them inside services/platform/middleware."
 severity = "medium"
+
+[finding.22.9.16.1]
+task = "22.9.16"
+file = "services/agent/schema/agent-api/v1.kvx"
+symbol = "compatibility_gate"
+observed = "At bases 17990ad65 and c1cc55d15 the build of every layerx-agent-api dependent panics at build.rs:324:33: breaking contract removal without a major increment: transport.agent_http.operation.faucet.claim.access (2ddf941d9 removed the block at major 2)."
+assumption = "22.9.24 restores the block; every open task that builds with cargo requires it and continues from its last attempt once it is done."
+severity = "high"
+
+[finding.22.2.4.2]
+task = "22.2.4"
+file = "modules/layerxauth/keeper/revoke.go"
+symbol = "RevokeGrant"
+observed = "Fourth attempt at base 17990ad65: TestRevokeGrantAdvancesRevocation/capability and /session (revoke_test.go:132) expect ErrIdempotentReplay from the second RevokeGrant with the same grant and idempotency key and get LXP_AUTH_SCOPE: now that the grant is retained with RevocationEpoch set, the repeat reaches the grant's scope validation before the replay check."
+assumption = "The replay check on (grant, idempotency key) precedes every state validation of the revoke; the test's expectation stands."
+severity = "medium"
+
+[finding.22.2.7.1]
+task = "22.2.7"
+file = "precompiles/layerxpay/execute.go"
+symbol = "IdempotencyKey"
+observed = "Second attempt at base 17990ad65 implemented the restart proof in modules/lxphost (TestPaymentReferenceStaysRefusedAfterReopen passes) and changed nothing in precompiles/layerxpay/execute.go, which already builds the activity with the idempotency key (do_1); the graph check refused the untouched file and the verify's layerxpay leg -run 'Proof.*0x101a|ProofLayerxledger' matched no test ([no tests to run]) because proof_layerxledger_0x101a_test.go is created by 21.11.1, which requires this task."
+assumption = "execute.go leaves the touches; the verify runs the lxphost proof and compiles layerxpay; 21.11.1 adds its own leg."
+severity = "low"
+
+[finding.22.9.10.2]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/test/program-executed-v3.test.ts"
+symbol = "fixture"
+observed = "Fourth attempt at base c1cc55d15: npm test fails with ENOENT on sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json, read by test/program-executed-v3.test.ts:5; 88faddb09 (task 8.47.5) removed the kernel programs-module receipt vectors v1 to v3 and their generators because no node serves that receipt."
+assumption = "The test belongs to the receipt shape this task retires (do_1); it is deleted with the decoder path it exercised."
+severity = "medium"
+
+[finding.22.10.7.2]
+task = "22.10.7"
+file = "services/platform/hosted/human/test_material.py"
+symbol = "required_path"
+observed = "Third attempt at base 17990ad65: test_custody_bindings_resolve_to_the_native_custody_precompile and test_generated_bootstrap_and_protected_inputs still fail with 'required genuine producer input is missing: PAXEER_X_HUMAN_EVIDENCE_DIR' (test_material.py:68, reached from :76) while the verify unsets the five variables on purpose."
+assumption = "The refusal at :68 is for inputs the test neither received nor built; the hermetic rewrite builds them with the producer functions of material.py first."
+severity = "medium"
+
+[finding.22.17.4.1]
+task = "22.17.4"
+file = "spec/layerx-merge/programme/sweeps/go-modules-2.kvx"
+symbol = "elapsed_seconds"
+observed = "First attempt at base 84dd3db40: sweeps_summary.py stops at go-modules-2.kvx:18 'expected a quoted string, integer, boolean or string list value' because the sweep (ad466647e) wrote elapsed_seconds = 600.071, a decimal, for a target that hit its 600-second budget."
+assumption = "kvx values are quoted strings, integers, booleans or string lists; the sweep file is repaired in this task and the summary tolerates nothing else."
+severity = "low"
+
+[finding.22.90.9.2]
+task = "22.90.9"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs"
+symbol = "ConstructMethod::ProgramCall"
+observed = "First attempt at base 17990ad65: cargo build --all-targets of layerx-human-kms compiles layerx-human-service and fails E0004 at create.rs:610, non-exhaustive match missing Some(ConstructMethod::ProgramCall { .. }); the candidate changed nothing because the failure sits outside its touches."
+assumption = "9.100.2 added the ProgramCall construct method without the human service following; this task adds the arm."
+severity = "medium"
+
+[finding.18.1502.1.1]
+task = "18.1502.1"
+file = "node/sequencer/limits.go"
+symbol = "Accept"
+observed = "First attempt at base 17990ad65: TestPendingBlockCarriesHeaderFields, TestPendingBlockOpenBlock, TestPendingBlockNumberStaysCommitted, TestPendingBlockTransactionCount and TestPendingNonceWaitsForTheOpenBlock fail with 'transaction does not fit the block limits: gas wanted 21000 exceeds Block.MaxGasWanted 0' from limits.go:53; the RPC fixture's consensus params set no MaxGasWanted."
+assumption = "22.5.9 reads an unset MaxGasWanted as unbounded and states it in rpc/setup_test.go; this task requires it and continues from its last candidate."
+severity = "high"
+
+[finding.22.7.3.1]
+task = "22.7.3"
+file = "rpc/header_receipts_root_test.go"
+symbol = "TestHeaderReceiptsRootIsSameBlockResults"
+observed = "Second attempt at base c1cc55d15: besides the MaxGasWanted refusals, TestHeaderReceiptsRootIsSameBlockResults waits 180 s for a newHeads payload that never arrives (header_receipts_root_test.go:161 and :194) and TestDebugTraceTransactionCallTracerShape / TestDebugTraceTransactionPrestateTracerShape expect result code 0x0 and get 0x2."
+assumption = "The newHeads wait is the downstream of the same refused transactions (no block is sealed); the tracer shape tests are judged again once 22.5.9 is in."
+severity = "medium"
+
+[finding.17.1.7.1]
+task = "17.1.7"
+file = "spec/layerx-merge/programme/tests/test_bringup_run.py"
+symbol = "test_bringup_goldens_pass_on_merged_revision"
+observed = "First attempts of 17.1.7 and 17.3.4 at fb8864428 and 5857e2d41: go test ./node fails to link ('cannot find -llayerx' and the programs runtime archive) because the environment profile of both tasks never builds the kernel archives that the cgo node package needs."
+assumption = "The two tasks run under the go-cgo profile, which builds the archives before go test ./node; nothing in the repository is at fault."
+severity = "low"
+
+[finding.22.16.4.3]
+task = "22.16.4"
+file = "tests/ci/test_requested_suites_absent.py"
+symbol = "test_arbiter_native_authority_absent"
+observed = "Fourth attempt at base 17990ad65: test_arbiter_native_authority_absent fails because tests/programs/test_lifecycle.c:1109, tests/proof/lxp_proof_lxp_module_h.c:300 and tests/proof/lxp_proof_lxp_receipt_h.c:302 name lxp_verified_receipt_authority_facts, and test_qualification_producers_exist.py:33 fails with 'No daemon producer references found' once every deleted daemon test reference is gone."
+assumption = "lxp_verified_receipt_authority_facts is a live type (include/layerx/lxp_receipt.h:128, lxp_module.h:37, used by src/modules/programs/call.c and src/protocol/lxp_module_ctx.c), so the absence test must not name it; zero references is exactly the retired state the producers test should accept."
+severity = "medium"
+
+[finding.22.4.5.1]
+task = "22.4.5"
+file = "modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go"
+symbol = "TestQueryAirdropEpochRefusals"
+observed = "Second attempt at base 17990ad65: the malformed-pool and malformed-address cases (grpc_query_airdrop_epoch_test.go:94) call require.ErrorIs(err, sdkerrors.ErrInvalidAddress) on an error returned through the gRPC client; the status error carries 'rpc error: code = InvalidArgument desc = pool must be a 0x-prefixed 40-hex-digit address: invalid address' as text and no wrapped chain, so ErrorIs and ErrorAs fail twenty times."
+assumption = "The chain assertions belong on the in-process query server; the client path keeps the status-code assertion it already makes at :86."
+severity = "low"
+
+[finding.22.6.4.1]
+task = "22.6.4"
+file = "precompiles/missing_merge_test.go"
+symbol = "TestMergeAddressTable"
+observed = "First attempt at base 17990ad65: TestMergeAddressTable, TestMissingMergeConstructorsInTableOrder and TestGatewayUnservedMatchesMissingConstructors expect the merge table without layerxchains while the table carries layerxchains at 0x101E (20.2.2); TestGetPrecompileInfoEUnknownName expects 'merge precompile eip712 at 0x...0908: LXP_PRECOMPILE_NO_CONTEXT: evm keeper is unavailable' and gets 'unknown_precompile doesn't exist as a precompile'; TestProofStreams0x0906 (proof_streams_0x0906_test.go:180) gets an unexpected error."
+assumption = "The expectations predate the chain registry precompile and the keeper wiring this task adds; the task reconciles them with the real table and the real refusal order."
+severity = "medium"
+
+[finding.22.12.4.2]
+task = "22.12.4"
+file = "services/wallet/attestor/internal/server/server_test.go"
+symbol = "TestSchemaDescribesEveryServedRoute"
+observed = "Third attempt at base 17990ad65: with the custody-authority fixture in place, go test ./... of the attestor still fails six tests outside cmd/attestor: TestSchemaDescribesEveryServedRoute (server_test.go:318: v1.kvx describes /v1/lx/review with 0 operations, want exactly one), the key-import and generate cases (server_test.go:365, :714, :776: key_invalid_share 'custody import requires exactly five approved members' / 'owner-approved wallet inventory does not admit operation' where key_curve_mismatch or success is expected), TestSnapshotFollowsAddShare, TestShippedPolicyAllowsWalletSDKWrites, TestShippedPolicyAllowsLaunchpadApproveThenBuy, TestShippedPolicyListsSendAuthorizationKind (policy_test.go:799, :1245) and TestXweb0x1019ApplicationPolicy (policy_test.go:1938: application proof must supply its real fulfilment calldata)."
+assumption = "Those failures are independent of the fixture; 22.12.7 repairs them and this task's verify runs the attestor command package and vet only."
+severity = "medium"
+
+[finding.22.13.6.3]
+task = "22.13.6"
+file = "src/protocol/lxp_genesis.c"
+symbol = "lxp_genesis_module_plan_default"
+observed = "Sixth attempt at base 17990ad65: the candidate added the storage-retirement enable flag but also replaced the programs row's gate key with LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER when the flag is off (lxp_genesis.c module_table branch for LXP_MODULE_PROGRAMS), so the published fixtures still verify with -801 LXP_ERR_ROOT_MISMATCH (tests/fixtures/public-testnet-genesis-v3 and public-testnet-genesis)."
+assumption = "Decision 2304 means the table is unchanged when the flag is off: same rows, same keys, same roots; the retirement registration is selected only when the flag is on."
+severity = "medium"
+
+[finding.20.3.4.2]
+task = "20.3.4"
+file = "modules/evm/ante/sig.go"
+symbol = "ErrInvalidChainID"
+observed = "20.3.4 a3 (base 5b2283aa7, node/layerxchains_block_test.go:160 accept) and 20.4.4 a4 (base c1cc55d15, rpc/domain_ws_test.go:237, TestChainPathLogSubscriptionDeliversOnlyTheChainsLogs/receipted): the transaction signed with the chain's derived chain id is refused by Accept with the ante result 'invalid chain-id' (sdkerrors.ErrInvalidChainID, returned at modules/evm/ante/sig.go:60 and :66, modules/evm/ante/preprocess.go:199 and node/ante/evm_checktx.go:192 and :324)."
+assumption = "20.3.1 maps a transaction's chain id to its chain in the ante handler, but at least one of the five refusal sites still compares against the root EVM chain id alone, or the test harness signs before the chain is created and active; the proof task carries the repair."
+severity = "high"
