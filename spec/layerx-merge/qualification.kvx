@@ -19155,3 +19155,75 @@ symbol = "TestSubscribeNewHeads"
 observed = "Attempts 3 (base ee0081095) and 4 (base 2ca2d5bac) fail TestSubscribeNewHeads (subscribe_test.go:95, withdrawalsRoot is nil) and TestSubscribeNewHeadsAutobahn (subscribe_test.go:204, no event within five seconds, the server logging that the committed head 8 lacks a state root and drops the newHeads event) while the task's own log subscription tests pass; both bases contain commit 5fce7caee (task 7.10.3), whose encodeCommittedBlock at rpc/subscribe.go:535 refuses a committed head without a thirty-two byte AppHash, and whose verify ran only the encoder unit test, never the two subscription tests."
 assumption = "The two newHeads tests fail on main independently of this task's change in rpc/filter.go; a repair task on the newHeads encoder and the test node's committed heads (7.10.6) precedes this task, whose fourth candidate then requalifies unchanged."
 severity = "major"
+
+[finding.22.6.4.7]
+task = "22.6.4"
+file = "precompiles/precompile_info_e_test.go"
+symbol = "TestInitializePrecompilesKeepsMergeOutOfVM"
+observed = "Attempt 10 fails one of two tests whichever way setup.go publishes the merge addresses: the info test wants them absent after InitializePrecompiles(false, keepers) and the activation proof wants them published after activation."
+assumption = "The two tests describe two states; setup.go gates publication on the activation state and both stay (do item of attempt 10)."
+severity = "major"
+
+[finding.1.1.5.2]
+task = "1.1.5"
+file = "services/agent/crates/layerx-types/build.rs"
+symbol = "code table parser"
+observed = "Attempt 5 panics at build.rs:526 on a comment inside the generated code table during make programs-build (Makefile:2708)."
+assumption = "The parser accepts rows only; the comment moves above the table (do item of attempt 5)."
+severity = "minor"
+
+[finding.22.9.27.1]
+task = "22.9.27"
+file = "rpc/server.go"
+symbol = "pax_sequencerReceipt"
+observed = "Attempt 6 crashes the receipt handler with the sequencer KV store key not registered in seven tests after the server registration change."
+assumption = "The receipt route keeps its keeper and context path; the same crash is seen by 22.9.28 attempt 5 (do items of both tasks)."
+severity = "major"
+
+[finding.1.38.2.1]
+task = "1.38.2"
+file = "src/protocol/lxp_handover.c"
+symbol = "include lxp_da.h"
+observed = "Attempt 2 fails the kernel build at lxp_handover.c:4 once lxp_da.h is deleted."
+assumption = "The file joins the task's touches and the task requires 1.2.4 (do item of attempt 2)."
+severity = "major"
+
+[finding.7.10.6.1]
+task = "7.10.6"
+file = "node/abci.go"
+symbol = "Header.AppHash"
+observed = "Attempt 1 finds the committed-block stateRoot read from a header field node/abci.go:320 leaves unset on purpose."
+assumption = "node/abci.go and node/app.go join the touches so the published header carries the AppHash eth_getBlockByNumber returns (do item of attempt 1)."
+severity = "major"
+
+[finding.22.1.9.2]
+task = "22.1.9"
+file = "services/platform/hosted/node/bootstrap.sh"
+symbol = "web option"
+observed = "Attempt 4 finds genesis-modules.conf listing web without a module and bootstrap.sh still offering a web option."
+assumption = "The conf line is removed by 22.1.9; the bootstrap option is the owner's to retire in a follow-up."
+severity = "minor"
+
+[finding.18.1508.2.1]
+task = "18.1508.2"
+file = "services/launchpad/api/internal/rest/qualification_workload_test.go"
+symbol = "TestProductionRESTMeasurementHarness"
+observed = "Attempt 1 fails because the test needs an approved measurement input named by L22_MEASUREMENT_INPUT and its digest, which the repository does not carry."
+assumption = "The verify skips that test; whether a measurement input is committed as a fixture is the owner's decision."
+severity = "minor"
+
+[finding.22.23.8.1]
+task = "22.23.8"
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+symbol = "receipt view decode"
+observed = "Decision 2360 adds paymentDenom to the receipt view; the Rust client and the TypeScript sdk decode the view and are outside the task's touches."
+assumption = "The closure sweep adds the consumer-side read of paymentDenom and the asset check in a follow-up task."
+severity = "major"
+
+[finding.22.2.5.6]
+task = "22.2.5"
+file = "precompiles/layerxledger/abi_published_views_test.go"
+symbol = "TestPublishedLedgerAndAuthABIFrozen"
+observed = "The frozen digests fail at HEAD since 21.11.1 and 21.21.1 changed the published ABI files; the attestor ledger copy is stale."
+assumption = "22.2.5 refreshes the copy and the digests from the published files (do item of attempt 6)."
+severity = "major"

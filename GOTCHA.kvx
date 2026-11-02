@@ -14040,3 +14040,18 @@ fix = "Write one task per variant family (prepare, native effect, native send, r
 title = "A boundary check that walks whole crates fails a task whose edit scope is two files"
 symptom = "The retired-surface task of the human CLI failed its boundary check on ambient nondeterminism in three files it is not allowed to edit (the KMS proof tests and the test-support evidence node), so every attempt ended at the same check regardless of the task's own work."
 fix = "When a check reads outside the task's touches, name the outside files in a task of their own and make the failing task require it; a task cannot pass a check whose inputs it may not change."
+
+[gotcha.2844]
+title = "Two broken crates in two workspaces deadlock every task whose dependent-crate check builds both"
+symptom = "The agent workspace failed on three private items of an included test file and the human workspace failed on four retired accessors; the task owning each half failed its check on the other half, so neither could publish and five more tasks failed behind them."
+fix = "Merge the two repairs into one task, supersede the other, and make every task whose check builds either workspace require the merged task; a repair split along workspace lines cannot pass a check that spans both."
+
+[gotcha.2845]
+title = "A build of a crate's test targets compiles every sibling test file, including a broken one the task does not own"
+symptom = "A task building the KMS crate with --tests failed on a test file it was not allowed to edit; the task's own change was correct."
+fix = "When a build command compiles test targets, every test file in the crate is in the build; a broken sibling test is a requires on the task that repairs it, not a repair for the task that hit it."
+
+[gotcha.2846]
+title = "A security report's proof of concept is the verify test, written into the task before the fix"
+symptom = "Advisory fixes written from the report's prose alone were hard to qualify: the test had to be invented after the fix and tended to test the fix rather than the attack."
+fix = "Turn the reporter's reproduction into the named test in the task's verify (the delegatecall, the over-cap permit, the refused recipient, the closed position, the low-power majority, the delegate on the owner path, the rate-limited burst, the fee-token receipt, the replayed receipt) so the attack fails before the fix and passes after."
