@@ -185176,7 +185176,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.1.4]
 title = "Port the kernel tests that still name the retired payer-grant and receive types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -218111,7 +218111,7 @@ do_3 = "Finding 22.16.7.1: the only remaining collection errors are the three fi
 
 [task.22.10.7]
 title = "Make the hosted human material tests hermetic and current"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
