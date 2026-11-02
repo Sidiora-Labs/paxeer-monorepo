@@ -144409,7 +144409,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.32.4]
 title = "Remove the relay archive package and its peer and protocol modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 40
 requires = ["8.32.1", "8.32.2", "8.32.3", "8.19.3", "17.97.1"]
