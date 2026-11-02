@@ -250,8 +250,6 @@ impl PeerState {
                 canonical[77..109].copy_from_slice(&[0x63; 32]);
                 canonical[109..111].copy_from_slice(&1_u16.to_be_bytes());
                 canonical[215..].copy_from_slice(&HEAD.to_be_bytes());
-                layerx_crypto::rotation::OwnerRotationState::decode(&canonical, &did)
-                    .expect("owner state");
                 out.extend_from_slice(&HEAD.to_be_bytes());
                 out.extend_from_slice(&1_u64.to_be_bytes());
                 out.extend_from_slice(&[4, 0]);
