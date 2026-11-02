@@ -118184,7 +118184,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1441.1]
 title = "Issue #1441: Port live_kinds to the retained intent kinds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.27.9"]
@@ -179449,7 +179449,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.28.1]
 title = "Guard that every C test program and Rust test file is built by some rule"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["16.31.1", "16.31.2", "16.31.3", "16.31.4", "16.31.5", "16.31.6", "16.31.7", "16.32.1", "16.32.2", "16.32.3", "16.32.4", "16.32.5", "16.32.6", "16.32.7", "16.32.8", "16.32.9", "16.32.10", "16.32.11", "16.32.12", "16.33.1", "16.33.2", "16.33.3", "16.33.4", "16.33.5", "16.33.6", "16.34.1", "16.34.2", "16.34.3", "16.34.4", "16.35.1", "16.35.2", "16.36.1", "16.36.2", "16.36.3", "16.37.1", "16.28.5", "5.54.9", "6.60.2"]
