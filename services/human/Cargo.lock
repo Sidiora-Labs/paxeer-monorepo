@@ -996,6 +996,7 @@ dependencies = [
  "layerx-human-service",
  "layerx-intents",
  "layerx-types",
+ "layerx-wire",
  "p256",
  "ring",
  "rustix",

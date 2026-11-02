@@ -23,6 +23,14 @@ pub enum IntentKindTag {
 }
 
 impl IntentKindTag {
+    /// Encodes the V1 classification header consumed by `inspect_intent`.
+    /// This header carries no payload and does not authorize execution.
+    #[must_use]
+    pub const fn header_bytes(self) -> [u8; 4] {
+        let kind = (self as u16).to_be_bytes();
+        [0, 1, kind[0], kind[1]]
+    }
+
     const fn from_u16(value: u16) -> Result<Self, RejectReason> {
         match value {
             1 => Ok(Self::DidRegistration),
@@ -87,7 +95,8 @@ impl<'a> RejectedIntent<'a> {
 /// # Errors
 ///
 /// Returns a typed rejection for truncated input, every version other than V1,
-/// and every unknown or retired kind.
+/// and every unknown or retired kind. V2 retired kinds retain the more specific
+/// `RetiredShape` diagnosis; other V2 input is rejected as `UnknownVersion`.
 pub fn inspect_intent(input: &[u8]) -> Result<IntentHeader, RejectedIntent<'_>> {
     let mut decoder = Decoder::new(input, 0);
     let version = decoder.u16().map_err(|error| RejectedIntent {

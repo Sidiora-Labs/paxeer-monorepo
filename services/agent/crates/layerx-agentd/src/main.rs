@@ -58,7 +58,7 @@ mod mcp_payer;
 // lives in its declared proof path because this task may not add a source file.
 #[path = "../tests/proof_serve_errors.rs"]
 mod serve_http;
-pub(crate) use serve_http::{
+pub(crate) use self::serve_http::{
     serve_read_routes, HttpPool, HEADER_LIMIT, REQUEST_DEADLINE, SUPERVISION_INTERVAL,
 };
 

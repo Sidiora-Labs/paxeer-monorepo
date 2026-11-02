@@ -178,13 +178,16 @@ func TestPendingStateResolvesOpenHeight(t *testing.T) {
 	requireWeiEqual(t, funded, s.weiBalance(s.ctxProvider(latest), sender.EvmAddress))
 	require.Zero(t, s.weiBalance(s.ctxProvider(latest), recipient).Sign())
 
-	// Once the open block is sealed there is no pending block to read.
+	// Once sealed, pending reads resolve to the committed state.
 	_, err = s.exec.Seal(committed + 1)
 	require.NoError(t, err)
-	_, err = s.wm.ResolveHeight(ctx, pending)
-	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
-	_, err = evmrpc.GetBlockNumberByNrOrHash(ctx, nil, s.wm, pending)
-	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	resolved, err = s.wm.ResolveHeight(ctx, pending)
+	require.NoError(t, err)
+	require.Equal(t, committed, resolved)
+	height, err = evmrpc.GetBlockNumberByNrOrHash(ctx, nil, s.wm, pending)
+	require.NoError(t, err)
+	require.NotNil(t, height)
+	require.Equal(t, committed, *height)
 }
 
 func TestPendingStateRefusedOffSequencer(t *testing.T) {

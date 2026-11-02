@@ -6,7 +6,11 @@ import { ExplorerFreshness as ExplorerFreshnessView, ExplorerNavigation } from "
 import { verificationWord } from "../kit/model";
 import { ScreenCard } from "../kit/surface";
 import { EXPLORER_NAVIGATION } from "./links";
-import type { ExplorerFreshness, MirrorVerificationProvenance } from "./model";
+import {
+  validExplorerIdentifier,
+  type ExplorerFreshness,
+  type MirrorVerificationProvenance,
+} from "./model";
 
 export { EXPLORER_NAVIGATION };
 
@@ -113,5 +117,8 @@ export function ExplorerNotFound({
 }
 
 export function explorerReceiptPath(identifier: string): string {
-  return `/explorer/receipts/${encodeURIComponent(identifier)}`;
+  if (!validExplorerIdentifier(identifier)) {
+    throw new TypeError("Invalid receipt identifier");
+  }
+  return `/explorer/receipts/${identifier.toLowerCase()}`;
 }
