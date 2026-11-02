@@ -176257,7 +176257,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.3.12]
 title = "Delete the legacy telemetry calls of OCC scheduler"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.12", "15.0.4"]
@@ -176288,7 +176288,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.3.13]
 title = "Delete the legacy telemetry calls of storev2 rootmulti"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.13", "15.0.4"]
@@ -176319,7 +176319,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.3.14]
 title = "Delete the legacy telemetry calls of store types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.14", "15.0.4"]
@@ -180024,7 +180024,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.30.2]
 title = "Delete the deployment, manager and governance Solidity suites whose contracts retire"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["16.37.1", "16.0.3", "16.12.1"]
@@ -181683,7 +181683,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.96.8]
 title = "Drop the deleted localnode Dockerfile from the container check exclusions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "15.0.4"]
