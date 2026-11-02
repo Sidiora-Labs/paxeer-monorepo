@@ -34,6 +34,11 @@ def write(directory, name, value):
         output.write(str(value))
 
 
+def write_agent_config(directory, agent):
+    for key, value in agent.items():
+        write(directory, 'LAYERX_AGENT_' + key, value)
+
+
 def protected_json(path):
     return parse(read_bytes(path))
 
@@ -904,8 +909,7 @@ def main():
         protected_bytes(root / 'agent/handover-finality.conf')
         agent.update(GENESIS_TRUST='/run/human-private/agent/genesis-handover-trust.lxt',
                      HANDOVER_FINALITY='/run/human-private/agent/handover-finality.conf')
-    for key, value in agent.items():
-        write(root / 'agent-config', 'LAYERX_AGENT_' + key, value)
+    write_agent_config(root / 'agent-config', agent)
 
 
 def kms_identities(tls_root, scratch, files):
@@ -1379,7 +1383,7 @@ def policy_graph_status(evidence, journal, deployment, module_registry, bundle, 
         if (type(authority) is not dict or type(authority.get('core-clock-horizon')) is not int
                 or authority['core-clock-horizon'] <= 0 or type(agent) is not dict
                 or type(agent.get('HUMAN_LIMIT_CEILING')) is not int or agent['HUMAN_LIMIT_CEILING'] <= 0
-                or type(agent.get('HUMAN_LIMIT_ID')) is not str or not re.fullmatch('[0-9a-f]{64}', agent['HUMAN_LIMIT_ID'])):
+                or type(agent.get('HUMAN_LIMIT_ID')) is not str or not re.fullmatch('[0-9a-f]{32}', agent['HUMAN_LIMIT_ID'])):
             refuse('owner policy horizon or limit binding')
 
     def module():
