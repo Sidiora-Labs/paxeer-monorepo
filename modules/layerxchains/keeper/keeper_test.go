@@ -124,7 +124,7 @@ func newHarness(t *testing.T) *harness {
 	require.NoError(t, err)
 	h := &harness{ctx: ctx, cms: cms, cdc: cdc, key: key, bank: bank, k: k}
 	for _, addr := range []common.Address{operator, other} {
-		bank.setBalance(ctx, sdk.AccAddress(addr.Bytes()), sdk.NewIntWithDecimal(10000, 18))
+		bank.setBalance(ctx, sdk.AccAddress(addr.Bytes()), sdk.NewIntWithDecimal(10000, 6))
 	}
 	p := types.DefaultParams()
 	p.Authority = authority
@@ -182,7 +182,7 @@ func TestCreateFundPauseRetireRoundTrip(t *testing.T) {
 	resolved, ok := h.k.ResolveChainID(h.ctx, types.ChainIDOf(d.Id))
 	require.True(t, ok)
 	require.Equal(t, d, resolved)
-	extra := sdk.NewIntWithDecimal(12, 18)
+	extra := sdk.NewIntWithDecimal(12, 6)
 	require.NoError(t, h.k.Fund(h.ctx, d.Id, other, extra))
 	stored, _ = h.k.GetDomain(h.ctx, d.Id)
 	require.True(t, stored.Bond.Equal(p.MinBond.Add(extra)))
@@ -293,12 +293,16 @@ func TestGenesisExportImportRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	gs := reopened.ExportGenesis(h.ctx)
 	require.NoError(t, gs.Validate())
+	require.Equal(t, sdk.NewInt(100_000_000), gs.Params.MinBond)
+	require.Equal(t, sdk.NewInt(10_000_000), gs.Params.CreationFee)
 	require.Len(t, gs.Domains, 2)
 	require.Equal(t, uint32(3), gs.NextID)
 	raw, err := json.Marshal(gs)
 	require.NoError(t, err)
 	var decoded types.GenesisState
 	require.NoError(t, json.Unmarshal(raw, &decoded))
+	require.Equal(t, sdk.NewInt(100_000_000), decoded.Params.MinBond)
+	require.Equal(t, sdk.NewInt(10_000_000), decoded.Params.CreationFee)
 	fresh := newHarness(t)
 	require.NoError(t, fresh.k.InitGenesis(fresh.ctx, decoded))
 	require.Equal(t, gs, fresh.k.ExportGenesis(fresh.ctx))

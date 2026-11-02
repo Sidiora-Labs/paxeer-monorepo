@@ -47,8 +47,6 @@ func newChainsHarness(t *testing.T) *chainsHarness {
 	authority := common.HexToAddress("0x2222222222222222222222222222222222222222")
 	params := chains.DefaultParams()
 	params.Authority = authority
-	params.MinBond = sdk.NewInt(100000000)
-	params.CreationFee = sdk.NewInt(1000000)
 	params.MinGasAllowance = 100000
 	params.MaxGasAllowance = 10000000
 	params.MaxTotalGasAllowance = 10000000
@@ -139,6 +137,53 @@ func TestChainsPrecompileRegistersMergeConstructor(t *testing.T) {
 	require.Len(t, a.Events, 4)
 }
 
+func TestDefaultParamsQuoteOneHundredAndTenPax(t *testing.T) {
+	h := newChainsHarness(t)
+	require.NoError(t, h.keeper.InitGenesis(h.db.Ctx(), *chains.DefaultGenesis()))
+	require.Equal(t, []interface{}{uint32(0)}, h.read(t, "chainCount"))
+	params := h.read(t, "params")
+	onePax := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	minBond := new(big.Int).Mul(big.NewInt(100), onePax)
+	creationFee := new(big.Int).Mul(big.NewInt(10), onePax)
+	require.Equal(t, minBond, params[1])
+	require.Equal(t, creationFee, params[2])
+
+	value := new(big.Int).Mul(big.NewInt(110), onePax)
+	before := h.app.BankKeeper.GetBalance(h.db.Ctx(), sdk.AccAddress(h.caller.Bytes()), h.app.EvmKeeper.GetBaseDenom(h.db.Ctx()))
+	output, _, err := h.call(t, h.caller, value, "createChain", "default-chain", uint64(500000), uint64(65536), uint16(100))
+	require.NoError(t, err)
+	a := h.precompile.GetABI()
+	created, err := a.Methods["createChain"].Outputs.Unpack(output)
+	require.NoError(t, err)
+	require.Equal(t, []interface{}{uint32(1)}, created)
+	require.Equal(t, minBond, h.read(t, "getChain", uint32(1))[8])
+	after := h.app.BankKeeper.GetBalance(h.db.Ctx(), sdk.AccAddress(h.caller.Bytes()), h.app.EvmKeeper.GetBaseDenom(h.db.Ctx()))
+	require.Equal(t, sdk.NewInt(110_000_000), before.Amount.Sub(after.Amount))
+	require.Len(t, h.db.GetAllLogs(), 1)
+
+	below := new(big.Int).Sub(value, big.NewInt(1_000_000_000_000))
+	output, _, err = h.call(t, h.caller, below, "createChain", "underfunded", uint64(500000), uint64(65536), uint16(100))
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	reason, err := abi.UnpackRevert(output)
+	require.NoError(t, err)
+	require.Equal(t, "LXP_INVALID_AMOUNT: invalid amount; "+chains.ErrBondTooLow.Error(), reason)
+	require.Equal(t, after, h.app.BankKeeper.GetBalance(h.db.Ctx(), sdk.AccAddress(h.caller.Bytes()), h.app.EvmKeeper.GetBaseDenom(h.db.Ctx())))
+	require.Equal(t, []interface{}{uint32(1)}, h.read(t, "chainCount"))
+	require.Equal(t, []interface{}{uint32(0)}, h.read(t, "chainByName", "underfunded"))
+	require.Len(t, h.db.GetAllLogs(), 1)
+
+	withRemainder := new(big.Int).Sub(value, big.NewInt(1))
+	output, _, err = h.call(t, h.caller, withRemainder, "createChain", "remainder", uint64(500000), uint64(65536), uint16(100))
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	reason, err = abi.UnpackRevert(output)
+	require.NoError(t, err)
+	require.Equal(t, "LXP_PRECOMPILE_WEI_REMAINDER: selected precompile function does not allow payment with non-zero wei remainder: received "+withRemainder.String(), reason)
+	require.Equal(t, after, h.app.BankKeeper.GetBalance(h.db.Ctx(), sdk.AccAddress(h.caller.Bytes()), h.app.EvmKeeper.GetBaseDenom(h.db.Ctx())))
+	require.Equal(t, []interface{}{uint32(1)}, h.read(t, "chainCount"))
+	require.Equal(t, []interface{}{uint32(0)}, h.read(t, "chainByName", "remainder"))
+	require.Len(t, h.db.GetAllLogs(), 1)
+}
+
 func TestChainByNameReturnsZeroForAnUnusedName(t *testing.T) {
 	h := newChainsHarness(t)
 	address := common.HexToAddress("0x000000000000000000000000000000000000101E")
@@ -221,7 +266,7 @@ func TestChainsPrecompileCreatesReadsAndPausesAChain(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, eventData, logs[0].Data)
 	after := h.app.BankKeeper.GetBalance(h.db.Ctx(), sdk.AccAddress(h.caller.Bytes()), h.app.EvmKeeper.GetBaseDenom(h.db.Ctx())).Amount
-	require.True(t, before.Sub(after).Equal(sdk.NewInt(101000000)))
+	require.True(t, before.Sub(after).Equal(sdk.NewInt(110_000_000)))
 	require.True(t, h.app.BankKeeper.GetBalance(h.db.Ctx(), h.app.EvmKeeper.GetPaxAddressOrDefault(h.db.Ctx(), h.precompile.Address()), h.app.EvmKeeper.GetBaseDenom(h.db.Ctx())).IsZero())
 	_, _, err = h.call(t, h.caller, big.NewInt(0), "pauseChain", id)
 	require.NoError(t, err)
