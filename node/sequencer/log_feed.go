@@ -10,6 +10,8 @@ type LogFeedPublisher struct {
 	feed *evmrpc.ReceiptLogFeed
 }
 
+// NewLogFeedPublisher publishes execution logs into the same receipt feed that
+// the RPC server uses for pending log queries, preserving its ordering checks.
 func NewLogFeedPublisher(feed *evmrpc.ReceiptLogFeed) *LogFeedPublisher {
 	if feed == nil {
 		panic("sequencer: log feed publisher needs a receipt log feed")

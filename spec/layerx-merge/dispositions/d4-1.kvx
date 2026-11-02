@@ -112,7 +112,7 @@ evidence = "The fixture at services/launchpad/gateway/internal/auth/identity_mea
 finding = "4.22.1.1"
 status = "open"
 evidence = "Commit fe3e9e1ec repaired fixtureIdentity at services/launchpad/gateway/internal/auth/identity_test.go:82, but the additional missing handoff SQL consumers noted in this finding remain at services/launchpad/social/internal/interactions/store_test.go:78 and services/launchpad/social/internal/voice/control_test.go:77, which still read absent L37 and L38 schema-proposal.sql files."
-follow_up = "closure"
+follow_up = "22.4.3"
 
 [disposition.4.22.3]
 finding = "4.22.3"
