@@ -538,8 +538,9 @@ function checkedAdd(left: bigint, right: bigint): bigint {
 
 function requiredField(value: Readonly<Record<string, JsonValue>>, name: string, maximum: number): string {
   const field = value[name];
-  if (typeof field !== "string") throw new MerchantError("invalid-webhook");
-  requireText(field, maximum);
+  if (typeof field !== "string" || field.length === 0 || field.length > maximum || field.includes("\0")) {
+    throw new MerchantError("invalid-webhook");
+  }
   return field;
 }
 
