@@ -127001,7 +127001,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.32]
 title = "Port the pay2 qualification harness off the LNI handshake"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
