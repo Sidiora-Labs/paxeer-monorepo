@@ -1,3 +1,16 @@
+from .chains import CHAINS_PRECOMPILE as CHAINS_PRECOMPILE
+from .chains import CHAINS_SIGNATURES as CHAINS_SIGNATURES
+from .chains import CHAINS_SELECTORS as CHAINS_SELECTORS
+from .chains import CHAINS_EVENT_SIGNATURES as CHAINS_EVENT_SIGNATURES
+from .chains import CHAINS_EVENT_TOPICS as CHAINS_EVENT_TOPICS
+from .chains import ChainsClient as ChainsClient
+from .chains import chains_call as chains_call
+from .chains import decode_chains_call as decode_chains_call
+from .chains import decode_get_chain as decode_get_chain
+from .chains import decode_chains_params as decode_chains_params
+from .chains import decode_chains_event as decode_chains_event
+from .chains import virtual_chain_id as virtual_chain_id
+from .chains import chain_rpc_url as chain_rpc_url
 from . import ai_market as ai_market
 from .agent_http import AgentHttpTransport as AgentHttpTransport
 from .agent_http import LayerXKeyCredential as LayerXKeyCredential
