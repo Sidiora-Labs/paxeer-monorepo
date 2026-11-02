@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import json
 import unittest
 from collections.abc import Callable
 from pathlib import Path
@@ -491,8 +492,41 @@ def proof_layerxprograms_0x101d(path: str, mode: str) -> None:
             raise AssertionError("accepted malformed producer state head")
     print("python observed two real calls and state heads and refused malformed output")
 
+
+def layerxpay_proof_transactions(document: list[dict[str, object]]) -> list[dict[str, str]]:
+    """Encode and sign the application proof's calls using the shipped SDK."""
+    case = EvmTransactionCase()
+
+    def argument(kind: str, value: object) -> object:
+        if kind.endswith("[]"):
+            return [argument(kind[:-2], item) for item in value]
+        if kind.startswith("bytes"):
+            return bytes.fromhex(str(value).removeprefix("0x"))
+        if kind.startswith("uint"):
+            return int(value)
+        raise AssertionError(f"unexpected proof argument {kind}")
+
+    result = []
+    for nonce, call in enumerate(document):
+        kinds = call["types"]
+        values = [argument(kind, value) for kind, value in zip(kinds, call["args"], strict=True)]
+        data = encode_call(call["method"], kinds, values)
+        transaction = plain_transaction(nonce=nonce, to=bytes.fromhex("101b".rjust(40, "0")), gas_limit=GAS_LIMIT, data=data)
+        case.assertEqual(Type2Transaction.decode(transaction.encode()), transaction)
+        signature = sign(transaction.signing_digest())
+        raw = transaction.attach_signature(signature, ADDRESS)
+        case.assertEqual(decode_signed(raw), (transaction, signature))
+        case.assertEqual(activity_id(raw), keccak256(raw))
+        case.assertRefused("signer_mismatch", transaction.attach_signature, signature, OTHER)
+        case.assertRefused("invalid_rlp", decode_signed, raw + b"\x00")
+        result.append({"raw": raw.hex(), "sender": ADDRESS, "data": data.hex()})
+    return result
+
+
 if __name__ == "__main__":
     if len(sys.argv) == 4 and sys.argv[1] == "--programs-proof":
         proof_layerxprograms_0x101d(sys.argv[2], sys.argv[3])
+    elif len(sys.argv) == 3 and sys.argv[1] == "--layerxpay-proof":
+        print(json.dumps(layerxpay_proof_transactions(json.loads(Path(sys.argv[2]).read_text()))))
     else:
         unittest.main()
