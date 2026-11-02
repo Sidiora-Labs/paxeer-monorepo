@@ -123,6 +123,22 @@ function resolveFamily(f: string | number): number {
   return typeof f === 'number' ? f : TEE_FAMILIES[f as keyof typeof TEE_FAMILIES];
 }
 
+export async function teeVerificationResponse(body: unknown) {
+  const parsed = TeeVerifyBody.safeParse(body);
+  if (!parsed.success) {
+    return { status: 400, body: { error: 'invalid_body', issues: parsed.error.issues } };
+  }
+  const family = resolveFamily(parsed.data.family);
+  try {
+    const attestation = parsed.data.expected_report_data
+      ? await teeAttestor.verifyAndExpect(family, parsed.data.quote as Hex, parsed.data.expected_report_data as Hex)
+      : await teeAttestor.verify(family, parsed.data.quote as Hex);
+    return { status: 200, body: { attestation } };
+  } catch (err) {
+    return { status: 422, body: { error: 'attestation_failed', detail: (err as Error).message } };
+  }
+}
+
 export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void> {
   // ── Scheduler (0x0905) ─────────────────────────────────────────────────────
 
@@ -403,25 +419,8 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
     '/v1/agent/precompiles/tee/verify',
     { preHandler: [requireAgent, refuseUnserved('teeAttestor')] },
     async (req, reply) => {
-      const parsed = TeeVerifyBody.safeParse(req.body);
-      if (!parsed.success)
-        return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
-      const family = resolveFamily(parsed.data.family);
-      try {
-        const att = parsed.data.expected_report_data
-          ? await teeAttestor.verifyAndExpect(
-              family,
-              parsed.data.quote as Hex,
-              parsed.data.expected_report_data as Hex
-            )
-          : await teeAttestor.verify(family, parsed.data.quote as Hex);
-        return reply.send({ attestation: att });
-      } catch (err) {
-        // A failed attestation reverts on-chain → surface as a 422, not a 500.
-        return reply
-          .code(422)
-          .send({ error: 'attestation_failed', detail: (err as Error).message });
-      }
+      const result = await teeVerificationResponse(req.body);
+      return reply.code(result.status).send(result.body);
     }
   );
 

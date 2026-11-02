@@ -481,7 +481,8 @@ fn invalid_commitments_are_refused_during_load() {
     for commitment in [Value::Null, json!(1), json!([])] {
         let mut value = example();
         value["solana"]["commitment"] = commitment;
-        assert!(refusal(&value).starts_with("invalid type:"));
+        let detail = refusal(&value);
+        assert!(detail.starts_with("invalid type:"), "{detail}");
     }
 }
 

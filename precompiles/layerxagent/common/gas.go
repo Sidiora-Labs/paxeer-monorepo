@@ -10,6 +10,7 @@ import (
 const (
 	eip712HashGas     uint64 = 1000
 	eip712RecoverGas  uint64 = 4000
+	teeVerifyGas      uint64 = 46000
 	orobBaseGas       uint64 = 1000
 	orobPerByteGas    uint64 = 3
 	schedulerReadGas  uint64 = 1000
@@ -67,7 +68,7 @@ func methodGas(selector []byte) (base, perByte uint64, known bool) {
 	case 0x0aebeb4e:
 		return streamsCloseGas, 30, true
 	case 0x5fa55ca7, 0x71ded4b3:
-		return 46000, 3, true
+		return teeVerifyGas, 3, true
 	case 0xd61c3c34, 0xe6d341cd:
 		return eip712HashGas, 3, true
 	case 0xac580b5c:

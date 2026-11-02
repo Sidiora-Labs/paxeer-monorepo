@@ -146,6 +146,46 @@ impl Recording {
         })
     }
 
+    pub fn committed_receipt(&self, raw: &[u8]) {
+        use ed25519_dalek::Signer as _;
+        use sha2::Sha256;
+        let document: Value =
+            serde_json::from_str(include_str!("../fixtures/inbound_sequencer_receipt.json"))
+                .unwrap();
+        let mut result = document["endpoints"]["paxeer"]["committed"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|rule| rule["method"] == "pax_sequencerReceipt")
+            .unwrap()["result"]
+            .clone();
+        let old_hash = hex::fixed::<32>(result["txHash"].as_str().unwrap()).unwrap();
+        let tx_hash: [u8; 32] = Keccak256::digest(raw).into();
+        let mut receipt = hex::decode(result["receipt"].as_str().unwrap()).unwrap();
+        assert_eq!(&receipt[10..42], &old_hash);
+        receipt[10..42].copy_from_slice(&tx_hash);
+        let unsigned_len = receipt.len() - 69;
+        assert_eq!(receipt[unsigned_len], 1);
+        let mut unsigned = receipt[..unsigned_len].to_vec();
+        unsigned.push(0);
+        let digest = Sha256::digest([b"LXP/v1/receipt\0".as_slice(), &unsigned].concat());
+        let signature = ed25519_dalek::SigningKey::from_bytes(&[0x5e; 32]).sign(&digest);
+        receipt[unsigned_len + 5..].copy_from_slice(&signature.to_bytes());
+        result["txHash"] = serde_json::json!(hex::prefixed(&tx_hash));
+        result["receipt"] = serde_json::json!(hex::prefixed(&receipt));
+        crate_receipt_check(&result);
+        let rule = parse_rule(
+            &serde_json::json!({"method": "pax_sequencerReceipt", "params": [hex::prefixed(&tx_hash)], "result": result}),
+        );
+        self.lock()
+            .endpoints
+            .get_mut("paxeer")
+            .unwrap()
+            .entry("restart".to_owned())
+            .or_default()
+            .push(rule);
+    }
+
     /// Raw transactions broadcast so far, rebroadcasts included.
     pub fn sent(&self) -> Vec<(String, Vec<u8>)> {
         self.lock().sent.clone()
@@ -163,6 +203,13 @@ impl Recording {
             .filter(|(name, called, _)| name == endpoint && called == method)
             .count()
     }
+}
+
+fn crate_receipt_check(value: &Value) {
+    layerx_bridge_relayer::receipt::SequencerReceipt::decode(value)
+        .unwrap()
+        .verify(&receipt_keys())
+        .unwrap();
 }
 
 fn substitute(value: &Value, submitted: &[String]) -> Value {

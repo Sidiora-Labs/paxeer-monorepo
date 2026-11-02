@@ -454,3 +454,26 @@ func TestOracleGasCanonicalCallSizes(t *testing.T) {
 	}
 	require.Equal(t, "0x0000000000000000000000000000000000000903", oracle.OracleAddress)
 }
+
+func TestTeeGasCanonicalCallSizes(t *testing.T) {
+	// Full calldata includes selector, tuple heads, quote length and byte padding.
+	for _, row := range []struct {
+		signature         string
+		quoteBytes, words int
+		base              uint64
+	}{
+		{"rootCount(uint8)", 0, 1, 1000},
+		{"rootOf(uint8,uint256)", 0, 2, 1000},
+		{"verify(uint8,bytes)", 291, 3, 46000},
+		{"verifyAndExpect(uint8,bytes,bytes32)", 291, 4, 46000},
+		{"verify(uint8,bytes)", 421, 3, 46000},
+		{"verifyAndExpect(uint8,bytes,bytes32)", 421, 4, 46000},
+	} {
+		t.Run(row.signature+strconv.Itoa(row.quoteBytes), func(t *testing.T) {
+			id := crypto.Keccak256([]byte(row.signature))[:4]
+			size := 4 + 32*row.words + 32*((row.quoteBytes+31)/32)
+			require.Equal(t, row.base+3*uint64(size), common.MethodGas(id, size))
+			require.Equal(t, uint64(math.MaxUint64), common.MethodGas(id, -1))
+		})
+	}
+}
