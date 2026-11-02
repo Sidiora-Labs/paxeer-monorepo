@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"time"
 
 	gigaconfig "github.com/Sidiora-Labs/Paxeer-X-Network/engine/executor/config"
@@ -85,10 +84,7 @@ var forkPrecompiles = []forkPrecompile{
 // allStoreKeys is the canonical, sorted mount list of module KV stores, the
 // same list the application mounts.
 func allStoreKeys() []string {
-	names := make([]string, len(paxkeys.MemIAVLStoreKeys))
-	copy(names, paxkeys.MemIAVLStoreKeys)
-	sort.Strings(names)
-	return names
+	return paxkeys.SortedMemIAVLStoreKeys()
 }
 
 // legacyStoreKeys is the mount list without the stores the fork adds: the
