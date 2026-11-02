@@ -94,81 +94,112 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 	}
 	switch method.Name {
 	case "schedule":
-		target, okTarget := args[0].(common.Address)
-		data, okData := args[1].([]byte)
-		at, okAt := args[2].(uint64)
-		gas, okGas := args[3].(uint64)
-		if !okTarget || !okData || !okAt || !okGas || value == nil || value.Sign() < 0 || value.BitLen() > 256 {
-			return nil, agentcommon.ErrABIDecode
-		}
-		if evm == nil || p.evm == nil {
-			return nil, agentcommon.ErrNoContext
-		}
-		account := p.evm.GetPaxAddressOrDefault(ctx, common.HexToAddress(SchedulerAddress))
-		// EVM CALL already credited value here; keep the helper's refund in the payer account used for escrow.
-		if _, _, err := pcommon.HandlePaymentUhpxWei(ctx, account, account, value, p.evm.BankKeeper(), p.evm, hooks, evm.GetDepth()); err != nil {
-			return nil, keeperError(err)
-		}
-		id, err := p.keeper.Schedule(ctx, account, caller, target, data, at, gas, value)
-		if err != nil {
-			return nil, keeperError(err)
-		}
-		jobID := new(big.Int).SetUint64(id)
-		if err := p.emit(evm, "JobScheduled", jobID, &caller, target, at, gas, value); err != nil {
-			return nil, err
-		}
-		return pack(method, jobID)
-	case "cancel", "reschedule", "getJob":
-		id, ok := args[0].(*big.Int)
-		if !ok || id == nil || id.Sign() < 0 || id.BitLen() > 256 {
-			return nil, agentcommon.ErrABIDecode
-		}
-		if method.Name == "getJob" {
-			job := agentkeeper.Job{Deposit: sdk.ZeroInt()}
-			if id.IsUint64() {
-				if stored, found := p.keeper.GetJob(ctx, id.Uint64()); found {
-					job = stored
-				}
-			}
-			return pack(method, new(big.Int).SetUint64(job.ID), job.Creator, job.Target, job.CallData, job.ExecuteAtBlock, job.GasLimit, job.Deposit.BigInt(), job.Active)
-		}
-		if !id.IsUint64() {
-			return nil, agentcommon.ErrABIDecode
-		}
-		if method.Name == "cancel" {
-			refund, err := p.keeper.Cancel(ctx, caller, id.Uint64())
-			if err != nil {
-				return nil, keeperError(err)
-			}
-			if err := p.emit(evm, "JobCancelled", id, &caller, refund.BigInt()); err != nil {
-				return nil, err
-			}
-		} else {
-			at, ok := args[1].(uint64)
-			if !ok {
-				return nil, agentcommon.ErrABIDecode
-			}
-			if err := p.keeper.Reschedule(ctx, caller, id.Uint64(), at); err != nil {
-				return nil, keeperError(err)
-			}
-			if err := p.emit(evm, "JobRescheduled", id, nil, at); err != nil {
-				return nil, err
-			}
-		}
-		return pack(method)
+		return p.schedule(ctx, method, caller, args, value, evm, hooks)
+	case "cancel":
+		return p.cancel(ctx, method, caller, args, evm)
+	case "reschedule":
+		return p.reschedule(ctx, method, caller, args, evm)
+	case "getJob":
+		return p.getJob(ctx, method, args)
 	case "pending":
-		creator, ok := args[0].(common.Address)
-		if !ok {
-			return nil, agentcommon.ErrABIDecode
-		}
-		ids := p.keeper.Pending(ctx, creator)
-		out := make([]*big.Int, len(ids))
-		for i, id := range ids {
-			out[i] = new(big.Int).SetUint64(id)
-		}
-		return pack(method, out)
+		return p.pending(ctx, method, args)
 	}
 	return nil, agentcommon.ErrUnknownMethod
+}
+
+func (p PrecompileExecutor) schedule(ctx sdk.Context, method *abi.Method, caller common.Address, args []interface{}, value *big.Int, evm *vm.EVM, hooks *tracing.Hooks) ([]byte, error) {
+	target, okTarget := args[0].(common.Address)
+	data, okData := args[1].([]byte)
+	at, okAt := args[2].(uint64)
+	gas, okGas := args[3].(uint64)
+	if !okTarget || !okData || !okAt || !okGas || value == nil || value.Sign() < 0 || value.BitLen() > 256 {
+		return nil, agentcommon.ErrABIDecode
+	}
+	if evm == nil || p.evm == nil {
+		return nil, agentcommon.ErrNoContext
+	}
+	account := p.evm.GetPaxAddressOrDefault(ctx, common.HexToAddress(SchedulerAddress))
+	// EVM CALL already credited value here; keep the helper's refund in the payer account used for escrow.
+	if _, _, err := pcommon.HandlePaymentUhpxWei(ctx, account, account, value, p.evm.BankKeeper(), p.evm, hooks, evm.GetDepth()); err != nil {
+		return nil, keeperError(err)
+	}
+	id, err := p.keeper.Schedule(ctx, account, caller, target, data, at, gas, value)
+	if err != nil {
+		return nil, keeperError(err)
+	}
+	jobID := new(big.Int).SetUint64(id)
+	if err := p.emit(evm, "JobScheduled", jobID, &caller, target, at, gas, value); err != nil {
+		return nil, err
+	}
+	return pack(method, jobID)
+}
+
+func schedulerJobID(value interface{}) (*big.Int, error) {
+	id, ok := value.(*big.Int)
+	if !ok || id == nil || id.Sign() < 0 || id.BitLen() > 256 {
+		return nil, agentcommon.ErrABIDecode
+	}
+	return id, nil
+}
+
+func (p PrecompileExecutor) getJob(ctx sdk.Context, method *abi.Method, args []interface{}) ([]byte, error) {
+	id, err := schedulerJobID(args[0])
+	if err != nil {
+		return nil, err
+	}
+	job := agentkeeper.Job{Deposit: sdk.ZeroInt()}
+	if id.IsUint64() {
+		if stored, found := p.keeper.GetJob(ctx, id.Uint64()); found {
+			job = stored
+		}
+	}
+	return pack(method, new(big.Int).SetUint64(job.ID), job.Creator, job.Target, job.CallData, job.ExecuteAtBlock, job.GasLimit, job.Deposit.BigInt(), job.Active)
+}
+
+func (p PrecompileExecutor) cancel(ctx sdk.Context, method *abi.Method, caller common.Address, args []interface{}, evm *vm.EVM) ([]byte, error) {
+	id, err := schedulerJobID(args[0])
+	if err != nil || !id.IsUint64() {
+		return nil, agentcommon.ErrABIDecode
+	}
+	refund, err := p.keeper.Cancel(ctx, caller, id.Uint64())
+	if err != nil {
+		return nil, keeperError(err)
+	}
+	if err := p.emit(evm, "JobCancelled", id, &caller, refund.BigInt()); err != nil {
+		return nil, err
+	}
+	return pack(method)
+}
+
+func (p PrecompileExecutor) reschedule(ctx sdk.Context, method *abi.Method, caller common.Address, args []interface{}, evm *vm.EVM) ([]byte, error) {
+	id, err := schedulerJobID(args[0])
+	if err != nil || !id.IsUint64() {
+		return nil, agentcommon.ErrABIDecode
+	}
+	at, ok := args[1].(uint64)
+	if !ok {
+		return nil, agentcommon.ErrABIDecode
+	}
+	if err := p.keeper.Reschedule(ctx, caller, id.Uint64(), at); err != nil {
+		return nil, keeperError(err)
+	}
+	if err := p.emit(evm, "JobRescheduled", id, nil, at); err != nil {
+		return nil, err
+	}
+	return pack(method)
+}
+
+func (p PrecompileExecutor) pending(ctx sdk.Context, method *abi.Method, args []interface{}) ([]byte, error) {
+	creator, ok := args[0].(common.Address)
+	if !ok {
+		return nil, agentcommon.ErrABIDecode
+	}
+	ids := p.keeper.Pending(ctx, creator)
+	out := make([]*big.Int, len(ids))
+	for i, id := range ids {
+		out[i] = new(big.Int).SetUint64(id)
+	}
+	return pack(method, out)
 }
 
 func keeperError(err error) error {
