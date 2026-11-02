@@ -142374,7 +142374,7 @@ do_11 = "Finding 8.23.2.2: continue from attempt 1 (e72902b24) rebased onto main
 
 [task.8.23.3]
 title = "Build buyer grant headers from signed 0x101A draw transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.23.2", "8.22.5", "8.22.7"]
@@ -142715,7 +142715,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.26.4]
 title = "Replace the kernel receive and draw payment fixtures with a 0x101A draw fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.22.5", "8.21.1", "8.23.2", "8.22.7"]
@@ -143689,7 +143689,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.33.4]
 title = "Pay from the buyer agent on eip155 and report the receipt rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.33.1", "8.23.2"]
