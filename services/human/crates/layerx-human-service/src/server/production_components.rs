@@ -34,7 +34,7 @@ use layerx_types::intent::{
     BudgetId, PeriodLength, PurposeHash, RolloverPolicy, Sequence as ProtocolSequence,
     TimestampSeconds,
 };
-use layerx_types::payload::ModuleId;
+use layerx_types::payload::{ModuleId, ModuleRegistry};
 use layerx_types::rung::Rung;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::RootCertStore;
@@ -87,6 +87,44 @@ use super::production_auth::{
     SecurityProviderConfig,
 };
 use super::schema::{ApiSchema, Operation};
+
+pub(crate) fn verify_owner_activity(
+    bytes: &[u8],
+    registry: &ModuleRegistry,
+) -> Result<layerx_wire::activity::Activity, ApiFailure> {
+    let activity = layerx_wire::activity::decode_signed(bytes, registry)
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    if layerx_wire::activity::encode_signed(&activity)
+        .map_err(|_| ApiFailure::upstream_degraded())?
+        != bytes
+        || layerx_intents::canonical::payload_hash(&activity)
+            .map_err(|_| ApiFailure::upstream_degraded())?
+            != activity.payload_hash()
+    {
+        return Err(ApiFailure::upstream_degraded());
+    }
+    let owner = activity
+        .authority()
+        .try_into()
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let signature = activity
+        .signature()
+        .ok_or_else(ApiFailure::upstream_degraded)?
+        .try_into()
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let unsigned = layerx_wire::activity::encode_unsigned(&activity)
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let message = layerx_crypto::SignatureMessage::new(
+        layerx_intents::canonical::Domain::SignaturePreimage,
+        activity.protocol_version(),
+        activity.network_id(),
+        &unsigned,
+    )
+    .map_err(|_| ApiFailure::upstream_degraded())?;
+    layerx_crypto::ed25519::verify(owner, signature, message)
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    Ok(activity)
+}
 
 pub const PRODUCTION_OPERATIONS: &[&str] = &[
     "account.balance",
@@ -2170,8 +2208,7 @@ fn creation_material(
         .get(Table::Journeys, &native_key)
         .or_else(|| scope.get(Table::Journeys, &protocol_key))
         .ok_or_else(ApiFailure::upstream_degraded)?;
-    let activity = layerx_intents::owner_activity::verify(signed.bytes(), agent.registry())
-        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let activity = verify_owner_activity(signed.bytes(), agent.registry())?;
     if activity.idempotency_key() != action_key
         || activity.network_id() != journey.projection().network_id
     {
@@ -5950,7 +5987,6 @@ impl ProductionComponents {
                 exports.push(ReceiptExport {
                     receipts: vec![fact],
                     inclusions: Vec::new(),
-                    checkpoints: Vec::new(),
                     derived_aggregates: Vec::new(),
                 });
             }

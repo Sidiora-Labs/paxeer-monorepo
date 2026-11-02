@@ -206,11 +206,13 @@ impl Peer {
                             assert_eq!(value.operation.preparation_ref, "type2-preparation");
                             assert_eq!(value.operation.signature.len(), 65);
                             let call = prepared.as_ref().expect("prepared transaction");
-                            let raw = checked(layerx_intents::owner_activity::attach_signature(
-                                call,
-                                checked(value.operation.signature.as_slice().try_into()),
-                                sender,
-                            ));
+                            let raw = checked(
+                                layerx_human_service::custody::signer::attach_call_signature(
+                                    call,
+                                    checked(value.operation.signature.as_slice().try_into()),
+                                    sender,
+                                ),
+                            );
                             let (decoded, signature) = checked(decode_signed(&raw));
                             assert_eq!(&decoded, call);
                             assert_eq!(checked(recover_sender(&decoded, &signature)), sender);
