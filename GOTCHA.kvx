@@ -13061,3 +13061,18 @@ fix = "List the consuming crates of a changed public item across every workspace
 title = "A module retirement needs a consumer census and a port task per consuming crate before it launches"
 symptom = "A task deleting three modules of a shared crate carried wiring requests for its consumers but no port tasks; the census after the second attempt found 94 consumer files across four workspaces with no owner."
 fix = "Grep every workspace for the module paths and the retired item names when the retirement task is written, give each consuming crate a port task, and make the retirement require all of them."
+
+[gotcha.2649]
+title = "A boundary decoder extended on one side needs the producer's bytes in its test, not a hand-built frame"
+symptom = "A consumer's receipt frame decoder was extended with nine fields and tested against a frame the test itself assembled; the producer kept writing the short frame and every real answer failed to decode."
+fix = "Define the frame once where both sides can import it and feed the producer's encoder output to the consumer's decoder in the test."
+
+[gotcha.2650]
+title = "A new status value in a producer lands with the published schema and every SDK decoder"
+symptom = "A daemon began answering not-ready lookups with two new verification statuses; the published contract and four SDK decoders still accepted the two old shapes, so a successful answer became an SDK verification failure."
+fix = "Change the contract file and add producer goldens first, then give each SDK decoder a task that consumes those goldens."
+
+[gotcha.2651]
+title = "Deleting a test branch must delete the script that invoked it"
+symptom = "A task removed the Rust probe branch of a qualification test and left the Python qualification calling the test executable for that branch, so the qualification re-entered itself."
+fix = "When a task removes a code path, grep the repository for every caller of its entry point, including scripts, and list them in touches."
