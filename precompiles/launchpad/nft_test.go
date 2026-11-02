@@ -26,10 +26,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// nftSurfaceRuntime is the 41-byte surface runtime every role address holds:
-// it forwards the calldata with CALLER appended to 0x1017.
-const nftSurfaceRuntime = "0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3"
-
 // nftReceiverRuntime is the solc 0.8.30 --optimize runtime of this receiver,
 // which also answers the airdrop-support probe as its own fee accumulator:
 //
@@ -116,8 +112,9 @@ func newNFTEnv(t *testing.T, holder common.Address) *nftEnv {
 	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
 	k, ctx := launchpadtest.NewKeeper(app, ctx)
 	k.InitGenesis(ctx, nftGenesis(t, holder))
+	require.NoError(t, k.ExportGenesis(ctx).Validate())
 
-	app.EvmKeeper.SetCode(ctx, nftCollection, common.FromHex(nftSurfaceRuntime))
+	app.EvmKeeper.SetCode(ctx, nftCollection, launchpadkeeper.SurfaceRuntime)
 	app.EvmKeeper.SetCode(ctx, nftReceiver, common.FromHex(nftReceiverRuntime))
 	nftStoreString(ctx, 0, nftName)
 	nftStoreString(ctx, 1, nftSymbol)

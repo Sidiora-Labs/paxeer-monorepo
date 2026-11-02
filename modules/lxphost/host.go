@@ -790,6 +790,9 @@ func lxphost_authority_write(node *C.lxphost_node, authority KernelAuthority) er
 	var scope C.struct_lxp_authority_scope
 	var scopePtr *C.struct_lxp_authority_scope
 	if source := authority.Scope; source != nil {
+		if int(source.SignerCount) > len(source.Signers) || int(source.ApprovalCount) > len(source.Approvals) {
+			return codeNonCanonical
+		}
 		amounts := []sdk.Int{source.MaximumPerActivity, source.MaximumTotal, source.SpentTotal, source.MaximumPerPeriod, source.SpentThisPeriod}
 		targets := []*C.struct_lxp_u128{&scope.maximum_per_activity, &scope.maximum_total, &scope.spent_total, &scope.maximum_per_period, &scope.spent_this_period}
 		for i, amount := range amounts {

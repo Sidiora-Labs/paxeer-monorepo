@@ -1,4 +1,12 @@
 import type { ContractTypes as V2ContractTypes } from '@kindle/sdk-v2/types';
+/** Stable operation identifiers for consumers of the generated definitions. */
+export const IF_ALERT_CREATE = "IF_ALERT_CREATE" as const;
+export const IF_ALERT_DELETE = "IF_ALERT_DELETE" as const;
+export const IF_CUP_CURRENT = "IF_CUP_CURRENT" as const;
+export const IF_CUP_GET = "IF_CUP_GET" as const;
+export const IF_CUP_RESULTS = "IF_CUP_RESULTS" as const;
+export const IF_CUP_STANDINGS = "IF_CUP_STANDINGS" as const;
+export const IF_ORDER_CANCEL = "IF_ORDER_CANCEL" as const;
 export interface OperationTypes {
 "IF_CONNECTED_DEVICES":{input:{};response:V2ContractTypes["ConnectedDevicesResponse"]};
 "IF_CONNECTED_ACCOUNT_ASSET_GET":{input:{path:{"wallet":string;"assetId":string}};response:V2ContractTypes["ConnectedAccountAsset"]};

@@ -27,6 +27,34 @@ def rpc_hex(value: object, size: int | None = None) -> bytes:
     return bytes.fromhex(value)
 
 
+def decode_receipt_keys(result: object) -> tuple[ReceiptKey, ...]:
+    """Decode px_getReceiptKeys; ranges are JSON integers, not EVM quantities."""
+    if not isinstance(result, dict) or set(result) != {"keys"}:
+        raise ValueError("invalid-receipt-keys")
+    entries = result["keys"]
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("invalid-receipt-keys")
+    keys = []
+    seen = set()
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != {
+            "keyId", "publicKey", "firstHeight", "lastHeight"
+        }:
+            raise ValueError("invalid-receipt-keys")
+        key_id = _transaction_bytes(entry["keyId"], 32)
+        public_key = _transaction_bytes(entry["publicKey"], 32)
+        first, last = entry["firstHeight"], entry["lastHeight"]
+        if (
+            key_id == bytes(32) or key_id in seen
+            or type(first) is not int or type(last) is not int
+            or not 0 < first <= last <= 0xffffffffffffffff
+        ):
+            raise ValueError("invalid-receipt-keys")
+        seen.add(key_id)
+        keys.append(ReceiptKey(key_id, public_key, first, last))
+    return tuple(keys)
+
+
 class PaymentRpcError(Exception):
     def __init__(self, code: int, data: object):
         super().__init__(f"JSON-RPC error {code}")
@@ -175,6 +203,9 @@ class PaymentRpc:
         if len(raw) > 8388608:
             raise ValueError("rpc-body-too-large")
         return _decode_rpc_response(json.loads(raw), request_id)
+
+    def receipt_keys(self) -> tuple[ReceiptKey, ...]:
+        return decode_receipt_keys(self.call("px_getReceiptKeys", []))
 
     def send(self, raw_transaction: str) -> str:
         canonical = _transaction_bytes(raw_transaction)

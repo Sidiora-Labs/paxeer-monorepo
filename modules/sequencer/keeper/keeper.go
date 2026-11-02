@@ -185,6 +185,15 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) error {
 	if gs.ActivationHeight == 0 {
 		activation = ctx.BlockHeight() + 1
 	}
+	// Validate the resolved height too: a default must have a receipt key just
+	// like an explicitly supplied activation height, before any state is written.
+	if activation < 1 {
+		return types.ErrInvalidGenesis.Wrapf("activation height %d must be positive", activation)
+	}
+	gs.ActivationHeight = uint64(activation)
+	if err := gs.Validate(); err != nil {
+		return err
+	}
 	if err := k.SetActivationHeight(ctx, activation); err != nil {
 		return err
 	}

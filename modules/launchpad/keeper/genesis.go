@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+// InitGenesis validates the complete export before writing any module state.
 func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 	if err := gs.Validate(); err != nil {
 		panic(fmt.Errorf("launchpad: invalid genesis: %w", err))
@@ -183,6 +184,9 @@ func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	})
 	if err := k.exportContracts(ctx, gs); err != nil {
 		panic(fmt.Errorf("launchpad: export contracts: %w", err))
+	}
+	if err := gs.Validate(); err != nil {
+		panic(fmt.Errorf("launchpad: invalid exported genesis: %w", err))
 	}
 	return gs
 }

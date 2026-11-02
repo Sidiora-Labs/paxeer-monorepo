@@ -61,6 +61,10 @@ func ActiveIndexInvariant(k *Keeper) sdk.Invariant {
 				report.fail("active %s has %d position entries for %d id entries\n", index.name, len(positions), len(ids))
 			}
 			for _, id := range ids {
+				if id == 0 {
+					report.fail("active %s index contains zero order id\n", index.name)
+					continue
+				}
 				key := recordKey(index.prefix, orderIDBytes(id))
 				position, err := activePosition(key, store.Get(key))
 				if err != nil {

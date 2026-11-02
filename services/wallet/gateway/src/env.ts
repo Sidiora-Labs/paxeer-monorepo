@@ -40,6 +40,22 @@ export function parseTrustedProxies(value: string): string[] {
     });
 }
 
+export const RPC_URLS = z
+  .string()
+  .default('https://api-mainnet-beta.paxeer.network')
+  .transform((s) => s.split(',').map((url) => url.trim()).filter(Boolean))
+  .refine(
+    (urls) => urls.length > 0 && urls.every((value) => {
+      try {
+        const url = new URL(value);
+        return ['http:', 'https:'].includes(url.protocol) && !/\s/.test(value);
+      } catch {
+        return false;
+      }
+    }),
+    'RPC_URLS must be a non-empty comma-separated list of http(s) URLs'
+  );
+
 /**
  * Environment schema. Validated once at startup; every other module imports
  * the parsed `env` object instead of touching `process.env` directly.
@@ -214,19 +230,7 @@ export const EnvSchema = z
     ATTESTOR_HEALTH_INTERVAL_MS: z.coerce.number().int().positive().default(5_000),
     ATTESTOR_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
 
-    RPC_URLS: z
-      .string()
-      .default('https://api-mainnet-beta.paxeer.network')
-      .transform((s) =>
-        s
-          .split(',')
-          .map((u) => u.trim())
-          .filter(Boolean)
-      )
-      .refine(
-        (urls) => urls.length > 0 && urls.every((u) => /^https?:\/\/[^\s/]+/.test(u)),
-        'RPC_URLS must be a non-empty comma-separated list of http(s) URLs'
-      ),
+    RPC_URLS,
     SEQUENCER_RPC_URL: z
       .string()
       .url('SEQUENCER_RPC_URL must be an http(s) URL')

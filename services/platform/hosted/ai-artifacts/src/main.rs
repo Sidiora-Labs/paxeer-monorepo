@@ -27,9 +27,7 @@ use layerx_programs_ai_market::queries::{
     bind_snapshot, CaptureFacts, FinalityEvidence, QueryError, ReadProof, SnapshotBinding,
 };
 use layerx_programs_ai_market::state::decode_shared_state;
-use layerx_programs_ai_market::types::{
-    ChainDomain, Digest32, MarketId, PolicyDigest, Presence, ProgramId,
-};
+use layerx_programs_ai_market::types::{ChainDomain, Digest32, MarketId, PolicyDigest, ProgramId};
 use layerx_programs_ai_market::{codec, MAX_CHUNK_BYTES, MAX_STATE_BYTES};
 use retention::{Ledger, PurgeReport, Refusal};
 use rustls::pki_types::pem::PemObject;
@@ -335,6 +333,9 @@ struct StateHeadReq {
     batch_id: String,
     #[serde(alias = "checkpoint")]
     commit: String,
+    block_height: u64,
+    app_hash: String,
+    store_proof_digest: String,
     rank: u8,
     publication_time_ms: u64,
 }
@@ -1471,7 +1472,7 @@ fn state_head(
         native_state_root: digest(&r.native_state_root)?,
         observed_sequence: r.observed_sequence,
         execution_height: r.execution_height,
-        batch_id: digest(&r.batch_id)?,
+        block_hash: digest(&r.batch_id)?,
     };
     let facts = CaptureFacts {
         proof,
@@ -1484,8 +1485,10 @@ fn state_head(
     };
     let finality = FinalityEvidence {
         native_state_root: proof.native_state_root,
-        checkpoint: digest(&r.commit)?,
-        settlement: Presence::Absent,
+        block_height: r.block_height,
+        block_hash: digest(&r.commit)?,
+        app_hash: digest(&r.app_hash)?,
+        store_proof_digest: digest(&r.store_proof_digest)?,
         rank: r.rank,
     };
     let snapshot =

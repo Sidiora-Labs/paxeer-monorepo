@@ -177,8 +177,22 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
   await lxApprovalRoutes(app, pool, attestors, limiter);
 
   async function sequencerReceipt(hash: Hex) {
-    const receipt = await rpc.sequencerReceipt(hash);
-    return { receipt, rung: receipt === null ? ('submitted' as const) : receipt.rung };
+    try {
+      const receipt = await rpc.sequencerReceipt(hash);
+      return { status: 200, body: { receipt, rung: receipt === null ? ('submitted' as const) : receipt.rung } };
+    } catch (error) {
+      app.log.warn({ err: error, txHash: hash }, 'broadcast accepted but sequencer receipt unavailable');
+      return {
+        status: 202,
+        body: {
+          error: 'sequencer_receipt_unavailable',
+          rung: 'submitted' as const,
+          retry: 'poll_receipt',
+          poll: 'eth_getTransactionReceipt',
+          must_not_resubmit: true,
+        },
+      };
+    }
   }
 
   function requireQuorumWallet(sw:SigningWallet):asserts sw is SigningWallet & {attestorKeyId:string} {
@@ -447,6 +461,7 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
   });
 
   app.post('/v1/wallet/send', { preHandler: requireAuth }, async (req, reply) => {
+    reply.header('Cache-Control', 'no-store');
     const parsed = SendTxBody.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
@@ -538,13 +553,14 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
           ip: ipOf(req),
           user_agent: req.headers['user-agent'] ?? null,
         };
+        const receipt = await sequencerReceipt(outcome.hash);
         return {
-          status: 200,
+          status: receipt.status,
           body: {
             tx_hash: outcome.hash,
             address: sw.row.address,
             chain_id: chainId,
-            ...(await sequencerReceipt(outcome.hash)),
+            ...receipt.body,
           },
           decision: 'broadcast',
           path: signer.path,
