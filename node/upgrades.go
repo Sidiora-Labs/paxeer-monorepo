@@ -23,6 +23,7 @@ import (
 	layerxexchangetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
 	layerxledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	layerxpaytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
+	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	tokenfactorykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb"
@@ -284,7 +285,7 @@ func (app *App) refreshXWebPrecompile(ctx sdk.Context) {
 
 // RefreshPrecompiles reselects the custom precompile set from the state of ctx.
 func (app *App) RefreshPrecompiles(ctx sdk.Context) {
-	app.v6120Live = app.v6120LiveInState(ctx)
+	app.setV6120Live(app.v6120LiveInState(ctx))
 	app.refreshXWebPrecompile(ctx)
 }
 
@@ -470,9 +471,22 @@ func (app *App) mergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan, fromVM
 
 func (app *App) continueMergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 	cached, write := ctx.CacheContext()
+	if plan.Name != MergeUpgrade || plan.Height != ctx.BlockHeight() {
+		return fromVM, fmt.Errorf("upgrade %s: plan %s at height %d is not running at height %d", MergeUpgrade, plan.Name, plan.Height, ctx.BlockHeight())
+	}
+	scheduled, found := app.UpgradeKeeper.GetUpgradePlan(cached)
+	if found && (scheduled.Name != plan.Name || scheduled.Height != plan.Height || scheduled.Info != plan.Info) {
+		return fromVM, fmt.Errorf("upgrade %s: executing plan differs from scheduled plan", MergeUpgrade)
+	}
+	if err := app.UpgradeKeeper.ScheduleUpgrade(cached, plan); err != nil {
+		return fromVM, fmt.Errorf("upgrade %s: executing plan: %w", MergeUpgrade, err)
+	}
 	versions, err := app.migrateMergeState(cached, plan, fromVM)
 	if err != nil {
 		return versions, err
+	}
+	if !found {
+		app.UpgradeKeeper.ClearUpgradePlan(cached)
 	}
 	write()
 	ctx.EventManager().EmitEvents(cached.EventManager().Events())
@@ -481,9 +495,45 @@ func (app *App) continueMergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan
 
 func (app *App) migrateMergeState(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 	sequencer := app.mm.Modules[seqtypes.ModuleName]
-	genesis := json.RawMessage(plan.Info)
-	if err := sequencer.ValidateGenesis(app.appCodec, nil, genesis); err != nil {
+	var state struct {
+		Leaders          [][]byte              `json:"leaders,omitempty"`
+		ReceiptKeys      seqkeeper.ReceiptKeys `json:"receipt_keys"`
+		LastSeq          uint64                `json:"last_seq,omitempty"`
+		LastSeqHash      []byte                `json:"last_seq_hash,omitempty"`
+		ActivationHeight uint64                `json:"activation_height,omitempty"`
+	}
+	if err := json.Unmarshal([]byte(plan.Info), &state); err != nil {
 		return fromVM, fmt.Errorf("upgrade %s: sequencer genesis: %w", MergeUpgrade, err)
+	}
+	firstHeight := uint64(plan.Height) + 1 //nolint:gosec // the executing plan has a positive height
+	if state.ActivationHeight == 0 {
+		state.ActivationHeight = firstHeight
+	}
+	genesis, err := json.Marshal(state)
+	if err != nil {
+		return fromVM, fmt.Errorf("upgrade %s: sequencer genesis: %w", MergeUpgrade, err)
+	}
+	covered := false
+	for _, key := range state.ReceiptKeys {
+		if key.FirstHeight <= firstHeight && firstHeight <= key.LastHeight {
+			covered = true
+			break
+		}
+	}
+	if err := sequencer.ValidateGenesis(app.appCodec, nil, genesis); err != nil {
+		if !covered {
+			return fromVM, fmt.Errorf("upgrade %s pins no receipt key for first sequenced height %d: sequencer genesis: %w", MergeUpgrade, firstHeight, err)
+		}
+		return fromVM, fmt.Errorf("upgrade %s: sequencer genesis: %w", MergeUpgrade, err)
+	}
+	if len(state.Leaders) == 0 {
+		return fromVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s carries no leader list", MergeUpgrade)
+	}
+	if state.LastSeq != 0 {
+		return fromVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s carries lastSeq %d, want 0", MergeUpgrade, state.LastSeq)
+	}
+	if !covered {
+		return fromVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s pins no receipt key for first sequenced height %d", MergeUpgrade, firstHeight)
 	}
 	versions := make(module.VersionMap, len(fromVM)+1)
 	for name, version := range fromVM {
@@ -501,25 +551,7 @@ func (app *App) migrateMergeState(ctx sdk.Context, plan upgradetypes.Plan, fromV
 	if err := app.LayerXCustodyKeeper.ReleaseRetired(ctx); err != nil {
 		return newVM, fmt.Errorf("upgrade %s: release custody: %w", MergeUpgrade, err)
 	}
-	state, err := app.SequencerKeeper.ExportGenesis(ctx)
-	if err != nil {
-		return newVM, fmt.Errorf("upgrade %s: %w", MergeUpgrade, err)
-	}
-	if len(state.Leaders) == 0 {
-		return newVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s carries no leader list", MergeUpgrade)
-	}
-	if state.LastSeq != 0 {
-		return newVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s carries lastSeq %d, want 0", MergeUpgrade, state.LastSeq)
-	}
-	for _, key := range state.ReceiptKeys {
-		if key.Covers(uint64(ctx.BlockHeight()) + 1) { //nolint:gosec // block heights are positive
-			if err := app.SequencerKeeper.SetActivationHeight(ctx, ctx.BlockHeight()+1); err != nil {
-				return newVM, fmt.Errorf("upgrade %s: %w", MergeUpgrade, err)
-			}
-			return newVM, nil
-		}
-	}
-	return newVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s pins no receipt key for first sequenced height %d", MergeUpgrade, uint64(ctx.BlockHeight())+1) //nolint:gosec // block heights are positive
+	return newVM, nil
 }
 
 // activationModules lists the modules the activation plan initialises, in the

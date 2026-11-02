@@ -69,9 +69,17 @@ func TestQueryRetiredRefusals(t *testing.T) {
 	})
 	for _, value := range []string{"", "0x1234", strings.Repeat("1", 40), "0x" + strings.Repeat("g", 40)} {
 		t.Run("malformed "+value, func(t *testing.T) {
-			response, err := client.Retired(goCtx, &types.QueryRetiredRequest{Address: value})
+			request := &types.QueryRetiredRequest{Address: value}
+			response, err := client.Retired(goCtx, request)
+			require.Nil(t, response)
+			require.Equal(t, codes.InvalidArgument, status.Code(err))
+			require.Contains(t, status.Convert(err).Message(), "invalid address")
+			response, err = querier.Retired(sdk.WrapSDKContext(e.ctx), request)
 			require.Nil(t, response)
 			require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+			var addressErr *sdkerrors.Error
+			require.ErrorAs(t, err, &addressErr)
+			require.Same(t, sdkerrors.ErrInvalidAddress, addressErr)
 		})
 	}
 	t.Run("zero address preserves launchpad code", func(t *testing.T) {

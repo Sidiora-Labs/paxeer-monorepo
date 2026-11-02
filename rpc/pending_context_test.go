@@ -15,6 +15,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/cachemulti"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	occutils "github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
@@ -130,4 +131,73 @@ func TestPendingNonceWaitsForTheOpenBlock(t *testing.T) {
 	nonce, err = api.GetTransactionCount(context.Background(), sender.EvmAddress, rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber))
 	require.Nil(t, nonce)
 	require.ErrorIs(t, err, evmrpc.ErrPendingBlockClosed)
+}
+
+func TestPendingReadsRespectCanceledContext(t *testing.T) {
+	sender := occutils.NewSigner()
+	s := newPendingSequencer(t, 1, sender)
+	n := pendingSimulateAPIs(s, s.wm)
+	api := pendingTxSequencerAPI(s, &pendingNonceClient{MockClient: &MockClient{latestOverride: s.committed}})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	for _, open := range []bool{true, false} {
+		if !open {
+			_, err := s.exec.Seal(s.committed + 1)
+			require.NoError(t, err)
+		}
+		_, err := s.wm.ResolveHeight(ctx, pendingSimulateTag)
+		require.ErrorIs(t, err, context.Canceled)
+		_, err = n.state.GetBalance(ctx, sender.EvmAddress, pendingSimulateTag)
+		require.ErrorIs(t, err, context.Canceled)
+		_, err = n.state.GetCode(ctx, common.Address{}, pendingSimulateTag)
+		require.ErrorIs(t, err, context.Canceled)
+		_, err = n.state.GetStorageAt(ctx, common.Address{}, "0x0", pendingSimulateTag)
+		require.ErrorIs(t, err, context.Canceled)
+		_, _, err = n.backend.StateAndHeaderByNumberOrHash(ctx, pendingSimulateTag)
+		require.ErrorIs(t, err, context.Canceled)
+		_, err = api.GetTransactionCount(ctx, sender.EvmAddress, pendingSimulateTag)
+		require.ErrorIs(t, err, context.Canceled)
+	}
+}
+
+func TestPendingReadsWaitForReopenedExecutor(t *testing.T) {
+	sender := occutils.NewSigner()
+	s := newPendingSequencer(t, 1, sender)
+	n := pendingSimulateAPIs(s, s.wm)
+	api := pendingTxSequencerAPI(s, &pendingNonceClient{MockClient: &MockClient{latestOverride: s.committed}})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	for _, read := range []func(){
+		func() {
+			height, err := s.wm.ResolveHeight(ctx, pendingSimulateTag)
+			require.NoError(t, err)
+			require.Equal(t, evmrpc.PendingCtxHeight, height)
+		},
+		func() {
+			_, header, err := n.backend.StateAndHeaderByNumberOrHash(ctx, pendingSimulateTag)
+			require.NoError(t, err)
+			require.Equal(t, s.committed+1, header.Number.Int64())
+		},
+		func() {
+			_, err := n.state.GetBalance(ctx, sender.EvmAddress, pendingSimulateTag)
+			require.NoError(t, err)
+		},
+		func() {
+			nonce, err := api.GetTransactionCount(ctx, sender.EvmAddress, pendingSimulateTag)
+			require.NoError(t, err)
+			require.Equal(t, hexutil.Uint64(0), *nonce)
+		},
+	} {
+		_, err := s.exec.Seal(s.committed + 1)
+		require.NoError(t, err)
+		opened := make(chan error, 1)
+		go func() {
+			time.Sleep(20 * time.Millisecond)
+			opened <- s.exec.Open(s.committed+1, time.Now().UTC().UnixMilli())
+		}()
+		start := time.Now()
+		read()
+		require.NoError(t, <-opened)
+		require.GreaterOrEqual(t, time.Since(start), 20*time.Millisecond)
+	}
 }

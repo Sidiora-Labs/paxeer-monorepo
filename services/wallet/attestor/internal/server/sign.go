@@ -417,7 +417,8 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 		return refuse(newError(CodeQuorumSelfMissing, "this node is not among the signers"))
 	}
 
-	if requestCarriesVerification(req) {
+	digest, digestError := hex32("digest", req.Digest)
+	if requestCarriesVerification(req) || (digestError == nil && s.signsVerification(req.KeyID, rec.PublicKey, digest[:], nil)) {
 		return refuse(policyError(policy.CodeVerificationIsolated, "the verification message is signed only under "+KindOperatorVerification))
 	}
 	signed, view, policyKind, e := s.prepare(req, rec.PublicKey, subject)

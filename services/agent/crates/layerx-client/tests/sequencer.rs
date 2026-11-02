@@ -317,6 +317,7 @@ fn receipt_keys_decode_height_ranges_and_refuse_invalid_entries() {
         entry(2, public_key(8), 1000, u64::MAX)
     );
     let (url, server) = serve(vec![
+        ("px_getReceiptKeys", Some(listed.clone())),
         ("px_getReceiptKeys", Some(listed)),
         (
             "px_getReceiptKeys",
@@ -356,6 +357,23 @@ fn receipt_keys_decode_height_ranges_and_refuse_invalid_entries() {
                 public_key: public_key(8),
                 first_height: 1000,
                 last_height: u64::MAX,
+            },
+        ])
+    );
+    assert_eq!(
+        endpoint.receipt_keys(),
+        Ok(vec![
+            ReceiptKeyEntry {
+                key_id: [1; 32],
+                public_key: public_key(7),
+                first_height: 1,
+                last_height: 999
+            },
+            ReceiptKeyEntry {
+                key_id: [2; 32],
+                public_key: public_key(8),
+                first_height: 1000,
+                last_height: u64::MAX
             },
         ])
     );

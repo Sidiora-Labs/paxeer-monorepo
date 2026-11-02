@@ -195,20 +195,33 @@ static int check_version(uint16_t protocol_version)
     if (protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT) {
         static const uint32_t asset_activity_types[] = {
             LX_ASSET_REGISTER, LX_ASSET_PAUSE, LX_ASSET_UNPAUSE,
-            LX_ASSET_ACCOUNT_OPEN, LX_ASSET_SEND, LX_ASSET_RECEIVE,
-            LX_ASSET_GRANT_ISSUE, LX_ASSET_GRANT_REVOKE, LX_ASSET_WITHDRAW,
+            LX_ASSET_ACCOUNT_OPEN, LX_ASSET_SEND, LX_ASSET_WITHDRAW,
             LX_ASSET_MINT, LX_ASSET_BURN};
+        static const uint32_t retired_asset_activity_types[] = {
+            0x00010006U, 0x00010007U, 0x00010008U};
         const size_t asset_activity_count =
             sizeof(asset_activity_types) / sizeof(asset_activity_types[0]);
         const lxp_module_registration *entry = NULL;
+        REQUIRE(asset_activity_count == 8U);
         for (size_t i = 0U; i < asset_activity_count; ++i) {
-            REQUIRE(lxp_kernel_module_for_activity(
-                &kernel, asset_activity_types[i], kernel.epoch, &entry) == LXP_OK);
+            lxp_result status = lxp_kernel_module_for_activity(
+                &kernel, asset_activity_types[i], kernel.epoch, &entry);
+            if (status != LXP_OK)
+                fprintf(stderr, "genesis asset activity 0x%08lx: routing result=%d\n",
+                        (unsigned long)asset_activity_types[i], (int)status);
+            REQUIRE(status == LXP_OK);
             REQUIRE(entry != NULL);
             REQUIRE(entry->module_id == LXP_MODULE_ASSET);
             REQUIRE(entry->abi_version == lx_asset_module_iface()->abi_version);
         }
         REQUIRE(entry->activity_type_count == asset_activity_count);
+        REQUIRE(memcmp(entry->activity_types, asset_activity_types,
+                       sizeof(asset_activity_types)) == 0);
+        for (size_t i = 0U; i < sizeof(retired_asset_activity_types) /
+                                 sizeof(retired_asset_activity_types[0]); ++i)
+            REQUIRE(lxp_kernel_module_for_activity(&kernel,
+                retired_asset_activity_types[i], kernel.epoch, &entry) ==
+                    LXP_ERR_UNKNOWN_ACTIVITY);
         REQUIRE(lxp_kernel_module_for_activity(&kernel,
             (uint32_t)LXP_MODULE_ASSET << 16U, kernel.epoch, &entry) != LXP_OK);
         REQUIRE(lxp_kernel_module_for_activity(&kernel,

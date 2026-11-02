@@ -2115,10 +2115,10 @@ pub unsafe extern "C" fn layerx_programs_event_log_encode(
         return NON_CANONICAL;
     }
     let output = unsafe { core::slice::from_raw_parts_mut(out, length) };
-    output[..32].copy_from_slice(&log.topics[0]);
-    output[32..64].copy_from_slice(&log.topics[1]);
-    output[64..].copy_from_slice(&log.data);
-    written
+    match log.write_encoded(output) {
+        Ok(_) => written,
+        Err(_) => NON_CANONICAL,
+    }
 }
 
 fn emit_events(token: u64, events: &[ProgramEvent]) -> Result<(), i32> {
@@ -4734,6 +4734,8 @@ extern "C" {
 }
 
 /// Reads a raw native frame projection; it is not a Client-verified receipt.
+/// The expected height is a block height, not a batch number. This entrypoint
+/// requires the `host-ffi` feature and the native Programs CALL host symbols.
 ///
 /// # Safety
 /// The token must name a live, exclusively accessed native Programs CALL frame for the entire read.

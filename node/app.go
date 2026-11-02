@@ -629,11 +629,15 @@ type App struct {
 	GigaOCCEnabled bool
 
 	// openBlock is the sequencer executor's open block; nil in full-node mode.
-	openBlock        OpenBlock
-	sequencerSource  tmtypes.SequencerSource
-	sequencerRPC     evmrpc.SequencerOption
-	sequencerReceipt evmrpc.SequencerReceiptOption
-	commitListener   func(height int64, appHash []byte) error
+	openBlock             OpenBlock
+	sequencerSource       tmtypes.SequencerSource
+	sequencerRPC          evmrpc.SequencerOption
+	sequencerReceipt      evmrpc.SequencerReceiptOption
+	commitListener        func(height int64, appHash []byte) error
+	lastBlockIDMutex      sync.RWMutex
+	committedBlockID      tmproto.BlockID
+	committingBlockID     tmproto.BlockID
+	committingBlockHeight int64
 }
 
 const LayerXHostStoreKey = storekeys.LayerXHostStoreKey
@@ -906,8 +910,8 @@ func New(
 		panic(fmt.Sprintf("error creating LayerX pay keeper: %s", err))
 	}
 	app.LayerXPayKeeper = &payKeeper
-	app.LayerXChainsKeeper, err = layerxchainskeeper.NewKeeper(appCodec, keys[storekeys.LayerXChainsStoreKey],
-		app.BankKeeper, app.EvmKeeper.GetBaseDenom)
+	app.LayerXChainsKeeper, err = layerxchainskeeper.NewKeeperWithAddressResolver(appCodec, keys[storekeys.LayerXChainsStoreKey],
+		app.BankKeeper, app.EvmKeeper.GetBaseDenom, &app.EvmKeeper)
 	if err != nil {
 		panic(fmt.Sprintf("error creating LayerX chains keeper: %s", err))
 	}
@@ -1440,7 +1444,16 @@ func (app *App) Close() error {
 
 // HandlePreCommit happens right before the block is committed
 func (app *App) HandlePreCommit(ctx sdk.Context) error {
-	return app.EvmKeeper.FlushTransientReceipts(ctx)
+	if err := app.EvmKeeper.FlushTransientReceipts(ctx); err != nil {
+		return err
+	}
+	committed := app.LastBlockID()
+	app.lastBlockIDMutex.Lock()
+	defer app.lastBlockIDMutex.Unlock()
+	app.committedBlockID = committed
+	app.committingBlockID = tmproto.BlockID{Hash: ctx.HeaderHash()}
+	app.committingBlockHeight = ctx.BlockHeight()
+	return nil
 }
 
 // Close closes all items that needs closing (called by baseapp)
@@ -2510,10 +2523,23 @@ func (app *App) CompleteBlock(ctx sdk.Context, height int64, txResults []*abci.E
 	lazyWriteEvents := app.BankKeeper.WriteDeferredBalances(ctx)
 	events = append(events, lazyWriteEvents...)
 
-	// Sum up total used per block only for evm transactions
+	// Decision 2335: domain-routed transactions must not contribute to the root base fee.
+	domainTxs := make(map[string]struct{})
+	readCtx := ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
+	app.LayerXChainsKeeper.IterateDomains(readCtx, func(domain layerxchainstypes.Domain) bool {
+		for _, hash := range app.LayerXChainsKeeper.DomainTxs(readCtx, domain.Id, uint64(height)) {
+			domainTxs[hash.Hex()] = struct{}{}
+		}
+		return false
+	})
+
+	// Sum up total used per block only for root EVM transactions.
 	var evmTotalGasUsed int64
 	for _, txResult := range txResults {
 		if txResult.EvmTxInfo != nil {
+			if _, domain := domainTxs[txResult.EvmTxInfo.TxHash]; domain {
+				continue
+			}
 			evmTotalGasUsed += txResult.GasUsed
 		}
 	}
@@ -3359,7 +3385,15 @@ func (app *App) SetCommitListener(fn func(height int64, appHash []byte) error) {
 }
 
 func (app *App) LastBlockID() tmproto.BlockID {
-	return app.GetCheckCtx().BlockHeader().LastBlockId
+	app.lastBlockIDMutex.RLock()
+	defer app.lastBlockIDMutex.RUnlock()
+	id := app.committedBlockID
+	if app.committingBlockHeight > 0 && app.committingBlockHeight == app.LastBlockHeight() {
+		id = app.committingBlockID
+	}
+	id.Hash = append([]byte(nil), id.Hash...)
+	id.PartSetHeader.Hash = append([]byte(nil), id.PartSetHeader.Hash...)
+	return id
 }
 
 // LatestCtx is the ante read context. In sequencer mode it is a branch of L_open while a block

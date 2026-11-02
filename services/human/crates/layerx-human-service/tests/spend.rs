@@ -277,6 +277,11 @@ fn signed_receipt(
         fields.resulting_state_root,
         signer.verifying_key().to_bytes(),
     );
+    let decoded = layerx_intents::canonical::decode_receipt(&canonical_receipt)
+        .unwrap_or_else(|error| panic!("spend producer receipt: {error:?}"));
+    let protocol = decoded.protocol().expect("spend protocol receipt");
+    assert_eq!(protocol.previous_state_root(), fields.previous_state_root);
+    assert_eq!(protocol.resulting_state_root(), fields.resulting_state_root);
     let evidence = support::raw_receipt_evidence(
         canonical_receipt.clone(),
         signer.verifying_key().to_bytes(),

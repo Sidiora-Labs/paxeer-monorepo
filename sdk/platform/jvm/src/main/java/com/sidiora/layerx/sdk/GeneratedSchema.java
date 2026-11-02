@@ -970,14 +970,6 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(resume_cursor, "resume_cursor");
             }
         }
-        public record VerificationStatus(String kind, JsonNode value) implements SchemaTypes.GeneratedResponse {
-            private static final Set<String> KINDS = Set.of("Achieved", "Unverified");
-            public VerificationStatus {
-                Objects.requireNonNull(kind, "kind");
-                Objects.requireNonNull(value, "value");
-                if (!KINDS.contains(kind)) throw PlatformSdkException.invalidArgument();
-            }
-        }
         public record VerifiedProgramDiscovery(JsonNode program_id, JsonNode lifecycle, JsonNode version, JsonNode code_hash, AgentModels.ProgramGuestAbi abi_version, JsonNode receipt_digest, JsonNode state_root, JsonNode observed_sequence, JsonNode observed_at, JsonNode valid_through, JsonNode verification, JsonNode deployment_receipt_digest, JsonNode discovery_public_key, JsonNode discovery_signature) implements SchemaTypes.GeneratedResponse {
             public VerifiedProgramDiscovery {
                 Objects.requireNonNull(program_id, "program_id");
@@ -1395,7 +1387,7 @@ public final class GeneratedSchema {
                 throw new IllegalArgumentException("unknown schema variant");
             }
         }
-        public record EvidenceMaterial(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64) implements SchemaTypes.GeneratedResponse {
+        public record EvidenceMaterial(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64, HumanModels.Rung rung, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) Long inclusion_height) implements SchemaTypes.GeneratedResponse {
             public EvidenceMaterial {
                 Objects.requireNonNull(evidence_id, "evidence_id");
                 Objects.requireNonNull(class_, "class");
@@ -3881,7 +3873,7 @@ public final class GeneratedSchema {
         public static final SchemaTypes.TypedOperation<AuthenticatorStatusRequest, AuthenticatorStatusResponse> AUTHENTICATOR_STATUS = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "authenticator.status", false, AuthenticatorStatusRequest.class, AuthenticatorStatusResponse.class);
         public record EvidenceGetRequest() implements SchemaTypes.GeneratedRequest {
         }
-        public record EvidenceGetResponse(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64) implements SchemaTypes.GeneratedResponse {
+        public record EvidenceGetResponse(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64, HumanModels.Rung rung, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) Long inclusion_height) implements SchemaTypes.GeneratedResponse {
             public EvidenceGetResponse {
                 Objects.requireNonNull(evidence_id, "evidence_id");
                 Objects.requireNonNull(class_, "class");

@@ -76,10 +76,16 @@ func newHookedKeeper(testApp *nodeapp.App, ctx sdk.Context) (*keeper.Keeper, ban
 	giga.UseRegularStore = true
 	giga.RegisterRecipientChecker(testApp.GigaEvmKeeper.CanAddressReceive)
 	key := sdk.NewKVStoreKey(types.StoreKey)
-	k := keeper.NewKeeper(key, bank, tokenfactorykeeper.NewMsgServerImpl(testApp.TokenFactoryKeeper), &testApp.EvmKeeper)
+	factory := newTokenFactory(testApp, bank)
+	k := keeper.NewKeeper(key, bank, tokenfactorykeeper.NewMsgServerImpl(factory), &testApp.EvmKeeper)
 	bank.RegisterBalanceChangeHook(types.ModuleName, k.BeforeBalanceChange)
 	giga.RegisterBalanceChangeHook(types.ModuleName, k.BeforeBalanceChange)
 	return k, bank, &giga, launchpadtest.WithStore(ctx, key)
+}
+
+func newTokenFactory(testApp *nodeapp.App, bank bankkeeper.BaseKeeper) tokenfactorykeeper.Keeper {
+	return tokenfactorykeeper.NewKeeper(testApp.AppCodec(), testApp.GetKey(tokenfactorytypes.StoreKey),
+		testApp.GetSubspace(tokenfactorytypes.ModuleName), testApp.AccountKeeper, bank)
 }
 
 func newEnv(t *testing.T) *env {

@@ -1,4 +1,7 @@
+use layerx_client::runtime_clock::RuntimeClock;
 use layerx_human_test_support as support;
+use layerx_types::clock::Clock as _;
+use std::time::Duration;
 
 use std::fs;
 use std::future::Future;
@@ -420,10 +423,12 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
         authorization,
     };
     let call = &preparation.transaction.call;
-    let plan_time = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+    let clock =
+        RuntimeClock::from_environment().unwrap_or_else(|error| panic!("plan clock: {error}"));
+    let plan_time = clock
+        .sample(Duration::from_secs(1))
         .unwrap_or_else(|error| panic!("plan time: {error}"))
-        .as_secs();
+        .unix_seconds();
     let authorization = EvmPlanAuthorization {
         plan_id: prepared.disclosure_digest.0,
         action_key: preparation.transaction.signing_hash,

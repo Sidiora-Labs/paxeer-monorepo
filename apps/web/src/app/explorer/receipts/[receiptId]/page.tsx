@@ -9,6 +9,8 @@ import {
 } from "../../../../explorer/components";
 import { ExplorerPanel, ExplorerTable, ExplorerVerificationBadge } from "../../../../kit/explorer";
 
+export const dynamic = "force-dynamic";
+
 export default async function ReceiptPage({
   params,
 }: Readonly<{ params: Promise<{ receiptId: string }> }>) {

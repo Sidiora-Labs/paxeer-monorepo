@@ -63,7 +63,7 @@ layerx=/data/layerx
 node_data=$layerx/node
 keys=$layerx/keys
 genesis=$layerx/genesis
-[ "${1:-}" = render ] || network_id=${LAYERX_NODE_NETWORK_ID:?the kernel network id comes from the app env}
+[[ "${1:-}" = render || "${1:-}" = regenerate-fixture ]] || network_id=${LAYERX_NODE_NETWORK_ID:?the kernel network id comes from the app env}
 rpc=http://127.0.0.1:${LAYERX_NODE_PAXEER_RELAY_PORT:-18545}
 custody=0x0000000000000000000000000000000000001013
 deposit_key=$keys/checkpoint-submitter/deposit-authority.pem
@@ -80,7 +80,7 @@ fail() {
 	exit 1
 }
 
-if [ "${1:-}" != render ]; then
+if [[ "${1:-}" != render && "${1:-}" != regenerate-fixture ]]; then
 	[ "$(id -u)" = 0 ] || fail "run as root inside the kernel machine"
 	[ -s "$keys/treasury.key" ] || fail "the init has not made $keys/treasury.key yet"
 fi
@@ -97,7 +97,7 @@ rotation_pending() {
 	[ ! -e "$rotation" ] || fail "an identity rotation is pending at $rotation; run kernel-genesis.sh keys rotate to resume it"
 }
 
-[ "${1:-}" = render ] || treasury_public=$(hex_public "$(tr -d ' \r\n' <"$keys/treasury.key")")
+[[ "${1:-}" = render || "${1:-}" = regenerate-fixture ]] || treasury_public=$(hex_public "$(tr -d ' \r\n' <"$keys/treasury.key")")
 
 # public_values: the step A outputs, read back from the key files.
 public_values() {
@@ -332,6 +332,56 @@ PYMETA
 	echo "custody node=$node_data keys=$keys genesis=$genesis/metadata.lxgb digests=genesis_sha256,metadata_sha256"
 }
 
+regenerate_fixture() {
+	[ "$#" = 1 ] || fail "usage: kernel-genesis.sh regenerate-fixture FIXTURE_DIR"
+	local fixture=$1 build
+	build=${LAYERX_GENESIS_BUILD:-$(cd "$(dirname "$0")/../.." && pwd)/build/bin/layerx-genesis-build}
+	[ -x "$build" ] || fail "layerx-genesis-build not found: $build"
+	python3 - "$fixture" "$build" <<'PYFIXTURE'
+import hashlib
+import json
+import pathlib
+import subprocess
+import sys
+import tempfile
+
+fixture = pathlib.Path(sys.argv[1]).resolve()
+expected = json.loads((fixture / 'expected.json').read_text())
+# These are public test identities, derived reproducibly without deployment keys.
+seed = hashlib.sha256(('layerx-public-fixture:' + fixture.name).encode()).digest()
+with tempfile.TemporaryDirectory(prefix='.regenerate-', dir=fixture) as scratch:
+    scratch = pathlib.Path(scratch)
+    key = scratch / 'signer.key'
+    key.write_bytes(seed)
+    key.chmod(0o600)
+    public = subprocess.run(
+        ['openssl', 'pkey', '-inform', 'DER', '-pubout', '-outform', 'DER'],
+        input=bytes.fromhex('302e020100300506032b657004220420') + seed,
+        stdout=subprocess.PIPE, check=True).stdout[-32:]
+    output = scratch / 'genesis'
+    subprocess.run([sys.argv[2], str(fixture / 'genesis-request.lxgb'),
+                    str(key), str(output)], check=True)
+    registration = (output / 'paxeer-registration-request.lxrr').read_bytes()
+    if len(registration) != 73 or registration[:5] != b'LXRR\x01':
+        raise SystemExit('unexpected genesis registration format')
+    if int.from_bytes(registration[5:9], 'big') != expected['network_id']:
+        raise SystemExit('genesis network differs from fixture')
+    root, receipt = registration[9:41].hex(), registration[41:73].hex()
+    if root != expected['canonical_state_root']:
+        expected['previous_canonical_state_root'] = expected['canonical_state_root']
+        expected['previous_receipt_state_root'] = expected['receipt_state_root']
+    expected['canonical_state_root'] = root
+    expected['receipt_state_root'] = receipt
+    expected['sequencer_public_key'] = public.hex()
+    for name in expected['sha256']:
+        data = (output / name).read_bytes()
+        (fixture / name).write_bytes(data)
+        expected['sha256'][name] = hashlib.sha256(data).hexdigest()
+    (fixture / 'sequencer.public').write_bytes(public)
+    (fixture / 'expected.json').write_text(json.dumps(expected, indent=2, sort_keys=True) + '\n')
+PYFIXTURE
+}
+
 render_step() {
 	[ "$#" = 2 ] || fail "usage: kernel-genesis.sh render ENV_FILE OUTPUT_DIR"
 	local env_file=$1 output=$2 line key value module entry id public symbol decimals seed build rc
@@ -384,6 +434,7 @@ render_step() {
 	for entry in ${input[LAYERX_GENESIS_ASSETS]}; do
 		[[ $entry =~ ^([A-Z0-9]{1,16}):([0-9a-fA-F]{64}):([0-9]{1,2})$ ]] || fail "not an asset SYMBOL:ID:DECIMALS: $entry"
 		symbol=${BASH_REMATCH[1]} id=${BASH_REMATCH[2],,} decimals=${BASH_REMATCH[3]}
+		[ "$((10#$decimals))" -le 38 ] || fail "asset $symbol decimals must be 0..38"
 		[ -z "${seen[$symbol]:-}" ] || fail "asset $symbol repeated"
 		seen[$symbol]=1
 		[ "$id" = "$(asset_id "$symbol")" ] ||
@@ -480,6 +531,7 @@ PY
 
 case "${1:-}" in
 render) render_step "${@:2}" ;;
+regenerate-fixture) regenerate_fixture "${@:2}" ;;
 keys) keys_step "${@:2}" ;;
 genesis) genesis_step "${@:2}" ;;
 plan)
@@ -490,5 +542,5 @@ migrate)
 	[ "$#" = 2 ] && [[ $2 =~ ^[0-9a-f]{64}$ ]] || fail "usage: kernel-genesis.sh migrate PLAN_SHA256"
 	identity migrate "$2" "${retire_files[@]}" || fail "identity migration refused"
 	;;
-*) fail "usage: kernel-genesis.sh keys [rotate] | render ENV_FILE OUTPUT_DIR | genesis SID=POINTER USDC=POINTER USDL=POINTER [SYMBOL=POINTER...] | plan | migrate PLAN_SHA256" ;;
+*) fail "usage: kernel-genesis.sh keys [rotate] | render ENV_FILE OUTPUT_DIR | regenerate-fixture FIXTURE_DIR | genesis SID=POINTER USDC=POINTER USDL=POINTER [SYMBOL=POINTER...] | plan | migrate PLAN_SHA256" ;;
 esac
