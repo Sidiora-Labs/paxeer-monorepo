@@ -109961,7 +109961,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1435.1]
 title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the TypeScript agent envelope decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["18.1435.2"]
@@ -111518,7 +111518,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1435.5]
 title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Swift agent envelope decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["18.1435.2"]
@@ -120250,7 +120250,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1435.4]
 title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Go agent envelope decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["18.1435.2"]
@@ -142878,7 +142878,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.26.6]
 title = "Move the commitment, RPC and agent conformance tests to an EVM receipt fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.26.1", "8.24.3", "9.96.1", "8.22.7"]
@@ -143856,7 +143856,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.34.2]
 title = "Drive the reference application runner with receipt keys instead of a receipt authority"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.33.1", "8.33.4"]
