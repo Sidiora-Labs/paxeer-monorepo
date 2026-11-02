@@ -35,7 +35,7 @@ var (
 	ErrInvalidGenesis  = sdkerrors.Register(ModuleName, 11, "invalid genesis")
 	ErrKeeperMissing   = sdkerrors.Register(ModuleName, 12, "layerxexchange keeper is not wired")
 	ErrEvidenceTooLong = sdkerrors.Register(ModuleName, 13, "state proof exceeds the exchange bound")
-	ErrRetired         = sdkerrors.Register(ModuleName, 14, "exchange is retired from v6.12.0")
+	ErrRetired         = sdkerrors.Register(ModuleName, 14, "layerxexchange is retired from v6.12.0")
 )
 
 func ErrorCode(err error) string {
