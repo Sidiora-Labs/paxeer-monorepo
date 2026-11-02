@@ -19075,3 +19075,11 @@ symbol = "RegistrationInputTests"
 observed = "Attempts 2 and 3 (base 4dc096c8b) pass the build and 29 tests and fail test_generated_catalog_uses_real_keys_and_production_registry_modules and test_real_owner_output_is_not_a_protocol_registration: both require the real provider binary services/human/target/debug/layerx-human-identity-provider (test_provision.py:13 and :23: build it with make human-test-hosted-provisioning or set LAYERX_HUMAN_IDENTITY_PROVIDER_BIN), which the qualification environment never builds for a Python task; the two tests belong to the human-test-hosted-provisioning make target (Makefile:1661), which builds the binary before running them."
 assumption = "The two real-binary tests stay owned by the make target that builds their producer; this task's verify runs the rest of the file by name exclusion and the candidate's provisioning work is otherwise complete."
 severity = "low"
+
+[finding.22.9.29.1]
+task = "22.9.29"
+file = "services/agent/crates/layerx-agentd/tests/support/real_authority.rs"
+symbol = "layerx_client::lni"
+observed = "Attempt 2 (base 4dc096c8b) builds and ends with no change inside scope: the verify's negative text search for the module covers the whole agent daemon src and tests directories, and the census outside the six listed files names tests/support/real_authority.rs (sixteen references: handshake, refusal decoder, schema envelope codec, Unix-socket transport), tests/webhook.rs:28 and tests/subscription.rs:36 (frame codec), tests/human_projection_facts.rs:134 (Unix-socket transport to the daemon's Human peer socket), src/read/history.rs:5 and :238 (a blanket HistorySource impl for FrameTransport), src/main.rs:42 and :467 (Limits for the Human peer socket) and src/human_runtime/native_receipt.rs:17 (NodeInfo), so the task's own do_4 stopped it; the verify ran and failed on real_authority.rs:8."
+assumption = "The six files of this task are one of four consumer groups; the frame codec and the bounded Unix-socket transport are the daemon's Human peer wire and stay as a re-homed frame module, the kernel handshake, schema and refusal decoder are the retired protocol and leave with 9.24.7; the port is split per consumer group (decision 2353) and each task's negative search covers only its own files."
+severity = "major"

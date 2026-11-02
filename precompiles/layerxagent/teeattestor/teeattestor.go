@@ -113,7 +113,7 @@ func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPr
 		return nil, fmt.Errorf("%w: precompile keepers are unavailable", agentcommon.ErrNoContext)
 	}
 	wired, ok := keepers.(utils.XWebKeepers)
-	if !ok {
+	if !ok || wired.XWebK() == nil {
 		return nil, fmt.Errorf("%w: xweb keeper is unavailable", agentcommon.ErrNoContext)
 	}
 	evmKeeper, ok := keepers.EVMK().(*evmkeeper.Keeper)

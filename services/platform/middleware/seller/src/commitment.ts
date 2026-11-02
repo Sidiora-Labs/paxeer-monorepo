@@ -132,3 +132,93 @@ export async function verifyPaymentCommitmentEvidence(
     return failure();
   }
 }
+
+export function encodePaymentCommitmentEvidence(evidence: PaymentCommitmentEvidence) {
+  const hex = (value: Uint8Array): string => `0x${Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+  const quantity = (value: bigint): string => `0x${value.toString(16)}`;
+  const blockId = (value: PaymentCommitmentEvidence["blockHeader"]["blockId"]) => ({
+    hash: hex(value.hash),
+    partSetHeader: { total: value.partSetHeader.total, hash: hex(value.partSetHeader.hash) },
+  });
+  return {
+    landingBlockHeight: quantity(evidence.landingBlockHeight),
+    blockHeader: { chainId: evidence.blockHeader.chainId, blockId: blockId(evidence.blockHeader.blockId) },
+    receiptInclusion: {
+      transactionHash: hex(evidence.receiptInclusion.transactionHash),
+      receiptDigest: hex(evidence.receiptInclusion.receiptDigest),
+      sequence: quantity(evidence.receiptInclusion.sequence),
+    },
+    commit: {
+      height: quantity(evidence.commit.height),
+      round: evidence.commit.round,
+      blockId: blockId(evidence.commit.blockId),
+      signatures: evidence.commit.signatures.map((signature) => ({
+        blockIdFlag: signature.blockIdFlag,
+        validatorAddress: hex(signature.validatorAddress),
+        timestamp: { seconds: quantity(signature.timestamp.seconds), nanos: signature.timestamp.nanos },
+        signature: hex(signature.signature),
+      })),
+    },
+    validatorSet: evidence.validatorSet.map((validator) => ({
+      address: hex(validator.address),
+      publicKey: hex(validator.publicKey),
+      votingPower: quantity(validator.votingPower),
+    })),
+  };
+}
+
+export function decodePaymentCommitmentEvidence(value: unknown): PaymentCommitmentEvidence {
+  const object = (input: unknown, fields: readonly string[]): Record<string, unknown> => {
+    if (input === null || typeof input !== "object" || Array.isArray(input)) return failure();
+    const record = input as Record<string, unknown>;
+    if (Object.keys(record).length !== fields.length || fields.some((field) => !Object.hasOwn(record, field))) return failure();
+    return record;
+  };
+  const bytes = (input: unknown, size: number): Uint8Array => {
+    if (typeof input !== "string" || !/^0x[0-9a-f]*$/u.test(input) || input.length !== 2 + size * 2) return failure();
+    return Uint8Array.from(input.slice(2).match(/../gu) ?? [], (pair) => Number.parseInt(pair, 16));
+  };
+  const quantity = (input: unknown): bigint => {
+    if (typeof input !== "string" || !/^0x(?:0|-?[1-9a-f][0-9a-f]*)$/u.test(input) || input.length > 66) return failure();
+    return input.startsWith("0x-") ? -BigInt(`0x${input.slice(3)}`) : BigInt(input);
+  };
+  const integer = (input: unknown): number => {
+    if (typeof input !== "number" || !Number.isSafeInteger(input) || input < 0 || input > 0xffff_ffff) return failure();
+    return input;
+  };
+  const list = (input: unknown): readonly unknown[] => {
+    if (!Array.isArray(input) || input.length > 10_000) return failure();
+    return input;
+  };
+  const blockId = (input: unknown): PaymentCommitmentEvidence["blockHeader"]["blockId"] => {
+    const block = object(input, ["hash", "partSetHeader"]);
+    const parts = object(block["partSetHeader"], ["total", "hash"]);
+    return { hash: bytes(block["hash"], 32), partSetHeader: { total: integer(parts["total"]), hash: bytes(parts["hash"], 32) } };
+  };
+  const evidence = object(value, ["landingBlockHeight", "blockHeader", "receiptInclusion", "commit", "validatorSet"]);
+  const header = object(evidence["blockHeader"], ["chainId", "blockId"]);
+  if (typeof header["chainId"] !== "string" || header["chainId"].length === 0 || new TextEncoder().encode(header["chainId"]).length > 50) return failure();
+  const inclusion = object(evidence["receiptInclusion"], ["transactionHash", "receiptDigest", "sequence"]);
+  const commit = object(evidence["commit"], ["height", "round", "blockId", "signatures"]);
+  return {
+    landingBlockHeight: quantity(evidence["landingBlockHeight"]),
+    blockHeader: { chainId: header["chainId"], blockId: blockId(header["blockId"]) },
+    receiptInclusion: { transactionHash: bytes(inclusion["transactionHash"], 32), receiptDigest: bytes(inclusion["receiptDigest"], 32), sequence: quantity(inclusion["sequence"]) },
+    commit: {
+      height: quantity(commit["height"]), round: integer(commit["round"]), blockId: blockId(commit["blockId"]),
+      signatures: list(commit["signatures"]).map((input) => {
+        const signature = object(input, ["blockIdFlag", "validatorAddress", "timestamp", "signature"]);
+        const flag = signature["blockIdFlag"];
+        if (flag !== 1 && flag !== 2 && flag !== 3) return failure();
+        const timestamp = object(signature["timestamp"], ["seconds", "nanos"]);
+        return { blockIdFlag: flag, validatorAddress: bytes(signature["validatorAddress"], flag === 1 ? 0 : 20),
+          timestamp: { seconds: quantity(timestamp["seconds"]), nanos: integer(timestamp["nanos"]) },
+          signature: bytes(signature["signature"], flag === 1 ? 0 : 64) };
+      }),
+    },
+    validatorSet: list(evidence["validatorSet"]).map((input) => {
+      const validator = object(input, ["address", "publicKey", "votingPower"]);
+      return { address: bytes(validator["address"], 20), publicKey: bytes(validator["publicKey"], 32), votingPower: quantity(validator["votingPower"]) };
+    }),
+  };
+}

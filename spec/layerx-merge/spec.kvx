@@ -7227,6 +7227,12 @@ value = "Resolving the chain scope of a receipted log notice reads the latest co
 basis = "Issue 1509: filter.go:1898-1924 scopeFilterLogs calls the pending watermark snapshot for a notice with a zero block hash and returns ErrLayerNotOpen after Seal, and subscribe.go:414-419 (notifyReceiptedLogs) treats the error as terminal and removes the listener (introduced by ae3406a26 in 20.4.4). Issue 1510: subscribe.go:421 continues on an excluded scoped log before the lagged check at :423."
 affects = ["18.1509.1", "18.1510.1"]
 
+[decision.2353]
+title = "The LNI module splits into a frame wire that stays and a kernel protocol that leaves, ported in four consumer-group tasks before 9.24.7 deletes it"
+value = "The length-prefixed frame codec (read_frame, write_frame) and the bounded Unix-socket transport (Limits, ConnectionGate, FrameTransport, Uds) are the agent daemon's Human peer wire and move to layerx_client::frame with the lni files left as re-exports until deletion; the kernel handshake, schema envelope, refusal decoder and the fake kernel frame servers in tests are the retired standalone-kernel protocol, because the kernel is a component of the node and the daemon submits and reads through node JSON-RPC. The port runs as 22.9.29 (events ingest and gap backfill plus their four tests), 22.9.30 (the library and the frame re-home), 22.9.31 (test support and the Human peer tests, requires 22.9.30) and 22.9.32 (the pay2 qualification harness); each task's negative search covers only its own files, and 9.24.7 requires all four and then deletes src/lni and the module line."
+basis = "Finding 22.9.29.1: a crate-wide negative search in one six-file task failed on consumers it could not edit; the census of finding 9.24.7.1 and the source census of 2026-11-02 show the frame transport serving the live Human peer socket (human_projection_facts.rs:156 connects to the daemon's human socket) while the handshake and envelope codec serve only the kernel socket."
+affects = ["22.9.29", "22.9.30", "22.9.31", "22.9.32", "9.24.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20847,6 +20853,18 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22046]
+title = "The pay2 qualification harness reads the node, not the kernel handshake"
+ac_1 = "Given the pay2 qualification harness, when the kernel interface module is deleted, then the harness builds, asserts the chain id, block number and receipt keys through the node JSON-RPC it already uses for readiness, and performs no kernel handshake."
+
+[req.22045]
+title = "The agent daemon test support proves the daemon through the node, not the kernel handshake"
+ac_1 = "Given the real-authority test support and the Human peer tests, when the kernel interface module is deleted, then the tests still build and the Human peer tests still speak the real frame wire to the daemon's sockets, the readiness gate is asserted through the node readiness endpoint, and no test performs the kernel handshake or replays submissions over the kernel socket."
+
+[req.22044]
+title = "The frame codec and Unix-socket transport outlive the kernel interface module"
+ac_1 = "Given the agent daemon's Human peer socket and its tests, when the kernel interface module is deleted, then the length-prefixed frame codec and the bounded Unix-socket transport they use are served from a frame module of the client crate with unchanged behaviour, and the agent daemon library names nothing under the kernel interface module."
 
 [req.22043]
 title = "Lag notices survive out-of-chain log exclusion"
@@ -35596,6 +35614,33 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.9.32]
+title = "Port the pay2 qualification harness off the LNI handshake"
+reqs = ["22046.1"]
+touches = ["services/agent/qualification/pay2"]
+tests = ["services/agent/qualification/pay2/pay2e_test.rs"]
+verification_contract = "! grep -nw lni services/agent/qualification/pay2/pay2e_test.rs && cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --no-run"
+do_1 = "Decision 2353: services/agent/qualification/pay2/pay2e_test.rs:434-451 opens the kernel Unix socket, performs the handshake and asserts the protocol version, the network id, the authorised sequencer key, the Sequencer role and the two Submit capabilities; the kernel is a component of the node, so the section is replaced by node JSON-RPC reads against the harness node endpoint the readiness gate already uses (18.1131.1): eth_chainId equals the harness network id, eth_blockNumber replaces latest_sealed_batch as the height the readiness gate receives, and the receipt key the harness writes into pay2-sequencer-authority.txt is asserted to appear in px_getReceiptKeys."
+symbols = ["pay2_readiness_gate"]
+
+[capability.22.9.31]
+title = "Port the agent daemon test support and the Human peer tests off the LNI module"
+reqs = ["22045.1"]
+touches = ["services/agent/crates/layerx-agentd/tests"]
+tests = ["services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/webhook.rs"]
+verification_contract = "! grep -rnw lni services/agent/crates/layerx-agentd/tests | grep -v -e /tests/ingest_eth_subscribe.rs -e /tests/approval_events.rs -e /tests/gaps.rs -e /tests/subscription_ops_cursor.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test webhook --test subscription --test human_projection_facts"
+do_1 = "Decision 2353: tests/webhook.rs:28, tests/subscription.rs:36 and tests/human_projection_facts.rs:134 import read_frame, write_frame, ConnectionGate, FrameTransport, Limits and Uds from layerx_client::frame (the home 22.9.30 gave them); these tests keep speaking the real frame wire to the daemon's sockets and change nothing else."
+symbols = ["authorize", "ReadinessNode", "readiness_gate"]
+
+[capability.22.9.30]
+title = "Re-home the frame codec and Unix-socket transport and port the agent daemon library off the LNI module"
+reqs = ["22044.1"]
+touches = ["services/agent/crates/layerx-client/src/frame", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/lni/framing.rs", "services/agent/crates/layerx-client/src/lni/transport.rs", "services/agent/crates/layerx-agentd/src"]
+tests = ["services/agent/crates/layerx-client/src/frame/framing.rs"]
+verification_contract = "! grep -rnw lni services/agent/crates/layerx-agentd/src | grep -v /src/events/ && test -f services/agent/crates/layerx-client/src/frame/transport.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --lib frame && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib read::history"
+do_1 = "Decision 2353: services/agent/crates/layerx-client/src/frame (mod.rs, framing.rs, transport.rs) is the new home of read_frame and write_frame (today lni/framing.rs) and of Limits, ConnectionGate, FrameTransport and Uds (today lni/transport.rs); the code moves unchanged, lib.rs gains pub mod frame, and lni/framing.rs and lni/transport.rs become pub use re-exports of the frame module so every present consumer still compiles until 9.24.7 deletes the lni directory; the moved code references nothing under lni (a handshake, schema or refusal reference found in it is replaced by a frame-local definition named in the commit message)."
+symbols = ["read_frame", "write_frame", "Limits", "ConnectionGate", "FrameTransport", "Uds", "human_frame_limits", "RetainedNativeOwner::decode"]
+
 [capability.18.1510.1]
 title = "Preserve subscription lag signals when another chain's log is excluded"
 reqs = ["22043.1"]
@@ -35673,7 +35718,7 @@ title = "Port the agent daemon event ingestor and gap backfill off the LNI frame
 reqs = ["22040.1"]
 touches = ["services/agent/crates/layerx-agentd/src/events/ingest.rs", "services/agent/crates/layerx-agentd/src/events/gap.rs", "services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/gaps.rs", "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs", "services/agent/crates/layerx-agentd/tests/gaps.rs"]
-verification_contract = "! grep -rn 'layerx_client::lni' services/agent/crates/layerx-agentd/src services/agent/crates/layerx-agentd/tests && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test ingest_eth_subscribe --test approval_events --test gaps --test subscription_ops_cursor"
+verification_contract = "! grep -rnw lni services/agent/crates/layerx-agentd/src/events services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs services/agent/crates/layerx-agentd/tests/approval_events.rs services/agent/crates/layerx-agentd/tests/gaps.rs services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test ingest_eth_subscribe --test approval_events --test gaps --test subscription_ops_cursor"
 do_1 = "services/agent/crates/layerx-agentd/src/events/ingest.rs read_head (:751) and new_head (:771) and events/gap.rs attempt_backfill (:222) take &mut dyn FrameTransport from layerx_client::lni::transport, the kernel frame transport; since 9.11.2 the ingestor reads eth_subscribe logs with block-position cursors, so these three functions are retyped onto the eth_subscribe source the ingestor already uses (or deleted when the eth_subscribe path replaces them), and the use lines at ingest.rs:6 and gap.rs:7 leave."
 symbols = ["read_head", "new_head", "attempt_backfill"]
 
@@ -106214,7 +106259,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.34.1]
 title = "Retire the data-availability bundle builder in src/network/lxp_da_bundle.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.31.3", "16.32.6", "16.32.7", "16.32.8", "16.32.9", "16.32.11", "16.33.2", "16.33.5", "16.33.6", "6.96.5"]
@@ -106350,7 +106395,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.35.1]
 title = "Retire batch sealing and signing and move signature verification to the header codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "8.51.1", "13.34.1", "14.29.2", "16.31.5", "16.31.7", "16.32.1", "16.32.2", "16.32.8", "16.32.9", "16.32.10", "16.32.11", "16.33.5", "16.34.3", "6.96.5"]
@@ -116985,7 +117030,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.154.1]
 title = "Prove the middleware merchant ts exports path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117150,7 +117195,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.149.1]
 title = "Prove the hooks path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117281,7 +117326,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.145.1]
 title = "Prove the middleware conformance ts exports path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117614,7 +117659,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.135.1]
 title = "Prove the middleware seller ts exports path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -126954,6 +126999,99 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.9.32]
+title = "Port the pay2 qualification harness off the LNI handshake"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22046.1"]
+capabilities = ["22.9.32"]
+interfaces = []
+do_1 = "Decision 2353: services/agent/qualification/pay2/pay2e_test.rs:434-451 opens the kernel Unix socket, performs the handshake and asserts the protocol version, the network id, the authorised sequencer key, the Sequencer role and the two Submit capabilities; the kernel is a component of the node, so the section is replaced by node JSON-RPC reads against the harness node endpoint the readiness gate already uses (18.1131.1): eth_chainId equals the harness network id, eth_blockNumber replaces latest_sealed_batch as the height the readiness gate receives, and the receipt key the harness writes into pay2-sequencer-authority.txt is asserted to appear in px_getReceiptKeys."
+do_2 = "No import from the kernel interface module remains in the file; the harness state's kernel socket path field stays if another section reads it and is removed otherwise; the commit message names the assertions dropped and the reads that replaced them."
+symbols = ["pay2_readiness_gate"]
+touches = ["services/agent/qualification/pay2"]
+tests = ["services/agent/qualification/pay2/pay2e_test.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --all-targets"
+verify_cmd = "! grep -nw lni services/agent/qualification/pay2/pay2e_test.rs && cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --no-run"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.9.31]
+title = "Port the agent daemon test support and the Human peer tests off the LNI module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.9.30"]
+reqs = ["22045.1"]
+capabilities = ["22.9.31"]
+interfaces = []
+do_1 = "Decision 2353: tests/webhook.rs:28, tests/subscription.rs:36 and tests/human_projection_facts.rs:134 import read_frame, write_frame, ConnectionGate, FrameTransport, Limits and Uds from layerx_client::frame (the home 22.9.30 gave them); these tests keep speaking the real frame wire to the daemon's sockets and change nothing else."
+do_2 = "tests/support/real_authority.rs drops the kernel protocol: handshake_gate (perform, HandshakeConfig, Capability, NodeRole), decode_core_refusal, the schema envelope codec, submit_calls over the Unix socket, connect_lni, wait_for_lni, lni_limits and the restart section's replay of retained submissions over the transport are deleted, because the kernel is a component of the node and the daemon submits through eth_sendRawTransaction (9.25.3) with restart recovery proven by the outbox tests (9.3.1); the readiness gate through ReadinessNode and NodeRpcConfig (18.1131.1), the evidence authority assertion and the daemon restart followed by the readiness gate stay."
+do_3 = "A process the remaining assertions never read is no longer started by the fixture and its binary lookup goes with it; a path a remaining assertion still reads stays; the commit message lists every deleted function and every test whose body changed."
+do_4 = "The tests that reach the fixture through tests/support (no test names it directly; the support module includes it) are adjusted to the surviving fixture API; after the task a whole-word text search for lni over services/agent/crates/layerx-agentd/tests finds nothing outside ingest_eth_subscribe.rs, approval_events.rs, gaps.rs and subscription_ops_cursor.rs (task 22.9.29 owns those); a consumer outside the tests directory is reported as a finding, not edited."
+symbols = ["authorize", "ReadinessNode", "readiness_gate"]
+touches = ["services/agent/crates/layerx-agentd/tests"]
+tests = ["services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/webhook.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --all-targets"
+verify_cmd = "! grep -rnw lni services/agent/crates/layerx-agentd/tests | grep -v -e /tests/ingest_eth_subscribe.rs -e /tests/approval_events.rs -e /tests/gaps.rs -e /tests/subscription_ops_cursor.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test webhook --test subscription --test human_projection_facts"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.9.30]
+title = "Re-home the frame codec and Unix-socket transport and port the agent daemon library off the LNI module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22044.1"]
+capabilities = ["22.9.30"]
+interfaces = []
+do_1 = "Decision 2353: services/agent/crates/layerx-client/src/frame (mod.rs, framing.rs, transport.rs) is the new home of read_frame and write_frame (today lni/framing.rs) and of Limits, ConnectionGate, FrameTransport and Uds (today lni/transport.rs); the code moves unchanged, lib.rs gains pub mod frame, and lni/framing.rs and lni/transport.rs become pub use re-exports of the frame module so every present consumer still compiles until 9.24.7 deletes the lni directory; the moved code references nothing under lni (a handshake, schema or refusal reference found in it is replaced by a frame-local definition named in the commit message)."
+do_2 = "A unit test in frame/framing.rs writes a frame into a byte buffer and reads it back, and asserts the over-limit refusal of a frame longer than the bound."
+do_3 = "services/agent/crates/layerx-agentd/src/main.rs:42 imports Limits from layerx_client::frame::transport, and human_lni_limits (:467) becomes human_frame_limits over the same four LAYERX_AGENT_HUMAN_MAX_* variables and the deadline; the value bounds the daemon's Human peer socket and keeps its consumer at :742."
+do_4 = "src/read/history.rs:238 deletes the blanket HistorySource impl for FrameTransport (an Unavailable stub); the impl for dyn HumanNode (:225), the history function and PolicyHistorySource (protocol_evidence.rs:2425) stay, and read/native.rs:184 keeps compiling; the use line at :5 goes."
+do_5 = "src/human_runtime/native_receipt.rs:17 RetainedNativeOwner::decode no longer takes a NodeInfo reference; it takes the network id and the protocol version as two parameters of the field types the comparison at :26-27 reads, and every caller in the human_runtime module passes the two values it already holds for this check."
+do_6 = "The string literal at src/human_runtime.rs:17716 that names the module path is rewritten to the frame module path or removed together with the check it serves, as that check requires; after the task a whole-word text search for lni over services/agent/crates/layerx-agentd/src finds nothing outside src/events (task 22.9.29 owns the events module); a library consumer outside the agent daemon and the client crate is reported as a finding, not edited."
+symbols = ["read_frame", "write_frame", "Limits", "ConnectionGate", "FrameTransport", "Uds", "human_frame_limits", "RetainedNativeOwner::decode"]
+touches = ["services/agent/crates/layerx-client/src/frame", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/lni/framing.rs", "services/agent/crates/layerx-client/src/lni/transport.rs", "services/agent/crates/layerx-agentd/src"]
+tests = ["services/agent/crates/layerx-client/src/frame/framing.rs"]
+planned_paths = ["services/agent/crates/layerx-client/src/frame/mod.rs", "services/agent/crates/layerx-client/src/frame/framing.rs", "services/agent/crates/layerx-client/src/frame/transport.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client -p layerx-agentd --all-targets"
+verify_cmd = "! grep -rnw lni services/agent/crates/layerx-agentd/src | grep -v /src/events/ && test -f services/agent/crates/layerx-client/src/frame/transport.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --lib frame && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib read::history"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1507.1]
 title = "Issue #1507: Serve the intermediate checkpoint reads in the historical-admission fixture"
 status = "pending"
@@ -126995,14 +127133,14 @@ capabilities = ["22.9.29"]
 interfaces = []
 do_1 = "services/agent/crates/layerx-agentd/src/events/ingest.rs read_head (:751) and new_head (:771) and events/gap.rs attempt_backfill (:222) take &mut dyn FrameTransport from layerx_client::lni::transport, the kernel frame transport; since 9.11.2 the ingestor reads eth_subscribe logs with block-position cursors, so these three functions are retyped onto the eth_subscribe source the ingestor already uses (or deleted when the eth_subscribe path replaces them), and the use lines at ingest.rs:6 and gap.rs:7 leave."
 do_2 = "The four test files that call them (tests/ingest_eth_subscribe.rs, approval_events.rs, gaps.rs, subscription_ops_cursor.rs) are ported onto the retyped functions with an in-process eth_subscribe fixture; no test keeps an LNI frame fixture."
-do_3 = "After this task a repository text search for layerx_client::lni under services/agent/crates/layerx-agentd finds nothing; task 9.24.7 then deletes the module."
+do_3 = "After this task a whole-word text search for lni over src/events and the four listed tests finds nothing; the other consumers of the module are ported by 22.9.30 (library and frame re-home), 22.9.31 (test support and the Human peer tests) and 22.9.32 (pay2 qualification), and task 9.24.7 then deletes the module."
 do_4 = "A caller outside the listed files that still needs the frame transport stops the task with a finding naming it; nothing outside touches is edited."
 symbols = ["read_head", "new_head", "attempt_backfill"]
 touches = ["services/agent/crates/layerx-agentd/src/events/ingest.rs", "services/agent/crates/layerx-agentd/src/events/gap.rs", "services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/gaps.rs", "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs", "services/agent/crates/layerx-agentd/tests/gaps.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --all-targets"
-verify_cmd = "! grep -rn 'layerx_client::lni' services/agent/crates/layerx-agentd/src services/agent/crates/layerx-agentd/tests && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test ingest_eth_subscribe --test approval_events --test gaps --test subscription_ops_cursor"
+verify_cmd = "! grep -rnw lni services/agent/crates/layerx-agentd/src/events services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs services/agent/crates/layerx-agentd/tests/approval_events.rs services/agent/crates/layerx-agentd/tests/gaps.rs services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test ingest_eth_subscribe --test approval_events --test gaps --test subscription_ops_cursor"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -127014,6 +127152,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Finding 22.9.29.1 and decision 2353: the verify's negative search is narrowed to this task's six files, so a reference in tests/support, webhook.rs, subscription.rs, human_projection_facts.rs or the library is not this task's failure; the fake kernel frame server the three tests build today (gaps.rs:295-338 reads and writes schema envelopes over the Unix socket) is replaced by the in-process eth_subscribe fixture of ingest_eth_subscribe.rs; where approval_events.rs or subscription_ops_cursor.rs include tests/support, the inclusion stays and nothing under support is edited. Attempt 3 starts fresh from main."
 
 [task.22.9.26]
 title = "Repair the agentd human runtime policy-history and subject queue tests"
@@ -129880,7 +130019,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1488.1]
 title = "Issue #1488: Decode chain status events with the registry's 1-based lifecycle codes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
@@ -134244,7 +134383,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.102.1]
 title = "Prove the orob 0x0901 path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136024,7 +136163,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.23.1]
 title = "Prove the activation path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -167506,7 +167645,7 @@ title = "Delete the LNI framing, handshake, schema and transport module"
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.25.1", "9.24.4", "9.18.5", "9.13.1", "9.18.1", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.12.3", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "13.8.3", "22.9.24", "22.9.29"]
+requires = ["9.25.1", "9.24.4", "9.18.5", "9.13.1", "9.18.1", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.12.3", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "13.8.3", "22.9.24", "22.9.29", "22.9.30", "22.9.31", "22.9.32"]
 reqs = ["9277.1"]
 capabilities = ["9.24.7"]
 interfaces = ["interface.9.rs-client-lni-abi-abiversion-j44", "interface.9.rs-client-lni-abi-abiincompatible-j44", "interface.9.rs-client-lni-abi-fn-j44", "interface.9.rs-client-lni-abi-functions-j44", "interface.9.rs-client-lni-abi-handle-j44", "interface.9.rs-client-lni-abi-abiopenerror-j44", "interface.9.rs-client-lni-capabilities-capabilities", "interface.9.rs-client-lni-framing-decode-frame", "interface.9.rs-client-lni-framing-read-frame", "interface.9.rs-client-lni-framing-write-frame", "interface.9.rs-client-lni-framing-length-prefix-bytes-j44", "interface.9.rs-client-lni-framing-decodedframe-j44", "interface.9.rs-client-lni-handshake-noderole", "interface.9.rs-client-lni-handshake-nodeinfo", "interface.9.rs-client-lni-handshake-handshakeconfig", "interface.9.rs-client-lni-handshake-handshake", "interface.9.rs-client-lni-handshake-handshakeerror", "interface.9.rs-client-lni-handshake-perform", "interface.9.rs-client-lni-handshake-validate", "interface.9.rs-client-lni-handshake-encode-node-info", "interface.9.rs-client-lni-handshake-decode-node-info", "interface.9.rs-client-lni-handshake-sequencerkeychange-j44", "interface.9.rs-client-lni-handshake-perform-with-schema-j44", "interface.9.rs-client-lni-handshake-validate-with-schema-j44", "interface.9.rs-client-lni-refusal-corerefusal", "interface.9.rs-client-lni-refusal-decode-core-refusal", "interface.9.rs-client-lni-report-capabilityreport", "interface.9.rs-client-lni-report-capability-report", "interface.9.rs-client-lni-report-capabilitystatus-j44", "interface.9.rs-client-lni-report-capability-report-with-schema-j44", "interface.9.rs-client-lni-schema-version", "interface.9.rs-client-lni-schema-capability", "interface.9.rs-client-lni-schema-envelope", "interface.9.rs-client-lni-schema-schemaerror", "interface.9.rs-client-lni-schema-encode-envelope", "interface.9.rs-client-lni-schema-decode-envelope", "interface.9.rs-client-lni-schema-lni-v1-source-j44", "interface.9.rs-client-lni-schema-messagekind-j44", "interface.9.rs-client-lni-schema-messagedescriptor-j44", "interface.9.rs-client-lni-schema-schema-j44", "interface.9.rs-client-lni-schema-fn-j44", "interface.9.rs-client-lni-schema-fn-2-j44", "interface.9.rs-client-lni-schema-fn-2-3-j44", "interface.9.rs-client-lni-schema-goldenvector-j44", "interface.9.rs-client-lni-schema-fn-2-3-4-j44", "interface.9.rs-client-lni-schema-encode-envelope-with-schema-j44", "interface.9.rs-client-lni-schema-decode-envelope-with-schema-j44", "interface.9.rs-client-lni-transport-frameviolation", "interface.9.rs-client-lni-transport-transporterror", "interface.9.rs-client-lni-transport-limits", "interface.9.rs-client-lni-transport-connectiongate", "interface.9.rs-client-lni-transport-connectionpermit", "interface.9.rs-client-lni-transport-frametransport", "interface.9.rs-client-lni-transport-uds", "interface.9.rs-client-lni-transport-mutualtlsconfig", "interface.9.rs-client-lni-transport-tls", "interface.9.rs-client-lni-transport-trafficclass-j44", "interface.9.rs-client-lni-transport-outboundframe-j44", "interface.9.rs-client-lni-transport-multiplexer-j44"]
@@ -167535,6 +167674,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 do_4 = "Blocked by decision 2256 until the LNI consumer ports exist. When it runs: define `pub struct Version { pub major: u16, pub minor: u16 }` with the derives of lni/schema.rs (Clone, Copy, Debug, Eq, PartialEq) in src/rpc/mod.rs and import crate::rpc::Version at src/rpc/history.rs:3 and src/rpc/payments.rs:3 before deleting lni/schema.rs; attempt 1 (ff6311fc4) holds the nine deletions."
 do_5 = "Decision 2294: rpc/history.rs:3 and rpc/payments.rs:3 import crate::lni::schema::Version, which do_1 deletes with the module; both files are in touches and drop that import, replacing every use of Version with the retained wire-version type the rest of rpc/ uses (or deleting the unused version parameter when nothing reads it); no lni item is kept behind. Attempt 1 also met the availabilityClassCount build break that 6.96.5 repaired on main at 520414c87; continue from attempt 1."
 do_6 = "Decision 2185 and 2256 are satisfied: every task in requires is done on main, so the task is pending again; the agent daemon's event ingestor still names layerx_client::lni::transport::FrameTransport (events/ingest.rs:6, :751, :771 and events/gap.rs:7, :222), so this task requires 22.9.29, which ports the ingestor off it first; the deletion census is a text search over services/ and tools/ including crates the build does not compile."
+do_7 = "Decision 2353: the frame module (layerx-client src/frame, re-homed by 22.9.30) is product and stays; this task deletes the lni directory (lni/framing.rs and lni/transport.rs are re-exports by then) and the pub mod lni line, re-homes Version into rpc as do_4 and do_5 say, and the Limits bound of the daemon's Human peer socket keeps coming from layerx_client::frame::transport; the deletion census is a whole-word text search for lni over services/agent and tools/ after 22.9.29, 22.9.30, 22.9.31 and 22.9.32 have published."
 
 [task.9.25.1]
 title = "Delete the kernel-era read, receipt, submit, stream, batch, payments and evidence modules"
@@ -208185,6 +208325,30 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.22.9.32.1]
+feature = "22"
+req = "22046.1"
+scenario = "Given the pay2 qualification harness, when its evidence authority section reads the node instead of performing the kernel handshake, then the harness builds and names nothing under the kernel interface module."
+contract = "! grep -nw lni services/agent/qualification/pay2/pay2e_test.rs && cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --no-run"
+test = "services/agent/qualification/pay2/pay2e_test.rs"
+qualification = "UNRUN"
+
+[acceptance.22.9.31.1]
+feature = "22"
+req = "22045.1"
+scenario = "Given the agent daemon tests, when the support file drops the kernel handshake and the Human peer tests import the frame module, then every test target builds, the webhook, subscription and Human projection tests pass, and no test outside the events group names the kernel interface module."
+contract = "! grep -rnw lni services/agent/crates/layerx-agentd/tests | grep -v -e /tests/ingest_eth_subscribe.rs -e /tests/approval_events.rs -e /tests/gaps.rs -e /tests/subscription_ops_cursor.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test webhook --test subscription --test human_projection_facts"
+test = "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"
+qualification = "UNRUN"
+
+[acceptance.22.9.30.1]
+feature = "22"
+req = "22044.1"
+scenario = "Given the agent daemon library and the client crate, when the frame codec and transport move to the frame module, then the daemon library names nothing under the kernel interface module outside src/events and the frame round trip test passes."
+contract = "! grep -rnw lni services/agent/crates/layerx-agentd/src | grep -v /src/events/ && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --lib frame"
+test = "services/agent/crates/layerx-client/src/frame/framing.rs"
+qualification = "UNRUN"
+
 [acceptance.18.1510.1.1]
 feature = "18"
 req = "22043.1"
@@ -218069,7 +218233,7 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 
 [task.18.1506.1]
 title = "Issue #1506: Update the bundled owner policy to the enforced sixteen-byte limit id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -221994,7 +222158,7 @@ do_7 = "Finding 18.1443.1.2: in kernel_retirement.py restrict the live-reference
 
 [task.20.0.1]
 title = "Refuse the virtual-chains closure while any chain task is not done"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["20.1.1", "20.1.2", "20.2.1", "20.2.2", "20.3.1", "20.3.2", "20.3.3", "20.3.4", "20.4.1", "20.4.2", "20.4.3", "20.4.4", "20.5.1", "20.5.2", "20.6.1", "20.6.2", "20.7.1", "20.7.2", "20.7.3", "20.8.1", "20.8.2", "20.9.1", "20.9.2", "20.9.3", "20.9.4", "20.9.5", "20.9.6", "20.9.7", "20.9.8", "20.10.1", "18.1488.1", "18.1489.1"]

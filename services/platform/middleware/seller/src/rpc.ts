@@ -1,5 +1,16 @@
 import { decodeRawEip1559, keccak256, type SequencerReceiptKey } from "@sidiora/layerx-sdk";
-import { MiddlewareError, verifyPaymentReceipt, paymentCommitment, type PaymentCommitment, type PaymentRequirements, type PaymentCommitmentResolver, type PaymentReceiptVerification, type PortableReceiptV2 } from "./index.js";
+import {
+  MiddlewareError,
+  verifyPaymentReceipt,
+  type PaymentRequirements,
+  type PaymentReceiptVerification,
+  type PortableReceiptV2,
+} from "./index.js";
+import {
+  paymentCommitment,
+  type PaymentCommitment,
+  type PaymentCommitmentResolver,
+} from "./commitment.js";
 
 export function rpcObject(value: unknown): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid-rpc-object");
