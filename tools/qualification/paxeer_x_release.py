@@ -271,22 +271,22 @@ def workflow_run(args):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(allow_abbrev=False)
     commands = parser.add_subparsers(dest='command', required=True)
-    plan = commands.add_parser('prepare')
+    plan = commands.add_parser('prepare', allow_abbrev=False)
     for key in ('candidate', 'contract', 'evidence', 'recipient', 'ref', 'output'):
         plan.add_argument('--' + key, required=True)
-    submit = commands.add_parser('submit')
+    submit = commands.add_parser('submit', allow_abbrev=False)
     submit.add_argument('--request', required=True)
     submit.add_argument('--controller-socket', required=True)
-    status = commands.add_parser('status')
+    status = commands.add_parser('status', allow_abbrev=False)
     status.add_argument('--logical-id', required=True)
     status.add_argument('--controller-socket', required=True)
-    collect = commands.add_parser('evidence')
+    collect = commands.add_parser('evidence', allow_abbrev=False)
     for key in ('candidate', 'request', 'completed', 'trust', 'controller-binary', 'output'):
         collect.add_argument('--' + key, required=True)
-    commands.add_parser('workflow-plan')
-    worker = commands.add_parser('workflow-run')
+    commands.add_parser('workflow-plan', allow_abbrev=False)
+    worker = commands.add_parser('workflow-run', allow_abbrev=False)
     worker.add_argument('--cell', required=True)
     worker.add_argument('--controller-binary', required=True)
     worker.add_argument('--output', required=True)
