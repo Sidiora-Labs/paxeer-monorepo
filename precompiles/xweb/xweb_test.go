@@ -743,7 +743,18 @@ func TestABIMatchesTheSolidityInterface(t *testing.T) {
 	require.NoError(t, err)
 	parsed := h.precompile.GetABI()
 	require.Len(t, parsed.Methods, 12)
-	require.Len(t, parsed.Events, 3)
+	require.Len(t, parsed.Events, 4)
+	for name, signature := range map[string]string{
+		"XWebRequested":        "XWebRequested(uint64,address,uint8,bytes,uint64,uint256,uint64)",
+		"XWebProgramRequested": "XWebProgramRequested(bytes32,uint64,uint8,bytes,uint64)",
+		"XWebFulfilled":        "XWebFulfilled(uint64,address,bytes32,uint32,uint8,uint8,uint64)",
+		"XWebRefunded":         "XWebRefunded(uint64,address,uint256)",
+	} {
+		event, found := parsed.Events[name]
+		require.True(t, found, name)
+		require.Equal(t, signature, event.Sig)
+		require.Equal(t, crypto.Keccak256Hash([]byte(signature)), event.ID)
+	}
 	local, err := os.ReadFile("XWeb.sol")
 	require.NoError(t, err)
 	t.Run("acceptance_5_4_3", func(t *testing.T) {
@@ -1010,6 +1021,9 @@ func TestEventTopics(t *testing.T) {
 			{types.EventRefunded, "XWebRefunded(uint64,address,uint256)",
 				common.HexToHash("0xc7eaafa8d3b0edacffbf86e1d4f404b61a8cb32dca0e8e57998422538045072d"),
 				[]bool{true, true, false}},
+			{"XWebProgramRequested", "XWebProgramRequested(bytes32,uint64,uint8,bytes,uint64)",
+				crypto.Keccak256Hash([]byte("XWebProgramRequested(bytes32,uint64,uint8,bytes,uint64)")),
+				[]bool{true, true, false, false, false}},
 		}
 		h := newHarness(t)
 		parsed := h.precompile.GetABI()
