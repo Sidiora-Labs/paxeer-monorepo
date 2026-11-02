@@ -25,13 +25,17 @@ export class ConformanceSequencer {
   readonly #payerKey: Uint8Array;
   readonly #keyId: Uint8Array;
 
-  public readonly publicKey: Uint8Array;
+  readonly #publicKey: Uint8Array;
 
   private constructor(privateKey: CryptoKey, publicKey: Uint8Array, payerKey: Uint8Array) {
     this.#privateKey = privateKey;
-    this.publicKey = publicKey;
+    this.#publicKey = publicKey.slice();
     this.#payerKey = payerKey;
     this.#keyId = keccak256(publicKey);
+  }
+
+  public get publicKey(): Uint8Array {
+    return this.#publicKey.slice();
   }
 
   public static async generate(): Promise<ConformanceSequencer> {
@@ -49,7 +53,7 @@ export class ConformanceSequencer {
       keyId: this.#keyId.slice(),
       firstHeight: 1n,
       lastHeight: 1_000n,
-      publicKey: this.publicKey.slice(),
+      publicKey: this.#publicKey.slice(),
     };
   }
 
