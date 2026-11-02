@@ -13,6 +13,8 @@ const (
 	teeVerifyGas      uint64 = 46000
 	orobBaseGas       uint64 = 1000
 	orobPerByteGas    uint64 = 3
+	pofqBaseGas       uint64 = 1000
+	pofqPerByteGas    uint64 = 3
 	schedulerReadGas  uint64 = 1000
 	schedulerWriteGas uint64 = 20000
 	schedulerOpenGas  uint64 = 25000
@@ -45,8 +47,9 @@ func methodGas(selector []byte) (base, perByte uint64, known bool) {
 	switch binary.BigEndian.Uint32(selector) {
 	case 0x454ad3a1, 0x3df597e3, 0x3f779aef:
 		return orobBaseGas, orobPerByteGas, true
-	case 0xe087a6ba, 0x1b1fba48, 0xa8f32b0e,
-		0xf52981f4,
+	case 0xe087a6ba, 0x1b1fba48, 0xa8f32b0e:
+		return pofqBaseGas, pofqPerByteGas, true
+	case 0xf52981f4,
 		0x894e9a0d, 0x01ec24b8, 0x26f02502:
 		return 1000, 3, true
 	case 0xbf22c457, 0x5eebea20:
