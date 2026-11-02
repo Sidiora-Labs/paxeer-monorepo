@@ -30,6 +30,9 @@ fn expected_public_key() -> String {
 
 #[test]
 fn imported_seed_is_never_written_to_configuration() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let output = cli.run_with_stdin(&["--json", "key", "import", "alpha"], SEED_HEX);
     assert!(
@@ -80,6 +83,9 @@ fn imported_seed_is_never_written_to_configuration() {
 #[cfg(unix)]
 #[test]
 fn configuration_file_is_owner_only() {
+    if !common::credential_environment() {
+        return;
+    }
     use std::os::unix::fs::PermissionsExt as _;
 
     let cli = Cli::new();
@@ -99,6 +105,9 @@ fn configuration_file_is_owner_only() {
 
 #[test]
 fn created_key_reports_its_secret_storage_and_hides_the_secret() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let created = cli.run(&["--json", "key", "create", "alpha"]);
     assert!(created.status.success());
@@ -121,6 +130,9 @@ fn created_key_reports_its_secret_storage_and_hides_the_secret() {
 
 #[test]
 fn api_token_is_never_written_to_configuration() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     // Materialise a configuration file first so the assertion inspects a real file.
     assert!(cli
@@ -153,6 +165,9 @@ fn api_token_is_never_written_to_configuration() {
 
 #[test]
 fn duplicate_key_names_are_refused_with_a_machine_readable_error() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     assert!(cli
         .run(&["--json", "key", "create", "alpha"])
@@ -167,4 +182,56 @@ fn duplicate_key_names_are_refused_with_a_machine_readable_error() {
         value.pointer("/error/code").and_then(Value::as_str),
         Some("command_failed")
     );
+}
+
+#[test]
+fn missing_dbus_prints_the_named_skip_reason() {
+    let directory = tempfile::tempdir().expect("empty executable search directory");
+    for test in [
+        "imported_seed_is_never_written_to_configuration",
+        #[cfg(unix)]
+        "configuration_file_is_owner_only",
+        "created_key_reports_its_secret_storage_and_hides_the_secret",
+        "api_token_is_never_written_to_configuration",
+        "duplicate_key_names_are_refused_with_a_machine_readable_error",
+    ] {
+        let output = std::process::Command::new(std::env::current_exe().expect("test executable"))
+            .args(["--exact", test, "--nocapture"])
+            .env("PATH", directory.path())
+            .env_remove("LAYERX_CLI_TESTS_REQUIRE_DBUS")
+            .output()
+            .expect("credential test subprocess starts");
+        assert!(output.status.success(), "{test}: {output:?}");
+        assert!(
+            String::from_utf8_lossy(&output.stderr)
+                .contains("skipped: dbus-daemon is not installed"),
+            "{test}: {output:?}"
+        );
+        assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
+    }
+}
+
+#[test]
+fn required_dbus_preserves_the_missing_daemon_panic() {
+    let directory = tempfile::tempdir().expect("empty executable search directory");
+    for required in ["", "1"] {
+        let output = std::process::Command::new(std::env::current_exe().expect("test executable"))
+            .args([
+                "--exact",
+                "imported_seed_is_never_written_to_configuration",
+                "--nocapture",
+            ])
+            .env("PATH", directory.path())
+            .env("LAYERX_CLI_TESTS_REQUIRE_DBUS", required)
+            .output()
+            .expect("credential test subprocess starts");
+        assert_eq!(output.status.code(), Some(101), "{output:?}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("dbus-daemon must be installed for real credential tests"),
+            "{stderr}"
+        );
+        assert!(!stderr.contains("skipped: dbus-daemon is not installed"));
+        assert!(String::from_utf8_lossy(&output.stdout).contains("1 failed"));
+    }
 }

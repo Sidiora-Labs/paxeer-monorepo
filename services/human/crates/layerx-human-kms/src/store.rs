@@ -434,14 +434,14 @@ impl Store {
             .records
             .get_mut(&hex(&request.binding))
             .ok_or(Error::NotFound)?;
-        if record.class != request.class
-            || request.reference != record.handle
-            || record.seed.is_none()
-        {
+        if record.class != request.class || request.reference != record.handle {
             return Err(Error::Refused);
         }
         if record.self_custodied {
             return Err(Error::SelfCustodied);
+        }
+        if record.seed.is_none() {
+            return Err(Error::NotFound);
         }
         if request.operation == 6 {
             if record.wallet.is_none() {

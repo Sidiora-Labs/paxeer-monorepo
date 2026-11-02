@@ -30,6 +30,35 @@ pub struct CompiledIntent {
 }
 
 impl CompiledIntent {
+    /// Decodes the producer's payload again at the consumer boundary.
+    ///
+    /// # Errors
+    /// Refuses a disclosure that differs from the originating typed intent.
+    pub fn verify_disclosure(
+        &self,
+        intent: &Intent,
+    ) -> Result<crate::DisclosureCheck, crate::DisclosureCheckError> {
+        self.verify_received_payload(intent, self.payload())
+    }
+
+    /// Checks received bytes against both the producer's commitment and intent.
+    /// No decoded result is cached between calls.
+    ///
+    /// # Errors
+    /// Refuses a changed activity type, malformed bytes or a changed payload hash.
+    pub fn verify_received_payload(
+        &self,
+        intent: &Intent,
+        payload: &Payload,
+    ) -> Result<crate::DisclosureCheck, crate::DisclosureCheckError> {
+        let received = Self {
+            activity_type: self.activity_type,
+            payload: payload.clone(),
+            payload_hash: self.payload_hash,
+        };
+        crate::DisclosureCheck::verify(intent, &received)
+    }
+
     #[must_use]
     pub const fn activity_type(&self) -> ActivityType {
         self.activity_type

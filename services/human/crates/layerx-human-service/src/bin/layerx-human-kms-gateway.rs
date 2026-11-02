@@ -1,8 +1,5 @@
 use std::env;
-use std::fs::File;
-use std::io::Read;
 use std::net::{SocketAddr, TcpListener};
-use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -14,7 +11,6 @@ use layerx_human_service::custody::{
 use layerx_human_service::frame::{Limits, MutualTlsConfig};
 use layerx_types::clock::Clock;
 use layerx_types::payload::ModuleRegistry;
-use rustix::fs::{Mode, OFlags};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::RootCertStore;
 use serde::Deserialize;
@@ -23,7 +19,6 @@ use zeroize::Zeroizing;
 const PREFIX: &str = "LAYERX_HUMAN_KMS_GATEWAY";
 const LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE: &str = "LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE";
 const REMOTE_PROVIDER: &str = "remote-lxkp";
-const MATERIAL_LIMIT: usize = 65_536;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -156,29 +151,7 @@ fn material(suffix: &str, secret: bool) -> Result<Zeroizing<Vec<u8>>, String> {
 }
 
 fn protected(path: &Path, secret: bool) -> Result<Zeroizing<Vec<u8>>, &'static str> {
-    let descriptor = rustix::fs::open(
-        path,
-        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
-        Mode::empty(),
-    )
-    .map_err(|_| "cannot be opened")?;
-    let mut file = File::from(descriptor);
-    let metadata = file.metadata().map_err(|_| "has no metadata")?;
-    if !metadata.is_file()
-        || metadata.uid() != rustix::process::geteuid().as_raw()
-        || metadata.mode() & (if secret { 0o077 } else { 0o022 }) != 0
-    {
-        return Err("ownership or permissions were refused");
-    }
-    let mut bytes = Zeroizing::new(Vec::new());
-    file.by_ref()
-        .take(u64::try_from(MATERIAL_LIMIT).map_err(|_| "bound is invalid")? + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| "is unreadable")?;
-    if bytes.is_empty() || bytes.len() > MATERIAL_LIMIT {
-        return Err("size was refused");
-    }
-    Ok(bytes)
+    GatewayTls::read_material(path, secret)
 }
 
 fn required(suffix: &str) -> Result<String, String> {

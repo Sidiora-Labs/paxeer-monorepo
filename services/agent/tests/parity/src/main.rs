@@ -240,8 +240,15 @@ fn qualify_node(url: &Url) -> Result<Freshness, String> {
     if block.number != height || block.hash == [0; 32] {
         return Err("node JSON-RPC returned a mismatched head block".to_owned());
     }
-    node.receipt_keys()
+    let keys = node
+        .receipt_keys()
         .map_err(|error| format!("node JSON-RPC receipt keys failed: {error}"))?;
+    let repeated_keys = node
+        .receipt_keys()
+        .map_err(|error| format!("repeated node JSON-RPC receipt keys failed: {error}"))?;
+    if keys != repeated_keys {
+        return Err("node changed receipt authority during parity qualification".to_owned());
+    }
     Ok(Freshness {
         chain_head: height,
         value_height: height,

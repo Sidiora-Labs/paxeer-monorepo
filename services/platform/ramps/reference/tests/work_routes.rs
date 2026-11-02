@@ -314,8 +314,14 @@ fn work_route_refuses_native_payload_field() {
     let config = workspace.config(address);
     drop(reservation);
     let _ramp = Ramp::start(&config, address);
-    for action in ["submit_layerx", "compliance"] {
-        for payload in [json!([1, 2, 3]), json!([]), Value::Null] {
+    for action in [
+        "submit_layerx",
+        "compliance",
+        "submit_provider",
+        "reconcile_provider",
+        "resolve_layerx",
+    ] {
+        for payload in [json!([1, 2, 3]), json!([]), Value::Null, json!({})] {
             let mut body = json!({
                 "order_digest": ([7_u8; 32]),
                 "action": action,
@@ -341,6 +347,27 @@ fn work_route_refuses_native_payload_field() {
         "/internal/v1/work",
         &serde_json::to_vec(&body).expect("encode current work request"),
     );
-    assert_eq!(status, 503, "{response}");
-    assert_eq!(response, json!({"error": "journal_recovery_required"}));
+    assert_eq!(status, 404, "{response}");
+    assert_eq!(response, json!({"error": "order_not_found"}));
+
+    for action in [
+        "compliance",
+        "submit_provider",
+        "reconcile_provider",
+        "resolve_layerx",
+    ] {
+        let body = json!({
+            "order_digest": ([7_u8; 32]),
+            "action": action,
+            "account_sequence": 1
+        });
+        let (status, response) = request(
+            TcpStream::connect(address).expect("connect with invalid account sequence"),
+            "POST",
+            "/internal/v1/work",
+            &serde_json::to_vec(&body).expect("encode invalid work request"),
+        );
+        assert_eq!(status, 400, "{response}");
+        assert_eq!(response, json!({"error": "work_invalid"}));
+    }
 }
