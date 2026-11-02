@@ -131847,7 +131847,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1496.1]
 title = "Issue #1496: Express the default chain bond and creation fee in bank base units"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1495.1"]
@@ -184138,7 +184138,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.1.8]
 title = "Reconcile the ledger, asset and service-dispute kernel tests with the current kernel state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184314,7 +184314,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.3.5]
 title = "Resolve chain operators through the EVM association for bond, fund and refund"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
