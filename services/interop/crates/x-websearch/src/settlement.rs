@@ -270,6 +270,7 @@ pub fn decode(value: &Value) -> Result<SettlementReceipt, SettlementError> {
             "contractAddress",
             "vmError",
             "keyId",
+            "signingKey",
             "receipt",
             "blockNumber",
             "blockHash",
