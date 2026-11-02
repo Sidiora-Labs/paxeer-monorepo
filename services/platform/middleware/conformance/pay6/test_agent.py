@@ -5,7 +5,8 @@ import unittest
 from pathlib import Path
 from urllib.error import URLError
 
-from test_commitment import CommitmentTests
+from test_commitment import CommitmentTests, FIXTURE
+from layerx_sdk.verifier import verify_sequencer_receipt
 from layerx_sdk.x402_agent import PaymentBudget, AgentGrantMiddleware
 from layerx_sdk.x402_draw import PreparedGrantDraws
 from layerx_sdk.x402_rpc import PaymentRpc
@@ -15,6 +16,15 @@ from layerx_sdk.x402_http import PaymentEvidence
 
 
 class AgentBudgetTests(CommitmentTests):
+    def test_agent_receipt_uses_pinned_evm_key(self):
+        verified = verify_sequencer_receipt(
+            self.wire, self.raw_transaction, self.receipt_keys
+        )
+        self.assertEqual(verified.canonical_bytes, self.wire)
+        self.assertEqual(verified.receipt.activity_id.hex(), FIXTURE["txHash"][2:])
+        self.assertEqual(verified.height, int(FIXTURE["rpcResult"]["height"], 16))
+        self.assertEqual(verified.receipt.from_account.hex(), FIXTURE["payer"][2:])
+
     def test_budget_receipt_commit_and_replay(self):
         offer = {
             "scheme": "exact",
@@ -24,7 +34,7 @@ class AgentBudgetTests(CommitmentTests):
             "payTo": self.offer["pay_to"],
             "maxTimeoutSeconds": 30,
         }
-        evidence = PaymentEvidence(self.wire, self.authorized)
+        evidence = PaymentEvidence(self.wire, self.raw_transaction)
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "budgets.sqlite")
             budget = PaymentBudget(
@@ -34,14 +44,14 @@ class AgentBudgetTests(CommitmentTests):
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 list(pool.map(lambda _: budget.reserve(key, digest, offer), range(8)))
             for _ in range(2):
-                budget.verify_and_commit(key, digest, offer, evidence, self.signatures)
+                budget.verify_and_commit(key, digest, offer, evidence, self.receipt_keys)
             with self.assertRaises(ValueError):
                 budget.reserve(key, "03" * 32, offer)
             second = "04" * 32
             budget.reserve(second, digest, offer)
             with self.assertRaises(sqlite3.IntegrityError):
                 budget.verify_and_commit(
-                    second, digest, offer, evidence, self.signatures
+                    second, digest, offer, evidence, self.receipt_keys
                 )
             with self.assertRaises(ValueError):
                 budget.reserve("05" * 32, digest, offer)
@@ -88,13 +98,13 @@ class AgentBudgetTests(CommitmentTests):
                 "did:lxp:pay6-receiver",
                 7,
                 PaymentRpc("http://127.0.0.1:1/rpc"),
-                ConfiguredReceiptAuthority(self.authorized),
-                self.signatures,
+                ConfiguredReceiptAuthority(self.raw_transaction),
+                self.receipt_keys,
             )
             draws.register(
                 "payer", digest, canonical, receive, key, "subscription:period:1"
             )
-            agent = AgentGrantMiddleware(budget, draws, self.signatures)
+            agent = AgentGrantMiddleware(budget, draws, self.receipt_keys)
             for _ in range(2):
                 with self.assertRaises(URLError):
                     agent(
@@ -131,8 +141,8 @@ class AgentBudgetTests(CommitmentTests):
                     key,
                     digest,
                     offer,
-                    PaymentEvidence(self.wire, self.authorized),
-                    self.signatures,
+                    PaymentEvidence(self.wire, self.raw_transaction),
+                    self.receipt_keys,
                 )
             with sqlite3.connect(path) as db:
                 self.assertEqual(

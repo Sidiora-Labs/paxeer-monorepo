@@ -13101,3 +13101,58 @@ fix = "Every seller-side offer carries extra.layerx with commitment receipted an
 title = "A test that imports packages through their dist entries needs those packages built by the task's build"
 symptom = "A task's build was a syntax check of one script; its test imported four workspace packages through node_modules dist entries that nothing had built, and failed with ERR_MODULE_NOT_FOUND."
 fix = "List every workspace package the test imports, directly or through support files, and build each one in the build command before the check."
+
+[gotcha.2657]
+title = "Dependents of a crate broken at the base are invisible to the dependent-crate check"
+symptom = "A task deleted a module of a shared crate while another crate of the workspace did not build at the base; the check left out every crate depending on the broken one, which were exactly the deleted module's consumers, and the service did not build on main for two hours."
+fix = "While any crate is broken at the base, grep its dependents for the retired names by hand before the retiring task qualifies, and keep the broken list empty as a priority."
+
+[gotcha.2658]
+title = "A retirement task must name every consumer file of the retired item, not only the ones a wiring request lists"
+symptom = "A task retired an owner-activity module naming one KMS test as its consumer; a grep of the workspace shows four service sources, two service tests and one more KMS test calling it."
+fix = "Write the retirement's do lines from a grep of every workspace for the item's path and names, and make the verify repeat that grep."
+
+[gotcha.2659]
+title = "A task block with an empty owner role stalls the collection of every finished task behind it"
+symptom = "A node task was written with owner_role empty because its parent block had no owner key; when its first attempt finished, the collector could not name the branch to merge onto, raised, and nine other finished results waited behind it for a quarter of an hour."
+fix = "Give every task the owner role of its family (the node rpc tasks are fm-node-runtime) and let the collector skip and report a result it cannot merge instead of stopping."
+
+[gotcha.2660]
+title = "A configuration-only task must not declare the whole tree's compiler run as its build"
+symptom = "A task editing the root Foundry profile and one Python test declared forge build at the root as its build; the root Solidity tree had 42 missing imports from retirements already on main, and three attempts failed before any test ran."
+fix = "Declare a build that exercises exactly the files the task touches (a configuration parse, a byte-compile) and leave the tree build to the tasks that own the sources."
+
+[gotcha.2661]
+title = "The recorded receipt vectors carry the sequencer's signing digest under the name receiptDigest, not the portable receipt digest"
+symptom = "An integration test compared the buyer middleware's portable receipt digest, keccak256 of the signed receipt, with the receiptDigest field of the recorded vector, the signing digest over the unsigned receipt, and failed on two valid but different values."
+fix = "Derive the expected portable digest from the vector's signedReceipt bytes with keccak256, as the buyer middleware tests do, and treat the vector's receiptDigest as the signing digest only."
+
+[gotcha.2662]
+title = "An SDK's verification level table must follow the daemon's rung names when they change"
+symptom = "A Python decoder kept the six retired kernel verification levels while the daemon, its goldens and the same SDK's x402 client used the three rungs, so every not-ready status failed local verification."
+fix = "When a producer renames an enumerated field's values, grep every SDK for the old names and port the tables and tests in the same change."
+
+[gotcha.2663]
+title = "A verifier must not require a field the offer contract makes optional for one scheme"
+symptom = "A seller required a purpose hash on every offer while its own parser, the documentation and the interop seller made it optional for exact offers, so the exact-scheme example verified no receipt."
+fix = "When a verification step reads an offer field, take the required flag from the same scheme rule the offer parser applies, and cover the optional case in the verifier's tests."
+
+[gotcha.2664]
+title = "A mismatch test must construct a mismatch the verifier's inputs let it observe"
+symptom = "A test swapped a validator the commit never signed for and expected a refusal, but the evidence carries no validators hash, so the verifier saw three valid signatures of four and accepted."
+fix = "Read the verifier's input type before writing a refusal test; mutate a field it compares, here a signing validator, and name the failure the verifier emits."
+
+[gotcha.2665]
+title = "A reachability guard must recognise every runner the tree uses"
+symptom = "A guard that every pytest suite is passed to pytest flagged 21 SDK suites that a Makefile rule runs through unittest discover on their directory."
+fix = "List the runners in the Makefile and workflows before writing a reachability rule, and accept each runner's directory form."
+
+[gotcha.2666]
+title = "A retirement's consumer request must name every platform binary that calls the retired item"
+symptom = "A proof-crate retirement routed its platform callers through a request naming the hosted core only; the hosted gateway called the same function and has not compiled since."
+fix = "Grep every workspace for the retired path and list each calling crate in the request or as its own port task before the retirement lands."
+
+[gotcha.2667]
+title = "A helper added to a private module needs the parent's re-export in the same task"
+symptom = "A task declared the file of a new pub(crate) helper and its callers but not the module file that declares the helper's module privately, so the callers failed with E0603."
+fix = "When a task adds an item to a module, list the module's parent file in touches and spell out the re-export line."

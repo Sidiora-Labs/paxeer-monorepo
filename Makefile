@@ -259,7 +259,7 @@ test-harness: $(BUILD_DIR)/tests/lxp_test_harness
 test-tests-python:
 	python3 -m pytest tests/ci/test_real_node_build_ownership.py \
 		tests/ci/test_runner_routing_container_runtime.py \
-		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py
+		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci
 
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
