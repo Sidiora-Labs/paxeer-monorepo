@@ -43,6 +43,7 @@ func prepareCustodyMerge(t *testing.T) (*env, types.Claim, upgradetypes.Plan) {
 	cacheDB := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, cacheDB.Close()) })
 	e.ctx = e.ctx.WithMultiStore(cachemulti.NewStore(cacheDB, stores, keys, nil, nil, nil, 0))
+	e.ctx, _ = e.ctx.CacheContext()
 	app.LayerXAnchorKeeper = anchorkeeper.NewKeeper(anchorKey, app.AccountKeeper, app.BankKeeper)
 	app.LayerXAnchorKeeper.InitGenesis(e.ctx, *anchortypes.DefaultGenesis())
 	authority, _ := testkeeper.MockAddressPair()
@@ -51,8 +52,7 @@ func prepareCustodyMerge(t *testing.T) (*env, types.Claim, upgradetypes.Plan) {
 	require.NoError(t, e.k.SetParams(e.ctx, params))
 	e.deposit(e.withdrawal.Fields["asset"], 1_000)
 	e.deposit(e.exit.Fields["asset"], 2_000)
-	claim, err := e.k.RequestWithdrawal(e.ctx, e.evidence())
-	require.NoError(t, err)
+	claim := e.seedClaim(types.ClaimKind_CLAIM_KIND_WITHDRAWAL, vectorNumber(t, e.withdrawal, "batch_number"))
 	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_PENDING, claim.Status)
 
 	const height = int64(20)

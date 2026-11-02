@@ -2,13 +2,7 @@
 
 use crate::lni::handshake::NodeInfo;
 
-/// Freshness coordinates attached to every head-sensitive result.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Head {
-    pub chain_sequence: u64,
-    pub sealed_batch: u64,
-    pub finalised_checkpoint: [u8; 32],
-}
+pub use crate::rpc::Head;
 
 /// One advertised key's accepted batch interval.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

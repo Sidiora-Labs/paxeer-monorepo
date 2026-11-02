@@ -46,7 +46,7 @@ impl Operation {
             (1, 3) => Self::Rotate,
             (2, 3) => Self::RotateIfCurrent,
             (1, 4) => Self::Destroy,
-            (1, 5) => Self::Sign,
+            (7, 5) => Self::Sign,
             (3, 6) => Self::EvmWallet,
             (3, 7..=10 | 12) => Self::Evm,
             (3, 11) => Self::AuthorizeSend,
@@ -71,6 +71,7 @@ pub(crate) struct Request<'a> {
     pub reference: &'a [u8],
     pub expected: Option<[u8; 32]>,
     pub digest: [u8; 32],
+    pub from: [u8; 20],
     pub challenge: [u8; 32],
     pub canonical: &'a [u8],
     pub evm: &'a [u8],
@@ -103,6 +104,7 @@ impl<'a> Request<'a> {
             reference: &[],
             expected: None,
             digest: [0; 32],
+            from: [0; 20],
             challenge: [0; 32],
             canonical: &[],
             disclosure: &[],
@@ -132,9 +134,10 @@ impl<'a> Request<'a> {
         }
         if kind == Operation::Sign {
             value.digest = r.fixed()?;
+            value.from = r.fixed()?;
             value.canonical = r.blob(MAX_FRAME)?;
             value.disclosure = r.blob(MAX_FRAME)?;
-            if value.canonical.is_empty() || value.disclosure.is_empty() {
+            if value.from == [0; 20] || value.canonical.is_empty() || value.disclosure.is_empty() {
                 return Err(Error::Refused);
             }
         }

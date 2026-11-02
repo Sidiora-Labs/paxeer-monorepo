@@ -14,7 +14,7 @@ receipt or proof that this layer verified for itself.
 | Enrolment and MCP host path | [Running an agent](running.md) |
 | Language SDKs | [SDKs](sdks.md) |
 | MCP tools | [MCP](mcp.md) |
-| Program CALL terminals | [SDK terminal verification](sdk-verification.md) |
+| Sequencer receipts | [SDK sequencer receipt verification](sdk-verification.md) |
 
 `layerx-agentd` is `services/agent/crates/layerx-agentd`. The MCP server is
 `services/agent/crates/layerx-mcp`. The developer CLI installs those transports with

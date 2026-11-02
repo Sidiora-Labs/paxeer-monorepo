@@ -601,9 +601,7 @@ dependencies = [
  "ed25519-dalek",
  "layerx-program-sdk",
  "layerx-programs-runtime",
- "layerx-proof",
  "layerx-types",
- "layerx-wire",
  "sha2",
 ]
 

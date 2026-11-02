@@ -5,14 +5,11 @@ use std::thread;
 use layerx_proof::receipt::{
     verify, verify_sequencer_signature, AuthorizedBatch, VerificationFailure, VerifiedReceipt,
 };
-use layerx_proof::receipt::{
-    verify_native_owner_outcome, NativeOwnerOutcomeContext, NativeOwnerOutcomeFailure,
-};
 
-use crate::client::ReconnectPolicy;
 use crate::lni::refusal::decode_core_refusal;
 use crate::lni::schema::{decode_envelope, encode_envelope, Envelope, SchemaError, Version};
 use crate::lni::transport::{FrameTransport, TransportError};
+use crate::rpc::receipt::ReconnectPolicy;
 use crate::submit::Unknown;
 use layerx_types::result::ResultCode;
 use layerx_wire::receipt::Receipt;
@@ -166,7 +163,6 @@ pub enum ReceiptError {
         result: layerx_types::result::ResultCode,
     },
     Verification(VerificationFailure),
-    NativeOwnerVerification(NativeOwnerOutcomeFailure),
     ActivityMismatch {
         expected: [u8; 32],
         actual: [u8; 32],
@@ -220,23 +216,6 @@ pub fn lookup(
 ) -> Result<Lookup, ReceiptError> {
     lookup_verified(transport, selector, context, |bytes| {
         verify(bytes, &context.authorised_batch).map_err(ReceiptError::Verification)
-    })
-}
-
-/// Retrieves an owner module outcome bound to an independently retained signing request.
-///
-/// # Errors
-/// Refuses malformed transport, selector mismatches and every activity, owner,
-/// signature, receipt, root and fee binding failure.
-pub fn lookup_native_owner(
-    transport: &mut dyn FrameTransport,
-    selector: ReceiptSelector,
-    context: LookupContext,
-    expected: &NativeOwnerOutcomeContext<'_>,
-) -> Result<Lookup, ReceiptError> {
-    lookup_verified(transport, selector, context, |bytes| {
-        verify_native_owner_outcome(bytes, &context.authorised_batch, expected)
-            .map_err(ReceiptError::NativeOwnerVerification)
     })
 }
 
