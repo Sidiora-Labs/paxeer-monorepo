@@ -13216,3 +13216,8 @@ fix = "When retiring a wire type, grep tests/qualification and the vectors produ
 title = "Delete a transport module only after a consumer census, and re-home shared types where their users live"
 symptom = "9.24.7 deleted the LNI module whose Version type two RPC files import and whose transport the agent daemon library, seventeen test targets and the pay2e qualification still use."
 fix = "Before a module deletion, grep every crate for its path; re-home shared types next to their consumers in the same task and block the deletion until the transport consumers have port tasks."
+
+[gotcha.2680]
+title = "Re-check a retirement decision's consumer basis before the task runs; new work may have adopted the surface"
+symptom = "Decision 681 counted Governed.sol's importers in September; the .pax names contracts inherited it on 2026-10-31 and a gate written against the old basis failed on four live suites."
+fix = "When a retirement task becomes eligible, grep the repository for the surface again and supersede or re-scope the task if live consumers appeared after the decision."

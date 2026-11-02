@@ -17075,3 +17075,19 @@ symbol = "decode_and_verify_program_terminal"
 observed = "Task 9.97.7 removed decode_and_verify_program_terminal from layerx_sdk.program_wire (it is listed as retired in services/agent/sdk/python/tests/test_retired_kernel_receipts.py:70), but tests/agent/sdk/python/test_integration.py:51 still imports it and three tests call it: test_candidate_terminal_response_and_usage_are_receipt_bound (:231), test_terminal_attachments_bind_canonical_money_and_occupancy_evidence (:251) and test_state_commitment_occupancy_pays_from_the_proven_payer_account (:339); the module fails to import, so the verify of task 9.97.14 (attempt 1, 0eeac80a3) stopped at collection."
 assumption = "Producer gap of 9.97.7, whose gate ran only the SDK's own tests; task 9.97.14, which already edits test_integration.py, deletes the import and the three kernel-terminal tests."
 severity = "major"
+
+[finding.6.80.2.1]
+task = "6.80.2"
+file = "contracts/security/Governed.sol:4"
+symbol = "Governed"
+observed = "Decision 681 (basis: every importer of contracts/security outside the Sidiora proxy timelock is a retired kernel contract or a suite deleted in wave 6) no longer holds on main: the .pax names contracts written on 2026-10-31 by tasks 19.1.1 and 18.1377.1 inherit Governed (contracts/names/PaxBaseRegistrar.sol, PaxNameAvailability.sol, PaxPublicResolver.sol, PaxRegistrarController.sol) and their four suites under tests/solidity/names import it; task 6.80.2 touches none of them, so deleting the file would break the names deployment."
+assumption = "Governed is a two-modifier governance base, not a kernel settlement surface; it stays as the base of the names contracts and task 6.80.2 is superseded (decision 2257)."
+severity = "major"
+
+[finding.16.97.3.1]
+task = "16.97.3"
+file = "tests/ci/test_requested_retirements_absent.py:17"
+symbol = "test_security_storage_suites_absent"
+observed = "Attempt 1 of task 16.97.3 (07ba0264f) implemented acceptance 16967.3 as written, scanning every suite under tests/solidity for imports of contracts/security or contracts/storage, and failed on the four names suites that import contracts/security/Governed.sol, a live contract (finding 6.80.2.1); the five retired suites of do_2 are absent and the storage imports are gone."
+assumption = "The criterion was broader than the retirement it gates: it narrows to the five named suites being absent and to contracts/storage imports; contracts/security imports are not a retired surface while Governed stays."
+severity = "minor"

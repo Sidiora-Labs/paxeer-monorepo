@@ -6651,6 +6651,12 @@ value = "9.24.7 keeps status blocked. The ports are written per consumer from th
 basis = "Finding 9.24.7.1: the LNI module has five library consumers in layerx-agentd and a test support file seventeen targets include; deleting it first would leave the daemon uncompilable."
 affects = ["9.24.7", "9.24.6"]
 
+[decision.2257]
+title = "contracts/security/Governed.sol stays as the governance base of the .pax names contracts; task 6.80.2 is superseded and acceptance 16967.3 gates only the storage imports and the five named suites"
+value = "Governed.sol remains on main with its onlyGovernance and onlyEmergencyCouncil modifiers for contracts/names/*.sol; task 6.80.2 takes status superseded and leaves the requires of 6.0.9; decision 681 is amended so that ReentrancyLock and Governed both stay. Acceptance 16967.3 reads: no Solidity suite under tests/solidity imports contracts/storage, and tests/solidity/ContractIntegration.t.sol, ContractExecutionSafety.t.sol, CheckpointChallengeManager.t.sol, ContractInvariants.t.sol and PaxeerBetaDeploy.t.sol are absent. Task 16.97.3 continues from attempt 1 with the test narrowed accordingly."
+basis = "Findings 6.80.2.1 and 16.97.3.1: the names contracts adopted Governed after decision 681 was taken, and no retirement task ports them off it; a governance base of eighteen lines is not worth a port."
+affects = ["6.80.2", "16.97.3", "6.0.9"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -24770,7 +24776,7 @@ ac_4 = "tests/bridge/test_credit.c, tests/bridge/test_light_credit.c and tests/b
 title = "Gate the retired relay-archive tree and the retired Solidity suites and scripts"
 ac_1 = "The docker/relay-archive directory is absent."
 ac_2 = "The tests/relay-archive directory is absent."
-ac_3 = "No Solidity suite under tests/solidity imports contracts/security or contracts/storage."
+ac_3 = "No Solidity suite under tests/solidity imports contracts/storage, and tests/solidity/ContractIntegration.t.sol, tests/solidity/ContractExecutionSafety.t.sol, tests/solidity/CheckpointChallengeManager.t.sol, tests/solidity/ContractInvariants.t.sol and tests/solidity/PaxeerBetaDeploy.t.sol are absent."
 ac_4 = "tests/solidity/ContractInvariants.t.sol and tests/solidity/PaxeerBetaDeploy.t.sol are absent."
 ac_5 = "scripts/PaxeerBetaDeploy.s.sol is absent, so no script imports WithdrawalNullifierRegistry."
 ac_6 = "scripts/ci/solidity-state-surface.sh names no WithdrawalNullifierRegistry."
@@ -128487,7 +128493,7 @@ title = "Gate domain 6 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 42
-requires = ["6.0.1", "6.0.2", "6.0.3", "6.0.4", "6.2.3", "6.2.4", "6.13.1", "6.32.3", "6.34.1", "6.52.1", "6.52.2", "6.52.3", "6.52.4", "6.52.5", "6.53.1", "6.53.2", "6.53.3", "6.53.4", "6.54.1", "6.54.2", "6.54.3", "6.54.4", "6.55.1", "6.55.2", "6.56.1", "6.56.3", "6.56.4", "6.57.1", "6.57.2", "6.57.3", "6.57.4", "6.57.5", "6.57.6", "6.57.7", "6.57.8", "6.57.9", "6.57.10", "6.58.1", "6.58.2", "6.58.4", "6.58.5", "6.58.7", "6.58.8", "6.58.9", "6.59.1", "6.59.2", "6.59.3", "6.59.4", "6.59.5", "6.59.6", "6.59.7", "6.59.8", "6.60.2", "6.60.3", "6.60.4", "6.60.5", "6.71.1", "6.80.1", "6.80.2", "6.80.4", "6.80.5", "6.97.2", "6.96.3", "6.96.4", "6.96.5"]
+requires = ["6.0.1", "6.0.2", "6.0.3", "6.0.4", "6.2.3", "6.2.4", "6.13.1", "6.32.3", "6.34.1", "6.52.1", "6.52.2", "6.52.3", "6.52.4", "6.52.5", "6.53.1", "6.53.2", "6.53.3", "6.53.4", "6.54.1", "6.54.2", "6.54.3", "6.54.4", "6.55.1", "6.55.2", "6.56.1", "6.56.3", "6.56.4", "6.57.1", "6.57.2", "6.57.3", "6.57.4", "6.57.5", "6.57.6", "6.57.7", "6.57.8", "6.57.9", "6.57.10", "6.58.1", "6.58.2", "6.58.4", "6.58.5", "6.58.7", "6.58.8", "6.58.9", "6.59.1", "6.59.2", "6.59.3", "6.59.4", "6.59.5", "6.59.6", "6.59.7", "6.59.8", "6.60.2", "6.60.3", "6.60.4", "6.60.5", "6.71.1", "6.80.1", "6.80.4", "6.80.5", "6.97.2", "6.96.3", "6.96.4", "6.96.5"]
 reqs = ["6999.1"]
 capabilities = ["6.0.9"]
 interfaces = []
@@ -135757,7 +135763,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.80.2]
 title = "Retire contracts/security/Governed.sol"
-status = "pending"
+status = "superseded"
 mode = "BUILD"
 wave = 39
 requires = ["6.51.1", "16.97.3"]
@@ -135786,6 +135792,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Superseded by decision 2257: Governed.sol stays as the governance base of contracts/names; nothing in this task runs."
 
 [task.6.80.3]
 title = "Retire contracts/security/LayerXComponent.sol"
@@ -181954,6 +181961,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "test_security_storage_suites_absent asserts the absence of the five suites named in acceptance 16967.3 and that no .sol file under tests/solidity imports a path containing contracts/storage/; it does not scan contracts/security imports, because contracts/security/Governed.sol stays as the base of the names contracts (decision 2257). Attempt 1 (07ba0264f) holds the other five tests unchanged."
 
 [task.16.97.4]
 title = "Gate the wave gate scripts provided by the gate runner tasks"
