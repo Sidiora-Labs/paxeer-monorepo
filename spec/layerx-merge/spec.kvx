@@ -126624,7 +126624,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1499.1]
 title = "Issue #1499: Reconcile CLI chain enumeration with the accepted sparse registry genesis"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.8.10", "22.9.24"]
@@ -126773,7 +126773,7 @@ do_3 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fail
 
 [task.22.8.12]
 title = "Reconcile the reference ramp route order, the authority native outcomes and the PaxAI transport identity fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
@@ -127616,7 +127616,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.90.9]
 title = "Make every target of layerx-human-kms build on main"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.100.2", "22.9.24"]
@@ -128292,7 +128292,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.97.1]
 title = "Prove the human intents path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.100.2", "22.9.24"]
