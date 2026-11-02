@@ -30,6 +30,11 @@ function FeeTierPanelContent({
   isLoading = false,
   error = null,
 }: PortfolioFeeTierPanelProps & { isLoading?: boolean; error?: Error | null }) {
+  if (view && (
+    !Number.isInteger(view.tier) || view.tier < 0 || view.tier > 255 ||
+    !Number.isFinite(view.takerBps) || !Number.isFinite(view.makerBps) ||
+    typeof view.volume14dUsd !== "bigint" || view.volume14dUsd < 0n
+  )) throw new Error("Invalid fee tier view");
   return (
     <div className="space-y-4 md:space-y-6">
       <SectionCard title="Fee tier">

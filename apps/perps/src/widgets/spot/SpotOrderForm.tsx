@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { SPOT_MARKETS } from "@/core/spot/config";
 import { formatUnits, type Address } from "viem";
 import { cn } from "@/ui/utils/cn";
 import { Info } from "lucide-react";
@@ -237,7 +238,16 @@ export function spotSubmitBlocked(
   | "TokenNotRegistered"
   | "TokenStateUnavailable"
   | null {
-  if (!state) return "TokenStateUnavailable";
+  if (
+    !state ||
+    typeof state.paused !== "boolean" ||
+    typeof state.tradeable !== "boolean" ||
+    (state.paused
+      ? state.tradeable || state.reason !== "TokenPaused"
+      : state.tradeable
+        ? state.reason !== null
+        : state.reason !== "TokenNotRegistered")
+  ) return "TokenStateUnavailable";
   if (state.paused) return "TRADE_MARKET_HALTED";
   if (!state.tradeable) return "TokenNotRegistered";
   return null;
@@ -368,6 +378,18 @@ interface SpotOrderFormProps {
 }
 
 export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
+  const registered = SPOT_MARKETS.find((entry) => entry.symbol === market.symbol);
+  if (
+    !registered || market.baseAddress !== registered.baseAddress ||
+    market.baseDecimals !== registered.baseDecimals ||
+    market.baseToken !== registered.baseToken || market.quoteToken !== registered.quoteToken ||
+    market.baseTokenMeta.address !== registered.baseTokenMeta.address ||
+    market.baseTokenMeta.isNative !== registered.baseTokenMeta.isNative
+  ) throw new Error("Invalid spot order market");
+  return <ConnectedSpotOrderForm market={market} compact={compact} />;
+}
+
+function ConnectedSpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
   const { isConnected, connect, isCorrectChain, switchToPaxeer, address } =
     usePerpsWallet();
 
