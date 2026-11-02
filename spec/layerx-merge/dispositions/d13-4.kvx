@@ -1,0 +1,59 @@
+[disposition.13.30.4.1]
+finding = "13.30.4.1"
+status = "environment"
+evidence = "programs/crates/layerx-programs-arbiter/tests/verified_step.rs:189 still explicitly requires the genuine external replay corpus for release tests, so the recorded NotPresent was a missing qualification input rather than a repository defect."
+
+[disposition.13.30.4.2]
+finding = "13.30.4.2"
+status = "resolved"
+evidence = "Commit db2f3d738 adds the committed module-catalogue app-hash vector and its keeper generator without the external replay-corpus dependency, and programs/crates/layerx-programs-arbiter/tests/verified_step.rs:678 loads that repository vector for the two ICS23 gate tests."
+
+[disposition.13.30.5.1]
+finding = "13.30.5.1"
+status = "environment"
+evidence = "programs/crates/layerx-programs-arbiter/tests/market_sandbox_profile.rs:207 explicitly requires the genuine external market corpus for the native qualification tests, while commit 08d74d55d supplies repository vectors for the two ICS23 gate tests."
+
+[disposition.13.32.2]
+finding = "13.32.2"
+status = "resolved"
+evidence = "Commit 94fad9c17 registers getCurrentFeeSchedule in precompiles/layerxprograms/view_fees.go:177, and the landed activation test at precompiles/layerxprograms/activation_test.go:76 exercises its successful dispatch at and after the merge height."
+
+[disposition.13.33.1.1]
+finding = "13.33.1.1"
+status = "resolved"
+evidence = "Commit b1177dd7d changes the web-reader test to assert the committed answer through the keeper at precompiles/layerxprograms/webreader_test.go:342 and expect LXP_NON_CANONICAL from both retired read attempts at precompiles/layerxprograms/webreader_test.go:370."
+
+[disposition.13.34.1.1]
+finding = "13.34.1.1"
+status = "resolved"
+evidence = "Commit 5ba4a0318 replaces the silent qualify_workload failures with stage-specific fixture, execution, root-comparison and call-limit diagnostics beginning at programs/tests/differential/parallel.c:993."
+
+[disposition.13.34.4.1]
+finding = "13.34.4.1"
+status = "resolved"
+evidence = "Commit f178eb27c retargets the replay test to the actor-sequence guard at precompiles/layerxprograms/replay_test.go:89, asserting LXP_ERR_SEQUENCE_REUSED and unchanged kernel rows instead of requiring retired idempotency receipt rows."
+
+[disposition.13.34.4.2]
+finding = "13.34.4.2"
+status = "resolved"
+evidence = "precompiles/layerxprograms/replay_test.go:90 asserts actor-sequence refusal with no second fee or persistent-row changes following commit f178eb27c, removing the test dependency on ReadIdempotentReceipt and its retired 0x04 rows."
+
+[disposition.13.34.4.3]
+finding = "13.34.4.3"
+status = "resolved"
+evidence = "Commit f178eb27c bypasses submit sequence derivation by executing the same explicitly sequenced Activity through h.host.Execute at precompiles/layerxprograms/replay_test.go:57 and precompiles/layerxprograms/replay_test.go:89."
+
+[disposition.13.34.4.4]
+finding = "13.34.4.4"
+status = "resolved"
+evidence = "precompiles/layerxprograms/replay_test.go:43 fills an explicit fee limit from the call arguments and assigns it to Activity.FeeLimit before Host.Execute, as landed in commit f178eb27c."
+
+[disposition.13.34.4.5]
+finding = "13.34.4.5"
+status = "resolved"
+evidence = "Commit f178eb27c reads kernel balances through h.host.ReadBalance before execution, after the first fee and after replay at precompiles/layerxprograms/replay_test.go:31, precompiles/layerxprograms/replay_test.go:74 and precompiles/layerxprograms/replay_test.go:103."
+
+[disposition.13.34.9.1]
+finding = "13.34.9.1"
+status = "resolved"
+evidence = "Commit c24f2aa22 adds the init registration of getProgramAccountById, getAccountProfile and getValueAccount at precompiles/layerxprograms/view_accounts.go:12, making all three handlers available for dispatch."
