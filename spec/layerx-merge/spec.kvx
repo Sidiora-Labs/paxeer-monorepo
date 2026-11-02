@@ -106450,7 +106450,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.34.3]
 title = "Retire the DA chunk service in src/network/lxp_da_service.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.7", "6.96.5"]
