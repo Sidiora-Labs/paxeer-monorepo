@@ -118538,7 +118538,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.12]
 title = "Apply the kernel budget-create payload rules to the EVM budgetCreate call in layerx-crypto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -118569,7 +118569,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.28.3]
 title = "Port the hosted authority's chain identity, block and account reads from the verifier crate onto layerx-client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.28.1"]
@@ -119235,7 +119235,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.1.6]
 title = "Route the human server's remaining clock reads through its injected clock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.27.9", "10.21.8", "9.35.10"]
@@ -144339,7 +144339,7 @@ do_7 = "Continue from attempt 4 (209597270): apply the __init__.py change of dec
 
 [task.8.32.2]
 title = "Retire the relay archive installer, deployment manifests and configuration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 39
 requires = ["8.0.1", "16.97.3"]
