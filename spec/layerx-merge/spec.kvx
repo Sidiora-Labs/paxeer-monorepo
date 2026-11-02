@@ -118448,7 +118448,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.24.8]
 title = "Drop the grant vectors from the wallet capability vectors producer and its two grant tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["1.12.1"]
