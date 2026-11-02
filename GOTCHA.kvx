@@ -13475,3 +13475,13 @@ fix = "A task that deletes a file greps the tree (scripts, build fragments, Make
 title = "Stale tests and non-building crates surface only when a later task happens to consume them"
 symptom = "Four of the open dispositions (1.29.1, 4.22.1.1, 8.42.5.1, 8.47.10.1) are tests or programs that reference deleted files, found by chance when another task built the same package; nothing inventoried the tree's build and test targets after the retirements."
 fix = "Run a per-target inventory of every workspace at a named revision (the 22.91.x reports) and treat each failing target as a finding with its own follow-up before claiming closure."
+
+[gotcha.2732]
+title = "A revocation that deletes the authorization hides the revocation reason"
+symptom = "layerxauth RevokeGrant deleted the matching Cosmos grant, so a later exec failed in authz with ErrUnauthorized before the LayerXScopeAuthorization could refuse with ErrAuthRevoked, and the integration test was written to the weaker error (2.12.4.1)."
+fix = "Keep the authorization and let its epoch check refuse with the specific error; delete only on explicit grant deletion."
+
+[gotcha.2733]
+title = "A gate task that finds nothing to change must be declared as a gate"
+symptom = "The crate closure tasks 22.90.x were declared planned work; when the crate already built, the attempt changed no file and was refused for changing nothing."
+fix = "Declare verification-only tasks with gate_kind existing so a passing verify with no change qualifies them."
