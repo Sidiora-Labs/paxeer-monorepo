@@ -599,6 +599,37 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 			writeV2VoiceError(w, r, voice.ErrUnavailable)
 			return
 		}
+		p, e := safety.Actor(r.Context(), time.Now())
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		room, e := control.Read(r.Context(), id)
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		var metadata []byte
+		if e = control.DB.QueryRow(r.Context(), `SELECT payload FROM safety_outbox WHERE kind='voice_room_created_v2' AND entity_id=$1 ORDER BY created_at,id LIMIT 1`, id).Scan(&metadata); e != nil {
+			writeV2VoiceError(w, r, safety.ErrUnavailable)
+			return
+		}
+		var created v2.VoiceCreateBody
+		if v2.ValidateJSON("VoiceCreateBody", metadata) != nil || json.Unmarshal(metadata, &created) != nil || created.ScopeType != "pool" || created.ScopeId != room.PoolID {
+			writeV2VoiceError(w, r, safety.ErrUnavailable)
+			return
+		}
+		if created.Visibility == "private" && p.Wallet != room.HostWallet && !safety.Authorized(p, room.PoolID, false, time.Now()) {
+			var participant bool
+			if e = control.DB.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM voice_participants WHERE room_id=$1 AND wallet=$2 AND NOT revoked)`, id, p.Wallet).Scan(&participant); e != nil {
+				writeV2VoiceError(w, r, safety.ErrUnavailable)
+				return
+			}
+			if !participant {
+				writeV2VoiceError(w, r, safety.ErrForbidden)
+				return
+			}
+		}
 		if e := control.JoinWithConsent(r.Context(), id, nil); e != nil {
 			writeV2VoiceError(w, r, e)
 			return

@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
 
-use layerx_indexer::abi::{keccak, AbiRegistry};
+use layerx_indexer::abi::{keccak, precompile_address, AbiRegistry, LoadedAbi};
 use layerx_indexer::api;
 use layerx_indexer::codec::hex;
 use layerx_indexer::paxeer::{self, AttributeEncoding, BlockInputs};
@@ -790,4 +790,104 @@ fn proof_layerxauth_0x101c_receipts() {
     let (status, bad_cursor) = get(&store, &format!("{target}&cursor=invalid"));
     assert_eq!(status, 400);
     assert_eq!(bad_cursor["error"]["code"], "invalid_cursor");
+}
+
+/// Consumes only logs emitted by the Go application proof; run via its declared gate.
+#[test]
+fn proof_layerxpay_0x101b() {
+    let document: Value =
+        serde_json::from_reader(std::io::stdin().lock()).unwrap_or_else(|error| {
+            panic!("run TestProofLayerxpay0x101b with producer bytes on stdin: {error}")
+        });
+    let abi: Value = serde_json::from_slice(
+        &std::fs::read(document["abi"].as_str().unwrap_or_default())
+            .unwrap_or_else(|error| panic!("{error}")),
+    )
+    .unwrap_or_else(|error| panic!("{error}"));
+    let mut registry = AbiRegistry::default();
+    registry.insert(LoadedAbi {
+        contract: "layerxpay".to_owned(),
+        address: Some(precompile_address(0x101b)),
+        events: AbiRegistry::parse_events("layerxpay", &abi)
+            .unwrap_or_else(|error| panic!("{error}")),
+    });
+    let path = std::path::Path::new(document["store"].as_str().unwrap_or_default());
+    let owner = document["owner"].as_str().unwrap_or_default();
+    let target = format!("/v1/holders/{owner}?kind=budget");
+    let is_pointer = |_: &str| Ok(false);
+    let mut units = Vec::new();
+    for envelope in document["blocks"]
+        .as_array()
+        .unwrap_or_else(|| panic!("blocks"))
+    {
+        let receipts: BTreeMap<String, Value> =
+            serde_json::from_value(envelope["receipts"].clone())
+                .unwrap_or_else(|error| panic!("{error}"));
+        let inputs = BlockInputs {
+            registry: &registry,
+            receipts: &receipts,
+            cosmos_txs: &[],
+            encoding: AttributeEncoding::Base64,
+            is_pointer: &is_pointer,
+        };
+        let unit = paxeer::decode_block(&envelope["block"], &inputs)
+            .unwrap_or_else(|error| panic!("{error}"));
+        let store = Store::open(path).unwrap_or_else(|error| panic!("{error}"));
+        store
+            .commit(&unit, 2)
+            .unwrap_or_else(|error| panic!("{error}"));
+        units.push(unit);
+        drop(store);
+        // Close every connection before querying the durable projection twice.
+        for _ in 0..2 {
+            let store = Store::open(path).unwrap_or_else(|error| panic!("{error}"));
+            let (status, page) = get(&store, &target);
+            assert_eq!(status, 200);
+            let rows = items(&page);
+            assert_eq!(rows.len(), 1);
+            assert_eq!(rows[0]["record_id"], document["budget"]);
+            assert_eq!(rows[0]["opened"]["event"], "BudgetCreated");
+            assert_eq!(rows[0]["opened"]["decoded"]["args"]["amount"], "200");
+            assert_eq!(
+                rows[0]["opened"]["decoded"]["args"]["assetId"],
+                document["asset"]
+            );
+            if units.len() == 1 {
+                assert_eq!(rows[0]["state"], "active");
+            } else {
+                assert_eq!(rows[0]["state"], "revoked");
+                assert_eq!(rows[0]["latest"]["event"], "BudgetRevoked");
+                assert_eq!(rows[0]["latest"]["decoded"]["args"]["drained"], "200");
+                assert_eq!(
+                    rows[0]["latest"]["decoded"]["args"]["revocationSequence"],
+                    "1"
+                );
+            }
+        }
+    }
+    assert_eq!(units.len(), 2);
+    let first = &document["blocks"][0];
+    let mut receipts: BTreeMap<String, Value> =
+        serde_json::from_value(first["receipts"].clone()).unwrap_or_else(|error| panic!("{error}"));
+    let receipt = receipts
+        .values_mut()
+        .next()
+        .unwrap_or_else(|| panic!("receipt"));
+    let emitted = receipt["logs"][0]["data"].as_str().unwrap_or_default();
+    receipt["logs"][0]["data"] = json!(&emitted[..emitted.len() - 2]);
+    let inputs = BlockInputs {
+        registry: &registry,
+        receipts: &receipts,
+        cosmos_txs: &[],
+        encoding: AttributeEncoding::Base64,
+        is_pointer: &is_pointer,
+    };
+    // paxeer::decode_log quarantines invalid producer bytes as undecodable.
+    let malformed =
+        paxeer::decode_block(&first["block"], &inputs).unwrap_or_else(|error| panic!("{error}"));
+    assert!(malformed.holders.is_empty());
+    assert!(malformed
+        .events
+        .iter()
+        .any(|event| event.name == "undecodable"));
 }

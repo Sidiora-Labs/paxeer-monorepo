@@ -7,6 +7,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
+// GetAsset reads the shared host state even when ledger writes are paused.
 func (k *Keeper) GetAsset(ctx sdk.Context, assetID [32]byte) (lxphost.AssetRecord, error) {
 	asset, err := k.host.ReadAsset(ctx, assetID)
 	return asset, ledgerReadError(err)

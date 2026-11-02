@@ -111,11 +111,11 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, _ codec.JSONCodec) json.RawMe
 }
 
 func (am AppModule) ExportGenesisStream(ctx sdk.Context, cdc codec.JSONCodec) <-chan json.RawMessage {
-	ch := make(chan json.RawMessage)
-	go func() {
-		ch <- am.ExportGenesis(ctx, cdc)
-		close(ch)
-	}()
+	// Capture the state before returning; callers may advance or close ctx
+	// before they drain the stream.
+	ch := make(chan json.RawMessage, 1)
+	ch <- am.ExportGenesis(ctx, cdc)
+	close(ch)
 	return ch
 }
 

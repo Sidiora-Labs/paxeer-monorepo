@@ -1021,6 +1021,12 @@ func (c *Client) DescribeCeremony(ctx context.Context, keyID string) ([]Describe
 		return nil, err
 	}
 	for i, n := range c.nodes {
+		if out[i].Curve != CurveSecp256k1 && out[i].Curve != CurveEd25519 {
+			return nil, ErrResponse
+		}
+		if i > 0 && (out[i].Curve != out[0].Curve || out[i].PublicKey != out[0].PublicKey || out[i].Epoch != out[0].Epoch) {
+			return nil, ErrDisagree
+		}
 		if out[i].NodeID != n.ID || out[i].KeyID != keyID || out[i].AuditSequence == 0 || !sameMembers(out[i].Participants, c.NodeIDs()) {
 			return nil, ErrResponse
 		}

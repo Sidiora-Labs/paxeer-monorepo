@@ -16,6 +16,9 @@ lxp_result lx_service_deliverable_check(
         delivery->deliverable_count == 0U ||
         delivery->deliverable_count > LX_SERVICE_MAX_DELIVERABLES)
         return LXP_ERR_NON_CANONICAL;
+    if (memcmp(delivery->agreement_id, agreement->agreement_id, 32U) != 0 ||
+        memcmp(delivery->provider, agreement->provider, 32U) != 0)
+        return LXP_ERR_AGREEMENT_STATE;
     status = lx_service_offer_lookup(ctx, agreement->offer_id, &offer);
     if (status != LXP_OK) return LXP_ERR_AGREEMENT_STATE;
     for (i = 0U; i < delivery->deliverable_count; ++i) {

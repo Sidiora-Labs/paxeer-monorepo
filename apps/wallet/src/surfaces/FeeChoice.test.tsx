@@ -25,7 +25,7 @@ import { WalletProvider, useWallet } from '@/wallet/WalletProvider';
 import { IdentitySession } from '@/wallet/identity';
 import { EMAIL, EMAIL_CODE, startGateway } from '@/wallet/test/gateway';
 import { mount } from '@/account/test/render';
-import { FeeChoice } from './FeeChoice';
+import { FeeChoice, quantity } from './FeeChoice';
 import { SendButton, SentResult, SurfaceFrame } from './Surface';
 import { useFeeSelection, useModuleSend, useSurfaceWallet } from './useSurface';
 import { SurfaceChain, click, mountSurface, text, until, type Mounted } from './test/chain';
@@ -550,3 +550,10 @@ describe('FeeChoice', () => {
     expect(action()).toBeNull();
   });
 });
+
+function fee_choice_refuses_noncanonical_rpc_gas_quantities() {
+  expect(quantity('0x5208', 'eth_estimateGas')).toBe(21000n);
+  for (const value of ['0x00', '21000', '-1', '0x', null])
+    expect(() => quantity(value, 'eth_estimateGas')).toThrow('malformed quantity');
+}
+test(fee_choice_refuses_noncanonical_rpc_gas_quantities);

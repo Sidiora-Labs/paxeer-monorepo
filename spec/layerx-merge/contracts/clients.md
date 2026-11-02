@@ -3,7 +3,7 @@
 | Item | Value |
 |---|---|
 | Contract | how every first-party client (SDKs, apps, CLIs, middleware) sends, reads, identifies itself and verifies receipts after the merge |
-| Version | 2.0.0 |
+| Version | 2.0.1 |
 | Change control | changes only by amendment; each amendment raises the version |
 | Conformance | method names, selectors, events and error codes belong to the construct contracts; RPC shapes to contracts/rpc.md; receipt fields and key pins to contracts/sequencer.md; this file takes theirs |
 | Citations | every `path:line` is relative to the repository root at revision 2a1033aa2 and was read by the generator; `(planned)` marks a file that does not exist at HEAD |
@@ -1116,3 +1116,40 @@ Covering tasks: none (every interface here is stable).
 - `px_requestFunds` is named by the faucet service block but is not served by any gateway file at HEAD; the L19 replacement is the faucet claim path.
 - The stale switch-off table cited pre-move paths; every server and caller line above is recomputed at HEAD.
 
+
+## Client path proof
+
+`services/agent/crates/layerx-client/tests/proof_client.rs` exercises the public
+Rust boundary described here. Its local producer creates a market through
+`registry_ops::apply`, emits state through `read_state_chunk`, captures it with
+`ObservedSnapshot::capture`, and promotes it with `CommitFinality` into a
+`FinalizedSnapshot`. Consumers inspect the result and decode the binding emitted
+by `SnapshotBinding::encode` twice. A binding whose commit predates its execution
+height is refused by `decode_snapshot_binding` with `BindingMismatch`; this
+amendment closes that decoder defect. Missing finality and damaged state chunks
+are also refused. `CheckpointFinality` is the retired inventory name; the public
+replacement is `CommitFinality`, with block and application hashes and a store
+proof digest. It does not restore an anchor checkpoint API.
+
+The signing producer prepares, reviews, approves and signs the real market
+operation. `OperationJournal` persists its exact signed transaction, is dropped,
+and is reopened before the consumer loads it twice. Loading a record under a
+foreign transaction identifier or reading a subsequently truncated record fails.
+
+The RPC portion hosts its producer on a loopback `TcpListener`, serving the
+repository's recorded JSON-RPC bodies. Account, asset and balance bodies come
+unchanged from `sdk/wallet/test/fixtures/endpoint/available.json`; the consensus
+network head and history page are the current responses in `tests/px_reads.rs`
+and `tests/sequencer_reads.rs` in the client crate. No URL or trust root is read
+from the environment. Missing records and mismatched requests fail assertions.
+It calls `chain_id`, `balance`, `PxEndpoint::{account, balances, list_assets,
+network}` and the consumer `rpc::history::history`, comparing their decoded
+results with the producer's answers. Two rounds must each reach the producer,
+including the separate node head read for history. The producer then damages
+response bodies, and each public decoder must return `Malformed`. An invalid
+history cursor is refused before transmission. The real HTTP and JSON-RPC
+transport is used throughout; no consumer decoder or crossing layer is replaced.
+
+Run this proof only through task 21.42.1's declared build and verification gates.
+The executable source and assertions, rather than historical inventory caller
+line numbers, define its coverage at the candidate revision.

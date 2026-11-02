@@ -295,3 +295,16 @@ func TestCustodyGovernanceMsgServiceAuthority(t *testing.T) {
 	g.k.InitGenesis(imported, *exported)
 	require.Equal(t, exported, g.k.ExportGenesis(imported))
 }
+
+func TestCustodyGovernanceRouterRefusesTypedNilWithoutMutation(t *testing.T) {
+	testApp := Setup(t, false, false, false)
+	ctx := testApp.GetContextForDeliverTx([]byte{}).WithBlockHeight(custodyGovernanceHeight)
+	k := testApp.LayerXCustodyKeeper
+	before := k.ExportGenesis(ctx)
+	events := len(ctx.EventManager().Events())
+	var proposal *layerxcustodytypes.CustodyProposal
+	route := testApp.GovKeeper.Router().GetRoute(layerxcustodytypes.RouterKey)
+	require.ErrorIs(t, route(ctx, proposal), govtypes.ErrInvalidProposalContent)
+	require.Equal(t, before, k.ExportGenesis(ctx))
+	require.Len(t, ctx.EventManager().Events(), events)
+}

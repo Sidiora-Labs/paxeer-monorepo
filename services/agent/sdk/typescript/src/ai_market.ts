@@ -3240,6 +3240,36 @@ function rpcQuantity(value: unknown): bigint {
   return BigInt(value);
 }
 
+/** Decode the gateway's key document; JSON numbers must remain exact in JavaScript. */
+export function decodeGatewayReceiptKeys(value: unknown): readonly SequencerAuthorization[] {
+  const document = receiptObject(value);
+  if (Object.keys(document).length !== 1 || !Array.isArray(document.keys) || document.keys.length === 0)
+    refuse("ReceiptMismatch");
+  const seen = new Set<string>();
+  return document.keys.map((value: unknown) => {
+    const entry = receiptObject(value);
+    if (Object.keys(entry).length !== 4) refuse("ReceiptMismatch");
+    const sequencerId = rpcBytes(entry.keyId, 32);
+    const publicKey = rpcBytes(entry.publicKey, 32);
+    const first = entry.firstHeight, last = entry.lastHeight;
+    if (typeof first !== "number" || typeof last !== "number" ||
+        !Number.isSafeInteger(first) || !Number.isSafeInteger(last) ||
+        first < 1 || last < first || sequencerId.every((byte) => byte === 0) ||
+        seen.has(hex(sequencerId))) refuse("ReceiptMismatch");
+    try {
+      const point = ed25519.Point.fromBytes(publicKey, false);
+      if (point.isSmallOrder() || !point.isTorsionFree()) refuse("ReceiptMismatch");
+    } catch { return refuse("ReceiptMismatch"); }
+    seen.add(hex(sequencerId));
+    return Object.freeze({ sequencerId, publicKey,
+      firstBatchNumber: BigInt(first), lastBatchNumber: BigInt(last) });
+  });
+}
+
+export async function gatewayReceiptKeys(operations: Eip1193Requester): Promise<readonly SequencerAuthorization[]> {
+  return decodeGatewayReceiptKeys(await operations.request({method: "px_getReceiptKeys", params: []}));
+}
+
 export function decodeProgramsReceipt(
   value: unknown,
   signed: Uint8Array,

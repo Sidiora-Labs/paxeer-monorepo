@@ -53,6 +53,7 @@ const nextConfig = {
         destination: `${baseUrl}/v1/:path*`,
       },
       {
+        // This is Human readiness; ramp readiness has a separate service URL.
         source: "/readyz",
         destination: `${baseUrl}/readyz`,
       },
@@ -60,6 +61,10 @@ const nextConfig = {
   },
   async headers() {
     return [
+      {
+        source: "/readyz",
+        headers: [{ key: "Cache-Control", value: "no-store" }],
+      },
       {
         source: "/explorer",
         headers: [

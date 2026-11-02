@@ -9,7 +9,6 @@ export function phaseOf(
   live: TransferLive | undefined,
   attestationReady: boolean,
 ): TransferPhase {
-  if (transfer.direction === 'in' && transfer.claimedAt !== undefined) return 'settled';
   return settlementPhaseOf(transfer, live, attestationReady);
 }
 

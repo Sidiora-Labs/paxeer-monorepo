@@ -48,7 +48,28 @@ export const RESOURCES = {
   bens: BENS_API_RESOURCES,
   clusters: CLUSTERS_API_RESOURCES,
   contractInfo: CONTRACT_INFO_API_RESOURCES,
-  general: GENERAL_API_RESOURCES,
+  general: {
+    ...GENERAL_API_RESOURCES,
+    paxeer_x_chains: {
+      path: '/v1/chains',
+    },
+    paxeer_x_chain: {
+      path: '/v1/chains/:id',
+      pathParams: [ 'id' as const ],
+    },
+    paxeer_x_chain_summary: {
+      path: '/v1/chains/:id/summary',
+      pathParams: [ 'id' as const ],
+    },
+    paxeer_x_chain_transfers: {
+      path: '/v1/chains/:id/transfers',
+      pathParams: [ 'id' as const ],
+    },
+    paxeer_x_chain_events: {
+      path: '/v1/chains/:id/events',
+      pathParams: [ 'id' as const ],
+    },
+  },
   interchainIndexer: INTERCHAIN_INDEXER_API_RESOURCES,
   metadata: METADATA_API_RESOURCES,
   multichainAggregator: MULTICHAIN_AGGREGATOR_API_RESOURCES,
@@ -78,6 +99,9 @@ export type ResourcePath = string;
 
 /* eslint-disable @stylistic/indent */
 export type ResourcePayload<R extends ResourceName> =
+R extends 'general:paxeer_x_chains' ? unknown :
+R extends 'general:paxeer_x_chain' | 'general:paxeer_x_chain_summary' |
+  'general:paxeer_x_chain_transfers' | 'general:paxeer_x_chain_events' ? unknown :
 R extends AdminApiResourceName ? AdminApiResourcePayload<R> :
 R extends BensApiResourceName ? BensApiResourcePayload<R> :
 R extends ClustersApiResourceName ? ClustersApiResourcePayload<R> :

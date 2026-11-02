@@ -115,8 +115,12 @@ func LoadSettings(settings *Settings) error {
 		return fmt.Errorf("config settings are required")
 	}
 
-	// settings converted to JSON bytes
-	settingsJSON, err := json.Marshal(settings)
+	// Viper decodes JSON numbers as float64. Encode the transaction bound as
+	// decimal text internally so GetUint64 preserves every uint64 value.
+	settingsJSON, err := json.Marshal(struct {
+		*Settings
+		MinTotalTxs uint64 `json:"minTotalTxs,omitempty,string"`
+	}{Settings: settings, MinTotalTxs: settings.MinTotalTxs})
 	if err != nil {
 		return fmt.Errorf("failed to marshal settings: %w", err)
 	}

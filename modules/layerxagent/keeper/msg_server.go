@@ -28,6 +28,9 @@ func (s msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 	if msg.Authority != s.authority {
 		return nil, sdkerrors.Wrapf(sdkerrors.ErrUnauthorized, "invalid authority; expected %s, got %s", s.authority, msg.Authority)
 	}
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, err
+	}
 	if err := s.k.SetParams(sdk.UnwrapSDKContext(goCtx), msg.Params); err != nil {
 		return nil, err
 	}

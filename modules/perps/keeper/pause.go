@@ -1,8 +1,6 @@
 package keeper
 
 import (
-	"fmt"
-
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
@@ -30,8 +28,8 @@ func (k *Keeper) CheckPause(ctx sdk.Context, method string) error {
 }
 
 func (k *Keeper) SetPaused(ctx sdk.Context, authority string, paused bool) error {
-	if authority != k.authority {
-		return fmt.Errorf("%w: %s", types.ErrUnauthorized, authority)
+	if err := k.checkGovernanceAuthority(authority); err != nil {
+		return err
 	}
 	params, err := k.GetParams(ctx)
 	if err != nil {
