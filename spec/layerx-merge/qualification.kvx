@@ -17139,3 +17139,59 @@ symbol = "LAYERX_RELAY_ARCHIVE_"
 observed = "Attempt 1 of task 8.32.2 (72772f28c) deleted the six installer, deployment and configuration assets and added both tests; test_no_platform_file_reads_relay_archive_variables failed because services/platform/relay_archive/README.md:11, :136 and :262 still name LAYERX_RELAY_ARCHIVE_RUNTIME and the LAYERX_RELAY_ARCHIVE_* variables, and the README's Operator quickstart (:45-149) and Container deployment (:242-265) sections still document install.sh, deployment.yaml, deployment.example.yaml and fly.toml, which the task deleted."
 assumption = "The README is a consumer of the retired assets the task's touches omitted; do_7 rewrites it and the implementation of attempt 1 stands."
 severity = "minor"
+
+[finding.9.24.6.1]
+task = "9.24.6"
+file = "services/agent/crates/layerx-client/src/lni/mod.rs:7"
+symbol = "head_attestation"
+observed = "Attempts 1 (d2418f742) and 2 (6e303078b) of task 9.24.6 deleted the six files the touches name and the build of layerx-client stopped with E0583 for the modules head_attestation, preparation, program_read and simulate: services/agent/crates/layerx-client/src/lni/mod.rs:7-13 still declares the four submodules and :18 and :20 re-export PreparationState, PreparationStateError, SimulateError, SimulatedExecution, Simulation and SimulationEvidence from two of them; no other file of the crate or of another crate names those paths or types. The touches of the task omitted the module root."
+assumption = "Spec omission of 9.24.6: deleting a submodule file requires its `mod` declaration and re-exports to go with it; do_5 adds the module root and the six deletions of attempt 2 stand."
+severity = "minor"
+
+[finding.9.97.14.3]
+task = "9.97.14"
+file = "tests/agent/sdk/python/test_ai_market.py:1066"
+symbol = "test_pre_send_refusal_restores_and_terminal_core_refusal_fails_on_first_attempt"
+observed = "Attempt 5 of task 9.97.14 (2a7d81992) completed do_1 through do_7 and the verify ran the three suites: 36 passed and 2 failed, both JournalTests that drive ProgramEndpoint over HTTP with the actions drop, unknown and refuse. OperationJournal._deliver (services/agent/sdk/python/layerx_sdk/ai_market.py:1578-1600) delivers over JSON-RPC: it requires an operations object whose request attribute is callable and raises AiMarketError EvmTransportUnavailable before any state change otherwise, sends eth_sendRawTransaction with the 0x-prefixed signed bytes, moves the record to PENDING when the answer equals the 0x-prefixed activity id and to UNKNOWN on any exception or other answer; resolve (:1601-1610) returns the state for a None receipt and raises ProgramsReceiptVerifierUnavailable for receipt bytes; the journal has no finalize, and FAILED is reached only through expire (:1612). ProgramOperations (services/agent/sdk/python/layerx_sdk/programs.py:224) has no request method, so both tests stop at EvmTransportUnavailable, and their later assertions (bodies with an Idempotency-Key, ReceiptMismatch, EXECUTED, FINALIZED, FAILED on a terminal core refusal, result_code 17) name outcomes no code path of the SDK on main produces."
+assumption = "The two tests describe the HTTP transport and the receipt pipeline the SDK retired; they are rewritten against the JSON-RPC journal contract on main, and the SDK stays unchanged per do_5."
+severity = "major"
+
+[finding.8.14.2.2]
+task = "8.14.2"
+file = "modules/layerxanchor/bringup_genesis_test.go:25"
+symbol = "TestBringUpAnchorGenesisValidates"
+observed = "Attempt 3 of task 6.96.5 (11bf4fbf2) re-homed the availability class count and go build passed, but the verify test TestBringUpAnchorGenesisValidates (modules/layerxanchor/bringup_genesis_test.go:25) runs services/platform/hosted/paxeer/anchor-genesis.py through os/exec, and task 8.14.2 deleted that script at ec111950d without touching the test; the test fails on main with an exec error and has failed since 8.14.2 landed."
+assumption = "The test is an orphan of the deleted generator and goes with task 6.96.6 (do_6); 6.96.5 proves its change through TestAppRoutesAnchorUpdateParamsRetired of the same root package (module_retired_route_test.go, task 6.31.5), which does not depend on any script."
+severity = "major"
+
+[finding.9.28.1.5]
+task = "9.28.1"
+file = "services/platform/hosted/authority/Cargo.toml:18"
+symbol = "layerx-paxeer-verifier"
+observed = "Attempt 2 of task 9.28.2 (405266424) deleted the verifier crate and its verify grep found services/platform/hosted/authority/Cargo.toml:18 (path dependency, with the comment at :16 'Retained for receipt verification and LNI transport'), services/platform/hosted/authority/src/main.rs:88 (Config.chain_endpoint: layerx_paxeer_verifier::EndpointConfig), :322, :909-925 (chain_answers calls raw_call eth_chainId on the EndpointConfig and maps ChainMismatch to IdentityMismatch) and :1195-1215 (mod chain_readiness_tests), services/platform/hosted/authority/src/trust.rs:119-128 (chain_endpoint builds an EndpointConfig with transport LocalEmulator and expected_chain_id 125), services/platform/hosted/authority/src/human/budget_state.rs:50-117 (Session::open reads eth_getBlockByNumber through raw_call for the committed height's hash, stateRoot, number and timestamp; identity() re-reads px_getAccount through raw_call and compares the layerx section), services/platform/hosted/authority/tests/chain_receipts.rs:265 and :1046-1056 and services/platform/hosted/authority/tests/budget_proof_exports.rs:411; task 9.28.1 moved the hosted platform's verification onto layerx-client and listed the authority's remaining uses as a wiring request no task wrote."
+assumption = "The authority's four remaining uses are a chain identity read, a committed block read, a state root read and an account re-read, all of which layerx-client's SequencerEndpoint (chain_id, block_by_number, state_root) and PxEndpoint (account) already serve; task 9.28.3 ports them and 9.28.2 requires it."
+severity = "major"
+
+[finding.17.7.5.1]
+task = "17.7.5"
+file = "spec/layerx-merge/programme/runcards.py:112"
+symbol = "render_counts"
+observed = "Attempt 1 of task 17.7.5 (7478e60d2) implemented render_counts and the test, the build passed and the verify failed with a CardError for domain 15: runcards.py:112 requires the card's profile key to equal the most common profile among the domain's tasks, the card spec/layerx-merge/programme/data/runcards/fm-cosmos-fork.kvx declares go at line 4, and the 58 domain-15 tasks declare go-cgo 29 times, go 15, node 5, jvm 4, python 3 and swift 2."
+assumption = "The card is wrong, not the check: the three other chain cards (fm-kernel, fm-node-runtime, fm-ledger-auth-pay) declare go-cgo and the domain's kernel-bearing tasks need cgo; the task sets line 4 of the card to go-cgo and the implementation of attempt 1 stands."
+severity = "minor"
+
+[finding.9.35.9.1]
+task = "9.35.9"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs:1"
+symbol = "Host::new"
+observed = "Attempt 1 of task 9.35.9 (c81177dc6) completed do_1 through do_6 and the build passed; the verify ran cargo test directly and twelve provider.rs tests failed with Error: Unavailable because Host::new needs the runtime clock that the repository Makefile supplies by running every human-workspace cargo test under sh tools/runtime/run-with-clock.sh (Makefile:1640-1692), which builds layerx-runtime-clock from services/platform and exports its socket."
+assumption = "The verify runs the tests through tools/runtime/run-with-clock.sh as the Makefile does; the twelve tests are not evidence against the attempt."
+severity = "major"
+
+[finding.9.35.9.2]
+task = "9.35.9"
+file = "services/agent/crates/layerx-crypto/src/disclosure/call.rs:360"
+symbol = "PayBudgetCreate"
+observed = "The thirteenth failure of attempt 1 (c81177dc6) was native_setup.rs:409, where bind_call accepted corruptions of the budgetCreate call: the budgetCreate arm of call.rs:360-383 checks only the word count and the uint ranges and builds the 211-byte payload, and the PayBudgetCreate disclosure (:592-605) reads only the budget id, asset and amount, while the kernel path native.rs::budget (:285-333) refuses a zero budget id, zero asset, zero initial amount, zero per-period limit, zero period length, an expiry at or before the period start, a rollover outside 1 and 2 and rollover 1 with a non-zero carry cap; the same corrupted terms reach the ledger through an EIP-1559 call that bind_call discloses as valid."
+assumption = "The actor-independent rules of the kernel path belong to the EVM path too and move into one shared function (decision 2260); task 9.35.12 implements it and 9.35.9 requires it, keeping the corruption assertions that the rules make refusals."
+severity = "major"
