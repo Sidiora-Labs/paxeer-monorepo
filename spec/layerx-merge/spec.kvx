@@ -118947,7 +118947,7 @@ do_4 = "Finding 9.35.13.1: run `cargo generate-lockfile --manifest-path services
 
 [task.10.21.9]
 title = "Port the layerx-intents budget and bootstrap tests from kernel envelopes onto bind_call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.35.12"]
@@ -141057,7 +141057,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.0.9]
 title = "Gate domain 8 completion on its retired surfaces and planned paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 41
 requires = ["8.0.1", "8.0.2", "8.0.3", "8.0.4", "8.3.1", "8.7.3", "8.7.4", "8.8.4", "8.9.2", "8.11.3", "8.12.3", "8.13.2", "8.14.2", "8.14.4", "8.16.7", "8.18.1", "8.19.1", "8.19.2", "8.19.3", "8.19.4", "8.19.5", "8.19.6", "8.19.7", "8.19.11", "8.20.2", "8.20.4", "8.22.6", "8.26.2", "8.30.3", "8.31.2", "8.32.1", "8.32.2", "8.32.3", "8.32.4", "8.41.5", "8.41.6", "8.41.8", "8.42.5", "8.42.6", "8.42.8", "8.43.5", "8.43.6", "8.43.8", "8.44.5", "8.44.6", "8.44.8", "8.45.3", "8.45.4", "8.46.2", "8.46.7", "8.46.8", "8.47.4", "8.47.5", "8.47.6", "8.47.7", "8.48.3", "8.49.2", "8.50.4", "8.51.1", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1", "9.25.16", "8.94.9", "8.94.10", "13.8.3"]
