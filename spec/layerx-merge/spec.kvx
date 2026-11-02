@@ -129014,7 +129014,7 @@ do_4 = "Finding 18.1487.1.2: before the generator change, repair the two drift t
 
 [task.18.1485.1]
 title = "Issue #1485: Pass the injected clock to the retained KMS and custody test constructors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.100.2"]
@@ -131990,7 +131990,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.4.6]
 title = "Finish the launchpad modules inventory for the five modules that exceeded their share"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132256,7 +132256,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.4.3]
 title = "Point the social schema tests at the service's own migrations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.4.4"]
@@ -133319,7 +133319,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.87.1]
 title = "Prove the sequencer receipt path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["21.19.1", "22.5.5"]
@@ -133354,7 +133354,7 @@ do_8 = "Finding 21.87.1.1: the package build failure is node/sequencer/precompil
 
 [task.21.86.1]
 title = "Prove the precompile go path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136088,7 +136088,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.54.7]
 title = "End-to-end: pass the remaining perps data subtests against the in-tree node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["18.670.1", "6.96.5"]
@@ -184201,7 +184201,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.91.42]
 title = "Finish the Go modules inventory for the twenty-two packages the first pass did not run"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184230,7 +184230,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.13.10]
 title = "Admit the current protocol version in the programs environment activate-lease test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184346,7 +184346,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.3.3]
 title = "Reconcile the perps ADL refusal, legacy margin vector and spot error fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184492,7 +184492,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.6.6]
 title = "Reconcile the EVM module genesis export and CLI error expectations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184755,7 +184755,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.1.5]
 title = "Drop the removed lx_web.h include from the protocol and programs web-read tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184904,7 +184904,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.5.4]
 title = "Return the committed block's own id from LastBlockID"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.5.5"]
@@ -217589,7 +217589,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.16.7]
 title = "Repair the Python compile error, the import-time argv scripts and the duplicate test basenames"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
