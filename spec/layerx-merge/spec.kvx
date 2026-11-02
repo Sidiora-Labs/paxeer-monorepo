@@ -118569,7 +118569,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.10]
 title = "Port the production owner tests and the evidence node test off the kernel activity codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["10.21.8"]
