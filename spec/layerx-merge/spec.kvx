@@ -114491,7 +114491,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.133.1]
 title = "Prove the wallet app path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -127765,7 +127765,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.18.1493.1]
 title = "Issue #1493: Stop the per-chain WebSocket servers when a running listener stops"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -127795,7 +127795,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1491.1]
 title = "Issue #1491: Verify the committed v4 vector with the retained receipt and signature checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
