@@ -70,8 +70,8 @@ static lxp_result budget_asset_state(lxp_module_ctx *ctx,
             memcmp(entry->key, "asset:", 6U) != 0 ||
             memcmp(entry->key + 6U, asset_id, 32U) != 0)
             continue;
-        status = lx_asset_record_decode(entry->value, entry->value_length,
-                                        &record);
+        status = lx_asset_record_decode_for_id(entry->value, entry->value_length,
+                                               asset_id, &record);
         return status == LXP_OK ? lx_asset_transfer_state(&record, state) :
                                   status;
     }

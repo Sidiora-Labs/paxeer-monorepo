@@ -1644,7 +1644,9 @@ lxp_result lxp_kernel_bind_module_runtime(lxp_kernel *kernel,
         return LXP_ERR_NON_CANONICAL;
     if (module_id == LXP_MODULE_ASSET) {
         lx_asset_runtime *asset_runtime = (lx_asset_runtime *)runtime;
-        if (asset_runtime->accounts == NULL || asset_runtime->assets == NULL ||
+        if (asset_runtime->accounts == NULL ||
+            asset_runtime->accounts->count > LX_ACCOUNT_REGISTRY_CAPACITY ||
+            asset_runtime->assets == NULL ||
             asset_runtime->asset_count == 0U ||
             asset_runtime->asset_count > LX_ASSET_REGISTRY_CAPACITY ||
             asset_runtime->transfer_assets == NULL ||
