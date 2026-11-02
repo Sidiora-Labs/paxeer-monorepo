@@ -210,13 +210,17 @@ export async function runScenarios(): Promise<Suite> {
     const verification = verifyPaymentReceipt(mutableReceipt, offer.requirements, mutableAuthority);
     mutableReceipt.signedReceipt = "0x00";
     mutableReceipt.rawTransaction = "0x00";
+    mutableReceipt.receiptKey.keyId = "0x" + "00".repeat(32);
     mutableReceipt.receiptKey.publicKey = "0x" + "00".repeat(32);
+    mutableReceipt.receiptKey.firstHeight = "0x0";
+    mutableReceipt.receiptKey.lastHeight = "0x0";
     for (const key of mutableAuthority) {
       key.keyId.fill(0);
       key.publicKey.fill(0);
     }
     const result = await verification;
     assert(result.rung === "receipted", "caller mutation changed in-flight verification");
+    assert(result.txHash === receipt.txHash, "caller mutation changed the verified transaction hash");
     assert(result.canonicalBytes.some((byte: number) => byte !== 0), "verified evidence aliased caller bytes");
   });
 
@@ -233,7 +237,7 @@ export async function runScenarios(): Promise<Suite> {
     assert(repository.releaseCount === 0, "the resource must not be released without payment");
   });
 
-  await suite.check("seller: a valid receipt releases the resource under sequencer-signed evidence", async () => {
+  await suite.check("seller: a valid receipt releases the resource under receipted evidence", async () => {
     const repository = new InMemoryFulfillmentRepository<string>();
     const payload = buyerPayload(offer, receipt, "seller-happy");
     const decision = await releasedDecision(offer, payload, resolver, repository);
@@ -244,9 +248,10 @@ export async function runScenarios(): Promise<Suite> {
     assert(repository.releaseCount === 1, "the resource must be released exactly once");
     assert(decision.resource === "the-paid-resource", "the released resource must be returned");
     assert(decision.settlement.success, "the settlement response must report success");
-    assert(decision.settlement.payer === toHex(facts.from), "the settlement must bind the verified receipt payer");
-    assert(decision.settlement.transaction === `lxp:${receipt.receiptDigest}`, "the settlement must reference the receipt digest");
-    assert(decision.verification.level === "sequencer-signed", "the verification level must be recorded");
+    assert(decision.settlement.payer === toHex(decision.verification.receipt.from), "the settlement must bind the verified receipt payer");
+    assert(/^0x[0-9a-f]{64}$/u.test(decision.settlement.transaction), "the settlement must carry a 0x transaction hash");
+    assert(decision.settlement.transaction === receipt.txHash, "the settlement must reference the verified transaction hash");
+    assert(decision.verification.rung === "receipted", "the verification rung must be recorded");
   });
 
   await suite.check("seller: a tampered receipt cannot be presented as success", async () => {
@@ -305,7 +310,7 @@ export async function runScenarios(): Promise<Suite> {
     const unsupported = offerFixture(payTo, asset, amount);
     const other = {
       ...unsupported.paymentRequired,
-      accepts: [{ ...unsupported.requirements, network: "layerx:mainnet" }],
+      accepts: [{ ...unsupported.requirements, network: "eip155:1" }],
     };
     expectThrowsSync(
       () => buyer.parseOffer(encodePaymentRequiredHeader(other)),
@@ -337,7 +342,8 @@ export async function runScenarios(): Promise<Suite> {
       decision.headers["PAYMENT-RESPONSE"],
       prepared,
     );
-    assert(captured.verification.level === "sequencer-signed", "the buyer must verify the captured receipt");
+    assert(captured.verification.rung === "receipted", "the buyer must verify the captured receipt rung");
+    assert(captured.response.transaction === receipt.txHash, "the buyer must capture the verified transaction hash");
     await expectThrows(
       () => buyer.captureSettlement(encodeSettlementHeader({ ...decision.settlement, payer: "01".repeat(32) }), prepared),
       isMiddlewareError("verification-failure"),
@@ -345,19 +351,62 @@ export async function runScenarios(): Promise<Suite> {
     );
   });
 
-  await suite.check("x402 verificationLevel stays sequencer-signed and never aliases an RPC commitment", async () => {
+  await suite.check("x402: verificationLevel equals the rung of the evidence", async () => {
+    const verification = await verifyPaymentReceipt(receipt, offer.requirements, receiptKeys);
+    assert(receipt.verificationLevel === verification.rung, "verificationLevel must equal the verified evidence rung");
+    assert(verification.rung === "receipted", "a sequencer receipt must carry the receipted rung");
+    await expectThrows(
+      () => verifyPaymentReceipt({ ...receipt, verificationLevel: "committed" }, offer.requirements, receiptKeys),
+      isMiddlewareError("verification-failure"),
+      "a committed claim without commitment evidence",
+    );
     for (const level of ["executed", "batched", "finalised", "finalized"]) {
       const payload = buyerPayload(offer, receipt, "verification-level");
-      const invalid = {
+      const invalid: PaymentPayload = {
         ...payload,
         payload: { ...payload.payload, verificationLevel: level },
-      } as unknown as PaymentPayload;
+      };
       await expectThrows(
         () => releasedDecision(offer, invalid, resolver, new InMemoryFulfillmentRepository<string>()),
-        isMiddlewareError("verification-failure"),
+        isMiddlewareError("invalid-payment-payload"),
         `verificationLevel ${level}`,
       );
     }
+  });
+
+  await suite.check("x402: a committed requirement refuses receipted-only evidence", async () => {
+    const verification = await verifyPaymentReceipt(receipt, offer.requirements, receiptKeys);
+    assert(verification.rung === "receipted", "the evidence must first verify at the receipted rung");
+    const requirements = {
+      ...offer.requirements,
+      extra: {
+        layerx: {
+          commitment: "committed",
+          purposeHash: toHex(verification.payment.paymentReference),
+        },
+      },
+    };
+    const committedOffer: OfferFixture = {
+      requirements,
+      paymentRequired: { ...offer.paymentRequired, accepts: [requirements] },
+    };
+    await expectThrows(
+      () => verifyPaymentReceipt(receipt, committedOffer.requirements, receiptKeys),
+      isMiddlewareError("verification-failure"),
+      "committed requirement with receipted-only evidence",
+    );
+    const repository = new InMemoryFulfillmentRepository<string>();
+    await expectThrows(
+      () => releasedDecision(
+        committedOffer,
+        buyerPayload(committedOffer, receipt, "committed-no-downgrade"),
+        resolver,
+        repository,
+      ),
+      isMiddlewareError("verification-failure"),
+      "seller must not downgrade a committed requirement",
+    );
+    assert(repository.releaseCount === 0, "receipted-only evidence must not release a committed resource");
   });
 
   await suite.check("buyer: a failed settlement is never reported as paid", async () => {
@@ -469,8 +518,9 @@ export async function runScenarios(): Promise<Suite> {
         asset: toHex(asset),
         payTo: toHex(payTo),
         scheme: "exact",
-        network: "layerx:beta",
+        network: "eip155:125",
         maxTimeoutSeconds: 120,
+        extra: offer.requirements.extra!,
       }) },
       orders,
       sellers: {
@@ -503,10 +553,10 @@ export async function runScenarios(): Promise<Suite> {
     const event = {
       order_id: checkout.order.orderId,
       request_digest: checkout.order.requestDigest,
-      receipt_digest: receipt.receiptDigest,
+      receipt_digest: receipt.receiptDigest.slice(2),
       receipt_ref: "receipt:merchant-conformance",
-      transaction: `lxp:${receipt.receiptDigest}`,
-      verification: "sequencer-signed",
+      transaction: receipt.txHash,
+      verification: "receipted",
     };
     const body = new TextEncoder().encode(JSON.stringify(event));
     const timestamp = Math.floor(Date.now() / 1000).toString();
@@ -519,7 +569,8 @@ export async function runScenarios(): Promise<Suite> {
     });
     const paid = await orders.get(checkout.order.orderId);
     assert(first === "processed" && paid?.state === "paid-verified", "verified webhook must pay the order");
-    assert(paid?.receiptDigest === receipt.receiptDigest, "paid order must bind the verified receipt digest");
+    assert(paid?.receiptDigest === receipt.receiptDigest.slice(2), "paid order must bind the verified receipt digest");
+    assert(paid?.transaction === receipt.txHash, "paid order must bind the verified transaction hash");
     const second = await webhooks.consume(body, {
       id: "merchant-delivery",
       timestamp,
@@ -539,8 +590,9 @@ export async function runScenarios(): Promise<Suite> {
         asset: toHex(asset),
         payTo: toHex(payTo),
         scheme: "exact",
-        network: "layerx:beta",
+        network: "eip155:125",
         maxTimeoutSeconds: 120,
+        extra: offer.requirements.extra!,
       }) },
       orders,
       sellers: {
@@ -574,8 +626,8 @@ export async function runScenarios(): Promise<Suite> {
       request_digest: order.requestDigest,
       receipt_digest: toHex(fixedBytes(0xff)),
       receipt_ref: "receipt:merchant-conformance",
-      transaction: "lxp:mismatch",
-      verification: "sequencer-signed",
+      transaction: receipt.txHash,
+      verification: "receipted",
     }));
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const signature = await signWebhook(sequencer, "merchant-mismatch-delivery", timestamp, body);
