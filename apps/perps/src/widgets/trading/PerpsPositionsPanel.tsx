@@ -943,16 +943,30 @@ const OrderTable = React.memo(function OrderTable({
   );
 });
 
+export function positionMarketLabels(
+  catalog: ReturnType<typeof usePerpsMarkets>["catalog"],
+) {
+  return catalog.map((market) => ({
+    ...market,
+    marketId: BigInt(market.marketId),
+  }));
+}
+
+export async function quotePanelPartialClose(
+  input: Parameters<typeof partialCloseAction>[0],
+  quoter = useQuoter(),
+) {
+  const action = partialCloseAction(input);
+  const quote = await quoter.quotePartialClose(
+    input.positionId,
+    action.closeSizeUsd,
+  );
+  return action.call(quote.exitPrice);
+}
+
 export function PerpsPositionsPanel() {
   const { catalog } = usePerpsMarkets();
-  const labels = useMemo(
-    () =>
-      catalog.map((market) => ({
-        ...market,
-        marketId: BigInt(market.marketId),
-      })),
-    [catalog],
-  );
+  const labels = useMemo(() => positionMarketLabels(catalog), [catalog]);
   const getMarketSymbol = useCallback(
     (marketId: number) => marketLabel(BigInt(marketId), labels),
     [labels],
@@ -1208,17 +1222,16 @@ export function PerpsPositionsPanel() {
       if (!pos) return;
       setClosingId(positionId);
       try {
-        const action = partialCloseAction({
-          positionId: BigInt(positionId),
-          isLong: pos.isLong,
-          sizeUsd: unitsFromIndexed(pos.sizeUsd),
-          bps,
-        });
-        const quote = await quoterRef.current.quotePartialClose(
-          BigInt(positionId),
-          action.closeSizeUsd,
+        const call = await quotePanelPartialClose(
+          {
+            positionId: BigInt(positionId),
+            isLong: pos.isLong,
+            sizeUsd: unitsFromIndexed(pos.sizeUsd),
+            bps,
+          },
+          quoterRef.current,
         );
-        await waitForTx(await writeContract(action.call(quote.exitPrice)));
+        await waitForTx(await writeContract(call));
         refreshAll();
       } catch (err) {
         toastError(err, {
