@@ -122,6 +122,8 @@ var LateFailFastPrecompileAddresses = []common.Address{
 	common.HexToAddress("0x000000000000000000000000000000000000101B"),
 }
 
+// MergeFailFastPrecompileAddresses adds the merge's native interfaces to the
+// fail-fast set. The pay interface at 0x101B is already in the late set.
 var MergeFailFastPrecompileAddresses = []common.Address{
 	common.HexToAddress("0x101A"),
 	common.HexToAddress("0x101C"),
@@ -141,6 +143,9 @@ var MergeFailFastPrecompileAddresses = []common.Address{
 // fail-fast singleton.
 var AllCustomPrecompilesFailFastLate = map[common.Address]vm.PrecompiledContract{}
 
+// AllCustomPrecompilesFailFastMerge is the union of the original, late and merge
+// address sets. Pass it to vm.NewEVM so calls to these interfaces return the
+// typed abort error that makes the caller retry on the ordinary execution path.
 var AllCustomPrecompilesFailFastMerge = map[common.Address]vm.PrecompiledContract{}
 
 func init() {
