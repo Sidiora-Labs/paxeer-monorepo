@@ -100167,7 +100167,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.37.1]
 title = "Retire the custody light-client evidence of custodyproof/light.go"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["1.21.2", "1.0.3", "5.53.1"]
