@@ -1,0 +1,47 @@
+[disposition.13.34.2.1]
+finding = "13.34.2.1"
+status = "resolved"
+evidence = "1f32ef019 implements decision 1804 by sourcing conservation transfers from caller-owned accounts at precompiles/layerxprograms/conservation_test.go:261 and asserting program-account sources are refused at precompiles/layerxprograms/conservation_test.go:296, matching the retained authorization rule at src/modules/programs/transfer.c:41."
+follow_up = "closure"
+
+[disposition.13.4.5.3]
+finding = "13.4.5.3"
+status = "resolved"
+evidence = "c552f4ca5 ports the agent callers to chain proofs, with services/agent/crates/layerx-agentd/src/read/program_node.rs:474 passing commitment and transaction evidence, services/agent/crates/layerx-agentd/src/ops/program.rs:600 accepting the simulation key separately, and services/agent/crates/layerx-agentd/src/human_runtime.rs:4295 obtaining that key without a VerifiedChainHead sequencer accessor."
+follow_up = "closure"
+
+[disposition.13.4.6.2]
+finding = "13.4.6.2"
+status = "resolved"
+evidence = "0461a4f71 retains ProtocolDeploymentVerifier::staleness_limit_ms at programs/crates/layerx-programs-registry/src/protocol_evidence.rs:197, returning the chain-trust freshness bound still consumed by programs/crates/layerx-programs-sandbox/src/expiry.rs:68."
+follow_up = "closure"
+
+[disposition.13.34.1.2]
+finding = "13.34.1.2"
+status = "resolved"
+evidence = "5ba4a0318 implements decision 2060 at programs/tests/differential/parallel.c:1122 by deriving the low-conflict level expectation from the fixture protocol's occupancy rule, expecting DIFFERENTIAL_BATCH_SIZE with occupancy and one without it while preserving the all-conflicting expectation."
+follow_up = "closure"
+
+[disposition.13.3.12.1]
+finding = "13.3.12.1"
+status = "resolved"
+evidence = "a0a9db256 replaces both surviving store literals with HOST_STORE_NAME at programs/crates/layerx-programs-registry/src/account_state.rs:563 and programs/crates/layerx-programs-registry/src/protocol_evidence.rs:336, using the lxphost constant declared at programs/crates/layerx-programs-registry/src/chain_evidence.rs:7."
+follow_up = "closure"
+
+[disposition.13.0.9.1]
+finding = "13.0.9.1"
+status = "resolved"
+evidence = "4d6654aa3 removes the retired kernel-format activity and lease refusal tests and their layerx_wire and layerx_proof uses, while programs/crates/layerx-programs-sandbox/tests/expiry_chain.rs:314 retains the kernel receipt refusal through decode_commitment_proof without the removed signature pre-check."
+follow_up = "closure"
+
+[disposition.13.8.3.1]
+finding = "13.8.3.1"
+status = "resolved"
+evidence = "8e305826a removes layerx-paxeer-client from services/platform/Cargo.toml and services/platform/hosted/paxeer/Cargo.toml and retires the client-backed test branch, leaving services/platform/hosted/paxeer/tests/real_chain.rs:4 to invoke the boundary qualification directly."
+follow_up = "closure"
+
+[disposition.13.8.3.2]
+finding = "13.8.3.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:130424 declares symbols = [] for the lock-only task 13.8.3, removing the package-name graph assertion that blocked the lock refresh landed in d1692d74d."
+follow_up = "closure"
