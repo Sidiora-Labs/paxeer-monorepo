@@ -308,14 +308,24 @@ func (k *Keeper) freshMark(ctx sdk.Context, marketID uint64) (uint256.Int, error
 // trigger types run as IOC orders through Match. A filled attached TP/SL
 // order cancels the other order of its pair.
 func (k *Keeper) triggerOrder(ctx sdk.Context, market types.Market, order types.Order, mark uint256.Int) (uint256.Int, []types.EventRecord, error) {
-	if err := k.TriggerRemove(ctx, order); err != nil {
-		return uint256.Int{}, nil, err
-	}
-	events := []types.EventRecord{orderTriggered(order, mark)}
 	positionBefore, err := k.triggerPositionID(ctx, order.Account, order.MarketID)
 	if err != nil {
 		return uint256.Int{}, nil, err
 	}
+	if order.ReduceOnly || order.Type == types.OrderTypeTakeProfit || order.Type == types.OrderTypeStopLoss {
+		_, err := k.triggerPositionRecord(ctx, positionBefore)
+		if positionBefore.IsZero() || errors.Is(err, types.ErrUnknownPosition) {
+			cancelled, err := k.cancelUntriggered(ctx, order)
+			return uint256.Int{}, cancelled, err
+		}
+		if err != nil {
+			return uint256.Int{}, nil, err
+		}
+	}
+	if err := k.TriggerRemove(ctx, order); err != nil {
+		return uint256.Int{}, nil, err
+	}
+	events := []types.EventRecord{orderTriggered(order, mark)}
 	order.Status = types.OrderStatusResting
 	switch order.Type {
 	case types.OrderTypeStopLimit:
