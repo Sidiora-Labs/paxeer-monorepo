@@ -43,6 +43,8 @@ pub enum GatewayError {
     UnknownTranslation,
     IdempotencyConflict,
     ReceiptRequired,
+    /// A submitted transaction has no signed receipt yet. Consumers may retry;
+    /// the gateway leaves its translation and audit chain unchanged.
     ReceiptPending,
     NotStateChanging,
     TranslationClosed,
