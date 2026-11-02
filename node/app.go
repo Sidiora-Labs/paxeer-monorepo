@@ -2899,6 +2899,21 @@ func (app *App) makeGigaDeliverTx(cache *gigaBlockCache) func(sdk.Context, abci.
 	}
 }
 
+func (app *App) DomainAllowance(ctx sdk.Context, chainID *big.Int) (id uint32, gas uint64, bytes uint64, active bool, known bool) {
+	id, known = layerxchainstypes.DomainOfChainID(chainID)
+	if !known {
+		return 0, 0, 0, false, false
+	}
+	if id == 0 {
+		return 0, 0, 0, true, true
+	}
+	domain, known := app.LayerXChainsKeeper.ResolveChainID(ctx, chainID)
+	if !known {
+		return id, 0, 0, false, false
+	}
+	return id, domain.GasAllowance, domain.ByteAllowance, domain.Status == layerxchainstypes.StatusActive, true
+}
+
 func (app *App) GetEVMMsg(tx sdk.Tx) (res *evmtypes.MsgEVMTransaction) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -3783,8 +3798,27 @@ func (app *App) BlacklistedAccAddrs() map[string]bool {
 	return blacklistedAddrs
 }
 
+type chainsPrecompileBankKeeper struct {
+	putils.BankKeeper
+	chains *layerxchainskeeper.Keeper
+}
+
+func (k *chainsPrecompileBankKeeper) LayerXChainsK() *layerxchainskeeper.Keeper { return k.chains }
+
+func (pk *PrecompileKeepers) LayerXChainsK() *layerxchainskeeper.Keeper {
+	wired, ok := pk.BankKeeper.(interface {
+		LayerXChainsK() *layerxchainskeeper.Keeper
+	})
+	if !ok {
+		return nil
+	}
+	return wired.LayerXChainsK()
+}
+
 func (app *App) GetPrecompileKeepers() putils.Keepers {
-	return NewPrecompileKeepers(app)
+	keepers := NewPrecompileKeepers(app)
+	keepers.BankKeeper = &chainsPrecompileBankKeeper{BankKeeper: keepers.BankKeeper, chains: app.LayerXChainsKeeper}
+	return keepers
 }
 
 // v6120Contracts builds the contracts the v6.12.0 set adds or switches: the
