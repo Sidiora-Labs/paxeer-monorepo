@@ -402,7 +402,7 @@ export async function verifyPaymentReceipt(
   let reference: string | undefined;
   try {
     payer = paymentPayer(requirements.extra);
-    reference = paymentPurpose(requirements.extra, true);
+    reference = paymentPurpose(requirements.extra, requirements.scheme !== "exact");
   } catch (error) {
     if (error instanceof PlatformSdkError) throw new MiddlewareError("verification-failure");
     throw error;
@@ -436,7 +436,7 @@ export async function verifyPaymentReceipt(
   if (payments.length !== 1 || payment === undefined || payment.amount !== amount
     || !equalBytes(payment.assetId, parseHex32(requirements.asset))
     || !equalBytes(payment.to, parseHex32(requirements.payTo))
-    || reference === undefined || !equalBytes(payment.paymentReference, parseHex32(reference))
+    || (reference !== undefined && !equalBytes(payment.paymentReference, parseHex32(reference)))
     || (payer !== undefined && !equalBytes(payment.from, parseHex32(payer)))) {
     throw new MiddlewareError("verification-failure");
   }
