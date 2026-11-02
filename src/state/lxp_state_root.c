@@ -19,6 +19,7 @@ static lxp_result kernel_state_validate(const lxp_kernel *kernel)
     if (kernel == NULL) return LXP_ERR_NON_CANONICAL;
     if (kernel->state == NULL) return LXP_FATAL_INVARIANT;
     if (kernel->state->count > LXP_STATE_MAX_CELLS ||
+        kernel->state->idempotency_count > LXP_STATE_MAX_IDEMPOTENCY ||
         kernel->module_count > LXP_KERNEL_MAX_MODULE_REGISTRATIONS ||
         kernel->module_kv_count > LXP_KERNEL_MAX_MODULE_KV ||
         kernel->blob_count > LXP_KERNEL_MAX_BLOBS ||
@@ -29,10 +30,14 @@ static lxp_result kernel_state_validate(const lxp_kernel *kernel)
     if (kernel->state->account_root_required &&
         kernel->state->accounts == NULL)
         return LXP_FATAL_INVARIANT;
-    for (i = 0U; i < kernel->module_count; ++i)
-        if (kernel->modules[i].activity_type_count >
-            LXP_MODULE_MAX_ACTIVITY_TYPES)
+    for (i = 0U; i < kernel->module_count; ++i) {
+        const lxp_module_registration *registration = &kernel->modules[i];
+        if (registration->iface == NULL) return LXP_FATAL_INVARIANT;
+        if (registration->module_id != registration->iface->module_id)
+            return LXP_ERR_UNKNOWN_MODULE;
+        if (registration->activity_type_count > LXP_MODULE_MAX_ACTIVITY_TYPES)
             return LXP_ERR_LENGTH_LIMIT;
+    }
     for (i = 0U; i < kernel->module_count; ++i)
         if (kernel->modules[i].module_id != 0U &&
             kernel->modules[i].module_id <= LXP_MODULE_RESERVED_COUNT &&
