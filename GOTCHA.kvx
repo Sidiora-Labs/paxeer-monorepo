@@ -13450,3 +13450,8 @@ fix = "A task that deletes a directory greps Cargo manifests and build scripts a
 title = "A touches entry spelled with a ./ prefix is treated as outside scope"
 symptom = "21.86.1 listed ./precompiles/setup.go, ./precompiles/launchpad/surface_test.go and ./precompiles/launchpad/setup_test.go; the scope check compares plain repository paths, so attempt 1 was refused for editing files the task names."
 fix = "Spell touches as plain repository-relative paths; the batch normalises every ./ entry."
+
+[gotcha.2727]
+title = "A finding recorded during qualification is not resolved by the task landing"
+symptom = "1281 of the 2211 [finding.*] blocks of qualification.kvx are cited by no do or decision; the tasks that recorded them are done, and nothing says whether the observed condition still holds on main."
+fix = "Every finding gets a [disposition.<id>] block under spec/layerx-merge/dispositions/ whose evidence cites a commit or a file:line of main (feature 22); the closure refuses while one is missing or open without a landed follow-up."
