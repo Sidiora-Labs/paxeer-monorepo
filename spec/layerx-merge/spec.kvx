@@ -142504,7 +142504,7 @@ do_3 = "Delete rpcBatchEvidence at services/platform/middleware/seller/src/rpc.t
 do_4 = "Delete AuthorizedBatchResolver at services/platform/middleware/seller/src/index.ts:111-113 and MERKLE_LEAF_DOMAIN at services/platform/middleware/seller/src/index.ts:28 once no caller in the middleware packages imports them."
 do_5 = "Create services/platform/middleware/seller/test/retired-exports.test.mjs (planned) with the two tests below importing the built package entry."
 symbols = []
-touches = ["services/platform/middleware/seller/src/checkpoint.ts", "services/platform/middleware/seller/src/index.ts", "services/platform/middleware/seller/src/rpc.ts", "services/platform/middleware/seller/test/retired-exports.test.mjs"]
+touches = ["services/platform/middleware/seller/src/index.ts", "services/platform/middleware/seller/src/rpc.ts", "services/platform/middleware/seller/test/retired-exports.test.mjs"]
 tests = ["services/platform/middleware/seller/test/retired-exports.test.mjs::packageEntryHasNoKernelBatchEvidenceExports", "services/platform/middleware/seller/test/retired-exports.test.mjs::packageEntryKeepsLedgerAndReceiptExports"]
 planned_paths = ["services/platform/middleware/seller/test/retired-exports.test.mjs"]
 build_cmd = "npm --prefix services/platform/middleware/seller run build"
@@ -142523,6 +142523,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_7 = "Finding 8.23.2.2: task 8.22.8 deletes rpcBatchEvidence and RpcBatchEvidence first; do_3 is satisfied when they are already absent and this task changes nothing there."
+do_8 = "Finding 8.22.6.1: touches no longer names src/checkpoint.ts, which task 8.22.7 deleted; do_1 is a confirmation only. Continue from attempt 1 (0862a6c3d) rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 
 [task.8.22.7]
 title = "Retire the seller checkpoint evidence module built on the deleted SDK checkpoint verifiers"

@@ -13181,3 +13181,8 @@ fix = "Grep the repository's test trees for each removed name when the retiremen
 title = "A test-support file included by #[path] belongs to the task that deletes what it calls"
 symptom = "A port task listed the integration tests it rewrote but not the support module five of them include by #[path]; the module still called three deleted canonical envelope functions, and the crate's --all-targets build failed in a test target outside the task's list."
 fix = "When a task deletes or ports an API, grep the crate's tests/support directory as well as its test files, and declare every support module that names the API as a touch."
+
+[gotcha.2673]
+title = "A path a prerequisite task deletes must not stay in the touches of the task that confirms the deletion"
+symptom = "A task listed a module among its touches while its first step only confirmed that a required task had already deleted it; the attempt changed nothing there, the verify passed, and the done record's graph check refused the task for an untouched path."
+fix = "List as touches only the paths the task itself changes; put confirm-absent paths in the do text, never in touches."

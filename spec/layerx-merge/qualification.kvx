@@ -16995,3 +16995,11 @@ symbol = "sign"
 observed = "Attempt 2 (2d3858fb8) made the custody re-export of finding 10.21.8.1 and kept attempt 1's ports; cargo build --all-targets failed in the agent_controls_rungs test target because tests/support/canonical_owner.rs:25-66 sign still calls layerx_intents::canonical::unsigned_envelope_bytes (:42), signed_envelope_bytes (:51) and decode_signed_activity (:58), re-exports task 10.21.4 deleted under decision 1023; the file is included by #[path] from agent_controls.rs, agent_controls_rungs.rs, agent_creation_rungs.rs, native_onboarding_rungs.rs and agent_create.rs, and only agent_create.rs:896 calls sign, every other caller using sign_transaction (:67), the EIP-1559 builder."
 assumption = "Spec defect: the support file and agent_create.rs are this task's touches; sign is deleted and its one caller moves to sign_transaction or is deleted with the kernel owner envelope it asserts."
 severity = "minor"
+
+[finding.8.22.6.1]
+task = "8.22.6"
+file = "services/platform/middleware/seller/src/checkpoint.ts:1"
+symbol = "RpcCheckpointAuthority"
+observed = "Attempt 1 (0862a6c3d) found checkpoint.ts already deleted by task 8.22.7 (45176f36b) and rpcBatchEvidence already deleted by task 8.22.8, removed AuthorizedBatchResolver and MERKLE_LEAF_DOMAIN from index.ts, added retired-exports.test.mjs, and the build and both verify tests passed; the done record then refused because touches names src/checkpoint.ts and the attempt made no change to a file that no longer exists, so the graph check failed on a path do_1 asks only to confirm absent."
+assumption = "Spec defect: a path a prerequisite deletes is not a touch of the task that confirms the deletion; touches drops checkpoint.ts and the attempt continues unchanged."
+severity = "minor"
