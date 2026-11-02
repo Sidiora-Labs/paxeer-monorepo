@@ -13,6 +13,8 @@ type ProgramResult struct {
 	Response                   []byte
 }
 
+// GetProgramResult reassembles the canonical stored parts for query and EVM
+// consumers. A missing chunk is corruption, while a missing header is unknown.
 func (k Keeper) GetProgramResult(ctx sdk.Context, programID types.Hash32, requestID uint64) (ProgramResult, error) {
 	store := ctx.KVStore(k.storeKey)
 	header := store.Get(ProgramAnswerKey(programID, requestID, 0))
