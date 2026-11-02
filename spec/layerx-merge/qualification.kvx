@@ -18907,3 +18907,43 @@ symbol = "plan_result.legs"
 observed = "At b5bb14f31 the eighth candidate fails intent.test.ts:100 (decodeIntentPlan(fixture.plan_result)) with error.intent.invalid-nonce: the fixture legs carry index, mechanism, domain, source, destination, money, fee, payment, to, chainId and data with no nonce; intent.ts:478-479 requires call and nonce; the producer (production_components.rs:8260-8280) emits to, value, calldata, nonce, chain_id, gas_limit, max_fee_per_gas and max_priority_fee_per_gas per leg as intent.kvx:38 publishes; three shapes disagree and the producer is of record."
 assumption = "Decoder and fixture follow the producer (decision 2341); the Python wrapping test reads the same keys."
 severity = "high"
+
+[finding.6.96.6.3]
+task = "6.96.6"
+file = "modules/layerxanchor/bringup_genesis_test.go"
+symbol = "touches"
+observed = "At 6cd64d6f9 the sixth candidate passes go build, go vet, modules/layerxanchor/keeper, precompiles/layerxanchor and layerxproof/exportcheck and every verify assertion; the completion check refuses with: touched modules/layerxanchor/bringup_genesis_test.go has no matching change in the worktree or in commits tagged for 6.96.6. The file is absent on main since 24e7e1ab7 (task 18.1471.1, a prerequisite of 6.96.6), so no candidate can change it."
+assumption = "The entry leaves touches and do_6 is already satisfied on main (decision 2342); the candidate requalifies unchanged."
+severity = "low"
+
+[finding.21.45.1.2]
+task = "21.45.1"
+file = "services/agent/crates/layerx-sdk/src/rpc.rs"
+symbol = "estimate_fee"
+observed = "At 717ce20b9 the seventh candidate (direct-node routing through connect_node, receipt diagnostics, 865-line proof) passes two of three proof tests and panics at proof_sdk.rs:664 real public fee estimator: Remote code -32000 insufficient funds for transfer: the estimate request built at rpc.rs:1010 carries chainId, nonce, maxFeePerGas and gas but no from, so the node checks the zero address's balance; the account the proof funded one line earlier (100 network coin, receipt final) is never consulted."
+assumption = "The proof estimates with estimate_fee_from and the funded account (decision 2343); the fromless form is documented as fee-less only."
+severity = "medium"
+
+[finding.22.9.17.2]
+task = "22.9.17"
+file = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+symbol = "pub(super)"
+observed = "At 717ce20b9 the fifth candidate passes its build and verify and fails only the dependent-crate check: layerx-agentd tests/proof_serve_errors.rs:332, :353 and :383 declare pub(super) items at a test crate root (E0433 too many leading super keywords, from e3cbac93f of task 22.9.16), so every dependent build of the agent workspace fails before this task's code runs."
+assumption = "Repaired by task 22.9.25, which this task now requires; the candidate requalifies on a main that carries it."
+severity = "medium"
+
+[finding.22.9.18.2]
+task = "22.9.18"
+file = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+symbol = "pub(super)"
+observed = "At 717ce20b9 the third candidate fails its build with the same E0433 (too many leading super keywords) at proof_serve_errors.rs:332, :353 and :383; the task already requires 22.9.25 and the candidate started before that task's repair existed."
+assumption = "Repaired by task 22.9.25; the candidate requalifies on a main that carries it."
+severity = "medium"
+
+[finding.22.6.4.5]
+task = "22.6.4"
+file = "tests/chain/sidiora_fee_test.go"
+symbol = "TestSidioraFeePaid"
+observed = "At ecf9f785 the seventh candidate (precompiles/testutil Install registering the merge table with the application keepers, 16 files all within touches) passes the precompiles packages, the three merge tests and the node refresh test; TestSidioraFeePaid, which panicked on main before the harness repair, now runs and fails at verify/feetoken.go:92 via sidiora_fee_test.go:206: the payer's Sidiora falls by the converted 32697 but the coinbase of transaction 0 receives 0. The test last passed at dfdd92e8f (2026-10-27); between that revision and ecf9f785 the fee path gained the chain-domain base fee and end-of-block operator share (1d41dbfba, e576fb445, ec287c0ea) and the harness gained the Install call."
+assumption = "Either a commit in that range moved the converted fee off the per-transaction coinbase, or re-registering the custom precompile set in the harness changed the block context the fee credit keys on; the bisect below decides."
+severity = "high"
