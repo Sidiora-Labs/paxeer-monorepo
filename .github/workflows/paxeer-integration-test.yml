@@ -152,6 +152,9 @@ defaults:
     shell: bash
     working-directory: .
 
+permissions:
+  contents: read
+
 jobs:
   # Build localnode/rpcnode images and paxd once; matrix jobs pull the images
   # from GHCR (tagged with the run id) and download paxd as a small artifact.
