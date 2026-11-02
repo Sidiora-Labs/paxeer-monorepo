@@ -1,0 +1,124 @@
+[disposition.9.22.4.2]
+finding = "9.22.4.2"
+status = "resolved"
+evidence = "ecdaab902 refreshed the committed-proof lock entries, and services/agent/Cargo.lock:848 now includes the serde_json dependency declared at services/interop/crates/layerx-committed-proof/Cargo.toml:11."
+
+[disposition.9.23.7]
+finding = "9.23.7"
+status = "resolved"
+evidence = "9a7022b28 replaced the removed checkpoint and settlement fields with block-commit evidence, retained at services/agent/crates/layerx-client/src/ai_market.rs:270."
+
+[disposition.9.23.7.1]
+finding = "9.23.7.1"
+status = "superseded"
+evidence = "fa39fb955 retired services/agent/crates/layerx-client/tests/ai_market_client.rs while moving AI market submission to SequencerEndpoint, so the cited CheckpointFinality import and obsolete proof fields have no remaining test file."
+
+[disposition.9.23.7.2]
+finding = "9.23.7.2"
+status = "resolved"
+evidence = "fa39fb955 migrated AI market signing and submission to EIP-1559, with sign_disclosed_call at services/agent/crates/layerx-client/src/ai_market.rs:1155 and submit_signed at services/agent/crates/layerx-client/src/ai_market.rs:1660."
+
+[disposition.9.24.1]
+finding = "9.24.1"
+status = "environment"
+evidence = "cb6a7330a deletes all seven retired transport test files including services/agent/crates/layerx-client/tests/arbiter_admission.rs, while the reported refusal concerns the qualification tool accounting for deleted paths rather than a repository implementation failure."
+
+[disposition.9.24.1.1]
+finding = "9.24.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:162837 now builds the native vector producer and writes build/native-vectors.json before compilation, and spec/layerx-merge/spec.kvx:162838 exports its path through LAYERX_CAPS_VECTORS for the retained test."
+
+[disposition.9.24.1.2]
+finding = "9.24.1.2"
+status = "resolved"
+evidence = "3fab52136 restored the twelve referenced archive members, pruned stale archives and restored the checkpoint header rule, with Makefile:44 retaining only the five unreferenced source exclusions."
+
+[disposition.9.24.1.3]
+finding = "9.24.1.3"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:162838 assigns LAYERX_CAPS_VECTORS=$PWD/build/native-vectors.json without escaped quote characters, matching the environment variable read at services/agent/crates/layerx-client/tests/committed_caps.rs:8."
+
+[disposition.9.24.3.3]
+finding = "9.24.3.3"
+status = "resolved"
+evidence = "3d45f5298 ported the daemon settlement, program-source, human-runtime and capability consumers away from the deleted prestate API, with committed_execution_state at services/agent/crates/layerx-agentd/src/budget/execution_state.rs:192 supplying the replacement."
+
+[disposition.9.24.3.4]
+finding = "9.24.3.4"
+status = "resolved"
+evidence = "65d4c02a5 replaced the arbiter consumers of deleted client admission evidence with crate-owned AdmissionEvidence and app-hash proofs, as used at programs/crates/layerx-programs-arbiter/src/authority.rs:104."
+
+[disposition.9.24.4]
+finding = "9.24.4"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:162933 now produces build/native-vectors.json and spec/layerx-merge/spec.kvx:162934 exports LAYERX_CAPS_VECTORS before running budget_refuses_malformed_and_arithmetic_bounds."
+
+[disposition.9.25.1.1]
+finding = "9.25.1.1"
+status = "resolved"
+evidence = "036a1da1b retired evidence.rs after the cited consumers were removed or migrated, including fee6cbfed replacing the authority human checkpoint imports with its own CommittedCheckpoint retained at services/platform/hosted/authority/src/human.rs:135."
+
+[disposition.9.27.2]
+finding = "9.27.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:163232 lists the seven symbols defined by task 9.27.2 and excludes the consumed Rung type, whose declaration remains at services/agent/crates/layerx-types/src/rung.rs:11."
+
+[disposition.9.27.2.1]
+finding = "9.27.2.1"
+status = "resolved"
+evidence = "fbb5df6bb replaced the daemon legacy verify_complete caller with offline export v2 verification, which checks Rung::Committed at services/agent/crates/layerx-agentd/src/export.rs:200 and reports achieved_rung at services/agent/crates/layerx-agentd/src/export.rs:320."
+
+[disposition.9.27.7]
+finding = "9.27.7"
+status = "resolved"
+evidence = "52458800f removed services/agent/crates/layerx-client/tests/finality_evidence.rs from the xweb workflow declared paths, whose current client entries at scripts/ci/xweb-workflow-check.sh:172 no longer name that deleted suite."
+
+[disposition.9.32.1]
+finding = "9.32.1"
+status = "resolved"
+evidence = "b6f48e079 migrated Wallet execution to send_raw_transaction at services/agent/crates/layerx-sdk/src/wallet.rs:371 and passes the EVM address to get_identity_sequence at services/agent/crates/layerx-sdk/src/wallet.rs:291."
+
+[disposition.9.32.2]
+finding = "9.32.2"
+status = "resolved"
+evidence = "b6f48e079 binds the disclosure to the actual EIP-1559 call and sender at services/agent/crates/layerx-sdk/src/wallet.rs:470 and supplies that same call and disclosure to sign_disclosed_call at services/agent/crates/layerx-sdk/src/wallet.rs:357."
+
+[disposition.9.32.2.1]
+finding = "9.32.2.1"
+status = "resolved"
+evidence = "b6f48e079 extended decode_method for openAccount, registration, mint and burn, with the openAccount branch retained at services/agent/crates/layerx-crypto/src/disclosure/call.rs:273."
+
+[disposition.9.32.4]
+finding = "9.32.4"
+status = "superseded"
+evidence = "b621e5208 first migrated the fixture calls to pinned receipt keys, and 22bb29ae7 subsequently deleted services/agent/crates/layerx-sdk/tests/receipt_fixture.rs when retiring kernel receipt verification."
+
+[disposition.9.33.2]
+finding = "9.33.2"
+status = "resolved"
+evidence = "76e691de9 migrated the fee refusal tests to transaction-shaped arguments, with the current EIP-1559 destination and oversized-data assertions at services/agent/sdk/typescript/test/rpc.test.ts:38."
+
+[disposition.9.33.4]
+finding = "9.33.4"
+status = "resolved"
+evidence = "1869fb8c8 migrated the subscription tests to heads and account, with newHeads assertions at services/agent/sdk/typescript/test/rpc.test.ts:153 and the account logs assertion at services/agent/sdk/typescript/test/rpc.test.ts:157."
+
+[disposition.9.33.5]
+finding = "9.33.5"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:163932 now lists only PX_METHODS, defined in the touched TypeScript file at services/agent/sdk/typescript/src/px.ts:31, and no longer requires the anchor declarations deleted by c2eb2c78f."
+
+[disposition.9.33.8.3]
+finding = "9.33.8.3"
+status = "resolved"
+evidence = "ffa7a271f restored verbatim TypeScript Rung emission at services/agent/tools/sdk-gen/src/main.rs:467 and the matching test at services/agent/tools/sdk-gen/tests/major_two.rs:50, with capitalized members retained at services/agent/sdk/typescript/src/generated/client.ts:65."
+
+[disposition.9.33.8.4]
+finding = "9.33.8.4"
+status = "resolved"
+evidence = "f455efbe0 removed faucet.claim from the live operation arrays and retained it as a string-typed retired name at services/agent/sdk/typescript/src/production.ts:3, with local refusal and no-request assertions at services/agent/sdk/typescript/test/agent-operation-envelope.test.ts:464."
+
+[disposition.9.33.10]
+finding = "9.33.10"
+status = "resolved"
+evidence = "85185607b migrated all three cited calls to include accountId and updated the v2 selector and calldata assertions at services/agent/sdk/typescript/test/precompile-calls.test.ts:133 and services/agent/sdk/typescript/test/xweb-api.test.ts:543."
