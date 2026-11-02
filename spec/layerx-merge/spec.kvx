@@ -6549,6 +6549,18 @@ value = "Task 9.35.1 keeps status blocked; attempt 2 (f9e1a5ff0) is the implemen
 basis = "Finding 9.35.1.2: deleting the modules with 94 unported consumer files breaks four workspaces at once, and the ports are substantive (binding activities and signing activity preimages have no mechanical replacement), so they are separate tasks per crate, written from the census, in the order the quality ruling asks: producer, then every consumer, then the retirement."
 affects = ["9.35.1"]
 
+[decision.2241]
+title = "The not-ready verification statuses of issue #1435 land as one contract change and four SDK consumer tasks fed by daemon goldens"
+value = "Task 18.1435.2 extends services/agent/schema/agent-api/v1.kvx with the pending and absent verification statuses and adds two daemon-produced success goldens (agent-http-success-pending.json, agent-http-success-absent.json) checked by the daemon's golden round-trip test. Tasks 18.1435.1 (TypeScript), 18.1435.3 (Python), 18.1435.4 (Go) and 18.1435.5 (Swift) each require 18.1435.2 and make the SDK's agent envelope decoder accept exactly those shapes, consuming the golden files in a test. A pending status carries requested and achieved rungs with achieved strictly below requested; an absent status carries requested only; no decoder treats either as achieved evidence."
+basis = "Finding 18.1430.1.1: a producer change that no consumer decodes is the defect class the quality ruling names; the goldens are the producer's bytes, so every SDK test proves the real shape rather than a hand-written one."
+affects = ["18.1435.1", "18.1435.2", "18.1435.3", "18.1435.4", "18.1435.5"]
+
+[decision.2240]
+title = "SECURITY.md states response targets for private vulnerability reports"
+value = "Receipt acknowledgement in the advisory within three business days; initial triage with a scope and severity decision within ten business days; a status update in the advisory at least every fourteen days while remediation is in progress; remediation targets of thirty days for Critical, sixty for High, ninety for Medium and the next scheduled release for Low, counted from the severity decision; coordinated disclosure within fourteen days of the fix being available; a reporter whose target is missed escalates by commenting in the advisory and, after two further business days, by email to security@paxeer.app with the advisory identifier. The targets are best-effort commitments, not a service contract."
+basis = "Issue #1437: the policy documents scope, severity, rewards and channels but no expectation of when a report is acknowledged, triaged or resolved; two private advisories await acknowledgement. The numbers are the maintainers' decision; they are set here so the policy can carry them now and can be changed by editing SECURITY.md."
+affects = ["18.1437.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20170,6 +20182,30 @@ title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
 
+[req.3538]
+title = "SECURITY.md states the response targets of decision 2240"
+ac_1 = "SECURITY.md carries a Response targets section stating the acknowledgement, triage, update cadence, per-severity remediation, disclosure and escalation targets of decision 2240 in plain prose, next to the existing handling and disclosure text."
+
+[req.3537]
+title = "live_kinds compiles against the retained intent vocabulary"
+ac_1 = "tests/live_kinds.rs of layerx-intents imports, constructs and indexes only retained kinds, kind_index numbers the sixteen retained kinds contiguously, the count and index assumptions of the file match, and cargo test --test live_kinds passes without restoring any retired kind or reusing the retired numeric tags 4, 11, 12 and 16."
+
+[req.8300]
+title = "One disposable-chain qualification starts no second qualification"
+ac_1 = "real_chain.rs passes the boundary binary alone, real_chain.py launches no test executable, and a qualification started while LAYERX_PAXEER_QUALIFICATION_ACTIVE is set in its environment exits non-zero with a refusal message before starting any chain or boundary process; the remaining TLS, RPC, transfer, wrong-chain and node-loss assertions and the cleanup stay."
+
+[req.8299]
+title = "Not-ready program.receipt answers decode in every supported SDK as not-ready results"
+ac_1 = "The published agent API contract declares verification_status pending {state, requested, achieved} with achieved strictly below requested and absent {state, requested}; the daemon's golden success envelopes include one of each; the TypeScript, Python, Go and Swift agent envelope decoders accept both goldens as not-ready results, keep refusing a pending status whose achieved rung reaches the requested one and a status with unknown fields, and never report either as achieved."
+
+[req.8298]
+title = "Move money retains an accepted EVM submission across receipt read failures and restarts"
+ac_1 = "After eth_sendRawTransaction accepts a leg, the journey record stores submitted=true with the transaction hash and nonce before the receipt lookup runs; a receipt read failure leaves the record submitted, a repeat advancement (including after reopening the durable service) looks the receipt up by idempotency key instead of resending, treats a resend refusal for a consumed nonce as a signal to look the receipt up, and finalises the leg from the existing receipt with the same transaction hash."
+
+[req.8297]
+title = "The owner receipt lookup answer decodes in Human from the bytes the daemon produces"
+ac_1 = "A found, an absent and a submitted-but-unreceipted owner receipt lookup answer encoded by the daemon decode in the Human agent runtime into ReceiptLookup::Found with the complete ReceiptMaterial, ReceiptLookup::Absent and ReceiptLookup::Submitted respectively, with the transaction hash, receipt hash, block height, rung, signed receipt, receipt key window and inclusion height sourced from the stored receipt evidence; truncated frames and key windows that exclude the inclusion height are refused."
+
 [req.9270]
 title = "layerx-agentd builds against the retired offline export API"
 ac_1 = "layerx-agentd calls layerx_proof::export::verify with the export alone, carries no verified_checkpoints count, refuses an invalid trust source with its own error and matches no checkpoint selector, so cargo build -p layerx-agentd --all-targets passes and the export, export_v2 and export_offline_bounds tests pass."
@@ -33709,6 +33745,96 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.18.1437.1]
+title = "Issue #1437: Document the vulnerability report response targets in SECURITY.md"
+reqs = ["3538.1"]
+touches = ["SECURITY.md"]
+tests = []
+verification_contract = "grep -qF '## Response targets' SECURITY.md && grep -qF 'three business days' SECURITY.md && grep -qF 'ten business days' SECURITY.md && grep -qF 'every fourteen days' SECURITY.md && grep -qF 'security@paxeer.app' SECURITY.md && grep -qF 'next scheduled release' SECURITY.md"
+do_1 = "Add a '## Response targets' section to SECURITY.md after 'Handling and disclosure' stating, as decision 2240 fixes them: acknowledgement within three business days; triage with a scope and severity decision within ten business days; a status update at least every fourteen days while remediation is in progress; remediation targets of thirty days (Critical), sixty days (High), ninety days (Medium) and the next scheduled release (Low) counted from the severity decision; coordinated disclosure within fourteen days of the fix being available; escalation by a comment in the advisory and, after two further business days, by email to security@paxeer.app with the advisory identifier; and that the targets are best-effort commitments. Keep the rest of the file unchanged."
+symbols = []
+
+[capability.18.1441.1]
+title = "Issue #1441: Port live_kinds to the retained intent kinds"
+reqs = ["3537.1"]
+touches = ["services/human/crates/layerx-intents/tests/live_kinds.rs"]
+tests = ["services/human/crates/layerx-intents/tests/live_kinds.rs"]
+verification_contract = "! grep -qE 'EvmPayoutBinding|BridgeDepositCredit|BridgeWithdrawRequest|NativeCustodyCredit' services/human/crates/layerx-intents/tests/live_kinds.rs && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test live_kinds"
+do_1 = "In services/human/crates/layerx-intents/tests/live_kinds.rs remove the imports of EvmPayoutBinding, BridgeDepositCredit, BridgeWithdrawRequest and NativeCustodyCredit (:5-9), the intents constructed from them (:195, :273, :285, :360) and their kind_index arms (:382, :392-395); renumber kind_index contiguously over the sixteen retained kinds in the enum order of src/vocabulary.rs:88 and adjust every count or index assumption so each retained kind and Perps is still covered once."
+symbols = ["kind_index"]
+
+[capability.18.1439.1]
+title = "Issue #1439: Remove the Python callback into the retired Rust probe and refuse qualification re-entry"
+reqs = ["8300.1"]
+touches = ["services/platform/hosted/paxeer/tests/real_chain.rs", "services/platform/hosted/paxeer/tests/real_chain.py"]
+tests = ["services/platform/hosted/paxeer/tests/real_chain.rs"]
+verification_contract = "! grep -q 'sys.argv.2.' services/platform/hosted/paxeer/tests/real_chain.py && ! grep -q 'current_exe' services/platform/hosted/paxeer/tests/real_chain.rs && grep -q 'LAYERX_PAXEER_QUALIFICATION_ACTIVE' services/platform/hosted/paxeer/tests/real_chain.py && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --test real_chain qualification_refuses_reentry"
+do_1 = "In services/platform/hosted/paxeer/tests/real_chain.py delete the client_env and the run(sys.argv[2], ...) call (:146-148) and the ca.der conversion that served only that call; at the top of the qualification refuse to start, with a message naming the variable and exit status 2, when LAYERX_PAXEER_QUALIFICATION_ACTIVE is already set, and set it in the env passed to every child process the qualification launches."
+symbols = ["qualification_refuses_reentry"]
+
+[capability.18.1435.5]
+title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Swift agent envelope decoder"
+reqs = ["8299.1"]
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Transport.swift", "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift"]
+verification_contract = "swift test --package-path sdk/platform/swift --filter 'AgentEnvelopeMajor2Tests/testAgentEnvelopeAcceptsNotReadyVerificationStatus'"
+do_1 = "In sdk/platform/swift/Sources/LayerXSDK/Transport.swift validVerification (:664) accept {state: pending, requested, achieved} with both rungs in verificationRungs and achieved strictly below requested, and {state: absent, requested}; keep every other shape refused."
+symbols = ["validVerification"]
+
+[capability.18.1435.4]
+title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Go agent envelope decoder"
+reqs = ["8299.1"]
+touches = ["sdk/platform/go/http.go", "sdk/platform/go/agent_envelope_major2_test.go"]
+tests = ["sdk/platform/go/agent_envelope_major2_test.go"]
+verification_contract = "go -C sdk/platform/go test -count=1 . -run '^(TestAgentEnvelopeDecodesDaemonResponseGoldens|TestAgentEnvelopeAcceptsNotReadyVerificationStatus)$'"
+do_1 = "In sdk/platform/go/http.go acceptedAgentEnvelopeVerification (:598) accept {state: pending, requested, achieved} with achieved strictly below requested and {state: absent, requested}, with exact field sets; keep every other shape refused."
+symbols = ["acceptedAgentEnvelopeVerification"]
+
+[capability.18.1435.3]
+title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Python agent envelope decoder"
+reqs = ["8299.1"]
+touches = ["services/agent/sdk/python/layerx_sdk/agent_http.py"]
+tests = ["tests/agent/sdk/python/test_agent_envelope_not_ready.py"]
+verification_contract = "python3 -m pytest -q tests/agent/sdk/python/test_agent_envelope_not_ready.py"
+do_1 = "In services/agent/sdk/python/layerx_sdk/agent_http.py _valid_verification_status (:758) accept {state: pending, requested, achieved} with both levels in _LEVELS and achieved strictly below requested, and {state: absent, requested} with requested in _LEVELS; keep every other shape refused."
+symbols = ["_valid_verification_status"]
+
+[capability.18.1435.1]
+title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the TypeScript agent envelope decoder"
+reqs = ["8299.1"]
+touches = ["services/agent/sdk/typescript/src/agent-http.ts", "services/agent/sdk/typescript/test/agent-http-daemon-envelope.test.ts"]
+tests = ["services/agent/sdk/typescript/test/agent-http-daemon-envelope.test.ts"]
+verification_contract = "node --test --test-name-pattern='^(agent_envelope_matches_daemon_goldens|agent_envelope_accepts_not_ready_verification_status)$' services/agent/sdk/typescript/dist/test/agent-http-daemon-envelope.test.js"
+do_1 = "In services/agent/sdk/typescript/src/agent-http.ts decodeVerificationStatus (:978) accept {state: pending, requested, achieved} with both rungs decoded and achieved strictly below requested, and {state: absent, requested} with the requested rung; keep the exact-key checks, keep refusing an unknown state, a pending status whose achieved rung reaches the requested one and extra fields, and return frozen objects of the same shape; the caller's not-ready value stays a normal read result, not a verification failure."
+symbols = ["decodeVerificationStatus"]
+
+[capability.18.1435.2]
+title = "Issue #1435: Publish the pending and absent verification statuses in the agent API contract and the daemon goldens"
+reqs = ["8299.1"]
+touches = ["services/agent/schema/agent-api/v1.kvx", "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs"]
+verification_contract = "test -s services/agent/schema/agent-api/golden/agent-http-success-pending.json && test -s services/agent/schema/agent-api/golden/agent-http-success-absent.json && grep -qE 'verification_status = .*pending.*absent' services/agent/schema/agent-api/v1.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test rpc_surface_major_two agent_http_envelope_goldens_round_trip"
+do_1 = "In services/agent/schema/agent-api/v1.kvx:119 extend the verification_status description with {state:pending,requested:R,achieved:R} where achieved is strictly below requested, returned for a submitted-but-unreceipted lookup, and {state:absent,requested:R}, returned when no submission is known; keep the achieved and unverified shapes and the verification.inconsistent refusal of an ordering violation."
+symbols = ["agent_http_envelope_goldens_round_trip"]
+
+[capability.18.1434.1]
+title = "Issue #1434: Persist the accepted Move money submission before the receipt lookup and reconcile instead of resending"
+reqs = ["8298.1"]
+touches = ["services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs"]
+verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test move_commit_bank_send"
+do_1 = "In services/human/crates/layerx-human-service/src/server/production_components.rs advance_evm_intent (:8724): after send_raw_transaction returns the expected hash, set submitted=true, tx_hash and nonce on the leg and write the record with scope.put immediately, before decoding the call and looking the receipt up; keep the ownership, signature and nonce checks and the final put."
+symbols = ["advance_evm_intent"]
+
+[capability.18.1433.1]
+title = "Issue #1433: Encode the owner receipt lookup answer as one shared frame the Human decoder reads"
+reqs = ["8297.1"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/lib.rs", "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_node_receipts && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_runtime_receipt_frame --test agent_runtime_rungs"
+do_1 = "Add services/agent/crates/layerx-agentd/src/human_receipt_frame.rs (pub mod human_receipt_frame in src/lib.rs) defining ReceiptLookupFrame (canonical bytes, the five AuthorizedBatch fields, verification level, transaction hash, receipt hash, block height, rung, signed receipt bytes, receipt key id, public key, first height, last height, inclusion height) with encode and decode, and ReceiptLookupAnswer { Absent, Submitted { tx_hash, nonce }, Found(ReceiptLookupFrame) } with one decode of the whole answer: presence byte 0, 2 or 1 followed by the frame; the verification level travels as the Human code (1 SEQUENCER_SIGNED to 5 SETTLEMENT_ANCHORED) and the rung as Rung::wire_rank, each named in the module's doc comment as the owner receipt lookup wire contract."
+symbols = ["ReceiptLookup", "receipt_lookup_not_ready_bytes"]
 
 [capability.9.27.9]
 title = "Port layerx-agentd to the retired offline export API"
@@ -109801,9 +109927,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.18.1435.1]
+title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the TypeScript agent envelope decoder"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["18.1435.2"]
+reqs = ["8299.1"]
+capabilities = ["18.1435.1"]
+interfaces = []
+do_1 = "In services/agent/sdk/typescript/src/agent-http.ts decodeVerificationStatus (:978) accept {state: pending, requested, achieved} with both rungs decoded and achieved strictly below requested, and {state: absent, requested} with the requested rung; keep the exact-key checks, keep refusing an unknown state, a pending status whose achieved rung reaches the requested one and extra fields, and return frozen objects of the same shape; the caller's not-ready value stays a normal read result, not a verification failure."
+do_2 = "In services/agent/sdk/typescript/test/agent-http-daemon-envelope.test.ts add agent_envelope_accepts_not_ready_verification_status reading the two golden files of 18.1435.2 through the real transport decode path and asserting the decoded statuses, plus refusals for achieved equal to requested and for an absent status carrying achieved."
+symbols = ["decodeVerificationStatus"]
+touches = ["services/agent/sdk/typescript/src/agent-http.ts", "services/agent/sdk/typescript/test/agent-http-daemon-envelope.test.ts"]
+tests = ["services/agent/sdk/typescript/test/agent-http-daemon-envelope.test.ts"]
+planned_paths = []
+build_cmd = "npm --prefix services/agent/sdk/typescript run build"
+verify_cmd = "node --test --test-name-pattern='^(agent_envelope_matches_daemon_goldens|agent_envelope_accepts_not_ready_verification_status)$' services/agent/sdk/typescript/dist/test/agent-http-daemon-envelope.test.js"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits; the decoder returns to the two-shape contract."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.8.22.8]
 title = "Delete the seller's kernel batch evidence reader that imports the retired SDK proof type"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -111321,6 +111476,35 @@ gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-markets"
 rollback = "Revert the touched files of task 3.98.1; the gateway state and env file live outside the repository, so no repository state depends on them."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1435.5]
+title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Swift agent envelope decoder"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["18.1435.2"]
+reqs = ["8299.1"]
+capabilities = ["18.1435.5"]
+interfaces = []
+do_1 = "In sdk/platform/swift/Sources/LayerXSDK/Transport.swift validVerification (:664) accept {state: pending, requested, achieved} with both rungs in verificationRungs and achieved strictly below requested, and {state: absent, requested}; keep every other shape refused."
+do_2 = "In sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift add testAgentEnvelopeAcceptsNotReadyVerificationStatus decoding the two golden files of 18.1435.2 through the transport and asserting not-ready results, plus refusals for achieved equal to requested and for an absent status carrying achieved."
+symbols = ["validVerification"]
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Transport.swift", "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift"]
+planned_paths = []
+build_cmd = "swift build --package-path sdk/platform/swift --build-tests"
+verify_cmd = "swift test --package-path sdk/platform/swift --filter 'AgentEnvelopeMajor2Tests/testAgentEnvelopeAcceptsNotReadyVerificationStatus'"
+gate_kind = "planned"
+sandbox_profile = "swift"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -117985,6 +118169,157 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.18.1441.1]
+title = "Issue #1441: Port live_kinds to the retained intent kinds"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["3537.1"]
+capabilities = ["18.1441.1"]
+interfaces = []
+do_1 = "In services/human/crates/layerx-intents/tests/live_kinds.rs remove the imports of EvmPayoutBinding, BridgeDepositCredit, BridgeWithdrawRequest and NativeCustodyCredit (:5-9), the intents constructed from them (:195, :273, :285, :360) and their kind_index arms (:382, :392-395); renumber kind_index contiguously over the sixteen retained kinds in the enum order of src/vocabulary.rs:88 and adjust every count or index assumption so each retained kind and Perps is still covered once."
+do_2 = "Restore no retired API and reuse none of the retired tags; run the file's tests."
+symbols = ["kind_index"]
+touches = ["services/human/crates/layerx-intents/tests/live_kinds.rs"]
+tests = ["services/human/crates/layerx-intents/tests/live_kinds.rs"]
+planned_paths = []
+build_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test live_kinds --no-run"
+verify_cmd = "! grep -qE 'EvmPayoutBinding|BridgeDepositCredit|BridgeWithdrawRequest|NativeCustodyCredit' services/human/crates/layerx-intents/tests/live_kinds.rs && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test live_kinds"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1439.1]
+title = "Issue #1439: Remove the Python callback into the retired Rust probe and refuse qualification re-entry"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8300.1"]
+capabilities = ["18.1439.1"]
+interfaces = []
+do_1 = "In services/platform/hosted/paxeer/tests/real_chain.py delete the client_env and the run(sys.argv[2], ...) call (:146-148) and the ca.der conversion that served only that call; at the top of the qualification refuse to start, with a message naming the variable and exit status 2, when LAYERX_PAXEER_QUALIFICATION_ACTIVE is already set, and set it in the env passed to every child process the qualification launches."
+do_2 = "In services/platform/hosted/paxeer/tests/real_chain.rs drop the current_exe argument (:8) of real_paxd_boundary and add the test qualification_refuses_reentry, which runs python3 real_chain.py with the boundary binary and LAYERX_PAXEER_QUALIFICATION_ACTIVE set, and asserts exit status 2, the refusal message on stderr and that no chain or boundary process was started (the script must refuse before touching PAXD)."
+do_3 = "Keep every retained assertion and the temporary-directory cleanup of the qualification unchanged."
+symbols = ["qualification_refuses_reentry"]
+touches = ["services/platform/hosted/paxeer/tests/real_chain.rs", "services/platform/hosted/paxeer/tests/real_chain.py"]
+tests = ["services/platform/hosted/paxeer/tests/real_chain.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --tests"
+verify_cmd = "! grep -q 'sys.argv.2.' services/platform/hosted/paxeer/tests/real_chain.py && ! grep -q 'current_exe' services/platform/hosted/paxeer/tests/real_chain.rs && grep -q 'LAYERX_PAXEER_QUALIFICATION_ACTIVE' services/platform/hosted/paxeer/tests/real_chain.py && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --test real_chain qualification_refuses_reentry"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1435.2]
+title = "Issue #1435: Publish the pending and absent verification statuses in the agent API contract and the daemon goldens"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["9.27.9"]
+reqs = ["8299.1"]
+capabilities = ["18.1435.2"]
+interfaces = []
+do_1 = "In services/agent/schema/agent-api/v1.kvx:119 extend the verification_status description with {state:pending,requested:R,achieved:R} where achieved is strictly below requested, returned for a submitted-but-unreceipted lookup, and {state:absent,requested:R}, returned when no submission is known; keep the achieved and unverified shapes and the verification.inconsistent refusal of an ordering violation."
+do_2 = "Add services/agent/schema/agent-api/golden/agent-http-success-pending.json and services/agent/schema/agent-api/golden/agent-http-success-absent.json, each a complete daemon success envelope (request_id, value, verification_status) for program.receipt as agent_rpc.rs:534-549 produces it; extend agent_http_envelope_goldens_round_trip in services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs (:283) to produce both answers through the daemon's envelope encoder and compare them byte for byte with the files, so the goldens stay the producer's output."
+symbols = ["agent_http_envelope_goldens_round_trip"]
+touches = ["services/agent/schema/agent-api/v1.kvx", "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs"]
+planned_paths = ["services/agent/schema/agent-api/golden/agent-http-success-pending.json", "services/agent/schema/agent-api/golden/agent-http-success-absent.json"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test rpc_surface_major_two"
+verify_cmd = "test -s services/agent/schema/agent-api/golden/agent-http-success-pending.json && test -s services/agent/schema/agent-api/golden/agent-http-success-absent.json && grep -qE 'verification_status = .*pending.*absent' services/agent/schema/agent-api/v1.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test rpc_surface_major_two agent_http_envelope_goldens_round_trip"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits; the contract and goldens return to the achieved and unverified shapes."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1434.1]
+title = "Issue #1434: Persist the accepted Move money submission before the receipt lookup and reconcile instead of resending"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["18.1433.1", "10.1.8"]
+reqs = ["8298.1"]
+capabilities = ["18.1434.1"]
+interfaces = []
+do_1 = "In services/human/crates/layerx-human-service/src/server/production_components.rs advance_evm_intent (:8724): after send_raw_transaction returns the expected hash, set submitted=true, tx_hash and nonce on the leg and write the record with scope.put immediately, before decoding the call and looking the receipt up; keep the ownership, signature and nonce checks and the final put."
+do_2 = "When the leg is already submitted, never resend: look the receipt up by idempotency key; ReceiptLookup::Submitted and a lookup transport failure leave the leg submitted and the journey still-checking. When send_raw_transaction refuses a leg that carries a retained transaction hash with the node's consumed-nonce rejection, continue to the receipt lookup for that hash rather than returning upstream_degraded; any other send error still returns upstream_degraded."
+do_3 = "Extend services/human/crates/layerx-human-service/tests/support/production_fixture.rs so a test can make the peer fail the next receipt lookup with a transport error and make the node answer a repeat eth_sendRawTransaction with the consumed-nonce rejection, as the node does."
+do_4 = "Add to services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs the test move_commit_retains_the_accepted_submission_when_the_receipt_read_fails: the first send is accepted, its first receipt lookup fails, a repeat send would be refused, the matching committed receipt then becomes available; assert the journey record stores submitted=true and the hash after the failed read, that the next advancement serves no second eth_sendRawTransaction and finalises the leg with the same transaction hash; and move_commit_recovers_the_accepted_submission_after_reopening doing the same across fixture.reopen()."
+symbols = ["advance_evm_intent"]
+touches = ["services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test move_commit_bank_send --no-run"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test move_commit_bank_send"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commits; the journey returns to persisting the submission after the receipt read."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1433.1]
+title = "Issue #1433: Encode the owner receipt lookup answer as one shared frame the Human decoder reads"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["9.27.9", "10.1.6", "10.1.7"]
+reqs = ["8297.1"]
+capabilities = ["18.1433.1"]
+interfaces = []
+do_1 = "Add services/agent/crates/layerx-agentd/src/human_receipt_frame.rs (pub mod human_receipt_frame in src/lib.rs) defining ReceiptLookupFrame (canonical bytes, the five AuthorizedBatch fields, verification level, transaction hash, receipt hash, block height, rung, signed receipt bytes, receipt key id, public key, first height, last height, inclusion height) with encode and decode, and ReceiptLookupAnswer { Absent, Submitted { tx_hash, nonce }, Found(ReceiptLookupFrame) } with one decode of the whole answer: presence byte 0, 2 or 1 followed by the frame; the verification level travels as the Human code (1 SEQUENCER_SIGNED to 5 SETTLEMENT_ANCHORED) and the rung as Rung::wire_rank, each named in the module's doc comment as the owner receipt lookup wire contract."
+do_2 = "In services/agent/crates/layerx-agentd/src/human_runtime.rs make the Lookup::Verified branch of receipt_by_idempotency_key_with_settlement (:13093-13157) build a ReceiptLookupFrame from served and the stored receipt evidence: transaction hash, block height, receipt signature and rung from the ReceiptEvidenceRecord stored for the idempotency key, receipt hash as the SHA-256 of the canonical bytes, signed receipt bytes as the canonical bytes, the receipt key entry from human_receipt_key (:910) with its window, inclusion height equal to the block height; write the answer with ReceiptLookupAnswer::encode and make receipt_lookup_not_ready_bytes (:926) encode through the same type. Source every field from verified material; no default or zero stands in for a missing one (refuse with HumanOperationError::Refused instead)."
+do_3 = "In services/human/crates/layerx-human-service/src/server/agent_runtime.rs replace the hand-written reader of receipt_by_idempotency_key (:4229-4245) and decode_receipt (:4446-4498) with layerx_agentd::human_receipt_frame::ReceiptLookupAnswer::decode, keeping every refusal (rung below Receipted, signed receipt differing from the canonical bytes, inclusion height zero or outside the key window or differing from the block height, zero key id, key differing from the authority's public key) and mapping decode errors to AgentBoundaryError::CorruptResponse; add ReceiptLookup::Submitted { tx_hash: [u8; 32], nonce: u64 } to the enum in services/human/crates/layerx-human-service/src/journeys/engine.rs:275 and give the matches in services/human/crates/layerx-human-service/src/server/production_components.rs (:2192-2193 and :8775) an arm for it that behaves as Absent does today."
+do_4 = "Extend services/agent/crates/layerx-agentd/tests/human_node_receipts.rs so the answer the runtime returns for a found receipt decodes with ReceiptLookupAnswer::decode into the fields of the served evidence (transaction hash, block height, key window and committed rung), and the answers for an absent and a submitted lookup decode to Absent and Submitted."
+do_5 = "Write services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs: encode a receipted and a committed found answer, an absent answer and a submitted answer with the daemon's ReceiptLookupAnswer::encode from fixture material, feed each through the agent runtime peer harness of tests/agent_runtime_rungs.rs, and assert the decoded ReceiptLookup; then assert CorruptResponse for a frame truncated after the authority fields, a frame whose key window excludes the inclusion height and a frame whose rung is Submitted. Replace the hand-built frame of agent_runtime_rungs.rs with the shared encoder."
+symbols = ["ReceiptLookup", "receipt_lookup_not_ready_bytes"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/lib.rs", "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src/human_receipt_frame.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_runtime_receipt_frame --test agent_runtime_rungs --no-run"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_node_receipts && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_runtime_receipt_frame --test agent_runtime_rungs"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits; the daemon frame and the Human decoder return to their prior shapes."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.9.27.9]
 title = "Port layerx-agentd to the retired offline export API"
 status = "pending"
@@ -118000,7 +118335,7 @@ do_3 = "In services/agent/crates/layerx-agentd/src/export.rs:309 delete the Fact
 do_4 = "layerx_proof::export::OfflineTrustError now has only NoAuthority: define ExportTrustError in services/agent/crates/layerx-agentd/src/export.rs with one variant for an invalid receipt key or validator entry, return it from ExportTrustSource::new (:36-70) in place of OfflineTrustError::NetworkId, and update the callers (src/main.rs:890, src/human_runtime.rs:22269, tests/export_offline_bounds.rs:179-218, tests/export_v2.rs:35 and :56, tests/export.rs:294); the receipt-key and validator checks themselves stay as they are."
 do_5 = "Build the crate with --all-targets and run the export, export_v2 and export_offline_bounds tests; change nothing in layerx-proof."
 symbols = ["ExportTrustError"]
-touches = ["services/agent/crates/layerx-agentd/src/audit/export.rs", "services/agent/crates/layerx-agentd/src/export.rs", "services/agent/crates/layerx-agentd/tests/export.rs", "services/agent/crates/layerx-agentd/tests/export_v2.rs", "services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs", "services/agent/crates/layerx-agentd/examples/review_audit_export.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/audit/export.rs", "services/agent/crates/layerx-agentd/src/export.rs", "services/agent/crates/layerx-agentd/tests/export.rs", "services/agent/crates/layerx-agentd/tests/export_v2.rs", "services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs", "services/agent/crates/layerx-agentd/examples/review_audit_export.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/audit_export.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/export.rs", "services/agent/crates/layerx-agentd/tests/export_v2.rs", "services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --all-targets"
@@ -118016,6 +118351,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Finding 9.27.9.1: also drop the settlement domain argument from export at tests/approval_events.rs:340-351 and from every export and review call of tests/audit_export.rs (:287, :296, :304, :315-320, :372-382, :401, :407, :439-449), removing the now unused SettlementDomain import and the settlement_domain() helper; continue from attempt 1 (0f7b80f05) rebased onto current main, keeping its six files, and run the declared build and verify once as written."
 
 [task.10.1.10]
 title = "Port the KMS tests and the identity provider off ambient clock reads"
@@ -119813,6 +120149,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.18.1435.4]
+title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Go agent envelope decoder"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["18.1435.2"]
+reqs = ["8299.1"]
+capabilities = ["18.1435.4"]
+interfaces = []
+do_1 = "In sdk/platform/go/http.go acceptedAgentEnvelopeVerification (:598) accept {state: pending, requested, achieved} with achieved strictly below requested and {state: absent, requested}, with exact field sets; keep every other shape refused."
+do_2 = "In sdk/platform/go/agent_envelope_major2_test.go add TestAgentEnvelopeAcceptsNotReadyVerificationStatus decoding the two golden files of 18.1435.2 through the transport and asserting not-ready results, plus refusals for achieved equal to requested and for an absent status carrying achieved."
+symbols = ["acceptedAgentEnvelopeVerification"]
+touches = ["sdk/platform/go/http.go", "sdk/platform/go/agent_envelope_major2_test.go"]
+tests = ["sdk/platform/go/agent_envelope_major2_test.go"]
+planned_paths = []
+build_cmd = "go -C sdk/platform/go build ."
+verify_cmd = "go -C sdk/platform/go test -count=1 . -run '^(TestAgentEnvelopeDecodesDaemonResponseGoldens|TestAgentEnvelopeAcceptsNotReadyVerificationStatus)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.3.54.7]
 title = "End-to-end: pass the remaining perps data subtests against the in-tree node"
@@ -125349,7 +125714,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.54.9]
 title = "Retire the custody, withdrawal, owner and replica-prefix daemon tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["5.0.3", "6.60.5", "8.19.2", "8.19.5", "8.20.2", "9.24.2", "16.2.4", "16.5.2", "16.8.3", "16.11.1"]
@@ -127211,7 +127576,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.97.3]
 title = "Gate the movement proof test as deleted with its withdrawal nullifier registry deploy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["5.54.9"]
@@ -132152,7 +132517,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.52.2]
 title = "Retire contracts/EmergencyExit.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["6.51.1", "5.54.9", "16.6.1", "16.30.1"]
@@ -132250,7 +132615,7 @@ do_5 = "Continue from attempt 4 (07dacd3ef): keep the deletion and the test, add
 
 [task.6.52.5]
 title = "Retire contracts/WithdrawalClaims.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["6.51.1", "5.54.9", "16.6.1", "16.30.1"]
@@ -132282,7 +132647,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.53.1]
 title = "Retire contracts/challenge/CheckpointChallengeManager.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["6.51.1", "5.54.9", "16.6.1", "16.8.3", "16.30.1"]
@@ -133642,7 +134007,7 @@ do_2 = "Write tests/bridge/retired/test_retired_credit_c_harness.py (planned) wi
 do_3 = "The live references outside the retired set at HEAD are Makefile:1294, tests/daemon/custody_chain.py:35, tools/qualification/paxeer-x/programs_accounts_winddown.py:259, Makefile:2072, Makefile:2316, Makefile:2321, Makefile:3825, Makefile:3833; their owners remove them through the wiring requests listed on this task."
 do_4 = "Keep tests/bridge/files.h:11 and tests/bridge/requirements.txt:1: tests/daemon C tests include the header and three CI lanes install the requirements (decision.650)."
 symbols = ["test_credit_c_harness_is_retired"]
-touches = ["tests/bridge/sign_credit.c", "tests/bridge/test_credit.c", "tests/bridge/test_credit_admission.c", "tests/bridge/sole_writer.sh", "tests/bridge/retired/test_retired_credit_c_harness.py"]
+touches = ["tests/bridge/sign_credit.c", "tests/bridge/test_credit.c", "tests/bridge/test_credit_admission.c", "tests/bridge/sole_writer.sh", "tests/bridge/retired/test_retired_credit_c_harness.py", "Makefile"]
 tests = ["tests/bridge/retired/test_retired_credit_c_harness.py::test_credit_c_harness_is_retired"]
 planned_paths = ["tests/bridge/retired/test_retired_credit_c_harness.py"]
 build_cmd = "python3 -m py_compile tests/bridge/retired/test_retired_credit_c_harness.py"
@@ -133660,10 +134025,11 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_5 = "Finding 6.60.2.1: delete the two orphaned rules $(BUILD_DIR)/tests/bridge/sign-credit (Makefile:944-949) and $(BUILD_DIR)/tests/bridge/test-credit (:950-954) and nothing else in the Makefile; continue from attempt 1 (4ea8318b6) rebased onto current main, keeping its five files, and run the declared build and verify once as written."
 
 [task.6.60.3]
 title = "Retire the credit_qualification kernel harness files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["6.51.1", "5.54.9", "8.19.2", "8.19.11", "10.26.16", "16.0.4", "16.5.2", "16.11.11"]
@@ -141968,7 +142334,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.23.2]
 title = "Verify buyer payments and captured settlements as portable receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.23.1", "8.22.1", "8.22.2", "10.92.1", "8.22.7", "8.22.8"]
@@ -189028,6 +189394,86 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.18.1437.1.1]
+feature = "18"
+req = "3538.1"
+scenario = "Given SECURITY.md, when a reporter reads it, then a Response targets section states the acknowledgement, triage, update, remediation, disclosure and escalation targets of decision 2240"
+contract = "SECURITY.md"
+test = "SECURITY.md"
+qualification = "UNRUN"
+
+[acceptance.18.1441.1.1]
+feature = "18"
+req = "3537.1"
+scenario = "Given layerx-intents after the retirement of the four kinds, when cargo test --test live_kinds runs, then the target compiles and every retained kind and Perps is covered once with a contiguous kind index"
+contract = "contracts/clients.md"
+test = "services/human/crates/layerx-intents/tests/live_kinds.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1439.1.1]
+feature = "18"
+req = "8300.1"
+scenario = "Given the disposable-chain qualification, when it is started with LAYERX_PAXEER_QUALIFICATION_ACTIVE set, then it exits with status 2 and a refusal before starting any process, and the Rust test passes the boundary binary alone"
+contract = "contracts/clients.md"
+test = "services/platform/hosted/paxeer/tests/real_chain.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1435.5.1]
+feature = "18"
+req = "8299.1"
+scenario = "Given the daemon's pending and absent success goldens, when the Swift agent envelope decoder reads them, then both decode as not-ready results and a pending status with achieved equal to requested is refused"
+contract = "services/agent/schema/agent-api/v1.kvx"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift"
+qualification = "UNRUN"
+
+[acceptance.18.1435.4.1]
+feature = "18"
+req = "8299.1"
+scenario = "Given the daemon's pending and absent success goldens, when the Go agent envelope decoder reads them, then both decode as not-ready results and a pending status with achieved equal to requested is refused"
+contract = "services/agent/schema/agent-api/v1.kvx"
+test = "sdk/platform/go/agent_envelope_major2_test.go"
+qualification = "UNRUN"
+
+[acceptance.18.1435.3.1]
+feature = "18"
+req = "8299.1"
+scenario = "Given the daemon's pending and absent success goldens, when the Python agent envelope decoder reads them, then both decode as not-ready results and a pending status with achieved equal to requested is refused"
+contract = "services/agent/schema/agent-api/v1.kvx"
+test = "tests/agent/sdk/python/test_agent_envelope_not_ready.py"
+qualification = "UNRUN"
+
+[acceptance.18.1435.1.1]
+feature = "18"
+req = "8299.1"
+scenario = "Given the daemon's pending and absent success goldens, when the TypeScript agent envelope decoder reads them, then both decode as not-ready statuses and a pending status with achieved equal to requested is refused"
+contract = "services/agent/schema/agent-api/v1.kvx"
+test = "services/agent/sdk/typescript/test/agent-http-daemon-envelope.test.ts"
+qualification = "UNRUN"
+
+[acceptance.18.1435.2.1]
+feature = "18"
+req = "8299.1"
+scenario = "Given the daemon's envelope encoder, when the golden round-trip test produces a pending and an absent program.receipt success envelope, then each equals its golden file byte for byte and the published contract names both shapes"
+contract = "services/agent/schema/agent-api/v1.kvx"
+test = "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1434.1.1]
+feature = "18"
+req = "8298.1"
+scenario = "Given a Move money commit whose first eth_sendRawTransaction is accepted and whose first receipt lookup fails with a transport error, when the journey is advanced again, also after reopening the durable service, then the record holds submitted=true with the original hash, no second eth_sendRawTransaction is served and the leg finalises from the existing committed receipt"
+contract = "contracts/clients.md"
+test = "services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1433.1.1]
+feature = "18"
+req = "8297.1"
+scenario = "Given a found, an absent and a submitted owner receipt lookup answered by the daemon runtime, when the Human agent runtime decodes each answer, then it yields ReceiptLookup::Found with the complete ReceiptMaterial, ReceiptLookup::Absent and ReceiptLookup::Submitted, and a truncated frame or a key window excluding the inclusion height yields CorruptResponse"
+contract = "contracts/clients.md"
+test = "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs"
+qualification = "UNRUN"
+
 [acceptance.9.27.9.1]
 feature = "9"
 req = "9270.1"
@@ -194796,6 +195242,63 @@ gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
 rollback = "None needed; the closure check reads the spec and writes nothing."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1437.1]
+title = "Issue #1437: Document the vulnerability report response targets in SECURITY.md"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["3538.1"]
+capabilities = ["18.1437.1"]
+interfaces = []
+do_1 = "Add a '## Response targets' section to SECURITY.md after 'Handling and disclosure' stating, as decision 2240 fixes them: acknowledgement within three business days; triage with a scope and severity decision within ten business days; a status update at least every fourteen days while remediation is in progress; remediation targets of thirty days (Critical), sixty days (High), ninety days (Medium) and the next scheduled release (Low) counted from the severity decision; coordinated disclosure within fourteen days of the fix being available; escalation by a comment in the advisory and, after two further business days, by email to security@paxeer.app with the advisory identifier; and that the targets are best-effort commitments. Keep the rest of the file unchanged."
+symbols = []
+touches = ["SECURITY.md"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -qF '## Response targets' SECURITY.md && grep -qF 'three business days' SECURITY.md && grep -qF 'ten business days' SECURITY.md && grep -qF 'every fourteen days' SECURITY.md && grep -qF 'security@paxeer.app' SECURITY.md && grep -qF 'next scheduled release' SECURITY.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1435.3]
+title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Python agent envelope decoder"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["18.1435.2"]
+reqs = ["8299.1"]
+capabilities = ["18.1435.3"]
+interfaces = []
+do_1 = "In services/agent/sdk/python/layerx_sdk/agent_http.py _valid_verification_status (:758) accept {state: pending, requested, achieved} with both levels in _LEVELS and achieved strictly below requested, and {state: absent, requested} with requested in _LEVELS; keep every other shape refused."
+do_2 = "Write tests/agent/sdk/python/test_agent_envelope_not_ready.py loading the two golden files of 18.1435.2 through the transport's envelope decode and asserting not-ready results, plus refusals for achieved equal to requested and for an absent status carrying achieved."
+symbols = ["_valid_verification_status"]
+touches = ["services/agent/sdk/python/layerx_sdk/agent_http.py"]
+tests = ["tests/agent/sdk/python/test_agent_envelope_not_ready.py"]
+planned_paths = ["tests/agent/sdk/python/test_agent_envelope_not_ready.py"]
+build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/agent_http.py tests/agent/sdk/python/test_agent_envelope_not_ready.py"
+verify_cmd = "python3 -m pytest -q tests/agent/sdk/python/test_agent_envelope_not_ready.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
