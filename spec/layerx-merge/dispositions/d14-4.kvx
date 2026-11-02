@@ -1,0 +1,23 @@
+[disposition.14.0.6.2]
+finding = "14.0.6.2"
+status = "resolved"
+evidence = "Commit 2dc2c17ab removed the retired deposit, forward and withdrawal journey imports, helpers, tests and bridge fee variants from intent_submit.rs, and landed commit 0a26ef46a retained the kernel-send cases using the six-argument EIP-1559 submission path now visible at services/human/crates/layerx-human-service/tests/intent_submit.rs:50."
+follow_up = "closure"
+
+[disposition.14.0.6.3]
+finding = "14.0.6.3"
+status = "superseded"
+evidence = "Commit 2dc2c17ab deleted services/human/crates/layerx-human-service/tests/retired_crypto_codec_w3.rs after 2772a218f retired its sole subject tests/binding.rs, and both files remain absent on main."
+follow_up = "closure"
+
+[disposition.14.0.6.4]
+finding = "14.0.6.4"
+status = "resolved"
+evidence = "Commit 2dc2c17ab passed AgentRuntime to all four load_access calls, removed the duplicate archive imports, replaced onboarding envelope signing with canonical_owner::sign_transaction and ported owner_bootstrap to attach_native_signature, while 90579ae7d subsequently migrated owner_bootstrap to bind_call; main retains the corrected calls at services/human/crates/layerx-human-service/tests/native_send_producer.rs:571 and the corrected imports at services/human/crates/layerx-human-service/tests/archive.rs:31."
+follow_up = "closure"
+
+[disposition.14.0.6.5]
+finding = "14.0.6.5"
+status = "resolved"
+evidence = "Task 14.0.6 now lists only intent_submit.rs in touches at spec/layerx-merge/spec.kvx:131531 and its port landed in 0a26ef46a after 2dc2c17ab deleted retired_crypto_codec_w3.rs, so the already-deleted codec target no longer blocks the task's touched-path check."
+follow_up = "closure"
