@@ -713,3 +713,36 @@ func TestSymbolREST(t *testing.T) {
 		})
 	}
 }
+
+func ProofRESTObserveSymbol(t *testing.T, client *http.Client, base string, index float64) {
+	t.Helper()
+	price := ProofRESTGet(t, client, base, "/api/btc/price", http.StatusOK)
+	wantNumber(t, price, "price", index)
+	stats := ProofRESTGet(t, client, base, "/api/btc/stats", http.StatusOK)
+	wantNumber(t, stats, "volume_24h", 140000)
+	perp := ProofRESTGet(t, client, base, "/api/btc/perp_stats", http.StatusOK)
+	wantNumber(t, perp, "index_price", index)
+	trades := ProofRESTGet(t, client, base, "/api/btc/perp_trades?limit=1", http.StatusOK)
+	rows := field[[]map[string]json.RawMessage](t, trades, "trades")
+	if len(rows) != 1 {
+		t.Fatalf("perp trades: %s", trades)
+	}
+	wantNumber(t, rows[0], "price", 70000)
+	wantNumber(t, rows[0], "notional", 140000)
+	spot := ProofRESTGet(t, client, base, "/api/pax/trades?limit=1", http.StatusOK)
+	if len(field[[]map[string]json.RawMessage](t, spot, "trades")) != 1 {
+		t.Fatalf("spot tape: %s", spot)
+	}
+	health := ProofRESTGet(t, client, base, "/api/btc/health", http.StatusOK)
+	if field[string](t, health, "status") != "ok" || field[string](t, health, "symbol") != "BTC" {
+		t.Fatal(health)
+	}
+	for path, status := range map[string]int{
+		"/api/unknown/price":                http.StatusNotFound,
+		"/api/btc/trades?limit=bad":         http.StatusBadRequest,
+		"/api/btc/trades?limit=1&limit=bad": http.StatusBadRequest,
+		"/api/btc/perp_trades/eth":          http.StatusNotFound,
+	} {
+		ProofRESTGet(t, client, base, path, status)
+	}
+}

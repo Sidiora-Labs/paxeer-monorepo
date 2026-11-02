@@ -1489,8 +1489,11 @@ func (s *SpotUsers) StreamItems(ctx context.Context, env delivery.Envelope) ([]S
 		return nil, fmt.Errorf("rest: spot payload block %q", p.Block)
 	}
 	trade, found, err := s.tradeAt(ctx, user, block, p.LogIndex)
-	if err != nil || !found {
-		return items, err
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("rest: spot trade %s-%d of event %s not found", p.Block, p.LogIndex, env.EventID)
 	}
 	if items, err = appendSpotItem(items, "trade", user, trade); err != nil {
 		return nil, err
