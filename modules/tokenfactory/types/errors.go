@@ -5,8 +5,12 @@ package types
 import (
 	fmt "fmt"
 
+	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 )
+
+// DenomPausedReason preserves the shared pause code and tokenfactory detail.
+const DenomPausedReason = ledgertypes.AssetPausedCode + ": denom is paused"
 
 // modules/tokenfactory module sentinel errors
 var (
@@ -31,7 +35,7 @@ var (
 	ErrUnknownPaxTokenFactoryQuery    = sdkerrors.Register(ModuleName, 23, "Error unknown pax token factory query")
 	ErrAllowListTooLarge              = sdkerrors.Register(ModuleName, 24, "allowlist too large")
 	ErrAllowListUndefined             = sdkerrors.Register(ModuleName, 25, "allowlist undefined")
-	ErrDenomPaused                    = sdkerrors.Register(ModuleName, 26, "LXP_ASSET_PAUSED: denom is paused")
+	ErrDenomPaused                    = sdkerrors.Register(ModuleName, 26, DenomPausedReason)
 	ErrPauseUnchanged                 = sdkerrors.Register(ModuleName, 27, "LXP_PAUSED_SCOPE: denom pause state unchanged")
 )
 

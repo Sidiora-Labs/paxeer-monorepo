@@ -8,6 +8,7 @@ from .production import PlatformSdkError, SdkErrorCode
 REVERT_SELECTOR = bytes.fromhex("08c379a0")
 
 _WORD = 32
+_MAX_REASON_BYTES = 64 * 1024
 _CODE_CHARACTERS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
 _HEX = frozenset("0123456789abcdefABCDEF")
 
@@ -427,7 +428,7 @@ def decode_revert_reason(return_data: bytes) -> RevertReasonError:
     offset = int.from_bytes(body[:_WORD], "big")
     length = int.from_bytes(body[_WORD:2 * _WORD], "big")
     padded = -(-length // _WORD) * _WORD
-    if offset != _WORD or len(body) != 2 * _WORD + padded or any(body[2 * _WORD + length:]):
+    if offset != _WORD or length > _MAX_REASON_BYTES or len(body) != 2 * _WORD + padded or any(body[2 * _WORD + length:]):
         raise _decode_failure()
     try:
         text = body[2 * _WORD:2 * _WORD + length].decode("utf-8")
@@ -435,7 +436,10 @@ def decode_revert_reason(return_data: bytes) -> RevertReasonError:
         raise _decode_failure() from None
     code, separator, rest = text.partition(": ")
     message, detail_separator, detail = rest.partition("; ")
-    if not separator or not message or len(code) <= 4 or not code.startswith("LXP_") or any(character not in _CODE_CHARACTERS for character in code):
+    if (not separator or not message or not code.startswith("LXP_")
+            or not all(code[4:].split("_"))
+            or any(character not in _CODE_CHARACTERS for character in code)
+            or (detail_separator and not detail)):
         raise _decode_failure()
     return RevertReasonError(code, message, detail if detail_separator else None, LXP_RETRYABLE.get(code, False))
 
