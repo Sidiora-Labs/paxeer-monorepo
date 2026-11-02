@@ -101,8 +101,16 @@ pub fn request_funds(
     let bytes = post(node, &body, session_token)?;
     let response: Value =
         serde_json::from_slice(&bytes).map_err(|_| FaucetError::InvalidResponse)?;
+    decode_funding_response(&response, &json!(1))
+}
+
+/// Decodes the node's response at the same boundary used by CLI consumers.
+pub fn decode_funding_response(
+    response: &Value,
+    request_id: &Value,
+) -> Result<String, FaucetError> {
     let object = response.as_object().ok_or(FaucetError::InvalidResponse)?;
-    if object.len() != 3 || response["jsonrpc"] != "2.0" || response["id"].as_u64() != Some(1) {
+    if object.len() != 3 || response["jsonrpc"] != "2.0" || &response["id"] != request_id {
         return Err(FaucetError::InvalidResponse);
     }
     if let Some(error) = object.get("error") {
@@ -126,38 +134,9 @@ pub fn request_funds(
             data: error.get("data").cloned(),
         });
     }
-    let claim = response["result"]
-        .as_object()
-        .ok_or(FaucetError::InvalidResponse)?;
-    let funded = claim.get("funded").and_then(Value::as_bool) == Some(true)
-        && claim
-            .get("funding_id")
-            .and_then(Value::as_str)
-            .is_some_and(|id| {
-                !id.is_empty() && id.len() <= 128 && id.bytes().all(|byte| byte.is_ascii_hexdigit())
-            })
-        && claim
-            .get("amount")
-            .and_then(Value::as_str)
-            .is_some_and(|amount| {
-                !amount.is_empty()
-                    && amount.len() <= 39
-                    && amount.bytes().all(|byte| byte.is_ascii_digit())
-                    && amount.bytes().any(|byte| byte != b'0')
-            })
-        && claim
-            .get("network")
-            .and_then(Value::as_str)
-            .is_some_and(|network| !network.is_empty() && network.len() <= 64);
-    if !funded {
-        return Err(FaucetError::InvalidResponse);
-    }
-    let hash = claim
-        .get("transaction_id")
-        .and_then(Value::as_str)
-        .filter(|id| !id.is_empty() && id.len() <= 128)
-        .ok_or(FaucetError::InvalidResponse)?;
-    Ok(hash.to_owned())
+    let grant = layerx_sdk::rpc::FaucetGrant::try_from(response["result"].clone())
+        .map_err(|_| FaucetError::InvalidResponse)?;
+    Ok(grant.transaction_id)
 }
 
 fn encode_key(key: &[u8; 32]) -> String {
