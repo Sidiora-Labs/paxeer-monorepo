@@ -31,7 +31,7 @@ class AgentEnvelopeBootstrapCredentialTest(unittest.TestCase):
                 encoded = json.dumps({
                     "request_id": body["request_id"],
                     "value": {},
-                    "verification_status": {"state": "achieved", "level": "SequencerSigned"},
+                    "verification_status": {"state": "achieved", "level": "receipted"},
                 }).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
@@ -65,7 +65,7 @@ class AgentEnvelopeBootstrapCredentialTest(unittest.TestCase):
                         self.assertEqual(response.request_id, body["request_id"])
                         self.assertEqual(response.value, {})
                         self.assertEqual(response.verification_status, {
-                            "state": "achieved", "level": "SequencerSigned",
+                            "state": "achieved", "level": "receipted",
                         })
             finally:
                 server.shutdown()
