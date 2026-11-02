@@ -11,6 +11,7 @@ import {
 import {
   directionWord,
   statusKeyFromCopyKey,
+  verificationRung,
   verificationWord,
   type ProtocolAmount,
   type StatusKey,
@@ -102,8 +103,8 @@ export function homeBalance(balance?: AccountBalance): HomeBalance {
   const label = copyEntry("home.balance.label").message;
   if (
     balance === undefined ||
-    balance.verification === "unverified" ||
-    !balance.evidence.some((evidence) => evidence.verification !== "unverified")
+    verificationRung(balance.verification) === "unverified" ||
+    !balance.evidence.some((evidence) => verificationRung(evidence.verification) !== "unverified")
   ) {
     return { kind: "unavailable", label, message: copyEntry("home.balance.unavailable").message };
   }
