@@ -111216,7 +111216,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1476.1]
 title = "Issue #1476: Build the merchant settlement webhook evidence from the committed fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -120059,7 +120059,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1489.1]
 title = "Issue #1489: Resolve virtual-chain transfer stability from the shared block cursor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
