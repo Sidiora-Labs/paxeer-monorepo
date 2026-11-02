@@ -13485,3 +13485,18 @@ fix = "Keep the authorization and let its epoch check refuse with the specific e
 title = "A gate task that finds nothing to change must be declared as a gate"
 symptom = "The crate closure tasks 22.90.x were declared planned work; when the crate already built, the attempt changed no file and was refused for changing nothing."
 fix = "Declare verification-only tasks with gate_kind existing so a passing verify with no change qualifies them."
+
+[gotcha.2734]
+title = "A proof must not import helpers from another test file"
+symptom = "proof_exchange.test.ts imported consumer helpers from precompile-calls.test.ts and xweb-api.test.ts; their module-level assertions ran on import and one failed before any proof case (21.160.1 attempt 2)."
+fix = "Shared consumers live in a support module without top-level assertions; a test file is never an import target."
+
+[gotcha.2735]
+title = "A sweep whose enumeration is empty needs an explicit empty-inventory form"
+symptom = "The go-cmd sweep found no Go package under cmd/ and wrote targets_total = 0 with no target block; the verify required at least one target (22.91.22 attempt 1)."
+fix = "A sweep verify accepts targets_total = 0 when the report carries the enumeration command and its observed result; the other sweeps keep the non-empty rule."
+
+[gotcha.2736]
+title = "A pending-tagged read refuses on an idle proposer"
+symptom = "eth_getBalance with the pending tag returned 'pending block unavailable: sequencer: no block is open' between blocks because resolvePending surfaced the snapshot error instead of the latest committed height (21.92.1 attempt 2)."
+fix = "Pending reads fall back to the latest committed block while no block is open, as the simulation path already does (22.7.2)."

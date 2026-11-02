@@ -6909,6 +6909,12 @@ value = "Twenty follow-up tasks (22.1.3, 22.10.6, 22.12.3, 22.13.5, 22.13.6, 22.
 basis = "Twenty-four landed dispositions were open with follow_up closure and no task owned them; the closure gate 22.0.1 refuses while any remains, and the five crate tasks that found nothing to change were refused for changing nothing."
 affects = ["22.0.1", "22.1.3", "22.10.6", "22.12.3", "22.13.5", "22.13.6", "22.16.5", "22.16.6", "22.2.4", "22.4.3", "22.5.4", "22.8.7", "22.8.8", "22.8.9", "22.9.7", "22.9.8", "22.9.9", "22.9.10", "22.9.11", "22.9.12", "22.9.13", "22.90.1", "22.90.2", "22.90.3", "22.90.5", "22.90.6", "22.90.7", "22.90.8", "22.90.9", "8.41.4", "8.44.4", "2.40.5"]
 
+[decision.2300]
+title = "Raw-transaction null answers, the connected acceptance verify, pending reads on an idle proposer, and the retired anchor keeper tests"
+value = "For unknown identifiers the three eth_getRawTransaction* surfaces answer the JSON string '0x' (nil hexutil.Bytes, the go-ethereum result) and the uncle surfaces answer null; 18.1477.1's verify builds the five packages and asserts the repair statically because the connected acceptance runs only under gate 104.16.2 with genuine services; pending-tagged state reads answer from the latest committed block while no block is open (22.7.2); the layerxanchor keeper tests are reconciled with the retired module by 22.6.3 (pre-merge context, merge crossed in-test, or deleted when unreachable); the node/sequencer test package is repaired by 22.5.5; 22.90.9 requires 9.100.2 for the create.rs:610 arm."
+basis = "21.44.1 attempt 2, 18.1477.1 attempts 1-4, 21.92.1 attempt 2, 6.96.6 attempt 5, 21.87.1 and 21.19.1 attempt 3, 22.90.9 attempt 1 each failed on a condition outside the task's touches or on a verify that could never run in qualification."
+affects = ["21.44.1", "18.1477.1", "21.92.1", "22.7.2", "6.96.6", "22.6.3", "21.87.1", "21.19.1", "22.5.5", "22.90.9", "9.100.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20529,6 +20535,18 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22009]
+title = "The layerxanchor keeper test package passes against the retired module"
+ac_1 = "go vet ./modules/layerxanchor/keeper/ reports no error and go test -count=1 ./modules/layerxanchor/keeper/ passes at HEAD: every test that submits a checkpoint either runs in a context before the merge height or asserts the LXP_MODULE_DISABLED refusal."
+
+[req.22008]
+title = "Pending state reads answer from the committed state while no block is open"
+ac_1 = "WatermarkManager.ResolveHeight(pending) returns the latest committed height when the open-block snapshot reports ErrLayerNotOpen, so eth_getBalance, eth_getCode, eth_getStorageAt and eth_getTransactionCount with the pending tag never refuse on an idle proposer; TestResolvePendingFallsBackToLatestWhileNoBlockIsOpen passes."
+
+[req.22007]
+title = "The node sequencer test package builds and its precompile refresh test passes"
+ac_1 = "go vet ./node/sequencer/ reports no error and go test -count=1 ./node/sequencer/ -run '^TestExecutorOpenRefreshesPrecompilesItself$' passes at HEAD."
 
 [req.22003]
 title = "No qualification script or build fragment names a deleted daemon test"
@@ -35086,6 +35104,33 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.6.3]
+title = "Reconcile the layerxanchor keeper tests with the retired module"
+reqs = ["22009.1"]
+touches = ["modules/layerxanchor/keeper/keeper_test.go", "modules/layerxanchor/keeper/bond_return_test.go", "modules/layerxanchor/keeper/merge_handler_test.go", "modules/layerxanchor/keeper/retire_merge_test.go", "modules/layerxanchor/keeper/retirement_rehearsal_test.go"]
+tests = ["modules/layerxanchor/keeper/bond_return_test.go", "modules/layerxanchor/keeper/retirement_rehearsal_test.go"]
+verification_contract = "go vet ./modules/layerxanchor/keeper/ && go test -count=1 ./modules/layerxanchor/keeper/"
+do_1 = "The layerxanchor module refuses SubmitCheckpoint with LXP_MODULE_DISABLED 'layerxanchor retired' (modules/layerxanchor/keeper/checkpoints.go:57) once the merge height is reached, and the keeper test suite (modules/layerxanchor/keeper/keeper_test.go, suite.submit at :195) still drives live checkpoints from a post-merge context, so TestBondReturn, TestBondReturnClosedChallenges, TestBondReturnRollback (bond_return_test.go), TestMergeHandlerRetiresAnchor (merge_handler_test.go), TestRetireAtMergeReturnsBondsAndEmits (retire_merge_test.go), TestAnchorRetirementRehearsal and TestExportAfterRetireValidates (retirement_rehearsal_test.go) fail. For each: when the behaviour it covers is pre-merge (bond return after a challenge, writes before the merge), place the suite's context before the merge height the way TestWritesServedBeforeMerge in precompiles/layerxanchor does; when it covers the merge itself or post-merge state (retirement at merge, export after retire), submit the checkpoints before the merge height and cross the merge inside the test; when the behaviour is unreachable in both (a live checkpoint after retirement), delete the test with the fixtures only it used."
+symbols = ["suite.submit", "TestBondReturn", "TestMergeHandlerRetiresAnchor", "TestAnchorRetirementRehearsal"]
+
+[capability.22.7.2]
+title = "Serve pending state reads from the latest committed block while no block is open"
+reqs = ["22008.1"]
+touches = ["rpc/watermark_manager.go", "rpc/watermark_manager_test.go"]
+tests = ["rpc/watermark_manager_test.go"]
+verification_contract = "go test -count=1 ./rpc/ -run '^TestResolvePendingFallsBackToLatestWhileNoBlockIsOpen$'"
+do_1 = "In rpc/watermark_manager.go resolvePending (:95-105): when m.pending.Snapshot() fails with ErrLayerNotOpen (rpc/utils.go:54, 'sequencer: no block is open'), return the latest committed height the manager already tracks instead of the error, so every pending-tagged state read (StateAPI.GetBalance rpc/state.go:50, GetCode, GetStorageAt, the transaction count) answers from the committed state; any other snapshot error and the ErrPendingServedBySequencer case (m.pending == nil) keep refusing as today."
+symbols = ["resolvePending", "ResolveHeight", "ErrLayerNotOpen"]
+
+[capability.22.5.5]
+title = "Repair the xwebInfo call in the sequencer precompile refresh test so the package builds"
+reqs = ["22007.1"]
+touches = ["node/sequencer/precompile_refresh_test.go"]
+tests = ["node/sequencer/precompile_refresh_test.go"]
+verification_contract = "go vet ./node/sequencer/ && go test -count=1 ./node/sequencer/ -run '^TestExecutorOpenRefreshesPrecompilesItself$'"
+do_1 = "In node/sequencer/precompile_refresh_test.go (:69) call xwebInfo(t): position_test.go:114 declares func xwebInfo(t *testing.T) precompiles.PrecompileInfo and the refresh test was written against the parameterless form, so the node/sequencer test package does not compile (go vet reports 'not enough arguments in call to xwebInfo')."
+symbols = ["xwebInfo", "TestExecutorOpenRefreshesPrecompilesItself"]
+
 [capability.22.9.13]
 title = "Restore indexed submissions by the outbox's transaction-hash key"
 reqs = ["22006.1"]
@@ -35460,7 +35505,7 @@ title = "Inventory every Go package under cmd/ of the root module"
 reqs = ["22004.1"]
 touches = ["spec/layerx-merge/programme/sweeps/go-cmd.kvx"]
 tests = []
-verification_contract = "test -s spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^\[sweep\.go-cmd\]$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^revision = \x22[0-9a-f]{40}\x22$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^command = \x22.+\x22$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_total = [1-9][0-9]*$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_passed = [0-9]+$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_failed = [0-9]+$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_not_run = [0-9]+$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^\[target\.go-cmd\.[0-9]+\]$' spec/layerx-merge/programme/sweeps/go-cmd.kvx"
+verification_contract = "test -s spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^\[sweep\.go-cmd\]$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^revision = \x22[0-9a-f]{40}\x22$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^command = \x22.+\x22$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_total = [0-9]+$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_passed = [0-9]+$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_failed = [0-9]+$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_not_run = [0-9]+$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && (grep -Pq '^targets_total = 0$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^enumeration_command = \x22.+\x22$' spec/layerx-merge/programme/sweeps/go-cmd.kvx || grep -Pq '^\[target\.go-cmd\.[0-9]+\]$' spec/layerx-merge/programme/sweeps/go-cmd.kvx)"
 do_1 = "Enumerate the targets: every package printed by go list ./cmd/... from the repository root (packages of nested modules with their own go.mod are not part of the root module and are out of scope here); when a package needs the native kernel archive, run make paxd-native-libs once first and keep CGO_ENABLED=1. For each target run: CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/ and record the exit code."
 symbols = []
 
@@ -37080,7 +37125,7 @@ title = "Prove the native reads path end to end: producer, transport, consumer"
 reqs = ["21095.1"]
 touches = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs", "services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-mcp/src/boundary.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
-verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_native_reads"
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test proof_native_reads"
 do_1 = "The real path this task proves is  -> the HTTP route served by the real server -> services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs, services/agent/crates/layerx-mcp/src/boundary.rs. The inventory is every new or changed interface under contract contracts/agent-api.md#native-reads in spec/layerx-merge/interfaces.kvx (5 entries); the test drives at least the 0 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
 symbols = []
 
@@ -38070,7 +38115,7 @@ title = "Issue #1477: Assert the EVM transaction fields on the prepared consent,
 reqs = ["8345.1"]
 touches = ["services/platform/middleware/conformance/connected.mjs"]
 tests = ["services/platform/middleware/conformance/connected.mjs"]
-verification_contract = "npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/merchant run build && npm --prefix services/platform/middleware/agent run build && npm --prefix sdk/integrations/agents run build && node --test services/platform/middleware/conformance/connected.mjs"
+verification_contract = "npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/merchant run build && npm --prefix services/platform/middleware/agent run build && npm --prefix sdk/integrations/agents run build && node --check services/platform/middleware/conformance/connected.mjs && grep -Pq 'assert\.match\(prepared\.signing_hash' services/platform/middleware/conformance/connected.mjs && grep -Pq 'assert\.match\(prepared\.to' services/platform/middleware/conformance/connected.mjs && grep -Pq 'eip1559SigningHash\(' services/platform/middleware/conformance/connected.mjs && ! grep -Pq 'preparation\.signing_hash' services/platform/middleware/conformance/connected.mjs"
 do_1 = "In services/platform/middleware/conformance/connected.mjs (:91) the connected acceptance reads the EVM transaction fields (to, value, data, chainId and the signing hash) from consent.prepared, which the agent middleware fills after preparation, instead of from preparation.signing_hash on the spend request input, which carries none of them; the assertions on the fields stay."
 symbols = []
 
@@ -115272,6 +115317,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Finding 21.160.1.1: never import from another *.test.ts file (its module-level assertions become part of this proof); move consumeExchangeCall, consumeExchangeSettlementRequest and consumeExchangePlaceOrderCall into test/support/exchange_consumers.ts with no top-level assertions and import it from the three tests, and look the placeOrder write up by the key src/generated/precompile-writes.ts exports instead of the signature string. Continue from attempt 2."
 
 [task.21.158.1]
 title = "Prove the launchpad contracts tooling path end to end: producer, transport, consumer"
@@ -116239,7 +116285,7 @@ touches = ["services/platform/middleware/conformance/connected.mjs"]
 tests = ["services/platform/middleware/conformance/connected.mjs"]
 planned_paths = []
 build_cmd = "node --check services/platform/middleware/conformance/connected.mjs"
-verify_cmd = "npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/merchant run build && npm --prefix services/platform/middleware/agent run build && npm --prefix sdk/integrations/agents run build && node --test services/platform/middleware/conformance/connected.mjs"
+verify_cmd = "npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/merchant run build && npm --prefix services/platform/middleware/agent run build && npm --prefix sdk/integrations/agents run build && node --check services/platform/middleware/conformance/connected.mjs && grep -Pq 'assert\.match\(prepared\.signing_hash' services/platform/middleware/conformance/connected.mjs && grep -Pq 'assert\.match\(prepared\.to' services/platform/middleware/conformance/connected.mjs && grep -Pq 'eip1559SigningHash\(' services/platform/middleware/conformance/connected.mjs && ! grep -Pq 'preparation\.signing_hash' services/platform/middleware/conformance/connected.mjs"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-platform"
@@ -116252,6 +116298,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 18.1477.1.1: the verify first builds the SDK, the seller and merchant middleware, the agent middleware and the agent integrations in that order; connected.mjs and services/platform/examples/support/runtime.mjs then resolve every dist entry they import. Continue from attempt 1."
+do_4 = "Finding 18.1477.1.2 and decision 2300: the connected acceptance only runs under gate 104.16.2 with genuine services, so the verify no longer executes it; it builds the five packages, syntax-checks connected.mjs and asserts the repair's shape (prepared.signing_hash, prepared.to and the eip1559SigningHash binding asserted after the spend call; no read of preparation.signing_hash from the request). Attempt 4's edit already has that shape. Continue from attempt 4."
 
 [task.18.1475.1]
 title = "Issue #1475: Drop the dead purpose-hash conditional and prove the metered refusal past the scheme gate"
@@ -116584,6 +116631,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2271: the test file is apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts under vitest (apps/launchpad/web/vitest.config.ts:11 includes src/**/*.test.ts and src/**/*.test.tsx only); attempt 1 wrote the module and a node:test file the runner never collected, so continue from attempt 1 and move its cases into the vitest file."
+do_5 = "Finding 20.7.1.1: write the test as src/widgets/create-chain/chain-domain.test.ts (vitest includes only src/**/*.test.ts and .tsx) and delete chain-domain.test.mjs. Continue from attempt 2."
 
 [task.20.6.2]
 title = "Show one virtual chain with its activity and an add-to-wallet action"
@@ -125939,7 +125987,7 @@ title = "Make every target of layerx-human-kms build on main"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = []
+requires = ["9.100.2"]
 reqs = ["22002.1"]
 capabilities = ["22.90.9"]
 interfaces = []
@@ -125964,6 +126012,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "The task is a gate: when the build and the test compile already pass at main, no file changes and the verify record alone qualifies it."
+do_5 = "Finding 22.90.9.1: the library build fails at src/agents/create.rs:610 until task 9.100.2 adds the ProgramCall arm; this gate now requires 9.100.2 and runs after it is done. Continue from attempt 1."
 
 [task.22.90.8]
 title = "Make every target of layerx-mirror-signer build on main"
@@ -126245,6 +126294,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 do_7 = "Decision 2294: read_native_receipt_authority is exported by programs/crates/layerx-programs-runtime/src/lib.rs:47-52 only under `#[cfg(feature = 'host-ffi')]`, so the build_cmd and verify_cmd now pass --features host-ffi; the proof test keeps calling the real export and does not reimplement it. Continue from the last attempt."
+do_8 = "Finding 21.130.1.1: rebase onto main, where lib.rs:49-54 exports read_native_receipt_authority under the host-ffi feature the build enables; keep the import and continue from attempt 3."
 
 [task.21.129.1]
 title = "Prove the portable receipt path end to end: producer, transport, consumer"
@@ -126684,11 +126734,11 @@ do_3 = "The anchor carries no persistent state of its own: the test asserts inst
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs", "services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-mcp/src/boundary.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/Cargo.lock"]
+touches = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs", "services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-mcp/src/boundary.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/Cargo.lock", "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs", "services/agent/crates/layerx-mcp/Cargo.toml"]
 tests = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_native_reads"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test proof_native_reads"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -126702,6 +126752,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 do_7 = "Decision 2294: attempt 2 (bb8296a22) failed to resolve layerx_mcp from tests/proof_native_reads.rs because layerx-agentd/Cargo.toml has no such dependency; add `layerx-mcp = { path = '../layerx-mcp' }` under [dev-dependencies] (layerx-mcp already depends on layerx-agentd; a dev-dependency cycle is allowed and compiles the crate twice) and commit the services/agent/Cargo.lock the resolver writes so --locked holds. Continue from attempt 2."
+do_8 = "Finding 21.95.1.1: the proof lives in services/agent/crates/layerx-mcp/tests/proof_native_reads.rs (the consumer crate, which already depends on layerx-agentd); delete the layerx-agentd test target of the same name, add dev-dependencies to layerx-mcp/Cargo.toml only if the proof needs them (never layerx-agentd depending on layerx-mcp), and keep every other do. Continue from attempt 3."
 
 [task.21.94.1]
 title = "Prove the serve errors path end to end: producer, transport, consumer"
@@ -126774,7 +126825,7 @@ title = "Prove the agent boundary conformance path end to end: producer, transpo
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.7.2"]
 reqs = ["21092.1"]
 capabilities = ["21.92.1"]
 interfaces = []
@@ -126801,6 +126852,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Finding 21.92.1.1: the refusal 'pending block unavailable: sequencer: no block is open' comes from rpc/watermark_manager.go:103, outside this task's touches; task 22.7.2 serves pending reads from the committed state while no block is open and this task requires it. Continue from attempt 2 once 22.7.2 is done; the proof keeps asking for the pending balance and does not retry around the refusal."
 
 [task.21.81.1]
 title = "Prove the x websearch payment path end to end: producer, transport, consumer"
@@ -127182,7 +127234,7 @@ symbols = ["RpcClient", "get_identity_sequence", "execute", "Wallet", "estimate_
 touches = ["services/agent/crates/layerx-sdk/tests/proof_sdk.rs", "services/agent/crates/layerx-sdk/src/rpc.rs", "services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/src/production.rs", "services/agent/crates/layerx-agentd/tests/fee_projection_program_state.rs", "services/agent/crates/layerx-sdk/src/bin/layerx-wallet-rpc.rs", "services/agent/qualification/pay2/pay2e_test.rs", "services/platform/hosted/runtime-clock/tests/supervisor.rs", "tools/platform/cli/src/wallet.rs", "services/agent/crates/layerx-mcp/src/tools/wallet.rs"]
 tests = ["services/agent/crates/layerx-sdk/tests/proof_sdk.rs"]
 planned_paths = ["services/agent/crates/layerx-sdk/tests/proof_sdk.rs"]
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests"
+build_cmd = "make -f chain.mk install && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --test proof_sdk"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -127196,6 +127248,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Finding 21.45.1.1: the build installs the node (make -f chain.mk install); the proof starts it by running tools/qualification/localnode/v6120-node.sh --sequencer --env-out <tempdir>/localnode.env from std::process::Command, reads the RPC endpoint and key material from that file it produced in its own temporary directory, stops the node in a drop guard, and then crosses RpcClient and Wallet into it; nothing is read from the caller's environment (decision 2292). Continue from attempt 3."
 
 [task.21.42.1]
 title = "Prove the client path end to end: producer, transport, consumer"
@@ -127485,6 +127538,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 9.100.2.1: the build and the verify compile the library and the agent_create target only (-p layerx-human-service --lib --test agent_create); tests/native_lifecycle.rs belongs to task 9.35.11 and is not touched here. Continue from attempt 1."
+do_5 = "Finding 9.100.2.2: do not assert that canonical_owner::sign_transaction reproduces the test's hand-built call (its max_fee_per_gas is 10, the test's is 3); derive the call the later assertions use from the signed bytes, or sign the built call directly, and keep the ProgramCall refusal assertion of do_2. Continue from attempt 4."
 
 [task.8.99.1]
 title = "Delete the orphan withdrawal module of the core boundary"
@@ -127912,6 +127966,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Finding 8.101.4.1: delete the directory services/platform/hosted/gateway/tests/local/ (Cargo.toml, README.md, verifier.rs, lifecycle_sdk.rs and any lock file) instead of porting verifier.rs (do_2 is satisfied by the deletion); it is a standalone package, not a test target, so the verify no longer names `--test local` and asserts the directory is gone. Add no field to Config or Kernel and no program_head item: the crate's existing types are the only ones the deletion needs. Attempt 1 (e8fdbe4e6f) holds lib.rs and main.rs; continue from it."
 do_6 = "Finding 9.35.13.2: attempt 4 edited the four files under tests/local (Cargo.toml, README.md, lifecycle_sdk.rs, verifier.rs) instead of deleting the directory, so the verify's first clause `! test -d services/platform/hosted/gateway/tests/local` failed; do_5 stands: git rm -r the whole directory. The task now requires 9.35.13, which removes the pay2 qualification crate's references to that directory first. Continue from attempt 4."
+do_7 = "Finding 8.101.4.2: run git rm -r services/platform/hosted/gateway/tests/local and commit the deletion (the directory is not a workspace member; services/platform/Cargo.toml:13 lists only hosted/gateway); port nothing out of it, then run the verify's three clauses in order. Continue from attempt 5."
 
 [task.8.101.3]
 title = "Port the hosted core's sends, funding intents and fee estimate off the kernel activity codec"
@@ -130580,6 +130635,96 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.6.3]
+title = "Reconcile the layerxanchor keeper tests with the retired module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22009.1"]
+capabilities = ["22.6.3"]
+interfaces = []
+do_1 = "The layerxanchor module refuses SubmitCheckpoint with LXP_MODULE_DISABLED 'layerxanchor retired' (modules/layerxanchor/keeper/checkpoints.go:57) once the merge height is reached, and the keeper test suite (modules/layerxanchor/keeper/keeper_test.go, suite.submit at :195) still drives live checkpoints from a post-merge context, so TestBondReturn, TestBondReturnClosedChallenges, TestBondReturnRollback (bond_return_test.go), TestMergeHandlerRetiresAnchor (merge_handler_test.go), TestRetireAtMergeReturnsBondsAndEmits (retire_merge_test.go), TestAnchorRetirementRehearsal and TestExportAfterRetireValidates (retirement_rehearsal_test.go) fail. For each: when the behaviour it covers is pre-merge (bond return after a challenge, writes before the merge), place the suite's context before the merge height the way TestWritesServedBeforeMerge in precompiles/layerxanchor does; when it covers the merge itself or post-merge state (retirement at merge, export after retire), submit the checkpoints before the merge height and cross the merge inside the test; when the behaviour is unreachable in both (a live checkpoint after retirement), delete the test with the fixtures only it used."
+do_2 = "No production code under modules/layerxanchor changes; the suite helper that submits a checkpoint asserts the LXP_MODULE_DISABLED refusal when called at or after the merge height so a future test cannot pass by accident."
+do_3 = "The verify vets the package and runs every keeper test; the commit message lists each test with the choice made (pre-merge context, merge crossed in-test, deleted)."
+symbols = ["suite.submit", "TestBondReturn", "TestMergeHandlerRetiresAnchor", "TestAnchorRetirementRehearsal"]
+touches = ["modules/layerxanchor/keeper/keeper_test.go", "modules/layerxanchor/keeper/bond_return_test.go", "modules/layerxanchor/keeper/merge_handler_test.go", "modules/layerxanchor/keeper/retire_merge_test.go", "modules/layerxanchor/keeper/retirement_rehearsal_test.go"]
+tests = ["modules/layerxanchor/keeper/bond_return_test.go", "modules/layerxanchor/keeper/retirement_rehearsal_test.go"]
+planned_paths = ["modules/layerxanchor/keeper/bond_return_test.go"]
+build_cmd = "go vet ./modules/layerxanchor/keeper/"
+verify_cmd = "go vet ./modules/layerxanchor/keeper/ && go test -count=1 ./modules/layerxanchor/keeper/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.7.2]
+title = "Serve pending state reads from the latest committed block while no block is open"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22008.1"]
+capabilities = ["22.7.2"]
+interfaces = []
+do_1 = "In rpc/watermark_manager.go resolvePending (:95-105): when m.pending.Snapshot() fails with ErrLayerNotOpen (rpc/utils.go:54, 'sequencer: no block is open'), return the latest committed height the manager already tracks instead of the error, so every pending-tagged state read (StateAPI.GetBalance rpc/state.go:50, GetCode, GetStorageAt, the transaction count) answers from the committed state; any other snapshot error and the ErrPendingServedBySequencer case (m.pending == nil) keep refusing as today."
+do_2 = "Keep the comment above resolvePending accurate and align it with the rule rpc/simulate.go:394 already states for simulation reads."
+do_3 = "Add TestResolvePendingFallsBackToLatestWhileNoBlockIsOpen to rpc/watermark_manager_test.go: a pending source whose Snapshot returns ErrLayerNotOpen makes ResolveHeight(pending) return the latest height, a source with an open block at height N+1 returns N+1, and a source failing with another error still refuses; follow the fixtures the existing tests of that file use."
+symbols = ["resolvePending", "ResolveHeight", "ErrLayerNotOpen"]
+touches = ["rpc/watermark_manager.go", "rpc/watermark_manager_test.go"]
+tests = ["rpc/watermark_manager_test.go"]
+planned_paths = ["rpc/watermark_manager_test.go"]
+build_cmd = "go build ./rpc/"
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestResolvePendingFallsBackToLatestWhileNoBlockIsOpen$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.5.5]
+title = "Repair the xwebInfo call in the sequencer precompile refresh test so the package builds"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22007.1"]
+capabilities = ["22.5.5"]
+interfaces = []
+do_1 = "In node/sequencer/precompile_refresh_test.go (:69) call xwebInfo(t): position_test.go:114 declares func xwebInfo(t *testing.T) precompiles.PrecompileInfo and the refresh test was written against the parameterless form, so the node/sequencer test package does not compile (go vet reports 'not enough arguments in call to xwebInfo')."
+do_2 = "Run go vet ./node/sequencer/ and repair any further compile error in the package's _test.go files the same way (match the current helper signatures); production code under node/sequencer does not change."
+do_3 = "The verify vets the package and runs TestExecutorOpenRefreshesPrecompilesItself, the test that owns the call."
+symbols = ["xwebInfo", "TestExecutorOpenRefreshesPrecompilesItself"]
+touches = ["node/sequencer/precompile_refresh_test.go"]
+tests = ["node/sequencer/precompile_refresh_test.go"]
+planned_paths = ["node/sequencer/precompile_refresh_test.go"]
+build_cmd = "go vet ./node/sequencer/"
+verify_cmd = "go vet ./node/sequencer/ && go test -count=1 ./node/sequencer/ -run '^TestExecutorOpenRefreshesPrecompilesItself$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.8.8]
 title = "Port the Go lifecycle verifier test off the deleted v3 receipt fixture"
 status = "done"
@@ -131675,7 +131820,7 @@ title = "Prove the sequencer receipt path end to end: producer, transport, consu
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["21.19.1"]
+requires = ["21.19.1", "22.5.5"]
 reqs = ["21087.1"]
 capabilities = ["21.87.1"]
 interfaces = []
@@ -131703,6 +131848,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 do_7 = "Finding 21.19.1.1: this proof shares the node/sequencer test package with 21.19.1, which repairs the xwebInfo(t) call at precompile_refresh_test.go:69; this task requires 21.19.1 and does not edit that file. Continue from the last attempt once 21.19.1 is done."
+do_8 = "Finding 21.87.1.1: the package build failure is node/sequencer/precompile_refresh_test.go:69, outside this task's touches; task 22.5.5 repairs it and this task requires it. Continue from attempt 3 once 22.5.5 is done."
 
 [task.21.86.1]
 title = "Prove the precompile go path end to end: producer, transport, consumer"
@@ -132723,6 +132869,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Finding 21.44.1.1 and decision 2300: for an unknown hash, block or out-of-range index the three eth_getRawTransaction* surfaces answer the JSON string '0x' (nil hexutil.Bytes, the go-ethereum result) and the uncle surfaces answer null; split the null round accordingly and keep every other round. Continue from attempt 2."
 
 [task.21.43.1]
 title = "Prove the views path end to end: producer, transport, consumer"
@@ -132756,6 +132903,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Finding 21.43.1.1: in the escrow_result subtest compare r.TransferSetRoot with stored.TransferSetRoot (the record DecodeEscrowResult returned at :384), not with escrowEconomicReceipt.TransferSetRoot; keep the :383 zero assertion and the :386 non-zero assertion and name the omitted economic binding in the doc comment per do_4. Continue from attempt 4."
 
 [task.21.41.1]
 title = "Prove the consensus leader pin path end to end: producer, transport, consumer"
@@ -133352,7 +133500,7 @@ title = "Prove the sequencer executor path end to end: producer, transport, cons
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.5.5"]
 reqs = ["21019.1"]
 capabilities = ["21.19.1"]
 interfaces = []
@@ -133380,6 +133528,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 do_7 = "Finding 21.19.1.1: before the proof, change precompile_refresh_test.go:69 to `info := xwebInfo(t)` so the package compiles against position_test.go:114 as 21.49.1 left it; nothing else in that file changes. Continue from the last attempt."
+do_8 = "Finding 21.87.1.1: the package build failure is node/sequencer/precompile_refresh_test.go:69, outside this task's touches; task 22.5.5 repairs it and this task requires it. Continue from attempt 3 once 22.5.5 is done."
 
 [task.21.18.1]
 title = "Prove the launchpad gateway path end to end: producer, transport, consumer"
@@ -133399,7 +133548,7 @@ symbols = ["upstream", "RetiredConnectedRoutes"]
 touches = ["services/launchpad/gateway/internal/proxy/proof_launchpad_gateway_test.go", "services/launchpad/gateway/internal/proxy/connected.go", "apps/launchpad/web/src/core/clients/livestream-api.ts", "apps/launchpad/web/src/core/test-fixtures/operation-envelope/go-vectors.json", "apps/launchpad/web/src/core/test-fixtures/operation-envelope/main.go", "sdk/launchpad/packages/sdk/src/operations.gen.ts", "services/launchpad/livestream/internal/streams/production_measurement.go", "services/launchpad/gateway/internal/app/identity_peers_test.go"]
 tests = ["services/launchpad/gateway/internal/proxy/proof_launchpad_gateway_test.go"]
 planned_paths = ["services/launchpad/gateway/internal/proxy/proof_launchpad_gateway_test.go"]
-build_cmd = "cd services/launchpad/gateway && go build ./internal/proxy/..."
+build_cmd = "cd services/launchpad/gateway && go build ./internal/proxy/... && cd ../social && go build ./cmd/sociald"
 verify_cmd = "cd services/launchpad/gateway && go test -count=1 ./internal/proxy/ -run '^TestProofLaunchpadGateway'"
 gate_kind = "planned"
 sandbox_profile = "go"
@@ -133414,6 +133563,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2290: the build and the verify run from services/launchpad/gateway, the Go module that owns the package (cd services/launchpad/gateway && go build ./internal/proxy/...); run from the repository root the package is outside the main module."
 do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_8 = "Finding 21.18.1.1: remove the GATEWAY_PROOF_SOCIAL_BIN read; the proof builds sociald from services/launchpad/social (go build -o <t.TempDir()>/sociald ./cmd/sociald run from the test with the module directory as Dir) or hosts the social server in-process on a loopback listener, then drives the gateway against it; a failed build is an assertion failure naming the path (decision 2292). Continue from attempt 3."
 
 [task.21.17.1]
 title = "Prove the launchpad api path end to end: producer, transport, consumer"
@@ -134307,7 +134457,7 @@ title = "Restore the anchor retirement vectors as a module-local fixture and por
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["6.96.5"]
+requires = ["6.96.5", "22.6.3", "18.1471.1"]
 reqs = ["8311.1"]
 capabilities = ["6.96.6"]
 interfaces = []
@@ -134337,6 +134487,7 @@ do_6 = "Finding 8.14.2.2: delete modules/layerxanchor/bringup_genesis_test.go; i
 do_7 = "Finding 5.7.1.2: delete modules/layerxanchor/module_retired_route_test.go; its assertion that the test app routes MsgUpdateParams cannot hold since task 5.7.1 removed the anchor AppModule from node/app.go, and the parameter message server it exercised is covered by the keeper tests this task restores."
 do_8 = "Finding 1.36.1.2: in modules/layerxanchor/keeper/keeper_test.go replace the DecodeCheckpointCertificate call (:360) and certificate.Header.BatchNumber (:368) with the fixture's batch_number value read through the Vector Uint64 accessor of the batch_1_quorum checkpoint vector; in precompiles/layerxanchor/retire_read_gate_test.go replace the call (:121) with the vector's checkpoint_id read through Array32 and compare len(h.ids) against its signers value, dropping the proofcodec import where nothing else uses it. layerxproof/codec and layerxproof/exportcheck are not changed. Continue from attempt 2 (5b41c3073)."
 do_9 = "Finding 6.96.6.1: before the vector port, repair retired_surface_test.go:42: replace require.Nil(AnchorK()) with require.NotNil (decision.2218, task 18.1326.1 carries the constructed keeper) and keep the per-selector LXP_MODULE_DISABLED assertions, which the height gates of layerxanchor.go decide. Continue from attempt 4."
+do_10 = "Finding 6.96.6.2: the keeper tests that drive live checkpoints after the merge height are reconciled by task 22.6.3 and the four precompile tests by task 18.1471.1; this task now requires both and reruns its verify unchanged. Continue from attempt 5 once both are done."
 
 [task.6.96.5]
 title = "Re-home the availability class count in the layerxanchor keeper after the codec retirement"
@@ -183063,7 +183214,7 @@ touches = ["spec/layerx-merge/programme/sweeps/go-cmd.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/go-cmd.kvx"]
 build_cmd = "git rev-parse HEAD"
-verify_cmd = "test -s spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^\[sweep\.go-cmd\]$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^revision = \x22[0-9a-f]{40}\x22$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^command = \x22.+\x22$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_total = [1-9][0-9]*$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_passed = [0-9]+$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_failed = [0-9]+$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_not_run = [0-9]+$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^\[target\.go-cmd\.[0-9]+\]$' spec/layerx-merge/programme/sweeps/go-cmd.kvx"
+verify_cmd = "test -s spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^\[sweep\.go-cmd\]$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^revision = \x22[0-9a-f]{40}\x22$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^command = \x22.+\x22$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_total = [0-9]+$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_passed = [0-9]+$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_failed = [0-9]+$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^targets_not_run = [0-9]+$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && (grep -Pq '^targets_total = 0$' spec/layerx-merge/programme/sweeps/go-cmd.kvx && grep -Pq '^enumeration_command = \x22.+\x22$' spec/layerx-merge/programme/sweeps/go-cmd.kvx || grep -Pq '^\[target\.go-cmd\.[0-9]+\]$' spec/layerx-merge/programme/sweeps/go-cmd.kvx)"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-node-runtime"
@@ -183075,6 +183226,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 22.91.22.1: an empty inventory is a valid result for this sweep; the report keeps targets_total = 0 with enumeration_command and observed set as attempt 1 wrote them and carries no target block; the verify accepts that form. Continue from attempt 1."
 
 [task.22.91.21]
 title = "Inventory every Go package under daemon/ of the root module"
@@ -204496,6 +204648,30 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.22.6.3.1]
+feature = "22"
+req = "22009.1"
+scenario = "Given the retired layerxanchor module at HEAD, when the keeper test package runs, then every test passes: checkpoints are submitted before the merge height or their refusal is asserted"
+contract = "go vet ./modules/layerxanchor/keeper/ && go test -count=1 ./modules/layerxanchor/keeper/"
+test = "modules/layerxanchor/keeper/bond_return_test.go"
+qualification = "UNRUN"
+
+[acceptance.22.7.2.1]
+feature = "22"
+req = "22008.1"
+scenario = "Given a watermark manager whose pending source reports no open block, when a pending-tagged height is resolved, then it is the latest committed height, and a source with an open block or another failure keeps today's result"
+contract = "go test -count=1 ./rpc/ -run '^TestResolvePendingFallsBackToLatestWhileNoBlockIsOpen$'"
+test = "rpc/watermark_manager_test.go"
+qualification = "UNRUN"
+
+[acceptance.22.5.5.1]
+feature = "22"
+req = "22007.1"
+scenario = "Given the tree at HEAD, when the node/sequencer test package is vetted and TestExecutorOpenRefreshesPrecompilesItself runs, then the package compiles and the test passes"
+contract = "go vet ./node/sequencer/ && go test -count=1 ./node/sequencer/ -run '^TestExecutorOpenRefreshesPrecompilesItself$'"
+test = "node/sequencer/precompile_refresh_test.go"
+qualification = "UNRUN"
+
 [acceptance.22.9.13.1]
 feature = "22"
 req = "22006.1"
@@ -213890,7 +214066,7 @@ do_2 = "No deleted daemon test is restored and no retained qualification script 
 do_3 = "Create tests/ci/test_qualification_producers_exist.py (pytest): it scans tools/qualification/paxeer-x/*.py, tools/paxeer-x/build/*.mk and the Makefile for every tests/daemon/[A-Za-z0-9_]+\.c path and asserts each exists in the repository, and asserts that no file under tools/qualification/paxeer-x or tools/paxeer-x/build names one of the nine deleted files; run it with tests/ci/test_requested_suites_absent.py and cmd/retirement/test_daemon_tests_batch_wal.py to show the retirement checks still pass."
 do_4 = "List every deleted or changed path in the commit message with the producer that justified it."
 symbols = []
-touches = ["tools/qualification/paxeer-x/arbiter-admission.py", "tools/qualification/paxeer-x/arbiter-native-authority.py", "tools/qualification/paxeer-x/program-replay-record.py", "tools/qualification/paxeer-x/replay-authority.py", "tools/qualification/paxeer-x/replay-catalogue.py", "tools/qualification/paxeer-x/arbiter-prestate-transport.py", "tools/qualification/paxeer-x/native-programs-link.py", "tools/paxeer-x/build/104.35.12.mk", "tools/paxeer-x/build/104.35.15.mk", "tools/paxeer-x/build/104.35.20.mk", "tools/paxeer-x/build/104.35.29.mk", "tools/paxeer-x/build/104.35.35.mk", "Makefile", "tests/ci/test_qualification_producers_exist.py"]
+touches = ["tools/qualification/paxeer-x/arbiter-admission.py", "tools/qualification/paxeer-x/arbiter-native-authority.py", "tools/qualification/paxeer-x/program-replay-record.py", "tools/qualification/paxeer-x/replay-authority.py", "tools/qualification/paxeer-x/replay-catalogue.py", "tools/qualification/paxeer-x/arbiter-prestate-transport.py", "tools/qualification/paxeer-x/native-programs-link.py", "tools/paxeer-x/build/104.35.12.mk", "tools/paxeer-x/build/104.35.15.mk", "tools/paxeer-x/build/104.35.20.mk", "tools/paxeer-x/build/104.35.29.mk", "tools/paxeer-x/build/104.35.35.mk", "Makefile", "tests/ci/test_qualification_producers_exist.py", "tools/qualification/paxeer-x/agent_operation_envelope.py"]
 tests = ["tests/ci/test_qualification_producers_exist.py"]
 planned_paths = ["tests/ci/test_qualification_producers_exist.py"]
 build_cmd = "python3 -m py_compile tests/ci/test_qualification_producers_exist.py"
@@ -213906,6 +214082,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Finding 22.16.4.1: drop the tests/daemon/lxp_test_runtime_fixture.c entry from SOURCES in tools/qualification/paxeer-x/agent_operation_envelope.py (:123) and rerun tests/ci/test_qualification_producers_exist.py; any further missing producer the test reports is handled the same way and listed in the commit message. Continue from attempt 1."
 
 [task.18.1498.1]
 title = "Issue #1498: Decode the receipt-key result object in the MCP binding qualification"
@@ -216044,6 +216221,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 18.1484.1.1: the comment block above check_relay (tools/bringup/check-live.sh:3213-3220) is rewritten to describe the current check (origin from CHECK_LIVE_RELAY_ORIGIN, env=absent when unset, the internal-CA listener of the kernel machine) and carries no path under services/platform/relay_archive/ and no mention of the deleted template; continue from attempt 1, whose function body and harness cases stand."
 do_5 = "Finding 18.1484.1.2: the verify prints /tmp/check-live-test.log when the relay case's ok line is missing. Continue from attempt 3: run bash tools/bringup/check-live.test.sh once before the verify and read its last lines; the suite stops at its first failing command (set -euo pipefail at :2), so a case that stops it before check_live_relay_env_absent is repaired when its cause is in the relay section (:3594 onward) or in check_relay of tools/bringup/check-live.sh, and is otherwise named in the commit message with its last printed line and left as it is, because the earlier cases pass on main under tasks 18.776.1 and 18.821.1."
+do_6 = "Finding 18.1484.1.3: the relay case must report exactly 'ok   check_live_relay_env_absent' (the harness's three-space ok line at :707) and must run before any case that can stop the suite; run bash tools/bringup/check-live.test.sh once and read its last lines before the verify. Continue from attempt 4."
 
 [task.18.1483.1]
 title = "Issue #1483: Make the container exclusion-list tests agree on the retired localnode Dockerfile"
@@ -216401,6 +216579,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Finding 18.1443.1.1: assert_retired excludes retirement assertions by pattern, not by a hand-kept list: every file under tests/bridge/retired/, tests/ci/test_retired_*.py, tests/ci/test_requested_retirements_absent.py and cmd/retirement/test_*_retired.py; a stem reference counts only when the stem is followed by the retired file's own extension (owner-custody.py, Ed25519.sol, EOA.sol), so owner-custody.json, the comment word EOA and the algorithm name Ed25519 in prose and messages are not references; test_harness_ignores_retirement_assertions and test_harness_ignores_a_stem_with_another_extension cover both rules. The one live reference that survives is tools/paxeer-x/gates/103.6.11.sh:33, whose CONTRACTS list names PaxeerBetaDeploymentValidator (retired with contracts/deployment/PaxeerBetaDeploymentValidator.sol): drop that entry so the list reads ['ContractManager'], and list the gate under touches. Continue from attempt 3."
 do_6 = "Finding 18.1443.1.1, continued: attempt 4 (2000e0ba8) still reported tests/ci/test_requested_retirements_absent.py:23 and tests/ci/test_retired_solidity_checkpoint.py:8 as live references to contracts/challenge/CheckpointChallengeManager.sol, so the exclusion was not applied where the scan runs: apply it in tests/bridge/retired/kernel_retirement.py (the `findings` builder before :297), excluding every path matching tests/bridge/retired/, tests/ci/test_retired_*.py, tests/ci/test_requested_retirements_absent.py and cmd/retirement/test_*_retired.py from the live-reference scan of every retired path, not only inside assert_retired's own argument list. Continue from attempt 4."
+do_7 = "Finding 18.1443.1.2: in kernel_retirement.py restrict the live-reference scan to code references (import statements and path strings of the retired file; a stem match counts only at identifier or path boundaries and never on a comment line), exclude the retirement-assertion files (tests/bridge/retired/**, tests/ci/test_*absent*.py, tests/ci/test_retired_*.py, cmd/retirement/**), and extend test_kernel_retirement_harness.py with a comment false positive, a document-name false positive (owner-custody.json) and a retirement-assertion file that must not fail the check, beside the live-import case that must. Continue from attempt 4."
 
 [task.20.0.1]
 title = "Refuse the virtual-chains closure while any chain task is not done"
