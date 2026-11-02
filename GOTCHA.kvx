@@ -13156,3 +13156,8 @@ fix = "Grep every workspace for the retired path and list each calling crate in 
 title = "A helper added to a private module needs the parent's re-export in the same task"
 symptom = "A task declared the file of a new pub(crate) helper and its callers but not the module file that declares the helper's module privately, so the callers failed with E0603."
 fix = "When a task adds an item to a module, list the module's parent file in touches and spell out the re-export line."
+
+[gotcha.2668]
+title = "A closure gate that requires every task of a family must have its requires completed when the family grows"
+symptom = "A gate task written to run after all issue tasks listed 444 of them in requires; 89 issue tasks written later were not added, so the gate launched with three of them pending and failed on its own check."
+fix = "When a task is added to a family that a gate task closes, append it to the gate's requires in the same batch, and build the gate's check to read the live task list so an omission still fails loudly."
