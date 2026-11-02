@@ -135865,7 +135865,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.97.2]
 title = "Gate the retired bridge harness consumers against the deleted daemon paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["6.60.2", "6.60.3", "6.60.4", "6.60.5"]
@@ -142653,7 +142653,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.26.1]
 title = "Produce conformance receipts as signed sequencer receipts over EIP-1559 transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.22.4", "8.23.2", "8.33.1", "8.22.7", "8.23.3"]
