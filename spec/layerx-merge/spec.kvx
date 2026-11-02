@@ -142635,7 +142635,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.22.6]
 title = "Retire the kernel batch, checkpoint and authorized-batch seller exports"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.22.4", "8.22.5", "8.23.3", "8.24.4", "8.25.2", "8.26.1", "8.26.4", "8.26.5", "8.26.6", "8.27.1", "8.22.7", "8.22.8"]
@@ -175129,7 +175129,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.0.4]
 title = "Repoint the express integration from authorized batches to pinned receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["15.0.3", "8.0.3", "9.0.3", "8.23.2", "8.23.3"]
@@ -179212,7 +179212,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.12.1]
 title = "Drop the checkpoint vector and settlement read permissions from the root Foundry profile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["16.0.4", "6.0.4", "6.52.1"]
