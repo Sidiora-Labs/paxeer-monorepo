@@ -5,6 +5,8 @@ import (
 	"fmt"
 )
 
+// ErrSequencedBlockHalt lets block consumers distinguish a fatal sequencer
+// refusal while Cause preserves the delivery error's ABCI codespace and code.
 var ErrSequencedBlockHalt = errors.New("sequenced block halt")
 
 type sequencedHaltError struct {

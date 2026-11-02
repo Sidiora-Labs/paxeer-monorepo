@@ -1,0 +1,54 @@
+[sweep.rust-test-human]
+revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+command = "cargo test --locked --manifest-path services/human/Cargo.toml -p TARGET --no-fail-fast"
+targets_total = 7
+targets_passed = 1
+targets_failed = 6
+targets_not_run = 0
+
+[target.rust-test-human.1]
+target = "layerx-human-security-provider"
+result = "failed"
+exit_code = 101
+observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
+assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
+
+[target.rust-test-human.2]
+target = "layerx-human-service"
+result = "failed"
+exit_code = 101
+observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
+assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
+
+[target.rust-test-human.3]
+target = "layerx-human-kms"
+result = "failed"
+exit_code = 101
+observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
+assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
+
+[target.rust-test-human.4]
+target = "layerx-intents"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-human.5]
+target = "layerx-network-gateway"
+result = "failed"
+exit_code = 101
+observed = "identity_selector_contract::real_repeated_account_and_balance_lookup_preserves_owner panicked at services/human/crates/layerx-network-gateway/src/lib.rs:1163:14 with real isolated identity fixture required: NotPresent."
+assumption = "The environment lacks PAXEER_X_IDENTITY_FIXTURE, which this test requires to locate a real isolated identity fixture."
+
+[target.rust-test-human.6]
+target = "layerx-human-identity-provider"
+result = "failed"
+exit_code = 101
+observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
+assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
+
+[target.rust-test-human.7]
+target = "layerx-human-test-support"
+result = "failed"
+exit_code = 101
+observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
+assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
