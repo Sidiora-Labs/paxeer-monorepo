@@ -13086,3 +13086,8 @@ fix = "Resolve every height above the committed height on the simulation path to
 title = "A task changing a package's exports must compile the package's own consumers in the same task"
 symptom = "A task changed two source files of a TypeScript package and left the package's third file, which imports both, to a later task; the package's tsc project compiles every source file, so the task's build failed on the file it did not own, which was also broken on main by earlier ports."
 fix = "When a package port is split across tasks, each task's build target must compile at its end: keep in-package consumers of changed exports in the task that changes them, and check the package compiles on main before the split is written."
+
+[gotcha.2654]
+title = "An offline Foundry build at the repository root needs the pinned compiler fetched first"
+symptom = "A build running forge build --offline from the repository root failed with 'can't install missing solc 0.8.27 in offline mode'; the qualification environment prefetched the compiler only for a project named with --root."
+fix = "When a forge command names no --root, fetch the solc_version of the repository root's foundry.toml with one online build before the offline build runs."

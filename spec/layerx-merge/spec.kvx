@@ -118187,7 +118187,7 @@ title = "Issue #1441: Port live_kinds to the retained intent kinds"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["9.27.9"]
 reqs = ["3537.1"]
 capabilities = ["18.1441.1"]
 interfaces = []
@@ -118210,6 +118210,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 18.1441.1.1: attempt 1 (024cbd9b0) completed tests/live_kinds.rs and failed only on the layerx-agentd build that task 9.27.9 repairs; once 9.27.9 is on main, continue from attempt 1 rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 
 [task.18.1439.1]
 title = "Issue #1439: Remove the Python callback into the retired Rust probe and refuse qualification re-entry"
@@ -178880,6 +178881,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_5 = "Finding 16.12.1.2: attempt 1 (ee97281de) completed both files and failed only because the qualification environment lacked the pinned solc 0.8.27 for the offline build; continue from attempt 1 rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 
 [task.16.21.1]
 title = "Give the C test harness a single-case selector: lxp_test_run_one and --run <name>"
