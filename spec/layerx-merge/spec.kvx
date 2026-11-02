@@ -118723,7 +118723,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.101.5]
 title = "Delete the agent boundary's dead kernel journal completion helpers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -153121,7 +153121,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.1]
 title = "Remove the owner rotation codec and the payment envelope encoder from layerx-crypto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["9.35.3", "9.31.2", "9.31.3", "9.2.2", "9.23.7", "8.94.3", "11.34.5", "12.95.1", "10.0.3", "10.98.7", "10.98.8", "10.98.9", "10.98.10", "10.98.11", "10.98.12", "10.98.13", "10.98.14", "9.23.6", "18.1115.1", "18.1304.1", "8.4.5", "10.21.4", "10.21.6", "9.25.16", "13.8.3", "9.35.6", "9.35.8"]
