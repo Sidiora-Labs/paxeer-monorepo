@@ -184540,7 +184540,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.6.10]
 title = "Select the v6.12.0 precompile set from the module version map so the merge plan gate passes on a full-genesis chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -218419,7 +218419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.16.4]
 title = "Retire the deleted batch-WAL daemon producers from the qualification scripts and build fragments"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

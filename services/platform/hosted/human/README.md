@@ -105,9 +105,10 @@ registration receipt evidence.
 | `journal/` | Unmodified pairs from `LAYERX_REGISTRY_JOURNAL` |
 
 `beta-owner-policy.json` defines an agent-scoped limit with the registration account
-as scope ID. Its limit ID names configuration, not a deployed budget. Its activity
-selector includes only activity IDs supplied by registration evidence; the empty
-budget allowlist grants no budgets.
+as scope ID. Its limit ID is exactly 32 lowercase hex characters (16 bytes), for
+example `ef060d2533e9bcc511e5583aa2802ee4`. It names configuration, not a deployed
+budget. Its activity selector includes only activity IDs supplied by registration
+evidence; the empty budget allowlist grants no budgets.
 
 `provision-account` reads `{"did":"did:layerx:<public key>"}` on stdin and calls
 `layerx_wire::hash::account_id_for_protocol` with protocol 3. The Job invokes it

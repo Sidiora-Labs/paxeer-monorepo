@@ -120,7 +120,6 @@ SOURCES = ('services/agent/crates', 'services/agent/Cargo.toml', 'services/agent
            'services/platform/Cargo.lock', 'sdk/platform/go', 'sdk/platform/jvm', 'sdk/platform/swift', 'sdk/platform/dotnet',
            'tools/paxeer-x/route-catalogue.json', 'tools/qualification/paxeer-x/agent_operation_envelope.py',
            'tools/qualification/paxeer-x/fixtures/event_source_fixture.py',
-           'tests/daemon/lxp_test_runtime_fixture.c',
            'tests/programs/test_call_activity.c', 'services/agent/schema/lni/v1.kvx')
 CASE_LINE = re.compile(r'^PAXEER_X_AGENT_ENVELOPE_CASE ([a-z0-9_.\-]+) passed$', re.M)
 COUNT_LINE = re.compile(r'^PAXEER_X_AGENT_ENVELOPE_CASES=(\d+)$', re.M)
