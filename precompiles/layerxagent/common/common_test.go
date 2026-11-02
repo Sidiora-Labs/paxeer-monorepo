@@ -477,3 +477,22 @@ func TestTeeGasCanonicalCallSizes(t *testing.T) {
 		})
 	}
 }
+
+func TestPofqGasCanonicalCallSizes(t *testing.T) {
+	for _, row := range []struct {
+		signature string
+		inputLen  int
+		want      uint64
+	}{
+		{"scoreFill(int256,int256)", 68, 1204},
+		{"scoreBatch((int256,int256,uint128)[])", 68, 1204},
+		{"scoreBatch((int256,int256,uint128)[])", 260, 1780},
+		{"updateRollingScore(uint256,uint256,uint256,uint256,uint16)", 164, 1492},
+	} {
+		t.Run(row.signature+"/"+strconv.Itoa(row.inputLen), func(t *testing.T) {
+			id := crypto.Keccak256([]byte(row.signature))[:4]
+			require.Equal(t, row.want, common.MethodGas(id, row.inputLen))
+			require.Equal(t, row.want-12, common.MethodGas(id, row.inputLen-4))
+		})
+	}
+}
