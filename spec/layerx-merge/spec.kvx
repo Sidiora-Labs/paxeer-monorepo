@@ -111634,7 +111634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.97.1]
 title = "Drop the cosmos telemetry validator slashed counter from the oracle slash path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["3.0.4", "15.0.4"]
@@ -118442,7 +118442,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.6]
 title = "Delete the KMS owner rotation provider test built on the retired owner envelope"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["10.21.4"]
