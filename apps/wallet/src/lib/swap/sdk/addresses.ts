@@ -56,7 +56,7 @@ export const TOKENS = {
     isStablecoin: true,
   },
   USDL: {
-    address: '0x7c69c84daAEe90B21eeCABDb8f0387897E9B7B37',
+    address: '0x85FcD13735F4309833A503EE804ea32395851479',
     decimals: 6,
     symbol: 'USDL',
     name: 'Liquidity USD',

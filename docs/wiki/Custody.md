@@ -37,22 +37,10 @@ period is refused outright rather than degraded to a weaker check. The profile
 pins the module identity and the LayerX asset ID, not Paxeer governance or
 token economics; those remain explicit custody trust assumptions.
 
-`tests/bridge/custody_credit.py` is the evidence-producing implementation. It
-refuses an `LXBC1` or `LXBC2` profile outright and delegates the Paxeer layout
-to `tests/bridge/comet_credit.py`, which drives the `layerx-custody-proof`
-producer. It accepts two distinct EVM RPC origins and one Comet RPC, and
-verifies chain identity. Deposit facts come only from the successful
-transaction's included `CustodyDeposit` event emitted by the pinned custody
-precompile, and both origins must return the same one. The deposit ID preimage
-is independently recomputed under the domain `LXP/Paxeer/custody-deposit/v1`.
-The credit is produced by `layerx-custody-proof light-credit`, and the helper
-re-checks every bound field of the returned head against the discovered deposit
-before writing it. No caller-supplied root, log, or synthetic receipt can
-replace those reads. HTTP is allowed only for literal loopback addresses; other
-RPCs require HTTPS. RPC redirects are refused. Bounds are 16 MiB per RPC
-response, 128 MiB aggregate RPC responses and 20,000 RPC calls; exceeding them
-refuses issuance. The proof producer has a 120-second timeout. Distinct origins
-do not establish independent backends; operators must assess that separately.
+Local custody evidence production is retired. Credit evidence is produced
+by the chain, not by a local script. The former local proof producer and
+its RPC checks are no longer an operator funding path. For current ledger
+payments, follow the [Human service payment path](../site/docs/human/payments).
 
 The native verifier checks the light-client bundle and every bound field of
 the credit head: profile digest, LayerX network and protocol, deposit ID,
@@ -149,159 +137,12 @@ Canonical activity replay restores the same state.
 
 ## Reproducible local funding
 
-Run these commands only in a qualification phase, with exclusive native build
-ownership. Use an isolated disposable Paxeer chain, never the persistent chain
-on port 18545. Install the Python dependencies from
-`tests/bridge/requirements.txt`. The actor key is a raw 32-byte Ed25519 seed
-file with mode 0600; there is no attestor key to keep. The beneficiary is the
-protocol-3 hash of `agent:<actor DID>:main`, not an EVM address. Choose the
-same asset ID as the LayerX genesis/fee asset, distinct from the reserved USDL
-asset.
+The local custody funding procedure is retired. Credit evidence is produced
+by the chain, not by a local script. Local profile generation, evidence
+production, signing and submission of custody funding activities, and their
+standalone qualification steps are no longer an operator funding path.
 
-1. Bring up a disposable single-validator Paxeer chain and make the deposit.
-   `services/platform/hosted/paxeer/custody-genesis.py` writes the `layerxcustody`
-   genesis for the chosen network id, sequencer identity and `<asset>:uhpx`
-   map, `services/platform/hosted/paxeer/init-chain.sh` initialises a home from it, and
-   `paxd start --home` runs it. The deposit is an ordinary EVM call to the
-   custody precompile, with `--value` the `uhpx` amount times `10^12` wei:
-
-   ```sh
-   python3 services/platform/hosted/paxeer/evm.py send --rpc http://127.0.0.1:48545 \
-     --chain 125 --key-file "$PAYER_KEY" --value "$WEI" \
-     0x0000000000000000000000000000000000001013 \
-     'deposit(bytes32)' "0x$BENEFICIARY"
-   ```
-
-   `tests/fixtures/custody/paxeer-light-v1/README` records the exact bring-up
-   that produced the committed vectors, down to the paxd commit, chain
-   identity, asset ID and deposit transaction.
-
-2. Chain 125 is reachable to the helpers only through a verified disposable
-   identity. `--disposable-identity` is the identity-file flag
-   (`tests/bridge/deploy_local_custody.py:221`). When `--disposable-identity`
-   is set, the helper requires `--ca-bundle` and `--key-file` and passes the
-   RPC URL, CA bundle, and identity path to `disposable_rpc`
-   (`tests/bridge/deploy_local_custody.py:224-226`). `disposable_rpc` reads
-   the identity file as JSON (`tests/bridge/deploy_local_custody.py:109`).
-   Required fields are `rpc_origins`
-   (`tests/bridge/deploy_local_custody.py:111-112`), `genesis_sha256`
-   (`tests/bridge/deploy_local_custody.py:113`), `comet_chain_id` as a
-   non-empty string (`tests/bridge/deploy_local_custody.py:114-115`),
-   `chain_id` as a positive `int` (`tests/bridge/deploy_local_custody.py:117`),
-   `ca_sha256` (`tests/bridge/deploy_local_custody.py:118-119`), and
-   `genesis_source` (`tests/bridge/deploy_local_custody.py:123`).
-
-   When `genesis_source` is `boundary`, the helper GETs `/genesis` from the
-   Paxeer boundary, reads at most `MAX_GENESIS_BYTES` (64 MiB), and requires
-   `X-LayerX-Genesis-SHA256` to equal the SHA-256 hex digest of the body
-   (`tests/bridge/deploy_local_custody.py:25`,
-   `tests/bridge/deploy_local_custody.py:35-41`). The `chunked` alternative
-   fetches `/genesis_chunked?chunk=` plus the chunk index and concatenates
-   base64 `data` until the reported `total`
-   (`tests/bridge/deploy_local_custody.py:44-63`).
-
-   `disposable_rpc` refuses an origin not authorized by `rpc_origins`
-   (`tests/bridge/deploy_local_custody.py:110-112`), a CA pin mismatch
-   (`tests/bridge/deploy_local_custody.py:118-119`), the persistent genesis
-   digest on the identity value or the fetched document
-   (`tests/bridge/deploy_local_custody.py:23`,
-   `tests/bridge/deploy_local_custody.py:116`,
-   `tests/bridge/deploy_local_custody.py:126`), persistent blueprint code at
-   the recorded address (`tests/bridge/deploy_local_custody.py:24`,
-   `tests/bridge/deploy_local_custody.py:129-130`), a Comet chain id mismatch
-   (`tests/bridge/deploy_local_custody.py:125-127`), and an EVM chain id
-   mismatch (`tests/bridge/deploy_local_custody.py:128`). The shared Comet
-   chain name alone does not identify the persistent host
-   (`tests/bridge/deploy_local_custody.py:114-116`,
-   `tests/bridge/deploy_local_custody.py:125-130`).
-
-   The helper deploys the real `LayerXTimelock`, `AssetRegistry`, Solmate WETH
-   and `LayerXVault`. It schedules and executes permission/registration calls
-   through the real timelock, advancing only the isolated chain's clock. Actual
-   ETH is wrapped, approved and deposited. It checks vault WETH and WETH native
-   backing. There is no mock token, storage injection or LayerX prefunding.
-
-3. Provide two distinct real RPC observers of that exact chain; the helpers
-   refuse a single origin, and a second URL to the same listener or a
-   forwarding-only relay is not an independent observer. Then produce the
-   light-client profile. `custody_credit.py profile` refuses any chain other
-   than 125, requires the custody precompile address and its module identity in
-   place of a vault and runtime hash, and delegates to
-   `layerx-custody-proof light-profile`:
-
-   ```sh
-   python tests/bridge/custody_credit.py profile \
-     --rpc "$FIRST_RPC" --rpc "$SECOND_RPC" --comet-rpc "$COMET_RPC" \
-     --ca-bundle "$CA_BUNDLE" --disposable-identity "$IDENTITY" \
-     --chain-id 125 --network-id "$NETWORK_ID" \
-     --vault 0x0000000000000000000000000000000000001013 \
-     --runtime-sha256 "$MODULE_IDENTITY" \
-     --asset "$ASSET" --trusted-height "$TRUSTED_HEIGHT" \
-     --trusting-period-seconds 1209600 \
-     --output custody.profile
-   build/bin/layerx-genesis-build request.lxgb "$GENESIS_KEY" genesis-output \
-     --custody-profile custody.profile
-   ```
-
-   Register this new signed genesis through the normal external genesis
-   registration flow and start `layerxd` against those exact artifacts.
-
-4. Produce evidence and sign the funding activity with the real actor key:
-
-   ```sh
-   python tests/bridge/custody_credit.py attest \
-     --rpc "$FIRST_RPC" --rpc "$SECOND_RPC" --comet-rpc "$COMET_RPC" \
-     --ca-bundle "$CA_BUNDLE" --disposable-identity "$IDENTITY" \
-     --profile custody.profile --network-id "$NETWORK_ID" \
-     --transaction "$TRANSACTION" --beneficiary "$BENEFICIARY" \
-     --beneficiary-key "$ACTOR_PUBLIC_KEY" \
-     --expected-amount "$AMOUNT" \
-     --output custody.credit
-   make build/tests/bridge/sign-credit build/tests/bridge/test-credit
-   build/tests/bridge/sign-credit custody.profile custody.credit "$ACTOR_DID" \
-     "$ACTOR_KEY" "$ACTOR_SEQUENCE" "$TIMESTAMP_MS" funding.activity
-   ```
-
-   Submit `funding.activity` as `application/octet-stream` to the authenticated
-   boundary's existing `POST /v1/activities`, with the key from
-   `custody.credit.nullifier`. Explicit boundary module registries must declare
-   module 8 ordinal 1. The native ingress is the authenticated LNI submit path;
-   no new unauthenticated funding HTTP endpoint exists. Fetch and verify the
-   resulting normal receipt before spending. This signer uses fee limit zero;
-   the current node's generic fee schedule is zero. It does not waive fees if
-   that schedule changes.
-
-5. Qualify the native transaction against real produced evidence:
-
-   ```sh
-   build/tests/bridge/test-credit genesis-output/genesis.manifest \
-     funding.activity "$ACTOR_KEY"
-   python tests/bridge/test_evidence.py \
-     --rpc "$FIRST_RPC" --rpc "$SECOND_RPC" \
-     --profile custody.profile --network-id "$NETWORK_ID" \
-     --transaction "$TRANSACTION" --beneficiary "$BENEFICIARY" \
-     --beneficiary-key "$ACTOR_PUBLIC_KEY" \
-     --expected-amount "$AMOUNT"
-   ```
-
-   `make test-light-credit` replays the committed
-   `tests/fixtures/custody/paxeer-light-v1` vectors against the native verifier
-   with no chain running.
-
-   The native test requires real signed genesis and activity files; absent
-   evidence is a failure, not a skip. It injects failures after issuance
-   staging, reserve credit, transfer/event emission and account-root
-   preparation, checking unchanged supply, nullifier, accounts, sequences and
-   root. It checks every evidence and profile byte for tamper refusal and
-   re-signs replay attempts with the real actor key. Real-node qualification
-   must additionally verify custody receipt evidence, restart durability,
-   deduplication and the funded escrow lifecycle.
-
-   The Python regression suite verifies real fetched account proofs, corrupts
-   nodes and canonical RLP encodings to prove refusal, and launches two isolated
-   Anvil forks on ephemeral loopback ports. It mines different real histories,
-   checks each finalized header, and requires refusal of their divergent
-   finalized anchors. It never substitutes an RPC response or signs a synthetic
-   custody root. These local forks are not independent production finality.
+For current ledger payments, use the
+[Human service payment path](../site/docs/human/payments).
 
 [Home](Home.md)

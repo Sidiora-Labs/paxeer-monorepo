@@ -32,6 +32,7 @@ import (
 var ErrPanicTx = errors.New("transaction is panic tx")
 
 type TransactionAPI struct {
+	domainIndex        DomainIndex
 	namespace          string
 	tmClient           client.LocalClient
 	keeper             *keeper.Keeper
@@ -70,6 +71,7 @@ func NewTransactionAPI(
 		namespace:          "eth",
 		tmClient:           tmClient,
 		keeper:             k,
+		domainIndex:        keeperDomainIndex{evm: k},
 		ctxProvider:        ctxProvider,
 		txConfigProvider:   txConfigProvider,
 		homeDir:            homeDir,
@@ -145,6 +147,11 @@ func getTransactionReceipt(
 	}
 	if receipt == nil {
 		return nil, fmt.Errorf("receipt lookup for %s returned nil", hash.Hex())
+	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		if !domainHashSet(t.domainIndex, t.ctxProvider(LatestCtxHeight), scope, receipt.BlockNumber)[hash] {
+			return nil, nil
+		}
 	}
 	if receipt.BlockNumber > math.MaxInt64 {
 		return nil, fmt.Errorf("receipt block number %d exceeds int64", receipt.BlockNumber)
@@ -302,6 +309,9 @@ func (t *TransactionAPI) GetTransactionByHash(ctx context.Context, hash common.H
 	if tx, ok := t.tmClient.EvmTxByHash(hash); ok {
 		etx := getEthTxForTxBz(tx, t.txConfigProvider(LatestCtxHeight).TxDecoder())
 		if etx != nil {
+			if !domainAllowsTransaction(ctx, t.domainIndex, etx) {
+				return nil, nil
+			}
 			from, err := rpcutils.RecoverEVMSenderWithContext(sdkCtx, etx)
 			if err != nil { // codecov:ignore - defensive error handling for invalid signatures
 				logger.Error("failed to recover sender", "err", err, "tx", etx.Hash()) // codecov:ignore
@@ -336,6 +346,11 @@ func (t *TransactionAPI) GetTransactionByHash(ctx context.Context, hash common.H
 	}
 	if receipt == nil {
 		return nil, fmt.Errorf("receipt lookup for %s returned nil", hash.Hex())
+	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		if !domainHashSet(t.domainIndex, t.ctxProvider(LatestCtxHeight), scope, receipt.BlockNumber)[hash] {
+			return nil, nil
+		}
 	}
 	if receipt.BlockNumber > math.MaxInt64 {
 		return nil, fmt.Errorf("receipt block number %d exceeds int64", receipt.BlockNumber)
@@ -376,6 +391,9 @@ func (t *TransactionAPI) encodePendingTransaction(ctx context.Context, ptx Pendi
 	etx := getEthTxForTxBz(ptx.TxBytes, t.txConfigProvider(LatestCtxHeight).TxDecoder())
 	if etx == nil {
 		return nil, errors.New("transaction is not an EVM transaction and thus cannot be represented in _getTransaction* endpoints")
+	}
+	if !domainAllowsTransaction(ctx, t.domainIndex, etx) {
+		return nil, nil
 	}
 	sdkCtx, err := t.watermarks.PendingContext(ctx)
 	if err != nil {

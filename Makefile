@@ -25,9 +25,6 @@ PAXEER_DIR := $(CURDIR)
 PAXEER_MAKE := $(MAKE) -f $(PAXEER_DIR)/chain.mk
 HPX_ORIGIN ?= https://node.hyperpaxeer.com
 
-CHECKPOINT_SETTLEMENT_HEADER := $(BUILD_DIR)/generated/lxp_checkpoint_settlement.h
-CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS := 3600
-
 CPPFLAGS := -Iinclude -I$(BUILD_DIR)/generated \
 	-DLXP_BUILD_TARGET_TRIPLE=\"$(shell $(CC) -dumpmachine)\" \
 	-DLXP_BUILD_OPTIMISATION=\"$(OPT_LEVEL)\" \
@@ -198,14 +195,6 @@ $(BUILD_DIR)/test-obj/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) -DLXP_TESTING $(CFLAGS) -MMD -MP -c $< -o $@
 
-$(CHECKPOINT_SETTLEMENT_HEADER): Makefile
-	@mkdir -p $(@D)
-	printf '#ifndef LXP_CHECKPOINT_SETTLEMENT_H\n#define LXP_CHECKPOINT_SETTLEMENT_H\n#define LXP_CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS UINT64_C(%s)\n#endif\n' \
-		'$(CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS)' > $@
-
-$(BUILD_DIR)/obj/src/paxeer/lxp_checkpoint_cert.o \
-$(BUILD_DIR)/test-obj/src/paxeer/lxp_checkpoint_cert.o: $(CHECKPOINT_SETTLEMENT_HEADER)
-
 clean:
 	rm -rf -- build
 
@@ -259,7 +248,7 @@ test-harness: $(BUILD_DIR)/tests/lxp_test_harness
 test-tests-python:
 	python3 -m pytest tests/ci/test_real_node_build_ownership.py \
 		tests/ci/test_runner_routing_container_runtime.py \
-		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py
+		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci
 
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
@@ -940,18 +929,6 @@ $(BUILD_DIR)/tests/test_bridge_deposit: tests/test_bridge_deposit.c \
 
 test-bridge-deposit: $(BUILD_DIR)/tests/test_bridge_deposit test-contracts
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_bridge_deposit
-
-$(BUILD_DIR)/tests/bridge/sign-credit: tests/bridge/sign_credit.c tests/bridge/files.h \
-		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
-		$(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-$(BUILD_DIR)/tests/bridge/test-credit: tests/bridge/test_credit.c tests/bridge/files.h \
-		$(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DLXP_TESTING $< $(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
-		$(TEST_LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/test_bridge_withdraw: tests/test_bridge_withdraw.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
@@ -1648,20 +1625,12 @@ human-build:
 	$(HUMAN_CARGO) build --manifest-path $(HUMAN_MANIFEST) --locked --workspace
 	$(HUMAN_NPM) run build
 
-human-test: $(BUILD_DIR)/tests/explorer_fixture human-test-hosted-provisioning
-	LAYERX_EXPLORER_CORE_FIXTURE=$(abspath $(BUILD_DIR)/tests/explorer_fixture) \
-		sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace
+human-test: human-test-hosted-provisioning
+	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace
 	$(HUMAN_NPM) test
 
 HUMAN_TARGET_DIR ?= $(or $(CARGO_TARGET_DIR),$(CURDIR)/services/human/target)
 
-MOVEMENT_PROOF_TARGET = $(abspath $(or $(CARGO_TARGET_DIR),.lane-target))
-.PHONY: test-owner-movement-proof
-test-owner-movement-proof: build/bin/layerxd build/bin/layerx-genesis-build build/bin/layerx-guarantor build/tests/lxp_test_guarantor_runtime
-	cargo build --locked --manifest-path services/human/Cargo.toml --target-dir $(MOVEMENT_PROOF_TARGET) -p layerx-human-identity-provider
-	cargo build --locked --manifest-path services/platform/Cargo.toml --target-dir $(MOVEMENT_PROOF_TARGET) -p layerx-platform-authority -p layerx-platform-paxeer-boundary -p layerx-runtime-clock
-	cargo build --locked --manifest-path cmd/layerxctl/Cargo.toml --target-dir $(MOVEMENT_PROOF_TARGET)
-	CARGO_TARGET_DIR=$(MOVEMENT_PROOF_TARGET) LAYERX_RUNTIME_CLOCK_BIN=$(MOVEMENT_PROOF_TARGET)/debug/layerx-runtime-clock sh tools/runtime/run-with-clock.sh python3 tests/bridge/owner-custody.py --native --governance --checkpoint --settlement-only --movement-proof
 HUMAN_TEST_PAXD := $(abspath build/paxd)
 
 .PHONY: human-test-custody-prerequisites
@@ -1702,9 +1671,8 @@ human-test-provider-probe:
 human-test-unit:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace --lib
 
-human-test-integration: $(BUILD_DIR)/tests/explorer_fixture
-	LAYERX_EXPLORER_CORE_FIXTURE=$(abspath $(BUILD_DIR)/tests/explorer_fixture) \
-		sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace --tests
+human-test-integration:
+	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace --tests
 
 human-test-intents:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked -p layerx-intents

@@ -91,7 +91,6 @@ rpcnode|cd docker && docker build
 # tracked Dockerfiles that stay where they are: another lane, vendored upstream trees, fixtures, devcontainers
 OUT_OF_SCOPE='
 .devcontainer/Dockerfile
-consensus/networks/local/localnode/Dockerfile
 consensus/spec/ivy-proofs/Dockerfile
 consensus/test/e2e/docker/Dockerfile
 services/explorer/backend/.devcontainer/Dockerfile

@@ -19,7 +19,7 @@ import (
 
 func TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight(t *testing.T) {
 	app := testkeeper.EVMTestApp
-	ctx, _ := app.NewContext(false, tmtypes.Header{}).WithBlockHeight(7).WithBlockTime(genesisTime).CacheContext()
+	ctx := custodyTestContext(t, app.NewContext(false, tmtypes.Header{}).WithBlockHeight(7).WithBlockTime(genesisTime))
 	fixture, err := testvectors.Load()
 	require.NoError(t, err)
 	vector := fixture["withdrawal"][0]
@@ -64,8 +64,30 @@ func TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight(t *testing.T) {
 
 	var headerSignature [64]byte
 	copy(headerSignature[:], vectorBytes(t, vector, "header_signature"))
-	checkpoint, err := anchor.SubmitCheckpoint(ctx, operator, headerBytes, headerSignature, certificate)
-	require.NoError(t, err)
+	_, err = anchor.SubmitCheckpoint(ctx, operator, headerBytes, headerSignature, certificate)
+	require.ErrorIs(t, err, anchortypes.ErrModuleRetired)
+
+	guarantors := []anchortypes.Hash32{anchortypes.Hash32(guarantorID)}
+	genesis = anchor.ExportGenesis(ctx)
+	genesis.Checkpoints = []anchortypes.Checkpoint{{
+		BatchNumber: header.BatchNumber, CheckpointID: anchortypes.Hash32(codec.CheckpointHash(headerBytes, nil)),
+		HeaderDigest: anchortypes.Hash32(codec.BatchHeaderDigest(headerBytes)), ProtocolVersion: header.ProtocolVersion,
+		NetworkID: header.NetworkID, Epoch: header.Epoch, FirstSequence: header.FirstSequence,
+		LastSequence: header.LastSequence, PreviousStateRoot: anchortypes.Hash32(header.PreviousStateRoot),
+		StateRoot: anchortypes.Hash32(header.ResultingStateRoot), ReceiptRoot: anchortypes.Hash32(header.ReceiptMerkleRoot),
+		DataAvailabilityRoot: anchortypes.Hash32(header.DataAvailabilityRoot), SequencerID: anchortypes.Hash32(header.SequencerID),
+		TimestampMs: header.TimestampMs, Status: anchortypes.CheckpointFinal,
+		DeclaredThreshold: 1, Guarantors: guarantors,
+		AvailabilityMask: codec.AvailabilityAll, Submitter: operator.String(),
+		SubmittedHeight: ctx.BlockHeight(), SubmittedTime: ctx.BlockTime().Unix(),
+		FinalizedHeight: ctx.BlockHeight(), FinalizedTime: ctx.BlockTime().Unix(),
+	}}
+	genesis.HasLatestFinalized = true
+	genesis.LatestFinalized = header.BatchNumber
+	require.NoError(t, genesis.Validate())
+	anchor.InitGenesis(ctx, *genesis)
+	checkpoint, imported := anchor.GetCheckpoint(ctx, header.BatchNumber)
+	require.True(t, imported)
 	require.Equal(t, anchortypes.CheckpointFinal, checkpoint.Status)
 
 	checkpointID := codec.CheckpointHash(headerBytes, nil)

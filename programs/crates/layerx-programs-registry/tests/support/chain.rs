@@ -9,7 +9,7 @@ use layerx_programs::chain_proof::{
 };
 use sha2::{Digest, Sha256};
 
-pub const STORE_NAME: &str = "layerx";
+pub use layerx_programs::chain_evidence::HOST_STORE_NAME as STORE_NAME;
 pub const STATE_HEIGHT: i64 = 37;
 
 pub struct ChainFixture {

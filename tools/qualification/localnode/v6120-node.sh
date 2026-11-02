@@ -158,7 +158,7 @@ wait_receipt() {
 }
 
 evm_call() {
-    local sender=$1 address=$2 data=$3 output hash sender_address nonce response
+    local sender=$1 address=$2 data=$3 output hash sender_address nonce response exit_code
     local deadline=$((SECONDS + 60))
     sender_address=$(jq -er '.evm_address' "$NODE_HOME/$sender.json")
     # Setup calls are serial and await receipts, so use the committed nonce.
@@ -171,15 +171,26 @@ evm_call() {
         (( SECONDS < deadline )) || fail "committed nonce unavailable for $sender_address: $response"
         sleep 0.2
     done
-    output=$("$PAXD" tx evm call-contract "$address" "$data" --from "$sender" \
-        --home "$NODE_HOME" --keyring-backend test --chain-id "$CHAIN" --node "$NODE" \
-        --evm-rpc "$EVM" --nonce "$((nonce))" --gas-fee-cap 1000000000000 --gas-limit 7000000 -y)
+    while :; do
+        if output=$("$PAXD" tx evm call-contract "$address" "$data" --from "$sender" \
+            --home "$NODE_HOME" --keyring-backend test --chain-id "$CHAIN" --node "$NODE" \
+            --evm-rpc "$EVM" --nonce "$((nonce))" --gas-fee-cap 1000000000000 --gas-limit 7000000 -y 2>&1); then
+            break
+        else
+            exit_code=$?
+        fi
+        if [[ "$output" != *"no block is open"* ]] || (( SECONDS >= deadline )); then
+            printf '%s\n' "$output" >&2
+            return "$exit_code"
+        fi
+        sleep 0.2
+    done
     hash=$(sed -n 's/^Transaction hash: //p' <<< "$output")
     wait_receipt "$hash"
 }
 
 feed_loop() {
-    local previous=0 height timestamp result hash deadline
+    local previous=0 height timestamp result hash broadcast_code deadline
     trap 'SUCCESS=1; exit 0' TERM INT
     while kill -0 "$(cat "$NODE_HOME/node.pid")" 2>/dev/null; do
         height=$(rpc eth_blockNumber | jq -er '.result')
@@ -189,6 +200,8 @@ feed_loop() {
         fi
         previous=$height
         timestamp=$(date +%s%3N)
+        printf 'pricefeed prepare height=%d timestamp_ms=%s txhash=pending broadcast_code=pending commit_height=pending commit_code=pending\n' \
+            "$((height))" "$timestamp"
         jq -n --arg feeder "$TEST_ACCOUNT" --arg sequence "$((height))" --arg timestamp "$timestamp" \
             '{body:{messages:[{"@type":"/paxprotocol.paxchain.pricefeed.MsgSubmitPrices",
               feeder:$feeder,observations:[{market_id:"0",sequence:$sequence,index_price:"60000000000000000000000",
@@ -203,14 +216,19 @@ feed_loop() {
             --output-document "$NODE_HOME/observation-signed.json"
         result=$("$PAXD" tx broadcast "$NODE_HOME/observation-signed.json" \
             --home "$NODE_HOME" --node "$NODE" -b sync -o json)
+        jq -c --argjson height "$((height))" \
+            '{stage:"broadcast",height:$height,txhash, broadcast_code:.code,commit_height:null,commit_code:null}' <<< "$result"
         jq -e '(.code // 0) == 0 and (.txhash | test("^[0-9A-Fa-f]{64}$"))' <<< "$result" >/dev/null \
             || fail "pricefeed broadcast rejected: $result"
         hash=$(jq -r '.txhash' <<< "$result")
+        broadcast_code=$(jq -r '.code // 0' <<< "$result")
         deadline=$((SECONDS + 30))
         while ! result=$("$PAXD" q tx "$hash" --node "$NODE" -o json 2>/dev/null); do
             (( SECONDS < deadline )) || fail "pricefeed transaction did not commit: $hash"
             sleep 0.1
         done
+        jq -c --argjson height "$((height))" --argjson broadcast_code "$broadcast_code" \
+            '{stage:"commit",height:$height,txhash,broadcast_code:$broadcast_code,commit_height:.height,commit_code:.code}' <<< "$result"
         jq -e '(.code // 0) == 0' <<< "$result" >/dev/null || fail "pricefeed transaction failed: $result"
     done
     fail "node exited"
@@ -358,9 +376,10 @@ OLD_ACCOUNT=$("$PAXD" debug addr "$KEPT" 2>/dev/null | sed -n 's/^Bech32 Acc: //
 PV=$(jq -c . "$NODE_HOME/config/priv_validator_key.json")
 GENESIS=$NODE_HOME/config/genesis.json
 CONSENSUS=$(jq -ce '.consensus_params' "$GENESIS")
+PERPS_GENESIS=$(jq -ce '.app_state.perps | select(type == "object")' "$NODE_HOME/init-genesis.json")
 jq --arg kept "$KEPT" --arg operator "$VALIDATOR" --arg old "$OLD_ACCOUNT" --arg account "${ACCOUNTS[2]}" \
     --arg cons "$CONS" --argjson pv "$PV" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    --argjson consensus "$CONSENSUS" --argjson sequencer "$SEQUENCER" '
+    --argjson consensus "$CONSENSUS" --argjson sequencer "$SEQUENCER" --argjson perps "$PERPS_GENESIS" '
     def set_pool($address; $amount):
         .app_state.bank.balances = ([.app_state.bank.balances[] | select(.address != $address)]
           + if $amount == 0 then [] else [{address:$address,coins:[{denom:"uhpx",amount:($amount|tostring)}]}] end);
@@ -392,6 +411,22 @@ jq --arg kept "$KEPT" --arg operator "$VALIDATOR" --arg old "$OLD_ACCOUNT" --arg
     | .consensus_params.synchrony = $consensus.synchrony
     | .consensus_params.block.max_gas_wanted = $consensus.block.max_gas_wanted
     | del(.app_state.pricefeed, .app_state.perps, .app_state.spot)
+    | ($now | fromdateiso8601) as $genesis_time
+    | .app_state.perps = $perps
+    | .app_state.perps.markets = [
+        {id:0,symbol:"BTC",name:"Bitcoin",oracle_symbol:"BTC",sz_decimals:5,px_decimals:1,
+         max_leverage:1000,tier_class:0,impact_notional_usd:"20000000000000000000000",
+         oi_cap_usd:"500000000000000000000000000",funding_cap_ppm_per_hour:40000,
+         listed_at:$genesis_time,enabled:true},
+        {id:11,symbol:"PAX",name:"Paxeer Network",oracle_symbol:"PAX",sz_decimals:0,px_decimals:5,
+         max_leverage:1000,tier_class:4,impact_notional_usd:"6000000000000000000000",
+         oi_cap_usd:"0",funding_cap_ppm_per_hour:40000,listed_at:$genesis_time,enabled:true}]
+    | .app_state.perps.market_states = [0,11] | .app_state.perps.market_states |= map(
+        {market_id:.,index_price:"0",pricefeed_mark:"0",price_timestamp_ms:0,fresh:false,
+         mark_price:"0",premium_ema:"0",last_trade_price:"0",funding_index:"0",hourly_rate:"0",
+         premium_sum:"0",oracle_sum:"0",premium_count:0,last_sample_time:0,
+         last_index_hour:(($genesis_time / 3600 | floor) - 1),
+         long_open_interest:"0",short_open_interest:"0"})
     | .app_state.bank.supply = []
 ' "$SOURCE" > "$GENESIS"
 for index in 0 1 2; do
@@ -692,16 +727,15 @@ if (len(expected) != 1 or int(result['total']) != 1 or len(actual) != 1
 PYCOMMITTEE
     stop_node "$NODE_HOME" bootstrap-peer
 fi
-if [ "$SEQUENCER" = 0 ]; then
-    printf -v MINT_DATA '40c10f19000000000000000000000000%s%064x' "${ETH_ADDRESSES[1]#0x}" 1000000000000
-    evm_call deployer "$USDL" "$MINT_DATA"
-    PERPS=0x0000000000000000000000000000000000001015
-    COLLATERAL_AMOUNT=1000000000
-    printf -v APPROVE_DATA '095ea7b3000000000000000000000000%s%064x' "${PERPS#0x}" "$COLLATERAL_AMOUNT"
-    evm_call test "$USDL" "$APPROVE_DATA"
-    printf -v DEPOSIT_DATA '47e7ef24000000000000000000000000%s%064x' "${USDL#0x}" "$COLLATERAL_AMOUNT"
-    evm_call test "$PERPS" "$DEPOSIT_DATA"
-    PUBKEY=$(python3 - "$NODE_HOME/test.json" <<'PYKEY'
+printf -v MINT_DATA '40c10f19000000000000000000000000%s%064x' "${ETH_ADDRESSES[1]#0x}" 1000000000000
+evm_call deployer "$USDL" "$MINT_DATA"
+PERPS=0x0000000000000000000000000000000000001015
+COLLATERAL_AMOUNT=1000000000
+printf -v APPROVE_DATA '095ea7b3000000000000000000000000%s%064x' "${PERPS#0x}" "$COLLATERAL_AMOUNT"
+evm_call test "$USDL" "$APPROVE_DATA"
+printf -v DEPOSIT_DATA '47e7ef24000000000000000000000000%s%064x' "${USDL#0x}" "$COLLATERAL_AMOUNT"
+evm_call test "$PERPS" "$DEPOSIT_DATA"
+PUBKEY=$(python3 - "$NODE_HOME/test.json" <<'PYKEY'
 import base64
 import json
 import sys
@@ -709,31 +743,49 @@ with open(sys.argv[1]) as handle:
     public_key = json.loads(json.load(handle)['pubkey'])
 print(base64.b64decode(public_key['key'], validate=True).hex())
 PYKEY
-    )
-    # registerFeedKey(bytes): selector, dynamic offset, byte count, compressed pubkey.
-    SELECTOR=0x5d6617d9
-    printf -v REGISTER_DATA '%s%064x%064x%-128s' "${SELECTOR#0x}" 32 33 "$PUBKEY"
-    REGISTER_DATA=${REGISTER_DATA// /0}
-    evm_call validator 0x0000000000000000000000000000000000001020 "$REGISTER_DATA"
-    "$PAXD" q pricefeed feed-key "$VALIDATOR" --node "$NODE" -o json > "$NODE_HOME/feed-key.json"
-    [ "$(jq -r '.feed_account' "$NODE_HOME/feed-key.json")" = "$TEST_ACCOUNT" ] || fail 'feed account registration mismatch'
-    {
-        printf 'PAXD=%q\nNODE=%q\nEVM=%q\nTEST_ACCOUNT=%q\n' "$PAXD" "$NODE" "$EVM" "$TEST_ACCOUNT"
-    } > "$NODE_HOME/process.env"
-    nohup bash "${BASH_SOURCE[0]}" --feed "$NODE_HOME" > "$NODE_HOME/feeder.log" 2>&1 < /dev/null &
-    echo "$!" > "$NODE_HOME/feeder.pid"
-    deadline=$((SECONDS + 30))
-    while :; do
-        kill -0 "$(cat "$NODE_HOME/feeder.pid")" 2>/dev/null || fail "feeder exited: $NODE_HOME/feeder.log"
-        if price=$("$PAXD" q pricefeed price 0 --node "$NODE" -o json 2>/dev/null) \
-            && jq -e '.fresh == true and .index == "60000000000000000000000"' <<< "$price" >/dev/null \
-            && price=$("$PAXD" q pricefeed price 11 --node "$NODE" -o json 2>/dev/null) \
-            && jq -e '.fresh == true and .index == "1000000000000000000"' <<< "$price" >/dev/null; then
-            break
+)
+# registerFeedKey(bytes): selector, dynamic offset, byte count, compressed pubkey.
+SELECTOR=0x5d6617d9
+printf -v REGISTER_DATA '%s%064x%064x%-128s' "${SELECTOR#0x}" 32 33 "$PUBKEY"
+REGISTER_DATA=${REGISTER_DATA// /0}
+evm_call validator 0x0000000000000000000000000000000000001020 "$REGISTER_DATA"
+"$PAXD" q pricefeed feed-key "$VALIDATOR" --node "$NODE" -o json > "$NODE_HOME/feed-key.json"
+[ "$(jq -r '.feed_account' "$NODE_HOME/feed-key.json")" = "$TEST_ACCOUNT" ] || fail 'feed account registration mismatch'
+{
+    printf 'PAXD=%q\nNODE=%q\nEVM=%q\nTEST_ACCOUNT=%q\n' "$PAXD" "$NODE" "$EVM" "$TEST_ACCOUNT"
+} > "$NODE_HOME/process.env"
+nohup bash "${BASH_SOURCE[0]}" --feed "$NODE_HOME" > "$NODE_HOME/feeder.log" 2>&1 < /dev/null &
+echo "$!" > "$NODE_HOME/feeder.pid"
+deadline=$((SECONDS + 90))
+while :; do
+    kill -0 "$(cat "$NODE_HOME/feeder.pid")" 2>/dev/null || fail "feeder exited: $NODE_HOME/feeder.log"
+    if price=$("$PAXD" q pricefeed price 0 --node "$NODE" -o json 2>/dev/null) \
+        && jq -e '.fresh == true and .index == "60000000000000000000000"' <<< "$price" >/dev/null \
+        && price=$("$PAXD" q pricefeed price 11 --node "$NODE" -o json 2>/dev/null) \
+        && jq -e '.fresh == true and .index == "1000000000000000000"' <<< "$price" >/dev/null; then
+        break
+    fi
+    if (( SECONDS >= deadline )); then
+        for market in 0 11; do
+            printf '\n--- pricefeed price %s ---\n' "$market" >&2
+            if ! "$PAXD" q pricefeed price "$market" --node "$NODE" -o json >&2; then
+                printf 'v6120-node: pricefeed price %s query failed\n' "$market" >&2
+            fi
+        done
+        printf '\n--- pricefeed params ---\n' >&2
+        if ! "$PAXD" q pricefeed params --node "$NODE" -o json >&2; then
+            printf 'v6120-node: pricefeed params query failed\n' >&2
         fi
-        (( SECONDS < deadline )) || fail "BTC and PAX prices did not become fresh: $NODE_HOME/feeder.log"
-        sleep 0.2
-    done
+        printf '\n--- latest block time (Unix seconds in hex) ---\n' >&2
+        if ! rpc eth_getBlockByNumber '["latest",false]' \
+            | jq '{number:.result.number,timestamp:.result.timestamp,error}' >&2; then
+            printf 'v6120-node: latest block time query failed\n' >&2
+        fi
+        fail "BTC and PAX prices did not become fresh: $NODE_HOME/feeder.log"
+    fi
+    sleep 0.2
+done
+if [ "$SEQUENCER" = 0 ]; then
     activate_merge
 fi
 {

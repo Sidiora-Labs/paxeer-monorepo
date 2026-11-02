@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use layerx_agentd::human_node::HumanNode;
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use layerx_agentd::read::{history, Cursor, HistoryLimits};
-use layerx_client::read::HistoryKind;
+use layerx_client::rpc::history::HistoryKind;
 use serde_json::{json, Value};
 
 fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {

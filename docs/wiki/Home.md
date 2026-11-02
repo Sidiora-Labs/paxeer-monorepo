@@ -55,6 +55,10 @@ See `docs/MONOREPO.md` for build boundaries, workflow naming, and tag convention
 
 ## Resources
 
+| Guide | Covers |
+| --- | --- |
+| [Virtual chains](VirtualChains.md) | Launch, operate and build on a shared-state Paxeer namespace; registry ABI, allowances, fees, RPC, explorer, wallet and SDKs. |
+
 - [Cluster quickstart](Quickstart.md)
 - [Getting started](Getting-Started-Beta.md)
 - [Payments developer path](PaymentsQuickstart.md)
@@ -121,7 +125,6 @@ See `docs/MONOREPO.md` for build boundaries, workflow naming, and tag convention
 - [Hosted gateway](HostedGateway.md)
 - [Hosted webhooks](HostedWebhooks.md)
 - [Hosted dashboard](HostedDashboard.md)
-- [Relay and archive node](RelayArchive.md)
 - [Hosted registry](HostedRegistry.md)
 - [Registry deployment journal](RegistryDeploymentJournal.md)
 - [Hosted Human](HostedHuman.md)

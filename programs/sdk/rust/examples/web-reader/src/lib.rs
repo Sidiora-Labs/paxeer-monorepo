@@ -78,8 +78,10 @@ fn request(mut cursor: Cursor<'_>) -> Result<CallResult, ProgramError> {
     Ok(CallResult::OK)
 }
 
-/// Reads the committed answer through `web_read` and refuses unless it is
-/// present and equal to the expected digest, full length and response.
+/// Program web_read is retired, so this call reverts LXP_NON_CANONICAL for
+/// every input. This entrypoint stays only to keep the example's calldata
+/// layout frozen; committed answers are read through the xweb keeper's
+/// `GetProgramResult`.
 fn read(mut cursor: Cursor<'_>) -> Result<CallResult, ProgramError> {
     let request_id = u64::from_be_bytes(cursor.array::<8>()?);
     let digest = cursor.array::<32>()?;

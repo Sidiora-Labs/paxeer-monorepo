@@ -333,7 +333,7 @@ mod bundle_helpers {
         let head = verifier
             .verify_head(&header, &commit)
             .map_err(super::chain_error)?;
-        if proof.store_name != "layerx" {
+        if proof.store_name != HOST_STORE_NAME {
             return Err(ProtocolEvidenceError::StateProof);
         }
         match &proof.value {

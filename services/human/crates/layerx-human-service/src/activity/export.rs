@@ -3,8 +3,7 @@ use std::fmt::{Display, Formatter, Write as _};
 
 use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_proof::export::{
-    CheckpointFact, DerivedAggregate, ExportVerificationError, InclusionFact, InclusionKind,
-    VerificationReport,
+    DerivedAggregate, ExportVerificationError, InclusionFact, InclusionKind, VerificationReport,
 };
 use layerx_proof::inclusion::{verify_activity, verify_state, SequencerAuthorization};
 use layerx_proof::merkle::{decode_proof, encode_proof};
@@ -64,7 +63,6 @@ pub struct ReceiptFact {
 pub struct ReceiptExport {
     pub receipts: Vec<ReceiptFact>,
     pub inclusions: Vec<InclusionFact>,
-    pub checkpoints: Vec<CheckpointFact>,
     pub derived_aggregates: Vec<DerivedAggregate>,
 }
 
@@ -134,7 +132,7 @@ impl EvidenceBundle {
         }
         push_u32(&mut out, self.protocol_evidence.len())?;
         for export in &self.protocol_evidence {
-            if !export.checkpoints.is_empty() || !export.derived_aggregates.is_empty() {
+            if !export.derived_aggregates.is_empty() {
                 return Err(ExportError::UnboundProtocolEvidence);
             }
             push_u32(&mut out, export.receipts.len())?;
@@ -262,7 +260,6 @@ impl EvidenceBundle {
             protocol_evidence.push(ReceiptExport {
                 receipts,
                 inclusions,
-                checkpoints: Vec::new(),
                 derived_aggregates: Vec::new(),
             });
         }
@@ -351,7 +348,6 @@ impl EvidenceBundle {
             protocol_evidence: vec![ReceiptExport {
                 receipts: vec![receipt],
                 inclusions: Vec::new(),
-                checkpoints: Vec::new(),
                 derived_aggregates: Vec::new(),
             }],
             audit_export: None,
@@ -427,7 +423,6 @@ impl EvidenceBundle {
             entries: self.entries.len(),
             verified_receipts: protocol.iter().map(|r| r.verified_receipts).sum(),
             verified_inclusions: protocol.iter().map(|r| r.verified_inclusions).sum(),
-            verified_checkpoints: 0,
             audit_entries: audit.map_or(0, |report| report.entries()),
         })
     }
@@ -499,7 +494,6 @@ impl EvidenceBundle {
             entries: 1,
             verified_receipts: 1,
             verified_inclusions: 0,
-            verified_checkpoints: 0,
             audit_entries: 0,
         })
     }
@@ -595,7 +589,6 @@ pub struct BundleReport {
     entries: usize,
     verified_receipts: usize,
     verified_inclusions: usize,
-    verified_checkpoints: usize,
     audit_entries: usize,
 }
 
@@ -613,11 +606,6 @@ impl BundleReport {
     #[must_use]
     pub const fn verified_inclusions(&self) -> usize {
         self.verified_inclusions
-    }
-
-    #[must_use]
-    pub const fn verified_checkpoints(&self) -> usize {
-        self.verified_checkpoints
     }
 
     #[must_use]
@@ -723,7 +711,6 @@ impl From<ExportError> for VerifyError {
 ///     entries: 0,
 ///     verified_receipts: 0,
 ///     verified_inclusions: 0,
-///     verified_checkpoints: 0,
 ///     audit_entries: 0,
 /// }));
 /// ```
@@ -1041,7 +1028,7 @@ pub fn verify_receipt_export(
     artifact: &ReceiptExport,
     receipt_keys: &[ReceiptKeyEntry],
 ) -> Result<VerificationReport, ExportError> {
-    if !artifact.checkpoints.is_empty() || !artifact.derived_aggregates.is_empty() {
+    if !artifact.derived_aggregates.is_empty() {
         return Err(ExportError::UnboundProtocolEvidence);
     }
     for receipt in &artifact.receipts {
@@ -1096,7 +1083,6 @@ pub fn verify_receipt_export(
     Ok(VerificationReport {
         verified_receipts: artifact.receipts.len(),
         verified_inclusions: artifact.inclusions.len(),
-        verified_checkpoints: 0,
         receipt_digests: artifact.receipts.iter().map(|r| r.receipt_hash).collect(),
         achieved_levels: vec![
             layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED;
@@ -1161,39 +1147,6 @@ fn evidence_size(
             size = checked_add(size, encode_proof(&inclusion.proof).len())?;
             size = checked_add(size, inclusion.canonical_header_bytes.len())?;
             size = checked_add(size, 256)?;
-        }
-        for checkpoint in &artifact.checkpoints {
-            size = checked_add(size, checkpoint.statement.len())?;
-            size = checked_add(
-                size,
-                checkpoint.certificate.checkpoint().header_bytes().len(),
-            )?;
-            size = checked_add(
-                size,
-                checkpoint.certificate.checkpoint().validity_proof().len(),
-            )?;
-            size = checked_add(
-                size,
-                checkpoint
-                    .certificate
-                    .attestations()
-                    .len()
-                    .saturating_mul(256),
-            )?;
-            for (chunk, proof) in &checkpoint.availability {
-                size = checked_add(size, chunk.bytes.len())?;
-                size = checked_add(size, encode_proof(proof).len())?;
-                size = checked_add(size, 96)?;
-            }
-            size = checked_add(size, checkpoint.bonded_set.len().saturating_mul(96))?;
-            size = checked_add(
-                size,
-                checkpoint
-                    .registered_settlement_reference
-                    .as_ref()
-                    .map_or(0, Vec::len),
-            )?;
-            size = checked_add(size, 128)?;
         }
         for aggregate in &artifact.derived_aggregates {
             size = checked_add(size, aggregate.label.len())?;

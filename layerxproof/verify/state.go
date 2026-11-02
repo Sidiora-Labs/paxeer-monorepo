@@ -25,21 +25,6 @@ func StateProof(witnessBytes []byte, stateRoot [32]byte) (*codec.StateWitness, e
 	return witness, nil
 }
 
-// StateProofAtHeader proves a state witness under the resulting state root of
-// a sequencer-signed batch header.
-func StateProofAtHeader(witnessBytes []byte, headerBytes []byte, headerSignature [64]byte,
-	authorization SequencerAuthorization) (*codec.StateWitness, *VerifiedBatchHeader, error) {
-	header, err := BatchHeader(headerBytes, headerSignature, authorization)
-	if err != nil {
-		return nil, nil, err
-	}
-	witness, err := StateProof(witnessBytes, header.Header.ResultingStateRoot)
-	if err != nil {
-		return nil, nil, err
-	}
-	return witness, header, nil
-}
-
 // AccountProof proves one canonical account under a trusted state root and
 // binds the decoded value to expectedAccount and, when given, expectedAsset.
 func AccountProof(witnessBytes []byte, stateRoot [32]byte, expectedAccount [32]byte, expectedAsset *[32]byte) (*codec.Account, error) {

@@ -6,9 +6,11 @@ mod available;
 mod balances;
 #[path = "checkpoint.rs"]
 mod checkpoint_impl;
+pub mod committed;
 #[path = "history.rs"]
 mod historical;
 mod native;
+pub use committed::{CommittedCaps, CommittedReadError, CommittedReads};
 #[path = "program_balances.rs"]
 mod program_balances_impl;
 #[path = "program_node.rs"]

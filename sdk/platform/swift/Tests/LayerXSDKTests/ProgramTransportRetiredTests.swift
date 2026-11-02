@@ -123,7 +123,7 @@ final class ProgramTransportRetiredTests: XCTestCase {
         idempotencyKey: IdempotencyKey(deployVector.idempotency_key_hex))
     }
     try await record("lifecycle receipt", method: "eth_getTransactionByHash") {
-      _ = try await programs.lifecycleReceipt(lifecycle)
+      _ = try await programs.lifecycleReceipt(lifecycle, transactionHash: transactionHash)
     }
     let upgradeVector = try fixture("native-program-upgrade-v4")
     let upgrade = try NativeProgramUpgrade.decode(nativeTransportHex(upgradeVector.payload_hex))

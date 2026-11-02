@@ -1484,7 +1484,7 @@ mod tests {
                 _ => {}
             }
         }
-        for surface in [Surface::Exchange, Surface::Bridge, Surface::Launchpad] {
+        for surface in Surface::ALL {
             let property = entry["result"]["schema"]["properties"][surface.name()]["description"]
                 .as_str()
                 .expect("surface description missing");
@@ -1495,6 +1495,85 @@ mod tests {
             assert!(property.contains("eth_call"), "{property}");
             assert!(property.contains("revert"), "{property}");
             assert!(property.contains("malformed"), "{property}");
+        }
+    }
+
+    #[test]
+    fn capabilities_schema_declares_every_surface() {
+        use std::collections::BTreeSet;
+
+        let openrpc: Value = serde_json::from_slice(include_bytes!("../openrpc.json"))
+            .unwrap_or_else(|e| panic!("{e}"));
+        let entry = openrpc["methods"]
+            .as_array()
+            .expect("methods missing")
+            .iter()
+            .find(|method| method["name"] == "px_getCapabilities")
+            .expect("px_getCapabilities missing");
+        let schema = &entry["result"]["schema"];
+        let properties = schema["properties"]
+            .as_object()
+            .expect("properties missing");
+        let required = schema["required"].as_array().expect("required missing");
+        let document = capabilities(true, false, true).document();
+        let property_names: BTreeSet<_> = properties.keys().map(String::as_str).collect();
+        let document_names: BTreeSet<_> = document
+            .as_object()
+            .expect("capabilities document is not an object")
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(property_names, document_names);
+        assert_eq!(
+            required
+                .iter()
+                .map(|name| name.as_str().expect("required name is not text"))
+                .collect::<BTreeSet<_>>(),
+            property_names
+        );
+        assert_eq!(required.len(), properties.len());
+
+        let addresses = &properties["addresses"];
+        assert_eq!(addresses["type"], "object");
+        let address_properties = addresses["properties"]
+            .as_object()
+            .expect("address properties missing");
+        let address_required = addresses["required"]
+            .as_array()
+            .expect("required addresses missing");
+        let surface_names: BTreeSet<_> = Surface::ALL.into_iter().map(Surface::name).collect();
+        assert_eq!(
+            address_properties
+                .keys()
+                .map(String::as_str)
+                .collect::<BTreeSet<_>>(),
+            surface_names
+        );
+        assert_eq!(
+            address_required
+                .iter()
+                .map(|name| name.as_str().expect("required address name is not text"))
+                .collect::<BTreeSet<_>>(),
+            surface_names
+        );
+        assert_eq!(address_required.len(), surface_names.len());
+
+        let description = openrpc["info"]["description"]
+            .as_str()
+            .expect("info description missing");
+        assert!(description.contains("-32003 surface_unavailable"));
+        assert!(description.contains("while px_getCapabilities reports that surface false"));
+        for surface in Surface::ALL {
+            let name = surface.name();
+            assert_eq!(properties[name]["type"], "boolean", "{name}");
+            assert!(required.contains(&json!(name)), "{name} is not required");
+            assert_eq!(address_properties[name]["type"], "string", "{name}");
+            let address = evm::address_hex(&surface.address());
+            assert_eq!(document["addresses"][name], address, "{name}");
+            assert!(
+                description.contains(&format!("{name} ({address})")),
+                "{name} refusal address missing"
+            );
         }
     }
 
@@ -1520,7 +1599,18 @@ mod tests {
         assert_eq!(result["properties"]["rpc_height"]["type"], "string");
         assert_eq!(
             result["required"],
-            json!(["exchange", "bridge", "launchpad", "probed_at", "rpc_height"])
+            json!([
+                "exchange",
+                "bridge",
+                "launchpad",
+                "ledger",
+                "pay",
+                "auth",
+                "programs",
+                "addresses",
+                "probed_at",
+                "rpc_height"
+            ])
         );
         assert!(entry["errors"]
             .as_array()

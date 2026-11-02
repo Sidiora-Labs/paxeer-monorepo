@@ -408,7 +408,6 @@ fn budget_export_from_the_fixture_answers_equals_the_committed_export() {
         replica_id: [1; 32],
         chain_receipts,
         chain_rpc_url: url.clone(),
-        chain_endpoint: trust::chain_endpoint(&url, Duration::from_secs(5)),
         protocol_network_id: 125,
         network_id: "fixture".to_owned(),
         wire_version: PROTOCOL_VERSION.to_string(),

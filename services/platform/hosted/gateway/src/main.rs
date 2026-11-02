@@ -28,6 +28,7 @@ use layerx_platform_gateway::{
     AuthorityFacts, GatewayError, IssuedKey, PrincipalId, ProductionRoute, Quota,
     VerifiedSubmission,
 };
+use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::amount::Amount;
 use layerx_types::intent::{
     CallBudget, Calldata, CapabilityRequest, ProgramCall, ProgramId, RequestedCapabilities,
@@ -2909,7 +2910,7 @@ fn verify_withdrawal_submission(
     if protocol.module_id() != 1 || protocol.operation() != 9 {
         return Ok(());
     }
-    let authorized = layerx_proof::receipt::AuthorizedBatch::new(
+    let authorized = AuthorizedBatch::new(
         protocol.batch_id(),
         protocol.asset(),
         protocol.previous_state_root(),
@@ -2921,13 +2922,19 @@ fn verify_withdrawal_submission(
             .map_err(|_| ())?
             .public_key(),
     );
-    layerx_proof::receipt::withdrawal::verify(
-        receipt,
-        &authorized,
-        &operation.canonical,
-        config.protocol_network_id,
-    )
-    .map_err(|_| ())?;
+    verify_withdrawal_receipt(receipt, &authorized, &operation.activity_id)
+}
+
+fn verify_withdrawal_receipt(
+    receipt: &[u8],
+    authorized: &AuthorizedBatch,
+    activity_id: &[u8; 32],
+) -> Result<(), ()> {
+    let verified = layerx_proof::receipt::verify_outcome(receipt, authorized).map_err(|_| ())?;
+    let protocol = verified.receipt().protocol().ok_or(())?;
+    if protocol.activity_id() != *activity_id {
+        return Err(());
+    }
     Ok(())
 }
 
@@ -5655,6 +5662,87 @@ mod programs_wire_tests {
         );
         assert!(program_activity_selector(&lookup, &activity).is_ok());
         assert!(program_activity_selector(&lookup, &"A".repeat(64)).is_err());
+    }
+}
+
+#[cfg(test)]
+mod withdrawal_completion_tests {
+    use super::*;
+
+    #[test]
+    fn withdrawal_completion_binds_the_receipt_to_its_operation() {
+        let receipt =
+            include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt");
+        let header_bytes =
+            include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/header");
+        let key = *include_bytes!(
+            "../../../../../tests/fixtures/asset/bound-native-withdrawal/sequencer.public"
+        );
+        let header = layerx_wire::receipt::decode_batch_header(header_bytes)
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        let decoded = layerx_proof::receipt::verify_sequencer_signature(receipt, key)
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        let protocol = decoded
+            .protocol()
+            .unwrap_or_else(|| panic!("protocol receipt required"));
+        assert_eq!((protocol.module_id(), protocol.operation()), (1, 9));
+        let batch = AuthorizedBatch::new(
+            protocol.batch_id(),
+            protocol.asset(),
+            header.previous_state_root(),
+            header.resulting_state_root(),
+            key,
+        );
+        let authorization = layerx_proof::inclusion::SequencerAuthorization::new(
+            header.sequencer_id(),
+            key,
+            header.batch_number(),
+            header.batch_number(),
+        );
+        let proof = |bytes: &[u8]| {
+            let path = layerx_wire::receipt::decode_merkle_proof(bytes)
+                .unwrap_or_else(|error| panic!("{error:?}"));
+            layerx_proof::merkle::Proof::new(
+                path.leaf_index(),
+                path.leaf_count(),
+                path.siblings().to_vec(),
+            )
+            .unwrap_or_else(|error| panic!("{error:?}"))
+        };
+        let receipt_proof = proof(include_bytes!(
+            "../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt.proof"
+        ));
+        let maintenance_proof = proof(include_bytes!(
+            "../../../../../tests/fixtures/asset/bound-native-withdrawal/maintenance.proof"
+        ));
+        let evidence = layerx_proof::receipt::MaintainedOutcomeEvidence {
+            header: header_bytes,
+            header_signature: include_bytes!(
+                "../../../../../tests/fixtures/asset/bound-native-withdrawal/header.signature"
+            ),
+            activity_proof: &receipt_proof,
+            maintenance: include_bytes!(
+                "../../../../../tests/fixtures/asset/bound-native-withdrawal/maintenance.receipt"
+            ),
+            maintenance_proof: &maintenance_proof,
+            authorization: &authorization,
+        };
+        let authorized = layerx_proof::receipt::authorized_maintained_activity_batch_chain(
+            receipt,
+            &batch,
+            &evidence,
+            &[receipt.to_vec()],
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"));
+
+        let activity_id = protocol.activity_id();
+        assert_eq!(
+            verify_withdrawal_receipt(receipt, &authorized, &activity_id),
+            Ok(())
+        );
+        let mut different_activity_id = activity_id;
+        different_activity_id[0] ^= 1;
+        assert!(verify_withdrawal_receipt(receipt, &authorized, &different_activity_id).is_err());
     }
 }
 
