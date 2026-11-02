@@ -193,7 +193,35 @@ async function meteredOfferWithoutPurposeHashRefuses() {
   const proof = signedProof();
   for (const scheme of ["metered", "subscription"]) {
     const offer = { ...requirements, scheme, extra: { layerx: { commitment: "receipted" } } };
-    await assert.rejects(verifyPaymentReceipt(proof, offer, [pin]), refuses("verification-failure"));
+    await assert.rejects(verifyPaymentReceipt(proof, offer, [pin]), (error) => {
+      assert.ok(error instanceof MiddlewareError);
+      assert.equal(error.code, "verification-failure");
+      assert.equal(error.detail, "metered and subscription offers require a purpose hash");
+      assert.equal(error.message, "verification-failure: metered and subscription offers require a purpose hash");
+      return true;
+    });
+  }
+}
+
+async function meteredOfferWithPurposeHashVerifies() {
+  const proof = signedProof();
+  for (const scheme of ["metered", "subscription"]) {
+    const offer = { ...requirements, scheme, extra: { layerx: {
+      ...requirements.extra.layerx,
+      ...(scheme === "subscription" ? { windowSeconds: "60" } : {}),
+    } } };
+    const verified = await verifyPaymentReceipt(proof, offer, [pin]);
+    assert.equal(verified.rung, "receipted");
+    assert.equal(verified.height, 7n);
+    assert.equal(verified.txHash, hex(keccak256(bytes(proof.rawTransaction))));
+    assert.equal(verified.payment.amount, 25n);
+    assert.deepEqual(Buffer.from(verified.payment.assetId), asset);
+    assert.deepEqual(Buffer.from(verified.payment.to), payee);
+    assert.deepEqual(Buffer.from(verified.payment.from), payer);
+    assert.deepEqual(Buffer.from(verified.payment.paymentReference), reference);
+    await assert.rejects(verifyPaymentReceipt(proof, {
+      ...offer, extra: { layerx: { ...offer.extra.layerx, purposeHash: word(0x66).toString("hex") } },
+    }, [pin]), refuses("verification-failure"));
   }
 }
 
@@ -215,4 +243,5 @@ test(verifyPaymentReceiptRefusesKeyOutsideHeightRange);
 test(verifyPaymentReceiptRefusesAmountMismatch);
 test(exactOfferWithoutPurposeHashVerifies);
 test(meteredOfferWithoutPurposeHashRefuses);
+test(meteredOfferWithPurposeHashVerifies);
 test(receiptPayloadAuthorityRefusesDigestMismatch);
