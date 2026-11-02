@@ -129,7 +129,7 @@ class PythonSdkIntegration(unittest.TestCase):
                 encoded = json.dumps({
                     "request_id": "request-1",
                     "value": {"program_id": program_id},
-                    "verification_status": {"state": "Unverified", "requested": "SequencerSigned", "achieved": "Unverified", "reason": "server_side_receipt_verification_only"},
+                    "verification_status": {"state": "Unverified", "requested": "receipted", "achieved": "submitted", "reason": "server_side_receipt_verification_only"},
                 }, separators=(",", ":")).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
