@@ -115,6 +115,7 @@ func pendingFilterReceipt(t *testing.T, a *app.App, exec sequencer.Executor, fee
 	require.NoError(t, err)
 	rcpt, err := a.EvmKeeper.GetTransientReceipt(snap, hash, uint64(acc.TxIndex)) //nolint:gosec // tx index is positive
 	require.NoError(t, err)
+	require.Equal(t, hash.Hex(), rcpt.TxHashHex)
 	require.NoError(t, feed.Receipted(acc.Seq, acc.Height, hash, rcpt))
 	return acc
 }

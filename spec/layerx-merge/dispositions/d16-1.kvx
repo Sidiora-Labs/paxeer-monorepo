@@ -83,7 +83,7 @@ evidence = "Commit bd3f378d6 added the XWEB_SERVE_NAMES override at tools/bringu
 finding = "16.7.4.2"
 status = "open"
 evidence = "services/platform/hosted/gateway/src/paxeer.rs:665 creates asset identity rows and services/platform/hosted/gateway/src/paxeer.rs:702 adds metadata without verification or paused, while tools/qualification/paxeer-x/paid-web-contract.py:3470 still requires both fields."
-follow_up = "closure"
+follow_up = "22.16.6"
 
 [disposition.16.8.1.1]
 finding = "16.8.1.1"
