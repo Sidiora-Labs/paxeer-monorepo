@@ -431,9 +431,14 @@ func (r *Receipter) after(etx *ethtypes.Transaction, in *ReceiptInput) error {
 		if in.FeeDenom == "" {
 			in.FeeDenom = r.evm.GetBaseDenom(ctx)
 		}
+		gasUsed := uint64(acc.Result.GasUsed)
+		if r.cumulative > math.MaxUint64-gasUsed {
+			return errors.New("cumulative gas overflows")
+		}
+		r.cumulative += gasUsed
 		in.EVM = &evmtypes.Receipt{
 			Status:            uint32(ethtypes.ReceiptStatusSuccessful),
-			GasUsed:           uint64(acc.Result.GasUsed),
+			GasUsed:           gasUsed,
 			CumulativeGasUsed: r.cumulative,
 		}
 		return nil

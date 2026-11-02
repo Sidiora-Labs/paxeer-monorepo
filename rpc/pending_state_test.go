@@ -168,6 +168,8 @@ func TestPendingStateResolvesOpenHeight(t *testing.T) {
 	accepted, err := s.exec.Accept(pendingTransfer(t, sender, 0, recipient, value))
 	require.NoError(t, err)
 	require.Equal(t, committed+1, accepted.Height)
+	require.Equal(t, abci.CodeTypeOK, accepted.Result.Code, accepted.Result.Log)
+	require.Equal(t, committed+1, accepted.ReceiptContext.BlockHeight())
 	fee := new(big.Int).Mul(big.NewInt(pendingTransferGas), big.NewInt(pendingGasPriceWei))
 	requireWeiEqual(t, new(big.Int).Sub(new(big.Int).Sub(funded, value), fee), s.pendingBalance(t, sender.EvmAddress))
 	requireWeiEqual(t, value, s.pendingBalance(t, recipient))
