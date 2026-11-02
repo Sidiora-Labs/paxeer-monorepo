@@ -3,11 +3,8 @@ import {
   ProductionClient,
   SecretBytes,
   idempotencyKey,
-  type AuthorizedReceiptBatch,
   type ProductionTransport,
-  type ProtocolSelection,
-  type ReceiptVerification,
-  type SelectableProtocolVersion,
+  type SequencerReceiptKey,
   type TransportCall,
 } from "@sidiora/layerx-sdk";
 import {
@@ -20,18 +17,16 @@ import {
   decodePaymentPayloadHeader,
   decodeSettlementHeader,
   encodePaymentPayloadHeader,
-  protocolSelection,
-  requireProtocolVersion,
   verifyPaymentReceipt,
   paymentAccount,
   paymentCommitment,
   paymentCurrency,
   paymentPayer,
   paymentPurpose,
-  type AuthorizedBatchResolver,
   type PaymentCommitmentResolver,
   type JsonValue,
-  type LayerXReceiptEvidence,
+  type PaymentReceiptVerification,
+  type PortableReceiptV2,
   type PaymentPayload,
   type PaymentRequired,
   type PaymentRequirements,
@@ -40,7 +35,6 @@ import {
 } from "@sidiora/layerx-seller-middleware";
 
 const MAX_U128 = 340282366920938463463374607431768211455n;
-const MERKLE_LEAF_DOMAIN = new TextEncoder().encode("LXP/v1/merkle-leaf\0");
 const LEGACY_ACCOUNT_ID_DOMAIN = new TextEncoder().encode("LXP/v1/account-id\0");
 const NATIVE_ACCOUNT_ID_DOMAIN = new TextEncoder().encode("LX:ACCOUNT:v1");
 const MAXIMUM_HTTP_RESPONSE_BYTES = 8 * 1024 * 1024;
@@ -62,9 +56,8 @@ export interface BuyerRetryPolicy {
 export interface BuyerMiddlewareConfig {
   readonly client: ProductionClient;
   readonly source: string;
-  readonly protocolVersion: SelectableProtocolVersion;
   readonly supported: readonly BuyerSupportedKind[];
-  readonly authorizedBatches: AuthorizedBatchResolver;
+  readonly receiptKeys: readonly SequencerReceiptKey[];
   readonly commitments?: PaymentCommitmentResolver;
   readonly retry?: Partial<BuyerRetryPolicy>;
   readonly now?: () => number;
@@ -144,17 +137,15 @@ export interface EvidenceMaterial {
   readonly bytes_base64: string;
 }
 
-export interface PreparedPayment {
+export interface PreparedPayment extends PortableReceiptV2 {
   readonly offer: ParsedOffer;
   readonly quote: MoveQuote;
   readonly journey: Journey;
   readonly payload: PaymentPayload;
   readonly paymentHeader: string;
   readonly idempotencyKey: string;
-  readonly canonicalReceipt: Uint8Array;
-  readonly authorizedBatch: AuthorizedReceiptBatch;
-  readonly verification: ReceiptVerification;
-  readonly receiptDigest: string;
+  readonly verification: PaymentReceiptVerification;
+  readonly txHash: string;
 }
 
 export type PaymentPreparation =
@@ -163,10 +154,10 @@ export type PaymentPreparation =
   | { readonly kind: "unknown"; readonly idempotencyKey: string; readonly journey?: Journey }
   | { readonly kind: "refused"; readonly journey: Journey };
 
-export interface CapturedSettlement {
+export interface CapturedSettlement extends PortableReceiptV2 {
   readonly response: SettlementResponse;
-  readonly verification: ReceiptVerification;
-  readonly canonicalReceipt: Uint8Array;
+  readonly verification: PaymentReceiptVerification;
+  readonly txHash: string;
 }
 
 export type PaidFetchResult =
@@ -184,10 +175,8 @@ export type PaidFetchResult =
 export class BuyerMiddleware {
   readonly #client: ProductionClient;
   readonly #source: string;
-  readonly #protocolVersion: SelectableProtocolVersion;
-  readonly #protocol: ProtocolSelection;
   readonly #supported: readonly BuyerSupportedKind[];
-  readonly #authorizedBatches: AuthorizedBatchResolver;
+  readonly #receiptKeys: readonly SequencerReceiptKey[];
   readonly #commitments: PaymentCommitmentResolver | undefined;
   readonly #retry: BuyerRetryPolicy;
   readonly #now: () => number;
@@ -208,18 +197,12 @@ export class BuyerMiddleware {
     }
     this.#client = config.client;
     this.#source = config.source;
-    this.#protocolVersion = requireProtocolVersion(config.protocolVersion);
-    this.#protocol = protocolSelection(this.#protocolVersion);
     this.#supported = config.supported;
-    this.#authorizedBatches = config.authorizedBatches;
+    this.#receiptKeys = structuredClone(config.receiptKeys);
     this.#commitments = config.commitments;
     this.#retry = retryPolicy(config.retry);
     this.#now = config.now ?? Date.now;
     this.#fetch = config.fetch ?? globalThis.fetch;
-  }
-
-  public get protocolVersion(): SelectableProtocolVersion {
-    return this.#protocolVersion;
   }
 
   public parseOffer(paymentRequiredHeader: string): ParsedOffer {
@@ -293,14 +276,17 @@ export class BuyerMiddleware {
       return { kind: "pending", journey };
     }
     const receipt = await this.#findMatchingReceipt(journey, offer.accepted);
+    if (receipt === undefined) return { kind: "pending", journey };
     const payload: PaymentPayload = {
       x402Version: X402_VERSION,
       resource: offer.required.resource,
       payload: {
-        receipt: encodeBase64(receipt.canonicalReceipt),
+        format: receipt.format,
+        rawTransaction: receipt.rawTransaction,
+        signedReceipt: receipt.signedReceipt,
         receiptDigest: receipt.receiptDigest,
-        verificationLevel: "sequencer-signed",
-        idempotencyKey: callerIdempotencyKey,
+        receiptKey: { ...receipt.receiptKey },
+        verificationLevel: receipt.verificationLevel,
       },
       accepted: offer.accepted,
       extensions: offer.required.extensions ?? {},
@@ -314,10 +300,7 @@ export class BuyerMiddleware {
         payload,
         paymentHeader: encodePaymentPayloadHeader(payload),
         idempotencyKey: callerIdempotencyKey,
-        canonicalReceipt: receipt.canonicalReceipt,
-        authorizedBatch: receipt.authorizedBatch,
-        verification: receipt.verification,
-        receiptDigest: receipt.receiptDigest,
+        ...receipt,
       },
     };
   }
@@ -354,16 +337,14 @@ export class BuyerMiddleware {
     const purpose = paymentPurpose(payload.accepted.extra, true)!;
     if (!response.success || response.network !== payload.accepted.network || response.amount !== payload.accepted.amount
       || response.payer !== payer) throw new MiddlewareError("verification-failure");
-    const evidence = parseReceiptEvidence(asObject(response.extensions?.["layerx"]));
-    if (evidence.purposeHash !== purpose) throw new MiddlewareError("verification-failure");
-    const canonicalReceipt = decodeBase64(evidence.receipt);
-    const authorizedBatch = await this.#authorizedBatches.resolve(canonicalReceipt);
-    const verification = await verifyPaymentReceipt({ canonicalReceipt, authorizedBatch }, payload.accepted, this.#commitments, this.#protocol);
-    const digest = toHex(await merkleLeafDigest(canonicalReceipt));
-    if (evidence.receiptDigest !== digest || response.transaction !== `lxp:${digest}`
-      || toHex(verification.receipt.activityId) !== expectedActivity || toHex(verification.receipt.from) !== receive.slice(8, 72)
-      || toHex(verification.receipt.from) !== payer) throw new MiddlewareError("verification-failure");
-    return { response, verification, canonicalReceipt };
+    const evidence = parseReceiptEvidence(response.extensions?.["layerx"]);
+    const verification = await verifyPaymentReceipt(evidence, payload.accepted, this.#receiptKeys, this.#commitments);
+    if (response.transaction !== verification.txHash
+      || toHex(verification.receipt.activityId) !== expectedActivity
+      || toHex(verification.payment.paymentReference) !== purpose
+      || toHex(verification.payment.from) !== receive.slice(8, 72)
+      || toHex(verification.payment.from) !== payer) throw new MiddlewareError("verification-failure");
+    return { response, verification, ...evidence, txHash: verification.txHash };
   }
 
   public async captureSettlement(
@@ -377,28 +358,22 @@ export class BuyerMiddleware {
     if (
       response.network !== payment.offer.accepted.network
       || response.amount !== payment.offer.accepted.amount
-      || response.transaction !== `lxp:${payment.receiptDigest}`
+      || response.transaction !== payment.txHash
     ) {
       throw new MiddlewareError("verification-failure");
     }
-    const layerx = asObject(response.extensions?.["layerx"]);
-    const evidence = parseReceiptEvidence(layerx);
-    if (!constantTimeEqualText(evidence.receiptDigest, payment.receiptDigest)) {
+    const evidence = parseReceiptEvidence(response.extensions?.["layerx"]);
+    if (!constantTimeEqualText(evidence.receiptDigest, payment.receiptDigest)
+      || !constantTimeEqualText(evidence.rawTransaction, payment.rawTransaction)
+      || !constantTimeEqualText(evidence.signedReceipt, payment.signedReceipt)) {
       throw new MiddlewareError("verification-failure");
     }
-    const canonicalReceipt = decodeBase64(evidence.receipt);
-    if (!equalBytes(canonicalReceipt, payment.canonicalReceipt)) {
-      throw new MiddlewareError("verification-failure");
-    }
-    const authorizedBatch = await this.#authorizedBatches.resolve(canonicalReceipt);
     const verification = await verifyPaymentReceipt(
-      { canonicalReceipt, authorizedBatch },
-      payment.offer.accepted,
-      this.#commitments,
-      this.#protocol,
+      evidence, payment.offer.accepted, this.#receiptKeys, this.#commitments,
     );
-    if (response.payer !== toHex(verification.receipt.from)) throw new MiddlewareError("verification-failure");
-    return { response, verification, canonicalReceipt };
+    if (response.transaction !== verification.txHash
+      || response.payer !== toHex(verification.receipt.from)) throw new MiddlewareError("verification-failure");
+    return { response, verification, ...evidence, txHash: verification.txHash };
   }
 
   public async fetch(
@@ -434,62 +409,50 @@ export class BuyerMiddleware {
   async #findMatchingReceipt(
     journey: Journey,
     requirements: PaymentRequirements,
-  ): Promise<{
-    readonly canonicalReceipt: Uint8Array;
-    readonly authorizedBatch: AuthorizedReceiptBatch;
-    readonly verification: ReceiptVerification;
-    readonly receiptDigest: string;
-  }> {
+  ): Promise<(PortableReceiptV2 & {
+    readonly verification: PaymentReceiptVerification;
+    readonly txHash: string;
+  }) | undefined> {
     const references = uniqueEvidence(journey).filter((reference) =>
       reference.class === "layerx-receipt"
-      && (reference.verification === "receipt-verified" || reference.verification === "checkpoint-finalised")
+      && (reference.verification === "receipted" || reference.verification === "committed")
     );
-    let matched: {
-      readonly canonicalReceipt: Uint8Array;
-      readonly authorizedBatch: AuthorizedReceiptBatch;
-      readonly verification: ReceiptVerification;
-      readonly receiptDigest: string;
-    } | undefined;
+    let matched: (PortableReceiptV2 & {
+      readonly verification: PaymentReceiptVerification;
+      readonly txHash: string;
+    }) | undefined;
+    let hasPortableEvidence = false;
     for (const reference of references) {
       const material = parseEvidenceMaterial(await this.#retrySdk(
         () => this.#client.human("evidence.get", { evidence_id: reference.evidence_id }),
         this.#retry.maximumQuoteAttempts,
         false,
       ));
-      if (
-        material.evidence_id !== reference.evidence_id
-        || material.class !== "layerx-receipt"
-        || material.content_type !== "application/vnd.layerx.receipt"
-        || (material.verification !== "receipt-verified" && material.verification !== "checkpoint-finalised")
-      ) {
+      if (material.evidence_id !== reference.evidence_id || material.class !== "layerx-receipt") {
         throw new MiddlewareError("verification-failure");
       }
-      const canonicalReceipt = decodeBase64(material.bytes_base64);
-      const authorizedBatch = await this.#authorizedBatches.resolve(canonicalReceipt);
-      let candidate: {
-        readonly canonicalReceipt: Uint8Array;
-        readonly authorizedBatch: AuthorizedReceiptBatch;
-        readonly verification: ReceiptVerification;
-        readonly receiptDigest: string;
-      };
+      if (material.content_type !== "application/vnd.layerx.receipt-proof-v2+json"
+        || (material.verification !== "receipted" && material.verification !== "committed")) continue;
+      hasPortableEvidence = true;
+      let decoded: unknown;
       try {
-        const verification = await verifyPaymentReceipt({ canonicalReceipt, authorizedBatch }, requirements, this.#commitments, this.#protocol);
-        const receiptDigest = toHex(await merkleLeafDigest(canonicalReceipt));
-        candidate = { canonicalReceipt, authorizedBatch, verification, receiptDigest };
+        decoded = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(decodeBase64(material.bytes_base64)));
+      } catch {
+        throw new MiddlewareError("verification-failure");
+      }
+      const evidence = parseReceiptEvidence(decoded);
+      if (evidence.verificationLevel !== material.verification) throw new MiddlewareError("verification-failure");
+      let verification: PaymentReceiptVerification;
+      try {
+        verification = await verifyPaymentReceipt(evidence, requirements, this.#receiptKeys, this.#commitments);
       } catch (error) {
-        if (!(error instanceof MiddlewareError) || error.code !== "verification-failure") {
-          throw error;
-        }
+        if (!(error instanceof MiddlewareError) || error.code !== "verification-failure") throw error;
         continue;
       }
-      if (matched !== undefined) {
-        throw new MiddlewareError("verification-failure");
-      }
-      matched = candidate;
+      if (matched !== undefined) throw new MiddlewareError("verification-failure");
+      matched = { ...evidence, verification, txHash: verification.txHash };
     }
-    if (matched === undefined) {
-      throw new MiddlewareError("verification-failure");
-    }
+    if (hasPortableEvidence && matched === undefined) throw new MiddlewareError("verification-failure");
     return matched;
   }
 
@@ -746,24 +709,39 @@ function isProgress(state: JourneyState): boolean {
   return state === "getting-ready" || state === "sending" || state === "processing";
 }
 
-function parseReceiptEvidence(value: Readonly<Record<string, JsonValue>>): LayerXReceiptEvidence {
-  if (
-    typeof value["receipt"] !== "string"
-    || typeof value["receiptDigest"] !== "string"
-    || value["verificationLevel"] !== "sequencer-signed"
-  ) {
-    throw new MiddlewareError("verification-failure");
-  }
-  const purposeHash = value["purposeHash"];
-  if (purposeHash !== undefined && (typeof purposeHash !== "string"
-    || !/^[0-9a-f]{64}$/u.test(purposeHash) || /^0+$/u.test(purposeHash))) {
-    throw new MiddlewareError("verification-failure");
-  }
+function parseReceiptEvidence(value: unknown): PortableReceiptV2 {
+  const failure = (): never => { throw new MiddlewareError("verification-failure"); };
+  const object = (input: unknown): Readonly<Record<string, unknown>> => {
+    if (input === null || typeof input !== "object" || Array.isArray(input)) return failure();
+    return input as Readonly<Record<string, unknown>>;
+  };
+  const hex = (input: unknown, size?: number): string => {
+    if (typeof input !== "string" || input.length > 128 * 1024
+      || !/^0x(?:[0-9a-f]{2})+$/u.test(input)
+      || (size !== undefined && input.length !== 2 + size * 2)) return failure();
+    return input;
+  };
+  const height = (input: unknown): string => {
+    if (typeof input !== "string" || !/^0x(?:0|[1-9a-f][0-9a-f]{0,15})$/u.test(input)) return failure();
+    return input;
+  };
+  const proof = object(value);
+  if (proof["format"] !== "layerx-receipt-proof-v2"
+    || (proof["verificationLevel"] !== "receipted" && proof["verificationLevel"] !== "committed")) return failure();
+  const key = object(proof["receiptKey"]);
+  if (Object.keys(key).length !== 4) return failure();
+  const firstHeight = height(key["firstHeight"]);
+  const lastHeight = height(key["lastHeight"]);
+  if (BigInt(firstHeight) > BigInt(lastHeight)) return failure();
   return {
-    receipt: value["receipt"],
-    receiptDigest: value["receiptDigest"],
-    verificationLevel: "sequencer-signed",
-    ...(purposeHash === undefined ? {} : { purposeHash }),
+    format: "layerx-receipt-proof-v2",
+    verificationLevel: proof["verificationLevel"],
+    rawTransaction: hex(proof["rawTransaction"]),
+    signedReceipt: hex(proof["signedReceipt"]),
+    receiptDigest: hex(proof["receiptDigest"], 32),
+    receiptKey: {
+      keyId: hex(key["keyId"], 32), publicKey: hex(key["publicKey"], 32), firstHeight, lastHeight,
+    },
   };
 }
 
@@ -842,14 +820,6 @@ function requiredTimestamp(value: unknown): string {
     throw new PlatformSdkError({ code: "decode-failure", retry: "never" });
   }
   return text;
-}
-
-function encodeBase64(value: Uint8Array): string {
-  let binary = "";
-  for (let offset = 0; offset < value.length; offset += 0x8000) {
-    binary += String.fromCharCode(...value.subarray(offset, Math.min(offset + 0x8000, value.length)));
-  }
-  return btoa(binary);
 }
 
 function decodeBase64(value: string): Uint8Array {
@@ -936,14 +906,6 @@ function concatenate(...values: readonly Uint8Array[]): Uint8Array {
     offset += value.length;
   }
   return result;
-}
-
-async function merkleLeafDigest(canonicalReceipt: Uint8Array): Promise<Uint8Array> {
-  const digest = await globalThis.crypto.subtle.digest(
-    "SHA-256",
-    arrayBuffer(concatenate(MERKLE_LEAF_DOMAIN, canonicalReceipt)),
-  );
-  return new Uint8Array(digest);
 }
 
 function toHex(value: Uint8Array): string {
