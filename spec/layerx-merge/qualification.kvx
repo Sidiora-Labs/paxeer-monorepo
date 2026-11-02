@@ -16899,3 +16899,59 @@ symbol = "verifyRpcPayment"
 observed = "Attempt 6 (f2afd6c8c) built and its integration test asserted portable.receiptDigest equal to the receiptDigest of the recorded fixture case V1-layerxledger-pay-exact of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json and failed (0x51588b5a... against 0x3f63045f...): the buyer middleware's portable receipt digest is keccak256 of the signed receipt bytes (services/platform/middleware/buyer/src/index.ts:373, services/platform/middleware/buyer/test/portable-receipts.test.mjs:36), while the fixture's receiptDigest is the sequencer's signing digest over the unsigned receipt (rpc/sequencer_receipt_vectors_test.go:276), which the buyer test at portable-receipts.test.mjs:173 shows is refused as a portable digest."
 assumption = "Attempt defect: the assertion compares the portable digest with the signing digest; the test asserts keccak256 of the fixture's signedReceipt and the task continues from attempt 6."
 severity = "minor"
+
+[finding.18.1435.3.1]
+task = "18.1435.3"
+file = "services/agent/sdk/python/layerx_sdk/agent_http.py:201"
+symbol = "_LEVELS"
+observed = "Attempt 1 (11d9a4488) implemented the pending and absent decoding with its tests; the two golden cases failed with verification-failure because the Python agent envelope decoder's level table (services/agent/sdk/python/layerx_sdk/agent_http.py:201-208) still lists the retired kernel levels Unverified, SequencerSigned, BatchIncluded, StateProven, CheckpointFinalised and SettlementAnchored, while the daemon answers the rungs submitted, receipted and committed (services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:1346-1348), the goldens of 18.1435.2 carry those rungs and the Python x402 client already accepts them (services/agent/sdk/python/layerx_sdk/x402_rpc.py:83); six Python SDK tests still use the retired names at nine sites."
+assumption = "Consumer gap: the Python agent envelope decoder never followed the three-rung model; the task ports the level table and the six tests with it."
+severity = "major"
+
+[finding.8.26.3.1]
+task = "8.26.3"
+file = "services/platform/middleware/seller/src/index.ts:405"
+symbol = "paymentPurpose"
+observed = "Attempt 1 (79c64ebe5) implemented the receipt-key configuration, the Receipted submission and the EVM preparation checks; the config test passed and the service scenarios failed with verification-failure from the paid API example, because the seller's receipt verification requires a purposeHash in every offer's extra.layerx (services/platform/middleware/seller/src/index.ts:405 passes required=true and :439 refuses an undefined reference) while the documented contract (docs/site/docs/interop/x402.md:133-134), the seller's own offer parser (:743) and the interop seller (services/interop/crates/layerx-x402/src/seller.rs:665) require it only for metered and subscription offers; the exact offer of services/platform/examples/paid-api/index.mjs:124-130 carries none. The conformance receipt builder (services/platform/middleware/conformance/src/receipts.ts:103) also derives the ledger reference from payTo, asset and amount, so an offer that does carry a purposeHash, the merchant shop, cannot be answered with a matching receipt."
+assumption = "Producer defect in the seller from task 8.22.1; task 8.22.9 corrects it and 8.26.3 continues after it with the receipt builder taking the offer's purposeHash."
+severity = "major"
+
+[finding.8.26.5.1]
+task = "8.26.5"
+file = "services/platform/middleware/seller/src/commitment.ts:118"
+symbol = "verifyPaymentCommitmentEvidence"
+observed = "Attempt 1 (7e05720f0) deleted the kernel fixtures and generators and wrote both tests; committedFixtureAcceptsThreeOfFourValidators passed and committedFixtureRefusesValidatorSetMismatch failed, because it replaced the one validator whose signature is absent from the commit and expected a refusal: PaymentCommitmentEvidence carries chainId and blockId only (services/platform/middleware/seller/src/commitment.ts:11-23), so the verifier cannot compare the validator set with the header's validators hash, and the three signing validators still hold three quarters of the power."
+assumption = "Spec defect: the resolver's validator set is the seller's trust source; the detectable mismatch is a signature from a validator outside that set."
+severity = "minor"
+
+[finding.16.28.3.1]
+task = "16.28.3"
+file = "tools/repotest/pytest_reachability_test.go:76"
+symbol = "TestEveryPytestSuiteIsReferenced"
+observed = "Attempt 1 (c3abaa07d) wrote the guard and go vet passed; the guard reported 77 suites: the 21 of tests/agent/sdk/python, which Makefile:2311 runs through python3 -m unittest discover -s tests/agent/sdk/python rather than pytest; 52 of the 54 suites of tests/ci, of which the Makefile target test-tests-python (Makefile:258-262) names two; and the four of tests/daemon, a directory the wave-6 Makefile test (tools/ci/tests/test_makefile_wave6.py:95-105) forbids in the aggregate dry run."
+assumption = "Spec defect: the guard accepts a unittest discover directory, the Makefile target lists the tests/ci directory, and tests/daemon is skipped like tests/bridge until the daemon retirement decides its four Python guards."
+severity = "minor"
+
+[finding.9.28.1.3]
+task = "9.28.1"
+file = "services/platform/hosted/gateway/src/main.rs:2924"
+symbol = "verify_withdrawal_submission"
+observed = "Attempt 4 (911705b1a) removed the verifier crate and the declared build passed; the dependent-crate check failed on layerx-platform-gateway, whose verify_withdrawal_submission (services/platform/hosted/gateway/src/main.rs:2902-2932) calls layerx_proof::receipt::withdrawal::verify, deleted by task 9.27.5 (2455fbc51, on main since 2026-11-01) under decision 929; 9.27.5 do_5 routed the platform callers through wiring.J44.15, which names services/platform/hosted/core only, so the gateway has not compiled on any main since."
+assumption = "Producer gap of the class of finding 9.27.3.1: task 8.101.1 ports the gateway, 9.28.1 requires it, and any attempt whose dependents check fails only on the gateway continues after it."
+severity = "major"
+
+[finding.10.21.8.1]
+task = "10.21.8"
+file = "services/human/crates/layerx-human-service/src/custody/mod.rs:11"
+symbol = "signer"
+observed = "Attempt 1 (6a5931e17) wrote attach_call_signature in custody/signer.rs and the three other ports; the build failed with E0603 because custody/mod.rs:11 declares `mod signer;` privately and services/human/crates/layerx-human-service/src/server/agent_creation.rs:436 calls crate::custody::signer::attach_call_signature, and custody/mod.rs is not among the task's touches."
+assumption = "Spec defect: the module's parent must re-export the helper; the task continues from attempt 1 with that one line."
+severity = "minor"
+
+[finding.18.0.1.1]
+task = "18.0.1"
+file = "spec/layerx-merge/programme/issue_closure.py:9"
+symbol = "issue_closure"
+observed = "Attempt 1 (943ca6eff) wrote issue_closure and both tests as specified; the tests passed and the closure run over the live spec exited 1 naming 18.1166.1, 18.1433.1, 18.1434.1 and 18.1435.3. The task's requires list holds 444 issue tasks and omits the 89 written after it, among them the three pending ones, so the task launched before its own precondition held, and five of the omitted tasks sit in waves 20 to 36 above the task's wave 19; 18.1166.1 has status superseded, its work carried by task 18.1206.1 (done), and the closure counts every status other than done as open."
+assumption = "Spec defect: the requires list is completed from the task list and decision 2248 rules that a superseded issue task counts as closed; the implementation continues from attempt 1 with the superseded case added."
+severity = "minor"

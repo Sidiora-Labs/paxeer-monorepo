@@ -6567,6 +6567,42 @@ value = "Task 10.21.8 restores attach_signature as custody::signer::attach_call_
 basis = "Finding 10.1.6.1: layerx-human-service has not built on main since 2026-11-01 22:58Z and every task of the human workspace fails its build on that gap; the smallest change that restores the build is the deleted code behind crate-local names, which the later retirements grep for by name."
 affects = ["10.21.8", "9.29.1", "9.35.1"]
 
+[decision.2243]
+title = "The Python agent envelope decoder's verification levels are the three rungs submitted, receipted and committed"
+value = "_LEVELS in services/agent/sdk/python/layerx_sdk/agent_http.py maps submitted to 0, receipted to 1 and committed to 2; every comparison of requested and achieved levels (:352, :408, :762, :769-770) uses that table, and the Python SDK tests name those rungs."
+basis = "Finding 18.1435.3.1: the daemon emits the three rungs, the published goldens carry them and the Python x402 client accepts them; the six-level table is the retired kernel verification ladder."
+affects = ["18.1435.3"]
+
+[decision.2244]
+title = "An exact offer carries no purpose hash; the seller compares the ledger reference only with a purpose hash the offer states"
+value = "The seller requires purposeHash for metered and subscription offers only (services/platform/middleware/seller/src/index.ts:405 follows :743) and skips the reference comparison at :439 when the offer has none; the conformance receipt builder takes the offer's purposeHash as the ledger reference when present and derives it from payTo, asset and amount otherwise."
+basis = "Finding 8.26.3.1: docs/site/docs/interop/x402.md:133-134, the seller's offer parser and the interop seller agree that exact offers carry no purpose; the paid API example is exact and has verified no receipt since 8.22.1."
+affects = ["8.22.9", "8.26.3", "15.0.4"]
+
+[decision.2245]
+title = "The committed-rung validator mismatch a seller detects is a commit signature from a validator outside the resolver's set"
+value = "PaymentCommitmentEvidence stays as 8.22.2 defined it; committedFixtureRefusesValidatorSetMismatch replaces a validator whose signature is in the commit with a stranger, so the signed power falls to two of four and verifyCommittedReceipt refuses with insufficient_power, which the seller surfaces as verification-failure."
+basis = "Finding 8.26.5.1: the evidence shape has no validators hash, so the set is trusted from the resolver and only the signatures can be checked against it."
+affects = ["8.26.5"]
+
+[decision.2246]
+title = "The pytest reachability guard accepts unittest discover and skips tests/daemon; test-tests-python runs the tests/ci directory"
+value = "Makefile test-tests-python keeps its four suite paths and appends the tests/ci directory to the same pytest line (pytest drops duplicate paths); the guard accepts a directory passed to python3 -m unittest discover -s as a reference; tests/daemon is skipped with tests/bridge and tests/explorer* until the daemon retirement decides its four Python guards."
+basis = "Finding 16.28.3.1: tools/ci/tests/test_makefile_wave6.py:100 refuses tests/daemon in the dry run and :106-118 asserts the single pytest line carrying the four suites; the Python SDK suites run under unittest at Makefile:2311."
+affects = ["16.28.3"]
+
+[decision.2247]
+title = "The hosted gateway's withdrawal completion keeps receipt verification through receipt::verify_outcome and drops the kernel activity binding"
+value = "verify_withdrawal_submission binds the completion receipt to its operation by activity id over receipt::verify_outcome; the checks the deleted verifier made against the signed kernel activity retire with it (decision 929), and the gateway's remaining decode_signed sites are ported or retired by 9.29.1."
+basis = "Finding 9.28.1.3: the gateway has not built since 9.27.5 landed; decision 929 keeps receipts verifying through receipt::verify_outcome and names no replacement for the activity binding."
+affects = ["8.101.1", "9.28.1", "9.29.1"]
+
+[decision.2248]
+title = "A superseded issue task counts as closed for the open-issue closure"
+value = "issue_closure treats status superseded like status done: a task is marked superseded only when another task in the spec carries its work, and that task is gated by its own done status, so the closure reports only tasks whose status is pending, in_progress or blocked. Task 18.0.1 requires every 18.x task whose status is not superseded and sits one wave above the highest of them."
+basis = "Finding 18.0.1.1: 18.1166.1 was superseded by 18.1206.1, which is done, so issue #1166 is resolved while the closure still names it; requiring a superseded task would wait forever."
+affects = ["18.0.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20188,6 +20224,14 @@ title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
 
+[req.8304]
+title = "The hosted gateway verifies a withdrawal completion receipt through receipt::verify_outcome"
+ac_1 = "verify_withdrawal_submission verifies a module 1 operation 9 receipt with layerx_proof::receipt::verify_outcome against the authorised batch of the receipt's key and refuses a receipt whose activity id differs from the operation's, with the unit test passing and layerx-platform-gateway building with --all-targets."
+
+[req.8303]
+title = "The seller requires a purpose hash only for metered and subscription offers"
+ac_1 = "verifyPaymentReceipt accepts an exact offer whose extra.layerx carries no purposeHash and compares the ledger payment reference only with a purposeHash the offer carries, while a metered or subscription offer without a purposeHash is refused with verification-failure, as docs/site/docs/interop/x402.md:133-134 states."
+
 [req.8302]
 title = "layerx-human-service builds against the retired owner activity envelope and offline export API"
 ac_1 = "layerx-human-service attaches a custody signature to a creation call, verifies a retained signed creation activity and builds a gateway test owner envelope without layerx_intents::owner_activity, and its receipt export carries no checkpoint facts or verified_checkpoints count, so cargo build -p layerx-human-service --all-targets passes and the export, export_receipts and retired_crypto_codec_w3 tests pass."
@@ -33760,6 +33804,24 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.8.101.1]
+title = "Port the hosted gateway's withdrawal completion check to receipt::verify_outcome"
+reqs = ["8304.1"]
+touches = ["services/platform/hosted/gateway/src/main.rs"]
+tests = ["services/platform/hosted/gateway/src/main.rs::withdrawal_completion_binds_the_receipt_to_its_operation"]
+verification_contract = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway withdrawal_completion_binds_the_receipt_to_its_operation"
+do_1 = "In services/platform/hosted/gateway/src/main.rs:2902-2932 split verify_withdrawal_submission: keep the decode, the module 1 operation 9 filter and the AuthorizedBatch construction, and move the verification into fn verify_withdrawal_receipt(receipt: &[u8], authorized: &AuthorizedBatch, activity_id: &[u8; 32]) -> Result<(), ()> that calls layerx_proof::receipt::verify_outcome(receipt, authorized) and refuses when the verified protocol receipt's activity_id differs from activity_id; the signed activity, the network id and the fee and timestamp bounds of the deleted verifier belong to the kernel activity path decision 929 retires and are not re-checked."
+symbols = ["verify_withdrawal_receipt"]
+
+[capability.8.22.9]
+title = "Require the purpose hash only for metered and subscription offers in the seller's receipt verification"
+reqs = ["8303.1"]
+touches = ["services/platform/middleware/seller/src/index.ts", "services/platform/middleware/seller/test/receipt-verification.test.mjs"]
+tests = ["services/platform/middleware/seller/test/receipt-verification.test.mjs::exactOfferWithoutPurposeHashVerifies", "services/platform/middleware/seller/test/receipt-verification.test.mjs::meteredOfferWithoutPurposeHashRefuses"]
+verification_contract = "npm --prefix services/platform/middleware/seller run build && node --test --test-name-pattern='^(exactOfferWithoutPurposeHashVerifies|meteredOfferWithoutPurposeHashRefuses)$' services/platform/middleware/seller/test/receipt-verification.test.mjs"
+do_1 = "In services/platform/middleware/seller/src/index.ts:405 require the purposeHash only when requirements.scheme is not exact (paymentPurpose(requirements.extra, requirements.scheme !== 'exact')), matching the offer parser at :743 and docs/site/docs/interop/x402.md:133-134."
+symbols = ["paymentPurpose", "verifyPaymentReceipt"]
+
 [capability.10.21.8]
 title = "Port layerx-human-service off the deleted owner activity envelope and the retired offline export API"
 reqs = ["8302.1"]
@@ -33828,7 +33890,7 @@ title = "Issue #1435: Accept the daemon's pending and absent verification status
 reqs = ["8299.1"]
 touches = ["services/agent/sdk/python/layerx_sdk/agent_http.py"]
 tests = ["tests/agent/sdk/python/test_agent_envelope_not_ready.py"]
-verification_contract = "python3 -m pytest -q tests/agent/sdk/python/test_agent_envelope_not_ready.py"
+verification_contract = "python3 -m pytest -q tests/agent/sdk/python/test_agent_envelope_not_ready.py tests/agent/sdk/python/test_agent_operation_envelope.py tests/agent/sdk/python/test_program_typed_responses.py tests/agent/sdk/python/test_program_trust.py tests/agent/sdk/python/test_ai_market.py tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py tests/agent/sdk/python/test_integration.py"
 do_1 = "In services/agent/sdk/python/layerx_sdk/agent_http.py _valid_verification_status (:758) accept {state: pending, requested, achieved} with both levels in _LEVELS and achieved strictly below requested, and {state: absent, requested} with requested in _LEVELS; keep every other shape refused."
 symbols = ["_valid_verification_status"]
 
@@ -100065,7 +100127,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.36.1]
 title = "Retire guarantor checkpoint decoding and verification in layerxproof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 39
 requires = ["1.21.2", "1.37.1", "1.0.3", "6.96.1"]
@@ -100134,7 +100196,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.36.3]
 title = "Retire the anchor checkpoint vectors and their loader"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 40
 requires = ["1.36.1", "1.21.2", "1.0.3", "6.96.1", "16.0.4"]
@@ -100167,7 +100229,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.37.1]
 title = "Retire the custody light-client evidence of custodyproof/light.go"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["1.21.2", "1.0.3", "5.53.1"]
@@ -109959,9 +110021,41 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.8.22.9]
+title = "Require the purpose hash only for metered and subscription offers in the seller's receipt verification"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8303.1"]
+capabilities = ["8.22.9"]
+interfaces = []
+do_1 = "In services/platform/middleware/seller/src/index.ts:405 require the purposeHash only when requirements.scheme is not exact (paymentPurpose(requirements.extra, requirements.scheme !== 'exact')), matching the offer parser at :743 and docs/site/docs/interop/x402.md:133-134."
+do_2 = "At services/platform/middleware/seller/src/index.ts:439 compare payment.paymentReference with the reference only when the offer carries one; an exact offer without a purposeHash accepts the ledger reference as paid, and a metered or subscription offer still refuses a missing or different reference."
+do_3 = "Add to services/platform/middleware/seller/test/receipt-verification.test.mjs the cases exactOfferWithoutPurposeHashVerifies (an exact offer whose extra.layerx carries only commitment receipted verifies the signed receipt fixture of that file) and meteredOfferWithoutPurposeHashRefuses (the same offer with scheme metered and no purposeHash is refused with verification-failure)."
+do_4 = "Register every test named in tests as a node:test case whose name is exactly that name, because node --test --test-name-pattern exits 0 when no case matches; the gate counts only when the run reports one passing case per name."
+do_5 = "Build the seller and run the two cases; change nothing in the buyer, merchant or conformance packages."
+symbols = ["paymentPurpose", "verifyPaymentReceipt"]
+touches = ["services/platform/middleware/seller/src/index.ts", "services/platform/middleware/seller/test/receipt-verification.test.mjs"]
+tests = ["services/platform/middleware/seller/test/receipt-verification.test.mjs::exactOfferWithoutPurposeHashVerifies", "services/platform/middleware/seller/test/receipt-verification.test.mjs::meteredOfferWithoutPurposeHashRefuses"]
+planned_paths = []
+build_cmd = "npm --prefix services/platform/middleware/seller run build"
+verify_cmd = "npm --prefix services/platform/middleware/seller run build && node --test --test-name-pattern='^(exactOfferWithoutPurposeHashVerifies|meteredOfferWithoutPurposeHashRefuses)$' services/platform/middleware/seller/test/receipt-verification.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the two files; the seller returns to requiring the purpose hash on every offer."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1435.1]
 title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the TypeScript agent envelope decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["18.1435.2"]
@@ -111518,7 +111612,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1435.5]
 title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Swift agent envelope decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["18.1435.2"]
@@ -118201,6 +118295,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.8.101.1]
+title = "Port the hosted gateway's withdrawal completion check to receipt::verify_outcome"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8304.1"]
+capabilities = ["8.101.1"]
+interfaces = []
+do_1 = "In services/platform/hosted/gateway/src/main.rs:2902-2932 split verify_withdrawal_submission: keep the decode, the module 1 operation 9 filter and the AuthorizedBatch construction, and move the verification into fn verify_withdrawal_receipt(receipt: &[u8], authorized: &AuthorizedBatch, activity_id: &[u8; 32]) -> Result<(), ()> that calls layerx_proof::receipt::verify_outcome(receipt, authorized) and refuses when the verified protocol receipt's activity_id differs from activity_id; the signed activity, the network id and the fee and timestamp bounds of the deleted verifier belong to the kernel activity path decision 929 retires and are not re-checked."
+do_2 = "Add a unit test withdrawal_completion_binds_the_receipt_to_its_operation in services/platform/hosted/gateway/src/main.rs over the fixture tests/fixtures/asset/bound-native-withdrawal (receipt, header and sequencer.public, building the AuthorizedBatch from the header as layerx-proof's paid_withdrawal_receipt_verifies_without_the_signed_activity test in services/agent/crates/layerx-proof/tests/withdrawal.rs does): the receipt's own activity id passes and a different activity id is refused."
+do_3 = "Build layerx-platform-gateway with --all-targets and run the test; change nothing in layerx-proof and leave the decode_signed sites (:36, :800, :1903, :2104) to task 9.29.1."
+symbols = ["verify_withdrawal_receipt"]
+touches = ["services/platform/hosted/gateway/src/main.rs"]
+tests = ["services/platform/hosted/gateway/src/main.rs::withdrawal_completion_binds_the_receipt_to_its_operation"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets"
+verify_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway withdrawal_completion_binds_the_receipt_to_its_operation"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the commit; the gateway returns to its prior source."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.10.21.8]
 title = "Port layerx-human-service off the deleted owner activity envelope and the retired offline export API"
 status = "pending"
@@ -118216,7 +118340,7 @@ do_3 = "In the test module of services/human/crates/layerx-human-service/src/bin
 do_4 = "In services/human/crates/layerx-human-service/src/activity/export.rs remove CheckpointFact from the import at :6 and the checkpoints field of ReceiptExport (:67) with its constructions at services/human/crates/layerx-human-service/tests/export_receipts.rs:101, services/human/crates/layerx-human-service/tests/export.rs:88 and services/human/crates/layerx-human-service/src/server/production_components.rs:5953; remove verified_checkpoints from BundleReport (field :598, accessor :619, doc example :726, constructions :430 and :502) and from the VerificationReport construction at :1099; verified_receipts and verified_inclusions stay."
 do_5 = "Build the crate with --all-targets, run the export and export_receipts tests and the KMS retired_crypto_codec_w3 test; change nothing in layerx-intents or layerx-proof."
 symbols = ["attach_call_signature", "verify_owner_activity"]
-touches = ["services/human/crates/layerx-human-service/src/custody/signer.rs", "services/human/crates/layerx-human-service/src/server/agent_creation.rs", "services/human/crates/layerx-human-service/src/server/production_onboarding.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs", "services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs"]
+touches = ["services/human/crates/layerx-human-service/src/custody/signer.rs", "services/human/crates/layerx-human-service/src/server/agent_creation.rs", "services/human/crates/layerx-human-service/src/server/production_onboarding.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs", "services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs", "services/human/crates/layerx-human-service/src/custody/mod.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets"
@@ -118232,6 +118356,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Finding 10.21.8.1: in services/human/crates/layerx-human-service/src/custody/mod.rs add `pub(crate) use signer::attach_call_signature;` beside the existing re-exports and call crate::custody::attach_call_signature from agent_creation.rs:436; continue from attempt 1 (6a5931e17) rebased onto current main with that change and run the declared build and verify once as written."
 
 [task.18.1441.1]
 title = "Issue #1441: Port live_kinds to the retained intent kinds"
@@ -120250,7 +120375,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1435.4]
 title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Go agent envelope decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["18.1435.2"]
@@ -142782,7 +142907,7 @@ title = "Drive service conformance and connected acceptance with receipt keys an
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["8.26.1", "8.33.2", "8.34.1", "8.34.3", "8.22.7"]
+requires = ["8.26.1", "8.33.2", "8.34.1", "8.34.3", "8.22.7", "8.22.9"]
 reqs = ["8260.1", "8260.2"]
 capabilities = ["8.26.3"]
 interfaces = ["interface.8.ts-middleware-conformance-service-runservicescenarios-j41", "interface.8.env-middleware-conformance-layerx-authorized-batch-json", "interface.8.env-middleware-conformance-layerx-receipt-keys-json-j41", "interface.8.env-middleware-conformance-layerx-protocol-version"]
@@ -142793,7 +142918,7 @@ do_4 = "services/platform/middleware/conformance/service.mjs:878 preparedPayment
 do_5 = "services/platform/middleware/conformance/connected.mjs:97 compares the merchant protocolVersion with LAYERX_PROTOCOL_VERSION; remove the comparison and the variable per decision.824, and replace the native preparation checks at services/platform/middleware/conformance/connected.mjs:88 and :116-119 with the EVM preparation fields (signing_hash, to, data) of wiring.J41.4."
 do_6 = "Create services/platform/middleware/conformance/test/service-scenarios.test.mjs (planned) with the two tests below."
 symbols = ["runServiceScenarios", "receiptKeysJson", "executedSubmission", "preparedPayment"]
-touches = ["services/platform/middleware/conformance/service.mjs", "services/platform/middleware/conformance/connected.mjs", "services/platform/middleware/conformance/test/service-scenarios.test.mjs"]
+touches = ["services/platform/middleware/conformance/service.mjs", "services/platform/middleware/conformance/connected.mjs", "services/platform/middleware/conformance/test/service-scenarios.test.mjs", "services/platform/middleware/conformance/src/receipts.ts"]
 tests = ["services/platform/middleware/conformance/test/service-scenarios.test.mjs::runServiceScenariosPassesAgainstExampleApps", "services/platform/middleware/conformance/test/service-scenarios.test.mjs::serviceConfigCarriesReceiptKeysEnvironment"]
 planned_paths = ["services/platform/middleware/conformance/test/service-scenarios.test.mjs"]
 build_cmd = "npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/buyer run build && npm --prefix services/platform/middleware/merchant run build && npm --prefix services/platform/middleware/agent run build && npm --prefix services/platform/middleware/conformance run build"
@@ -142811,6 +142936,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_8 = "Decision 2244 (finding 8.26.3.1): buildSignedReceipt (services/platform/middleware/conformance/src/receipts.ts:95-103) takes the offer's extra.layerx.purposeHash as the ledger reference when the offer carries one and derives it from payTo, asset and amount only otherwise, and services/platform/middleware/conformance/service.mjs passes the merchant shop's offer purpose through it. Once 8.22.9 is on main, continue from attempt 1 (79c64ebe5) rebased onto current main with that change and run the declared build and verify once as written."
 
 [task.8.26.4]
 title = "Replace the kernel receive and draw payment fixtures with a 0x101A draw fixture"
@@ -142875,10 +143001,11 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Decision 2245 (finding 8.26.5.1): in committedFixtureRefusesValidatorSetMismatch replace a validator whose signature is in the commit, not the unsigned one, so the signed power falls to two of four; keep the rest of attempt 1 (7e05720f0), continue from it rebased onto current main with that change and run the declared build and verify once as written."
 
 [task.8.26.6]
 title = "Move the commitment, RPC and agent conformance tests to an EVM receipt fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.26.1", "8.24.3", "9.96.1", "8.22.7"]
@@ -143856,7 +143983,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.34.2]
 title = "Drive the reference application runner with receipt keys instead of a receipt authority"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.33.1", "8.33.4"]
@@ -143923,7 +144050,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.34.4]
 title = "Qualify reference application outcomes by rung and transaction hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.34.2"]
@@ -150484,7 +150611,7 @@ title = "Delete the kernel-era read, receipt, submit, stream, batch, payments an
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.25.2", "9.24.4", "9.22.3", "9.22.5", "9.23.5", "9.23.6", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.16.4", "8.11.3", "8.19.5", "10.27.5", "8.12.3", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "9.25.17", "9.25.18", "9.25.19", "13.8.3", "9.27.9"]
+requires = ["9.25.2", "9.24.4", "9.22.3", "9.22.5", "9.23.5", "9.23.6", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.16.4", "8.11.3", "8.19.5", "10.27.5", "8.12.3", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "9.25.17", "9.25.18", "9.25.19", "13.8.3", "9.27.9", "8.101.1"]
 reqs = ["9281.1"]
 capabilities = ["9.25.1"]
 interfaces = ["interface.9.rs-client-read-readcontext", "interface.9.rs-client-read-readvalue", "interface.9.rs-client-read-historycursor", "interface.9.rs-client-read-historykind", "interface.9.rs-client-read-historyitem", "interface.9.rs-client-read-historypage", "interface.9.rs-client-read-readerror", "interface.9.rs-client-read-historyrange", "interface.9.rs-client-read-historyproof", "interface.9.rs-client-read-freshness-j44", "interface.9.rs-client-read-balance-j44", "interface.9.rs-client-read-history-with-history-j44", "interface.9.rs-client-receipt-receiptselector", "interface.9.rs-client-receipt-receiptwaitmode", "interface.9.rs-client-receipt-authenticatedlookupcontext", "interface.9.rs-client-receipt-authenticatedlookup", "interface.9.rs-client-receipt-lookup", "interface.9.rs-client-receipt-receipterror", "interface.9.rs-client-submit-submissioncontext", "interface.9.rs-client-submit-unknowncause", "interface.9.rs-client-submit-unknown", "interface.9.rs-client-submit-submission", "interface.9.rs-client-submit-submiterror", "interface.9.rs-client-stream-cursor", "interface.9.rs-client-stream-event", "interface.9.rs-client-stream-streamitem", "interface.9.rs-client-stream-streamconfig", "interface.9.rs-client-stream-streamerror", "interface.9.rs-client-batch-signedbatchheader", "interface.9.rs-client-batch-batchheadererror", "interface.9.rs-client-payments-snapshotcontext", "interface.9.rs-client-payments-committedsnapshot", "interface.9.rs-client-payments-assetmetadata", "interface.9.rs-client-payments-nativefeepolicy", "interface.9.rs-client-payments-feeestimate-j44", "interface.9.rs-client-payments-native-fee-policy-j44", "interface.9.rs-client-payments-session-fee-state-j44", "interface.9.rs-client-withdrawal-withdrawalconfigurationerror", "interface.9.rs-client-head-head", "interface.9.rs-client-head-headtracker", "interface.9.rs-client-head-sequencerkeyrange-j44", "interface.9.rs-client-head-headerror-j44", "interface.9.rs-client-evidence-anchor-settlement-contract", "interface.9.rs-client-evidence-minimum-finality-frame-bytes", "interface.9.rs-client-evidence-rootselector", "interface.9.rs-client-evidence-checkpointselector", "interface.9.rs-client-evidence-proofbundleselector", "interface.9.rs-client-evidence-program-state-request-bytes", "interface.9.rs-client-evidence-program-state-domain", "interface.9.rs-client-evidence-max-program-state-bundle-bytes", "interface.9.rs-client-evidence-programstateselector", "interface.9.rs-client-evidence-evidencecontext", "interface.9.rs-client-evidence-verifiedcheckpoint", "interface.9.rs-client-evidence-finalityevidencecandidate", "interface.9.rs-client-evidence-verifiedproofbundle", "interface.9.rs-client-evidence-accountproofvariant", "interface.9.rs-client-evidence-signedheader", "interface.9.rs-client-evidence-evidenceerror", "interface.9.rs-client-evidence-register-finality-evidence", "interface.9.rs-client-evidence-verify-account-evidence-with-history", "interface.9.rs-client-evidence-accountevidencepolicy", "interface.9.rs-client-evidence-verifiedaccountevidence", "interface.9.rs-client-evidence-verify-account-evidence"]
@@ -150515,6 +150642,7 @@ do_5 = "Finding 9.25.1.2 and decision 2232: this task runs again only once tasks
 do_6 = "Finding 9.25.1.3: the pre-build grep of do_5 over services/agent/crates/layerx-client/src excludes src/evidence/asset_record.rs and src/evidence/module_state.rs, which are orphaned once `pub mod evidence;` is removed and are deleted by task 9.24.6; continue from attempt 2 (2dea00d58) rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 do_7 = "Finding 9.25.1.4: the verify's second grep carries --exclude-dir=evidence, matching the do_5 precondition; continue from attempt 3 (69972d6e5) rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 do_8 = "Finding 9.27.3.1: attempt 4 (bcd8a0772) kept attempt 3 unchanged and failed only on the layerx-agentd build of the declared build command, which task 9.27.9 repairs; once 9.27.9 is on main, continue from attempt 4 rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
+do_9 = "Finding 9.28.1.3: attempt 5 (9e2762e41) kept attempt 4 unchanged, its declared build passed, and the dependent-crate check failed only on layerx-platform-gateway, which has not compiled since task 9.27.5 and which task 8.101.1 repairs; once 8.101.1 is on main, continue from attempt 5 rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 
 [task.9.25.2]
 title = "Delete Client, the handover policy and caps readers and every paxeer-verifier use"
@@ -150916,7 +151044,7 @@ title = "Remove layerx-paxeer-verifier from the agent workspace and its dependen
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.25.2", "9.5.7", "9.27.2", "8.20.3", "5.96.1", "10.26.1", "10.26.3", "10.26.4", "10.27.1", "16.0.4", "11.22.2", "9.1.8", "18.1131.1", "18.1206.1", "18.1304.1", "9.25.16", "13.8.3", "9.27.9"]
+requires = ["9.25.2", "9.5.7", "9.27.2", "8.20.3", "5.96.1", "10.26.1", "10.26.3", "10.26.4", "10.27.1", "16.0.4", "11.22.2", "9.1.8", "18.1131.1", "18.1206.1", "18.1304.1", "9.25.16", "13.8.3", "9.27.9", "8.101.1"]
 reqs = ["9306.1"]
 capabilities = ["9.28.1"]
 interfaces = ["interface.9.rs-paxeer-verifier-checkpoint-paxeercheckpointpolicy", "interface.9.rs-paxeer-verifier-checkpoint-paxeercheckpointverifier", "interface.9.rs-paxeer-verifier-checkpoint-verifiedcheckpointpublication", "interface.9.rs-paxeer-verifier-rpc-endpointtransport", "interface.9.rs-paxeer-verifier-rpc-endpointconfig", "interface.9.rs-paxeer-verifier-rpc-endpointfault", "interface.9.rs-paxeer-verifier-rpc-endpointfailure", "interface.9.rs-paxeer-verifier-rpc-canonical-endpoint-identity", "interface.9.rs-paxeer-verifier-rpc-raw-call", "interface.9.rs-paxeer-verifier-json-json", "interface.9.rs-paxeer-verifier-json-jsonerrorreason", "interface.9.rs-paxeer-verifier-json-jsonerror", "interface.9.rs-paxeer-verifier-json-parse", "interface.9.rs-paxeer-verifier-publication-publication", "interface.9.rs-paxeer-verifier-publication-publication-at", "interface.9.rs-paxeer-verifier-publication-blockanchor-j44", "interface.9.rs-paxeer-verifier-publication-publication-type-j44"]
@@ -150947,6 +151075,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 do_6 = "Decision 2201: task 9.25.9 deletes examples/native_handover_reads.rs first, so do_3 is satisfied when the file is already absent and this task changes nothing there."
 do_7 = "Finding 9.28.1.1: examples/native_handover_reads.rs is no longer a declared touch; continue from attempt 1 (46665c3c6), or a later attempt with the same six changed files, rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 do_8 = "Finding 9.28.1.2: attempt 3 (d2ca8c3792c) completed the six manifest changes and failed only on the layerx-agentd build that task 9.27.9 repairs; once 9.27.9 is on main, continue from attempt 3 rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
+do_9 = "Finding 9.28.1.3: attempt 4 (911705b1a) removed the crate and its dependents and failed only on the dependent-crate check of layerx-platform-gateway, which task 8.101.1 repairs; once 8.101.1 is on main, continue from attempt 4 rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 
 [task.9.28.2]
 title = "Delete the layerx-paxeer-verifier crate sources"
@@ -151013,6 +151142,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_7 = "Finding 9.28.1.3: services/platform/hosted/gateway/src/main.rs:36, :800, :1903 and :2104 decode signed activities through layerx_wire::activity::decode_signed; the gateway is a consumer of the activity module beside the core sites of wiring.J44.15 and is ported, or its activity submission path retired, in the same change, with layerx-platform-gateway building --all-targets before the task is done."
 
 [task.9.30.1]
 title = "Drop the lni_frame fuzz target and fuzz the EIP-1559 transaction codec"
@@ -179566,7 +179696,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.28.3]
 title = "Guard that every pytest suite under tests/ is run by a Makefile, workflow or script"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["16.28.1", "16.2.4"]
@@ -179578,7 +179708,7 @@ do_1 = "Create tools/repotest/pytest_reachability_test.go (planned) walking test
 do_2 = "Search Makefile, chain.mk, .github/workflows/*.yml and *.sh, *.py and *.mk files under tools/ and scripts/ for each root-relative path in tools/repotest/pytest_reachability_test.go (planned), also accepting a reference to the containing directory passed to pytest."
 do_3 = "Request the test-tests-python Makefile target for tests/ci/test_real_node_build_ownership.py, tests/ci/test_runner_routing_container_runtime.py, tests/test_lxgb_producers.py, tests/test_beta_withdrawal_genesis.py through wiring so the guard passes at the wave-6 revision (Makefile:286 is the insertion point)."
 symbols = ["TestEveryPytestSuiteIsReferenced"]
-touches = ["tools/repotest/pytest_reachability_test.go"]
+touches = ["tools/repotest/pytest_reachability_test.go", "Makefile"]
 tests = ["tools/repotest/pytest_reachability_test.go::TestEveryPytestSuiteIsReferenced"]
 planned_paths = ["tools/repotest/pytest_reachability_test.go"]
 build_cmd = "go vet ./tools/repotest/"
@@ -179594,6 +179724,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2246 (finding 16.28.3.1): accept a directory passed to python3 -m unittest discover -s as a reference; skip tests/daemon with tests/bridge and tests/explorer*; in Makefile:258-262 append the tests/ci directory to the test-tests-python pytest line after the four suite paths, keeping the one-line shape tools/ci/tests/test_makefile_wave6.py:106-118 asserts; continue from attempt 1 (c3abaa07d) rebased onto current main with those changes and run the declared build and verify once as written. The pass state of the 52 newly reachable suites is not part of this task's gate."
 
 [task.16.28.4]
 title = "Apply the banned-module check to every go.mod in the repository"
@@ -183734,7 +183865,7 @@ completion_task = "19.0.1"
 
 [task.18.670.1]
 title = "Issue #670: Keep the restarted perps data gateway and socket alive through the post-restart end-to-end checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.98.2", "5.98.3", "5.98.5", "5.98.7", "5.98.8", "5.5.23", "5.5.24", "5.5.25"]
@@ -189497,6 +189628,22 @@ req = "18790.1"
 scenario = "Given two recipients of 1 ether each, when batchTransferEqualAmount is called with 3 ether, then it reverts with Incorrect amount sent, and with 2 ether it succeeds leaving the contract balance at zero"
 contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
+qualification = "UNRUN"
+
+[acceptance.8.101.1.1]
+feature = "8"
+req = "8304.1"
+scenario = "Given the bound-native-withdrawal fixture receipt and its authorised batch, when verify_withdrawal_receipt runs with the receipt's activity id, then it returns Ok; when it runs with any other activity id, then it refuses; and layerx-platform-gateway builds with --all-targets on main"
+contract = "contracts/services.md"
+test = "services/platform/hosted/gateway/src/main.rs"
+qualification = "UNRUN"
+
+[acceptance.8.22.9.1]
+feature = "8"
+req = "8303.1"
+scenario = "Given an exact offer whose extra.layerx carries only commitment receipted, when a signed receipt paying its payTo, asset and amount is verified, then verifyPaymentReceipt returns the receipted verification; given the same offer with scheme metered and no purposeHash, then it throws verification-failure"
+contract = "docs/site/docs/interop/x402.md"
+test = "services/platform/middleware/seller/test/receipt-verification.test.mjs"
 qualification = "UNRUN"
 
 [acceptance.10.21.8.1]
@@ -195346,19 +195493,19 @@ qualification = "UNRUN"
 title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
-wave = 19
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1", "18.1186.1", "18.1188.1", "18.766.1", "18.914.1", "18.1092.1", "18.1113.1", "18.1180.1", "18.1189.1", "18.1192.1", "18.1194.1", "18.1195.1", "18.1196.1", "18.1197.1", "18.1199.1", "18.1200.1", "18.1203.1", "18.1204.1", "18.1205.1", "18.1206.1", "18.1218.1", "18.1219.1", "18.1221.1", "18.1222.1", "18.1223.1", "18.1224.1", "18.1225.1", "18.1227.1", "18.1228.1", "18.1229.1", "18.1230.1", "18.1231.1", "18.1233.1", "18.1234.1", "18.1235.1", "18.1236.1", "18.1237.1", "18.1239.1", "18.1193.1", "18.1215.1", "18.1043.1", "18.1209.1", "18.1001.3", "18.1172.2", "18.1245.1", "18.1246.1", "18.1159.1", "18.1201.1", "18.1241.1", "18.1244.1", "18.1240.1", "18.1243.1", "18.1242.1", "18.756.1", "18.757.1", "18.769.1", "18.813.1", "18.821.1", "18.962.1", "18.1214.1", "18.1238.1", "18.1271.1", "18.1303.1", "18.1311.1", "18.1312.1", "18.1313.1", "18.1314.1", "18.1315.1", "18.1316.1", "18.1317.1", "18.1318.1", "18.1320.1", "18.1322.1", "18.1323.1", "18.1325.1", "18.1327.1", "18.1328.1", "18.1329.1", "18.1330.1", "18.1331.1", "18.1333.1", "18.1335.1", "18.1337.1", "18.1338.1", "18.1339.1", "18.1341.1", "18.1344.1", "18.1346.1", "18.1347.1", "18.1348.1", "18.1349.1", "18.1350.1", "18.1351.1", "18.1352.1", "18.1353.1", "18.1355.1", "18.1356.1", "18.1357.1", "18.1358.1", "18.1359.1", "18.1360.1", "18.1362.1", "18.1363.1", "18.1364.1", "18.1365.1", "18.1366.1", "18.1367.1", "18.1369.1", "18.1370.1", "18.1371.1", "18.1373.1", "18.1374.1", "18.1375.1", "18.1376.1", "18.1377.1", "18.1378.1", "18.1379.1", "18.1381.1", "18.1382.1", "18.1383.1", "18.1387.1", "18.1388.1", "18.1389.1", "18.1391.1", "18.1392.1", "18.1394.1", "18.1396.1", "18.1402.1", "18.1403.1", "18.1404.1", "18.1405.1", "18.1406.1", "18.1408.1", "18.1409.1", "18.1410.1", "18.1412.1", "18.1413.1", "18.1417.1", "18.1423.1", "18.1424.1", "18.1425.1", "18.1426.1", "18.1427.1", "18.1326.1"]
+wave = 37
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1", "18.1186.1", "18.1188.1", "18.766.1", "18.914.1", "18.1092.1", "18.1113.1", "18.1180.1", "18.1189.1", "18.1192.1", "18.1194.1", "18.1195.1", "18.1196.1", "18.1197.1", "18.1199.1", "18.1200.1", "18.1203.1", "18.1204.1", "18.1205.1", "18.1206.1", "18.1218.1", "18.1219.1", "18.1221.1", "18.1222.1", "18.1223.1", "18.1224.1", "18.1225.1", "18.1227.1", "18.1228.1", "18.1229.1", "18.1230.1", "18.1231.1", "18.1233.1", "18.1234.1", "18.1235.1", "18.1236.1", "18.1237.1", "18.1239.1", "18.1193.1", "18.1215.1", "18.1043.1", "18.1209.1", "18.1001.3", "18.1172.2", "18.1245.1", "18.1246.1", "18.1159.1", "18.1201.1", "18.1241.1", "18.1244.1", "18.1240.1", "18.1243.1", "18.1242.1", "18.756.1", "18.757.1", "18.769.1", "18.813.1", "18.821.1", "18.962.1", "18.1214.1", "18.1238.1", "18.1271.1", "18.1303.1", "18.1311.1", "18.1312.1", "18.1313.1", "18.1314.1", "18.1315.1", "18.1316.1", "18.1317.1", "18.1318.1", "18.1320.1", "18.1322.1", "18.1323.1", "18.1325.1", "18.1327.1", "18.1328.1", "18.1329.1", "18.1330.1", "18.1331.1", "18.1333.1", "18.1335.1", "18.1337.1", "18.1338.1", "18.1339.1", "18.1341.1", "18.1344.1", "18.1346.1", "18.1347.1", "18.1348.1", "18.1349.1", "18.1350.1", "18.1351.1", "18.1352.1", "18.1353.1", "18.1355.1", "18.1356.1", "18.1357.1", "18.1358.1", "18.1359.1", "18.1360.1", "18.1362.1", "18.1363.1", "18.1364.1", "18.1365.1", "18.1366.1", "18.1367.1", "18.1369.1", "18.1370.1", "18.1371.1", "18.1373.1", "18.1374.1", "18.1375.1", "18.1376.1", "18.1377.1", "18.1378.1", "18.1379.1", "18.1381.1", "18.1382.1", "18.1383.1", "18.1387.1", "18.1388.1", "18.1389.1", "18.1391.1", "18.1392.1", "18.1394.1", "18.1396.1", "18.1402.1", "18.1403.1", "18.1404.1", "18.1405.1", "18.1406.1", "18.1408.1", "18.1409.1", "18.1410.1", "18.1412.1", "18.1413.1", "18.1417.1", "18.1423.1", "18.1424.1", "18.1425.1", "18.1426.1", "18.1427.1", "18.1326.1", "18.1075.1", "18.1134.1", "18.1148.1", "18.1188.2", "18.1202.1", "18.1204.2", "18.1211.1", "18.1211.2", "18.1211.3", "18.1211.4", "18.1211.5", "18.1228.2", "18.1232.1", "18.1243.2", "18.1250.1", "18.1252.1", "18.1254.1", "18.1255.1", "18.1256.1", "18.1257.1", "18.1258.1", "18.1259.1", "18.1262.1", "18.1263.1", "18.1264.1", "18.1265.1", "18.1268.1", "18.1269.1", "18.1270.1", "18.1272.1", "18.1273.1", "18.1275.1", "18.1279.1", "18.1279.2", "18.1279.3", "18.1286.1", "18.1287.1", "18.1288.1", "18.1289.1", "18.1291.1", "18.1291.2", "18.1292.1", "18.1293.1", "18.1293.2", "18.1293.3", "18.1293.4", "18.1294.1", "18.1295.1", "18.1296.1", "18.1297.1", "18.1297.2", "18.1298.1", "18.1299.1", "18.1300.1", "18.1301.1", "18.1302.1", "18.1304.1", "18.1305.1", "18.1306.1", "18.1307.1", "18.1308.1", "18.1308.2", "18.1308.3", "18.1309.1", "18.1310.1", "18.1429.1", "18.1430.1", "18.1431.1", "18.1432.1", "18.1433.1", "18.1434.1", "18.1435.1", "18.1435.2", "18.1435.3", "18.1435.4", "18.1435.5", "18.1437.1", "18.1439.1", "18.1441.1", "18.835.1", "18.893.1", "18.90.1", "18.905.1", "18.911.2", "18.918.1", "18.927.1", "18.960.1", "18.963.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
-do_1 = "Write issue_closure(spec_path) in spec/layerx-merge/programme/issue_closure.py (planned) that parses every [task.18.*] block of spec/layerx-merge/spec.kvx except task.18.0.1 and returns the sorted list of ids whose status is not done; main() prints the list and exits 1 when it is non-empty, else exits 0."
+do_1 = "Write issue_closure(spec_path) in spec/layerx-merge/programme/issue_closure.py (planned) that parses every [task.18.*] block of spec/layerx-merge/spec.kvx except task.18.0.1 and returns the sorted list of ids whose status is neither done nor superseded (decision 2248); main() prints the list and exits 1 when it is non-empty, else exits 0."
 do_2 = "Write spec/layerx-merge/programme/tests/test_issue_closure.py (planned) with test_issue_closure_passes_when_every_issue_task_is_done, feeding a temporary spec whose 18.x tasks are all done, and test_issue_closure_names_the_open_task, feeding one pending 18.x task and asserting its id is the only entry returned."
-symbols = ["issue_closure", "test_issue_closure_passes_when_every_issue_task_is_done", "test_issue_closure_names_the_open_task"]
+symbols = ["issue_closure", "test_issue_closure_passes_when_every_issue_task_is_done", "test_issue_closure_names_the_open_task", "test_issue_closure_treats_a_superseded_task_as_closed"]
 touches = ["spec/layerx-merge/programme/issue_closure.py", "spec/layerx-merge/programme/tests/test_issue_closure.py"]
-tests = ["spec/layerx-merge/programme/tests/test_issue_closure.py::test_issue_closure_passes_when_every_issue_task_is_done", "spec/layerx-merge/programme/tests/test_issue_closure.py::test_issue_closure_names_the_open_task"]
+tests = ["spec/layerx-merge/programme/tests/test_issue_closure.py::test_issue_closure_passes_when_every_issue_task_is_done", "spec/layerx-merge/programme/tests/test_issue_closure.py::test_issue_closure_names_the_open_task", "spec/layerx-merge/programme/tests/test_issue_closure.py::test_issue_closure_treats_a_superseded_task_as_closed"]
 planned_paths = ["spec/layerx-merge/programme/issue_closure.py", "spec/layerx-merge/programme/tests/test_issue_closure.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/issue_closure.py"
-verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_issue_closure.py::test_issue_closure_passes_when_every_issue_task_is_done spec/layerx-merge/programme/tests/test_issue_closure.py::test_issue_closure_names_the_open_task && python3 spec/layerx-merge/programme/issue_closure.py spec/layerx-merge/spec.kvx"
+verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_issue_closure.py::test_issue_closure_passes_when_every_issue_task_is_done spec/layerx-merge/programme/tests/test_issue_closure.py::test_issue_closure_names_the_open_task spec/layerx-merge/programme/tests/test_issue_closure.py::test_issue_closure_treats_a_superseded_task_as_closed && python3 spec/layerx-merge/programme/issue_closure.py spec/layerx-merge/spec.kvx"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -195370,6 +195517,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx-merge/programme/tests/test_issue_closure.py: a temporary spec with one done and one superseded 18.x task returns an empty list."
+do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 
 [task.18.1437.1]
 title = "Issue #1437: Document the vulnerability report response targets in SECURITY.md"
@@ -195411,11 +195560,11 @@ interfaces = []
 do_1 = "In services/agent/sdk/python/layerx_sdk/agent_http.py _valid_verification_status (:758) accept {state: pending, requested, achieved} with both levels in _LEVELS and achieved strictly below requested, and {state: absent, requested} with requested in _LEVELS; keep every other shape refused."
 do_2 = "Write tests/agent/sdk/python/test_agent_envelope_not_ready.py loading the two golden files of 18.1435.2 through the transport's envelope decode and asserting not-ready results, plus refusals for achieved equal to requested and for an absent status carrying achieved."
 symbols = ["_valid_verification_status"]
-touches = ["services/agent/sdk/python/layerx_sdk/agent_http.py"]
+touches = ["services/agent/sdk/python/layerx_sdk/agent_http.py", "tests/agent/sdk/python/test_agent_operation_envelope.py", "tests/agent/sdk/python/test_program_typed_responses.py", "tests/agent/sdk/python/test_program_trust.py", "tests/agent/sdk/python/test_ai_market.py", "tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py", "tests/agent/sdk/python/test_integration.py"]
 tests = ["tests/agent/sdk/python/test_agent_envelope_not_ready.py"]
 planned_paths = ["tests/agent/sdk/python/test_agent_envelope_not_ready.py"]
 build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/agent_http.py tests/agent/sdk/python/test_agent_envelope_not_ready.py"
-verify_cmd = "python3 -m pytest -q tests/agent/sdk/python/test_agent_envelope_not_ready.py"
+verify_cmd = "python3 -m pytest -q tests/agent/sdk/python/test_agent_envelope_not_ready.py tests/agent/sdk/python/test_agent_operation_envelope.py tests/agent/sdk/python/test_program_typed_responses.py tests/agent/sdk/python/test_program_trust.py tests/agent/sdk/python/test_ai_market.py tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py tests/agent/sdk/python/test_integration.py"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-agent"
@@ -195427,6 +195576,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Decision 2243 (finding 18.1435.3.1): replace _LEVELS (services/agent/sdk/python/layerx_sdk/agent_http.py:201-208) with submitted 0, receipted 1 and committed 2, keeping the comparisons at :352, :408, :762 and :769-770 on that table; update the nine sites of the six tests tests/agent/sdk/python/test_agent_operation_envelope.py, tests/agent/sdk/python/test_program_typed_responses.py, tests/agent/sdk/python/test_program_trust.py, tests/agent/sdk/python/test_ai_market.py, tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py, tests/agent/sdk/python/test_integration.py to the rung names; continue from attempt 1 (11d9a4488) rebased onto current main with those changes and run the declared build and verify once as written."
 
 [task.6.60.6]
 title = "Drop the Makefile's test-owner-movement-proof target"
@@ -195518,8 +195668,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [req.18001]
 title = "The open-issue feature closes only when every issue task is done"
-ac_1 = "issue_closure(spec_path) returns an empty list and main exits 0 when every [task.18.*] block other than task.18.0.1 has status done."
-ac_2 = "issue_closure(spec_path) returns the id of each 18.x task whose status is not done and main exits 1 naming them."
+ac_1 = "issue_closure(spec_path) returns an empty list and main exits 0 when every [task.18.*] block other than task.18.0.1 has status done or superseded."
+ac_2 = "issue_closure(spec_path) returns the id of each 18.x task whose status is neither done nor superseded and main exits 1 naming them."
 
 [acceptance.18.1.1]
 feature = "18"
