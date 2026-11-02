@@ -18963,3 +18963,83 @@ symbol = "python_market_signs_secp256k1"
 observed = "At 717ce20b9 the ninth candidate (producer key set per decision 2341, commit-finality changes kept) passes 29 of 30 ai-market checks and every other test file; python_market_signs_secp256k1 (ai-market.test.ts:2552, unchanged since 606dc7e96) runs an inline Python program that imports cryptography.hazmat (:2570-2571) through execFileSync python3, and the qualification environment's Python has no cryptography package (ModuleNotFoundError); the package is the optional derivation extra of services/agent/sdk/python/pyproject.toml:21, not a dependency of the TypeScript package."
 assumption = "Environmental: the qualification environment now provides the Python packages a TypeScript test imports through an inline program; the candidate requalifies unchanged."
 severity = "low"
+
+[finding.21.92.1.4]
+task = "21.92.1"
+file = "rpc/send.go"
+symbol = "SendRawTransaction"
+observed = "Attempt 6 (base 0f64138ec era, 435-line proof, nonce read at latest per decision 2322) passes every case but the duplicate one: production.rs:230 run_duplicate resubmits the identical raw transaction after its receipt resolved and the node answers -32000 'incorrect account sequence' (SendRawTransaction hands the bytes straight to the proposer Accept hook at rpc/send.go:290 with no lookup of the hash it already recorded), while 9.18.1 do_3 and acceptance 8.109.2 promise the same hash and an unchanged receipt."
+assumption = "The node is the component at fault: the send-record source the receipt API reads (rpc/sequencer_receipt.go:259 SequencerSend) already knows the hash; a lookup before Accept answers the recorded hash and leaves the receipt untouched. Task 22.9.27 adds it; this proof requires it and keeps asserting the contract."
+severity = "high"
+
+[finding.22.2.5.5]
+task = "22.2.5"
+file = "modules/layerxauth/keeper/revoke.go"
+symbol = "Revoke"
+observed = "Attempt 5 fails TestAuthModuleStoreHasNoIdempotencyKeys and the retire conformance of 2.14.4 (retire_test.go:210 assertParamsOnly): revoke.go:18 reads and :46 writes a module-store replay marker 0x04||grantID||idempotencyKey (22.2.4 do_4, ad4a30dfb) so a repeat revoke answers ErrIdempotentReplay before the actor binding; revoke_test.go:372-380 expects that order even for an unbound actor."
+assumption = "Module stores hold params only (2.14.4); idempotency belongs to the kernel host. The marker leaves; a repeat revoke is refused by the kernel's own reason mapped at kernel_codes.go:17 (-302 to ErrIdempotentReplay) or by the sequence reason when the kernel checks sequence first; the unbound-actor repeat is refused by the actor binding (ErrAuthScope)."
+severity = "high"
+
+[finding.22.2.6.4]
+task = "22.2.6"
+file = "precompiles/common/lxp_errors.go"
+symbol = "LXP_DA_MISSING"
+observed = "Attempt 4 (15 files, all within touches) leaves three failures: TestLXPRevertTable fails at main since 7da3446b4 (6.97.3) because spec/layerx-merge/contracts/address-table.md:337 still gives LXP_DA_MISSING a kernel origin (LXP_ERR_DA_MISSING = -804, include/layerx/lxp_result.h:149) that lxp_errors_test.go:28 matches while lxp_da_missing_row_test.go asserts the row is not kernel; TestRetiredAtMergePlan compares expectedBelow against the literal 0x101B/0x101C pair of do_7 while precompiles/setup.go:66-80 MergeAddressTable activates thirteen addresses; the service view StaticCall with exactly lp.RequiredGas(input) runs out of gas because RunAndCalculateGas (layerxpay.go, from 53300d320) charges the method row and then meters the store reads under GetCosmosGasLimitFromEVMGas, and gas.go:75 gives getDispute an empty row."
+assumption = "Three repairs in this task: the address-table origin is rewritten to a non-kernel origin so the two registry tests agree; expectedBelow derives from precompiles.MergeAddressTable; the service view rows cover the store reads each view performs and the test measures used gas with a budget instead of asserting zero left (decision 2348)."
+severity = "high"
+
+[finding.22.6.7.5]
+task = "22.6.7"
+file = "modules/layerxanchor/module.go"
+symbol = "ValidateGenesis"
+observed = "Attempt 7's rehearsal test fails at test_rewrite_genesis.py:270: validate-genesis of the exported, rewritten document refuses with 'failed to unmarshal layerxanchor genesis state: unexpected end of JSON input'. node/app.go:304 keeps layerxanchormodule.AppModuleBasic in the basic manager while :1241-1243 registers only its services outside the module manager (comment: no genesis, export or migration lifecycle after its store is deleted), so every export omits layerxanchor and module.go:48 ValidateGenesis unmarshals a nil message."
+assumption = "The module has no genesis lifecycle, so ValidateGenesis accepts an absent state and still refuses a malformed present one (decision 2349); rewrite_genesis.py needs no anchor handling."
+severity = "high"
+
+[finding.21.18.1.3]
+task = "21.18.1"
+file = "services/launchpad/social/internal/social/voice_v2_wire.go"
+symbol = "writeV2VoiceError"
+observed = "Attempt 6 passes every proof case but voice_create_moderation_and_tickets (proof test :870): malformed moderation actions are refused 400 with code INVALID_REQUEST while the proof expects FIELD_INVALID. voice_v2_wire.go:100 maps StatusBadRequest to INVALID_REQUEST since fb983a748 (21.69.1); the web consumer apps/launchpad/web/src/core/user-facing-error.ts:40 lists INVALID_REQUEST and FIELD_INVALID in the same invalidCodes set."
+assumption = "The producer's code is the contract set by 21.69.1 and the consumer accepts it; the proof over-specified the code."
+severity = "low"
+
+[finding.22.1.9.1]
+task = "22.1.9"
+file = "Makefile"
+symbol = "test-state-proof"
+observed = "Attempt 1 repairs the genesis and registry checks but make test-state-proof fails at Makefile:3097: cmp against services/human/crates/layerx-paxeer-client/tests/vectors/native-state-proofs.json, a file 10.26.6 deleted at 65b673e71 with the human client state-proof module; the first cmp against contracts/config/native-state-proofs.json is the live check."
+assumption = "The second cmp is stale; the Makefile joins touches and the line leaves."
+severity = "medium"
+
+[finding.21.45.1.3]
+task = "21.45.1"
+file = "services/agent/crates/layerx-proof/src/receipt.rs"
+symbol = "verify_receipt"
+observed = "Attempt 8 (funded-payer estimate and committed-state wait per do_9) passes two of three proof tests and fails proof_sdk.rs:824: verify_receipt on the real version-2 receipt with an AuthorizedBatch built from first.asset returns ReceiptCheck::Asset where the proof expected ReceiptCheck::ProtocolVersion ('version-2 summary must not claim economic verification'); receipt.rs accepts protocol version 2 at :344 and refuses at :375 because the batch asset differs from the summary's."
+assumption = "The verifier is right and the proof's premise is stale: version 2 is the verified protocol; the proof should prove economic verification succeeds with a matching batch and fails at Asset with a mismatched one."
+severity = "medium"
+
+[finding.21.95.1.4]
+task = "21.95.1"
+file = "rpc/sequencer_receipt.go"
+symbol = "receiptKeys"
+observed = "Attempt 8 (base e3c8f5e3c, node installed and started per do_10) passes seven of eight proof tests and panics at proof_native_reads.rs:55: the self-hosted node answers method not found for px_getReceiptKeys, which layerx-client sequencer.rs:515 calls; rpc/sequencer_receipt.go:311 computes the key list for internal use only and the comment at :165 defers the method to the gateway (finding 22.11.7.2 recorded the same gap)."
+assumption = "The node is the producer (decision 2345); task 22.9.28 serves the method and this proof requires it."
+severity = "high"
+
+[finding.20.4.3.1]
+task = "20.4.3"
+file = "rpc/ethclient_domain_test.go"
+symbol = "the chain-path ethclient test"
+observed = "Attempt 1 fails at ethclient_domain_test.go:132 'all sends must reach the mempool before the first proposal' (a timing premise the node does not promise: the proposer runs continuously) and its candidate also edits node/app.go (15 lines), node/sequencer/accept.go (7 lines) and adds node/layerxchains_block_test.go (313 lines), none of which is in touches, so they are never applied."
+assumption = "The proof waits for receipts instead of racing the proposer; a node defect the chain path exposes is recorded, not patched here."
+severity = "medium"
+
+[finding.22.9.18.3]
+task = "22.9.18"
+file = "services/agent/crates/layerx-sdk/src/lib.rs"
+symbol = "cargo test"
+observed = "Attempt 4 (base e7985f9e5) passes the schema, freshness, MCP and SDK binding tests it owns and still fails because the four-crate cargo test sweeps 41 targets: the tls_boundary.rs:183 trio (producer input, excluded by name under decision 2325 in 22.16.11), proof_sdk and proof_layerx_wallet_rpc (21.45.1's node-backed proofs), web_payments_layerxpay and v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes (the native corpus)."
+assumption = "The verify is narrowed to the targets this task owns (decision 2347); the native corpus test stays in because the SDK corpus is this task's subject."
+severity = "medium"
