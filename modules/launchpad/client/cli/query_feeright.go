@@ -12,9 +12,10 @@ import (
 
 func CmdQueryFeeRight() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "fee-right [collection] [id]",
-		Short: "Query a launchpad fee right by collection and ID",
-		Args:  cobra.ExactArgs(2),
+		Use:     "fee-right [collection] [id]",
+		Example: "layerxd query launchpad fee-right 0xe8DcC844a8006dbf64f5Bb851bCad90292a6409B 1 --output json",
+		Short:   "Query a launchpad fee right by collection and ID",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := strconv.ParseUint(args[1], 10, 64)
 			if err != nil {

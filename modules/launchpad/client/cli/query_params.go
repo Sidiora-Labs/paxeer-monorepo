@@ -31,9 +31,10 @@ func CmdQueryParams() *cobra.Command {
 
 func CmdQueryFeeAccounting() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "fee-accounting",
-		Short: "Query the launchpad fee accounting",
-		Args:  cobra.ExactArgs(0),
+		Use:     "fee-accounting",
+		Example: "layerxd query launchpad fee-accounting --output json",
+		Short:   "Query the launchpad fee accounting",
+		Args:    cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
