@@ -187,6 +187,7 @@ pub fn bind_purpose(
     asserted: &str,
     disclosure: &Disclosure,
 ) -> Result<PurposeBinding, BindingError> {
+    disclosure.validate().map_err(|_| BindingError::Corrupt)?;
     purpose_from_commitment(asserted, purpose_commitment(disclosure))
 }
 
@@ -218,6 +219,7 @@ pub fn bind_purpose_from_set(
     purposes: &ExplicitSet<Purpose>,
     disclosure: &Disclosure,
 ) -> Result<PurposeBinding, BindingError> {
+    disclosure.validate().map_err(|_| BindingError::Corrupt)?;
     purpose_from_set(purposes.values(), purpose_commitment(disclosure))
 }
 

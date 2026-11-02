@@ -5976,9 +5976,12 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 Some(human.nonce),
             )?;
             let prepared = signing.transaction;
-            let disclosure =
-                layerx_crypto::disclosure::call::bind_call(&prepared.call, signing.actor_address)
-                    .map_err(|_| HumanOperationError::Refused)?;
+            let disclosure = layerx_crypto::send::DisclosedCall::from_call(
+                prepared.call.clone(),
+                signing.actor_address,
+            )
+            .map_err(|_| HumanOperationError::Refused)?
+            .disclosure;
             let fee = crate::budget::native_fee_policy(&ops.node, snapshot.observed_head_sequence)
                 .map_err(|_| HumanOperationError::Unavailable)?;
             if authorization.envelope.payload_hash() != human.payload_hash
@@ -6231,9 +6234,12 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 Some(human.nonce),
             )?;
             let prepared = signing.transaction;
-            let disclosure =
-                layerx_crypto::disclosure::call::bind_call(&prepared.call, signing.actor_address)
-                    .map_err(|_| HumanOperationError::Refused)?;
+            let disclosure = layerx_crypto::send::DisclosedCall::from_call(
+                prepared.call.clone(),
+                signing.actor_address,
+            )
+            .map_err(|_| HumanOperationError::Refused)?
+            .disclosure;
             let fee = crate::budget::native_fee_policy(&ops.node, snapshot.observed_head_sequence)
                 .map_err(|_| HumanOperationError::Unavailable)?;
             if authorization.envelope.payload_hash() != human.payload_hash
