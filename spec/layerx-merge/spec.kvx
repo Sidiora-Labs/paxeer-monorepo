@@ -109803,7 +109803,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.22.8]
 title = "Delete the seller's kernel batch evidence reader that imports the retired SDK proof type"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125349,7 +125349,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.54.9]
 title = "Retire the custody, withdrawal, owner and replica-prefix daemon tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["5.0.3", "6.60.5", "8.19.2", "8.19.5", "8.20.2", "9.24.2", "16.2.4", "16.5.2", "16.8.3", "16.11.1"]
