@@ -31203,12 +31203,12 @@ notes = "planned; does not exist at HEAD"
 [interface.2.go-layerxpay-pc-newprecompile-j24]
 kind = "go_exported"
 path = "precompiles/layerxpay/layerxpay.go"
-line = 0
-signature = "func NewPrecompile(k *paykeeper.Keeper, evm *evmkeeper.Keeper, upgrade *upgradekeeper.Keeper, planName string) (*pcommon.Precompile, error)"
+line = 54
+signature = "func NewPrecompile(keeper *paykeeper.Keeper) (*pcommon.Precompile, error)"
 callers = []
-status = "new"
+status = "served"
 contract = "contracts/pay.md#layerxpay-0x101b"
-notes = "planned; does not exist at HEAD"
+notes = "served at HEAD with one argument; NewServedPrecompile(keeper, evm) at precompiles/layerxpay/layerxpay.go:66 wraps it for the node (decision 2299)"
 
 [interface.2.go-layerxpay-pc-payaddress-j24]
 kind = "go_exported"

@@ -17731,3 +17731,363 @@ symbol = "xwebInfo"
 observed = "attempts 2 of 21.19.1 (e7d32dde0) and 21.87.1 (9704de505) fail to build the node/sequencer test package: task 21.49.1 (83a683c37) changed position_test.go:114 to `func xwebInfo(t *testing.T)` while precompile_refresh_test.go:69 still calls xwebInfo(), so go test ./node/sequencer has not compiled on main since 21.49.1 landed."
 assumption = "21.19.1 repairs the call (xwebInfo(t)) because it is the lowest open proof in the package, and 21.87.1 requires 21.19.1 and does not edit precompile_refresh_test.go."
 severity = "medium"
+
+[finding.9.35.9.6]
+task = "9.35.9"
+file = "services/human/crates/layerx-human-kms/tests/provider/native_setup.rs"
+symbol = "setup_call"
+observed = "attempt 6 (b39145f0f) fails four tests of --test provider: native_setup_refuses_wrong_accounts_limits_and_payload_shapes asserts at :442 that layerx_crypto::disclosure::call::bind_call refuses a recordLifecycle call whose recovery body bytes are corrupted, but decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:453-470) validates only the 0x101c target, the selector, payload[0] == 0x71, the (payload[1], payload[2], payload[3], length) shape set (1,0,2,68), (1,2,1,8..=1024), (3,0,3,70), (3,0,5,86) and the 4..=1024 length, so a body corruption binds; native_creation_disclosures_sign_through_real_kms_before_and_after_restart stops with 'native creation calls refused: ActivityType(458753): MalformedPayload', 458753 being 0x0007_0001, Governance ordinal 1 (ModuleId::Governance = 7, services/agent/crates/layerx-types/src/payload.rs:22), the onboarding consent the test's own comment says has no recordLifecycle call form; owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart and session_registration_and_replacement_disclosures_survive_provider_restart stop with a bare MalformedPayload from the canonical_send then construct_signing_call chain (the raising sites are services/agent/crates/layerx-crypto/src/send.rs:65, :79, :144, :146 and :243 and disclosure/call.rs decode_send) without naming the stage."
+assumption = "the native creation fixtures are bound with bind_call one by one before any signing and a fixture the binder refuses is dropped from the signing set and recorded as a finding instead of failing the run; corruption cases assert bind_call refusals only for what decode_method checks (target, selector, payload[1..4], length) and assert body corruptions at the provider's result byte; the two grant cases check each stage of canonical_send separately so a refusal names its stage."
+severity = "medium"
+
+[finding.21.53.1.1]
+task = "21.53.1"
+file = "programs/crates/layerx-programs-arbiter/src/authority.rs:788"
+symbol = "native-fee-authority-version"
+observed = "attempt 3 (df9135522) fails three proof cases (authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice, keeper_admission_reaches_existing_step_consumer_twice, keeper_namespaces_cross_public_items_into_market_consumer_twice) with a panic in authority.rs: the policy key is built by policy[..28].copy_from_slice(b'native-fee-authority-version\0'), a 29-byte source into a 28-byte destination, so every path that reaches the native fee authority check panics; the Go and C producers (include/layerx/lxp_authority.h:120, modules/lxphost/fee_record_load_test.go:44, precompiles/layerxauth/grants_test.go:235) write the 28-byte name zero-padded to 32 bytes."
+assumption = "authority.rs is under the task's touches, so per do_4 the proof repairs it in place: the copy takes the 28-byte literal without the trailing NUL (the 32-byte key stays zero-padded), the repair is named in the test's module doc comment and the commit message, and the three cases pass."
+severity = "major"
+
+[finding.18.1471.1.4]
+task = "18.1471.1"
+file = "precompiles/layerxanchor/retire_gate_test.go:19"
+symbol = "anchorRetirementWrites"
+observed = "attempt 3 (ef112d36c) fails its verify in precompiles/layerxanchor with 'index out of range [0] with length 0' at retire_gate_test.go:19 and :138: anchorRetirementWrites reads h.fixture['context'][0], h.checkpointArgs('batch_1_quorum') and h.attestation('batch_1_attestation_1'), which the removed checkpoint vector loaders supplied, and newHarness (layerxanchor_test.go:85-112) no longer fills fixture; TestRetiredWritesRevertAfterMerge, TestWritesServedBeforeMerge and TestRetiredPayableWriteKeepsValue all go through it, and the file is not under the task's touches."
+assumption = "18.1471.1 ports retire_gate_test.go off the removed loaders the way it ports the other four tests: the write arguments are built in-test (an operator-registered guarantor, an in-test checkpoint and attestation built from the harness signers) and a write form whose only producer was a removed vector asserts the retired revert on fixed arguments; the module_retired_route_test.go failure of attempt 3 (TestAppRoutesNoAnchorMessages) was against a base older than 2888be80d, which rewrote that test on main."
+severity = "medium"
+
+[finding.21.5.1.2]
+task = "21.5.1"
+file = "tools/qualification/paxeer-x/arbiter-admission.py:21"
+symbol = "tests/daemon/lxp_test_arbiter_admission.c"
+observed = "attempt 3 (8bc46645a) fails test_replay_make_transport_persists_and_repeated_producer_is_idempotent on 'missing repository producer: tests/daemon/lxp_test_arbiter_admission.c': task 5.54.5 (eaf704009) deleted the nine batch-WAL daemon tests and relied on a wiring request to remove their references, but tools/qualification/paxeer-x/arbiter-admission.py:21, arbiter-native-authority.py:81, program-replay-record.py:28, replay-authority.py:27, replay-catalogue.py, arbiter-prestate-transport.py and native-programs-link.py still name them, and the build fragments tools/paxeer-x/build/104.35.12.mk, 104.35.15.mk, 104.35.20.mk, 104.35.29.mk and 104.35.35.mk (included by Makefile:3157-3161) still compile them."
+assumption = "a closure task (22.16.4) retires the dead references: a script whose every native producer was deleted goes with its build fragment and Makefile include line, a script with retained producers drops the deleted entries, and a test under tests/ci asserts every tests/daemon path named by the qualification scripts, the build fragments and the Makefile exists; 21.5.1 requires it and its proof keeps asserting the producers the scripts name at HEAD."
+severity = "medium"
+
+[finding.22.90.9.1]
+task = "22.90.9"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:610"
+symbol = "bound_activity"
+observed = "attempt 1 (base 9e893caa1) cannot build layerx-human-service: error[E0004] non-exhaustive patterns, Some(ConstructMethod::ProgramCall { .. }) not covered at create.rs:610; 1c029af18 (task 9.24.9) added the ProgramCall variant to layerx_crypto::disclosure::call::ConstructMethod and the lifecycle binding match was never extended, so every crate test target in services/human that links the library is red on main."
+assumption = "task 9.100.2 already owns the arm (its do_1 adds ProgramCall to the refusing arm at :664-667); 22.90.9 requires 9.100.2 and reruns once it lands, and the known-broken list is not widened for a defect with an owner."
+severity = "major"
+
+[finding.9.100.2.2]
+task = "9.100.2"
+file = "services/human/crates/layerx-human-service/tests/agent_create.rs:955"
+symbol = "creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths"
+observed = "attempt 4 (base 9e893caa1) fails creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths at agent_create.rs:955: assert_eq!(signed_call, call) compares the EIP-1559 call decoded from canonical_owner::sign_transaction (max_fee_per_gas 10) with the hand-built call of the test (max_fee_per_gas 3); the two are produced by different code and the fee ceiling of the support signer is not the test's constant."
+assumption = "the ProgramCall refusal case asserts the refusal and the unchanged happy path only; where the test needs a signed creation it signs the very call it built (or decodes the signed bytes and uses that call for every later assertion) instead of asserting equality between two independently built calls."
+severity = "medium"
+
+[finding.21.87.1.1]
+task = "21.87.1"
+file = "node/sequencer/precompile_refresh_test.go:69"
+symbol = "xwebInfo"
+observed = "attempts 3 of 21.87.1 (dc73bcc87) and 21.19.1 (7e34a603e) fail with 'node/sequencer/precompile_refresh_test.go:69:10: not enough arguments in call to xwebInfo, have (), want (*testing.T)': 4aa2bd0da (task 5.4.2) wrote precompile_refresh_test.go against the old helper while position_test.go:114 now declares xwebInfo(t *testing.T), so the whole node/sequencer test package fails to build on main and every proof in it is blocked."
+assumption = "a closure task (22.5.5) passes t to xwebInfo at :69 and runs TestExecutorOpenRefreshesPrecompilesItself; 21.87.1 and 21.19.1 require it and continue unchanged."
+severity = "major"
+
+[finding.21.92.1.1]
+task = "21.92.1"
+file = "rpc/watermark_manager.go:103"
+symbol = "resolvePending"
+observed = "attempt 2 (base cf792cc21) fails proof_agent_boundary_conformance_real_producers_reopen_and_reach_make_twice: the node RPC boundary conformance is refused with 'pending eth_getBalance unavailable: Rpc(RpcRefusal { code: -32000, message: pending block unavailable: sequencer: no block is open })'; StateAPI.GetBalance resolves the pending tag through WatermarkManager.resolvePending (rpc/watermark_manager.go:95-105), which returns the error of pending.Snapshot() when the proposer has no block open (rpc/utils.go:54 ErrLayerNotOpen), while rpc/simulate.go:394 documents that reads return the latest committed block while no block is open."
+assumption = "a closure task (22.7.2) makes resolvePending return the latest committed height while no block is open, so pending state reads answer from the committed state exactly as simulate does, and refuse only when pending is served by another node (ErrPendingServedBySequencer) or the snapshot fails for another reason; 21.92.1 requires it."
+severity = "major"
+
+[finding.6.96.6.2]
+task = "6.96.6"
+file = "modules/layerxanchor/keeper/keeper_test.go:195"
+symbol = "suite.submit"
+observed = "attempt 5 (base 9e893caa1) fails seven keeper tests (TestBondReturn, TestBondReturnClosedChallenges, TestBondReturnRollback, TestMergeHandlerRetiresAnchor, TestRetireAtMergeReturnsBondsAndEmits, TestAnchorRetirementRehearsal, TestExportAfterRetireValidates) with 'SubmitCheckpoint: LXP_MODULE_DISABLED: layerxanchor retired' raised at modules/layerxanchor/keeper/checkpoints.go:57 through suite.submit (keeper_test.go:195), and four precompile tests (TestRetiredWritesRevertAfterMerge, TestWritesServedBeforeMerge, TestRetiredPayableWriteKeepsValue, TestReadsServedUntilStoreDelete) that task 18.1471.1 ports; the keeper tests predate the retirement and only keeper_test.go is under this task's touches."
+assumption = "a closure task (22.6.3) reconciles the keeper test package with the retired module (pre-merge behaviour runs in a pre-merge context, post-merge submissions assert the refusal, unreachable behaviour is deleted with its fixtures); 6.96.6 requires 22.6.3 and 18.1471.1 and reruns its verify unchanged."
+severity = "major"
+
+[finding.21.43.1.1]
+task = "21.43.1"
+file = "modules/layerxpay/types/proof_views_test.go:396"
+symbol = "escrow_result"
+observed = "attempt 4 (67f681351) fails TestProofViews/escrow_result at :396: the per-record check requires r.TransferSetRoot to equal escrowEconomicReceipt.TransferSetRoot, which the same subtest asserts is zero at :383 ('current module_execute omits the outer receipt's economic binding') while asserting at :386 that the stored result's root is non-zero; the check contradicts the two assertions above it."
+assumption = "the check compares the observed view with the stored producer record (stored.TransferSetRoot), the :383 and :386 assertions stay as the documented finding, and the module doc comment names module_execute as the path that omits the economic binding in the outer receipt."
+severity = "medium"
+
+[finding.21.44.1.1]
+task = "21.44.1"
+file = "rpc/raw_tx.go:72"
+symbol = "GetRawTransactionByHash"
+observed = "attempt 2 (fee5617101) fails the null round for eth_getRawTransactionByHash and the two raw-by-index surfaces: the proof expects JSON null for an unknown hash or index while the server answers '0x'; rpc/raw_tx.go:72 and rpc/raw_tx_index.go:64 return a nil hexutil.Bytes, which marshals as '0x', exactly what go-ethereum's GetRawTransactionByHash and the raw-by-index handlers return for an unknown transaction, while the uncle counts return a nil *hexutil.Uint (JSON null)."
+assumption = "the proof's null round splits by surface: the three raw-transaction methods expect '0x' (decision below) and the uncle surfaces expect null; the server does not change."
+severity = "medium"
+
+[finding.21.160.1.1]
+task = "21.160.1"
+file = "services/agent/sdk/typescript/test/precompile-calls.test.ts:128"
+symbol = "consumeExchangeCall"
+observed = "attempt 2 (base 2b778fb97) fails before any proof case runs: proof_exchange.test.ts imports consumeExchangeCall and consumeExchangeSettlementRequest from ./precompile-calls.test.js and consumeExchangePlaceOrderCall from ./xweb-api.test.js, so those files' module-level assertions execute on import, and the assertion the attempt added at precompile-calls.test.ts:128 (assert.ok on the placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8) entry) reads undefined because the catalogue it indexes is keyed differently from the signature string."
+assumption = "the shared consumers move to a support module without top-level assertions (test/support/exchange_consumers.ts) imported by all three tests, and the placeOrder lookup indexes src/generated/precompile-writes.ts by the key it actually exports."
+severity = "medium"
+
+[finding.21.18.1.1]
+task = "21.18.1"
+file = "services/launchpad/gateway/internal/proxy/proof_launchpad_gateway_test.go:535"
+symbol = "TestProofLaunchpadGateway"
+observed = "attempt 3 (base d69139111) fails with 'GATEWAY_PROOF_SOCIAL_BIN must name the prebuilt real sociald executable': the proof reads the producer binary's path from an environment variable, which decision 2292 forbids (the proof hosts or builds its producers and never reads a path from the environment)."
+assumption = "the test builds sociald itself from this repository into t.TempDir() (go build ./cmd/sociald with Dir set to services/launchpad/social) or starts the social server in-process on a loopback listener, and the build_cmd also builds ./cmd/sociald so a build failure is reported before the verify."
+severity = "medium"
+
+[finding.21.95.1.1]
+task = "21.95.1"
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+symbol = "proof_native_reads"
+observed = "attempt 3 (base f5afca7a9) fails to build the proof_native_reads target: error[E0433] unresolved module layerx_mcp; the consumer the proof crosses into lives in layerx-mcp (src/boundary.rs), and layerx-mcp depends on layerx-agentd (layerx-mcp/Cargo.toml:17), so layerx-agentd cannot name layerx-mcp even as a dev-dependency without a cycle."
+assumption = "the proof moves to the consumer crate: services/agent/crates/layerx-mcp/tests/proof_native_reads.rs, which reaches the daemon producer through layerx-agentd as a normal dependency; the build and verify target layerx-mcp."
+severity = "medium"
+
+[finding.21.130.1.1]
+task = "21.130.1"
+file = "programs/crates/layerx-programs-runtime/src/lib.rs:51"
+symbol = "read_native_receipt_authority"
+observed = "attempt 3 (base 5c1ff3a38) fails to build proof_runtime_crate with error[E0432] unresolved import layerx_programs_runtime::read_native_receipt_authority; at main the symbol is exported under the host-ffi feature at lib.rs:49-54 and the build passes --features host-ffi, so the base predates the export."
+assumption = "the attempt continues rebased onto main with no change to the import."
+severity = "low"
+
+[finding.21.45.1.1]
+task = "21.45.1"
+file = "services/agent/crates/layerx-sdk/tests/proof_sdk.rs:296"
+symbol = "proof_sdk_requires_the_real_evm_producer_in_the_declared_build"
+observed = "attempt 3 (base 6c6fef171) fails by design at proof_sdk.rs:296: 'missing producer cmd/paxd/main.go: the declared SDK-only build does not build paxd', so RpcClient::get_identity_sequence/estimate_fee and Wallet::create/execute/wait_for have no producer to cross into."
+assumption = "the build_cmd installs the node (make -f chain.mk install) and the proof starts it from the repository script tools/qualification/localnode/v6120-node.sh --sequencer --env-out <tempdir>/localnode.env, reads the RPC endpoint from the file it just produced, and stops the node when done; this is the path 3.54.7 already qualifies with."
+severity = "medium"
+
+[finding.18.1477.1.2]
+task = "18.1477.1"
+file = "services/platform/middleware/conformance/connected.mjs:84"
+symbol = "main"
+observed = "attempts 1-4 (latest 283a63a87) fail at phase 'protected inputs': connected.mjs reads its private fixture path from LAYERX_CONNECTED_MIDDLEWARE_FIXTURE (:84) and the merchant, agent RPC and tenant from the environment, which only the operator-run gate tools/paxeer-x/gates/104.16.2.sh provides; the qualification environment has none of them, so node --test connected.mjs can never pass there regardless of the repair."
+assumption = "the verify keeps the five builds (they prove every dist import resolves) and node --check, and asserts the repair statically: the EVM field assertions read prepared.* after the spend call and the eip1559SigningHash binding is present, while no assertion reads preparation.signing_hash from the request; the genuine-service run stays with gate 104.16.2."
+severity = "medium"
+
+[finding.8.101.4.2]
+task = "8.101.4"
+file = "services/platform/hosted/gateway/tests/local/"
+symbol = "tests/local"
+observed = "attempt 5 (3eef50de1) edited Cargo.toml, README.md, lifecycle_sdk.rs and verifier.rs under tests/local again instead of deleting the directory, so the first verify clause (! test -d services/platform/hosted/gateway/tests/local) failed as in attempt 4; the directory is not a workspace member of services/platform/Cargo.toml (only hosted/gateway is, :13), so deleting it breaks no build."
+assumption = "the directory is removed with git rm -r and nothing under it is ported; the verify is unchanged."
+severity = "medium"
+
+[finding.18.1443.1.2]
+task = "18.1443.1"
+file = "tests/bridge/retired/kernel_retirement.py:297"
+symbol = "assert_retired"
+observed = "attempt 4 (base 2b778fb97) fails four retirement checks on references that are not live uses: tests/ci/test_requested_retirements_absent.py:23 and tests/ci/test_retired_solidity_checkpoint.py:8 (tests asserting the retirement of contracts/challenge/CheckpointChallengeManager.sol), tests/bridge/retired/test_retired_daemon_consumers.py:9 and :12 (the same for comet_credit.py and owner-custody.py), tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh:483 (a shell comment containing the word EOA, matched as the stem of contracts/libraries/EOA.sol) and tools/qualification/paxeer-x/movement-custody-profile.py:154 (the document name 'owner-custody.json', matched as the stem of tests/bridge/owner-custody.py)."
+assumption = "the scan matches code references only (import statements and path strings naming the retired file, stem matches bound to identifier or path boundaries and never inside comment lines), skips the retirement-assertion files (tests/bridge/retired/**, tests/ci/test_*absent*.py, tests/ci/test_retired_*.py, cmd/retirement/**), and the harness test covers one comment false positive, one document-name false positive and one retirement-assertion file alongside the live-import positive."
+severity = "medium"
+
+[finding.18.1484.1.3]
+task = "18.1484.1"
+file = "tools/bringup/check-live.test.sh"
+symbol = "check_live_relay_env_absent"
+observed = "attempt 4 (370bc2f59) fails the verify's grep for '^ok   check_live_relay_env_absent$': the harness prints its case results as 'ok   <name>' (three spaces, :707, :742) and the attempt's harness contains no case printing that name, so either the case was renamed or it stops the suite before it reports."
+assumption = "the case keeps the name check_live_relay_env_absent and reports through the harness's ok line; the verify is unchanged."
+severity = "low"
+
+[finding.20.7.1.1]
+task = "20.7.1"
+file = "apps/launchpad/web/src/widgets/create-chain/chain-domain.test.mjs"
+symbol = "chain-domain.test"
+observed = "attempt 2 (f317ec3c2) wrote chain-domain.test.mjs; the launchpad web vitest config includes src/**/*.test.ts and src/**/*.test.tsx only, so vitest reports 'No test files found' and exits 1."
+assumption = "the test is chain-domain.test.ts as touches and the verify already name; the .mjs file is removed."
+severity = "low"
+
+[finding.22.91.22.1]
+task = "22.91.22"
+file = "spec/layerx-merge/programme/sweeps/go-cmd.kvx"
+symbol = "targets_total"
+observed = "attempt 1 (800af9c46) wrote the go-cmd sweep report with targets_total = 0 and no target block because go list ./cmd/... matches no package at the root module (cmd/ holds C, Rust and Python sources only); the verify requires targets_total >= 1 and at least one target block, so an honest empty inventory cannot pass."
+assumption = "the go-cmd verify accepts targets_total = 0 with no target block when the report carries the enumeration command and its observed empty result; every other sweep keeps the non-empty rule."
+severity = "low"
+
+[finding.22.16.4.1]
+task = "22.16.4"
+file = "tools/qualification/paxeer-x/agent_operation_envelope.py:123"
+symbol = "SOURCES"
+observed = "attempt 1 (859546948) fails its own new check: tools/qualification/paxeer-x/agent_operation_envelope.py:123 lists tests/daemon/lxp_test_runtime_fixture.c in SOURCES and no such file exists in tests/daemon (it was deleted with its producer); the file is outside the task's touches."
+assumption = "the SOURCES entry is dropped (the envelope qualification's remaining sources are retained paths) and the file joins touches; the test's rule that every named daemon producer exists stands."
+severity = "low"
+
+[finding.22.13.6.1]
+task = "22.13.6"
+file = "tests/test_genesis_module_table.c"
+symbol = "genesis.module-table.defaults"
+observed = "attempts 1 and 2 changed src/protocol/lxp_genesis.c and tests/protocol/lxp_test_genesis_storage_retirement.h but the test behind make test-genesis-module-table is tests/test_genesis_module_table.c, outside the task's touches, so the extended assertion do_1 asks for could not be written and the scope check refused the candidate."
+assumption = "tests/test_genesis_module_table.c joins the touches; the assertion that the genesis programs registration lists the storage retirement activity type goes there."
+severity = "minor"
+
+[finding.22.5.4.1]
+task = "22.5.4"
+file = "node/app.go:3355"
+symbol = "LastBlockID"
+observed = "attempt 1 found that RequestFinalizeBlock carries the block hash but no part-set header and Commit receives only a context, so a full tmproto.BlockID is not available to the application; attempt 2 then failed its verify on node/sequencer/precompile_refresh_test.go:69 calling xwebInfo() without its *testing.T argument, which task 22.5.5 repairs."
+assumption = "LastBlockID returns the committed block's hash as consensus delivered it in RequestFinalizeBlock with an empty PartSetHeader when the ABCI path carries none; node/sequencer/executor.go:262 carries that id into the next header; the test asserts the Hash and tolerates the empty part set; 22.5.4 requires 22.5.5."
+severity = "medium"
+
+[finding.22.5.5.1]
+task = "22.5.5"
+file = "node/sequencer/precompile_refresh_test.go:69"
+symbol = "TestExecutorOpenRefreshesPrecompilesItself"
+observed = "attempt 1 repaired the xwebInfo(t) call and built, then the verify failed inside xwebInfo at node/sequencer/position_test.go:117: precompiles.GetPrecompileInfoE(xweb) fails with 'merge precompile layerxpay at 0x101B: LXP_PRECOMPILE_NO_CONTEXT: LayerXPayKeepers is required' (precompiles/layerxpay/layerxpay.go:78-80 asserts the keepers value implements LayerXPayKeepers); the inventory saw the same refusal in tests/chain (tests/testutil/processblock/msgs/feetoken.go:70) and tests/occ (precompiles/setup.go:422 from tests/occ/messages/test_msgs.go:121), and the layerxchains keeper missing in precompiles/layerxagent/oracle, scheduler and streams merge tests."
+assumption = "a closure task (22.6.4) makes precompile info resolution independent of the merge keepers and gives every test harness that builds the merge table the layerxpay and layerxchains keepers; 22.5.5 requires it."
+severity = "major"
+
+[finding.22.4.3.1]
+task = "22.4.3"
+file = "services/launchpad/social/migrations/00002_dev_v2_social.sql"
+symbol = "TestSchemaSourcesExist"
+observed = "attempts 1 and 2 (47cfca2b9) assert 22 chat tables over the service's goose migrations, but the service's own migrations create only chat.interaction_comments, interaction_reactions, interaction_mutations, interaction_aggregate_revisions, comment_moderation, outbox, erased_wallets and visibility_revision; interaction_blocks, callout_authority, callout_refs, erasure_jobs, erasure_receipts, feed_projection, follows, graph_revisions, mutes, preferences, notification_intents and public_events are queried by internal/interactions/policy.go, erasure.go and internal/app/app.go yet created only by launchpad/spec/production-system/integration/migrations/360001.sql and 370001.sql."
+assumption = "a closure task (22.4.4) adds the service's own migration 00005 declaring the missing chat tables and functions from the production DDL with a migrations-package test that every chat.<table> the Go SQL references is created in an Up section; 22.4.3 requires it."
+severity = "major"
+
+[finding.22.9.10.1]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/test/program-lifecycle.test.ts:118"
+symbol = "decodeNativeProgramCallV1"
+observed = "attempts 1 and 2 fail npm test at dist/test/program-lifecycle.test.js:133 'Missing expected exception': the lifecycle test loops guestAbi over [3, 4] as valid and [0, 5, 65535] as invalid, but src/native-program-call.ts:14 admits guestAbi 1 to 5 and src/ai_market.ts:52 exports GUEST_ABI 5 since 9192a4c02 (task 9.97.8 added native-abi5.test.ts); the package test script runs every dist/test/*.test.js so the stale assertion fails the whole run before the market tests."
+assumption = "a closure task (22.9.14) moves the lifecycle test to [3, 4, 5] valid and [0, 6, 65535] invalid; 22.9.10 requires it."
+severity = "medium"
+
+[finding.22.10.6.1]
+task = "22.10.6"
+file = "services/platform/hosted/human/test_material.py:58"
+symbol = "test_custody_bindings_resolve_to_the_native_custody_precompile"
+observed = "attempts 1 and 2 (e9f12cb94) pass the task's own test test_owner_policy_limit_id_is_sixteen_bytes but the verify runs the whole file: test_custody_bindings_resolve_to_the_native_custody_precompile (:58) requires PAXEER_X_HUMAN_EVIDENCE_DIR, PAXEER_X_HUMAN_DEPLOYMENT, PAXEER_X_MODULE_REGISTRY, PAXEER_X_HUMAN_GENESIS_DIR and PAXEER_X_HUMAN_LEGACY_DEPLOYMENT and refuses with 'required genuine producer input is missing' in any clean checkout (decision 2292 forbids environment-only inputs); test_explorer_read_principal_is_generated_admitted_and_published (:182-192) joins two lines of the apply_secret call while the call at services/platform/hosted/paxeer/beta-cluster.sh:1352-1354 spans three; test_bootstrap_has_no_unpublished_human_secret_dependencies (:225-233) asserts guarantor-1 and guarantor-2 containers that ab7537de3 (task 8.18.1) removed from services/platform/hosted/node/deployment.yaml."
+assumption = "a closure task (22.10.7) makes the three tests hermetic and current; 22.10.6's verify narrows to its own test with -k limit_id and the task requires 22.10.7 so the file passes whole at closure."
+severity = "medium"
+
+[finding.22.16.5.1]
+task = "22.16.5"
+file = "tools/containers/check.sh:295"
+symbol = "copy_inputs"
+observed = "attempts 1 to 3 placed the six Dockerfiles in scope, then the all-services branch failed on docker/platform-internal/Dockerfile:18 (COPY artifacts/layerx-kms artifacts/layerx-event-source in the stage env-init-prebuilt with ARG KMS_SHA256 and EVENTS_SHA256) and docker/platform-webhooks/Dockerfile:16 (COPY artifacts/layerx-webhooks): copy_inputs (:295-327) requires every COPY or ADD source without --from to exist under the context, and nothing in the tree produces artifacts/, which the release pipeline supplies."
+assumption = "copy_inputs treats a COPY source under artifacts/ inside a stage whose name ends in -prebuilt as a pipeline input that must be pinned by an ARG <NAME>_SHA256 in that stage and does not require the file to exist; the check records the rule in its test."
+severity = "medium"
+
+[finding.22.16.4.2]
+task = "22.16.4"
+file = "tests/codec/lxp_test_receipt_authority_v2.c:117"
+symbol = "lxp_verified_receipt_authority_facts"
+observed = "attempt 2 (151d70fc4) passed the producers check once the runtime fixture producer was added, but tests/ci/test_requested_suites_absent.py::test_arbiter_native_authority_absent, which the verify runs, fails on tests/codec/lxp_test_receipt_authority_v2.c:117 declaring lxp_verified_receipt_authority_facts facts, a retired symbol the suite asserts absent from the tree."
+assumption = "the codec test joins the touches and its case moves off the retired facts type to the current receipt authority verification result, or the case is removed when the retired path has no replacement; the retirement check then passes."
+severity = "medium"
+
+[finding.22.9.12.1]
+task = "22.9.12"
+file = "services/agent/crates/layerx-agentd/src/human_owner_mode.rs:2"
+symbol = "human_owner_mode"
+observed = "attempt 1 built, then the dependent-crate check failed on layerx-agentd-host (bin layerx-agentd and the host tests runtime_mode, serve_routes, node_integration, retired_env compile ../layerx-agentd/src/main.rs, whose mod human_owner_mode imports super::parse_request, super::response, super::DeadlineStream and super::Parsed; main.rs:60-61 re-exports them from serve_http with pub(crate) use, which the host crate's compilation does not see) and on layerx-human-service (agents/create.rs:610 non-exhaustive match on ConstructMethod::ProgramCall, task 9.100.2); attempts 2 of 22.9.13 and 22.9.7 stopped on the same two crates."
+assumption = "a closure task (22.9.16) makes the host crate compile all its targets by importing the HTTP helpers from serve_http directly; the three tasks require it and 9.100.2."
+severity = "major"
+
+[finding.20.3.4.1]
+task = "20.3.4"
+file = "modules/layerxchains/keeper/keeper.go:180"
+symbol = "SendCoinsFromAccountToModule"
+observed = "attempt 2 (05d8b80ac) fails both block tests at accept() with 'EVM revert: LXP_UNKNOWN: unknown; invalid bank recipient': the keeper bonds (:180), funds (:210) and refunds (:295) against sdk.AccAddress(operator.Bytes()), the raw cast of the EVM address, while the bank's recipient checker (node/app.go:883 RegisterRecipientChecker(EvmKeeper.CanAddressReceive), modules/evm/keeper/address.go:81) refuses a cast address that has a different associated pax address; precompiles/layerxchains/layerxchains.go:181 resolves the module address through GetPaxAddressOrDefault but the caller through the raw cast."
+assumption = "a closure task (20.3.5) resolves every operator or caller EVM address in the chains keeper and precompile through the EVM association (GetPaxAddressOrDefault) for bond, fund and refund; 20.3.4 requires it."
+severity = "major"
+
+[finding.21.11.1.2]
+task = "21.11.1"
+file = "precompiles/layerxpay/proof_layerxledger_0x101a_test.go:267"
+symbol = "payExact"
+observed = "attempt 3 (93fd472f5) fails the restart leg: after Commit, Close and reopen a repeated payExact with the same PaymentReference succeeds where the proof expects the duplicate revert; payexact.go passes PaymentReference as the IdempotencyKey into k.execute (execute.go:33-60), the kernel keeps idempotency receipts in-kernel (src/protocol/lxp_kernel.c:2905 lxp_kernel_idempotency_receipt_validate, :3564 idempotency_count) and modules/lxphost/ctx.go:65 reserves prefix 0x04 for idempotency in the host store, so the record is not reloaded into the kernel when the node reopens."
+assumption = "a closure task (22.2.7) makes the ledger reload or re-check the idempotency records from the host store after a restart so a duplicate reference is refused before and after reopen; 21.11.1 requires it."
+severity = "major"
+
+[finding.3.54.7.1]
+task = "3.54.7"
+file = "services/platform/perps-data/internal/explorer/server.go"
+symbol = "txQuery"
+observed = "attempts 1 to 3 stopped at the scope check: the collateral deposit explorer link needs internal/store/facts.go, internal/explorer/explorer.go (:483 Link: e.TxLink(hash)) and internal/explorer/server.go (txQuery reads perps.tx_actions) plus the route contract spec/release-v6-12-0/contracts/data-services.md, none under the touches; §16 of the contract maps six actions (Place Order, Cancel Order, Modify Order, OROB Fill, Oracle Updated, Sealed Batch Executed) and no collateral deposit, so GET /api/chain/tx/<hash> answers 404 for a deposit transaction while §17 promises collateral events with explorer links."
+assumption = "the four files join the touches and the collateral deposit becomes the seventh tx_actions action in §16 so the history link resolves; continue from attempt 3."
+severity = "medium"
+
+[finding.20.4.4.1]
+task = "20.4.4"
+file = "rpc/rpcstack.go:454"
+symbol = "DomainScopeFrom"
+observed = "attempt 2 fails the committed subtest with a log-hash mismatch (rpc/domain_ws_test.go:151) because rpcstack.go applies WithDomainScope on the HTTP path (:247-258) and not on the WebSocket path, and the receipted subtest fails in rpc/pending_filter_test.go:112 because the harness submits with gas wanted 200000 while Block.MaxGasWanted is 0; both files are outside the touches."
+assumption = "rpc/rpcstack.go and rpc/pending_filter_test.go join the touches: the WebSocket path carries DomainScope and the harness sets Block.MaxGasWanted; continue from attempt 2."
+severity = "medium"
+
+[finding.21.142.1.1]
+task = "21.142.1"
+file = "apps/web/src/perf/budgets.ts"
+symbol = "classifyPerformanceRoute"
+observed = "attempt 3 fails apps/web/e2e/explorer-admission.test.ts:19 because classifyPerformanceRoute returns 'explorer' for a linked explorer path (explorerLinkPath of a receipt, transaction or address target) where the test expects undefined, and the classifier and apps/web/src/explorer/links.ts are outside the touches; apps/web/src/app/explorer has accounts, lookup, programs and receipts pages and no batches page."
+assumption = "apps/web/src/perf/budgets.ts and apps/web/src/explorer/links.ts join the touches: the classifier admits only EXPLORER_NAVIGATION routes as explorer and linked receipt, transaction and address paths classify as undefined; continue from attempt 3."
+severity = "medium"
+
+[finding.22.2.4.1]
+task = "22.2.4"
+file = "modules/layerxauth/keeper/revoke_test.go:110"
+symbol = "GetCleanAuthorization"
+observed = "attempt 2 (a2f2bc382) passed the ante tests but the keeper package fails: revoke_test.go:109-111 and proof_layerxauth_keeper_test.go:218-219 assert GetCleanAuthorization returns nil after RevokeGrant, which is the deletion do_1 stops; and TestGrantCapability/mirror (capability_test.go:88) expects LXP_IDEMPOTENT_REPLAY for a repeated grant but receives LXP_SEQUENCE_REUSED, a pre-existing failure the inventory also recorded."
+assumption = "the two keeper tests join the touches and assert the retained authorization with RevocationEpoch advanced; the verify narrows to the ante package and the revoke and proof tests; the replay ordering goes to task 22.2.5."
+severity = "medium"
+
+[finding.18.1496.1.1]
+task = "18.1496.1"
+file = "precompiles/layerxchains/layerxchains_test.go"
+symbol = "TestDefaultParamsQuoteOneHundredAndTenPax"
+observed = "attempt 2 (37f32f0cf) passed the module tests but the precompile test's refusal leg fails: do_3 probes createChain with 110e18 - 1 wei, and the precompile refuses a value with a wei remainder below one bank unit (10^12 wei) before it reaches the bond comparison, so the bond-too-low reason is never returned."
+assumption = "the probe becomes 110e18 - 10^12 wei (one bank unit short, no remainder) for the bond-too-low reason, and a second probe with 110e18 - 1 wei asserts the remainder refusal; continue from attempt 2."
+severity = "minor"
+
+[finding.21.92.1.2]
+task = "21.92.1"
+file = "services/agent/tests/boundary/src/production.rs"
+symbol = "transfer"
+observed = "Attempts 3 and 4 (bases 69fde7595 and 5efa30a4c): the proof's second crossing signs with the nonce eth_getTransactionCount pending returns after the first transfer's receipt resolved, and eth_sendRawTransaction refuses it with RpcRefusal -32000 'incorrect account sequence' (production.rs:148), so the node served the committed nonce for pending while the first transfer was already executed."
+assumption = "The pending nonce path (rpc/tx.go:472 pendingNonce via WatermarkManager.PendingContext, rpc/watermark_manager.go:103 pendingHeight falling back to the latest committed height) loses the open-versus-idle identity that issue #1502 describes; the producer in this task's touches is correct to ask the node for the pending nonce before each crossing."
+severity = "high"
+
+[finding.21.142.1.2]
+task = "21.142.1"
+file = "sdk/wallet/src/index.ts"
+symbol = "sendTransaction"
+observed = "Attempt 4 (base 5e4cc2862): npm --prefix apps/web run typecheck exits 2 with TS2379 at sdk/wallet/src/index.ts:230 (assertSendTxResponse(response, { chainId: tx.chainId }) passes number | undefined to a readonly chainId?: number parameter under exactOptionalPropertyTypes); apps/web/tsconfig.json:33 includes the wallet sdk sources, and a25c21614 (task 21.131.1) wrote the line."
+assumption = "The wallet sdk's own tsconfig does not set exactOptionalPropertyTypes, so its build passed while every apps/web task is broken at the base; task 22.12.5 repairs the call and the explorer proof requires it."
+severity = "high"
+
+[finding.22.10.7.1]
+task = "22.10.7"
+file = "services/platform/hosted/human/test_material.py"
+symbol = "test_custody_bindings_resolve_to_the_native_custody_precompile"
+observed = "Attempt 1 (base 5e4cc2862): test_custody_bindings_resolve_to_the_native_custody_precompile still calls required_path('PAXEER_X_HUMAN_EVIDENCE_DIR') at test_material.py:76 and fails under the verify's env -u; test_generated_bootstrap_and_protected_inputs expects FileNotFoundError from assemble_policy with output 'output.json' (test_material.py:53-56) but material.py:271 refuses 'canonical policy filename' first because the output must be named policy.json."
+assumption = "do_1 was not carried out for the custody-binding test, and the bootstrap test predates the canonical-filename check 791fdf9c2 (task 8.19.9) added to assemble_policy."
+severity = "medium"
+
+[finding.22.8.10.1]
+task = "22.8.10"
+file = "tools/platform/cli/tests/common/credential_environment.rs"
+symbol = "credential_environment"
+observed = "Attempt 1 (base 5e4cc2862): with the regenerated tools/platform/Cargo.lock the workspace builds with --locked, and cargo test --workspace fails only in the CLI's integration tests, each panicking at credential_environment.rs:54 'dbus-daemon must be installed for real credential tests: No such file or directory'."
+assumption = "dbus-daemon is a property of the qualification environment, not of the repository; the lockfile task's verify compiles the tests without running them, and task 22.16.9 makes the credential tests report the missing daemon as a named skip."
+severity = "low"
+
+[finding.22.16.7.1]
+task = "22.16.7"
+file = "tools/launchpad/production/interfaces/examples_check_test.py"
+symbol = "jsonschema"
+observed = "Attempt 1 (base 5e4cc2862), second verify: pytest --collect-only reports only three errors, each ModuleNotFoundError: No module named 'jsonschema' (tools/launchpad/production/interfaces/examples_check_test.py, tools/launchpad/production/interfaces/test_materialize.py, tools/launchpad/production/load/test_load.py); the compile error, the argv scripts and the sibling-import errors of the first verify are gone."
+assumption = "jsonschema is a third-party package the qualification environment does not install; the three files are left out of the collection check and recorded as an environment disposition at closure."
+severity = "low"
+
+[finding.22.16.5.2]
+task = "22.16.5"
+file = "tools/containers/check.sh"
+symbol = "OUT_OF_SCOPE"
+observed = "Attempt 5 (base 5e4cc2862): with the six Dockerfiles of do_1 placed, bash tools/containers/check.sh reports 14 failures: deploy/launchpad/Dockerfile.svc, deploy/launchpad/Dockerfile.web, services/platform/hosted/feeder/Dockerfile, services/platform/perps-data/deploy/Dockerfile, services/platform/perps-data/deploy/nats/Dockerfile, tools/deploy/charting-library.Dockerfile, tools/loadtest/Dockerfile, tools/paxctl/Dockerfile and the four tools/wasm-tools/ci/docker/*/Dockerfile are tracked outside docker/ and not on the out-of-scope list, and docker/platform-node/Dockerfile and docker/redis/Dockerfile are under docker/ but not known service Dockerfiles."
+assumption = "The out-of-scope list was written against an older tree; every tracked Dockerfile must be either a known service or on the list, and the scope test must assert that identity from git ls-files so the list cannot drift again."
+severity = "medium"

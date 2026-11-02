@@ -906,8 +906,8 @@ func New(
 		panic(fmt.Sprintf("error creating LayerX pay keeper: %s", err))
 	}
 	app.LayerXPayKeeper = &payKeeper
-	app.LayerXChainsKeeper, err = layerxchainskeeper.NewKeeper(appCodec, keys[storekeys.LayerXChainsStoreKey],
-		app.BankKeeper, app.EvmKeeper.GetBaseDenom)
+	app.LayerXChainsKeeper, err = layerxchainskeeper.NewKeeperWithAddressResolver(appCodec, keys[storekeys.LayerXChainsStoreKey],
+		app.BankKeeper, app.EvmKeeper.GetBaseDenom, &app.EvmKeeper)
 	if err != nil {
 		panic(fmt.Sprintf("error creating LayerX chains keeper: %s", err))
 	}
@@ -1912,12 +1912,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	appMetrics.optimisticProcessing.Add(ctx.Context(), 1,
 		otelmetric.WithAttributes(attribute.Bool("enabled", false)))
 	logger.Info("optimistic processing ineligible")
-	bpreq := &BlockProcessRequest{
-		Hash:                req.Hash,
-		ByzantineValidators: req.ByzantineValidators,
-		Height:              req.Header.Height,
-		Time:                req.Header.Time,
-	}
+	bpreq := NewBlockProcessRequest(req)
 	events, txResults, endBlockResp, processErr := app.ProcessBlock(ctx, req.Txs, bpreq, req.DecidedLastCommit, false, nil)
 	if processErr != nil {
 		logger.Error("ProcessBlock failed in FinalizeBlocker", "err", processErr)
@@ -2398,6 +2393,17 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 	}
 
 	return execResults, ctx
+}
+
+// NewBlockProcessRequest carries the finalize request metadata into direct block execution.
+// The caller must supply a non-nil request and header, as on the ABCI finalize path.
+func NewBlockProcessRequest(req *abci.RequestFinalizeBlock) *BlockProcessRequest {
+	return &BlockProcessRequest{
+		Hash:                req.Hash,
+		ByzantineValidators: req.ByzantineValidators,
+		Height:              req.Header.Height,
+		Time:                req.Header.Time,
+	}
 }
 
 // ProcessBlock executes block transactions. If preDecoded is non-nil and len(preDecoded)==len(txs),
@@ -2923,6 +2929,11 @@ func (app *App) makeGigaDeliverTx(cache *gigaBlockCache) func(sdk.Context, abci.
 }
 
 func (app *App) DomainAllowance(ctx sdk.Context, chainID *big.Int) (id uint32, gas uint64, bytes uint64, active bool, known bool) {
+	// The root chain follows the application's configured EVM chain ID, just
+	// as ante validation does; it does not consume a virtual domain allowance.
+	if chainID != nil && chainID.Cmp(app.EvmKeeper.ChainID(ctx)) == 0 {
+		return 0, 0, 0, true, true
+	}
 	id, known = layerxchainstypes.DomainOfChainID(chainID)
 	if !known {
 		return 0, 0, 0, false, false
@@ -3554,7 +3565,8 @@ func (app *App) SnapshotAwareRPCContextProvider() evmrpc.TraceContextProvider {
 	})
 }
 
-// RegisterTendermintService implements the Application.RegisterLocalServices method.
+// RegisterLocalServices installs the local query services and the RPC options
+// supplied by the sequencer before either EVM server starts.
 func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.TxConfig) {
 	authtx.RegisterTxService(app.GRPCQueryRouter(), node, txConfig, app.Simulate, app.interfaceRegistry)
 	tmservice.RegisterTendermintService(app.GRPCQueryRouter(), node, app.interfaceRegistry)

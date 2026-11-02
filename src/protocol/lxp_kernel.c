@@ -485,7 +485,9 @@ lxp_result lxp_kernel_bind_ledger_admission(
         registration->abi_version != LX_PROGRAMS_GUEST_ABI_V5_VERSION)
         return LXP_OK;
     ctx->ledger_admission.activity_type = activity_type;
-    if (activity_type != LX_PROGRAMS_CALL && activity_type != LX_PROGRAMS_WIND_DOWN)
+    if (activity_type != LX_PROGRAMS_CALL &&
+        activity_type != LX_PROGRAMS_WIND_DOWN &&
+        activity_type != LX_PROGRAMS_SANDBOX)
         return LXP_OK;
     ctx->ledger_admission.activity_type = activity_type;
     (void)memcpy(ctx->ledger_admission.actor, authority->actor, 32U);
@@ -531,9 +533,6 @@ lxp_result lxp_kernel_withdraw_execution_sequence(
         lxp_ct_memcmp(facts->actor, authority->actor, 32U) != 0 ||
         lxp_ct_memcmp(facts->verified_key, authority->verified_key, 32U) != 0)
         return LXP_ERR_CONTEXT_MISMATCH;
-    if (lxp_ct_is_zero(facts->account_id, 32U) &&
-        lxp_ct_is_zero(authority->principal, 32U) && !facts->account_present)
-        return LXP_OK;
     if (lxp_ct_memcmp(facts->account_id, account_id, 32U) != 0 ||
         lxp_ct_memcmp(facts->account_id, authority->principal, 32U) != 0)
         return LXP_ERR_CONTEXT_MISMATCH;
@@ -786,7 +785,7 @@ lxp_result lxp_kernel_batch_snapshot_create(
         batch_execution->batch_number == 0U ||
         identities->count > LXP_IDENTITY_STORE_CAPACITY ||
         (verified_receipts != NULL &&
-         verified_receipts->count > LXP_VERIFIED_RECEIPT_INDEX_MAX) ||
+         lxp_verified_receipt_index_validate(verified_receipts) != LXP_OK) ||
         kernel->module_kv_count > LXP_KERNEL_MAX_MODULE_KV ||
         kernel->blob_count > LXP_KERNEL_MAX_BLOBS ||
         kernel->publication_poisoned)
@@ -857,7 +856,7 @@ lxp_result lxp_kernel_batch_snapshot_clone(
     if (source == NULL || source->state == NULL || snapshot_out == NULL)
         return LXP_ERR_NON_CANONICAL;
     if (source->identities.count > LXP_IDENTITY_STORE_CAPACITY ||
-        source->verified_receipts.count > LXP_VERIFIED_RECEIPT_INDEX_MAX ||
+        lxp_verified_receipt_index_validate(&source->verified_receipts) != LXP_OK ||
         source->kernel.module_kv_count > LXP_KERNEL_MAX_MODULE_KV ||
         source->kernel.blob_count > LXP_KERNEL_MAX_BLOBS ||
         source->programs_runtime.asset_count == 0U ||
@@ -1644,7 +1643,9 @@ lxp_result lxp_kernel_bind_module_runtime(lxp_kernel *kernel,
         return LXP_ERR_NON_CANONICAL;
     if (module_id == LXP_MODULE_ASSET) {
         lx_asset_runtime *asset_runtime = (lx_asset_runtime *)runtime;
-        if (asset_runtime->accounts == NULL || asset_runtime->assets == NULL ||
+        if (asset_runtime->accounts == NULL ||
+            asset_runtime->accounts->count > LX_ACCOUNT_REGISTRY_CAPACITY ||
+            asset_runtime->assets == NULL ||
             asset_runtime->asset_count == 0U ||
             asset_runtime->asset_count > LX_ASSET_REGISTRY_CAPACITY ||
             asset_runtime->transfer_assets == NULL ||
@@ -4431,7 +4432,7 @@ static lxp_result kernel_settled_snapshot_validate(
     lxp_result status;
     if (settled == NULL ||
         settled->identities.count > LXP_IDENTITY_STORE_CAPACITY ||
-        settled->verified_receipts.count > LXP_VERIFIED_RECEIPT_INDEX_MAX)
+        lxp_verified_receipt_index_validate(&settled->verified_receipts) != LXP_OK)
         return LXP_FATAL_INVARIANT;
     for (index = 0U; index < settled->identities.count; ++index) {
         const lxp_identity *identity = &settled->identities.identities[index];

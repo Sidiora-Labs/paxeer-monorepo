@@ -199,7 +199,8 @@ func (l *layerStack) flatten() sdk.CacheMultiStore {
 	return base
 }
 
-// NewExecutor builds the executor for opts.Mode.
+// NewExecutor builds the executor for opts.Mode. LastSeq and LastSeqHash seed
+// the chain before WAL replay; construction alone opens no pending layer.
 func NewExecutor(host Host, opts Options) (Executor, error) {
 	if host == nil {
 		return nil, errors.New("sequencer: nil host")

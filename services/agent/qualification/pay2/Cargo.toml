@@ -37,10 +37,3 @@ native-tls = "0.2"
 serde_json = "1"
 sha2 = "0.10"
 
-[[test]]
-name = "funded"
-path = "funded.rs"
-
-[[bin]]
-name = "gateway-lifecycle-receipt-verify"
-path = "../../../../services/platform/hosted/gateway/tests/local/verifier.rs"

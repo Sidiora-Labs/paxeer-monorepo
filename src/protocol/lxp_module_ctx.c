@@ -86,14 +86,14 @@ static lxp_result asset_staged_record(const lxp_module_ctx *ctx,
         if (ctx->staged[i].key_length == sizeof(key) &&
             memcmp(ctx->staged[i].key, key, sizeof(key)) == 0 &&
             !ctx->staged[i].deleted)
-            return lx_asset_record_decode(ctx->staged[i].value,
-                ctx->staged[i].value_length, record);
+            return lx_asset_record_decode_for_id(ctx->staged[i].value,
+                ctx->staged[i].value_length, id, record);
     for (size_t i = 0U; i < ctx->kernel->module_kv_count; ++i)
         if (ctx->kernel->module_kv[i].module_id == LXP_MODULE_ASSET &&
             ctx->kernel->module_kv[i].key_length == sizeof(key) &&
             memcmp(ctx->kernel->module_kv[i].key, key, sizeof(key)) == 0)
-            return lx_asset_record_decode(ctx->kernel->module_kv[i].value,
-                ctx->kernel->module_kv[i].value_length, record);
+            return lx_asset_record_decode_for_id(ctx->kernel->module_kv[i].value,
+                ctx->kernel->module_kv[i].value_length, id, record);
     const lx_asset_runtime *runtime = ctx->kernel->module_runtime[LXP_MODULE_ASSET];
     if (runtime != NULL && runtime->asset_count <= LX_ASSET_REGISTRY_CAPACITY)
         for (size_t i = 0U; i < runtime->asset_count; ++i)
@@ -1706,10 +1706,9 @@ lxp_result lxp_ctx_ledger_execution_sequence(
         registration->abi_version != LX_PROGRAMS_GUEST_ABI_V5_VERSION)
         return LXP_OK;
     facts = &ctx->ledger_admission;
-    if (facts->activity_type == LX_PROGRAMS_SANDBOX)
-        return LXP_OK;
     if (facts->activity_type != LX_PROGRAMS_CALL &&
-        facts->activity_type != LX_PROGRAMS_WIND_DOWN)
+        facts->activity_type != LX_PROGRAMS_WIND_DOWN &&
+        facts->activity_type != LX_PROGRAMS_SANDBOX)
         return LXP_ERR_CONTEXT_MISMATCH;
     if (!facts->bound ||
         memcmp(facts->activity_binding, ctx->activity_id, 32U) != 0 ||
