@@ -13161,3 +13161,28 @@ fix = "When a task adds an item to a module, list the module's parent file in to
 title = "A closure gate that requires every task of a family must have its requires completed when the family grows"
 symptom = "A gate task written to run after all issue tasks listed 444 of them in requires; 89 issue tasks written later were not added, so the gate launched with three of them pending and failed on its own check."
 fix = "When a task is added to a family that a gate task closes, append it to the gate's requires in the same batch, and build the gate's check to read the live task list so an omission still fails loudly."
+
+[gotcha.2669]
+title = "A configuration test must not build a source tree whose retirements are still pending"
+symptom = "A test asserting a Foundry profile's permissions also ran forge build on the root sources; a retired security contract had been deleted while a storage contract importing it waits for its own retirement two waves later, so the build failed on every main in between."
+fix = "Keep a profile or configuration test to the configuration it checks, and leave building the sources to the tasks that delete or keep them."
+
+[gotcha.2670]
+title = "A recorded receipt vector proves the verifier directly, never a served offer whose purpose is derived from the request"
+symptom = "An integration test paid a server with a recorded sequencer receipt after the offer's purpose hash had been defined as a hash of the resource URL; the recorded receipt's purpose could not match and the server refused with 402."
+fix = "Use recorded vectors against the verification function with their recorded terms, and drive served round trips, including restarts, with receipts the test signs over the offer it fetched."
+
+[gotcha.2671]
+title = "Retiring a module's public names must run every suite that imports them, not only the retiring crate's own tests"
+symptom = "A task removed the checkpoint verifier from a Python SDK and ran the SDK's tests; two repository suites importing the removed names failed collection on every main for four days until an unrelated task added them to its verify."
+fix = "Grep the repository's test trees for each removed name when the retirement task is written and either port those suites in the same task or give them their own task the retirement requires."
+
+[gotcha.2672]
+title = "A test-support file included by #[path] belongs to the task that deletes what it calls"
+symptom = "A port task listed the integration tests it rewrote but not the support module five of them include by #[path]; the module still called three deleted canonical envelope functions, and the crate's --all-targets build failed in a test target outside the task's list."
+fix = "When a task deletes or ports an API, grep the crate's tests/support directory as well as its test files, and declare every support module that names the API as a touch."
+
+[gotcha.2673]
+title = "A path a prerequisite task deletes must not stay in the touches of the task that confirms the deletion"
+symptom = "A task listed a module among its touches while its first step only confirmed that a required task had already deleted it; the attempt changed nothing there, the verify passed, and the done record's graph check refused the task for an untouched path."
+fix = "List as touches only the paths the task itself changes; put confirm-absent paths in the do text, never in touches."
