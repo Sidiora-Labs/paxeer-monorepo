@@ -142,20 +142,23 @@ export async function startRpc(t: TestContext, vector?: StorageProofVector) {
   const transactions: { to: string; data: Hex; hash: Hex; raw: Hex }[] = [];
   const records = new Map<string, Hex>();
   const calls: string[] = [];
+  const headerHeights: bigint[] = [];
   let reverted = false;
   let proofValue: Hex | undefined;
   const rpc = createServer((request, response) => {
     void (async () => {
       if (request.method === 'GET') {
         assert.ok(vector, 'Storage proof vector is required');
-        assert.equal(request.url, `/commit?height=${BigInt(vector.height) + 1n}`);
+        const height = BigInt(vector.height) + 1n;
+        assert.equal(request.url, `/commit?height=${height}`);
+        headerHeights.push(height);
         response.writeHead(200, { 'content-type': 'application/json' }).end(
           JSON.stringify({
             result: {
               signed_header: {
                 header: {
-                  height: String(BigInt(vector.height) + 1n),
-                  app_hash: Buffer.from(vector.app_hash.slice(2), 'hex').toString('base64'),
+                  height: String(height),
+                  app_hash: vector.app_hash.slice(2).toUpperCase(),
                 },
               },
             },
@@ -192,10 +195,19 @@ export async function startRpc(t: TestContext, vector?: StorageProofVector) {
           break;
         case 'eth_getProof':
           assert.ok(vector, 'Storage proof vector is required');
-          assert.deepEqual(params, [vector.address, [vector.slot], 'latest']);
+          assert.deepEqual(params.slice(0, 2), [vector.address, [vector.slot]]);
+          if (params.length !== 3 || params[2] !== `0x${vector.height.toString(16)}`) {
+            response.writeHead(200, { 'content-type': 'application/json' }).end(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                id: payload.id,
+                error: { code: -32602, message: 'Expected the explicit proof height tag' },
+              })
+            );
+            return;
+          }
           result = {
             address: vector.address,
-            height: String(vector.height),
             hexValues: [proofValue ?? vector.value],
             storageProof: [
               {
@@ -290,6 +302,7 @@ export async function startRpc(t: TestContext, vector?: StorageProofVector) {
     transactions,
     records,
     calls,
+    headerHeights,
     setReverted() {
       reverted = true;
     },

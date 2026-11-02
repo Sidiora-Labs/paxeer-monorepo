@@ -121,6 +121,11 @@ impl PxEndpoint {
 
     pub fn network(&self) -> Result<PxNetworkHead, SequencerError> {
         let result = self.0.call_raw("px_getNetwork", &json!([]))?;
+        if result.get("consensus") == Some(&Value::Null)
+            && result.get("reason").and_then(Value::as_str) == Some("consensus_unavailable")
+        {
+            return Err(SequencerError::Unavailable);
+        }
         decode_network(&result).ok_or(SequencerError::Malformed)
     }
 }
@@ -211,7 +216,10 @@ fn decode_account(value: &Value) -> Option<PxAccountJoin> {
                 nonce: count(half.get("nonce")?)?,
             })
         })?,
-        layerx: nullable(fields.get("layerx")?, object)?,
+        layerx: match fields.get("layerx") {
+            None => None,
+            Some(value) => nullable(value, object)?,
+        },
     })
 }
 
@@ -284,7 +292,8 @@ fn decode_network(value: &Value) -> Option<PxNetworkHead> {
     }
     let paxeer = fields.get("paxeer")?;
     let latest_block = count(paxeer.get("latest_block")?)?;
-    let latest_committed_height = count(fields.get("latest_committed_height")?)?;
+    let consensus = fields.get("consensus")?;
+    let latest_committed_height = count(consensus.get("latest_height")?)?;
     if latest_committed_height > latest_block {
         return None;
     }
@@ -294,7 +303,10 @@ fn decode_network(value: &Value) -> Option<PxNetworkHead> {
             chain_id: count(paxeer.get("chain_id")?)?,
             latest_block,
         },
-        layerx: nullable(fields.get("layerx")?, object)?,
+        layerx: match fields.get("layerx") {
+            Some(value) => nullable(value, object)?,
+            None => None,
+        },
         latest_committed_height,
     })
 }

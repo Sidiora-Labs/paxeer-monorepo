@@ -6,9 +6,10 @@ use std::fs::{self, File};
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
 
-use layerx_crypto::disclosure::call::bind_call;
-use layerx_crypto::disclosure::{self, DisclosedNativeOperation, Disclosure, DisclosureError};
+use layerx_crypto::disclosure::call::{decode_program_call, encode_program_call};
+use layerx_crypto::disclosure::{DisclosedNativeOperation, Disclosure, DisclosureError};
 use layerx_crypto::evm_transaction::{self, Eip1559Call, EvmTransactionError};
+use layerx_crypto::payments::bind_call;
 use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};
 use layerx_crypto::VerifyError;
 use layerx_programs_ai_market::codec::{
@@ -39,18 +40,15 @@ use layerx_programs_ai_market::types::{
     WorkerRosterEntry,
 };
 use layerx_programs_ai_market::{MAX_ENVELOPE_BYTES, MAX_EVALUATORS, MAX_STATE_BYTES, MAX_WORKERS};
-use layerx_types::activity::{
-    ActivityBuildError, Authority, EnvelopeBuilder, TimestampBound, UnsignedEnvelope,
-};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey, LengthError};
+use layerx_types::activity::ActivityBuildError;
+use layerx_types::ids::{Did, LengthError};
 use layerx_types::intent;
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistry, Payload, PayloadError};
+use layerx_types::payload::{ModuleRegistry, PayloadError};
 use layerx_types::program_call::{InvalidNativeCall, NativeProgramCall, Resources};
 use layerx_types::result::{KnownResult, Retriability};
 
-use layerx_wire::hash::payload_hash_for;
 use layerx_wire::WireError;
+use sha2::{Digest as _, Sha256};
 
 use layerx_types::rung::Rung;
 
@@ -297,17 +295,18 @@ fn market_header(state: &[u8]) -> Result<MarketHeader, AiClientError> {
 }
 
 /// Decodes a canonical v2 binding, including its block-commit evidence.
+/// The encoded length follows field presence, up to `BINDING_MAX_BYTES`.
 ///
 /// # Errors
 /// `BAD_VERSION` for a schema version other than 1; `NON_CANONICAL` for a length
-/// other than `BINDING_MAX_BYTES`, malformed bytes, invalid identities, revision zero
+/// above `BINDING_MAX_BYTES`, malformed bytes, invalid identities, revision zero
 /// or a rank above 4.
 pub fn decode_snapshot_binding(bytes: &[u8]) -> Result<SnapshotBinding, AiClientError> {
     let mut input = Reader::new(bytes);
     if input.u16()? != 1 {
         return Err(BAD_VERSION.into());
     }
-    if bytes.len() != BINDING_MAX_BYTES {
+    if bytes.len() > BINDING_MAX_BYTES {
         return Err(NON_CANONICAL.into());
     }
     let binding = SnapshotBinding {
@@ -371,7 +370,7 @@ pub struct OperationRequest<'a> {
     pub required_rank: u8,
 }
 
-/// Native activity terms selected by the caller; every field is shown at review.
+/// Programs call and EIP-1559 terms selected by the caller.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeTerms<'a> {
     pub network_id: u32,
@@ -386,6 +385,9 @@ pub struct NativeTerms<'a> {
     pub access_declaration: &'a [u8],
     pub response_capacity: u32,
     pub resources: Resources,
+    pub gas_limit: u64,
+    pub max_fee_per_gas: u128,
+    pub max_priority_fee_per_gas: u128,
 }
 
 /// Previewed semantic effect; advisory, re-checked by the program at execution.
@@ -517,14 +519,14 @@ impl FinalizedSnapshot {
     }
 
     /// Plans one mutation over this finalized context: the canonical PAXAI envelope becomes
-    /// the calldata of a `NativeProgramCall` inside an unsigned protocol-3 activity.
+    /// the calldata of a `NativeProgramCall` inside an unsigned EIP-1559 transaction.
     ///
     /// # Errors
     /// `StaleAuthority`, `FinalityUnavailable` for an unmet rank, `NotMutation` for a read
     /// selector, envelope/roster refusals, typed preview refusals and native encoding refusals.
     pub fn prepare(
         &self,
-        registry: &ModuleRegistry,
+        _registry: &ModuleRegistry,
         authority_height: u64,
         request: &OperationRequest<'_>,
         terms: &NativeTerms<'_>,
@@ -567,7 +569,23 @@ impl FinalizedSnapshot {
         calldata.truncate(length);
         let intent = decode_envelope(&calldata)?.request_digest()?;
         let effect = preview(&self.header, &envelope, roster.as_ref())?;
-        let call = NativeProgramCall {
+        Did::new(terms.actor_did)?;
+        if terms.network_id != 125
+            || terms.not_before != 0
+            || terms.not_after != request.expiry
+            || terms.idempotency_key != request.request.bytes()
+            || terms.gas_limit == 0
+            || terms.max_priority_fee_per_gas > terms.max_fee_per_gas
+            || u128::from(terms.gas_limit)
+                .checked_mul(terms.max_fee_per_gas)
+                .is_none()
+        {
+            return Err(AiClientError::ReviewMismatch(ReviewField::Transaction));
+        }
+        if terms.owner_public_key == [0; 32] {
+            return Err(AiClientError::UnauthorizedKey);
+        }
+        let native = NativeProgramCall {
             program_id: intent::ProgramId::new(self.binding.program.bytes()),
             guest_abi: GUEST_ABI,
             entrypoint: ENTRYPOINT,
@@ -576,13 +594,26 @@ impl FinalizedSnapshot {
             access_declaration: terms.access_declaration,
             response_capacity: terms.response_capacity,
             resources: terms.resources,
-        }
-        .encode()?;
-        let unsigned = unsigned_activity(registry, terms, &call)?;
-        let canonical = layerx_wire::activity::encode_unsigned_envelope(&unsigned)?;
+        };
+        let native_bytes = native.encode()?;
+        let mut target = [0; 20];
+        target[18..].copy_from_slice(&[0x10, 0x1d]);
+        let call = Eip1559Call {
+            chain_id: 125,
+            nonce: terms.account_sequence,
+            gas_limit: terms.gas_limit,
+            max_fee_per_gas: terms.max_fee_per_gas,
+            max_priority_fee_per_gas: terms.max_priority_fee_per_gas,
+            to: target,
+            data: encode_program_call(&native, terms.fee_limit),
+        };
+        let canonical = call.encode_unsigned();
         Ok(PreparedOperation {
-            unsigned,
+            call,
             canonical,
+            native: native_bytes,
+            fee_limit: terms.fee_limit,
+            owner_public_key: terms.owner_public_key,
             binding: self.binding,
             snapshot_id: self.snapshot_id,
             header: self.header,
@@ -590,64 +621,6 @@ impl FinalizedSnapshot {
             effect,
         })
     }
-}
-
-fn unsigned_activity(
-    registry: &ModuleRegistry,
-    terms: &NativeTerms<'_>,
-    call: &[u8],
-) -> Result<UnsignedEnvelope, AiClientError> {
-    let activity_type = ActivityType::new(ModuleId::Programs, PROGRAM_CALL_ORDINAL)?;
-    let payload = Payload::new(registry, activity_type, call)?;
-    let payload_hash = payload_hash_for(&payload)?;
-    let mut builder = EnvelopeBuilder::new();
-    builder
-        .protocol_version(NATIVE_CALL_PROTOCOL_VERSION)?
-        .network_id(terms.network_id)?
-        .activity_type(activity_type)?
-        .actor_did(Did::new(terms.actor_did)?)?
-        .authority(Authority::owner(&terms.owner_public_key)?)?
-        .account_sequence(terms.account_sequence)?
-        .timestamp_bound(TimestampBound::new(terms.not_before, terms.not_after)?)?
-        .idempotency_key(IdempotencyKey::new(terms.idempotency_key))?
-        .fee_limit(Amount::from_u128(terms.fee_limit))?
-        .payload_hash(payload_hash)?
-        .payload(payload)?;
-    Ok(builder.build()?)
-}
-
-fn program_call_data(call: &NativeProgramCall<'_>, fee_limit: u128) -> Vec<u8> {
-    fn word(value: u128) -> [u8; 32] {
-        let mut out = [0; 32];
-        out[16..].copy_from_slice(&value.to_be_bytes());
-        out
-    }
-    let selector = evm_transaction::transaction_hash(
-        b"call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)",
-    );
-    let mut head = selector[..4].to_vec();
-    head.extend_from_slice(&call.program_id.bytes());
-    head.extend_from_slice(&word(u128::from(call.guest_abi)));
-    let mut tail = Vec::new();
-    for bytes in [
-        call.entrypoint,
-        call.calldata,
-        call.capabilities,
-        call.access_declaration,
-    ] {
-        head.extend_from_slice(&word(15 * 32 + tail.len() as u128));
-        tail.extend_from_slice(&word(bytes.len() as u128));
-        tail.extend_from_slice(bytes);
-        let padding = (32 - bytes.len() % 32) % 32;
-        tail.resize(tail.len() + padding, 0);
-    }
-    head.extend_from_slice(&word(u128::from(call.response_capacity)));
-    for ceiling in call.resources.0 {
-        head.extend_from_slice(&word(u128::from(ceiling)));
-    }
-    head.extend_from_slice(&word(fee_limit));
-    head.extend_from_slice(&tail);
-    head
 }
 
 /// Semantic effect decoded from the exact payload, without any precondition.
@@ -765,11 +738,14 @@ fn roster_worker(
     Ok(None)
 }
 
-/// Planned operation: exact unsigned activity bytes plus the binding they were planned on.
+/// Planned operation: exact unsigned type-2 transaction and its snapshot binding.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PreparedOperation {
-    unsigned: UnsignedEnvelope,
+    call: Eip1559Call,
     canonical: Vec<u8>,
+    native: Vec<u8>,
+    fee_limit: u128,
+    owner_public_key: [u8; 32],
     binding: SnapshotBinding,
     snapshot_id: Digest32,
     header: MarketHeader,
@@ -862,8 +838,8 @@ impl PreparedOperation {
     }
 
     #[must_use]
-    pub const fn payload_digest(&self) -> [u8; 32] {
-        self.unsigned.payload_hash()
+    pub fn payload_digest(&self) -> [u8; 32] {
+        Sha256::digest(&self.native).into()
     }
 
     #[must_use]
@@ -881,35 +857,37 @@ impl PreparedOperation {
         call: Eip1559Call,
         from: [u8; 20],
     ) -> Result<Review, AiClientError> {
-        let native = NativeProgramCall::decode(self.unsigned.payload().as_bytes())?;
-        let mut target = [0; 20];
-        target[18..].copy_from_slice(&[0x10, 0x1d]);
-        if call.to != target
-            || call.chain_id != u64::from(self.unsigned.network_id())
-            || call.nonce != self.unsigned.account_sequence()
-            || call.max_priority_fee_per_gas > call.max_fee_per_gas
-            || call.data != program_call_data(&native, self.unsigned.fee_limit().value())
-        {
+        if call != self.call {
             return Err(AiClientError::ReviewMismatch(ReviewField::Transaction));
         }
-        let call_disclosure = bind_call(&call, from)?;
-        let mut review = self.review(registry)?;
-        review.terms.commitment = call_disclosure.audit_digest()?;
-        review.terms.transaction = Some((call, from));
-        review.call_disclosure = Some(call_disclosure);
-        Ok(review)
+        self.review(registry, from)
     }
 
-    /// Reviews the native plan; signing also requires transaction terms from `review_call`.
+    /// Reviews the stored transaction for the EVM sender that will sign it.
     ///
     /// # Errors
     /// Disclosure, program identity, domain, intent or effect mismatches.
-    pub fn review(self, registry: &ModuleRegistry) -> Result<Review, AiClientError> {
-        let disclosure = disclosure::bind(&self.canonical, registry)?;
+    pub fn review(
+        self,
+        _registry: &ModuleRegistry,
+        from: [u8; 20],
+    ) -> Result<Review, AiClientError> {
+        let native = NativeProgramCall::decode(&self.native)?;
+        if evm_transaction::decode_unsigned(&self.canonical)? != self.call
+            || self.call.data != encode_program_call(&native, self.fee_limit)
+        {
+            return Err(AiClientError::ReviewMismatch(ReviewField::Transaction));
+        }
+        let (decoded, fee_limit) = decode_program_call(&self.call.data)?;
+        if decoded.native() != native || fee_limit != self.fee_limit {
+            return Err(AiClientError::ReviewMismatch(ReviewField::Transaction));
+        }
+        let disclosure = bind_call(&self.call, from)?;
         let Some(DisclosedNativeOperation::ProgramCall(call)) = &disclosure.native_operation else {
             return Err(AiClientError::NotNativeProgramCall);
         };
-        if call.guest_abi != GUEST_ABI
+        if call.native() != native
+            || call.guest_abi != GUEST_ABI
             || call.entrypoint != ENTRYPOINT
             || call.program_id.bytes() != self.binding.program.bytes()
         {
@@ -924,6 +902,12 @@ impl PreparedOperation {
         )?;
         if validated.request_digest()? != self.intent
             || effect_of(&self.header, &envelope)? != self.effect
+            || disclosure.fee_limit != u128::from(self.call.gas_limit) * self.call.max_fee_per_gas
+            || disclosure.authority != from
+            || disclosure.idempotency_key != envelope.request.bytes()
+            || disclosure.expiry.not_before != 0
+            || disclosure.expiry.not_after != envelope.expiry
+            || disclosure.expiry.payload_expires_at != envelope.expiry
         {
             return Err(QueryError::IntegrityFailure.into());
         }
@@ -943,19 +927,18 @@ impl PreparedOperation {
             access_declaration: call.access_declaration.clone(),
             response_capacity: call.response_capacity,
             resources: call.resources,
-            fee_limit: disclosure.fee_limit,
+            fee_limit: self.fee_limit,
             not_before: disclosure.expiry.not_before,
             not_after: disclosure.expiry.not_after,
             expiry: envelope.expiry,
             idempotency_key: disclosure.idempotency_key,
             authority: disclosure.authority.clone(),
             commitment: disclosure.audit_digest()?,
-            transaction: None,
+            transaction: Some((self.call.clone(), from)),
         };
         Ok(Review {
             prepared: self,
             disclosure,
-            call_disclosure: None,
             terms,
         })
     }
@@ -966,11 +949,10 @@ impl PreparedOperation {
 pub struct Review {
     prepared: PreparedOperation,
     disclosure: Disclosure,
-    call_disclosure: Option<Disclosure>,
     terms: ApprovalTerms,
 }
 
-/// Owner approval of exactly the reviewed terms by the key the activity names.
+/// Owner approval of exactly the reviewed terms by the prepared operation's owner key.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Approval {
     review: Review,
@@ -989,7 +971,7 @@ impl Review {
     }
 
     /// Accepts the owner's approved terms only when every term equals the disclosed bytes and
-    /// the approving key is the activity's owner authority.
+    /// the approving key is the prepared operation's owner key.
     ///
     /// # Errors
     /// `ReviewMismatch` naming the first differing term, then `UnauthorizedKey`.
@@ -1001,8 +983,16 @@ impl Review {
         if let Some(field) = first_difference(&self.terms, approved) {
             return Err(AiClientError::ReviewMismatch(field));
         }
-        if self.disclosure.authority.as_slice() != key.as_slice() {
+        if self.prepared.owner_public_key != key {
             return Err(AiClientError::UnauthorizedKey);
+        }
+        let (call, from) = self
+            .terms
+            .transaction
+            .as_ref()
+            .ok_or(AiClientError::TransactionRequired)?;
+        if call != &self.prepared.call || bind_call(call, *from)? != self.disclosure {
+            return Err(AiClientError::ReviewMismatch(ReviewField::Transaction));
         }
         Ok(Approval { review: self, key })
     }
@@ -1187,11 +1177,7 @@ impl Approval {
             .transaction
             .as_ref()
             .ok_or(AiClientError::TransactionRequired)?;
-        let disclosure = self
-            .review
-            .call_disclosure
-            .as_ref()
-            .ok_or(AiClientError::TransactionRequired)?;
+        let disclosure = &self.review.disclosure;
         if signer.evm_address() != Some(*from) {
             return Err(AiClientError::UnauthorizedKey);
         }
@@ -1751,7 +1737,7 @@ impl OperationJournal {
         require(record, &[OperationState::Pending, OperationState::Unknown])?;
         let receipt = match lookup_authenticated(endpoint, record.activity_id, context)? {
             AuthenticatedLookup::Absent | AuthenticatedLookup::Submitted { .. } => {
-                return Ok(record.state)
+                return Ok(record.state);
             }
             AuthenticatedLookup::Verified(receipt) => receipt,
         };

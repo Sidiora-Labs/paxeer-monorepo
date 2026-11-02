@@ -7,13 +7,7 @@ mod lifecycle_tests;
 use crate::chain_receipt::ChainReceipts;
 use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_types::program_call::NativeProgramCall;
-use layerx_types::program_lifecycle::{
-    NativeProgramDeploy, NativeProgramUpgrade, NativeProgramWindDown,
-};
 use layerx_types::result::{ResultCode, Retriability};
-use layerx_wire::activity::{decode_signed, encode_signed, Activity};
-use layerx_wire::hash::activity_id;
 use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION as PROTOCOL_VERSION;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::server::WebPkiClientVerifier;
@@ -37,7 +31,6 @@ const SERVICE: &str = "agent-boundary";
 const MAX_ACTIVITY_BYTES: usize = 1_048_576;
 const MAX_REQUEST_BYTES: usize = MAX_ACTIVITY_BYTES + 16 * 1024;
 const MAX_RELAY_BYTES: usize = 4 * 1024 * 1024;
-const MAX_ARTIFACT_RESPONSE_BYTES: usize = 4 * MAX_ACTIVITY_BYTES + 16 * 1024;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 const IO_TIMEOUT: Duration = Duration::from_secs(15);
 const MAX_CONNECTIONS: usize = 128;
@@ -177,12 +170,6 @@ struct Response {
     status: u16,
     body: String,
     retry_after: Option<u64>,
-}
-
-struct Decoded {
-    activity_id: [u8; 32],
-    signer_public_key: [u8; 32],
-    program_id: Option<[u8; 32]>,
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -522,87 +509,6 @@ fn key_lock(config: &Config, key_digest: &str) -> Arc<Mutex<()>> {
     Arc::clone(locks.entry(key_digest.to_owned()).or_default())
 }
 
-fn decode_activity(config: &Config, route: Route, body: &[u8]) -> Result<Decoded, Response> {
-    let activity: Activity = decode_signed(body, &config.registry)
-        .map_err(|_| refusal(400, "malformed_activity", None))?;
-    if encode_signed(&activity).map_or(true, |canonical| canonical != body) {
-        return Err(refusal(400, "non_canonical_activity", None));
-    }
-    if activity.protocol_version() != PROTOCOL_VERSION {
-        return Err(refusal(422, "version_unsupported", None));
-    }
-    if activity.network_id() != config.protocol_network_id {
-        return Err(refusal(422, "wrong_network", None));
-    }
-    let signer_public_key: [u8; 32] = activity
-        .authority()
-        .try_into()
-        .map_err(|_| refusal(422, "unsupported_authority", None))?;
-    let activity_id =
-        activity_id(&activity).map_err(|_| refusal(400, "malformed_activity", None))?;
-    let is_program_call = activity.activity_type().module() == ModuleId::Programs
-        && activity.activity_type().ordinal() == 3;
-    if let Some(ordinal) = route.program_ordinal() {
-        if activity.activity_type().module() != ModuleId::Programs
-            || activity.activity_type().ordinal() != ordinal
-        {
-            return Err(refusal(
-                400,
-                if route == Route::ProgramCall {
-                    "not_program_call"
-                } else {
-                    "wrong_program_operation"
-                },
-                None,
-            ));
-        }
-    }
-    if activity.activity_type().module() == ModuleId::Programs {
-        validate_program_lifecycle(activity.activity_type().ordinal(), activity.payload())?;
-    }
-    let program_id = if is_program_call {
-        let call = NativeProgramCall::decode(activity.payload())
-            .map_err(|_| refusal(400, "malformed_program_call", None))?;
-        Some(call.callee().bytes())
-    } else {
-        None
-    };
-    Ok(Decoded {
-        activity_id,
-        signer_public_key,
-        program_id,
-    })
-}
-
-fn validate_program_lifecycle(ordinal: u16, payload: &[u8]) -> Result<(), Response> {
-    let (wasm, expected_hash) = match ordinal {
-        1 => {
-            let deploy = NativeProgramDeploy::decode(payload)
-                .map_err(|_| refusal(400, "malformed_program_deploy", None))?;
-            (deploy.wasm, deploy.new_hash)
-        }
-        2 => {
-            let upgrade = NativeProgramUpgrade::decode(payload)
-                .map_err(|_| refusal(400, "malformed_program_upgrade", None))?;
-            (upgrade.wasm, upgrade.new_hash)
-        }
-        7 => {
-            return NativeProgramWindDown::decode(payload)
-                .map(|_| ())
-                .map_err(|_| refusal(400, "malformed_program_wind_down", None))
-        }
-        _ => return Ok(()),
-    };
-    if !wasm.starts_with(b"\0asm\x01\0\0\0") {
-        return Err(refusal(400, "malformed_program_wasm", None));
-    }
-    let digest: [u8; 32] = Sha256::digest(wasm).into();
-    if digest != expected_hash {
-        return Err(refusal(400, "program_payload_hash_mismatch", None));
-    }
-    Ok(())
-}
-
 struct ReceiptMetadata {
     result_code: i32,
     state_version: u64,
@@ -704,239 +610,6 @@ fn unknown_response(activity: &str) -> Response {
     }
 }
 
-fn fetch_program_execution(
-    config: &Config,
-    receipt: &[u8],
-    activity_id: [u8; 32],
-    program_id: [u8; 32],
-    signed_activity: &[u8],
-    sequencer_key: [u8; 32],
-) -> Result<artifacts::StoredExecution, Response> {
-    let invalid = || refusal(503, "program_artifacts_invalid", Some(5));
-    let (batch_id, digest) = artifacts::locator(receipt).map_err(|_| invalid())?;
-    let evidence = relay_route(
-        config,
-        &format!(
-            "/v1/batches/{}/receipt-authority?receipt_digest={}",
-            hex(&batch_id),
-            hex(&digest)
-        ),
-    );
-    if evidence.status != 200 {
-        return Err(refusal(503, "program_artifacts_unavailable", Some(5)));
-    }
-    let authority: artifacts::AuthorityDocument =
-        serde_json::from_str(&evidence.body).map_err(|_| invalid())?;
-    if authority.sequencer_public_key != hex(&sequencer_key) {
-        return Err(invalid());
-    }
-    let decoded = layerx_wire::receipt::decode(receipt).map_err(|_| invalid())?;
-    let protocol = decoded.protocol().ok_or_else(invalid)?;
-    let (terminal_payload, call_graph) =
-        if protocol.result_code() < 0 && protocol.program_outcome().is_none() {
-            (String::new(), String::new())
-        } else {
-            let answer = relay_bounded(
-                config,
-                &format!(
-                    "/v1/programs/activities/{}/artifacts?receipt_digest={}",
-                    hex(&activity_id),
-                    hex(&digest)
-                ),
-                MAX_ARTIFACT_RESPONSE_BYTES,
-            );
-            if answer.status != 200 {
-                return Err(refusal(503, "program_artifacts_unavailable", Some(5)));
-            }
-            let document =
-                artifacts::document(&answer.body, activity_id, digest).map_err(|_| invalid())?;
-            (document.terminal_payload, document.call_graph)
-        };
-    let stored = artifacts::StoredExecution {
-        version: 1,
-        sequencer_public_key: hex(&sequencer_key),
-        evidence: authority.batch_evidence,
-        terminal_payload,
-        call_graph,
-    };
-    let activity = decode_signed(signed_activity, &config.registry).map_err(|_| invalid())?;
-    let call = NativeProgramCall::decode(activity.payload()).map_err(|_| invalid())?;
-    if layerx_wire::hash::activity_id(&activity).map_err(|_| invalid())? != activity_id
-        || call.callee().bytes() != program_id
-    {
-        return Err(invalid());
-    }
-    let payload_hash = layerx_wire::hash::payload_hash(&activity).map_err(|_| invalid())?;
-    artifacts::verify(
-        &stored,
-        receipt,
-        artifacts::ExpectedCall {
-            activity_id,
-            program_id,
-            payload_hash,
-            guest_abi_version: call.guest_abi,
-            actor_did: activity.actor_did(),
-        },
-        config.protocol_network_id,
-    )
-    .map_err(|detail| {
-        eprintln!("{SERVICE}: {detail}");
-        invalid()
-    })?;
-    Ok(stored)
-}
-
-fn verify_lifecycle_record(config: &Config, record: &JournalRecord) -> Result<(), String> {
-    let key = record
-        .lifecycle_sequencer_key
-        .as_deref()
-        .and_then(parse_hex32)
-        .ok_or_else(|| "missing lifecycle sequencer key".to_owned())?;
-    let signed = artifacts::canonical_hex(&record.signed_activity, MAX_ACTIVITY_BYTES)?;
-    let activity =
-        decode_signed(&signed, &config.registry).map_err(|error| format!("{error:?}"))?;
-    let id = activity_id(&activity).map_err(|error| format!("{error:?}"))?;
-    let receipt_bytes = artifacts::canonical_hex(
-        record.receipt.as_deref().unwrap_or_default(),
-        MAX_ACTIVITY_BYTES,
-    )?;
-    let receipt =
-        verify_sequencer_signature(&receipt_bytes, key).map_err(|error| format!("{error:?}"))?;
-    let protocol = receipt
-        .protocol()
-        .ok_or_else(|| "missing protocol receipt".to_owned())?;
-    if activity.protocol_version() != PROTOCOL_VERSION
-        || activity.network_id() != config.protocol_network_id
-        || activity.activity_type().module() != ModuleId::Programs
-        || !matches!(activity.activity_type().ordinal(), 1 | 2 | 7)
-        || record.request_digest != sha256_hex(&signed)
-        || record.activity_id != hex(&id)
-        || protocol.activity_id() != id
-        || protocol.protocol_version() != PROTOCOL_VERSION
-        || protocol.module_id() != 9
-        || protocol.module_version() != 4
-        || protocol.operation() != 0
-        || protocol.program_outcome().is_some()
-        || Some(protocol.result_code()) != record.result_code
-    {
-        return Err("lifecycle receipt binding mismatch".into());
-    }
-    Ok(())
-}
-
-fn completed_response(config: &Config, record: &JournalRecord) -> Response {
-    if matches!(
-        record.route.as_str(),
-        "programs_deploy" | "programs_upgrade" | "programs_wind_down"
-    ) && verify_lifecycle_record(config, record).is_err()
-    {
-        return refusal(503, "lifecycle_receipt_invalid", Some(5));
-    }
-    if let Some(program_id) = &record.program_id {
-        let checked = (|| {
-            let stored = record
-                .program_execution
-                .as_ref()
-                .ok_or_else(|| "missing artifacts".to_owned())?;
-            let receipt = artifacts::canonical_hex(
-                record.receipt.as_deref().unwrap_or_default(),
-                MAX_ACTIVITY_BYTES,
-            )?;
-            let activity_id =
-                parse_hex32(&record.activity_id).ok_or_else(|| "invalid activity".to_owned())?;
-            let program_id = parse_hex32(program_id).ok_or_else(|| "invalid program".to_owned())?;
-            let signed = artifacts::canonical_hex(&record.signed_activity, MAX_ACTIVITY_BYTES)?;
-            let activity =
-                decode_signed(&signed, &config.registry).map_err(|error| format!("{error:?}"))?;
-            let actual_id =
-                layerx_wire::hash::activity_id(&activity).map_err(|error| format!("{error:?}"))?;
-            let call = NativeProgramCall::decode(activity.payload())
-                .map_err(|error| format!("{error:?}"))?;
-            if actual_id != activity_id || call.callee().bytes() != program_id {
-                return Err("journal program identity mismatch".into());
-            }
-            let decoded =
-                layerx_wire::receipt::decode(&receipt).map_err(|error| format!("{error:?}"))?;
-            if decoded
-                .protocol()
-                .map(layerx_wire::receipt::ProtocolReceipt::result_code)
-                != record.result_code
-            {
-                return Err("journal result mismatch".to_owned());
-            }
-            artifacts::verify(
-                stored,
-                &receipt,
-                artifacts::ExpectedCall {
-                    activity_id,
-                    program_id,
-                    payload_hash: layerx_wire::hash::payload_hash(&activity)
-                        .map_err(|error| format!("{error:?}"))?,
-                    guest_abi_version: call.guest_abi,
-                    actor_did: activity.actor_did(),
-                },
-                config.protocol_network_id,
-            )
-        })();
-        if let Err(detail) = checked {
-            eprintln!("{SERVICE}: {detail}");
-            return refusal(503, "program_artifacts_invalid", Some(5));
-        }
-    }
-    outcome_response(record)
-}
-
-fn complete_record(
-    config: &Config,
-    key_digest: &str,
-    record: &mut JournalRecord,
-    receipt: &[u8],
-    result_code: i32,
-    sequencer_public_key: [u8; 32],
-) -> Response {
-    if let Some(program_text) = record.program_id.as_deref() {
-        let Some(program_id) = parse_hex32(program_text) else {
-            return refusal(503, "persistence_invalid", Some(5));
-        };
-        let Some(activity_id) = parse_hex32(&record.activity_id) else {
-            return refusal(503, "persistence_invalid", Some(5));
-        };
-        let Ok(signed_activity) =
-            artifacts::canonical_hex(&record.signed_activity, MAX_ACTIVITY_BYTES)
-        else {
-            return refusal(503, "persistence_invalid", Some(5));
-        };
-        match fetch_program_execution(
-            config,
-            receipt,
-            activity_id,
-            program_id,
-            &signed_activity,
-            sequencer_public_key,
-        ) {
-            Ok(execution) => record.program_execution = Some(execution),
-            Err(response) => return response,
-        }
-    }
-    "completed".clone_into(&mut record.state);
-    record.receipt = Some(hex(receipt));
-    record.result_code = Some(result_code);
-    record.receipt_sequencer_key = Some(hex(&sequencer_public_key));
-    if matches!(
-        record.route.as_str(),
-        "programs_deploy" | "programs_upgrade" | "programs_wind_down"
-    ) {
-        record.lifecycle_sequencer_key = Some(hex(&sequencer_public_key));
-        if verify_lifecycle_record(config, record).is_err() {
-            return refusal(503, "lifecycle_receipt_invalid", Some(5));
-        }
-    }
-    if store_record(config, key_digest, record).is_err() {
-        return refusal(503, "persistence_unavailable", Some(5));
-    }
-    outcome_response(record)
-}
-
 struct ProgramReadFreshness {
     minimum_sequence: u64,
     expected_state_root: Option<[u8; 32]>,
@@ -997,66 +670,6 @@ fn receipt_route(config: &Config, transaction_text: &str, plane: Plane) -> Respo
         Ok(None) => refusal(404, "receipt_not_found", None),
         Err(_) => refusal(503, "node_unavailable", Some(5)),
     }
-}
-
-fn idempotency_binding(config: &Config, key: &str) -> Result<(String, Option<String>), Response> {
-    let Ok(record) = load_record(config, &sha256_hex(key.as_bytes())) else {
-        return Err(refusal(503, "persistence_invalid", Some(5)));
-    };
-    if let Some(record) = record {
-        let checked = (|| {
-            let signed = artifacts::canonical_hex(&record.signed_activity, MAX_ACTIVITY_BYTES)?;
-            let activity =
-                decode_signed(&signed, &config.registry).map_err(|error| format!("{error:?}"))?;
-            let id = activity_id(&activity).map_err(|error| format!("{error:?}"))?;
-            if record.idempotency_key != key
-                || record.activity_id != hex(&id)
-                || record.request_digest != sha256_hex(&signed)
-                || activity.activity_type().module() != ModuleId::Programs
-                || activity.protocol_version() != PROTOCOL_VERSION
-                || activity.network_id() != config.protocol_network_id
-            {
-                return Err("journal binding mismatch".to_owned());
-            }
-            Ok((hex(&activity.idempotency_key()), Some(hex(&id))))
-        })();
-        checked.map_err(|_| refusal(503, "persistence_invalid", Some(5)))
-    } else if is_hex32(key) && !key.bytes().any(|byte| byte.is_ascii_uppercase()) {
-        Ok((key.to_owned(), None))
-    } else {
-        Err(refusal(404, "receipt_not_found", None))
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct IdempotencyReceiptDocument {
-    activity_id: String,
-    receipt: String,
-}
-
-fn verify_idempotency_receipt(
-    body: &str,
-    signer: [u8; 32],
-    expected_activity: Option<&str>,
-) -> Result<IdempotencyReceiptDocument, String> {
-    let document: IdempotencyReceiptDocument =
-        serde_json::from_str(body).map_err(|error| error.to_string())?;
-    let receipt = artifacts::canonical_hex(&document.receipt, MAX_ACTIVITY_BYTES)?;
-    let verified =
-        verify_sequencer_signature(&receipt, signer).map_err(|error| format!("{error:?}"))?;
-    let protocol = verified
-        .protocol()
-        .ok_or_else(|| "not protocol receipt".to_owned())?;
-    if protocol.module_id() != 9
-        || protocol.module_version() != 4
-        || protocol.protocol_version() != PROTOCOL_VERSION
-        || document.activity_id != hex(&protocol.activity_id())
-        || expected_activity.is_some_and(|expected| expected != document.activity_id)
-    {
-        return Err("receipt binding mismatch".into());
-    }
-    Ok(document)
 }
 
 fn relay_path_allowed(path: &str, query: Option<&str>) -> bool {

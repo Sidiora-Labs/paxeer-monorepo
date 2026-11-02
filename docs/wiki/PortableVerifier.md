@@ -12,9 +12,9 @@ identifier is `PORTABLE_RECEIPT_FORMAT`
 (`services/interop/crates/layerx-portable/src/receipt.rs:12, 26, 171-172`;
 `services/interop/crates/layerx-portable/FORMAT.md:9`).
 
-This page is that receipt proof and its refusals. It does not document
-program CALL terminals; those live in
-[SDK terminal verification](SdkTerminalVerification.md).
+This page describes that receipt proof and its refusals. For signed receipts
+returned by `pax_sequencerReceipt`, see
+[SDK sequencer receipt verification](SdkTerminalVerification.md).
 
 ---
 
@@ -129,9 +129,7 @@ does not rewrite a rejected protocol result into success
   `result_code != 0` as `ReceiptCheck::ResultCode`
   (`services/agent/crates/layerx-proof/src/receipt.rs:224-236, 246-248`;
   `services/interop/crates/layerx-portable/FORMAT.md:37`).
-- Impose 402LXP transfer-root or program-terminal reconstruction. That
-  is the SDK terminal decoder in
-  [SDK terminal verification](SdkTerminalVerification.md).
+- Impose 402LXP transfer-root or program-terminal reconstruction.
 - Run `verify_program_outcome` / `verify_program_state`
   (`services/agent/crates/layerx-proof/src/receipt.rs:356-488`). Those entry
   points are not the portable receipt verifier.
@@ -259,8 +257,9 @@ maps `None` to `MissingReceiptDigest`
 `services/interop/crates/layerx-portable/tests/receipt_vectors.rs` and
 `services/interop/crates/layerx-portable/tests/independent_verifier.rs` do not
 load files under `sdk/platform/conformance/fixtures/`. Their vectors are
-inline JSON constants. SDK terminal tests do load those fixtures; see
-[SDK terminal verification](SdkTerminalVerification.md).
+inline JSON constants. For sequencer receipt evidence under
+`daemon/committed-fixture/vectors/`, see
+[SDK sequencer receipt verification](SdkTerminalVerification.md).
 
 Shared inline object `GOLDEN_RECEIPT_JSON` /
 `GOLDEN_VECTOR_1` (`services/interop/crates/layerx-portable/tests/receipt_vectors.rs:11-21`;
@@ -301,23 +300,23 @@ loads `sdk/platform/conformance/fixtures/`.
 
 ---
 
-## Relationship to SDK terminal verification
+## Relationship to SDK sequencer receipt verification
 
-[SDK terminal verification](SdkTerminalVerification.md) is the Programs
-CALL terminal decoder that runs after a protocol receipt is already
-bound. Shared SDK tests call `verify_receipt_outcome` on protocol 3
-before decoding `terminal_payload`
-(`docs/wiki/SdkTerminalVerification.md:17-19, 50-62`). Both surfaces
-recompute the sequencer digest over domain `LXP/v1/receipt\0`
-(`docs/wiki/SdkTerminalVerification.md:57-58`;
-`services/agent/crates/layerx-wire/src/hash.rs:69`;
+[SDK sequencer receipt verification](SdkTerminalVerification.md) covers
+the signed sequencer receipt returned by `pax_sequencerReceipt` using the
+four committed JSON vectors under `daemon/committed-fixture/vectors/`.
+It describes receipt key authorization, RPC view bindings, and commitment
+evidence.
+
+The portable format described here recomputes the receipt digest over domain
+`LXP/v1/receipt\0`
+(`services/agent/crates/layerx-wire/src/hash.rs:69`;
 `services/interop/crates/layerx-portable/FORMAT.md:32-35`).
 
 The portable verifier stops at sequencer-signed receipt authenticity
 plus independently supplied batch facts. It does not unwrap
 `terminal_payload`, reconstruct applied legs, or classify
-`transfer_verification`. The SDK decoder does not implement
-`layerx-receipt-proof-v1` JSON.
+`transfer_verification`.
 
 ---
 

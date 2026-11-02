@@ -5,7 +5,7 @@
 //! EVM: native value transfers, ERC-20 `Transfer` (a registered pointer
 //! contract's transfer is labelled `pointer_transfer`), and every event a
 //! loaded precompile ABI declares; custody deposits, releases and emergency
-//! exits also become transfer legs. Cosmos: bank `transfer`, tokenfactory
+//! exits record no transfer leg. Cosmos: bank `transfer`, tokenfactory
 //! `create_denom`/`mint`/`burn`/`change_admin`, and every `layerx_*` anchor
 //! string event. Cosmos transactions that carry EVM execution are skipped
 //! there because the EVM walk already indexed them.
@@ -246,6 +246,9 @@ pub fn decode_block(block: &Value, inputs: &BlockInputs<'_>) -> Result<Unit, Ind
                 "receipt of {tx_hash} belongs to another block"
             )));
         }
+        if let Some(activity) = chain_activity(transaction, receipt, height, &tx_hash)? {
+            unit.events.push(activity);
+        }
         if field_str(receipt, "status")? != "0x1" {
             continue;
         }
@@ -312,6 +315,38 @@ pub fn decode_block(block: &Value, inputs: &BlockInputs<'_>) -> Result<Unit, Ind
         decode_cosmos_tx(&mut unit, transaction, inputs.encoding)?;
     }
     Ok(unit)
+}
+
+fn chain_activity(
+    transaction: &Value,
+    receipt: &Value,
+    height: u64,
+    tx_hash: &str,
+) -> Result<Option<EventRow>, IndexError> {
+    let Some(chain_id) = transaction.get("chainId") else {
+        return Ok(None);
+    };
+    let chain_id =
+        quantity_u64(chain_id.as_str().ok_or_else(|| {
+            IndexError::Decode("transaction chainId is not a quantity".to_owned())
+        })?)?;
+    let Some(id) = chain_id
+        .checked_sub(125_000_000)
+        .and_then(|id| u32::try_from(id).ok())
+    else {
+        return Ok(None);
+    };
+    Ok(Some(EventRow {
+        height_or_seq: height,
+        source: "chain-transaction".to_owned(),
+        name: "ChainTransaction".to_owned(),
+        contract: None,
+        account: None,
+        tx_id: tx_hash.to_owned(),
+        ordinal: 0,
+        decoded: json!({"chain": format!("pax:{id}"), "chain_id": chain_id,
+            "gas_used": quantity_u64(field_str(receipt, "gasUsed")?)?}),
+    }))
 }
 
 /// The transaction a log belongs to.
@@ -469,6 +504,28 @@ fn decode_log(
             return Ok(());
         }
     };
+    if decoded.contract == "chains_registry"
+        && inputs
+            .registry
+            .abis()
+            .iter()
+            .any(|abi| abi.contract == "chains_registry" && abi.address == Some(emitter))
+    {
+        let row = crate::chains::decode(&decoded, height, tx_hash).ok_or_else(|| {
+            IndexError::Decode(format!("invalid chain registry event {}", decoded.name))
+        })?;
+        unit.events.push(EventRow {
+            height_or_seq: height,
+            source: "chain-registry-change".to_owned(),
+            name: decoded.name.clone(),
+            contract: Some(decoded.contract.clone()),
+            account: None,
+            tx_id: tx_hash.to_owned(),
+            ordinal,
+            decoded: serde_json::to_value(row)
+                .map_err(|error| IndexError::Decode(error.to_string()))?,
+        });
+    }
     let bound_names = inputs.registry.abis().iter().any(|abi| {
         abi.address == Some(emitter)
             && abi.contract == decoded.contract

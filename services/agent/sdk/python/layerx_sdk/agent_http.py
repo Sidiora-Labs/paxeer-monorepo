@@ -199,12 +199,9 @@ _DAEMON_PATH = "/rpc"
 _ENVELOPE_MAX_BODY_BYTES = 1_048_576
 _MAX_U64 = (1 << 64) - 1
 _LEVELS: Mapping[str, int] = {
-    "Unverified": 0,
-    "SequencerSigned": 1,
-    "BatchIncluded": 2,
-    "StateProven": 3,
-    "CheckpointFinalised": 4,
-    "SettlementAnchored": 5,
+    "submitted": 0,
+    "receipted": 1,
+    "committed": 2,
 }
 
 
@@ -296,7 +293,7 @@ def decode_tenant_readiness(value: object) -> TenantReadinessV1:
 
 
 def check_tenant_readiness_response(response: AgentEnvelopeSuccess) -> TenantReadinessV1:
-    if response.verification_status != {"state": "achieved", "level": "Unverified"}:
+    if response.verification_status != {"state": "achieved", "rung": "submitted"}:
         raise _decode_failure(response.request_id)
     try:
         return decode_tenant_readiness(response.value)
@@ -304,7 +301,7 @@ def check_tenant_readiness_response(response: AgentEnvelopeSuccess) -> TenantRea
         raise _decode_failure(response.request_id) from None
 
 
-ProofBundleVerificationLevel = Literal["Unverified", "SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised", "SettlementAnchored"]
+ProofBundleVerificationLevel = Literal["submitted", "receipted", "committed"]
 
 
 class ProofBundleRequest(TypedDict):
@@ -331,7 +328,7 @@ class ProofBundleFreshness(TypedDict):
 
 class ProofBundleRead(TypedDict):
     value: ProofBundleValue
-    achieved_verification_level: Literal["BatchIncluded", "StateProven"]
+    achieved_verification_level: Literal["receipted", "committed"]
     freshness: ProofBundleFreshness
 
 
@@ -404,9 +401,9 @@ def check_proof_bundle_response(request: ProofBundleRequest, response: AgentEnve
         kind = bytes.fromhex(expected["target"])[2]
         if kind == 1 and proof.variant != 1 or kind == 3 and proof.variant != 3 or kind == 2 and proof.variant not in {2, 4}:
             raise ValueError("proof_bundle.variant")
-        achieved = "StateProven" if kind == 2 else "BatchIncluded"
+        achieved = "committed" if kind == 2 else "receipted"
         if (read["achieved_verification_level"] != achieved or _LEVELS[achieved] < _LEVELS[expected["requested_verification_level"]]
-            or response.verification_status != {"state": "achieved", "level": achieved}):
+            or response.verification_status != {"state": "achieved", "rung": achieved}):
             raise ValueError("proof_bundle.level")
         freshness = read["freshness"]
         if not isinstance(freshness, Mapping) or set(freshness) != {"chain_head", "latest_sealed_batch", "latest_finalised_checkpoint", "value_sequence", "relative_to"}:
@@ -759,7 +756,18 @@ def _valid_verification_status(value: object) -> bool:
     if not isinstance(value, dict):
         return False
     if value.get("state") == "achieved":
-        return set(value) == {"state", "level"} and isinstance(value.get("level"), str) and value["level"] in _LEVELS
+        return set(value) == {"state", "rung"} and isinstance(value.get("rung"), str) and value["rung"] in _LEVELS
+    if value.get("state") == "absent":
+        return set(value) == {"state", "requested"} and isinstance(value.get("requested"), str) and value["requested"] in _LEVELS
+    if value.get("state") == "pending":
+        requested = value.get("requested")
+        achieved = value.get("achieved")
+        return (
+            set(value) == {"state", "requested", "achieved"}
+            and isinstance(requested, str) and requested in _LEVELS
+            and isinstance(achieved, str) and achieved in _LEVELS
+            and _LEVELS[achieved] < _LEVELS[requested]
+        )
     if value.get("state") != "unverified" or set(value) != {"state", "requested", "achieved", "reason"}:
         return False
     requested = value.get("requested")
@@ -907,17 +915,17 @@ def _accepted_program_verification(operation: str, result: object, value: object
         if operation != "program.discover" or not isinstance(result, dict):
             return False
         key, signature = result.get("discovery_public_key"), result.get("discovery_signature")
-        return (set(value) == {"state", "level"} and value.get("state") == "Achieved"
-                and value.get("level") == "SequencerSigned" and isinstance(key, str) and _hex32(key)
+        return (set(value) == {"state", "rung"} and value.get("state") == "achieved"
+                and value.get("rung") == "receipted" and isinstance(key, str) and _hex32(key)
                 and isinstance(signature, str) and len(signature) == 128
                 and all(character in _HEX for character in signature))
     if operation in {"program.call", "program.receipt", "program.activity"} and result_state in {"unknown", "pending"}:
         return _exact_unverified(value, "receipt_pending")
-    return set(value) == {"state", "level"} and value.get("state") == "Achieved" and value.get("level") == "SequencerSigned"
+    return set(value) == {"state", "rung"} and value.get("state") == "achieved" and value.get("rung") == "receipted"
 
 
 def _exact_unverified(value: Mapping[str, object], reason: str) -> bool:
-    return set(value) == {"state", "requested", "achieved", "reason"} and value.get("state") == "Unverified" and value.get("requested") == "SequencerSigned" and value.get("achieved") == "Unverified" and value.get("reason") == reason
+    return set(value) == {"state", "requested", "achieved", "reason"} and value.get("state") == "unverified" and value.get("requested") == "receipted" and value.get("achieved") == "submitted" and value.get("reason") == reason
 
 
 def _service_error(status: int, error: Mapping[str, object]) -> PlatformSdkError:

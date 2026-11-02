@@ -7,6 +7,12 @@ import (
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 )
 
+const (
+	streamsOpenGas   uint64 = 50000
+	streamsSettleGas uint64 = 60000
+	streamsCloseGas  uint64 = 80000
+)
+
 func MethodGas(selector []byte, inputLen int) uint64 {
 	base, perByte, known := methodGas(selector)
 	if !known {
@@ -43,11 +49,11 @@ func methodGas(selector []byte) (base, perByte uint64, known bool) {
 	case 0x40e58ee5, 0x08e6f770:
 		return 20000, 30, true
 	case 0x93e5b08b:
-		return 50000, 30, true
+		return streamsOpenGas, 30, true
 	case 0x8df82800, 0x405abb41:
-		return 60000, 30, true
+		return streamsSettleGas, 30, true
 	case 0x0aebeb4e:
-		return 80000, 30, true
+		return streamsCloseGas, 30, true
 	case 0x5fa55ca7, 0x71ded4b3:
 		return 46000, 3, true
 	case 0xac580b5c:

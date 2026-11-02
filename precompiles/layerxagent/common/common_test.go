@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -368,6 +369,26 @@ func TestErrorCodeRegistry(t *testing.T) {
 			data := pcommon.RevertReason(row.code)
 			require.Equal(t, row.text, revertText(t, data))
 			require.True(t, bytes.Equal(data[:4], []byte{0x08, 0xc3, 0x79, 0xa0}))
+		})
+	}
+}
+
+func TestStreamsGasCanonicalCallSizes(t *testing.T) {
+	for _, row := range []struct {
+		signature string
+		words     int
+		want      uint64
+	}{
+		{"open(address,address,uint256,uint64,uint64,uint256)", 6, 55880},
+		{"settle(uint256)", 1, 61080},
+		{"close(uint256)", 1, 81080},
+		{"updateRate(uint256,uint256)", 2, 62040},
+		{"accrued(uint256)", 1, 1108},
+		{"getStream(uint256)", 1, 1108},
+	} {
+		t.Run(row.signature, func(t *testing.T) {
+			id := crypto.Keccak256([]byte(row.signature))[:4]
+			require.Equal(t, row.want, common.MethodGas(id, 4+32*row.words))
 		})
 	}
 }

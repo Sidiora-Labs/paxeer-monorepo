@@ -287,7 +287,8 @@ fn list_assets_and_network_read_px_methods_and_refuse_anchor_fields() {
     ], "joined_limit": "0x10"});
     let native_head = json!({"node_info": {"version": "1", "height": "9"}});
     let network = json!({"network_id": "paxeer:mainnet", "paxeer": {"chain_id": "0x7d", "latest_block": "0x10"},
-                         "layerx": native_head, "latest_committed_height": 9});
+                         "consensus": {"latest_height": 9, "latest_block_hash": "12".repeat(32),
+                                       "latest_app_hash": "34".repeat(32), "catching_up": false}});
     let mut exchanges = vec![
         ("px_listAssets", assets.clone()),
         ("px_getNetwork", network.clone()),
@@ -301,21 +302,23 @@ fn list_assets_and_network_read_px_methods_and_refuse_anchor_fields() {
         malformed["anchor"] = anchor;
         exchanges.push(("px_getNetwork", malformed));
     }
-    for name in ["network_id", "paxeer", "layerx", "latest_committed_height"] {
+    for name in ["network_id", "paxeer", "consensus"] {
         let mut malformed = network.clone();
         malformed.as_object_mut().must().remove(name);
         exchanges.push(("px_getNetwork", malformed));
     }
     for (path, invalid) in [
-        ("/latest_committed_height", json!(17)),
+        ("/consensus/latest_height", json!(17)),
         ("/paxeer/chain_id", json!("18446744073709551616")),
         ("/paxeer/latest_block", json!("0x")),
-        ("/layerx", json!([])),
     ] {
         let mut malformed = network.clone();
         *malformed.pointer_mut(path).must() = invalid;
         exchanges.push(("px_getNetwork", malformed));
     }
+    let mut malformed = network.clone();
+    malformed["layerx"] = json!([]);
+    exchanges.push(("px_getNetwork", malformed));
     let bad_networks = exchanges.len() - 2;
     for name in ["assets", "joined_limit"] {
         let mut malformed = assets.clone();
@@ -337,9 +340,12 @@ fn list_assets_and_network_read_px_methods_and_refuse_anchor_fields() {
     malformed["assets"] = json!(vec![Value::Null; 1025]);
     exchanges.push(("px_listAssets", malformed));
     let bad_assets = exchanges.len() - 2 - bad_networks;
-    let mut no_native = network;
+    let mut no_native = network.clone();
     no_native["layerx"] = Value::Null;
     exchanges.push(("px_getNetwork", no_native));
+    let mut with_native = network;
+    with_native["layerx"] = native_head.clone();
+    exchanges.push(("px_getNetwork", with_native));
     exchanges.push(("px_listAssets", json!({"assets": [], "joined_limit": 16})));
 
     let (url, handle) = serve(exchanges);
@@ -368,7 +374,7 @@ fn list_assets_and_network_read_px_methods_and_refuse_anchor_fields() {
             chain_id: 125,
             latest_block: 16,
         },
-        layerx: Some(fields(native_head)),
+        layerx: None,
         latest_committed_height: 9,
     };
     assert_eq!(endpoint.network().must(), expected_head);
@@ -382,6 +388,13 @@ fn list_assets_and_network_read_px_methods_and_refuse_anchor_fields() {
         endpoint.network().must(),
         PxNetworkHead {
             layerx: None,
+            ..expected_head.clone()
+        }
+    );
+    assert_eq!(
+        endpoint.network().must(),
+        PxNetworkHead {
+            layerx: Some(fields(native_head)),
             ..expected_head
         }
     );
@@ -393,8 +406,59 @@ fn list_assets_and_network_read_px_methods_and_refuse_anchor_fields() {
         }
     );
     let seen = handle.join().must();
-    assert_eq!(seen.len(), 4 + bad_networks + bad_assets);
+    assert_eq!(seen.len(), 5 + bad_networks + bad_assets);
     for params in seen {
         assert_eq!(params, json!([]));
     }
+}
+
+#[test]
+fn network_reads_the_consensus_head() {
+    let network = json!({
+        "network_id": "paxeer:mainnet",
+        "paxeer": {"chain_id": "0x7d", "latest_block": "0x10"},
+        "consensus": {
+            "latest_height": 9,
+            "latest_block_hash": "12".repeat(32),
+            "latest_app_hash": "34".repeat(32),
+            "catching_up": false
+        }
+    });
+    let unavailable = json!({
+        "network_id": "paxeer:mainnet",
+        "paxeer": {"chain_id": "0x7d", "latest_block": "0x10"},
+        "consensus": null,
+        "reason": "consensus_unavailable"
+    });
+    let mut exchanges = vec![
+        ("px_getNetwork", network.clone()),
+        ("px_getNetwork", unavailable),
+    ];
+    let mut above_block = network.clone();
+    above_block["consensus"]["latest_height"] = json!(17);
+    exchanges.push(("px_getNetwork", above_block));
+    for field in ["anchor", "lx_getNodeInfo"] {
+        let mut malformed = network.clone();
+        malformed[field] = Value::Null;
+        exchanges.push(("px_getNetwork", malformed));
+    }
+    let (url, handle) = serve(exchanges);
+    let endpoint = PxEndpoint::new(&url, &[]).must();
+    assert_eq!(
+        endpoint.network().must(),
+        PxNetworkHead {
+            network_id: "paxeer:mainnet".to_owned(),
+            paxeer: PxPaxeerHead {
+                chain_id: 125,
+                latest_block: 16
+            },
+            layerx: None,
+            latest_committed_height: 9,
+        }
+    );
+    assert_eq!(endpoint.network(), Err(SequencerError::Unavailable));
+    for _ in 0..3 {
+        assert_eq!(endpoint.network(), Err(SequencerError::Malformed));
+    }
+    assert_eq!(handle.join().must(), vec![json!([]); 5]);
 }

@@ -433,16 +433,18 @@ impl<'a> ProductionAgentCreation<'a> {
         {
             return Err(AgentFailure::Refused("creation call disclosure differs"));
         }
-        let signed_activity = layerx_intents::owner_activity::attach_signature(
-            &call, signature, from,
-        )
-        .map_err(|_| AgentFailure::Refused("custody signature does not bind preparation"))?;
+        let signed_activity = crate::custody::attach_call_signature(&call, signature, from)
+            .map_err(|_| AgentFailure::Refused("custody signature does not bind preparation"))?;
         let signed = SignedCreationTransaction::decode(&signed_activity)?;
         let activity_id = signed.activity_id;
         if signed.disclosure != prepared.disclosure
             || signed.owner_public_key[12..] != wallet
             || signed.network_id != binding.network_id()
-            || signed.disclosure.idempotency_key != action.action_key
+            || signed.disclosure.idempotency_key
+                != ProtocolEvidence::creation_idempotency_key(
+                    &signed.disclosure,
+                    action.action_key,
+                )?
         {
             return Err(AgentFailure::Refused("signed creation action differs"));
         }
@@ -494,7 +496,8 @@ impl<'a> ProductionAgentCreation<'a> {
         let signed = SignedCreationTransaction::decode(&signed_activity)?;
         if signed.disclosure.actor != signed.owner_public_key[12..]
             || signed.owner_public_key != public_key
-            || signed.disclosure.idempotency_key != action_key
+            || signed.disclosure.idempotency_key
+                != ProtocolEvidence::creation_idempotency_key(&signed.disclosure, action_key)?
             || signed.network_id != network_id
             || signed.activity_id != activity_id
         {
@@ -538,7 +541,9 @@ impl<'a> ProductionAgentCreation<'a> {
                 .map_err(map_boundary)?
             {
                 ReceiptLookup::Found(receipt) => receipt,
-                ReceiptLookup::Absent => return Err(AgentFailure::Unavailable),
+                ReceiptLookup::Absent | ReceiptLookup::Submitted { .. } => {
+                    return Err(AgentFailure::Unavailable)
+                }
             },
         };
         Self::protocol_evidence(

@@ -14,19 +14,12 @@ use layerx_agentd::policy::{
 };
 use layerx_agentd::session::{OpenRequest, SessionId, SessionRecord};
 use layerx_agentd::store::TenantId;
-use layerx_client::client::MAX_FEE_METER_CANONICAL_BYTES;
-use layerx_client::evidence::{
-    EvidenceError, ProgramStateSelector, MAX_PROGRAM_STATE_BUNDLE_BYTES, PROGRAM_STATE_DOMAIN,
-    PROGRAM_STATE_REQUEST_BYTES,
-};
+use layerx_client::fee::MAX_FEE_METER_CANONICAL_BYTES;
 use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_sdk::rpc::{RpcClient, RpcError};
 use layerx_types::ids::Did;
 
-const PROGRAM: [u8; 32] = [0x31; 32];
-const DIGEST: [u8; 32] = [0x42; 32];
 const ROOT: [u8; 32] = [0x53; 32];
-const SEQUENCE: u64 = 0x0102_0304_0506_0708;
 
 fn meter(canonical_bytes: u64) -> FeeProjectionRequest {
     FeeProjectionRequest {
@@ -60,17 +53,6 @@ fn projection() -> FeeProjection {
         denom: "upax".to_owned(),
         snapshot_state_root: ROOT,
     }
-}
-
-fn contract_selector_bytes(version: u16, kind: u8, program: [u8; 32], sequence: u64) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(PROGRAM_STATE_REQUEST_BYTES);
-    bytes.extend_from_slice(&version.to_be_bytes());
-    bytes.push(kind);
-    bytes.extend_from_slice(&program);
-    bytes.extend_from_slice(&sequence.to_be_bytes());
-    bytes.extend_from_slice(&DIGEST);
-    bytes.extend_from_slice(&ROOT);
-    bytes
 }
 
 #[test]
@@ -154,64 +136,6 @@ fn fee_projection_is_a_typed_projection_bound_to_its_own_snapshot() {
         projection().into_projection("", freshness(42, 42)),
         Err(ContractError::Empty("projection_rationale"))
     ));
-}
-
-#[test]
-fn kind5_selector_is_exactly_the_107_byte_contract_request() {
-    assert_eq!(PROGRAM_STATE_REQUEST_BYTES, 107);
-    assert_eq!(PROGRAM_STATE_DOMAIN, b"LayerX/programs/state-proof/v1\0");
-    assert_eq!(PROGRAM_STATE_DOMAIN.len(), 31);
-    assert_eq!(MAX_PROGRAM_STATE_BUNDLE_BYTES, 40 * 1024 * 1024);
-
-    let selector = ProgramStateSelector::new(PROGRAM, SEQUENCE, DIGEST, ROOT)
-        .unwrap_or_else(|error| panic!("selector: {error:?}"));
-    let expected = contract_selector_bytes(1, 5, PROGRAM, SEQUENCE);
-    assert_eq!(expected.len(), 107);
-    assert_eq!(selector.encode().as_slice(), expected.as_slice());
-    assert_eq!(&expected[..3], &[0, 1, 5]);
-    assert_eq!(&expected[35..43], &[1, 2, 3, 4, 5, 6, 7, 8]);
-    let decoded = ProgramStateSelector::decode(&expected)
-        .unwrap_or_else(|error| panic!("contract selector: {error:?}"));
-    assert_eq!(decoded, selector);
-    assert_eq!(decoded.encode().as_slice(), expected.as_slice());
-    assert_eq!(selector.program_id(), PROGRAM);
-    assert_eq!(selector.global_sequence(), SEQUENCE);
-    assert_eq!(selector.receipt_digest(), DIGEST);
-    assert_eq!(selector.state_root(), ROOT);
-}
-
-#[test]
-fn kind5_selector_refuses_every_noncanonical_request() {
-    assert!(matches!(
-        ProgramStateSelector::new([0; 32], SEQUENCE, DIGEST, ROOT),
-        Err(EvidenceError::Malformed)
-    ));
-    assert!(matches!(
-        ProgramStateSelector::new(PROGRAM, 0, DIGEST, ROOT),
-        Err(EvidenceError::Malformed)
-    ));
-    for bytes in [
-        contract_selector_bytes(0, 5, PROGRAM, SEQUENCE),
-        contract_selector_bytes(2, 5, PROGRAM, SEQUENCE),
-        contract_selector_bytes(1, 4, PROGRAM, SEQUENCE),
-        contract_selector_bytes(1, 6, PROGRAM, SEQUENCE),
-        contract_selector_bytes(1, 5, [0; 32], SEQUENCE),
-        contract_selector_bytes(1, 5, PROGRAM, 0),
-    ] {
-        assert!(matches!(
-            ProgramStateSelector::decode(&bytes),
-            Err(EvidenceError::Malformed)
-        ));
-    }
-    let canonical = contract_selector_bytes(1, 5, PROGRAM, SEQUENCE);
-    let mut trailing = canonical.clone();
-    trailing.push(0);
-    for bytes in [&canonical[..106], trailing.as_slice(), &[][..]] {
-        assert!(matches!(
-            ProgramStateSelector::decode(bytes),
-            Err(EvidenceError::Malformed)
-        ));
-    }
 }
 
 fn tenant() -> TenantId {
