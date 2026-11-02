@@ -2243,8 +2243,14 @@ fn run() -> Result<(), String> {
             }
             write_rust_operation_catalog(&repo_root)
         }
-        "--write-program-contracts" => programs_contracts(&repo_root, true),
-        "--check-program-contracts" => programs_contracts(&repo_root, false),
+        "--write-program-contracts" | "--check-program-contracts" => {
+            if arguments.len() > 3 {
+                return Err(format!(
+                    "usage: layerx-platform-sdkgen {mode} [repo-root] [lock-path]"
+                ));
+            }
+            programs_contracts(&repo_root, mode == "--write-program-contracts")
+        }
         "--write" => write_lock(&repo_root, &lock_path),
         "--check" => check(&repo_root, &lock_path),
         "--check-paxai" => {
@@ -2254,7 +2260,7 @@ fn run() -> Result<(), String> {
             check_paxai_contract(&repo_root)
         }
         _ => Err(
-            "usage: layerx-platform-sdkgen [--write|--check|--check-paxai] [repo-root] [lock-path]"
+            "usage: layerx-platform-sdkgen [--write|--check|--check-paxai|--write-program-contracts|--check-program-contracts] [repo-root] [lock-path]"
                 .to_owned(),
         ),
     }

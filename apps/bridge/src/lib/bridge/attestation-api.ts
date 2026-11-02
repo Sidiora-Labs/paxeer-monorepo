@@ -8,7 +8,7 @@
  * its signatures are verified against the on-chain attestor set before the
  * wallet is asked to submit anything.
  */
-import { getAddress, isAddress, isHash, isHex, type Address, type Hex } from 'viem';
+import { getAddress, isAddress, isHash, type Address, type Hex } from 'viem';
 
 import { bridgeConfig } from './config';
 
@@ -103,7 +103,7 @@ function readHash(value: string, key: string): Hex {
 }
 
 function readBytes32(value: string, key: string): Hex {
-  if (!isHex(value) || value.length !== 66) {
+  if (!/^0x[0-9a-fA-F]{64}$/.test(value)) {
     throw new AttestationApiError(`The bridge backend returned a bad "${ key }".`);
   }
   return value as Hex;

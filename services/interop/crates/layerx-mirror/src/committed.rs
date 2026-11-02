@@ -29,6 +29,23 @@ pub struct CommittedBlock {
     pub receipts: Vec<Vec<u8>>,
 }
 
+impl CommittedBlock {
+    /// Checks the completeness of the public block value before archiving it.
+    /// Signature authority is checked by acquisition and by the receipt consumer.
+    ///
+    /// # Errors
+    /// Refuses a missing block identity, missing receipts or empty receipt bytes.
+    pub fn validate_archive(&self) -> Result<(), CommittedRefusal> {
+        if self.header.block_hash == [0; 32]
+            || self.header.transactions.len() != self.receipts.len()
+            || self.receipts.iter().any(Vec::is_empty)
+        {
+            return Err(CommittedRefusal::Malformed);
+        }
+        Ok(())
+    }
+}
+
 pub struct CommittedBlockSource {
     rpc: RpcCluster,
     receipt_keys: Vec<SequencerAuthorization>,
@@ -166,7 +183,9 @@ impl CommittedBlockSource {
             }
             receipts.push(bytes);
         }
-        Ok(CommittedBlock { header, receipts })
+        let block = CommittedBlock { header, receipts };
+        block.validate_archive()?;
+        Ok(block)
     }
 }
 

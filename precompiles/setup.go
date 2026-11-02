@@ -62,12 +62,13 @@ type MergeAddress struct {
 }
 
 // MergeAddressTable lists the precompiles the merge plan brings online: the
-// four construct addresses and the eight agent-function addresses.
+// five construct addresses and the eight agent-function addresses.
 var MergeAddressTable = []MergeAddress{
 	{ecommon.HexToAddress("0x000000000000000000000000000000000000101A"), "layerxledger"},
 	{ecommon.HexToAddress("0x000000000000000000000000000000000000101B"), "layerxpay"},
 	{ecommon.HexToAddress("0x000000000000000000000000000000000000101C"), "layerxauth"},
 	{ecommon.HexToAddress("0x000000000000000000000000000000000000101D"), "layerxprograms"},
+	{ecommon.HexToAddress("0x000000000000000000000000000000000000101E"), "layerxchains"},
 	{ecommon.HexToAddress("0x0000000000000000000000000000000000000901"), "orob"},
 	{ecommon.HexToAddress("0x0000000000000000000000000000000000000902"), "clearing"},
 	{ecommon.HexToAddress("0x0000000000000000000000000000000000000903"), "oracle aggregator"},

@@ -165,3 +165,17 @@ func TestInitV6120GenesisRoundTrip(t *testing.T) {
 		shared.FeedKeys[0].Operator.String()+" and "+shared.FeedKeys[1].Operator.String())
 	require.Empty(t, storeKeys(refusedCtx, refused))
 }
+
+// Export must refuse well-formed JSON whose prices violate genesis invariants.
+func TestProofPricefeedErrorsExportInvalidState(t *testing.T) {
+	k, ctx := registryKeeper(t)
+	require.NoError(t, keeper.InitV6120(ctx, k))
+	k.Set(ctx, types.AggregateKey(0), types.Aggregate{
+		IndexPrice: sdk.ZeroInt(), MarkPrice: sdk.OneInt(), Basis: sdk.ZeroInt(), Sources: 1,
+	})
+	for i := 0; i < 2; i++ {
+		exported, err := k.ExportGenesis(ctx)
+		requireRefusal(t, err, types.ErrInvalidGenesis, "LXP_PRICEFEED_INVALID_GENESIS")
+		require.Equal(t, types.GenesisState{}, exported)
+	}
+}

@@ -21,6 +21,9 @@ func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPr
 	if keepers == nil {
 		return nil, fmt.Errorf("%w: precompile keepers are unavailable", agentcommon.ErrNoContext)
 	}
+	if planName == "" {
+		return nil, fmt.Errorf("%w: no merge upgrade activation reader bound", agentcommon.ErrNotActive)
+	}
 	wired, ok := keepers.(layerxpay.LayerXPayKeepers)
 	if !ok || wired.LayerXPayK() == nil {
 		return nil, fmt.Errorf("%w: pay keeper is unavailable", agentcommon.ErrNoContext)
