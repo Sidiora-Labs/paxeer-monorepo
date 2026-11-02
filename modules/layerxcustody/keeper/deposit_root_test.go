@@ -103,8 +103,7 @@ func testDepositRootRegistration(t *testing.T, registerByAnotherSender bool) {
 	copy(headerSignature[:], vectorBytes(t, vector, "header_signature"))
 	authorization, found := anchor.SequencerAuthorizationForBatch(ctx, header.BatchNumber)
 	require.True(t, found)
-	verifiedHeader, err := verify.BatchHeader(headerBytes, headerSignature, authorization)
-	require.NoError(t, err)
+	require.NoError(t, verify.Ed25519Digest(authorization.PublicKey, headerSignature, codec.BatchHeaderDigest(headerBytes)))
 	guarantors := []anchortypes.Hash32{anchortypes.Hash32(guarantorID)}
 	_, err = anchor.SubmitCheckpoint(ctx, operator, headerBytes, headerSignature, certificate)
 	require.ErrorIs(t, err, anchortypes.ErrModuleRetired)
@@ -114,7 +113,7 @@ func testDepositRootRegistration(t *testing.T, registerByAnotherSender bool) {
 	restored := anchor.ExportGenesis(ctx)
 	restored.Checkpoints = []anchortypes.Checkpoint{{
 		BatchNumber: header.BatchNumber, CheckpointID: anchortypes.Hash32(checkpointID),
-		HeaderDigest: anchortypes.Hash32(verifiedHeader.Digest), ProtocolVersion: header.ProtocolVersion,
+		HeaderDigest: anchortypes.Hash32(codec.BatchHeaderDigest(headerBytes)), ProtocolVersion: header.ProtocolVersion,
 		NetworkID: header.NetworkID, Epoch: header.Epoch, FirstSequence: header.FirstSequence,
 		LastSequence: header.LastSequence, PreviousStateRoot: anchortypes.Hash32(header.PreviousStateRoot),
 		StateRoot: anchortypes.Hash32(header.ResultingStateRoot), ReceiptRoot: anchortypes.Hash32(header.ReceiptMerkleRoot),

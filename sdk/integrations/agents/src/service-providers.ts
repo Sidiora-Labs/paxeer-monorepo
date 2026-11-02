@@ -42,7 +42,7 @@ export async function loadAgentServiceProviders(environment: Environment): Promi
     if ("daemonReceiptStorePath" in providers || typeof providers.receipts?.resolve !== "function") throw new AgentIntegrationError("invalid-declared-key");
     if (providers.preparationBudgets !== undefined && typeof providers.preparationBudgets.spendPrepared !== "function"
       || (providers.budgets === undefined) === (providers.preparationBudgets === undefined)) throw new AgentIntegrationError("missing-declared-key");
-    return { ...providers, signer };
+    return { ...providers, signer, ...(providers.destroy === undefined ? {} : { destroy: providers.destroy.bind(providers) }) };
   }
   if (!("daemonReceiptStorePath" in providers) || typeof providers.daemonReceiptStorePath !== "string"
     || providers.daemonPreparationStorePath !== undefined && typeof providers.daemonPreparationStorePath !== "string"

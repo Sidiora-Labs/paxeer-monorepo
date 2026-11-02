@@ -25,6 +25,8 @@ func NewKeeper(cdc codec.BinaryCodec, storeKey sdk.StoreKey, host *lxphost.Host,
 
 func (k *Keeper) store(ctx sdk.Context) sdk.KVStore { return ctx.KVStore(k.storeKey) }
 
+// GetParams reads the supplied context on every call, including cached branches.
+// An unset parameter record returns defaults without writing to the store.
 func (k *Keeper) GetParams(ctx sdk.Context) types.Params {
 	bz := k.store(ctx).Get(types.ParamsKey)
 	if bz == nil {

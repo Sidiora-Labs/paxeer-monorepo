@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"encoding/binary"
 	"errors"
+	"flag"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -1925,4 +1926,55 @@ func TestShippedPolicyCountsPerpsPulls(t *testing.T) {
 		})
 	}
 
+}
+
+var xwebProofCalldata = flag.String("xweb-proof-calldata", "", "fulfilment emitted by the in-process application proof")
+
+// TestXweb0x1019ApplicationPolicy consumes the exact fulfilment calldata the
+// application proof sent through the Solidity consumer to the precompile.
+func TestXweb0x1019ApplicationPolicy(t *testing.T) {
+	data := common.FromHex(*xwebProofCalldata)
+	if len(data) < 4 {
+		t.Fatal("application proof must supply its real fulfilment calldata")
+	}
+	contract, err := evm.PrecompileABI("xweb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	method, err := contract.MethodById(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if method.Sig != "fulfilProgram(bytes)" {
+		t.Fatalf("unexpected producer call %s", method.Sig)
+	}
+	args, err := method.Inputs.Unpack(data[4:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(args) != 1 || len(args[0].([]byte)) < 146 {
+		t.Fatal("missing real observation")
+	}
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t)
+	h.policy = New(doc)
+	address, ok := evm.PrecompileAddress("xweb")
+	if !ok {
+		t.Fatal("xweb address missing")
+	}
+	for i := 0; i < 2; i++ {
+		expect(t, h.policy.Evaluate(testAccount, h.tx(t, address, big.NewInt(0), data), h.ledger), CodeSelectorNotAllowed)
+	}
+	// A wallet request is allowed while the attestor-only write remains refused.
+	request, err := contract.Pack("request", uint8(2), []byte("paxeer"), uint64(0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect(t, h.policy.Evaluate(testAccount, h.tx(t, address, big.NewInt(0), request), h.ledger), CodeAllowed)
+	if len(h.ledger.spends) != 0 {
+		t.Fatal("zero-value xweb calls recorded a spend")
+	}
 }

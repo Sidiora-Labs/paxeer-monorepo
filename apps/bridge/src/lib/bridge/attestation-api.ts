@@ -81,8 +81,8 @@ function readString(obj: Record<string, unknown>, key: string): string {
   return value;
 }
 
-function readDecimal(value: string, key: string): string {
-  if (!/^\d+$/.test(value)) {
+function readDecimal(value: string, key: string, bits = 256): string {
+  if (!/^\d+$/.test(value) || BigInt(value) >= (1n << BigInt(bits))) {
     throw new AttestationApiError(`The bridge backend returned a bad "${ key }".`);
   }
   return value;
@@ -161,7 +161,7 @@ export function parseDepositAttestation(
   const obj = record(body);
   const chainId = readDecimal(readString(obj, 'chainId'), 'chainId');
   const txHash = readHash(readString(obj, 'txHash'), 'txHash');
-  const logIndex = readDecimal(readString(obj, 'logIndex'), 'logIndex');
+  const logIndex = readDecimal(readString(obj, 'logIndex'), 'logIndex', 64);
   if (BigInt(chainId) !== request.chainId) {
     throw new AttestationApiError('The bridge backend returned a different "chainId".');
   }
@@ -211,7 +211,7 @@ export function parseReleaseAttestation(
   const obj = record(body);
   const chainId = readDecimal(readString(obj, 'chainId'), 'chainId');
   const paxeerTxHash = readHash(readString(obj, 'paxeerTxHash'), 'paxeerTxHash');
-  const paxeerNonce = readDecimal(readString(obj, 'paxeerNonce'), 'paxeerNonce');
+  const paxeerNonce = readDecimal(readString(obj, 'paxeerNonce'), 'paxeerNonce', 64);
   if (BigInt(chainId) !== request.chainId) {
     throw new AttestationApiError('The bridge backend returned a different "chainId".');
   }

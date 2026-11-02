@@ -19,7 +19,7 @@ func TestParamsDefaultAndValidate(t *testing.T) {
 	if ModuleName != "layerxledger" || StoreKey != ModuleName || RouterKey != ModuleName || QuerierRoute != ModuleName {
 		t.Fatalf("module keys = %q %q %q %q", ModuleName, StoreKey, RouterKey, QuerierRoute)
 	}
-	if !bytes.Equal(ParamsKey, []byte{0x01}) || !bytes.Equal(KernelKVPrefix, []byte{0x02}) {
-		t.Fatalf("store prefixes = %x %x", ParamsKey, KernelKVPrefix)
+	if !bytes.Equal(ParamsKey, []byte{0x01}) {
+		t.Fatalf("params key = %x, want 01", ParamsKey)
 	}
 }

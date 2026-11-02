@@ -2057,26 +2057,18 @@ impl ProjectionStore {
 
 /// Re-binds saved content to its saved finality evidence and checks the committed bytes.
 fn rebind(record: &SnapshotRecord, state: &[u8]) -> ViewResult<SnapshotBinding> {
-    let checkpoint = record.checkpoint.ok_or(ViewError::FinalityUnavailable)?;
-    let finality = FinalityEvidence {
-        native_state_root: record.native_state_root,
-        block_height: record.execution_height,
-        block_hash: record.batch_id,
-        app_hash: record.native_state_root,
-        store_proof_digest: checkpoint,
-        rank: record.rank,
-    };
-    let binding = queries::bind_snapshot(
-        state,
-        &record.facts(),
-        &finality,
-        record
-            .publication_time_ms
-            .ok_or(ViewError::FinalityUnavailable)?,
-    )?;
-    let mut encoded = [0u8; BINDING_MAX_BYTES];
-    let n = binding.encode(&mut encoded)?;
-    if record.binding.as_deref() != encoded.get(..n) {
+    let bytes = record
+        .binding
+        .as_deref()
+        .ok_or(ViewError::FinalityUnavailable)?;
+    let binding = SnapshotBinding::decode(bytes)?;
+    binding.verify_capture(state, &record.facts())?;
+    binding.finalized_head()?;
+    if record.checkpoint != Some(binding.store_proof_digest)
+        || record.rank != binding.rank
+        || record.publication_time_ms != Some(binding.publication_time_ms)
+        || record.snapshot_id != binding.snapshot_id()?
+    {
         return Err(ViewError::IntegrityFailure);
     }
     Ok(binding)

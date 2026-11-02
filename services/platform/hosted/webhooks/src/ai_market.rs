@@ -905,6 +905,7 @@ fn certify(
     // Match the same SnapshotBindingV2 commit fields that indexer promotion builds
     // through VerifiedCommit::finality_evidence before admitting the outbox row.
     let rejected = || Stop::Refuse(MarketEventError::CommitRejected);
+    binding.finalized_head().map_err(|_| rejected())?;
     let verified = verify_block_commit(proof, &policy.authority).map_err(|_| rejected())?;
     if verified.chain_id != policy.authority.chain_id {
         return Err(Stop::Quarantine(QuarantineCause::CommitChain));

@@ -17,6 +17,7 @@ import {
   type SponsoredBatch,
 } from '@sidiora/layerx-sdk';
 import {
+  assertSendTxResponse,
   BindingRefusedError,
   ChainDisconnectedError,
   DisconnectedError,
@@ -1258,3 +1259,14 @@ describe('WalletInterface', () => {
     expect(got).toEqual([[vectors.address]]);
   });
 });
+
+function provider_send_response_is_bound_to_chain_and_signer() {
+  const answer = { tx_hash: `0x${'ab'.repeat(32)}`, address: vectors.address, chain_id: 125 };
+  expect(() =>
+    assertSendTxResponse(answer, { chainId: 125, account: vectors.address })
+  ).not.toThrow();
+  expect(() => assertSendTxResponse({ ...answer, chain_id: 1 }, { chainId: 125 })).toThrow('chain');
+  expect(() => assertSendTxResponse(answer, { account: `0x${'ff'.repeat(20)}` })).toThrow('signer');
+  expect(() => assertSendTxResponse({ ...answer, tx_hash: '0x01' })).toThrow('malformed');
+}
+test(provider_send_response_is_bound_to_chain_and_signer);

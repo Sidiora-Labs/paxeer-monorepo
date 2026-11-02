@@ -5,11 +5,13 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 )
 
 type msgServer struct{ k *Keeper }
 
-// NewMsgServerImpl returns the custody Msg service.
+// NewMsgServerImpl returns the custody Msg service. Each call reads the keeper
+// through its supplied SDK context, including the current retirement height.
 func NewMsgServerImpl(k *Keeper) types.MsgServer { return msgServer{k} }
 
 var _ types.MsgServer = msgServer{}
@@ -18,6 +20,9 @@ func (s msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	if s.k.Retired(ctx) {
 		return nil, types.ErrModuleRetired
+	}
+	if msg == nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "custody message is nil")
 	}
 	if err := s.k.requireAuthority(ctx, msg.Authority); err != nil {
 		return nil, err
@@ -30,6 +35,9 @@ func (s msgServer) SetAsset(goCtx context.Context, msg *types.MsgSetAsset) (*typ
 	if s.k.Retired(ctx) {
 		return nil, types.ErrModuleRetired
 	}
+	if msg == nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "custody message is nil")
+	}
 	if err := s.k.requireAuthority(ctx, msg.Authority); err != nil {
 		return nil, err
 	}
@@ -40,6 +48,9 @@ func (s msgServer) RegisterCheckpoint(goCtx context.Context, msg *types.MsgRegis
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	if s.k.Retired(ctx) {
 		return nil, types.ErrModuleRetired
+	}
+	if msg == nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "custody message is nil")
 	}
 	if err := s.k.requireAuthority(ctx, msg.Authority); err != nil {
 		return nil, err
@@ -60,6 +71,9 @@ func (s msgServer) SetEmergency(goCtx context.Context, msg *types.MsgSetEmergenc
 	if s.k.Retired(ctx) {
 		return nil, types.ErrModuleRetired
 	}
+	if msg == nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "custody message is nil")
+	}
 	if err := s.k.requireAuthority(ctx, msg.Authority); err != nil {
 		return nil, err
 	}
@@ -70,6 +84,9 @@ func (s msgServer) CancelClaim(goCtx context.Context, msg *types.MsgCancelClaim)
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	if s.k.Retired(ctx) {
 		return nil, types.ErrModuleRetired
+	}
+	if msg == nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "custody message is nil")
 	}
 	if err := s.k.requireAuthority(ctx, msg.Authority); err != nil {
 		return nil, err
@@ -87,6 +104,9 @@ func (s msgServer) RequestWithdrawal(goCtx context.Context, msg *types.MsgReques
 	if s.k.Retired(ctx) {
 		return nil, types.ErrModuleRetired
 	}
+	if msg == nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "custody message is nil")
+	}
 	claim, err := s.k.RequestWithdrawal(ctx, WithdrawalEvidence{Receipt: msg.Receipt,
 		Proof: msg.Proof, Header: msg.Header, HeaderSignature: msg.HeaderSignature})
 	if err != nil {
@@ -99,6 +119,9 @@ func (s msgServer) FinaliseWithdrawal(goCtx context.Context, msg *types.MsgFinal
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	if s.k.Retired(ctx) {
 		return nil, types.ErrModuleRetired
+	}
+	if msg == nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "custody message is nil")
 	}
 	result, err := s.k.FinaliseWithdrawal(ctx, WithdrawalEvidence{Receipt: msg.Receipt,
 		Proof: msg.Proof, Header: msg.Header, HeaderSignature: msg.HeaderSignature})
@@ -130,6 +153,9 @@ func (s msgServer) RequestForcedExit(goCtx context.Context, msg *types.MsgReques
 	if s.k.Retired(ctx) {
 		return nil, types.ErrModuleRetired
 	}
+	if msg == nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "custody message is nil")
+	}
 	evidence, err := exitEvidence(msg.Witness, msg.BatchNumber, msg.Account, msg.AssetId, msg.Recipient, msg.RecipientSignature)
 	if err != nil {
 		return nil, err
@@ -145,6 +171,9 @@ func (s msgServer) ExecuteForcedExit(goCtx context.Context, msg *types.MsgExecut
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	if s.k.Retired(ctx) {
 		return nil, types.ErrModuleRetired
+	}
+	if msg == nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "custody message is nil")
 	}
 	evidence, err := exitEvidence(msg.Witness, msg.BatchNumber, msg.Account, msg.AssetId, msg.Recipient, msg.RecipientSignature)
 	if err != nil {

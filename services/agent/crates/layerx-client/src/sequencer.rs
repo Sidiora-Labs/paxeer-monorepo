@@ -511,19 +511,7 @@ impl SequencerEndpoint {
     /// its last height.
     pub fn receipt_keys(&self) -> Result<Vec<ReceiptKeyEntry>, SequencerError> {
         let result = self.call("px_getReceiptKeys", &json!([]))?;
-        let entries = result
-            .as_array()
-            .ok_or(SequencerError::Malformed)?
-            .iter()
-            .map(decode_receipt_key)
-            .collect::<Option<Vec<_>>>()
-            .ok_or(SequencerError::Malformed)?;
-        let mut seen = HashSet::with_capacity(entries.len());
-        if entries.iter().all(|entry| seen.insert(entry.key_id)) {
-            Ok(entries)
-        } else {
-            Err(SequencerError::Malformed)
-        }
+        decode_receipt_keys(&result)
     }
 
     /// The node's current block height.
@@ -863,17 +851,41 @@ fn decode_history_page(value: &Value) -> Option<HistoryPage> {
     })
 }
 
+/// Decodes the gateway's receipt-key result, including numeric height ranges.
+///
+/// # Errors
+/// Refuses unknown fields, empty lists, duplicate ids, invalid keys or ranges.
+pub fn decode_receipt_keys(value: &Value) -> Result<Vec<ReceiptKeyEntry>, SequencerError> {
+    let fields = Fields::exact(value, &["keys"]).ok_or(SequencerError::Malformed)?;
+    let entries = fields.0["keys"]
+        .as_array()
+        .filter(|entries| !entries.is_empty())
+        .ok_or(SequencerError::Malformed)?
+        .iter()
+        .map(decode_receipt_key)
+        .collect::<Option<Vec<_>>>()
+        .ok_or(SequencerError::Malformed)?;
+    let mut seen = HashSet::with_capacity(entries.len());
+    if entries.iter().all(|entry| seen.insert(entry.key_id)) {
+        Ok(entries)
+    } else {
+        Err(SequencerError::Malformed)
+    }
+}
+
 fn decode_receipt_key(value: &Value) -> Option<ReceiptKeyEntry> {
     let fields = Fields::exact(value, &["keyId", "publicKey", "firstHeight", "lastHeight"])?;
     let entry = ReceiptKeyEntry {
         key_id: fields.fixed("keyId")?,
         public_key: fields.fixed("publicKey")?,
-        first_height: fields.u64("firstHeight")?,
-        last_height: fields.u64("lastHeight")?,
+        first_height: fields.0.get("firstHeight")?.as_u64()?,
+        last_height: fields.0.get("lastHeight")?.as_u64()?,
     };
     let valid = entry.key_id != [0; 32]
+        && entry.first_height > 0
         && entry.first_height <= entry.last_height
-        && ed25519_dalek::VerifyingKey::from_bytes(&entry.public_key).is_ok();
+        && ed25519_dalek::VerifyingKey::from_bytes(&entry.public_key)
+            .is_ok_and(|key| !key.is_weak());
     valid.then_some(entry)
 }
 
