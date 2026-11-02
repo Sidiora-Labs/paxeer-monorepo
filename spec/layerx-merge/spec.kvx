@@ -130149,7 +130149,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.9]
 title = "Port the KMS provider and signing tests off the kernel activity envelope"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["10.21.8", "9.35.12", "9.100.2", "22.9.24"]
