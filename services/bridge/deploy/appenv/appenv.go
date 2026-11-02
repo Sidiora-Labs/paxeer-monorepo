@@ -3,6 +3,7 @@ package appenv
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -125,21 +126,23 @@ func Check(envPath string, records []Record) error {
 		}
 		values[key] = strings.TrimSpace(value)
 	}
+	var differences []error
 	for _, line := range EnvLines(records) {
 		key, want, _ := strings.Cut(line, "=")
 		got, ok := values[key]
 		if !ok {
-			return fmt.Errorf("%s: missing %s", envPath, key)
+			differences = append(differences, fmt.Errorf("%s: missing %s", envPath, key))
+			continue
 		}
 		matches := got == want
 		if strings.HasPrefix(key, "NEXT_PUBLIC_BRIDGE_VAULT_") {
 			matches = strings.EqualFold(got, want)
 		}
 		if !matches {
-			return fmt.Errorf("%s: %s differs from deployment record: got %q, want %q", envPath, key, got, want)
+			differences = append(differences, fmt.Errorf("%s: %s differs from deployment record: got %q, want %q", envPath, key, got, want))
 		}
 	}
-	return nil
+	return errors.Join(differences...)
 }
 
 func Run(args []string, w io.Writer) error {
