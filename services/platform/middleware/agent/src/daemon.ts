@@ -177,7 +177,7 @@ export function decodeDaemonSubmission(value: unknown, expectedTxHash?: string, 
     portableReceipt = Object.freeze({ format: "layerx-receipt-proof-v2", verificationLevel: receiptLevel === "Receipted" ? "receipted" : "committed",
       signedReceipt: `0x${signedReceipt}`, rawTransaction: `0x${rawTransaction}`,
       receiptDigest: `0x${Buffer.from(keccak256(Buffer.from(signedReceipt, "hex"))).toString("hex")}`,
-      receiptKey: Object.freeze({ keyId: `0x${hex(key.key_id, 32, 32)}`, publicKey: `0x${hex(key.public_key, 32, 32)}`, firstHeight, lastHeight }),
+      receiptKey: Object.freeze({ keyId: `0x${hex(key.key_id, 32, 32)}`, publicKey: `0x${hex(key.public_key, 32, 32)}`, firstHeight: `0x${BigInt(firstHeight).toString(16)}`, lastHeight: `0x${BigInt(lastHeight).toString(16)}` }),
     });
   } else if (observation.receipt !== null) fail();
   if (state === "Failed" && (typeof s.result_code !== "string" || s.result_code.length > 11 || !/^(0|-?[1-9][0-9]*)$/u.test(s.result_code) || BigInt(s.result_code) < -2147483648n || BigInt(s.result_code) > 2147483647n)) fail();

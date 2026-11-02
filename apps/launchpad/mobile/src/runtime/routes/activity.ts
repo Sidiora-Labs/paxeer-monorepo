@@ -1,5 +1,6 @@
 import {
   Operations,
+  decodeContract,
   type SdkClient,
 } from '../../../../../../sdk/launchpad/packages/sdk/src/index.ts';
 import type { QuoteBody } from '../../../../../../sdk/launchpad/packages/sdk/src/types.gen.ts';
@@ -7,7 +8,8 @@ import { createPublicClient, defineChain, getAddress, http } from 'viem';
 import type { PublicConfiguration } from '../service-client.ts';
 import { onchainQuote } from '../onchain-quote.ts';
 
-export function streams(sdk: SdkClient, signal: AbortSignal) {
+export async function streams(sdk: SdkClient, signal: AbortSignal) {
+  signal.throwIfAborted();
   return new Operations(sdk).call(
     'IF_STREAM_LIST',
     { query: { status: 'live', limit: 50 } },
@@ -15,13 +17,15 @@ export function streams(sdk: SdkClient, signal: AbortSignal) {
   );
 }
 
-export function quote(
+export async function quote(
   services: {
     config: SdkClient['config'] & Pick<PublicConfiguration, 'walletConnect'>;
   },
   body: QuoteBody,
   signal: AbortSignal,
 ) {
+  decodeContract('QuoteBody', body);
+  signal.throwIfAborted();
   const configuration = services.config.walletConnect;
   if (!configuration) throw new Error('Chain125 native RPC authority required');
   const chain = defineChain({

@@ -140,7 +140,8 @@ type AppModule struct {
 	paramSpace paramtypes.Subspace
 }
 
-// NewAppModule registers the ReceiptKeys param on the subspace.
+// NewAppModule registers ReceiptKeys and Leaders on the subspace, including
+// when the module is reconstructed over an existing committed store.
 func NewAppModule(k keeper.Keeper, paramSpace paramtypes.Subspace) AppModule {
 	if !paramSpace.HasKeyTable() {
 		paramSpace = paramSpace.WithKeyTable(keeper.ParamKeyTable())

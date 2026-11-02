@@ -31,7 +31,7 @@ export async function fetchStatsBatch(operations: Operations, addresses: readonl
   const pools = [...new Set(addresses.map(marketAddress))].sort();
   if (pools.length === 0 || pools.length > marketLimits.rankingPage) throw new RangeError('Stats batch bound exceeded');
   const response = await operations.call('IF_STATS_BATCH', { body: { poolAddresses: pools } }, { signal });
-  if (response.quality === 'quarantined') throw new Error('Statistics integrity quarantined');
+  if (response.quality === 'quarantined' || response.watermark?.integrity === 'quarantined') throw new Error('Statistics integrity quarantined');
   const seen = new Set<string>();
   for (const item of response.data.items) {
     const address = marketAddress(item.poolAddress);

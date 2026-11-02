@@ -232,7 +232,14 @@ export class RpcPool {
       this.endpoints.map(async (ep) => {
         const started = performance.now();
         try {
-          const head = BigInt((await this.post(ep.url, 'eth_blockNumber', [])) as string);
+          const [chainId, blockNumber] = await Promise.all([
+            this.post(ep.url, 'eth_chainId', []),
+            this.post(ep.url, 'eth_blockNumber', []),
+          ]);
+          if (BigInt(chainId as string) !== BigInt(this.opts.chainId)) {
+            throw new Error(`RPC chain id does not match configured chain ${this.opts.chainId}`);
+          }
+          const head = BigInt(blockNumber as string);
           ep.head = head;
           ep.latencyMs = performance.now() - started;
           ep.lastError = null;

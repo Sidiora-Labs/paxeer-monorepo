@@ -42,6 +42,7 @@ export class Operations {
     const definition: Definition = operationDefinitions[name];
     if (!definition.response && !definition.emptyResponse && !definition.binaryResponse) throw new CapabilityUnavailableError('Operation requires its dedicated streaming transport');
     if (routeStatus(name) === 'unrouted') throw new CapabilityUnavailableError(`Operation ${name} has no served route`);
+    if (input === null || typeof input !== 'object' || Array.isArray(input)) throw new TypeError(`Invalid ${name} input`);
     const supplied = input as { path?: Record<string, unknown>; query?: Record<string, unknown>; body?: unknown };
     let path = ROUTE_CORRECTIONS[name] ?? definition.path;
     const query = new URLSearchParams();
