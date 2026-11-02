@@ -110752,7 +110752,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.9.1]
 title = "Add chain registry helpers to the TypeScript SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.2.1"]
@@ -110781,7 +110781,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.8.2]
 title = "Give the wallet a network switcher for virtual chains"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.8.1"]
@@ -112610,7 +112610,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.9.6]
 title = "Add chain registry helpers to the Swift SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.2.1"]
@@ -119325,7 +119325,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.9.7]
 title = "Add chain registry helpers to the Rust client crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.2.1"]
@@ -119510,7 +119510,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.24.9]
 title = "Prepare AI market operations in layerx-client as EIP-1559 program calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.24.6"]
@@ -120242,7 +120242,7 @@ do_5 = "Decision 2270: the verify runs the move_commit_bank_send target through 
 
 [task.18.1433.1]
 title = "Issue #1433: Encode the owner receipt lookup answer as one shared frame the Human decoder reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.27.9", "10.1.6", "10.1.7", "10.21.8"]
@@ -121251,7 +121251,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.9.4]
 title = "Add chain registry helpers to the JVM SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.2.1"]
@@ -122142,7 +122142,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.20.9.3]
 title = "Add chain registry helpers to the Go SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.2.1"]
@@ -147018,7 +147018,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.9.5]
 title = "Add chain registry helpers to the .NET SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.2.1"]
@@ -198410,7 +198410,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.9.2]
 title = "Add chain registry helpers to the Python SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.2.1"]
