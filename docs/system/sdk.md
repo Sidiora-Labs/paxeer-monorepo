@@ -72,6 +72,7 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `ProofBundleRecord` | type | `services/agent/sdk/typescript/src/agent-http.ts` |
 | `ProofBundleRequest` | interface | `services/agent/sdk/typescript/src/agent-http.ts` |
 | `ProofBundleVerificationLevel` | type | `services/agent/sdk/typescript/src/agent-http.ts` |
+| `RetiredOperationError` | class | `services/agent/sdk/typescript/src/agent-http.ts` |
 | `TenantReadinessV1` | interface | `services/agent/sdk/typescript/src/agent-http.ts` |
 | `TenantRecoveryReasonV1` | type | `services/agent/sdk/typescript/src/agent-http.ts` |
 | `checkProofBundleResponse` | function | `services/agent/sdk/typescript/src/agent-http.ts` |
@@ -177,6 +178,7 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `APPROVAL_ENFORCEMENT_NOTICE` | const | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `APPROVAL_EVENT_KINDS` | const | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `APPROVAL_STATES` | const | `services/agent/sdk/typescript/src/generated/client.ts` |
+| `AddressBytes` | type | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `Amount` | type | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `ApiError` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `ApprovalApproveRequest` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
@@ -206,11 +208,15 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `Operation` | type | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `Rung` | enum | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `Sequence` | type | `services/agent/sdk/typescript/src/generated/client.ts` |
+| `SignRequest` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
+| `SignatureBytes` | type | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `StructuredActivityDisclosure` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `SubmissionState` | type | `services/agent/sdk/typescript/src/generated/client.ts` |
+| `SubmitRequest` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `TimestampSeconds` | type | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `Transport` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `VerifiedRead` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
+| `addressBytes` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `decodeNativeApprovalListResult` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `decodeNativeApprovalResult` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `decodeNativePrepareResult` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
@@ -223,6 +229,7 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `parseSequence` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `parseTimestampSeconds` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `requireVerified` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
+| `signatureBytes` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `MIRROR_ARCHIVE_MAGIC` | const | `services/agent/sdk/typescript/src/generated/mirror.ts` |
 | `MIRROR_MAX_ARCHIVE_BYTES` | const | `services/agent/sdk/typescript/src/generated/mirror.ts` |
 | `MIRROR_MAX_JSON_DEPTH` | const | `services/agent/sdk/typescript/src/generated/mirror.ts` |
@@ -230,15 +237,16 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `MIRROR_SCHEMA_VERSION` | const | `services/agent/sdk/typescript/src/generated/mirror.ts` |
 | `MirrorErrorCode` | type | `services/agent/sdk/typescript/src/generated/mirror.ts` |
 | `MirrorPolicyKind` | type | `services/agent/sdk/typescript/src/generated/mirror.ts` |
-| `PROGRAMS_MODULE_ID` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
 | `PROGRAM_ABI_V1` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
 | `PROGRAM_ABI_V2` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
 | `PROGRAM_ABI_V3` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
 | `PROGRAM_ABI_V4` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
 | `PROGRAM_ABI_V5` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
-| `PROGRAM_OUTCOME_TAGS` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
-| `REQUIRED_NONZERO_CHECKS` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
+| `RECEIPT_DOMAIN` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
+| `RECEIPT_VERSION_V2` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
+| `RECEIPT_VERSION_V3` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
 | `ReceiptFailureCode` | enum | `services/agent/sdk/typescript/src/generated/receipt.ts` |
+| `SEQUENCE_DOMAIN` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
 | `supportsProgramGuestAbi` | function | `services/agent/sdk/typescript/src/generated/receipt.ts` |
 | `HISTORY_DEFAULT_LIMIT` | const | `services/agent/sdk/typescript/src/history.ts` |
 | `HISTORY_MAXIMUM_ACCOUNTS` | const | `services/agent/sdk/typescript/src/history.ts` |
@@ -319,6 +327,10 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `MirrorProvenance` | type | `services/agent/sdk/typescript/src/mirror.ts` |
 | `MirrorReadPolicy` | type | `services/agent/sdk/typescript/src/mirror.ts` |
 | `MirrorTarget` | interface | `services/agent/sdk/typescript/src/mirror.ts` |
+| `NameResolution` | interface | `services/agent/sdk/typescript/src/names.ts` |
+| `labelhash` | function | `services/agent/sdk/typescript/src/names.ts` |
+| `namehash` | function | `services/agent/sdk/typescript/src/names.ts` |
+| `resolveName` | function | `services/agent/sdk/typescript/src/names.ts` |
 | `MAX_NATIVE_BALANCE_VIEWS` | const | `services/agent/sdk/typescript/src/native-capabilities.ts` |
 | `MAX_NATIVE_CAPABILITIES` | const | `services/agent/sdk/typescript/src/native-capabilities.ts` |
 | `MAX_NATIVE_CAPABILITY_BYTES` | const | `services/agent/sdk/typescript/src/native-capabilities.ts` |
@@ -376,6 +388,7 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `ProductionClient` | class | `services/agent/sdk/typescript/src/production.ts` |
 | `ProductionTransport` | interface | `services/agent/sdk/typescript/src/production.ts` |
 | `ProtocolAmount` | type | `services/agent/sdk/typescript/src/production.ts` |
+| `RETIRED_OPERATION_NAMES` | const | `services/agent/sdk/typescript/src/production.ts` |
 | `RetryClass` | type | `services/agent/sdk/typescript/src/production.ts` |
 | `SDK_ERROR_CODES` | const | `services/agent/sdk/typescript/src/production.ts` |
 | `SafeErrorDetails` | interface | `services/agent/sdk/typescript/src/production.ts` |
@@ -419,17 +432,12 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `ProgramTrustContext` | class | `services/agent/sdk/typescript/src/programs.ts` |
 | `ProgramUnknownSubmission` | interface | `services/agent/sdk/typescript/src/programs.ts` |
 | `ProgramUsage` | interface | `services/agent/sdk/typescript/src/programs.ts` |
-| `VerifiedProgramReceipt` | interface | `services/agent/sdk/typescript/src/programs.ts` |
 | `parseProgramExecutionDocument` | function | `services/agent/sdk/typescript/src/programs.ts` |
 | `parseProgramExecutionDocumentV5` | function | `services/agent/sdk/typescript/src/programs.ts` |
 | `platform_sdk_programs` | function | `services/agent/sdk/typescript/src/programs.ts` |
 | `resolveLifecycleFailure` | function | `services/agent/sdk/typescript/src/programs.ts` |
-| `resolveLifecycleResponse` | function | `services/agent/sdk/typescript/src/programs.ts` |
 | `verifyGatewayProgramDiscovery` | function | `services/agent/sdk/typescript/src/programs.ts` |
 | `verifyGatewayProgramInterface` | function | `services/agent/sdk/typescript/src/programs.ts` |
-| `verifyLifecycleRecovery` | function | `services/agent/sdk/typescript/src/programs.ts` |
-| `verifyProgramReceipt` | function | `services/agent/sdk/typescript/src/programs.ts` |
-| `verifyProgramReceiptV5` | function | `services/agent/sdk/typescript/src/programs.ts` |
 | `PX_MAXIMUM_JOINED_ASSETS` | const | `services/agent/sdk/typescript/src/px.ts` |
 | `PX_METHODS` | const | `services/agent/sdk/typescript/src/px.ts` |
 | `PxAccountBalances` | interface | `services/agent/sdk/typescript/src/px.ts` |
@@ -499,20 +507,13 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `StreamPageSource` | type | `services/agent/sdk/typescript/src/stream.ts` |
 | `streamCursor` | function | `services/agent/sdk/typescript/src/stream.ts` |
 | `AuthorizedReceiptBatch` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
-| `BatchHeader` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `CometBlockId` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `CometCommitSignature` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `CometValidator` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `CommittedReceiptEvidence` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `CommittedReceiptVerification` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `DEFAULT_PROTOCOL_VERSION` | const | `services/agent/sdk/typescript/src/verifier.ts` |
-| `GuarantorKey` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
-| `InclusionKind` | type | `services/agent/sdk/typescript/src/verifier.ts` |
-| `InclusionVerification` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `LEGACY_PROTOCOL_VERSION` | const | `services/agent/sdk/typescript/src/verifier.ts` |
-| `LocalSignatureVerifier` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
-| `MerkleProof` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
-| `ProgramReceiptOutcome` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `ProtocolReceipt` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `ProtocolSelection` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `ReceiptEffect` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
@@ -521,24 +522,16 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `STATE_COMMITMENT_PROTOCOL_VERSION` | const | `services/agent/sdk/typescript/src/verifier.ts` |
 | `SelectableProtocolVersion` | type | `services/agent/sdk/typescript/src/verifier.ts` |
 | `SequencerAuthorization` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
+| `SequencerReceipt` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `SequencerReceiptKey` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `SequencerReceiptRefusal` | type | `services/agent/sdk/typescript/src/verifier.ts` |
 | `SequencerReceiptVerification` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `SequencerReceiptVerificationError` | class | `services/agent/sdk/typescript/src/verifier.ts` |
-| `SubmittedReceiptVerification` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
-| `decodeBatchHeader` | function | `services/agent/sdk/typescript/src/verifier.ts` |
-| `decodeProgramReceiptOutcome` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `isSelectableProtocolVersion` | function | `services/agent/sdk/typescript/src/verifier.ts` |
-| `programsModuleVersionForProtocol` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `protocolVersionUsesOccupancy` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `selectedProtocolVersion` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `supportedProgramGuestAbi` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `verifyCommittedReceipt` | function | `services/agent/sdk/typescript/src/verifier.ts` |
-| `verifyMerkleInclusion` | function | `services/agent/sdk/typescript/src/verifier.ts` |
-| `verifyNativeProgramReceiptOutcomeV5` | function | `services/agent/sdk/typescript/src/verifier.ts` |
-| `verifyProgramLifecycleReceipt` | function | `services/agent/sdk/typescript/src/verifier.ts` |
-| `verifyReceipt` | function | `services/agent/sdk/typescript/src/verifier.ts` |
-| `verifyReceiptOutcome` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `verifySequencerReceipt` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `NativeTokenRegistration` | interface | `services/agent/sdk/typescript/src/wallet.ts` |
 | `VerifiedWalletReceipt` | interface | `services/agent/sdk/typescript/src/wallet.ts` |
@@ -666,18 +659,12 @@ Package `layerx_sdk`, entry point `services/agent/sdk/python/layerx_sdk/__init__
 - `ApprovalRejectRequest`
 - `ApprovalState`
 - `AuthorizedReceiptBatch`
-- `BatchHeader`
 - `BudgetLimit`
 - `BuyerMiddleware`
-- `CheckpointAttestation`
-- `CheckpointCertificate`
-- `CheckpointVerification`
-- `CheckpointVerificationInput`
 - `Client`
 - `ConfiguredReceiptAuthority`
 - `ErrorClass`
 - `FulfillmentStore`
-- `GuarantorKey`
 - `HISTORY_DEFAULT_LIMIT`
 - `HISTORY_MAXIMUM_ACCOUNTS`
 - `HISTORY_MAXIMUM_LIMIT`
@@ -697,7 +684,6 @@ Package `layerx_sdk`, entry point `services/agent/sdk/python/layerx_sdk/__init__
 - `INTENT_ENDPOINT_KINDS`
 - `IdempotencyKey`
 - `IdempotentMutation`
-- `InclusionVerification`
 - `IntentConstraints`
 - `IntentDomain`
 - `IntentEndpointKind`
@@ -740,7 +726,6 @@ Package `layerx_sdk`, entry point `services/agent/sdk/python/layerx_sdk/__init__
 - `PX_MAXIMUM_JOINED_ASSETS`
 - `PX_METHODS`
 - `PaymentBudget`
-- `PaymentCheckpointEvidence`
 - `PaymentCommitment`
 - `PaymentCommitmentEvidence`
 - `PaymentEvidence`
@@ -759,7 +744,6 @@ Package `layerx_sdk`, entry point `services/agent/sdk/python/layerx_sdk/__init__
 - `ProgramSource`
 - `ProgramTrustContext`
 - `ProtocolAmount`
-- `ProtocolReceipt`
 - `PxAccountBalances`
 - `PxAccountJoin`
 - `PxAssetBalance`
@@ -774,29 +758,29 @@ Package `layerx_sdk`, entry point `services/agent/sdk/python/layerx_sdk/__init__
 - `PxPaxeerHead`
 - `PxResolvedIdentities`
 - `PxRpcError`
-- `ReceiptEffect`
 - `ReceiptFailureCode`
+- `ReceiptKey`
 - `ReceiptVerification`
 - `ReceiptVerificationError`
 - `ResumableStream`
 - `RetryClass`
-- `RpcCheckpointAuthority`
 - `Rung`
 - `SdkErrorCode`
 - `SdkTelemetry`
 - `SecretBytes`
 - `SellerMiddleware`
 - `Sequence`
-- `SequencerAuthorization`
+- `SequencerReceiptVerification`
+- `SequencerReceiptVerificationError`
 - `StreamCursor`
 - `StreamEvent`
 - `StreamPage`
 - `StructuredActivityDisclosure`
-- `SubmissionExecuted`
-- `SubmissionFailed`
-- `SubmissionPending`
+- `SubmissionCommitted`
+- `SubmissionReceipted`
+- `SubmissionReverted`
 - `SubmissionState`
-- `SubmissionUnknown`
+- `SubmissionSubmitted`
 - `SubmitPlanRequest`
 - `TimestampSeconds`
 - `Transport`
@@ -846,7 +830,6 @@ Package `layerx_sdk`, entry point `services/agent/sdk/python/layerx_sdk/__init__
 - `bind_receive_activity`
 - `build_xweb_api_request`
 - `content_digest`
-- `decode_batch_header`
 - `decode_header`
 - `decode_history_asset_metadata`
 - `decode_history_row`
@@ -908,22 +891,15 @@ Package `layerx_sdk`, entry point `services/agent/sdk/python/layerx_sdk/__init__
 - `receive_authorization_message`
 - `require_verified`
 - `rpc_batch_evidence`
-- `rpc_checkpoint_evidence`
 - `rpc_hex`
 - `seal_xweb_envelope`
 - `validate_grant_draw`
 - `validate_payload`
 - `validate_required`
 - `validate_requirements`
-- `verify_batch_inclusion`
-- `verify_checkpoint`
-- `verify_merkle_inclusion`
-- `verify_payment_commitment_evidence`
 - `verify_payment_receipt`
-- `verify_program_receipt`
-- `verify_receipt`
-- `verify_receipt_outcome`
 - `verify_rpc_payment`
+- `verify_sequencer_receipt`
 - `web_content_bytes`
 - `xweb_api_origin`
 - `xweb_api_request_call`

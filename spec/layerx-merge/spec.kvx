@@ -181932,7 +181932,7 @@ do_6 = "Decision 2056: test_bridge_credit_suites_absent is withdrawn; the bridge
 
 [task.16.97.3]
 title = "Gate the retired relay-archive tree and the retired Solidity suites and scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["16.3.1", "16.34.4", "16.30.1", "16.30.2", "16.6.1", "16.5.3"]
@@ -182185,7 +182185,7 @@ do_4 = "Finding 17.0.3.1: attempts 1 and 2 verified at one candidate and were me
 
 [task.17.0.4]
 title = "Regenerate the system precompile reference with the v6.12.0 venues"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["17.0.3", "17.1.5", "17.10.2", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.96.9"]
