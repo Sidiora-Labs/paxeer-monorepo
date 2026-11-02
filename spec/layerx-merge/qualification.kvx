@@ -17403,3 +17403,19 @@ symbol = "VerifiedRpcAccount::from_rpc_result"
 observed = "Attempt 1 of task 8.47.12 retired the program call and simulate path of the platform CLI, but the --all-targets build failed in tools/platform/cli/src/wallet.rs: layerx_sdk::rpc_verification::AccountPolicy (:510, :797, :1248, :1594, :1603, :1683), VerifiedRpcAccount::from_rpc_result (:1255) and VerifiedRpcBalances::from_rpc_result (:1606) were deleted by task 9.25.17 (0ad81030b) with layerx_client::evidence (decision 2232), whose consumer list named services/agent only; the CLI binary has not compiled since that commit, and decisions 1846 and 1862 forbid the other CLI tasks, all done, from touching wallet.rs."
 assumption = "The CLI's account and balance reads keep the structural checks they already make (account_id and asset_id equality, validated_account_records) and drop the proof-material verification that retired with the evidence module; 8.47.12 is the pending task that compiles the CLI and makes the deletion."
 severity = "major"
+
+[finding.8.47.12.1]
+task = "8.47.12"
+file = "tools/platform/cli/tests/wallet_evm_writes.rs"
+symbol = "AccountPolicy"
+observed = "attempt 2 (1f58c921b) stops in the test target wallet_evm_writes: E0433 VerifiedRpcAccount in rpc_verification and E0422 AccountPolicy in layerx_sdk::rpc_verification; the ruling of decision 2267 named only the wallet.rs sites."
+assumption = "every file under tools/platform/cli that names AccountPolicy, VerifiedRpcAccount or VerifiedRpcBalances is a consumer of the deleted SDK items and is ported the same way."
+severity = "medium"
+
+[finding.5.97.1.2]
+task = "5.97.1"
+file = "cmd/retirement/test_kernel_symbol_consumers_retired.py"
+symbol = "test_no_daemon_consumer_of_retired_kernel_symbols"
+observed = "attempt 4 (1f58c921b) still runs ['go', 'build', './daemon/...'] at :156 and fails in the linker on the C archives only make produces, exactly as attempt 3 did after do_5 ruled go vet."
+assumption = "do_5 stands: the subprocess at :156 is ['go', 'vet', './daemon/...'] and the assertion is returncode == 0; no archive is built in the qualification environment."
+severity = "medium"
