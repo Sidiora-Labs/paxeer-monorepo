@@ -132256,7 +132256,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.4.3]
 title = "Point the social schema tests at the service's own migrations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.4.4"]
@@ -133354,7 +133354,7 @@ do_8 = "Finding 21.87.1.1: the package build failure is node/sequencer/precompil
 
 [task.21.86.1]
 title = "Prove the precompile go path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136088,7 +136088,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.54.7]
 title = "End-to-end: pass the remaining perps data subtests against the in-tree node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["18.670.1", "6.96.5"]
@@ -184201,7 +184201,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.91.42]
 title = "Finish the Go modules inventory for the twenty-two packages the first pass did not run"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184230,7 +184230,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.13.10]
 title = "Admit the current protocol version in the programs environment activate-lease test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217589,7 +217589,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.16.7]
 title = "Repair the Python compile error, the import-time argv scripts and the duplicate test basenames"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
