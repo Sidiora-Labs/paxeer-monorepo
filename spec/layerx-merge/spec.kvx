@@ -117103,7 +117103,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.7.2]
 title = "Write the chain launch adapter over the registry precompile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.7.1"]
