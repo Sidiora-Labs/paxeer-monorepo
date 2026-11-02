@@ -380,8 +380,7 @@ const singleHeader = (request, name) => {
   return value;
 };
 
-export async function runMerchantApplication(moduleUrl, application) {
-  const config = await loadApplicationConfig(moduleUrl, application);
+export function createMerchantApplicationServer(config) {
   const token = requiredEnvironment(config.tokenEnvironment);
   const state = applicationStatePath(config, config.stateDirectory);
   const orders = new FileOrders(join(state, "orders"));
@@ -420,9 +419,7 @@ export async function runMerchantApplication(moduleUrl, application) {
     receipts,
     receiptKeys,
   });
-  const port = Number(config.port);
-  if (!Number.isSafeInteger(port) || port <= 0 || port > 65535) throw new Error("invalid_port");
-  createServer(async (request, response) => {
+  return createServer(async (request, response) => {
     try {
       if (request.method === "GET" && request.url?.startsWith("/orders/")) {
         const order = await orders.get(decodeURIComponent(request.url.slice(8)));
@@ -477,7 +474,14 @@ export async function runMerchantApplication(moduleUrl, application) {
         ...(state === "pending" || state === "unknown" ? { "retry-after": "1" } : {}),
       }).end(JSON.stringify({ state, error: error.code ?? error.message }));
     }
-  }).listen(port, "127.0.0.1", () => {
+  });
+}
+
+export async function runMerchantApplication(moduleUrl, application) {
+  const config = await loadApplicationConfig(moduleUrl, application);
+  const port = Number(config.port);
+  if (!Number.isSafeInteger(port) || port <= 0 || port > 65535) throw new Error("invalid_port");
+  return createMerchantApplicationServer(config).listen(port, "127.0.0.1", () => {
     process.stdout.write(`${JSON.stringify({ application, environment: config.name, listening: port, checkout: "/checkout", webhook: "/webhooks/settlement" })}\n`);
   });
 }

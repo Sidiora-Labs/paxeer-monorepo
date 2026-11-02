@@ -15,14 +15,13 @@ import {
   type PaymentRequirements,
   type SellerDecision,
 } from "@sidiora/layerx-seller-middleware";
-import {
+import type {
   BuyerMiddleware,
-  LayerXPaymentHttpTransport,
-  type CapturedSettlement,
-  type Journey,
-  type MoveQuote,
-  type ParsedOffer,
-  type PreparedPayment,
+  CapturedSettlement,
+  Journey,
+  MoveQuote,
+  ParsedOffer,
+  PreparedPayment,
 } from "@sidiora/layerx-buyer-middleware";
 import {
   MerchantError,
@@ -31,6 +30,10 @@ import {
   type CheckoutOpenRequest,
   type MerchantOrder,
   type MerchantOrderStore,
+  type MerchantReceiptEvidence,
+  type MerchantReceiptResolver,
+  type MerchantSettlementWebhooksConfig,
+  type SettlementWebhookEvent,
 } from "@sidiora/layerx-merchant-middleware";
 import {
   ConformanceSequencer,
@@ -100,6 +103,7 @@ export class ConformancePaymentRpcSession {
 }
 
 async function buildBuyer(offer: OfferFixture, resolver: FixedReceiptKeys): Promise<BuyerMiddleware> {
+  const { BuyerMiddleware, LayerXPaymentHttpTransport } = await import("@sidiora/layerx-buyer-middleware");
   const receiptKeys = await resolver.resolve();
   const transport = new LayerXPaymentHttpTransport({
     baseUrl: "http://127.0.0.1:1/",
@@ -377,6 +381,7 @@ export async function runScenarios(): Promise<Suite> {
     if (decision.kind !== "released") {
       return;
     }
+    const { BuyerMiddleware, LayerXPaymentHttpTransport } = await import("@sidiora/layerx-buyer-middleware");
     const buyer = new BuyerMiddleware({
       client: new ProductionClient(new LayerXPaymentHttpTransport({
         baseUrl: "http://127.0.0.1:1/",
@@ -558,141 +563,7 @@ export async function runScenarios(): Promise<Suite> {
     );
   });
 
-  await suite.check("merchant: a signed settlement webhook verifies the receipt and pays exactly once", async () => {
-    const orders = new ConformanceMerchantOrders();
-    const merchant = new MerchantMiddleware({
-      catalog: { get: async () => ({
-        sku: "merchant-item",
-        title: "Merchant conformance item",
-        unitAmount: amount.toString(),
-        asset: toHex(asset),
-        payTo: toHex(payTo),
-        scheme: "exact",
-        network: "eip155:125",
-        maxTimeoutSeconds: 120,
-        extra: offer.requirements.extra!,
-      }) },
-      orders,
-      sellers: {
-        create: (paymentRequired) => new SellerMiddleware<MerchantOrder>({
-          paymentRequired,
-          receiptKeys,
-          authority: new ReceiptPayloadAuthority(receiptKeys),
-          fulfillments: new InMemoryFulfillmentRepository<MerchantOrder>(),
-        }),
-      },
-      resourceUrl: (checkoutKey) => `https://merchant.example/checkout/${checkoutKey}`,
-    });
-    const checkout = await merchant.checkout(
-      "acct:merchant-conformance",
-      "merchant-webhook-order",
-      [{ sku: "merchant-item", quantity: 1 }],
-    );
-    assert(checkout.kind === "payment-required", "checkout must start payment-required");
-    const deliveries = new InMemoryDeliveryStore();
-    const consumer = new VerifiedWebhookConsumer({
-      publicKeys: { "seq-merchant": sequencer.publicKey },
-      deliveries,
-    });
-    const webhooks = new MerchantSettlementWebhooks({
-      verifier: consumer,
-      orders,
-      receipts: { resolve: async () => receipt },
-      receiptKeys,
-    });
-    const event = {
-      order_id: checkout.order.orderId,
-      request_digest: checkout.order.requestDigest,
-      receipt_digest: receipt.receiptDigest.slice(2),
-      receipt_ref: "receipt:merchant-conformance",
-      transaction: receipt.txHash,
-      verification: "receipted",
-    };
-    const body = new TextEncoder().encode(JSON.stringify(event));
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-    const signature = await signWebhook(sequencer, "merchant-delivery", timestamp, body);
-    const first = await webhooks.consume(body, {
-      id: "merchant-delivery",
-      timestamp,
-      keyId: "seq-merchant",
-      signature,
-    });
-    const paid = await orders.get(checkout.order.orderId);
-    assert(first === "processed" && paid?.state === "paid-verified", "verified webhook must pay the order");
-    assert(paid?.receiptDigest === receipt.receiptDigest.slice(2), "paid order must bind the verified receipt digest");
-    assert(paid?.transaction === receipt.txHash, "paid order must bind the verified transaction hash");
-    const second = await webhooks.consume(body, {
-      id: "merchant-delivery",
-      timestamp,
-      keyId: "seq-merchant",
-      signature,
-    });
-    assert(second === "duplicate", "settlement redelivery must be idempotent");
-  });
-
-  await suite.check("merchant: a signed claim with mismatched receipt evidence cannot pay an order", async () => {
-    const orders = new ConformanceMerchantOrders();
-    const merchant = new MerchantMiddleware({
-      catalog: { get: async () => ({
-        sku: "merchant-item",
-        title: "Merchant conformance item",
-        unitAmount: amount.toString(),
-        asset: toHex(asset),
-        payTo: toHex(payTo),
-        scheme: "exact",
-        network: "eip155:125",
-        maxTimeoutSeconds: 120,
-        extra: offer.requirements.extra!,
-      }) },
-      orders,
-      sellers: {
-        create: (paymentRequired) => new SellerMiddleware<MerchantOrder>({
-          paymentRequired,
-          receiptKeys,
-          authority: new ReceiptPayloadAuthority(receiptKeys),
-          fulfillments: new InMemoryFulfillmentRepository<MerchantOrder>(),
-        }),
-      },
-      resourceUrl: (checkoutKey) => `https://merchant.example/checkout/${checkoutKey}`,
-    });
-    const checkout = await merchant.checkout(
-      "acct:merchant-conformance",
-      "merchant-mismatch",
-      [{ sku: "merchant-item", quantity: 1 }],
-    );
-    assert(checkout.kind === "payment-required", "mismatch checkout must start payment-required");
-    const order = checkout.order;
-    const webhooks = new MerchantSettlementWebhooks({
-      verifier: new VerifiedWebhookConsumer({
-        publicKeys: { "seq-merchant": sequencer.publicKey },
-        deliveries: new InMemoryDeliveryStore(),
-      }),
-      orders,
-      receipts: { resolve: async () => receipt },
-      receiptKeys,
-    });
-    const body = new TextEncoder().encode(JSON.stringify({
-      order_id: order.orderId,
-      request_digest: order.requestDigest,
-      receipt_digest: toHex(fixedBytes(0xff)),
-      receipt_ref: "receipt:merchant-conformance",
-      transaction: receipt.txHash,
-      verification: "receipted",
-    }));
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-    const signature = await signWebhook(sequencer, "merchant-mismatch-delivery", timestamp, body);
-    await expectThrows(
-      () => webhooks.consume(body, {
-        id: "merchant-mismatch-delivery",
-        timestamp,
-        keyId: "seq-merchant",
-        signature,
-      }),
-      (error) => error instanceof MerchantError && error.code === "invalid-webhook",
-      "mismatched merchant receipt digest",
-    );
-    assert((await orders.get(order.orderId))?.state === "awaiting-payment", "mismatched evidence must not alter order state");
-  });
+  await runMerchantScenarios(suite);
 
   return suite;
 }
@@ -730,6 +601,215 @@ function expectThrowsSync(body: () => unknown, predicate: (error: unknown) => bo
     return;
   }
   throw new Error(`${description}: expected a throw but the call returned`);
+}
+
+export async function runMerchantScenarios(suite = new Suite()): Promise<Suite> {
+  const sequencer = await ConformanceSequencer.generate();
+  const payTo = fixedBytes(0xaa);
+  const asset = fixedBytes(0xbb);
+  const amount = 250_000n;
+  const offer = offerFixture(payTo, asset, amount);
+  const receipt = await buildSignedReceipt(sequencer, {
+    asset, payTo, amount, from: fixedBytes(0xcc), batchId: fixedBytes(0xd1),
+    previousStateRoot: fixedBytes(0xd2), resultingStateRoot: fixedBytes(0xd3),
+  });
+  const receiptKeys = await new FixedReceiptKeys([sequencer.receiptKey()]).resolve();
+  await suite.check("merchant: a signed settlement webhook verifies the receipt and pays exactly once", async () => {
+    const orders = new ConformanceMerchantOrders();
+    const merchant = new MerchantMiddleware({
+      catalog: { get: async () => ({
+        sku: "merchant-item",
+        title: "Merchant conformance item",
+        unitAmount: amount.toString(),
+        asset: toHex(asset),
+        payTo: toHex(payTo),
+        scheme: "exact",
+        network: "eip155:125",
+        maxTimeoutSeconds: 120,
+        extra: offer.requirements.extra!,
+      }) },
+      orders,
+      sellers: {
+        create: (paymentRequired) => new SellerMiddleware<MerchantOrder>({
+          paymentRequired,
+          receiptKeys,
+          authority: new ReceiptPayloadAuthority(receiptKeys),
+          fulfillments: new InMemoryFulfillmentRepository<MerchantOrder>(),
+        }),
+      },
+      resourceUrl: (checkoutKey) => `https://merchant.example/checkout/${checkoutKey}`,
+    });
+    const checkout = await merchant.checkout(
+      "acct:merchant-conformance",
+      "merchant-webhook-order",
+      [{ sku: "merchant-item", quantity: 1 }],
+    );
+    assert(checkout.kind === "payment-required", "checkout must start payment-required");
+    const deliveries = new InMemoryDeliveryStore();
+    const consumer = new VerifiedWebhookConsumer({
+      publicKeys: { "seq-merchant": sequencer.publicKey },
+      deliveries,
+    });
+    const receipts = new ConformanceMerchantReceipts();
+    receipts.add(receipt.txHash, receipt);
+    const config: MerchantSettlementWebhooksConfig = {
+      verifier: consumer,
+      orders,
+      receipts,
+      receiptKeys,
+    };
+    const webhooks = new MerchantSettlementWebhooks(config);
+    const { event, body, headers } = await buildMerchantSettlementDelivery(
+      sequencer, checkout.order, receipt, "merchant-delivery",
+    );
+    const { timestamp, signature } = headers;
+    const first = await webhooks.consume(body, {
+      id: "merchant-delivery",
+      timestamp,
+      keyId: "seq-merchant",
+      signature,
+    });
+    const paid = await orders.get(checkout.order.orderId);
+    assert(first === "processed" && paid?.state === "paid-verified", "verified webhook must pay the order");
+    assert(paid?.receiptDigest === receipt.receiptDigest.slice(2), "paid order must bind the verified receipt digest");
+    assert(paid?.transaction === receipt.txHash, "paid order must bind the verified transaction hash");
+    const second = await webhooks.consume(body, {
+      id: "merchant-delivery",
+      timestamp,
+      keyId: "seq-merchant",
+      signature,
+    });
+    assert(second === "duplicate", "settlement redelivery must be idempotent");
+    assert(receipts.resolutions === 1, "only identical delivery IDs may skip receipt resolution");
+    const nextId = "merchant-delivery-fresh";
+    const nextSignature = await signWebhook(sequencer, nextId, timestamp, body);
+    assert(await webhooks.consume(body, {
+      id: nextId, timestamp, keyId: "seq-merchant", signature: nextSignature,
+    }) === "processed", "a new delivery must verify the receipt again");
+    assert(Number(receipts.resolutions) === 2, "a fresh delivery must not use cached receipt evidence");
+    assert((await orders.get(checkout.order.orderId))?.transaction === receipt.txHash, "repeat verification must preserve payment");
+    const malformed = new TextEncoder().encode(JSON.stringify({ ...event, receipt_ref: "" }));
+    const malformedId = "merchant-malformed";
+    const malformedSignature = await signWebhook(sequencer, malformedId, timestamp, malformed);
+    await expectThrows(() => webhooks.consume(malformed, {
+      id: malformedId, timestamp, keyId: "seq-merchant", signature: malformedSignature,
+    }), (error) => error instanceof MerchantError && error.code === "invalid-webhook", "malformed receipt reference");
+    assert(Number(receipts.resolutions) === 2, "malformed events must fail before resolving evidence");
+  });
+
+  await suite.check("merchant: a signed claim with mismatched receipt evidence cannot pay an order", async () => {
+    const orders = new ConformanceMerchantOrders();
+    const merchant = new MerchantMiddleware({
+      catalog: { get: async () => ({
+        sku: "merchant-item",
+        title: "Merchant conformance item",
+        unitAmount: amount.toString(),
+        asset: toHex(asset),
+        payTo: toHex(payTo),
+        scheme: "exact",
+        network: "eip155:125",
+        maxTimeoutSeconds: 120,
+        extra: offer.requirements.extra!,
+      }) },
+      orders,
+      sellers: {
+        create: (paymentRequired) => new SellerMiddleware<MerchantOrder>({
+          paymentRequired,
+          receiptKeys,
+          authority: new ReceiptPayloadAuthority(receiptKeys),
+          fulfillments: new InMemoryFulfillmentRepository<MerchantOrder>(),
+        }),
+      },
+      resourceUrl: (checkoutKey) => `https://merchant.example/checkout/${checkoutKey}`,
+    });
+    const checkout = await merchant.checkout(
+      "acct:merchant-conformance",
+      "merchant-mismatch",
+      [{ sku: "merchant-item", quantity: 1 }],
+    );
+    assert(checkout.kind === "payment-required", "mismatch checkout must start payment-required");
+    const order = checkout.order;
+    const receipts = new ConformanceMerchantReceipts();
+    receipts.add("receipt:merchant-conformance", receipt);
+    const webhooks = new MerchantSettlementWebhooks({
+      verifier: new VerifiedWebhookConsumer({
+        publicKeys: { "seq-merchant": sequencer.publicKey },
+        deliveries: new InMemoryDeliveryStore(),
+      }),
+      orders,
+      receipts,
+      receiptKeys,
+    });
+    const body = new TextEncoder().encode(JSON.stringify({
+      order_id: order.orderId,
+      request_digest: order.requestDigest,
+      receipt_digest: toHex(fixedBytes(0xff)),
+      receipt_ref: "receipt:merchant-conformance",
+      transaction: receipt.txHash,
+      verification: "receipted",
+    }));
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const signature = await signWebhook(sequencer, "merchant-mismatch-delivery", timestamp, body);
+    await expectThrows(
+      () => webhooks.consume(body, {
+        id: "merchant-mismatch-delivery",
+        timestamp,
+        keyId: "seq-merchant",
+        signature,
+      }),
+      (error) => error instanceof MerchantError && error.code === "invalid-webhook",
+      "mismatched merchant receipt digest",
+    );
+    assert((await orders.get(order.orderId))?.state === "awaiting-payment", "mismatched evidence must not alter order state");
+  });
+
+  return suite;
+}
+
+class ConformanceMerchantReceipts implements MerchantReceiptResolver {
+  readonly #receipts = new Map<string, MerchantReceiptEvidence>();
+  public resolutions = 0;
+
+  public add(reference: string, receipt: MerchantReceiptEvidence): void {
+    this.#receipts.set(reference, structuredClone(receipt));
+  }
+
+  public async resolve(reference: string): Promise<MerchantReceiptEvidence> {
+    this.resolutions += 1;
+    const receipt = this.#receipts.get(reference);
+    if (receipt === undefined) throw new MerchantError("invalid-webhook");
+    return structuredClone(receipt);
+  }
+}
+
+export async function buildMerchantSettlementDelivery(
+  sequencer: ConformanceSequencer,
+  order: MerchantOrder,
+  receipt: SignedReceipt,
+  id: string,
+): Promise<{
+  event: SettlementWebhookEvent;
+  body: Uint8Array;
+  headers: { id: string; timestamp: string; keyId: string; signature: string };
+}> {
+  const event: SettlementWebhookEvent = {
+    order_id: order.orderId,
+    request_digest: order.requestDigest,
+    receipt_digest: receipt.receiptDigest.slice(2),
+    receipt_ref: receipt.txHash,
+    transaction: receipt.txHash,
+    verification: "receipted",
+  };
+  const body = new TextEncoder().encode(JSON.stringify(event));
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  return {
+    event,
+    body,
+    headers: {
+      id, timestamp, keyId: "seq-merchant",
+      signature: await signWebhook(sequencer, id, timestamp, body),
+    },
+  };
 }
 
 export async function captureConformanceSettlement(
