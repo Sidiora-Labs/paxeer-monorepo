@@ -9,6 +9,7 @@ use layerx_agent_api::error::RequestId;
 use layerx_agent_api::idempotency::{BodyDigest, IdempotentMutation, Key};
 use layerx_agent_api::submit::{PreparationRef, SignatureBytes, SubmitRequest};
 use layerx_agent_api::track::{SubmissionRef, SubmissionState, TrackRequest};
+use layerx_agentd::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
 use layerx_human_service::frame::{read_frame, write_frame, Limits};
 use layerx_human_service::journeys::{
     AgentBoundary, AgentBoundaryError, ReceiptKeyEntry, ReceiptLookup, ReceiptMaterial,
@@ -22,20 +23,20 @@ use layerx_types::verify::VerificationLevel;
 use layerx_wire::receipt::{decode, encode};
 use sha2::{Digest as _, Sha256};
 
-const TRACE: &str = "trc_0123456789abcdef0123456789abcdef";
+pub const TRACE: &str = "trc_0123456789abcdef0123456789abcdef";
 const MAX_FRAME: usize = 4096;
 
 fn checked<T, E: Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("agent runtime peer: {error:?}"))
 }
 
-struct Peer {
+pub struct Peer {
     directory: PathBuf,
     server: Option<JoinHandle<()>>,
 }
 
 impl Peer {
-    fn serve(exchanges: Vec<(Vec<u8>, Vec<u8>)>) -> (Self, AgentRuntime) {
+    pub fn serve(exchanges: Vec<(Vec<u8>, Vec<u8>)>) -> (Self, AgentRuntime) {
         let mut entropy = [0; 16];
         checked(getrandom::fill(&mut entropy));
         let directory =
@@ -83,7 +84,7 @@ impl Peer {
         )
     }
 
-    fn finish(mut self) {
+    pub fn finish(mut self) {
         if let Some(server) = self.server.take() {
             checked(server.join());
         }
@@ -108,14 +109,14 @@ fn traced(inner: &[u8]) -> Vec<u8> {
     frame
 }
 
-fn request(opcode: u8, body: &[u8]) -> Vec<u8> {
+pub fn request(opcode: u8, body: &[u8]) -> Vec<u8> {
     let mut inner = b"LXHAGT01".to_vec();
     inner.push(opcode);
     inner.extend_from_slice(body);
     traced(&inner)
 }
 
-fn answer(body: &[u8]) -> Vec<u8> {
+pub fn answer(body: &[u8]) -> Vec<u8> {
     let mut inner = b"LXHAGT01\0".to_vec();
     inner.extend_from_slice(body);
     traced(&inner)
@@ -205,23 +206,8 @@ fn runtime_decodes_finalization_evidence_with_a_65_byte_signature() {
         block_height: observed_height,
         rung: Rung::Committed,
     };
-    let mut receipt = Vec::new();
-    bytes(&mut receipt, &canonical_bytes);
-    for field in batch_fields {
-        receipt.extend_from_slice(&field);
-    }
-    receipt.push(4);
-    receipt.extend_from_slice(&tx_hash);
-    receipt.extend_from_slice(&receipt_hash);
-    receipt.extend_from_slice(&observed_height.to_be_bytes());
-    let rung_offset = receipt.len();
-    receipt.push(2);
-    bytes(&mut receipt, &expected.signed_receipt);
-    receipt.extend_from_slice(&expected.receipt_key.key_id);
-    receipt.extend_from_slice(&expected.receipt_key.public_key);
-    receipt.extend_from_slice(&expected.receipt_key.first_height.to_be_bytes());
-    receipt.extend_from_slice(&expected.receipt_key.last_height.to_be_bytes());
-    receipt.extend_from_slice(&expected.inclusion_height.to_be_bytes());
+    let receipt = checked(frame(&expected).encode());
+    let rung_offset = 4 + canonical_bytes.len() + 5 * 32 + 1 + 32 + 32 + 8;
 
     let client = checked(Client::daemon(
         "/run/layerx-agentd.sock",
@@ -251,8 +237,7 @@ fn runtime_decodes_finalization_evidence_with_a_65_byte_signature() {
     bytes(&mut observation, b"receipt_rungs");
     observation.extend_from_slice(&[2, 0, 0, 1]);
     observation.extend_from_slice(&receipt);
-    let mut response = vec![1];
-    response.extend_from_slice(&receipt);
+    let response = checked(ReceiptLookupAnswer::Found(frame(&expected)).encode());
     let mut coordinates = vec![0x64; 32];
     coordinates.extend_from_slice(&tx_hash);
     let mut truncated = response.clone();
@@ -292,4 +277,22 @@ fn runtime_decodes_finalization_evidence_with_a_65_byte_signature() {
     long_signature.push(0);
     assert!(SignatureBytes::new(long_signature).is_err());
     peer.finish();
+}
+
+pub fn frame(material: &ReceiptMaterial) -> ReceiptLookupFrame {
+    ReceiptLookupFrame {
+        canonical_bytes: material.canonical_bytes.clone(),
+        authorised_batch: material.authorised_batch,
+        verification_level: material.verification_level,
+        tx_hash: material.tx_hash,
+        receipt_hash: material.receipt_hash,
+        block_height: material.block_height,
+        rung: material.rung,
+        signed_receipt: material.signed_receipt.clone(),
+        receipt_key_id: material.receipt_key.key_id,
+        public_key: material.receipt_key.public_key,
+        first_height: material.receipt_key.first_height,
+        last_height: material.receipt_key.last_height,
+        inclusion_height: material.inclusion_height,
+    }
 }

@@ -176,6 +176,9 @@ import (
 	layerxbridgeclient "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/client/cli"
 	layerxbridgekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/keeper"
 	layerxbridgetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
+	layerxchainsmodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains"
+	layerxchainskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/keeper"
+	layerxchainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	layerxcustodymodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody"
 	layerxcustodykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
 	layerxcustodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
@@ -311,6 +314,7 @@ var (
 		layerxledgermodule.AppModuleBasic{},
 		layerxauthmodule.AppModuleBasic{},
 		layerxpaymodule.AppModuleBasic{},
+		layerxchainsmodule.AppModuleBasic{},
 		layerxagentmodule.AppModuleBasic{},
 		// this line is used by starport scaffolding # stargate/app/moduleBasic
 	)
@@ -332,6 +336,7 @@ var (
 		layerxcustodytypes.ModuleName:   nil,
 		layerxanchortypes.ModuleName:    {authtypes.Burner},
 		layerxledgertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
+		layerxchainstypes.ModuleName:    nil,
 		spottypes.ModuleName:            {authtypes.Minter, authtypes.Burner},
 		// launchpad, launchpad_treasury and layerxbridge are deliberately absent:
 		// the bank keeper blocks every maccPerms address as a receiver, and each
@@ -372,6 +377,7 @@ var (
 		storekeys.LayerXLedgerStoreKey,
 		storekeys.LayerXAuthStoreKey,
 		storekeys.LayerXPayStoreKey,
+		storekeys.LayerXChainsStoreKey,
 		storekeys.LayerXProgramsStoreKey,
 		storekeys.LayerXAgentStoreKey,
 		storekeys.LayerXHostStoreKey,
@@ -525,6 +531,7 @@ type App struct {
 	LayerXAuthKeeper   *layerxauthkeeper.Keeper
 	LayerXAgentKeeper  LayerXAgentKeeper
 	LayerXPayKeeper    *layerxpaykeeper.Keeper
+	LayerXChainsKeeper *layerxchainskeeper.Keeper
 	LayerXHost         *lxphost.Host
 
 	LayerXCustodyKeeper *layerxcustodykeeper.Keeper
@@ -899,6 +906,11 @@ func New(
 		panic(fmt.Sprintf("error creating LayerX pay keeper: %s", err))
 	}
 	app.LayerXPayKeeper = &payKeeper
+	app.LayerXChainsKeeper, err = layerxchainskeeper.NewKeeper(appCodec, keys[storekeys.LayerXChainsStoreKey],
+		app.BankKeeper, app.EvmKeeper.GetBaseDenom)
+	if err != nil {
+		panic(fmt.Sprintf("error creating LayerX chains keeper: %s", err))
+	}
 	app.LayerXExchangeKeeper = layerxexchangekeeper.NewKeeper(appCodec, keys[layerxexchangetypes.StoreKey],
 		app.LayerXCustodyKeeper, &app.EvmKeeper)
 	app.LayerXExchangeKeeper.SetUpgradeKeeper(app.UpgradeKeeper)
@@ -1113,6 +1125,7 @@ func New(
 		layerxledgermodule.NewAppModule(app.LayerXLedgerKeeper),
 		layerxauthmodule.NewAppModule(app.LayerXAuthKeeper),
 		layerxpaymodule.NewAppModule(*app.LayerXPayKeeper),
+		layerxchainsmodule.NewAppModule(app.LayerXChainsKeeper),
 		layerxagentmodule.NewAppModule(app.LayerXAgentKeeper.Keeper, authority),
 		// this line is used by starport scaffolding # stargate/app/appModule
 	)
@@ -1210,6 +1223,7 @@ func New(
 		layerxledgertypes.ModuleName,
 		layerxauthtypes.ModuleName,
 		layerxpaytypes.ModuleName,
+		layerxchainstypes.ModuleName,
 		layerxagenttypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	)

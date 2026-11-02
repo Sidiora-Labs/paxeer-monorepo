@@ -121,8 +121,12 @@ export class LayerXIntegrationError extends Error {
   public constructor(
     public readonly code: LayerXIntegrationErrorCode,
     public readonly key: DeclaredKey | undefined = undefined,
+    scheme?: string,
   ) {
-    super(key === undefined ? code : `${code} ${key}`);
+    super(
+      (key === undefined ? code : `${code} ${key}`)
+      + (scheme === undefined ? "" : ` for scheme ${scheme}`),
+    );
     this.name = "LayerXIntegrationError";
   }
 }
@@ -227,11 +231,18 @@ export function assertNoPublishedSecrets(environment: Environment): void {
 }
 
 export function readDeclaredConfig(environment: Environment): LayerXDeclaredConfig {
+  return readConfiguration(environment);
+}
+
+function readConfiguration(environment: Environment): LayerXDeclaredConfig {
   assertServerRuntime();
   assertNoPublishedSecrets(environment);
   const scheme = required(environment, "LAYERX_X402_SCHEME");
   const network = required(environment, "LAYERX_X402_NETWORK");
   const purpose = optional(environment, "LAYERX_PAYMENT_PURPOSE_HASH");
+  if (scheme !== "exact" && purpose === undefined) {
+    throw new LayerXIntegrationError("missing-declared-key", "LAYERX_PAYMENT_PURPOSE_HASH", scheme);
+  }
   const purposeHash = purpose === undefined ? undefined : parseHex32(purpose);
   if (purposeHash?.every((byte) => byte === 0)) {
     throw new LayerXIntegrationError("invalid-declared-key", "LAYERX_PAYMENT_PURPOSE_HASH");
