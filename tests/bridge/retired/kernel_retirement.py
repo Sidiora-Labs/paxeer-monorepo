@@ -143,12 +143,36 @@ RETIRED: Final[frozenset[str]] = frozenset(
 
 RETIREMENT_ASSERTIONS: Final[frozenset[str]] = frozenset(
     {
+        "tests/bridge/retired/**",
+        "tests/ci/test_*absent*.py",
+        "tests/ci/test_retired_*.py",
+        "cmd/retirement/**",
         "tools/paxeer-x/retired_callers.json",
         "tools/ci/tests/test_makefile_*.py",
     }
 )
 
 _QUOTED_PATH = re.compile(r'''"([^"\r\n]+)"|'([^'\r\n]+)'|<([^<>\r\n]+)>''')
+_STRINGS = (
+    r'''"{3}.*?"{3}|'{3}.*?'{3}|"(?:\\.|[^"\\])*"|'''
+    r"'(?:\\.|[^'\\])*'"
+)
+
+
+def _without_comments(text: str, path: Path) -> str:
+    comments = (
+        r"\#[^\r\n]*"
+        if path.suffix in {".py", ".sh", ".mk"} or path.name == "Makefile"
+        else r"//[^\r\n]*|/\*.*?\*/"
+    )
+    return re.sub(
+        _STRINGS + "|(?P<comment>" + comments + ")",
+        lambda match: re.sub(r"[^\r\n]", " ", match.group())
+        if match.group("comment") is not None
+        else match.group(),
+        text,
+        flags=re.DOTALL,
+    )
 
 
 def assert_retired(paths: Iterable[str | Path], root: Path = REPO) -> None:
@@ -179,6 +203,46 @@ def assert_retired(paths: Iterable[str | Path], root: Path = REPO) -> None:
         target: re.compile(r"(?<![\w./-])" + re.escape(target) + r"(?![\w./-])")
         for target in targets
     }
+    stem_patterns = {}
+    module_patterns = {}
+    target_stems = {target: Path(target).stem for target in targets}
+    for target in targets:
+        path = Path(target)
+        stem_patterns[target] = re.compile(
+            r"(?<![\w.-])" + re.escape(path.name) + r"(?![\w.-])"
+        )
+        if path.suffix in {".py", ".c", ".sh"}:
+            module = path.with_suffix("").as_posix().replace("/", ".")
+            package, _, stem = module.rpartition(".")
+            alternatives = [
+                r"\bimport\s+(?:[\w.]+(?:\s+as\s+\w+)?\s*,\s*)*"
+                + r"(?P<module>"
+                + re.escape(module)
+                + r")(?!\w)",
+                r'''\b(?:importlib\.import_module|__import__)\s*\(\s*["']'''
+                + r"(?P<dynamic>"
+                + re.escape(module)
+                + r''')["']''',
+            ]
+            if package:
+                import_gap = r"(?:\s|\\\r?\n|#[^\r\n]*(?:\r?\n|$))*"
+                alternatives.append(
+                    r"\bfrom\s+"
+                    + re.escape(package)
+                    + r"\s+import\b"
+                    + import_gap
+                    + r"\(?"
+                    + import_gap
+                    + r"(?:\w+(?:\s+as\s+\w+)?"
+                    + import_gap
+                    + ","
+                    + import_gap
+                    + ")*"
+                    + r"(?P<stem>"
+                    + re.escape(stem)
+                    + r")(?!\w)"
+                )
+            module_patterns[target] = re.compile("|".join(alternatives))
     references = []
     for name in sorted(tracked - RETIRED - targets):
         path = Path(name)
@@ -195,11 +259,48 @@ def assert_retired(paths: Iterable[str | Path], root: Path = REPO) -> None:
         content = source.read_bytes()
         if b"\0" in content:
             continue
-        lines = content.decode("utf-8", "surrogateescape").splitlines()
+        scan_stems = path.parts[0] in {"tests", "tools", "cmd"} and (
+            path.suffix in {".py", ".sh", ".mk"} or path.name == "Makefile"
+        )
+        text = content.decode("utf-8", "surrogateescape")
+        if not any(stem in text or stem in name for stem in target_stems.values()):
+            continue
+        text = _without_comments(text, path)
+        module_matches = {}
+        if module_patterns and (path.suffix == ".py" or scan_stems):
+            import_text = re.sub(
+                _STRINGS,
+                lambda match: re.sub(r"[^\r\n]", " ", match.group()),
+                text,
+                flags=re.DOTALL,
+            )
+            for target, pattern in module_patterns.items():
+                if target_stems[target] not in text:
+                    continue
+                for match in pattern.finditer(text):
+                    if import_text[match.start()].isspace():
+                        continue
+                    group = next(
+                        group
+                        for group in ("module", "dynamic", "stem")
+                        if match.group(group) is not None
+                    )
+                    number = text.count("\n", 0, match.start(group)) + 1
+                    module_matches.setdefault(number, set()).add(target)
+        lines = text.splitlines()
         for number, line in enumerate(lines, 1):
             matches = {
-                target for target, pattern in patterns.items() if pattern.search(line)
+                target
+                for target, pattern in patterns.items()
+                if target in line and pattern.search(line)
             }
+            if scan_stems:
+                matches.update(
+                    target
+                    for target, pattern in stem_patterns.items()
+                    if target_stems[target] in line and pattern.search(line)
+                )
+            matches.update(module_matches.get(number, ()))
             for match in _QUOTED_PATH.finditer(line):
                 literal = next(value for value in match.groups() if value is not None)
                 resolved = posixpath.normpath(

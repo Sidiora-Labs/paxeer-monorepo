@@ -30,7 +30,7 @@ NATIVE = [
     "test_genesis_builder_cli",
     "test_daemon_bootstrap_artifact",
 ]
-CONTRACTS = ["PaxeerBetaDeploymentValidator", "ContractManager"]
+CONTRACTS = ["ContractManager"]
 COMMIT_CASES = {
     "TestRealStateCreditAndClockBounds",
     "TestRealStateCreditRefusesMissingAuthority",

@@ -533,9 +533,6 @@ lxp_result lxp_kernel_withdraw_execution_sequence(
         lxp_ct_memcmp(facts->actor, authority->actor, 32U) != 0 ||
         lxp_ct_memcmp(facts->verified_key, authority->verified_key, 32U) != 0)
         return LXP_ERR_CONTEXT_MISMATCH;
-    if (lxp_ct_is_zero(facts->account_id, 32U) &&
-        lxp_ct_is_zero(authority->principal, 32U) && !facts->account_present)
-        return LXP_OK;
     if (lxp_ct_memcmp(facts->account_id, account_id, 32U) != 0 ||
         lxp_ct_memcmp(facts->account_id, authority->principal, 32U) != 0)
         return LXP_ERR_CONTEXT_MISMATCH;
@@ -2292,6 +2289,10 @@ lxp_result lxp_kernel_dispatch(const lxp_module_registration *registration,
     if (registration == NULL || ctx == NULL || activity == NULL ||
         authority == NULL || effects == NULL || module_result == NULL)
         return LXP_ERR_NON_CANONICAL;
+    if (registration->iface == NULL || registration->iface->decode == NULL ||
+        registration->iface->validate == NULL ||
+        registration->iface->execute == NULL)
+        return LXP_FATAL_INVARIANT;
     if (ctx->module_id == LXP_MODULE_ASSET) {
         if (lxp_activity_module_id(activity->activity_type) != LXP_MODULE_ASSET)
             return LXP_ERR_UNKNOWN_ACTIVITY;

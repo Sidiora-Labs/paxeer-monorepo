@@ -1338,7 +1338,7 @@ CASES = (
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Registry identity bootstrap before router activation."
+        description="Registry identity bootstrap before router activation.", allow_abbrev=False
     )
     parser.add_argument(
         "--evidence-dir", default=os.environ.get("PAXEER_X_EVIDENCE_DIR")

@@ -13,7 +13,7 @@
  * No source extraction, replacement ABI codec, environment endpoint or skip.
  */
 #define _POSIX_C_SOURCE 200809L
-#include "lxp_kernel_case.h"
+#include "../codec/lxp_kernel_case.h"
 #include "../modules/test_service_helpers.h"
 #include "layerx/lx_escrow.h"
 

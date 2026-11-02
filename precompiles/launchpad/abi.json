@@ -3206,88 +3206,19 @@
     "type": "event"
   },
   {
-    "inputs": [],
-    "name": "Overflow",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "DivisionByZero",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InsufficientInput",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InsufficientLiquidity",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "VirtualFloorBreached",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "SlippageExceeded",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "DeadlineExpired",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "ZeroAddress",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "ZeroAmount",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "PoolNotFound",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "Paused",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "NotPaused",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "Unauthorized",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "NotNftOwner",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "WrongStrategy",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidStrategy",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "NoFeesAccumulated",
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "AccessControlUnauthorizedAccount",
     "type": "error"
   },
   {
@@ -3317,6 +3248,16 @@
   },
   {
     "inputs": [],
+    "name": "DeadlineExpired",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DivisionByZero",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "DuplicatePool",
     "type": "error"
   },
@@ -3332,7 +3273,17 @@
   },
   {
     "inputs": [],
+    "name": "FutureLookup",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "IndexOutOfBounds",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InsufficientAllowance",
     "type": "error"
   },
   {
@@ -3343,6 +3294,16 @@
   {
     "inputs": [],
     "name": "InsufficientCreationFee",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InsufficientInput",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InsufficientLiquidity",
     "type": "error"
   },
   {
@@ -3372,7 +3333,27 @@
   },
   {
     "inputs": [],
+    "name": "InvalidPermit",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidPoolBinding",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "InvalidRoleAccount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidStrategy",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidToken",
     "type": "error"
   },
   {
@@ -3414,6 +3395,11 @@
   },
   {
     "inputs": [],
+    "name": "NoFeesAccumulated",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NonERC721Receiver",
     "type": "error"
   },
@@ -3434,6 +3420,16 @@
   },
   {
     "inputs": [],
+    "name": "NotNftOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotPaused",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NotTokenOwner",
     "type": "error"
   },
@@ -3444,7 +3440,27 @@
   },
   {
     "inputs": [],
+    "name": "Overflow",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "Paused",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "PermitExpired",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "PoolIndexMigrationRequired",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "PoolNotFound",
     "type": "error"
   },
   {
@@ -3454,7 +3470,28 @@
   },
   {
     "inputs": [],
+    "name": "ReentrantCall",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "Retired",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "SameToken",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SlippageExceeded",
     "type": "error"
   },
   {
@@ -3484,6 +3521,11 @@
   },
   {
     "inputs": [],
+    "name": "Unauthorized",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "UnauthorizedUpgrade",
     "type": "error"
   },
@@ -3504,64 +3546,22 @@
   },
   {
     "inputs": [],
-    "name": "InvalidToken",
+    "name": "VirtualFloorBreached",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "ReentrantCall",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "name": "AccessControlUnauthorizedAccount",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "Retired",
+    "name": "WrongStrategy",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "FutureLookup",
+    "name": "ZeroAddress",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "InsufficientAllowance",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidPermit",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidPoolBinding",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "PermitExpired",
+    "name": "ZeroAmount",
     "type": "error"
   }
 ]

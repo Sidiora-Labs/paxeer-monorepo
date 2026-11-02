@@ -2,6 +2,7 @@ package sequencer
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"sync"
@@ -14,6 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+// ErrReplicationHalted means an executed send could not be released safely.
+// The accepter refuses subsequent sends until the node is recovered.
 var ErrReplicationHalted = errors.New("sequencer: replication halted")
 
 var _ evmrpc.SequencerAccepter = (*Accepter)(nil)
@@ -27,6 +30,8 @@ type Accepter struct {
 	halted bool
 }
 
+// NewAccepter releases signed receipts and records their execution outputs only
+// after the replicator has durably acknowledged the accepted transaction.
 func NewAccepter(r *Receipter, rep *Replicator, src *ReceiptSource, m *Metrics) *Accepter {
 	if r == nil || rep == nil || src == nil || m == nil {
 		panic("sequencer: accepter needs a receipter, replicator, receipt source and metrics")
@@ -88,6 +93,14 @@ func (a *Accepter) send(txBytes []byte, acc *Accepted, receipt []byte) (evmrpc.S
 	if err != nil {
 		return evmrpc.SequencerSend{}, nil, err
 	}
+	if len(decoded.Effects) == 0 || decoded.Effects[0].ModuleID != decoded.ModuleID ||
+		decoded.Effects[0].Ordinal != 0 || decoded.Effects[0].Kind != effectKindState || len(decoded.Effects[0].Body) < 16 {
+		return evmrpc.SequencerSend{}, nil, inputErr("missing execution gas summary")
+	}
+	// Receipter.after adds cumulative gas to the signed summary, but the
+	// transient store still holds its execution-time value. Return the value
+	// bound by this receipt rather than re-reading the receipter's mutable total.
+	rcpt.CumulativeGasUsed = binary.BigEndian.Uint64(decoded.Effects[0].Body[8:16])
 	send.ReturnData, err = evmReturnData(acc.Result.Data)
 	if err != nil {
 		return evmrpc.SequencerSend{}, nil, err

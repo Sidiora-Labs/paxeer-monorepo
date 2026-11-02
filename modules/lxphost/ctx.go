@@ -4,6 +4,7 @@ package lxphost
 
 /*
 #include <string.h>
+#include "layerx/lx_asset.h"
 #include "layerx/lxp_ledger.h"
 #include "layerx/lxp_snapshot.h"
 
@@ -289,4 +290,25 @@ func accountKey(id [32]byte) []byte {
 
 func identitySequenceKey(did [32]byte) []byte {
 	return append([]byte{identitySequencePrefix}, did[:]...)
+}
+
+func idempotencyKey(key IdempotencyKey) []byte {
+	return append([]byte{idempotencyPrefix}, key[:]...)
+}
+
+func (b *branchCtx) checkPaymentReference(activity Activity) error {
+	// Prefix 0x04 in the host store is the authoritative payment-reference set:
+	// committed records survive restart, and branch writes follow cache rollback.
+	// Check it directly rather than maintaining a second set in kernel memory,
+	// which is reset between executions.
+	if activity.Type == uint32(C.LX_ASSET_SEND) && b.store.Has(idempotencyKey(activity.IdempotencyKey)) {
+		return codeIdempotentReplay
+	}
+	return nil
+}
+
+func (b *branchCtx) commitPaymentReference(activity Activity, receipt Receipt) {
+	if activity.Type == uint32(C.LX_ASSET_SEND) && receipt.ResultCode == 0 {
+		b.store.Set(idempotencyKey(activity.IdempotencyKey), receipt.Encoded)
+	}
 }
