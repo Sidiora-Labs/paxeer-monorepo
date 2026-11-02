@@ -124,6 +124,8 @@ func TestSequencerContextPendingSnapshot(t *testing.T) {
 	first, err := exec.Accept(seqCtxTransfer(t, sender, 0, recipient, value))
 	require.NoError(t, err)
 	require.Equal(t, abci.CodeTypeOK, first.Result.Code)
+	require.Equal(t, seqCtxOpen, first.Height)
+	require.Equal(t, seqCtxOpen, first.ReceiptContext.BlockHeight())
 
 	afterFirst := new(big.Int).Sub(new(big.Int).Sub(funded, value), fee)
 	snap := a.RPCContextProvider(app.PendingCtxHeight)
