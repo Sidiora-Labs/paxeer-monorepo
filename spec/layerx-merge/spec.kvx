@@ -7161,6 +7161,18 @@ value = "A plan_result leg carries index, mechanism, domain, source, destination
 basis = "22.9.10 a8 fails intent.test.ts:100 with invalid-nonce: the fixture legs (2c738d602, 8.47.1) carry chainId, data, to and payment while the decoder's exactKeys wants call and nonce and the producer emits neither of those shapes; the producer and the published schema agree with each other."
 affects = ["22.9.10"]
 
+[decision.2342]
+title = "A touches entry names a file the task itself changes"
+value = "The touches list of a task holds only files the task creates, edits or deletes in its own commits: the completion check (cg spec done) requires a matching change for every entry, so a file a prerequisite task already deleted or already produced leaves the list when that prerequisite lands, and a do item that ordered the deletion is read as already satisfied on main."
+basis = "6.96.6's sixth candidate passed its build, both anchor test packages and the export check and was refused only because touched modules/layerxanchor/bringup_genesis_test.go had no matching change: commit 24e7e1ab7 (task 18.1471.1, which 6.96.6 requires) deleted the file first."
+affects = ["6.96.6"]
+
+[decision.2343]
+title = "A fee estimate that carries a fee cap names the paying account"
+value = "An eth_estimateGas request whose transaction carries maxFeePerGas names the account that pays (from); the node checks that account's balance against value plus the fee and a request without from is checked against the zero address, which holds nothing and refuses with insufficient funds for transfer. RpcClient::estimate_fee_from (rpc.rs:1003) is the SDK form for a fee-bearing call; RpcClient::estimate_fee (rpc.rs:1010, no from) serves only calls whose fee fields are zero and its doc comment says so."
+basis = "The seventh candidate funds a fresh account, waits for the funding receipt, then calls estimate_fee without from and the node answers -32000 insufficient funds for transfer (proof_sdk.rs:664); estimate_fee has no production caller outside tests."
+affects = ["21.45.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -116299,6 +116311,7 @@ do_6 = "Fifth attempt at base 3454fc9ab: test/program-executed-v3.test.ts was de
 do_7 = "Finding 22.9.10.3 (decision 2320): intent-plan-v1.json plan_request.source and plan_request.destination carry exactly the IntentEndpoint fields of services/human/schema/human-api/intent.kvx (kind, and account only when the endpoint is not the wallet); the account resolution (account, layerx_public_key, evm_address, resolution) lives only in plan_result.legs where evm-call-wrapping.test.py:197-213 reads it, so intent.test.ts:82 and :179, test_intent.py:102-103 and the Python wrapping test all pass against the one fixture; the fixture stays one file (the decision at the task's line on intent-plan-v1.json stands)."
 do_8 = "Finding 22.9.10.4 and decision 2328: intent.ts (now in touches) drops sponsored from the required IntentPlan keys and derives sponsorship from null leg nonces; intent.test.ts decodes the main fixture unchanged; the fixture plan_request keeps the encoder's field set (decision 2320 as corrected by 2328); continue from the seventh candidate."
 do_9 = "Finding 22.9.10.5 and decision 2341: intent-plan-v1.json plan_result.legs are regenerated with the producer's key set (to, value, calldata, nonce, chain_id, gas_limit, max_fee_per_gas, max_priority_fee_per_gas beside index, mechanism, domain, source, destination, money, fee; the payment object and the camelCase chainId and data leave); intent.ts decodeIntentLeg accepts exactly that set with the EVM fields optional, an absent or null nonce marking a sponsored leg; evm-call-wrapping.test.py:197-213 and test_intent.py read chain_id, to, calldata and nonce from the leg instead of chainId, data and payment, deriving the payment facts from source, destination and money; intent.test.ts:100-115 decodes the regenerated fixture; continue from the eighth candidate."
+do_10 = "Finding 22.9.10.6: the python_market_signs_secp256k1 failure is environmental (no cryptography module for the inline Python program) and the qualification environment now supplies it; the ninth candidate stands as it is and requalifies without change."
 
 [task.22.91.38]
 title = "Inventory the platform examples packages"
@@ -126714,7 +126727,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.25]
 title = "Make the crate-root helpers of the agentd serve-errors proof compile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.16"]
@@ -126906,7 +126919,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.16.9]
 title = "Let the platform CLI's credential tests skip with a named reason when dbus-daemon is absent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.8.10", "22.9.24"]
@@ -127182,13 +127195,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 22.9.18.1: the agentd proof_serve_errors.rs build break is repaired by task 22.9.25, which this task now requires; continue from the latest candidate rebased onto a main that carries 22.9.25."
+do_4 = "Finding 22.9.18.2: the build break in layerx-agentd tests/proof_serve_errors.rs is repaired by task 22.9.25 (required); the batch 330 ruling stands; continue from the third candidate rebased onto a main that carries 22.9.25."
 
 [task.22.9.17]
 title = "Reconcile the agent crates' vector counts, settlement fixtures and address casing"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.24"]
+requires = ["22.9.24", "22.9.25"]
 reqs = ["22012.1"]
 capabilities = ["22.9.17"]
 interfaces = []
@@ -127213,6 +127227,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fails inside layerx-agent-api's build script until 22.9.24 restores the faucet.claim operation block of the agent API contract; this task requires 22.9.24 and continues from its last candidate, which is not at fault."
 do_4 = "Finding 22.9.17.1: verify_cmd excludes the four native_terminal_outcome.rs tests by name (decision 2325; their producer is the genuine native terminal corpus); checkpoint-settlement.json gains the schema key (decision 2331) and every key-pinning reader named there accepts it; tests/terminal_v4.rs is deleted or rewritten against fixtures that exist (decision 2026 lineage: the v4 fixtures were deleted by 8.47.6 and their readers by 8.47.10; a reader that survived is stale), and the commit message names which; the namespace table adds system:paxeer-reserve (decision 2332); for vectors 53-57 the candidate reads the kernel activity table (include/layerx) for the five activity types the corpus carries and adds them to the Rust registry the tests build if the kernel defines them, or regenerates the corpus with tests/vectors/codec's generator if the corpus carries types the kernel never defined, and names which in the commit message; the hashing.rs:93 and structures.rs:183 decode then succeeds."
+do_5 = "Finding 22.9.17.2: the dependent-crate build break in layerx-agentd tests/proof_serve_errors.rs is repaired by task 22.9.25, which this task now requires; nothing in the fifth candidate changes; continue from the fifth candidate rebased onto a main that carries 22.9.25."
 
 [task.22.9.16]
 title = "Make the agent daemon host crate build all its targets"
@@ -128637,7 +128652,7 @@ symbols = []
 touches = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs", "services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-mcp/src/boundary.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/Cargo.lock", "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs", "services/agent/crates/layerx-mcp/Cargo.toml", "services/agent/crates/layerx-client/src/sequencer.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+build_cmd = "make -f chain.mk install && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test proof_native_reads"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -128654,6 +128669,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 do_7 = "Decision 2294: attempt 2 (bb8296a22) failed to resolve layerx_mcp from tests/proof_native_reads.rs because layerx-agentd/Cargo.toml has no such dependency; add `layerx-mcp = { path = '../layerx-mcp' }` under [dev-dependencies] (layerx-mcp already depends on layerx-agentd; a dev-dependency cycle is allowed and compiles the crate twice) and commit the services/agent/Cargo.lock the resolver writes so --locked holds. Continue from attempt 2."
 do_8 = "Finding 21.95.1.1: the proof lives in services/agent/crates/layerx-mcp/tests/proof_native_reads.rs (the consumer crate, which already depends on layerx-agentd); delete the layerx-agentd test target of the same name, add dev-dependencies to layerx-mcp/Cargo.toml only if the proof needs them (never layerx-agentd depending on layerx-mcp), and keep every other do. Continue from attempt 3."
 do_9 = "Finding 21.95.1.2 (decision 2322): produce_transaction reads the sender nonce at the latest block (SequencerEndpoint::nonce_at with the latest height from block_number, or a new latest_nonce in services/agent/crates/layerx-client/src/sequencer.rs, now in touches, that passes the 'latest' tag) instead of pending_nonce; the refusal text 'pending served by sequencer' never appears in the proof's output."
+do_10 = "Finding 21.95.1.3 and decision 2292: build_cmd now installs the node (make -f chain.mk install); the proof starts it from std::process::Command by running tools/qualification/localnode/v6120-node.sh --sequencer --env-out <tempdir>/localnode.env as 21.45.1 does, reads LOCAL_NODE_KEY and the RPC endpoint from that file (never from the process environment; the two std::env::var reads at :153 and :249 leave), funds nothing it does not need, stops the node when the test ends, and drops the module doc comment's out-of-scope paragraph about the inherited setup; the boundary.rs and latest_nonce repairs of the seventh candidate stand; continue from the seventh candidate."
 
 [task.21.94.1]
 title = "Prove the serve errors path end to end: producer, transport, consumer"
@@ -129155,6 +129171,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 do_7 = "Finding 21.45.1.1: the build installs the node (make -f chain.mk install); the proof starts it by running tools/qualification/localnode/v6120-node.sh --sequencer --env-out <tempdir>/localnode.env from std::process::Command, reads the RPC endpoint and key material from that file it produced in its own temporary directory, stops the node in a drop guard, and then crosses RpcClient and Wallet into it; nothing is read from the caller's environment (decision 2292). Continue from attempt 3."
 do_8 = "The receipt poll in proof_sdk.rs treats Ok(Value::Null) from get_receipt as not yet mined and retries until its deadline (decode_response at rpc.rs:1192-1195 returns the result as is); when get_receipt returns RpcError::InvalidResponse the proof prints the raw response body of the same eth_getTransactionReceipt call before failing, and if that body is a valid JSON-RPC 2.0 envelope the decode in rpc.rs (in touches) is repaired to accept it; the proof never unwraps the first read."
+do_9 = "Finding 21.45.1.2 and decision 2343: after the funding receipt is final the proof asserts eth_getBalance of the funded account at latest is at least 21000 times the fee cap, then estimates the transfer with rpc.estimate_fee_from(&transfer, account.evm_address()) and asserts 21000; the doc comment of RpcClient::estimate_fee (rpc.rs:1010) states that a call carrying maxFeePerGas uses estimate_fee_from because the node checks the payer's balance, and the proof's module doc comment names this per do_4; the direct-node routing and receipt diagnostics of the seventh candidate stand; continue from the seventh candidate."
 
 [task.21.42.1]
 title = "Prove the client path end to end: producer, transport, consumer"
@@ -136348,7 +136365,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.3.4]
 title = "Prove one block of root and chain transactions end to end, including restart recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["20.2.2", "20.3.1", "20.3.2", "20.3.3", "20.3.5"]
@@ -136646,7 +136663,7 @@ do_3 = "In precompiles/layerxanchor/layerxanchor_test.go add the same helper rea
 do_4 = "Add nothing to layerxproof/testvectors and recreate nothing under layerxproof/testdata: TestTestvectorsAnchorLoaderAbsent of layerxproof/exportcheck (task 1.36.3) keeps passing, and the verify runs it."
 do_5 = "Run go vet and go test of both packages; a test that fails for a reason other than the fixture is a finding in qualification.kvx, not a change to the module."
 symbols = ["loadAnchorFixture"]
-touches = ["modules/layerxanchor/testdata/anchor_vectors.json", "modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/layerxanchor_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go", "modules/layerxanchor/bringup_genesis_test.go", "modules/layerxanchor/module_retired_route_test.go", "precompiles/layerxanchor/retired_surface_test.go"]
+touches = ["modules/layerxanchor/testdata/anchor_vectors.json", "modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/layerxanchor_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go", "modules/layerxanchor/module_retired_route_test.go", "precompiles/layerxanchor/retired_surface_test.go"]
 tests = ["modules/layerxanchor/keeper/keeper_test.go", "modules/layerxanchor/keeper/bond_return_test.go", "modules/layerxanchor/keeper/retirement_rehearsal_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go"]
 planned_paths = []
 build_cmd = "go build ./modules/layerxanchor/... ./precompiles/layerxanchor/..."
@@ -136667,6 +136684,7 @@ do_7 = "Finding 5.7.1.2: delete modules/layerxanchor/module_retired_route_test.g
 do_8 = "Finding 1.36.1.2: in modules/layerxanchor/keeper/keeper_test.go replace the DecodeCheckpointCertificate call (:360) and certificate.Header.BatchNumber (:368) with the fixture's batch_number value read through the Vector Uint64 accessor of the batch_1_quorum checkpoint vector; in precompiles/layerxanchor/retire_read_gate_test.go replace the call (:121) with the vector's checkpoint_id read through Array32 and compare len(h.ids) against its signers value, dropping the proofcodec import where nothing else uses it. layerxproof/codec and layerxproof/exportcheck are not changed. Continue from attempt 2 (5b41c3073)."
 do_9 = "Finding 6.96.6.1: before the vector port, repair retired_surface_test.go:42: replace require.Nil(AnchorK()) with require.NotNil (decision.2218, task 18.1326.1 carries the constructed keeper) and keep the per-selector LXP_MODULE_DISABLED assertions, which the height gates of layerxanchor.go decide. Continue from attempt 4."
 do_10 = "Finding 6.96.6.2: the keeper tests that drive live checkpoints after the merge height are reconciled by task 22.6.3 and the four precompile tests by task 18.1471.1; this task now requires both and reruns its verify unchanged. Continue from attempt 5 once both are done."
+do_11 = "Finding 6.96.6.3 and decision 2342: the deletion do_6 orders is already on main (24e7e1ab7, task 18.1471.1) and modules/layerxanchor/bringup_genesis_test.go left touches; the verify's absence assertion for it stands and needs no change from this task; the sixth candidate stands as it is; continue from the sixth candidate."
 
 [task.6.96.5]
 title = "Re-home the availability class count in the layerxanchor keeper after the codec retirement"
@@ -185089,7 +185107,7 @@ do_8 = "Finding 22.7.3.2: rpc/tests TestGetPaxBlockByHash panics in the merge pr
 
 [task.22.4.5]
 title = "Reconcile the launchpad module, CLI, airdrop and legacy fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -185707,6 +185725,7 @@ do_6 = "Finding 22.6.4.2: add {0x000000000000000000000000000000000000101E, layer
 do_7 = "Finding 22.7.3.2: the rpc/tests harness (rpc/tests/tx.go:113-118 RegisterCW20PointerTx reaching precompiles.GetPrecompileInfo, used by rpc/tests/block_test.go:30 TestGetPaxBlockByHash) initialises the merge precompiles without the pay keepers and panics 'LXP_PRECOMPILE_NO_CONTEXT: LayerXPayKeepers is required'; give that harness the keepers the node wires (the same way the precompiles/testutil fixtures do) so go test ./rpc/tests/ -run TestGetPaxBlockByHash passes; rpc/tests is now in touches."
 do_8 = "Finding 22.6.4.3: build_cmd now installs the services/wallet pnpm packages (frozen lockfile) before the Go build so proof_streams_0x0906_test.go finds tsx in services/wallet/gateway; the test itself is unchanged."
 do_9 = "Finding 22.6.4.4: setup_test.go:208 requires 13 entries and the want lists in missing_merge_test.go and setup_test.go include 0x101E; precompile_info_e_test.go asserts the unknown-name refusal for an unknown name and the init error for a known, uninitialised one; the regex in merge_gateway_parity_test.go:32 and setup_test.go:213 accepts both the bare object literal and the Object.freeze wrapper of precompiles.ts:17 so the parity check reads the real table; the pnpm install of build_cmd stands; continue from the sixth candidate."
+do_10 = "Finding 22.6.4.5: before any further change locate where the 32697 Sidiora goes: run git bisect start ecf9f785 dfdd92e8f and git bisect run sh -c 'out=$(CGO_ENABLED=1 go test -count=1 ./tests/chain/ -run ^TestSidioraFeePaid$ 2>&1); case $out in *LXP_PRECOMPILE_NO_CONTEXT*|*panic:*) exit 125;; *FAIL*) exit 1;; *) exit 0;; esac' (the merge-table panic counts as a skip), then git bisect reset; if the bisect ends on skipped revisions only, add a temporary print of the Sidiora balances of coinbase 0, coinbase 1, the fee collector module account and the fee-token holding account after the block to find the account that received it, and read the fee path diffs of the skipped range (modules/evm, node/app.go, tests/testutil/processblock). The commit message names the commit and file found. When the file is in touches, repair it there; when it is not, do not repair it: assert nothing new, leave the fee segment of the verify failing, and report implemented-not-qualified with the commit and file so the owner widens touches or opens the repair task. The seventh candidate's precompiles work stands; continue from the seventh candidate."
 
 [task.22.5.4]
 title = "Return the committed block's own id from LastBlockID"
@@ -185771,7 +185790,7 @@ do_4 = "Finding 22.2.4.2: in RevokeGrant (revoke.go:12) answer a repeat of an al
 
 [task.22.13.6]
 title = "Select the storage-retirement programs registration at genesis"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200118,7 +200137,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.1.7]
 title = "Capture the merge bring-up golden on the merged revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 45
 requires = ["17.1.6", "5.0.9", "22.6.10", "22.6.11"]
