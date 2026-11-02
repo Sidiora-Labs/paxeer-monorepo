@@ -13,7 +13,7 @@ import {
   type PrecompileCall,
   type PerpsWrite,
 } from "../../api/sdk";
-import { sendWalletPrecompileCall, walletFeePreference, walletSendFailure, type PrecompileSendOutcome } from "../../api/wallet";
+import { isPrecompileSendOutcome, sendWalletPrecompileCall, walletFeePreference, walletSendFailure, type PrecompileSendOutcome } from "../../api/wallet";
 import { windowWalletProvider } from "../../api/provider";
 import { SegmentedControl } from "../../kit/collection";
 import { KitButton } from "../../kit/control";
@@ -52,7 +52,7 @@ export async function sendPerpsWrite(
       }
       onApproving(true);
       const approved = await sendWalletPrecompileCall(from, () => approve);
-      if (approved.outcome !== "sent") {
+      if (!isPrecompileSendOutcome(approved) || approved.outcome !== "sent") {
         return approved;
       }
       await waitLaunchpadApproval(wallet, approved.transactionHash);
@@ -295,7 +295,7 @@ export function ExchangeActions({
         const call = await build();
         const outcome = await sendPerpsWrite(account, collateral, pull, call, setApproving);
         record(outcome);
-        if (outcome.outcome === "sent") {
+        if (isPrecompileSendOutcome(outcome) && outcome.outcome === "sent") {
           router.refresh();
         }
       } catch (error) {

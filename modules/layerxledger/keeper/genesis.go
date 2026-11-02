@@ -15,7 +15,7 @@ func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 	}
 }
 
-// ExportGenesis returns only ledger params. Kernel assets and other host-store
+// ExportGenesis returns only ledger params, including the current pause flag. Kernel assets and other host-store
 // values export through the shared host store key requested by wiring J23.7
 // in storage/common/keys/store_keys.go.
 func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {

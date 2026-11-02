@@ -172,6 +172,8 @@ func ValidateRotation(current, next ReceiptKeys, height int64) error {
 }
 
 // ParamKeyTable registers ReceiptKeys and Leaders in the sequencer param subspace.
+// Both module initialization and governance use this table so persisted params
+// keep the same concrete types after the store is reopened.
 func ParamKeyTable() paramtypes.KeyTable {
 	return paramtypes.NewKeyTable(
 		paramtypes.NewParamSetPair(KeyReceiptKeys, &ReceiptKeys{}, validateReceiptKeys),

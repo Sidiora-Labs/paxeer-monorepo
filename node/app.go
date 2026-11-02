@@ -304,7 +304,7 @@ var (
 		layerxanchormodule.AppModuleBasic{},
 		layerxexchangemodule.AppModuleBasic{},
 		layerxbridgemodule.AppModuleBasic{},
-		launchpadmodule.AppModuleBasic{},
+		launchpadmodule.NewAppModuleBasic(),
 		perpsmodule.AppModuleBasic{},
 		spotmodule.AppModuleBasic{},
 		pricefeedmodule.AppModuleBasic{},
@@ -928,9 +928,9 @@ func New(
 	bApp.SetPreCommitHandler(app.HandlePreCommit)
 	bApp.SetCloseHandler(app.HandleClose)
 
-	app.evmRPCConfig, err = evmrpcconfig.ReadConfig(appOpts)
+	app.evmRPCConfig, err = ReadEVMRPCConfig(appOpts)
 	if err != nil {
-		panic(fmt.Sprintf("error reading EVM config due to %s", err))
+		panic(err)
 	}
 	// TODO: remove the mode gate and always construct the notifier once
 	// non-Autobahn is also producer-wired to feed it (i.e. a listener
@@ -1232,6 +1232,9 @@ func New(
 	app.mm.RegisterRoutes(app.Router(), app.QueryRouter(), encodingConfig.Amino)
 	app.configurator = module.NewConfigurator(app.appCodec, app.MsgServiceRouter(), app.GRPCQueryRouter())
 	app.mm.RegisterServices(app.configurator)
+	// Keep the retirement-gated message route without restoring the anchor's
+	// genesis, export or migration lifecycle after its store is deleted.
+	layerxanchormodule.NewAppModule(app.LayerXAnchorKeeper, &app.UpgradeKeeper).RegisterServices(app.configurator)
 
 	// create the simulation manager and define the order of the modules for deterministic simulations
 	app.sm = module.NewSimulationManager(
@@ -1623,7 +1626,25 @@ func (app *App) MidBlocker(ctx sdk.Context, height int64) []abci.Event {
 // InitChainer application update at chain initialization
 func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
 	var genesisState GenesisState
-	if !app.genesisImportConfig.StreamGenesisImport {
+	if app.genesisImportConfig.StreamGenesisImport {
+		// The streaming reader reports open errors only on stdout and otherwise
+		// returns an empty stream. Refuse an unavailable input before writing state.
+		file, err := os.Open(filepath.Clean(app.genesisImportConfig.GenesisStreamFile))
+		if err != nil {
+			panic(fmt.Errorf("open genesis stream: %w", err))
+		}
+		info, statErr := file.Stat()
+		closeErr := file.Close()
+		if statErr != nil {
+			panic(fmt.Errorf("stat genesis stream: %w", statErr))
+		}
+		if closeErr != nil {
+			panic(fmt.Errorf("close genesis stream: %w", closeErr))
+		}
+		if !info.Mode().IsRegular() {
+			panic(fmt.Errorf("genesis stream %q must be a regular file", file.Name()))
+		}
+	} else {
 		if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 			panic(err)
 		}
@@ -3406,7 +3427,8 @@ const lxpModuleReservedCount uint16 = 11
 // kernel module set, so no kernel module id is reused.
 const EVMReceiptModuleID = lxpModuleReservedCount + 1
 
-// Sequenced reports whether height has reached the keeper's activation height.
+// Sequenced reports whether height has reached the keeper's persisted activation
+// height; reconstructing the application does not reset the sequencing boundary.
 func (app *App) Sequenced(ctx sdk.Context, height int64) bool {
 	sequenced, err := app.SequencerKeeper.Sequenced(ctx, height)
 	if err != nil {
@@ -4275,4 +4297,13 @@ func (b evmChainsBinding) Operator(ctx sdk.Context, id uint32) (common.Address, 
 		panic(layerxchainstypes.ErrUnknownDomain)
 	}
 	return d.Operator, d.FeeShareBps
+}
+
+// ReadEVMRPCConfig decodes the startup options consumed by the node's EVM servers.
+func ReadEVMRPCConfig(appOpts servertypes.AppOptions) (evmrpcconfig.Config, error) {
+	config, err := evmrpcconfig.ReadConfig(appOpts)
+	if err != nil {
+		return config, fmt.Errorf("error reading EVM config due to %w", err)
+	}
+	return config, nil
 }

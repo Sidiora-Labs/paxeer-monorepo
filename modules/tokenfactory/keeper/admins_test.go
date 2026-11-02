@@ -314,6 +314,19 @@ func adminsIssuerDid(fill byte) string {
 	return evmtypes.LayerXDid(key)
 }
 
+// adminsRequireIssuerDid observes the exported keeper and the same routed query
+// used by the admin consumers, issuing a fresh request on each invocation.
+func adminsRequireIssuerDid(s *KeeperTestSuite, issuer types.IssuerKeeper, admin, did string) {
+	s.T().Helper()
+	stored, err := issuer.IssuerDid(s.Ctx, s.defaultDenom)
+	s.Require().NoError(err)
+	s.Require().Equal(did, stored)
+	queried, err := s.queryClient.DenomAuthorityMetadata(s.Ctx.Context(),
+		&types.QueryDenomAuthorityMetadataRequest{Denom: s.defaultDenom})
+	s.Require().NoError(err)
+	s.Require().Equal(types.DenomAuthorityMetadata{Admin: admin, IssuerDid: did}, queried.AuthorityMetadata)
+}
+
 func TestIssuerDidValidate(t *testing.T) {
 	s := adminsIssuerSuite(t)
 	k := s.App.TokenFactoryKeeper
@@ -350,6 +363,7 @@ func TestIssuerDidValidate(t *testing.T) {
 	stored, err := k.GetAuthorityMetadata(s.Ctx, s.defaultDenom)
 	s.Require().NoError(err)
 	s.Require().Equal(types.DenomAuthorityMetadata{Admin: admin, IssuerDid: issuer}, stored)
+	adminsRequireIssuerDid(s, k, admin, issuer)
 
 	s.Require().NoError(k.SetIssuerDid(s.Ctx, s.defaultDenom, issuer))
 	s.Require().ErrorIs(k.SetIssuerDid(s.Ctx, s.defaultDenom, adminsIssuerDid(0xcd)), types.ErrInvalidAuthorityMetadata)

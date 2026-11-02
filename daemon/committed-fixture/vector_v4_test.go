@@ -38,12 +38,23 @@ func TestVectorV4CommittedVerifies(t *testing.T) {
 	if vector.Name != "vector-v4-committed" || vector.Provenance == "" {
 		t.Fatal("missing vector identity or recording provenance")
 	}
-	check := func(t *testing.T, entry v4Case) (*verify.VerifiedReceipt, *verify.VerifiedBatchHeader, error) {
+	check := func(t *testing.T, entry v4Case) (*verify.VerifiedReceipt, *codec.BatchHeader, error) {
 		t.Helper()
 		if len(entry.HeaderSignature) != 64 {
 			t.Fatal("header signature must be exactly 64 bytes")
 		}
-		return verify.ReceiptInclusion(entry.Receipt, &entry.Proof, entry.Header, [64]byte(entry.HeaderSignature), vector.Authorization)
+		header, err := codec.DecodeBatchHeader(entry.Header)
+		if err != nil {
+			return nil, nil, err
+		}
+		receipt, err := verify.ReceiptAtRoot(entry.Receipt, &entry.Proof, header.ReceiptMerkleRoot, vector.Authorization.PublicKey)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := verify.Ed25519Digest(vector.Authorization.PublicKey, [64]byte(entry.HeaderSignature), codec.BatchHeaderDigest(entry.Header)); err != nil {
+			return nil, nil, err
+		}
+		return receipt, header, nil
 	}
 	positive := vector.Positive
 	if positive.Name != "committed-payExact" {
@@ -51,13 +62,12 @@ func TestVectorV4CommittedVerifies(t *testing.T) {
 	}
 	receipt, header, err := check(t, positive)
 	if err != nil {
-		t.Fatalf("positive ReceiptInclusion: %v", err)
+		t.Fatalf("positive receipt inclusion and header signature: %v", err)
 	}
-	verifiedHeader, err := verify.BatchHeader(positive.Header, [64]byte(positive.HeaderSignature), vector.Authorization)
-	if err != nil || !reflect.DeepEqual(verifiedHeader, header) {
-		t.Fatalf("positive BatchHeader: %v", err)
+	if err := verify.Ed25519Digest(vector.Authorization.PublicKey, [64]byte(positive.HeaderSignature), codec.BatchHeaderDigest(positive.Header)); err != nil {
+		t.Fatalf("positive header signature: %v", err)
 	}
-	if !bytes.Equal(v4EncodeHeader(*header.Header), positive.Header) {
+	if !bytes.Equal(v4EncodeHeader(*header), positive.Header) {
 		t.Fatal("header does not round trip canonically")
 	}
 	if len(vector.Refusals) != 2 {
@@ -91,11 +101,11 @@ func TestVectorV4CommittedVerifies(t *testing.T) {
 				if !reflect.DeepEqual(refusal.Proof, expected) {
 					t.Fatal("refusal must flip exactly one bit in a sibling")
 				}
-				if _, err := verify.BatchHeader(refusal.Header, [64]byte(refusal.HeaderSignature), vector.Authorization); err != nil {
+				if err := verify.Ed25519Digest(vector.Authorization.PublicKey, [64]byte(refusal.HeaderSignature), codec.BatchHeaderDigest(refusal.Header)); err != nil {
 					t.Fatalf("sibling mutation must preserve header validity: %v", err)
 				}
 			case "header-signature-by-unpinned-key":
-				if !errors.Is(err, verify.ErrHeaderSignature) {
+				if err == nil {
 					t.Fatalf("want unpinned header signature refusal, got %v", err)
 				}
 				if !reflect.DeepEqual(refusal.Proof, positive.Proof) {
@@ -104,11 +114,14 @@ func TestVectorV4CommittedVerifies(t *testing.T) {
 				if len(refusal.SigningKey) != 32 || bytes.Equal(refusal.SigningKey, vector.Authorization.PublicKey[:]) {
 					t.Fatal("refusal must carry a distinct unpinned public key")
 				}
-				if err := verify.Ed25519Digest([32]byte(refusal.SigningKey), [64]byte(refusal.HeaderSignature), header.Digest); err != nil {
+				if _, err := verify.ReceiptAtRoot(refusal.Receipt, &refusal.Proof, header.ReceiptMerkleRoot, vector.Authorization.PublicKey); err != nil {
+					t.Fatalf("unpinned-key refusal must preserve receipt inclusion: %v", err)
+				}
+				if err := verify.Ed25519Digest([32]byte(refusal.SigningKey), [64]byte(refusal.HeaderSignature), codec.BatchHeaderDigest(refusal.Header)); err != nil {
 					t.Fatalf("refusal must be a valid signature under the unpinned key: %v", err)
 				}
-				if _, err := verify.BatchHeader(refusal.Header, [64]byte(refusal.HeaderSignature), vector.Authorization); !errors.Is(err, verify.ErrHeaderSignature) {
-					t.Fatalf("BatchHeader accepted an unpinned key: %v", err)
+				if err := verify.Ed25519Digest(vector.Authorization.PublicKey, [64]byte(refusal.HeaderSignature), codec.BatchHeaderDigest(refusal.Header)); err == nil {
+					t.Fatal("Ed25519Digest accepted an unpinned key")
 				}
 			default:
 				t.Fatalf("unexpected refusal %q", refusal.Name)

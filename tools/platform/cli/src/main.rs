@@ -1479,7 +1479,16 @@ fn emulator_arguments(arguments: EmulatorUpArgs) -> Vec<String> {
 }
 
 fn main() -> ExitCode {
-    let cli = Cli::parse();
+    let arguments: Vec<_> = std::env::args_os().collect();
+    let machine = arguments.iter().any(|argument| argument == "--json");
+    let cli = match Cli::try_parse_from(arguments) {
+        Ok(cli) => cli,
+        Err(error) if machine && error.use_stderr() => {
+            output::emit_error(&format!("invalid_arguments: {error}"), true);
+            return ExitCode::from(2);
+        }
+        Err(error) => error.exit(),
+    };
     match run(
         cli.command,
         cli.json,

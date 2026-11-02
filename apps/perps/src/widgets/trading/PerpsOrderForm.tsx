@@ -240,6 +240,14 @@ interface BoundQuote {
 }
 
 export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarket; compact?: boolean }) {
+  if (
+    !Number.isSafeInteger(market.marketId) || market.marketId < 0 ||
+    typeof market.symbol !== "string" || !market.symbol.trim()
+  ) throw new Error("Invalid perpetual order market");
+  return <ConnectedPerpsOrderForm market={market} compact={compact} />;
+}
+
+function ConnectedPerpsOrderForm({ market, compact = false }: { market: PerpsMarket; compact?: boolean }) {
   const { isConnected, connect, address, isCorrectChain, switchToPaxeer } = usePerpsWallet();
   const portfolioStats = usePortfolioStats();
 
@@ -737,7 +745,7 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
   };
 
   return (
-    <div className={cn("flex flex-col", !compact && "h-full")}>
+    <div aria-label={`${market.symbol} perpetual order`} className={cn("flex flex-col", !compact && "h-full")}>
       <div
         className={cn(!compact ? "flex-1 overflow-y-auto scrollbar-custom" : "")}
         style={{ display: "flex", flexDirection: "column", gap: 10, padding: compact ? 10 : 14 }}
@@ -1233,15 +1241,20 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
               {leverage}×
             </span>
           </div>
-          <Slider
-            min={1}
-            max={maxLev}
-            step={maxLev >= 500 ? 1 : 0.1}
-            disabled={orderLimits === null || maxLev === 1}
-            value={[Math.min(parseFloat(leverage) || 1, maxLev)]}
-            onValueChange={([v]) => setLeverage(String(v))}
-            className="my-0"
-          />
+          {orderLimits !== null && maxLev > 1 ? (
+            <Slider
+              min={1}
+              max={maxLev}
+              step={maxLev >= 500 ? 1 : 0.1}
+              value={[Math.min(parseFloat(leverage) || 1, maxLev)]}
+              onValueChange={([v]) => setLeverage(String(v))}
+              className="my-0"
+            />
+          ) : (
+            <span role="status" className="text-xs text-muted-foreground">
+              {orderLimits === null ? "Loading leverage limits…" : "Fixed leverage: 1×"}
+            </span>
+          )}
           <div className="flex gap-1" style={{ marginTop: 2 }}>
             {leveragePresets.map((preset) => {
               const active = parseFloat(leverage) === preset;

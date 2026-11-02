@@ -18,7 +18,9 @@ import type {
 import type { SessionController } from './session.ts';
 import type { PendingOperations } from './deep-links.ts';
 import type { WalletExecutionProvider } from './lifecycle.ts';
-import { nativeRequestId } from '../platform/protected-storage.ts';
+async function nativeRequestId() {
+  return (await import('../platform/protected-storage.ts')).nativeRequestId();
+}
 import type { MobileServices } from './service-client.ts';
 import { verifyRolePins, type RolePin } from './native-authority.ts';
 export const nativeRouterAbi = parseAbi([
@@ -83,6 +85,7 @@ async function verifyNativeAuthority(
   client: ReturnType<typeof nativeClient>,
   signal: AbortSignal,
 ) {
+  signal.throwIfAborted();
   if (services.config.manifestDigest !== authority.revision)
     throw new Error('Unadmitted native trading deployment');
   await services.manifest(signal);
@@ -412,7 +415,11 @@ export class NativeApprovalController {
   }
   async restore() {
     const stored = await this.session.storage.get('approval');
-    if (!stored) return;
+    if (!stored) {
+      this.current = undefined;
+      this.changed();
+      return;
+    }
     this.current = approvalIntent(JSON.parse(stored));
     if (this.current.state === 'awaiting_wallet')
       this.current = {

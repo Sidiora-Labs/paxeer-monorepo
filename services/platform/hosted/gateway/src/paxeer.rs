@@ -175,8 +175,17 @@ fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static st
     Ok(document)
 }
 
+fn receipt_params(params: Option<&Value>) -> bool {
+    matches!(params.and_then(Value::as_array).map(Vec::as_slice), Some([hash])
+        if hash.as_str().is_some_and(|hash| hash.starts_with("0x")
+            && hash.len() == 66 && hash[2..].bytes().all(|b| b.is_ascii_hexdigit())))
+}
+
 /// Relays one EVM request under the caller's own identifier.
 pub(super) fn relay(config: &Config, id: &Value, method: &str, params: Option<&Value>) -> Value {
+    if method == "pax_sequencerReceipt" && !receipt_params(params) {
+        return super::rpc::error(id, -32602, "Invalid params");
+    }
     if config.paxeer.is_none() {
         return unconfigured(id);
     }

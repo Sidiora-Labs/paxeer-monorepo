@@ -12,9 +12,10 @@ function isExecutableFile(path: string): boolean {
 }
 
 export function resolveAnvilBinary(
-  env: Readonly<{ ANVIL_BIN?: string; PATH?: string; [key: string]: string | undefined }>,
+  env: Readonly<{ ANVIL_BIN?: string; PATH?: string; [key: string]: string | undefined }> = process.env,
 ): string {
-  if (env.ANVIL_BIN && isExecutableFile(env.ANVIL_BIN)) return env.ANVIL_BIN;
+  const ANVIL_BIN = env.ANVIL_BIN;
+  if (ANVIL_BIN && isExecutableFile(ANVIL_BIN)) return ANVIL_BIN;
 
   for (const directory of env.PATH ? env.PATH.split(delimiter) : []) {
     const candidate = resolve(directory, 'anvil');

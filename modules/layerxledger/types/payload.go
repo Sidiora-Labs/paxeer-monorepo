@@ -17,6 +17,8 @@ type RegisterArgs struct {
 	CustodyReference []byte
 }
 
+// EncodeRegisterPayload produces the version-one kernel registration payload.
+// It validates the wire shape; the kernel checks asset identity and duplicates.
 func EncodeRegisterPayload(args RegisterArgs) ([]byte, error) {
 	if len(args.Symbol) == 0 || len(args.Symbol) > AssetSymbolMax ||
 		len(args.Name) == 0 || len(args.Name) > AssetNameMax ||
@@ -45,6 +47,7 @@ func EncodeRegisterPayload(args RegisterArgs) ([]byte, error) {
 	return payload, nil
 }
 
+// EncodePausePayload produces the shared pause and unpause wire payload.
 func EncodePausePayload(assetID [32]byte) []byte {
 	payload := make([]byte, PausePayloadLength)
 	binary.BigEndian.PutUint16(payload[:2], 1)
@@ -52,10 +55,12 @@ func EncodePausePayload(assetID [32]byte) []byte {
 	return payload
 }
 
+// EncodeOpenAccountPayload produces the version-one asset-account request.
 func EncodeOpenAccountPayload(assetID [32]byte) []byte {
 	return EncodePausePayload(assetID)
 }
 
+// EncodeSupplyPayload produces a mint or burn request with a positive u128 amount.
 func EncodeSupplyPayload(assetID, accountID [32]byte, amount sdk.Int) ([]byte, error) {
 	amountBytes, err := assetPayloadU128(amount)
 	if err != nil {
@@ -72,6 +77,8 @@ func EncodeSupplyPayload(assetID, accountID [32]byte, amount sdk.Int) ([]byte, e
 	return payload, nil
 }
 
+// EncodeRevokeGrantPayload encodes the legacy payer-grant revocation wire.
+// Encoding does not imply that the kernel serves the retired grant activity.
 func EncodeRevokeGrantPayload(grantID [32]byte, revocationSequence uint64) []byte {
 	payload := make([]byte, 42)
 	binary.BigEndian.PutUint16(payload[:2], 1)

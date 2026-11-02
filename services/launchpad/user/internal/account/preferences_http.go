@@ -288,26 +288,42 @@ func (c *captureWriter) Write(b []byte) (int, error) {
 }
 
 func ownerAction(method, path string) string {
-	if method == http.MethodGet || method == http.MethodHead {
+	parts := strings.Split(path, "/")
+	if len(parts) < 3 || (parts[1] != "v1" && parts[1] != "v2" && parts[1] != "v3") {
 		return ""
 	}
-	switch {
-	case strings.HasPrefix(path, "/v1/profiles/"), strings.HasPrefix(path, "/v2/profiles/"), strings.HasPrefix(path, "/v3/profiles/"):
+	if len(parts) == 4 && parts[2] == "profiles" && parts[3] != "" && method == http.MethodPatch {
 		return "profile.update"
-	case path == "/v1/me/preferences", path == "/v2/me/preferences", path == "/v3/me/preferences":
-		return "preferences.update"
-	case strings.HasPrefix(path, "/v1/me/watchlist/"), strings.HasPrefix(path, "/v2/me/watchlist/"):
+	}
+	if parts[2] != "me" {
+		return ""
+	}
+	if len(parts) == 4 {
+		switch {
+		case parts[3] == "preferences" && method == http.MethodPatch:
+			return "preferences.update"
+		case parts[1] != "v3" && parts[3] == "exports" && method == http.MethodPost:
+			return "account.export"
+		}
+	}
+	if len(parts) != 5 || parts[1] == "v3" || parts[4] == "" {
+		return ""
+	}
+	switch parts[3] {
+	case "watchlist":
+		if method == http.MethodPut {
+			return "watchlist.update"
+		}
 		if method == http.MethodDelete {
 			return "watchlist.remove"
 		}
-		return "watchlist.update"
-	case strings.HasPrefix(path, "/v1/me/devices/"), strings.HasPrefix(path, "/v2/me/devices/"):
+	case "devices":
+		if method == http.MethodPut {
+			return "device.register"
+		}
 		if method == http.MethodDelete {
 			return "device.revoke"
 		}
-		return "device.register"
-	case path == "/v1/me/exports", path == "/v2/me/exports":
-		return "account.export"
 	}
 	return ""
 }

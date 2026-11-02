@@ -24,6 +24,9 @@ type v2StreamListEnvelope struct {
 }
 
 func AdaptV2StreamList(requestID string, items []V2Stream, nextCursor *string, generatedAt time.Time) ([]byte, error) {
+	if generatedAt.IsZero() {
+		return nil, ErrInvalid
+	}
 	maximum := new(big.Int)
 	var revision *v2.PositiveUInt256
 	for _, item := range items {

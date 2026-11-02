@@ -17,6 +17,12 @@ pub enum BudgetProofError {
     Refused,
 }
 
+fn budget_verification_level(rank: u8) -> Result<VerificationLevel, BudgetProofError> {
+    let level = VerificationLevel::from_wire_rank(rank).map_err(|_| BudgetProofError::Refused)?;
+    require(level == VerificationLevel::CHECKPOINT_FINALISED)?;
+    Ok(level)
+}
+
 pub struct BudgetProofTrust<'a> {
     pub tenant: &'a str,
     pub principal: &'a str,
@@ -262,6 +268,7 @@ fn verify_native_budget_proof(
         .checked_sub(checkpoint.height)
         .ok_or(BudgetProofError::Refused)?;
     let state = &value.budget_state;
+    let verification = budget_verification_level(state.verification)?;
     require(
         state.maximum_age_sequences > 0
             && age <= state.maximum_age_sequences
@@ -376,7 +383,6 @@ fn verify_native_budget_proof(
             && state.revocation_sequence > 0
             && state.revocation_sequence <= checkpoint.height
             && state.observed_head_sequence == checkpoint.height
-            && state.verification == VerificationLevel::CHECKPOINT_FINALISED.wire_rank()
             && id(&state.evidence_digest)? == evidence_digest
             && id(&state.receipt_digest)? == receipt_digest
             && id(&state.checkpoint_digest)? == checkpoint.block_hash
@@ -393,7 +399,7 @@ fn verify_native_budget_proof(
         owner: owner_did.to_owned(),
         observed_head_sequence: checkpoint.height,
         remaining,
-        verification: VerificationLevel::CHECKPOINT_FINALISED,
+        verification,
         evidence_digest,
         receipt_digest,
         checkpoint_digest: checkpoint.block_hash,

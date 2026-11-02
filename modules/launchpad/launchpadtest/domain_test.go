@@ -150,6 +150,7 @@ func freshDomain(t *testing.T) (*domain, common.Address) {
 	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
 	k, ctx := launchpadtest.NewKeeper(app, ctx)
 	k.InitGenesis(ctx, *types.DefaultGenesis())
+	require.NoError(t, k.ExportGenesis(ctx).Validate())
 	d := newDomain(t, k, ctx)
 	holder := d.account()
 	d.usdl = d.deployERC20("USD Ledger", "USDL", big.NewInt(domainUSDLSupply), holder)

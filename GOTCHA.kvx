@@ -13400,3 +13400,58 @@ area = "platform-sdkgen"
 symptom = "The program-contract write and check commands silently accepted excess positional arguments."
 cause = "The CLI dispatched both modes without validating their declared optional repository and lock arguments."
 do = "Reject excess arguments before reading or writing; proof_generators exercises the built writer and the receipt parity gate consumer, including malformed receipt.kvx and generated output. Use 104.38.6.sh --check-program-contracts <repo-root> <sdkgen-binary> for the real focused consumer without running every SDK suite."
+
+[gotcha.2717]
+title = "go build ./<path>/... from the repository root fails for a package under a nested go.mod"
+symptom = "services/launchpad/*, services/wallet/attestor, sdk/launchpad/protocol and tools/loadtest carry their own go.mod; go build ./services/launchpad/api/internal/app/... run from the root answers 'directory prefix ... does not contain main module or its selected dependencies' (21.17.1 attempt 1 and six siblings)."
+fix = "Build and test such a package from its module directory: cd <module> && go build ./<package>/... and cd <module> && go test -count=1 ./<package>/ -run '^Test...'."
+
+[gotcha.2718]
+title = "precompiles/layerxledger's test package has not compiled since Keeper.GetPayerGrant left"
+symptom = "pause_test.go:158, payments_test.go:204 and :217 and views_test.go:155 call Keeper.GetPayerGrant, removed by 1.12.4 (decision.2080); 1.12.4's verify vetted precompiles/layerxpay only, so go test ./precompiles/layerxledger/ fails to compile for every later task in that package (21.11.1 attempt 1)."
+fix = "When a task removes a keeper method, grep the precompile test packages for callers and vet them in the task's verify; 21.11.1 repairs the three tests to the current ErrNoPayerGrant behaviour."
+
+[gotcha.2719]
+title = "Two more Go test packages on main do not compile after a retirement"
+symptom = "modules/layerxledger/types/params_test.go:22 asserts KernelKVPrefix (retired by 2.3.1, 215b90bd1) and modules/layerxcustody/keeper/deposit_root_test.go:106 calls verify.BatchHeader (retired by 1.36.2, e999c6df5); the retiring tasks' verifies ran other packages, so go test of either package has failed to compile since."
+fix = "A task that retires an exported symbol greps every _test.go caller across modules/, precompiles/ and daemon/ and vets those packages in its verify; 21.115.1 and 21.89.1 repair these two."
+
+[gotcha.2720]
+title = "retired_client_modules.rs of layerx-platform-core includes a deleted source file"
+symptom = "services/platform/hosted/core/tests/retired_client_modules.rs:35 does include_str!('../src/withdrawal.rs'); 8.99.1 deleted that module (8f777f5cf), so every cargo build --tests of the crate fails on this target (21.126.1 attempt 1)."
+fix = "A task that deletes a source file greps the crate's tests for include_str! and module scans naming it; 21.126.1 drops the entry."
+
+[gotcha.2721]
+title = "A proof that reads its producer from the environment never passes qualification"
+symptom = "21.42.1 and 21.156.1 attempt 1 asserted LAYERX_PROOF_CLIENT_RPC_URL and GAS_STATION_PROOF_CONFIG and failed when unset; the qualification environment provides no operator-provisioned services."
+fix = "Host the producer in-process (loopback listener, in-memory store, application harness) or build it in build_cmd (21.5.1: make layerx-genesis-build); never read URLs or configuration names from the environment in a proof."
+
+[gotcha.2722]
+title = "The generators crate's drift tests have failed on main since two retirements"
+symptom = "sdk/platform/generators/tests/drift.rs:764 requires a module declaration for every agent transport operation while v1.kvx:320 keeps the retired faucet.claim transport section (9.1.5), and drift.rs:700-720 asserts an execution-profile check 9.97.3 removed from main.rs after 9.10.2 deleted the types; any task whose verify runs cargo test on the crate (18.1487.1 attempts 1-3) fails on them."
+fix = "A task that retires a schema section or a generator check runs the generators crate's full test suite in its verify and repairs drift.rs in the same commit; 18.1487.1 repairs both."
+
+[gotcha.2723]
+title = "A retirement matcher that counts bare stems reports prose and sibling assertions as live references"
+symptom = "18.1443.1 attempt 3 matched the stems Ed25519, EOA and owner-custody inside error messages, a comment and owner-custody.json, and matched the quoted paths of other retirement-assertion suites under tests/ci and cmd/retirement, failing 13 suites."
+fix = "Exclude retirement-assertion files by pattern and require the retired file's own extension after a stem; the one real stale reference (103.6.11.sh:33) is removed by the task."
+
+[gotcha.2724]
+title = "node/sequencer tests stopped compiling when a proof task changed a shared helper's signature"
+symptom = "21.49.1 (83a683c37) changed position_test.go:114 to xwebInfo(t *testing.T) and ran only its own proof; precompile_refresh_test.go:69 still calls xwebInfo(), so every later go test ./node/sequencer fails to build (21.19.1 and 21.87.1 attempts 2)."
+fix = "A task that changes a test helper's signature greps the package for every caller before its verify; 21.19.1 repairs the call and 21.87.1 requires it."
+
+[gotcha.2725]
+title = "The pay2 qualification crate still builds a gateway test binary and a dead funded target"
+symptom = "services/agent/qualification/pay2/Cargo.toml:44 builds a bin from services/platform/hosted/gateway/tests/local/verifier.rs and build.rs reads that directory, which 8.101.4 deletes; funded.rs includes an OUT_DIR lifecycle.rs that no build has generated since 9.97.2 removed adapt_lifecycle (a4d7551ed), so the funded test target has been unbuildable since."
+fix = "A task that deletes a directory greps Cargo manifests and build scripts across the repository for its path; 9.35.13 makes pay2 self-contained and 8.101.4 requires it."
+
+[gotcha.2726]
+title = "A touches entry spelled with a ./ prefix is treated as outside scope"
+symptom = "21.86.1 listed ./precompiles/setup.go, ./precompiles/launchpad/surface_test.go and ./precompiles/launchpad/setup_test.go; the scope check compares plain repository paths, so attempt 1 was refused for editing files the task names."
+fix = "Spell touches as plain repository-relative paths; the batch normalises every ./ entry."
+
+[gotcha.2727]
+title = "A finding recorded during qualification is not resolved by the task landing"
+symptom = "1281 of the 2211 [finding.*] blocks of qualification.kvx are cited by no do or decision; the tasks that recorded them are done, and nothing says whether the observed condition still holds on main."
+fix = "Every finding gets a [disposition.<id>] block under spec/layerx-merge/dispositions/ whose evidence cites a commit or a file:line of main (feature 22); the closure refuses while one is missing or open without a landed follow-up."

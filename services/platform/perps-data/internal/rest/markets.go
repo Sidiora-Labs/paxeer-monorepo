@@ -75,6 +75,7 @@ type marketsHealthBody struct {
 }
 
 func (m *Markets) serveAll(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	records, err := m.Records(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
@@ -84,6 +85,7 @@ func (m *Markets) serveAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Markets) serveOne(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	symbol := strings.ToUpper(r.PathValue("symbol"))
 	record, ok, err := m.Record(r.Context(), symbol)
 	if err != nil {
@@ -120,7 +122,7 @@ func (m *Markets) serveHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// marketRecordsSQL builds the records of perps.markets ($4 null) or of the
+// marketRecordsSQL builds the records of perps.markets ($3 null) or of the
 // market whose symbol is $3: windows, open interest and the 24 hour change of
 // the last fill price against the first fill of the window from
 // perps.market_stats_rolling, mark, index and basis from the latest

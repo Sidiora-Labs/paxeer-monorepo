@@ -27,8 +27,11 @@ func (k Keeper) SetActivationHeight(ctx sdk.Context, height int64) error {
 	if err != nil {
 		return err
 	}
-	if stored != 0 && stored != height {
-		return types.ErrInvalidGenesis.Wrapf("activation height is already %d, cannot set %d", stored, height)
+	if stored != 0 {
+		if stored != height {
+			return types.ErrInvalidGenesis.Wrapf("activation height is already %d, cannot set %d", stored, height)
+		}
+		return nil
 	}
 	k.store(ctx).Set(types.ActivationHeightKey, binary.BigEndian.AppendUint64(nil, uint64(height)))
 	return nil

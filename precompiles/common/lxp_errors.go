@@ -150,6 +150,8 @@ var lxpRevertTable = []lxpRevertEntry{
 	{code: "LXP_PARAMETER_BOUNDS", message: "parameter bounds", kernel: true, value: -734},
 	{code: "LXP_PAUSED_SCOPE", message: "paused scope", kernel: true, value: -735},
 	{code: "LXP_PROGRAM_REFUSED", message: "program refused", kernel: true, value: -736},
+	// Service dispute results from include/layerx/lxp_result.h. Keep the
+	// numeric keys: consumers receive kernel values, not C enum names.
 	{code: "LXP_ARBITER_REQUIRED", message: "arbiter required", kernel: true, value: -737},
 	{code: "LXP_UNAUTHORIZED_ARBITER", message: "unauthorized arbiter", kernel: true, value: -738},
 	{code: "LXP_ESCROW_LINK_MISMATCH", message: "escrow link mismatch", kernel: true, value: -739},

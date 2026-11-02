@@ -1095,6 +1095,7 @@ describe('signing routes', () => {
       const limited = await perClient.inject({ method: 'POST', url: '/v1/wallet/sign-message', headers, payload });
       expect(limited.statusCode).toBe(429);
       expect(limited.json()).toMatchObject({ error: 'rate_limited', scope: 'client', limit_per_minute: 2 });
+      expect(limited.json().request_id).toMatch(/^[0-9a-f-]{36}$/);
       expect(Number(limited.headers['retry-after'])).toBeGreaterThanOrEqual(1);
       const rows = await auditFor(limited.json<{ request_id: string }>().request_id);
       expect(rows[0]).toMatchObject({ decision: 'refused', path: 'none', reason_code: 'rate_limited_client', client_subject: user.userId });

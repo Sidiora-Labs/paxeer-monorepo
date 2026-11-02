@@ -12,6 +12,8 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
+// InitGenesis validates the decoded module state and its existing bank escrow
+// before writing parameters, jobs and indexes. It does not mint deposits.
 func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) error {
 	if err := gs.Validate(); err != nil {
 		return err
@@ -47,6 +49,8 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) error {
 	return nil
 }
 
+// ExportGenesis produces detached protobuf jobs in ID order, including the
+// parameters and next ID needed to restore the scheduler after a restart.
 func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	gs := &types.GenesisState{Params: k.GetParams(ctx), NextJobId: k.NextJobID(ctx)}
 	iterator := prefix.NewStore(k.store(ctx), JobKeyPrefix).Iterator(nil, nil)

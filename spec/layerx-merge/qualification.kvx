@@ -17611,3 +17611,123 @@ symbol = "TestProofConsensusLeaderPin"
 observed = "attempt 1 (1a2d82a95) passes its verify (TestProofConsensusLeaderPin ok) and is refused by the done record: 'symbol func not defined in the graph', because the task's symbols list carried the Go keyword func read off a method signature."
 assumption = "the keyword is removed from the symbols of every proof task that carries one (40 tasks); the implementation of attempt 1 stands and the next attempt reruns the verify."
 severity = "minor"
+
+[finding.21.17.1.1]
+task = "21.17.1"
+file = "services/launchpad/api/go.mod"
+symbol = "TestProofLaunchpadApi"
+observed = "attempt 1 (7d22fb13a) fails its build before any test compiles: go build ./services/launchpad/api/internal/app/... run from the repository root answers 'directory prefix services/launchpad/api/internal/app does not contain main module or its selected dependencies', because services/launchpad/api carries its own go.mod and is not part of the root module; attempts 1 of 21.31.1, 21.4.1, 21.40.1, 21.54.1, 21.67.1 and 21.69.1 fail the same way on their own modules."
+assumption = "every proof task whose Go package lives under a nested go.mod (eleven tasks) builds and tests from that module directory, as the done tasks of those services do (cd services/launchpad/api && go test -count=1 ./internal/app/ ...); the proof itself is unchanged."
+severity = "medium"
+
+[finding.21.35.1.1]
+task = "21.35.1"
+file = "daemon/paxd/cmd/proof_node_cli_test.go"
+symbol = "TestProofNodeCli"
+observed = "attempt 1 (b1f3728ee) passes its verify (TestProofNodeCli ok, 14.0s) and is refused by the done record on four symbols that are not in the graph: AddCommand (a method of the cobra dependency, not of this repository), FILE and simulation_gas_limit (a flag placeholder and a configuration key read off app_config.go) and the keyword struct; 21.51.1 attempt 1 (b27cc72be) is refused the same way on Self."
+assumption = "the symbols lists keep AddCommands and NewCustomAppConfig (21.35.1) and drop Self and the other non-graph words across the proof tasks (6 tasks); the implementations stand and the next attempts rerun the verify."
+severity = "minor"
+
+[finding.21.11.1.1]
+task = "21.11.1"
+file = "precompiles/layerxledger/pause_test.go:158"
+symbol = "GetPayerGrant"
+observed = "attempt 1 (90f2f1fef) fails its verify before TestProofLayerxledger0x101a runs: the test package of precompiles/layerxledger does not compile on main, because pause_test.go:158, payments_test.go:204 and :217 and views_test.go:155 call Keeper.GetPayerGrant, which decision.2080 (task 1.12.4) removed together with the host payer-grant read; on main draw (precompiles/layerxledger/payments.go:118), getPayerGrant (:154) and Keeper.Draw (modules/layerxledger/keeper/draw.go:18) answer types.ErrNoPayerGrant (LXP_NO_PAYER_GRANT). 1.12.4's verify vetted precompiles/layerxpay only, so the stale assertions were never compiled."
+assumption = "21.11.1 repairs the three test files in place to the behaviour decision.2080 fixed (no Keeper.GetPayerGrant read; draw and getPayerGrant revert LXP_NO_PAYER_GRANT) because its proof lives in the same package and cannot compile without them."
+severity = "medium"
+
+[finding.21.42.1.1]
+task = "21.42.1"
+file = "services/agent/crates/layerx-client/tests/proof_client.rs:487"
+symbol = "px_getNetwork"
+observed = "attempt 1 (79fe5b622) fails its verify in px_getNetwork: the test reads LAYERX_PROOF_CLIENT_RPC_URL from the environment and panics with 'missing real producer' when the variable is unset, so the proof depends on an operator-supplied gateway and can never pass in the qualification environment."
+assumption = "a client-crate proof hosts its producer inside the test process the way tests/px_reads.rs:20-23 and layerx-sdk tests/rpc_node.rs:15 do (a TcpListener on 127.0.0.1:0 answering the exact JSON-RPC bodies the node's px handlers produce) and never reads a URL from the environment."
+severity = "minor"
+
+[finding.21.115.1.1]
+task = "21.115.1"
+file = "modules/layerxledger/types/params_test.go:22"
+symbol = "KernelKVPrefix"
+observed = "attempt 1 (8c93da01c) fails its verify before TestProofLayerxledgerGenesis runs: the test package of modules/layerxledger/types does not compile on main, because params_test.go:22-23 assert KernelKVPrefix == 0x02, a variable task 2.3.1 retired (215b90bd1, decision.201: the module store keeps only ParamsKey 0x01 and kernel records live in the shared lxphost store); 2.3.1's verify ran the keeper tests only, so the stale assertion was never compiled."
+assumption = "21.115.1 repairs params_test.go in place: the store-prefix assertion keeps ParamsKey == 0x01 and drops KernelKVPrefix, because the proof lives in the same package and cannot compile without it."
+severity = "medium"
+
+[finding.21.89.1.1]
+task = "21.89.1"
+file = "modules/layerxcustody/keeper/deposit_root_test.go:106"
+symbol = "BatchHeader"
+observed = "attempt 1 (a114ce6b9) fails its verify before TestProof0x1013Layerxcustody runs: the test package of modules/layerxcustody/keeper does not compile on main, because deposit_root_test.go:106 calls verify.BatchHeader, which task 1.36.2 retired (e999c6df5) with the other batch-header verifiers of layerxproof; daemon/committed-fixture/vector_v4_test.go carries the same call and is repaired by 18.1491.1."
+assumption = "21.89.1 repairs deposit_root_test.go in place with the retained pair 18.1491.1 uses: the header already decoded at :55 by codec.DecodeBatchHeader supplies the fields, verify.Ed25519Digest(authorization.PublicKey, headerSignature, codec.BatchHeaderDigest(headerBytes)) authenticates the signature, and HeaderDigest becomes codec.BatchHeaderDigest(headerBytes); no retired verifier is restored."
+severity = "medium"
+
+[finding.21.156.1.1]
+task = "21.156.1"
+file = "services/agent/sdk/typescript/test/proof_gas_station.test.ts"
+symbol = "requestGasQuote"
+observed = "attempt 1 (a58d937be) fails its verify on its own precondition: the test asserts that GAS_STATION_PROOF_CONFIG names a provisioned loopback gas-station configuration and stops when the variable is unset, so the proof depends on an operator-supplied environment and can never pass in the qualification environment."
+assumption = "the proof hosts its producer inside the test process (a loopback HTTP listener answering the exact bodies the gas-station routes produce, as the existing gas-station.test.ts does) and never reads a URL, path or configuration name from the environment."
+severity = "minor"
+
+[finding.21.5.1.1]
+task = "21.5.1"
+file = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py:329"
+symbol = "test_native_genesis_crossing_reopens_real_artifacts_and_refuses_duplicate"
+observed = "attempt 1 (b6b0613b2) fails its verify on a missing prerequisite: the native genesis crossing runs build/bin/layerx-genesis-build, which the task's build_cmd (python3 -m py_compile of the test) never produced; the Makefile target layerx-genesis-build (Makefile:1000-1013) builds it from cmd/layerx-genesis with the programs runtime archive."
+assumption = "21.5.1 builds the binary in its build_cmd (make layerx-genesis-build, as 5.49.1 and 5.49.2 do) under the mixed environment profile, and the proof keeps using the real binary."
+severity = "minor"
+
+[finding.21.126.1.1]
+task = "21.126.1"
+file = "services/platform/hosted/core/tests/retired_client_modules.rs:35"
+symbol = "include_str"
+observed = "attempt 1 (0ec0c77ba) fails its build before proof_core_env_vars compiles: cargo build -p layerx-platform-core --tests compiles tests/retired_client_modules.rs, whose line 35 does include_str!('../src/withdrawal.rs'), and task 8.99.1 deleted src/withdrawal.rs (8f777f5cf) without touching the scan; the test target has not compiled on main since."
+assumption = "21.126.1 repairs retired_client_modules.rs in place: the sources list keeps src/public_reads.rs and drops the deleted withdrawal.rs entry, the retired-module list is unchanged, and the build keeps compiling every test target of the crate."
+severity = "medium"
+
+[finding.18.1443.1.1]
+task = "18.1443.1"
+file = "tests/bridge/retired/kernel_retirement.py:289"
+symbol = "assert_retired"
+observed = "attempt 3 (1055574d8) fails 13 retired suites because the broadened matcher reports retirement assertions and prose as live references: tests/ci/test_retired_solidity_checkpoint.py:8-14, tests/ci/test_retired_solidity_deployment.py:10-12, tests/ci/test_requested_retirements_absent.py:23-62, cmd/retirement/test_movement_proof_retired.py:15-16 and tests/bridge/retired/test_retired_daemon_consumers.py:8-12 quote retired paths to assert their absence; tools/qualification/paxeer-x/movement-custody-profile.py:154 reads owner-custody.json, not owner-custody.py; tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh:483 says 'fresh EOA' in a comment; 14 lines under tools/ name the Ed25519 algorithm in prose or error messages, never contracts/crypto/Ed25519.sol; tools/paxeer-x/gates/103.6.11.sh:33 lists PaxeerBetaDeploymentValidator as a required tests/solidity file of a release gate that predates the retirement."
+assumption = "the exclusion is by pattern (every file under tests/bridge/retired/, tests/ci/test_retired_*.py, tests/ci/test_requested_retirements_absent.py, cmd/retirement/test_*_retired.py) and a stem matches only when followed by the retired file's own extension, so the 13 suites pass; the stale CONTRACTS entry of 103.6.11.sh is the one live reference and the gate drops it."
+severity = "medium"
+
+[finding.18.1487.1.2]
+task = "18.1487.1"
+file = "sdk/platform/generators/tests/drift.rs:764"
+symbol = "rust_operation_catalogue_matches_the_repository_schema"
+observed = "attempt 3 (b7c4b4602) passes its own check and fails two sibling tests of the generators crate that have failed on main since earlier retirements: rust_operation_catalogue_matches_the_repository_schema (drift.rs:764) requires every [transport.agent_http.operation.<name>] of services/agent/schema/agent-api to have an [operation.<name>], and v1.kvx:320 keeps [transport.agent_http.operation.faucet.claim] with disposition retired although 9.1.5 removed [operation.faucet.claim] (req.9009); execution_v5_profile_must_admit_exactly_the_third_to_fifth_guest_abis (drift.rs:700-720) expects the generator to refuse an altered [type.ProgramExecutionV5], a check 9.97.3 (0555497ea, do_4) removed from main.rs:543 after 9.10.2 (1d0cc3720) deleted those types from programs.kvx; the attempt also left the regenerated apps/web/src/api/generated/index.ts and sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java outside touches."
+assumption = "18.1487.1 repairs both sibling tests to the retained behaviour: the retired faucet.claim transport section leaves v1.kvx and the execution-profile test leaves drift.rs; the regenerated outputs are listed under touches so the publication accepts them."
+severity = "medium"
+
+[finding.18.1471.1.3]
+task = "18.1471.1"
+file = "modules/layerxanchor/keeper/bond_return_test.go:68"
+symbol = "TestBondReturn"
+observed = "attempt 2 (its verify runs go test ./modules/layerxanchor/...) fails in the keeper package on TestBondReturn, TestBondReturnClosedChallenges and TestBondReturnRollback, which load the vector checkpoints/batch_1_quorum (bond_return_test.go:68, :155) that the checkpoint vector removal of issue #1471 took away; the task's do_1 names four tests and bond_return_test.go is not in its touches."
+assumption = "18.1471.1 ports bond_return_test.go off the removed vectors the same way as the four named tests (the checkpoint and quorum inputs are built inline in the test), so the keeper package passes in full."
+severity = "minor"
+
+[finding.6.96.6.1]
+task = "6.96.6"
+file = "precompiles/layerxanchor/retired_surface_test.go:42"
+symbol = "TestEveryAnchorSelectorRetired"
+observed = "attempt 4 (15a5a8db0) fails on `require.Nil(t, testApp.GetPrecompileKeepers().AnchorK())`: task 18.1326.1 (done, decision.2218) makes AnchorK return the constructed app.LayerXAnchorKeeper so the retirement heights alone gate layerxAnchor, so the nil assertion written by 6.32.x is stale on main."
+assumption = "6.96.6 repairs retired_surface_test.go:42 in place: it asserts the keeper is constructed and that every 0x1014 selector returns LXP_MODULE_DISABLED through the height gates after the store-delete height, never that the keeper is nil."
+severity = "medium"
+
+[finding.9.35.13.2]
+task = "9.35.13"
+file = "services/agent/qualification/pay2/Cargo.toml:44"
+symbol = "gateway-lifecycle-receipt-verify"
+observed = "attempt 4 fails its build: funded.rs:1 does include!(concat!(env!('OUT_DIR'), '/lifecycle.rs')) but build.rs has not generated lifecycle.rs since 9.97.2 (a4d7551ed removed adapt_lifecycle), so the `funded` test target has been dead since; moreover Cargo.toml:44 builds the bin gateway-lifecycle-receipt-verify from ../../../../services/platform/hosted/gateway/tests/local/verifier.rs and build.rs:1 and :18-19 read tests/local/required.rs and verifier.rs, the directory task 8.101.4 deletes (finding 8.101.4.1)."
+assumption = "9.35.13 makes the pay2 crate self-contained (own required.rs, no gateway bin, no dead funded target) and 8.101.4 requires 9.35.13 so the directory deletion lands after the last reference leaves."
+severity = "medium"
+
+[finding.21.19.1.1]
+task = "21.19.1"
+file = "node/sequencer/precompile_refresh_test.go:69"
+symbol = "xwebInfo"
+observed = "attempts 2 of 21.19.1 (e7d32dde0) and 21.87.1 (9704de505) fail to build the node/sequencer test package: task 21.49.1 (83a683c37) changed position_test.go:114 to `func xwebInfo(t *testing.T)` while precompile_refresh_test.go:69 still calls xwebInfo(), so go test ./node/sequencer has not compiled on main since 21.49.1 landed."
+assumption = "21.19.1 repairs the call (xwebInfo(t)) because it is the lowest open proof in the package, and 21.87.1 requires 21.19.1 and does not edit precompile_refresh_test.go."
+severity = "medium"
