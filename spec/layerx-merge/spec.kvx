@@ -127975,7 +127975,7 @@ do_8 = "Finding 21.53.1.1: repair src/authority.rs:788 so the policy key copy is
 
 [task.21.52.1]
 title = "Prove the human network gateway path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.100.2"]
