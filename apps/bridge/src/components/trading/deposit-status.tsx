@@ -68,6 +68,7 @@ const groupOf = (step: TransferStep): TransferStatusGroup => {
     case 'confirming':
     case 'attesting':
     case 'ready': return 'pending';
+    default: throw new Error('Invalid transfer progress step.');
   }
 };
 
@@ -87,6 +88,7 @@ const STEP_ORDER = [ 'submitted', 'confirming', 'attesting', 'ready', 'credited'
 
 /** Submitted → confirming n/m → attesting → ready → credited, with the failure shown on the step it stopped at. */
 export function TransferSteps({ item }: { item: TransferStatusItem }) {
+  groupOf(item.step);
   const reduce = useReducedMotion();
   const failed = item.step === 'failed';
   // A failed transfer stops at confirming unless it never got confirmations.

@@ -1,6 +1,6 @@
 'use client';
 
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { queryOptions, useQueries, useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAccount, useChainId, useSwitchChain, useWriteContract } from 'wagmi';
 import { getTransactionReceipt } from 'wagmi/actions';
@@ -34,6 +34,7 @@ import { ImportTransfer } from './import-transfer';
 import {
   buildVerifiedClaim,
   buildVerifiedRelease,
+  decodeTransferLive,
   readTransferLive,
 } from './transfer-actions';
 
@@ -76,6 +77,25 @@ async function enrichTransfers(list: BridgeTransfer[]): Promise<BridgeTransfer[]
   return changed ? next : list;
 }
 
+/** The page and its consumers use the same storage/enrichment crossing. */
+export function transferListOptions(address: BridgeTransfer['account'] | undefined, refreshKey: number, version: number) {
+  return queryOptions({
+    queryKey: [ 'bridge-transfers', address, refreshKey, version ],
+    queryFn: async() => enrichTransfers(listTransfers(address)),
+  });
+}
+
+export function transferLiveOptions(transfer: BridgeTransfer) {
+  const settledLocally =
+    (transfer.direction === 'in' && (transfer.claimTxHash !== undefined || transfer.claimedAt !== undefined)) ||
+    (transfer.direction === 'out' && transfer.releaseTxHash !== undefined);
+  return queryOptions({
+    queryKey: [ 'transfer-live', transfer.id, settledLocally ],
+    queryFn: () => readTransferLive(transfer),
+    select: decodeTransferLive,
+  });
+}
+
 function TransferRow({
   transfer,
   onChanged,
@@ -94,8 +114,7 @@ function TransferRow({
     (transfer.direction === 'out' && transfer.releaseTxHash !== undefined);
 
   const liveQuery = useQuery({
-    queryKey: [ 'transfer-live', transfer.id, settledLocally ],
-    queryFn: () => readTransferLive(transfer),
+    ...transferLiveOptions(transfer),
     enabled: !settledLocally,
     refetchInterval: 15_000,
   });
@@ -223,21 +242,14 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
   const onChanged = useCallback(() => setVersion((v) => v + 1), []);
 
   const transfersQuery = useQuery({
-    queryKey: [ 'bridge-transfers', address, refreshKey, version ],
-    queryFn: async() => enrichTransfers(listTransfers(address)),
+    ...transferListOptions(address, refreshKey, version),
     enabled: isConnected && address !== undefined,
     refetchInterval: 30_000,
   });
   const transfers = useMemo(() => transfersQuery.data ?? [], [ transfersQuery.data ]);
   const liveQueries = useQueries({
     queries: transfers.map((transfer) => ({
-      queryKey: [
-        'transfer-live',
-        transfer.id,
-        (transfer.direction === 'in' && (transfer.claimTxHash !== undefined || transfer.claimedAt !== undefined)) ||
-          (transfer.direction === 'out' && transfer.releaseTxHash !== undefined),
-      ],
-      queryFn: () => readTransferLive(transfer),
+      ...transferLiveOptions(transfer),
       enabled: false,
     })),
   });
