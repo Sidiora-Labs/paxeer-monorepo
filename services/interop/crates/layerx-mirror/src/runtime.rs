@@ -154,6 +154,43 @@ pub enum RuntimeError {
     Status,
 }
 
+impl RuntimeConfig {
+    /// Decodes one bounded publisher configuration on every call.
+    ///
+    /// Agentd's former `node_endpoint`, `expected_protocol_version` and
+    /// `sequencer_authority_source` keys are not publisher configuration:
+    /// `deny_unknown_fields` refuses them. The source is now `paxeer`.
+    ///
+    /// # Errors
+    /// Returns `Configuration` for unavailable, empty, oversized or malformed input.
+    pub fn load(config_path: &Path) -> Result<Self, RuntimeError> {
+        let metadata = fs::metadata(config_path).map_err(|_| RuntimeError::Configuration)?;
+        if metadata.len() == 0 || metadata.len() > MAX_CONFIG_BYTES as u64 {
+            return Err(RuntimeError::Configuration);
+        }
+        let file = fs::File::open(config_path).map_err(|_| RuntimeError::Configuration)?;
+        let mut bytes = Vec::new();
+        file.take(MAX_CONFIG_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| RuntimeError::Configuration)?;
+        if bytes.is_empty() || bytes.len() > MAX_CONFIG_BYTES {
+            return Err(RuntimeError::Configuration);
+        }
+        serde_json::from_slice(&bytes).map_err(|_| RuntimeError::Configuration)
+    }
+}
+
+impl crate::MirrorVerifier {
+    /// Reads the publisher configuration associated with independently verified archives.
+    /// Also available to SDK consumers through their existing verifier re-export.
+    ///
+    /// # Errors
+    /// Returns the runtime's exact configuration refusal without starting any workers.
+    pub fn publisher_configuration(config_path: &Path) -> Result<RuntimeConfig, RuntimeError> {
+        RuntimeConfig::load(config_path)
+    }
+}
+
 #[derive(Debug)]
 enum SpoolRecoveryError {
     Store,
@@ -170,13 +207,7 @@ enum SpoolRecoveryError {
 /// # Errors
 /// Returns an error for invalid configuration, inaccessible durable state or status listener failure.
 pub fn run(config_path: &Path) -> Result<(), RuntimeError> {
-    let metadata = fs::metadata(config_path).map_err(|_| RuntimeError::Configuration)?;
-    if metadata.len() == 0 || metadata.len() > MAX_CONFIG_BYTES as u64 {
-        return Err(RuntimeError::Configuration);
-    }
-    let bytes = fs::read(config_path).map_err(|_| RuntimeError::Configuration)?;
-    let config: RuntimeConfig =
-        serde_json::from_slice(&bytes).map_err(|_| RuntimeError::Configuration)?;
+    let config = crate::MirrorVerifier::publisher_configuration(config_path)?;
     validate_runtime(&config)?;
     let spool = ArchiveSpool::open(config.state_directory.join("archives"))
         .map_err(|_| RuntimeError::State)?;

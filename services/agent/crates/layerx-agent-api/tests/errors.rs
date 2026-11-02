@@ -102,3 +102,40 @@ fn verification_lattice_and_success_status_are_explicit() {
     assert!(SCHEMA.contains("required = [\"request_id\",\"value\",\"verification_status\"]"));
     assert!(SCHEMA.contains("shortfall is never silently downgraded"));
 }
+
+#[test]
+fn api_protocol_rejections_keep_canonical_retry_classification() {
+    use layerx_agent_api::error::{ReasonCode, Retriability};
+    use layerx_types::result::{KnownResult, ResultCode};
+
+    for known in KnownResult::ALL {
+        let producer = ResultCode::from(*known);
+        for _ in 0..2 {
+            let transported = ResultCode::from_wire_bytes(producer.to_wire_bytes());
+            let error = ApiError::core_rejection(
+                RequestId(51),
+                transported,
+                ReasonCode::new("core.rejected")
+                    .unwrap_or_else(|error| panic!("reason: {error:?}")),
+            );
+            let canonical: layerx_types::result::Retriability = error.retriability;
+            assert_eq!(error.class, ErrorClass::CoreRejection);
+            assert_eq!(error.protocol_result_code, Some(producer));
+            assert_eq!(canonical, producer.retriability());
+            assert_eq!(error.request_id, RequestId(51));
+        }
+    }
+    let unknown = ResultCode::from_raw(i32::MIN + 51);
+    let error = ApiError::core_rejection(
+        RequestId(52),
+        ResultCode::from_wire_bytes(unknown.to_wire_bytes()),
+        ReasonCode::new("core.unknown").unwrap_or_else(|error| panic!("reason: {error:?}")),
+    );
+    assert_eq!(error.protocol_result_code, Some(unknown));
+    assert_eq!(error.retriability, Retriability::Terminal);
+    assert!(ReasonCode::new("malformed reason").is_err());
+    assert_eq!(
+        ApiError::idempotent_replay(RequestId(53)).retriability,
+        Retriability::Terminal
+    );
+}

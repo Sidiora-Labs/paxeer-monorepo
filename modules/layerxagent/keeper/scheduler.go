@@ -17,7 +17,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
-// EndBlocker runs due jobs and returns their outcome event encoding errors.
+// EndBlocker reads the current due index on every call, runs its admitted jobs
+// and returns their outcome event encoding errors. Outcomes cross the module
+// boundary as typed Cosmos events, decoded with sdk.ParseTypedEvent.
 func (k Keeper) EndBlocker(ctx sdk.Context) error {
 	_, err := k.RunDue(ctx)
 	return err

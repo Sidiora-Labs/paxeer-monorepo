@@ -18,7 +18,7 @@ func SequencerCmd() *cobra.Command {
 	}
 	var output string
 	gen := &cobra.Command{
-		Use:   "gen-receipt-key",
+		Use:   "gen-receipt-key --output FILE",
 		Short: "Generate a receipt signing key",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

@@ -12,6 +12,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
+// GetGrant re-encodes the current kernel grant into caller-owned canonical bytes.
 func (k *Keeper) GetGrant(ctx sdk.Context, grantID [32]byte) ([]byte, error) {
 	grant, err := k.host.ReadGrant(ctx, grantID)
 	if err != nil {
@@ -96,6 +97,7 @@ func (k *Keeper) SessionKey(ctx sdk.Context, grantID [32]byte) ([]byte, error) {
 	return key, authReadError(err)
 }
 
+// CapabilityScope reads the host on every call and returns caller-owned bytes.
 func (k *Keeper) CapabilityScope(ctx sdk.Context, grantID [32]byte) ([]byte, error) {
 	scope, err := k.host.ReadCapabilityScope(ctx, grantID)
 	if err != nil {

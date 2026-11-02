@@ -185,6 +185,11 @@ func (h HTTP) Handler() http.Handler {
 			writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
 			return
 		}
+		wallet, e := h.Wallet(r)
+		if e != nil || !address.MatchString(wallet) {
+			writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+			return
+		}
 		id, e := uuid.Parse(r.PathValue("alertId"))
 		if e != nil {
 			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
@@ -233,15 +238,6 @@ func (h HTTP) Handler() http.Handler {
 			return
 		}
 		body, e := AdaptV2SquadCreate(squadRequestID(r), q, time.Now().UTC())
-		if e == nil {
-			var response v2.SquadCreateResponse
-			e = json.Unmarshal(body, &response)
-			response.Data.Squad.Description = q.Description
-			response.Data.Squad.Visibility = q.Visibility
-			if e == nil {
-				body, e = marshalV2SquadEnvelope("SquadCreateResponse", response)
-			}
-		}
 		replyV2Squad(w, r, http.StatusCreated, body, e)
 	})
 	mux.HandleFunc("GET /v2/squads/{squadId}", func(w http.ResponseWriter, r *http.Request) {
@@ -273,15 +269,6 @@ func (h HTTP) Handler() http.Handler {
 			}
 		}
 		body, e := AdaptV2SquadRead(squadRequestID(r), q, members, time.Now().UTC())
-		if e == nil {
-			var response v2.SquadReadResponse
-			e = json.Unmarshal(body, &response)
-			response.Data.Squad.Description = q.Description
-			response.Data.Squad.Visibility = q.Visibility
-			if e == nil {
-				body, e = marshalV2SquadEnvelope("SquadReadResponse", response)
-			}
-		}
 		replyV2Squad(w, r, http.StatusOK, body, e)
 	})
 	mux.HandleFunc("PUT /v2/squads/{squadId}/members/{accountId}", func(w http.ResponseWriter, r *http.Request) {

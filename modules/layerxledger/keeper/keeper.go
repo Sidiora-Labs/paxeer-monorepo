@@ -22,6 +22,7 @@ func NewKeeper(cdc codec.BinaryCodec, storeKey sdk.StoreKey, host *lxphost.Host,
 
 func (k *Keeper) store(ctx sdk.Context) sdk.KVStore { return ctx.KVStore(k.storeKey) }
 
+// GetParams reads the module store; absent params return defaults without a write.
 func (k *Keeper) GetParams(ctx sdk.Context) types.Params {
 	var params types.Params
 	bz := k.store(ctx).Get(types.ParamsKey)

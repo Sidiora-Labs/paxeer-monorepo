@@ -16,12 +16,17 @@ type Event struct {
 	Body    []byte
 }
 
+// AuthEvents decodes kernel events without retaining aliases to the receipt.
+// Every grant summary must be followed by at least one GrantBody chunk.
 func AuthEvents(receipt lxphost.Receipt) ([]Event, error) {
 	events := make([]Event, 0, len(receipt.Events))
 	var grantID [32]byte
 	var sub uint8
 	nextChunk, previousSize := 0, 0
 	for _, raw := range receipt.Events {
+		if sub != 0 && nextChunk == 0 && raw.Code != 0x7105 && raw.Code != 0x7108 {
+			return nil, types.ErrNonCanonical.Wrap("missing grant body in receipt")
+		}
 		event := Event{Body: bytes.Clone(raw.Body)}
 		switch raw.Code {
 		case 0x7145:
@@ -69,6 +74,9 @@ func AuthEvents(receipt lxphost.Receipt) ([]Event, error) {
 			return nil, types.ErrNonCanonical
 		}
 		events = append(events, event)
+	}
+	if sub != 0 && nextChunk == 0 {
+		return nil, types.ErrNonCanonical.Wrap("missing grant body in receipt")
 	}
 	return events, nil
 }

@@ -149,6 +149,9 @@ export function computePositionPnl(
   tiers: readonly MarginTier[] = [],
 ): PositionPnl {
   const { sizeUsd, entryPrice, leverage } = pos;
+  if (typeof markPrice !== "bigint" || sizeUsd < 0n || entryPrice < 0n || leverage < 0n) {
+    throw new RangeError("Invalid position PnL input");
+  }
   const maintenance = maintenanceMargin(sizeUsd, tiers);
   const initialCollateral = leverage > 0n ? (sizeUsd * WAD) / leverage : sizeUsd;
   const charges = pos.fundingPaidUsd + pos.feesUsd;

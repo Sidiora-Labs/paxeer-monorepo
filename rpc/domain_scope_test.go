@@ -190,3 +190,42 @@ func TestChainPathServesWebSocketUpgrades(t *testing.T) {
 	assertDomainChainID(t, second, "0x7735942", "125000002")
 	assertDomainChainID(t, first, "0x7735941", "125000001")
 }
+
+func TestStopClosesScopedWebSocketClients(t *testing.T) {
+	h := newDomainScopeHarness(t)
+	root := domainWSClient(t, h.ws, "/")
+	first := domainWSClient(t, h.ws, "/chain/1")
+	second := domainWSClient(t, h.ws, "/chain/1")
+	assertDomainChainID(t, root, "0x7d", "125")
+	assertDomainChainID(t, first, "0x7735941", "125000001")
+	assertDomainChainID(t, second, "0x7735941", "125000001")
+
+	stop := func() {
+		t.Helper()
+		done := make(chan struct{})
+		go func() {
+			h.ws.Stop()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatal("WebSocket server Stop did not return within five seconds")
+		}
+	}
+	stop()
+
+	for _, client := range []struct {
+		name string
+		rpc  *rpc.Client
+	}{{"root", root}, {"first scoped", first}, {"second scoped", second}} {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		var result string
+		err := client.rpc.CallContext(ctx, &result, "eth_chainId")
+		require.Error(t, err, "%s client remained connected after Stop", client.name)
+		require.NoError(t, ctx.Err(), "%s client waited for its deadline after Stop", client.name)
+		cancel()
+	}
+
+	stop()
+}

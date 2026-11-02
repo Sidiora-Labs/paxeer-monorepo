@@ -158,6 +158,8 @@ func New(opts Options) (*Server, error) {
 	return s, nil
 }
 
+// Handler exposes the same authority-checked routes as Serve; consumers must retain
+// the gateway/operator certificate boundary when embedding the server.
 func (s *Server) Handler() http.Handler { return s.mux }
 
 func (s *Server) post(h http.HandlerFunc) http.HandlerFunc {
