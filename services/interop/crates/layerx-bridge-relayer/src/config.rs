@@ -318,8 +318,12 @@ pub struct RelayerConfig {
     /// The approved attestor set; absent, the relayer runs a single attestor.
     #[serde(default)]
     pub attestor_set: Option<AttestorSetConfig>,
+    /// Optional attestation socket. Omission disables the HTTP server; port zero
+    /// asks the operating system to select a free port.
     #[serde(default, deserialize_with = "deserialize_attestation_listen")]
     pub attestation_listen: Option<SocketAddr>,
+    /// Exact origins reflected in CORS responses, including scheme and port.
+    /// An empty list grants no browser origin access.
     #[serde(default)]
     pub attestation_allowed_origins: Vec<String>,
 }

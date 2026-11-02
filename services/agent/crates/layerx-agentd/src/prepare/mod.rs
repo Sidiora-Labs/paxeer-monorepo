@@ -708,6 +708,18 @@ pub mod legacy {
     /// Returns a decode or re-encoding mismatch, or a digest that no longer matches the recorded
     /// preparation and audit digests.
     pub fn verify_disclosure_binding(prepared: &Prepared) -> Result<(), DisclosureBindingError> {
+        if encode_unsigned_envelope(&prepared.envelope)
+            .map_err(|_| DisclosureBindingError::CanonicalMismatch)?
+            != prepared.canonical_bytes
+            || *preimage_unsigned(&prepared.envelope)
+                .map_err(|_| DisclosureBindingError::CanonicalMismatch)?
+                .as_bytes()
+                != prepared.signing_preimage
+            || prepared.audit.idempotency_key != prepared.envelope.idempotency_key().bytes()
+            || prepared.audit.observed_head_sequence != prepared.observed_head_sequence
+        {
+            return Err(DisclosureBindingError::CanonicalMismatch);
+        }
         disclosure_binding::verify_binding(prepared)
     }
 

@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
@@ -55,7 +54,7 @@ func TriggerDirection(order types.Order) (byte, error) {
 		}
 		return types.TriggerRising, nil
 	default:
-		return 0, fmt.Errorf("%w: order %s of type %d has no trigger", types.ErrInvalidOrderType, order.ID.Dec(), order.Type)
+		return 0, types.ErrInvalidOrderType.Wrapf("order %s of type %d has no trigger", order.ID.Dec(), order.Type)
 	}
 }
 
@@ -78,23 +77,22 @@ func TriggerReached(order types.Order, mark uint256.Int) (bool, error) {
 // kind, so that the condition already holds.
 func ValidateTriggerPrice(market types.Market, order types.Order, mark uint256.Int) error {
 	if order.TriggerPrice.IsZero() {
-		return fmt.Errorf("%w: zero trigger price", types.ErrInvalidTriggerPrice)
+		return types.ErrInvalidTriggerPrice.Wrapf("zero trigger price")
 	}
 	if market.PxDecimals > types.USDDecimals {
-		return fmt.Errorf("%w: market %d pxDecimals %d", types.ErrInvalidParams, market.ID, market.PxDecimals)
+		return types.ErrInvalidParams.Wrapf("market %d pxDecimals %d", market.ID, market.PxDecimals)
 	}
 	var tick, remainder uint256.Int
 	tick.Exp(uint256.NewInt(10), uint256.NewInt(uint64(types.USDDecimals-market.PxDecimals)))
 	if !remainder.Mod(&order.TriggerPrice, &tick).IsZero() {
-		return fmt.Errorf("%w: trigger price %s off tick %s", types.ErrInvalidTriggerPrice, order.TriggerPrice.Dec(), tick.Dec())
+		return types.ErrInvalidTriggerPrice.Wrapf("trigger price %s off tick %s", order.TriggerPrice.Dec(), tick.Dec())
 	}
 	reached, err := TriggerReached(order, mark)
 	if err != nil {
 		return err
 	}
 	if reached {
-		return fmt.Errorf("%w: trigger price %s on the wrong side of mark %s", types.ErrInvalidTriggerPrice,
-			order.TriggerPrice.Dec(), mark.Dec())
+		return types.ErrInvalidTriggerPrice.Wrapf("trigger price %s on the wrong side of mark %s", order.TriggerPrice.Dec(), mark.Dec())
 	}
 	return nil
 }
@@ -103,10 +101,10 @@ func ValidateTriggerPrice(market types.Market, order types.Order, mark uint256.I
 // 0x0B under its market, direction, trigger price key and placement sequence.
 func (k *Keeper) TriggerInsert(ctx sdk.Context, order types.Order) error {
 	if order.Status != types.OrderStatusUntriggered {
-		return fmt.Errorf("%w: order %s is not untriggered", types.ErrInvalidOrderType, order.ID.Dec())
+		return types.ErrInvalidOrderType.Wrapf("order %s is not untriggered", order.ID.Dec())
 	}
 	if order.TriggerPrice.IsZero() {
-		return fmt.Errorf("%w: order %s has no trigger price", types.ErrInvalidTriggerPrice, order.ID.Dec())
+		return types.ErrInvalidTriggerPrice.Wrapf("order %s has no trigger price", order.ID.Dec())
 	}
 	if _, err := TriggerDirection(order); err != nil {
 		return err
@@ -155,7 +153,7 @@ func (k *Keeper) crossedInDirection(ctx sdk.Context, marketID uint64, direction 
 	for ; iterator.Valid() && uint64(len(ids)) < limit; iterator.Next() {
 		key, value := iterator.Key(), iterator.Value()
 		if len(key) != triggerKeyLength || len(value) != 32 {
-			return nil, fmt.Errorf("%w: trigger entry %x", types.ErrInvalidParams, key)
+			return nil, types.ErrInvalidParams.Wrapf("trigger entry %x", key)
 		}
 		var price uint256.Int
 		price.SetBytes32(key[len(prefix) : len(prefix)+32])
@@ -266,14 +264,14 @@ func (k *Keeper) ExecuteOrder(ctx sdk.Context, orderID uint256.Int) (uint256.Int
 		return uint256.Int{}, nil, err
 	}
 	if order.Status != types.OrderStatusUntriggered {
-		return uint256.Int{}, nil, fmt.Errorf("%w: order %s is not an open trigger order", types.ErrUnknownOrder, orderID.Dec())
+		return uint256.Int{}, nil, types.ErrUnknownOrder.Wrapf("order %s is not an open trigger order", orderID.Dec())
 	}
 	market, err := k.GetMarket(ctx, order.MarketID)
 	if err != nil {
 		return uint256.Int{}, nil, err
 	}
 	if !market.Enabled {
-		return uint256.Int{}, nil, fmt.Errorf("%w: %d", types.ErrMarketDisabled, market.ID)
+		return uint256.Int{}, nil, types.ErrMarketDisabled.Wrapf("%d", market.ID)
 	}
 	mark, err := k.freshMark(ctx, market.ID)
 	if err != nil {
@@ -284,8 +282,7 @@ func (k *Keeper) ExecuteOrder(ctx sdk.Context, orderID uint256.Int) (uint256.Int
 		return uint256.Int{}, nil, err
 	}
 	if !reached {
-		return uint256.Int{}, nil, fmt.Errorf("%w: order %s trigger %s, mark %s", types.ErrTriggerNotReached,
-			orderID.Dec(), order.TriggerPrice.Dec(), mark.Dec())
+		return uint256.Int{}, nil, types.ErrTriggerNotReached.Wrapf("order %s trigger %s, mark %s", orderID.Dec(), order.TriggerPrice.Dec(), mark.Dec())
 	}
 	return k.triggerOrder(ctx, market, order, mark)
 }
@@ -300,7 +297,7 @@ func (k *Keeper) freshMark(ctx sdk.Context, marketID uint64) (uint256.Int, error
 		return uint256.Int{}, err
 	}
 	if state.MarkPrice.IsZero() {
-		return uint256.Int{}, fmt.Errorf("%w: market %d has no mark", types.ErrPriceStale, marketID)
+		return uint256.Int{}, types.ErrPriceStale.Wrapf("market %d has no mark", marketID)
 	}
 	return state.MarkPrice, nil
 }
@@ -359,7 +356,7 @@ func (k *Keeper) triggerOrder(ctx sdk.Context, market types.Market, order types.
 			events = append(events, ocoEvents...)
 		}
 	default:
-		return uint256.Int{}, nil, fmt.Errorf("%w: order %s of type %d has no trigger", types.ErrInvalidOrderType, order.ID.Dec(), order.Type)
+		return uint256.Int{}, nil, types.ErrInvalidOrderType.Wrapf("order %s of type %d has no trigger", order.ID.Dec(), order.Type)
 	}
 	positionAfter, err := k.triggerPositionID(ctx, order.Account, order.MarketID)
 	if err != nil {
@@ -400,14 +397,14 @@ func (k *Keeper) SetPositionTpSl(ctx sdk.Context, caller common.Address, positio
 		return nil, err
 	}
 	if position.Account != caller {
-		return nil, fmt.Errorf("%w: position %s", types.ErrNotPositionHolder, positionID.Dec())
+		return nil, types.ErrNotPositionHolder.Wrapf("position %s", positionID.Dec())
 	}
 	market, err := k.GetMarket(ctx, position.MarketID)
 	if err != nil {
 		return nil, err
 	}
 	if !market.Enabled {
-		return nil, fmt.Errorf("%w: %d", types.ErrMarketDisabled, market.ID)
+		return nil, types.ErrMarketDisabled.Wrapf("%d", market.ID)
 	}
 	mark, err := k.freshMark(ctx, market.ID)
 	if err != nil {
@@ -508,8 +505,7 @@ func (k *Keeper) GetAttachedTpSl(ctx sdk.Context, positionID uint256.Int) (Attac
 		return AttachedTpSl{}, nil
 	}
 	if len(bz) != 64 {
-		return AttachedTpSl{}, fmt.Errorf("%w: attached TP/SL of position %s holds %d bytes", types.ErrInvalidParams,
-			positionID.Dec(), len(bz))
+		return AttachedTpSl{}, types.ErrInvalidParams.Wrapf("attached TP/SL of position %s holds %d bytes", positionID.Dec(), len(bz))
 	}
 	var pair AttachedTpSl
 	pair.TakeProfitOrderID.SetBytes32(bz[:32])
@@ -595,7 +591,7 @@ func (k *Keeper) placeAttachedOrder(ctx sdk.Context, params types.Params, positi
 	orderType types.OrderType, triggerPrice, mark uint256.Int) (types.Order, []types.EventRecord, error) {
 	order := attachedOrder(position, orderType, triggerPrice)
 	if _, overflow := order.SizeUsd.MulDivOverflow(&position.SizeBase, &mark, priceScale); overflow {
-		return types.Order{}, nil, fmt.Errorf("%w: notional of position %s", types.ErrOverflow, position.ID.Dec())
+		return types.Order{}, nil, types.ErrOverflow.Wrapf("notional of position %s", position.ID.Dec())
 	}
 	if err := k.adjustOpenOrders(ctx, order.Account, true, params.MaxOpenOrdersPerAccount); err != nil {
 		return types.Order{}, nil, err
@@ -662,19 +658,19 @@ func (k *Keeper) adjustOpenOrders(ctx sdk.Context, address common.Address, incre
 	store := k.store(ctx)
 	bz := store.Get(types.AccountKey(address))
 	if bz == nil {
-		return fmt.Errorf("%w: %s", types.ErrNoAccount, address.Hex())
+		return types.ErrNoAccount.Wrapf("%s", address.Hex())
 	}
 	var account types.Account
 	if err := account.Unmarshal(bz); err != nil {
-		return fmt.Errorf("%w: corrupt account %s: %v", types.ErrInvalidParams, address.Hex(), err)
+		return types.ErrInvalidParams.Wrapf("corrupt account %s: %v", address.Hex(), err)
 	}
 	switch {
 	case increment && account.OpenOrderCount >= max:
-		return fmt.Errorf("%w: account %s holds %d", types.ErrTooManyOpenOrders, address.Hex(), account.OpenOrderCount)
+		return types.ErrTooManyOpenOrders.Wrapf("account %s holds %d", address.Hex(), account.OpenOrderCount)
 	case increment:
 		account.OpenOrderCount++
 	case account.OpenOrderCount == 0:
-		return fmt.Errorf("%w: account %s has no open order to remove", types.ErrInvalidParams, address.Hex())
+		return types.ErrInvalidParams.Wrapf("account %s has no open order to remove", address.Hex())
 	default:
 		account.OpenOrderCount--
 	}
@@ -689,7 +685,7 @@ func (k *Keeper) nextPlacementSequence(ctx sdk.Context) (uint64, error) {
 		return 0, err
 	}
 	if !sequence.IsUint64() {
-		return 0, fmt.Errorf("%w: placement sequence above 2^64-1", types.ErrOverflow)
+		return 0, types.ErrOverflow.Wrapf("placement sequence above 2^64-1")
 	}
 	return sequence.Uint64(), nil
 }
@@ -697,11 +693,11 @@ func (k *Keeper) nextPlacementSequence(ctx sdk.Context) (uint64, error) {
 func (k *Keeper) triggerOrderRecord(ctx sdk.Context, orderID uint256.Int) (types.Order, error) {
 	bz := k.store(ctx).Get(types.OrderKey(orderID))
 	if bz == nil {
-		return types.Order{}, fmt.Errorf("%w: %s", types.ErrUnknownOrder, orderID.Dec())
+		return types.Order{}, types.ErrUnknownOrder.Wrapf("%s", orderID.Dec())
 	}
 	var order types.Order
 	if err := order.Unmarshal(bz); err != nil {
-		return types.Order{}, fmt.Errorf("%w: corrupt order %s: %v", types.ErrInvalidParams, orderID.Dec(), err)
+		return types.Order{}, types.ErrInvalidParams.Wrapf("corrupt order %s: %v", orderID.Dec(), err)
 	}
 	return order, nil
 }
@@ -713,11 +709,11 @@ func (k *Keeper) setTriggerOrderRecord(ctx sdk.Context, order types.Order) {
 func (k *Keeper) triggerPositionRecord(ctx sdk.Context, positionID uint256.Int) (types.Position, error) {
 	bz := k.store(ctx).Get(types.PositionKey(positionID))
 	if bz == nil {
-		return types.Position{}, fmt.Errorf("%w: %s", types.ErrUnknownPosition, positionID.Dec())
+		return types.Position{}, types.ErrUnknownPosition.Wrapf("%s", positionID.Dec())
 	}
 	var position types.Position
 	if err := position.Unmarshal(bz); err != nil {
-		return types.Position{}, fmt.Errorf("%w: corrupt position %s: %v", types.ErrInvalidParams, positionID.Dec(), err)
+		return types.Position{}, types.ErrInvalidParams.Wrapf("corrupt position %s: %v", positionID.Dec(), err)
 	}
 	return position, nil
 }
@@ -730,8 +726,7 @@ func (k *Keeper) triggerPositionID(ctx sdk.Context, account common.Address, mark
 		return uint256.Int{}, nil
 	}
 	if len(bz) != 32 {
-		return uint256.Int{}, fmt.Errorf("%w: position index of %s in market %d holds %d bytes", types.ErrInvalidParams,
-			account.Hex(), marketID, len(bz))
+		return uint256.Int{}, types.ErrInvalidParams.Wrapf("position index of %s in market %d holds %d bytes", account.Hex(), marketID, len(bz))
 	}
 	var id uint256.Int
 	id.SetBytes32(bz)

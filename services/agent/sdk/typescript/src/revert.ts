@@ -89,6 +89,7 @@ export class RevertReasonError extends Error {
  * Any other payload is refused with a terminal decode-failure.
  */
 export function decodeRevertReason(returnData: string | Uint8Array): RevertReasonError {
+  if (typeof returnData !== "string" && !(returnData instanceof Uint8Array)) refuse();
   const data = typeof returnData === "string" ? hexBytes(returnData) : returnData;
   if (data.length < HEAD || SELECTOR.some((byte, index) => data[index] !== byte)) refuse();
   if (word(data, SELECTOR.length) !== WORD) refuse();

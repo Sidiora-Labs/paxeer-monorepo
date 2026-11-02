@@ -13,8 +13,8 @@ use layerx_programs::state_record::{
 };
 use layerx_programs::{
     hex, AccountStateHead, DeploymentProof, ProgramBundleError, ProgramHeadKind, ProgramId,
-    ProgramLifecycle, ProgramStateBundle, ProtocolDeploymentVerifier, ProtocolEvidenceError,
-    Registry, VerifiedChainHead, VerifiedDeploymentEvidence, VerifiedProgramBundle,
+    ProgramLifecycle, ProtocolDeploymentVerifier, ProtocolEvidenceError, Registry,
+    VerifiedChainHead, VerifiedDeploymentEvidence, VerifiedProgramBundle,
 };
 use serde_json::Value;
 
@@ -436,9 +436,8 @@ impl LayerxdProgramBalanceReader {
         program: ProgramId,
         now: u64,
     ) -> Result<VerifiedProgramBundle, ProgramBundleError> {
-        let bundle = ProgramStateBundle::decode(payload)?;
         self.verifier
-            .verify_current_program_bundle(&bundle, chain, program, now)
+            .verify_current_program_bundle_bytes(payload, chain, program, now)
     }
 
     #[must_use]
