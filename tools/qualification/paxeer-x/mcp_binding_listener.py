@@ -180,7 +180,10 @@ def web_receipt_public_key(daemon):
     require(set(payload) == {'jsonrpc', 'id', 'result'}
             and payload['jsonrpc'] == '2.0' and payload['id'] == 1,
             'receipt key RPC response is malformed')
-    keys = payload['result']
+    result = payload['result']
+    require(isinstance(result, dict) and set(result) == {'keys'},
+            'receipt key RPC response is malformed')
+    keys = result['keys']
     index = int(daemon['LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX'])
     require(isinstance(keys, list) and 0 <= index < len(keys),
             'receipt key index has no px_getReceiptKeys entry')
