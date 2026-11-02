@@ -14010,3 +14010,18 @@ fix = "When a change tightens an encoder rule, the verify runs every test of the
 title = "A test that reads a fixture tree outside its package fails to run once that tree is removed"
 symptom = "Two REST package tests read contract fixtures from a launchpad configuration tree that an earlier change removed and that no revision ever held in the expected version, so the package's tests failed before any assertion and took every task that named the package down with them."
 fix = "Keep test fixtures inside the package under testdata; a fixture outside the package is a dependency the package cannot see change."
+
+[gotcha.2838]
+title = "A library deletion task whose negative search spans every consumer cannot pass before each consumer crate is ported"
+symptom = "A codec removal task searched services and tools for the module paths it deletes and found two hundred and sixty-seven sites across thirteen crates; two attempts stopped on the search, since the task may edit only its own crate."
+fix = "Write one port task per consumer crate with the site inventory and a crate-local negative search, list them in the deletion task's requires, and make the deletion task's search name the retired items rather than module paths that live code still imports."
+
+[gotcha.2839]
+title = "A module that began as a retired codec and now also holds live call-binding items is pruned, not deleted"
+symptom = "A deletion item asked to move the kept definitions out of two modules and delete the files, but the modules had grown the type-2 call disclosure and its error, role and native-operation types, which thirteen crates import by the module path."
+fix = "Before deleting a module, list its public items against their importers; when live items outnumber retired ones, delete the retired items in place and keep the module path, so consumers port only the calls that change."
+
+[gotcha.2840]
+title = "A task that requires a task of a later wave is refused by the plan check and stops every task with it"
+symptom = "A repair task was written into wave 1 with a requirement on a task that sits in a later wave; the plan check refused the whole task graph for a later-wave requirement, and no task was admitted until the wave was raised."
+fix = "Give a new task the highest wave among its requirements or higher, and run the plan check on the whole graph before the change lands; a single bad reference refuses every task, not only the one that carries it."

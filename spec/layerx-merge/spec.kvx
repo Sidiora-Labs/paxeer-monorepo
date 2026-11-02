@@ -7245,6 +7245,12 @@ value = "The interface registry keeps one row per planned surface, and the compl
 basis = "Reconcile of 2026-11-02 at HEAD 2ca2d5bac: 250 planned_pending rows, of which 244 are served under other wording with the symbol present in the tree and 6 were retired by decisions 2340 and earlier; no gap remains, so the registry flip adds no task; served_ok rises from 61737 to 61981 and planned_pending falls to zero (commit 68c2a11c7)."
 affects = ["22.0.1"]
 
+[decision.2356]
+title = "The layerx-crypto disclosure and send modules stay as the EIP-1559 call disclosure and ledger call modules; task 9.35.7 deletes the kernel activity items inside them and its verify searches for the retired names, not for the module paths"
+value = "src/disclosure.rs with its call, native and program submodules and src/send.rs hold the live type-2 call disclosure (Disclosure, bind_call, ConstructMethod, encode_payment_call, AmountRole, CounterpartyRole, DisclosedAmount, Expiry, DisclosureError, DisclosedNativeOperation, BudgetStateContext) and the ledger call builders (ledger_payment_call, send_context_hash, CallOptions, DisclosedCall, SendCondition, SendDebit); only the kernel activity items are deleted: the Source::Activity variant, bind over canonical activity bytes, bind_budget_mutation, the activity-envelope onboarding decoder (the onboarding field itself stays, bind_call fills it), EnvelopeOptions, DisclosedEnvelope, encode_send_envelope and sign_disclosed. The payments re-exports of task 8.94.4 stay re-exports and the module paths layerx_crypto::disclosure and layerx_crypto::send stay valid for consumers; decision 1889's deletion of the two files is replaced by this pruning. The verify of 9.35.7 asserts that the retired items are absent from the crate and that no file under services and tools outside the retired-name sweep tests names them."
+basis = "Census of 2026-11-02 at HEAD 7f6ea5d81: layerx_crypto::disclosure is named at 267 sites and layerx_crypto::send at 61 across thirteen crates, most of them for AmountRole, CounterpartyRole, DisclosedNativeOperation, BudgetStateContext, DisclosureError and disclosure::call, which payments does not re-export; the kernel activity items themselves are reached from six places (the agent daemon and its exactly-once limits test, the human custody signer and provider, the intents proof test, the sdk and the mcp binders). Moving the module tree would rewrite thirteen crates for a rename and prove nothing; deleting the items and porting the six consumers proves the path decision 2261 asks for."
+affects = ["9.35.7", "9.35.14", "9.35.15"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20865,6 +20871,14 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22054]
+title = "The human intents proof crosses the ledger payment call and the call disclosure binder"
+ac_1 = "Given the human intents proof test, when it proves the signed send path twice, then it builds the EIP-1559 ledger payment call from the compiled payload, binds it independently through the call disclosure binder, verifies the agent disclosure against the intent, and refuses truncated, extended and corrupt deliveries, without the retired activity envelope codec."
+
+[req.22053]
+title = "The human custody signer names its remote signing method after the EIP-1559 call it signs"
+ac_1 = "Given the human service custody signer and its remote provider handle, when a signing request reaches the provider, then the handle's method is named for the type-2 call it decodes and signs, takes no module registry, and the custody test targets build and pass."
 
 [req.22052]
 title = "The newHeads subscription tests pass against the test node"
@@ -35650,6 +35664,24 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.9.35.15]
+title = "Port the human intents proof test from the activity send envelope to the ledger payment call and bind_call"
+reqs = ["22054.1"]
+touches = ["services/human/crates/layerx-intents/tests/proof_human_intents.rs"]
+tests = ["services/human/crates/layerx-intents/tests/proof_human_intents.rs::signed_send_crosses_the_real_ledger_call_and_agent_disclosure_consumer_twice"]
+verification_contract = "! grep -nE 'encode_send_envelope|EnvelopeOptions|disclosure::\{[^}]*\bbind\b|\bbind\(' services/human/crates/layerx-intents/tests/proof_human_intents.rs && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test proof_human_intents"
+do_1 = "services/human/crates/layerx-intents/tests/proof_human_intents.rs:27-28 import bind from layerx_crypto::disclosure and encode_send_envelope, EnvelopeOptions and SendDebit from layerx_crypto::send; the imports become layerx_crypto::disclosure::{call::bind_call, AmountRole, CounterpartyRole} and layerx_crypto::send::{ledger_payment_call, CallOptions, SendDebit}, and the module doc comment at :1 names ledger_payment_call and bind_call where it names the envelope encoder and bind."
+symbols = ["signed_send_crosses_the_real_ledger_call_and_agent_disclosure_consumer_twice"]
+
+[capability.9.35.14]
+title = "Rename the remote custody signer's disclosed-call signing method to sign_call and drop its unused registry parameter"
+reqs = ["22053.1"]
+touches = ["services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-service/src/custody/signer.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/custody.rs", "services/human/crates/layerx-human-service/tests/custody_operations.rs"]
+verification_contract = "! grep -rnE '\bsign_disclosed\b' services/human/crates/layerx-human-service/src && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test custody --test custody_operations"
+do_1 = "services/human/crates/layerx-human-service/src/custody/provider.rs:693 RemoteCustodySigner::sign_disclosed(canonical_bytes, disclosure, _registry) already decodes the canonical bytes as an unsigned type-2 call through the agent runtime decoder, builds a ProviderSignRequest from the call, the disclosure and the sender, sends it to the provider and verifies the returned 65-byte signature against the call; it is renamed sign_call(canonical_bytes, disclosure), its unused registry parameter is removed and its doc comment says it sends the exact EIP-1559 call and its disclosure to the provider; the body does not change."
+symbols = ["RemoteCustodySigner::sign_call"]
+
 [capability.7.10.6]
 title = "Make the newHeads subscription tests pass against the test node after the state-root rule"
 reqs = ["22052.1"]
@@ -40263,7 +40295,7 @@ title = "Remove the kernel activity codec items from layerx-crypto once the kern
 reqs = ["9341.1"]
 touches = ["services/agent/crates/layerx-crypto/src/lib.rs", "services/agent/crates/layerx-crypto/src/disclosure.rs", "services/agent/crates/layerx-crypto/src/send.rs", "services/agent/crates/layerx-crypto/src/signer.rs", "services/agent/crates/layerx-crypto/tests/disclosure.rs", "services/agent/crates/layerx-crypto/tests/signer.rs", "services/agent/crates/layerx-crypto/tests/remote.rs", "services/agent/crates/layerx-crypto/src/payments.rs", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs", "services/agent/crates/layerx-crypto/tests/send_call.rs"]
 tests = ["services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"]
-verification_contract = "! test -e services/agent/crates/layerx-crypto/src/disclosure.rs && ! test -e services/agent/crates/layerx-crypto/src/send.rs && test -e services/agent/crates/layerx-crypto/src/onboarding.rs && grep -q '^pub mod onboarding;' services/agent/crates/layerx-crypto/src/lib.rs && ! grep -rnE --include='*.rs' 'layerx_crypto::(disclosure|send)\b|\bsign_disclosed\b|encode_send_envelope|bind_budget_mutation|Source::Activity' services tools | grep -vE 'retired_|no_kernel_codec|layerx-crypto/' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test signer -- --exact keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+verification_contract = "test -e services/agent/crates/layerx-crypto/src/disclosure.rs && test -e services/agent/crates/layerx-crypto/src/send.rs && ! grep -rnE 'pub fn bind\(|fn bind_budget_mutation|Source::Activity|struct EnvelopeOptions|struct DisclosedEnvelope|fn encode_send_envelope|pub fn sign_disclosed<' services/agent/crates/layerx-crypto/src && test -e services/agent/crates/layerx-crypto/src/onboarding.rs && grep -q '^pub mod onboarding;' services/agent/crates/layerx-crypto/src/lib.rs && ! grep -rnE --include='*.rs' 'layerx_crypto::disclosure::bind\b|disclosure::\{[^}]*\bbind\b|\bsign_disclosed\b|encode_send_envelope|EnvelopeOptions|DisclosedEnvelope|bind_budget_mutation|Source::Activity' services tools | grep -vE 'retired_|no_kernel_codec|layerx-crypto/' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test signer -- --exact keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
 do_1 = "Decision 2253: blocked until every family task it names is on main and listed in requires; attempt 2 of task 9.35.1 (f9e1a5ff0) is the reference implementation of the deletions below."
 symbols = ["KeystoreSigner", "keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"]
 
@@ -127094,6 +127126,67 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.35.15]
+title = "Port the human intents proof test from the activity send envelope to the ledger payment call and bind_call"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22054.1"]
+capabilities = ["9.35.15"]
+interfaces = []
+do_1 = "services/human/crates/layerx-intents/tests/proof_human_intents.rs:27-28 import bind from layerx_crypto::disclosure and encode_send_envelope, EnvelopeOptions and SendDebit from layerx_crypto::send; the imports become layerx_crypto::disclosure::{call::bind_call, AmountRole, CounterpartyRole} and layerx_crypto::send::{ledger_payment_call, CallOptions, SendDebit}, and the module doc comment at :1 names ledger_payment_call and bind_call where it names the envelope encoder and bind."
+do_2 = "The test signed_send_crosses_the_real_envelope_and_agent_disclosure_consumer_twice (:454-503) becomes signed_send_crosses_the_real_ledger_call_and_agent_disclosure_consumer_twice: it builds CallOptions with a fixed 20-byte sender, chain id 125, nonce 11 and fixed fee and gas values, calls ledger_payment_call(compiled.payload().as_bytes(), &options) for the DisclosedCall, and in each of the two rounds binds the call independently with bind_call(&produced.call, options.from), runs DisclosureCheck::verify_agent(&intent, &observed), and asserts the activity type equals compiled.activity_type(), payload_sequence() is Some(7), the nonce of produced.call is 11, the payer and recipient counterparty accounts and the transfer amount of 25 and the asset are those the current test asserts, observed.fee_limit and observed.actor equal the fields of produced.disclosure, and observed equals produced.disclosure."
+do_3 = "The refusal half stays in the same shape on the call: a copy of produced.call whose data is truncated to 0, 1 and len-1 bytes is refused by bind_call, a copy with one byte appended to data is refused, and ledger_payment_call(&corrupt, &options) with the first payload byte flipped is an error; the envelope_sequence and canonical re-encoding assertions, which only the activity envelope had, are removed. No other test in the file changes and the resolver include at :18 stays."
+do_4 = "The verify asserts that the file names neither the envelope encoder, EnvelopeOptions nor bind over canonical bytes, and runs the proof target in full."
+symbols = ["signed_send_crosses_the_real_ledger_call_and_agent_disclosure_consumer_twice"]
+touches = ["services/human/crates/layerx-intents/tests/proof_human_intents.rs"]
+tests = ["services/human/crates/layerx-intents/tests/proof_human_intents.rs::signed_send_crosses_the_real_ledger_call_and_agent_disclosure_consumer_twice"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --tests"
+verify_cmd = "! grep -nE 'encode_send_envelope|EnvelopeOptions|disclosure::\{[^}]*\bbind\b|\bbind\(' services/human/crates/layerx-intents/tests/proof_human_intents.rs && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test proof_human_intents"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit; the proof test uses the activity envelope again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.35.14]
+title = "Rename the remote custody signer's disclosed-call signing method to sign_call and drop its unused registry parameter"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22053.1"]
+capabilities = ["9.35.14"]
+interfaces = []
+do_1 = "services/human/crates/layerx-human-service/src/custody/provider.rs:693 RemoteCustodySigner::sign_disclosed(canonical_bytes, disclosure, _registry) already decodes the canonical bytes as an unsigned type-2 call through the agent runtime decoder, builds a ProviderSignRequest from the call, the disclosure and the sender, sends it to the provider and verifies the returned 65-byte signature against the call; it is renamed sign_call(canonical_bytes, disclosure), its unused registry parameter is removed and its doc comment says it sends the exact EIP-1559 call and its disclosure to the provider; the body does not change."
+do_2 = "services/human/crates/layerx-human-service/src/custody/signer.rs:527 and :593 call the renamed method with request.canonical_bytes and request.disclosure; the registry field of CustodySigner (:371) and the disclosure digest, step-up and rate checks around the two call sites stay as they are; nothing else in the two files changes."
+do_3 = "The method shared the name of the retired layerx-crypto activity signer (task 9.35.7 deletes that one); after this task the human service names no function sign_disclosed, and the verify asserts it, builds every target of the crate and runs the custody and custody_operations test targets."
+symbols = ["RemoteCustodySigner::sign_call"]
+touches = ["services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-service/src/custody/signer.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/custody.rs", "services/human/crates/layerx-human-service/tests/custody_operations.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
+verify_cmd = "! grep -rnE '\bsign_disclosed\b' services/human/crates/layerx-human-service/src && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test custody --test custody_operations"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit; the method carries its old name again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.8.101.6]
 title = "Refresh the platform workspace lock and the api-gen lock so the api-gen --locked test runs"
 status = "pending"
@@ -131038,7 +131131,7 @@ title = "Remove the kernel activity codec items from layerx-crypto once the kern
 status = "pending"
 mode = "BUILD"
 wave = 40
-requires = ["9.35.1", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5", "22.9.24"]
+requires = ["9.35.1", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5", "22.9.24", "9.35.14", "9.35.15"]
 reqs = ["9341.1"]
 capabilities = ["9.35.7"]
 interfaces = []
@@ -131047,14 +131140,14 @@ do_2 = "In services/agent/crates/layerx-crypto/src/disclosure.rs delete the laye
 do_3 = "In services/agent/crates/layerx-crypto/src/send.rs delete EnvelopeOptions, DisclosedEnvelope and encode_send_envelope; SendDebit and SendCondition stay for ledger_payment_call."
 do_4 = "In services/agent/crates/layerx-crypto/src/signer.rs delete sign_disclosed and make KeystoreSigner::sign refuse a SigningRequest whose domain is the activity signature preimage with SignError::InvalidDisclosure, keeping the bind message and payer grant authorization of contracts/clients.md B2 (req 9341 ac_1)."
 do_5 = "Rewrite the sign_disclosed and send envelope cases of services/agent/crates/layerx-crypto/tests/signer.rs, tests/remote.rs, tests/disclosure.rs, tests/disclosure_call.rs and tests/send_call.rs onto sign_disclosed_call and bind_call, and add keystore_signer_refuses_activity_preimages_and_signs_the_bind_message to tests/signer.rs using the KeystoreSigner socket fixture."
-do_6 = "Move the kept definitions bind_call, Disclosure, DisclosedCall, CallOptions, ledger_payment_call, send_context_hash, SendCondition and SendDebit into services/agent/crates/layerx-crypto/src/payments.rs so the re-exports of task 8.94.4 become definitions, then delete src/disclosure.rs and src/send.rs with their pub mod lines (decision 1889); src/onboarding.rs, its pub mod line and the pub use crate::onboarding re-export stay (decision 2237)."
-do_7 = "The verify's repository grep must find no file outside layerx-crypto and the retired-name sweep tests naming layerx_crypto::disclosure, layerx_crypto::send, sign_disclosed, encode_send_envelope, bind_budget_mutation or Source::Activity; when it does, the task stops and the missing family task is reported."
+do_6 = "Decision 2356 replaces the earlier do_6: src/disclosure.rs and src/send.rs stay as the type-2 call disclosure and ledger call modules and the payments re-exports of task 8.94.4 stay re-exports; only the kernel activity items of do_2, do_3 and do_4 are deleted in place, and the module paths layerx_crypto::disclosure and layerx_crypto::send remain valid for their thirteen importing crates. The onboarding field of Disclosure stays because bind_call fills it (src/disclosure/call.rs:737); do_2 covers only the activity-envelope onboarding decoder. src/onboarding.rs, its pub mod line and the pub use crate::onboarding re-export stay (decision 2237)."
+do_7 = "The verify asserts that the two modules still exist, that none of the retired items (bind over canonical activity bytes, bind_budget_mutation, Source::Activity, EnvelopeOptions, DisclosedEnvelope, encode_send_envelope, sign_disclosed) remains in the crate, and that no file under services and tools outside layerx-crypto and the retired-name sweep tests names a retired item; it does not search for the module paths. When the search finds a consumer, the task stops and reports the file, because the port tasks in requires own the consumers."
 symbols = ["KeystoreSigner", "keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"]
 touches = ["services/agent/crates/layerx-crypto/src/lib.rs", "services/agent/crates/layerx-crypto/src/disclosure.rs", "services/agent/crates/layerx-crypto/src/send.rs", "services/agent/crates/layerx-crypto/src/signer.rs", "services/agent/crates/layerx-crypto/tests/disclosure.rs", "services/agent/crates/layerx-crypto/tests/signer.rs", "services/agent/crates/layerx-crypto/tests/remote.rs", "services/agent/crates/layerx-crypto/src/payments.rs", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs", "services/agent/crates/layerx-crypto/tests/send_call.rs"]
 tests = ["services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --all-targets"
-verify_cmd = "! test -e services/agent/crates/layerx-crypto/src/disclosure.rs && ! test -e services/agent/crates/layerx-crypto/src/send.rs && test -e services/agent/crates/layerx-crypto/src/onboarding.rs && grep -q '^pub mod onboarding;' services/agent/crates/layerx-crypto/src/lib.rs && ! grep -rnE --include='*.rs' 'layerx_crypto::(disclosure|send)\b|\bsign_disclosed\b|encode_send_envelope|bind_budget_mutation|Source::Activity' services tools | grep -vE 'retired_|no_kernel_codec|layerx-crypto/' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test signer -- --exact keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+verify_cmd = "test -e services/agent/crates/layerx-crypto/src/disclosure.rs && test -e services/agent/crates/layerx-crypto/src/send.rs && ! grep -rnE 'pub fn bind\(|fn bind_budget_mutation|Source::Activity|struct EnvelopeOptions|struct DisclosedEnvelope|fn encode_send_envelope|pub fn sign_disclosed<' services/agent/crates/layerx-crypto/src && test -e services/agent/crates/layerx-crypto/src/onboarding.rs && grep -q '^pub mod onboarding;' services/agent/crates/layerx-crypto/src/lib.rs && ! grep -rnE --include='*.rs' 'layerx_crypto::disclosure::bind\b|disclosure::\{[^}]*\bbind\b|\bsign_disclosed\b|encode_send_envelope|EnvelopeOptions|DisclosedEnvelope|bind_budget_mutation|Source::Activity' services tools | grep -vE 'retired_|no_kernel_codec|layerx-crypto/' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test signer -- --exact keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -131069,6 +131162,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_8 = "Decision 2261: part 1 of the kernel-path family (12.95.2, 9.27.10, 10.21.9, 9.35.13, 8.47.12, 8.51.3, 9.24.9, 8.101.3, 8.101.4, 8.101.5) is in requires; part 2 follows for layerx-agentd, the hosted authority and the human onboarding stages."
 do_9 = "Decision 2253 is satisfied: every family task in requires is done on main, so the task is pending again; the deletion census is a text search over services/ and tools/ including crates the build does not compile, and the commit message lists every file the search touched."
 do_10 = "Blocked until the decision 2261 part-2 port tasks are listed in requires: the crate census of 2026-11-02 still names layerx_crypto::disclosure in 267 places and layerx_crypto::send in 61 across the human service (37 files), the agent daemon (18), the human KMS (13), the intents crate (8), the hosted PaxAI service (6), the sdk (5), the mcp crate (4), the platform cli (2), the human test support (2), the client crate (2), the wallet attestor, the agent tests and the agent qualification; the repo-wide negative search of this task cannot pass before those ports, which the next batch lists per crate."
+do_11 = "Decision 2356 (2026-11-02): requires gains the per-crate port tasks 9.35.14 (the human custody signer's same-named method) and 9.35.15 (the intents proof test). The remaining consumers of the retired items are the agent daemon's kernel-activity path (prepare::legacy with restore_canonical and disclose, approval/native_effect.rs, policy/approval.rs, human_runtime.rs:16699, sign.rs attach_kernel_signature and verify_kernel_before_submit, the native_disclosure_v1 variant, tests/support/mod.rs and tests/w7_owner_binding.rs, tests/proof_agentd.rs, the exactly-once limits test), and the sdk and mcp native-disclosure binders that verify that variant; they are specced as their own wave-ordered tasks and added to requires when written, and this task stays blocked until then."
 
 [task.9.35.8]
 title = "Drop the layerx-crypto owner rotation decode from the human-service production fixture"
@@ -133219,7 +133313,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 title = "Make the newHeads subscription tests pass against the test node after the state-root rule"
 status = "pending"
 mode = "BUILD"
-wave = 1
+wave = 3
 requires = ["7.10.3"]
 reqs = ["22052.1"]
 capabilities = ["7.10.6"]
@@ -133309,7 +133403,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Preserve subscription lag signals when another chain's log is excluded"
 status = "pending"
 mode = "BUILD"
-wave = 1
+wave = 3
 requires = ["18.1509.1"]
 reqs = ["22043.1"]
 capabilities = ["18.1510.1"]
@@ -133338,7 +133432,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Keep chain-scoped log subscriptions alive across the seal-to-open window"
 status = "pending"
 mode = "BUILD"
-wave = 1
+wave = 3
 requires = ["7.10.6"]
 reqs = ["22042.1"]
 capabilities = ["18.1509.1"]
@@ -208606,6 +208700,22 @@ req = "18790.1"
 scenario = "Given two recipients of 1 ether each, when batchTransferEqualAmount is called with 3 ether, then it reverts with Incorrect amount sent, and with 2 ether it succeeds leaving the contract balance at zero"
 contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
+qualification = "UNRUN"
+
+[acceptance.9.35.15.1]
+feature = "9"
+req = "22054.1"
+scenario = "Given the human intents crate, when the proof test builds the ledger payment call and binds it through bind_call twice, then the proof target passes and names no retired envelope item."
+contract = "! grep -nE 'encode_send_envelope|EnvelopeOptions|disclosure::\{[^}]*\bbind\b|\bbind\(' services/human/crates/layerx-intents/tests/proof_human_intents.rs && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test proof_human_intents"
+test = "services/human/crates/layerx-intents/tests/proof_human_intents.rs"
+qualification = "UNRUN"
+
+[acceptance.9.35.14.1]
+feature = "9"
+req = "22053.1"
+scenario = "Given the human service crate, when the remote custody signer's method is renamed and its registry parameter removed, then no file under its src names sign_disclosed, every target builds and the custody test targets pass."
+contract = "! grep -rnE '\bsign_disclosed\b' services/human/crates/layerx-human-service/src && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test custody --test custody_operations"
+test = "services/human/crates/layerx-human-service/tests/custody.rs"
 qualification = "UNRUN"
 
 [acceptance.7.10.6.1]
