@@ -33,7 +33,7 @@ export const HOME_DESTINATIONS = Object.freeze({
   approvals: "/app/approvals",
   agents: "/app/agents",
   activity: "/app/activity",
-});
+} as const);
 
 export interface HomeActionItem {
   readonly id: keyof typeof HOME_DESTINATIONS & ("add" | "move" | "withdraw");
@@ -53,6 +53,12 @@ export function homeActions(): readonly [HomeActionItem, HomeActionItem, HomeAct
       route: HOME_DESTINATIONS.withdraw,
     },
   ];
+}
+
+export function homeAction(id: string): HomeActionItem {
+  const action = homeActions().find((candidate) => candidate.id === id);
+  if (action === undefined) throw new TypeError("Unknown Home action");
+  return action;
 }
 
 export interface HomeData {
@@ -194,7 +200,7 @@ export function homeActivityRows(entries: readonly ActivityEntryDetail[]): reado
           : statusKeyFromCopyKey(entry.state),
       when: timestampWords(entry.occurred_at),
     };
-    if (entry.money !== undefined) {
+    if (entry.money !== undefined && outcomeBacked) {
       row.amount = moneyAmountNumber(entry.money);
       row.currency = entry.money.currency;
       row.direction =
