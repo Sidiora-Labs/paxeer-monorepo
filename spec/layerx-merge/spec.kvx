@@ -128651,7 +128651,7 @@ symbols = []
 touches = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs", "services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-mcp/src/boundary.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/Cargo.lock", "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs", "services/agent/crates/layerx-mcp/Cargo.toml", "services/agent/crates/layerx-client/src/sequencer.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+build_cmd = "make -f chain.mk install && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test proof_native_reads"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -128668,6 +128668,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 do_7 = "Decision 2294: attempt 2 (bb8296a22) failed to resolve layerx_mcp from tests/proof_native_reads.rs because layerx-agentd/Cargo.toml has no such dependency; add `layerx-mcp = { path = '../layerx-mcp' }` under [dev-dependencies] (layerx-mcp already depends on layerx-agentd; a dev-dependency cycle is allowed and compiles the crate twice) and commit the services/agent/Cargo.lock the resolver writes so --locked holds. Continue from attempt 2."
 do_8 = "Finding 21.95.1.1: the proof lives in services/agent/crates/layerx-mcp/tests/proof_native_reads.rs (the consumer crate, which already depends on layerx-agentd); delete the layerx-agentd test target of the same name, add dev-dependencies to layerx-mcp/Cargo.toml only if the proof needs them (never layerx-agentd depending on layerx-mcp), and keep every other do. Continue from attempt 3."
 do_9 = "Finding 21.95.1.2 (decision 2322): produce_transaction reads the sender nonce at the latest block (SequencerEndpoint::nonce_at with the latest height from block_number, or a new latest_nonce in services/agent/crates/layerx-client/src/sequencer.rs, now in touches, that passes the 'latest' tag) instead of pending_nonce; the refusal text 'pending served by sequencer' never appears in the proof's output."
+do_10 = "Finding 21.95.1.3 and decision 2292: build_cmd now installs the node (make -f chain.mk install); the proof starts it from std::process::Command by running tools/qualification/localnode/v6120-node.sh --sequencer --env-out <tempdir>/localnode.env as 21.45.1 does, reads LOCAL_NODE_KEY and the RPC endpoint from that file (never from the process environment; the two std::env::var reads at :153 and :249 leave), funds nothing it does not need, stops the node when the test ends, and drops the module doc comment's out-of-scope paragraph about the inherited setup; the boundary.rs and latest_nonce repairs of the seventh candidate stand; continue from the seventh candidate."
 
 [task.21.94.1]
 title = "Prove the serve errors path end to end: producer, transport, consumer"

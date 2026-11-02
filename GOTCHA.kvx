@@ -13890,3 +13890,8 @@ fix = "Estimate a fee-bearing call with from set to the account that will sign; 
 title = "A harness repair let a panicking test run for the first time and it failed on an older change"
 symptom = "A chain test that had panicked for weeks on a missing merge-table dependency ran again once the harness registered the keepers, and failed on fee collection that no run had checked since the last green revision."
 fix = "When a repair makes a long-panicking test run, treat its failure as unlocated: bisect from the last green revision with exit 125 on the old panic before changing the test or the product, and name the commit the bisect finds in the commit message."
+
+[gotcha.2814]
+title = "A proof read its funded key from the process environment and failed where none was set"
+symptom = "The proof declared the node build outside its scope and read LOCAL_NODE_KEY and the RPC URL from the environment; seven of eight tests passed and the eighth found no key."
+fix = "A proof that needs a node builds it in build_cmd and starts it itself, reading key material from the file the node script writes; a doc comment declaring the producer out of scope is a ruling request, not a substitute for one."
