@@ -32,6 +32,7 @@ type SubscriptionAPI struct {
 	subscriptonConfig   *SubscriptionConfig
 
 	logFetcher          *LogFetcher
+	domainIndex         DomainIndex
 	newHeadListenersMtx *sync.RWMutex
 	newHeadListeners    map[rpc.ID]chan map[string]interface{}
 	logSubscriptionsMtx sync.Mutex
@@ -40,6 +41,15 @@ type SubscriptionAPI struct {
 	// receiptLogs, set by the sequencer's WebSocket server, feeds logs
 	// subscriptions from the logs of receipted transactions.
 	receiptLogs *ReceiptLogFeed
+}
+
+type domainSubscriptionAPI struct {
+	*SubscriptionAPI
+	scope DomainScope
+}
+
+func (a *domainSubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriteria) (*rpc.Subscription, error) {
+	return a.SubscriptionAPI.Logs(WithDomainScope(ctx, a.scope), filter)
 }
 
 type SubscriptionConfig struct {
@@ -60,6 +70,7 @@ func NewSubscriptionAPI(tmClient client.LocalClient, k *keeper.Keeper, ctxProvid
 		tmClient:            tmClient,
 		subscriptonConfig:   subscriptionConfig,
 		logFetcher:          logFetcher,
+		domainIndex:         keeperDomainIndex{evm: k},
 		newHeadListenersMtx: &sync.RWMutex{},
 		newHeadListeners:    make(map[rpc.ID]chan map[string]interface{}),
 		connectionType:      connectionType,
@@ -288,22 +299,27 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 	// Track subscription metrics
 	wpMetrics := GetGlobalMetrics()
 	wpMetrics.RecordSubscriptionStart()
+	subscriptionCtx := context.WithoutCancel(ctx)
 
 	if filter.BlockHash != nil {
 		go func() {
-			subCtx, cancel := context.WithCancel(context.Background())
+			subCtx, cancel := context.WithCancel(subscriptionCtx)
 			defer cancel()
 			var err error
 			defer recoverAndLog()
 			defer a.removeLogSubscription(rpcSub.ID)
 			defer wpMetrics.RecordSubscriptionEnd()
 			logs, _, err := a.logFetcher.GetLogsByFilters(subCtx, *filter, 0)
+			var scopedLogs []*FilterLog
+			if err == nil {
+				scopedLogs, err = a.scopeLogs(subCtx, toFilterLogs(logs))
+			}
 			if err != nil {
 				wpMetrics.RecordSubscriptionError()
 				logger.Warn("Ending logs subscription after fetch failure", "subscription", rpcSub.ID, "err", err)
 				return
 			}
-			for _, log := range logs {
+			for _, log := range scopedLogs {
 				if err = notifier.Notify(rpcSub.ID, log); err != nil {
 					return
 				}
@@ -314,12 +330,12 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 
 	if a.receiptLogs != nil {
 		listener := a.receiptLogs.addLogListener(*filter, a.logFetcher.includeSyntheticReceipts)
-		go a.notifyReceiptedLogs(notifier, rpcSub, listener, wpMetrics)
+		go a.notifyReceiptedLogs(subscriptionCtx, notifier, rpcSub, listener, wpMetrics)
 		return rpcSub, nil
 	}
 
 	go func() {
-		subCtx, cancel := context.WithCancel(context.Background())
+		subCtx, cancel := context.WithCancel(subscriptionCtx)
 		defer cancel()
 		var err error
 		defer recoverAndLog()
@@ -330,12 +346,16 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 			var logs []*ethtypes.Log
 			var lastToHeight int64
 			logs, lastToHeight, err = a.logFetcher.GetLogsByFilters(subCtx, *filter, begin)
+			var scopedLogs []*FilterLog
+			if err == nil {
+				scopedLogs, err = a.scopeLogs(subCtx, toFilterLogs(logs))
+			}
 			if err != nil {
 				wpMetrics.RecordSubscriptionError()
 				logger.Warn("Ending logs subscription after fetch failure", "subscription", rpcSub.ID, "err", err)
 				return
 			}
-			for _, log := range logs {
+			for _, log := range scopedLogs {
 				if err = notifier.Notify(rpcSub.ID, log); err != nil {
 					return
 				}
@@ -358,6 +378,11 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 	return rpcSub, nil
 }
 
+func (a *SubscriptionAPI) scopeLogs(ctx context.Context, logs []*FilterLog) ([]*FilterLog, error) {
+	api := FilterAPI{domainIndex: a.domainIndex, logFetcher: a.logFetcher}
+	return api.scopeFilterLogs(ctx, logs)
+}
+
 func (a *SubscriptionAPI) removeLogSubscription(id rpc.ID) {
 	a.logSubscriptionsMtx.Lock()
 	defer a.logSubscriptionsMtx.Unlock()
@@ -370,7 +395,7 @@ func (a *SubscriptionAPI) removeLogSubscription(id rpc.ID) {
 // {"lagged": "0x<count>"} carrying the number of logs dropped. The
 // subscription ends when the client unsubscribes, the connection closes, or
 // the open height passes its toBlock.
-func (a *SubscriptionAPI) notifyReceiptedLogs(notifier *rpc.Notifier, sub *rpc.Subscription, listener *receiptLogListener, wpMetrics *WorkerPoolMetrics) {
+func (a *SubscriptionAPI) notifyReceiptedLogs(ctx context.Context, notifier *rpc.Notifier, sub *rpc.Subscription, listener *receiptLogListener, wpMetrics *WorkerPoolMetrics) {
 	defer recoverAndLog()
 	defer a.removeLogSubscription(sub.ID)
 	defer wpMetrics.RecordSubscriptionEnd()
@@ -385,6 +410,15 @@ func (a *SubscriptionAPI) notifyReceiptedLogs(notifier *rpc.Notifier, sub *rpc.S
 					_ = notifier.Notify(sub.ID, pendingTxLag1315{Lagged: hexutil.Uint64(listener.lagged)})
 				}
 				return
+			}
+			logs, err := a.scopeLogs(ctx, []*FilterLog{&notice.log})
+			if err != nil {
+				wpMetrics.RecordSubscriptionError()
+				logger.Warn("Ending logs subscription after scope failure", "subscription", sub.ID, "err", err)
+				return
+			}
+			if len(logs) == 0 {
+				continue
 			}
 			if notice.lagged > 0 {
 				if err := notifier.Notify(sub.ID, pendingTxLag1315{Lagged: hexutil.Uint64(notice.lagged)}); err != nil {

@@ -1,5 +1,8 @@
 include!("../src/main.rs");
 
+#[path = "openrpc_methods.rs"]
+mod openrpc_methods;
+
 use layerx_platform_gateway::evm;
 use layerx_platform_internal::http as internal_http;
 use layerx_platform_internal::tls::{Origin, Upstream};
@@ -991,7 +994,7 @@ fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
             kind:"layerx".to_owned(), address:None, denom:None,
             metadata:json!({"name":"stale indexer name", "symbol":"STALE", "decimals":2,"supply":"7"}) });
         expected.push(if byte == 0x11 {
-            json!({"asset_id":asset_id,"denom":null,"kind":"layerx","name":"Ledger Asset","symbol":"LED","decimals":18,"supply":(u128::MAX - 1).to_string()})
+            json!({"asset_id":asset_id,"denom":null,"kind":"layerx","name":"Ledger Asset","symbol":"LED","decimals":18,"supply":(u128::MAX - 1).to_string(),"paused":false,"verification":"authenticated_committed_snapshot"})
         } else {
             json!({"asset_id":asset_id,"denom":null,"kind":"layerx","name":null,"symbol":null,"decimals":null,"supply":null})
         });
@@ -1033,6 +1036,26 @@ fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
         answer["result"],
         json!({"height":16,"assets":expected,"joined_limit":16})
     );
+    assert!(
+        openrpc_methods::px_list_assets_result_matches_schema(&answer["result"]),
+        "served asset rows must satisfy the published schema: {answer}"
+    );
+    for (field, value) in [
+        ("unexpected_metadata", json!(true)),
+        ("paused", json!("false")),
+        ("paused", Value::Null),
+        ("verification", json!("unverified")),
+        ("verification", Value::Null),
+        ("decimals", json!(256)),
+        ("supply", json!("-1")),
+    ] {
+        let mut invalid = answer["result"].clone();
+        invalid["assets"][0][field] = value;
+        assert!(
+            !openrpc_methods::px_list_assets_result_matches_schema(&invalid),
+            "schema must reject invalid {field}: {invalid}"
+        );
+    }
     let calls = state.lock().unwrap().take_calls();
     assert_eq!(
         calls

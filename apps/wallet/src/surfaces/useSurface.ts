@@ -101,8 +101,18 @@ export function receiptEvents(
   receipt: SequencerReceiptAnswer,
   surfaceModule: Pick<SurfaceModule, 'address' | 'decodeEvent'>
 ): SentTransaction['events'] {
-  if (!receipt.logs) throw new Error('the receipt carries no logs');
+  if (!Array.isArray(receipt.logs)) throw new Error('the receipt carries no logs');
   return receipt.logs
+    .map((log) => {
+      if (
+        !isLog(log) ||
+        !/^0x[0-9a-fA-F]{40}$/u.test(log.address) ||
+        !/^0x(?:[0-9a-fA-F]{2})*$/u.test(log.data) ||
+        !log.topics.every((topic) => /^0x[0-9a-fA-F]{64}$/u.test(topic))
+      )
+        throw new TypeError('the receipt carries an invalid log');
+      return log;
+    })
     .filter((log) => log.address.toLowerCase() === surfaceModule.address.toLowerCase())
     .map((log) => surfaceModule.decodeEvent(log));
 }
@@ -738,21 +748,24 @@ async function issuedGrants(
     ],
   });
   if (!Array.isArray(logs)) throw new TypeError('invalid grant logs');
-  return logs.map((log) => {
-    const hash: unknown = isRecord(log) ? log.transactionHash : undefined;
-    if (!isLog(log) || typeof hash !== 'string' || !HASH.test(hash))
-      throw new TypeError('invalid grant log');
-    const [topic, grantId, ...rest] = log.topics;
-    if (
-      log.address.toLowerCase() !== LEDGER_PRECOMPILE ||
-      topic?.toLowerCase() !== PAYER_GRANT_ISSUED ||
-      grantId === undefined ||
-      rest.length !== 0
-    ) {
-      throw new TypeError('invalid grant log');
-    }
-    return [grantId.toLowerCase(), hash.toLowerCase()] as const;
-  });
+  return logs.map(decodePayerGrantIssued);
+}
+
+export function decodePayerGrantIssued(log: unknown): readonly [string, string] {
+  const hash: unknown = isRecord(log) ? log.transactionHash : undefined;
+  if (!isLog(log) || typeof hash !== 'string' || !HASH.test(hash))
+    throw new TypeError('invalid grant log');
+  const [topic, grantId, ...rest] = log.topics;
+  if (
+    log.address.toLowerCase() !== LEDGER_PRECOMPILE ||
+    topic?.toLowerCase() !== PAYER_GRANT_ISSUED ||
+    grantId === undefined ||
+    rest.length !== 0 ||
+    log.data !== '0x'
+  ) {
+    throw new TypeError('invalid grant log');
+  }
+  return [grantId.toLowerCase(), hash.toLowerCase()] as const;
 }
 
 // The ledger precompile indexes PayerGrantIssued by grant id only and has no per-account grant view, so a grant is

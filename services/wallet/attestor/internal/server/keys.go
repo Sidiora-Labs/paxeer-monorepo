@@ -643,7 +643,13 @@ func (s *Server) doRefresh(r *http.Request, body []byte) (KeyResponse, *Error) {
 	}
 	var durable *store.CeremonyRefresh
 	if receipt, err := s.opts.Store.ImportReceipt(req.KeyID); err == nil && receipt.Identity.CeremonyID != "" && req.CeremonyID == "" {
-		return KeyResponse{}, newError(CodeSessionBadRequest, "imported ceremony key requires durable refresh identity")
+		completed, loadErr := s.opts.Store.CeremonyRefresh(req.KeyID)
+		if loadErr != nil || completed.State != "complete" || completed.Decision != PhaseCommit || completed.CeremonyID != receipt.Identity.CeremonyID || completed.ImportSessionID != receipt.Identity.SessionID || completed.Curve != rec.Curve || !bytes.Equal(completed.PublicKey, rec.PublicKey) || rec.Epoch < completed.BaseEpoch+1 {
+			return KeyResponse{}, newError(CodeSessionBadRequest, "imported ceremony key requires durable refresh identity")
+		}
+		if e := s.requireAuditSequence(completed.AuditSequence); e != nil {
+			return KeyResponse{}, e
+		}
 	} else if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return KeyResponse{}, newError(CodeStoreFailed, "%v", err)
 	}

@@ -73,6 +73,15 @@ Contract context `2.layerxledger-0x101a`:
 
 Frozen interfaces: 33 (new 33).
 
+Decision **2340** retires `issueGrant(bytes)`, `revokeGrant(bytes32,uint64)`
+and `getPayerGrant(bytes32)`. Their ABI selectors remain callable for a typed
+refusal: all three answer `Error(string)` with `LXP_NO_PAYER_GRANT`, the existing
+registered ledger error 214 and shared LXP registry row -214. The keeper submits
+neither legacy activity `0x00010007` nor `0x00010008`; no grant state, receipt,
+sequence or grant event is produced. `revokeGrant` retains its pause exemption,
+and `getPayerGrant` remains a view. `draw` also refuses `LXP_NO_PAYER_GRANT`;
+`payExact` continues to transfer and emit `Transfer` and `PaymentExact`.
+
 **ABI methods**
 
 | Method | Address | Selector | Status | Gas | Defined at |
@@ -83,15 +92,15 @@ Frozen interfaces: 33 (new 33).
 | `burn(bytes32,bytes32,uint128) (planned)` | 0x101a | `0xda3c63f3` | new | surcharge 5000 (planned) | `precompiles/layerxledger/abi.json` (planned) |
 | `draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32) (planned)` | 0x101a | `0x2e89490f` | new | surcharge 8840 (planned) | `precompiles/layerxledger/abi.json` (planned) |
 | `getAsset(bytes32) (planned)` | 0x101a | `0x2cc3ce80` | new | surcharge 1108 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `getPayerGrant(bytes32) (planned)` | 0x101a | `0x423fe4b2` | new | surcharge 1108 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `issueGrant(bytes) (planned)` | 0x101a | `0xd0d53480` | new | surcharge 16520 (planned) | `precompiles/layerxledger/abi.json` (planned) |
+| `getPayerGrant(bytes32) (planned)` | 0x101a | `0x423fe4b2` | retired (decision 2340) | surcharge 1108 (planned) | `precompiles/layerxledger/abi.json` (planned) |
+| `issueGrant(bytes) (planned)` | 0x101a | `0xd0d53480` | retired (decision 2340) | surcharge 16520 (planned) | `precompiles/layerxledger/abi.json` (planned) |
 | `mint(bytes32,bytes32,uint128) (planned)` | 0x101a | `0xf04db938` | new | surcharge 5000 (planned) | `precompiles/layerxledger/abi.json` (planned) |
 | `nextSequence(bytes32,bytes32) (planned)` | 0x101a | `0xce2f921f` | new | surcharge 1204 (planned) | `precompiles/layerxledger/abi.json` (planned) |
 | `openAccount(bytes32) (planned)` | 0x101a | `0xbdf52150` | new | surcharge 3080 (planned) | `precompiles/layerxledger/abi.json` (planned) |
 | `pause(bytes32) (planned)` | 0x101a | `0xed56531a` | new | surcharge 3080 (planned) | `precompiles/layerxledger/abi.json` (planned) |
 | `payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32) (planned)` | 0x101a | `0x78ea11db` | new | surcharge 7880 (planned) | `precompiles/layerxledger/abi.json` (planned) |
 | `register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes) (planned)` | 0x101a | `0xfd03012a` | new | surcharge 18440 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `revokeGrant(bytes32,uint64) (planned)` | 0x101a | `0x58d183a8` | new | surcharge 4040 (planned) | `precompiles/layerxledger/abi.json` (planned) |
+| `revokeGrant(bytes32,uint64) (planned)` | 0x101a | `0x58d183a8` | retired (decision 2340) | surcharge 4040 (planned) | `precompiles/layerxledger/abi.json` (planned) |
 | `send(bytes) (planned)` | 0x101a | `0x2bb1ae7c` | new | surcharge 17480 (planned) | `precompiles/layerxledger/abi.json` (planned) |
 | `totalUnits(bytes32) (planned)` | 0x101a | `0x53a6332b` | new | surcharge 1108 (planned) | `precompiles/layerxledger/abi.json` (planned) |
 | `unpause(bytes32) (planned)` | 0x101a | `0x2f4dae9f` | new | surcharge 3080 (planned) | `precompiles/layerxledger/abi.json` (planned) |

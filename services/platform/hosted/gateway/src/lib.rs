@@ -36,7 +36,6 @@ pub fn router_method(name: &str) -> bool {
         && (ROUTER_METHODS.binary_search(&name).is_ok() || evm::is_evm_namespace(name))
 }
 
-use layerx_crypto::{ed25519, SignatureMessage};
 use layerx_proof::program::{
     verify_authorized_program_execution_with_payers, verify_program_execution_with_payers,
     AuthorizedProgramExecutionExpectation, OccupancyPayer, ProgramExecutionExpectation,
@@ -45,8 +44,6 @@ use layerx_proof::program::{
 use layerx_proof::receipt::{verify_outcome, AuthorizedBatch, ReceiptCheck};
 use layerx_types::intent::{ProgramCallFailure, ProgramCallOutcome, ProgramLegacyValue};
 pub use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_wire::activity::{decode_signed, encode_signed, encode_unsigned};
-use layerx_wire::hash::{activity_id, Domain};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fmt::{Display, Formatter};
@@ -368,72 +365,6 @@ pub struct VerifiedOperation {
     result_code: i32,
     verification_rank: u8,
     verification_level: &'static str,
-}
-
-/// Canonical activity identity available only after module, network, wire and
-/// signer verification under the key's pinned signer.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct VerifiedSubmission {
-    activity_id: [u8; 32],
-    idempotency_key: [u8; 32],
-    activity_type: ActivityType,
-}
-
-impl VerifiedSubmission {
-    #[must_use]
-    pub const fn activity_id(self) -> [u8; 32] {
-        self.activity_id
-    }
-
-    #[must_use]
-    pub const fn idempotency_key(self) -> [u8; 32] {
-        self.idempotency_key
-    }
-
-    #[must_use]
-    pub const fn activity_type(self) -> ActivityType {
-        self.activity_type
-    }
-}
-
-/// Refuses a submitted activity unless its bytes are canonical, its module was
-/// provisioned from the core contract, its protocol scope is exact, and its
-/// Ed25519 signature belongs to the signer bound to the authenticated key.
-///
-/// # Errors
-/// Returns [`GatewayError::InvalidRequest`] without yielding partial identity.
-pub fn verify_submission(
-    bytes: &[u8],
-    registry: &ModuleRegistry,
-    protocol_version: u16,
-    network_id: u32,
-    signer_public_key: &[u8; 32],
-) -> Result<VerifiedSubmission, GatewayError> {
-    let activity = decode_signed(bytes, registry).map_err(|_| GatewayError::InvalidRequest)?;
-    if activity.protocol_version() != protocol_version || activity.network_id() != network_id {
-        return Err(GatewayError::InvalidRequest);
-    }
-    if encode_signed(&activity).map_err(|_| GatewayError::InvalidRequest)? != bytes {
-        return Err(GatewayError::InvalidRequest);
-    }
-    let signature_bytes = activity.signature().ok_or(GatewayError::InvalidRequest)?;
-    let signature: [u8; 64] = signature_bytes
-        .try_into()
-        .map_err(|_| GatewayError::InvalidRequest)?;
-    let unsigned = encode_unsigned(&activity).map_err(|_| GatewayError::InvalidRequest)?;
-    let message = SignatureMessage::new(
-        Domain::SignaturePreimage,
-        activity.protocol_version(),
-        activity.network_id(),
-        &unsigned,
-    )
-    .map_err(|_| GatewayError::InvalidRequest)?;
-    ed25519::verify(signer_public_key, &signature, message).map_err(|_| GatewayError::Forbidden)?;
-    Ok(VerifiedSubmission {
-        activity_id: activity_id(&activity).map_err(|_| GatewayError::InvalidRequest)?,
-        idempotency_key: activity.idempotency_key(),
-        activity_type: activity.activity_type(),
-    })
 }
 
 impl VerifiedOperation {

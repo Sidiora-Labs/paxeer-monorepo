@@ -958,7 +958,7 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
         )?;
         let intent = Intent::v1(IntentKind::KeyRotation(rotation));
         let compiled = compile(&intent, &self.rotation_registry)?;
-        let disclosure = DisclosureCheck::verify(&intent, &compiled)?;
+        let disclosure = compiled.verify_disclosure(&intent)?;
         let expected_payload_hash = compiled.payload_hash();
         let evidence = self.contract.announce_rotation(RotationSubmission {
             principal: principal.clone(),

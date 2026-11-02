@@ -77,7 +77,7 @@ evidence = "services/human/crates/layerx-human-service/tests/production_unhooked
 finding = "10.20.3.14"
 status = "open"
 evidence = "services/platform/hosted/human/material.py:1378 still requires a 64-character HUMAN_LIMIT_ID and line 904 writes it as LAYERX_AGENT_HUMAN_LIMIT_ID, whereas services/agent/crates/layerx-agentd/src/main.rs:106 enforces twice the 16-byte LimitId width declared in budget/reserve.rs:11."
-follow_up = "closure"
+follow_up = "22.10.6"
 
 [disposition.10.20.3.15]
 finding = "10.20.3.15"

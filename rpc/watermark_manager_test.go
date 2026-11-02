@@ -102,6 +102,7 @@ func TestResolvePendingFallsBackToLatestWhileNoBlockIsOpen(t *testing.T) {
 		stateLatest int64
 		wantHeight  int64
 		wantPending int64
+		wantOpen    bool
 		wantErr     error
 	}{
 		{
@@ -118,7 +119,7 @@ func TestResolvePendingFallsBackToLatestWhileNoBlockIsOpen(t *testing.T) {
 		},
 		{
 			name: "open block", pending: &watermarkPendingSnapshot{ctx: sdk.Context{}.WithBlockHeight(latest + 1)},
-			stateLatest: latest, wantHeight: PendingCtxHeight, wantPending: latest + 1,
+			stateLatest: latest, wantHeight: PendingCtxHeight, wantPending: latest + 1, wantOpen: true,
 		},
 		{
 			name: "other snapshot error", pending: &watermarkPendingSnapshot{err: snapshotErr},
@@ -134,6 +135,19 @@ func TestResolvePendingFallsBackToLatestWhileNoBlockIsOpen(t *testing.T) {
 			}
 			wm := NewWatermarkManager(tmClient, nil, &fakeStateStore{latest: tc.stateLatest, earliest: 1}, nil)
 			wm.SetPendingSnapshot(tc.pending)
+			snapshot, snapshotHeight, snapshotOpen, snapshotErr := wm.pendingSnapshot(context.Background())
+			require.ErrorIs(t, snapshotErr, tc.wantErr)
+			require.Equal(t, tc.wantPending, snapshotHeight)
+			require.Equal(t, tc.wantOpen, snapshotOpen)
+			if tc.wantOpen {
+				require.Equal(t, snapshotHeight, snapshot.BlockHeight())
+			} else {
+				require.Equal(t, sdk.Context{}, snapshot)
+			}
+			pendingHeight, open, pendingErr := wm.pendingHeight(context.Background())
+			require.ErrorIs(t, pendingErr, tc.wantErr)
+			require.Equal(t, tc.wantPending, pendingHeight)
+			require.Equal(t, tc.wantOpen, open)
 			height, err := wm.ResolveHeight(context.Background(), rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber))
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)

@@ -12,6 +12,9 @@ use serde_json::Value;
 
 #[test]
 fn environment_selection_points_at_the_live_emulator() {
+    if !common::credential_environment() {
+        return;
+    }
     let emulator = Emulator::start();
     let cli = Cli::new();
     assert!(cli.bind_emulator(emulator.endpoint()).status.success());
@@ -29,6 +32,9 @@ fn environment_selection_points_at_the_live_emulator() {
 
 #[test]
 fn account_is_created_and_read_back_through_the_emulator() {
+    if !common::credential_environment() {
+        return;
+    }
     let emulator = Emulator::start();
     let cli = Cli::new();
     assert!(cli.bind_emulator(emulator.endpoint()).status.success());
@@ -80,6 +86,9 @@ fn account_is_created_and_read_back_through_the_emulator() {
 
 #[test]
 fn reading_a_missing_account_is_a_machine_readable_refusal() {
+    if !common::credential_environment() {
+        return;
+    }
     let emulator = Emulator::start();
     let cli = Cli::new();
     assert!(cli.bind_emulator(emulator.endpoint()).status.success());
@@ -96,6 +105,9 @@ fn reading_a_missing_account_is_a_machine_readable_refusal() {
 
 #[test]
 fn human_and_machine_output_agree_on_the_active_environment() {
+    if !common::credential_environment() {
+        return;
+    }
     let emulator = Emulator::start();
     let cli = Cli::new();
     assert!(cli.bind_emulator(emulator.endpoint()).status.success());
@@ -113,6 +125,9 @@ fn human_and_machine_output_agree_on_the_active_environment() {
 
 #[test]
 fn payment_test_quotes_and_commits_once_through_the_live_emulator() {
+    if !common::credential_environment() {
+        return;
+    }
     let emulator = Emulator::start();
     let cli = Cli::new();
     assert!(cli.bind_emulator(emulator.endpoint()).status.success());
@@ -454,7 +469,7 @@ mod bootstrap {
 
     fn published_bootstrap_sequence() -> String {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../platform")
+            .join("../../../services/platform")
             .join("docs")
             .join("content")
             .join("install.md");

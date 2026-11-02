@@ -1,11 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::io::{BufRead as _, BufReader, Read as _, Write as _};
 use std::net::TcpListener;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agentd::boot::Gate;
@@ -23,6 +22,7 @@ use layerx_human_service::store::{
 use layerx_intents::canonical::execution_batch_id as wire_execution_batch_id;
 use layerx_intents::canonical::PROTOCOL_VERSION;
 use layerx_proof::merkle::build_proof;
+use layerx_types::clock::{Clock, ClockError, ClockReading};
 use layerx_types::intent::{AuthorizationSignature, PublicKey, SendAuthorization};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::verify::VerificationLevel;
@@ -35,6 +35,45 @@ pub const EVIDENCE_NETWORK_ID: u32 = 42;
 const EVIDENCE_CHAIN_ID: u64 = 125;
 
 pub type RawReceiptEvidence = layerx_agentd::protocol_evidence::RawReceiptEvidence;
+
+pub struct StepClock {
+    epoch_unix_milliseconds: u64,
+    milliseconds: AtomicU64,
+}
+
+impl StepClock {
+    #[must_use]
+    pub const fn new(epoch_unix_milliseconds: u64) -> Self {
+        Self {
+            epoch_unix_milliseconds,
+            milliseconds: AtomicU64::new(0),
+        }
+    }
+}
+
+impl Clock for StepClock {
+    fn sample(&self, transport_budget: Duration) -> Result<ClockReading, ClockError> {
+        if transport_budget.is_zero() {
+            return Err(ClockError::Unavailable);
+        }
+        let milliseconds = self
+            .milliseconds
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+                value.checked_add(1)
+            })
+            .map_err(|_| ClockError::Overflow)?;
+        Ok(ClockReading {
+            generation: [1; 16],
+            unix_milliseconds: self
+                .epoch_unix_milliseconds
+                .checked_add(milliseconds)
+                .ok_or(ClockError::Overflow)?,
+            monotonic_nanoseconds: milliseconds
+                .checked_mul(1_000_000)
+                .ok_or(ClockError::Overflow)?,
+        })
+    }
+}
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
 
@@ -170,88 +209,21 @@ pub fn serve_readiness_node(receipt_signer: &SigningKey) -> (NodeRpcConfig, Join
         chain_id: EVIDENCE_CHAIN_ID,
         deadline: Duration::from_secs(2),
     };
-    listener
-        .set_nonblocking(true)
-        .unwrap_or_else(|error| panic!("nonblocking readiness listener: {error}"));
-    let key = encode_hex(&receipt_signer.verifying_key().to_bytes());
-    let exchanges = [
-        ("eth_chainId", format!("\"0x{:x}\"", config.chain_id)),
-        (
-            "px_getReceiptKeys",
-            format!(
-                "[{{\"keyId\":\"0x{key}\",\"publicKey\":\"0x{key}\",\"firstHeight\":\"0x7\",\"lastHeight\":\"0x7\"}}]"
-            ),
-        ),
-    ];
+    let node = evidence_node::EvidenceNode::new(
+        &directory("readiness-admission"),
+        EVIDENCE_NETWORK_ID,
+        receipt_signer,
+        2,
+    );
+    let producer = node.serve(listener);
     let server = thread::spawn(move || {
-        for (method, result) in exchanges {
-            let expires = Instant::now() + Duration::from_secs(5);
-            let stream = loop {
-                match listener.accept() {
-                    Ok((stream, _)) => break stream,
-                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        assert!(Instant::now() < expires, "missing {method} request");
-                        thread::sleep(Duration::from_millis(1));
-                    }
-                    Err(error) => panic!("accept readiness request: {error}"),
-                }
-            };
-            stream
-                .set_read_timeout(Some(Duration::from_secs(2)))
-                .unwrap_or_else(|error| panic!("readiness read timeout: {error}"));
-            stream
-                .set_write_timeout(Some(Duration::from_secs(2)))
-                .unwrap_or_else(|error| panic!("readiness write timeout: {error}"));
-            let mut reader = BufReader::new(stream);
-            let mut length = None;
-            loop {
-                let mut line = String::new();
-                assert_ne!(
-                    reader
-                        .read_line(&mut line)
-                        .unwrap_or_else(|error| panic!("read readiness header: {error}")),
-                    0
-                );
-                if line == "\r\n" {
-                    break;
-                }
-                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                    length = Some(
-                        value
-                            .trim()
-                            .parse::<usize>()
-                            .unwrap_or_else(|error| panic!("readiness content length: {error}")),
-                    );
-                }
-            }
-            let length = length.unwrap_or_else(|| panic!("content length required"));
-            assert!(length <= 64 * 1024);
-            let mut body = vec![0; length];
-            reader
-                .read_exact(&mut body)
-                .unwrap_or_else(|error| panic!("read readiness body: {error}"));
-            let request = String::from_utf8(body)
-                .unwrap_or_else(|error| panic!("readiness request encoding: {error}"));
-            let request: String = request
-                .chars()
-                .filter(|c| !c.is_ascii_whitespace())
-                .collect();
-            assert!(request.contains("\"jsonrpc\":\"2.0\""));
-            assert!(request.contains(&format!("\"method\":\"{method}\"")));
-            assert!(request.contains("\"params\":[]"));
-            let id = request
-                .split_once("\"id\":")
-                .and_then(|(_, value)| value.split([',', '}']).next())
-                .and_then(|value| value.parse::<u64>().ok())
-                .unwrap_or_else(|| panic!("numeric readiness request id required"));
-            let answer = format!("{{\"jsonrpc\":\"2.0\",\"id\":{id},\"result\":{result}}}");
-            let mut stream = reader.into_inner();
-            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len())
-                .unwrap_or_else(|error| panic!("write readiness response: {error}"));
-            stream
-                .flush()
-                .unwrap_or_else(|error| panic!("flush readiness response: {error}"));
-        }
+        let node = producer
+            .join()
+            .unwrap_or_else(|_| panic!("evidence_node.rs: readiness producer panicked"));
+        let path = node.journal().directory().to_path_buf();
+        drop(node);
+        std::fs::remove_dir_all(path)
+            .unwrap_or_else(|error| panic!("remove readiness admission: {error}"));
     });
     (config, server)
 }
@@ -596,4 +568,28 @@ pub fn human_sources_containing(needle: &str) -> Vec<PathBuf> {
     }
     sources.sort();
     sources
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn step_clock_advances_one_millisecond_per_sample() -> Result<(), ClockError> {
+        let epoch = 1_700_000_000_000;
+        let clock = StepClock::new(epoch);
+        assert_eq!(clock.sample(Duration::ZERO), Err(ClockError::Unavailable));
+        let first = clock.sample(Duration::from_secs(1))?;
+        let second = clock.sample(Duration::from_secs(1))?;
+        assert_ne!(first.generation, [0; 16]);
+        assert_eq!(second.generation, first.generation);
+        assert_eq!(first.unix_milliseconds, epoch);
+        assert_eq!(second.unix_milliseconds - first.unix_milliseconds, 1);
+        assert_eq!(
+            second.monotonic_nanoseconds - first.monotonic_nanoseconds,
+            1_000_000
+        );
+        assert_eq!(second.elapsed_since(first)?, Duration::from_millis(1));
+        Ok(())
+    }
 }
