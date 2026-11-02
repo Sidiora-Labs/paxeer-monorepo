@@ -199663,7 +199663,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1482.1]
 title = "Issue #1482: Generate precompile addresses from the registered endpoints only"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199721,7 +199721,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1478.1]
 title = "Issue #1478: Port the three remaining Python SDK suites off the names 9.97.7 retired"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["9.97.14"]
