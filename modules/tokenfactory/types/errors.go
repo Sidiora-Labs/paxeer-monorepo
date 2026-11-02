@@ -37,6 +37,8 @@ var (
 
 var ErrIssuerMismatch = sdkerrors.Register(ModuleName, 28, "LXP_UNAUTHORIZED_DEBIT: caller is not the denom issuer")
 
+// ErrEncodeTokenFactorySetDenomPaused also covers missing or null required
+// fields, so malformed wasm output cannot implicitly request an unpause.
 var ErrEncodeTokenFactorySetDenomPaused = sdkerrors.Register(ModuleName, 29, "Error while encoding tokenfactory set denom paused msg in wasmd")
 
 var ErrEncodingDenomPaused = sdkerrors.Register(ModuleName, 30, "Error encoding denom paused as JSON")
