@@ -1797,9 +1797,14 @@ human-e2e: human-test-e2e
 
 .PHONY: qualification-runner-test human-qualify-journeys \
 	human-qualify-fabrication human-qualify-faults human-qualify-perf \
-	human-qualify platform-qualify
+	human-qualify platform-qualify test-mcp-binding-receipt-keys
 
-qualification-runner-test:
+test-mcp-binding-receipt-keys:
+	@python3 -c 'import pytest' || \
+		{ echo "pytest is required for MCP binding receipt-key qualification" >&2; exit 1; }
+	python3 -m pytest -q tests/qualification/test_mcp_binding_receipt_keys.py
+
+qualification-runner-test: test-mcp-binding-receipt-keys
 	python3 -m unittest tools.qualification.test_release_runner
 
 human-qualify-journeys:
@@ -3154,8 +3159,5 @@ $(BUILD_DIR)/bin/layerx-archive-codec: $(ARCHIVE_CODEC_OBJECTS) $(LIBRARY) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 include tools/paxeer-x/build/104.35.11.mk
-include tools/paxeer-x/build/104.35.12.mk
 include tools/paxeer-x/build/6.6.mk
-include tools/paxeer-x/build/104.35.15.mk
-include tools/paxeer-x/build/104.35.20.mk
-include tools/paxeer-x/build/104.35.29.mk
+include tools/paxeer-x/build/proof.mk

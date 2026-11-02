@@ -27,7 +27,9 @@ LAYERX_LEDGER_ADDRESS = bytes.fromhex("000000000000000000000000000000000000101a"
 class PaymentCommitmentError(PlatformSdkError):
     def __init__(self) -> None:
         super().__init__(SdkErrorCode.VERIFICATION_FAILURE, "never")
-        self.args = ("payment commitment must follow the rung ladder: submitted -> receipted -> committed",)
+        self.args = (
+            "payment commitment must follow the rung ladder: submitted -> receipted -> committed",
+        )
 
 
 @dataclass(frozen=True)

@@ -13630,3 +13630,148 @@ fix = "Assert status.Code and the message text on the client path, and assert er
 title = "Check the headers before asserting that a type is retired"
 symptom = "A CI test asserted lxp_verified_receipt_authority_facts was gone while include/layerx/lxp_receipt.h still defines it and src/modules/programs/call.c uses it; three legitimate test files failed the assertion."
 fix = "An absence test names deleted files and their references, taken from the deleting commit, never a type or symbol unless the header no longer declares it."
+
+[gotcha.2763]
+title = "A contract build that passes does not prove the schema tests pass"
+symptom = "The agent API build-script gate checks removals only; two additive schema edits (a new record block, a reworded outcome) built fine while cargo test -p layerx-agent-api --test schema failed on a stale golden and stale literal pins."
+fix = "A task that edits services/agent/schema/agent-api/*.kvx moves golden/v1.kvx and the schema.rs pins in the same commit and runs the schema tests in its verify (decision 2307)."
+
+[gotcha.2764]
+title = "A test that expects a raised type must follow the wrapper that converts it"
+symptom = "test_material.py expected FileNotFoundError from assemble_policy while read_bytes had converted it into a ValueError bundle refusal a month earlier."
+fix = "When a test expects an exception type, read the call path for a converting wrapper and assert the type and message the product raises now."
+
+[gotcha.2765]
+title = "A test for a later validation must satisfy the earlier mandatory configuration"
+symptom = "The seller network-identifier test constructed SellerMiddleware without receipt keys; the constructor refuses missing keys before it reads the networks, so the expected unsupported-payment never surfaced."
+fix = "Give such a test the mandatory fixtures (a pinned key) so it reaches the validation it asserts; do not reorder product checks to suit the test."
+
+[gotcha.2766]
+title = "Pick the fixture case the verifier decodes, not the first vector of the file"
+symptom = "Python x402 payment tests fed the plain transfer vector to a verifier that decodes a ledger draw and failed with Local verification failed."
+fix = "Select the fixture case by id (V1-layerxledger-pay-exact) and derive the terms from its log, the way the TypeScript seller tests do."
+
+[gotcha.2767]
+title = "Deleting a test file also removes it from an explicit test script"
+symptom = "The TypeScript SDK's npm test lists each compiled test by path; deleting the source left Cannot find module for its dist file."
+fix = "When a test file is deleted, edit the package.json test script (and any list that names it) in the same change and add package.json to touches."
+
+[gotcha.2768]
+title = "The merge plan gate counted v6.12.0 addresses a full-genesis chain never selected"
+symptom = "Applying the merge plan on a test wrapper panicked with 'missing merge constructors or activation precompiles: 0x1020 ... 0x1025' because the v6.12.0 set was selected only on a done height while the gate counted every activation address."
+fix = "Derive liveness of a versioned set from the module version map as well as the done height (decision 2308), the rule the activation entries already follow."
+
+[gotcha.2769]
+title = "A schema edit leaves the generated SDKs stale"
+symptom = "The platform generator's --check refused after a schema file changed although every crate test passed."
+fix = "Run the generator without --check after any schema edit and commit the regenerated files with the pipeline manifest (decision 2310)."
+
+[gotcha.2770]
+title = "A missing named export fails the whole ESM test file at load"
+symptom = "A buyer test file imported a class the shared runtime module had renamed; node reported the SyntaxError before any test ran, so every case in the file counted as failed."
+fix = "Grep the support module's exports when a test imports it, and port renamed clients with their new constructor arguments."
+
+[gotcha.2771]
+title = "An ABCI error built from an empty log names no reason"
+symptom = "The sequencer's Accept wrapped codespace, code and an empty log into an error whose text was blank, so the test only showed a stack."
+fix = "Include codespace and code in the error text when the log is empty, and have harnesses print them."
+
+[gotcha.2772]
+title = "Grant reads moved from the keeper to the precompile view"
+symptom = "Tests still called Keeper.GetPayerGrant two days after 1.12.4 deleted it; vet failed for the whole test package."
+fix = "Read grants through the getPayerGrant view of the precompile and grep every test package for a deleted accessor, not only the file the finding named."
+
+[gotcha.2773]
+title = "A ruling naming a file outside the task's touches is never applied"
+symptom = "Six candidates of one task left a one-line test repair undone because the test file the finding named was not in the task's touches list, which bounds every change a task may make."
+fix = "Every do item that names a file adds that file (or its directory) to touches in the same ruling; check the touches list before writing the do item."
+
+[gotcha.2774]
+title = "A fixture pins nonce 0 on a shared package account"
+symptom = "Two tracer shape tests failed on 'expected 0x0 actual 0x2' because the fixture pinned the transaction nonce while earlier tests in the package had advanced the account."
+fix = "Build fixture transactions with the account's current nonce (EVMKeeper.GetNonce) and assert that value."
+
+[gotcha.2775]
+title = "eth_estimateGas panics while no block is open"
+symptom = "The estimate path still required an open sequencer block after the send path had been taught to use the committed state, so a quiet node panicked 'sequencer: no block is open'."
+fix = "Resolve the pending tag to the committed height on every RPC path, not only the one the failing test exercised."
+
+[gotcha.2776]
+title = "A generated C decoder names a type the header retired"
+symptom = "A Go test that compiles a C decoder against the kernel headers failed on 'unknown type name' after the header dropped the grant type with the retired kernel grant store."
+fix = "Drop the decoder arm with the retired payload and keep the test on the structs the header defines."
+
+[gotcha.2777]
+title = "StaticCall given the executor's gas runs out of gas"
+symptom = "A precompile view test passed the executor's RequiredGas to the EVM call while the registered contract charges a wrapper surcharge, so every call reported out of gas."
+fix = "Charge the EVM call what the registered contract requires (the package RequiredGas) and assert zero gas left."
+
+[gotcha.2778]
+title = "The payment payer is the receipt from-account, not the log topic"
+symptom = "Five payment tests failed payment-binding-mismatch because the payer passed to the verifier was the PaymentExact log's payer topic (the ledger account) while the SDK binds payer to the receipt's from-account (the EVM sender left-padded to 32 bytes)."
+fix = "Decode the conformance receipt with its pinned key and read from_account before writing a fixture ruling."
+
+[gotcha.2779]
+title = "An operator-evidence test cannot be rebuilt from committed producers"
+symptom = "Repeated rulings asked a test to build an owner-evidence tree with the committed producers, which do not emit every record the policy assembler requires and need a running node."
+fix = "Skip the operator test with the reason named when the inputs are absent and prove the property on a minimal fixture in a separate unit test."
+
+[gotcha.2780]
+title = "Redefining a module's enable key changes every genesis root"
+symptom = "A storage-retirement flag was wired by returning its parameter key from the module enable-key function, so every manifest without the flag verified with LXP_ERR_ROOT_MISMATCH."
+fix = "Give a new flag its own parameter key and a dedicated lookup; never change the key an existing parameter is identified by."
+
+[gotcha.2781]
+title = "A plan-default test passes a retired argument and expects success"
+symptom = "A genesis plan test called the plan default with custody credit enabled and expected LXP_OK, while the function refuses that argument by design."
+fix = "Read the function's refusal arms before writing a test expectation for a retired option."
+
+[gotcha.2782]
+title = "Routing reads charged the transaction's gas meter"
+symptom = "Chain-domain lookups made while routing a transaction read the registry under the sender's gas meter, so a plain transfer at the minimum gas ran out of gas on a virtual chain."
+fix = "Run consensus bookkeeping reads under an infinite gas meter; the sender pays only for execution."
+
+[gotcha.2783]
+title = "A test port asked for grant bytes a retired store cannot return"
+symptom = "A ruling ported keeper grant reads to the precompile view, but the view refuses every id since the grant store retired, so the port could not pass."
+fix = "Read the view body before ruling a port; assert the refusal when the underlying store is retired."
+
+[gotcha.2784]
+title = "A fixture carried resolution answers inside the wire request"
+symptom = "A conformance fixture's request object gained the resolver's answers, so the SDK encoders' equality tests against it failed in two languages."
+fix = "Keep the request object of a fixture equal to what the SDK encodes; put derived answers under the result."
+
+[gotcha.2785]
+title = "A test expected decimal heights the producer emits as hex"
+symptom = "A daemon test asserted receipt key heights as decimal strings while the producer and the parser both use 0x quantities."
+fix = "Read the producer's encoding before asserting a wire value."
+
+[gotcha.2786]
+title = "A port premise claimed a module the application still registers was removed"
+symptom = "A ruling said a module left the module manager and asked for nil-keeper assertions; the application still registers it and carries the keeper by a later decision."
+fix = "Check node/app.go and the precompile keepers before ruling what a retirement removed."
+
+[gotcha.2787]
+title = "A Rust test cannot link a C symbol defined outside the library sources"
+symptom = "An FFI function defined in a C file compiled only into the C test targets was called from a cargo test, which failed to link."
+fix = "Prove FFI paths from the side that links the definition; keep Rust tests on the crate's pure paths."
+
+[gotcha.2788]
+title = "A Go proof that drives a Node consumer needs that package's dependencies"
+symptom = "A Go test ran node --import tsx inside a pnpm package whose dependencies were never installed, so it failed on module resolution."
+fix = "Install the consumer package's dependencies in the task's build command before the Go build."
+
+[gotcha.2789]
+title = "The pending tag is refused off the proposing node"
+symptom = "A proof read the pending nonce from a node that does not propose blocks and was refused with -32000."
+fix = "Read nonces at latest or at a height unless the client talks to the proposer."
+
+[gotcha.2790]
+title = "A test handed a document to a helper that takes text"
+symptom = "A rewrite-genesis test passed a validator object to the public-key helper, which requires base64 text."
+fix = "Read a helper's first require before calling it from a test."
+
+[gotcha.2791]
+title = "A package-wide verify carried eleven tests the task never touched"
+symptom = "A task's verify ran four packages whole, and eleven unrelated stale or regressed tests blocked it for three attempts."
+fix = "Gate a task on the tests of its own files and give the whole-package run its own repair task."
