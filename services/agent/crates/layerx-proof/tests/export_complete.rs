@@ -14,7 +14,6 @@ use layerx_proof::export_codec::{
 use layerx_proof::merkle::{build_leaf_hash_proof, build_proof, encode_proof, Proof};
 use layerx_proof::signed_authority::SignedAuthorityHistory;
 use layerx_types::rung::Rung;
-use layerx_wire::activity::decode_signed;
 use layerx_wire::encode::Encoder;
 use layerx_wire::handover::{decode_genesis_trust, sequencer_id};
 use layerx_wire::hash::{
@@ -25,7 +24,7 @@ use layerx_wire::receipt::{decode as decode_receipt, decode_batch_header, encode
 
 const GENESIS: &[u8] = include_bytes!("fixtures/signed-authority/genesis.bin");
 const HEADERS: &[u8] = include_bytes!("fixtures/signed-authority/headers.bin");
-const HANDOVER: &[u8] = include_bytes!("fixtures/signed-authority/handover.activity");
+const HANDOVER_PAYLOAD: &[u8] = include_bytes!("fixtures/signed-authority/handover.payload");
 const HEADER_RECORD: usize = 418;
 const HEADER_BYTES: usize = 354;
 const NO_RECORDS: [Vec<u8>; 0] = [];
@@ -121,7 +120,6 @@ struct Native {
 // Trust is built only from the checked-in native genesis and its signed headers.
 fn native() -> Native {
     let genesis = must(decode_genesis_trust(GENESIS));
-    let activity = must(decode_signed(HANDOVER, &genesis.registry));
     let mut history = must(SignedAuthorityHistory::from_genesis(
         genesis.network_id,
         genesis.canonical_state_root,
@@ -129,7 +127,7 @@ fn native() -> Native {
         genesis.governance_witness,
     ));
     for (index, record) in HEADERS.chunks_exact(HEADER_RECORD).enumerate() {
-        let packet = (index >= 13).then_some(activity.payload());
+        let packet = (index >= 13).then_some(HANDOVER_PAYLOAD);
         must(history.advance(
             &record[..HEADER_BYTES],
             &must(record[HEADER_BYTES..].try_into()),

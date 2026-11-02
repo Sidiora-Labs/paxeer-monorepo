@@ -1,12 +1,13 @@
-use layerx_crypto::disclosure::{bind, DisclosureError};
+use layerx_crypto::disclosure::call::{ledger_selector, ConstructMethod};
+use layerx_crypto::disclosure::DisclosureError;
+use layerx_crypto::evm_transaction::Eip1559Call;
+use layerx_crypto::payments::bind_call;
 use layerx_crypto::signer::{LocalSigner, Signer as _};
 use layerx_intents::NativeOwnerBootstrap;
-use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
+use layerx_types::activity::TimestampBound;
+use layerx_types::ids::Did;
 use layerx_types::intent::{ApprovalThreshold, PublicKey, RecoveryRoot};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_wire::activity::encode_unsigned_envelope;
 
 fn registry(ordinals: &[u16]) -> ModuleRegistry {
     let activities: Vec<_> = ordinals
@@ -21,63 +22,111 @@ fn registry(ordinals: &[u16]) -> ModuleRegistry {
     .unwrap_or_else(|error| panic!("native module registry: {error:?}"))
 }
 
+fn lifecycle_call(compiled: &layerx_intents::CompiledIntent) -> Eip1559Call {
+    let payload = compiled.payload().as_bytes();
+    let mut data = ledger_selector("recordLifecycle(bytes,bytes32)").to_vec();
+    let mut word = [0; 32];
+    word[31] = 64;
+    data.extend_from_slice(&word);
+    data.extend_from_slice(&[1; 32]);
+    word.fill(0);
+    word[24..].copy_from_slice(
+        &u64::try_from(payload.len())
+            .expect("payload length")
+            .to_be_bytes(),
+    );
+    data.extend_from_slice(&word);
+    data.extend_from_slice(payload);
+    data.resize(4 + (data.len() - 4).div_ceil(32) * 32, 0);
+    let mut to = [0; 20];
+    to[18..].copy_from_slice(&[0x10, 0x1c]);
+    Eip1559Call {
+        chain_id: 125,
+        nonce: 10,
+        max_priority_fee_per_gas: 2,
+        max_fee_per_gas: 30,
+        gas_limit: 100_000,
+        to,
+        data,
+    }
+}
+
 #[test]
-fn native_identity_disclosure_refuses_foreign_subject_and_signing_key() -> Result<(), String> {
-    let checked = |error| format!("owner DID: {error:?}");
-    let owner = Did::new(b"did:layerx:owner-bootstrap").map_err(checked)?;
-    let foreign = Did::new(b"did:layerx:foreign-owner").map_err(checked)?;
+fn native_identity_compiles_to_auth_lifecycle_call() -> Result<(), String> {
+    let owner =
+        Did::new(b"did:layerx:owner-bootstrap").map_err(|error| format!("owner DID: {error:?}"))?;
+    let subject = layerx_wire::hash::did_id_for_protocol(&owner, 3)
+        .map_err(|error| format!("subject: {error:?}"))?;
     let public = LocalSigner::new([71; 32]).public_key();
     let registry = registry(&[1]);
-    let canonical = |compiled: &layerx_intents::CompiledIntent| -> Result<Vec<u8>, String> {
-        let mut builder = EnvelopeBuilder::new();
-        builder
-            .protocol_version(3)
-            .and_then(|builder| builder.network_id(77))
-            .and_then(|builder| builder.activity_type(compiled.activity_type()))
-            .and_then(|builder| builder.actor_did(owner.clone()))
-            .and_then(|builder| builder.authority(Authority::owner(&public)?))
-            .and_then(|builder| builder.account_sequence(10))
-            .and_then(|builder| builder.timestamp_bound(TimestampBound::new(1_000, 61_000)?))
-            .and_then(|builder| builder.idempotency_key(IdempotencyKey::new([1; 32])))
-            .and_then(|builder| builder.fee_limit(Amount::from_u128(100)))
-            .and_then(|builder| builder.payload_hash(compiled.payload_hash()))
-            .and_then(|builder| builder.payload(compiled.payload().clone()))
-            .map_err(|error| format!("identity disclosure envelope: {error:?}"))?;
-        let envelope = builder
-            .build()
-            .map_err(|error| format!("envelope: {error:?}"))?;
-        encode_unsigned_envelope(&envelope).map_err(|error| format!("canonical bytes: {error:?}"))
-    };
     let identity = NativeOwnerBootstrap::Identity {
-        did: owner.clone(),
+        did: owner,
         primary_key: PublicKey::new(public),
     }
     .compile(&registry)
     .map_err(|error| format!("native identity: {error:?}"))?;
-    let unsigned = canonical(&identity)?;
-    let disclosure =
-        bind(&unsigned, &registry).map_err(|error| format!("disclosure: {error:?}"))?;
+    let payload = identity.payload().as_bytes();
+    assert_eq!(payload.len(), 68);
+    assert_eq!(&payload[..4], &[0x71, 1, 0, 2]);
+    assert_eq!(&payload[4..36], &subject);
+    assert_eq!(&payload[36..], &public);
+    let call = lifecycle_call(&identity);
+    let from = [0x42; 20];
+    let disclosure = bind_call(&call, from).map_err(|error| format!("disclosure: {error:?}"))?;
+    assert_eq!(disclosure.activity_type, identity.activity_type());
+    assert_eq!(disclosure.actor, from);
+    assert_eq!(disclosure.authority, from);
+    assert_eq!(disclosure.envelope_sequence(), call.nonce);
+    assert_eq!(
+        disclosure.fee_limit,
+        u128::from(call.gas_limit) * call.max_fee_per_gas
+    );
+    assert_eq!(disclosure.idempotency_key, [1; 32]);
+    assert_eq!(disclosure.canonical_payload(), call.data);
     assert_eq!(
         disclosure
-            .reencode()
-            .map_err(|error| format!("reencode: {error:?}"))?,
-        unsigned
+            .signing_digest()
+            .map_err(|error| format!("digest: {error:?}"))?,
+        call.signing_hash()
     );
-    for (did, primary_key) in [
-        (foreign, public),
-        (owner.clone(), LocalSigner::new([72; 32]).public_key()),
-    ] {
-        let compiled = NativeOwnerBootstrap::Identity {
-            did,
-            primary_key: PublicKey::new(primary_key),
-        }
-        .compile(&registry)
-        .map_err(|error| format!("native identity: {error:?}"))?;
-        assert!(matches!(
-            bind(&canonical(&compiled)?, &registry),
+    assert_eq!(
+        disclosure
+            .construct_method()
+            .map_err(|error| format!("method: {error:?}"))?,
+        Some(ConstructMethod::AuthLifecycle {
+            payload: identity.payload().as_bytes().to_vec(),
+            idempotency_key: [1; 32],
+        })
+    );
+    assert!(disclosure.amounts.is_empty());
+    assert!(disclosure.counterparties.is_empty());
+    assert_eq!(disclosure.asset, [0; 32]);
+    for offset in [100, 101, 102, 103] {
+        let mut malformed = call.clone();
+        malformed.data[offset] = 0xff;
+        assert_eq!(
+            bind_call(&malformed, from),
             Err(DisclosureError::MalformedPayload)
-        ));
+        );
     }
+    let mut invalid_offset = call.clone();
+    invalid_offset.data[35] = 32;
+    assert_eq!(
+        bind_call(&invalid_offset, from),
+        Err(DisclosureError::MalformedPayload)
+    );
+    let mut invalid_padding = call.clone();
+    *invalid_padding.data.last_mut().expect("ABI padding") = 1;
+    assert_eq!(
+        bind_call(&invalid_padding, from),
+        Err(DisclosureError::MalformedPayload)
+    );
+    let mut trailing = call;
+    trailing.data.push(0);
+    assert_eq!(
+        bind_call(&trailing, from),
+        Err(DisclosureError::MalformedPayload)
+    );
     Ok(())
 }
 
