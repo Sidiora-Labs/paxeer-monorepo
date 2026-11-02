@@ -43,6 +43,8 @@ import type {
   WireSponsoredBatch,
 } from './types.js';
 
+import { assertSendTxResponse } from './types.js';
+
 export const PAXEER_CHAIN_ID = 125;
 
 // Paxeer mainnet v6.12.0 upgrade plan activation height (the ledger precompile is gated on a plan applied after it).
@@ -327,8 +329,11 @@ export class PaxeerProvider implements Eip1193Provider {
       wire.chainId = chainId;
     }
     const response = await this.gateway<SendTxResponse>('POST', '/v1/wallet/send', { tx: wire });
-    if (!/^0x[0-9a-fA-F]{64}$/.test(response.tx_hash))
-      throw new InvalidParamsError('tx_hash', 'gateway returned an invalid transaction hash');
+    try {
+      assertSendTxResponse(response, { chainId: this.chainId, account });
+    } catch (error) {
+      throw new InvalidParamsError('response', (error as Error).message);
+    }
     return response.tx_hash;
   }
 
