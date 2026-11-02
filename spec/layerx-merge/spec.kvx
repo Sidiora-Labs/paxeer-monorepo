@@ -118295,7 +118295,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1435.2]
 title = "Issue #1435: Publish the pending and absent verification statuses in the agent API contract and the daemon goldens"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.27.9"]
@@ -179533,7 +179533,7 @@ do_4 = "Decision 2121: continue from attempt 2 (e5415471d). TestEveryCTestMainHa
 
 [task.16.28.2]
 title = "Guard that every go test -run selector in the Makefile matches at least one test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["16.28.1"]
