@@ -13216,3 +13216,73 @@ fix = "When retiring a wire type, grep tests/qualification and the vectors produ
 title = "Delete a transport module only after a consumer census, and re-home shared types where their users live"
 symptom = "9.24.7 deleted the LNI module whose Version type two RPC files import and whose transport the agent daemon library, seventeen test targets and the pay2e qualification still use."
 fix = "Before a module deletion, grep every crate for its path; re-home shared types next to their consumers in the same task and block the deletion until the transport consumers have port tasks."
+
+[gotcha.2680]
+title = "Re-check a retirement decision's consumer basis before the task runs; new work may have adopted the surface"
+symptom = "Decision 681 counted Governed.sol's importers in September; the .pax names contracts inherited it on 2026-10-31 and a gate written against the old basis failed on four live suites."
+fix = "When a retirement task becomes eligible, grep the repository for the surface again and supersede or re-scope the task if live consumers appeared after the decision."
+
+[gotcha.2681]
+title = "The libtest harness takes --exact once; list every test name after a single flag"
+symptom = "A verify command of the form `-- --exact a --exact b` fails with `Option 'exact' given more than once` before any test runs."
+fix = "Write `-- --exact a b`; the filter names after one --exact are all matched exactly."
+
+[gotcha.2682]
+title = "A verify that compiles a test package must be checked against the package's state on main, not only the file the task changes"
+symptom = "6.96.5 changed one non-test file and its verify ran go vet and go test of the keeper package, whose test file had not compiled since a loader retirement; the task failed on an error it did not cause."
+fix = "Before declaring go vet or go test of a package, grep the package's _test.go files for symbols retired by done tasks; if the package is broken on main, verify through another package and write the repair as its own task."
+
+[gotcha.2683]
+title = "A manifest change in a crate that another workspace resolves by path drifts that workspace's lock file"
+symptom = "9.28.1 removed a dependency from three agent crates and refreshed the agent locks; services/platform/Cargo.lock, which carries those crates through a path dependency, kept the removed package, and every --locked build under services/platform failed, including the clock runner the human gates start with."
+fix = "When a task edits a Cargo.toml, list every Cargo.lock whose workspace resolves that crate by path (grep for the crate's directory in */Cargo.toml path = entries) and add the lock to touches with a cargo metadata --locked check in the verify."
+
+[gotcha.2684]
+title = "A retirement task that adds a reference-scan test must list the documents that name the retired assets"
+symptom = "8.32.2 deleted the relay archive installer and added a test asserting no platform file names its variables; the directory's README documented the installer and its variables and failed the task's own test."
+fix = "Before writing a scan test, grep the scanned tree for the retired names and add every hit, documentation included, to touches with a do that rewrites or deletes it."
+
+[gotcha.2685]
+title = "A task that deletes a Rust module file must also touch the parent that declares it"
+symptom = "9.24.6 listed four submodule files of lni for deletion; lni/mod.rs kept their `pub mod` lines and re-exports, the crate failed with E0583, and two attempts stopped at the build because the module root was out of scope."
+fix = "For every src file in a deletion list, add the file holding its `mod name;` line (and any `pub use name::` re-export) to touches with a do that removes those lines; grep the crate for `name::` before writing the verify."
+
+[gotcha.2686]
+title = "A test that drives a retired transport fails with the SDK's refusal code, not with an assertion"
+symptom = "Two journal tests fed an HTTP fake to a journal that had moved to JSON-RPC eth_sendRawTransaction; every run stopped at EvmTransportUnavailable, and three attempts repaired the fixtures around it."
+fix = "When a test fails inside the SDK with a transport-availability code, read the SDK method's current contract first and rewrite the test's transport and expected states to it; do not teach the fake the old protocol."
+
+[gotcha.2687]
+title = "A run card's profile key must be the dominant profile of its domain's tasks"
+symptom = "17.7.5's render_counts refused the domain 15 card: it declared go while 29 of the domain's 58 tasks declare go-cgo, and the verify failed before the counts rendered."
+fix = "Before declaring a card check, count the domain's task profiles and set the card's profile key (line 4 of the card) to the most common one; a kernel-bearing domain is go-cgo."
+
+[gotcha.2688]
+title = "Human-workspace cargo tests run under tools/runtime/run-with-clock.sh"
+symptom = "9.35.9's verify ran cargo test on layerx-human-kms directly and twelve tests failed with Error: Unavailable because Host::new opens the runtime clock socket that the Makefile provides through sh tools/runtime/run-with-clock.sh."
+fix = "Prefix every human-workspace cargo test in a verify with `sh tools/runtime/run-with-clock.sh `; the wrapper builds layerx-runtime-clock from services/platform and exports the socket; a --no-run step does not need it."
+
+[gotcha.2689]
+title = "A verify test that runs a repository script must be checked for the script on main"
+symptom = "6.96.5's verify named TestBringUpAnchorGenesisValidates, which runs services/platform/hosted/paxeer/anchor-genesis.py through os/exec; task 8.14.2 had deleted the script, so the test failed on main before the task's change was exercised."
+fix = "Before naming a test in a verify, grep it for exec.Command, subprocess or a script path and confirm the target exists on main; otherwise choose another test of the package and delete or port the orphan in its own task."
+
+[gotcha.2690]
+title = "A route retirement must delete the helpers the route called, and its verify must assert the import absent"
+symptom = "Tasks 8.7.3, 8.8.3 and 8.20.1 retired the hosted kernel routes and passed verifies that checked the routes answer 404, leaving decode, verify and submit helpers compiled behind them; the kernel codec deletion later found 65 importing files."
+fix = "When a task retires a route, list the handler chain it alone reached in the do items and end the verify with `! grep -rnE 'retired::path' crate/` so the deletion is provable per crate."
+
+[gotcha.2691]
+title = "A generator task must not reintroduce an import an earlier task retired; the retirement test must name the import, not only symbols"
+symptom = "12.95.1 added `use layerx_wire::activity::{decode_unsigned, encode_unsigned}` back into the attestor vectors generator a month after 12.18.2 removed it; the generator's retired-name test scanned for other strings and passed."
+fix = "A retired-name test asserts the module path (`layerx_wire::activity`) absent, not just the functions; a task that touches a file with such a test reads the test's list first."
+
+[gotcha.2692]
+title = "A runcard check that compares every card against the spec fails on the first mismatch; fix all cards in one attempt"
+symptom = "17.7.5 attempt 2 fixed the domain-15 card and failed on domain 4; three more cards (12, 16, 17) would have cost three more attempts."
+fix = "When a verify iterates a collection against the spec, compute the expectation for every element from the installed spec before the repair and fix them all in one attempt."
+
+[gotcha.2693]
+title = "A module whose AppModule was removed from the app has no routed message handler; its route tests fail for ever"
+symptom = "6.96.5 attempt 4 ran modules/layerxanchor TestAppRoutesAnchorUpdateParamsRetired, which asserts MsgServiceRouter().Handler(MsgUpdateParams) is not nil; task 5.7.1 had removed the anchor AppModule from node/app.go, so the handler is nil on main."
+fix = "Before picking a Go test for a verify, confirm the module is still wired in node/app.go (NewAppModule in the module manager, not only AppModuleBasic); otherwise build and vet without a test and delete the stale test in the task that restores the package's tests."
