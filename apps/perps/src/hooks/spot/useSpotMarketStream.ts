@@ -3,7 +3,8 @@ import { isPageActive, scheduleActive, sequenceGuard, watchSocket, type CancelTa
 import { FEED_ORIGIN } from "@/core/feeds";
 
 import { useEffect, useState } from "react";
-import { normalizeLevels, type SpotBookLevel } from "@/core/perps/bookLevels";
+import type { SpotBookLevel } from "@/core/perps/bookLevels";
+import { parseVenueBook, parseSpotVenueTrade } from "@/core/net/venueStream";
 
 /* ══════════════════════════════════════════════════════════════════════
    Dedicated SPOT market stream — mirrors the perps
@@ -177,10 +178,9 @@ function connectSpot(symbol: string, s: SpotSymbolStream) {
     // Order-book frame
     if (msg.topic === orderbookTopic && msg.data) {
       const data = msg.data as Record<string, unknown>;
-      const asks = normalizeLevels(data.asks, "asks");
-      const bids = normalizeLevels(data.bids, "bids");
-      const ts = typeof msg.ts === "number" ? msg.ts : Date.now();
-      s.orderbook = { asks, bids, ts };
+      const book = parseVenueBook(data, typeof msg.ts === "number" ? msg.ts : Date.now());
+      if (!book) return;
+      s.orderbook = { asks: book.asks, bids: book.bids, ts: book.ts };
       s.subsOrderbook.forEach((cb) => cb(s.orderbook));
       return;
     }
@@ -189,14 +189,16 @@ function connectSpot(symbol: string, s: SpotSymbolStream) {
     if (msg.topic === tradeTopic && msg.data) {
       const data = msg.data as Record<string, unknown>;
       if (msg.snapshot && Array.isArray(data.trades)) {
-        s.trades = (data.trades as unknown[]).slice(0, TRADE_CAP).map(normalizeSpotTrade);
+        s.trades = (data.trades as unknown[]).slice(0, TRADE_CAP).map(parseSpotTrade).filter((trade): trade is SpotTrade => trade !== null);
         s.subsTrades.forEach((cb) => cb(s.trades));
       } else if (data.trade) {
-        const t = normalizeSpotTrade(data.trade);
+        const t = parseSpotTrade(data.trade);
+        if (!t) return;
         s.trades = [t, ...s.trades].slice(0, TRADE_CAP);
         s.subsTrades.forEach((cb) => cb(s.trades));
       } else if (data.side && data.price != null) {
-        const t = normalizeSpotTrade(data);
+        const t = parseSpotTrade(data);
+        if (!t) return;
         s.trades = [t, ...s.trades].slice(0, TRADE_CAP);
         s.subsTrades.forEach((cb) => cb(s.trades));
       }
@@ -205,15 +207,9 @@ function connectSpot(symbol: string, s: SpotSymbolStream) {
 
     // Stats frame — SPOT stats shape (simpler than perps)
     if (msg.topic === statsTopic && msg.data) {
-      const d = msg.data as Record<string, unknown>;
-      s.statsData = {
-        symbol: String(d.symbol ?? symbol),
-        last_price: Number(d.last_price ?? d.price ?? 0),
-        high_24h: Number(d.high_24h ?? d["24h_high"] ?? 0),
-        low_24h: Number(d.low_24h ?? d["24h_low"] ?? 0),
-        volume_24h: Number(d.volume_24h ?? d["24h_volume"] ?? 0),
-        change_24h: Number(d.change_24h ?? d["24h_change"] ?? 0),
-      };
+      const stats = parseSpotStats(msg.data, symbol);
+      if (!stats) return;
+      s.statsData = stats;
       s.subsStats.forEach((cb) => cb(s.statsData));
       return;
     }
@@ -259,18 +255,31 @@ function releaseIfIdle(symbol: string, s: SpotSymbolStream) {
   }, 15000);
 }
 
-function normalizeSpotTrade(t: unknown): SpotTrade {
-  const obj = t as Record<string, unknown>;
-  const side = String(obj?.side ?? "").toUpperCase() === "BUY" ? "BUY" : "SELL";
-  const tradeTimeRaw = obj?.trade_time ?? obj?.ts ?? Date.now();
-  const tradeTime = Number(tradeTimeRaw);
-  const size = Number(obj?.size ?? obj?.quantity ?? 0);
+/** Decode the gateway trade as the shared venue consumer does. */
+export function parseSpotTrade(raw: unknown): SpotTrade | null {
+  const trade = parseSpotVenueTrade(raw);
+  if (!trade) return null;
   return {
-    side,
-    price: Number(obj?.price),
-    size,
-    trade_id: (obj?.trade_id ?? obj?.id ?? undefined) as string | undefined,
-    trade_time: Number.isFinite(tradeTime) ? tradeTime : Date.now(),
+    side: trade.side,
+    price: trade.price,
+    size: trade.size,
+    trade_id: trade.id ?? undefined,
+    trade_time: trade.trade_time,
+  };
+}
+
+/** Prices are not part of gateway @stats; preserve the legacy display fields. */
+export function parseSpotStats(raw: unknown, symbol: string): SpotStats | null {
+  if (!raw || typeof raw !== "object") return null;
+  const d = raw as Record<string, unknown>;
+  if (d.symbol !== symbol || typeof d.volume_24h !== "number" || !Number.isFinite(d.volume_24h)) return null;
+  return {
+    symbol: String(d.symbol ?? symbol),
+    last_price: Number(d.last_price ?? d.price ?? 0),
+    high_24h: Number(d.high_24h ?? d["24h_high"] ?? 0),
+    low_24h: Number(d.low_24h ?? d["24h_low"] ?? 0),
+    volume_24h: Number(d.volume_24h ?? d["24h_volume"] ?? 0),
+    change_24h: Number(d.change_24h ?? d["24h_change"] ?? 0),
   };
 }
 

@@ -24,12 +24,14 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery/natsdriver"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/feeds"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/publish"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/stream"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
 )
 
 const hubSnapshotID = "hub-7c1e4a90"
@@ -230,9 +232,18 @@ type hubRig struct {
 func newHubRig(t *testing.T, db *sql.DB, maxMsgs int64) *hubRig {
 	t.Helper()
 	ns, nc, js := hubBroker(t, maxMsgs)
-	p, err := feeds.NewProviders(context.Background(), db, nil)
+	metrics, err := telemetry.New(config.Gateway)
 	if err != nil {
 		t.Fatal(err)
+	}
+	p, err := feeds.NewProviders(context.Background(), db, nil, metrics)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scrape := httptest.NewRecorder()
+	metrics.ServeHTTP(scrape, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	if scrape.Code != http.StatusOK || !strings.Contains(scrape.Body.String(), feeds.GatewayMarketsMetric+" 18\n") {
+		t.Fatalf("served market gauge: %d %s", scrape.Code, scrape.Body.String())
 	}
 	hub, err := NewHub(hubFeeds{p}, 125, hubSnapshotID, nil)
 	if err != nil {
