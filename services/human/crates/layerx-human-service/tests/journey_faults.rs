@@ -734,6 +734,7 @@ impl AgentBoundary for RealAgentLayer {
             actor: request.actor.clone(),
             authority: request.authority.clone(),
             account_sequence: request.account_sequence.get(),
+            pending_nonce: transaction.nonce,
             not_before: request.timestamp_bound.not_before.get(),
             not_after: request.timestamp_bound.not_after.get(),
             fee_limit: request.fee_limit.get(),
@@ -1027,11 +1028,11 @@ fn receipt(activity_id: [u8; 32], marker: u8, activity: ActivityType) -> Receipt
         activity_id,
         previous_state_root: [marker.saturating_add(1); 32],
         resulting_state_root: [marker.saturating_add(2); 32],
-        batch_id: support::committed_execution_batch_id(
-            [marker.saturating_add(1); 32],
-            [0x81; 32],
-            u64::from(marker),
-        ),
+        batch_id: {
+            let mut height = [0; 32];
+            height[24..].copy_from_slice(&u64::from(marker).to_be_bytes());
+            height
+        },
         asset: [0x33; 32],
         module: activity.module(),
         operation: u8::try_from(activity.ordinal())
@@ -1047,10 +1048,18 @@ fn receipt(activity_id: [u8; 32], marker: u8, activity: ActivityType) -> Receipt
     let canonical_bytes = encode_receipt(&fields, Some(signature.to_bytes()));
     ReceiptMaterial {
         receipt_hash: Sha256::digest(&canonical_bytes).into(),
+        signed_receipt: canonical_bytes.clone(),
         canonical_bytes,
         tx_hash: fields.activity_id,
         block_height: fields.sequence,
         rung: Rung::Receipted,
+        receipt_key: layerx_human_service::journeys::ReceiptKeyEntry {
+            key_id: [0x94; 32],
+            public_key: signer.verifying_key().to_bytes(),
+            first_height: 1,
+            last_height: u64::MAX,
+        },
+        inclusion_height: fields.sequence,
         authorised_batch: AuthorizedBatch::new(
             fields.batch_id,
             fields.asset,
@@ -1202,6 +1211,7 @@ impl Fixture {
                         .unwrap_or_else(|error| panic!("actor: {error:?}")),
                     AuthorityRef::new("custody-human-primary")
                         .unwrap_or_else(|error| panic!("authority: {error:?}")),
+                    ACCOUNT_SEQUENCE,
                     ACCOUNT_SEQUENCE,
                     995,
                     1_010,

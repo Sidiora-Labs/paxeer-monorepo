@@ -609,6 +609,16 @@ func acceptedAgentEnvelopeVerification(encoded json.RawMessage) bool {
 	case "achieved":
 		var rung string
 		return exactFields(verification, "state", "rung") && json.Unmarshal(verification["rung"], &rung) == nil && agentEnvelopeRungs[rung] != 0
+	case "pending":
+		var requested, achieved string
+		return exactFields(verification, "state", "requested", "achieved") &&
+			json.Unmarshal(verification["requested"], &requested) == nil && agentEnvelopeRungs[requested] != 0 &&
+			json.Unmarshal(verification["achieved"], &achieved) == nil && agentEnvelopeRungs[achieved] != 0 &&
+			agentEnvelopeRungs[achieved] < agentEnvelopeRungs[requested]
+	case "absent":
+		var requested string
+		return exactFields(verification, "state", "requested") &&
+			json.Unmarshal(verification["requested"], &requested) == nil && agentEnvelopeRungs[requested] != 0
 	case "unverified":
 		var requested, achieved, reason string
 		return exactFields(verification, "state", "requested", "achieved", "reason") &&

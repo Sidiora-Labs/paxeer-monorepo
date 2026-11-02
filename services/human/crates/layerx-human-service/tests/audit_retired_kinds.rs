@@ -23,9 +23,9 @@ fn retired_events() -> [AuditEvent; 3] {
         },
         AuditEvent::JourneyTransition {
             journey: Label::new("wallet-binding").unwrap_or_else(|error| panic!("label: {error}")),
-            kind: JourneyKind::WalletBinding,
+            kind: JourneyKind::Closed,
             from: JourneyState::Processing,
-            to: JourneyState::Done,
+            to: JourneyState::Closed,
         },
         AuditEvent::IdentityLifecycle {
             event: IdentityEvent::WalletBinding,

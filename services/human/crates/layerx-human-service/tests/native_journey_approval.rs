@@ -298,6 +298,7 @@ fn plan(fixture: &Value, case: &Value) -> JourneyPlan {
         checked(AgentDid::new(text(fixture, "owner"))),
         checked(AuthorityRef::new(text(&data, "authority"))),
         number(&data, "account_sequence"),
+        number(&data, "account_sequence"),
         number(&data, "not_before"),
         number(&data, "not_after"),
         checked(text(&data, "fee_limit").parse()),

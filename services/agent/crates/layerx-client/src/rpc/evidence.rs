@@ -1,8 +1,18 @@
 //! Evidence reads over JSON-RPC.
 
-use crate::sequencer::{SequencerBlock, SequencerEndpoint, SequencerError};
+use crate::sequencer::{SequencerBlock, SequencerError};
+
+pub type SequencerEndpoint = crate::sequencer::SequencerEndpoint;
+pub type PxEndpoint = crate::px::PxEndpoint;
 
 pub type Rung = layerx_types::rung::Rung;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RootSelector {
+    Latest,
+    Batch(u64),
+    Checkpoint([u8; 32]),
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProofBundle {

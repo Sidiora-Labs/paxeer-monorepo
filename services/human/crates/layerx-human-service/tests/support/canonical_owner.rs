@@ -9,6 +9,8 @@ use layerx_types::ids::{Did, IdempotencyKey};
 use layerx_types::payload::{ModuleRegistration, ModuleRegistry, Payload};
 use sha2::{Digest as _, Sha256};
 
+pub const OWNER_DID: &str = "did:layerx:owner-receipt-fixture";
+
 pub struct SignedOwner {
     pub bytes: Vec<u8>,
     pub id: [u8; 32],
@@ -23,7 +25,7 @@ fn checked<T, E: Debug>(value: Result<T, E>) -> T {
 pub fn sign(payload: &Payload, action_key: [u8; 32], version: u16, network: u32) -> SignedOwner {
     let signer = SigningKey::from_bytes(&[0x68; 32]);
     let public_key = signer.verifying_key().to_bytes();
-    let actor = b"did:layerx:owner-receipt-fixture".to_vec();
+    let actor = OWNER_DID.as_bytes().to_vec();
     let mut builder = EnvelopeBuilder::new();
     checked(builder.protocol_version(version));
     checked(builder.network_id(network));
