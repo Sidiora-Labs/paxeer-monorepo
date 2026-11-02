@@ -127896,7 +127896,7 @@ do_4 = "The task is a gate: when the build and the test compile already pass at 
 
 [task.21.130.1]
 title = "Prove the runtime crate path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
