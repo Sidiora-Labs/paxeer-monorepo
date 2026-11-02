@@ -7,11 +7,11 @@ use layerx_crypto::disclosure::{
 };
 use layerx_crypto::onboarding::OnboardingConsent;
 use layerx_intents::canonical as hash;
-use layerx_intents::canonical::unsigned_envelope_bytes as encode_unsigned_envelope;
 use layerx_types::account::AccountId;
 use layerx_types::activity::UnsignedEnvelope;
 use layerx_types::ids::Did;
 use layerx_types::payload::{ActivityType, ModuleId, Payload};
+use layerx_wire::activity::encode_unsigned_envelope;
 
 fn account(name: &str) -> Result<[u8; 32]> {
     checked(hash::account_id_for_protocol(
@@ -71,8 +71,7 @@ pub(super) fn mutated_native(disclosure: &Disclosure) -> Vec<Disclosure> {
         Some(DisclosedNativeOperation::IdentityRegistration(_)) => 2,
         Some(DisclosedNativeOperation::BudgetCreate(_)) => mutations.len(),
         Some(DisclosedNativeOperation::RecoveryPolicy(_)) => 4,
-        Some(DisclosedNativeOperation::OwnerRotation(_))
-        | Some(DisclosedNativeOperation::ProgramDeploy(_))
+        Some(DisclosedNativeOperation::ProgramDeploy(_))
         | Some(DisclosedNativeOperation::ProgramUpgrade(_))
         | Some(DisclosedNativeOperation::ProgramCall(_))
         | Some(DisclosedNativeOperation::ProgramWindDown(_))
@@ -97,9 +96,6 @@ pub(super) fn mutated_native(disclosure: &Disclosure) -> Vec<Disclosure> {
                     2 => value.threshold += 1,
                     _ => value.delay_bounds = Some((1, 2)),
                 },
-                Some(DisclosedNativeOperation::OwnerRotation(_)) => {
-                    panic!("unexpected rotation disclosure")
-                }
                 Some(DisclosedNativeOperation::ProgramDeploy(_))
                 | Some(DisclosedNativeOperation::ProgramUpgrade(_))
                 | Some(DisclosedNativeOperation::ProgramCall(_))
