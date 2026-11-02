@@ -1,7 +1,7 @@
 [card]
 role = "fm-tools-ops"
 domain = 16
-sandbox_profile = "mixed"
+sandbox_profile = "python"
 anchors = ["16.0.1", "16.0.2", "16.0.3", "16.0.4", "16.0.9"]
 wave_gate = ["scripts/gates/wave-0.sh", "scripts/gates/wave-1.sh", "scripts/gates/wave-2.sh", "scripts/gates/wave-3.sh", "scripts/gates/wave-4.sh", "scripts/gates/wave-5.sh", "scripts/gates/wave-18.sh", "scripts/gates/wave-19.sh", "scripts/gates/wave-22.sh", "scripts/gates/wave-23.sh", "scripts/gates/wave-27.sh", "scripts/gates/wave-28.sh", "scripts/gates/wave-29.sh", "scripts/gates/wave-30.sh", "scripts/gates/wave-32.sh", "scripts/gates/wave-33.sh", "scripts/gates/wave-34.sh", "scripts/gates/wave-36.sh", "scripts/gates/wave-37.sh", "scripts/gates/wave-38.sh", "scripts/gates/wave-39.sh"]
 max_parallel = 52
