@@ -754,6 +754,8 @@ func (k *Keeper) GetActiveStopLossOrderCount(ctx sdk.Context) (uint64, error) {
 	return activeCount(ctx.KVStore(k.storeKey), types.ActiveStopLossPrefix)
 }
 
+// stopActiveAt shares the limit rail's decoder, including the nonzero ID
+// and forward/reverse position checks used before ABI encoding.
 func (k *Keeper) stopActiveAt(ctx sdk.Context, prefix []byte, index uint64) (uint64, error) {
 	return activeAt(ctx.KVStore(k.storeKey), prefix, index)
 }

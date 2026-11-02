@@ -100,6 +100,7 @@ interface IXWeb {
         bytes[] calldata signatures
     ) external returns (uint8 callback, uint64 callbackGasUsed);
 
+    /// Selector 0x2d4bf7ad. Native void calls must not require deployed bytecode.
     function fulfilProgram(bytes calldata observation) external;
 
     function refund(uint64 requestId) external;
@@ -116,11 +117,13 @@ interface IXWeb {
 
     function getParams() external view returns (Params memory);
 
+    /// Selector 0x2b2e13fc; the program-origin answer is read directly from 0x1019.
     function getProgramResult(bytes32 programId, uint64 requestId)
         external
         view
         returns (bytes32 contentDigest, uint32 fullLength, uint32 responseLength, bytes memory response);
 
+    /// Selector 0xfc0d26f4; this is the kernel network id, not the EVM chain id.
     function getKernelNetworkId() external view returns (uint32 kernelNetworkId);
 }
 
