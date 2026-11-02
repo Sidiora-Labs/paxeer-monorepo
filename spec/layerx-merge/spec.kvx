@@ -106351,7 +106351,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.0.9]
 title = "Gate domain 3 completion on its retired surfaces and planned paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["3.0.1", "3.0.2", "3.0.3", "3.0.4", "3.3.2", "3.7.1", "3.7.2", "3.7.3", "3.7.4", "3.7.5", "3.8.1", "3.8.2", "3.21.4", "3.22.8", "3.23.6", "3.42.6", "3.43.1", "3.43.3", "3.45.4", "3.45.5", "3.45.6", "3.46.4", "3.47.1", "3.47.2", "3.54.2", "3.54.3", "3.54.4", "3.54.5", "3.54.6", "3.55.1", "3.56.1", "3.59.1", "3.97.1", "3.9.5", "6.96.5"]
@@ -176881,7 +176881,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.3.2]
 title = "Delete the legacy telemetry calls of capability"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.2", "15.0.4", "6.96.5"]
@@ -177009,7 +177009,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.3.6]
 title = "Delete the legacy telemetry calls of bank Send"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.6", "15.0.4", "6.96.5"]
@@ -177323,7 +177323,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.3.16]
 title = "Delete the legacy telemetry calls of baseapp runTx"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.16", "15.0.4", "6.96.5"]
