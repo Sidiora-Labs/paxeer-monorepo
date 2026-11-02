@@ -6777,6 +6777,30 @@ value = "Supersedes the reason named in decision 2245: when committedFixtureRefu
 basis = "Issue #1473: verifier.ts:610 emits bad_signature for a signer outside the set before power is summed; decision 2245 described the refusal with the wrong reason while the test and the code agree."
 affects = ["8.26.5"]
 
+[decision.2278]
+title = "A retire status that a later decision or surviving use supersedes becomes keep in interfaces.kvx"
+value = "interfaces.kvx carries status keep (with a notes line naming the decision) for interface.5.go-storage-common-keys-layer-x-anchor-store-key and interface.5.key-storage-common-keys-layer-x-anchor-store-key (decision 1954), interface.11.fmt-portable-format-probe (the v2 format check after task 11.29.4; override.J48.44 reads keep) and interface.7.met-pax-rpc-request-counter, interface.7.met-pax-rpc-request-latency-ms and interface.7.met-pax-websocket-connect (legacy telemetry dual-emitted until the dashboards move, TODO(PLT-326)); a completion gate inventories retire interfaces only, so none of these six fails a gate."
+basis = "5.0.9 attempt 1 (ce3110d14) fails on the two anchor-store-key entries alone; storage/common/keys/store_keys.go:35 and :79 still define the key by decision 1954; services/interop/crates/layerx-portable/src/receipt.rs:432-448 reads FormatProbe on every portable proof; utils/metrics/metrics_util.go:259-300 keeps the three pax_* helpers behind the PLT-326 TODO with rpc/utils_metrics_test.go:100 and rpc/websockets_metrics_test.go:78 asserting them."
+affects = ["5.0.9", "17.0.9", "11.0.9", "7.0.9"]
+
+[decision.2279]
+title = "Completion gates treat refusal-list names and retired-marked schema operations as absent"
+value = "A retire-status env_var interface is absent once no std::env::var or var_os read of the name remains outside a retired-name refusal list and its test; a retire-status http_route interface of the human-api schema is absent once its operation block carries retired = 'true' and its serving arm is deleted. The gates of 9.0.9 and 10.0.9 search for reads and serving arms, not for the bare name or the path line."
+basis = "services/agent/crates/layerx-agentd/src/main.rs:2365-2378 and services/agent/tests/boundary/src/production.rs:15-23 refuse the retired names by name with exit 2; services/human/schema/human-api/v1.kvx:6 forbids deleting operations, so task 10.15.2 marked them retired and task 10.20.3 deleted the serving arms; a gate written on the bare name would fail on the retirement mechanism itself, as 5.0.9 attempt 1 failed on decision 1954."
+affects = ["9.0.9", "10.0.9", "17.0.9"]
+
+[decision.2280]
+title = "The indexer decodes virtual-chain status codes 1 to 4 as the registry emits them"
+value = "ChainStatusChanged status 1 is active, 2 paused, 3 governance_paused and 4 retired, after modules/layerxchains/types/domain.go:10-14 and contracts/virtual-chains.md#registry; 0 and any other value is undecodable and never a lifecycle."
+basis = "services/platform/hosted/indexer/src/chains.rs:145-151 shifted the names onto 0-3 and refused 4, so a canonical retirement failed block decoding at paxeer.rs:483-500 (issue #1488)."
+affects = ["18.1488.1", "20.0.1"]
+
+[decision.2281]
+title = "Virtual-chain rows resolve depth stability from the shared block cursor"
+value = "A history or per-chain transfer row whose chain label is pax:<id> takes final, stability.level and finalized_boundary from the cursor of the shared source chain the block was committed under; the pax:<id> label and query namespace are unchanged and settlement stays unverified unless settlement evidence says otherwise."
+basis = "store.rs transfer_document (:2164-2175) looked the boundary up by the rewritten row label while commit advances the cursor under Unit.chain (store.rs:909-921, paxeer.rs:222), so virtual transfers stayed reversible with a null boundary for ever (issue #1489)."
+affects = ["18.1489.1", "20.0.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -11696,8 +11720,8 @@ basis = "services/interop/crates/layerx-portable/src/receipt.rs:34 is PortableRe
 
 [override.J48.44]
 target = "interface.11.fmt-portable-format-probe"
-status = "retire"
-basis = "services/interop/crates/layerx-portable/src/receipt.rs:598 is FormatProbe { format: String }; task 11.29.4 deletes it (Retire the v1 portable receipt and the batch-authority path)."
+status = "keep"
+basis = "services/interop/crates/layerx-portable/src/receipt.rs:432 is FormatProbe { format: String }, read by verify_portable_json (:448) to select the v2 verifier; task 11.29.4 deleted the v1 arm and kept the probe as the format check, so the interface is kept (decision 2278)."
 
 [override.J48.45]
 target = "interface.11.rs-relayer-relayer"
@@ -20397,6 +20421,26 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.8359]
+title = "The core boundary carries no orphan withdrawal source"
+ac_1 = "services/platform/hosted/core/src/withdrawal.rs is gone and layerx-platform-core builds and passes its library tests."
+
+[req.8358]
+title = "No retained file points an operator at a retired agent setting"
+ac_1 = "runtime_mode.rs sets no retired variable, the human-service entrypoint copies no handover or trust-history material, and the running guide and wiki list no retired setting; the runtime_mode and retired_env host tests pass."
+
+[req.8357]
+title = "Virtual-chain transfers carry the shared source's depth stability"
+ac_1 = "A transfer row namespaced pax:<id> answers final, stability.level and finalized_boundary from the shared block cursor while keeping its pax:<id> label; root behaviour, young-transfer reversibility and rollback retraction are unchanged; settlement is not promoted."
+
+[req.8356]
+title = "The indexer decodes chain status codes as the registry emits them"
+ac_1 = "ChainStatusChanged codes 1, 2, 3 and 4 decode to active, paused, governance_paused and retired across receipt decoding, stored rows and /v1/chains answers; 0 and out-of-range codes are refused; a retirement log does not stop block ingestion and rollback restores the prior status."
+
+[req.8355]
+title = "The merchant settlement webhook test loads committed evidence that exists"
+ac_1 = "evm-terms.test.mjs reads no deleted pay6 batch.json or checkpoint.json and its two tests pass on the evidence committedFixture builds; committed-rung.test.mjs passes through the shared module."
 
 [req.8354]
 title = "The JVM conformance generator reproduces the checked-in manifest"
@@ -34177,6 +34221,51 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.8.99.1]
+title = "Delete the orphan withdrawal module of the core boundary"
+reqs = ["8359.1"]
+touches = ["services/platform/hosted/core/src/withdrawal.rs"]
+tests = []
+verification_contract = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --lib"
+do_1 = "Delete services/platform/hosted/core/src/withdrawal.rs (28 lines): neither services/platform/hosted/core/src/main.rs:1-2 nor src/lib.rs:5 declares mod withdrawal, so the file compiles into nothing and its two refusal codes (interface.8.err-core-withdrawal-asset-unavailable, interface.8.err-core-withdrawal-configuration-unavailable, retired with the routes by task 8.20.1 under override.J40.761 and J40.762) survive only as dead text; if a mod declaration is found, delete it with the file."
+symbols = []
+
+[capability.9.100.1]
+title = "Drop the handover and trust-history leftovers around the retired agent settings"
+reqs = ["8358.1"]
+touches = ["services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs", "docker/human-service/entrypoint.sh", "docs/site/docs/agents/running.md", "docs/wiki/RunningAnAgent.md"]
+tests = ["services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs", "services/agent/crates/layerx-agentd/host-tests/retired_env.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test runtime_mode --test retired_env"
+do_1 = "In services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs:75 drop the LAYERX_AGENT_SEQUENCER_TRUST_HISTORY line: refuse_retired_environment (services/agent/crates/layerx-agentd/src/main.rs:2365-2378) exits 2 with 'is retired' before the required-variable check the test asserts, so the test can only pass without it."
+symbols = ["refuse_retired_environment"]
+
+[capability.18.1489.1]
+title = "Issue #1489: Resolve virtual-chain transfer stability from the shared block cursor"
+reqs = ["8357.1"]
+touches = ["services/platform/hosted/indexer/src/store.rs", "services/platform/hosted/indexer/tests/chains_scope.rs", "services/platform/hosted/indexer/tests/chains_api.rs"]
+tests = ["services/platform/hosted/indexer/tests/chains_scope.rs", "services/platform/hosted/indexer/tests/chains_api.rs"]
+verification_contract = "cargo test --locked --manifest-path services/platform/hosted/indexer/Cargo.toml --test chains_scope --test chains_api"
+do_1 = "In services/platform/hosted/indexer/src/store.rs transfer_document (:2164-2175) resolves the finalized boundary of a row whose chain label is pax:<id> from the finality entry of the shared source chain (crate::paxeer::CHAIN, the Unit.chain every block carries at services/platform/hosted/indexer/src/paxeer.rs:222-229 and the cursor commit writes at store.rs:909-921), keeping pax:<id> as the row's chain label and query namespace; the same boundary resolution serves the per-chain transfer pages at store.rs:1758 and :1784, the root rows keep today's lookup."
+symbols = ["transfer_document", "chains_scope_virtual_transfers_follow_the_shared_cursor"]
+
+[capability.18.1488.1]
+title = "Issue #1488: Decode chain status events with the registry's 1-based lifecycle codes"
+reqs = ["8356.1"]
+touches = ["services/platform/hosted/indexer/src/chains.rs", "services/platform/hosted/indexer/tests/chains_ingest.rs", "services/platform/hosted/indexer/tests/chains_api.rs", "services/platform/hosted/indexer/tests/chains_scope.rs", "services/platform/hosted/indexer/tests/fixtures/chains_blocks.json"]
+tests = ["services/platform/hosted/indexer/tests/chains_ingest.rs", "services/platform/hosted/indexer/tests/chains_api.rs"]
+verification_contract = "cargo test --locked --manifest-path services/platform/hosted/indexer/Cargo.toml --test chains_ingest --test chains_api --test chains_scope"
+do_1 = "In services/platform/hosted/indexer/src/chains.rs:145-151 the ChainStatusChanged arm maps '1' to active, '2' to paused, '3' to governance_paused and '4' to retired, as modules/layerxchains/types/domain.go:10-14 (StatusActive 1 .. StatusRetired 4) and spec/layerx-merge/contracts/virtual-chains.md#registry define them; '0' and every other value return None so the registered receipt-log path at services/platform/hosted/indexer/src/paxeer.rs:483-500 records the log as undecodable instead of a shifted lifecycle."
+symbols = ["chains_status_codes_follow_the_registry"]
+
+[capability.18.1476.1]
+title = "Issue #1476: Build the merchant settlement webhook evidence from the committed fixture"
+reqs = ["8355.1"]
+touches = ["services/platform/middleware/conformance/pay6/committed-fixture.mjs", "services/platform/middleware/conformance/pay6/committed-rung.test.mjs", "services/platform/middleware/merchant/test/evm-terms.test.mjs"]
+tests = ["services/platform/middleware/merchant/test/evm-terms.test.mjs", "services/platform/middleware/conformance/pay6/committed-rung.test.mjs"]
+verification_contract = "node --test --test-name-pattern='^(settlementWebhookAcceptsRungNames|settlementWebhookRefusesKernelLevels)$' services/platform/middleware/merchant/test/evm-terms.test.mjs && node --test services/platform/middleware/conformance/pay6/committed-rung.test.mjs"
+do_1 = "Create services/platform/middleware/conformance/pay6/committed-fixture.mjs (planned) exporting committedFixture(context) and the helpers it calls, moved out of services/platform/middleware/conformance/pay6/committed-rung.test.mjs (:103-153), which imports them back unchanged; the module builds the signed receipt, the four-validator set, the block header, the commit signatures and the inclusion evidence exactly as the test does today."
+symbols = ["committedFixture", "committedEvidence", "settlementWebhookAcceptsRungNames"]
 
 [capability.18.1487.1]
 title = "Issue #1487: Drop the retired verification entries from the JVM conformance generator"
@@ -111125,6 +111214,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.18.1476.1]
+title = "Issue #1476: Build the merchant settlement webhook evidence from the committed fixture"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8355.1"]
+capabilities = ["18.1476.1"]
+interfaces = []
+do_1 = "Create services/platform/middleware/conformance/pay6/committed-fixture.mjs (planned) exporting committedFixture(context) and the helpers it calls, moved out of services/platform/middleware/conformance/pay6/committed-rung.test.mjs (:103-153), which imports them back unchanged; the module builds the signed receipt, the four-validator set, the block header, the commit signatures and the inclusion evidence exactly as the test does today."
+do_2 = "In services/platform/middleware/merchant/test/evm-terms.test.mjs drop the readJson calls for the deleted pay6 batch.json and checkpoint.json (:16-17) and rewrite committedEvidence() (:116-150) to take the evidence committedFixture(context) returns, passing it to the settlement webhook as the committed rung's evidence in place of rpcCheckpointEvidence over batch header, signature and checkpoint operator; settlementWebhookAcceptsRungNames and settlementWebhookRefusesKernelLevels keep their assertions and receive the test context so the fixture can register its cleanup."
+do_3 = "The real path this task proves is signed receipt -> committed evidence -> merchant settlement webhook -> order state."
+symbols = ["committedFixture", "committedEvidence", "settlementWebhookAcceptsRungNames"]
+touches = ["services/platform/middleware/conformance/pay6/committed-fixture.mjs", "services/platform/middleware/conformance/pay6/committed-rung.test.mjs", "services/platform/middleware/merchant/test/evm-terms.test.mjs"]
+tests = ["services/platform/middleware/merchant/test/evm-terms.test.mjs", "services/platform/middleware/conformance/pay6/committed-rung.test.mjs"]
+planned_paths = ["services/platform/middleware/conformance/pay6/committed-fixture.mjs"]
+build_cmd = "npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/merchant run build"
+verify_cmd = "node --test --test-name-pattern='^(settlementWebhookAcceptsRungNames|settlementWebhookRefusesKernelLevels)$' services/platform/middleware/merchant/test/evm-terms.test.mjs && node --test services/platform/middleware/conformance/pay6/committed-rung.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1477.1]
 title = "Issue #1477: Assert the EVM transaction fields on the prepared consent, not on the spend request's preparation input"
 status = "pending"
@@ -119292,6 +119411,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 5.0.9.1: the inventory is the 159 retire-status interfaces of the domain-5 wave-6 tasks after decision 2278 turned interface.5.go-storage-common-keys-layer-x-anchor-store-key and interface.5.key-storage-common-keys-layer-x-anchor-store-key into keep (decision 1954 holds LayerXAnchorStoreKey until the anchor-store-delete step has run); do_1's example list drops those two entries and the length assertion reads 159. Continue from attempt 1, which fails on those two entries only."
 
 [task.5.1.1]
 title = "Add the ProcessProposal sequence order check on a branch of the proposal state"
@@ -119878,6 +119998,125 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.8.99.1]
+title = "Delete the orphan withdrawal module of the core boundary"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8359.1"]
+capabilities = ["8.99.1"]
+interfaces = []
+do_1 = "Delete services/platform/hosted/core/src/withdrawal.rs (28 lines): neither services/platform/hosted/core/src/main.rs:1-2 nor src/lib.rs:5 declares mod withdrawal, so the file compiles into nothing and its two refusal codes (interface.8.err-core-withdrawal-asset-unavailable, interface.8.err-core-withdrawal-configuration-unavailable, retired with the routes by task 8.20.1 under override.J40.761 and J40.762) survive only as dead text; if a mod declaration is found, delete it with the file."
+do_2 = "The verify builds the crate and runs its library tests."
+symbols = []
+touches = ["services/platform/hosted/core/src/withdrawal.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core"
+verify_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --lib"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.100.1]
+title = "Drop the handover and trust-history leftovers around the retired agent settings"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8358.1"]
+capabilities = ["9.100.1"]
+interfaces = []
+do_1 = "In services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs:75 drop the LAYERX_AGENT_SEQUENCER_TRUST_HISTORY line: refuse_retired_environment (services/agent/crates/layerx-agentd/src/main.rs:2365-2378) exits 2 with 'is retired' before the required-variable check the test asserts, so the test can only pass without it."
+do_2 = "In docker/human-service/entrypoint.sh:124-131 delete the block that copies genesis-handover-trust.lxt and handover-finality.conf when LAYERX_AGENT_GENESIS_TRUST or LAYERX_AGENT_HANDOVER_FINALITY is set, and the trust-history copy, since the daemon refuses every one of those settings; in docs/site/docs/agents/running.md:718 and docs/wiki/RunningAnAgent.md:718 delete the LAYERX_AGENT_SEQUENCER_TRUST_HISTORY row."
+do_3 = "The verify runs the runtime_mode and retired_env host tests of the daemon."
+symbols = ["refuse_retired_environment"]
+touches = ["services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs", "docker/human-service/entrypoint.sh", "docs/site/docs/agents/running.md", "docs/wiki/RunningAnAgent.md"]
+tests = ["services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs", "services/agent/crates/layerx-agentd/host-tests/retired_env.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test runtime_mode --test retired_env"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1489.1]
+title = "Issue #1489: Resolve virtual-chain transfer stability from the shared block cursor"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8357.1"]
+capabilities = ["18.1489.1"]
+interfaces = []
+do_1 = "In services/platform/hosted/indexer/src/store.rs transfer_document (:2164-2175) resolves the finalized boundary of a row whose chain label is pax:<id> from the finality entry of the shared source chain (crate::paxeer::CHAIN, the Unit.chain every block carries at services/platform/hosted/indexer/src/paxeer.rs:222-229 and the cursor commit writes at store.rs:909-921), keeping pax:<id> as the row's chain label and query namespace; the same boundary resolution serves the per-chain transfer pages at store.rs:1758 and :1784, the root rows keep today's lookup."
+do_2 = "In services/platform/hosted/indexer/tests/chains_scope.rs add chains_scope_virtual_transfers_follow_the_shared_cursor: with finality_depth 0 ingest the fixture through height 44 and assert root and virtual transfers alike answer final true, stability.level depth_stable and finalized_boundary '44'; with a non-zero depth assert young virtual transfers stay reversible with the boundary the cursor reports, and after a rollback the boundary retracts for virtual rows as it does for root rows; settlement stays unverified throughout. services/platform/hosted/indexer/tests/chains_api.rs asserts /v1/chains/{id}/transfers serves the same fields."
+do_3 = "The real path this task proves is shared block cursor -> virtual row namespace -> transfer stability in the history and per-chain pages."
+symbols = ["transfer_document", "chains_scope_virtual_transfers_follow_the_shared_cursor"]
+touches = ["services/platform/hosted/indexer/src/store.rs", "services/platform/hosted/indexer/tests/chains_scope.rs", "services/platform/hosted/indexer/tests/chains_api.rs"]
+tests = ["services/platform/hosted/indexer/tests/chains_scope.rs", "services/platform/hosted/indexer/tests/chains_api.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/indexer/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/indexer/Cargo.toml --test chains_scope --test chains_api"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1488.1]
+title = "Issue #1488: Decode chain status events with the registry's 1-based lifecycle codes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8356.1"]
+capabilities = ["18.1488.1"]
+interfaces = []
+do_1 = "In services/platform/hosted/indexer/src/chains.rs:145-151 the ChainStatusChanged arm maps '1' to active, '2' to paused, '3' to governance_paused and '4' to retired, as modules/layerxchains/types/domain.go:10-14 (StatusActive 1 .. StatusRetired 4) and spec/layerx-merge/contracts/virtual-chains.md#registry define them; '0' and every other value return None so the registered receipt-log path at services/platform/hosted/indexer/src/paxeer.rs:483-500 records the log as undecodable instead of a shifted lifecycle."
+do_2 = "In services/platform/hosted/indexer/tests/fixtures/chains_blocks.json the ChainStatusChanged logs carry the 1-4 codes (one log per code across the fixture blocks, the retirement in its own block followed by one further block); services/platform/hosted/indexer/tests/chains_ingest.rs adds chains_status_codes_follow_the_registry asserting 1 -> active, 2 -> paused, 3 -> governance_paused and 4 -> retired on the stored row after each block, that ingestion and the cursor advance past the retirement block, and that rolling the retirement block back restores the prior status; services/platform/hosted/indexer/tests/chains_api.rs asserts /v1/chains/{id} answers the same status words; chains_scope.rs is adjusted only where the fixture codes it reads change."
+do_3 = "The real path this task proves is ChainStatusChanged log -> decoder -> stored row -> /v1/chains answer, including rollback."
+symbols = ["chains_status_codes_follow_the_registry"]
+touches = ["services/platform/hosted/indexer/src/chains.rs", "services/platform/hosted/indexer/tests/chains_ingest.rs", "services/platform/hosted/indexer/tests/chains_api.rs", "services/platform/hosted/indexer/tests/chains_scope.rs", "services/platform/hosted/indexer/tests/fixtures/chains_blocks.json"]
+tests = ["services/platform/hosted/indexer/tests/chains_ingest.rs", "services/platform/hosted/indexer/tests/chains_api.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/indexer/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/indexer/Cargo.toml --test chains_ingest --test chains_api --test chains_scope"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1487.1]
 title = "Issue #1487: Drop the retired verification entries from the JVM conformance generator"
 status = "pending"
@@ -120025,6 +120264,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 20.9.8.1: chains create signs with layerx_crypto::evm_transaction::Eip1559Call::sign (services/agent/crates/layerx-crypto/src/evm_transaction.rs:212) over the secret the EVM key file holds, checking the derived address with layerx_crypto::secp256k1::evm_address as wallet_signing::EvmSigningKey does; the hand-rolled RLP and the k256 import of attempt 1 go, and tools/platform/cli/Cargo.toml gains no dependency. Continue from attempt 1, whose list and show paths and the mocked server test stand."
 
 [task.20.9.7]
 title = "Add chain registry helpers to the Rust client crate"
@@ -150555,6 +150795,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2279: an env_var interface counts as absent when the name is no longer read as a setting; a name that appears only in a retired-name refusal list (refuse_retired_environment in services/agent/crates/layerx-agentd/src/main.rs:2365-2378 and RETIRED_VARIABLES in services/agent/tests/boundary/src/production.rs:15-23, each answering '<name> is retired' with exit 2) or in the test that asserts that refusal (services/agent/crates/layerx-agentd/host-tests/retired_env.rs) is absent, so the gate searches for std::env::var('NAME') and var_os('NAME') reads outside those lists, not for the bare name."
 
 [task.9.1.1]
 title = "Carry block heights and rungs in the agent-api read mirror types"
@@ -156032,6 +156273,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2279: an http_route interface of the human-api schema counts as absent when its operation block carries retired = 'true' (task 10.15.2 marked operation.binding.statement, binding.rebind.action and exit.eligibility this way at services/human/schema/human-api/identity.kvx:511 and :538 and movement.kvx:177 because the additive-only rule at services/human/schema/human-api/v1.kvx:6 forbids deleting them) and no serving arm for it remains in production_components.rs; the gate reads the retired mark, not the presence of the path line."
 
 [task.10.1.1]
 title = "Add a retired-surface gate to the human boundary check"
@@ -192753,6 +192995,46 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.8.99.1.1]
+feature = "8"
+req = "8359.1"
+scenario = "Given the core boundary crate, when withdrawal.rs is deleted, then the crate builds and its library tests pass"
+contract = "contracts/platform-gateway.md#core-boundary"
+test = "services/platform/hosted/core/src/lib.rs"
+qualification = "UNRUN"
+
+[acceptance.9.100.1.1]
+feature = "9"
+req = "8358.1"
+scenario = "Given the daemon that refuses its retired settings by name, when the runtime_mode and retired_env host tests run, then both pass and no retained test, entrypoint or guide sets or documents a retired setting"
+contract = "contracts/agent-config.md#agentd-env"
+test = "services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1489.1.1]
+feature = "18"
+req = "8357.1"
+scenario = "Given virtual-chain transfers ingested with finality_depth 0 through height 44, when the history and per-chain transfer pages are read, then the virtual transfers answer finalized_boundary 44 and depth_stable like the root transfers, and a rollback retracts the boundary for both"
+contract = "contracts/virtual-chains.md#indexer"
+test = "services/platform/hosted/indexer/tests/chains_scope.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1488.1.1]
+feature = "18"
+req = "8356.1"
+scenario = "Given canonical ChainStatusChanged logs for codes 1 to 4, when the indexer ingests them and the API is read, then each stored and served status matches the registry's name and the retirement block is ingested and rolled back without a decode error"
+contract = "contracts/virtual-chains.md#indexer"
+test = "services/platform/hosted/indexer/tests/chains_ingest.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1476.1.1]
+feature = "18"
+req = "8355.1"
+scenario = "Given the shared committed fixture module, when the merchant evm-terms tests and the pay6 committed-rung tests run, then all pass and no test reads a deleted fixture file"
+contract = "contracts/test-harness.md"
+test = "services/platform/middleware/merchant/test/evm-terms.test.mjs"
+qualification = "UNRUN"
+
 [acceptance.18.1487.1.1]
 feature = "18"
 req = "8354.1"
@@ -199265,7 +199547,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 37
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1", "18.1186.1", "18.1188.1", "18.766.1", "18.914.1", "18.1092.1", "18.1113.1", "18.1180.1", "18.1189.1", "18.1192.1", "18.1194.1", "18.1195.1", "18.1196.1", "18.1197.1", "18.1199.1", "18.1200.1", "18.1203.1", "18.1204.1", "18.1205.1", "18.1206.1", "18.1218.1", "18.1219.1", "18.1221.1", "18.1222.1", "18.1223.1", "18.1224.1", "18.1225.1", "18.1227.1", "18.1228.1", "18.1229.1", "18.1230.1", "18.1231.1", "18.1233.1", "18.1234.1", "18.1235.1", "18.1236.1", "18.1237.1", "18.1239.1", "18.1193.1", "18.1215.1", "18.1043.1", "18.1209.1", "18.1001.3", "18.1172.2", "18.1245.1", "18.1246.1", "18.1159.1", "18.1201.1", "18.1241.1", "18.1244.1", "18.1240.1", "18.1243.1", "18.1242.1", "18.756.1", "18.757.1", "18.769.1", "18.813.1", "18.821.1", "18.962.1", "18.1214.1", "18.1238.1", "18.1271.1", "18.1303.1", "18.1311.1", "18.1312.1", "18.1313.1", "18.1314.1", "18.1315.1", "18.1316.1", "18.1317.1", "18.1318.1", "18.1320.1", "18.1322.1", "18.1323.1", "18.1325.1", "18.1327.1", "18.1328.1", "18.1329.1", "18.1330.1", "18.1331.1", "18.1333.1", "18.1335.1", "18.1337.1", "18.1338.1", "18.1339.1", "18.1341.1", "18.1344.1", "18.1346.1", "18.1347.1", "18.1348.1", "18.1349.1", "18.1350.1", "18.1351.1", "18.1352.1", "18.1353.1", "18.1355.1", "18.1356.1", "18.1357.1", "18.1358.1", "18.1359.1", "18.1360.1", "18.1362.1", "18.1363.1", "18.1364.1", "18.1365.1", "18.1366.1", "18.1367.1", "18.1369.1", "18.1370.1", "18.1371.1", "18.1373.1", "18.1374.1", "18.1375.1", "18.1376.1", "18.1377.1", "18.1378.1", "18.1379.1", "18.1381.1", "18.1382.1", "18.1383.1", "18.1387.1", "18.1388.1", "18.1389.1", "18.1391.1", "18.1392.1", "18.1394.1", "18.1396.1", "18.1402.1", "18.1403.1", "18.1404.1", "18.1405.1", "18.1406.1", "18.1408.1", "18.1409.1", "18.1410.1", "18.1412.1", "18.1413.1", "18.1417.1", "18.1423.1", "18.1424.1", "18.1425.1", "18.1426.1", "18.1427.1", "18.1326.1", "18.1075.1", "18.1134.1", "18.1148.1", "18.1188.2", "18.1202.1", "18.1204.2", "18.1211.1", "18.1211.2", "18.1211.3", "18.1211.4", "18.1211.5", "18.1228.2", "18.1232.1", "18.1243.2", "18.1250.1", "18.1252.1", "18.1254.1", "18.1255.1", "18.1256.1", "18.1257.1", "18.1258.1", "18.1259.1", "18.1262.1", "18.1263.1", "18.1264.1", "18.1265.1", "18.1268.1", "18.1269.1", "18.1270.1", "18.1272.1", "18.1273.1", "18.1275.1", "18.1279.1", "18.1279.2", "18.1279.3", "18.1286.1", "18.1287.1", "18.1288.1", "18.1289.1", "18.1291.1", "18.1291.2", "18.1292.1", "18.1293.1", "18.1293.2", "18.1293.3", "18.1293.4", "18.1294.1", "18.1295.1", "18.1296.1", "18.1297.1", "18.1297.2", "18.1298.1", "18.1299.1", "18.1300.1", "18.1301.1", "18.1302.1", "18.1304.1", "18.1305.1", "18.1306.1", "18.1307.1", "18.1308.1", "18.1308.2", "18.1308.3", "18.1309.1", "18.1310.1", "18.1429.1", "18.1430.1", "18.1431.1", "18.1432.1", "18.1433.1", "18.1434.1", "18.1435.1", "18.1435.2", "18.1435.3", "18.1435.4", "18.1435.5", "18.1437.1", "18.1439.1", "18.1441.1", "18.835.1", "18.893.1", "18.90.1", "18.905.1", "18.911.2", "18.918.1", "18.927.1", "18.960.1", "18.963.1", "18.1443.1", "18.1444.1", "18.1445.1", "18.1446.1", "18.1451.1", "18.1452.1", "18.1453.1", "18.1456.1", "18.1459.1", "18.1460.1", "18.1463.1", "18.1467.1", "18.1468.1", "18.1471.1", "18.1472.1", "18.1475.1", "18.1477.1", "18.1478.1", "18.1479.1", "18.1481.1", "18.1482.1", "18.1483.1", "18.1484.1", "18.1485.1", "18.1486.1", "18.1487.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1", "18.1186.1", "18.1188.1", "18.766.1", "18.914.1", "18.1092.1", "18.1113.1", "18.1180.1", "18.1189.1", "18.1192.1", "18.1194.1", "18.1195.1", "18.1196.1", "18.1197.1", "18.1199.1", "18.1200.1", "18.1203.1", "18.1204.1", "18.1205.1", "18.1206.1", "18.1218.1", "18.1219.1", "18.1221.1", "18.1222.1", "18.1223.1", "18.1224.1", "18.1225.1", "18.1227.1", "18.1228.1", "18.1229.1", "18.1230.1", "18.1231.1", "18.1233.1", "18.1234.1", "18.1235.1", "18.1236.1", "18.1237.1", "18.1239.1", "18.1193.1", "18.1215.1", "18.1043.1", "18.1209.1", "18.1001.3", "18.1172.2", "18.1245.1", "18.1246.1", "18.1159.1", "18.1201.1", "18.1241.1", "18.1244.1", "18.1240.1", "18.1243.1", "18.1242.1", "18.756.1", "18.757.1", "18.769.1", "18.813.1", "18.821.1", "18.962.1", "18.1214.1", "18.1238.1", "18.1271.1", "18.1303.1", "18.1311.1", "18.1312.1", "18.1313.1", "18.1314.1", "18.1315.1", "18.1316.1", "18.1317.1", "18.1318.1", "18.1320.1", "18.1322.1", "18.1323.1", "18.1325.1", "18.1327.1", "18.1328.1", "18.1329.1", "18.1330.1", "18.1331.1", "18.1333.1", "18.1335.1", "18.1337.1", "18.1338.1", "18.1339.1", "18.1341.1", "18.1344.1", "18.1346.1", "18.1347.1", "18.1348.1", "18.1349.1", "18.1350.1", "18.1351.1", "18.1352.1", "18.1353.1", "18.1355.1", "18.1356.1", "18.1357.1", "18.1358.1", "18.1359.1", "18.1360.1", "18.1362.1", "18.1363.1", "18.1364.1", "18.1365.1", "18.1366.1", "18.1367.1", "18.1369.1", "18.1370.1", "18.1371.1", "18.1373.1", "18.1374.1", "18.1375.1", "18.1376.1", "18.1377.1", "18.1378.1", "18.1379.1", "18.1381.1", "18.1382.1", "18.1383.1", "18.1387.1", "18.1388.1", "18.1389.1", "18.1391.1", "18.1392.1", "18.1394.1", "18.1396.1", "18.1402.1", "18.1403.1", "18.1404.1", "18.1405.1", "18.1406.1", "18.1408.1", "18.1409.1", "18.1410.1", "18.1412.1", "18.1413.1", "18.1417.1", "18.1423.1", "18.1424.1", "18.1425.1", "18.1426.1", "18.1427.1", "18.1326.1", "18.1075.1", "18.1134.1", "18.1148.1", "18.1188.2", "18.1202.1", "18.1204.2", "18.1211.1", "18.1211.2", "18.1211.3", "18.1211.4", "18.1211.5", "18.1228.2", "18.1232.1", "18.1243.2", "18.1250.1", "18.1252.1", "18.1254.1", "18.1255.1", "18.1256.1", "18.1257.1", "18.1258.1", "18.1259.1", "18.1262.1", "18.1263.1", "18.1264.1", "18.1265.1", "18.1268.1", "18.1269.1", "18.1270.1", "18.1272.1", "18.1273.1", "18.1275.1", "18.1279.1", "18.1279.2", "18.1279.3", "18.1286.1", "18.1287.1", "18.1288.1", "18.1289.1", "18.1291.1", "18.1291.2", "18.1292.1", "18.1293.1", "18.1293.2", "18.1293.3", "18.1293.4", "18.1294.1", "18.1295.1", "18.1296.1", "18.1297.1", "18.1297.2", "18.1298.1", "18.1299.1", "18.1300.1", "18.1301.1", "18.1302.1", "18.1304.1", "18.1305.1", "18.1306.1", "18.1307.1", "18.1308.1", "18.1308.2", "18.1308.3", "18.1309.1", "18.1310.1", "18.1429.1", "18.1430.1", "18.1431.1", "18.1432.1", "18.1433.1", "18.1434.1", "18.1435.1", "18.1435.2", "18.1435.3", "18.1435.4", "18.1435.5", "18.1437.1", "18.1439.1", "18.1441.1", "18.835.1", "18.893.1", "18.90.1", "18.905.1", "18.911.2", "18.918.1", "18.927.1", "18.960.1", "18.963.1", "18.1443.1", "18.1444.1", "18.1445.1", "18.1446.1", "18.1451.1", "18.1452.1", "18.1453.1", "18.1456.1", "18.1459.1", "18.1460.1", "18.1463.1", "18.1467.1", "18.1468.1", "18.1471.1", "18.1472.1", "18.1475.1", "18.1477.1", "18.1478.1", "18.1479.1", "18.1481.1", "18.1482.1", "18.1483.1", "18.1484.1", "18.1485.1", "18.1486.1", "18.1487.1", "18.1476.1", "18.1488.1", "18.1489.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -199709,7 +199991,7 @@ title = "Refuse the virtual-chains closure while any chain task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["20.1.1", "20.1.2", "20.2.1", "20.2.2", "20.3.1", "20.3.2", "20.3.3", "20.3.4", "20.4.1", "20.4.2", "20.4.3", "20.4.4", "20.5.1", "20.5.2", "20.6.1", "20.6.2", "20.7.1", "20.7.2", "20.7.3", "20.8.1", "20.8.2", "20.9.1", "20.9.2", "20.9.3", "20.9.4", "20.9.5", "20.9.6", "20.9.7", "20.9.8", "20.10.1"]
+requires = ["20.1.1", "20.1.2", "20.2.1", "20.2.2", "20.3.1", "20.3.2", "20.3.3", "20.3.4", "20.4.1", "20.4.2", "20.4.3", "20.4.4", "20.5.1", "20.5.2", "20.6.1", "20.6.2", "20.7.1", "20.7.2", "20.7.3", "20.8.1", "20.8.2", "20.9.1", "20.9.2", "20.9.3", "20.9.4", "20.9.5", "20.9.6", "20.9.7", "20.9.8", "20.10.1", "18.1488.1", "18.1489.1"]
 reqs = ["20010.1"]
 capabilities = ["20.0.1"]
 interfaces = []

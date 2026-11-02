@@ -13336,3 +13336,18 @@ fix = "Before declaring a --tests build, confirm every test target of the crate 
 title = "A retirement test that asserts a symbol absent from the kernel archive needs every task that deletes a definer of that symbol"
 symptom = "1.32.1 attempt 1 deleted src/paxeer/lxp_checkpoint_cert.c and still found lxp_guarantor_attestation_verify in build/liblayerx.a because src/guarantor/lxp_attestation.c (deleted by 1.31.1, which landed later) defined it too; 1.32.1 did not require 1.31.1."
 fix = "When a task's test asserts symbols absent from an archive, grep the whole source tree for every definer and add each deleting task to requires."
+
+[gotcha.2704]
+title = "Completion gates must skip retire interfaces a later decision keeps"
+symptom = "5.0.9 attempt 1 inventoried every retire-status interface of its domain and failed on the two LayerXAnchorStoreKey entries that decision 1954 keeps until the anchor-store-delete step; the gate was asserting against the design, not the code."
+fix = "Before writing a completion gate, set each superseded interface to status keep in interfaces.kvx with a notes line naming the decision, and size the inventory on the remaining retire entries (decision 2278)."
+
+[gotcha.2705]
+title = "k256 is not a dependency of the platform CLI"
+symptom = "A CLI change that calls k256::ecdsa::SigningKey directly fails the build with E0433 'unresolved module or unlinked crate k256': tools/platform/cli/Cargo.toml lists layerx-crypto, not k256."
+fix = "Sign EIP-1559 calls through layerx_crypto::evm_transaction::Eip1559Call::sign and derive addresses with layerx_crypto::secp256k1::evm_address, as wallet_signing::EvmSigningKey does."
+
+[gotcha.2706]
+title = "Retired env names survive on purpose in refusal lists"
+symptom = "A search for a retired setting's bare name finds refuse_retired_environment in the agent daemon, RETIRED_VARIABLES in the boundary harness and the host test asserting the refusal; none of them reads the setting."
+fix = "Judge an env_var retirement by the absence of std::env::var and var_os reads outside the refusal list (decision 2279); a test that still sets a retired name before asserting a later required-variable error cannot pass and must drop the setting."

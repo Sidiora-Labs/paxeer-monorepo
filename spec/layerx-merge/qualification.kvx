@@ -17475,3 +17475,19 @@ symbol = "TestRetiredCheckpointCertSymbolsAbsent"
 observed = "attempt 1 (87517e38f) deleted src/paxeer/lxp_checkpoint_cert.c and the Makefile lines, and its test failed on 'kernel archive defines retired checkpoint certificate symbol lxp_guarantor_attestation_verify': at that revision src/guarantor/lxp_attestation.c still defined the same symbol (its object is member 10 of the ar line in the build log) and task 1.31.1 (a91c89ed0), which deletes that file, landed afterwards; 1.32.1 did not require 1.31.1."
 assumption = "1.32.1 requires 1.31.1; rebased onto a main that carries a91c89ed0 the attempt's tree passes unchanged."
 severity = "minor"
+
+[finding.5.0.9.1]
+task = "5.0.9"
+file = "node/sequencer/completion_gate_test.go"
+symbol = "TestNodeCompletionRetiredSurfacesAbsent"
+observed = "attempt 1 (ce3110d14) writes the gate with a 161-entry inventory and fails on exactly two entries, interface.5.go-storage-common-keys-layer-x-anchor-store-key and interface.5.key-storage-common-keys-layer-x-anchor-store-key (LayerXAnchorStoreKey at storage/common/keys/store_keys.go:35 and :79): decision 1954 keeps that key until the v7.0 anchor-store-delete step has run and capability 5.7.5 do_1 restored it, so no task of the domain drops it before 17.0.9."
+assumption = "the two interfaces are status keep in interfaces.kvx (decision 2278) and the inventory is the 159 remaining retire interfaces; attempt 1 otherwise passes."
+severity = "medium"
+
+[finding.20.9.8.1]
+task = "20.9.8"
+file = "tools/platform/cli/src/chains.rs:438"
+symbol = "sign"
+observed = "attempt 1 (15043ea91) fails the build with E0433 'use of unresolved module or unlinked crate k256': chains.rs:438 calls k256::ecdsa::SigningKey::from_slice while tools/platform/cli/Cargo.toml:15-41 lists no k256 dependency; the crate signs EVM transactions through layerx_crypto::evm_transaction::Eip1559Call::sign (services/agent/crates/layerx-crypto/src/evm_transaction.rs:212) and its own wallet_signing::EvmSigningKey (tools/platform/cli/src/wallet.rs:779-786)."
+assumption = "chains create builds an Eip1559Call and signs it with Eip1559Call::sign over the wallet key file's secret, as wallet_signing does; k256 is not added to the CLI's dependencies."
+severity = "medium"
