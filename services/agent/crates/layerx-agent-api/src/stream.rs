@@ -217,6 +217,25 @@ pub struct EventDelivery {
     pub receipt_reference: ReceiptReference,
 }
 
+impl ReceiptReference {
+    /// A verified receipt must have reached at least the receipted rung.
+    ///
+    /// # Errors
+    /// Returns an out-of-range error for a hash-only reference presented as verified.
+    pub fn validate(&self) -> Result<(), ContractError> {
+        if matches!(
+            self,
+            Self::Verified {
+                rung: Rung::Submitted,
+                ..
+            }
+        ) {
+            return Err(ContractError::OutOfRange("receipt_reference_rung"));
+        }
+        Ok(())
+    }
+}
+
 impl EventDelivery {
     /// Binds deduplication to identity and refuses empty event bytes.
     ///
@@ -228,6 +247,7 @@ impl EventDelivery {
         cursor: Cursor,
         receipt_reference: ReceiptReference,
     ) -> Result<Self, ContractError> {
+        receipt_reference.validate()?;
         if event_bytes.is_empty() {
             return Err(ContractError::Empty("event_bytes"));
         }

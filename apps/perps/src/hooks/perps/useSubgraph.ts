@@ -1,9 +1,55 @@
 import { fetchWithPolicy as fetch } from "@/core/net/fetch";
 import { INDEXER_GRAPHQL } from "@/core/perps/config";
+import { z } from "zod";
+
+// Keep raw on-chain integers as strings, including values above JS's safe range.
+export const rawUint256 = z.string().regex(/^(0|[1-9][0-9]*)$/).refine(
+  value => /^(0|[1-9][0-9]*)$/.test(value) && BigInt(value) < (1n << 256n),
+  "Expected a uint256 decimal string",
+);
+
+const marginTierSchema = z.object({
+  tier: z.number().int().nonnegative(),
+  lowerBoundUsd: rawUint256,
+  maxLeverage: rawUint256,
+  maintenanceBps: rawUint256,
+  deductionUsd: rawUint256,
+});
+
+const marketSchema = z.object({
+  marketId: z.number().int().nonnegative(),
+  name: z.string(),
+  symbol: z.string(),
+  oracleSymbol: z.string(),
+  maxLeverage: rawUint256,
+  enabled: z.boolean(),
+  marginTiers: z.array(marginTierSchema),
+});
+
+export type SubgraphMarket = z.infer<typeof marketSchema>;
+
+export function decodeMarketResult(data: unknown): { market: SubgraphMarket | null } {
+  return z.object({ market: marketSchema.nullable() }).parse(data);
+}
+
+export function decodeMarketsResult(data: unknown): { markets: SubgraphMarket[] } {
+  return z.object({ markets: z.array(marketSchema) }).parse(data);
+}
+
+export async function market(marketId: number): Promise<SubgraphMarket | null> {
+  const data = await subgraphQuery(MARKET_QUERY, { marketId }, decodeMarketResult);
+  return data.market;
+}
+
+export async function fetchMarkets(): Promise<SubgraphMarket[]> {
+  const data = await subgraphQuery(MARKETS_QUERY, undefined, decodeMarketsResult);
+  return data.markets;
+}
 
 export async function subgraphQuery<T = unknown>(
   document: string,
-  variables?: Record<string, unknown>
+  variables?: Record<string, unknown>,
+  decode?: (data: unknown) => T,
 ): Promise<T> {
   const res = await fetch(INDEXER_GRAPHQL.url, {
     method: "POST",
@@ -11,10 +57,21 @@ export async function subgraphQuery<T = unknown>(
     body: JSON.stringify({ query: document, variables }),
   });
   const json = await res.json();
+  if (!json || typeof json !== "object" || Array.isArray(json)) {
+    throw new Error("Invalid subgraph response");
+  }
   if (json.errors?.length) {
     throw new Error(json.errors[0]?.message || "Subgraph query failed");
   }
-  return json.data as T;
+  if (!json.data || typeof json.data !== "object" || Array.isArray(json.data)) {
+    throw new Error("Invalid subgraph data");
+  }
+  if (document === MARKET_QUERY || document === MARKET_INFO_QUERY) {
+    decodeMarketResult(json.data);
+  } else if (document === MARKETS_QUERY) {
+    decodeMarketsResult(json.data);
+  }
+  return decode ? decode(json.data) : json.data as T;
 }
 
 // ── Common GraphQL Queries ──────────────────────────────────────────
@@ -60,7 +117,8 @@ export const ORDERS_QUERY = /* GraphQL */ `
 export const MARKET_INFO_QUERY = /* GraphQL */ `
   query GetMarketInfo($marketId: Int!) {
     market(marketId: $marketId) {
-      marketId symbol maxLeverage
+      marketId name symbol oracleSymbol maxLeverage enabled
+      marginTiers { tier lowerBoundUsd maxLeverage maintenanceBps deductionUsd }
       fundingRate { ratePerSecond rate24h }
       poolState { baseReserve quoteReserve oraclePrice }
     }
@@ -70,11 +128,21 @@ export const MARKET_INFO_QUERY = /* GraphQL */ `
   }
 `;
 
+export const MARKET_QUERY = /* GraphQL */ `
+  query GetMarket($marketId: Int!) {
+    market(marketId: $marketId) {
+      marketId name symbol oracleSymbol maxLeverage enabled
+      marginTiers { tier lowerBoundUsd maxLeverage maintenanceBps deductionUsd }
+    }
+  }
+`;
+
 export const MARKETS_QUERY = /* GraphQL */ `
   query GetMarkets {
     markets {
       marketId symbol name maxLeverage enabled createdAt
       oracleSymbol szDecimals pxDecimals tickSize lotSize tierClass
+      marginTiers { tier lowerBoundUsd maxLeverage maintenanceBps deductionUsd }
       latestPrice { price onchainTimestamp }
       fundingRate { ratePerSecond rate24h }
     }
