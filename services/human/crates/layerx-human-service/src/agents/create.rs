@@ -1575,7 +1575,7 @@ impl CreationJourney {
             | CreationStage::InitialFunding => return Err(AgentCreationError::InvalidStage),
         };
         let compiled = compile(&intent, registry)?;
-        let disclosure = DisclosureCheck::verify(&intent, &compiled)?;
+        let disclosure = compiled.verify_disclosure(&intent)?;
         Ok(ProtocolAction {
             actor: None,
             stage,
