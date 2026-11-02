@@ -134038,7 +134038,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.60.2]
 title = "Retire the credit_c_harness kernel harness files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["6.51.1", "5.54.9", "16.0.4", "16.2.4", "16.11.11"]
