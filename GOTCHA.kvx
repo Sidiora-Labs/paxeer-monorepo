@@ -13400,3 +13400,13 @@ area = "platform-sdkgen"
 symptom = "The program-contract write and check commands silently accepted excess positional arguments."
 cause = "The CLI dispatched both modes without validating their declared optional repository and lock arguments."
 do = "Reject excess arguments before reading or writing; proof_generators exercises the built writer and the receipt parity gate consumer, including malformed receipt.kvx and generated output. Use 104.38.6.sh --check-program-contracts <repo-root> <sdkgen-binary> for the real focused consumer without running every SDK suite."
+
+[gotcha.2717]
+title = "go build ./<path>/... from the repository root fails for a package under a nested go.mod"
+symptom = "services/launchpad/*, services/wallet/attestor, sdk/launchpad/protocol and tools/loadtest carry their own go.mod; go build ./services/launchpad/api/internal/app/... run from the root answers 'directory prefix ... does not contain main module or its selected dependencies' (21.17.1 attempt 1 and six siblings)."
+fix = "Build and test such a package from its module directory: cd <module> && go build ./<package>/... and cd <module> && go test -count=1 ./<package>/ -run '^Test...'."
+
+[gotcha.2718]
+title = "precompiles/layerxledger's test package has not compiled since Keeper.GetPayerGrant left"
+symptom = "pause_test.go:158, payments_test.go:204 and :217 and views_test.go:155 call Keeper.GetPayerGrant, removed by 1.12.4 (decision.2080); 1.12.4's verify vetted precompiles/layerxpay only, so go test ./precompiles/layerxledger/ fails to compile for every later task in that package (21.11.1 attempt 1)."
+fix = "When a task removes a keeper method, grep the precompile test packages for callers and vet them in the task's verify; 21.11.1 repairs the three tests to the current ErrNoPayerGrant behaviour."

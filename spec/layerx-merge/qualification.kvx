@@ -17611,3 +17611,35 @@ symbol = "TestProofConsensusLeaderPin"
 observed = "attempt 1 (1a2d82a95) passes its verify (TestProofConsensusLeaderPin ok) and is refused by the done record: 'symbol func not defined in the graph', because the task's symbols list carried the Go keyword func read off a method signature."
 assumption = "the keyword is removed from the symbols of every proof task that carries one (40 tasks); the implementation of attempt 1 stands and the next attempt reruns the verify."
 severity = "minor"
+
+[finding.21.17.1.1]
+task = "21.17.1"
+file = "services/launchpad/api/go.mod"
+symbol = "TestProofLaunchpadApi"
+observed = "attempt 1 (7d22fb13a) fails its build before any test compiles: go build ./services/launchpad/api/internal/app/... run from the repository root answers 'directory prefix services/launchpad/api/internal/app does not contain main module or its selected dependencies', because services/launchpad/api carries its own go.mod and is not part of the root module; attempts 1 of 21.31.1, 21.4.1, 21.40.1, 21.54.1, 21.67.1 and 21.69.1 fail the same way on their own modules."
+assumption = "every proof task whose Go package lives under a nested go.mod (eleven tasks) builds and tests from that module directory, as the done tasks of those services do (cd services/launchpad/api && go test -count=1 ./internal/app/ ...); the proof itself is unchanged."
+severity = "medium"
+
+[finding.21.35.1.1]
+task = "21.35.1"
+file = "daemon/paxd/cmd/proof_node_cli_test.go"
+symbol = "TestProofNodeCli"
+observed = "attempt 1 (b1f3728ee) passes its verify (TestProofNodeCli ok, 14.0s) and is refused by the done record on four symbols that are not in the graph: AddCommand (a method of the cobra dependency, not of this repository), FILE and simulation_gas_limit (a flag placeholder and a configuration key read off app_config.go) and the keyword struct; 21.51.1 attempt 1 (b27cc72be) is refused the same way on Self."
+assumption = "the symbols lists keep AddCommands and NewCustomAppConfig (21.35.1) and drop Self and the other non-graph words across the proof tasks (6 tasks); the implementations stand and the next attempts rerun the verify."
+severity = "minor"
+
+[finding.21.11.1.1]
+task = "21.11.1"
+file = "precompiles/layerxledger/pause_test.go:158"
+symbol = "GetPayerGrant"
+observed = "attempt 1 (90f2f1fef) fails its verify before TestProofLayerxledger0x101a runs: the test package of precompiles/layerxledger does not compile on main, because pause_test.go:158, payments_test.go:204 and :217 and views_test.go:155 call Keeper.GetPayerGrant, which decision.2080 (task 1.12.4) removed together with the host payer-grant read; on main draw (precompiles/layerxledger/payments.go:118), getPayerGrant (:154) and Keeper.Draw (modules/layerxledger/keeper/draw.go:18) answer types.ErrNoPayerGrant (LXP_NO_PAYER_GRANT). 1.12.4's verify vetted precompiles/layerxpay only, so the stale assertions were never compiled."
+assumption = "21.11.1 repairs the three test files in place to the behaviour decision.2080 fixed (no Keeper.GetPayerGrant read; draw and getPayerGrant revert LXP_NO_PAYER_GRANT) because its proof lives in the same package and cannot compile without them."
+severity = "medium"
+
+[finding.21.42.1.1]
+task = "21.42.1"
+file = "services/agent/crates/layerx-client/tests/proof_client.rs:487"
+symbol = "px_getNetwork"
+observed = "attempt 1 (79fe5b622) fails its verify in px_getNetwork: the test reads LAYERX_PROOF_CLIENT_RPC_URL from the environment and panics with 'missing real producer' when the variable is unset, so the proof depends on an operator-supplied gateway and can never pass in the qualification environment."
+assumption = "a client-crate proof hosts its producer inside the test process the way tests/px_reads.rs:20-23 and layerx-sdk tests/rpc_node.rs:15 do (a TcpListener on 127.0.0.1:0 answering the exact JSON-RPC bodies the node's px handlers produce) and never reads a URL from the environment."
+severity = "minor"
