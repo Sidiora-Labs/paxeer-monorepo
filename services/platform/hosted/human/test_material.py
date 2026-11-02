@@ -18,6 +18,40 @@ spec.loader.exec_module(material)
 
 
 class MaterialTests(unittest.TestCase):
+    def test_owner_policy_limit_id_is_sixteen_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evidence = root / 'evidence'
+            evidence.mkdir(mode=0o700)
+            config = root / 'agent-config'
+            config.mkdir(mode=0o700)
+            material.write(evidence, 'authority.json', json.dumps({'core-clock-horizon': 60}))
+            limit_id = '0123456789abcdef0123456789abcdef'
+            agent = {'HUMAN_LIMIT_CEILING': 1000, 'HUMAN_LIMIT_ID': limit_id * 2}
+            agent_path = evidence / 'agent.json'
+            material.write(evidence, 'agent.json', json.dumps(agent))
+
+            def owner_status():
+                return material.policy_graph_status(
+                    evidence, root / 'journal', root / 'deployment.json',
+                    root / 'module-registry.json', root / 'bundle', root / 'registry',
+                    root / 'authority', 402, 31337)['nodes']['owner-policy']
+
+            refused = owner_status()
+            self.assertEqual(refused['state'], 'refused')
+            self.assertEqual(refused['reason'],
+                             material.BUNDLE_REFUSED + 'owner policy horizon or limit binding')
+            agent['HUMAN_LIMIT_ID'] = limit_id
+            agent_path.write_text(json.dumps(agent))
+            ready = owner_status()
+            self.assertEqual(ready['state'], 'ready')
+            self.assertIsNone(ready['reason'])
+            material.write_agent_config(config, material.protected_json(agent_path))
+            projected = config / 'LAYERX_AGENT_HUMAN_LIMIT_ID'
+            self.assertEqual(projected.read_text(), limit_id)
+            self.assertEqual(len(bytes.fromhex(projected.read_text())), 16)
+            self.assertEqual(projected.stat().st_mode & 0o777, 0o600)
+
     def test_registry_material_runs_no_handover_verify(self):
         self.assertNotIn('layerx-handover', inspect.getsource(material.hosted_registry_material_produce))
         self.assertNotIn('/usr/local/bin/layerx-handover', (HERE / 'material.py').read_text())
