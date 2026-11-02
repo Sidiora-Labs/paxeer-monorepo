@@ -13041,3 +13041,53 @@ fix = "Match path tokens only where the neighbouring characters are not identifi
 title = "A later ruling that keeps a module must be written into the task that deletes it"
 symptom = "An owner decision kept a module reachable through a re-export, but the deleting task's do_1 still listed that module; the attempt followed do_1 and the build failed on the re-export."
 fix = "When a decision changes what a pending task deletes, add the decision as a do line and amend touches and verify in the same batch."
+
+[gotcha.2645]
+title = "An issue task's verify runs the subtests that prove the issue's path"
+symptom = "An issue task about a test's resource lifetime verified the whole end-to-end suite; eighteen attempts fixed the lifetime and then failed on four unrelated subtests of the same suite, each a separate defect."
+fix = "Scope an issue task's verify with -run to the subtests that prove the reported path, and give the suite's other failures their own task that requires the issue task."
+
+[gotcha.2646]
+title = "A retirement grep over a conformance tree must skip an SDK that still exports the name"
+symptom = "A verify grepped a conformance directory for a type the TypeScript SDK retired and matched Python conformance files that import the same name from the Python SDK, which keeps it."
+fix = "Limit a retirement grep to the file types of the SDK that retired the name, or exclude the trees that legitimately keep it."
+
+[gotcha.2647]
+title = "A shared crate's API change must build every crate that consumes it before the task is done"
+symptom = "A task retired four items of a proof crate's export API; its dependent-crate check built two interop crates and passed, while the agent daemon in the same workspace used all four items and has failed to build on every main since."
+fix = "List the consuming crates of a changed public item across every workspace from a grep before qualification and build each one in the task's verify."
+
+[gotcha.2648]
+title = "A module retirement needs a consumer census and a port task per consuming crate before it launches"
+symptom = "A task deleting three modules of a shared crate carried wiring requests for its consumers but no port tasks; the census after the second attempt found 94 consumer files across four workspaces with no owner."
+fix = "Grep every workspace for the module paths and the retired item names when the retirement task is written, give each consuming crate a port task, and make the retirement require all of them."
+
+[gotcha.2649]
+title = "A boundary decoder extended on one side needs the producer's bytes in its test, not a hand-built frame"
+symptom = "A consumer's receipt frame decoder was extended with nine fields and tested against a frame the test itself assembled; the producer kept writing the short frame and every real answer failed to decode."
+fix = "Define the frame once where both sides can import it and feed the producer's encoder output to the consumer's decoder in the test."
+
+[gotcha.2650]
+title = "A new status value in a producer lands with the published schema and every SDK decoder"
+symptom = "A daemon began answering not-ready lookups with two new verification statuses; the published contract and four SDK decoders still accepted the two old shapes, so a successful answer became an SDK verification failure."
+fix = "Change the contract file and add producer goldens first, then give each SDK decoder a task that consumes those goldens."
+
+[gotcha.2651]
+title = "Deleting a test branch must delete the script that invoked it"
+symptom = "A task removed the Rust probe branch of a qualification test and left the Python qualification calling the test executable for that branch, so the qualification re-entered itself."
+fix = "When a task removes a code path, grep the repository for every caller of its entry point, including scripts, and list them in touches."
+
+[gotcha.2652]
+title = "A simulation read must not hand the open block's height to the committed-state provider after the block seals"
+symptom = "An estimate read the open block's state and header, the block sealed before the precompile lookup, and the lookup asked the base app for a query context at the open height, which was above the committed height, so the handler panicked."
+fix = "Resolve every height above the committed height on the simulation path to the open-block snapshot while it is open and to the latest committed context otherwise; never pass a height above the committed one to the base app."
+
+[gotcha.2653]
+title = "A task changing a package's exports must compile the package's own consumers in the same task"
+symptom = "A task changed two source files of a TypeScript package and left the package's third file, which imports both, to a later task; the package's tsc project compiles every source file, so the task's build failed on the file it did not own, which was also broken on main by earlier ports."
+fix = "When a package port is split across tasks, each task's build target must compile at its end: keep in-package consumers of changed exports in the task that changes them, and check the package compiles on main before the split is written."
+
+[gotcha.2654]
+title = "An offline Foundry build at the repository root needs the pinned compiler fetched first"
+symptom = "A build running forge build --offline from the repository root failed with 'can't install missing solc 0.8.27 in offline mode'; the qualification environment prefetched the compiler only for a project named with --root."
+fix = "When a forge command names no --root, fetch the solc_version of the repository root's foundry.toml with one online build before the offline build runs."

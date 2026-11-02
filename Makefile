@@ -941,18 +941,6 @@ $(BUILD_DIR)/tests/test_bridge_deposit: tests/test_bridge_deposit.c \
 test-bridge-deposit: $(BUILD_DIR)/tests/test_bridge_deposit test-contracts
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_bridge_deposit
 
-$(BUILD_DIR)/tests/bridge/sign-credit: tests/bridge/sign_credit.c tests/bridge/files.h \
-		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
-		$(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-$(BUILD_DIR)/tests/bridge/test-credit: tests/bridge/test_credit.c tests/bridge/files.h \
-		$(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DLXP_TESTING $< $(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
-		$(TEST_LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
 $(BUILD_DIR)/tests/test_bridge_withdraw: tests/test_bridge_withdraw.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
@@ -1654,13 +1642,6 @@ human-test: human-test-hosted-provisioning
 
 HUMAN_TARGET_DIR ?= $(or $(CARGO_TARGET_DIR),$(CURDIR)/services/human/target)
 
-MOVEMENT_PROOF_TARGET = $(abspath $(or $(CARGO_TARGET_DIR),.lane-target))
-.PHONY: test-owner-movement-proof
-test-owner-movement-proof: build/bin/layerxd build/bin/layerx-genesis-build build/bin/layerx-guarantor build/tests/lxp_test_guarantor_runtime
-	cargo build --locked --manifest-path services/human/Cargo.toml --target-dir $(MOVEMENT_PROOF_TARGET) -p layerx-human-identity-provider
-	cargo build --locked --manifest-path services/platform/Cargo.toml --target-dir $(MOVEMENT_PROOF_TARGET) -p layerx-platform-authority -p layerx-platform-paxeer-boundary -p layerx-runtime-clock
-	cargo build --locked --manifest-path cmd/layerxctl/Cargo.toml --target-dir $(MOVEMENT_PROOF_TARGET)
-	CARGO_TARGET_DIR=$(MOVEMENT_PROOF_TARGET) LAYERX_RUNTIME_CLOCK_BIN=$(MOVEMENT_PROOF_TARGET)/debug/layerx-runtime-clock sh tools/runtime/run-with-clock.sh python3 tests/bridge/owner-custody.py --native --governance --checkpoint --settlement-only --movement-proof
 HUMAN_TEST_PAXD := $(abspath build/paxd)
 
 .PHONY: human-test-custody-prerequisites

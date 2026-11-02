@@ -12,6 +12,12 @@ import tempfile
 import time
 from comet import qualify as qualify_comet
 
+if 'LAYERX_PAXEER_QUALIFICATION_ACTIVE' in os.environ:
+    sys.stderr.write('refusing qualification re-entry: LAYERX_PAXEER_QUALIFICATION_ACTIVE is already set\n')
+    sys.exit(2)
+
+env = os.environ.copy()
+env['LAYERX_PAXEER_QUALIFICATION_ACTIVE'] = '1'
 ROOT = Path(__file__).resolve().parents[5]
 PAXD = os.environ.get('PAXD', str(ROOT / 'build/paxd'))
 
@@ -23,13 +29,13 @@ def port():
 
 
 def run(*args, **kwargs):
+    kwargs.setdefault('env', env)
     return subprocess.run(args, check=True, stdout=subprocess.DEVNULL,
                           stderr=subprocess.PIPE, **kwargs)
 
 
 with tempfile.TemporaryDirectory(prefix='layerx-paxeer-real-') as work:
     work = Path(work)
-    env = os.environ.copy()
     # The guarantor pays for every submitCheckpoint from its own account, so genesis funds it.
     submitter = '0x2b5ad5c4795c026514f8317c7a215e218dccd6cf'
     submitter_wei = 10 ** 12 * 10 ** 12
@@ -142,10 +148,6 @@ with tempfile.TemporaryDirectory(prefix='layerx-paxeer-real-') as work:
         rows = [line.split()[1] for line in Path('/proc/net/tcp').read_text().splitlines()[1:]
                 if line.split()[1].endswith(':' + expected) and line.split()[3] == '0A']
         assert rows == ['0100007F:' + expected], rows
-        run('openssl', 'x509', '-in', str(work/'ca.pem'), '-outform', 'DER', '-out', str(work/'ca.der'))
-        client_env = env | {'LAYERX_PAXEER_TEST_CLIENT_URL': f'https://localhost:{boundary_port}',
-                            'LAYERX_PAXEER_TEST_CLIENT_CA': str(work/'ca.der')}
-        run(sys.argv[2], '--exact', 'real_paxd_boundary', env=client_env)
         signing_key = ((Path(deployment_inputs)/'keys/deployer.key').read_text().strip()
                        if deployment_inputs else '0x' + '0' * 63 + '1')
         signed = subprocess.run(['cast', 'mktx', '--rpc-url', f'https://localhost:{boundary_port}',
@@ -168,10 +170,11 @@ with tempfile.TemporaryDirectory(prefix='layerx-paxeer-real-') as work:
             raise AssertionError(f'real EVM transfer receipt unavailable: {transaction}')
         assert status == 200 and receipt['result']['status'] == '0x1', receipt
         if deployment_inputs:
+            run('openssl', 'x509', '-in', str(work/'ca.pem'), '-outform', 'DER', '-out', str(work/'ca.der'))
             inputs = Path(deployment_inputs)
             settlement = inputs/'checkpoint-settlement.json'
             settlement.write_bytes((ROOT/'contracts/config/checkpoint-settlement.json').read_bytes())
-            deploy_env = client_env | {
+            deploy_env = env | {
                 'LAYERX_PAXEER_BOUNDARY_URL': f'https://localhost:{boundary_port}',
                 'LAYERX_PAXEER_BOUNDARY_CA_DER': str(work/'ca.der'),
                 'LAYERX_PAXEER_DEPLOYER_KEY_FILE': str(inputs/'keys/deployer.key'),

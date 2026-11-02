@@ -1,4 +1,4 @@
-import { decodeRawEip1559, keccak256, type MerkleProof, type SequencerAuthorization, type SequencerReceiptKey } from "@sidiora/layerx-sdk";
+import { decodeRawEip1559, keccak256, type SequencerReceiptKey } from "@sidiora/layerx-sdk";
 import { MiddlewareError, verifyPaymentReceipt, paymentCommitment, type PaymentCommitment, type PaymentRequirements, type PaymentCommitmentResolver, type PaymentReceiptVerification, type PortableReceiptV2 } from "./index.js";
 
 export function rpcObject(value: unknown): Record<string, unknown> {
@@ -129,28 +129,4 @@ export async function verifyRpcPayment(
   if (verification.height !== height || verification.txHash !== expectedHash
     || hexString(verification.receipt.from) !== hexString(payer)) throw new MiddlewareError("verification-failure");
   return { kind: "verified", ...evidence, verification };
-}
-
-export interface RpcBatchEvidence {
-  readonly networkId: number;
-  readonly canonicalHeader: Uint8Array;
-  readonly headerSignature: Uint8Array;
-  readonly authorization: SequencerAuthorization;
-  readonly proof: MerkleProof;
-}
-
-export function rpcBatchEvidence(result: Record<string, unknown>, activityId: string, receipt: Uint8Array,
-  trusted: Pick<RpcBatchEvidence, "networkId" | "authorization">): RpcBatchEvidence {
-  const bundle = rpcObject(result["batch_evidence"]);
-  const signed = rpcObject(bundle["signed_header"]);
-  const proof = rpcObject(bundle["proof"]);
-  const same = (left: Uint8Array, right: Uint8Array) => left.length === right.length && left.every((b, i) => b === right[i]);
-  if (bundle["kind"] !== "receipt" || bundle["activity_id"] !== activityId
-    || !same(rpcHex(bundle["canonical_value"]), receipt)
-    || !same(rpcHex(signed["public_key"], 32), trusted.authorization.publicKey)
-    || !same(rpcHex(signed["sequencer_id"], 32), trusted.authorization.sequencerId)
-    || !Number.isSafeInteger(proof["leaf_index"]) || !Number.isSafeInteger(proof["leaf_count"])
-    || !Array.isArray(proof["siblings"]) || proof["siblings"].length > 64) throw new MiddlewareError("verification-failure");
-  return { ...trusted, canonicalHeader: rpcHex(signed["canonical_header"]), headerSignature: rpcHex(signed["signature"], 64),
-    proof: { leafIndex: proof["leaf_index"] as number, leafCount: proof["leaf_count"] as number, siblings: proof["siblings"].map(value => rpcHex(value, 32)) } };
 }
