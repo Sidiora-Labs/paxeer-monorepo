@@ -119235,7 +119235,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.1.6]
 title = "Route the human server's remaining clock reads through its injected clock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.27.9", "10.21.8", "9.35.10"]
