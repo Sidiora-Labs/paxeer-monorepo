@@ -353,3 +353,18 @@ async function inspectHealth({ provider, manifest, blockTag = "latest", policy =
   };
 }
 module.exports = { inspectHealth, IMPLEMENTATION_SLOT };
+
+// The library command uses the same consumer as the package's health command.
+if (require.main === module) {
+  require("../production-health")
+    .main()
+    .catch(() => {
+      console.error(
+        JSON.stringify({
+          status: "critical",
+          error: "Health snapshot failed; validate manifest, policy and RPC availability",
+        })
+      );
+      process.exitCode = 1;
+    });
+}

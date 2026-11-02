@@ -186,7 +186,7 @@ func NewServer(ctx context.Context, opts Options) (*Server, error) {
 		}
 	}
 
-	providers, err := feeds.NewProviders(ctx, opts.DB, logger)
+	providers, err := feeds.NewProviders(ctx, opts.DB, logger, opts.Metrics)
 	if err != nil {
 		return nil, err
 	}

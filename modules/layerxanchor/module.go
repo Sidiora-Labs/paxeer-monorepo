@@ -76,6 +76,8 @@ type AppModule struct {
 	upgrades keeper.UpgradeReader
 }
 
+// NewAppModule binds the anchor keeper to the application's live upgrade reader.
+// Retirement is checked on every message, rather than captured at construction.
 func NewAppModule(k keeper.Keeper, upgrades keeper.UpgradeReader) AppModule {
 	return AppModule{keeper: k, upgrades: upgrades}
 }
@@ -86,6 +88,8 @@ func (AppModule) QuerierRoute() string { return types.QuerierRoute }
 
 func (AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier { return nil }
 
+// RegisterServices also supports registration outside the module manager: the
+// retired anchor must retain its refusal route after its store is deleted.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImplWithUpgrades(am.keeper, am.upgrades))
 }
