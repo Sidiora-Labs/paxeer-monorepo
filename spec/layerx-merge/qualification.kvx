@@ -16859,3 +16859,19 @@ symbol = "solc_version"
 observed = "Attempt 1 (ee97281de) removed the two read permissions and the test directory from foundry.toml and added tools/ci/tests/test_foundry_profile.py as the task states; the declared build forge build --offline exited 1 with 'can't install missing solc 0.8.27 in offline mode' before compiling anything, because the qualification environment had fetched no compiler for the repository root's foundry.toml; the change itself does not touch solc_version."
 assumption = "Environmental: the qualification environment now fetches the pinned compiler of the repository root before an offline build; the task continues from attempt 1 unchanged."
 severity = "minor"
+
+[finding.15.0.4.2]
+task = "15.0.4"
+file = "services/platform/middleware/seller/src/index.ts:405"
+symbol = "paymentPurpose"
+observed = "Attempt 5 (fb3e6c9e4) completed the receipt-key migration of sdk/integrations/express/src/index.ts (receiptKeys parsed from LAYERX_RECEIPT_KEYS_JSON with camelCase decimal heights, both middlewares built without protocolVersion) and the two tests; loadConfigReadsReceiptKeysJson passed and integrationSettlesSignedSequencerReceipt failed with 402 instead of 200 at test/receipt-keys.test.mjs:286, because the seller verifier reads the payment purpose from the offer terms with paymentPurpose(requirements.extra, true) (seller/src/index.ts:405, commitment.ts:59-64: a non-zero 64-hex purposeHash under extra.layerx) and readDeclaredConfig builds the PaymentRequirements (sdk/integrations/express/src/index.ts:256-264) with no extra at all; the agent middleware (agent/src/index.ts:849) and every seller test carry extra.layerx with commitment receipted and purposeHash. The task's symbols also still name staticAuthorizedBatches and parseAuthorizedBatch, which do_2 and do_3 delete, so the graph check would refuse the done record even with a passing verify."
+assumption = "Spec defect in the task, not in the attempt: the mount's offer must carry the receipted commitment and a purpose, and the symbols list must name definitions the task keeps; 15.0.4 continues from attempt 5."
+severity = "major"
+
+[finding.8.34.2.1]
+task = "8.34.2"
+file = "services/platform/examples/run-reference-apps.mjs:6"
+symbol = "BuyerMiddleware"
+observed = "Attempt 1 (fbca296ce) rewrote run-reference-apps.mjs for receipt keys and added test/run-reference-apps.test.mjs; node --check passed and referenceAppsCheckPassesWithoutRetiredSurfaces failed at import time with ERR_MODULE_NOT_FOUND for node_modules/@sidiora/layerx-buyer-middleware/dist/index.js, because the runner imports the buyer middleware and the TypeScript SDK (run-reference-apps.mjs:6-7) and its support files import the seller and merchant middlewares (support/merchant-app.mjs:5-11, support/runtime.mjs:4), all resolved through their dist entries, and the declared build is node --check alone, which builds none of them."
+assumption = "Spec defect: the build must produce the dist entries the test imports; the build command now builds the SDK and the seller, buyer and merchant packages before the syntax check, and the task continues from attempt 1."
+severity = "minor"
