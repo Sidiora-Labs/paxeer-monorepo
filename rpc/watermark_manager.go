@@ -92,17 +92,27 @@ func (m *WatermarkManager) PendingContext(ctx context.Context) (sdk.Context, err
 	}
 }
 
-// resolvePending returns the height of the open block. The snapshot it takes is
-// read for its height only and never written.
+// resolvePending returns the height of the open block, or the latest committed
+// height while no block is open. The snapshot is read for its height only and
+// never written, matching the fallback used for simulation reads.
 func (m *WatermarkManager) resolvePending() (int64, error) {
+	height, _, err := m.pendingHeight(context.Background())
+	return height, err
+}
+
+func (m *WatermarkManager) pendingHeight(ctx context.Context) (height int64, open bool, err error) {
 	if m == nil || m.pending == nil {
-		return 0, ErrPendingServedBySequencer
+		return 0, false, ErrPendingServedBySequencer
 	}
-	ctx, err := m.pending.Snapshot()
+	snapshot, err := m.pending.Snapshot()
+	if errors.Is(err, ErrLayerNotOpen) {
+		height, err := m.LatestHeight(ctx)
+		return height, false, err
+	}
 	if err != nil {
-		return 0, fmt.Errorf("pending block unavailable: %w", err)
+		return 0, false, fmt.Errorf("pending block unavailable: %w", err)
 	}
-	return ctx.BlockHeight(), nil
+	return snapshot.BlockHeight(), true, nil
 }
 
 // Watermarks returns the earliest block height, earliest state height, and
@@ -227,13 +237,18 @@ func (m *WatermarkManager) EarliestStateHeight(ctx context.Context) (int64, erro
 // If the resolved height sits outside the tracked watermarks, the method returns
 // an error explaining whether it is too old (pruned) or too new (not yet
 // available). The pending tag resolves to PendingCtxHeight while a block is
-// open on the sequencer and standby.
+// open on the sequencer and standby, or the latest committed height while no
+// block is open.
 func (m *WatermarkManager) ResolveHeight(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (int64, error) {
 	if blockNrOrHash.BlockHash == nil && blockNrOrHash.BlockNumber != nil && *blockNrOrHash.BlockNumber == rpc.PendingBlockNumber {
-		if _, err := m.resolvePending(); err != nil {
+		height, open, err := m.pendingHeight(ctx)
+		if err != nil {
 			return 0, err
 		}
-		return PendingCtxHeight, nil
+		if open {
+			return PendingCtxHeight, nil
+		}
+		return height, nil
 	}
 	_, stateEarliest, latest, err := m.Watermarks(ctx)
 	if err != nil {
