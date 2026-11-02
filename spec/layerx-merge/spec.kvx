@@ -218069,7 +218069,7 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 
 [task.18.1506.1]
 title = "Issue #1506: Update the bundled owner policy to the enforced sixteen-byte limit id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
