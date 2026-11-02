@@ -1,6 +1,6 @@
 //! Production composition root for the privileged human component process.
 
-use layerx_types::clock::Clock;
+use layerx_types::clock::{Clock, Deadline};
 use std::env;
 use std::fs;
 use std::net::SocketAddr;
@@ -719,7 +719,7 @@ impl ProductionComponents {
         )?;
         let auth_index = production_auth_index(config.auth_index_root, config.auth_index_key)?;
         let (agent_contract, agent, native_asset) =
-            production_agent(config.agent_socket, config.agent_limits)?;
+            production_agent(config.agent_socket, config.agent_limits, Arc::clone(&clock))?;
         let (keystore, attestor) = match provider {
             ProductionKms::Attestor(attestor) => (
                 Keystore::open_production(config.custody_root, config.network_id, attestor.clone()),
@@ -1077,9 +1077,8 @@ impl HumanApiComponents for ProductionComponents {
         if context.assertion().is_some() {
             return Err(ApiFailure::forbidden());
         }
-        let deadline = std::time::Instant::now()
-            .checked_add(Duration::from_secs(lifetime))
-            .ok_or_else(ApiFailure::unavailable)?;
+        let mut deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(lifetime))
+            .map_err(|_| ApiFailure::unavailable())?;
         let maximum_bytes = maximum_bytes.min(1_048_576);
         let mut used = 0_usize;
         let mut count = 0_usize;
@@ -1088,7 +1087,10 @@ impl HumanApiComponents for ProductionComponents {
         loop {
             if cancelled()
                 || count == super::stream_journal::MAX_PAGE
-                || std::time::Instant::now() >= deadline
+                || deadline
+                    .remaining(self.clock.as_ref())
+                    .map_err(|_| ApiFailure::unavailable())?
+                    .is_zero()
                 || self.now()? >= context.expires_at()
             {
                 return Ok(());
@@ -1111,14 +1113,19 @@ impl HumanApiComponents for ProductionComponents {
                 .and_then(serde_json::Value::as_array)
                 .ok_or_else(ApiFailure::upstream_degraded)?;
             if events.is_empty() {
-                let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+                let remaining = deadline
+                    .remaining(self.clock.as_ref())
+                    .map_err(|_| ApiFailure::unavailable())?;
                 super::stream_journal::wait_for_change(observed_change, remaining)?;
                 continue;
             }
             for event in events {
                 if cancelled()
                     || count == super::stream_journal::MAX_PAGE
-                    || std::time::Instant::now() >= deadline
+                    || deadline
+                        .remaining(self.clock.as_ref())
+                        .map_err(|_| ApiFailure::unavailable())?
+                        .is_zero()
                     || self.now()? >= context.expires_at()
                 {
                     return Ok(());
@@ -1180,9 +1187,13 @@ impl HumanApiComponents for ProductionComponents {
             .agent_contract
             .daemon_endpoint()
             .is_some_and(|endpoint| {
-                AgentRuntime::connect(endpoint, self.agent_limits)
-                    .and_then(|mut runtime| runtime.head())
-                    .is_ok()
+                AgentRuntime::connect_with_clock(
+                    endpoint,
+                    self.agent_limits,
+                    Arc::clone(&self.clock),
+                )
+                .and_then(|mut runtime| runtime.head())
+                .is_ok()
             });
         let security_ready = self
             .security
@@ -8031,13 +8042,14 @@ fn session_secrets(grant: &crate::auth::SessionGrant, now: u64) -> SessionSecret
 fn production_agent(
     socket: PathBuf,
     limits: Limits,
+    clock: Arc<dyn Clock>,
 ) -> Result<(layerx_sdk::Client, AgentRuntime, [u8; 32]), String> {
     let agent_contract = layerx_sdk::Client::daemon(
         socket.clone(),
         layerx_agent_api::agent_api_schema_v1().version,
     )
     .map_err(|_| "agent SDK contract refused startup".to_owned())?;
-    let mut agent = AgentRuntime::connect(socket, limits)
+    let mut agent = AgentRuntime::connect_with_clock(socket, limits, clock)
         .map_err(|_| "agent boundary refused startup".to_owned())?;
     let native_asset = agent
         .native_fee_policy()
