@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import dynamic from "next/dynamic";
 import { Book, BookX } from "lucide-react";
 import { type SpotMarket } from "@/core/spot/config";
@@ -17,8 +17,12 @@ import { MobileSpotBalancePanel } from "./MobileSpotBalancePanel";
    trade view to preserve cross-mode muscle memory.
    ══════════════════════════════════════════════════════════════════════ */
 
-const SpotOrderFormWidget = dynamic(
-  () => import("@/widgets/spot/SpotOrderForm").then((m) => ({ default: m.SpotOrderForm })),
+export function loadSpotOrderForm() {
+  return import("@/widgets/spot/SpotOrderForm").then((m) => ({ default: m.SpotOrderForm }));
+}
+
+export const SpotOrderFormWidget = dynamic(
+  loadSpotOrderForm,
   { ssr: false, loading: () => <OrderFormSkeleton /> },
 );
 const SpotOrderbookWidget = dynamic(
