@@ -1,64 +1,47 @@
-use layerx_crypto::disclosure::{bind, Disclosure};
+use layerx_crypto::disclosure::call::{bind_call, ledger_selector};
+use layerx_crypto::disclosure::{Disclosure, DisclosureError};
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
 use layerx_human_service::approvals::{
     ApprovalActivityClass, ApprovalPresentation, DisclosureRenderError, DisclosureRenderer,
     RenderedApproval, RenderedApprovalFacts, RenderedCounterparty, VerifiedBudgetAfter,
 };
-use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
 use layerx_types::rung::Rung;
-use layerx_wire::activity::encode_unsigned_envelope;
-use layerx_wire::hash::payload_hash_for;
 use sha2::{Digest as _, Sha256};
 
 fn approval_disclosure() -> Result<(Disclosure, [u8; 32]), String> {
-    let kind = ActivityType::new(ModuleId::Bridge, 1).map_err(|error| format!("{error:?}"))?;
-    let registration =
-        ModuleRegistration::new(ModuleId::Bridge, &[kind]).map_err(|error| format!("{error:?}"))?;
-    let registry = ModuleRegistry::new(&[registration]).map_err(|error| format!("{error:?}"))?;
-    let mut payload = vec![0; 368];
-    payload[..5].copy_from_slice(b"LXDC3");
-    payload[5..37].fill(0x12);
-    payload[37..41].copy_from_slice(&77_u32.to_be_bytes());
-    payload[41..43].copy_from_slice(&1_u16.to_be_bytes());
-    payload[43..75].fill(0x11);
-    payload[75..107].fill(0x15);
-    payload[107..139].fill(0x14);
-    payload[139..171].fill(0x12);
-    payload[171..191].fill(0x13);
-    payload[191..207].copy_from_slice(&25_u128.to_be_bytes());
-    payload[359..363].copy_from_slice(&2_u32.to_be_bytes());
-    payload[363..368].copy_from_slice(b"LXLB1");
-    let proof_hash = Sha256::digest(&payload[363..]);
-    payload[327..359].copy_from_slice(&proof_hash);
-    let payload = Payload::new(&registry, kind, &payload).map_err(|error| format!("{error:?}"))?;
-    let actor = Did::new(b"did:layerx:approval-rungs").map_err(|error| format!("{error:?}"))?;
-    let mut nullifier = Sha256::new();
-    nullifier.update(b"LX:DEPOSIT:NULLIFIER:v1");
-    nullifier.update([0x11; 32]);
-    let mut builder = EnvelopeBuilder::new();
-    builder
-        .protocol_version(1)
-        .and_then(|builder| builder.network_id(77))
-        .and_then(|builder| builder.activity_type(kind))
-        .and_then(|builder| builder.actor_did(actor))
-        .and_then(|builder| builder.authority(Authority::protocol_module(&[0x12; 32])?))
-        .and_then(|builder| builder.account_sequence(7))
-        .and_then(|builder| builder.timestamp_bound(TimestampBound::new(90, 1_000)?))
-        .and_then(|builder| {
-            builder.idempotency_key(IdempotencyKey::new(nullifier.finalize().into()))
-        })
-        .and_then(|builder| builder.fee_limit(Amount::from_u128(3)))
+    let word = |value: u128| {
+        let mut word = [0; 32];
+        word[16..].copy_from_slice(&value.to_be_bytes());
+        word
+    };
+    let address = |value: u8| {
+        let mut address = [0; 32];
+        address[12..].fill(value);
+        address
+    };
+    let mut data = ledger_selector("transfer(address,uint256)").to_vec();
+    for argument in [address(0x14), word(25)] {
+        data.extend_from_slice(&argument);
+    }
+    let call = Eip1559Call {
+        chain_id: 77,
+        nonce: 7,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 1,
+        gas_limit: 3,
+        to: [0x15; 20],
+        data,
+    };
+    let signed = call
+        .sign(&[0x68; 32])
         .map_err(|error| format!("{error:?}"))?;
-    builder
-        .payload_hash(payload_hash_for(&payload).map_err(|error| format!("{error:?}"))?)
-        .and_then(|builder| builder.payload(payload))
+    let (decoded, signature) = decode_signed(&signed).map_err(|error| format!("{error:?}"))?;
+    let sender = recover_sender(&decoded, &signature).map_err(|error| format!("{error:?}"))?;
+    let disclosure = bind_call(&decoded, sender).map_err(|error| format!("{error:?}"))?;
+    let digest = disclosure
+        .audit_digest()
         .map_err(|error| format!("{error:?}"))?;
-    let envelope = builder.build().map_err(|error| format!("{error:?}"))?;
-    let canonical = encode_unsigned_envelope(&envelope).map_err(|error| format!("{error:?}"))?;
-    let disclosure = bind(&canonical, &registry).map_err(|error| format!("{error:?}"))?;
-    Ok((disclosure, Sha256::digest(&canonical).into()))
+    Ok((disclosure, digest))
 }
 
 fn budget(rung: Rung) -> VerifiedBudgetAfter {
@@ -100,19 +83,23 @@ fn approval_budget_read_at_committed_renders_unchanged() -> Result<(), String> {
     assert_eq!(
         presentation,
         ApprovalPresentation::Rendered(Box::new(RenderedApproval {
-            class: ApprovalActivityClass::AddMoney,
-            copy_key: "approval.activity.add_money",
+            class: ApprovalActivityClass::MoveMoney,
+            copy_key: "approval.activity.move_money",
             plain_copy: format!(
-                "Add 25 {} to {}. Fees can be up to 3.",
-                "15".repeat(32),
-                "14".repeat(32)
+                "Move 25 {} to {}. Fees can be up to 3.",
+                "00".repeat(32),
+                "00".repeat(12) + &"14".repeat(20)
             ),
             facts: RenderedApprovalFacts {
                 amount: Some(25),
-                counterparty: RenderedCounterparty::Account([0x14; 32]),
-                asset: Some([0x15; 32]),
+                counterparty: RenderedCounterparty::Account({
+                    let mut account = [0; 32];
+                    account[12..].fill(0x14);
+                    account
+                }),
+                asset: Some([0; 32]),
                 fee_limit: 3,
-                expires_at: 1_000,
+                expires_at: u64::MAX,
             },
             budget_after: budget,
             disclosure_digest: digest,
@@ -129,6 +116,14 @@ fn approval_budget_read_at_committed_renders_unchanged() -> Result<(), String> {
     assert_eq!(
         DisclosureRenderer::render(&disclosure, changed_digest, budget),
         Err(DisclosureRenderError::DigestMismatch)
+    );
+    let mut changed_disclosure = disclosure.clone();
+    changed_disclosure.amounts[0].value += 1;
+    assert_eq!(
+        DisclosureRenderer::render(&changed_disclosure, digest, budget),
+        Err(DisclosureRenderError::DefectiveDisclosure(
+            DisclosureError::FieldMismatch("amounts")
+        ))
     );
     Ok(())
 }

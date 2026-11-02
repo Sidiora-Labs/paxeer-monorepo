@@ -184,9 +184,7 @@ mod tests {
     };
     use layerx_human_service::frame::{read_frame, write_frame};
     use layerx_intents::NativeOwnerBootstrap;
-    use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
-    use layerx_types::amount::Amount;
-    use layerx_types::ids::{Did, IdempotencyKey};
+    use layerx_types::ids::Did;
     use layerx_types::intent::PublicKey;
     use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration};
     use rustls::pki_types::ServerName;
@@ -216,12 +214,9 @@ mod tests {
     }
 
     struct OwnerEnvelopeContext {
-        actor: Did,
         owner_public_key: [u8; 32],
         network_id: u32,
         account_sequence: u64,
-        not_before_ms: u64,
-        not_after_ms: u64,
         action_key: [u8; 32],
         fee_limit: u128,
     }
@@ -229,26 +224,34 @@ mod tests {
     fn unsigned_native(
         compiled: &layerx_intents::CompiledIntent,
         context: &OwnerEnvelopeContext,
-        registry: &ModuleRegistry,
     ) -> TestResult<(Vec<u8>, Disclosure)> {
-        let mut builder = EnvelopeBuilder::new();
-        checked(builder.protocol_version(3))?;
-        checked(builder.network_id(context.network_id))?;
-        checked(builder.activity_type(compiled.activity_type()))?;
-        checked(builder.actor_did(context.actor.clone()))?;
-        checked(builder.authority(checked(Authority::owner(&context.owner_public_key))?))?;
-        checked(builder.account_sequence(context.account_sequence))?;
-        checked(builder.timestamp_bound(checked(TimestampBound::new(
-            context.not_before_ms,
-            context.not_after_ms,
-        ))?))?;
-        checked(builder.idempotency_key(IdempotencyKey::new(context.action_key)))?;
-        checked(builder.fee_limit(Amount::from_u128(context.fee_limit)))?;
-        checked(builder.payload_hash(compiled.payload_hash()))?;
-        checked(builder.payload(compiled.payload().clone()))?;
-        let envelope = checked(builder.build())?;
-        let bytes = checked(layerx_wire::activity::encode_unsigned_envelope(&envelope))?;
-        let disclosure = checked(layerx_crypto::disclosure::bind(&bytes, registry))?;
+        let payload = compiled.payload().as_bytes();
+        let mut data =
+            layerx_crypto::disclosure::call::ledger_selector("recordLifecycle(bytes,bytes32)")
+                .to_vec();
+        let mut offset = [0; 32];
+        offset[31] = 64;
+        data.extend_from_slice(&offset);
+        data.extend_from_slice(&context.action_key);
+        let mut length = [0; 32];
+        length[24..].copy_from_slice(&u64::try_from(payload.len())?.to_be_bytes());
+        data.extend_from_slice(&length);
+        data.extend_from_slice(payload);
+        data.resize(4 + (data.len() - 4).div_ceil(32) * 32, 0);
+        let mut to = [0; 20];
+        to[18..].copy_from_slice(&0x101c_u16.to_be_bytes());
+        let call = layerx_crypto::evm_transaction::Eip1559Call {
+            chain_id: u64::from(context.network_id),
+            nonce: context.account_sequence,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: context.fee_limit,
+            gas_limit: 1,
+            to,
+            data,
+        };
+        let sender = context.owner_public_key[12..].try_into()?;
+        let disclosure = checked(layerx_crypto::disclosure::call::bind_call(&call, sender))?;
+        let bytes = call.encode_unsigned();
         Ok((bytes, disclosure))
     }
 
@@ -364,21 +367,16 @@ mod tests {
             .compile(&registry),
         )?;
         let context = OwnerEnvelopeContext {
-            actor: did,
             owner_public_key: public,
             network_id: NETWORK,
             account_sequence: 10,
-            not_before_ms: 1_000,
-            not_after_ms: 61_000,
             action_key: [u8::try_from(compiled.activity_type().ordinal())?; 32],
             fee_limit: 100,
         };
-        let (unsigned, disclosure) = checked(unsigned_native(&compiled, &context, &registry))?;
-        let mut preimage = Sha256::new();
-        preimage.update(b"LXP/v1/signature-preimage\0");
-        preimage.update(&unsigned);
+        let (unsigned, disclosure) = checked(unsigned_native(&compiled, &context))?;
+        let call = checked(layerx_crypto::evm_transaction::decode_unsigned(&unsigned))?;
         Ok(Activity {
-            digest: preimage.finalize().into(),
+            digest: call.signing_hash(),
             encoded: encoded_disclosure(&disclosure)?,
             unsigned,
         })
