@@ -125397,7 +125397,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.50.7]
 title = "Retire the layerxd process core and binary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 42
 requires = ["5.0.3", "1.97.1", "6.97.2", "8.19.2", "8.19.3", "9.24.2", "13.34.1", "14.29.4", "16.0.3", "16.2.4", "16.3.1", "16.3.2", "16.3.4", "16.4.3", "16.5.2", "16.8.1", "16.8.2", "16.9.4", "16.11.1", "16.11.2", "16.11.3", "16.11.4", "16.11.5", "16.11.6", "16.11.11", "16.32.9", "16.34.2", "16.34.3", "16.34.4", "16.35.2"]
