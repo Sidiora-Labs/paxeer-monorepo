@@ -788,7 +788,7 @@ impl ProviderCallback {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReceiptKeyConfig {
     pub key_id: String,
@@ -828,7 +828,7 @@ impl ReceiptKeyConfig {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct LayerxConfig {
     pub rpc_endpoint: String,
