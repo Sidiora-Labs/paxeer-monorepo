@@ -114,8 +114,12 @@ func testMigration(t *testing.T, migrationPath string) {
 	err := os.MkdirAll(testDir, 0777)
 	require.NoError(t, err)
 
-	// Copy the test data directory to our temporary directory
-	err = util.RecursiveMove(migrationPath, testDir, true, false)
+	// Copy the complete segment set and rebuild the keymap from it. The checked-in
+	// Pebble keymap lacks its ignored WAL files and cannot serve as a valid index.
+	err = util.RecursiveMove(
+		filepath.Join(migrationPath, "test", segment.SegmentDirectory),
+		filepath.Join(testDir, "test", segment.SegmentDirectory),
+		true, false)
 	require.NoError(t, err)
 
 	// Now open the database and verify the data matches our expectations
