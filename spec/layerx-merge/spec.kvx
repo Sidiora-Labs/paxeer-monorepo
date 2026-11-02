@@ -150641,7 +150641,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.9.25.1]
 title = "Delete the kernel-era read, receipt, submit, stream, batch, payments and evidence modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.2", "9.24.4", "9.22.3", "9.22.5", "9.23.5", "9.23.6", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.16.4", "8.11.3", "8.19.5", "10.27.5", "8.12.3", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "9.25.17", "9.25.18", "9.25.19", "13.8.3", "9.27.9", "8.101.1"]
