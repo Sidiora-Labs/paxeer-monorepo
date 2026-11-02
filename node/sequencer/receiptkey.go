@@ -39,6 +39,8 @@ type ReceiptKey struct {
 // seed readable by its owner only, held apart from the consensus key in
 // consensusKeyFile. It refuses start unless an entry of pins covers its
 // public key at openHeight.
+// Each load reopens the persisted seed and revalidates its permissions and pins;
+// it never creates or overwrites the producer's key file.
 func LoadReceiptKey(keyFile, consensusKeyFile string, pins []verify.SequencerAuthorization, openHeight int64) (*ReceiptKey, error) {
 	info, err := os.Stat(keyFile)
 	if err != nil {

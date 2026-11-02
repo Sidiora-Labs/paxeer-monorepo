@@ -6,6 +6,7 @@ use std::time::Duration;
 use layerx_indexer::abi::AbiRegistry;
 use layerx_indexer::api;
 use layerx_indexer::backfill::Backfill;
+use layerx_indexer::chains::{chains_abi, ChainsConfig};
 use layerx_indexer::config::{BackfillConfig, Config};
 use layerx_indexer::explorer::ExplorerApi;
 use layerx_indexer::follow::StepOutcome;
@@ -72,6 +73,9 @@ fn load_registry(config: &Config) -> Result<AbiRegistry, IndexError> {
         for abi in names_abi(&names)? {
             registry.insert(abi);
         }
+    }
+    for abi in chains_abi(&ChainsConfig::from_env()?) {
+        registry.insert(abi);
     }
     eprintln!("layerx-indexer loaded {} ABIs", registry.abis().len());
     Ok(registry)

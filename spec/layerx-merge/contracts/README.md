@@ -26,6 +26,12 @@ One line per normative contract file of this version; the label is how the contr
 | services.md | [services.md](services.md) | per-service reads, writes, signing keys, liveness and evidence |
 | clients.md | [clients.md](clients.md) | client operations, identity and keys, receipt verification, lx_* decisions and conformance |
 
+## Feature contracts
+
+| File | Feature | Tasks |
+| --- | --- | --- |
+| [virtual-chains.md](virtual-chains.md) | 20 | 31 |
+
 ## Retired contract files
 
 | File | Replaced by |

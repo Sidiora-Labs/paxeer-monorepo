@@ -174,13 +174,9 @@ func validateInitialStores(mode config.WriteMode, initialStores []string) error 
 	if mode == config.MemiavlOnly || mode == config.FlatKVOnly {
 		return nil
 	}
-	known := make(map[string]struct{}, len(keys.MemIAVLStoreKeys))
-	for _, k := range keys.MemIAVLStoreKeys {
-		known[k] = struct{}{}
-	}
 	var unknown []string
 	for _, s := range initialStores {
-		if _, ok := known[s]; !ok {
+		if !keys.IsMemIAVLStoreKey(s) {
 			unknown = append(unknown, s)
 		}
 	}

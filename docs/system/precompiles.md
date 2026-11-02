@@ -2,7 +2,7 @@
 
 # Precompile ABIs
 
-Source: `precompiles/<name>/*abi*.json`, `precompiles/<name>/abi/*.json` and the `abiJSON` constants in `precompiles/layerxagent/*/*.go`, the address constants in each package or its `modules/<name>/types/*.go`, and the Solidity interfaces in `contracts/src/precompiles/`. Addresses list the package's fixed addresses, shared across its ABI rows; the spot share ABI describes dynamically allocated share-token pointers.
+Source: `precompiles/<name>/*abi*.json`, `precompiles/<name>/abi/*.json` and the `abiJSON` constants in `precompiles/layerxagent/*/*.go`, the endpoint registrations in `precompiles/setup.go` and each package's constructors, and the Solidity interfaces in `contracts/src/precompiles/`. Addresses list the package's fixed endpoint addresses, shared across its ABI rows; the spot share ABI describes dynamically allocated share-token pointers.
 
 ## Summary
 
@@ -17,21 +17,22 @@ Source: `precompiles/<name>/*abi*.json`, `precompiles/<name>/abi/*.json` and the
 | gov | `precompiles/gov/abi.json` | `0x0000000000000000000000000000000000001006` | 4 |
 | ibc | `precompiles/ibc/abi.json` | `0x0000000000000000000000000000000000001009` | 2 |
 | json | `precompiles/json/abi.json` | `0x0000000000000000000000000000000000001003` | 4 |
-| launchpad | `precompiles/launchpad/abi/FeeAccumulator.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 54 |
-| launchpad | `precompiles/launchpad/abi/FeesRouter.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 20 |
-| launchpad | `precompiles/launchpad/abi/PoolRegistry.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 22 |
-| launchpad | `precompiles/launchpad/abi/ProtocolConfig.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 27 |
-| launchpad | `precompiles/launchpad/abi/Quoter.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 19 |
-| launchpad | `precompiles/launchpad/abi/Router.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 23 |
-| launchpad | `precompiles/launchpad/abi/SidioraERC20.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 19 |
-| launchpad | `precompiles/launchpad/abi/SidioraFactory.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 23 |
-| launchpad | `precompiles/launchpad/abi/SidioraNFT.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 37 |
-| launchpad | `precompiles/launchpad/abi/SidioraPool.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 42 |
-| launchpad | `precompiles/launchpad/abi/Treasury.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 17 |
-| launchpad | `precompiles/launchpad/abi.json` | `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD` | 113 |
+| launchpad | `precompiles/launchpad/abi/FeeAccumulator.json` | `0x0000000000000000000000000000000000001017` | 54 |
+| launchpad | `precompiles/launchpad/abi/FeesRouter.json` | `0x0000000000000000000000000000000000001017` | 20 |
+| launchpad | `precompiles/launchpad/abi/PoolRegistry.json` | `0x0000000000000000000000000000000000001017` | 22 |
+| launchpad | `precompiles/launchpad/abi/ProtocolConfig.json` | `0x0000000000000000000000000000000000001017` | 27 |
+| launchpad | `precompiles/launchpad/abi/Quoter.json` | `0x0000000000000000000000000000000000001017` | 19 |
+| launchpad | `precompiles/launchpad/abi/Router.json` | `0x0000000000000000000000000000000000001017` | 23 |
+| launchpad | `precompiles/launchpad/abi/SidioraERC20.json` | `0x0000000000000000000000000000000000001017` | 19 |
+| launchpad | `precompiles/launchpad/abi/SidioraFactory.json` | `0x0000000000000000000000000000000000001017` | 23 |
+| launchpad | `precompiles/launchpad/abi/SidioraNFT.json` | `0x0000000000000000000000000000000000001017` | 37 |
+| launchpad | `precompiles/launchpad/abi/SidioraPool.json` | `0x0000000000000000000000000000000000001017` | 42 |
+| launchpad | `precompiles/launchpad/abi/Treasury.json` | `0x0000000000000000000000000000000000001017` | 17 |
+| launchpad | `precompiles/launchpad/abi.json` | `0x0000000000000000000000000000000000001017` | 113 |
 | layerxanchor | `precompiles/layerxanchor/abi.json` | `0x0000000000000000000000000000000000001014` | 21 |
 | layerxauth | `precompiles/layerxauth/abi.json` | `0x000000000000000000000000000000000000101C` | 10 |
 | layerxbridge | `precompiles/layerxbridge/abi.json` | `0x0000000000000000000000000000000000001016` | 7 |
+| layerxchains | `precompiles/layerxchains/abi.json` | - | 12 |
 | layerxcustody | `precompiles/layerxcustody/abi.json` | `0x0000000000000000000000000000000000001013` | 20 |
 | layerxexchange | `precompiles/layerxexchange/abi.json` | `0x0000000000000000000000000000000000001015` | 12 |
 | layerxledger | `precompiles/layerxledger/abi.json` | `0x000000000000000000000000000000000000101A` | 18 |
@@ -219,7 +220,7 @@ Address: `0x0000000000000000000000000000000000001003`
 
 ## launchpad (`FeeAccumulator.json`)
 
-Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+Address: `0x0000000000000000000000000000000000001017`
 
 ### Functions
 
@@ -328,7 +329,7 @@ Address: `0x0000000000000000000000000000000000001017`, `0x0000000000000000000000
 
 ## launchpad (`FeesRouter.json`)
 
-Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+Address: `0x0000000000000000000000000000000000001017`
 
 ### Functions
 
@@ -391,7 +392,7 @@ Address: `0x0000000000000000000000000000000000001017`, `0x0000000000000000000000
 
 ## launchpad (`PoolRegistry.json`)
 
-Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+Address: `0x0000000000000000000000000000000000001017`
 
 ### Functions
 
@@ -451,7 +452,7 @@ Address: `0x0000000000000000000000000000000000001017`, `0x0000000000000000000000
 
 ## launchpad (`ProtocolConfig.json`)
 
-Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+Address: `0x0000000000000000000000000000000000001017`
 
 ### Functions
 
@@ -512,7 +513,7 @@ Address: `0x0000000000000000000000000000000000001017`, `0x0000000000000000000000
 
 ## launchpad (`Quoter.json`)
 
-Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+Address: `0x0000000000000000000000000000000000001017`
 
 ### Functions
 
@@ -569,7 +570,7 @@ Address: `0x0000000000000000000000000000000000001017`, `0x0000000000000000000000
 
 ## launchpad (`Router.json`)
 
-Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+Address: `0x0000000000000000000000000000000000001017`
 
 ### Functions
 
@@ -637,7 +638,7 @@ Address: `0x0000000000000000000000000000000000001017`, `0x0000000000000000000000
 
 ## launchpad (`SidioraERC20.json`)
 
-Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+Address: `0x0000000000000000000000000000000000001017`
 
 ### Functions
 
@@ -679,7 +680,7 @@ Address: `0x0000000000000000000000000000000000001017`, `0x0000000000000000000000
 
 ## launchpad (`SidioraFactory.json`)
 
-Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+Address: `0x0000000000000000000000000000000000001017`
 
 ### Functions
 
@@ -739,7 +740,7 @@ Address: `0x0000000000000000000000000000000000001017`, `0x0000000000000000000000
 
 ## launchpad (`SidioraNFT.json`)
 
-Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+Address: `0x0000000000000000000000000000000000001017`
 
 ### Functions
 
@@ -823,7 +824,7 @@ Address: `0x0000000000000000000000000000000000001017`, `0x0000000000000000000000
 
 ## launchpad (`SidioraPool.json`)
 
-Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+Address: `0x0000000000000000000000000000000000001017`
 
 ### Functions
 
@@ -906,7 +907,7 @@ Address: `0x0000000000000000000000000000000000001017`, `0x0000000000000000000000
 
 ## launchpad (`Treasury.json`)
 
-Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+Address: `0x0000000000000000000000000000000000001017`
 
 ### Functions
 
@@ -965,7 +966,7 @@ Address: `0x0000000000000000000000000000000000001017`, `0x0000000000000000000000
 
 ## launchpad (`abi.json`)
 
-Address: `0x0000000000000000000000000000000000001017`, `0x000000000000000000000000000000000000dEaD`
+Address: `0x0000000000000000000000000000000000001017`
 
 ### Functions
 
@@ -1254,6 +1255,31 @@ Address: `0x0000000000000000000000000000000000001016`
 
 - `BridgeIn(uint64 chain, bytes32 txHash, address recipient, uint64 logIndex, address asset, uint256 amount, string denom)`
 - `BridgeOut(uint64 chain, address asset, uint256 amount, address recipient, uint64 nonce)`
+
+
+## layerxchains (`abi.json`)
+
+### Functions
+
+- `chainByName(string name) returns (uint32)` `view`
+- `chainCount() returns (uint32)` `view`
+- `chainIdOf(uint32 id) returns (uint64)` `pure`
+- `createChain(string name, uint64 gasAllowance, uint64 byteAllowance, uint16 feeShareBps) returns (uint32 id)` `payable`
+- `fundChain(uint32 id)` `payable`
+- `getChain(uint32 id) returns (uint32 id, string name, address operator, uint8 status, uint64 chainId, uint64 gasAllowance, uint64 byteAllowance, uint16 feeShareBps, uint256 bond, uint256 baseFeePerGas, uint64 createdHeight)` `view`
+- `governancePause(uint32 id, bool paused)` `nonpayable`
+- `params() returns (address authority, uint256 minBond, uint256 creationFee, uint64 minGasAllowance, uint64 maxGasAllowance, uint64 totalGasAllowanceLeft, uint32 maxChains)` `view`
+- `pauseChain(uint32 id)` `nonpayable`
+- `resumeChain(uint32 id)` `nonpayable`
+- `retireChain(uint32 id)` `nonpayable`
+- `setOperator(uint32 id, address operator)` `nonpayable`
+
+### Events
+
+- `ChainCreated(uint32 id, string name, address operator, uint64 chainId)`
+- `ChainFunded(uint32 id, address from, uint256 amount)`
+- `ChainOperatorChanged(uint32 id, address operator)`
+- `ChainStatusChanged(uint32 id, uint8 status)`
 
 
 ## layerxcustody (`abi.json`)

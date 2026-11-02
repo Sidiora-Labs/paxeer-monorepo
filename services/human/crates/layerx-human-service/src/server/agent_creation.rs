@@ -541,7 +541,9 @@ impl<'a> ProductionAgentCreation<'a> {
                 .map_err(map_boundary)?
             {
                 ReceiptLookup::Found(receipt) => receipt,
-                ReceiptLookup::Absent => return Err(AgentFailure::Unavailable),
+                ReceiptLookup::Absent | ReceiptLookup::Submitted { .. } => {
+                    return Err(AgentFailure::Unavailable)
+                }
             },
         };
         Self::protocol_evidence(

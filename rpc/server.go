@@ -12,6 +12,7 @@ import (
 	tmutils "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
 	evmCfg "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci"
 	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc/stats"
@@ -108,6 +109,35 @@ func sequencerOption(opt SequencerOption, current *SequencerOption) (*SequencerO
 	return &opt, nil
 }
 
+func domainResolverForServer(app *baseapp.BaseApp, k *keeper.Keeper, ctxProvider func(int64) sdk.Context, opts []ServerOption) (DomainResolver, error) {
+	var resolver DomainResolver
+	for _, opt := range opts {
+		if o, ok := opt.(domainResolverOption); ok {
+			if o.resolver == nil || resolver != nil {
+				return nil, errors.New("domain resolver option needs exactly one non-nil resolver")
+			}
+			resolver = o.resolver
+		}
+	}
+	if resolver != nil {
+		return resolver, nil
+	}
+	chains, err := chainsKeeperForDomainIndex(ctxProvider(LatestCtxHeight), k)
+	if err != nil {
+		return nil, err
+	}
+	return func(id uint32) (DomainScope, bool) {
+		if id == 0 {
+			return DomainScope{}, false
+		}
+		domain, ok := chains.GetDomain(ctxProvider(LatestCtxHeight), id)
+		if !ok || domain.Status == chainstypes.StatusRetired {
+			return DomainScope{}, false
+		}
+		return DomainScope{ID: id, ChainID: chainstypes.ChainIDOf(id)}, true
+	}, nil
+}
+
 func NewEVMHTTPServer(
 	config evmrpcconfig.Config,
 	tmClient client.LocalClient,
@@ -123,6 +153,10 @@ func NewEVMHTTPServer(
 ) (EVMServer, error) {
 	if tmClient == nil || k == nil || ctxProvider == nil || txConfigProvider == nil || app == nil {
 		return nil, errors.New("EVM HTTP server dependencies are not configured")
+	}
+	domainResolver, err := domainResolverForServer(app, k, ctxProvider, opts)
+	if err != nil {
+		return nil, err
 	}
 	ctx := ctxProvider(LatestCtxHeight)
 	if config.EnableUnsafeKeyringRPC && evmCfg.IsLiveChainID(ctx) {
@@ -156,6 +190,7 @@ func NewEVMHTTPServer(
 		WriteTimeout:      config.WriteTimeout,
 		IdleTimeout:       config.IdleTimeout,
 	})
+	httpServer.domainResolver = domainResolver
 	methodTimeout := tmutils.Some(httpServer.timeouts.WriteTimeout)
 	if err := httpServer.SetListenAddr(config.HTTPAddress, config.HTTPPort); err != nil {
 		return nil, err
@@ -303,7 +338,7 @@ func NewEVMHTTPServer(
 		},
 		{
 			Namespace: "net",
-			Service:   NewNetAPI(tmClient, k, ctxProvider, ConnectionTypeHTTP),
+			Service:   &domainNetAPI{NetAPI: NewNetAPI(tmClient, k, ctxProvider, ConnectionTypeHTTP)},
 		},
 		{
 			Namespace: "eth",
@@ -375,11 +410,16 @@ func NewEVMWebSocketServer(
 	if tmClient == nil || k == nil || ctxProvider == nil || txConfigProvider == nil || app == nil {
 		return nil, errors.New("EVM WebSocket server dependencies are not configured")
 	}
+	domainResolver, err := domainResolverForServer(app, k, ctxProvider, opts)
+	if err != nil {
+		return nil, err
+	}
 	var seq *SequencerOption
 	var forward *SequencerForwardOption
 	var pending PendingSnapshot
 	for _, opt := range opts {
 		switch o := opt.(type) {
+		case domainResolverOption:
 		case PendingOption:
 			if o.source == nil {
 				return nil, errors.New("pending option needs a snapshot source; build it with NewPendingOption")
@@ -417,6 +457,7 @@ func NewEVMWebSocketServer(
 		WriteTimeout:      config.WriteTimeout,
 		IdleTimeout:       config.IdleTimeout,
 	})
+	httpServer.domainResolver = domainResolver
 	methodTimeout := tmutils.Some(httpServer.timeouts.WriteTimeout)
 	if err := httpServer.SetListenAddr(config.HTTPAddress, config.WSPort); err != nil {
 		return nil, err
@@ -512,7 +553,7 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "net",
-			Service:   NewNetAPI(tmClient, k, ctxProvider, ConnectionTypeWS),
+			Service:   &domainNetAPI{NetAPI: NewNetAPI(tmClient, k, ctxProvider, ConnectionTypeWS)},
 		},
 		{
 			Namespace: "eth",

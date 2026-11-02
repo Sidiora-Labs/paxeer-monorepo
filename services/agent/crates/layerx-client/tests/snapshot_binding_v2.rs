@@ -38,6 +38,14 @@ fn snapshot_binding_v2_decodes_vector() {
     assert_eq!(&bytes[..2], &[0, 1]);
     let binding = decode_snapshot_binding(&bytes)
         .unwrap_or_else(|error| panic!("shared v2 binding refused: {error:?}"));
+    let mut roundtrip = [0; BINDING_MAX_BYTES];
+    let length = binding
+        .encode(&mut roundtrip)
+        .unwrap_or_else(|error| panic!("snapshot binding encoding refused: {error:?}"));
+    assert_eq!(&roundtrip[..length], bytes);
+    let rebound = decode_snapshot_binding(&roundtrip[..length])
+        .unwrap_or_else(|error| panic!("snapshot binding roundtrip refused: {error:?}"));
+    assert_eq!(rebound.snapshot_id(), binding.snapshot_id());
     assert_eq!(binding.block_height, 0x5152_5354_5556_5758);
     assert_eq!(binding.block_hash.as_bytes(), &[0xb2; 32]);
     assert_eq!(binding.app_hash.as_bytes(), &[0xc2; 32]);

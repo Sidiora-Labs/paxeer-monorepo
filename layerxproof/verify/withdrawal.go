@@ -20,9 +20,8 @@ const (
 	WithdrawalPayloadBytes = 108
 	// WithdrawalAccountName is the native account every withdrawal credits.
 	WithdrawalAccountName = "system:paxeer-withdrawals"
-	// WithdrawalNullifierDomain prefixes the withdrawal nullifier preimage.
-	WithdrawalNullifierDomain = "LX:WITHDRAWAL:v1"
 
+	withdrawalNullifierDomain        = "LX:WITHDRAWAL:v1"
 	withdrawalProtocolVersion uint16 = 3
 	withdrawalEventVersion    uint16 = 2
 )
@@ -116,8 +115,7 @@ func withdrawalPayload(body []byte) ([WithdrawalPayloadBytes]byte, bool) {
 // the exact successful native withdrawal shape, its transfer and event
 // effects, the payload hash, the nullifier bound as context hash, and the
 // single transfer leg to system:paxeer-withdrawals. It does not authenticate
-// the receipt; pair it with ReceiptSignature, ReceiptAtRoot or
-// ReceiptInclusion.
+// the receipt; pair it with ReceiptSignature or ReceiptAtRoot.
 func WithdrawalOutcome(r *codec.Receipt) (*WithdrawalEffect, error) {
 	if r == nil || !withdrawalShape(r) || len(r.Effects) != 2 {
 		return nil, ErrWithdrawalEffect
@@ -150,7 +148,7 @@ func WithdrawalOutcome(r *codec.Receipt) (*WithdrawalEffect, error) {
 	copy(leg[97:113], payload[32:48])
 	binary.BigEndian.PutUint16(leg[113:], withdrawalProtocolVersion)
 	hasher := sha256.New()
-	hasher.Write([]byte(WithdrawalNullifierDomain))
+	hasher.Write([]byte(withdrawalNullifierDomain))
 	hasher.Write(body[2:118])
 	hasher.Write(body[150:182])
 	var nullifier [32]byte
@@ -195,25 +193,6 @@ func WithdrawalReceipt(receiptBytes []byte, sequencerPublicKey [32]byte) (*Verif
 	return verified, effect, nil
 }
 
-// WithdrawalInclusion proves a native withdrawal receipt included in a
-// sequencer-signed batch header and returns the withdrawal it commits to. The
-// withdrawal must name the header's network.
-func WithdrawalInclusion(receiptBytes []byte, proof *codec.MerkleProof, headerBytes []byte, headerSignature [64]byte,
-	authorization SequencerAuthorization) (*VerifiedReceipt, *VerifiedBatchHeader, *WithdrawalEffect, error) {
-	verified, header, err := ReceiptInclusion(receiptBytes, proof, headerBytes, headerSignature, authorization)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	effect, err := WithdrawalOutcome(verified.Receipt)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	if effect.NetworkID != header.Header.NetworkID {
-		return nil, nil, nil, ErrWithdrawalEffect
-	}
-	return verified, header, effect, nil
-}
-
 // ExitRecipientDomain prefixes the forced-exit recipient authorisation.
 const ExitRecipientDomain = "LX:SETTLE:RECIPIENT:v1"
 
@@ -233,21 +212,3 @@ func ExitRecipientMessage(networkID uint32, account, asset [32]byte, recipient [
 
 // ErrExitAuthority refuses a forced exit the account authority did not sign.
 var ErrExitAuthority = errors.New("layerx verify: forced exit recipient authorisation")
-
-// ExitBalance proves an account balance under a finalized state root and that
-// the account's authority key named recipient for anchor.
-func ExitBalance(witnessBytes []byte, stateRoot [32]byte, networkID uint32, account, asset [32]byte,
-	recipient [20]byte, anchor [32]byte, recipientSignature [64]byte) (*codec.Account, error) {
-	proven, err := AccountProof(witnessBytes, stateRoot, account, &asset)
-	if err != nil {
-		return nil, err
-	}
-	if !proven.HasAuthorityKey || networkID == 0 || recipient == ([20]byte{}) || anchor == ([32]byte{}) {
-		return nil, ErrExitAuthority
-	}
-	if err := Ed25519(proven.AuthorityKey, recipientSignature,
-		ExitRecipientMessage(networkID, account, asset, recipient, anchor)); err != nil {
-		return nil, ErrExitAuthority
-	}
-	return proven, nil
-}

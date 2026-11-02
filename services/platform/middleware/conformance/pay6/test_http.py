@@ -75,6 +75,8 @@ class HttpTests(unittest.TestCase):
         )
         verified = buyer.capture_settlement(first[1]["PAYMENT-RESPONSE"], header)
         self.assertEqual(verified.canonical_bytes, self.fixture.wire)
+        self.assertEqual(verified.receipt.activity_id.hex(), test_commitment.FIXTURE["txHash"][2:])
+        self.assertEqual(verified.height, int(test_commitment.FIXTURE["rpcResult"]["height"], 16))
         settlement = decode_header(first[1]["PAYMENT-RESPONSE"])
         settlement["payer"] = "01" * 32
         with self.assertRaises(ValueError):
@@ -93,6 +95,17 @@ class HttpTests(unittest.TestCase):
             )
         self.assertTrue(all(response == responses[0] for response in responses))
 
+    def test_offer_commitment_uses_rung_ladder(self):
+        for rung in ("submitted", "receipted", "committed"):
+            offer = self.offer | {"extra": {"layerx": {"commitment": rung}}}
+            required = self.required | {"accepts": [offer]}
+            self.assertEqual(validate_required(required), required)
+        for retired in ("executed", "batched", "finalised"):
+            with self.assertRaisesRegex(ValueError, "invalid-payment-terms"):
+                validate_required(self.required | {"accepts": [
+                    self.offer | {"extra": {"layerx": {"commitment": retired}}}
+                ]})
+
     def test_offer_mismatch_and_invalid_headers(self):
         for header in (
             "!",
@@ -105,6 +118,9 @@ class HttpTests(unittest.TestCase):
         for change in (
             {"amount": "1"},
             {"asset": "ab" * 32},
+            {"payTo": "ab" * 32},
+            {"extra": {"layerx": {"commitment": "executed"}}},
+            {"extra": {"layerx": {"commitment": "batched"}}},
             {"extra": {"layerx": {"commitment": "finalised"}}},
         ):
             with self.assertRaises(ValueError):

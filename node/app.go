@@ -176,6 +176,9 @@ import (
 	layerxbridgeclient "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/client/cli"
 	layerxbridgekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/keeper"
 	layerxbridgetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
+	layerxchainsmodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains"
+	layerxchainskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/keeper"
+	layerxchainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	layerxcustodymodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody"
 	layerxcustodykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
 	layerxcustodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
@@ -311,6 +314,7 @@ var (
 		layerxledgermodule.AppModuleBasic{},
 		layerxauthmodule.AppModuleBasic{},
 		layerxpaymodule.AppModuleBasic{},
+		layerxchainsmodule.AppModuleBasic{},
 		layerxagentmodule.AppModuleBasic{},
 		// this line is used by starport scaffolding # stargate/app/moduleBasic
 	)
@@ -332,6 +336,7 @@ var (
 		layerxcustodytypes.ModuleName:   nil,
 		layerxanchortypes.ModuleName:    {authtypes.Burner},
 		layerxledgertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
+		layerxchainstypes.ModuleName:    nil,
 		spottypes.ModuleName:            {authtypes.Minter, authtypes.Burner},
 		// launchpad, launchpad_treasury and layerxbridge are deliberately absent:
 		// the bank keeper blocks every maccPerms address as a receiver, and each
@@ -372,6 +377,7 @@ var (
 		storekeys.LayerXLedgerStoreKey,
 		storekeys.LayerXAuthStoreKey,
 		storekeys.LayerXPayStoreKey,
+		storekeys.LayerXChainsStoreKey,
 		storekeys.LayerXProgramsStoreKey,
 		storekeys.LayerXAgentStoreKey,
 		storekeys.LayerXHostStoreKey,
@@ -525,6 +531,7 @@ type App struct {
 	LayerXAuthKeeper   *layerxauthkeeper.Keeper
 	LayerXAgentKeeper  LayerXAgentKeeper
 	LayerXPayKeeper    *layerxpaykeeper.Keeper
+	LayerXChainsKeeper *layerxchainskeeper.Keeper
 	LayerXHost         *lxphost.Host
 
 	LayerXCustodyKeeper *layerxcustodykeeper.Keeper
@@ -899,6 +906,12 @@ func New(
 		panic(fmt.Sprintf("error creating LayerX pay keeper: %s", err))
 	}
 	app.LayerXPayKeeper = &payKeeper
+	app.LayerXChainsKeeper, err = layerxchainskeeper.NewKeeper(appCodec, keys[storekeys.LayerXChainsStoreKey],
+		app.BankKeeper, app.EvmKeeper.GetBaseDenom)
+	if err != nil {
+		panic(fmt.Sprintf("error creating LayerX chains keeper: %s", err))
+	}
+	app.EvmKeeper.SetChainsBinding(evmChainsBinding{app.LayerXChainsKeeper})
 	app.LayerXExchangeKeeper = layerxexchangekeeper.NewKeeper(appCodec, keys[layerxexchangetypes.StoreKey],
 		app.LayerXCustodyKeeper, &app.EvmKeeper)
 	app.LayerXExchangeKeeper.SetUpgradeKeeper(app.UpgradeKeeper)
@@ -1113,6 +1126,7 @@ func New(
 		layerxledgermodule.NewAppModule(app.LayerXLedgerKeeper),
 		layerxauthmodule.NewAppModule(app.LayerXAuthKeeper),
 		layerxpaymodule.NewAppModule(*app.LayerXPayKeeper),
+		layerxchainsmodule.NewAppModule(app.LayerXChainsKeeper),
 		layerxagentmodule.NewAppModule(app.LayerXAgentKeeper.Keeper, authority),
 		// this line is used by starport scaffolding # stargate/app/appModule
 	)
@@ -1210,6 +1224,7 @@ func New(
 		layerxledgertypes.ModuleName,
 		layerxauthtypes.ModuleName,
 		layerxpaytypes.ModuleName,
+		layerxchainstypes.ModuleName,
 		layerxagenttypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	)
@@ -2884,6 +2899,21 @@ func (app *App) makeGigaDeliverTx(cache *gigaBlockCache) func(sdk.Context, abci.
 	}
 }
 
+func (app *App) DomainAllowance(ctx sdk.Context, chainID *big.Int) (id uint32, gas uint64, bytes uint64, active bool, known bool) {
+	id, known = layerxchainstypes.DomainOfChainID(chainID)
+	if !known {
+		return 0, 0, 0, false, false
+	}
+	if id == 0 {
+		return 0, 0, 0, true, true
+	}
+	domain, known := app.LayerXChainsKeeper.ResolveChainID(ctx, chainID)
+	if !known {
+		return id, 0, 0, false, false
+	}
+	return id, domain.GasAllowance, domain.ByteAllowance, domain.Status == layerxchainstypes.StatusActive, true
+}
+
 func (app *App) GetEVMMsg(tx sdk.Tx) (res *evmtypes.MsgEVMTransaction) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -3768,8 +3798,27 @@ func (app *App) BlacklistedAccAddrs() map[string]bool {
 	return blacklistedAddrs
 }
 
+type chainsPrecompileBankKeeper struct {
+	putils.BankKeeper
+	chains *layerxchainskeeper.Keeper
+}
+
+func (k *chainsPrecompileBankKeeper) LayerXChainsK() *layerxchainskeeper.Keeper { return k.chains }
+
+func (pk *PrecompileKeepers) LayerXChainsK() *layerxchainskeeper.Keeper {
+	wired, ok := pk.BankKeeper.(interface {
+		LayerXChainsK() *layerxchainskeeper.Keeper
+	})
+	if !ok {
+		return nil
+	}
+	return wired.LayerXChainsK()
+}
+
 func (app *App) GetPrecompileKeepers() putils.Keepers {
-	return NewPrecompileKeepers(app)
+	keepers := NewPrecompileKeepers(app)
+	keepers.BankKeeper = &chainsPrecompileBankKeeper{BankKeeper: keepers.BankKeeper, chains: app.LayerXChainsKeeper}
+	return keepers
 }
 
 // v6120Contracts builds the contracts the v6.12.0 set adds or switches: the
@@ -4189,4 +4238,41 @@ func (b layerXGovernanceBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) 
 func (b layerXGovernanceBasic) RegisterInterfaces(registry types.InterfaceRegistry) {
 	b.AppModuleBasic.RegisterInterfaces(registry)
 	layerxgovtypes.RegisterInterfaces(registry)
+}
+
+type evmChainsBinding struct {
+	*layerxchainskeeper.Keeper
+}
+
+func (b evmChainsBinding) RecordDomainTx(ctx sdk.Context, id uint32, height int64, hash common.Hash, gasUsed uint64) {
+	if height < 0 {
+		panic("negative domain transaction height")
+	}
+	b.Keeper.RecordDomainTx(ctx, id, uint64(height), hash, gasUsed)
+}
+
+func (b evmChainsBinding) DomainGasUsed(ctx sdk.Context, id uint32, height int64) uint64 {
+	if height < 0 {
+		panic("negative domain gas height")
+	}
+	return b.Keeper.DomainGasUsed(ctx, id, uint64(height))
+}
+
+func (b evmChainsBinding) ActiveDomains(ctx sdk.Context) []uint32 {
+	var ids []uint32
+	b.IterateDomains(ctx, func(d layerxchainstypes.Domain) bool {
+		if d.Status == layerxchainstypes.StatusActive {
+			ids = append(ids, d.Id)
+		}
+		return false
+	})
+	return ids
+}
+
+func (b evmChainsBinding) Operator(ctx sdk.Context, id uint32) (common.Address, uint16) {
+	d, ok := b.GetDomain(ctx, id)
+	if !ok {
+		panic(layerxchainstypes.ErrUnknownDomain)
+	}
+	return d.Operator, d.FeeShareBps
 }

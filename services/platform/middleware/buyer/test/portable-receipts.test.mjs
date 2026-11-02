@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { ProductionClient, keccak256 } from "@sidiora/layerx-sdk";
+import { ed25519 } from "@noble/curves/ed25519.js";
+import { ProductionClient, keccak256, verifySequencerReceipt } from "@sidiora/layerx-sdk";
 import {
   MiddlewareError,
   PAYMENT_RESPONSE_HEADER,
@@ -14,7 +16,7 @@ import {
   encodeSettlementHeader,
   verifyPaymentReceipt,
 } from "@sidiora/layerx-seller-middleware";
-import { BuyerMiddleware } from "../dist/index.js";
+import { BuyerMiddleware, evidenceRung } from "../dist/index.js";
 
 const document = JSON.parse(readFileSync(new URL("../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", import.meta.url), "utf8"));
 const vector = document.cases.find((entry) => entry.id === "V1-layerxledger-pay-exact");
@@ -112,13 +114,14 @@ class RecordedHumanTransport {
   }
 }
 
-function fixture(options, receiptKeys = [pin]) {
+function fixture(options, receiptKeys = [pin], commitments) {
   const transport = new RecordedHumanTransport(options);
   const buyer = new BuyerMiddleware({
     client: new ProductionClient(transport),
     source: "acct:buyer-portable-receipts",
     supported: [{ scheme: "exact", network: "eip155:125" }],
     receiptKeys,
+    commitments,
     now: () => now,
     retry: { maximumQuoteAttempts: 1, maximumCommitAttempts: 1, maximumJourneyPolls: 1, baseDelayMs: 0 },
   });
@@ -227,7 +230,7 @@ async function findMatchingReceiptIgnoresKernelEvidence() {
     const result = await run.prepare();
     assert.equal(result.kind, "pending");
     assert.equal(result.journey.journey_id, run.transport.journey.journey_id);
-    assert.deepEqual(run.transport.calls.map((call) => call.operation), ["move.quote", "move.commit", "journey.get"]);
+    assert.deepEqual(run.transport.calls.map((call) => call.operation), ["move.quote", "move.commit", "journey.get", "evidence.get"]);
   }
   const oldContent = fixture({ contentType: "application/vnd.layerx.receipt" });
   assert.equal((await oldContent.prepare()).kind, "pending");
@@ -240,3 +243,76 @@ async function findMatchingReceiptIgnoresKernelEvidence() {
 test(prepareSendsPortableReceiptFromEvidence);
 test(captureSettlementRequiresTransactionHash);
 test(findMatchingReceiptIgnoresKernelEvidence);
+
+function evidenceRungMapsHumanLabels() {
+  assert.equal(evidenceRung("receipt-verified"), "receipted");
+  assert.equal(evidenceRung("checkpoint-finalised"), "committed");
+  assert.equal(evidenceRung("receipted"), "receipted");
+  assert.equal(evidenceRung("committed"), "committed");
+  for (const label of ["unknown", "submitted", "sequencer-signed", "Receipt-verified", ""]) {
+    assert.equal(evidenceRung(label), undefined);
+  }
+}
+
+function signedCommitment(verified) {
+  const secrets = [1, 2, 3, 4].map((value) => new Uint8Array(32).fill(value));
+  const validatorSet = secrets.map((secret) => {
+    const publicKey = ed25519.getPublicKey(secret);
+    return { publicKey, address: Uint8Array.from(createHash("sha256").update(publicKey).digest().subarray(0, 20)),
+      votingPower: 1n };
+  });
+  const blockId = { hash: new Uint8Array(32).fill(0x11),
+    partSetHeader: { total: 1, hash: new Uint8Array(32).fill(0x22) } };
+  const height = verified.height;
+  const heightBytes = Buffer.alloc(8);
+  heightBytes.writeBigInt64LE(height);
+  const signBytes = Buffer.concat([
+    Buffer.from("65080211", "hex"), heightBytes,
+    Buffer.from("22480a20", "hex"), blockId.hash,
+    Buffer.from("122408011220", "hex"), blockId.partSetHeader.hash,
+    Buffer.from("2a020801320a7061786565722d313235", "hex"),
+  ]);
+  const signatures = validatorSet.slice(0, 3).map((validator, index) => ({
+    blockIdFlag: 2, validatorAddress: validator.address, timestamp: { seconds: 1n, nanos: 0 },
+    signature: ed25519.sign(signBytes, secrets[index]),
+  }));
+  return { landingBlockHeight: height, blockHeader: { chainId: "paxeer-125", blockId },
+    receiptInclusion: { transactionHash: verified.receipt.activityId.slice(),
+      receiptDigest: verified.receiptDigest.slice(), sequence: verified.receipt.globalSequence },
+    commit: { height, round: 0, blockId, signatures }, validatorSet };
+}
+
+async function prepareSelectsHumanEvidenceRungs() {
+  const receipted = await fixture({ verification: "receipt-verified" }).prepare();
+  assert.equal(receipted.kind, "ready");
+  assert.equal(receipted.payment.verification.rung, "receipted");
+  assert.equal(decodePaymentPayloadHeader(receipted.payment.paymentHeader).payload.verificationLevel, "receipted");
+
+  const verified = await verifySequencerReceipt(bytes(proof.signedReceipt), bytes(proof.rawTransaction), [pin]);
+  const commitment = signedCommitment(verified);
+  const resolutions = [];
+  const commitments = { async resolve(transactionHash, network) {
+    resolutions.push({ transactionHash, network });
+    return structuredClone(commitment);
+  } };
+  const committed = await fixture({ verification: "checkpoint-finalised",
+    portable: { ...proof, verificationLevel: "committed" } }, [pin], commitments).prepare();
+  assert.equal(committed.kind, "ready");
+  assert.equal(committed.payment.verification.rung, "committed");
+  assert.equal(decodePaymentPayloadHeader(committed.payment.paymentHeader).payload.verificationLevel, "committed");
+  assert.deepEqual(committed.payment.verification.commitmentEvidence, commitment);
+  assert.deepEqual(resolutions, [{ transactionHash: hex(keccak256(bytes(proof.rawTransaction))), network: "eip155:125" }]);
+  await assert.rejects(fixture({ verification: "checkpoint-finalised" }).prepare(), verificationFailure);
+  await assert.rejects(fixture({ verification: "checkpoint-finalised",
+    portable: { ...proof, verificationLevel: "committed" } }).prepare(), verificationFailure);
+
+  const unknown = fixture({ verification: "unknown" });
+  assert.equal((await unknown.prepare()).kind, "pending");
+  assert.equal(unknown.transport.calls.filter((call) => call.operation === "evidence.get").length, 0);
+  const unknownMaterial = fixture();
+  unknownMaterial.transport.evidence.verification = "unknown";
+  assert.equal((await unknownMaterial.prepare()).kind, "pending");
+}
+
+test(evidenceRungMapsHumanLabels);
+test(prepareSelectsHumanEvidenceRungs);

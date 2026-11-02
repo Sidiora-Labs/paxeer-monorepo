@@ -487,23 +487,7 @@ impl RecordedPayer {
     }
 
     fn prepare_grant(&self, terms: &GrantTerms) -> Result<Grant, WebPayerError> {
-        let mut grant = Grant {
-            id: [0; 32],
-            from: terms.payer_account,
-            recipient: terms.recipient,
-            asset: terms.asset,
-            per_draw_maximum: terms.amount,
-            allowance: terms.amount,
-            recurring: false,
-            window_length: 0,
-            expiration: terms.expires_at_ms,
-            purpose_hash: terms.purpose_hash,
-            has_reference: true,
-            reference_hash: terms.idempotency_key,
-            revocation_sequence: 0,
-            public_key: self.signer.verifying_key().to_bytes(),
-            signature: [0; 64],
-        };
+        let mut grant = terms.unsigned_grant(self.signer.verifying_key().to_bytes());
         grant.id = grant.signing_digest().map_err(|_| WebPayerError::Refused)?;
         grant.signature = self.signer.sign(&grant.id).to_bytes();
         Ok(grant)

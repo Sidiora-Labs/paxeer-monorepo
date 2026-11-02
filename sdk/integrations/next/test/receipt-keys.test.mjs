@@ -158,6 +158,62 @@ function loadConfigReadsReceiptKeysJson() {
   assert.equal(large.receiptKeys[0].last_height, 0xffff_ffff_ffff_ffffn);
 }
 
+async function nonExactConfigurationRequiresPurposeHash(context) {
+  const directory = await mkdtemp(join(tmpdir(), "layerx-next-config-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const options = configurationMountOptions(directory);
+  for (const scheme of ["metered", "subscription"]) {
+    const env = { ...environment(), LAYERX_X402_SCHEME: scheme };
+    assert.deepEqual(readDeclaredConfig(env).requirements.extra, requirements.extra);
+    delete env.LAYERX_PAYMENT_PURPOSE_HASH;
+    for (const missing of [env, { ...env, LAYERX_PAYMENT_PURPOSE_HASH: "" }]) {
+      for (const construct of [
+        () => readDeclaredConfig(missing),
+        () => mountLayerX({ ...options, environment: missing }),
+      ]) {
+        assert.throws(construct, (error) => {
+          assert.ok(error instanceof LayerXIntegrationError);
+          assert.equal(error.code, "missing-declared-key");
+          assert.equal(error.key, "LAYERX_PAYMENT_PURPOSE_HASH");
+          assert.equal(error.message, `missing-declared-key LAYERX_PAYMENT_PURPOSE_HASH for scheme ${scheme}`);
+          return true;
+        });
+      }
+    }
+  }
+}
+
+async function exactConfigurationAcceptsMissingPurposeHash(context) {
+  const directory = await mkdtemp(join(tmpdir(), "layerx-next-config-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const options = configurationMountOptions(directory);
+  const env = environment();
+  delete env.LAYERX_PAYMENT_PURPOSE_HASH;
+  for (const missing of [env, { ...env, LAYERX_PAYMENT_PURPOSE_HASH: "" }]) {
+    const mounted = mountLayerX({ ...options, environment: missing });
+    try {
+      assert.equal(mounted.config.requirements.scheme, "exact");
+      assert.equal(Object.hasOwn(mounted.config.requirements, "extra"), false);
+    } finally {
+      mounted.destroy();
+    }
+  }
+}
+
+function configurationMountOptions(directory) {
+  const events = [];
+  return {
+    fulfillments: new FileFulfillmentRepository(directory),
+    deliveries: new SingleProcessWebhookDeliveryStore(),
+    resources: {
+      async release() {
+        return { contentType: "text/plain", body: "paid resource" };
+      },
+    },
+    events: { async handle(event, deliveryId) { events.push({ event, deliveryId }); } },
+  };
+}
+
 async function integrationSettlesSignedSequencerReceipt(context) {
   const directory = await mkdtemp(join(tmpdir(), "layerx-next-receipt-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
@@ -248,4 +304,6 @@ async function integrationSettlesSignedSequencerReceipt(context) {
 }
 
 test(loadConfigReadsReceiptKeysJson);
+test(nonExactConfigurationRequiresPurposeHash);
+test(exactConfigurationAcceptsMissingPurposeHash);
 test(integrationSettlesSignedSequencerReceipt);
