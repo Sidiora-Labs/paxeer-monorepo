@@ -15,7 +15,7 @@ func TestLXPSiteRowsRegistered(t *testing.T) {
 		{code: "LXP_PRICEFEED_STATICCALL", message: "cannot call pricefeed <method> from staticcall"},
 		{code: "LXP_PRICEFEED_KEEPER_MISSING", message: "pricefeed: the pricefeed keeper is not wired into this application"},
 		{code: "LXP_PRICEFEED_BATCH_TOO_LARGE", message: "getPrices takes at most 64 market ids"},
-		{code: "LXP_AGENT_NOT_ACTIVE", message: "<plan> not active at height <height>; no merge upgrade activation reader bound"},
+		{code: "LXP_AGENT_NOT_ACTIVE", message: "agent function not active"},
 		{code: "LXP_BANK_STATICCALL", message: "cannot call <method> from staticcall"},
 		{code: "LXP_BANK_DELEGATECALL", message: "cannot delegatecall <method>"},
 		{code: "LXP_BANK_ZERO_VALUE", message: "set `value` field to non-zero to send"},

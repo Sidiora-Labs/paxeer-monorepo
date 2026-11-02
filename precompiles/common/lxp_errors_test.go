@@ -176,6 +176,22 @@ func TestLXPRevertTable(t *testing.T) {
 			require.Equal(t, "LXP_OK", LXPCodeName(result.value))
 			_, listed := kernelEntries[0]
 			require.False(t, listed, "success is not a refusal")
+		case result.name == "LXP_ERR_DA_MISSING":
+			require.Equal(t, int32(-804), result.value)
+			entry, ok := lxpRevertEntryByCode("LXP_DA_MISSING")
+			require.True(t, ok)
+			require.False(t, entry.kernel)
+			require.Zero(t, entry.value)
+			_, listed := kernelEntries[result.value]
+			require.False(t, listed, "DA missing is served by its named non-kernel row")
+			require.Equal(t, "LXP_UNKNOWN", LXPCodeName(result.value))
+			var origin string
+			for _, row := range rows {
+				if row.code == entry.code {
+					origin = row.origin
+				}
+			}
+			require.Contains(t, origin, "layerxpay service delivery (precompiles/common/lxp_errors.go:164)")
 		default:
 			want := "LXP_" + strings.TrimPrefix(strings.TrimPrefix(result.name, "LXP_ERR_"), "LXP_")
 			require.Equal(t, want, kernelEntries[result.value], "header %s", result.name)

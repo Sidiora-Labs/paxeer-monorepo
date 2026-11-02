@@ -8,6 +8,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
@@ -98,13 +99,20 @@ func TestQueryAirdropClaimedRefusals(t *testing.T) {
 		{"zero holder", pool, (common.Address{}).Hex(), types.ErrZeroAddress, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			response, err := client.AirdropClaimed(goCtx, &types.QueryAirdropClaimedRequest{
+			request := &types.QueryAirdropClaimedRequest{
 				Pool: tc.pool, Holder: tc.holder, Epoch: 1,
-			})
+			}
+			response, err := client.AirdropClaimed(goCtx, request)
 			require.Nil(t, response)
 			if tc.field != "" {
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
 				require.Equal(t, tc.field+" must be a 0x-prefixed 40-hex-digit address: invalid address", status.Convert(err).Message())
+				response, err = querier.AirdropClaimed(sdk.WrapSDKContext(e.ctx), request)
+				require.Nil(t, response)
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				var addressErr *sdkerrors.Error
+				require.ErrorAs(t, err, &addressErr)
+				require.Same(t, sdkerrors.ErrInvalidAddress, addressErr)
 				return
 			}
 			require.ErrorIs(t, err, tc.want)

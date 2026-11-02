@@ -34,6 +34,7 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 	queryRouter.SetInterfaceRegistry(registry)
 	key := sdk.NewKVStoreKey(types.StoreKey)
 	k := keeper.NewKeeper(key, nil, nil, nil)
+	querier := keeper.NewQuerier(k)
 	am := launchpad.NewAppModule(k)
 	cdc := codec.NewProtoCodec(registry)
 	am.RegisterServices(module.NewConfigurator(cdc, msgRouter, queryRouter))
@@ -67,7 +68,8 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
 				require.Equal(t, "empty denom", status.Convert(err).Message())
 			case "Surface":
-				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				_, directErr := querier.Surface(sdk.WrapSDKContext(ctx), &types.QuerySurfaceRequest{})
+				requireInvalidAddressStatus(t, err, directErr)
 				address, err := types.ParseHexAddress("address", "0x0000000000000000000000000000000000001234")
 				require.NoError(t, err)
 				surface := keeper.Surface{Role: types.RolePool, Generation: types.Generation1, Market: "surface-market"}
@@ -85,7 +87,8 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 					},
 				}, result)
 			case "Retired":
-				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				_, directErr := querier.Retired(sdk.WrapSDKContext(ctx), &types.QueryRetiredRequest{})
+				requireInvalidAddressStatus(t, err, directErr)
 				address, err := types.ParseHexAddress("address", "0x0000000000000000000000000000000000001235")
 				require.NoError(t, err)
 				retired := types.RetiredAddress{
@@ -102,7 +105,8 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 				info := types.RetiredInfoOf(retired)
 				require.Equal(t, types.QueryRetiredResponse{Found: true, Retired: &info}, result)
 			case "FeeRight":
-				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				_, directErr := querier.FeeRight(sdk.WrapSDKContext(ctx), &types.QueryFeeRightRequest{})
+				requireInvalidAddressStatus(t, err, directErr)
 				collection, err := types.ParseHexAddress("collection", "0x0000000000000000000000000000000000001236")
 				require.NoError(t, err)
 				owner, err := types.ParseHexAddress("owner", "0x0000000000000000000000000000000000001237")
@@ -123,7 +127,8 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 				info := types.FeeRightInfoOf(right)
 				require.Equal(t, types.QueryFeeRightResponse{Found: true, FeeRight: &info}, result)
 			case "AirdropEpoch":
-				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				_, directErr := querier.AirdropEpoch(sdk.WrapSDKContext(ctx), &types.QueryAirdropEpochRequest{})
+				requireInvalidAddressStatus(t, err, directErr)
 				data, err := cdc.Marshal(&types.QueryAirdropEpochRequest{
 					Pool: "0x0000000000000000000000000000000000001238", Epoch: 1,
 				})
@@ -134,7 +139,8 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 				require.NoError(t, cdc.Unmarshal(response.Value, &result))
 				require.Equal(t, types.QueryAirdropEpochResponse{Found: false}, result)
 			case "AirdropClaimed":
-				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				_, directErr := querier.AirdropClaimed(sdk.WrapSDKContext(ctx), &types.QueryAirdropClaimedRequest{})
+				requireInvalidAddressStatus(t, err, directErr)
 				data, err := cdc.Marshal(&types.QueryAirdropClaimedRequest{
 					Pool:   "0x0000000000000000000000000000000000001238",
 					Holder: "0x0000000000000000000000000000000000001239", Epoch: 1,
@@ -146,7 +152,8 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 				require.NoError(t, cdc.Unmarshal(response.Value, &result))
 				require.Equal(t, types.QueryAirdropClaimedResponse{Claimed: false}, result)
 			case "HasRole":
-				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				_, directErr := querier.HasRole(sdk.WrapSDKContext(ctx), &types.QueryHasRoleRequest{})
+				requireInvalidAddressStatus(t, err, directErr)
 				contract := k.Generation2().FeeAccumulator
 				account, err := types.ParseHexAddress("account", "0x0000000000000000000000000000000000001239")
 				require.NoError(t, err)
@@ -210,12 +217,8 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 				require.Equal(t, types.ErrUnknownMarket.Codespace(), codespace)
 				require.Equal(t, types.ErrUnknownMarket.ABCICode(), code)
 			case "PoolMetadata":
-				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
-				var addressErr *sdkerrors.Error
-				require.ErrorAs(t, err, &addressErr)
-				codespace, code, _ := sdkerrors.ABCIInfo(addressErr, false)
-				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
-				require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
+				_, directErr := querier.PoolMetadata(sdk.WrapSDKContext(ctx), &types.QueryPoolMetadataRequest{})
+				requireInvalidAddressStatus(t, err, directErr)
 				data, err := cdc.Marshal(&types.QueryPoolMetadataRequest{
 					Pool: "0x0000000000000000000000000000000000001238",
 				})
@@ -293,4 +296,19 @@ func TestRegisterGatewayRoutesMountsLaunchpad(t *testing.T) {
 	response := httptest.NewRecorder()
 	mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/pax-protocol/paxchain/launchpad/unknown", nil))
 	require.Equal(t, http.StatusNotFound, response.Code)
+}
+
+func requireInvalidAddressStatus(t *testing.T, err, directErr error) {
+	t.Helper()
+	require.Error(t, err)
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
+	require.Contains(t, status.Convert(err).Message(), "invalid address")
+	require.ErrorIs(t, directErr, sdkerrors.ErrInvalidAddress)
+	var addressErr *sdkerrors.Error
+	require.ErrorAs(t, directErr, &addressErr)
+	require.Same(t, sdkerrors.ErrInvalidAddress, addressErr)
+	codespace, code, _ := sdkerrors.ABCIInfo(addressErr, false)
+	require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
+	require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
+	require.Equal(t, directErr.Error(), status.Convert(err).Message())
 }

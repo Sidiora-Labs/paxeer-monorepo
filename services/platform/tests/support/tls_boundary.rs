@@ -182,7 +182,7 @@ fn start(directory: &Path, certificate: &str, key: &str) -> (Boundary, u16) {
     );
     assert!(
         executable.is_file(),
-        "build the real Paxeer TLS boundary first"
+        "producer input (decision 2325): build layerx-paxeer-boundary from services/platform/Cargo.toml before public_http_uses_system_trust_and_checks_server_identity"
     );
     let mut command = Command::new(executable);
     for (name, _) in std::env::vars_os() {

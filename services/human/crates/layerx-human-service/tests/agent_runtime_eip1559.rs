@@ -1,8 +1,11 @@
+use layerx_human_test_support::StepClock;
+use layerx_types::clock::{Clock, Deadline};
 use std::fmt::Debug;
 use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use layerx_agent_api::error::RequestId;
 use layerx_agent_api::idempotency::{BodyDigest, IdempotentMutation, Key};
@@ -35,7 +38,7 @@ use layerx_human_test_support::{
 use layerx_intents::{compile, BudgetDefund, Intent, IntentKind};
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount as ProtocolAmount;
-use layerx_types::ids::{AssetId, Did, IdempotencyKey};
+use layerx_types::ids::{AssetId, IdempotencyKey};
 use layerx_types::intent::{BudgetId, Sequence as ProtocolSequence};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::rung::Rung;
@@ -177,15 +180,21 @@ impl Peer {
         let socket = root.join("peer.sock");
         let listener = checked(UnixListener::bind(&socket));
         checked(listener.set_nonblocking(true));
+        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(100000));
+        let peer_clock = Arc::clone(&clock);
         let server = thread::spawn(move || {
             let mut prepared = None;
             for _ in 0..2 {
-                let deadline = Instant::now() + Duration::from_secs(5);
+                let mut deadline =
+                    checked(Deadline::start(peer_clock.as_ref(), Duration::from_secs(5)));
                 let mut stream = loop {
                     match listener.accept() {
                         Ok((stream, _)) => break stream,
                         Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            assert!(Instant::now() < deadline, "peer request deadline");
+                            assert!(
+                                !checked(deadline.remaining(peer_clock.as_ref())).is_zero(),
+                                "peer request deadline"
+                            );
                             thread::sleep(Duration::from_millis(1));
                         }
                         Err(error) => panic!("peer accept: {error}"),
@@ -226,7 +235,7 @@ impl Peer {
                 checked(write_frame(&mut stream, &response, MAX_FRAME));
             }
         });
-        let runtime = checked(AgentRuntime::new(
+        let runtime = checked(AgentRuntime::new_with_clock(
             &socket,
             Limits {
                 maximum_frame_bytes: MAX_FRAME,
@@ -236,6 +245,7 @@ impl Peer {
                 deadline: Duration::from_secs(5),
             },
             registry(),
+            clock,
         ));
         (
             Self {
@@ -336,70 +346,17 @@ fn runtime_prepares_an_unsigned_type2_transaction() {
 }
 
 #[test]
-fn engine_refuses_a_kernel_activity_envelope_leg() {
+fn engine_refuses_a_leg_whose_canonical_bytes_are_not_a_type2_transaction() {
     let compiled = checked(compile(&intent(), &registry()));
-    let mut builder = layerx_types::activity::EnvelopeBuilder::new();
-    checked(builder.protocol_version(3));
-    checked(builder.network_id(125));
-    checked(builder.activity_type(compiled.activity_type()));
-    checked(builder.actor_did(checked(Did::new(ACTOR.as_bytes()))));
-    checked(
-        builder.authority(checked(layerx_types::activity::Authority::owner(
-            &[0x61; 32],
-        ))),
-    );
-    checked(builder.account_sequence(NONCE));
-    checked(
-        builder.timestamp_bound(checked(layerx_types::activity::TimestampBound::new(
-            100, 200,
-        ))),
-    );
-    checked(builder.idempotency_key(IdempotencyKey::new(ACTION)));
-    checked(builder.fee_limit(ProtocolAmount::from_u128(FEE)));
-    checked(builder.payload_hash(compiled.payload_hash()));
-    checked(builder.payload(compiled.payload().clone()));
-    let envelope = checked(builder.build());
-    let canonical = checked(layerx_wire::activity::encode_unsigned_envelope(&envelope));
-    let account_id = |name: &str| {
-        checked(layerx_intents::canonical::account_id_for_protocol(
-            &checked(AccountId::parse(name)),
-            3,
-        ))
-    };
-    let owner = account_id("agent:did:layerx:alice:main");
-    let context = layerx_crypto::disclosure::BudgetStateContext {
-        budget_id: [0x21; 32],
-        owner,
-        budget_account: account_id(&format!(
-            "agent:did:layerx:alice:budget:{}",
-            "21".repeat(32)
-        )),
-        asset: [0x22; 32],
-        source_account: owner,
-        native_source: false,
-        revocation_sequence: 0,
-        balance: 100,
-        state_digest: [0x71; 32],
-        observed_head_sequence: 88,
-        purpose_hash: [0x72; 32],
-    };
-    let disclosure = checked(layerx_crypto::disclosure::bind_budget_mutation(
-        &canonical,
-        &registry(),
-        &context,
-    ));
+    let unrelated = transaction([0x61; 20], NONCE + 1);
+    let disclosure = checked(bind_call(&unrelated, [0x61; 20]));
+    let canonical = transaction([0x62; 20], NONCE).encode_unsigned()[1..].to_vec();
+    assert_ne!(canonical.first(), Some(&0x02));
     let request = request();
-    let activity = checked(layerx_wire::activity::decode_unsigned(
-        &canonical,
-        &registry(),
-    ));
-    let preimage = checked(layerx_wire::sign::preimage(&activity))
-        .as_bytes()
-        .to_vec();
     let prepared = AgentPreparation {
-        preparation_ref: checked(PreparationRef::new("kernel-preparation")),
+        preparation_ref: checked(PreparationRef::new("invalid-type2-preparation")),
         unsigned_canonical_bytes: canonical,
-        signing_preimage: preimage,
+        signing_preimage: unrelated.signing_hash().to_vec(),
         disclosure,
         actor: request.actor,
         authority: request.authority,
@@ -413,7 +370,7 @@ fn engine_refuses_a_kernel_activity_envelope_leg() {
         payload_hash: compiled.payload_hash(),
         idempotency_key: ACTION,
     };
-    let root = directory("kernel-refusal-engine");
+    let root = directory("invalid-type2-refusal-engine");
     let engine = engine(&root);
     assert!(matches!(
         engine.validate_preparation(0, &prepared, &registry()),

@@ -826,6 +826,34 @@ impl RemoteKmsProvider {
         decode_description(&response, binding)
     }
 
+    /// Encodes the exact frame sent by `evm_operation`, for durable dispatch.
+    ///
+    /// # Errors
+    /// Refuses an unsupported operation, a payload on the wallet query, an
+    /// empty JSON payload, or a frame beyond the LXKP limit.
+    pub fn encode_evm_request(
+        &self,
+        operation: u8,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        payload: &[u8],
+    ) -> Result<Vec<u8>, KmsError> {
+        let contract = Contract::evm(operation).ok_or(KmsError::Refused)?;
+        let mut frame =
+            encode_key_request(contract, &self.provider_reference, binding, Some(reference))?;
+        if contract.carries_payload() {
+            if payload.is_empty() {
+                return Err(KmsError::Refused);
+            }
+            let mut writer = WireWriter::from_bytes(frame);
+            writer.bytes(payload, PROVIDER_FRAME_LIMIT)?;
+            frame = writer.finish();
+        } else if !payload.is_empty() {
+            return Err(KmsError::Refused);
+        }
+        Ok(frame)
+    }
+
     /// Completes the read-only executor probe under this provider's client
     /// identity: the provider must admit the restricted executor certificate,
     /// echo a fresh challenge and answer for `network_id`. No record is read
@@ -900,15 +928,7 @@ impl KmsProvider for RemoteKmsProvider {
         payload: &[u8],
     ) -> Result<Vec<u8>, KmsError> {
         let contract = Contract::evm(operation).ok_or(KmsError::Refused)?;
-        let mut frame =
-            encode_key_request(contract, &self.provider_reference, binding, Some(reference))?;
-        if contract.carries_payload() {
-            let mut writer = WireWriter::from_bytes(frame);
-            writer.bytes(payload, PROVIDER_FRAME_LIMIT)?;
-            frame = writer.finish();
-        } else if !payload.is_empty() {
-            return Err(KmsError::Refused);
-        }
+        let frame = self.encode_evm_request(operation, binding, reference, payload)?;
         self.call(contract, &frame)
     }
 

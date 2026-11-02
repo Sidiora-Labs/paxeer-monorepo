@@ -7,7 +7,7 @@ import { Button } from '@/ui/primitives';
 import { useAuthModal } from '@/shell/auth-modal-store';
 import type { AccountScope } from '../create/creation-adapters';
 import { LaunchProgress, type LaunchStep } from '../create/launch-progress';
-import { ChainLaunchAdapter, type ChainLaunchResult, type ChainLaunchStep } from './chain-adapters';
+import { ChainLaunchAdapter, type ChainLaunchResult, type ChainLaunchStep, type ChainSubmission } from './chain-adapters';
 import { SIZE_TIERS, chainCost, validateChainName, type ChainDraft, type ChainsParams, type SizeTier } from './chain-domain';
 import { ChainDraftStorage } from './chain-storage';
 
@@ -38,6 +38,9 @@ export default function ChainWizard() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [submission, setSubmission] = useState<ChainSubmission | null>(null);
+  const [validation, setValidation] = useState(0);
+  const [recoveryBlocked, setRecoveryBlocked] = useState(false);
   const [phase, setPhase] = useState<ChainLaunchStep | null>(null);
   const [result, setResult] = useState<ChainLaunchResult | null>(null);
   const launchLock = useRef(false);
@@ -50,28 +53,38 @@ export default function ChainWizard() {
 
   useEffect(() => {
     setStep(0); setResult(null); setPhase(null); setError(''); setNotice('');
-    setName(''); setTier('starter'); setDraft(null);
-    if (!storage || !address) return;
+    setName(''); setTier('starter'); setDraft(null); setSubmission(null); setRecoveryBlocked(false);
+    let checkingSubmission = true;
     try {
-      const restored = storage.restoreDraft();
+      const saved = ChainDraftStorage.restoreSubmission();
+      checkingSubmission = false;
+      if (saved && saved.submission.phase === 'confirm') {
+        setDraft(saved.draft); setName(saved.draft.name); setTier(saved.draft.tier);
+        setSubmission(saved.submission); setPhase('confirm'); setStep(2);
+        return;
+      }
+      if (!storage || !address) return;
+      const restored = saved?.submission.phase === 'reverted' && saved.submission.creator === address.toLowerCase()
+        ? saved.draft : storage.restoreDraft();
       const next: ChainDraft = restored ?? {
         draftId: crypto.randomUUID(), version: 1, creator: address.toLowerCase(), chainId: 125,
         name: '', tier: 'starter', feeShareBps: 0, updatedAt: Date.now(),
       };
       setDraft(next); setName(next.name); setTier(next.tier);
     } catch (cause) {
+      setRecoveryBlocked(checkingSubmission);
       setError(cause instanceof Error ? cause.message : 'Your saved draft could not be loaded.');
     }
-  }, [storage, address]);
+  }, [storage, address, chainId]);
 
   useEffect(() => {
-    if (!draft || !storage || draft.creator !== address?.toLowerCase() || result) return;
+    if (!draft || !storage || draft.creator !== address?.toLowerCase() || result || submission || recoveryBlocked) return;
     try {
       storage.saveDraft({ ...draft, name, tier, updatedAt: Date.now() });
     } catch {
       setError('Your draft could not be saved. Check that browser storage is enabled.');
     }
-  }, [draft, storage, address, name, tier, result]);
+  }, [draft, storage, address, name, tier, result, submission, recoveryBlocked]);
 
   useEffect(() => {
     let active = true;
@@ -81,7 +94,7 @@ export default function ChainWizard() {
         .catch(() => { if (active) setParamsError('Chain costs could not be loaded. Reload to try again.'); });
     }
     return () => { active = false; };
-  }, [adapter, chainId]);
+  }, [adapter, chainId, validation]);
 
   useEffect(() => {
     let active = true;
@@ -92,7 +105,7 @@ export default function ChainWizard() {
       if (active) setAvailability({ name, state: available ? 'available' : 'taken' });
     }).catch(() => { if (active) setAvailability({ name, state: 'error' }); });
     return () => { active = false; };
-  }, [adapter, chainId, name]);
+  }, [adapter, chainId, name, validation]);
 
   const nameAvailable = availability?.name === name && availability.state === 'available';
   const tierAvailable = (value: SizeTier) => {
@@ -100,27 +113,54 @@ export default function ChainWizard() {
     try { chainCost(params, value, '0'); return true; } catch { return false; }
   };
   const connected = !!address && chainId === 125 && !!adapter;
-  const locked = busy || phase === 'confirm' || !!result;
+  const submissionMatches = !!submission && submission.creator === address?.toLowerCase() && submission.chainId === chainId;
+  const locked = busy || !!submission || phase === 'confirm' || !!result || recoveryBlocked;
 
-  async function launch() {
-    if (launchLock.current || !adapter || !draft || !connected || !nameAvailable || !tierAvailable(tier)) return;
+  async function launch(retry = false) {
+    if (launchLock.current || !adapter || !draft || !connected || recoveryBlocked) return;
+    if (retry ? !submissionMatches : !!submission || phase === 'confirm' || !nameAvailable || !tierAvailable(tier)) return;
     launchLock.current = true;
     const expectedEpoch = scope.current.epoch;
-    let submitted = false;
-    setBusy(true); setError(''); setPhase('create');
+    const reviewed = retry ? { ...draft } : { ...draft, name, tier, updatedAt: Date.now() };
+    let sent = retry ? submission : null;
+    setBusy(true); setError(''); setPhase(retry ? 'confirm' : 'create');
     try {
-      const launched = await adapter.launch({ ...draft, name, tier, updatedAt: Date.now() }, next => {
-        if (next === 'confirm') submitted = true;
+      const report = (next: ChainLaunchStep, saved?: ChainSubmission) => {
+        if (saved) {
+          sent = saved;
+          if (mounted.current) {
+            setSubmission(saved); setDraft(reviewed); setName(reviewed.name); setTier(reviewed.tier);
+            setPhase('confirm'); setStep(2);
+          }
+          storage?.saveSubmission(reviewed, saved);
+        }
         if (mounted.current && scope.current.epoch === expectedEpoch) setPhase(next);
-      });
+      };
+      const outcome = retry && sent
+        ? await adapter.confirm(sent.txHash, reviewed, sent, report)
+        : await adapter.launch(reviewed, report);
+      if ('submission' in outcome) {
+        sent = outcome.submission;
+        try { storage?.saveSubmission(reviewed, sent); }
+        catch { if (mounted.current) setNotice('Your submitted transaction could not be saved. Keep this page open and retain the transaction hash.'); }
+        if (!mounted.current || scope.current.epoch !== expectedEpoch) return;
+        setError(outcome.error);
+        if (sent.phase === 'reverted') {
+          setSubmission(null); setPhase(null); setStep(0); setAvailability(null); setParams(null);
+          setValidation(value => value + 1);
+        } else {
+          setSubmission(sent); setPhase('confirm');
+        }
+        return;
+      }
+      try { storage?.clearSubmission(outcome.txHash); storage?.clearDraft(); }
+      catch { if (mounted.current) setNotice('Your chain is live, but the saved draft could not be cleared.'); }
       if (!mounted.current || scope.current.epoch !== expectedEpoch) return;
-      setResult(launched); setPhase('ready');
-      try { storage?.clearDraft(); } catch { setNotice('Your chain is live, but the saved draft could not be cleared.'); }
+      setSubmission(null); setResult(outcome); setPhase('ready');
     } catch (cause) {
       if (mounted.current && scope.current.epoch === expectedEpoch) {
-        setPhase(submitted ? 'confirm' : null);
-        setError(submitted ? 'Your transaction was sent. Check your wallet activity before trying another launch.'
-          : cause instanceof Error ? cause.message : 'The chain could not be launched. Try again.');
+        setPhase(sent ? 'confirm' : null);
+        setError(cause instanceof Error ? cause.message : 'The chain could not be launched. Try again.');
       }
     } finally {
       launchLock.current = false;
@@ -189,6 +229,12 @@ export default function ChainWizard() {
           <p className="text-sm text-text">{name} · {tierNames[tier]}</p>
           <p className="text-xs text-text-muted">Up to {SIZE_TIERS[tier].gas.toLocaleString('en-US')} gas and {SIZE_TIERS[tier].bytes.toLocaleString('en-US')} bytes per block.</p>
           {!result ? <Button variant="primary" disabled={!connected || !draft || !nameAvailable || !tierAvailable(tier) || locked} onClick={() => void launch()}>Launch</Button> : null}
+          {submission ? <div className="text-sm text-text" role="region" aria-label="Submitted transaction">
+            <p>Transaction: {submission.txHash}</p>
+            <p>Creator: {submission.creator} · Root chain: {submission.chainId}</p>
+            {!submissionMatches ? <p role="alert">This submitted transaction belongs to a different account or chain. Reconnect its creator on the root chain to confirm it.</p> : null}
+            <Button disabled={busy || !connected || !submissionMatches} onClick={() => void launch(true)}>Retry confirmation</Button>
+          </div> : null}
           {phase ? <LaunchProgress steps={progress} busy={busy} /> : null}
           {result ? <div className="flex flex-col gap-3 text-sm text-text" role="region" aria-label="Live chain">
             <p>Chain ID: <strong>{result.chainId}</strong></p>
@@ -203,8 +249,9 @@ export default function ChainWizard() {
           </div> : null}
         </>}
         {step > 0 && !locked ? <Button variant="ghost" onClick={() => setStep(previous => previous - 1)}>Back</Button> : null}
-        {address && !draft && !locked ? <Button onClick={() => {
+        {address && !draft && !busy && !submission && !result && !recoveryBlocked ? <Button onClick={() => {
           setDraft({ draftId: crypto.randomUUID(), version: 1, creator: address.toLowerCase(), chainId: 125, name, tier, feeShareBps: 0, updatedAt: Date.now() });
+          if (recoveryBlocked) return;
           setError('');
         }}>Start a fresh draft</Button> : null}
         {step > 0 && !result ? params ? <div className="text-sm text-text-muted">

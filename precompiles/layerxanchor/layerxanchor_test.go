@@ -3,7 +3,9 @@ package layerxanchor_test
 import (
 	"bytes"
 	"crypto/ed25519"
+	"encoding/json"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
@@ -82,11 +84,47 @@ func (h *harness) balance(of sdk.AccAddress) int64 {
 	return h.app.BankKeeper.GetBalance(h.ctx(), of, "uhpx").Amount.Int64()
 }
 
+func loadAnchorFixture(t *testing.T) testvectors.Fixture {
+	t.Helper()
+	raw, err := os.ReadFile("../../modules/layerxanchor/testdata/anchor_vectors.json")
+	require.NoError(t, err)
+	var document map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(raw, &document))
+	fixture := testvectors.Fixture{}
+	for section, body := range document {
+		if section == "generator" {
+			continue
+		}
+		var entries []map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(body, &entries), "section %s", section)
+		for _, entry := range entries {
+			vector := testvectors.Vector{Fields: map[string]string{}}
+			require.NoError(t, json.Unmarshal(entry["name"], &vector.Name), "section %s", section)
+			require.NotEmpty(t, vector.Name)
+			require.NoError(t, json.Unmarshal(entry["valid"], &vector.Valid), "vector %s", vector.Name)
+			for key, value := range entry {
+				if key == "name" || key == "valid" {
+					continue
+				}
+				var field string
+				require.NoError(t, json.Unmarshal(value, &field), "vector %s field %s", vector.Name, key)
+				vector.Fields[key] = field
+			}
+			fixture[section] = append(fixture[section], vector)
+		}
+	}
+	require.Len(t, fixture["context"], 1)
+	require.Len(t, fixture["guarantors"], 4)
+	require.Len(t, fixture["checkpoints"], 13)
+	require.Len(t, fixture["attestations"], 6)
+	return fixture
+}
+
 func newHarness(t *testing.T, mutate func(*anchortypes.Params)) *harness {
 	t.Helper()
 	testApp := app.Setup(t, false, true, false)
 	ctx := testApp.GetContextForDeliverTx([]byte{}).WithBlockHeight(8).WithBlockTime(time.Unix(1_800_000_000, 0))
-	h := &harness{t: t, app: testApp, anchor: testApp.LayerXAnchorKeeper}
+	h := &harness{t: t, app: testApp, anchor: testApp.LayerXAnchorKeeper, fixture: loadAnchorFixture(t)}
 	h.stateDB = state.NewDBImpl(ctx, &testApp.EvmKeeper, true)
 	h.evm = &vm.EVM{StateDB: h.stateDB}
 	p, err := layerxanchor.NewPrecompile(testApp.GetPrecompileKeepers())

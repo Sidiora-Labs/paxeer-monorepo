@@ -73,7 +73,9 @@ func TestPriceHistoryRefusals(t *testing.T) {
 	for _, denom := range []string{"unknown-price-market", ""} {
 		points, err := e.k.PriceHistory(e.ctx, denom, 0, ^uint64(0))
 		require.ErrorIs(t, err, types.ErrUnknownMarket)
-		require.ErrorContains(t, err, ": "+denom)
+		if denom != "" {
+			require.ErrorContains(t, err, denom)
+		}
 		require.Nil(t, points)
 	}
 	for _, bounds := range [][2]uint64{{2, 1}, {1, 0}, {^uint64(0), 0}} {

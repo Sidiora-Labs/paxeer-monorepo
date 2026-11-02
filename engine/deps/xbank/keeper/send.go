@@ -502,6 +502,11 @@ func (k BaseSendKeeper) SendCoinsAndWei(ctx sdk.Context, from sdk.AccAddress, to
 			return err
 		}
 	}
+	// CacheContext commits regular stores only; publish the successful bank
+	// branch to its parent Giga store as well.
+	if !k.UseRegularStore {
+		cacheCtx.GigaMultiStore().WriteGiga()
+	}
 	write()
 	ctx.EventManager().EmitEvents(cacheCtx.EventManager().Events())
 	return nil
