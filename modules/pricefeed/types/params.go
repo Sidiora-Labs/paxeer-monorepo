@@ -66,7 +66,8 @@ func DefaultParams(authority string) Params {
 }
 
 // Validate checks every bound of the parameter table and the market rules:
-// ids dense from 0, symbols unique and 0 < min_price < max_price.
+// ids dense from 0, symbols unique and 0 < min_price < max_price. Every
+// refusal wraps ErrInvalidParams so SDK and precompile consumers can classify it.
 func (p Params) Validate() error {
 	if _, err := sdk.AccAddressFromBech32(p.Authority); err != nil {
 		return ErrInvalidParams.Wrapf("authority: %v", err)

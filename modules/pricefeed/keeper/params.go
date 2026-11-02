@@ -15,7 +15,8 @@ func (k Keeper) GetParams(ctx sdk.Context) types.Params {
 	return params
 }
 
-// SetParams validates params and stores them.
+// SetParams validates params before storing them. A refusal preserves the
+// ErrInvalidParams identity from Params.Validate and leaves stored state intact.
 func (k Keeper) SetParams(ctx sdk.Context, params types.Params) error {
 	if err := params.Validate(); err != nil {
 		return err
