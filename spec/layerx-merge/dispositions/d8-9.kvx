@@ -1,0 +1,17 @@
+[disposition.8.8.3.2]
+finding = "8.8.3.2"
+status = "resolved"
+evidence = "Commit e926d27ec89add8b3e7d9e4afe9384f751be8144 removed the obsolete lifecycle tests, fixture helper and deleted Config field references, retaining retired_program_routes_answer_not_found at services/platform/hosted/agent-boundary/src/lifecycle_tests.rs:2 on main."
+follow_up = "closure"
+
+[disposition.8.51.3.1]
+finding = "8.51.3.1"
+status = "resolved"
+evidence = "Commit ac727362aefba3d04752922f4a5958303e473523 replaced emulator_head_proof_still_verifies with head_read_without_a_sealed_batch_is_refused at tools/platform/emulator/tests/core_linkage.rs:188 on main, asserting 503 principal_state_proof_unavailable and healthy service without calling retired move routes."
+follow_up = "closure"
+
+[disposition.8.47.12.1]
+finding = "8.47.12.1"
+status = "resolved"
+evidence = "Commit eacff83ef0be77f4e3408d636dd34fe99bcf12da removed VerifiedRpcAccount and AccountPolicy from tools/platform/cli/tests/wallet_evm_writes.rs:297 on main, replacing them with account_id and asset_id assertions and adding rejection coverage for mismatched account reads."
+follow_up = "closure"
