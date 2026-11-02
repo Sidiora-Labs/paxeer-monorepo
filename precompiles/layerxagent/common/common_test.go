@@ -392,3 +392,27 @@ func TestStreamsGasCanonicalCallSizes(t *testing.T) {
 		})
 	}
 }
+
+// TestEip712CalldataGas checks the exported schedule against real ABI calldata.
+func TestEip712CalldataGas(t *testing.T) {
+	a, err := abi.JSON(strings.NewReader(`[
+    {"type":"function","name":"hashTypedData","inputs":[{"type":"bytes32"},{"type":"bytes32"}]},
+    {"type":"function","name":"domainSeparator","inputs":[{"type":"string"},{"type":"string"},{"type":"uint256"},{"type":"address"}]},
+    {"type":"function","name":"recoverTypedSigner","inputs":[{"type":"bytes32"},{"type":"bytes32"},{"type":"bytes"}]}
+  ]`))
+	require.NoError(t, err)
+	for _, row := range []struct {
+		name string
+		args []interface{}
+		base uint64
+	}{
+		{"hashTypedData", []interface{}{[32]byte{1}, [32]byte{2}}, 1000},
+		{"domainSeparator", []interface{}{"Paxeer", "1", big.NewInt(125), ethcommon.Address{}}, 1000},
+		{"recoverTypedSigner", []interface{}{[32]byte{1}, [32]byte{2}, make([]byte, 65)}, 4000},
+	} {
+		input, err := a.Pack(row.name, row.args...)
+		require.NoError(t, err)
+		require.Equal(t, crypto.Keccak256([]byte(a.Methods[row.name].Sig))[:4], input[:4])
+		require.Equal(t, row.base+3*uint64(len(input)), common.MethodGas(input[:4], len(input)))
+	}
+}

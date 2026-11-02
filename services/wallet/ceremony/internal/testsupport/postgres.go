@@ -1017,3 +1017,20 @@ func AttestorBinary(t *testing.T) string {
 	}
 	return attestorBin
 }
+
+// ExternalAttestorConfig connects ceremony consumers to real daemons without
+// substituting the in-memory Nodes protocol simulator.
+func ExternalAttestorConfig(certFile, keyFile, caFile string, nodes []attestor.NodeConfig) (attestor.Config, error) {
+	if certFile == "" || keyFile == "" || caFile == "" || len(nodes) != attestor.NodeCount {
+		return attestor.Config{}, attestor.ErrConfig
+	}
+	seen := make(map[string]bool, len(nodes))
+	for _, node := range nodes {
+		endpoint, err := url.Parse(node.URL)
+		if err != nil || endpoint.Scheme != "https" || endpoint.Host == "" || node.ID == "" || seen[node.ID] || node.Pin == ([32]byte{}) {
+			return attestor.Config{}, attestor.ErrConfig
+		}
+		seen[node.ID] = true
+	}
+	return attestor.Config{CertFile: certFile, KeyFile: keyFile, CAFile: caFile, Nodes: append([]attestor.NodeConfig(nil), nodes...)}, nil
+}

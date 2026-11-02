@@ -69,8 +69,8 @@ func squadV2(q Squad, memberCount uint64) v2.Squad {
 	return v2.Squad{
 		SquadId:     q.ID,
 		Name:        q.Name,
-		Description: "",
-		Visibility:  "private",
+		Description: q.Description,
+		Visibility:  q.Visibility,
 		JoinPolicy:  q.Policy,
 		Revision:    v2.UInt256(strconv.FormatUint(q.Revision, 10)),
 		MemberCount: v2.UInt256(strconv.FormatUint(memberCount, 10)),

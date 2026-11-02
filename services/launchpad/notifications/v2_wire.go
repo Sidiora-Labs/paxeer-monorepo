@@ -39,7 +39,7 @@ func AdaptV2Notifications(requestID string, page V2NotificationsPage, generatedA
 	items := make([]v2NotificationItem, len(page.Items))
 	for i, item := range page.Items {
 		if item.Read != (item.ReadAt != nil) {
-			return nil, fmt.Errorf("NotificationsResponse item %d: read state and read timestamp disagree", i)
+			return nil, fmt.Errorf("%w: NotificationsResponse item %d: read state and read timestamp disagree", ErrInvalid, i)
 		}
 		var readAt *string
 		if item.ReadAt != nil {

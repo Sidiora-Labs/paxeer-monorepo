@@ -37,6 +37,7 @@ import {
   parseAbi,
   toEventSelector,
   type Hex,
+  parseUnits,
 } from 'viem';
 import { useWallet } from '@/wallet/WalletProvider';
 
@@ -111,6 +112,22 @@ export function receiptStatus(receipt: unknown): ReceiptStatus {
   if (receipt.status === '0x1') return 'confirmed';
   if (receipt.status === '0x0') return 'reverted';
   throw new Error('the receipt carries an invalid status');
+}
+
+export function parseSurfaceAmount(text: string, decimals: number): bigint {
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 255)
+    throw new RangeError('asset decimals must be an integer from 0 to 255');
+  const match = /^(0|[1-9][0-9]*)(?:\.([0-9]+))?$/.exec(text);
+  if (!match || (match[2]?.length ?? 0) > decimals)
+    throw new RangeError('enter an exact non-negative amount in the asset precision');
+  return parseUnits(text, decimals);
+}
+
+export function parseSurfaceId(text: string, bits = 256): bigint {
+  if (!/^(0|[1-9][0-9]*)$/.test(text)) throw new RangeError('enter a decimal id');
+  const value = BigInt(text);
+  if (value >= 1n << BigInt(bits)) throw new RangeError(`the id exceeds ${bits} bits`);
+  return value;
 }
 
 export function formatField(value: bigint | boolean | string): string {

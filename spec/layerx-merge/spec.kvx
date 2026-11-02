@@ -6867,6 +6867,18 @@ value = "Every open proof task carries the rule that its producers run inside th
 basis = "21.42.1, 21.156.1, 21.5.1, 21.116.1, 21.46.1 and 21.126.1 attempts 1 failed on environment preconditions, a missing binary or a package another task repairs."
 affects = ["21.5.1", "21.116.1", "21.46.1", "21.126.1", "21.156.1", "21.163.1", "21.160.1", "21.154.1", "21.153.1", "21.152.1"]
 
+[decision.2293]
+title = "The C and Solidity halves of the proof wave build through the kernel's generic test rule and forge, and three stalled tasks continue under written rulings"
+value = "Tasks 21.164.1 to 21.172.1 extend feature 21 with one proof per landed contract anchor whose producers are C headers (8 tasks, built by the generic rule at Makefile:1137 into build/tests/kernel/proof/ under the go-cgo profile, cases in the lxp_kernel_case harness) and one for the IXWeb Solidity interface (21.172.1, forge under foundry.paxeer.toml plus a Go test of the real precompile, mixed profile). 5.0.9 continues from attempt 2 by deleting the two anchor-store-key rows (decision 2278); 18.1443.1 excludes retirement assertions by pattern and matches stems only with the retired file's extension, and drops the retired contract from 103.6.11.sh; 18.1487.1 repairs the two drift tests of the generators crate that have failed on main since 9.1.5 and 9.97.3 and lists its regenerated outputs under touches."
+basis = "The C anchors (programs.h, lx_service.h, lxp_module.h, lxp_bridge.h, lx_asset.h, lxp_result.h, lxp_receipt.h, the error-code registry) and the IXWeb anchor were left for a later batch by decision 2287; 5.0.9 attempt 2, 18.1443.1 attempt 3 and 18.1487.1 attempt 3 failed on an ignored finding, an over-broad matcher and pre-existing sibling test failures."
+affects = ["21.0.1", "5.0.9", "18.1443.1", "18.1487.1", "21.164.1", "21.165.1", "21.166.1", "21.167.1", "21.168.1", "21.169.1", "21.170.1", "21.171.1"]
+
+[decision.2294]
+title = "Parked attempts continue once the break they met is repaired or their scope names the real producer"
+value = "Ten tasks whose only failure was the availabilityClassCount build break (repaired by 6.96.5 at 520414c87) continue from their last attempt; 9.24.7 also drops the lni import from rpc/history.rs and rpc/payments.rs; 21.130.1 builds and tests layerx-programs-runtime with --features host-ffi because read_native_receipt_authority exists only there; 21.53.1's proof target includes no corpus-dependent test module; 20.9.8 adds the k256 0.13.4 pin to the platform CLI; 18.1057.1 maps onto the current ReadRequest/HistorySelector fields; 18.1471.1 ports bond_return_test.go too; 6.96.6 repairs the stale nil-keeper assertion (decision.2218); 9.35.13 makes the pay2 crate self-contained and 8.101.4 requires it before deleting gateway tests/local; 21.19.1 repairs xwebInfo(t) for the node/sequencer package and 21.87.1 follows; 21.95.1 adds layerx-mcp as a dev-dependency; 16.90.1 requires 6.60.2; 21.142.1 hosts its explorer listener in-process; touches with a ./ prefix are normalised because the scope check compares plain paths."
+basis = "Thirty-three attempts sat parked on failures whose causes were already repaired on main, were cross-task breaks (21.49.1's xwebInfo signature, 9.97.2's removed lifecycle generator, 18.1326.1's keeper carry) or were scope spellings."
+affects = ["15.3.1", "15.3.3", "15.3.4", "9.24.7", "21.130.1", "21.53.1", "20.9.8", "18.1471.1", "6.96.6", "9.35.13", "8.101.4", "21.19.1", "21.87.1", "21.95.1", "16.90.1", "21.142.1", "21.86.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20487,6 +20499,42 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.21172]
+title = "The IXWeb path is proven from the consumer contract through the pinned selectors into the precompile"
+ac_1 = "contracts/test/ProofIXWeb.t.sol asserts the calldata the real XWebConsumer.sol emits for fulfilProgram, getProgramResult and getKernelNetworkId byte for byte, precompiles/xweb/proof_ixweb_test.go feeds the same bytes through the method table of precompiles/xweb/abi.json into the real precompile and asserts the result and one refusal; the selectors 2d4bf7ad, 2b2e13fc and fc0d26f4 are pinned on both sides."
+
+[req.21171]
+title = "The result registry path is proven from producer through transport to consumer"
+ac_1 = "The test tests/proof/lxp_proof_result_registry.c drives the real result registry producers through the C symbol the kernel header exports and the listed callers include into the real consumer code and asserts the observed result and one refusal; where state persists, a store close and reopen between the producer and the consumer steps preserves it; no layer of the path is replaced by a double."
+
+[req.21170]
+title = "The lxp receipt h path is proven from producer through transport to consumer"
+ac_1 = "The test tests/proof/lxp_proof_lxp_receipt_h.c drives the real lxp receipt h producers through the C symbol the kernel header exports and the listed callers include into the real consumer code and asserts the observed result and one refusal; where state persists, a store close and reopen between the producer and the consumer steps preserves it; no layer of the path is replaced by a double."
+
+[req.21169]
+title = "The b error code registry d6 path is proven from producer through transport to consumer"
+ac_1 = "The test tests/proof/lxp_proof_b_error_code_registry_d6.c drives the real b error code registry d6 producers through the error code the consumer matches on into the real consumer code and asserts the observed result and one refusal; where state persists, a store close and reopen between the producer and the consumer steps preserves it; no layer of the path is replaced by a double."
+
+[req.21168]
+title = "The lxp module h path is proven from producer through transport to consumer"
+ac_1 = "The test tests/proof/lxp_proof_lxp_module_h.c drives the real lxp module h producers through the C symbol the kernel header exports and the listed callers include into the real consumer code and asserts the observed result and one refusal; where state persists, a store close and reopen between the producer and the consumer steps preserves it; no layer of the path is replaced by a double."
+
+[req.21167]
+title = "The lxp bridge h path is proven from producer through transport to consumer"
+ac_1 = "The test tests/proof/lxp_proof_lxp_bridge_h.c drives the real lxp bridge h producers through the C symbol the kernel header exports and the listed callers include into the real consumer code and asserts the observed result and one refusal; where state persists, a store close and reopen between the producer and the consumer steps preserves it; no layer of the path is replaced by a double."
+
+[req.21166]
+title = "The lx asset h path is proven from producer through transport to consumer"
+ac_1 = "The test tests/proof/lxp_proof_lx_asset_h.c drives the real lx asset h producers through the C symbol the kernel header exports and the listed callers include into the real consumer code and asserts the observed result and one refusal; where state persists, a store close and reopen between the producer and the consumer steps preserves it; no layer of the path is replaced by a double."
+
+[req.21165]
+title = "The lx service h path is proven from producer through transport to consumer"
+ac_1 = "The test tests/proof/lxp_proof_lx_service_h.c drives the real lx service h producers through the C symbol the kernel header exports and the listed callers include into the real consumer code and asserts the observed result and one refusal; where state persists, a store close and reopen between the producer and the consumer steps preserves it; no layer of the path is replaced by a double."
+
+[req.21164]
+title = "The programs h path is proven from producer through transport to consumer"
+ac_1 = "The test tests/proof/lxp_proof_programs_h.c drives the real programs h producers through the C symbol the kernel header exports and the listed callers include into the real consumer code and asserts the observed result and one refusal; where state persists, a store close and reopen between the producer and the consumer steps preserves it; no layer of the path is replaced by a double."
 
 [req.8365]
 title = "The Swift chain helpers and tests live in the configured target paths"
@@ -34964,6 +35012,87 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.21.172.1]
+title = "Prove the IXWeb path end to end: consumer contract, pinned selectors, precompile"
+reqs = ["21172.1"]
+touches = ["contracts/test/ProofIXWeb.t.sol", "precompiles/xweb/proof_ixweb_test.go", "contracts/src/precompiles/IXWeb.sol", "precompiles/xweb/abi.json", "contracts/src/xweb/XWebConsumer.sol", "precompiles/xweb/xweb.go"]
+tests = ["contracts/test/ProofIXWeb.t.sol", "precompiles/xweb/proof_ixweb_test.go"]
+verification_contract = "FOUNDRY_CONFIG=foundry.paxeer.toml forge test --root . --match-path contracts/test/ProofIXWeb.t.sol --match-test '^test_Proof' && go test -count=1 ./precompiles/xweb/ -run '^TestProofIXWeb'"
+do_1 = "The real path this task proves is function fulfilProgram(bytes calldata observation) external (contracts/src/precompiles/IXWeb.sol:103); function getProgramResult(bytes32 programId, uint64 requestId) external view (contracts/src/precompiles/IXWeb.sol:119); function getKernelNetworkId() external view returns (uint32) (contracts/src/precompiles/IXWeb.sol:124) -> the ABI selectors pinned in precompiles/xweb/abi.json (2d4bf7ad, 2b2e13fc, fc0d26f4 at precompiles/xweb/xweb_test.go:797) -> the precompile at 0x1019 (precompiles/xweb/xweb.go) and the Solidity callers contracts/src/xweb/XWebConsumer.sol and contracts/test/XWebConsumer.t.sol:87-96. The inventory is the three new or changed sol_function interfaces under contract contracts/web.md#sol-ixweb in spec/layerx-merge/interfaces.kvx."
+symbols = ["TestProofIXWebSelectorsAndRun", "fulfilProgram", "getProgramResult", "getKernelNetworkId"]
+
+[capability.21.171.1]
+title = "Prove the result registry path end to end: producer, transport, consumer"
+reqs = ["21171.1"]
+touches = ["tests/proof/lxp_proof_result_registry.c", "include/layerx/lxp_result.h"]
+tests = ["tests/proof/lxp_proof_result_registry.c"]
+verification_contract = "make -C . build/tests/kernel/proof/lxp_proof_result_registry && ./build/tests/kernel/proof/lxp_proof_result_registry"
+do_1 = "The real path this task proves is bool lxp_result_is_registered(lxp_result result) (include/layerx/lxp_result.h); lxp_result lxp_result_registry_at(size_t index, lxp_result *value, const char **name) (include/layerx/lxp_result.h); size_t lxp_result_registry_count(void) (include/layerx/lxp_result.h) -> the C symbol the kernel header exports and the listed callers include -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/kernel.md#result-registry in spec/layerx-merge/interfaces.kvx (3 entries); the test drives at least the 3 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+symbols = ["proof_result_registry_happy_path", "proof_result_registry_refusal", "lxp_result_is_registered", "lxp_result_registry_at", "lxp_result_registry_count"]
+
+[capability.21.170.1]
+title = "Prove the lxp receipt h path end to end: producer, transport, consumer"
+reqs = ["21170.1"]
+touches = ["tests/proof/lxp_proof_lxp_receipt_h.c", "include/layerx/lxp_receipt.h", "include/layerx/lxp_kernel.h", "src/protocol/lxp_kernel.c", "src/protocol/lxp_receipt.c", "tests/programs/test_accounts.c", "tests/programs/test_fee_governance.c", "tests/programs/test_lifecycle.c"]
+tests = ["tests/proof/lxp_proof_lxp_receipt_h.c"]
+verification_contract = "make -C . build/tests/kernel/proof/lxp_proof_lxp_receipt_h && ./build/tests/kernel/proof/lxp_proof_lxp_receipt_h"
+do_1 = "The real path this task proves is typedef struct lxp_verified_receipt_index { lxp_verified_receipt_facts entries[LXP_VERIFIE (include/layerx/lxp_receipt.h:152); typedef struct lxp_verified_receipt_authority_facts { uint16_t version; uint32_t network_i (include/layerx/lxp_receipt.h:128); lxp_result lxp_verified_receipt_index_lookup_authority( const lxp_verified_receipt_index * (include/layerx/lxp_receipt.h:250) -> the C symbol the kernel header exports and the listed callers include -> include/layerx/lxp_kernel.h, src/protocol/lxp_kernel.c, src/protocol/lxp_receipt.c, tests/programs/test_accounts.c, tests/programs/test_fee_governance.c, tests/programs/test_lifecycle.c. The inventory is every new or changed interface under contract contracts/kernel.md#lxp-receipt-h in spec/layerx-merge/interfaces.kvx (3 entries); the test drives at least the 3 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+symbols = ["proof_lxp_receipt_h_happy_path", "proof_lxp_receipt_h_refusal", "lxp_verified_receipt_index_lookup_authority"]
+
+[capability.21.169.1]
+title = "Prove the b error code registry d6 path end to end: producer, transport, consumer"
+reqs = ["21169.1"]
+touches = ["tests/proof/lxp_proof_b_error_code_registry_d6.c", "include/layerx/lxp_result.h", "precompiles/common/lxp_errors.go", "services/agent/sdk/python/layerx_sdk/revert.py"]
+tests = ["tests/proof/lxp_proof_b_error_code_registry_d6.c"]
+verification_contract = "make -C . build/tests/kernel/proof/lxp_proof_b_error_code_registry_d6 && ./build/tests/kernel/proof/lxp_proof_b_error_code_registry_d6"
+do_1 = "The real path this task proves is X(LXP_ERR_ARBITER_REQUIRED, -737) (include/layerx/lxp_result.h); X(LXP_ERR_ESCROW_LINK_MISMATCH, -739) (include/layerx/lxp_result.h); X(LXP_ERR_UNAUTHORIZED_ARBITER, -738) (include/layerx/lxp_result.h) -> the error code the consumer matches on -> precompiles/common/lxp_errors.go, services/agent/sdk/python/layerx_sdk/revert.py. The inventory is every new or changed interface under contract contracts/address-table.md#b-error-code-registry-d6 in spec/layerx-merge/interfaces.kvx (3 entries); the test drives at least the 3 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+symbols = ["proof_b_error_code_registry_d6_happy_path", "proof_b_error_code_registry_d6_refusal", "X"]
+
+[capability.21.168.1]
+title = "Prove the lxp module h path end to end: producer, transport, consumer"
+reqs = ["21168.1"]
+touches = ["tests/proof/lxp_proof_lxp_module_h.c", "include/layerx/lxp_module.h", "src/modules/asset/lx_asset_execution.h", "src/modules/programs/call.c"]
+tests = ["tests/proof/lxp_proof_lxp_module_h.c"]
+verification_contract = "make -C . build/tests/kernel/proof/lxp_proof_lxp_module_h && ./build/tests/kernel/proof/lxp_proof_lxp_module_h"
+do_1 = "The real path this task proves is lxp_result lxp_ctx_asset_account_stage( lxp_module_ctx *ctx, const lxp_activity *activity, (include/layerx/lxp_module.h:120); lxp_result lxp_ctx_asset_issuance_stage( lxp_module_ctx *ctx, const lxp_activity *activity (include/layerx/lxp_module.h:116); lxp_result lxp_ctx_verified_receipt_authority_facts( const lxp_module_ctx *ctx, const uint (include/layerx/lxp_module.h:172); lxp_result lxp_ctx_asset_grant_state_stage(lxp_module_ctx *ctx, const uint8_t grant_id[32] (include/layerx/lxp_module.h) -> the C symbol the kernel header exports and the listed callers include -> src/modules/asset/lx_asset_execution.h, src/modules/programs/call.c. The inventory is every new or changed interface under contract contracts/kernel.md#lxp-module-h in spec/layerx-merge/interfaces.kvx (4 entries); the test drives at least the 4 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+symbols = ["proof_lxp_module_h_happy_path", "proof_lxp_module_h_refusal", "lxp_ctx_asset_account_stage", "lxp_ctx_asset_issuance_stage", "lxp_ctx_verified_receipt_authority_facts", "lxp_ctx_asset_grant_state_stage"]
+
+[capability.21.167.1]
+title = "Prove the lxp bridge h path end to end: producer, transport, consumer"
+reqs = ["21167.1"]
+touches = ["tests/proof/lxp_proof_lxp_bridge_h.c", "include/layerx/lxp_bridge.h", "src/modules/bridge/lxp_bridge_exit.c", "src/modules/bridge/lxp_bridge_withdraw.c", "tests/test_bridge_withdraw.c"]
+tests = ["tests/proof/lxp_proof_lxp_bridge_h.c"]
+verification_contract = "make -C . build/tests/kernel/proof/lxp_proof_lxp_bridge_h && ./build/tests/kernel/proof/lxp_proof_lxp_bridge_h"
+do_1 = "The real path this task proves is typedef struct lxp_exit_claim { const lx_finalized_checkpoint *checkpoint; const lxp_guara (include/layerx/lxp_bridge.h:63); typedef struct lxp_withdrawal_claim { const lx_finalized_checkpoint *checkpoint; const lxp (include/layerx/lxp_bridge.h:34); lxp_result lxp_exit_claim_build( const lx_finalized_checkpoint *checkpoint, const lxp_guar (include/layerx/lxp_bridge.h:109); lxp_result lxp_exit_verify_balance_proof( const lxp_exit_claim *claim, const lxp_guarantor (include/layerx/lxp_bridge.h:116) -> the C symbol the kernel header exports and the listed callers include -> src/modules/bridge/lxp_bridge_exit.c, src/modules/bridge/lxp_bridge_withdraw.c, tests/test_bridge_withdraw.c. The inventory is every new or changed interface under contract contracts/kernel.md#lxp-bridge-h in spec/layerx-merge/interfaces.kvx (4 entries); the test drives at least the 4 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+symbols = ["proof_lxp_bridge_h_happy_path", "proof_lxp_bridge_h_refusal", "lxp_exit_claim_build", "lxp_exit_verify_balance_proof"]
+
+[capability.21.166.1]
+title = "Prove the lx asset h path end to end: producer, transport, consumer"
+reqs = ["21166.1"]
+touches = ["tests/proof/lxp_proof_lx_asset_h.c", "include/layerx/lx_asset.h", "modules/lxphost/host.go", "src/modules/asset/lx_asset_execution.h", "src/modules/asset/lx_asset_registry.c", "src/modules/budget/lx_budget_module.c", "src/protocol/lxp_kernel.c", "src/protocol/lxp_module_ctx.c"]
+tests = ["tests/proof/lxp_proof_lx_asset_h.c"]
+verification_contract = "make -C . build/tests/kernel/proof/lxp_proof_lx_asset_h && ./build/tests/kernel/proof/lxp_proof_lx_asset_h"
+do_1 = "The real path this task proves is typedef struct lx_asset_runtime { lx_account_registry *accounts; const lx_asset_record *as (include/layerx/lx_asset.h:122); lxp_result lx_asset_state_root(const lx_asset_registry *assets, const lx_account_registry  (include/layerx/lx_asset.h:279); lxp_result lx_asset_payer_grant_read(const struct lxp_kernel *kernel, const uint8_t grant_ (include/layerx/lx_asset.h:276); lxp_result lx_asset_payer_grant_encode(...) (planned; shared grant:||grant_id record encod (include/layerx/lx_asset.h) -> the C symbol the kernel header exports and the listed callers include -> modules/lxphost/host.go, src/modules/asset/lx_asset_execution.h, src/modules/asset/lx_asset_registry.c, src/modules/budget/lx_budget_module.c, src/protocol/lxp_kernel.c, src/protocol/lxp_module_ctx.c. The inventory is every new or changed interface under contract contracts/kernel.md#lx-asset-h in spec/layerx-merge/interfaces.kvx (4 entries); the test drives at least the 4 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+symbols = ["proof_lx_asset_h_happy_path", "proof_lx_asset_h_refusal", "lx_asset_state_root", "lx_asset_payer_grant_read", "lx_asset_payer_grant_encode"]
+
+[capability.21.165.1]
+title = "Prove the lx service h path end to end: producer, transport, consumer"
+reqs = ["21165.1"]
+touches = ["tests/proof/lxp_proof_lx_service_h.c", "include/layerx/lx_service.h", "src/modules/service/lx_service_deliver.c", "tests/modules/test_service_deliver.c", "src/modules/service/lx_service_module.c"]
+tests = ["tests/proof/lxp_proof_lx_service_h.c"]
+verification_contract = "make -C . build/tests/kernel/proof/lxp_proof_lx_service_h && ./build/tests/kernel/proof/lxp_proof_lx_service_h"
+do_1 = "The real path this task proves is lxp_result lx_service_deliverable_check( lxp_module_ctx *ctx, const lx_service_agreement * (include/layerx/lx_service.h:404); lxp_result lx_service_dispute_open_execute( lxp_module_ctx *ctx, const lx_service_dispute_ (include/layerx/lx_service.h:422); lxp_result lx_service_dispute_resolve_execute( lxp_module_ctx *ctx, const lx_service_dispu (include/layerx/lx_service.h:425); typedef struct lx_service_escrow_link { holder, beneficiary, asset id, arbiter, state } lx (include/layerx/lx_service.h); typedef struct lx_service_runtime { escrow link reader callback } lx_service_runtime (plan (include/layerx/lx_service.h) -> the C symbol the kernel header exports and the listed callers include -> src/modules/service/lx_service_deliver.c, tests/modules/test_service_deliver.c, src/modules/service/lx_service_module.c. The inventory is every new or changed interface under contract contracts/kernel.md#lx-service-h in spec/layerx-merge/interfaces.kvx (5 entries); the test drives at least the 5 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+symbols = ["proof_lx_service_h_happy_path", "proof_lx_service_h_refusal", "lx_service_deliverable_check", "lx_service_dispute_open_execute", "lx_service_dispute_resolve_execute"]
+
+[capability.21.164.1]
+title = "Prove the programs h path end to end: producer, transport, consumer"
+reqs = ["21164.1"]
+touches = ["tests/proof/lxp_proof_programs_h.c", "include/layerx/programs.h", "programs/fixtures/pay5/native_roundtrip.h", "programs/tests/differential/parallel.c", "services/agent/crates/layerx-types/build.rs", "services/agent/crates/layerx-types/src/programs_activity.rs", "services/agent/crates/layerx-types/src/programs_module_abi.rs", "src/modules/programs/accounts.c"]
+tests = ["tests/proof/lxp_proof_programs_h.c"]
+verification_contract = "make -C . build/tests/kernel/proof/lxp_proof_programs_h && ./build/tests/kernel/proof/lxp_proof_programs_h"
+do_1 = "The real path this task proves is typedef struct lx_programs_transfer_runtime { lx_account_registry *accounts; const lxp_tra (include/layerx/programs.h:1008); enum { LX_PROGRAMS_FEE_PRICE_FIELDS = 7, LX_PROGRAMS_FEE_GOVERNANCE_PROPOSAL_BYTES = 149 } (include/layerx/programs.h:336); lxp_result lxp_programs_replay_finalize( void *context, const lxp_batch_header *header, ui (include/layerx/programs.h:1078); lxp_result lxp_programs_state_record_encode( lxp_module_ctx *ctx, const uint8_t program_id (include/layerx/programs.h:942); lxp_result lxp_programs_interface_read(...) (planned; returns the stored interface bytes) (include/layerx/programs.h); lxp_result lxp_programs_replay_engine_bind(lxp_replay_engine *engine, lxp_kernel *kernel) (include/layerx/programs.h:1082) -> the C symbol the kernel header exports and the listed callers include -> programs/fixtures/pay5/native_roundtrip.h, programs/tests/differential/parallel.c, services/agent/crates/layerx-types/build.rs, services/agent/crates/layerx-types/src/programs_activity.rs, services/agent/crates/layerx-types/src/programs_module_abi.rs, src/modules/programs/accounts.c. The inventory is every new or changed interface under contract contracts/kernel.md#programs-h in spec/layerx-merge/interfaces.kvx (10 entries); the test drives at least the 6 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+symbols = ["proof_programs_h_happy_path", "proof_programs_h_refusal", "lxp_programs_replay_finalize", "lxp_programs_state_record_encode", "lxp_programs_interface_read", "lxp_programs_replay_engine_bind"]
+
 [capability.18.1494.1]
 title = "Issue #1494: Move the Swift chain helpers and their tests into the configured SwiftPM target paths"
 reqs = ["8365.1"]
@@ -35311,7 +35440,7 @@ title = "Prove the runtime crate path end to end: producer, transport, consumer"
 reqs = ["21130.1"]
 touches = ["programs/crates/layerx-programs-runtime/tests/proof_runtime_crate.rs", "programs/crates/layerx-programs-runtime/src/abi/mod.rs", "programs/crates/layerx-programs-runtime/src/ffi_call.rs", "programs/crates/layerx-programs-runtime/src/transfer.rs"]
 tests = ["programs/crates/layerx-programs-runtime/tests/proof_runtime_crate.rs"]
-verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test proof_runtime_crate"
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --features host-ffi --test proof_runtime_crate"
 do_1 = "The real path this task proves is pub fn canonical_program_event_envelope(&self) -> Result<Vec<u8>, AbiError> (programs/crates/layerx-programs-runtime/src/abi/mod.rs:577); pub unsafe fn read_native_receipt_authority(token: u64, digest: [u8; 32], expected_batch:  (programs/crates/layerx-programs-runtime/src/ffi_call.rs:4028); pub fn program_event_logs(&self, program: ProgramId) -> Result<Vec<ProgramEventLog>, AbiEr (programs/crates/layerx-programs-runtime/src/abi/mod.rs) -> the public Rust item the listed callers compile against -> programs/crates/layerx-programs-runtime/src/transfer.rs. The inventory is every new or changed interface under contract contracts/programs.md#runtime-crate in spec/layerx-merge/interfaces.kvx (3 entries); the test drives at least the 3 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
 symbols = ["canonical_program_event_envelope", "read_native_receipt_authority", "program_event_logs"]
 
@@ -99263,7 +99392,7 @@ title = "Gate domain 1 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.2.3", "1.2.4", "1.2.5", "1.6.1", "1.6.3", "1.15.2", "1.17.4", "1.18.2", "1.18.3", "1.19.3", "1.26.1", "1.26.2", "1.27.1", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.4", "1.29.5", "1.31.1", "1.31.2", "1.31.3", "1.31.5", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.36.1", "1.36.2", "1.36.3", "1.37.1", "1.38.1", "1.38.2", "1.39.2", "1.97.1", "16.2.1", "6.96.5", "21.38.1"]
+requires = ["1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.2.3", "1.2.4", "1.2.5", "1.6.1", "1.6.3", "1.15.2", "1.17.4", "1.18.2", "1.18.3", "1.19.3", "1.26.1", "1.26.2", "1.27.1", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.4", "1.29.5", "1.31.1", "1.31.2", "1.31.3", "1.31.5", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.36.1", "1.36.2", "1.36.3", "1.37.1", "1.38.1", "1.38.2", "1.39.2", "1.97.1", "16.2.1", "6.96.5", "21.38.1", "21.164.1", "21.165.1", "21.166.1", "21.167.1", "21.168.1", "21.169.1", "21.170.1", "21.171.1"]
 reqs = ["1999.1"]
 capabilities = ["1.0.9"]
 interfaces = []
@@ -113479,7 +113608,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1492.1]
 title = "Issue #1492: Mount the virtual-network switcher in the wallet Settings network view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -113509,7 +113638,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1490.1]
 title = "Issue #1490: Switch the embedded provider's chain identity and RPC route with the selected virtual network"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -113541,7 +113670,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.163.1]
 title = "Prove the kit path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -113735,7 +113864,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.156.1]
 title = "Prove the gas station path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -113833,7 +113962,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.153.1]
 title = "Prove the widgets path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -113866,7 +113995,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.152.1]
 title = "Prove the solana route path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -113899,7 +114028,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.151.1]
 title = "Prove the attestation api path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -113932,7 +114061,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.150.1]
 title = "Prove the config path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114030,7 +114159,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.147.1]
 title = "Prove the components path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114063,7 +114192,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.146.1]
 title = "Prove the settlement path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114129,7 +114258,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.144.1]
 title = "Prove the middleware buyer ts exports path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114162,7 +114291,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.143.1]
 title = "Prove the journeys path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114225,6 +114354,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Decision 2294: attempt 2 (ac188a4d4) failed again on its own assertion `PAXEER_X_EXPLORER_BASE_URL is required`; delete that assertion and every 'response substitutes are forbidden' guard. The proof starts a node:http listener on 127.0.0.1 inside the test, serving /explorer/batches and the other routes the explorer pages read with bodies built from the repository's explorer response types in apps/web/src/explorer, sets process.env.PAXEER_X_EXPLORER_BASE_URL to that listener's URL itself before importing client.ts (apps/web/src/explorer/client.ts:46 reads it), and asserts the pages render the served records; a listener the test did not start is an assertion failure, never a skip."
 
 [task.21.141.1]
 title = "Prove the lib path end to end: producer, transport, consumer"
@@ -114261,7 +114391,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.140.1]
 title = "Prove the launchpad mobile app path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114294,7 +114424,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.139.1]
 title = "Prove the middleware agent ts exports path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114327,7 +114457,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.138.1]
 title = "Prove the api path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114360,7 +114490,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.137.1]
 title = "Prove the launchpad sdk sdk path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114393,7 +114523,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.136.1]
 title = "Prove the core path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114491,7 +114621,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.133.1]
 title = "Prove the wallet app path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114524,7 +114654,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.132.1]
 title = "Prove the s27 embedded wallet gateway path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -115012,7 +115142,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.6.1]
 title = "List virtual chains in the explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -116630,9 +116760,306 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.21.172.1]
+title = "Prove the IXWeb path end to end: consumer contract, pinned selectors, precompile"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["21172.1"]
+capabilities = ["21.172.1"]
+interfaces = []
+do_1 = "The real path this task proves is function fulfilProgram(bytes calldata observation) external (contracts/src/precompiles/IXWeb.sol:103); function getProgramResult(bytes32 programId, uint64 requestId) external view (contracts/src/precompiles/IXWeb.sol:119); function getKernelNetworkId() external view returns (uint32) (contracts/src/precompiles/IXWeb.sol:124) -> the ABI selectors pinned in precompiles/xweb/abi.json (2d4bf7ad, 2b2e13fc, fc0d26f4 at precompiles/xweb/xweb_test.go:797) -> the precompile at 0x1019 (precompiles/xweb/xweb.go) and the Solidity callers contracts/src/xweb/XWebConsumer.sol and contracts/test/XWebConsumer.t.sol:87-96. The inventory is the three new or changed sol_function interfaces under contract contracts/web.md#sol-ixweb in spec/layerx-merge/interfaces.kvx."
+do_2 = "Solidity half: write contracts/test/ProofIXWeb.t.sol with forge under FOUNDRY_CONFIG=foundry.paxeer.toml as contracts/test/XWebConsumer.t.sol runs; it deploys the real XWebConsumer.sol, installs a recording contract at the precompile address with vm.etch that stores the calldata it receives, drives the three calls through the consumer's own functions, and asserts the recorded bytes equal the pinned constants (selector plus ABI-encoded arguments for a fixed programId, requestId and observation), so the crossing layer under test is the real Solidity encoding of the real consumer; the recorder stands only where the EVM would hand the bytes to the precompile."
+do_3 = "Go half: write precompiles/xweb/proof_ixweb_test.go with TestProofIXWebSelectorsAndRun: it parses precompiles/xweb/abi.json, encodes the same three calls with the same fixed arguments and asserts the bytes equal the same pinned constants (the two halves share the constants as hex literals), then runs the real precompile against an in-process keeper and state (as xweb_test.go and origin_two_flow_test.go build them) with those bytes and asserts getKernelNetworkId returns the configured network id, getProgramResult returns the stored result after a fulfilProgram with a valid observation, and fulfilProgram with an observation for an unknown program is refused with the precompile's existing error."
+do_4 = "No file written by one half is read by the other: both halves pin the same bytes in source, and a drift between IXWeb.sol, abi.json and the consumer fails whichever half encodes differently. A defect the proof exposes in a file listed under touches is repaired there and named in the test's leading comment and the commit message; a defect elsewhere is asserted as current behaviour under a comment naming the path, the symbol and the expected behaviour."
+do_5 = "Each test's leading comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real contracts, selectors and Go functions. The symbols listed on this task are the Go test function and the exported Go and Solidity functions the proof calls (decision 2290)."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a forge VM, an in-process keeper and state) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+symbols = ["TestProofIXWebSelectorsAndRun", "fulfilProgram", "getProgramResult", "getKernelNetworkId"]
+touches = ["contracts/test/ProofIXWeb.t.sol", "precompiles/xweb/proof_ixweb_test.go", "contracts/src/precompiles/IXWeb.sol", "precompiles/xweb/abi.json", "contracts/src/xweb/XWebConsumer.sol", "precompiles/xweb/xweb.go"]
+tests = ["contracts/test/ProofIXWeb.t.sol", "precompiles/xweb/proof_ixweb_test.go"]
+planned_paths = ["contracts/test/ProofIXWeb.t.sol", "precompiles/xweb/proof_ixweb_test.go"]
+build_cmd = "bash contracts/bootstrap-libs.sh && FOUNDRY_CONFIG=foundry.paxeer.toml forge build --root . && go build ./precompiles/xweb/..."
+verify_cmd = "FOUNDRY_CONFIG=foundry.paxeer.toml forge test --root . --match-path contracts/test/ProofIXWeb.t.sol --match-test '^test_Proof' && go test -count=1 ./precompiles/xweb/ -run '^TestProofIXWeb'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit; the proof adds two tests and repairs only files it lists."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.21.171.1]
+title = "Prove the result registry path end to end: producer, transport, consumer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["21171.1"]
+capabilities = ["21.171.1"]
+interfaces = []
+do_1 = "The real path this task proves is bool lxp_result_is_registered(lxp_result result) (include/layerx/lxp_result.h); lxp_result lxp_result_registry_at(size_t index, lxp_result *value, const char **name) (include/layerx/lxp_result.h); size_t lxp_result_registry_count(void) (include/layerx/lxp_result.h) -> the C symbol the kernel header exports and the listed callers include -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/kernel.md#result-registry in spec/layerx-merge/interfaces.kvx (3 entries); the test drives at least the 3 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+do_2 = "Write tests/proof/lxp_proof_result_registry.c against the kernel case harness of tests/codec/lxp_kernel_case.h (an lxp_kernel_case table, lxp_kernel_case_main and LXP_CASE_CHECK, as tests/codec/lxp_test_service_runtime.c:260-267 does): the cases proof_result_registry_happy_path and proof_result_registry_refusal build the real producer state in an in-process kernel, cross through the C symbol the kernel header exports and the listed callers include exactly as the listed consumer code does, and assert the consumer's observed result on the happy path and one refusal (wrong signer, unknown identifier, retired or paused status, or malformed input, whichever the surface has). The generic rule at Makefile:1137 builds tests/<dir>/<name>.c into build/tests/kernel/<dir>/<name> against liblayerx and the programs runtime archive, so the Makefile is not edited; the binary runs every case when invoked without arguments and exits non-zero on the first failing case."
+do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
+do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's leading comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
+do_5 = "The test's leading comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real headers and functions, so a reader of the file knows which path is covered without the spec. The symbols listed on this task are the two case functions and the exported C functions the proof calls; enumerators and macros are named in the test, not under symbols (decision 2290)."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a kernel instance, an in-memory state store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+symbols = ["proof_result_registry_happy_path", "proof_result_registry_refusal", "lxp_result_is_registered", "lxp_result_registry_at", "lxp_result_registry_count"]
+touches = ["tests/proof/lxp_proof_result_registry.c", "include/layerx/lxp_result.h"]
+tests = ["tests/proof/lxp_proof_result_registry.c"]
+planned_paths = ["tests/proof/lxp_proof_result_registry.c"]
+build_cmd = "make -C . build/tests/kernel/proof/lxp_proof_result_registry"
+verify_cmd = "make -C . build/tests/kernel/proof/lxp_proof_result_registry && ./build/tests/kernel/proof/lxp_proof_result_registry"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit; the proof adds a test and repairs only files it lists."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.21.170.1]
+title = "Prove the lxp receipt h path end to end: producer, transport, consumer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["21170.1"]
+capabilities = ["21.170.1"]
+interfaces = []
+do_1 = "The real path this task proves is typedef struct lxp_verified_receipt_index { lxp_verified_receipt_facts entries[LXP_VERIFIE (include/layerx/lxp_receipt.h:152); typedef struct lxp_verified_receipt_authority_facts { uint16_t version; uint32_t network_i (include/layerx/lxp_receipt.h:128); lxp_result lxp_verified_receipt_index_lookup_authority( const lxp_verified_receipt_index * (include/layerx/lxp_receipt.h:250) -> the C symbol the kernel header exports and the listed callers include -> include/layerx/lxp_kernel.h, src/protocol/lxp_kernel.c, src/protocol/lxp_receipt.c, tests/programs/test_accounts.c, tests/programs/test_fee_governance.c, tests/programs/test_lifecycle.c. The inventory is every new or changed interface under contract contracts/kernel.md#lxp-receipt-h in spec/layerx-merge/interfaces.kvx (3 entries); the test drives at least the 3 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+do_2 = "Write tests/proof/lxp_proof_lxp_receipt_h.c against the kernel case harness of tests/codec/lxp_kernel_case.h (an lxp_kernel_case table, lxp_kernel_case_main and LXP_CASE_CHECK, as tests/codec/lxp_test_service_runtime.c:260-267 does): the cases proof_lxp_receipt_h_happy_path and proof_lxp_receipt_h_refusal build the real producer state in an in-process kernel, cross through the C symbol the kernel header exports and the listed callers include exactly as the listed consumer code does, and assert the consumer's observed result on the happy path and one refusal (wrong signer, unknown identifier, retired or paused status, or malformed input, whichever the surface has). The generic rule at Makefile:1137 builds tests/<dir>/<name>.c into build/tests/kernel/<dir>/<name> against liblayerx and the programs runtime archive, so the Makefile is not edited; the binary runs every case when invoked without arguments and exits non-zero on the first failing case."
+do_3 = "The anchor persists state: the test destroys and reopens the state store (or the kernel instance over the same store bytes) between the producer and the consumer steps and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
+do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's leading comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
+do_5 = "The test's leading comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real headers and functions, so a reader of the file knows which path is covered without the spec. The symbols listed on this task are the two case functions and the exported C functions the proof calls; enumerators and macros are named in the test, not under symbols (decision 2290)."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a kernel instance, an in-memory state store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+symbols = ["proof_lxp_receipt_h_happy_path", "proof_lxp_receipt_h_refusal", "lxp_verified_receipt_index_lookup_authority"]
+touches = ["tests/proof/lxp_proof_lxp_receipt_h.c", "include/layerx/lxp_receipt.h", "include/layerx/lxp_kernel.h", "src/protocol/lxp_kernel.c", "src/protocol/lxp_receipt.c", "tests/programs/test_accounts.c", "tests/programs/test_fee_governance.c", "tests/programs/test_lifecycle.c"]
+tests = ["tests/proof/lxp_proof_lxp_receipt_h.c"]
+planned_paths = ["tests/proof/lxp_proof_lxp_receipt_h.c"]
+build_cmd = "make -C . build/tests/kernel/proof/lxp_proof_lxp_receipt_h"
+verify_cmd = "make -C . build/tests/kernel/proof/lxp_proof_lxp_receipt_h && ./build/tests/kernel/proof/lxp_proof_lxp_receipt_h"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit; the proof adds a test and repairs only files it lists."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.21.169.1]
+title = "Prove the b error code registry d6 path end to end: producer, transport, consumer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["21169.1"]
+capabilities = ["21.169.1"]
+interfaces = []
+do_1 = "The real path this task proves is X(LXP_ERR_ARBITER_REQUIRED, -737) (include/layerx/lxp_result.h); X(LXP_ERR_ESCROW_LINK_MISMATCH, -739) (include/layerx/lxp_result.h); X(LXP_ERR_UNAUTHORIZED_ARBITER, -738) (include/layerx/lxp_result.h) -> the error code the consumer matches on -> precompiles/common/lxp_errors.go, services/agent/sdk/python/layerx_sdk/revert.py. The inventory is every new or changed interface under contract contracts/address-table.md#b-error-code-registry-d6 in spec/layerx-merge/interfaces.kvx (3 entries); the test drives at least the 3 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+do_2 = "Write tests/proof/lxp_proof_b_error_code_registry_d6.c against the kernel case harness of tests/codec/lxp_kernel_case.h (an lxp_kernel_case table, lxp_kernel_case_main and LXP_CASE_CHECK, as tests/codec/lxp_test_service_runtime.c:260-267 does): the cases proof_b_error_code_registry_d6_happy_path and proof_b_error_code_registry_d6_refusal build the real producer state in an in-process kernel, cross through the error code the consumer matches on exactly as the listed consumer code does, and assert the consumer's observed result on the happy path and one refusal (wrong signer, unknown identifier, retired or paused status, or malformed input, whichever the surface has). The generic rule at Makefile:1137 builds tests/<dir>/<name>.c into build/tests/kernel/<dir>/<name> against liblayerx and the programs runtime archive, so the Makefile is not edited; the binary runs every case when invoked without arguments and exits non-zero on the first failing case."
+do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
+do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's leading comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
+do_5 = "The test's leading comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real headers and functions, so a reader of the file knows which path is covered without the spec. The symbols listed on this task are the two case functions and the exported C functions the proof calls; enumerators and macros are named in the test, not under symbols (decision 2290)."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a kernel instance, an in-memory state store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+symbols = ["proof_b_error_code_registry_d6_happy_path", "proof_b_error_code_registry_d6_refusal", "X"]
+touches = ["tests/proof/lxp_proof_b_error_code_registry_d6.c", "include/layerx/lxp_result.h", "precompiles/common/lxp_errors.go", "services/agent/sdk/python/layerx_sdk/revert.py"]
+tests = ["tests/proof/lxp_proof_b_error_code_registry_d6.c"]
+planned_paths = ["tests/proof/lxp_proof_b_error_code_registry_d6.c"]
+build_cmd = "make -C . build/tests/kernel/proof/lxp_proof_b_error_code_registry_d6"
+verify_cmd = "make -C . build/tests/kernel/proof/lxp_proof_b_error_code_registry_d6 && ./build/tests/kernel/proof/lxp_proof_b_error_code_registry_d6"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit; the proof adds a test and repairs only files it lists."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.21.168.1]
+title = "Prove the lxp module h path end to end: producer, transport, consumer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["21168.1"]
+capabilities = ["21.168.1"]
+interfaces = []
+do_1 = "The real path this task proves is lxp_result lxp_ctx_asset_account_stage( lxp_module_ctx *ctx, const lxp_activity *activity, (include/layerx/lxp_module.h:120); lxp_result lxp_ctx_asset_issuance_stage( lxp_module_ctx *ctx, const lxp_activity *activity (include/layerx/lxp_module.h:116); lxp_result lxp_ctx_verified_receipt_authority_facts( const lxp_module_ctx *ctx, const uint (include/layerx/lxp_module.h:172); lxp_result lxp_ctx_asset_grant_state_stage(lxp_module_ctx *ctx, const uint8_t grant_id[32] (include/layerx/lxp_module.h) -> the C symbol the kernel header exports and the listed callers include -> src/modules/asset/lx_asset_execution.h, src/modules/programs/call.c. The inventory is every new or changed interface under contract contracts/kernel.md#lxp-module-h in spec/layerx-merge/interfaces.kvx (4 entries); the test drives at least the 4 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+do_2 = "Write tests/proof/lxp_proof_lxp_module_h.c against the kernel case harness of tests/codec/lxp_kernel_case.h (an lxp_kernel_case table, lxp_kernel_case_main and LXP_CASE_CHECK, as tests/codec/lxp_test_service_runtime.c:260-267 does): the cases proof_lxp_module_h_happy_path and proof_lxp_module_h_refusal build the real producer state in an in-process kernel, cross through the C symbol the kernel header exports and the listed callers include exactly as the listed consumer code does, and assert the consumer's observed result on the happy path and one refusal (wrong signer, unknown identifier, retired or paused status, or malformed input, whichever the surface has). The generic rule at Makefile:1137 builds tests/<dir>/<name>.c into build/tests/kernel/<dir>/<name> against liblayerx and the programs runtime archive, so the Makefile is not edited; the binary runs every case when invoked without arguments and exits non-zero on the first failing case."
+do_3 = "The anchor persists state: the test destroys and reopens the state store (or the kernel instance over the same store bytes) between the producer and the consumer steps and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
+do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's leading comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
+do_5 = "The test's leading comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real headers and functions, so a reader of the file knows which path is covered without the spec. The symbols listed on this task are the two case functions and the exported C functions the proof calls; enumerators and macros are named in the test, not under symbols (decision 2290)."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a kernel instance, an in-memory state store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+symbols = ["proof_lxp_module_h_happy_path", "proof_lxp_module_h_refusal", "lxp_ctx_asset_account_stage", "lxp_ctx_asset_issuance_stage", "lxp_ctx_verified_receipt_authority_facts", "lxp_ctx_asset_grant_state_stage"]
+touches = ["tests/proof/lxp_proof_lxp_module_h.c", "include/layerx/lxp_module.h", "src/modules/asset/lx_asset_execution.h", "src/modules/programs/call.c"]
+tests = ["tests/proof/lxp_proof_lxp_module_h.c"]
+planned_paths = ["tests/proof/lxp_proof_lxp_module_h.c"]
+build_cmd = "make -C . build/tests/kernel/proof/lxp_proof_lxp_module_h"
+verify_cmd = "make -C . build/tests/kernel/proof/lxp_proof_lxp_module_h && ./build/tests/kernel/proof/lxp_proof_lxp_module_h"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit; the proof adds a test and repairs only files it lists."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.21.167.1]
+title = "Prove the lxp bridge h path end to end: producer, transport, consumer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["21167.1"]
+capabilities = ["21.167.1"]
+interfaces = []
+do_1 = "The real path this task proves is typedef struct lxp_exit_claim { const lx_finalized_checkpoint *checkpoint; const lxp_guara (include/layerx/lxp_bridge.h:63); typedef struct lxp_withdrawal_claim { const lx_finalized_checkpoint *checkpoint; const lxp (include/layerx/lxp_bridge.h:34); lxp_result lxp_exit_claim_build( const lx_finalized_checkpoint *checkpoint, const lxp_guar (include/layerx/lxp_bridge.h:109); lxp_result lxp_exit_verify_balance_proof( const lxp_exit_claim *claim, const lxp_guarantor (include/layerx/lxp_bridge.h:116) -> the C symbol the kernel header exports and the listed callers include -> src/modules/bridge/lxp_bridge_exit.c, src/modules/bridge/lxp_bridge_withdraw.c, tests/test_bridge_withdraw.c. The inventory is every new or changed interface under contract contracts/kernel.md#lxp-bridge-h in spec/layerx-merge/interfaces.kvx (4 entries); the test drives at least the 4 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+do_2 = "Write tests/proof/lxp_proof_lxp_bridge_h.c against the kernel case harness of tests/codec/lxp_kernel_case.h (an lxp_kernel_case table, lxp_kernel_case_main and LXP_CASE_CHECK, as tests/codec/lxp_test_service_runtime.c:260-267 does): the cases proof_lxp_bridge_h_happy_path and proof_lxp_bridge_h_refusal build the real producer state in an in-process kernel, cross through the C symbol the kernel header exports and the listed callers include exactly as the listed consumer code does, and assert the consumer's observed result on the happy path and one refusal (wrong signer, unknown identifier, retired or paused status, or malformed input, whichever the surface has). The generic rule at Makefile:1137 builds tests/<dir>/<name>.c into build/tests/kernel/<dir>/<name> against liblayerx and the programs runtime archive, so the Makefile is not edited; the binary runs every case when invoked without arguments and exits non-zero on the first failing case."
+do_3 = "The anchor persists state: the test destroys and reopens the state store (or the kernel instance over the same store bytes) between the producer and the consumer steps and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
+do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's leading comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
+do_5 = "The test's leading comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real headers and functions, so a reader of the file knows which path is covered without the spec. The symbols listed on this task are the two case functions and the exported C functions the proof calls; enumerators and macros are named in the test, not under symbols (decision 2290)."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a kernel instance, an in-memory state store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+symbols = ["proof_lxp_bridge_h_happy_path", "proof_lxp_bridge_h_refusal", "lxp_exit_claim_build", "lxp_exit_verify_balance_proof"]
+touches = ["tests/proof/lxp_proof_lxp_bridge_h.c", "include/layerx/lxp_bridge.h", "src/modules/bridge/lxp_bridge_exit.c", "src/modules/bridge/lxp_bridge_withdraw.c", "tests/test_bridge_withdraw.c"]
+tests = ["tests/proof/lxp_proof_lxp_bridge_h.c"]
+planned_paths = ["tests/proof/lxp_proof_lxp_bridge_h.c"]
+build_cmd = "make -C . build/tests/kernel/proof/lxp_proof_lxp_bridge_h"
+verify_cmd = "make -C . build/tests/kernel/proof/lxp_proof_lxp_bridge_h && ./build/tests/kernel/proof/lxp_proof_lxp_bridge_h"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit; the proof adds a test and repairs only files it lists."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.21.166.1]
+title = "Prove the lx asset h path end to end: producer, transport, consumer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["21166.1"]
+capabilities = ["21.166.1"]
+interfaces = []
+do_1 = "The real path this task proves is typedef struct lx_asset_runtime { lx_account_registry *accounts; const lx_asset_record *as (include/layerx/lx_asset.h:122); lxp_result lx_asset_state_root(const lx_asset_registry *assets, const lx_account_registry  (include/layerx/lx_asset.h:279); lxp_result lx_asset_payer_grant_read(const struct lxp_kernel *kernel, const uint8_t grant_ (include/layerx/lx_asset.h:276); lxp_result lx_asset_payer_grant_encode(...) (planned; shared grant:||grant_id record encod (include/layerx/lx_asset.h) -> the C symbol the kernel header exports and the listed callers include -> modules/lxphost/host.go, src/modules/asset/lx_asset_execution.h, src/modules/asset/lx_asset_registry.c, src/modules/budget/lx_budget_module.c, src/protocol/lxp_kernel.c, src/protocol/lxp_module_ctx.c. The inventory is every new or changed interface under contract contracts/kernel.md#lx-asset-h in spec/layerx-merge/interfaces.kvx (4 entries); the test drives at least the 4 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+do_2 = "Write tests/proof/lxp_proof_lx_asset_h.c against the kernel case harness of tests/codec/lxp_kernel_case.h (an lxp_kernel_case table, lxp_kernel_case_main and LXP_CASE_CHECK, as tests/codec/lxp_test_service_runtime.c:260-267 does): the cases proof_lx_asset_h_happy_path and proof_lx_asset_h_refusal build the real producer state in an in-process kernel, cross through the C symbol the kernel header exports and the listed callers include exactly as the listed consumer code does, and assert the consumer's observed result on the happy path and one refusal (wrong signer, unknown identifier, retired or paused status, or malformed input, whichever the surface has). The generic rule at Makefile:1137 builds tests/<dir>/<name>.c into build/tests/kernel/<dir>/<name> against liblayerx and the programs runtime archive, so the Makefile is not edited; the binary runs every case when invoked without arguments and exits non-zero on the first failing case."
+do_3 = "The anchor persists state: the test destroys and reopens the state store (or the kernel instance over the same store bytes) between the producer and the consumer steps and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
+do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's leading comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
+do_5 = "The test's leading comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real headers and functions, so a reader of the file knows which path is covered without the spec. The symbols listed on this task are the two case functions and the exported C functions the proof calls; enumerators and macros are named in the test, not under symbols (decision 2290)."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a kernel instance, an in-memory state store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+symbols = ["proof_lx_asset_h_happy_path", "proof_lx_asset_h_refusal", "lx_asset_state_root", "lx_asset_payer_grant_read", "lx_asset_payer_grant_encode"]
+touches = ["tests/proof/lxp_proof_lx_asset_h.c", "include/layerx/lx_asset.h", "modules/lxphost/host.go", "src/modules/asset/lx_asset_execution.h", "src/modules/asset/lx_asset_registry.c", "src/modules/budget/lx_budget_module.c", "src/protocol/lxp_kernel.c", "src/protocol/lxp_module_ctx.c"]
+tests = ["tests/proof/lxp_proof_lx_asset_h.c"]
+planned_paths = ["tests/proof/lxp_proof_lx_asset_h.c"]
+build_cmd = "make -C . build/tests/kernel/proof/lxp_proof_lx_asset_h"
+verify_cmd = "make -C . build/tests/kernel/proof/lxp_proof_lx_asset_h && ./build/tests/kernel/proof/lxp_proof_lx_asset_h"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit; the proof adds a test and repairs only files it lists."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.21.165.1]
+title = "Prove the lx service h path end to end: producer, transport, consumer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["21165.1"]
+capabilities = ["21.165.1"]
+interfaces = []
+do_1 = "The real path this task proves is lxp_result lx_service_deliverable_check( lxp_module_ctx *ctx, const lx_service_agreement * (include/layerx/lx_service.h:404); lxp_result lx_service_dispute_open_execute( lxp_module_ctx *ctx, const lx_service_dispute_ (include/layerx/lx_service.h:422); lxp_result lx_service_dispute_resolve_execute( lxp_module_ctx *ctx, const lx_service_dispu (include/layerx/lx_service.h:425); typedef struct lx_service_escrow_link { holder, beneficiary, asset id, arbiter, state } lx (include/layerx/lx_service.h); typedef struct lx_service_runtime { escrow link reader callback } lx_service_runtime (plan (include/layerx/lx_service.h) -> the C symbol the kernel header exports and the listed callers include -> src/modules/service/lx_service_deliver.c, tests/modules/test_service_deliver.c, src/modules/service/lx_service_module.c. The inventory is every new or changed interface under contract contracts/kernel.md#lx-service-h in spec/layerx-merge/interfaces.kvx (5 entries); the test drives at least the 5 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+do_2 = "Write tests/proof/lxp_proof_lx_service_h.c against the kernel case harness of tests/codec/lxp_kernel_case.h (an lxp_kernel_case table, lxp_kernel_case_main and LXP_CASE_CHECK, as tests/codec/lxp_test_service_runtime.c:260-267 does): the cases proof_lx_service_h_happy_path and proof_lx_service_h_refusal build the real producer state in an in-process kernel, cross through the C symbol the kernel header exports and the listed callers include exactly as the listed consumer code does, and assert the consumer's observed result on the happy path and one refusal (wrong signer, unknown identifier, retired or paused status, or malformed input, whichever the surface has). The generic rule at Makefile:1137 builds tests/<dir>/<name>.c into build/tests/kernel/<dir>/<name> against liblayerx and the programs runtime archive, so the Makefile is not edited; the binary runs every case when invoked without arguments and exits non-zero on the first failing case."
+do_3 = "The anchor persists state: the test destroys and reopens the state store (or the kernel instance over the same store bytes) between the producer and the consumer steps and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
+do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's leading comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
+do_5 = "The test's leading comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real headers and functions, so a reader of the file knows which path is covered without the spec. The symbols listed on this task are the two case functions and the exported C functions the proof calls; enumerators and macros are named in the test, not under symbols (decision 2290)."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a kernel instance, an in-memory state store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+symbols = ["proof_lx_service_h_happy_path", "proof_lx_service_h_refusal", "lx_service_deliverable_check", "lx_service_dispute_open_execute", "lx_service_dispute_resolve_execute"]
+touches = ["tests/proof/lxp_proof_lx_service_h.c", "include/layerx/lx_service.h", "src/modules/service/lx_service_deliver.c", "tests/modules/test_service_deliver.c", "src/modules/service/lx_service_module.c"]
+tests = ["tests/proof/lxp_proof_lx_service_h.c"]
+planned_paths = ["tests/proof/lxp_proof_lx_service_h.c"]
+build_cmd = "make -C . build/tests/kernel/proof/lxp_proof_lx_service_h"
+verify_cmd = "make -C . build/tests/kernel/proof/lxp_proof_lx_service_h && ./build/tests/kernel/proof/lxp_proof_lx_service_h"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit; the proof adds a test and repairs only files it lists."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.21.164.1]
+title = "Prove the programs h path end to end: producer, transport, consumer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["21164.1"]
+capabilities = ["21.164.1"]
+interfaces = []
+do_1 = "The real path this task proves is typedef struct lx_programs_transfer_runtime { lx_account_registry *accounts; const lxp_tra (include/layerx/programs.h:1008); enum { LX_PROGRAMS_FEE_PRICE_FIELDS = 7, LX_PROGRAMS_FEE_GOVERNANCE_PROPOSAL_BYTES = 149 } (include/layerx/programs.h:336); lxp_result lxp_programs_replay_finalize( void *context, const lxp_batch_header *header, ui (include/layerx/programs.h:1078); lxp_result lxp_programs_state_record_encode( lxp_module_ctx *ctx, const uint8_t program_id (include/layerx/programs.h:942); lxp_result lxp_programs_interface_read(...) (planned; returns the stored interface bytes) (include/layerx/programs.h); lxp_result lxp_programs_replay_engine_bind(lxp_replay_engine *engine, lxp_kernel *kernel) (include/layerx/programs.h:1082) -> the C symbol the kernel header exports and the listed callers include -> programs/fixtures/pay5/native_roundtrip.h, programs/tests/differential/parallel.c, services/agent/crates/layerx-types/build.rs, services/agent/crates/layerx-types/src/programs_activity.rs, services/agent/crates/layerx-types/src/programs_module_abi.rs, src/modules/programs/accounts.c. The inventory is every new or changed interface under contract contracts/kernel.md#programs-h in spec/layerx-merge/interfaces.kvx (10 entries); the test drives at least the 6 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
+do_2 = "Write tests/proof/lxp_proof_programs_h.c against the kernel case harness of tests/codec/lxp_kernel_case.h (an lxp_kernel_case table, lxp_kernel_case_main and LXP_CASE_CHECK, as tests/codec/lxp_test_service_runtime.c:260-267 does): the cases proof_programs_h_happy_path and proof_programs_h_refusal build the real producer state in an in-process kernel, cross through the C symbol the kernel header exports and the listed callers include exactly as the listed consumer code does, and assert the consumer's observed result on the happy path and one refusal (wrong signer, unknown identifier, retired or paused status, or malformed input, whichever the surface has). The generic rule at Makefile:1137 builds tests/<dir>/<name>.c into build/tests/kernel/<dir>/<name> against liblayerx and the programs runtime archive, so the Makefile is not edited; the binary runs every case when invoked without arguments and exits non-zero on the first failing case."
+do_3 = "The anchor persists state: the test destroys and reopens the state store (or the kernel instance over the same store bytes) between the producer and the consumer steps and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
+do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's leading comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
+do_5 = "The test's leading comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real headers and functions, so a reader of the file knows which path is covered without the spec. The symbols listed on this task are the two case functions and the exported C functions the proof calls; enumerators and macros are named in the test, not under symbols (decision 2290)."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a kernel instance, an in-memory state store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+symbols = ["proof_programs_h_happy_path", "proof_programs_h_refusal", "lxp_programs_replay_finalize", "lxp_programs_state_record_encode", "lxp_programs_interface_read", "lxp_programs_replay_engine_bind"]
+touches = ["tests/proof/lxp_proof_programs_h.c", "include/layerx/programs.h", "programs/fixtures/pay5/native_roundtrip.h", "programs/tests/differential/parallel.c", "services/agent/crates/layerx-types/build.rs", "services/agent/crates/layerx-types/src/programs_activity.rs", "services/agent/crates/layerx-types/src/programs_module_abi.rs", "src/modules/programs/accounts.c"]
+tests = ["tests/proof/lxp_proof_programs_h.c"]
+planned_paths = ["tests/proof/lxp_proof_programs_h.c"]
+build_cmd = "make -C . build/tests/kernel/proof/lxp_proof_programs_h"
+verify_cmd = "make -C . build/tests/kernel/proof/lxp_proof_programs_h && ./build/tests/kernel/proof/lxp_proof_programs_h"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit; the proof adds a test and repairs only files it lists."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1494.1]
 title = "Issue #1494: Move the Swift chain helpers and their tests into the configured SwiftPM target paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -122819,6 +123246,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 5.0.9.1: the inventory is the 159 retire-status interfaces of the domain-5 wave-6 tasks after decision 2278 turned interface.5.go-storage-common-keys-layer-x-anchor-store-key and interface.5.key-storage-common-keys-layer-x-anchor-store-key into keep (decision 1954 holds LayerXAnchorStoreKey until the anchor-store-delete step has run); do_1's example list drops those two entries and the length assertion reads 159. Continue from attempt 1, which fails on those two entries only."
+do_5 = "Decision 2293: attempt 2 (4285ad76e) still lists interface.5.go-storage-common-keys-layer-x-anchor-store-key and interface.5.key-storage-common-keys-layer-x-anchor-store-key at node/sequencer/completion_gate_test.go:184-185 and fails on those two rows alone; continue from attempt 2 by deleting those two rows, setting the inventory length assertion to 159 and changing nothing else: decision 2278 made both entries keep, storage/common/keys/store_keys.go:38 and :82 define LayerXAnchorStoreKey by decision 1954 until the anchor-store-delete step has run."
 
 [task.5.1.1]
 title = "Add the ProcessProposal sequence order check on a branch of the proposal state"
@@ -123423,8 +123851,8 @@ symbols = ["canonical_program_event_envelope", "read_native_receipt_authority", 
 touches = ["programs/crates/layerx-programs-runtime/tests/proof_runtime_crate.rs", "programs/crates/layerx-programs-runtime/src/abi/mod.rs", "programs/crates/layerx-programs-runtime/src/ffi_call.rs", "programs/crates/layerx-programs-runtime/src/transfer.rs"]
 tests = ["programs/crates/layerx-programs-runtime/tests/proof_runtime_crate.rs"]
 planned_paths = ["programs/crates/layerx-programs-runtime/tests/proof_runtime_crate.rs"]
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --tests"
-verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test proof_runtime_crate"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --features host-ffi --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --features host-ffi --test proof_runtime_crate"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-programs"
@@ -123437,6 +123865,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Decision 2294: read_native_receipt_authority is exported by programs/crates/layerx-programs-runtime/src/lib.rs:47-52 only under `#[cfg(feature = 'host-ffi')]`, so the build_cmd and verify_cmd now pass --features host-ffi; the proof test keeps calling the real export and does not reimplement it. Continue from the last attempt."
 
 [task.21.129.1]
 title = "Prove the portable receipt path end to end: producer, transport, consumer"
@@ -123472,7 +123901,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.128.1]
 title = "Prove the agentd startup path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123505,7 +123934,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.127.1]
 title = "Prove the ramp reference http routes path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123876,7 +124305,7 @@ do_3 = "The anchor carries no persistent state of its own: the test asserts inst
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs", "services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-mcp/src/boundary.rs"]
+touches = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs", "services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-mcp/src/boundary.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/Cargo.lock"]
 tests = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -123893,6 +124322,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Decision 2294: attempt 2 (bb8296a22) failed to resolve layerx_mcp from tests/proof_native_reads.rs because layerx-agentd/Cargo.toml has no such dependency; add `layerx-mcp = { path = '../layerx-mcp' }` under [dev-dependencies] (layerx-mcp already depends on layerx-agentd; a dev-dependency cycle is allowed and compiles the crate twice) and commit the services/agent/Cargo.lock the resolver writes so --locked holds. Continue from attempt 2."
 
 [task.21.94.1]
 title = "Prove the serve errors path end to end: producer, transport, consumer"
@@ -124090,7 +124520,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.78.1]
 title = "Prove the gateway jsonrpc methods path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124123,7 +124553,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.70.1]
 title = "Prove the agentd env path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124156,7 +124586,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.64.1]
 title = "Prove the ai market guest path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124284,6 +124714,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Decision 2294: the last attempt failed in authority_from_prestate.rs:290, the market fixture test (:208, :794) and verified_step.rs:190, which demand the genuine native replay corpus (NotPresent in the qualification environment); the proof target tests/proof_arbiter_crate.rs contains no `mod`, `#[path]` or include of another test file and exercises the arbiter through its public API with an in-process corpus it builds itself, so the verify (`--test proof_arbiter_crate`) runs the proof alone. Continue from the last attempt."
 
 [task.21.52.1]
 title = "Prove the human network gateway path end to end: producer, transport, consumer"
@@ -124320,7 +124751,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.51.1]
 title = "Prove the types path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124548,7 +124979,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.15.1]
 title = "Prove the cli cli commands path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124805,7 +125236,7 @@ interfaces = []
 do_1 = "In sdk/platform/generators/src/main.rs generate_jvm_conformance (:1489) stops emitting the batch_inclusion, checkpoint and receipt_in_batch entries of the [verification] section (:1525-1527), so the generated manifest equals the checked-in one task 8.0.9 repaired and the --check mode (:1548) passes."
 do_2 = "Add a unit test in the generators crate asserting the generated JVM conformance text contains none of the three keys."
 symbols = ["generate_jvm_conformance"]
-touches = ["sdk/platform/generators/src/main.rs", "sdk/platform/pipeline.kvx"]
+touches = ["sdk/platform/generators/src/main.rs", "sdk/platform/pipeline.kvx", "services/agent/schema/agent-api/v1.kvx", "sdk/platform/generators/tests/drift.rs", "apps/web/src/api/generated/index.ts", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java", "services/agent/crates/layerx-sdk/src/receipt_generated.rs", "services/agent/sdk/typescript/src/generated/receipt.ts", "services/agent/sdk/python/layerx_sdk/generated/receipt.py", "services/agent/sdk/python/layerx_sdk/generated/receipt.pyi"]
 tests = ["sdk/platform/generators/src/main.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml && make platform-sdk-generate"
@@ -124822,6 +125253,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 18.1487.1.1: after the generator change run make platform-sdk-generate from the repository root and commit sdk/platform/pipeline.kvx together with every regenerated file it rewrites (the generated SDK outputs under sdk/platform and the agent and human generated clients the target regenerates); the --check verify then passes against the committed digests. Name the two schema commits the regeneration catches up with (f64c4ec41, 16e9b1e3f) in the commit message."
+do_4 = "Finding 18.1487.1.2: before the generator change, repair the two drift tests of the crate that fail on main: delete the [transport.agent_http.operation.faucet.claim] section of services/agent/schema/agent-api/v1.kvx:320-326 (9.1.5 retired the operation, req.9009; the refusal lives in RETIRED_OPERATIONS of agent_rpc.rs, not in the schema) so transport and declared operation sets agree at drift.rs:764, and delete execution_v5_profile_must_admit_exactly_the_third_to_fifth_guest_abis from drift.rs:688-720 (9.10.2 removed [type.ProgramExecutionV4] and [type.ProgramExecutionV5] from programs.kvx and 9.97.3 do_4 removed the generator's check). Then run the generator with --write, commit every file it rewrites (they are listed under touches; a rewritten file not listed there is added to touches in the same commit, never left uncommitted) and the --check verify passes. Continue from attempt 3."
 
 [task.18.1485.1]
 title = "Issue #1485: Pass the injected clock to the retained KMS and custody test constructors"
@@ -124927,7 +125359,7 @@ do_1 = "Write tools/platform/cli/src/chains.rs: the subcommands chains list (cha
 do_2 = "Write tools/platform/cli/tests/chains_commands.rs with the mocked JSON-RPC server tests/program_evm_calls.rs uses: chains_list_show_and_create_round_trip (the list and show answers decode the vector getChain return data; create sends calldata equal to the vector calldata and prints id 1 and chain id 125000001)."
 do_3 = "The real path this task proves is command line -> encoder -> RPC request -> decoded answer."
 symbols = ["chains_list_show_and_create_round_trip"]
-touches = ["tools/platform/cli/src/chains.rs", "tools/platform/cli/src/commands.rs", "tools/platform/cli/src/main.rs", "tools/platform/cli/src/lib.rs", "tools/platform/cli/tests/chains_commands.rs"]
+touches = ["tools/platform/cli/src/chains.rs", "tools/platform/cli/src/commands.rs", "tools/platform/cli/src/main.rs", "tools/platform/cli/src/lib.rs", "tools/platform/cli/tests/chains_commands.rs", "tools/platform/cli/Cargo.toml"]
 tests = ["tools/platform/cli/tests/chains_commands.rs::chains_list_show_and_create_round_trip"]
 planned_paths = ["tools/platform/cli/src/chains.rs", "tools/platform/cli/tests/chains_commands.rs"]
 build_cmd = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --tests"
@@ -124944,6 +125376,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 20.9.8.1: chains create signs with layerx_crypto::evm_transaction::Eip1559Call::sign (services/agent/crates/layerx-crypto/src/evm_transaction.rs:212) over the secret the EVM key file holds, checking the derived address with layerx_crypto::secp256k1::evm_address as wallet_signing::EvmSigningKey does; the hand-rolled RLP and the k256 import of attempt 1 go, and tools/platform/cli/Cargo.toml gains no dependency. Continue from attempt 1, whose list and show paths and the mocked server test stand."
+do_5 = "Decision 2294: attempt 2 used k256::ecdsa::SigningKey::from_slice and layerx_crypto::secp256k1::evm_address in chains.rs:438-440, but tools/platform/cli/Cargo.toml does not depend on k256 (it is in tools/platform/Cargo.lock:1184 at 0.13.4 through layerx-crypto). Add `k256 = { version = '=0.13.4', default-features = false, features = ['ecdsa'] }` to [dependencies] of tools/platform/cli/Cargo.toml (the same pin layerx-crypto/Cargo.toml:28 uses, so the --locked lock file is unchanged) and keep the address derivation through layerx_crypto::secp256k1::evm_address. Continue from attempt 2."
 
 [task.20.9.7]
 title = "Add chain registry helpers to the Rust client crate"
@@ -125071,7 +125504,7 @@ title = "Delete the hosted gateway's unreachable kernel activity submission path
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["9.35.13"]
 reqs = ["8326.1"]
 capabilities = ["8.101.4"]
 interfaces = []
@@ -125097,6 +125530,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Finding 8.101.4.1: delete the directory services/platform/hosted/gateway/tests/local/ (Cargo.toml, README.md, verifier.rs, lifecycle_sdk.rs and any lock file) instead of porting verifier.rs (do_2 is satisfied by the deletion); it is a standalone package, not a test target, so the verify no longer names `--test local` and asserts the directory is gone. Add no field to Config or Kernel and no program_head item: the crate's existing types are the only ones the deletion needs. Attempt 1 (e8fdbe4e6f) holds lib.rs and main.rs; continue from it."
+do_6 = "Finding 9.35.13.2: attempt 4 edited the four files under tests/local (Cargo.toml, README.md, lifecycle_sdk.rs, verifier.rs) instead of deleting the directory, so the verify's first clause `! test -d services/platform/hosted/gateway/tests/local` failed; do_5 stands: git rm -r the whole directory. The task now requires 9.35.13, which removes the pay2 qualification crate's references to that directory first. Continue from attempt 4."
 
 [task.8.101.3]
 title = "Port the hosted core's sends, funding intents and fee estimate off the kernel activity codec"
@@ -125243,7 +125677,7 @@ do_1 = "In services/agent/qualification/pay2/pay2e_test.rs:594-600 replace layer
 do_2 = "If canonical_activity() on main returns bytes that are not a type-2 transaction, stop, record a finding in qualification.kvx naming services/agent/crates/layerx-sdk/src/rpc_verification.rs:58 as the producer, and leave the test unchanged; the task reports the finding instead of guessing the producer."
 do_3 = "The qualification runs against a funded network, so the verify compiles the test target and asserts the grep; it does not run the funded test."
 symbols = []
-touches = ["services/agent/qualification/pay2/pay2e_test.rs", "services/agent/qualification/pay2/Cargo.lock"]
+touches = ["services/agent/qualification/pay2/pay2e_test.rs", "services/agent/qualification/pay2/Cargo.lock", "services/agent/qualification/pay2/Cargo.toml", "services/agent/qualification/pay2/build.rs", "services/agent/qualification/pay2/required.rs", "services/agent/qualification/pay2/funded.rs", "services/agent/qualification/pay2/tests/build_inputs.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --all-targets"
@@ -125260,6 +125694,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 9.35.13.1: run `cargo generate-lockfile --manifest-path services/agent/qualification/pay2/Cargo.toml` and commit services/agent/qualification/pay2/Cargo.lock so the --locked build and verify resolve; the lock file records the path dependencies as they stand on main and is regenerated the same way whenever they change. Attempt 1 (1d3391cf96) holds the test port; continue from it."
+do_5 = "Finding 9.35.13.2: make the crate self-contained before the decode port: copy services/platform/hosted/gateway/tests/local/required.rs to services/agent/qualification/pay2/required.rs and point build.rs:1 at it (`#[path = 'required.rs']`); pay2_build_inputs returns only required.rs and pay2e_test.rs; delete the [[bin]] gateway-lifecycle-receipt-verify (Cargo.toml:44-46), the [[test]] funded (Cargo.toml:40-42) and funded.rs, whose generated lifecycle.rs no build has produced since 9.97.2; update tests/build_inputs.rs to the two inputs. The crate then references nothing under services/platform/hosted/gateway/tests/local. Continue from attempt 4."
 
 [task.10.21.9]
 title = "Port the layerx-intents budget and bootstrap tests from kernel envelopes onto bind_call"
@@ -127765,7 +128200,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.18.1493.1]
 title = "Issue #1493: Stop the per-chain WebSocket servers when a running listener stops"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -127795,7 +128230,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1491.1]
 title = "Issue #1491: Verify the committed v4 vector with the retained receipt and signature checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -127857,7 +128292,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.124.1]
 title = "Prove the xweb 0x1019 path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -127954,7 +128389,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.121.1]
 title = "Prove the launchpad pnl tracker path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -127988,7 +128423,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.120.1]
 title = "Prove the pricefeed 0x1020 path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128021,7 +128456,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.119.1]
 title = "Prove the explorer path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128086,7 +128521,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.117.1]
 title = "Prove the pay genesis path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128153,7 +128588,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.115.1]
 title = "Prove the layerxledger genesis path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128187,7 +128622,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.114.1]
 title = "Prove the layerxauth genesis path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128284,7 +128719,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.106.1]
 title = "Prove the spot storage path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128349,7 +128784,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.104.1]
 title = "Prove the did binding path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128448,7 +128883,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.101.1]
 title = "Prove the eip712 0x0908 path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128545,7 +128980,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.90.1]
 title = "Prove the issuer did path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128578,7 +129013,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.89.1]
 title = "Prove the 0x1013 layerxcustody path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128612,7 +129047,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.88.1]
 title = "Prove the genesis path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128648,7 +129083,7 @@ title = "Prove the sequencer receipt path end to end: producer, transport, consu
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["21.19.1"]
 reqs = ["21087.1"]
 capabilities = ["21.87.1"]
 interfaces = []
@@ -128675,6 +129110,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Finding 21.19.1.1: this proof shares the node/sequencer test package with 21.19.1, which repairs the xwebInfo(t) call at precompile_refresh_test.go:69; this task requires 21.19.1 and does not edit that file. Continue from the last attempt once 21.19.1 is done."
 
 [task.21.86.1]
 title = "Prove the precompile go path end to end: producer, transport, consumer"
@@ -128691,7 +129127,7 @@ do_3 = "The anchor persists state: the test stops the component (closes the stor
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
 symbols = ["SurfaceRuntime", "GetVersioned", "errors"]
-touches = ["precompiles/launchpad/proof_precompile_go_test.go", "precompiles/launchpad/surface.go", "precompiles/launchpad/setup.go", "precompiles/launchpad/abi.json", "precompiles/launchpad/pool.go", "./precompiles/launchpad/surface_test.go", "./precompiles/setup.go", "./precompiles/launchpad/setup_test.go", "precompiles/launchpad/abi_direct_test.go", "precompiles/launchpad/run.go"]
+touches = ["precompiles/launchpad/proof_precompile_go_test.go", "precompiles/launchpad/surface.go", "precompiles/launchpad/setup.go", "precompiles/launchpad/abi.json", "precompiles/launchpad/pool.go", "precompiles/launchpad/surface_test.go", "precompiles/setup.go", "precompiles/launchpad/setup_test.go", "precompiles/launchpad/abi_direct_test.go", "precompiles/launchpad/run.go"]
 tests = ["precompiles/launchpad/proof_precompile_go_test.go"]
 planned_paths = ["precompiles/launchpad/proof_precompile_go_test.go"]
 build_cmd = "go build ./precompiles/launchpad/..."
@@ -128708,6 +129144,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Decision 2294: attempt 1 (5d25bd4f1) was refused for changes outside scope in precompiles/launchpad/setup_test.go, precompiles/launchpad/surface_test.go and precompiles/setup.go, which touches listed with a ./ prefix the scope check does not normalise; the three entries are now plain repository paths. Continue from attempt 1 and resolve the TestProofPrecompileGo/commit-close-reopen mismatch at proof_precompile_go_test.go:158 against the real precompile output."
 
 [task.21.85.1]
 title = "Prove the rest path end to end: producer, transport, consumer"
@@ -128744,7 +129181,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.84.1]
 title = "Prove the markets path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128875,7 +129312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.76.1]
 title = "Prove the retirement path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129070,7 +129507,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.69.1]
 title = "Prove the launchpad social path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129138,7 +129575,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.67.1]
 title = "Prove the launchpad notifications path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129236,7 +129673,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.61.1]
 title = "Prove the config path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129334,7 +129771,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.58.1]
 title = "Prove the module keeper path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129466,7 +129903,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.54.1]
 title = "Prove the paxload bounds path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129730,7 +130167,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.41.1]
 title = "Prove the consensus leader pin path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129764,7 +130201,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.40.1]
 title = "Prove the launchpad discovery path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129831,7 +130268,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.38.1]
 title = "Prove the lxphost host path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129864,7 +130301,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.37.1]
 title = "Prove the rpc routes path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129929,7 +130366,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.35.1]
 title = "Prove the node cli path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129995,7 +130432,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.31.1]
 title = "Prove the launchpad user path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130125,7 +130562,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.25.1]
 title = "Prove the perps governance path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130287,7 +130724,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.20.1]
 title = "Prove the layerxauth keeper path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130333,7 +130770,7 @@ do_3 = "The anchor persists state: the test stops the component (closes the stor
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
 symbols = ["NewExecutor", "LoadReceiptKey", "NewReceipter", "seqHashDomain", "ConfigTemplate", "NewFeeFloor", "NewReplicator"]
-touches = ["node/sequencer/proof_sequencer_executor_test.go", "node/sequencer/executor.go", "node/sequencer/receiptkey.go", "node/sequencer/receipt.go", "node/sequencer/standby.go", "node/sequencer/config.go", "node/sequencer/fee.go", "rpc/pending_block_test.go", "rpc/pending_filter_test.go", "rpc/send_sequencer_test.go", "rpc/pending_state_test.go", "node/sequencer_context_test.go", "rpc/sequencer_receipt_vectors_test.go"]
+touches = ["node/sequencer/proof_sequencer_executor_test.go", "node/sequencer/executor.go", "node/sequencer/receiptkey.go", "node/sequencer/receipt.go", "node/sequencer/standby.go", "node/sequencer/config.go", "node/sequencer/fee.go", "rpc/pending_block_test.go", "rpc/pending_filter_test.go", "rpc/send_sequencer_test.go", "rpc/pending_state_test.go", "node/sequencer_context_test.go", "rpc/sequencer_receipt_vectors_test.go", "node/sequencer/precompile_refresh_test.go"]
 tests = ["node/sequencer/proof_sequencer_executor_test.go"]
 planned_paths = ["node/sequencer/proof_sequencer_executor_test.go"]
 build_cmd = "go build ./node/sequencer/..."
@@ -130350,6 +130787,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Finding 21.19.1.1: before the proof, change precompile_refresh_test.go:69 to `info := xwebInfo(t)` so the package compiles against position_test.go:114 as 21.49.1 left it; nothing else in that file changes. Continue from the last attempt."
 
 [task.21.18.1]
 title = "Prove the launchpad gateway path end to end: producer, transport, consumer"
@@ -130387,7 +130825,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.17.1]
 title = "Prove the launchpad api path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130519,7 +130957,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.12.1]
 title = "Prove the layerxagent module path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130586,7 +131024,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.10.1]
 title = "Prove the sequencer module path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130715,7 +131153,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.4.1]
 title = "Prove the s28 wallet attestors tss path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130781,7 +131219,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.1.1]
 title = "Prove the layerxpay 0x101b path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130825,7 +131263,7 @@ do_1 = "In modules/layerxanchor/keeper/keeper_test.go TestSubmitCheckpointIsReti
 do_2 = "Delete a test only when its sole purpose was decoding the removed certificate; name it in the commit message."
 do_3 = "The verify vets and runs both packages."
 symbols = ["TestSubmitCheckpointIsRetired", "TestReadsRevertFromStoreDelete", "TestAnchorRetirementSurvivesTheWrapper", "TestAnchorRetiredWriteMalformedCalldata"]
-touches = ["modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go", "modules/layerxanchor/bringup_genesis_test.go", "modules/layerxanchor/module_retired_route_test.go"]
+touches = ["modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go", "modules/layerxanchor/bringup_genesis_test.go", "modules/layerxanchor/module_retired_route_test.go", "modules/layerxanchor/keeper/bond_return_test.go"]
 tests = ["modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go"]
 planned_paths = []
 build_cmd = "go vet ./modules/layerxanchor/... ./precompiles/layerxanchor/..."
@@ -130843,6 +131281,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 18.1471.1.1: delete modules/layerxanchor/bringup_genesis_test.go; the script it ran was removed by task 8.14.2 and the anchor genesis path is retired. Name it in the commit message."
 do_5 = "Finding 18.1471.1.2: rewrite modules/layerxanchor/module_retired_route_test.go as TestAppRoutesNoAnchorMessages: the application built by app.Setup answers nil from MsgServiceRouter().Handler(&types.MsgUpdateParams{}) because task 5.7.1 removed the anchor module from the module manager, and the keeper's GetParams on the store still answers the default params; drop the upgrade scheduling steps. Continue from attempt 1."
+do_6 = "Finding 18.1471.1.3: bond_return_test.go (TestBondReturn :68, TestBondReturnClosedChallenges :155, TestBondReturnRollback) loads the removed vector checkpoints/batch_1_quorum; port it the way do_1 ports the four named tests, building the checkpoint and quorum inputs inline, so go test ./modules/layerxanchor/... passes. Continue from attempt 2."
 
 [task.20.9.3]
 title = "Add chain registry helpers to the Go SDK"
@@ -131285,7 +131724,7 @@ do_3 = "In precompiles/layerxanchor/layerxanchor_test.go add the same helper rea
 do_4 = "Add nothing to layerxproof/testvectors and recreate nothing under layerxproof/testdata: TestTestvectorsAnchorLoaderAbsent of layerxproof/exportcheck (task 1.36.3) keeps passing, and the verify runs it."
 do_5 = "Run go vet and go test of both packages; a test that fails for a reason other than the fixture is a finding in qualification.kvx, not a change to the module."
 symbols = ["loadAnchorFixture"]
-touches = ["modules/layerxanchor/testdata/anchor_vectors.json", "modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/layerxanchor_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go", "modules/layerxanchor/bringup_genesis_test.go", "modules/layerxanchor/module_retired_route_test.go"]
+touches = ["modules/layerxanchor/testdata/anchor_vectors.json", "modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/layerxanchor_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go", "modules/layerxanchor/bringup_genesis_test.go", "modules/layerxanchor/module_retired_route_test.go", "precompiles/layerxanchor/retired_surface_test.go"]
 tests = ["modules/layerxanchor/keeper/keeper_test.go", "modules/layerxanchor/keeper/bond_return_test.go", "modules/layerxanchor/keeper/retirement_rehearsal_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go"]
 planned_paths = []
 build_cmd = "go build ./modules/layerxanchor/... ./precompiles/layerxanchor/..."
@@ -131304,6 +131743,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "Finding 8.14.2.2: delete modules/layerxanchor/bringup_genesis_test.go; it runs services/platform/hosted/paxeer/anchor-genesis.py, deleted by task 8.14.2, and the genesis it validated is now built by the module's own genesis code under test in the keeper package. Nothing replaces the file; the verify asserts it is gone."
 do_7 = "Finding 5.7.1.2: delete modules/layerxanchor/module_retired_route_test.go; its assertion that the test app routes MsgUpdateParams cannot hold since task 5.7.1 removed the anchor AppModule from node/app.go, and the parameter message server it exercised is covered by the keeper tests this task restores."
 do_8 = "Finding 1.36.1.2: in modules/layerxanchor/keeper/keeper_test.go replace the DecodeCheckpointCertificate call (:360) and certificate.Header.BatchNumber (:368) with the fixture's batch_number value read through the Vector Uint64 accessor of the batch_1_quorum checkpoint vector; in precompiles/layerxanchor/retire_read_gate_test.go replace the call (:121) with the vector's checkpoint_id read through Array32 and compare len(h.ids) against its signers value, dropping the proofcodec import where nothing else uses it. layerxproof/codec and layerxproof/exportcheck are not changed. Continue from attempt 2 (5b41c3073)."
+do_9 = "Finding 6.96.6.1: before the vector port, repair retired_surface_test.go:42: replace require.Nil(AnchorK()) with require.NotNil (decision.2218, task 18.1326.1 carries the constructed keeper) and keep the per-selector LXP_MODULE_DISABLED assertions, which the height gates of layerxanchor.go decide. Continue from attempt 4."
 
 [task.6.96.5]
 title = "Re-home the availability class count in the layerxanchor keeper after the codec retirement"
@@ -131428,6 +131868,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.18.1134.1]
 title = "Issue #1134: Re-pin libwasmvm-linux.sha256 to the committed libwasmvm.aarch64.so"
@@ -139203,7 +139644,7 @@ title = "Gate domain 6 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 42
-requires = ["6.0.1", "6.0.2", "6.0.3", "6.0.4", "6.2.3", "6.2.4", "6.13.1", "6.32.3", "6.34.1", "6.52.1", "6.52.2", "6.52.3", "6.52.4", "6.52.5", "6.53.1", "6.53.2", "6.53.3", "6.53.4", "6.54.1", "6.54.2", "6.54.3", "6.54.4", "6.55.1", "6.55.2", "6.56.1", "6.56.3", "6.56.4", "6.57.1", "6.57.2", "6.57.3", "6.57.4", "6.57.5", "6.57.6", "6.57.7", "6.57.8", "6.57.9", "6.57.10", "6.58.1", "6.58.2", "6.58.4", "6.58.5", "6.58.7", "6.58.8", "6.58.9", "6.59.1", "6.59.2", "6.59.3", "6.59.4", "6.59.5", "6.59.6", "6.59.7", "6.59.8", "6.60.2", "6.60.3", "6.60.4", "6.60.5", "6.71.1", "6.80.1", "6.80.4", "6.80.5", "6.97.2", "6.96.3", "6.96.4", "6.96.5", "21.11.1", "21.13.1", "21.21.1", "21.23.1", "21.49.1", "21.50.1", "21.75.1", "21.76.1", "21.77.1", "21.88.1", "21.89.1", "21.90.1", "21.91.1", "21.123.1", "21.124.1"]
+requires = ["6.0.1", "6.0.2", "6.0.3", "6.0.4", "6.2.3", "6.2.4", "6.13.1", "6.32.3", "6.34.1", "6.52.1", "6.52.2", "6.52.3", "6.52.4", "6.52.5", "6.53.1", "6.53.2", "6.53.3", "6.53.4", "6.54.1", "6.54.2", "6.54.3", "6.54.4", "6.55.1", "6.55.2", "6.56.1", "6.56.3", "6.56.4", "6.57.1", "6.57.2", "6.57.3", "6.57.4", "6.57.5", "6.57.6", "6.57.7", "6.57.8", "6.57.9", "6.57.10", "6.58.1", "6.58.2", "6.58.4", "6.58.5", "6.58.7", "6.58.8", "6.58.9", "6.59.1", "6.59.2", "6.59.3", "6.59.4", "6.59.5", "6.59.6", "6.59.7", "6.59.8", "6.60.2", "6.60.3", "6.60.4", "6.60.5", "6.71.1", "6.80.1", "6.80.4", "6.80.5", "6.97.2", "6.96.3", "6.96.4", "6.96.5", "21.11.1", "21.13.1", "21.21.1", "21.23.1", "21.49.1", "21.50.1", "21.75.1", "21.76.1", "21.77.1", "21.88.1", "21.89.1", "21.90.1", "21.91.1", "21.123.1", "21.124.1", "21.172.1"]
 reqs = ["6999.1"]
 capabilities = ["6.0.9"]
 interfaces = []
@@ -161641,6 +162082,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "Blocked by decision 2256 until the LNI consumer ports exist. When it runs: define `pub struct Version { pub major: u16, pub minor: u16 }` with the derives of lni/schema.rs (Clone, Copy, Debug, Eq, PartialEq) in src/rpc/mod.rs and import crate::rpc::Version at src/rpc/history.rs:3 and src/rpc/payments.rs:3 before deleting lni/schema.rs; attempt 1 (ff6311fc4) holds the nine deletions."
+do_5 = "Decision 2294: rpc/history.rs:3 and rpc/payments.rs:3 import crate::lni::schema::Version, which do_1 deletes with the module; both files are in touches and drop that import, replacing every use of Version with the retained wire-version type the rest of rpc/ uses (or deleting the unused version parameter when nothing reads it); no lni item is kept behind. Attempt 1 also met the availabilityClassCount build break that 6.96.5 repaired on main at 520414c87; continue from attempt 1."
 
 [task.9.25.1]
 title = "Delete the kernel-era read, receipt, submit, stream, batch, payments and evidence modules"
@@ -186803,6 +187245,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_8 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.2]
 title = "Delete the legacy telemetry calls of capability"
@@ -186865,6 +187308,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.4]
 title = "Delete the legacy telemetry calls of upgrade"
@@ -186898,6 +187342,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.5]
 title = "Delete the legacy telemetry calls of distribution"
@@ -186931,6 +187376,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.6]
 title = "Delete the legacy telemetry calls of bank Send"
@@ -186993,6 +187439,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.8]
 title = "Delete the legacy telemetry calls of staking Msg"
@@ -187024,6 +187471,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.9]
 title = "Delete the legacy telemetry calls of gov"
@@ -187057,6 +187505,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.10]
 title = "Delete the legacy telemetry calls of evidence"
@@ -187088,6 +187537,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.11]
 title = "Delete the legacy telemetry calls of module manager MidBlock"
@@ -187119,6 +187569,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.12]
 title = "Delete the legacy telemetry calls of OCC scheduler"
@@ -194906,7 +195357,7 @@ completion_task = "18.0.1"
 [feature.21]
 name = "path-proofs"
 scope = "Path proofs: one end-to-end test per landed contract anchor of spec/layerx-merge/interfaces.kvx, driving the real producer through the real transport into the real consumer, with a stop and reopen where state persists and one refusal asserted; a defect a proof exposes is repaired inside the task's touches or recorded in the test's doc comment. The wave implements the merge review's finding that interface-changing tasks proved their own crate and left the integration path unproven."
-requirements = ["21001", "21002", "21003", "21004", "21005", "21006", "21007", "21008", "21009", "21010", "21011", "21012", "21013", "21014", "21015", "21016", "21017", "21018", "21019", "21020", "21021", "21022", "21023", "21024", "21025", "21026", "21027", "21028", "21029", "21030", "21031", "21032", "21033", "21034", "21035", "21036", "21037", "21038", "21039", "21040", "21041", "21042", "21043", "21044", "21045", "21046", "21047", "21048", "21049", "21050", "21051", "21052", "21053", "21054", "21055", "21056", "21057", "21058", "21059", "21060", "21061", "21062", "21063", "21064", "21065", "21066", "21067", "21068", "21069", "21070", "21071", "21072", "21073", "21074", "21075", "21076", "21077", "21078", "21079", "21080", "21081", "21082", "21083", "21084", "21085", "21086", "21087", "21088", "21089", "21090", "21091", "21092", "21093", "21094", "21095", "21096", "21097", "21098", "21099", "21100", "21101", "21102", "21103", "21104", "21105", "21106", "21107", "21108", "21109", "21110", "21111", "21112", "21113", "21114", "21115", "21116", "21117", "21118", "21119", "21120", "21121", "21122", "21123", "21124", "21125", "21126", "21127", "21128", "21129", "21130", "21131", "21132", "21133", "21134", "21135", "21136", "21137", "21138", "21139", "21140", "21141", "21142", "21143", "21144", "21145", "21146", "21147", "21148", "21149", "21150", "21151", "21152", "21153", "21154", "21155", "21156", "21157", "21158", "21160", "21161", "21162", "21163", "21500"]
+requirements = ["21001", "21002", "21003", "21004", "21005", "21006", "21007", "21008", "21009", "21010", "21011", "21012", "21013", "21014", "21015", "21016", "21017", "21018", "21019", "21020", "21021", "21022", "21023", "21024", "21025", "21026", "21027", "21028", "21029", "21030", "21031", "21032", "21033", "21034", "21035", "21036", "21037", "21038", "21039", "21040", "21041", "21042", "21043", "21044", "21045", "21046", "21047", "21048", "21049", "21050", "21051", "21052", "21053", "21054", "21055", "21056", "21057", "21058", "21059", "21060", "21061", "21062", "21063", "21064", "21065", "21066", "21067", "21068", "21069", "21070", "21071", "21072", "21073", "21074", "21075", "21076", "21077", "21078", "21079", "21080", "21081", "21082", "21083", "21084", "21085", "21086", "21087", "21088", "21089", "21090", "21091", "21092", "21093", "21094", "21095", "21096", "21097", "21098", "21099", "21100", "21101", "21102", "21103", "21104", "21105", "21106", "21107", "21108", "21109", "21110", "21111", "21112", "21113", "21114", "21115", "21116", "21117", "21118", "21119", "21120", "21121", "21122", "21123", "21124", "21125", "21126", "21127", "21128", "21129", "21130", "21131", "21132", "21133", "21134", "21135", "21136", "21137", "21138", "21139", "21140", "21141", "21142", "21143", "21144", "21145", "21146", "21147", "21148", "21149", "21150", "21151", "21152", "21153", "21154", "21155", "21156", "21157", "21158", "21160", "21161", "21162", "21163", "21164", "21165", "21166", "21167", "21168", "21169", "21170", "21171", "21172", "21500"]
 completion_task = "21.0.1"
 
 [feature.20]
@@ -200731,6 +201182,78 @@ req = "18790.1"
 scenario = "Given two recipients of 1 ether each, when batchTransferEqualAmount is called with 3 ether, then it reverts with Incorrect amount sent, and with 2 ether it succeeds leaving the contract balance at zero"
 contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
+qualification = "UNRUN"
+
+[acceptance.21.172.1.1]
+feature = "21"
+req = "21172.1"
+scenario = "The IXWeb consumer's calldata reaches the real precompile through the pinned selectors, with the result and one refusal asserted on the Go side"
+contract = "FOUNDRY_CONFIG=foundry.paxeer.toml forge test --root . --match-path contracts/test/ProofIXWeb.t.sol --match-test '^test_Proof' && go test -count=1 ./precompiles/xweb/ -run '^TestProofIXWeb'"
+test = "precompiles/xweb/proof_ixweb_test.go"
+qualification = "UNRUN"
+
+[acceptance.21.171.1.1]
+feature = "21"
+req = "21171.1"
+scenario = "The result registry producers reach their consumers through the real the C symbol the kernel header exports and the listed callers include, with a store reopen where state persists and one refusal asserted"
+contract = "make -C . build/tests/kernel/proof/lxp_proof_result_registry && ./build/tests/kernel/proof/lxp_proof_result_registry"
+test = "tests/proof/lxp_proof_result_registry.c"
+qualification = "UNRUN"
+
+[acceptance.21.170.1.1]
+feature = "21"
+req = "21170.1"
+scenario = "The lxp receipt h producers reach their consumers through the real the C symbol the kernel header exports and the listed callers include, with a store reopen where state persists and one refusal asserted"
+contract = "make -C . build/tests/kernel/proof/lxp_proof_lxp_receipt_h && ./build/tests/kernel/proof/lxp_proof_lxp_receipt_h"
+test = "tests/proof/lxp_proof_lxp_receipt_h.c"
+qualification = "UNRUN"
+
+[acceptance.21.169.1.1]
+feature = "21"
+req = "21169.1"
+scenario = "The b error code registry d6 producers reach their consumers through the real the error code the consumer matches on, with a store reopen where state persists and one refusal asserted"
+contract = "make -C . build/tests/kernel/proof/lxp_proof_b_error_code_registry_d6 && ./build/tests/kernel/proof/lxp_proof_b_error_code_registry_d6"
+test = "tests/proof/lxp_proof_b_error_code_registry_d6.c"
+qualification = "UNRUN"
+
+[acceptance.21.168.1.1]
+feature = "21"
+req = "21168.1"
+scenario = "The lxp module h producers reach their consumers through the real the C symbol the kernel header exports and the listed callers include, with a store reopen where state persists and one refusal asserted"
+contract = "make -C . build/tests/kernel/proof/lxp_proof_lxp_module_h && ./build/tests/kernel/proof/lxp_proof_lxp_module_h"
+test = "tests/proof/lxp_proof_lxp_module_h.c"
+qualification = "UNRUN"
+
+[acceptance.21.167.1.1]
+feature = "21"
+req = "21167.1"
+scenario = "The lxp bridge h producers reach their consumers through the real the C symbol the kernel header exports and the listed callers include, with a store reopen where state persists and one refusal asserted"
+contract = "make -C . build/tests/kernel/proof/lxp_proof_lxp_bridge_h && ./build/tests/kernel/proof/lxp_proof_lxp_bridge_h"
+test = "tests/proof/lxp_proof_lxp_bridge_h.c"
+qualification = "UNRUN"
+
+[acceptance.21.166.1.1]
+feature = "21"
+req = "21166.1"
+scenario = "The lx asset h producers reach their consumers through the real the C symbol the kernel header exports and the listed callers include, with a store reopen where state persists and one refusal asserted"
+contract = "make -C . build/tests/kernel/proof/lxp_proof_lx_asset_h && ./build/tests/kernel/proof/lxp_proof_lx_asset_h"
+test = "tests/proof/lxp_proof_lx_asset_h.c"
+qualification = "UNRUN"
+
+[acceptance.21.165.1.1]
+feature = "21"
+req = "21165.1"
+scenario = "The lx service h producers reach their consumers through the real the C symbol the kernel header exports and the listed callers include, with a store reopen where state persists and one refusal asserted"
+contract = "make -C . build/tests/kernel/proof/lxp_proof_lx_service_h && ./build/tests/kernel/proof/lxp_proof_lx_service_h"
+test = "tests/proof/lxp_proof_lx_service_h.c"
+qualification = "UNRUN"
+
+[acceptance.21.164.1.1]
+feature = "21"
+req = "21164.1"
+scenario = "The programs h producers reach their consumers through the real the C symbol the kernel header exports and the listed callers include, with a store reopen where state persists and one refusal asserted"
+contract = "make -C . build/tests/kernel/proof/lxp_proof_programs_h && ./build/tests/kernel/proof/lxp_proof_programs_h"
+test = "tests/proof/lxp_proof_programs_h.c"
 qualification = "UNRUN"
 
 [acceptance.18.1494.1.1]
@@ -208668,7 +209191,7 @@ title = "Refuse the path-proof closure while any proof task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["21.1.1", "21.2.1", "21.3.1", "21.4.1", "21.5.1", "21.6.1", "21.7.1", "21.8.1", "21.9.1", "21.10.1", "21.11.1", "21.12.1", "21.13.1", "21.14.1", "21.15.1", "21.16.1", "21.17.1", "21.18.1", "21.19.1", "21.20.1", "21.21.1", "21.22.1", "21.23.1", "21.24.1", "21.25.1", "21.26.1", "21.27.1", "21.28.1", "21.29.1", "21.30.1", "21.31.1", "21.32.1", "21.33.1", "21.34.1", "21.35.1", "21.36.1", "21.37.1", "21.38.1", "21.39.1", "21.40.1", "21.41.1", "21.42.1", "21.43.1", "21.44.1", "21.45.1", "21.46.1", "21.47.1", "21.48.1", "21.49.1", "21.50.1", "21.51.1", "21.52.1", "21.53.1", "21.54.1", "21.55.1", "21.56.1", "21.57.1", "21.58.1", "21.59.1", "21.60.1", "21.61.1", "21.62.1", "21.63.1", "21.64.1", "21.65.1", "21.66.1", "21.67.1", "21.68.1", "21.69.1", "21.70.1", "21.71.1", "21.72.1", "21.73.1", "21.74.1", "21.75.1", "21.76.1", "21.77.1", "21.78.1", "21.79.1", "21.80.1", "21.81.1", "21.82.1", "21.83.1", "21.84.1", "21.85.1", "21.86.1", "21.87.1", "21.88.1", "21.89.1", "21.90.1", "21.91.1", "21.92.1", "21.93.1", "21.94.1", "21.95.1", "21.96.1", "21.97.1", "21.98.1", "21.99.1", "21.100.1", "21.101.1", "21.102.1", "21.103.1", "21.104.1", "21.105.1", "21.106.1", "21.107.1", "21.108.1", "21.109.1", "21.110.1", "21.111.1", "21.112.1", "21.113.1", "21.114.1", "21.115.1", "21.116.1", "21.117.1", "21.118.1", "21.119.1", "21.120.1", "21.121.1", "21.122.1", "21.123.1", "21.124.1", "21.125.1", "21.126.1", "21.127.1", "21.128.1", "21.129.1", "21.130.1", "21.131.1", "21.132.1", "21.133.1", "21.134.1", "21.135.1", "21.136.1", "21.137.1", "21.138.1", "21.139.1", "21.140.1", "21.141.1", "21.142.1", "21.143.1", "21.144.1", "21.145.1", "21.146.1", "21.147.1", "21.148.1", "21.149.1", "21.150.1", "21.151.1", "21.152.1", "21.153.1", "21.154.1", "21.155.1", "21.156.1", "21.157.1", "21.158.1", "21.160.1", "21.161.1", "21.162.1", "21.163.1"]
+requires = ["21.1.1", "21.2.1", "21.3.1", "21.4.1", "21.5.1", "21.6.1", "21.7.1", "21.8.1", "21.9.1", "21.10.1", "21.11.1", "21.12.1", "21.13.1", "21.14.1", "21.15.1", "21.16.1", "21.17.1", "21.18.1", "21.19.1", "21.20.1", "21.21.1", "21.22.1", "21.23.1", "21.24.1", "21.25.1", "21.26.1", "21.27.1", "21.28.1", "21.29.1", "21.30.1", "21.31.1", "21.32.1", "21.33.1", "21.34.1", "21.35.1", "21.36.1", "21.37.1", "21.38.1", "21.39.1", "21.40.1", "21.41.1", "21.42.1", "21.43.1", "21.44.1", "21.45.1", "21.46.1", "21.47.1", "21.48.1", "21.49.1", "21.50.1", "21.51.1", "21.52.1", "21.53.1", "21.54.1", "21.55.1", "21.56.1", "21.57.1", "21.58.1", "21.59.1", "21.60.1", "21.61.1", "21.62.1", "21.63.1", "21.64.1", "21.65.1", "21.66.1", "21.67.1", "21.68.1", "21.69.1", "21.70.1", "21.71.1", "21.72.1", "21.73.1", "21.74.1", "21.75.1", "21.76.1", "21.77.1", "21.78.1", "21.79.1", "21.80.1", "21.81.1", "21.82.1", "21.83.1", "21.84.1", "21.85.1", "21.86.1", "21.87.1", "21.88.1", "21.89.1", "21.90.1", "21.91.1", "21.92.1", "21.93.1", "21.94.1", "21.95.1", "21.96.1", "21.97.1", "21.98.1", "21.99.1", "21.100.1", "21.101.1", "21.102.1", "21.103.1", "21.104.1", "21.105.1", "21.106.1", "21.107.1", "21.108.1", "21.109.1", "21.110.1", "21.111.1", "21.112.1", "21.113.1", "21.114.1", "21.115.1", "21.116.1", "21.117.1", "21.118.1", "21.119.1", "21.120.1", "21.121.1", "21.122.1", "21.123.1", "21.124.1", "21.125.1", "21.126.1", "21.127.1", "21.128.1", "21.129.1", "21.130.1", "21.131.1", "21.132.1", "21.133.1", "21.134.1", "21.135.1", "21.136.1", "21.137.1", "21.138.1", "21.139.1", "21.140.1", "21.141.1", "21.142.1", "21.143.1", "21.144.1", "21.145.1", "21.146.1", "21.147.1", "21.148.1", "21.149.1", "21.150.1", "21.151.1", "21.152.1", "21.153.1", "21.154.1", "21.155.1", "21.156.1", "21.157.1", "21.158.1", "21.160.1", "21.161.1", "21.162.1", "21.163.1", "21.164.1", "21.165.1", "21.166.1", "21.167.1", "21.168.1", "21.169.1", "21.170.1", "21.171.1", "21.172.1"]
 reqs = ["21500.1"]
 capabilities = ["21.0.1"]
 interfaces = []
@@ -209126,7 +209649,7 @@ do_2 = "Documentation (*.md) and the retired set itself stay excluded as test_ha
 do_3 = "Extend tests/bridge/retired/test_kernel_retirement_harness.py with test_harness_reports_a_live_import_by_module_name (an `import tests.bridge.custody_credit` line in a tmp tree is reported) and test_harness_reports_a_stem_reference_in_a_script (a `python3 tests/bridge/custody_credit.py` line in a *.sh under tools/ is reported); the three existing tests keep passing."
 do_4 = "Run every tests/bridge/retired/test_retired_*.py suite once; a suite that now fails names a live reference on main, which this task removes from the referencing file when it is a dead line (a comment or an unreachable script step) and otherwise records as a finding with the path and line."
 symbols = ["assert_retired", "_QUOTED_PATH"]
-touches = ["tests/bridge/retired/kernel_retirement.py", "tests/bridge/retired/test_kernel_retirement_harness.py"]
+touches = ["tests/bridge/retired/kernel_retirement.py", "tests/bridge/retired/test_kernel_retirement_harness.py", "tools/paxeer-x/gates/103.6.11.sh"]
 tests = ["tests/bridge/retired/test_kernel_retirement_harness.py"]
 planned_paths = []
 build_cmd = "python3 -m py_compile tests/bridge/retired/kernel_retirement.py tests/bridge/retired/test_kernel_retirement_harness.py"
@@ -209142,6 +209665,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Finding 18.1443.1.1: assert_retired excludes retirement assertions by pattern, not by a hand-kept list: every file under tests/bridge/retired/, tests/ci/test_retired_*.py, tests/ci/test_requested_retirements_absent.py and cmd/retirement/test_*_retired.py; a stem reference counts only when the stem is followed by the retired file's own extension (owner-custody.py, Ed25519.sol, EOA.sol), so owner-custody.json, the comment word EOA and the algorithm name Ed25519 in prose and messages are not references; test_harness_ignores_retirement_assertions and test_harness_ignores_a_stem_with_another_extension cover both rules. The one live reference that survives is tools/paxeer-x/gates/103.6.11.sh:33, whose CONTRACTS list names PaxeerBetaDeploymentValidator (retired with contracts/deployment/PaxeerBetaDeploymentValidator.sol): drop that entry so the list reads ['ContractManager'], and list the gate under touches. Continue from attempt 3."
 
 [task.20.0.1]
 title = "Refuse the virtual-chains closure while any chain task is not done"
@@ -209359,7 +209883,7 @@ title = "Write the two tooling acceptance tests the merged spec names"
 status = "pending"
 mode = "BUILD"
 wave = 47
-requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3"]
+requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3", "6.60.2"]
 reqs = ["16044.1", "16966.4"]
 capabilities = ["16.90.1"]
 interfaces = []
@@ -209383,6 +209907,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 16.9.4.4 and decision 2198: both acceptances hold only once cmd/layerxd (task 5.50.7), cmd/layerx-guarantor (5.51.1 and 5.51.4), tests/daemon (5.54.9) and the bridge credit suites (1.19.3) are deleted, so this task runs at wave 47 after them; the tests themselves stay as written in attempt 1 (0dacda199)."
+do_4 = "Decision 2294: attempt 2 (base a86f1a980) saw tests/bridge/test_credit.c and tests/bridge/sign_credit.c still present; task 6.60.2 (done) deleted them, so this task now requires 6.60.2 and its own scope (the two assertion files) is unchanged. Continue from attempt 2 on the current main."
 
 [task.19.0.1]
 title = "Refuse the name-system closure while any name task is not done"

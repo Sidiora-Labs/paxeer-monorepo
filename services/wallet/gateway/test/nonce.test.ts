@@ -828,6 +828,7 @@ describe('NonceStore', () => {
     sendError = 'insufficient funds for gas * price + value';
     const rejected = await send('0x02f0').catch((err: unknown) => err);
     expect(rejected).toBeInstanceOf(ProvisionError);
+    expect((rejected as Error).name).toBe('ProvisionError');
     expect(rejected).toMatchObject({ code: 'setup_send_rejected', status: 502 });
     expect(persisted).toEqual(['0x02f0', null]);
     sendError = 'replacement transaction underpriced';

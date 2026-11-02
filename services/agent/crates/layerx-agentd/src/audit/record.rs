@@ -4,7 +4,7 @@ use std::path::Path;
 
 use layerx_types::ids::{ActivityId, Did, IdempotencyKey};
 use layerx_types::rung::Rung;
-use layerx_types::verify::VerificationLevel;
+use layerx_types::verify::{InvalidVerificationRank, VerificationLevel};
 use sha2::{Digest, Sha256};
 
 use crate::identity::ProtocolAuthority;
@@ -444,7 +444,8 @@ pub(crate) fn decode_entry(bytes: &[u8]) -> Result<Entry, RecordError> {
         .to_owned();
     let reason = Redacted::stored(reason)?;
     let resulting_activity_id = decoder.optional_fixed()?.map(ActivityId::new);
-    let verification_level = verification_level(decoder.byte()?)?;
+    let verification_level = verification_level(decoder.byte()?)
+        .map_err(|_| RecordError::Decode("unknown verification level"))?;
     let protocol_authority = decoder.authority()?;
     let submitted_bytes = decoder.payload()?;
     let receipt_id = decoder.optional_fixed()?;
@@ -578,16 +579,8 @@ fn push_authority(output: &mut Vec<u8>, authority: Option<&ProtocolAuthority>) {
     }
 }
 
-fn verification_level(rank: u8) -> Result<VerificationLevel, RecordError> {
-    match rank {
-        0 => Ok(VerificationLevel::UNVERIFIED),
-        1 => Ok(VerificationLevel::SEQUENCER_SIGNED),
-        2 => Ok(VerificationLevel::BATCH_INCLUDED),
-        3 => Ok(VerificationLevel::STATE_PROVEN),
-        4 => Ok(VerificationLevel::CHECKPOINT_FINALISED),
-        5 => Ok(VerificationLevel::SETTLEMENT_ANCHORED),
-        _ => Err(RecordError::Decode("unknown verification level")),
-    }
+fn verification_level(rank: u8) -> Result<VerificationLevel, InvalidVerificationRank> {
+    VerificationLevel::from_wire_rank(rank)
 }
 
 struct Decoder<'a> {

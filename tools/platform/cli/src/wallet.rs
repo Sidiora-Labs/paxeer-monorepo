@@ -504,17 +504,22 @@ pub fn run_wallet(
         }
         WalletCommand::Balance { did, asset } => {
             let did = selected_did(&config, did.as_deref())?;
+            // Validate selectors before opening credentials or contacting a gateway.
+            crate::http::validate_resource_id(&did, "DID")?;
+            let asset = asset
+                .as_deref()
+                .map(|value| fixed_hex::<32>("asset", value))
+                .transpose()?;
             let transport = Transport::new(&config, rpc, gateway)?;
             let result = if !transport.emulator {
                 let balances = verified_account_snapshot(&sdk_rpc(&config, rpc, gateway)?, &did)?;
                 if let Some(asset) = asset {
-                    filter_rpc_balances(balances, &did, fixed_hex::<32>("asset", &asset)?)?
+                    filter_rpc_balances(balances, &did, asset)?
                 } else {
                     validated_account_records(&balances, &did)?;
                     balances
                 }
             } else if let Some(asset) = asset {
-                let asset = fixed_hex::<32>("asset", &asset)?;
                 let account = account(&did, &asset)?;
                 let mut balances = transport.balances(&did)?;
                 let accounts = balances["accounts"]
