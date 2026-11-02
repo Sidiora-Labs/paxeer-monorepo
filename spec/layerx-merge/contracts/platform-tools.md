@@ -88,3 +88,18 @@ The context and decision tables reproduce the rules linked by interface identifi
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
 | <code>interface.8.rs-tools-workspace-gate-workspace-gate-j41</code> | <code>rust_pub_item</code> | <code>stable</code> | <code>services/platform/tools/workspace-gate/src/main.rs:28</code> | <code>pub fn workspace_gate(repo_root: &amp;Path, source: &amp;str) -&gt; Result&lt;(), String&gt; {</code> |
+
+## Emulator routes
+
+The emulator serves `GET /healthz`, `GET /v1/sequencer`,
+`GET /v1/protocol/account-state/head`, `POST /v1/settle`, `GET /v1/state`,
+`GET /v1/dids/<did>/sequence`, `GET /v1/receipts/<id>`,
+`GET /v1/evidence/<id>` and `GET /v1/journeys/<id>`.
+Its local control routes are `POST /__emulator/accounts/prefund`,
+`POST /__emulator/time/set`, `POST /__emulator/time/advance`,
+`POST /__emulator/faults`, and `GET`/`PUT /__emulator/snapshot`.
+
+The retired activity and move routes (`/v1/activities`, `/v1/moves`,
+`/v1/moves/quote`) and every `/v1/programs` route, including registry,
+interface, receipt and activity reads, return HTTP 404 `not_found`, just like
+unknown paths. Snapshot recovery retains existing receipt and journey data.

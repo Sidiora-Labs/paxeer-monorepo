@@ -17363,3 +17363,43 @@ symbol = "ReceiptLookup::Submitted"
 observed = "Attempt 1 of task 18.1433.1 added ReceiptLookup::Submitted and the crate failed to build with `non-exhaustive patterns: journeys::engine::ReceiptLookup::Submitted { .. } not covered` at services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:349, services/human/crates/layerx-human-service/src/server/agent_creation.rs:538 and services/human/crates/layerx-human-service/src/server/production_onboarding.rs:245; none of the three files is in the task's touches."
 assumption = "Each match treats Submitted as not-yet-receipted (the same branch as Absent where the journey waits, with the transaction hash carried into the pending record), and the three files join the touches."
 severity = "major"
+
+[finding.1.36.1.2]
+task = "1.36.1"
+file = "modules/layerxanchor/keeper/keeper_test.go:360"
+symbol = "proofcodec.DecodeCheckpointCertificate"
+observed = "Attempt 2 of task 6.96.6 (5b41c3073) restored the fixture and the loaders and go build passed, but go vet of both test packages stopped at modules/layerxanchor/keeper/keeper_test.go:394 and precompiles/layerxanchor/retire_read_gate_test.go:117 (undefined: proofcodec.DecodeCheckpointCertificate): task 1.36.1 (9dd2a2c72) deleted the decoder from layerxproof/codec/checkpoint.go and layerxproof/exportcheck/checkpoint_exports_test.go:17 asserts it stays gone, while the anchor tests at modules/layerxanchor/keeper/keeper_test.go:360 and precompiles/layerxanchor/retire_read_gate_test.go:121 and the custody tests at modules/layerxcustody/keeper/anchor_reader_test.go:131, modules/layerxcustody/keeper/deposit_root_test.go:108 and modules/layerxcustody/keeper/retire_deposit_root_test.go:65 still decode a certificate to read its batch number, checkpoint id, attestation count and threshold."
+assumption = "The decoder never returns; each test reads those values from what it already holds: the anchor vectors carry batch_number, checkpoint_id and signers fields, and the custody tests build the certificate from one guarantor id and threshold 1 themselves."
+severity = "major"
+
+[finding.5.97.1.1]
+task = "5.97.1"
+file = "cmd/retirement/test_kernel_symbol_consumers_retired.py:156"
+symbol = "test_no_daemon_consumer_of_retired_kernel_symbols"
+observed = "Attempt 3 of task 5.97.1 wrote the test and the absent-path and make -n checks passed, but the `go build ./daemon/...` step failed in the linker: modules/lxphost/host.go:7 declares cgo LDFLAGS naming -llayerx and the programs runtime archive under build/ and programs/target/, archives that only the make build and the programs release build produce, so a go build of the daemon main package cannot link in a tree that has not run make."
+assumption = "The gate proves the daemon tree compiles with no reference to the retired symbols; go vet type-checks every package and compiles the cgo stubs without linking, which is the check the daemon tasks 5.43.3 already use as their build command."
+severity = "minor"
+
+[finding.8.51.3.1]
+task = "8.51.3"
+file = "tools/platform/emulator/tests/core_linkage.rs:224"
+symbol = "emulator_head_proof_still_verifies"
+observed = "Attempt 2 of task 8.51.3 retired the activity, move and program routes and the gateway and authority targets passed, but core_linkage.rs failed: emulator_head_proof_still_verifies (:224) posts /v1/moves/quote and /v1/moves to make the core seal a batch and then verifies the head proof, and with the routes gone the quote answers 404 not_found; the emulator core seals a batch only when an activity executes (tools/platform/emulator/src/main.rs:6379-6420 shows the head answering 503 until a move commits), so after this task no route can produce a head."
+assumption = "The head proof over a sealed batch was evidence of the kernel activity path and retires with it; the surviving head route is tested for its refusal, and the core symbol test stays."
+severity = "major"
+
+[finding.9.24.9.1]
+task = "9.24.9"
+file = "services/agent/crates/layerx-crypto/src/disclosure/call.rs:246"
+symbol = "decode_method"
+observed = "Attempt 2 of task 9.24.9 built the EIP-1559 program call (chain id 125, to 0x...101d, calldata call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128) as the Python SDK's _encode_programs_call writes it) and the build passed, but prepared_operation_signs_as_eip1559_program_call and journal_finalize_records_the_block_hash failed with Disclosure(MalformedPayload): decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:246-475) recognises the ledger, pay, auth and bank precompiles and ERC-20 pointer transfers only, so bind_call refuses a call to the programs precompile before any field is read."
+assumption = "The programs precompile call is disclosed through the same decoder as the other native calls; its encoder and decoder live in layerx-crypto so the client and every verifier share one layout with the Python SDK."
+severity = "major"
+
+[finding.9.25.17.3]
+task = "9.25.17"
+file = "tools/platform/cli/src/wallet.rs:1255"
+symbol = "VerifiedRpcAccount::from_rpc_result"
+observed = "Attempt 1 of task 8.47.12 retired the program call and simulate path of the platform CLI, but the --all-targets build failed in tools/platform/cli/src/wallet.rs: layerx_sdk::rpc_verification::AccountPolicy (:510, :797, :1248, :1594, :1603, :1683), VerifiedRpcAccount::from_rpc_result (:1255) and VerifiedRpcBalances::from_rpc_result (:1606) were deleted by task 9.25.17 (0ad81030b) with layerx_client::evidence (decision 2232), whose consumer list named services/agent only; the CLI binary has not compiled since that commit, and decisions 1846 and 1862 forbid the other CLI tasks, all done, from touching wallet.rs."
+assumption = "The CLI's account and balance reads keep the structural checks they already make (account_id and asset_id equality, validated_account_records) and drop the proof-material verification that retired with the evidence module; 8.47.12 is the pending task that compiles the CLI and makes the deletion."
+severity = "major"
