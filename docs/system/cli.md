@@ -13,7 +13,7 @@ Source: the clap `Subcommand` definitions in `tools/platform/cli/src`. Binary na
   - `layerx wallet send`: Submit a transfer with independent identity and source sequences.
   - `layerx wallet history`: Unavailable: no authenticated DID activity-history backend is published.
   - `layerx wallet watch`: Read one live notification; use receipt verification to establish commitment.
-  - `layerx wallet estimate-fee`: Estimate fees from canonical activity bytes using the native fee schedule.
+  - `layerx wallet estimate-fee`: Estimate fees from unsigned EIP-1559 transaction bytes at pending.
   - `layerx wallet receipt`: Verify receipt evidence at the requested commitment.
   - `layerx wallet open-account`: Open the selected wallet's account for an asset.
 - `layerx token`: Create and manage native tokens.
@@ -48,10 +48,10 @@ Source: the clap `Subcommand` definitions in `tools/platform/cli/src`. Binary na
 - `layerx payment`: Quote and commit a real test payment through the active endpoint.
   - `layerx payment test`: Request a quote and commit it with a stable idempotency key.
 - `layerx receipt`: Fetch receipt material or verify a receipt independently and locally.
-  - `layerx receipt get`: Fetch exact receipt material from the active endpoint.
+  - `layerx receipt get`: Fetch a sequencer receipt by its 0x-prefixed transaction hash.
   - `layerx receipt verify`: Verify a canonical receipt against independently supplied batch facts.
 - `layerx program`: Build, deploy, and inspect deterministic protocol programs.
-  - `layerx program discover`: Discover one active program from receipt-backed registry state.
+  - `layerx program discover`: Discover one active program from the layerxprograms contract.
   - `layerx program interface`: Read or publish a canonical code-bound program interface.
     - `layerx program interface get`
     - `layerx program interface publish`
@@ -64,13 +64,13 @@ Source: the clap `Subcommand` definitions in `tools/platform/cli/src`. Binary na
     - `layerx program wind-down deprecate`
     - `layerx program wind-down tombstone`
     - `layerx program wind-down exit`
-  - `layerx program call`: Submit calldata to a deployed program and render the receipt-verified result.
+  - `layerx program call`: Sign and submit an EIP-1559 call to a deployed program.
   - `layerx program simulate`: Execute a program call against current state without committing it.
   - `layerx program registry`: Read the protocol registry or submit source-verification material.
-    - `layerx program registry list`: List every program the receipt-backed registry projection carries.
-    - `layerx program registry get`: Read one program's receipt-backed registry record.
+    - `layerx program registry list`: List programs from layerxprograms deployment events.
+    - `layerx program registry get`: Read one program's layerxprograms contract record.
     - `layerx program registry mirror-source`: Mirror one program's build plan and source archive into the registry mirror.
-    - `layerx program registry verify-source`: Submit a source digest and source location to the registry.
+    - `layerx program registry verify-source`: Check source verification availability against the deployed program record.
 - `layerx emulator`: Run the local gateway around the real protocol core transition.
   - `layerx emulator up`: Start the local real-transition gateway.
   - `layerx emulator provision`: Generate the sequencer seed and publish its trust anchor under the profile directory.
