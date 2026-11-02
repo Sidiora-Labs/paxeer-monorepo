@@ -54,6 +54,12 @@ func TestEveryCTestMainHasBuildReference(t *testing.T) {
 	for _, path := range buildPaths {
 		buildSources = append(buildSources, reachabilityRead(t, path))
 	}
+	makefile := reachabilityRead(t, "Makefile")
+	proofBuildSources := [][]byte{makefile}
+	proofInclude := regexp.MustCompile(`(?m)^include[\t ]+(tools/paxeer-x/build/[^\s]+\.mk)[\t ]*$`)
+	for _, include := range proofInclude.FindAllSubmatch(makefile, -1) {
+		proofBuildSources = append(proofBuildSources, reachabilityRead(t, string(include[1])))
+	}
 
 	nonCode := regexp.MustCompile(`(?s)/\*.*?\*/|//[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'`)
 	mainDefinition := regexp.MustCompile(`\bint\s+main\s*\([^)]*\)\s*\{`)
@@ -70,15 +76,21 @@ func TestEveryCTestMainHasBuildReference(t *testing.T) {
 		programs++
 		stem := strings.TrimSuffix(filepath.Base(path), ".c")
 		reference := regexp.MustCompile(`\b(?:` + regexp.QuoteMeta(path) + `|` + regexp.QuoteMeta(stem) + `)\b`)
+		sources := buildSources
+		locations := "Makefile, chain.mk, tools/, scripts/ or tests/"
+		if strings.HasPrefix(path, "tests/proof/") {
+			sources = proofBuildSources
+			locations = "Makefile or a tools/paxeer-x/build fragment included by Makefile"
+		}
 		referenced := false
-		for _, source := range buildSources {
+		for _, source := range sources {
 			if reference.Match(source) {
 				referenced = true
 				break
 			}
 		}
 		if !referenced {
-			t.Errorf("%s defines int main but has no whole-word path or stem build reference in Makefile, chain.mk, tools/, scripts/ or tests/", path)
+			t.Errorf("%s defines int main but has no whole-word path or stem build reference in %s", path, locations)
 		}
 	}
 	if programs == 0 {

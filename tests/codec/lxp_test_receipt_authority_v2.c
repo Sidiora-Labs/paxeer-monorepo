@@ -114,7 +114,6 @@ static int authority_v2_record_bytes(void)
         1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U
     };
     uint8_t expected[151];
-    lxp_verified_receipt_authority_facts facts;
     unsigned int restart;
     uint32_t offset;
     size_t mark;
@@ -136,16 +135,20 @@ static int authority_v2_record_bytes(void)
             &authority_arena) == LXP_OK);
         LXP_CASE_CHECK(lxp_arena_mark(&authority_arena) == mark);
         LXP_CASE_CHECK(open_consumer(AUTHORITY_V2_NETWORK) == 0);
-        LXP_CASE_CHECK(lxp_ctx_verified_receipt_authority_facts(
-            &authority_ctx, receipt_digest, &facts) == LXP_OK);
-        LXP_CASE_CHECK(facts.version == 2U);
-        LXP_CASE_CHECK(facts.network_id == AUTHORITY_V2_NETWORK);
-        LXP_CASE_CHECK(facts.protocol_version == source_receipt.protocol_version);
-        LXP_CASE_CHECK(facts.module_id == source_receipt.module_id);
-        LXP_CASE_CHECK(facts.operation == source_receipt.operation);
-        LXP_CASE_CHECK(facts.result_code == source_receipt.result_code);
-        LXP_CASE_CHECK(facts.block_height == authority_height);
         LXP_CASE_CHECK(begin_authority(authority_height) == LXP_OK);
+        LXP_CASE_CHECK(read_u16(authority_call.arbiter_authority) == 2U);
+        LXP_CASE_CHECK(read_u32(authority_call.arbiter_authority + 2U) ==
+            AUTHORITY_V2_NETWORK);
+        LXP_CASE_CHECK(read_u16(authority_call.arbiter_authority + 6U) ==
+            source_receipt.protocol_version);
+        LXP_CASE_CHECK(read_u16(authority_call.arbiter_authority + 8U) ==
+            source_receipt.module_id);
+        LXP_CASE_CHECK(authority_call.arbiter_authority[10U] ==
+            source_receipt.operation);
+        LXP_CASE_CHECK(read_u32(authority_call.arbiter_authority + 11U) ==
+            (uint32_t)source_receipt.result_code);
+        LXP_CASE_CHECK(read_u64(authority_call.arbiter_authority + 15U) ==
+            authority_height);
         for (offset = 0U; offset < sizeof(expected); ++offset)
             LXP_CASE_CHECK(layerx_programs_call_arbiter_authority_byte(
                 (uint64_t)(uintptr_t)&authority_call, offset) ==
@@ -198,7 +201,6 @@ static int authority_v2_height_checks(void)
 
 static int height_authority_add_refusals(void)
 {
-    lxp_verified_receipt_authority_facts facts;
     lxp_byte_span invalid;
     size_t mark;
 
@@ -255,9 +257,11 @@ static int height_authority_add_refusals(void)
         &authority_arena) == LXP_ERR_ROOT_MISMATCH);
     LXP_CASE_CHECK(authority_index.authority_count == 1U);
     LXP_CASE_CHECK(lxp_arena_mark(&authority_arena) == mark);
-    LXP_CASE_CHECK(lxp_verified_receipt_index_lookup_authority(
-        &authority_index, receipt_digest, &facts) == LXP_OK);
-    LXP_CASE_CHECK(facts.block_height == authority_height);
+    LXP_CASE_CHECK(open_consumer(AUTHORITY_V2_NETWORK) == 0);
+    LXP_CASE_CHECK(begin_authority(authority_height) == LXP_OK);
+    LXP_CASE_CHECK(read_u64(authority_call.arbiter_authority + 15U) ==
+        authority_height);
+    LXP_CASE_CHECK(close_consumer() == 0);
     LXP_CASE_CHECK(lxp_verified_receipt_index_bind_authority_network(
         &authority_index, AUTHORITY_V2_NETWORK) == LXP_OK);
     LXP_CASE_CHECK(lxp_verified_receipt_index_bind_authority_network(

@@ -17,6 +17,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/authz"
 	authzkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/authz/keeper"
+	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -49,7 +50,7 @@ func TestRevokeGrantAdvancesRevocation(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			f := newAuthViewFixture(t)
 			actor := authExecuteActor(t, f)
-			authzKeeper, _ := authRevokeKeeper(t, f)
+			authzKeeper, authzKey := authRevokeKeeper(t, f)
 			grantID := *f.CapabilityID()
 			if kind == "session" {
 				grantID = *f.SessionID()
@@ -62,10 +63,15 @@ func TestRevokeGrantAdvancesRevocation(t *testing.T) {
 			expiration := f.Context().BlockTime().Add(time.Hour)
 			matching := authRevokeAuthorization(f, grantID, send)
 			require.NoError(t, matching.ValidateBasic())
-			if kind == "capability" {
-				require.NoError(t, authzKeeper.SaveGrant(*f.Context(), grantee, granter, matching, expiration))
-				require.NoError(t, authzKeeper.SaveGrant(*f.Context(), otherGrantee, granter, matching, expiration))
+			if kind == "session" {
+				matching.Kind = 2
 			}
+			require.NoError(t, authzKeeper.SaveGrant(*f.Context(), grantee, granter, matching, expiration))
+			require.NoError(t, authzKeeper.SaveGrant(*f.Context(), otherGrantee, granter, matching, expiration))
+			message := banktypes.NewMsgSend(granter, grantee, sdk.NewCoins(sdk.NewInt64Coin("upax", 1)))
+			accepted, err := matching.Accept(types.WithGrantorRevocation(*f.Context(), granter, matching.RevocationEpoch), message)
+			require.NoError(t, err)
+			require.True(t, accepted.Accept)
 			unrelated := authRevokeAuthorization(f, [32]byte{0xfe}, multiSend)
 			require.NoError(t, unrelated.ValidateBasic())
 			require.NoError(t, authzKeeper.SaveGrant(*f.Context(), grantee, granter, unrelated, expiration))
@@ -106,24 +112,63 @@ func TestRevokeGrantAdvancesRevocation(t *testing.T) {
 			require.False(t, live)
 			require.Equal(t, "LXP_AUTH_REVOKED", reason)
 			for _, address := range []sdk.AccAddress{grantee, otherGrantee} {
-				remaining, _ := authzKeeper.GetCleanAuthorization(*f.Context(), address, granter, send)
-				require.Nil(t, remaining)
+				remaining, expiry := authzKeeper.GetCleanAuthorization(*f.Context(), address, granter, send)
+				require.Equal(t, matching, remaining)
+				require.Equal(t, expiration, expiry)
+				require.Equal(t, before, remaining.(*types.LayerXScopeAuthorization).RevocationEpoch)
+				refused, err := remaining.Accept(types.WithGrantorRevocation(*f.Context(), granter, after), message)
+				require.ErrorIs(t, err, types.ErrAuthRevoked)
+				require.ErrorContains(t, err, "revocation epoch 41, grantor revocation 44")
+				require.False(t, refused.Accept)
 			}
 			remaining, expiry := authzKeeper.GetCleanAuthorization(*f.Context(), grantee, granter, multiSend)
 			require.Equal(t, unrelated, remaining)
 			require.Equal(t, expiration, expiry)
 			remaining, _ = authzKeeper.GetCleanAuthorization(*f.Context(), otherGrantee, granter, multiSend)
 			require.Equal(t, generic, remaining)
-			if kind == "capability" {
-				require.Len(t, f.Context().EventManager().Events(), 2)
-				for _, event := range f.Context().EventManager().Events() {
-					require.Equal(t, "cosmos.authz.v1beta1.EventRevoke", event.Type)
-				}
-			}
-			state := authViewStores(*f.Context(), f.HostKey(), f.StoreKey())
+			require.Empty(t, f.Context().EventManager().Events())
+			state := authViewStores(*f.Context(), f.HostKey(), f.StoreKey(), authzKey)
 			_, err = f.Keeper().RevokeGrant(*f.Context(), actor, grantID, 1, 44, [32]byte{0x93})
 			require.ErrorIs(t, err, types.ErrIdempotentReplay)
-			require.Equal(t, state, authViewStores(*f.Context(), f.HostKey(), f.StoreKey()))
+			require.Equal(t, state, authViewStores(*f.Context(), f.HostKey(), f.StoreKey(), authzKey))
+			_, err = f.Keeper().RevokeGrant(*f.Context(), keeper.Actor{}, grantID, 0, 0, [32]byte{0x93})
+			require.ErrorIs(t, err, types.ErrIdempotentReplay)
+			_, err = f.Keeper().RevokeGrant(*f.Context(), keeper.Actor{}, grantID, 1, 44, [32]byte{0x94})
+			require.ErrorIs(t, err, types.ErrAuthScope)
+			_, err = f.Keeper().RevokeGrant(*f.Context(), keeper.Actor{}, [32]byte{0xff}, 1, 44, [32]byte{0x93})
+			require.ErrorIs(t, err, types.ErrAuthScope)
+			require.Equal(t, state, authViewStores(*f.Context(), f.HostKey(), f.StoreKey(), authzKey))
+			require.Empty(t, f.Context().EventManager().Events())
+		})
+	}
+}
+
+func TestRevokeGrantReplayRequiresCommittedSuccess(t *testing.T) {
+	for _, kind := range []string{"capability", "session"} {
+		t.Run(kind, func(t *testing.T) {
+			f := newAuthViewFixture(t)
+			actor := authExecuteActor(t, f)
+			grantID := *f.CapabilityID()
+			if kind == "session" {
+				grantID = *f.SessionID()
+			}
+			key := [32]byte{0x95}
+			before := authViewStores(*f.Context(), f.HostKey(), f.StoreKey())
+			_, err := f.Keeper().RevokeGrant(*f.Context(), actor, grantID, 0, 44, key)
+			require.ErrorIs(t, err, types.ErrAuthScope)
+			require.Equal(t, before, authViewStores(*f.Context(), f.HostKey(), f.StoreKey()))
+			branch, _ := f.Context().CacheContext()
+			_, err = f.Keeper().RevokeGrant(branch, actor, grantID, 1, 44, key)
+			require.NoError(t, err)
+			_, err = f.Keeper().RevokeGrant(branch, keeper.Actor{}, grantID, 1, 44, key)
+			require.ErrorIs(t, err, types.ErrIdempotentReplay)
+			require.Equal(t, before, authViewStores(*f.Context(), f.HostKey(), f.StoreKey()))
+			_, err = f.Keeper().RevokeGrant(*f.Context(), actor, grantID, 1, 44, key)
+			require.NoError(t, err)
+			committed := authViewStores(*f.Context(), f.HostKey(), f.StoreKey())
+			_, err = f.Keeper().RevokeGrant(*f.Context(), keeper.Actor{}, grantID, 1, 44, key)
+			require.ErrorIs(t, err, types.ErrIdempotentReplay)
+			require.Equal(t, committed, authViewStores(*f.Context(), f.HostKey(), f.StoreKey()))
 		})
 	}
 }

@@ -50,7 +50,7 @@ func (s *sequential) admit(tx sdk.Tx, txBytes []byte) error {
 	if nextGas > uint64(cp.Block.MaxGas) { //nolint:gosec // -1 is unlimited, as in checkTotalBlockGas
 		return fmt.Errorf("%w: gas wanted %d exceeds Block.MaxGas %d", ErrBlockFull, nextGas, cp.Block.MaxGas)
 	}
-	if nextGas > uint64(cp.Block.MaxGasWanted) { //nolint:gosec // same reading as checkTotalBlockGas
+	if cp.Block.MaxGasWanted > 0 && nextGas > uint64(cp.Block.MaxGasWanted) {
 		return fmt.Errorf("%w: gas wanted %d exceeds Block.MaxGasWanted %d", ErrBlockFull, nextGas, cp.Block.MaxGasWanted)
 	}
 	tx0, err := app.EncodeSequenceBatch(seqtypes.MsgSequenceBatch{

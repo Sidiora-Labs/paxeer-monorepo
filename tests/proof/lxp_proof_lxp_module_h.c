@@ -11,7 +11,7 @@
  * State crosses destruction/recreation through lxp_snapshot_write/load; the
  * receipt index is rebuilt from the actual account-open consumer's receipt.
  */
-#include "lxp_kernel_case.h"
+#include "../codec/lxp_kernel_case.h"
 #include "layerx/lx_asset.h"
 #include "layerx/lxp_identity.h"
 #include "layerx/lxp_snapshot.h"

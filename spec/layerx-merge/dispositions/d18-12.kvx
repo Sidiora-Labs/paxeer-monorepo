@@ -1,0 +1,149 @@
+[disposition.18.1154.1.1]
+finding = "18.1154.1.1"
+status = "resolved"
+evidence = "Commit 2463da723 replaces the unreachable UnavailableCapability assertion with BelowRequestedRung and NotCommitted assertions and their reasons, retained at services/agent/crates/layerx-agentd/tests/checkpoint.rs:169."
+follow_up = "closure"
+
+[disposition.18.1113.1.2]
+finding = "18.1113.1.2"
+status = "resolved"
+evidence = "Commits 0438be282 and d7e6dfd9f admit sponsored bind and paymaster authorization claims and persist the construction across separate reauthorization challenges, with the bound agent and single bind nonce asserted at services/wallet/gateway/test/provisioning.test.ts:1041."
+follow_up = "closure"
+
+[disposition.18.1159.1.3]
+finding = "18.1159.1.3"
+status = "superseded"
+evidence = "Commit b40debdd4 first ports the two bootstrap calls to attach_native_signature, and commit 7fe9b50ec subsequently deletes services/human/crates/layerx-human-kms/tests/provider/owner_bootstrap.rs and its module declaration when retiring the owner activity envelope."
+follow_up = "closure"
+
+[disposition.18.1211.1.1]
+finding = "18.1211.1.1"
+status = "resolved"
+evidence = "Commit 3f3815ee7 re-records the receipt with a derived payee and native reference/from/to topic order at rpc/sequencer_receipt_vectors_test.go:383, and b68a59e08 captures that unmodified receipt with the payee-account equality retained at services/interop/crates/layerx-x402/tests/buyer.rs:303."
+follow_up = "closure"
+
+[disposition.18.1211.1.2]
+finding = "18.1211.1.2"
+status = "resolved"
+evidence = "Commit 36dbaa76a derives the native PaymentExact tuple from calldata and binds the payee account before re-signing at services/interop/crates/layerx-x402/tests/buyer_sequencer.rs:110 and services/interop/crates/layerx-x402/src/buyer.rs:754, removing both recorded-test ProfileMismatch causes."
+follow_up = "closure"
+
+[disposition.18.1211.5.1]
+finding = "18.1211.5.1"
+status = "open"
+evidence = "After source regeneration in 3f3815ee7, daemon/committed-fixture/vectors/vector-v2-receipted-revert.json:24 still carries the old 0x4f96a837 transaction instead of the V2 transaction at sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:229, the explorer, relayer, gas-station and x402 settlement-response copies retain old receipt material, and proposed programme task 18.1211.6 must refresh those copies and compare them to the source."
+follow_up = "18.1211.6"
+
+[disposition.18.1188.2.3]
+finding = "18.1188.2.3"
+status = "resolved"
+evidence = "Commit 43f4e67ab changes RealAgentLayer preparation to return an unsigned EIP-1559 transaction with its call disclosure instead of kernel canonical bytes, retained at services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1582."
+follow_up = "closure"
+
+[disposition.18.1205.1.1]
+finding = "18.1205.1.1"
+status = "open"
+evidence = "Although 0ed82717d avoids declared_domain in the degraded tests, services/agent/crates/layerx-proof/src/settlement.rs:86 still resolves domains through the embedded document whose contracts/config/checkpoint-settlement.json:2 contains only chain_id and offline_export, so retirement by task 9.27.4 remains necessary."
+follow_up = "9.27.4"
+
+[disposition.18.1205.1.2]
+finding = "18.1205.1.2"
+status = "open"
+evidence = "services/agent/crates/layerx-proof/src/checkpoint.rs:478 still calls maximum_attestation_delay_ms through settlement.rs:76 and its embedded document parser, so the missing-schema certificate failure remains despite the degraded tests using Receipted evidence and awaits task 9.27.4."
+follow_up = "9.27.4"
+
+[disposition.18.1272.1.1]
+finding = "18.1272.1.1"
+status = "resolved"
+evidence = "Commit a1cb41550 adds AuthLifecycle decoding for recordLifecycle(bytes,bytes32) at services/agent/crates/layerx-crypto/src/disclosure/call.rs:454, and 9c220302c binds that Governance payload through the human creation consumer instead of the unreachable ledger-send route."
+follow_up = "closure"
+
+[disposition.18.1188.2.4]
+finding = "18.1188.2.4"
+status = "resolved"
+evidence = "Commit 43f4e67ab aligns both budget preparation and context account derivation with STATE_COMMITMENT_PROTOCOL_VERSION at services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1516, matching the protocol-3-only native disclosure path at services/agent/crates/layerx-crypto/src/disclosure/native.rs:571."
+follow_up = "closure"
+
+[disposition.18.1188.2.5]
+finding = "18.1188.2.5"
+status = "resolved"
+evidence = "Commit 43f4e67ab reads budget_id from preparation.payload bytes 2..34 and derives the context budget account from that identity at services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1528, removing the constant-identity mismatch."
+follow_up = "closure"
+
+[disposition.18.1272.1.2]
+finding = "18.1272.1.2"
+status = "resolved"
+evidence = "Commit 9c220302c adds the missing AuthLifecycle match arm to bound_activity, retained at services/human/crates/layerx-human-service/src/agents/create.rs:656, removing the non-exhaustive consumer match introduced by 9.99.1."
+follow_up = "closure"
+
+[disposition.18.670.1.6]
+finding = "18.670.1.6"
+status = "resolved"
+evidence = "Commit 49386ac2e installs perps genesis markets and market states with last_index_hour one hour before genesis at tools/qualification/localnode/v6120-node.sh:428, removing the zero-hour initialization that withheld the first FundingSettled event."
+follow_up = "closure"
+
+[disposition.18.670.1.7]
+finding = "18.670.1.7"
+status = "resolved"
+evidence = "The current 18.670.1 verify_cmd at spec/layerx-merge/spec.kvx:201069 starts v6120-node.sh with --sequencer, whose tools/qualification/localnode/v6120-node.sh:677 enables the sequential primary, removing the plain-proposal setup behind the rejected sequence-batch transactions."
+follow_up = "closure"
+
+[disposition.18.1272.1.3]
+finding = "18.1272.1.3"
+status = "resolved"
+evidence = "Commit 2a426ffcc replaces the single opaque lifecycle refusal with eight named binding checks, retained at services/human/crates/layerx-human-service/src/agents/create.rs:572, and corrects the budget-create and budget-fund expected idempotency words."
+follow_up = "closure"
+
+[disposition.18.1272.1.4]
+finding = "18.1272.1.4"
+status = "resolved"
+evidence = "Commit 2a426ffcc binds PayBudgetCreate to the budget id from payload bytes 2..34 rather than action_key, retained in creation_idempotency_key at services/human/crates/layerx-human-service/src/agents/create.rs:491."
+follow_up = "closure"
+
+[disposition.18.670.1.8]
+finding = "18.670.1.8"
+status = "resolved"
+evidence = "Commit 49386ac2e moves collateral mint, approval, deposit and pricefeed setup outside the plain-mode guard at tools/qualification/localnode/v6120-node.sh:730 and leaves only activate_merge guarded at tools/qualification/localnode/v6120-node.sh:788."
+follow_up = "closure"
+
+[disposition.18.1272.1.5]
+finding = "18.1272.1.5"
+status = "resolved"
+evidence = "Commit 2a426ffcc lands the production PayBudgetCreate idempotency correction that attempt 10 omitted, and services/human/crates/layerx-human-service/src/agents/create.rs:570 now obtains the expected budget id through creation_idempotency_key before comparing the disclosure."
+follow_up = "closure"
+
+[disposition.18.670.1.9]
+finding = "18.670.1.9"
+status = "resolved"
+evidence = "Commit 99bef8286 adds bounded pending-context waits to RPC sends and RPCContextProvider, whose loop at node/app.go:3493 retries ErrLayerNotOpen until the next block opens instead of immediately panicking between Seal and Open."
+follow_up = "closure"
+
+[disposition.18.1272.1.6]
+finding = "18.1272.1.6"
+status = "resolved"
+evidence = "The landed decoder at services/agent/crates/layerx-crypto/src/disclosure/call.rs:426 admits budgetFund(bytes32,uint128), and commit 2a426ffcc adds its human lifecycle binding and canonical-owner ordinal-2 encoding retained at services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:34."
+follow_up = "closure"
+
+[disposition.18.670.1.10]
+finding = "18.670.1.10"
+status = "resolved"
+evidence = "Commit 2c597d81f makes acceptOnSequencer wait through PendingContext and retry Accept once on ErrLayerNotOpen, retained at rpc/send.go:311, with a second closed-layer error mapped to ErrPendingBlockClosed."
+follow_up = "closure"
+
+[disposition.18.1149.1.3]
+finding = "18.1149.1.3"
+status = "resolved"
+evidence = "Commit 2a426ffcc lands the PayBudgetFund consumer arm missing from attempt 3's base, retained at services/human/crates/layerx-human-service/src/agents/create.rs:638, and the subsequent 886bdaf0f commit carries the reclaim task on that repaired surface."
+follow_up = "closure"
+
+[disposition.18.670.1.11]
+finding = "18.670.1.11"
+status = "resolved"
+evidence = "Commit 49386ac2e logs pricefeed preparation before signing and records broadcast and commit results at tools/qualification/localnode/v6120-node.sh:203, and changes the freshness wait to 90 seconds with timeout diagnostics at tools/qualification/localnode/v6120-node.sh:759."
+follow_up = "closure"
+
+[disposition.18.1156.1.7]
+finding = "18.1156.1.7"
+status = "resolved"
+evidence = "Commit 2a426ffcc supplies the PayBudgetFund match arm missing from attempt 11's base at services/human/crates/layerx-human-service/src/agents/create.rs:638, and the later 29ec808cc provider-task commit lands after that consumer repair."
+follow_up = "closure"

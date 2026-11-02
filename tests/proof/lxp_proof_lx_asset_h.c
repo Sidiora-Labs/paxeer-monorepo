@@ -10,7 +10,7 @@
  * No retired producer or transport is recreated. The four live producers
  * exercised below are registration, account opening, minting and pausing.
  */
-#include "lxp_kernel_case.h"
+#include "../codec/lxp_kernel_case.h"
 #include "layerx/lx_asset.h"
 #include "layerx/lxp_hash.h"
 #include "layerx/lxp_identity.h"

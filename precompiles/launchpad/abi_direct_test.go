@@ -25,6 +25,11 @@ func parseABIFile(t *testing.T, path string) abi.ABI {
 	return parsed
 }
 
+// directABIConsumer exposes the custom errors clients decode from abi.json.
+type directABIConsumer struct{ abi.ABI }
+
+func (a directABIConsumer) errors() map[string]abi.Error { return a.Errors }
+
 func TestDirectABIFile(t *testing.T) {
 	direct := parseABIFile(t, "abi.json")
 
@@ -113,14 +118,14 @@ func TestDirectABIFile(t *testing.T) {
 		"FeeFlow(uint8,address,address,uint256,uint256,uint256,uint256,uint256,uint256)":             common.HexToHash("0x626e3fd5d9323ca4b7ffa3ca51c21c02766b638d15eb8896a36a4e0e97ae6de4"),
 		"FeeDistributed(bytes32,uint256,uint8,uint256,address,uint256,uint256)":                      common.HexToHash("0xf7ab826cedf9d005102eddf95e65f43597aef36a55ff09ee4f452204c83f4afc"),
 	}, events)
-	require.Len(t, direct.Errors, 64)
+	require.Len(t, (directABIConsumer{direct}).errors(), 64)
 }
 
 func TestDirectABIDeclaresRoleErrors(t *testing.T) {
 	direct := parseABIFile(t, "abi.json")
 	require.Len(t, direct.Methods, 113)
 	require.Len(t, direct.Events, 12)
-	require.Len(t, direct.Errors, 64)
+	require.Len(t, (directABIConsumer{direct}).errors(), 64)
 
 	solidity, err := os.ReadFile("Launchpad.sol")
 	require.NoError(t, err)

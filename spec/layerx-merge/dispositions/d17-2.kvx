@@ -1,0 +1,47 @@
+[disposition.17.0.3.1]
+finding = "17.0.3.1"
+status = "environment"
+evidence = "The candidate mismatch came from the qualification harness comparing the done-record status rewrite, as documented at spec/layerx-merge/spec.kvx:199055, while commit 7fe9a4383 lands the implementation and its done status without a repository repair for that comparison."
+follow_up = "closure"
+
+[disposition.17.2.6.1]
+finding = "17.2.6.1"
+status = "resolved"
+evidence = "Commit 62a72f85d implements stale_rows at spec/layerx-merge/programme/retired.py:208 with a documented exclusion for refusal-only rows and an any check over deleted_trees at line 222 that leaves requires-sei-wasm's empty list unflagged."
+follow_up = "closure"
+
+[disposition.17.5.12.1]
+finding = "17.5.12.1"
+status = "resolved"
+evidence = "The current verify_cmd at spec/layerx-merge/spec.kvx:119722 passes the browser specifier and web search path as arguments to a single-quoted node script using process.argv, eliminating the nested single quotes that caused the SyntaxError."
+follow_up = "closure"
+
+[disposition.17.5.13.1]
+finding = "17.5.13.1"
+status = "resolved"
+evidence = "The verify_cmd at spec/layerx-merge/spec.kvx:130868 passes both package names as arguments to a single-quoted Python script using map(m.version, sys.argv[1:]), eliminating the escaped double quotes, and commit 3d8646fda retains the corrected SDK install path at services/platform/Makefile.inc:41."
+follow_up = "closure"
+
+[disposition.17.5.13.2]
+finding = "17.5.13.2"
+status = "resolved"
+evidence = "Task 17.5.13 declares symbols = [] at spec/layerx-merge/spec.kvx:130863 and retains services/platform/Makefile.inc in touches on the next line, removing the unsupported Makefile target symbol assertions while preserving the path repair landed by 3d8646fda."
+follow_up = "closure"
+
+[disposition.17.0.4.1]
+finding = "17.0.4.1"
+status = "resolved"
+evidence = "Commit 2abd06bb7 regenerates docs/system/chain-modules.md:44 and the other affected parameter rows with github_com_Sidiora_Labs_Paxeer_X_Network_sdk_types.Dec, matching the current module declaration at go.mod:1 instead of the former lowercase module path."
+follow_up = "closure"
+
+[disposition.17.7.5.1]
+finding = "17.7.5.1"
+status = "resolved"
+evidence = "Commit 4057eb848 changes spec/layerx-merge/programme/data/runcards/fm-cosmos-fork.kvx:4 to go-cgo, matching the current plurality of 29 of 58 domain-15 task profiles required by the unchanged check at spec/layerx-merge/programme/runcards.py:109."
+follow_up = "closure"
+
+[disposition.17.7.5.2]
+finding = "17.7.5.2"
+status = "resolved"
+evidence = "Commit 4057eb848 corrects line 4 of spec/layerx-merge/programme/data/runcards/fm-launchpad.kvx, fm-wallet.kvx, fm-tools-ops.kvx and fm-programme.kvx to go, node, python and python respectively, which still match their domains' current profile pluralities under spec/layerx-merge/programme/runcards.py:109."
+follow_up = "closure"

@@ -416,8 +416,9 @@ func (c *MockClient) BlockResults(_ context.Context, height *int64) (*coretypes.
 			},
 			ConsensusParamUpdates: &types2.ConsensusParams{
 				Block: &types2.BlockParams{
-					MaxBytes: 100000000,
-					MaxGas:   200000000,
+					MaxBytes:     100000000,
+					MaxGas:       200000000,
+					MaxGasWanted: 200000000,
 				},
 			},
 		}, nil
@@ -443,7 +444,8 @@ func (c *MockClient) BlockResults(_ context.Context, height *int64) (*coretypes.
 		}
 		return &coretypes.ResultBlockResults{TxsResults: TxResults, ConsensusParamUpdates: &types2.ConsensusParams{
 			Block: &types2.BlockParams{
-				MaxGas: 100000000,
+				MaxGas:       100000000,
+				MaxGasWanted: 100000000,
 			},
 		}}, nil
 	}
@@ -460,8 +462,9 @@ func (c *MockClient) BlockResults(_ context.Context, height *int64) (*coretypes.
 		},
 		ConsensusParamUpdates: &types2.ConsensusParams{
 			Block: &types2.BlockParams{
-				MaxBytes: 100000000,
-				MaxGas:   200000000,
+				MaxBytes:     100000000,
+				MaxGas:       200000000,
+				MaxGasWanted: 200000000,
 			},
 		},
 	}, nil
