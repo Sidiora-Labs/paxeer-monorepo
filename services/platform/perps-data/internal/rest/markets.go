@@ -75,6 +75,7 @@ type marketsHealthBody struct {
 }
 
 func (m *Markets) serveAll(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	records, err := m.Records(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
@@ -84,6 +85,7 @@ func (m *Markets) serveAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Markets) serveOne(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	symbol := strings.ToUpper(r.PathValue("symbol"))
 	record, ok, err := m.Record(r.Context(), symbol)
 	if err != nil {
