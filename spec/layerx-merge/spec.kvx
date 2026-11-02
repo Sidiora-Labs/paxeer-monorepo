@@ -7251,6 +7251,12 @@ value = "src/disclosure.rs with its call, native and program submodules and src/
 basis = "Census of 2026-11-02 at HEAD 7f6ea5d81: layerx_crypto::disclosure is named at 267 sites and layerx_crypto::send at 61 across thirteen crates, most of them for AmountRole, CounterpartyRole, DisclosedNativeOperation, BudgetStateContext, DisclosureError and disclosure::call, which payments does not re-export; the kernel activity items themselves are reached from six places (the agent daemon and its exactly-once limits test, the human custody signer and provider, the intents proof test, the sdk and the mcp binders). Moving the module tree would rewrite thirteen crates for a rename and prove nothing; deleting the items and porting the six consumers proves the path decision 2261 asks for."
 affects = ["9.35.7", "9.35.14", "9.35.15"]
 
+[decision.2357]
+title = "The agent daemon's kernel activity preparation path (prepare::legacy) is retired, not relocated: the EIP-1559 call preparation carries the call-bound disclosure as the only authorization record, and every hold, approval replay, native disclosure answer and signing test is ported onto it before the legacy module is deleted"
+value = "prepare::evm::Prepared gains disclosure (layerx_crypto::disclosure::call::bind_call over the prepared call and its sender) and disclosure_digest (the disclosure's signing digest); verify_call_binding rebinds the call and compares digest and signing hash; SigningPreparation is the transaction and the actor address only, its separate authorization field is removed, and verify_exact takes the idempotency key from the call-bound disclosure. Native-effect carriers, approval holds and their durable records keep the unsigned type-2 call bytes instead of the activity envelope canonical bytes; the native_disclosure_v1 answer is filled from the call-bound disclosure of the retained preparation; the submit variants attach a secp256k1 signature through attach_external_signature and verify_before_submit. Tests that today build an activity envelope to obtain an authorization build the ledger payment call and bind it. After the consumers are ported, prepare::legacy with prepare/disclose.rs and restore_tests.rs, attach_kernel_signature and verify_kernel_before_submit are deleted; the lifecycle module (expiry.rs: DurablePreparation, PreparationLifecycle, retention) is re-homed under prepare directly because the EVM path keeps using it. Tasks 9.35.16 to 9.35.24 carry the inventory; 9.35.7 requires every one of them and 9.29.1 requires 9.35.24."
+basis = "Census of 2026-11-02 at HEAD 9e291d4f7: the legacy Prepared is named in twenty-one daemon source files and sixteen test files; the kernel signing helpers are reached from human_runtime.rs (five submit paths) and the test support module; the only external consumers of the retired disclosure binder outside the daemon are the sdk agent_envelope native-disclosure check and the mcp write and binding modules, which consume the daemon's native_disclosure_v1 answer. The daemon is part of the network's own node path (decision 2261), so the activity envelope has no transport left to cross; keeping two authorization records in one signing preparation made every signing test encode a retired envelope first."
+affects = ["9.35.7", "9.29.1", "9.35.16", "9.35.17", "9.35.18", "9.35.19", "9.35.20", "9.35.21", "9.35.22", "9.35.23", "9.35.24"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20871,6 +20877,46 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22064]
+title = "The KMS proofs and the evidence node fixture carry no ambient nondeterminism"
+ac_1 = "Given the boundary check's ambient-nondeterminism rule, when it reads the KMS proof tests and the test-support evidence node, then it reports no hit, and the KMS proof targets still pass with their randomness and clock taken from fixed fixtures."
+
+[req.22063]
+title = "The agent daemon has no kernel activity preparation path left"
+ac_1 = "Given the agent daemon crate and its limits test, when the retired-name search runs, then no legacy preparation module, canonical restore, kernel signature attach or verify, envelope encoder or canonical-bytes binder is named, the lifecycle module lives under prepare directly, and the preparation, expiry and proof targets pass."
+
+[req.22062]
+title = "The sdk and mcp native-disclosure checks bind the served call"
+ac_1 = "Given the sdk and mcp consumers of the native disclosure answer, when they verify an answer, then they decode the served unsigned call, bind it with the actor's address and compare every disclosed field, without the retired canonical-bytes binder."
+
+[req.22061]
+title = "The agent daemon tests build their authorizations from the ledger payment call"
+ac_1 = "Given the test support module and the signing, binding, expiry, time, budget-limit and exactly-once tests, when they need a prepared authorization, then they prepare the ledger call and bind it, and no test encodes an activity envelope."
+
+[req.22060]
+title = "The Human API submit variants attach a secp256k1 signature to the prepared call and verify it before submission"
+ac_1 = "Given an external signature for a retained preparation, when any submit variant receives it, then the daemon assembles the signed type-2 transaction, verifies the exact bytes and sender against the preparation and submits them through the raw transaction path; a signature by another key or over changed bytes is refused."
+
+[req.22059]
+title = "The Human API prepare variants answer EIP-1559 preparations"
+ac_1 = "Given the prepare, native, native-effect, native-send and native-disclosure variants of the Human API prepare operation, when a request is served, then the answer and the retained record describe a type-2 call and its call-bound disclosure, and the retained-record readers restore that preparation without the activity envelope."
+
+[req.22058]
+title = "Native-effect carriers and the program families read the call-bound preparation"
+ac_1 = "Given a native-effect approval carrier or a program settlement, requirement, presentation or policy check, when it reads the preparation, then every actor, activity, expiry, nonce, fee and idempotency fact comes from the call and its bound disclosure, and a durable carrier is restored by decoding the call and rebinding it."
+
+[req.22057]
+title = "Approval holds record the unsigned type-2 call and replay by binding it"
+ac_1 = "Given a held approval, when the registry is replayed after a restart, then the hold's bytes decode as the unsigned call, the disclosure is rebound from the call and its sender, and a hold whose bytes or sender were altered is refused as corrupt."
+
+[req.22056]
+title = "The EIP-1559 preparation carries the call-bound disclosure and the signing preparation has no second authorization record"
+ac_1 = "Given the agent daemon, when a type-2 call is prepared, then the preparation carries the disclosure bound to the call and its digest, a later change of the call or the digest is refused before submission, and the signing preparation consists of the transaction and the actor address only."
+
+[req.22055]
+title = "The call disclosure binder constructs every precompile call the agent daemon prepares"
+ac_1 = "Given the call disclosure binder, when it is handed a prepared call of any constructor the agent daemon's EVM preparation offers, then it returns a disclosure whose activity type, counterparties, amounts and idempotency key are those of the call, and its construct-method list documents each constructor it covers."
 
 [req.22054]
 title = "The human intents proof crosses the ledger payment call and the call disclosure binder"
@@ -35663,6 +35709,96 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.10.1.11]
+title = "Remove the ambient randomness, clock and environment writes from the KMS proofs and the evidence node fixture"
+reqs = ["22064.1"]
+touches = ["services/human/crates/layerx-human-test-support/src/evidence_node.rs", "services/human/crates/layerx-human-kms/tests/proof_human_kms.rs", "services/human/crates/layerx-human-kms/tests/proof_human_kms_wire.rs"]
+tests = ["services/human/crates/layerx-human-kms/tests/proof_human_kms.rs", "services/human/crates/layerx-human-kms/tests/proof_human_kms_wire.rs"]
+verification_contract = "! grep -nE 'Instant::now|SystemTime::now|getrandom::|thread_rng|OsRng|std::env::set_var|env::set_var' services/human/crates/layerx-human-test-support/src/evidence_node.rs services/human/crates/layerx-human-kms/tests/proof_human_kms.rs services/human/crates/layerx-human-kms/tests/proof_human_kms_wire.rs && cargo test --locked --manifest-path services/human/crates/layerx-human-kms/Cargo.toml --test proof_human_kms --test proof_human_kms_wire"
+do_1 = "The boundary check (services/human/tools/boundary-check/src/lib.rs:163, the ambient-nondeterminism rule) fails the merged human tree on three files that task 10.1.4 may not edit: services/human/crates/layerx-human-test-support/src/evidence_node.rs (Instant::now at :317 and :323 for a five-second wait), services/human/crates/layerx-human-kms/tests/proof_human_kms.rs (getrandom::fill at :94, Instant::now at :333, std::env::set_var at :419) and services/human/crates/layerx-human-kms/tests/proof_human_kms_wire.rs (getrandom::fill at :86, :94 and :112, Instant::now at :347). Each hit is replaced with a fixture source: nonces and keys come from fixed byte constants or a counter derived from the test name, elapsed-time checks use the fixture clock the KMS already accepts (the clock port task 10.1.10 introduced), the wait loop in the evidence node takes a bounded attempt count instead of a wall-clock deadline, and the environment write becomes an explicit configuration argument to the code under test."
+symbols = ["proof_human_kms", "proof_human_kms_wire"]
+
+[capability.9.35.24]
+title = "Delete the agent daemon's legacy activity preparation module and the kernel signing helpers"
+reqs = ["22063.1"]
+touches = ["services/agent/crates/layerx-agentd/src/prepare/mod.rs", "services/agent/crates/layerx-agentd/src/prepare/disclose.rs", "services/agent/crates/layerx-agentd/src/prepare/restore_tests.rs", "services/agent/crates/layerx-agentd/src/prepare/expiry.rs", "services/agent/crates/layerx-agentd/src/sign.rs", "services/agent/crates/layerx-agentd/src/capability/effects.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/prepare.rs", "services/agent/crates/layerx-agentd/tests/prepare_expiry.rs", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs"]
+verification_contract = "! grep -rnE 'prepare::legacy|mod legacy|restore_canonical|prepare_activity_for_protocol|attach_kernel_signature|verify_kernel_before_submit|encode_send_envelope|EnvelopeOptions|\bsign_disclosed\b|disclosure::bind\b|disclosure::\{[^}]*\bbind\b|bind_budget_mutation' services/agent/crates/layerx-agentd services/agent/tests/limits && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test prepare --test prepare_expiry --test proof_agentd --test disclosure"
+do_1 = "services/agent/crates/layerx-agentd/src/prepare/mod.rs: pub mod legacy (:403-903), the pub(crate) use and pub use legacy::* lines (:905-906), services/agent/crates/layerx-agentd/src/prepare/disclose.rs and services/agent/crates/layerx-agentd/src/prepare/restore_tests.rs are deleted; services/agent/crates/layerx-agentd/src/prepare/expiry.rs is declared as pub mod lifecycle directly under prepare with its items (DurablePreparation, PreparationLifecycle, LifecycleState, LifecycleError, PayloadRedaction, PreparationExtension, the reports and the EXTENSION_* constants) re-exported at the prepare root under their current names, and its register_inner reads the EvmPrepared; DisclosureDigest, DisclosureBindingError and the legacy Prepared, PrepareRequest, PreparationDefaults, CorePreparationState, CorePreparationBoundary, ProductionCorePreparationBoundary, restore_canonical, disclose, verify_disclosure_binding, expire, retention_sweep, prepare_activity_for_protocol and prepare_budget_mutation_for_protocol are gone, and the evm module's items are the prepare root's items."
+symbols = ["lifecycle", "EvmPrepared"]
+
+[capability.9.35.23]
+title = "Bind the served call in the sdk and mcp native-disclosure checks"
+reqs = ["22062.1"]
+touches = ["services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-mcp/src/tools/write.rs"]
+tests = ["services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-mcp/src/tools/write.rs"]
+verification_contract = "! grep -rnE 'disclosure::bind\b|disclosure::\{[^}]*\bbind\b|bind_budget_mutation' services/agent/crates/layerx-sdk/src services/agent/crates/layerx-mcp/src && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk -p layerx-mcp --lib"
+do_1 = "services/agent/crates/layerx-sdk/src/agent_envelope.rs disclose_native_preparation (:568-600) decodes request.canonical_bytes with layerx_crypto::evm_transaction::decode_unsigned and binds with layerx_crypto::disclosure::call::bind_call(&call, actor_address), where the actor address is the sdk signer's EVM address (the sdk is the sender of every call it has prepared), in place of the canonical-bytes binder at :579; every NativeDisclosureResultV1 field comparison stays and the digest compared is the disclosure's signing digest. services/agent/crates/layerx-sdk/src/native_effect.rs:665 keeps sending the native_disclosure_v1 request with the unsigned call bytes."
+symbols = ["disclose_native_preparation", "execute_native_alias"]
+
+[capability.9.35.22]
+title = "Build the agent daemon test authorizations from the ledger payment call instead of the activity envelope"
+reqs = ["22061.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/support/mod.rs", "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs", "services/agent/crates/layerx-agentd/tests/disclosure.rs", "services/agent/crates/layerx-agentd/tests/prepare_expiry.rs", "services/agent/crates/layerx-agentd/tests/w7_core_time.rs", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs", "services/agent/crates/layerx-agentd/tests/human_node_preparation.rs", "services/agent/tests/limits/exactly_once.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs", "services/agent/crates/layerx-agentd/tests/disclosure.rs"]
+verification_contract = "! grep -rnE 'encode_send_envelope|EnvelopeOptions|\bsign_disclosed\b|restore_canonical|prepare_activity_for_protocol|attach_kernel_signature|verify_kernel_before_submit' services/agent/crates/layerx-agentd/tests services/agent/tests/limits && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test w7_owner_binding --test proof_agentd --test disclosure --test prepare_expiry --test w7_core_time --test budget_durable_limits --test human_node_preparation --test outbox --test limits-exactly-once"
+do_1 = "services/agent/crates/layerx-agentd/tests/support/mod.rs verified_submission (:164-215) and budget_create_submission (:280-335) prepare the call with prepare::evm::prepare_bound over PrecompileCall::ledger_transfer(payload) (the budget create payload goes through the Ledger constructor it belongs to), sign the signing hash with the k256 key of the fixed 32-byte test key, attach it with sign::attach_external_signature and verify with sign::verify_before_submit; the imports at :24 and :33 (sign_disclosed, attach_kernel_signature, verify_kernel_before_submit, CorePreparationState, prepare_activity, prepare_activity_for_protocol) go; signed_transaction (:150) stays."
+symbols = ["verified_submission", "budget_create_submission", "a_foreign_key_signature_over_the_owner_preimage_is_refused"]
+
+[capability.9.35.21]
+title = "Attach external secp256k1 signatures to the prepared call in every Human API submit variant and verify before submission"
+reqs = ["22060.1"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/outbox/mod.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/outbox.rs", "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"]
+verification_contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test outbox --test outbox_recover --test outbox_tx_hash --test unknown --test recovery --test write_path_evm"
+do_1 = "In services/agent/crates/layerx-agentd/src/human_runtime.rs rpc_submit_native_external (:7811-7900), rpc_submit_native_effect_external (:7995-8110), rpc_submit_native_send_external (:8207-8320), rpc_submit_external (:8461-8690) and the two approval release paths at :12302-12305 and :12392-12400 replace attach_kernel_signature plus verify_kernel_before_submit with crate::sign::attach_external_signature(&SigningPreparation, signature) and crate::sign::verify_before_submit, where the SigningPreparation is the retained EvmPrepared and the actor address; the native program release paths at :3632-3680 and :3736-3785 do the same over the carrier's restored EvmPrepared, reading the owner key as a 20-byte sender; the activity type reads at :7889, :8099 and :8311 come from the disclosure."
+symbols = ["rpc_submit_native_external", "rpc_submit_native_effect_external", "rpc_submit_native_send_external", "rpc_submit_external"]
+
+[capability.9.35.20]
+title = "Serve the Human API prepare, native, native-effect, native-send and native-disclosure variants as EIP-1559 preparations"
+reqs = ["22059.1"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/prepare_eip1559.rs", "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
+verification_contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test prepare_eip1559 --test native_routes_rpc --test native_send_preview_evm --test write_path_evm --test rpc_surface_major_two"
+do_1 = "In services/agent/crates/layerx-agentd/src/human_runtime.rs the prepared cache (the prepared map read at :7237-7251 and the transaction field at :2390) holds the EvmPrepared and its registry only; rpc_prepare (:7461), rpc_prepare_native (:5531), rpc_prepare_native_effect (:6429) and rpc_prepare_native_send (:6887) prepare the type-2 call through prepare::evm::prepare_activity against the node (ProductionEvmPreparationBoundary) and derive every answer field they read from the envelope today (actor at :5607, :6516, :6964, :7508; protocol version and not_after at :5709, :5830-5856, :6568, :6774-6807, :7016, :7217-7250; payload hash) from the call and its bound disclosure under the mapping of task 9.35.19; the legacy prepare_activity_for_protocol path and the prepare::legacy import at :51 are no longer called from these functions."
+symbols = ["rpc_prepare_native", "rpc_prepare_native_effect", "rpc_prepare_native_send", "rpc_native_disclosure"]
+
+[capability.9.35.19]
+title = "Read the call-bound preparation in the native-effect carrier and the program settlement, requirement, presentation and policy families"
+reqs = ["22058.1"]
+touches = ["services/agent/crates/layerx-agentd/src/approval/native_effect.rs", "services/agent/crates/layerx-agentd/src/approval/native_program.rs", "services/agent/crates/layerx-agentd/src/approval/program_requirement.rs", "services/agent/crates/layerx-agentd/src/approval/native_program_presentation.rs", "services/agent/crates/layerx-agentd/src/policy/native_program.rs", "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs", "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs", "services/agent/crates/layerx-agentd/src/prepare/expiry.rs", "services/agent/crates/layerx-agentd/src/session_control.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/program_ops_layerxprograms.rs"]
+verification_contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops"
+do_1 = "services/agent/crates/layerx-agentd/src/approval/native_effect.rs NativeEffectApprovalCarrier keeps canonical_bytes as the call's encode_unsigned() output, gains sender: [u8; 20] and drops the authority and envelope_not_after fields in favour of the disclosure's expiry; bind (:193-240) takes &EvmPrepared, verifies it with verify_call_binding, drops the protocol-version-3 check and reads the module from the disclosure's activity type, the reservation deadline from disclosure.expiry.not_after and the head from observed_head_height; disclosure() (:307-335) decodes the call and binds with bind_call(&call, self.sender), keeping the budget context comparison on the disclosure's budget fields; restore_prepared (:1093-1140) decodes the call with decode_unsigned, rebuilds the EvmPrepared through bind_call and the stored head height and no longer uses the envelope builder; a carrier of the previous version is refused as Corrupt and the preparation is prepared again, nothing is migrated."
+symbols = ["NativeEffectApprovalCarrier", "verify_call_binding"]
+
+[capability.9.35.18]
+title = "Hold approvals over the unsigned EIP-1559 call and replay them through bind_call"
+reqs = ["22057.1"]
+touches = ["services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/src/approval/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/approval.rs", "services/agent/crates/layerx-agentd/tests/approval_ops.rs", "services/agent/crates/layerx-agentd/tests/approval_semantics.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/approval.rs::replay_refuses_a_hold_whose_call_bytes_or_sender_changed"]
+verification_contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test approval --test approval_ops --test approval_semantics --test approval_events"
+do_1 = "services/agent/crates/layerx-agentd/src/policy/approval.rs holds layerx_agent_api::prepare::Prepared records whose unsigned_canonical_bytes are activity envelope bytes and whose signing_preimage is the kernel preimage; from this task the bytes are the call's encode_unsigned() output and the preimage the call's signing_hash(). HeldApproval gains sender: [u8; 20]; encode_hold (:1228) writes it and the decoder at :1363 reads it under a bumped record version, refusing the previous version as CorruptRecord; replay_released (:245-247) and validate_registry (:296-298) decode the bytes with layerx_crypto::evm_transaction::decode_unsigned and bind with layerx_crypto::disclosure::call::bind_call(&call, held.sender) in place of the canonical-bytes binder; canonical_digest over the bytes (:401, :790, :984, :1159) is unchanged."
+symbols = ["HeldApproval", "replay_refuses_a_hold_whose_call_bytes_or_sender_changed"]
+
+[capability.9.35.17]
+title = "Carry the call-bound disclosure on the EIP-1559 preparation and drop the legacy authorization from the signing preparation"
+reqs = ["22056.1", "22056.2"]
+touches = ["services/agent/crates/layerx-agentd/src/prepare/mod.rs", "services/agent/crates/layerx-agentd/src/sign.rs", "services/agent/crates/layerx-agentd/src/sign_verify.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs", "services/agent/crates/layerx-agentd/tests/evm_signing.rs", "services/agent/crates/layerx-agentd/tests/signing.rs", "services/agent/crates/layerx-agentd/tests/signature_binding.rs", "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs", "services/agent/crates/layerx-agentd/tests/prepare.rs", "services/agent/tests/limits/exactly_once.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/proof_agentd.rs::inconsistent_prepared_call_and_disclosure_are_refused", "services/agent/crates/layerx-agentd/tests/prepare.rs::canonical_bytes_and_preimage_come_only_from_layerx_wire", "services/agent/crates/layerx-agentd/tests/signing.rs"]
+verification_contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test prepare --test evm_signing --test signing --test signature_binding --test human_node_budgets --test proof_agentd --test limits-exactly-once"
+do_1 = "services/agent/crates/layerx-agentd/src/prepare/mod.rs evm::Prepared (re-exported as EvmPrepared at :396-399) gains from: [u8; 20], disclosure: layerx_crypto::disclosure::Disclosure and disclosure_digest: [u8; 32]; finish_call (:336) receives request.from, binds the call with layerx_crypto::disclosure::call::bind_call(&call, from), stores the disclosure and its signing_digest(), and PrepareError gains Disclosure(layerx_crypto::disclosure::DisclosureError); prepare_activity (:303) and prepare_bound (:325) pass the sender. A new pub fn verify_call_binding(prepared: &evm::Prepared) -> Result<(), CallBindingError> in the evm module (CallBindingError is a new evm enum: Disclosure(DisclosureError), DigestMismatch, SigningHashMismatch) rebinds bind_call(&prepared.call, prepared.from), compares the digest with prepared.disclosure_digest and prepared.call.signing_hash() with prepared.signing_hash, and is re-exported beside EvmPrepared."
+symbols = ["EvmPrepared", "verify_call_binding", "SigningPreparation", "inconsistent_prepared_call_and_disclosure_are_refused"]
+
+[capability.9.35.16]
+title = "Make bind_call construct every precompile call the agent daemon's EVM preparation offers"
+reqs = ["22055.1"]
+touches = ["services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs"]
+tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::daemon_precompile_constructors_bind"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call"
+do_1 = "services/agent/crates/layerx-crypto/src/disclosure/call.rs:720 bind_call(call, from) decodes a type-2 call into a Disclosure through ConstructMethod (:8); the agent daemon prepares calls through the PrecompileCall constructors of services/agent/crates/layerx-agentd/src/prepare/mod.rs (evm module, :56-125, ledger_transfer at :58 and the other constructors there) and through the Programs calls ops/program.rs:1802 builds. Every one of those call shapes (target address 0x..101a to 0x..101d with its selector and ABI argument order) must bind: a constructor bind_call does not construct gains its ConstructMethod arm, its field mapping into Disclosure (activity type, counterparties, amounts, asset, fee limit, expiry, idempotency key, native_operation for program calls) and its re-encoding in reencode and validate_canonical."
+symbols = ["ConstructMethod", "daemon_precompile_constructors_bind"]
 
 [capability.9.35.15]
 title = "Port the human intents proof test from the activity send envelope to the ledger payment call and bind_call"
@@ -106786,7 +106922,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.38.1]
 title = "Delete the guarantor, settlement and availability-root headers and trim lxp_tools.h"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 45
 requires = ["1.0.3", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.3", "1.29.4", "1.29.5", "1.30.1", "1.31.1", "1.31.2", "1.31.3", "1.31.4", "1.31.5", "1.31.6", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "5.97.1", "8.51.1", "9.97.5", "6.97.2", "16.36.1", "6.96.5"]
@@ -116547,7 +116683,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1505.1]
 title = "Issue #1505: Preserve the submitted chain-launch identity and allow confirmation recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -120004,7 +120140,7 @@ do_1 = "Regeneration at 2ddf941d9 removed the nested AgentModels.VerificationSta
 do_2 = "sdk/platform/generators/tests/drift.rs gains a case asserting the JVM output declares every nested type a generated record component references, so a future removal fails the generator tests before a Java compile would."
 do_3 = "The verify runs the generator check, its tests and the JVM compile."
 symbols = ["VerificationStatus", "AgentHttpSuccess"]
-touches = ["sdk/platform/generators/src/main.rs", "sdk/platform/generators/tests/drift.rs", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java", "sdk/platform/pipeline.kvx"]
+touches = ["sdk/platform/generators/src/main.rs", "sdk/platform/generators/tests/drift.rs", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java", "sdk/platform/pipeline.kvx", "services/agent/schema/agent-api"]
 tests = ["sdk/platform/generators/tests/drift.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml && make platform-sdk-generate"
@@ -120022,6 +120158,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 18.1503.1.1: sdk/platform/pipeline.kvx (now in touches) declares services/agent/sdk/typescript/test/proof_exchange.test.ts under [handwritten.agent-compatibility] in the shape of the existing [handwritten.<target>] sections (one quoted path key relative to that output's root with the value handwritten, as [handwritten.agent-api-rust] at pipeline.kvx:38 does), so platform-sdkgen classifies every file of the generated markdown root; every kvx value the candidate writes is a quoted string in the form the generator's parser accepts (the Either ... value of the first revision is quoted or expressed as the documented enum keys); the commit message names 43e826f4e as the change that left the file undeclared; continue from attempt 3."
 do_5 = "Attempt 4 (base 9b73cf9ce): the drift failure outside this task is gone since task 22.9.24 restored faucet.claim; the write-lock error (drift.rs:293, line 7 is not a key/value declaration) comes from the agent-compatibility entry of pipeline.kvx, which is written as a key/value line under its own section exactly in the shape of pipeline.kvx:38-44; continue from attempt 4 rebased on main."
+do_6 = "Finding at the fifth attempt: tests/drift.rs:739 rust_operation_catalogue_matches_the_repository_schema compares the transport.agent_http.operation.<name> sections with the operation.<name> sections of services/agent/schema/agent-api; five transport operations have no [operation.<name>] declaration (budget.state, faucet.claim, mcp.invoke, policy.dry_run, tenant.readiness) and faucet.claim has two transport sections. Each operation whose route has a handler in the agent daemon's RPC adapters gets its [operation.<name>] declaration in the schema file that holds its neighbours (read.kvx, write.kvx, approval.kvx, programs.kvx, identity.kvx or stream.kvx, with the golden copy regenerated the way that directory's other files are), the duplicate faucet.claim transport section is reduced to one, and a transport section whose operation has no handler is removed; services/agent/schema/agent-api is in touches for this. The drift test is the oracle and its assertion does not change."
 
 [task.18.1500.1]
 title = "Issue #1500: Give the real-node prerequisite script a POSIX function name and a syntax check"
@@ -127126,6 +127263,311 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.10.1.11]
+title = "Remove the ambient randomness, clock and environment writes from the KMS proofs and the evidence node fixture"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = []
+reqs = ["22064.1"]
+capabilities = ["10.1.11"]
+interfaces = []
+do_1 = "The boundary check (services/human/tools/boundary-check/src/lib.rs:163, the ambient-nondeterminism rule) fails the merged human tree on three files that task 10.1.4 may not edit: services/human/crates/layerx-human-test-support/src/evidence_node.rs (Instant::now at :317 and :323 for a five-second wait), services/human/crates/layerx-human-kms/tests/proof_human_kms.rs (getrandom::fill at :94, Instant::now at :333, std::env::set_var at :419) and services/human/crates/layerx-human-kms/tests/proof_human_kms_wire.rs (getrandom::fill at :86, :94 and :112, Instant::now at :347). Each hit is replaced with a fixture source: nonces and keys come from fixed byte constants or a counter derived from the test name, elapsed-time checks use the fixture clock the KMS already accepts (the clock port task 10.1.10 introduced), the wait loop in the evidence node takes a bounded attempt count instead of a wall-clock deadline, and the environment write becomes an explicit configuration argument to the code under test."
+do_2 = "The rule's full pattern set in lib.rs:163 and its neighbours is the oracle: after this task a run of the rule over the three files reports nothing, which the verify asserts with the same patterns, and the two KMS proof targets pass. Task 10.1.4 requires this task; its boundary-check gate is rerun once this task publishes."
+symbols = ["proof_human_kms", "proof_human_kms_wire"]
+touches = ["services/human/crates/layerx-human-test-support/src/evidence_node.rs", "services/human/crates/layerx-human-kms/tests/proof_human_kms.rs", "services/human/crates/layerx-human-kms/tests/proof_human_kms_wire.rs"]
+tests = ["services/human/crates/layerx-human-kms/tests/proof_human_kms.rs", "services/human/crates/layerx-human-kms/tests/proof_human_kms_wire.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/crates/layerx-human-kms/Cargo.toml --tests && cargo build --locked --manifest-path services/human/crates/layerx-human-test-support/Cargo.toml"
+verify_cmd = "! grep -nE 'Instant::now|SystemTime::now|getrandom::|thread_rng|OsRng|std::env::set_var|env::set_var' services/human/crates/layerx-human-test-support/src/evidence_node.rs services/human/crates/layerx-human-kms/tests/proof_human_kms.rs services/human/crates/layerx-human-kms/tests/proof_human_kms_wire.rs && cargo test --locked --manifest-path services/human/crates/layerx-human-kms/Cargo.toml --test proof_human_kms --test proof_human_kms_wire"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit; the three files read the ambient clock and randomness again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.35.24]
+title = "Delete the agent daemon's legacy activity preparation module and the kernel signing helpers"
+status = "pending"
+mode = "BUILD"
+wave = 8
+requires = ["9.35.22", "9.35.23"]
+reqs = ["22063.1"]
+capabilities = ["9.35.24"]
+interfaces = []
+do_1 = "services/agent/crates/layerx-agentd/src/prepare/mod.rs: pub mod legacy (:403-903), the pub(crate) use and pub use legacy::* lines (:905-906), services/agent/crates/layerx-agentd/src/prepare/disclose.rs and services/agent/crates/layerx-agentd/src/prepare/restore_tests.rs are deleted; services/agent/crates/layerx-agentd/src/prepare/expiry.rs is declared as pub mod lifecycle directly under prepare with its items (DurablePreparation, PreparationLifecycle, LifecycleState, LifecycleError, PayloadRedaction, PreparationExtension, the reports and the EXTENSION_* constants) re-exported at the prepare root under their current names, and its register_inner reads the EvmPrepared; DisclosureDigest, DisclosureBindingError and the legacy Prepared, PrepareRequest, PreparationDefaults, CorePreparationState, CorePreparationBoundary, ProductionCorePreparationBoundary, restore_canonical, disclose, verify_disclosure_binding, expire, retention_sweep, prepare_activity_for_protocol and prepare_budget_mutation_for_protocol are gone, and the evm module's items are the prepare root's items."
+do_2 = "services/agent/crates/layerx-agentd/src/sign.rs: attach_kernel_signature, verify_kernel_before_submit, the layerx_wire activity imports and the SigningError variants only they produced (Wire, SignatureEncoding and Disclosure where no caller remains) are deleted; services/agent/crates/layerx-agentd/src/capability/effects.rs cfg(test) signed_native_send (:730-770) and the hand-encoded envelope at :1230-1247 build the call with crate::prepare::evm::PrecompileCall::ledger_transfer and prepare_bound and bind it with bind_call; services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs (:40, :155, :192) uses prepare_bound and the EvmPrepared; any remaining crate::prepare::legacy path, in services/agent/crates/layerx-agentd/src/events/ingest.rs or elsewhere, is retargeted to the item's new home."
+do_3 = "After this task a search of the crate and services/agent/tests/limits for prepare::legacy, mod legacy, restore_canonical, prepare_activity_for_protocol, attach_kernel_signature, verify_kernel_before_submit, encode_send_envelope, EnvelopeOptions, sign_disclosed, the canonical-bytes binder and bind_budget_mutation finds nothing; the verify asserts it, builds every test target and runs the lib, prepare, prepare_expiry, proof_agentd and disclosure targets. Task 9.35.7 (layerx-crypto item deletion) and 9.29.1 (layerx-wire activity codec deletion) require this task."
+symbols = ["lifecycle", "EvmPrepared"]
+touches = ["services/agent/crates/layerx-agentd/src/prepare/mod.rs", "services/agent/crates/layerx-agentd/src/prepare/disclose.rs", "services/agent/crates/layerx-agentd/src/prepare/restore_tests.rs", "services/agent/crates/layerx-agentd/src/prepare/expiry.rs", "services/agent/crates/layerx-agentd/src/sign.rs", "services/agent/crates/layerx-agentd/src/capability/effects.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/prepare.rs", "services/agent/crates/layerx-agentd/tests/prepare_expiry.rs", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "! grep -rnE 'prepare::legacy|mod legacy|restore_canonical|prepare_activity_for_protocol|attach_kernel_signature|verify_kernel_before_submit|encode_send_envelope|EnvelopeOptions|\bsign_disclosed\b|disclosure::bind\b|disclosure::\{[^}]*\bbind\b|bind_budget_mutation' services/agent/crates/layerx-agentd services/agent/tests/limits && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test prepare --test prepare_expiry --test proof_agentd --test disclosure"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; the legacy module and the kernel signing helpers return."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.35.23]
+title = "Bind the served call in the sdk and mcp native-disclosure checks"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["9.35.20"]
+reqs = ["22062.1"]
+capabilities = ["9.35.23"]
+interfaces = []
+do_1 = "services/agent/crates/layerx-sdk/src/agent_envelope.rs disclose_native_preparation (:568-600) decodes request.canonical_bytes with layerx_crypto::evm_transaction::decode_unsigned and binds with layerx_crypto::disclosure::call::bind_call(&call, actor_address), where the actor address is the sdk signer's EVM address (the sdk is the sender of every call it has prepared), in place of the canonical-bytes binder at :579; every NativeDisclosureResultV1 field comparison stays and the digest compared is the disclosure's signing digest. services/agent/crates/layerx-sdk/src/native_effect.rs:665 keeps sending the native_disclosure_v1 request with the unsigned call bytes."
+do_2 = "services/agent/crates/layerx-mcp/src/tools/write.rs execute_native_alias (:439) and the prepared-bytes check at :507 decode and bind the call with the mcp binding's actor address the same way, then verify_native_intent as today; services/agent/crates/layerx-mcp/src/binding.rs:467 keeps building the native_disclosure_v1 request. The sdk and mcp unit tests that build a canonical envelope for these checks build a fixed unsigned Ledger precompile call (the transfer selector the daemon's PrecompileCall::ledger_transfer uses, encoded with Eip1559Call::encode_unsigned) instead."
+do_3 = "After this task neither crate names the canonical-bytes binder or bind_budget_mutation; the verify asserts it and runs the sdk and mcp lib tests."
+symbols = ["disclose_native_preparation", "execute_native_alias"]
+touches = ["services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-mcp/src/tools/write.rs"]
+tests = ["services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-mcp/src/tools/write.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk -p layerx-mcp --tests"
+verify_cmd = "! grep -rnE 'disclosure::bind\b|disclosure::\{[^}]*\bbind\b|bind_budget_mutation' services/agent/crates/layerx-sdk/src services/agent/crates/layerx-mcp/src && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk -p layerx-mcp --lib"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; the sdk and mcp bind canonical envelope bytes again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.35.22]
+title = "Build the agent daemon test authorizations from the ledger payment call instead of the activity envelope"
+status = "pending"
+mode = "BUILD"
+wave = 7
+requires = ["9.35.21"]
+reqs = ["22061.1"]
+capabilities = ["9.35.22"]
+interfaces = []
+do_1 = "services/agent/crates/layerx-agentd/tests/support/mod.rs verified_submission (:164-215) and budget_create_submission (:280-335) prepare the call with prepare::evm::prepare_bound over PrecompileCall::ledger_transfer(payload) (the budget create payload goes through the Ledger constructor it belongs to), sign the signing hash with the k256 key of the fixed 32-byte test key, attach it with sign::attach_external_signature and verify with sign::verify_before_submit; the imports at :24 and :33 (sign_disclosed, attach_kernel_signature, verify_kernel_before_submit, CorePreparationState, prepare_activity, prepare_activity_for_protocol) go; signed_transaction (:150) stays."
+do_2 = "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs: owner_bound (:117) prepares the call and signed_by (:152) signs it with the given key; a_foreign_key_signature_over_the_owner_preimage_is_refused (:165) asserts SignerMismatch from verify_before_submit for another key and the_bound_owner_key_still_verifies (:182) asserts the owner key verifies. services/agent/crates/layerx-agentd/tests/proof_agentd.rs producer (:100-143) builds the call with PrecompileCall::ledger_transfer(payload) and prepare_bound, binds it with bind_call and drops encode_send_envelope, EnvelopeOptions and restore_canonical (:40, :119, :134); its three tests at :180, :432 and :480 cross the Human API with the signed type-2 bytes and recover the transaction hash and exact request bytes."
+do_3 = "services/agent/crates/layerx-agentd/tests/disclosure.rs prepared() (:94) returns an EvmPrepared from prepare_bound and its two tests assert the disclosure decoded from the call bytes and that a call mutated after preparation is refused by verify_call_binding; services/agent/crates/layerx-agentd/tests/prepare_expiry.rs prepared() (:97), services/agent/crates/layerx-agentd/tests/w7_core_time.rs prepared() (:108) and services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs prepare (:198) and send_prepared (:331) use prepare_bound with a fixed EvmPreparationState in place of prepare_activity and the fake core boundary; services/agent/crates/layerx-agentd/tests/human_node_preparation.rs drops its prepare::legacy path; services/agent/tests/limits/exactly_once.rs send_payload (:980-1070) builds the call with PrecompileCall::ledger_transfer and prepare_bound, drops encode_send_envelope and EnvelopeOptions (:41, :1007) and takes the module registry from a local registry() helper as the other tests do."
+do_4 = "After this task a search of services/agent/crates/layerx-agentd/tests and services/agent/tests/limits for encode_send_envelope, EnvelopeOptions, sign_disclosed, restore_canonical, prepare_activity_for_protocol, attach_kernel_signature and verify_kernel_before_submit finds nothing; the verify asserts it and runs the w7_owner_binding, proof_agentd, disclosure, prepare_expiry, w7_core_time, budget_durable_limits, human_node_preparation, outbox and limits-exactly-once targets."
+symbols = ["verified_submission", "budget_create_submission", "a_foreign_key_signature_over_the_owner_preimage_is_refused"]
+touches = ["services/agent/crates/layerx-agentd/tests/support/mod.rs", "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs", "services/agent/crates/layerx-agentd/tests/disclosure.rs", "services/agent/crates/layerx-agentd/tests/prepare_expiry.rs", "services/agent/crates/layerx-agentd/tests/w7_core_time.rs", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs", "services/agent/crates/layerx-agentd/tests/human_node_preparation.rs", "services/agent/tests/limits/exactly_once.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs", "services/agent/crates/layerx-agentd/tests/disclosure.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "! grep -rnE 'encode_send_envelope|EnvelopeOptions|\bsign_disclosed\b|restore_canonical|prepare_activity_for_protocol|attach_kernel_signature|verify_kernel_before_submit' services/agent/crates/layerx-agentd/tests services/agent/tests/limits && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test w7_owner_binding --test proof_agentd --test disclosure --test prepare_expiry --test w7_core_time --test budget_durable_limits --test human_node_preparation --test outbox --test limits-exactly-once"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; the tests encode activity envelopes again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.35.21]
+title = "Attach external secp256k1 signatures to the prepared call in every Human API submit variant and verify before submission"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["9.35.20"]
+reqs = ["22060.1"]
+capabilities = ["9.35.21"]
+interfaces = []
+do_1 = "In services/agent/crates/layerx-agentd/src/human_runtime.rs rpc_submit_native_external (:7811-7900), rpc_submit_native_effect_external (:7995-8110), rpc_submit_native_send_external (:8207-8320), rpc_submit_external (:8461-8690) and the two approval release paths at :12302-12305 and :12392-12400 replace attach_kernel_signature plus verify_kernel_before_submit with crate::sign::attach_external_signature(&SigningPreparation, signature) and crate::sign::verify_before_submit, where the SigningPreparation is the retained EvmPrepared and the actor address; the native program release paths at :3632-3680 and :3736-3785 do the same over the carrier's restored EvmPrepared, reading the owner key as a 20-byte sender; the activity type reads at :7889, :8099 and :8311 come from the disclosure."
+do_2 = "The signature is the 65-byte secp256k1 signature of the call's signing hash; a signature by another key is refused as SignerMismatch and a signature over changed bytes as PreparedBytesChanged, both before any outbox write; the verified bytes are the assembled signed type-2 transaction and go through the raw submission path rpc_submit_raw uses (:8418), so services/agent/crates/layerx-agentd/src/outbox/mod.rs records the transaction hash (layerx_crypto::evm_transaction::transaction_hash) as the activity id."
+do_3 = "The verify runs the outbox, outbox_recover, outbox_tx_hash, unknown, recovery and write_path_evm targets; the test support helpers they call are ported by task 9.35.22, which this task does not wait for because the legacy helpers still compile."
+symbols = ["rpc_submit_native_external", "rpc_submit_native_effect_external", "rpc_submit_native_send_external", "rpc_submit_external"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/outbox/mod.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/outbox.rs", "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test outbox --test outbox_recover --test outbox_tx_hash --test unknown --test recovery --test write_path_evm"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; the submit variants attach kernel signatures again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.35.20]
+title = "Serve the Human API prepare, native, native-effect, native-send and native-disclosure variants as EIP-1559 preparations"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["9.35.18", "9.35.19"]
+reqs = ["22059.1"]
+capabilities = ["9.35.20"]
+interfaces = []
+do_1 = "In services/agent/crates/layerx-agentd/src/human_runtime.rs the prepared cache (the prepared map read at :7237-7251 and the transaction field at :2390) holds the EvmPrepared and its registry only; rpc_prepare (:7461), rpc_prepare_native (:5531), rpc_prepare_native_effect (:6429) and rpc_prepare_native_send (:6887) prepare the type-2 call through prepare::evm::prepare_activity against the node (ProductionEvmPreparationBoundary) and derive every answer field they read from the envelope today (actor at :5607, :6516, :6964, :7508; protocol version and not_after at :5709, :5830-5856, :6568, :6774-6807, :7016, :7217-7250; payload hash) from the call and its bound disclosure under the mapping of task 9.35.19; the legacy prepare_activity_for_protocol path and the prepare::legacy import at :51 are no longer called from these functions."
+do_2 = "rpc_native_disclosure (:527-592) and the retained-record readers restore_native_cache (:7723) and restore_native_effect_cache (:7767) restore the EvmPrepared from the durable record (extension 6/7/9 bytes are the unsigned call and the carrier) and fill every NativeDisclosureResultV1 field from the call-bound disclosure; rpc_sign (:594-660) signs the retained call; the native-send preview authorization at :5958-6120 and :6216-6390 (native_send_preview_authorization and its verify_disclosure_binding calls at :6036 and :6302, the not_after reads at :6040 and :6308, the derive_native_effects inputs at :6088 and :6356) is the EvmPrepared's disclosure."
+do_3 = "The canonical-intent binder at :16699 (layerx_crypto::disclosure::bind over an IntentCarrier's activity bytes feeding legacy_policy_purpose :18451 and legacy_policy_effects :18481) is removed with the legacy policy dry-run shape: policy_dry_run_legacy (human_runtime.rs :3504, :11208 and :16598, and the human.rs:1430 trait method), the two legacy_policy_* helpers and the PolicyDryRunShape::Legacy arms (agent_rpc_adapters.rs:1998-2003 answers malformed; human_runtime.rs:5157) go, and agent_rpc_wire.rs drops the legacy policy payload decoder (:1512-1612) so that a request in that shape is refused as malformed by the wire decoder; the unused correlation binding at :20813 goes."
+do_4 = "The retained durable record keeps its extension numbering (6 budget, 7 carrier digest, 8, 9 carrier, 10, 11 variant marker) so that readers at :548-551, :3603-3613, :8490-8532 and :20739 keep working; a record whose extension 9 carrier is of the previous version is refused and prepared again. The verify runs the prepare_eip1559, native_routes_rpc, native_send_preview_evm, write_path_evm and rpc_surface_major_two targets."
+symbols = ["rpc_prepare_native", "rpc_prepare_native_effect", "rpc_prepare_native_send", "rpc_native_disclosure"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/prepare_eip1559.rs", "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test prepare_eip1559 --test native_routes_rpc --test native_send_preview_evm --test write_path_evm --test rpc_surface_major_two"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; the prepare variants answer envelope preparations again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.35.19]
+title = "Read the call-bound preparation in the native-effect carrier and the program settlement, requirement, presentation and policy families"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["9.35.17"]
+reqs = ["22058.1"]
+capabilities = ["9.35.19"]
+interfaces = []
+do_1 = "services/agent/crates/layerx-agentd/src/approval/native_effect.rs NativeEffectApprovalCarrier keeps canonical_bytes as the call's encode_unsigned() output, gains sender: [u8; 20] and drops the authority and envelope_not_after fields in favour of the disclosure's expiry; bind (:193-240) takes &EvmPrepared, verifies it with verify_call_binding, drops the protocol-version-3 check and reads the module from the disclosure's activity type, the reservation deadline from disclosure.expiry.not_after and the head from observed_head_height; disclosure() (:307-335) decodes the call and binds with bind_call(&call, self.sender), keeping the budget context comparison on the disclosure's budget fields; restore_prepared (:1093-1140) decodes the call with decode_unsigned, rebuilds the EvmPrepared through bind_call and the stored head height and no longer uses the envelope builder; a carrier of the previous version is refused as Corrupt and the preparation is prepared again, nothing is migrated."
+do_2 = "The program families read the same facts from the EvmPrepared: services/agent/crates/layerx-agentd/src/approval/native_program.rs (restore_prepared :340, the prepared readers :90 and :263), program_requirement.rs (binding :107, :144, :359-423), native_program_presentation.rs (:92, :201), services/agent/crates/layerx-agentd/src/policy/native_program.rs (from_prepared :182, :642), services/agent/crates/layerx-agentd/src/budget/program_settlement.rs (:402-746), program_lifecycle_settlement.rs (:24-31, :176-183), program_sources.rs (matches_prepared :141, :342, :481, validate_prepared :684) and services/agent/crates/layerx-agentd/src/capability/binding.rs (the thirty-three envelope reads). The mapping is fixed: actor is disclosure.actor, activity type disclosure.activity_type, authority disclosure.authority, idempotency key disclosure.idempotency_key, not_after disclosure.expiry.not_after, nonce call.nonce, chain id call.chain_id, fee bound call.max_fee_per_gas times call.gas_limit, payload hash the keccak of call.data, canonical bytes call.encode_unsigned(); verify_disclosure_binding calls become verify_call_binding."
+do_3 = "The prepare lifecycle (services/agent/crates/layerx-agentd/src/prepare/expiry.rs register_inner :99-127 reading not_after and payload_hash) and services/agent/crates/layerx-agentd/src/session_control.rs (two envelope reads) read the same mapping, so PreparationLifecycle::register takes &EvmPrepared from this task on; the callers in services/agent/crates/layerx-agentd/src/human_runtime.rs that pass a legacy record to register, register_authorized or the carrier bind pass the EvmPrepared they hold beside it (task 9.35.20 removes the legacy record itself)."
+do_4 = "The verify runs the crate's lib tests and the native_send_preview_evm, program_ops_layerxprograms, fee_projection_program_state and approval_ops targets."
+symbols = ["NativeEffectApprovalCarrier", "verify_call_binding"]
+touches = ["services/agent/crates/layerx-agentd/src/approval/native_effect.rs", "services/agent/crates/layerx-agentd/src/approval/native_program.rs", "services/agent/crates/layerx-agentd/src/approval/program_requirement.rs", "services/agent/crates/layerx-agentd/src/approval/native_program_presentation.rs", "services/agent/crates/layerx-agentd/src/policy/native_program.rs", "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs", "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs", "services/agent/crates/layerx-agentd/src/prepare/expiry.rs", "services/agent/crates/layerx-agentd/src/session_control.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/program_ops_layerxprograms.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; the carrier and the program families read the envelope again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.35.18]
+title = "Hold approvals over the unsigned EIP-1559 call and replay them through bind_call"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["9.35.17"]
+reqs = ["22057.1"]
+capabilities = ["9.35.18"]
+interfaces = []
+do_1 = "services/agent/crates/layerx-agentd/src/policy/approval.rs holds layerx_agent_api::prepare::Prepared records whose unsigned_canonical_bytes are activity envelope bytes and whose signing_preimage is the kernel preimage; from this task the bytes are the call's encode_unsigned() output and the preimage the call's signing_hash(). HeldApproval gains sender: [u8; 20]; encode_hold (:1228) writes it and the decoder at :1363 reads it under a bumped record version, refusing the previous version as CorruptRecord; replay_released (:245-247) and validate_registry (:296-298) decode the bytes with layerx_crypto::evm_transaction::decode_unsigned and bind with layerx_crypto::disclosure::call::bind_call(&call, held.sender) in place of the canonical-bytes binder; canonical_digest over the bytes (:401, :790, :984, :1159) is unchanged."
+do_2 = "services/agent/crates/layerx-agentd/src/approval/mod.rs: the record at :1721 and the lookups at :1838-1848 compare the call bytes; the reference digest (:1881) hashes the same bytes; the five cfg(test) prepared() fixtures (:79, :504, :802, :1105, :1475) build a fixed Eip1559Call, encode it unsigned and use its signing hash. The hold constructors hold (:592), hold_reserved (:614), stage_hold_reserved_at (:665) and hold_reserved_at (:690) take the sender from the ApprovalContext's actor address, which the callers in services/agent/crates/layerx-agentd/src/human_runtime.rs already know as the preparation's from."
+do_3 = "The tests services/agent/crates/layerx-agentd/tests/approval.rs, approval_ops.rs, approval_semantics.rs, approval_events.rs and approval_ordering/mod.rs build their Prepared fixtures from a fixed call (the single signing_preimage line each one carries today becomes the call's signing hash) and gain, in approval.rs, replay_refuses_a_hold_whose_call_bytes_or_sender_changed: a persisted hold with one call byte flipped and one with another sender is refused by validate_registry."
+do_4 = "The verify runs the crate's lib tests and the five approval targets."
+symbols = ["HeldApproval", "replay_refuses_a_hold_whose_call_bytes_or_sender_changed"]
+touches = ["services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/src/approval/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/approval.rs", "services/agent/crates/layerx-agentd/tests/approval_ops.rs", "services/agent/crates/layerx-agentd/tests/approval_semantics.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/approval.rs::replay_refuses_a_hold_whose_call_bytes_or_sender_changed"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test approval --test approval_ops --test approval_semantics --test approval_events"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; holds carry envelope bytes again and the previous record version decodes."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.35.17]
+title = "Carry the call-bound disclosure on the EIP-1559 preparation and drop the legacy authorization from the signing preparation"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["9.35.16"]
+reqs = ["22056.1", "22056.2"]
+capabilities = ["9.35.17"]
+interfaces = []
+do_1 = "services/agent/crates/layerx-agentd/src/prepare/mod.rs evm::Prepared (re-exported as EvmPrepared at :396-399) gains from: [u8; 20], disclosure: layerx_crypto::disclosure::Disclosure and disclosure_digest: [u8; 32]; finish_call (:336) receives request.from, binds the call with layerx_crypto::disclosure::call::bind_call(&call, from), stores the disclosure and its signing_digest(), and PrepareError gains Disclosure(layerx_crypto::disclosure::DisclosureError); prepare_activity (:303) and prepare_bound (:325) pass the sender. A new pub fn verify_call_binding(prepared: &evm::Prepared) -> Result<(), CallBindingError> in the evm module (CallBindingError is a new evm enum: Disclosure(DisclosureError), DigestMismatch, SigningHashMismatch) rebinds bind_call(&prepared.call, prepared.from), compares the digest with prepared.disclosure_digest and prepared.call.signing_hash() with prepared.signing_hash, and is re-exported beside EvmPrepared."
+do_2 = "services/agent/crates/layerx-agentd/src/sign.rs SigningPreparation (:60-66) loses authorization: Prepared and keeps transaction: EvmPrepared and actor_address; services/agent/crates/layerx-agentd/src/sign_verify.rs verify_exact (:68-95) calls verify_call_binding(&prepared.transaction) in place of verify_disclosure_binding(&prepared.authorization), refuses actor_address != transaction.from as SignerMismatch, and fills audit.idempotency_key from prepared.transaction.disclosure.idempotency_key; attach_signature (:52) is unchanged. attach_kernel_signature and verify_kernel_before_submit stay in sign.rs until task 9.35.24 deletes them."
+do_3 = "In services/agent/crates/layerx-agentd/src/human_runtime.rs the two builders at :21072-21160 that turn a legacy preparation into a SigningPreparation keep deriving the sender, the precompile call and the fee bounds from the envelope fields they read today but no longer store the legacy record in the result (:21153-21157), and the construction at :19766-19773 drops its authorization field; services/agent/crates/layerx-agentd/src/ops/program.rs:2484-2490 and services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs:113-145 drop the restore_canonical call and the authorization field and keep the transaction."
+do_4 = "The six test files that build a SigningPreparation drop their authorization: services/agent/crates/layerx-agentd/tests/evm_signing.rs prepared() (:145-190) and services/agent/crates/layerx-agentd/tests/signing.rs prepared() (:131-176) and services/agent/crates/layerx-agentd/tests/signature_binding.rs prepared() (:106-151) and services/agent/crates/layerx-agentd/tests/human_node_budgets.rs prepared() (:364-413) remove the restore_canonical call, its Authority argument and the restore_canonical import; signing.rs asserts at :187-192 and :257-261 compare prepared.transaction.call.encode_unsigned() and prepared.transaction.disclosure_digest instead of the legacy canonical bytes and digest; signature_binding.rs:176 reads prepared.transaction.disclosure.idempotency_key; services/agent/crates/layerx-agentd/tests/proof_agentd.rs signing_preparation (:145-178) takes the payload only and the test inconsistent_prepared_envelope_preimage_and_audit_are_refused (:372) becomes inconsistent_prepared_call_and_disclosure_are_refused, asserting that a SigningPreparation whose transaction.disclosure_digest is altered is refused by verify_before_submit with SigningError::Disclosure and one whose call data changed after preparation with SigningError::PreparedBytesChanged; services/agent/tests/limits/exactly_once.rs send_payload (:980-1070) drops the authorization field and the restore step at :1025-1034 while its envelope step stays until task 9.35.22 ports it."
+do_5 = "The verify builds the crate's test targets and runs prepare, evm_signing, signing, signature_binding, human_node_budgets, proof_agentd and the limits-exactly-once target; the prepare target's canonical_bytes_and_preimage_come_only_from_layerx_wire (services/agent/crates/layerx-agentd/tests/prepare.rs:98) also asserts that prepared.disclosure.idempotency_key equals the request's idempotency key and that verify_call_binding accepts the preparation."
+symbols = ["EvmPrepared", "verify_call_binding", "SigningPreparation", "inconsistent_prepared_call_and_disclosure_are_refused"]
+touches = ["services/agent/crates/layerx-agentd/src/prepare/mod.rs", "services/agent/crates/layerx-agentd/src/sign.rs", "services/agent/crates/layerx-agentd/src/sign_verify.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs", "services/agent/crates/layerx-agentd/tests/evm_signing.rs", "services/agent/crates/layerx-agentd/tests/signing.rs", "services/agent/crates/layerx-agentd/tests/signature_binding.rs", "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs", "services/agent/crates/layerx-agentd/tests/prepare.rs", "services/agent/tests/limits/exactly_once.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/proof_agentd.rs::inconsistent_prepared_call_and_disclosure_are_refused", "services/agent/crates/layerx-agentd/tests/prepare.rs::canonical_bytes_and_preimage_come_only_from_layerx_wire", "services/agent/crates/layerx-agentd/tests/signing.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test prepare --test evm_signing --test signing --test signature_binding --test human_node_budgets --test proof_agentd --test limits-exactly-once"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; the signing preparation carries the legacy authorization again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.35.16]
+title = "Make bind_call construct every precompile call the agent daemon's EVM preparation offers"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = []
+reqs = ["22055.1"]
+capabilities = ["9.35.16"]
+interfaces = []
+do_1 = "services/agent/crates/layerx-crypto/src/disclosure/call.rs:720 bind_call(call, from) decodes a type-2 call into a Disclosure through ConstructMethod (:8); the agent daemon prepares calls through the PrecompileCall constructors of services/agent/crates/layerx-agentd/src/prepare/mod.rs (evm module, :56-125, ledger_transfer at :58 and the other constructors there) and through the Programs calls ops/program.rs:1802 builds. Every one of those call shapes (target address 0x..101a to 0x..101d with its selector and ABI argument order) must bind: a constructor bind_call does not construct gains its ConstructMethod arm, its field mapping into Disclosure (activity type, counterparties, amounts, asset, fee limit, expiry, idempotency key, native_operation for program calls) and its re-encoding in reencode and validate_canonical."
+do_2 = "The ConstructMethod doc comment at :8 lists, per variant, the daemon constructor it binds (file and function), so the next constructor added to the daemon is matched against this list; services/agent/crates/layerx-crypto/tests/disclosure_call.rs gains daemon_precompile_constructors_bind, which builds one call per constructor shape from fixed payload bytes, binds it, asserts the activity type and idempotency key, re-encodes and compares the bytes, and asserts that the same call with one data byte flipped and with the sender changed is refused or yields a different signing digest."
+do_3 = "Nothing in the agent daemon changes in this task; task 9.35.17 consumes the result. The verify runs the disclosure_call target."
+symbols = ["ConstructMethod", "daemon_precompile_constructors_bind"]
+touches = ["services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs"]
+tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::daemon_precompile_constructors_bind"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; bind_call constructs the previous method set."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.9.35.15]
 title = "Port the human intents proof test from the activity send envelope to the ledger payment call and bind_call"
 status = "pending"
@@ -127560,7 +128002,7 @@ do_7 = "Finding 22.9.24.2: after the schema and golden edits run the generator w
 
 [task.22.11.7]
 title = "Repair the bridge relayer and interop service suites: commitment refusal, solana fixtures, in-test operator inventory, signer binary and listener startup"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
@@ -131131,7 +131573,7 @@ title = "Remove the kernel activity codec items from layerx-crypto once the kern
 status = "pending"
 mode = "BUILD"
 wave = 40
-requires = ["9.35.1", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5", "22.9.24", "9.35.14", "9.35.15"]
+requires = ["9.35.1", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5", "22.9.24", "9.35.14", "9.35.15", "9.35.16", "9.35.17", "9.35.18", "9.35.19", "9.35.20", "9.35.21", "9.35.22", "9.35.23", "9.35.24"]
 reqs = ["9341.1"]
 capabilities = ["9.35.7"]
 interfaces = []
@@ -131163,6 +131605,7 @@ do_8 = "Decision 2261: part 1 of the kernel-path family (12.95.2, 9.27.10, 10.21
 do_9 = "Decision 2253 is satisfied: every family task in requires is done on main, so the task is pending again; the deletion census is a text search over services/ and tools/ including crates the build does not compile, and the commit message lists every file the search touched."
 do_10 = "Blocked until the decision 2261 part-2 port tasks are listed in requires: the crate census of 2026-11-02 still names layerx_crypto::disclosure in 267 places and layerx_crypto::send in 61 across the human service (37 files), the agent daemon (18), the human KMS (13), the intents crate (8), the hosted PaxAI service (6), the sdk (5), the mcp crate (4), the platform cli (2), the human test support (2), the client crate (2), the wallet attestor, the agent tests and the agent qualification; the repo-wide negative search of this task cannot pass before those ports, which the next batch lists per crate."
 do_11 = "Decision 2356 (2026-11-02): requires gains the per-crate port tasks 9.35.14 (the human custody signer's same-named method) and 9.35.15 (the intents proof test). The remaining consumers of the retired items are the agent daemon's kernel-activity path (prepare::legacy with restore_canonical and disclose, approval/native_effect.rs, policy/approval.rs, human_runtime.rs:16699, sign.rs attach_kernel_signature and verify_kernel_before_submit, the native_disclosure_v1 variant, tests/support/mod.rs and tests/w7_owner_binding.rs, tests/proof_agentd.rs, the exactly-once limits test), and the sdk and mcp native-disclosure binders that verify that variant; they are specced as their own wave-ordered tasks and added to requires when written, and this task stays blocked until then."
+do_12 = "Decision 2357 (2026-11-02): requires gains the agent daemon family 9.35.16 to 9.35.24 (the call binder coverage, the EvmPrepared disclosure, approval holds, native-effect and program families, the prepare and submit variants, the test port, the sdk and mcp checks and the legacy module deletion); with them every consumer named in do_11 is owned by a task in requires and this task is eligible once they publish."
 
 [task.9.35.8]
 title = "Drop the layerx-crypto owner rotation decode from the human-service production fixture"
@@ -133371,7 +133814,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.35]
 title = "Mount the sequencer and chain registry stores in the RPC test application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -133461,7 +133904,7 @@ do_4 = "Finding 18.1509.1.1: the two newHeads tests fail on main since commit 5f
 
 [task.18.1508.1]
 title = "Read observed pool fees with the accounting feeBPS key"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -135121,7 +135564,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.83.1]
 title = "Prove the tee attestor 0x0907 path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -135381,7 +135824,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.71.1]
 title = "Prove the oracle aggregator 0x0903 path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -168558,7 +169001,7 @@ title = "Retire the kernel activity envelope and signing preimage from layerx-wi
 status = "pending"
 mode = "BUILD"
 wave = 41
-requires = ["9.30.1", "9.27.3", "9.27.5", "9.27.6", "9.1.5", "9.2.1", "9.2.2", "9.2.3", "9.2.4", "9.4.1", "9.5.5", "9.5.6", "9.5.7", "9.9.2", "9.9.3", "9.10.1", "9.10.2", "9.18.1", "9.18.2", "9.25.1", "9.25.2", "9.35.1", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "12.18.2", "13.4.6", "13.6.5", "13.8.2", "13.30.2", "18.1304.1", "8.4.5", "9.25.16", "13.8.3", "9.35.7", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5", "22.9.24"]
+requires = ["9.30.1", "9.27.3", "9.27.5", "9.27.6", "9.1.5", "9.2.1", "9.2.2", "9.2.3", "9.2.4", "9.4.1", "9.5.5", "9.5.6", "9.5.7", "9.9.2", "9.9.3", "9.10.1", "9.10.2", "9.18.1", "9.18.2", "9.25.1", "9.25.2", "9.35.1", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "12.18.2", "13.4.6", "13.6.5", "13.8.2", "13.30.2", "18.1304.1", "8.4.5", "9.25.16", "13.8.3", "9.35.7", "12.95.2", "9.27.10", "10.21.9", "9.35.13", "8.47.12", "8.51.3", "9.24.9", "8.101.3", "8.101.4", "8.101.5", "22.9.24", "9.35.24"]
 reqs = ["9312.1", "9312.2", "9312.3"]
 capabilities = ["9.29.1"]
 interfaces = ["interface.9.rs-wire-activity-timestampbound", "interface.9.rs-wire-activity-activity", "interface.9.rs-wire-activity-decode-signed", "interface.9.rs-wire-activity-decode-unsigned", "interface.9.rs-wire-activity-encode-unsigned", "interface.9.rs-wire-activity-encode-unsigned-envelope", "interface.9.rs-wire-activity-encode-signed", "interface.9.rs-wire-activity-encode-signed-envelope", "interface.9.rs-wire-activity-signing-bytes", "interface.9.rs-wire-activity-signingbytes-j44", "interface.9.rs-wire-sign-signingpreimage-j44", "interface.9.rs-wire-hash-canonical-activity-j44", "interface.9.rs-wire-hash-canonical-payload-j44", "interface.9.rs-wire-hash-activity-id", "interface.9.rs-wire-hash-payload-hash", "interface.9.rs-wire-sign-preimage", "interface.9.rs-wire-sign-preimage-unsigned", "interface.9.rs-wire-activity-protocol-version-j70", "interface.9.rs-wire-activity-network-id-j70", "interface.9.rs-wire-activity-activity-type-j70", "interface.9.rs-wire-activity-actor-did-j70", "interface.9.rs-wire-activity-authority-j70", "interface.9.rs-wire-activity-account-sequence-j70", "interface.9.rs-wire-activity-timestamp-bound-j70", "interface.9.rs-wire-activity-idempotency-key-j70", "interface.9.rs-wire-activity-fee-limit-j70", "interface.9.rs-wire-activity-payload-j70", "interface.9.rs-wire-activity-payload-hash-j70", "interface.9.rs-wire-activity-signature-j70", "interface.9.rs-wire-signingpreimage-as-bytes-j70"]
@@ -168591,6 +169034,7 @@ do_7 = "Finding 9.28.1.3: services/platform/hosted/gateway/src/main.rs:36, :800,
 do_8 = "Decision 2253: blocked until the kernel-path migration family exists and is listed in requires; 66 files on main import layerx_wire::activity or layerx_wire::sign, and the verify then adds a repository-wide grep that none remains outside layerx-wire and the retired-name sweep tests."
 do_9 = "Decision 2261: part 1 of the kernel-path family (12.95.2, 9.27.10, 10.21.9, 9.35.13, 8.47.12, 8.51.3, 9.24.9, 8.101.3, 8.101.4, 8.101.5) is in requires; part 2 (layerx-agentd, the hosted authority registration binding and the human service native onboarding stages) is added before do_8 runs."
 do_10 = "Decision 2253: the task is pending again; it launches when 9.35.7 is done."
+do_11 = "Decision 2357 (2026-11-02): the agentd callers do_6 reports as unresolved (services/agent/crates/layerx-agentd/src/protocol_evidence.rs:22 and the prepare::legacy module) are removed by task 9.35.24, which this task now requires; after it publishes, do_6 reports nothing unresolved for the agent daemon."
 
 [task.9.30.1]
 title = "Drop the lni_frame fuzz target and fuzz the EIP-1559 transaction codec"
@@ -170515,7 +170959,7 @@ title = "Run the retired-surface gate from the boundary check binary"
 status = "pending"
 mode = "BUILD"
 wave = 34
-requires = ["10.1.2", "10.1.3", "10.10.1", "10.10.2", "10.16.2", "10.14.1", "18.1119.1", "9.25.16", "10.1.5", "10.1.6", "10.1.7", "10.1.8", "10.1.9", "10.1.10", "22.9.24"]
+requires = ["10.1.2", "10.1.3", "10.10.1", "10.10.2", "10.16.2", "10.14.1", "18.1119.1", "9.25.16", "10.1.5", "10.1.6", "10.1.7", "10.1.8", "10.1.9", "10.1.10", "22.9.24", "10.1.11"]
 reqs = ["10063.1"]
 capabilities = ["10.1.4"]
 interfaces = []
@@ -170540,6 +170984,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 10.1.4.1 and decision 2236: continue from attempt 1 (d3d6e63aa) rebased onto main once tasks 10.1.5 to 10.1.10 are on it, keeping the tree unchanged; the real-binary test then runs as written over the whole tree."
+do_5 = "Finding at the second attempt: the boundary-check binary test fails only on ambient-nondeterminism hits in services/human/crates/layerx-human-test-support/src/evidence_node.rs, services/human/crates/layerx-human-kms/tests/proof_human_kms.rs and proof_human_kms_wire.rs, none of which is in this task's touches; task 10.1.11 clears them and is now in requires, and this task is rerun from its second attempt once 10.1.11 publishes; the boundary check itself does not change for it."
 
 [task.10.2.1]
 title = "Record activity entries with rungs instead of kernel verification levels"
@@ -186175,7 +186620,7 @@ interfaces = []
 do_1 = "modules/layerxpay/module_test.go:76 and modules/layerxpay/keeper/proof_pay_genesis_test.go:110 (through :76) fail with 'layerxpay: missing EVM binding reader': give the module and keeper test fixtures the binding reader the app wires. modules/layerxpay/types/activity_test.go:116 expects LX_BUDGET_PULL 0x0003000b and the kernel no longer declares it: drop or retarget the mapping per include/layerx. precompiles/layerxpay/gas_bound_test.go:131 TestPayChargedGasCoversHostStoreWork/budget receives LXP_ERR_UNKNOWN_ACTIVITY: encode the budget activity the kernel admits at HEAD. precompiles/bank/resolution_reason_test.go:75 and precompiles/common/lxp_agent_pay_rows_test.go:22 expect pre-registry messages: assert the registered LXP_BANK_STATICCALL and agent reasons. engine/deps/xbank/keeper/keeper_test.go:156 TestSendCoinsAndWei reports a sender balance of 100 instead of 50: trace SendCoinsAndWei and repair the transfer or the expectation with the reason in the commit."
 do_2 = "The six packages vet and test clean."
 symbols = []
-touches = ["modules/layerxpay/module_test.go", "modules/layerxpay/keeper/proof_pay_genesis_test.go", "modules/layerxpay/types/activity_test.go", "precompiles/layerxpay/gas_bound_test.go", "precompiles/bank/resolution_reason_test.go", "precompiles/common/lxp_agent_pay_rows_test.go", "engine/deps/xbank/keeper", "modules/layerxpay/testutil", "modules/layerxpay/types/params_test.go", "modules/layerxpay/types/payload_budget_test.go", "precompiles/layerxpay/layerxpay_test.go", "precompiles/layerxpay/service_views_test.go", "precompiles/common/retire_test.go", "precompiles/common/lxp_site_rows_test.go", "spec/layerx-merge/contracts/address-table.md", "precompiles/layerxpay/gas.go", "precompiles/layerxpay/gas_test.go", "precompiles/common/lxp_errors_test.go"]
+touches = ["modules/layerxpay/module_test.go", "modules/layerxpay/keeper/proof_pay_genesis_test.go", "modules/layerxpay/types/activity_test.go", "precompiles/layerxpay/gas_bound_test.go", "precompiles/bank/resolution_reason_test.go", "precompiles/common/lxp_agent_pay_rows_test.go", "engine/deps/xbank/keeper", "modules/layerxpay/testutil", "modules/layerxpay/types/params_test.go", "modules/layerxpay/types/payload_budget_test.go", "precompiles/layerxpay/layerxpay_test.go", "precompiles/layerxpay/service_views_test.go", "precompiles/common/retire_test.go", "precompiles/common/lxp_site_rows_test.go", "spec/layerx-merge/contracts/address-table.md", "precompiles/layerxpay/gas.go", "precompiles/layerxpay/gas_test.go", "precompiles/common/lxp_errors_test.go", "precompiles/common"]
 tests = []
 planned_paths = []
 build_cmd = "CGO_ENABLED=1 go build ./modules/layerxpay/... ./precompiles/layerxpay/ ./precompiles/bank/ ./precompiles/common/ ./engine/deps/xbank/..."
@@ -186200,6 +186645,7 @@ do_8 = "Finding 22.2.6.2 and decision 2338: lxp_site_rows_test.go:18 (now in tou
 do_9 = "Finding 22.2.6.3: TestRetiredAtMergePlan prints keysAt(actHeight-1) in the failure message, reads node/upgrades.go:286 (RefreshPrecompiles) to classify whether the app registers layerxverify below the activation height, and asserts that: when the app registers it, the harness installs the precompile into the keeper before the height so below[verifyAddr] is true; when it does not, the assertion becomes require.Equal(before, keysAt(actHeight-1)) as main had it; the TestPrecompileServiceViews and TestPrecompileServiceViewsUngatedWhenPaused subtests are repaired by finishing do_6 (service views charge view gas, paused or not); continue from the third candidate."
 do_10 = "Finding 22.2.6.4: (a) spec/layerx-merge/contracts/address-table.md (now in touches) line 337 gives LXP_DA_MISSING the origin 'layerxpay service delivery (precompiles/common/lxp_errors.go:164); the kernel value LXP_ERR_DA_MISSING was retired from the Go registry by 6.97.3' so lxp_errors_test.go's kernel pattern no longer matches it and TestLXPDAMissingIsNotKernel and TestLXPRevertTable agree; (b) TestRetiredAtMergePlan computes expectedBelow as the key set before the plan minus every address of precompiles.MergeAddressTable (setup.go:66-80, thirteen entries), which replaces do_7's literal pair; (c) decision 2348: precompiles/layerxpay/gas.go (now in touches) gives every service view row, getDispute included (:75 is empty), a charge covering the store reads the view performs, and service_views_test.go calls each view with lp.RequiredGas(input) plus a stated allowance, asserts success, and asserts the gas used is at least the row charge and at most the row charge plus the allowance; the exact-zero-left assertion leaves. Continue from attempt 4."
 do_11 = "Finding 22.2.6.5: TestGasTable asserts for each service view the per-read gas the address table declares instead of a flat 1000; the header loop of lxp_errors_test.go:383-384 skips a header value whose code the table serves as a non-kernel row and asserts that the row names its origin (LXP_DA_MISSING, -804, origin layerxpay); continue from attempt 5."
+do_12 = "Finding at the sixth attempt: precompiles/layerxpay/gas_test.go:41-64 expects every read method, getOffer, getAgreement, getCommitment, getExecution, getDelivery, latestDelivery, getProgress, progressHighWater and getDispute included, at the 1000 flat read cost (the KV ReadCostFlat the same test pins), and precompiles/layerxpay/gas.go gives those nine service getters empty rows while every other getter has an explicit read row; the nine rows get the same explicit read row as getEscrow, no write cost changes. precompiles/common/lxp_errors_test.go:261-262 TestLXPRevertTable maps each header value to a kernel entry and finds no entry for the LXP_ERR_DA_MISSING header value although precompiles/common/lxp_errors.go:164 carries the LXP_DA_MISSING row (pinned by lxp_da_missing_row_test.go): the row's value is aligned with the header's value (the kernel header is the fact), never by dropping the row; precompiles/common is in touches for this."
 
 [task.22.2.5]
 title = "Align the capability replay order, the retired payer-grant reader and the lxphost authority payload version"
@@ -186728,6 +187174,7 @@ do_8 = "Finding 22.6.4.3: build_cmd now installs the services/wallet pnpm packag
 do_9 = "Finding 22.6.4.4: setup_test.go:208 requires 13 entries and the want lists in missing_merge_test.go and setup_test.go include 0x101E; precompile_info_e_test.go asserts the unknown-name refusal for an unknown name and the init error for a known, uninitialised one; the regex in merge_gateway_parity_test.go:32 and setup_test.go:213 accepts both the bare object literal and the Object.freeze wrapper of precompiles.ts:17 so the parity check reads the real table; the pnpm install of build_cmd stands; continue from the sixth candidate."
 do_10 = "Finding 22.6.4.5: before any further change locate where the 32697 Sidiora goes: run git bisect start ecf9f785 dfdd92e8f and git bisect run sh -c 'out=$(CGO_ENABLED=1 go test -count=1 ./tests/chain/ -run ^TestSidioraFeePaid$ 2>&1); case $out in *LXP_PRECOMPILE_NO_CONTEXT*|*panic:*) exit 125;; *FAIL*) exit 1;; *) exit 0;; esac' (the merge-table panic counts as a skip), then git bisect reset; if the bisect ends on skipped revisions only, add a temporary print of the Sidiora balances of coinbase 0, coinbase 1, the fee collector module account and the fee-token holding account after the block to find the account that received it, and read the fee path diffs of the skipped range (modules/evm, node/app.go, tests/testutil/processblock). The commit message names the commit and file found. When the file is in touches, repair it there; when it is not, do not repair it: assert nothing new, leave the fee segment of the verify failing, and report implemented-not-qualified with the commit and file so the owner widens touches or opens the repair task. The seventh candidate's precompiles work stands; continue from the seventh candidate."
 do_11 = "Finding 22.6.4.6: TestSidioraFeePaid asserts the balance of the holding or distribution account the fee-token routing parameters send fees to (the verify helper beside feetoken.go:92) instead of the fee collector; the routing code does not change; continue from attempt 8."
+do_12 = "Finding at the ninth attempt: precompiles/proof_activation_test.go:192 fails for orob, clearing, oracle aggregator, pofq, scheduler, streams, tee attestor and eip712 because InitializePrecompiles no longer publishes them to the VM in the activation harness; the missing-keeper handling this task adds applies to the merge-table info resolution only, and InitializePrecompiles keeps publishing every precompile of the activation table whether or not a merge keeper is supplied; proof_activation_test.go is the oracle and is not edited."
 
 [task.22.5.4]
 title = "Return the committed block's own id from LastBlockID"
@@ -208700,6 +209147,94 @@ req = "18790.1"
 scenario = "Given two recipients of 1 ether each, when batchTransferEqualAmount is called with 3 ether, then it reverts with Incorrect amount sent, and with 2 ether it succeeds leaving the contract balance at zero"
 contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
+qualification = "UNRUN"
+
+[acceptance.10.1.11.1]
+feature = "10"
+req = "22064.1"
+scenario = "Given the three files, when the ambient-nondeterminism patterns are searched and the KMS proof targets run, then no pattern is found and the targets pass."
+contract = "! grep -nE 'Instant::now|SystemTime::now|getrandom::|thread_rng|OsRng|std::env::set_var|env::set_var' services/human/crates/layerx-human-test-support/src/evidence_node.rs services/human/crates/layerx-human-kms/tests/proof_human_kms.rs services/human/crates/layerx-human-kms/tests/proof_human_kms_wire.rs && cargo test --locked --manifest-path services/human/crates/layerx-human-kms/Cargo.toml --test proof_human_kms --test proof_human_kms_wire"
+test = "services/human/crates/layerx-human-kms/tests/proof_human_kms.rs"
+qualification = "UNRUN"
+
+[acceptance.9.35.24.1]
+feature = "9"
+req = "22063.1"
+scenario = "Given the agent daemon crate, when the retired-name search and the preparation, expiry, proof and disclosure targets run, then no legacy preparation item is named and the targets pass."
+contract = "! grep -rnE 'prepare::legacy|mod legacy|restore_canonical|prepare_activity_for_protocol|attach_kernel_signature|verify_kernel_before_submit|encode_send_envelope|EnvelopeOptions|\bsign_disclosed\b|disclosure::bind\b|disclosure::\{[^}]*\bbind\b|bind_budget_mutation' services/agent/crates/layerx-agentd services/agent/tests/limits && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test prepare --test prepare_expiry --test proof_agentd --test disclosure"
+test = "services/agent/crates/layerx-agentd/tests/prepare.rs"
+qualification = "UNRUN"
+
+[acceptance.9.35.23.1]
+feature = "9"
+req = "22062.1"
+scenario = "Given the sdk and mcp crates, when the native-disclosure checks bind the served call, then neither crate names the canonical-bytes binder and their lib tests pass."
+contract = "! grep -rnE 'disclosure::bind\b|disclosure::\{[^}]*\bbind\b|bind_budget_mutation' services/agent/crates/layerx-sdk/src services/agent/crates/layerx-mcp/src && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk -p layerx-mcp --lib"
+test = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+qualification = "UNRUN"
+
+[acceptance.9.35.22.1]
+feature = "9"
+req = "22061.1"
+scenario = "Given the agent daemon tests, when their authorizations are built from the ledger call, then no test names a retired envelope item and the nine listed targets pass."
+contract = "! grep -rnE 'encode_send_envelope|EnvelopeOptions|\bsign_disclosed\b|restore_canonical|prepare_activity_for_protocol|attach_kernel_signature|verify_kernel_before_submit' services/agent/crates/layerx-agentd/tests services/agent/tests/limits && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test w7_owner_binding --test proof_agentd --test disclosure --test prepare_expiry --test w7_core_time --test budget_durable_limits --test human_node_preparation --test outbox --test limits-exactly-once"
+test = "services/agent/crates/layerx-agentd/tests/proof_agentd.rs"
+qualification = "UNRUN"
+
+[acceptance.9.35.21.1]
+feature = "9"
+req = "22060.1"
+scenario = "Given a retained preparation and an external signature, when a submit variant receives it, then the signed type-2 transaction is verified against the preparation and submitted raw, and the outbox targets pass."
+contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test outbox --test outbox_recover --test outbox_tx_hash --test unknown --test recovery --test write_path_evm"
+test = "services/agent/crates/layerx-agentd/tests/outbox.rs"
+qualification = "UNRUN"
+
+[acceptance.9.35.20.1]
+feature = "9"
+req = "22059.1"
+scenario = "Given the Human API prepare variants, when they are served against the test node, then each answers a type-2 call preparation with its call-bound disclosure and the five RPC targets pass."
+contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test prepare_eip1559 --test native_routes_rpc --test native_send_preview_evm --test write_path_evm --test rpc_surface_major_two"
+test = "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs"
+qualification = "UNRUN"
+
+[acceptance.9.35.19.1]
+feature = "9"
+req = "22058.1"
+scenario = "Given the native-effect carrier and the program families, when they read a preparation, then every fact comes from the call and its bound disclosure and the lib, preview, program and approval targets pass."
+contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops"
+test = "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"
+qualification = "UNRUN"
+
+[acceptance.9.35.18.1]
+feature = "9"
+req = "22057.1"
+scenario = "Given a persisted approval hold, when its call bytes or sender are altered and the registry is validated, then the hold is refused as corrupt, while an unaltered hold replays."
+contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test approval -- --exact replay_refuses_a_hold_whose_call_bytes_or_sender_changed"
+test = "services/agent/crates/layerx-agentd/tests/approval.rs"
+qualification = "UNRUN"
+
+[acceptance.9.35.17.2]
+feature = "9"
+req = "22056.2"
+scenario = "Given a signing preparation whose disclosure digest or call data changed after preparation, when verify_before_submit runs, then it is refused with the disclosure or changed-bytes error."
+contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_agentd -- --exact inconsistent_prepared_call_and_disclosure_are_refused"
+test = "services/agent/crates/layerx-agentd/tests/proof_agentd.rs"
+qualification = "UNRUN"
+
+[acceptance.9.35.17.1]
+feature = "9"
+req = "22056.1"
+scenario = "Given the agent daemon, when a call is prepared through prepare_bound, then the preparation carries the call-bound disclosure and digest and verify_call_binding accepts it."
+contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test prepare -- --exact canonical_bytes_and_preimage_come_only_from_layerx_wire"
+test = "services/agent/crates/layerx-agentd/tests/prepare.rs"
+qualification = "UNRUN"
+
+[acceptance.9.35.16.1]
+feature = "9"
+req = "22055.1"
+scenario = "Given the crypto crate, when the daemon constructor binding test runs, then every daemon precompile call shape binds, re-encodes to its bytes and refuses a flipped data byte."
+contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call"
+test = "services/agent/crates/layerx-crypto/tests/disclosure_call.rs"
 qualification = "UNRUN"
 
 [acceptance.9.35.15.1]
