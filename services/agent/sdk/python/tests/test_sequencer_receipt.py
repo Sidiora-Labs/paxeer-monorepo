@@ -17,12 +17,30 @@ from layerx_sdk.verifier import (
     SequencerReceiptVerificationError,
     verify_sequencer_receipt,
 )
-from layerx_sdk.x402_rpc import verify_rpc_payment
+from layerx_sdk.x402_rpc import _transaction_bytes, verify_rpc_payment
 
 ROOT = Path(__file__).resolve().parents[5]
 VECTORS = json.loads(
     (ROOT / "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json").read_text()
 )["cases"]
+
+
+def _payment_vector():
+    return next(
+        vector for vector in VECTORS if vector["id"] == "V1-layerxledger-pay-exact"
+    )
+
+
+def _payment_terms(vector):
+    receipt = vector["receiptJson"]
+    log = receipt["logs"][0]
+    data = _bytes(log["data"])
+    return {
+        "amount": str(int.from_bytes(data[32:], "big")),
+        "asset": data[:32].hex(),
+        "pay_to": _bytes(log["topics"][3]).hex(),
+        "payer": _bytes(receipt["from"]).rjust(32, b"\0").hex(),
+    }
 
 
 def test_package_root_exports_sequencer_receipt_api():
@@ -152,7 +170,7 @@ def test_verify_sequencer_receipt_pinned_key():
 
 
 def test_verify_rpc_payment_uses_receipt_keys():
-    vector = next(vector for vector in VECTORS if vector["vector"] == "V1")
+    vector = _payment_vector()
     raw = _bytes(vector["rawTransaction"])
     fixture_receipt = verify_sequencer_receipt(
         _bytes(vector["signedReceipt"]), raw, [_key(vector)]
@@ -171,32 +189,39 @@ def test_verify_rpc_payment_uses_receipt_keys():
     signed = bytes(canonical)
     receipt = verify_sequencer_receipt(signed, raw, [key]).receipt
     result = {
-        "state": "completed",
-        "activity_id": receipt.activity_id.hex(),
-        "receipt": signed.hex(),
+        **vector["receiptJson"],
+        "receipt": "0x" + signed.hex(),
     }
+    payment_terms = _payment_terms(vector)
     terms = {
         "raw_transaction": raw,
-        "amount": str(fixture_receipt.amount),
-        "asset": fixture_receipt.asset.hex(),
-        "pay_to": fixture_receipt.to_account.hex(),
+        **{name: payment_terms[name] for name in ("amount", "asset", "pay_to")},
     }
 
-    def verify(row, keys=(key,), payer=fixture_receipt.from_account.hex(), **changes):
+    def verify(
+        row, keys=(key,), payer="0x" + fixture_receipt.from_account.hex(), **changes
+    ):
         return verify_rpc_payment(
             row,
-            receipt.activity_id.hex(),
+            "0x" + receipt.activity_id.hex(),
             payer,
             receipt_keys=keys,
             **{**terms, **changes},
         )
 
     payment = verify(result)
-    assert payment.receipt == receipt
-    assert payment.canonical_bytes == signed
-    assert payment.receipt_digest == digest
-    assert payment.receipt.module_id == fixture_receipt.module_id
-    assert payment.receipt.operation == fixture_receipt.operation
+    assert payment == {
+        "txHash": vector["receiptJson"]["txHash"],
+        "rung": "receipted",
+        "height": int(vector["receiptJson"]["height"], 16),
+        "keyId": "0x" + key.key_id.hex(),
+    }
+    verified = verify_sequencer_receipt(signed, raw, [key])
+    assert verified.receipt == receipt
+    assert verified.canonical_bytes == signed
+    assert verified.receipt_digest == digest
+    assert verified.receipt.module_id == fixture_receipt.module_id
+    assert verified.receipt.operation == fixture_receipt.operation
     assert verify({**result, "returnData": "0x"}) == payment
     with pytest.raises(SequencerReceiptVerificationError) as raised:
         verify(result, keys=())
@@ -209,24 +234,29 @@ def test_verify_rpc_payment_uses_receipt_keys():
     unpinned[-64:] = secret.sign(
         sha256(b"LXP/v1/receipt\0" + bytes(unpinned[:-69]) + b"\0").digest()
     )
-    unpinned_result = {**result, "receipt": bytes(unpinned).hex()}
+    unpinned_result = {
+        **result,
+        "receipt": "0x" + bytes(unpinned).hex(),
+        "keyId": "0x" + "2a" * 32,
+    }
     with pytest.raises(SequencerReceiptVerificationError) as raised:
         verify(unpinned_result)
     assert raised.value.check == "unpinned_key"
     other_key = ReceiptKey(b"\x2a" * 32, public_key, 1000, 1999)
-    assert (
-        verify(unpinned_result, keys=(other_key,)).canonical_bytes
-        == bytes(unpinned)
-    )
+    assert verify(unpinned_result, keys=(other_key,)) == {
+        **payment, "keyId": "0x" + other_key.key_id.hex()
+    }
+    assert verify_sequencer_receipt(
+        bytes(unpinned), raw, [other_key]
+    ).canonical_bytes == bytes(unpinned)
 
     with pytest.raises(SequencerReceiptVerificationError) as raised:
-        verify(result, keys=(replace(key, first_height=1001),))
+        verify(result, keys=(replace(key, first_height=payment["height"] + 1),))
     assert raised.value.check == "key_out_of_range"
-    with pytest.raises(SequencerReceiptVerificationError) as raised:
-        verify(result, raw_transaction=raw + b"\0")
-    assert raised.value.check == "hash_mismatch"
+    with pytest.raises(ValueError, match="^transaction-hash-mismatch$"):
+        verify(result, raw_transaction=_bytes(VECTORS[0]["rawTransaction"]))
     for changes in (
-        {"amount": str(receipt.amount + 1)},
+        {"amount": str(int(terms["amount"]) + 1)},
         {"asset": "2a" * 32},
         {"pay_to": "2a" * 32},
     ):
@@ -235,10 +265,33 @@ def test_verify_rpc_payment_uses_receipt_keys():
     with pytest.raises(ValueError, match="^payment-binding-mismatch$"):
         verify({**result, "returnData": "0x2a"})
     with pytest.raises(ValueError, match="^payment-binding-mismatch$"):
-        verify(result, payer="2a" * 32)
+        verify(result, payer="0x" + "2a" * 32)
     altered_root = signed.replace(receipt.resulting_state_root, b"\x2a" * 32, 1)
     assert altered_root != signed
     with pytest.raises(SequencerReceiptVerificationError) as raised:
-        verify({**result, "receipt": altered_root.hex()})
+        verify({**result, "receipt": "0x" + altered_root.hex()})
     assert raised.value.check == "bad_signature"
-    assert verify({**result, "state": "pending"}) is None
+    assert verify(
+        {"txHash": result["txHash"], "nonce": result["nonce"], "rung": "submitted"}
+    ) == {
+        "txHash": result["txHash"],
+        "rung": "pending",
+        "height": None,
+        "keyId": None,
+    }
+
+
+def test_rpc_transaction_hash_requires_prefix_and_32_bytes():
+    transaction_hash = "ab" * 32
+    assert _transaction_bytes("0x" + transaction_hash, 32) == bytes.fromhex(
+        transaction_hash
+    )
+    for invalid_hash in (
+        None,
+        transaction_hash,
+        "0x" + "ab" * 31,
+        "0x" + "ab" * 33,
+        "0x" + "gg" * 32,
+    ):
+        with pytest.raises(ValueError, match="^invalid-rpc-hex$"):
+            _transaction_bytes(invalid_hash, 32)
