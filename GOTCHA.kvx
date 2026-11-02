@@ -13101,3 +13101,13 @@ fix = "Every seller-side offer carries extra.layerx with commitment receipted an
 title = "A test that imports packages through their dist entries needs those packages built by the task's build"
 symptom = "A task's build was a syntax check of one script; its test imported four workspace packages through node_modules dist entries that nothing had built, and failed with ERR_MODULE_NOT_FOUND."
 fix = "List every workspace package the test imports, directly or through support files, and build each one in the build command before the check."
+
+[gotcha.2657]
+title = "Dependents of a crate broken at the base are invisible to the dependent-crate check"
+symptom = "A task deleted a module of a shared crate while another crate of the workspace did not build at the base; the check left out every crate depending on the broken one, which were exactly the deleted module's consumers, and the service did not build on main for two hours."
+fix = "While any crate is broken at the base, grep its dependents for the retired names by hand before the retiring task qualifies, and keep the broken list empty as a priority."
+
+[gotcha.2658]
+title = "A retirement task must name every consumer file of the retired item, not only the ones a wiring request lists"
+symptom = "A task retired an owner-activity module naming one KMS test as its consumer; a grep of the workspace shows four service sources, two service tests and one more KMS test calling it."
+fix = "Write the retirement's do lines from a grep of every workspace for the item's path and names, and make the verify repeat that grep."
