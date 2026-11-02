@@ -22426,6 +22426,10 @@ mod tests {
                     let params = &request["params"];
                     let result = match request["method"].as_str().expect("RPC method") {
                         "eth_chainId" => json!("0x7d"),
+                        "eth_blockNumber" => {
+                            assert_eq!(params, &json!([]));
+                            json!("0x8")
+                        }
                         "eth_call" => json!(rpc_hex(&{
                             let mut word = [0; 32];
                             word[12..].fill(6);
@@ -22450,7 +22454,7 @@ mod tests {
                             assert_eq!(params[0], rpc_hex(&[6; 20]));
                             assert_eq!(params[2], 256);
                             if params[1].is_null() {
-                                json!({"items":[rows[&8]],"next_cursor":crate::read::Cursor { block_height:8,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8})
+                                json!({"items":[rows[&8]],"next_cursor":crate::read::Cursor { block_height:8,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8})
                             } else {
                                 assert_eq!(
                                     params[1],
@@ -22461,7 +22465,7 @@ mod tests {
                                     }
                                     .to_hex()
                                 );
-                                json!({"items":[rows[&7],rows[&6]],"next_cursor":crate::read::Cursor { block_height:6,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8})
+                                json!({"items":[rows[&7],rows[&6]],"next_cursor":crate::read::Cursor { block_height:6,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8})
                             }
                         }
                         "pax_sequencerReceipt" | "eth_getTransactionReceipt" => {
@@ -22559,6 +22563,13 @@ mod tests {
                 .count(),
             4
         );
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|call| call["method"] == "eth_blockNumber")
+                .count(),
+            4
+        );
     }
 
     #[test]
@@ -22575,6 +22586,7 @@ mod tests {
         )
         .err()
         .expect("receipted item must refuse whole window");
+        assert!(matches!(error, crate::read::HistoryReadError::ItemUnproven));
         assert_eq!(error.code(), "read.history_item_unproven");
         assert!(matches!(
             policy_history_refusal(error),
