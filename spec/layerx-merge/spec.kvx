@@ -119651,7 +119651,7 @@ do_8 = "Finding 10.21.4.2 and task 9.35.11: the native_lifecycle and stream_jour
 
 [task.10.1.7]
 title = "Route the custody gateway, KMS provider client and KMS gateway binary clock reads through the runtime clock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["10.1.6", "9.27.9", "10.21.8"]
