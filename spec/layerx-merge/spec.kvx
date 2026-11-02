@@ -116271,7 +116271,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1477.1]
 title = "Issue #1477: Assert the EVM transaction fields on the prepared consent, not on the spend request's preparation input"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -116603,7 +116603,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.7.1]
 title = "Write the launchpad chain-launch domain: name rule, size tiers, cost, receipt and wallet parameters"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130637,7 +130637,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.6.3]
 title = "Reconcile the layerxanchor keeper tests with the retired module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130667,7 +130667,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.7.2]
 title = "Serve pending state reads from the latest committed block while no block is open"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132839,7 +132839,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.44.1]
 title = "Prove the client parity path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132873,7 +132873,7 @@ do_7 = "Finding 21.44.1.1 and decision 2300: for an unknown hash, block or out-o
 
 [task.21.43.1]
 title = "Prove the views path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182811,7 +182811,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.12.3]
 title = "Register the committed fixture's standby leader in the genesis committee"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183199,7 +183199,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.22]
 title = "Inventory every Go package under cmd/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213934,7 +213934,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.17.3]
 title = "Reconcile every interface row against the tree at HEAD"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216192,7 +216192,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1484.1]
 title = "Issue #1484: Remove the retired relay template from the bring-up harness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216549,7 +216549,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1443.1]
 title = "Issue #1443: Make assert_retired fail on live imports and stem references of retired modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

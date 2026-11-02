@@ -36,6 +36,8 @@ type BudgetRecord struct {
 	Delegates             [][32]byte
 }
 
+// DecodeBudgetRecord decodes one complete kernel budget record, including its optional native source.
+// The returned delegates are owned by the caller; malformed input returns no partial record.
 func DecodeBudgetRecord(data []byte) (BudgetRecord, error) {
 	if len(data) < BudgetRecordFixedBytes || data[0] != 0 || (data[1] != 1 && data[1] != 2) || data[275] > 1 || data[276] > 1 {
 		return BudgetRecord{}, errBudgetNonCanonical
