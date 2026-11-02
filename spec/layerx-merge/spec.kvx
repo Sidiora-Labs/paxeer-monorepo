@@ -116424,7 +116424,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.160.1]
 title = "Prove the exchange path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128096,7 +128096,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.111.1]
 title = "Prove the human test support path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.100.2", "22.9.24"]
@@ -185213,7 +185213,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.1.6]
 title = "Repair the kernel link recipes, the missing storage script and the float scanner false positive"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
