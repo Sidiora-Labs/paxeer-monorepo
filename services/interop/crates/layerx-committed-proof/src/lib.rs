@@ -62,16 +62,17 @@ impl std::error::Error for ProofError {}
 ///
 /// # Errors
 /// Returns [`ProofError::ValidatorsHashMismatch`] if the set is not committed
-/// by this header.
-///
-/// # Panics
-/// Panics if the header timestamp is outside protobuf's permitted range.
+/// by this header, or [`ProofError::InvalidCommit`] if the timestamp cannot be
+/// encoded as a protobuf timestamp.
 pub fn verify_header(
     header: &header::Header,
     set: &[header::Validator],
 ) -> Result<[u8; 32], ProofError> {
     if header.validators_hash != header::validators_hash(set) {
         return Err(ProofError::ValidatorsHashMismatch);
+    }
+    if !header.time.is_valid() {
+        return Err(ProofError::InvalidCommit);
     }
     Ok(header.hash())
 }
@@ -125,9 +126,7 @@ pub mod committed {
             return Err(ProofError::InvalidCommit);
         }
         for time in [header.time, execution.time] {
-            if !(-62_135_596_800..=253_402_300_799).contains(&time.seconds)
-                || time.nanos >= 1_000_000_000
-            {
+            if !time.is_valid() {
                 return Err(ProofError::InvalidCommit);
             }
         }
