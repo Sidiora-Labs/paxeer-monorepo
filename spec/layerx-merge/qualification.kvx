@@ -18603,3 +18603,27 @@ symbol = "getChain"
 observed = "At 810e7a45d the seventh candidate routes chain ids and meters the domain reads under an infinite gas meter, yet TestOneBlockCarriesRootAndChainTransactions (the candidate's node/layerxchains_block_test.go:284) finds root traffic no longer costs exactly 21000 gas, and TestChainStateSurvivesRestart (:273) receives empty return data from getChain (layerxchains.go:239) on the restarted application, which abi.Unpack reports as 'attempting to unmarshal an empty string while arguments are expected'."
 assumption = "Root-chain transfers pay exactly their execution gas; a restarted application serves the chains precompile and its registry from the persisted store."
 severity = "high"
+
+[finding.17.3.4.attempt1]
+task = "17.3.4"
+file = "spec/layerx-merge/programme/rehearsal.py"
+symbol = "run_steps"
+observed = "Rehearsal step 1 failed: revision=5857e2d411f67449eae5933e6f09479688e1edfa command=go test -count=1 ./node/ -run '^(TestMergeRehearsalFirstSequencedBlock)$' exit=1 log=/tmp/layerx-merge-rehearsal-r6jjm6ad/step-1.log."
+assumption = "The failed rehearsal step is outside this task's scope and remains unresolved."
+severity = "blocker"
+
+[finding.17.3.4.attempt2]
+task = "17.3.4"
+file = "spec/layerx-merge/programme/rehearsal.py"
+symbol = "run_steps"
+observed = "Rehearsal step 1 failed: revision=a3c3d17bdaa6444a86e2807921f35ebdd6fb7175 command=go test -count=1 ./node/ -run '^(TestMergeRehearsalFirstSequencedBlock)$' exit=1 log=/tmp/layerx-merge-rehearsal-yv9q3hwo/step-1.log."
+assumption = "The linker cannot find liblayerx or liblayerx_programs_sandbox; building these pre-existing native prerequisites is outside the allowed task gates."
+severity = "blocker"
+
+[finding.17.3.4.attempt3]
+task = "17.3.4"
+file = "spec/layerx-merge/programme/rehearsal.py"
+symbol = "run_steps"
+observed = "Rehearsal step 1 failed: revision=11e0d526f1345b17c4adf388ae130151b15e4b7d command=go test -count=1 ./node/ -run '^(TestMergeRehearsalFirstSequencedBlock)$' exit=1 log=/tmp/layerx-merge-rehearsal-w25qrxtz/step-1.log."
+assumption = "The failed rehearsal step is outside this task's scope and remains unresolved."
+severity = "blocker"
