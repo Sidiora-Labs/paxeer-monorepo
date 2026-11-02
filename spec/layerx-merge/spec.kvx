@@ -136040,7 +136040,7 @@ do_8 = "Finding 21.87.1.1: the package build failure is node/sequencer/precompil
 
 [task.21.18.1]
 title = "Prove the launchpad gateway path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -185605,7 +185605,7 @@ do_3 = "Finding 22.6.8.1: declare event XWebProgramRequested(bytes32 indexed pro
 
 [task.22.6.7]
 title = "Reconcile the retired custody, exchange, verify and anchor consumers' tests with the retirement gates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217926,7 +217926,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1504.1]
 title = "Issue #1504: Update the retained Python journal test to the real receipt verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
