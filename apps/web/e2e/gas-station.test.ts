@@ -474,3 +474,11 @@ async function launchpad_sponsored_fee_sends_the_approve_then_the_write(): Promi
 }
 
 test(launchpad_sponsored_fee_sends_the_approve_then_the_write);
+
+async function malformed_sponsored_quote_is_refused_at_review() {
+  const malformed = { ...quoteFixture(), batch: null } as unknown as SidioraGasQuote;
+  assert.equal(wallet.sidioraQuotePresentation(malformed), undefined);
+  assert.deepEqual(await wallet.sendWalletSponsoredBatch(malformed, "invalid"), { outcome: "rejected" });
+}
+
+test(malformed_sponsored_quote_is_refused_at_review);

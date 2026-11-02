@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
 import { bridgeOutCall } from "../../api/sdk";
-import { sendWalletPrecompileCall, type PrecompileSendOutcome } from "../../api/wallet";
+import { isPrecompileSendOutcome, sendWalletPrecompileCall, type PrecompileSendOutcome } from "../../api/wallet";
 import { KitButton } from "../../kit/control";
 import { TextField } from "../../kit/field";
 import { availability } from "../_markets/availability";
@@ -79,6 +79,11 @@ export function BridgeTrackForm({
   );
 }
 
+/** Shared by the bridge action and API path proof; SDK validation runs inside the wallet boundary. */
+export async function sendBridgeOut(account: string, chain: string, asset: string, amount: bigint, recipient: string): Promise<PrecompileSendOutcome> {
+  return sendWalletPrecompileCall(account, () => bridgeOutCall(BigInt(chain), asset, amount, recipient));
+}
+
 export function BridgeOutForm({
   account,
   chain,
@@ -130,9 +135,9 @@ export function BridgeOutForm({
             return;
           }
           startTransition(async () => {
-            const sent = await sendWalletPrecompileCall(account, () => bridgeOutCall(BigInt(chain), asset, amount, recipient));
+            const sent = await sendBridgeOut(account, chain, asset, amount, recipient);
             setOutcome(sent);
-            if (sent.outcome === "sent") {
+            if (isPrecompileSendOutcome(sent) && sent.outcome === "sent") {
               router.refresh();
             }
           });
