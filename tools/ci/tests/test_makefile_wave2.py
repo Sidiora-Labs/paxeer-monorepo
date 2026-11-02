@@ -72,6 +72,7 @@ class MakefileWaveTwoTest(unittest.TestCase):
             line for line in result.stdout.splitlines() if not LIBRARY_LINE.match(line)
         )
         for retired in (
+            # DA bundle, kernel, service and verification sources remain in the library.
             "lxp_da_",
             "lxp_replica",
             "lxp_batch_seal",
