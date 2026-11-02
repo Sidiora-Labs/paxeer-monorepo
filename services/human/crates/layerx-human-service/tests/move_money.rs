@@ -376,8 +376,12 @@ impl AgentBoundary for RealAgentLayer {
             .map_err(|_| AgentBoundaryError::Refused)?;
         let signed = attach_kernel_signature(&prepared, signature)
             .map_err(|_| AgentBoundaryError::Refused)?;
-        verify_kernel_before_submit(&signed, &prepared, &signer_public_key, &self.registry)
-            .map_err(|_| AgentBoundaryError::Refused)?;
+        let verified =
+            verify_kernel_before_submit(&signed, &prepared, &signer_public_key, &self.registry)
+                .map_err(|_| AgentBoundaryError::Refused)?;
+        assert_eq!(verified.exact_bytes(), signed);
+        assert_eq!(verified.idempotency_key(), key);
+        assert_eq!(verified.signed_byte_length(), signed.len());
         let raw = if let Some(id) = self.outbox_submissions.get(&key) {
             self.outbox
                 .exact_signed_bytes(*id)

@@ -103,20 +103,33 @@ impl Store {
     ///
     /// # Errors
     ///
-    /// Returns the store failure raised while creating, migrating, or decoding the root.
+    /// Restores every tenant-owned key before accepting mutations, so a caller need not
+    /// remember keys across a restart. Refuses corrupt records and store failures.
     pub fn open(
         root: impl AsRef<Path>,
         tenant: TenantId,
         retention: RetentionPolicy,
     ) -> Result<Self, IdempotencyError> {
         let durable = DurableStore::open(root).map_err(IdempotencyError::Store)?;
+        let mut records = BTreeMap::new();
+        for id in durable.list_object_ids(&tenant, ObjectKind::Idempotency) {
+            let key: [u8; 32] = id
+                .as_slice()
+                .try_into()
+                .map_err(|_| IdempotencyError::Corrupt)?;
+            let stored = durable
+                .get(&storage_key(tenant.clone(), key)?)
+                .ok_or(IdempotencyError::Corrupt)?;
+            let record = decode_record(stored.bytes())?;
+            if record.key != key {
+                return Err(IdempotencyError::Corrupt);
+            }
+            records.insert(key, record);
+        }
         Ok(Self {
             tenant,
             retention,
-            inner: Mutex::new(Inner {
-                durable,
-                records: BTreeMap::new(),
-            }),
+            inner: Mutex::new(Inner { durable, records }),
         })
     }
 
