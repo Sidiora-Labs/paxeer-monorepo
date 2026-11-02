@@ -36,6 +36,9 @@ const (
 // The process-wide MeterProvider (e.g. Prometheus exporter with namespace) is
 // configured by the application.
 
+// Int64ObservableCounter exports a cumulative trace-baker total on collection.
+// StartTraceBakerForDebugAPI registers the observations; TraceBaker.Stop removes
+// them. The application MeterProvider supplies the scrape transport and namespace.
 type Int64ObservableCounter = metric.Int64ObservableCounter
 
 var (
