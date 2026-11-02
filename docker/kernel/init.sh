@@ -1798,6 +1798,30 @@ human_security_prepare() {
 	human_project human-security 4020 "$human_state/trust-history:trust-history"
 }
 
+human_kms_chain_snapshot() {
+    python3 - "$1" "$2" <<'PY_KMS_CHAIN'
+import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+
+target, chain = Path(sys.argv[1]), int(sys.argv[2])
+if chain != 125 or not target.is_absolute() or target.is_symlink():
+    raise SystemExit('KMS chain snapshot refused')
+fd, pending = tempfile.mkstemp(prefix='.chain-', dir=target.parent)
+try:
+    with os.fdopen(fd, 'w') as stream:
+        json.dump({'chain_id': chain}, stream)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(pending, target)
+finally:
+    if os.path.exists(pending):
+        os.unlink(pending)
+PY_KMS_CHAIN
+}
+
 human_kms_listen=127.0.0.1:9450
 human_kms_server_name=layerx-human-kms
 human_kms_provider=layerx-human-kms
@@ -1818,9 +1842,11 @@ human_kms_prepare() {
 		"$human_kms_source" "$tls" "$human_kms_out" "$LAYERX_NODE_NETWORK_ID" \
 		"$(cat "$genesis/asset-id")" "$human_state/kms"; } 7>"$human_state/kms-prerequisite.lock" || return 1
 	install -d -o 4026 -g 4020 -m 0500 "$directory"
-	for name in kms-server.der kms-server-key.der kms-client.der kms-executor.der ca.der kms-seal registry.json; do
+	for name in kms-server.der kms-server-key.der kms-client.der kms-executor.der ca.der kms-seal; do
 		install -o 0 -g 4020 -m 0440 "$human_kms_out/$name" "$directory/$name" || return 1
 	done
+	human_kms_chain_snapshot "$directory/registry.json" "$LAYERX_NODE_NETWORK_ID" || return 1
+	chown 0:4020 "$directory/registry.json" && chmod 0440 "$directory/registry.json" || return 1
 }
 
 # The owner's session operator secret, made once on the volume like the
