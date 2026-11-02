@@ -221994,7 +221994,7 @@ do_7 = "Finding 18.1443.1.2: in kernel_retirement.py restrict the live-reference
 
 [task.20.0.1]
 title = "Refuse the virtual-chains closure while any chain task is not done"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["20.1.1", "20.1.2", "20.2.1", "20.2.2", "20.3.1", "20.3.2", "20.3.3", "20.3.4", "20.4.1", "20.4.2", "20.4.3", "20.4.4", "20.5.1", "20.5.2", "20.6.1", "20.6.2", "20.7.1", "20.7.2", "20.7.3", "20.8.1", "20.8.2", "20.9.1", "20.9.2", "20.9.3", "20.9.4", "20.9.5", "20.9.6", "20.9.7", "20.9.8", "20.10.1", "18.1488.1", "18.1489.1"]
