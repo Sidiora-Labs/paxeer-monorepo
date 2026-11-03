@@ -128992,7 +128992,7 @@ do_4 = "Decision 2358 (2026-11-02): superseded; task 22.9.33 carries this port t
 
 [task.22.9.33]
 title = "Make the serve-http helpers of the agent daemon visible to the module that includes them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
