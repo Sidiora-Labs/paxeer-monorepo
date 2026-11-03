@@ -119774,7 +119774,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.95.6]
 title = "Type the launchpad web test configs and search shell against the raised floors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -120342,7 +120342,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.4]
 title = "Close the 1 dependency alerts of apps/names/pnpm-lock.yaml"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124748,7 +124748,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1561.1]
 title = "Issue #1561: Prepare the codec replay corpus before agent vector tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124867,7 +124867,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1519.1]
 title = "Issue #1519: Restore the nine explorer tool lockfiles at their dependency floors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132037,7 +132037,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.95.4]
 title = "Read the gas station relayer key from the variable the config names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132067,7 +132067,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1556.1]
 title = "Issue #1556: Ingest receipted logs and reconcile their committed copies"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132218,7 +132218,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.28]
 title = "Close the 18 dependency alerts of tools/wasm-tools/Cargo.lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177577,7 +177577,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.0.9]
 title = "Gate domain 10 completion on its retired surfaces and planned paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["10.0.1", "10.0.2", "10.0.3", "10.0.4", "10.1.2", "10.1.3", "10.1.4", "10.10.1", "10.10.2", "10.14.1", "10.16.2", "10.21.4", "10.21.5", "10.21.6", "10.24.3", "10.25.4", "10.97.1", "18.1119.1", "10.16.4", "9.25.16", "10.2.10", "10.2.11", "21.52.1", "21.63.1", "21.97.1", "21.109.1", "21.110.1", "21.111.1", "22.9.24"]
