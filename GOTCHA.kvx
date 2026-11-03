@@ -14570,3 +14570,23 @@ fix = "Give every task that may change a manifest the workspace lock file in its
 title = "Sweep record header counts drift from their blocks after block-level re-records"
 symptom = "go-consensus.kvx declared 161 passed targets while all 162 blocks passed, failing the summary generator for an unrelated task."
 fix = "Recompute header counts from the blocks whenever a block result changes."
+
+[gotcha.2950]
+title = "The receipt source is rebuilt only from entries after the last committed WAL entry"
+symptom = "node/sequencer/wal replay feeds exec only the entries after the last COMMITTED entry, so a send committed before a restart has no receipt after it and pax_sequencerReceipt answers nothing for it."
+fix = "Rebuild the receipt source from every retained ACCEPT entry on start, marking those at or below the commit watermark committed without re-executing them."
+
+[gotcha.2951]
+title = "Test fixtures serve receipt-key heights as hex strings while the node serves numbers"
+symptom = "The agent daemon node fixtures answer firstHeight and lastHeight as 0x strings; rpc/sequencer_receipt.go encodes them as uint64 numbers, so a decoder matched to the real wire refuses the fixture."
+fix = "Make every fixture answer the exact JSON shape of the Go wire type and decode numbers as numbers."
+
+[gotcha.2952]
+title = "Conformance digest constants go stale when the recorded fixture directory is regenerated"
+symptom = "x-websearch recorded_suite hashes every file under fixtures/gateway and counts the gateway endpoint rules; after re-recording, CONFORMANCE_SUITE_DIGEST and CONFORMANCE_VECTOR_COUNT in src/lib.rs no longer match and the gate reports a conformance error."
+fix = "Regenerate the digest and count constants in the same change that re-records the fixtures."
+
+[gotcha.2953]
+title = "Rendered spec pointer files that differ from the committed adapters make the qualification candidate drift"
+symptom = "The qualification done step re-renders CLAUDE.md, AGENTS.md, the cursor rule and the copilot instructions; when the committed files differ from the render, the verified tree is not the candidate (same_candidate unmet)."
+fix = "Commit the four pointer files exactly as the renderer writes them and keep the generator check mode identical to the renderer."
