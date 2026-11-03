@@ -137700,7 +137700,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.95.1]
 title = "Prove the native reads path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24", "22.9.28"]
@@ -232342,7 +232342,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.21]
 title = "Reconcile interface registry rows: storage/common and storage/config part 4"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232522,7 +232522,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.15]
 title = "Reconcile interface registry rows: modules/launchpad and precompiles/launchpad part 3"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232642,7 +232642,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.11]
 title = "Reconcile interface registry rows: modules/spot and precompiles/perps part 4"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232672,7 +232672,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.10]
 title = "Reconcile interface registry rows: modules/perps and modules/pricefeed part 3"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232702,7 +232702,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.9]
 title = "Reconcile interface registry rows: modules/perps part 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232762,7 +232762,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.7]
 title = "Reconcile interface registry rows: precompiles/layerxagent part 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232792,7 +232792,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.6]
 title = "Reconcile interface registry rows: api/layerxauth and api/layerxledger part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232822,7 +232822,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.5]
 title = "Reconcile interface registry rows: modules/lxphost and src/network part 5"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
