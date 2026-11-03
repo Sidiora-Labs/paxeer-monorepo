@@ -18,6 +18,7 @@ import (
 	spotkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/keeper"
 	tokenfactorykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/keeper"
 	xwebkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/keeper"
+	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/clearing"
 	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/eip712"
 	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/oracle"
@@ -42,6 +43,7 @@ import (
 )
 
 type PrecompileKeepers struct {
+	application *App
 	putils.BankKeeper
 	putils.BankMsgServer
 	putils.EVMKeeper
@@ -78,6 +80,7 @@ type PrecompileKeepers struct {
 
 func NewPrecompileKeepers(a *App) *PrecompileKeepers {
 	return &PrecompileKeepers{
+		application:        a,
 		BankKeeper:         a.BankKeeper,
 		BankMsgServer:      bankkeeper.NewMsgServerImpl(a.BankKeeper),
 		EVMKeeper:          &a.EvmKeeper,
@@ -112,6 +115,17 @@ func NewPrecompileKeepers(a *App) *PrecompileKeepers {
 		SpotKeeper:      a.SpotKeeper,
 		PricefeedKeeper: &a.PricefeedKeeper,
 	}
+}
+
+func (pk *PrecompileKeepers) MergePlanActive() bool {
+	if pk.application == nil || pk.application.LastBlockHeight() <= 0 {
+		return false
+	}
+	ctx, err := pk.application.CreateQueryContext(0, false)
+	if err != nil {
+		return false
+	}
+	return pk.application.UpgradeKeeper.IsUpgradeActiveAtHeight(ctx, pcommon.MergeUpgrade, ctx.BlockHeight())
 }
 
 func (pk *PrecompileKeepers) BankK() putils.BankKeeper                 { return pk.BankKeeper }

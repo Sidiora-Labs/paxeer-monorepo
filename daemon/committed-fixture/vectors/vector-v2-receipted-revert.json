@@ -33,6 +33,7 @@
     "gasUsed": "0x8160",
     "cumulativeGasUsed": "0x8160",
     "effectiveGasPrice": "0x77359400",
+    "paymentDenom": "uhpx",
     "feeDenom": "uhpx",
     "feeAmount": "0x3c3eb3ab8000",
     "sponsor": "0x0000000000000000000000000000000000000000",

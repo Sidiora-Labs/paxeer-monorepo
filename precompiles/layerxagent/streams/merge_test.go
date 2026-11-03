@@ -13,6 +13,7 @@ import (
 	agentcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/streams"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
+	precompiletest "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/testutil"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -30,11 +31,11 @@ func (k payKeepers) LayerXPayK() *paykeeper.Keeper { return k.pay }
 
 func TestStreamsMergeConstructorNeedsPayKeeper(t *testing.T) {
 	application := testkeeper.EVMTestApp
-	keepers := app.NewPrecompileKeepers(application)
+	keepers := precompiletest.Keepers(application)
 	var _ layerxpay.LayerXPayKeepers = keepers
-	missingEVM := app.NewPrecompileKeepers(application)
+	missingEVM := precompiletest.Keepers(application)
 	missingEVM.EVMKeeper = nil
-	nilEVM := app.NewPrecompileKeepers(application)
+	nilEVM := precompiletest.Keepers(application)
 	nilEVM.EVMKeeper = (*evmkeeper.Keeper)(nil)
 	for _, tc := range []struct {
 		name    string
