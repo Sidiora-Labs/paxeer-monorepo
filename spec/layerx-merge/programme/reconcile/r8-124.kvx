@@ -1,0 +1,243 @@
+[reconcile.r8-124]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-124.1]
+interface = "interface.8.go-sdkgo-humanerrorcode-humanerrorsupportmessageunknown"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 577
+symbol = "HumanErrorSupportMessageUnknown"
+evidence = "The const block declares HumanErrorSupportMessageUnknown HumanErrorCode = \"support-message-unknown\" at line 577; the later Valid switch occurrence is a use, not the declaration. Registered line 625 has drifted."
+
+[row.r8-124.2]
+interface = "interface.8.go-sdkgo-humanretriability"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 649
+symbol = "HumanRetriability"
+evidence = "The declaration type HumanRetriability string is at line 649; the const types and Valid receiver below are uses of the named string type. Registered line 702 has drifted."
+
+[row.r8-124.3]
+interface = "interface.8.go-sdkgo-humanretriability-humanretryfinal"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 655
+symbol = "HumanRetryFinal"
+evidence = "The const block declares HumanRetryFinal HumanRetriability = \"final\" at line 655; the later Valid switch occurrence is a use, not the declaration. Registered line 708 has drifted."
+
+[row.r8-124.4]
+interface = "interface.8.go-sdkgo-humanretriability-humanretryretriable"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 652
+symbol = "HumanRetryRetriable"
+evidence = "The const block declares HumanRetryRetriable HumanRetriability = \"retriable\" at line 652; the later Valid switch occurrence is a use, not the declaration. Registered line 705 has drifted."
+
+[row.r8-124.5]
+interface = "interface.8.go-sdkgo-humanretriability-humanretryretriableafter"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 653
+symbol = "HumanRetryRetriableAfter"
+evidence = "The const block declares HumanRetryRetriableAfter HumanRetriability = \"retriable-after\" at line 653; the later Valid switch occurrence is a use, not the declaration. Registered line 706 has drifted."
+
+[row.r8-124.6]
+interface = "interface.8.go-sdkgo-humanretriability-humanretrystructural"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 654
+symbol = "HumanRetryStructural"
+evidence = "The const block declares HumanRetryStructural HumanRetriability = \"structural\" at line 654; the later Valid switch occurrence is a use, not the declaration. Registered line 707 has drifted."
+
+[row.r8-124.7]
+interface = "interface.8.go-sdkgo-humanstreameventkind-humanstreameventapprovalapproved"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 691
+symbol = "HumanStreamEventApprovalApproved"
+evidence = "The const block declares HumanStreamEventApprovalApproved HumanStreamEventKind = \"approval-approved\" at line 691; the later Valid switch occurrence is a use, not the declaration. Registered line 744 has drifted."
+
+[row.r8-124.8]
+interface = "interface.8.go-sdkgo-humanstreameventkind-humanstreameventapprovalexpired"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 693
+symbol = "HumanStreamEventApprovalExpired"
+evidence = "The const block declares HumanStreamEventApprovalExpired HumanStreamEventKind = \"approval-expired\" at line 693; the later Valid switch occurrence is a use, not the declaration. Registered line 746 has drifted."
+
+[row.r8-124.9]
+interface = "interface.8.go-sdkgo-humanstreameventkind-humanstreameventapprovalrejected"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 692
+symbol = "HumanStreamEventApprovalRejected"
+evidence = "The const block declares HumanStreamEventApprovalRejected HumanStreamEventKind = \"approval-rejected\" at line 692; the later Valid switch occurrence is a use, not the declaration. Registered line 745 has drifted."
+
+[row.r8-124.10]
+interface = "interface.8.go-sdkgo-humanstreameventkind-humanstreameventnotification"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 694
+symbol = "HumanStreamEventNotification"
+evidence = "The const block declares HumanStreamEventNotification HumanStreamEventKind = \"notification\" at line 694; the later Valid switch occurrence is a use, not the declaration. Registered line 747 has drifted."
+
+[row.r8-124.11]
+interface = "interface.8.go-sdkgo-humanstreameventkind-humanstreameventprogramapprovalapproved"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 696
+symbol = "HumanStreamEventProgramApprovalApproved"
+evidence = "The const block declares HumanStreamEventProgramApprovalApproved HumanStreamEventKind = \"program-approval-approved\" at line 696; the later Valid switch occurrence is a use, not the declaration. Registered line 749 has drifted."
+
+[row.r8-124.12]
+interface = "interface.8.go-sdkgo-humanstreameventkind-humanstreameventprogramapprovalcreated"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 695
+symbol = "HumanStreamEventProgramApprovalCreated"
+evidence = "The const block declares HumanStreamEventProgramApprovalCreated HumanStreamEventKind = \"program-approval-created\" at line 695; the later Valid switch occurrence is a use, not the declaration. Registered line 748 has drifted."
+
+[row.r8-124.13]
+interface = "interface.8.go-sdkgo-humanstreameventkind-humanstreameventprogramapprovalexpired"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 698
+symbol = "HumanStreamEventProgramApprovalExpired"
+evidence = "The const block declares HumanStreamEventProgramApprovalExpired HumanStreamEventKind = \"program-approval-expired\" at line 698; the later Valid switch occurrence is a use, not the declaration. Registered line 751 has drifted."
+
+[row.r8-124.14]
+interface = "interface.8.go-sdkgo-humanstreameventkind-humanstreameventprogramapprovalrejected"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 697
+symbol = "HumanStreamEventProgramApprovalRejected"
+evidence = "The const block declares HumanStreamEventProgramApprovalRejected HumanStreamEventKind = \"program-approval-rejected\" at line 697; the later Valid switch occurrence is a use, not the declaration. Registered line 750 has drifted."
+
+[row.r8-124.15]
+interface = "interface.8.go-sdkgo-journeykind-journeyagentcreate"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 595
+symbol = "JourneyAgentCreate"
+evidence = "The const block declares JourneyAgentCreate JourneyKind = \"agent-create\" at line 595; the later Valid switch occurrence is a use, not the declaration. Registered line 646 has drifted."
+
+[row.r8-124.16]
+interface = "interface.8.go-sdkgo-journeykind-journeyagentfund"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 596
+symbol = "JourneyAgentFund"
+evidence = "The const block declares JourneyAgentFund JourneyKind = \"agent-fund\" at line 596; the later Valid switch occurrence is a use, not the declaration. Registered line 647 has drifted."
+
+[row.r8-124.17]
+interface = "interface.8.go-sdkgo-journeykind-journeyagentpause"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 597
+symbol = "JourneyAgentPause"
+evidence = "The const block declares JourneyAgentPause JourneyKind = \"agent-pause\" at line 597; the later Valid switch occurrence is a use, not the declaration. Registered line 648 has drifted."
+
+[row.r8-124.18]
+interface = "interface.8.go-sdkgo-journeykind-journeyagentretire"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 598
+symbol = "JourneyAgentRetire"
+evidence = "The const block declares JourneyAgentRetire JourneyKind = \"agent-retire\" at line 598; the later Valid switch occurrence is a use, not the declaration. Registered line 649 has drifted."
+
+[row.r8-124.19]
+interface = "interface.8.go-sdkgo-journeykind-journeymove"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 594
+symbol = "JourneyMove"
+evidence = "The const block declares JourneyMove JourneyKind = \"move\" at line 594; the later Valid switch occurrence is a use, not the declaration. Registered line 645 has drifted."
+
+[row.r8-124.20]
+interface = "interface.8.go-sdkgo-journeystate-journeystatedone"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 616
+symbol = "JourneyStateDone"
+evidence = "The const block declares JourneyStateDone JourneyState = \"done\" at line 616; the later Valid switch occurrence is a use, not the declaration. Registered line 667 has drifted."
+
+[row.r8-124.21]
+interface = "interface.8.go-sdkgo-journeystate-journeystatedonefinalised"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 617
+symbol = "JourneyStateDoneFinalised"
+evidence = "The const block declares JourneyStateDoneFinalised JourneyState = \"done-finalised\" at line 617; the later Valid switch occurrence is a use, not the declaration. Registered line 668 has drifted."
+
+[row.r8-124.22]
+interface = "interface.8.go-sdkgo-journeystate-journeystateprocessing"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 615
+symbol = "JourneyStateProcessing"
+evidence = "The const block declares JourneyStateProcessing JourneyState = \"processing\" at line 615; the later Valid switch occurrence is a use, not the declaration. Registered line 666 has drifted."
+
+[row.r8-124.23]
+interface = "interface.8.go-sdkgo-journeystate-journeystaterefused"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 619
+symbol = "JourneyStateRefused"
+evidence = "The const block declares JourneyStateRefused JourneyState = \"refused\" at line 619; the later Valid switch occurrence is a use, not the declaration. Registered line 670 has drifted."
+
+[row.r8-124.24]
+interface = "interface.8.go-sdkgo-journeystate-journeystatestillchecking"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 618
+symbol = "JourneyStateStillChecking"
+evidence = "The const block declares JourneyStateStillChecking JourneyState = \"still-checking\" at line 618; the later Valid switch occurrence is a use, not the declaration. Registered line 669 has drifted."
+
+[row.r8-124.25]
+interface = "interface.8.go-sdkgo-journeystate-journeystatewaitingforyou"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 620
+symbol = "JourneyStateWaitingForYou"
+evidence = "The const block declares JourneyStateWaitingForYou JourneyState = \"waiting-for-you\" at line 620; the later Valid switch occurrence is a use, not the declaration. Registered line 671 has drifted."
+
+[row.r8-124.26]
+interface = "interface.8.go-sdkgo-agentenvelopehttptransport"
+verdict = "served"
+path = "sdk/platform/go/http.go"
+line = 383
+symbol = "AgentEnvelopeHTTPTransport"
+evidence = "The type AgentEnvelopeHTTPTransport struct declaration is at line 383, with endpoint, credential and path fields; constructor return values and method receivers are uses of this type."
+
+[row.r8-124.27]
+interface = "interface.8.go-sdkgo-agentenvelopehttptransport-call"
+verdict = "served"
+path = "sdk/platform/go/http.go"
+line = 507
+symbol = "Call"
+evidence = "Line 507 declares func (transport *AgentEnvelopeHTTPTransport) Call(ctx context.Context, call TransportCall) (json.RawMessage, error), matching the registered receiver and signature. The Call at line 139 belongs to HumanHTTPTransport."
+
+[row.r8-124.28]
+interface = "interface.8.go-sdkgo-agentsessioncredential"
+verdict = "served"
+path = "sdk/platform/go/http.go"
+line = 361
+symbol = "AgentSessionCredential"
+evidence = "Line 361 declares type AgentSessionCredential struct with tenant, sessionID, tokenID and generation fields; NewAgentSessionCredential and the transport credential field are uses, not declarations."
+
+[row.r8-124.29]
+interface = "interface.8.go-sdkjvm-generatedschema-agent"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4545
+symbol = "AGENT"
+evidence = "Line 4545 declares public static final Map<String, SchemaTypes.TypedOperation<?, ?>> AGENT = Map.ofEntries( at GeneratedSchema class scope. Earlier OperationCatalog.Plane.AGENT occurrences are enum uses, not this map declaration."
+
+[row.r8-124.30]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programcallrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 550
+symbol = "NativeProgramCallRequest"
+evidence = "The old AgentModels.ProgramCallRequest(program_id, calldata, budget, capabilities, signed_activity) model is replaced by AgentModels.NativeProgramCallRequest(AgentModels.NativeProgramCallFields native_call, String signed_transaction), still implementing SchemaTypes.GeneratedResponse, declared at line 550. The generator explicitly creates this native model in generate_jvm.py:48-52. AgentOperations.ProgramCallRequest(JsonNode idempotency_key) at line 2920 implements GeneratedRequest and is a separate operation wrapper, not the registered model."

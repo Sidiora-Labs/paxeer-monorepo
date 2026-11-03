@@ -1,0 +1,243 @@
+[reconcile.r12-179]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r12-179.1]
+interface = "interface.12.err-att-api-operator-required"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 25
+symbol = "CodeOperatorRequired"
+evidence = "Go const declaration CodeOperatorRequired = \"operator_required\" matches the registered signature; errorCategories assigns CategoryToken; Error.Status returns HTTP 403 for this code. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.2]
+interface = "interface.12.err-att-api-policy-denied"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 26
+symbol = "CodePolicyDenied"
+evidence = "Go const declaration CodePolicyDenied = \"policy_denied\" matches the registered signature; errorCategories assigns CategoryPolicy; policyError adds PolicyCode. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.3]
+interface = "interface.12.err-att-api-quorum-not-member"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 28
+symbol = "CodeQuorumNotMember"
+evidence = "Go const declaration CodeQuorumNotMember = \"quorum_not_member\" matches the registered signature; errorCategories assigns CategoryQuorum. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.4]
+interface = "interface.12.err-att-api-quorum-self-missing"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 29
+symbol = "CodeQuorumSelfMissing"
+evidence = "Go const declaration CodeQuorumSelfMissing = \"quorum_self_missing\" matches the registered signature; errorCategories assigns CategoryQuorum. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.5]
+interface = "interface.12.err-att-api-quorum-too-few-signers"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 27
+symbol = "CodeQuorumTooFew"
+evidence = "Go const declaration CodeQuorumTooFew = \"quorum_too_few_signers\" matches the registered signature; errorCategories assigns CategoryQuorum. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.6]
+interface = "interface.12.err-att-api-session-bad-request"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 30
+symbol = "CodeSessionBadRequest"
+evidence = "Go const declaration CodeSessionBadRequest = \"session_bad_request\" matches the registered signature; errorCategories assigns CategorySession. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.7]
+interface = "interface.12.err-att-api-session-failed"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 32
+symbol = "CodeSessionFailed"
+evidence = "Go const declaration CodeSessionFailed = \"session_failed\" matches the registered signature; errorCategories assigns CategorySession; Error.Status returns HTTP 502 for this code. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.8]
+interface = "interface.12.err-att-api-session-open-failed"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 31
+symbol = "CodeSessionOpen"
+evidence = "Go const declaration CodeSessionOpen = \"session_open_failed\" matches the registered signature; errorCategories assigns CategorySession; Error.Status returns HTTP 502 for this code. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.9]
+interface = "interface.12.err-att-api-session-timeout"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 33
+symbol = "CodeSessionTimeout"
+evidence = "Go const declaration CodeSessionTimeout = \"session_timeout\" matches the registered signature; errorCategories assigns CategorySession; Error.Status returns HTTP 504 for this code. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.10]
+interface = "interface.12.err-att-api-session-unsupported-kind"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 34
+symbol = "CodeSessionKind"
+evidence = "Go const declaration CodeSessionKind = \"session_unsupported_kind\" matches the registered signature; errorCategories assigns CategorySession. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.11]
+interface = "interface.12.err-att-api-store-audit-failed"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 46
+symbol = "CodeStoreAuditFailed"
+evidence = "Go const declaration CodeStoreAuditFailed = \"store_audit_failed\" matches the registered signature; errorCategories assigns CategoryStore. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.12]
+interface = "interface.12.err-att-api-store-failed"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 45
+symbol = "CodeStoreFailed"
+evidence = "Go const declaration CodeStoreFailed = \"store_failed\" matches the registered signature; errorCategories assigns CategoryStore. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.13]
+interface = "interface.12.err-att-api-token-invalid"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 21
+symbol = "CodeTokenInvalid"
+evidence = "Go const declaration CodeTokenInvalid = \"token_invalid\" matches the registered signature; errorCategories assigns CategoryToken. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.14]
+interface = "interface.12.err-att-api-token-missing"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 20
+symbol = "CodeTokenMissing"
+evidence = "Go const declaration CodeTokenMissing = \"token_missing\" matches the registered signature; errorCategories assigns CategoryToken. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.15]
+interface = "interface.12.err-att-api-token-not-owner"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 22
+symbol = "CodeTokenNotOwner"
+evidence = "Go const declaration CodeTokenNotOwner = \"token_not_owner\" matches the registered signature; errorCategories assigns CategoryToken. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.16]
+interface = "interface.12.err-att-api-token-unavailable"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 23
+symbol = "CodeTokenUnavailable"
+evidence = "Go const declaration CodeTokenUnavailable = \"token_unavailable\" matches the registered signature; errorCategories assigns CategoryToken. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.17]
+interface = "interface.12.err-att-api-verification-not-imported"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 43
+symbol = "CodeVerificationNotImported"
+evidence = "Go const declaration CodeVerificationNotImported = \"verification_not_imported\" matches the registered signature; errorCategories assigns CategoryKey. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.18]
+interface = "interface.12.err-att-api-verification-outside-window"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 42
+symbol = "CodeVerificationWindow"
+evidence = "Go const declaration CodeVerificationWindow = \"verification_outside_window\" matches the registered signature; errorCategories assigns CategoryKey. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.19]
+interface = "interface.12.err-att-api-verification-used"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 44
+symbol = "CodeVerificationUsed"
+evidence = "Go const declaration CodeVerificationUsed = \"verification_used\" matches the registered signature; errorCategories assigns CategoryKey. The Error fields and errorBody wrapper retain the registered JSON error envelope."
+
+[row.r12-179.20]
+interface = "interface.12.err-att-category-key"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 15
+symbol = "CategoryKey"
+evidence = "Go const declaration CategoryKey = \"key\" matches the registered signature; errorStatus maps this category to HTTP 409. Error.Category is serialized as error.category in errorBody."
+
+[row.r12-179.21]
+interface = "interface.12.err-att-category-policy"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 12
+symbol = "CategoryPolicy"
+evidence = "Go const declaration CategoryPolicy = \"policy\" matches the registered signature; errorStatus maps this category to HTTP 403. Error.Category is serialized as error.category in errorBody."
+
+[row.r12-179.22]
+interface = "interface.12.err-att-category-quorum"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 13
+symbol = "CategoryQuorum"
+evidence = "Go const declaration CategoryQuorum = \"quorum\" matches the registered signature; errorStatus maps this category to HTTP 409. Error.Category is serialized as error.category in errorBody."
+
+[row.r12-179.23]
+interface = "interface.12.err-att-category-session"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 14
+symbol = "CategorySession"
+evidence = "Go const declaration CategorySession = \"session\" matches the registered signature; errorStatus maps this category to HTTP 400. Error.Category is serialized as error.category in errorBody."
+
+[row.r12-179.24]
+interface = "interface.12.err-att-category-store"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 16
+symbol = "CategoryStore"
+evidence = "Go const declaration CategoryStore = \"store\" matches the registered signature; errorStatus maps this category to HTTP 500. Error.Category is serialized as error.category in errorBody."
+
+[row.r12-179.25]
+interface = "interface.12.err-att-category-token"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 11
+symbol = "CategoryToken"
+evidence = "Go const declaration CategoryToken = \"token\" matches the registered signature; errorStatus maps this category to HTTP 401. Error.Category is serialized as error.category in errorBody."
+
+[row.r12-179.26]
+interface = "interface.12.http-att-health"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/server.go"
+line = 154
+symbol = "PathHealth"
+evidence = "Route registration s.mux.HandleFunc(PathHealth, s.HandleHealth) has no route gate. PathHealth is declared as /health at line 41; HandleHealth enforces GET at line 328. APITLSConfig requires and verifies client certificates at line 413."
+
+[row.r12-179.27]
+interface = "interface.12.err-gw-action-agent-frozen"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 56
+symbol = "AGENT_FROZEN"
+evidence = "ActionErrorCode declares the 'AGENT_FROZEN' literal as a union member. STRATEGY maps it to USER_INTERVENTION; ErrorEnvelope.code uses ActionErrorCode and buildErrorEnvelope returns args.code."
+
+[row.r12-179.28]
+interface = "interface.12.err-gw-action-agent-reauthorization-required"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 55
+symbol = "AGENT_REAUTHORIZATION_REQUIRED"
+evidence = "ActionErrorCode declares the 'AGENT_REAUTHORIZATION_REQUIRED' literal as a union member. STRATEGY maps it to USER_INTERVENTION; ErrorEnvelope.code uses ActionErrorCode and buildErrorEnvelope returns args.code."
+
+[row.r12-179.29]
+interface = "interface.12.err-gw-action-approval-cap-exceeded"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 59
+symbol = "APPROVAL_CAP_EXCEEDED"
+evidence = "ActionErrorCode declares the 'APPROVAL_CAP_EXCEEDED' literal as a union member. STRATEGY maps it to USER_INTERVENTION; ErrorEnvelope.code uses ActionErrorCode and buildErrorEnvelope returns args.code."
+
+[row.r12-179.30]
+interface = "interface.12.err-gw-action-approval-pending"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 61
+symbol = "APPROVAL_PENDING"
+evidence = "ActionErrorCode declares the 'APPROVAL_PENDING' literal as a union member. STRATEGY maps it to POLL_ACTION; ErrorEnvelope.code uses ActionErrorCode and buildErrorEnvelope returns args.code."
