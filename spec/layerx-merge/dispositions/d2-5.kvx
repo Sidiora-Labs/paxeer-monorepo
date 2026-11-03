@@ -1,0 +1,5 @@
+[disposition.2.14.6]
+finding = "2.14.6"
+status = "resolved"
+evidence = "On main, 90bda704a removed TestAuthResultByIdempotency and the session and execute receipt-store assertions, ea039363e changed TestGrantCapability replay to ErrSequenceReused, and 41642833f aligned session and execute sequence assertions and TestRevokeGrantAdvancesRevocation replay with the post-retirement contract."
+follow_up = "closure"

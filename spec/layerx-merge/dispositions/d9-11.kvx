@@ -1,0 +1,35 @@
+[disposition.9.97.7.7]
+finding = "9.97.7.7"
+status = "resolved"
+evidence = "Commit be3b74e45 removed both retired imports and their kernel receipt tests from tests/agent/sdk/python/test_receipt_fixture.py, whose lines 12-18 now import only the supported sequencer verifier and receipt status helpers."
+follow_up = "closure"
+
+[disposition.9.33.13.2]
+finding = "9.33.13.2"
+status = "resolved"
+evidence = "Commit c31ded3a3 changed perpsOpenPositionCall and perpsCancelOrderCall to the ABI-declared openPosition(uint256,address,uint256,uint256,bool) and cancelOrder(uint256) signatures retained at services/agent/sdk/typescript/src/perps.ts:741 and :752."
+follow_up = "closure"
+
+[disposition.9.35.16.1]
+finding = "9.35.16.1"
+status = "resolved"
+evidence = "Commit 9b9f71f04 updated bind_call_refuses_budget_create_payload_rule_violations to assert two disclosed amounts, including SpendingLimit with value 100, as retained at services/agent/crates/layerx-crypto/tests/budget_call.rs:108."
+follow_up = "closure"
+
+[disposition.9.35.17.1]
+finding = "9.35.17.1"
+status = "open"
+evidence = "At revision 210639d0360c53f5c2fdd81c9c7c5e84b24b8c84, services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1254 still supplies authorization and services/agent/crates/layerx-agentd/src/sign.rs:65 still declares it, so the coordinated removal required by decision 2410 in pending task 9.35.17 has not landed."
+follow_up = "9.35.17"
+
+[disposition.9.97.15.2]
+finding = "9.97.15.2"
+status = "resolved"
+evidence = "Commit e45224abc changed decodeProgramsCallResult to unwrap the terminal applied-legs envelope and validate its transfer root before bounding the inner guest response by responseCapacity at services/agent/sdk/typescript/src/ai_market.ts:3327, with the envelope separately bounded to 1048576 bytes."
+follow_up = "closure"
+
+[disposition.9.33.11.1]
+finding = "9.33.11.1"
+status = "open"
+evidence = "services/agent/sdk/typescript/test/gas-station.test.ts:807 still expects latest in paymaster_nonce_stream while services/agent/sdk/typescript/src/gas-station.ts:1124 uses pending for discovery, leaving decision 2425's test correction in pending task 22.9.10 unlanded."
+follow_up = "22.9.10"
