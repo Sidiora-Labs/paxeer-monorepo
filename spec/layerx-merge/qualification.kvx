@@ -19307,3 +19307,11 @@ symbol = "TestProductionRESTMeasurementAggregate"
 observed = "The test requires an approved source-bound aggregate input file and digest from the environment (:1367-1369); the repository holds none, so it fails everywhere the environment does not provide it."
 assumption = "Both measurement tests are owner-provisioned qualification inputs and are skipped by the task verify; the owner supplies the inputs in the closure wave."
 severity = "minor"
+
+[finding.18.1456.1.1]
+task = "18.1456.1"
+file = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+symbol = "AgentModels.VerificationStatus"
+observed = "16e9b1e3f added verification_status:VerificationStatus to the AgentHttpSuccess record of v1.kvx and the JVM generator emits the field type without the record, so sdk/platform/jvm has not compiled since (22.24.21 attempt 4, 18.1503.1 attempt 8)."
+assumption = "Task 18.1503.1 emits the VerificationStatus record from the generator and its verify compiles the JVM module; a task that adds a record to the contract runs every generator consumer's compile."
+severity = "major"

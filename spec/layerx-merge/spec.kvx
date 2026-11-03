@@ -7335,6 +7335,12 @@ value = "A transport section of the agent API schema whose disposition is retire
 basis = "Declaring the retired faucet.claim as an operation generated Operation::FaucetClaim and broke five exhaustive matches of the agent daemon (18.1503.1 attempt 8); the retirement is enforced by name in agent_rpc.rs:25 and documented at v1.kvx:151."
 affects = ["18.1503.1"]
 
+[decision.2371]
+title = "The root go.mod indirect requirements follow the in-repo go-ethereum replace together with go.sum"
+value = "The replace of 66d80726c changed the selected versions of several modules (golang.org/x/sync, x/sys, x/crypto, x/text among them), so the root go.mod's indirect requirement lines and go.sum both need the versions the graph selects; task 22.25.4 brings both to the state go mod tidy produces with the pinned toolchain, raises no version above what the graph selects and removes nothing the build needs."
+basis = "22.25.2 attempt 1 ran go mod download for every reported module and go vet still reported that go.mod needs updates; 7.10.6 attempt 2, 1.38.2 attempt 4, 22.25.1 attempt 1 and 22.6.4 attempt 12 failed on the same gap, and 22.6.4 edited go.mod outside its scope to pass its build."
+affects = ["22.25.4", "22.6.4", "22.25.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -117476,7 +117482,7 @@ do_1 = "Decision 2362: the open dependency advisories of these manifests at HEAD
 do_2 = "A floor that a resolution cannot reach without raising a direct dependency raises that direct dependency in the manifest to the lowest version that resolves above the floor; the manifest change is part of this task. Where the directory's package.json defines a typecheck or build script, it is run once after the raise and a breakage it shows is recorded in the task's qualification note rather than resolved by pinning below the floor. No source file changes."
 do_3 = "Advised packages with no patched release are not in the floors file; they are listed in finding 22.24.1.1 for the owner. The verify is the floor checker (task 22.24.1) followed by the frozen install or lock-consistency command of each manifest, so a lock file that drifts from its manifest fails."
 symbols = []
-touches = ["apps/launchpad/pnpm-lock.yaml", "apps/launchpad/web/package.json", "apps/launchpad/mobile/package.json", "apps/launchpad/qualification/image-dependencies/fixture/package.json", "tools/deps/floors/launchpad-web.json"]
+touches = ["apps/launchpad/pnpm-lock.yaml", "apps/launchpad/web/package.json", "apps/launchpad/mobile/package.json", "apps/launchpad/qualification/image-dependencies/fixture/package.json", "tools/deps/floors/launchpad-web.json", "apps/launchpad/package.json"]
 tests = []
 planned_paths = ["tools/deps/floors/launchpad-web.json"]
 build_cmd = "python3 -m py_compile tools/deps/lockfloor.py"
@@ -117493,6 +117499,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1: six @opentelemetry/instrumentation-* floors came back unresolved. Check each against apps/launchpad/pnpm-lock.yaml by its package key: when the lock holds the package, the floors entry names the wrong manifest or package name and is corrected (the lock file of a pnpm workspace member is the workspace root lock); when the lock resolves the package nowhere, the entry leaves the floors file and the commit message names it."
+do_5 = "Attempt 3: 14 floors remain. apps/launchpad/package.json (in touches now) carries the pnpm overrides that pin nested copies below their floors (hono 4.13.7, fast-uri 3.1.8, uuid 11.1.1 for major 11 only); raise each override to its floor and add overrides for the packages whose nested copies stay below (decode-uri-component, esbuild, glob, minimatch, uuid majors 8 and 9, zod majors 3), then refresh the lock with pnpm install and record a build or typecheck breakage per do_2. stream-json and tinypool are unresolved: when the lock resolves the package nowhere after the refresh, the entry leaves the floors file and the commit message names it; when the registry holds no release at or above the floor, the floor is wrong, leaves the file and is recorded as a finding naming the advisory."
 
 [task.22.24.7]
 title = "Close the open dependency advisories of the blockscout manifests (49 floors)"
@@ -117938,7 +117945,7 @@ do_1 = "services/agent/sdk/typescript/src/ai_market.ts:3273 decodeProgramsReceip
 do_2 = "Share d9-6.kvx with 22.9.11: set follow_up of [disposition.9.97.8.3] to 22.9.10."
 do_3 = "Set follow_up of [disposition.9.97.8.3] in spec/layerx-merge/dispositions/d9-6.kvx to 22.9.10 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
 symbols = ["decodeProgramsReceipt"]
-touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/package.json", "sdk/platform/conformance/fixtures/intent-plan-v1.json", "services/agent/sdk/typescript/test/intent.test.ts", "sdk/platform/conformance/evm-call-wrapping.test.py", "tests/agent/sdk/python/test_intent.py", "services/agent/sdk/typescript/src/intent.ts", "services/agent/sdk/typescript/test/exchange-v2.test.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/typescript/test/proof_exchange.test.ts", "services/agent/sdk/typescript/src/exchange.ts"]
+touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/package.json", "sdk/platform/conformance/fixtures/intent-plan-v1.json", "services/agent/sdk/typescript/test/intent.test.ts", "sdk/platform/conformance/evm-call-wrapping.test.py", "tests/agent/sdk/python/test_intent.py", "services/agent/sdk/typescript/src/intent.ts", "services/agent/sdk/typescript/test/exchange-v2.test.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/typescript/test/proof_exchange.test.ts", "services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/test/support/exchange_consumers.ts", "services/agent/sdk/typescript/test/xweb-api.test.ts"]
 tests = []
 planned_paths = ["services/agent/sdk/typescript/test/ai-market.test.ts"]
 build_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build"
@@ -117964,6 +117971,7 @@ do_10 = "Finding 22.9.10.6: the python_market_signs_secp256k1 failure is environ
 do_11 = "Finding 22.9.10.7: precompile-calls.test.ts asserts the five-argument placeOrder signature precompiles/layerxexchange/abi.json carries and drops the six-argument entry; continue from attempt 10."
 do_12 = "Attempt 11: the published ABI precompiles/layerxexchange/abi.json declares placeOrder with five inputs (bytes32,uint8,uint256,uint256,uint8) while exchange-v2.test.ts:37, precompile-calls.test.ts:137 and :209 and proof_exchange.test.ts:49 (now in touches) still assert the six-argument signature; do_11 applies to all four and the published ABI is the fact."
 do_13 = "Attempt 12: the precompile-calls test asserts the five-input placeOrder selector 0x36633730 of precompiles/layerxexchange/abi.json (marketId, side, price, quantity, timeInForce) while services/agent/sdk/typescript/src/exchange.ts:586-606 exchangePlaceOrderCall still encodes the six-input signature with accountId and produces 0xf9835781 (finding 22.9.10.8). Encode the five ABI inputs, drop the accountId argument from the call builder and its callers in src, and keep the test's expectation."
+do_14 = "Attempt 13: the build failed in test/support/exchange_consumers.ts:52 and test/xweb-api.test.ts:546, which still pass accountId to exchangePlaceOrderCall after the call builder dropped it. Both files are in touches now: remove the accountId field from the xweb-api order literal and the accountId word from the expected calldata of the consumers helper, so the expectation is the five-input encoding of the ABI. No other test expectation changes."
 
 [task.22.91.38]
 title = "Inventory the platform examples packages"
@@ -135016,7 +135024,7 @@ do_1 = "Since 66d80726c replaced github.com/ethereum/go-ethereum with ./core/dep
 do_2 = "go mod verify passes afterwards and go build ./node/ ./rpc/ passes in a fresh module cache. The commit message names every go.sum entry added."
 do_3 = "Finding 18.1043.2.1 records the gap; every Go task requires this task (decision 2369)."
 symbols = []
-touches = ["go.sum"]
+touches = ["go.sum", "go.mod"]
 tests = []
 planned_paths = ["go.sum"]
 build_cmd = "go list -mod=readonly -m all >/dev/null"
@@ -135032,6 +135040,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2371: go mod download alone is not enough; after it go vet still reports that go.mod needs updates because the graph selects newer golang.org/x modules than the indirect requirement lines record. Run go mod tidy with the pinned toolchain at the repository root and commit go.mod and go.sum together (go.mod is in touches now); no version is raised above what the graph already selects and no requirement the build needs is removed. The commit message names every requirement line changed. The verify's go list -mod=readonly -m all, go mod verify and go build ./node/ ./rpc/ then pass in a fresh module cache."
 
 [task.22.25.3]
 title = "Add the accepted Programs call case to the sequencer receipt vectors and refresh every copy"
@@ -163952,7 +163961,7 @@ title = "Close the open dependency advisories of the jvm manifests (8 floors)"
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.24.1"]
+requires = ["22.24.1", "18.1503.1"]
 reqs = ["22076.1"]
 capabilities = ["22.24.21"]
 interfaces = []
@@ -163977,6 +163986,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempts 1 and 2, decision 2367: the spring and android integrations depend on the in-repo com.sidiora.layerx:layerx-sdk:0.1.0, so the verify installs sdk/platform/jvm (tests skipped) before resolving them. The floors and the lock raise of the attempts stand."
+do_5 = "Attempt 4 is complete: the eight floors are applied and the floor checker passes; mvn install of sdk/platform/jvm fails on GeneratedSchema.java:76, which references AgentModels.VerificationStatus while no generated record of that name exists (finding 18.1456.1.1). Task 18.1503.1 emits the record from the generator; this task requires it and re-qualifies the attempt 4 candidate unchanged once it publishes."
 
 [task.22.8.7]
 title = "Drop the retired batch and checkpoint verifiers from the JVM conformance main"
@@ -188956,6 +188966,7 @@ do_11 = "Finding 22.6.4.6: TestSidioraFeePaid asserts the balance of the holding
 do_12 = "Finding at the ninth attempt: precompiles/proof_activation_test.go:192 fails for orob, clearing, oracle aggregator, pofq, scheduler, streams, tee attestor and eip712 because InitializePrecompiles no longer publishes them to the VM in the activation harness; the missing-keeper handling this task adds applies to the merge-table info resolution only, and InitializePrecompiles keeps publishing every precompile of the activation table whether or not a merge keeper is supplied; proof_activation_test.go is the oracle and is not edited."
 do_13 = "Attempt 10: TestInitializePrecompilesKeepsMergeOutOfVM (precompiles/precompile_info_e_test.go:148-170) requires every MergeAddressTable entry (0x101A-0x101E and 0x0901-0x0908) absent from the VM tables after InitializePrecompiles(false, keepers), while proof_activation_test.go:192 requires each activation row published after activation; both are right: before the activation state the merge addresses are absent, after it they are published, so setup.go gates the publication on the activation state the activation test sets and neither test changes."
 do_14 = "Attempt 11, decision 2365 (2026-11-03): drop the PrecompileContextProvider of attempt 11. node/precompiles.go PrecompileKeepers keeps the application NewPrecompileKeepers was built from and gains MergePlanActive() bool: open a query context at the latest committed height with the application's CreateQueryContext(0, false) (sdk/baseapp/abci.go:662), return false when no height is committed or the context cannot be opened, else return the upgrade keeper's IsUpgradeActiveAtHeight(ctx, pcommon.MergeUpgrade, ctx.BlockHeight()). precompiles/setup.go publishes the merge rows into the VM tables (the addPrecompileToVM loop over merge) only when keepers implements MergePlanActive and it returns true; the info rows stay unconditional. GetPrecompileKeepers (node/app.go:3888) returns that value, so proof_activation_test.go (:170) sees the rows on the reopened consumer and precompile_info_e_test.go (:96), whose keepers lack the method, sees none. Both tests are oracles and are not edited."
+do_15 = "Attempt 12: TestInitializePrecompilesUsesMergeActivationContext (setup_test.go:469) failed with unexpected ChainID, got empty, want pax-test: the application app.Setup builds carries no chain id, so FinalizeBlock refuses the pax-test header. Build the application the way precompiles/proof_activation_test.go:92-107 does (app.New, then InitChain with ChainId pax-test and the default genesis) before finalizing the first block. go.mod and go.sum are outside this task: the module gap is repaired by task 22.25.4, which this task requires; the attempt that edits either file is refused."
 
 [task.22.5.4]
 title = "Return the committed block's own id from LastBlockID"

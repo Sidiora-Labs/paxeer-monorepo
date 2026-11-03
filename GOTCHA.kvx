@@ -14105,3 +14105,8 @@ fix = "A task that changes a decision rule of a package runs that package's whol
 title = "A retired transport section must not be declared as a catalogue operation"
 symptom = "Adding [operation.faucet.claim] to satisfy the catalogue drift test generated an Operation variant that five exhaustive matches of the agent daemon did not cover and the dependent-crate check failed."
 fix = "Exempt retired transport sections in the drift test (decision 2370); never declare an operation for a name the daemon refuses by RETIRED_OPERATIONS."
+
+[gotcha.2857]
+title = "A replace onto an in-repo module needs go.mod's indirect requirements updated as well as go.sum"
+symptom = "After 66d80726c, go mod download alone left go vet reporting that go.mod needs updates: the graph selects newer golang.org/x modules than the indirect requirement lines record, and -mod=readonly refuses the build."
+fix = "Run go mod tidy with the pinned toolchain in the task that lands the replace and commit go.mod and go.sum together (decision 2371); every other Go task keeps go.mod and go.sum out of its edits."
