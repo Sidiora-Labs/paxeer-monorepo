@@ -1,0 +1,937 @@
+# Pre-upgrade audit of the agent budget, read and wire slice.
+
+[audit.22.30.92]
+task = "22.30.92"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 51
+findings = 52
+docs_reviewed = 16
+upgrade_ready = false
+blocking = ["create_source_nonce","fund_source_nonce","revoke_counter","proof_revocation_counter","history_policy_shape","native_checkpoint","native_proof","native_history_group","proof_acquisition","proof_root_algorithm","program_head_transport","program_state_transport","committed_remaining","execution_account_exists","fee_payer_denom","lifecycle_native_envelope","settlement_native_envelope","sources_native_envelope"]
+
+[file.01]
+path = "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"
+lines = 840
+verdict = "issues"
+note = "Replays committed budget calls and binds finality and freshness, but exported identity joins are unauthenticated and revocation counters are treated as block heights."
+
+[file.02]
+path = "services/agent/crates/layerx-agentd/src/budget/create.rs"
+lines = 611
+verdict = "issues"
+note = "Checks signed transaction, emitted creation event and resulting ABI state; native source nonce zero is incorrectly refused."
+
+[file.03]
+path = "services/agent/crates/layerx-agentd/src/budget/daemon.rs"
+lines = 482
+verdict = "issues"
+note = "Tenant-scoped durable limit records, denomination binding and conservative fee holds agree, but creation publishes companion records separately."
+
+[file.04]
+path = "services/agent/crates/layerx-agentd/src/budget/divergence.rs"
+lines = 57
+verdict = "clean"
+note = "Uses the greater consumed total and smaller remaining allowance, exposes divergence, and keeps writes closed."
+
+[file.05]
+path = "services/agent/crates/layerx-agentd/src/budget/execution_state.rs"
+lines = 793
+verdict = "issues"
+note = "Receipt-bound prestate acquisition treats value-account existence as frozen state, and a test-only helper bypasses the live ABI read."
+
+[file.06]
+path = "services/agent/crates/layerx-agentd/src/budget/fee_policy.rs"
+lines = 524
+verdict = "issues"
+note = "Commits fee metadata to a height and state root, but selects the zero address's preference rather than the transaction fee payer's."
+
+[file.07]
+path = "services/agent/crates/layerx-agentd/src/budget/hold.rs"
+lines = 198
+verdict = "clean"
+note = "Persists exact bounded unknown-reservation records and verifies receipt identity, replay uniqueness and protocol accounting before write readiness."
+
+[file.08]
+path = "services/agent/crates/layerx-agentd/src/budget/mod.rs"
+lines = 2476
+verdict = "issues"
+note = "Tenant enrolment accounting, renewals and release orchestration are wired; companion index/record writes can leave an unrecoverable partial creation."
+
+[file.09]
+path = "services/agent/crates/layerx-agentd/src/budget/mutate.rs"
+lines = 354
+verdict = "issues"
+note = "Binds signed fund/revoke transactions to receipts and resulting state, but source nonces and revocation counters are compared with block heights."
+
+[file.10]
+path = "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs"
+lines = 1838
+verdict = "issues"
+note = "Lifecycle authority and debit checks remain strict, but their entry points decode native signed submissions as retired kernel envelopes."
+
+[file.11]
+path = "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs"
+lines = 1231
+verdict = "issues"
+note = "Preserves held approval and debit binding checks but cannot settle current native transactions through its legacy envelope and receipt decoders."
+
+[file.12]
+path = "services/agent/crates/layerx-agentd/src/budget/program_sources.rs"
+lines = 1225
+verdict = "issues"
+note = "Source ownership and denomination checks are strict, but preliminary preparation validation requires retired envelope encoding and signing bytes."
+
+[file.13]
+path = "services/agent/crates/layerx-agentd/src/budget/reconcile.rs"
+lines = 386
+verdict = "clean"
+note = "Canonical getBudget tuple decoding, delegate ordering, receipt deduplication and period accounting agree; committed-call decoding explicitly does not claim inclusion verification."
+
+[file.14]
+path = "services/agent/crates/layerx-agentd/src/budget/reserve.rs"
+lines = 2290
+verdict = "issues"
+note = "Atomic limiter staging, denomination and ceiling checks agree, but scalar admission accepts an identifier refused by durable recovery."
+
+[file.15]
+path = "services/agent/crates/layerx-agentd/src/human_frame.rs"
+lines = 4
+verdict = "clean"
+note = "Reexports the surviving client frame codec and bounded transport, without importing the retired kernel LNI module."
+
+[file.16]
+path = "services/agent/crates/layerx-agentd/src/read/availability.rs"
+lines = 62
+verdict = "clean"
+note = "Bounds requested height against head and reports block transaction/receipt roots and count, with an explicit pruned outcome."
+
+[file.17]
+path = "services/agent/crates/layerx-agentd/src/read/balance.rs"
+lines = 270
+verdict = "clean"
+note = "Reads the bound native address or explicitly named ledger asset, validates ABI amounts, and reports pending height and historical refusals without inflating verification."
+
+[file.18]
+path = "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"
+lines = 1052
+verdict = "clean"
+note = "Verifies chain/height/header identity and strict voting-power quorum; production callers separately compare the supplied validator set with protected trust."
+
+[file.19]
+path = "services/agent/crates/layerx-agentd/src/read/committed.rs"
+lines = 1550
+verdict = "issues"
+note = "Committed inventory rejects valid partly funded budgets, and its grant fixture is shorter than the producer's canonical grant."
+
+[file.20]
+path = "services/agent/crates/layerx-agentd/src/read/history.rs"
+lines = 516
+verdict = "issues"
+note = "Account-page decoder preserves shared positions, but range filtering and the live policy-history decoder disagree with served account-history ordering and shape."
+
+[file.21]
+path = "services/agent/crates/layerx-agentd/src/read/mod.rs"
+lines = 59
+verdict = "clean"
+note = "Exports current committed reads and the surviving frame-independent native read modules; checkpoint wrapper preserves the verifier contract."
+
+[file.22]
+path = "services/agent/crates/layerx-agentd/src/read/native.rs"
+lines = 245
+verdict = "issues"
+note = "Chain and receipt checks are wired, but public proof/checkpoint results and history overflow handling fail their declared read contracts."
+
+[file.23]
+path = "services/agent/crates/layerx-agentd/src/read/program_balances.rs"
+lines = 109
+verdict = "clean"
+note = "Keeps proven snapshot frozen flags distinct from unproven committed ABI observations and carries height/hash/time freshness without inventing proof."
+
+[file.24]
+path = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+lines = 1247
+verdict = "issues"
+note = "Committed balance ABI correctly distinguishes existence from frozen state; protected program reads still depend on retired HTTP paths and incompatible head documents."
+
+[file.25]
+path = "services/agent/crates/layerx-agentd/src/read/program_node_tests.rs"
+lines = 127
+verdict = "clean"
+note = "Parser-only tests preserve all commitment and transaction-proof fields and refuse noncanonical encodings, missing fields, negative indexes and excessive aunts."
+
+[file.26]
+path = "services/agent/crates/layerx-agentd/src/read/proof_bundle.rs"
+lines = 539
+verdict = "issues"
+note = "The request owner unconditionally refuses current proof acquisition and the low-level verifier assumes an Ethereum receipts trie rather than the node's committed results tree."
+
+[file.27]
+path = "services/agent/crates/layerx-agentd/tests/approval_events.rs"
+lines = 439
+verdict = "clean"
+note = "Local approval events, framed chain-log gap recovery, durable subscription delivery ordering and digest evidence agree with the declared event contract."
+
+[file.28]
+path = "services/agent/crates/layerx-wire/Cargo.toml"
+lines = 16
+verdict = "clean"
+note = "Workspace dependencies match the retained codec implementation."
+
+[file.29]
+path = "services/agent/crates/layerx-wire/src/account.rs"
+lines = 11
+verdict = "clean"
+note = "Delegates namespace and asset separation to AccountId with matching refusal behavior."
+
+[file.30]
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+lines = 471
+verdict = "issues"
+note = "Retains the retired kernel activity-envelope protocol used by unported native consumers."
+
+[file.31]
+path = "services/agent/crates/layerx-wire/src/batch_maintenance.rs"
+lines = 193
+verdict = "clean"
+note = "Bounded historical maintenance decoding enforces version, header coordinates and effect restrictions without claiming current network finality."
+
+[file.32]
+path = "services/agent/crates/layerx-wire/src/decode.rs"
+lines = 285
+verdict = "clean"
+note = "Primitive bounds, checked offsets, allocation accounting and full-consumption checks match encoder callers."
+
+[file.33]
+path = "services/agent/crates/layerx-wire/src/encode.rs"
+lines = 257
+verdict = "clean"
+note = "Bounded primitive writes and canonical framing agree with Decoder."
+
+[file.34]
+path = "services/agent/crates/layerx-wire/src/handover.rs"
+lines = 329
+verdict = "clean"
+note = "Historical handover decoding is explicitly non-authoritative and validates sizes and predecessor binding without calling a retired service."
+
+[file.35]
+path = "services/agent/crates/layerx-wire/src/hash.rs"
+lines = 785
+verdict = "issues"
+note = "Retains retired activity-bound identity helpers alongside supported receipt and account hashes."
+
+[file.36]
+path = "services/agent/crates/layerx-wire/src/lib.rs"
+lines = 48
+verdict = "issues"
+note = "Publishes the retired activity and signing modules as current integration surfaces."
+
+[file.37]
+path = "services/agent/crates/layerx-wire/src/limits.rs"
+lines = 57
+verdict = "clean"
+note = "Version selection and effect-count bounds agree with receipt formats and native receipt vectors."
+
+[file.38]
+path = "services/agent/crates/layerx-wire/src/maintenance.rs"
+lines = 169
+verdict = "clean"
+note = "Historical maintenance records enforce payer ordering, amounts and evidence/schedule commitments without claiming current network authority."
+
+[file.39]
+path = "services/agent/crates/layerx-wire/src/receipt.rs"
+lines = 1863
+verdict = "issues"
+note = "Canonical receipt compatibility is preserved, but checkpoint decoder and encoder maximum sizes disagree."
+
+[file.40]
+path = "services/agent/crates/layerx-wire/src/sign.rs"
+lines = 45
+verdict = "issues"
+note = "Publishes retired envelope signing preimages."
+
+[file.41]
+path = "services/agent/crates/layerx-wire/tests/account.rs"
+lines = 41
+verdict = "clean"
+note = "Asserts namespace preservation, asset separation and mismatch refusals through the account helper."
+
+[file.42]
+path = "services/agent/crates/layerx-wire/tests/batch_maintenance.rs"
+lines = 163
+verdict = "clean"
+note = "Covers historical maintenance framing, versioning, corruption, header binding and effect bounds."
+
+[file.43]
+path = "services/agent/crates/layerx-wire/tests/hashing.rs"
+lines = 418
+verdict = "issues"
+note = "Checkpoint tag/header tests still depend on the retired settlement document, and activity hashing coverage depends on retired envelopes."
+
+[file.44]
+path = "services/agent/crates/layerx-wire/tests/primitives.rs"
+lines = 180
+verdict = "clean"
+note = "Published primitive values, round trips, ordering and allocation refusal match the codec contract."
+
+[file.45]
+path = "services/agent/crates/layerx-wire/tests/rejection.rs"
+lines = 222
+verdict = "issues"
+note = "Submission rejection coverage still depends on the retired activity envelope."
+
+[file.46]
+path = "services/agent/crates/layerx-wire/tests/structures.rs"
+lines = 412
+verdict = "issues"
+note = "Receipt qualification still requires the activity codec whose removal is required."
+
+[file.47]
+path = "services/agent/crates/layerx-wire/tests/supply_receipt.rs"
+lines = 47
+verdict = "clean"
+note = "Native supply receipt bytes round-trip with truncation, corruption and unsupported-operation refusals."
+
+[file.48]
+path = "services/agent/crates/layerx-wire/tests/support/corpus.rs"
+lines = 47
+verdict = "clean"
+note = "Bounded local historical corpus helper performs no retired network-service operations."
+
+[file.49]
+path = "services/agent/crates/layerx-wire/tests/support/maintenance.rs"
+lines = 35
+verdict = "clean"
+note = "Constructs explicit codec input and does not claim authoritative network proof."
+
+[file.50]
+path = "services/agent/crates/layerx-wire/tests/support/wallet_vectors/activities.json"
+lines = 226
+verdict = "generated"
+note = "Generated by tests/wallet_vectors.rs; these historical kernel envelope vectors do not establish current native wallet compatibility."
+
+[file.51]
+path = "services/agent/crates/layerx-wire/tests/wallet_vectors.rs"
+lines = 682
+verdict = "issues"
+note = "Wallet examples build retired envelopes with artificial signatures and compare local generated output only."
+
+[finding.create_source_nonce]
+file = "services/agent/crates/layerx-agentd/src/budget/create.rs"
+line = 274
+class = "interface-mismatch"
+severity = "high"
+observed = "BudgetRequest::create_protocol_budget rejects encoding-version-2 source_sequence == 0 before submission, although src/modules/budget/lx_budget_codec.c:158-159 accepts zero and only reserves UINT64_MAX; lx_budget_module.c:220 compares it with the source account's next_sequence."
+expected = "budgetCreateNative on 0x101B must accept the real source-account nonce, including zero on first use, while retaining exact source ownership and overflow checks."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/create.rs validate the native source against its authenticated account nonce and the producer's reserved maximum; prove a first-use zero-nonce source through preparation, submission and confirmation."
+owner_domain = 9
+interface = "9.rs-agentd-budget-create-create-protocol-budget-j43"
+
+[finding.fund_source_nonce]
+file = "services/agent/crates/layerx-agentd/src/budget/mutate.rs"
+line = 119
+class = "interface-mismatch"
+severity = "high"
+observed = "budget_mutation_identity names budgetFundNative's third word source_height and rejects zero or a value above observed_head_sequence. modules/layerxpay/keeper/budget_create.go:54 and lx_budget_module.c:229 define it as sourceSequence, an account nonce independent of height."
+expected = "A source account can have nonce zero or many operations per block; budgetFundNative must bind its next sequence rather than compare it with block height."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/mutate.rs carry a source nonce with its actual units and validate it against the source account at the preparation checkpoint; exercise zero and a nonce greater than block height through the real precompile."
+owner_domain = 9
+interface = "9.rs-agentd-budget-mutate-budget-mutation-identity-j43"
+
+[finding.revoke_counter]
+file = "services/agent/crates/layerx-agentd/src/budget/mutate.rs"
+line = 297
+class = "interface-mismatch"
+severity = "high"
+observed = "confirm_budget_mutation additionally requires revocation_height <= executed block height. The budgetRevoke word is a monotonic revocationSequence: src/modules/budget/lx_budget_close.c:115-122 only requires it to exceed the old record's counter."
+expected = "A successful budgetRevoke with a valid counter greater than the block height must confirm; its counter and the receipt's block coordinate are different facts."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/mutate.rs preserve monotonic counter validation against the prior budget record and match the event and resulting state without applying a block-height ceiling; prove confirmation with a counter above height."
+owner_domain = 9
+interface = "9.rs-agentd-budget-mutate-confirm-budget-mutation-j43"
+
+[finding.proof_revocation_counter]
+file = "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"
+line = 384
+class = "interface-mismatch"
+severity = "high"
+observed = "verify_native_budget_proof refuses state.revocation_sequence above checkpoint.height even when getBudget re-executes to those exact bytes. The producer's revocationSequence is a monotonic caller-selected counter, not a block coordinate."
+expected = "Committed budget proof v2 must preserve a valid budget revocation counter independently of the block height, matching layerxpay's creation and revocation semantics."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/budget_proof.rs and the authority budget export owner, remove the counter/height conflation while retaining proof binding and monotonic mutation checks; export and verify a real budget whose counter exceeds its height."
+owner_domain = 9
+interface = "9.fmt-budget-proof"
+
+[finding.proof_owner_join]
+file = "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"
+line = 330
+class = "security"
+severity = "medium"
+observed = "verify_native_budget_proof replays getBudget and budgetRemaining, but trusts proofs.account_join from the unsigned export. identity_key and evidence_digest are public hashes; replacing the join's DID and recomputing them can claim another DID owns the same real budget without changing either on-chain call."
+expected = "An ownership proof must authenticate the DID-to-owner account binding as well as the budget amounts; a self-consistent JSON hash is not authority for that binding."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/budget_proof.rs verify the requested DID's binding through the authenticated node at the proof checkpoint, or verify a state witness for the join; add a changed-join test that recomputes all public digests and still refuses."
+owner_domain = 9
+
+[finding.daemon_atomic_creation]
+file = "services/agent/crates/layerx-agentd/src/budget/daemon.rs"
+line = 272
+class = "restart-recovery"
+severity = "medium"
+observed = "create_daemon_limit writes the tenant's limit-id index with Store::put_local and only then writes its limit record. Process death between writes leaves an index whose budget has no record; a retry reaches the existing-index Corrupt refusal and cannot complete installation."
+expected = "The index and daemon limit are one durable object: recovery must observe both or neither and permit an idempotent retry after interruption."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/daemon.rs publish the new index and record through the existing atomic store batch operation before installing the limit; interrupt and reopen the real store at creation and prove successful replay."
+owner_domain = 9
+
+[finding.history_policy_shape]
+file = "services/agent/crates/layerx-agentd/src/read/history.rs"
+line = 434
+class = "interface-mismatch"
+severity = "high"
+observed = "HistoryPage::read_newest passes endpoint.history rows to decode_page_ordered, which requires exactly six fields height/kind/canonical/proof/txIndex/logIndex and descending positions. The live px_getHistory producer serves ascending blockHeight-positioned event rows with additional business fields; PolicyHistorySource::page calls this reader."
+expected = "The policy history consumer must accept the actual hosted history rows, cursor ordering and same-position groups, then acquire authentic receipt evidence for policy decisions."
+proposal = "In services/agent/crates/layerx-agentd/src/read/history.rs and protocol_evidence.rs consume the served block-position page schema and implement bounded reverse-window acquisition with the producer's supported ordering; prove policy admission using real indexer/gateway rows."
+owner_domain = 9
+interface = "9.rs-agentd-read-history-historypage-j43"
+
+[finding.history_range]
+file = "services/agent/crates/layerx-agentd/src/read/history.rs"
+line = 176
+class = "runtime-risk"
+severity = "medium"
+observed = "read_account sends only account/cursor/limit to px_getHistory and refuses every returned row outside from_height..=to_height. A request for a later range with no cursor therefore fails on the account's earlier history instead of returning the requested window; human_runtime::read_history exposes these selectors."
+expected = "Finite block-range history must page to the requested range, return rows in that range once, and terminate cleanly when older or newer account history exists."
+proposal = "In services/agent/crates/layerx-agentd/src/read/history.rs implement a bounded range adapter over the account-history cursor, preserving position groups and byte limits; exercise a later requested range on an account with older and newer rows."
+owner_domain = 9
+
+[finding.history_retired_seam]
+file = "services/agent/crates/layerx-agentd/src/read/history.rs"
+line = 227
+class = "dead-code"
+severity = "low"
+observed = "The exported history function and both HistorySource implementations always return SequencerError::Unavailable; the file retains old exact-field decoding and frame-transport compatibility alongside the functioning account-bound reader."
+expected = "The public history surface should have a clear account-scoped contract and should not present the retired range transport as a functioning reader."
+proposal = "In services/agent/crates/layerx-agentd/src/read/history.rs migrate callers to the account-scoped reader and retire the unused transport/range seam, preserving typed refusals for explicitly unsupported legacy requests."
+owner_domain = 9
+
+[finding.native_checkpoint]
+file = "services/agent/crates/layerx-agentd/src/read/native.rs"
+line = 145
+class = "interface-mismatch"
+severity = "high"
+observed = "NativeReadRoute::checkpoint reads only evidence::checkpoint and returns rung:null, verified:false, with no commit or validator verification, while the declared checkpoint read must establish a committed block."
+expected = "Requirement 9022.1 and the checkpoint route contract require a matching header and commit with more than two thirds of trusted voting power and achieved rung Committed."
+proposal = "In services/agent/crates/layerx-agentd/src/read/native.rs acquire and verify the block commit through read/checkpoint.rs under protected validator trust and render the resulting committed coordinates; prove the served route accepts a real quorum and rejects insufficient power."
+owner_domain = 9
+interface = "9.http-agentd-serve-get-v1-reads-checkpoint"
+
+[finding.native_proof]
+file = "services/agent/crates/layerx-agentd/src/read/native.rs"
+line = 129
+class = "interface-mismatch"
+severity = "high"
+observed = "NativeReadRoute::proof takes the receipt JSON and adds kind:receipt and proof_type:sequencer_signature. It supplies no block inclusion path or proof-bundle v2 material, so a receipt signature is served where the inclusion-proof operation is declared."
+expected = "Requirement 9023.1 requires a receipt proof bundle containing the receipt and an inclusion path that recomputes the block's receipt/results commitment, with the achieved rung stated accurately."
+proposal = "In services/agent/crates/layerx-agentd/src/read/native.rs wire proof retrieval to the actual authenticated block-proof producer and its matching verifier, return the complete declared proof bundle, and prove it through the public HTTP route."
+owner_domain = 9
+interface = "9.http-agentd-serve-get-v1-reads-proof"
+
+[finding.native_history_group]
+file = "services/agent/crates/layerx-agentd/src/read/native.rs"
+line = 183
+class = "interface-mismatch"
+severity = "high"
+observed = "NativeReadRoute::history rejects page.items.len() greater than limit. The hosted history producer deliberately returns all rows at the last in-limit position, so one transaction with several rows can produce a valid page larger than the requested limit and receive ResultTooLarge here."
+expected = "Requirement 181431.1 and gateway history pagination keep the final position group intact so an exclusive cursor neither loses nor repeats same-position rows."
+proposal = "In services/agent/crates/layerx-agentd/src/read/native.rs validate overflow by position group as the account reader does, retaining the response byte bound and rejecting later-position overflow; serve a real shared-position page across two requests."
+owner_domain = 9
+interface = "9.http-agentd-serve-get-v1-reads-history"
+
+[finding.proof_acquisition]
+file = "services/agent/crates/layerx-agentd/src/read/proof_bundle.rs"
+line = 61
+class = "wiring-gap"
+severity = "high"
+observed = "acquire decodes retained signed bytes with the retired layerx_wire::activity decoder, then every remaining branch ends in read.proof_bundle_v2_material_missing at lines 105-109; AccountState is also unconditionally refused at lines 45-53. No valid native proof request can return a bundle."
+expected = "The declared activity/receipt proof operation must reach the real native transaction and proof producers, and committed account requests must be serviceable when valid evidence is available."
+proposal = "In services/agent/crates/layerx-agentd/src/read/proof_bundle.rs bind retained EIP-1559 bytes to authenticated chain receipts and obtain the actual inclusion/storage material, then construct the API proof bundle; prove both successful receipt and committed account acquisition."
+owner_domain = 9
+
+[finding.proof_root_algorithm]
+file = "services/agent/crates/layerx-agentd/src/read/proof_bundle.rs"
+line = 201
+class = "interface-mismatch"
+severity = "high"
+observed = "verify_bundle requires header H.last_results_hash == receipts_root and verifies a keccak/RLP Ethereum receipt trie. rpc/block.go:292-349 serves receiptsRoot as the Comet Merkle root over marshalled ABCI results of block H, committed by header H+1; it is neither H's previous-results field nor an Ethereum receipt trie."
+expected = "The proof producer and consumer must agree on the exact committed bytes, hash/tree algorithm and commitment height; a real node receipt inclusion proof must verify without inventing another root."
+proposal = "In services/agent/crates/layerx-agentd/src/read/proof_bundle.rs use the node's actual ABCI-result Merkle proof and authenticate its commitment at the proper signed header, or coordinate an explicitly versioned producer change; prove the path with node-emitted proof bytes."
+owner_domain = 9
+interface = "9.rs-agentd-read-checkpoint-proof-bundle-j43"
+
+[finding.program_head_transport]
+file = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+line = 253
+class = "interface-mismatch"
+severity = "high"
+observed = "read_protocol_state_selected and read_chain_head require chain_evidence from /v1/protocol/account-state/head and query an independent authority by ?height. The declared emulator producer at tools/platform/emulator/src/main.rs:872 emits batch_evidence instead, and the boundary relay rejects queries on the head route."
+expected = "Program head verification must round-trip the validator-signed chain-evidence shape and height selector through the declared producer, boundary transport and consumer, without relying on a retired kernel replica."
+proposal = "In services/agent/crates/layerx-agentd/src/read/program_node.rs migrate the head acquisition to the node's committed proof path and coordinate the owning hosted boundary/authority contracts; prove current-head, historical-head and restart journal reads with real emitted chain evidence."
+owner_domain = 9
+interface = "8.http-emulator-get-v1-protocol-account-state-head"
+
+[finding.program_state_transport]
+file = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+line = 279
+class = "wiring-gap"
+severity = "high"
+observed = "read_protocol_state_selected requests /v1/programs/{id}/account-state?at=... with an optional profile=2, but services/platform/hosted/agent-boundary/src/main.rs:675-683 only permits head-without-query and receipt account-state relay paths. The declared boundary cannot transport this program-state read."
+expected = "The program-state reader used by budget presentation and settlement must reach a registered merged-node state query with the same program, checkpoint, profile and evidence shape."
+proposal = "In services/agent/crates/layerx-agentd/src/read/program_node.rs replace the retired REST dependency with the native program-state query and its checkpoint-bound witness, coordinating the boundary owner as needed; exercise a real program read and its recovery path."
+owner_domain = 9
+
+[finding.committed_remaining]
+file = "services/agent/crates/layerx-agentd/src/read/committed.rs"
+line = 512
+class = "interface-mismatch"
+severity = "high"
+observed = "inventory_records requires budgetRemaining(bytes32) to equal ProtocolBudgetRecord::remaining(), which computes allowance only. modules/layerxpay/keeper/budget_views.go:30-52 returns min(allowance, funded balance); a valid budget with allowance 100 and balance 20 is refused as Selector."
+expected = "Valid budget records and their committed funded remaining amount must survive inventory acquisition and source selection with allowance distinguished from actually funded spending power."
+proposal = "In services/agent/crates/layerx-agentd/src/read/committed.rs preserve allowance and funded remaining separately, verify the latter against the budget account at the held checkpoint, and carry spendable remaining into source selection; cover real partial funding and defunding."
+owner_domain = 9
+interface = "9.rs-client-protocolbudgetrecord-remaining-j70"
+
+[finding.grant_fixture]
+file = "services/agent/crates/layerx-agentd/src/read/committed.rs"
+line = 1333
+class = "test-gap"
+severity = "medium"
+observed = "program_sources_select_the_chain_bound_principal_inventory manufactures getGrant encoding [1,2,3]. precompiles/layerxauth/views.go:27-44 requires a canonical grant with its identity prefix, scope, counters and revocation bytes and cannot emit this three-byte document."
+expected = "Inventory tests must use grant bytes emitted by the actual authority producer and prove agreement on identity, scope and revocation instead of merely accepting hand-built opaque bytes."
+proposal = "In services/agent/crates/layerx-agentd/src/read/committed.rs replace the manufactured grant response with a grant created by the authority keeper and transported through getGrant and capabilityScope; assert acceptance and altered identity or revocation refusal."
+owner_domain = 9
+
+[finding.missing_contracts]
+file = "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"
+line = 260
+class = "doc-drift"
+severity = "medium"
+observed = "The verifier accepts layerx.human.budget-proof.v2, but registry row 9.fmt-budget-proof still declares v1. Its contracts/agent-formats.md target and the agent-api.md, agent-rust-api.md and agent-config.md registry contract pages do not exist in this tree."
+expected = "The published budget proof version, read/budget routes, Rust contracts and configuration documentation must describe the supported merged-network interfaces and resolve to real pages."
+proposal = "Update spec/layerx-merge/interfaces.kvx and the owning agent contract documentation to publish budget proof v2 and current route/type/configuration contracts at existing canonical paths; preserve explicit compatibility or refusal rules for retired versions."
+owner_domain = 9
+interface = "9.fmt-budget-proof"
+
+[finding.execution_account_exists]
+file = "services/agent/crates/layerx-agentd/src/budget/execution_state.rs"
+line = 568
+class = "interface-mismatch"
+severity = "high"
+observed = "read_program_records assigns getValueAccount's second ABI word to ProgramAccountView.frozen. precompiles/layerxprograms/view_accounts.go:84-99 emits (balance, exists), so an existing unfrozen account becomes frozen=true and program_lifecycle_settlement.rs:872 rejects its valid wind-down settlement."
+expected = "Account existence and frozen state are distinct; requirement 181289.1 already preserves this distinction in the balance reader and lifecycle settlement must consume the same semantics."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/execution_state.rs decode existence explicitly and obtain frozen state from its authoritative record/proof; preserve absence checks and prove a funded unfrozen account through real committed wind-down settlement."
+owner_domain = 9
+interface = "9.rs-agentd-budget-program-settlement-read-retained-wind-down-debit-settlement-at-execution-j43"
+
+[finding.execution_state_test]
+file = "services/agent/crates/layerx-agentd/src/budget/execution_state.rs"
+line = 616
+class = "test-gap"
+severity = "medium"
+observed = "committed_execution_state_reads_program_records_at_prestate_height exercises the cfg(test)-only collect_program_records callback over old kernel-key records, rather than production read_program_records and its state-proven ABI queries. It therefore does not detect the live exists/frozen mismatch."
+expected = "Requirement 181424 requires receipt-bound pre-execution records from the real committed read at block_number minus one, with unchanged lifecycle absence and authority checks."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/execution_state.rs drive committed_execution_state through the actual precompile/query and state-witness producer, asserting prestate height and deploy absence as well as an existing unfrozen account."
+owner_domain = 9
+
+[finding.fee_payer_denom]
+file = "services/agent/crates/layerx-agentd/src/budget/fee_policy.rs"
+line = 159
+class = "interface-mismatch"
+severity = "high"
+observed = "native_fee_policy calls getFeeDenom(address) with 32 zero bytes. precompiles/feetoken/feetoken.go:142-146 returns the supplied account's preference, so a sender with a nondefault selected fee denomination is reserved and presented using the zero address's different asset."
+expected = "The prepared transaction's fee denomination, asset metadata and budget reservation must match the authenticated sender or actual fee payer's selected fee token at the held height."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/fee_policy.rs carry the authenticated fee payer into getFeeDenom, and propagate that binding into program_sources.rs and preparation; prove two accounts with distinct preferences through real fee selection and reservation."
+owner_domain = 9
+interface = "9.rs-agentd-budget-program-sources-read-program-budget-sources-j43"
+
+[finding.fee_fixture]
+file = "services/agent/crates/layerx-agentd/src/budget/fee_policy.rs"
+line = 391
+class = "test-gap"
+severity = "medium"
+observed = "The fee-policy RPC fixture explicitly expects the zero-address getFeeDenom calldata and never supplies two account fee preferences, so its success proves the wrong account selection rather than the transaction payer's selected denomination."
+expected = "The fee-policy test must follow a real setFeeDenom preference into transaction preparation and reservation, including a sender whose token differs from the default."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/fee_policy.rs replace the zero-address-only fixture with real fee-token keeper/precompile answers for distinct payers, preserving all asset metadata and historical-height assertions."
+owner_domain = 9
+
+[finding.lifecycle_native_envelope]
+file = "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs"
+line = 35
+class = "interface-mismatch"
+severity = "high"
+observed = "verify_wind_down_debits and verify_remaining_lifecycle_debits at line 203 decode VerifiedSubmission::exact_bytes with layerx_wire::activity::decode_signed and compare the kernel activity_id. VerifiedSubmission now carries signed EIP-1559 bytes and its identity is the native transaction hash."
+expected = "Lifecycle settlement must derive deploy, upgrade and wind-down facts from the native call and bound disclosure required by 22058, retaining receipt-bound prestate and account authority checks."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs decode the verified native call/disclosure, bind its transaction hash and committed execution receipt, and prove deploy/upgrade/wind-down settlement and durable replay with real producer bytes."
+owner_domain = 9
+interface = "9.rs-agentd-budget-program-settlement-read-retained-lifecycle-debit-settlement-at-execution-j43"
+
+[finding.settlement_native_envelope]
+file = "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs"
+line = 774
+class = "interface-mismatch"
+severity = "high"
+observed = "read_retained_native_effect_debit_settlement_inner at line 774 and verify_program_debit_settlement at line 1042 decode submission.exact_bytes with the retired wire activity codec, require version-3 module envelopes and decode legacy wire receipts. Native signed calls cannot pass these Preparation checks."
+expected = "Requirement 22058 makes the native call and bound disclosure authoritative; successful program/native-effect outcomes must settle against the same transaction and authenticated chain evidence after restart."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/program_settlement.rs consume call-bound disclosures and authenticated native execution receipts/terminal artifacts, preserving reservation identity and debit checks; prove prepare-to-settlement and restart using real producers."
+owner_domain = 9
+interface = "9.rs-agentd-budget-program-settlement-read-retained-program-debit-settlement-j43"
+
+[finding.sources_native_envelope]
+file = "services/agent/crates/layerx-agentd/src/budget/program_sources.rs"
+line = 675
+class = "interface-mismatch"
+severity = "high"
+observed = "validate_prepared re-encodes prepared.envelope with activity::encode_unsigned_envelope and sign::preimage_unsigned, then requires equality with prepared.canonical_bytes and signing_preimage. Those fields now encode an unsigned EIP-1559 call; both program and native-effect source readers invoke this check before allocation."
+expected = "Budget source selection must verify the native call and its bound disclosure, rather than require retired envelope bytes, as acceptance 22058.1 specifies."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/program_sources.rs validate the actual Eip1559Call and disclosure binding directly, derive all actor/expiry/nonce/fee facts from them, and prove real preparation through allocation and durable restoration."
+owner_domain = 9
+interface = "9.rs-agentd-budget-program-sources-read-program-budget-sources-j43"
+
+[finding.enrolment_atomic_creation]
+file = "services/agent/crates/layerx-agentd/src/budget/mod.rs"
+line = 327
+class = "restart-recovery"
+severity = "medium"
+observed = "reinstall_enrolment writes the enrolment index and record in separate Store::put_local operations. A crash between them leaves an index without its record, and the next installation's refuse_index_taken returns Corrupt at line 277 instead of completing recovery."
+expected = "The tenant enrolment limit's index and record must become durable together so a restart sees a complete installation or safely retries the same mutation."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/mod.rs publish both companion records in the store's existing atomic batch before exposing the limit; interrupt and reopen the real store between admission stages and prove idempotent installation."
+owner_domain = 9
+
+[finding.reservation_zero_id]
+file = "services/agent/crates/layerx-agentd/src/budget/reserve.rs"
+line = 724
+class = "restart-recovery"
+severity = "medium"
+observed = "reserve_into accepts a scalar ReservationRequest whose id is all zero and produces DurableBudgetReservation with that identifier, but restore_bounded at line 822 rejects reservation_id == [0;32]. A successfully admitted public reservation can therefore make durable recovery fail."
+expected = "Every admitted durable reservation must be accepted by its recovery contract with the same identity and accounting; invalid identifiers must be rejected before limits change."
+proposal = "In services/agent/crates/layerx-agentd/src/budget/reserve.rs reject zero identifiers before scalar admission; prove that refusal leaves all limits unchanged and that an accepted scalar reservation survives persistence and reopen."
+owner_domain = 9
+
+[finding.wire_activity_retired]
+file = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 268
+class = "retired-reference"
+severity = "medium"
+observed = "decode_signed, decode_unsigned, Activity and the envelope encoders still implement the twelve-field kernel activity protocol, although their registry rows retire the API and live settlement callers still invoke it."
+expected = "Requirement 9312.1 retains receipt vectors with the activity codec deleted; current submissions use signed native transactions and call-bound disclosures."
+proposal = "Port the remaining live callers to layerx_crypto::evm_transaction and their bound disclosures, preserve receipt compatibility independently, and retire the public kernel activity-envelope codec in services/agent/crates/layerx-wire/src/activity.rs."
+owner_domain = 9
+interface = "9.rs-wire-activity-decode-signed"
+
+[finding.wire_sign_retired]
+file = "services/agent/crates/layerx-wire/src/sign.rs"
+line = 32
+class = "retired-reference"
+severity = "medium"
+observed = "preimage and preimage_unsigned publish the SHA256 LXP/v1/signature-preimage over unsigned kernel envelopes, preserving the retired submission signing input."
+expected = "Requirement 9312 retires kernel activity signing preimages; current signatures must bind the native transaction's signing digest."
+proposal = "Migrate remaining callers to the EIP-1559 signing digest in layerx-crypto, then remove the retired envelope signing entry points in services/agent/crates/layerx-wire/src/sign.rs while retaining supported receipt signature verification."
+owner_domain = 9
+interface = "9.rs-wire-sign-preimage"
+
+[finding.wire_activity_hash]
+file = "services/agent/crates/layerx-wire/src/hash.rs"
+line = 147
+class = "retired-reference"
+severity = "medium"
+observed = "activity_id hashes a kernel Activity under the retired domain, while canonical_activity and canonical_payload keep the retired activity type in the public hashing surface."
+expected = "The retired registry activity-hash APIs and requirement 9312 must yield to native transaction identity while supported receipt, account and Merkle hashes remain available."
+proposal = "Port live transaction identity consumers to the native transaction hash and remove retired activity-bound helpers from services/agent/crates/layerx-wire/src/hash.rs after their callers migrate, retaining supported receipt and account hashing."
+owner_domain = 9
+interface = "9.rs-wire-hash-activity-id"
+
+[finding.wire_exports]
+file = "services/agent/crates/layerx-wire/src/lib.rs"
+line = 4
+class = "retired-reference"
+severity = "medium"
+observed = "The crate root still exports pub mod activity and pub mod sign, presenting retired kernel envelopes and signing input as current integration surfaces."
+expected = "Requirement 9312 retains receipt and checkpoint compatibility without publishing the retired activity codec and submission signing preimage."
+proposal = "Close the retired module exports in services/agent/crates/layerx-wire/src/lib.rs once callers move to native transactions, and place any necessary historical decoding behind an explicitly historical interface."
+owner_domain = 9
+
+[finding.wire_hash_tests]
+file = "services/agent/crates/layerx-wire/tests/hashing.rs"
+line = 208
+class = "test-gap"
+severity = "medium"
+observed = "declared_settlement parses DeclaredCheckpointSettlement; the checkpoint tag and pinned-header tests depend on that reader. The same test file imports retired activity decoding and signing helpers."
+expected = "Requirements 9312.2 and 9312.3 explicitly pin header properties and literal version-two tags without the settlement document reader."
+proposal = "In services/agent/crates/layerx-wire/tests/hashing.rs assert the established literal domain tags and header properties independently, preserve all supported receipt/checkpoint assertions, and move transaction identity coverage to real native producers."
+owner_domain = 9
+
+[finding.wire_structure_tests]
+file = "services/agent/crates/layerx-wire/tests/structures.rs"
+line = 185
+class = "test-gap"
+severity = "medium"
+observed = "every_published_activity_and_receipt_round_trips_exactly decodes and re-encodes kernel activities and verifies legacy signing bytes, making receipt qualification depend on the retired activity module."
+expected = "Requirement 9312.1 requires published receipt vectors to qualify byte for byte with the activity codec deleted."
+proposal = "In services/agent/crates/layerx-wire/tests/structures.rs preserve receipt, proof, header and checkpoint assertions independently of activity decoding, and migrate submission round-trip coverage to the native transaction producer and decoder."
+owner_domain = 9
+
+[finding.wire_rejection_tests]
+file = "services/agent/crates/layerx-wire/tests/rejection.rs"
+line = 98
+class = "test-gap"
+severity = "medium"
+observed = "generated_noncanonical_mutations_are_rejected mutates kernel activity versions, types and fields through decode_signed, so current submission rejection coverage depends on the retired envelope."
+expected = "Native submission rejection must remain covered when requirement 9312 removes the kernel activity codec, with the same strict treatment of malformed inputs."
+proposal = "In services/agent/crates/layerx-wire/tests/rejection.rs port submission mutation cases to malformed native transactions and bound disclosures without removing primitive rejection coverage or weakening its error taxonomy."
+owner_domain = 9
+
+[finding.wallet_vector_tests]
+file = "services/agent/crates/layerx-wire/tests/wallet_vectors.rs"
+line = 321
+class = "test-gap"
+severity = "medium"
+observed = "native-send, token-send, approval, budget-change and agent-action cases use EnvelopeBuilder and retired envelope encoders with repeated-byte signatures; qualification compares render() with its own generated JSON rather than a live native submission consumer."
+expected = "Current wallet examples must use actual native transaction builders/signatures and prove the producer-to-consumer path; historical codec vectors cannot establish current wallet compatibility."
+proposal = "In services/agent/crates/layerx-wire/tests/wallet_vectors.rs generate current wallet vectors from actual native builders and signing, exercise the real decoder and node consumer, and retain historical vectors under an explicit compatibility classification."
+owner_domain = 9
+
+[finding.checkpoint_codec_bounds]
+file = "services/agent/crates/layerx-wire/src/receipt.rs"
+line = 1852
+class = "runtime-risk"
+severity = "medium"
+observed = "decode_checkpoint accepts a 1048576-byte validity proof, 32 guarantor signatures and a 1024-byte settlement reference, totaling 1053294 encoded bytes; encode_checkpoint allocates MAX_MESSAGE_BYTES+354+4096, only 1053026 bytes, so an accepted maximum certificate cannot re-encode."
+expected = "The canonical checkpoint decoder and byte-preserving encoder must agree at every declared supported field limit."
+proposal = "Derive one checked maximum from the full certificate layout in services/agent/crates/layerx-wire/src/receipt.rs and apply it consistently; prove a full maximum-field certificate round-trip and refusal immediately beyond the bound."
+owner_domain = 9
+interface = "9.rs-wire-receipt-encode-checkpoint"
+
+[finding.doc_1]
+file = "docs/site/docs/concepts/identity.md"
+line = 35
+class = "doc-drift"
+severity = "medium"
+observed = "The binding section states that the EVM key has no authority to move LayerX balances; layerxledger resolves its state-changing caller through Keeper::Actor and grants a bound caller authority for that DID."
+expected = "The merged network authorizes native transactions by the bound sender, subject to the actual binding consent and revocation rules."
+proposal = "Rewrite the binding section of docs/site/docs/concepts/identity.md to explain native sender authority, the required dual consent, account mapping and revocation consequences."
+owner_domain = 9
+
+[finding.doc_2]
+file = "docs/site/docs/agents/running.md"
+line = 438
+class = "doc-drift"
+severity = "medium"
+observed = "The grant-budget guide says successful create_protocol_budget returns ProtocolObjectEffectUnavailable and never Ok, although the implementation verifies the native transaction, creation event and resulting state and returns ProtocolBudget."
+expected = "The running guide must describe successful native protocol budget creation and distinguish actual signing, submission and state-confirmation refusals."
+proposal = "Rewrite the Grant a budget section in docs/site/docs/agents/running.md around the confirmed native creation path, its protocol enforcement, and the actual confirmation and recovery outcomes."
+owner_domain = 9
+
+[finding.doc_endpoint_2]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The submission guidance sends eth_sendRawTransaction to /rpc, preserving the retired unified-router path."
+expected = "Brief facts 2-3 require node JSON-RPC at the root path and distinguish the hosted gateway's px methods from the node's own namespaces."
+proposal = "Replace the submission URL guidance in docs/site/docs/agents/running.md with the configured root-path node endpoint and describe hosted gateway methods separately."
+owner_domain = 9
+
+[finding.doc_3]
+file = "docs/wiki/RunningAnAgent.md"
+line = 438
+class = "doc-drift"
+severity = "medium"
+observed = "The grant-budget guide says successful create_protocol_budget returns ProtocolObjectEffectUnavailable and never Ok, although the implementation verifies the native transaction, creation event and resulting state and returns ProtocolBudget."
+expected = "The running guide must describe successful native protocol budget creation and distinguish actual signing, submission and state-confirmation refusals."
+proposal = "Rewrite the Grant a budget section in docs/wiki/RunningAnAgent.md around the confirmed native creation path, its protocol enforcement, and the actual confirmation and recovery outcomes."
+owner_domain = 9
+
+[finding.doc_endpoint_3]
+file = "docs/wiki/RunningAnAgent.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The submission guidance sends eth_sendRawTransaction to /rpc, preserving the retired unified-router path."
+expected = "Brief facts 2-3 require node JSON-RPC at the root path and distinguish the hosted gateway's px methods from the node's own namespaces."
+proposal = "Replace the submission URL guidance in docs/wiki/RunningAnAgent.md with the configured root-path node endpoint and describe hosted gateway methods separately."
+owner_domain = 9
+
+[finding.doc_4]
+file = "docs/site/docs/agents/agentd.md"
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "The daemon page says creation never succeeds, reconciliation lacks a canonical schema and restart accounting always leaves protocol_consumed absent; its later lifecycle tables repeat these limitations."
+expected = "Creation now returns a confirmed budget; reconciliation decodes canonical budget records and corrects local accounting, and committed budget-state recovery can admit writes when verified evidence reconciles."
+proposal = "Rewrite the budget lifecycle, state tables, divergence description and refusal inventory in docs/site/docs/agents/agentd.md to describe the current native transaction confirmation and committed recovery behavior."
+owner_domain = 9
+
+[finding.doc_5]
+file = "docs/wiki/Agentd.md"
+line = 32
+class = "doc-drift"
+severity = "medium"
+observed = "The daemon page says creation never succeeds, reconciliation lacks a canonical schema and restart accounting always leaves protocol_consumed absent; its later lifecycle tables repeat these limitations."
+expected = "Creation now returns a confirmed budget; reconciliation decodes canonical budget records and corrects local accounting, and committed budget-state recovery can admit writes when verified evidence reconciles."
+proposal = "Rewrite the budget lifecycle, state tables, divergence description and refusal inventory in docs/wiki/Agentd.md to describe the current native transaction confirmation and committed recovery behavior."
+owner_domain = 9
+
+[finding.doc_6]
+file = "docs/site/docs/platform/webhooks.md"
+line = 77
+class = "doc-drift"
+severity = "medium"
+observed = "The deployment guide sets LAYERX_WEBHOOKS_NETWORK_ID from the router service's LAYERX_GATEWAY_NETWORK_ID, leaving webhook deployment dependent on a retired running component."
+expected = "The merged network has no router service; webhook receipt verification must bind the configured network identity from the current deployment configuration owner."
+proposal = "Rewrite the webhook deployment configuration in docs/site/docs/platform/webhooks.md to name the merged network configuration owner, supply its network identity and remove the retired router interpolation."
+owner_domain = 8
+
+[finding.doc_7]
+file = "docs/wiki/HostedWebhooks.md"
+line = 78
+class = "doc-drift"
+severity = "medium"
+observed = "The deployment guide sets LAYERX_WEBHOOKS_NETWORK_ID from the router service's LAYERX_GATEWAY_NETWORK_ID, leaving webhook deployment dependent on a retired running component."
+expected = "The merged network has no router service; webhook receipt verification must bind the configured network identity from the current deployment configuration owner."
+proposal = "Rewrite the webhook deployment configuration in docs/wiki/HostedWebhooks.md to name the merged network configuration owner, supply its network identity and remove the retired router interpolation."
+owner_domain = 8
+
+[finding.doc_8]
+file = "docs/wiki/Mcp.md"
+line = 30
+class = "doc-drift"
+severity = "medium"
+observed = "The read catalogue says checkpoint.get returns a finalised batch certificate and availability.get returns verified chunks for a batch number."
+expected = "Merged readers operate on block heights and committed headers where verified, while availability reports block roots and transaction counts with explicit verification guarantees."
+proposal = "Rewrite the read catalogue and parameter descriptions in docs/wiki/Mcp.md to state actual block selectors, returned proof material and achieved verification, matching the implemented API."
+owner_domain = 9
+
+[finding.doc_9]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The network is described as two separately deployed execution domains with layerxd periodically settling checkpoints through the anchor precompile; the upgrade description repeats that deployment."
+expected = "Brief facts 1-2 specify the kernel integrated in paxd, native transaction execution and BFT block-commit finality, with the independent layerxd runtime retired."
+proposal = "Rewrite the architecture and upgrade explanation in README.md around the integrated node, native constructs and committed-block trust, marking retained retired tooling as historical."
+owner_domain = 17
+
+[finding.doc_10]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction says ordinary activities execute in LayerX and periodically settle on Paxeer, retaining separate execution, custody and settlement domains."
+expected = "Every native operation executes as a transaction on the single merged chain and becomes final when its block commits."
+proposal = "Rewrite the architecture introduction, What is Paxeer section and finality description in docs/site/docs/index.md around merged execution, native balances and BFT block commitment."
+owner_domain = 17
+
+[finding.doc_11]
+file = "docs/site/docs/overview/unified-network.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture page presents 0x1012 through 0x1014 as active verification, custody and checkpoint connectors between separate runtimes, and retains the old custody/anchor lifecycle."
+expected = "Those executors retire and refuse under the merge; native ledger, payment, authorization and programs constructs run in the integrated node and finality comes from block commit."
+proposal = "Replace the connector inventory and custody/anchor sections in docs/site/docs/overview/unified-network.md with active native precompiles, transaction lifecycle and the committed-header proof model."
+owner_domain = 17
+
+[finding.doc_unified_endpoint]
+file = "docs/site/docs/overview/unified-network.md"
+line = 129
+class = "doc-drift"
+severity = "medium"
+observed = "The endpoint section prescribes the /rpc router as the sole unified endpoint, retains lx methods and advertises GET /rpc/schema at line 171."
+expected = "Brief facts 2-3 retire the router and those paths, and separate root-path node namespaces from the hosted gateway's declared px methods."
+proposal = "Rewrite the endpoint and method-discovery section in docs/site/docs/overview/unified-network.md using root-path public node endpoints and the separately declared hosted gateway contract."
+owner_domain = 17
+
+[finding.doc_12]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translation describes periodic checkpoint settlement and says ordinary LayerX operations need no Paxeer transaction; its layout table presents layerxd as running tooling."
+expected = "The translation must describe the one merged chain, native transactions, the integrated kernel and block-commit finality consistently with the current network."
+proposal = "Rewrite the Chinese architecture, transaction examples and repository-layout entries in docs/site/docs/overview/i18n/zh-cn.md to match merged-network behavior and label historical tooling explicitly."
+owner_domain = 17
+
+[doc.01]
+path = "docs/site/docs/concepts/identity.md"
+status = "misleading"
+notes = "Line 35 denies the bound EVM key's native authority to move the associated balances."
+
+[doc.02]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Lines 438-440 deny successful budget creation; line 512 directs native submissions to the retired /rpc path."
+
+[doc.03]
+path = "docs/wiki/RunningAnAgent.md"
+status = "stale"
+notes = "Lines 438-440 deny successful budget creation; line 512 directs native submissions to the retired /rpc path."
+
+[doc.04]
+path = "docs/site/docs/agents/agentd.md"
+status = "stale"
+notes = "Budget creation, canonical reconciliation and restart accounting are described as permanently unavailable."
+
+[doc.05]
+path = "docs/wiki/Agentd.md"
+status = "stale"
+notes = "Budget creation, canonical reconciliation and restart accounting are described as permanently unavailable."
+
+[doc.06]
+path = "docs/site/docs/platform/webhooks.md"
+status = "stale"
+notes = "Deployment configuration reads its network id from a retired router service interpolation."
+
+[doc.07]
+path = "docs/wiki/HostedWebhooks.md"
+status = "stale"
+notes = "Deployment configuration reads its network id from a retired router service interpolation."
+
+[doc.08]
+path = "docs/wiki/Mcp.md"
+status = "stale"
+notes = "Lines 30-32 promise batch certificates and verified availability chunks instead of current block read semantics."
+
+[doc.09]
+path = "README.md"
+status = "misleading"
+notes = "Lines 44-47 and 187 describe an independent layerxd deployment periodically settling onto Paxeer."
+
+[doc.10]
+path = "docs/site/docs/index.md"
+status = "misleading"
+notes = "Lines 11-14 and 25-26 retain separate execution and periodic settlement instead of one merged chain."
+
+[doc.11]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Active retired executors, separate runtimes, the router URL and /rpc/schema are still prescribed."
+
+[doc.12]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "misleading"
+notes = "Line 18 says ordinary operations require no Paxeer transaction; line 98 presents retired layerxd tooling."
+
+[doc.13]
+path = "contracts/agent-api.md"
+status = "missing"
+notes = "The agent interface registry points to this contract page, but the file does not exist in the audited tree."
+
+[doc.14]
+path = "contracts/agent-formats.md"
+status = "missing"
+notes = "The agent interface registry points to this contract page, but the file does not exist in the audited tree."
+
+[doc.15]
+path = "contracts/agent-rust-api.md"
+status = "missing"
+notes = "The agent interface registry points to this contract page, but the file does not exist in the audited tree."
+
+[doc.16]
+path = "contracts/agent-config.md"
+status = "missing"
+notes = "The agent interface registry points to this contract page, but the file does not exist in the audited tree."
