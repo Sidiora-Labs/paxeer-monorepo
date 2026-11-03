@@ -8115,6 +8115,12 @@ value = "The layerx-mcp sweep repair (22.99.52) fails in the five native_reads::
 basis = "22.99.52 attempt 1: 5 tests need the local node, 9 fail on binding parsing, retired key refusals and receipt key index assertions."
 affects = ["22.99.52", "18.1578.1"]
 
+[decision.2501]
+title = "Compiler-fetch, third-party API, provisioned-runner and proof-flag tests are producer inputs the sweep repairs exclude by name"
+value = "Under decision 2496 a sweep repair excludes by exact name (or by the shared name marker of one family) the tests whose inputs come from a producer the repair cannot run: a compiler binary fetched at test time, a third-party HTTP API, a licensed model runner provisioned by environment variables, or calldata passed through a test flag by an in-process proof. The excluded names are listed under producer_input_tests in the repair record; every remaining failure is a deterministic defect the repair fixes."
+basis = "22.99.44 attempt 2: chain_not_supported_fail decodes a non-JSON reply from the third-party verification API, success_tests::solidity_0_4_10 and verify::solc_compiler_cli::tests::compile depend on a fetched legacy compiler; 22.99.102 attempt 1: seven real-workload tests stop on PAXAI_RUNNER / PAXAI_REAL_WORKLOAD not provisioned; 22.99.31 attempt 2: TestXweb0x1019ApplicationPolicy needs the xweb-proof-calldata flag and TestProofS28WalletAttestorsTss needs the TypeScript consumer dependencies installed."
+affects = ["22.99.31", "22.99.44", "22.99.102"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -136541,7 +136547,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.90]
 title = "Re-sweep the not-run targets of the rust-test-platform inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136602,7 +136608,7 @@ title = "Re-sweep the not-run targets of the rust-test-human inventory sweep"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.95.11"]
 reqs = ["22998.1"]
 capabilities = ["22.99.88"]
 interfaces = []
@@ -136625,10 +136631,11 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 1 (requalify): gotcha 2943. The custody test target of layerx-human-service compiles on current main (22.95.11 published); rebase, re-run the not_run targets, rewrite their results in the sweep record and run verify_cmd."
 
 [task.22.99.87]
 title = "Re-sweep the not-run targets of the rust-test-agent inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136701,7 +136708,7 @@ touches = ["services/platform/hosted/paxai-worker", "spec/layerx-merge/programme
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.15.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/platform/hosted/paxai-w*/Cargo.toml --tests"
-verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.15.kvx && cargo test --locked --manifest-path services/platform/hosted/paxai-w*/Cargo.toml --no-fail-fast -- --skip a05_real_runner_executes_once_across_replicas"
+verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.15.kvx && cargo test --locked --manifest-path services/platform/hosted/paxai-w*/Cargo.toml --no-fail-fast -- --skip _real_"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -136713,6 +136720,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 1 (continue): decision 2501, gotcha 2944. The real-workload tests of tests/real_workload.rs and tests/job_recovery.rs (a05, a08, a08_a11 inference and embedding, a09, a15, a17, a19) stop on PAXAI_RUNNER / PAXAI_REAL_WORKLOAD not provisioned; they are qualified by the provisioning producer and verify_cmd now excludes the family with the shared _real_ marker. List every excluded test by full name under producer_input_tests in the repair record; keep the startup-configuration repair of attempt 1 and run verify_cmd as written."
 
 [task.11.98.1]
 title = "Record signed transaction bytes in the exact web-search payment fixtures"
@@ -137149,7 +137157,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.66]
 title = "Repair the inventory sweep target layerx-migrate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137180,7 +137188,7 @@ do_4 = "Decision 2496 (continue): the tests funded_operator_runs_real_gateway_so
 
 [task.22.99.65]
 title = "Repair the inventory sweep target layerx-fiat"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137846,7 +137854,7 @@ touches = ["services/explorer/services/smart-contract-verifier", "spec/layerx-me
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/rust-build-explorer-verifier.1.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml -p smart-contract-verifier -p smart-contract-verifier-server --all-targets"
-verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-build-explorer-verifier.1.kvx && cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml -p smart-contract-verifier -p smart-contract-verifier-proto -p smart-contract-verifier-server --no-fail-fast"
+verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-build-explorer-verifier.1.kvx && cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml -p smart-contract-verifier -p smart-contract-verifier-proto -p smart-contract-verifier-server --no-fail-fast -- --skip chain_not_supported_fail --skip success_tests::solidity_0_4_10 --skip verify::solc_compiler_cli::tests::compile"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-web-explorer-bridge"
@@ -137858,6 +137866,8 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2496 (continue): the tests chain_not_supported_fail, success_tests::solidity_0_4_10, verify::solc_compiler_cli::tests::compile are qualified by their producer inputs and are excluded by name from the verify; list each in the repair record as producer_input_tests with the input it needs. Every other failure the recorded command exposes is a defect to repair inside the task's paths; none may be excluded."
+do_5 = "Attempt 2 (continue): decision 2501. chain_not_supported_fail decodes a reply of the third-party verification API, success_tests::solidity_0_4_10 and verify::solc_compiler_cli::tests::compile run a legacy compiler fetched at test time; the three are excluded by name in verify_cmd and listed under producer_input_tests in the repair record. Keep the fifteen deterministic repairs of attempt 2 and run verify_cmd as written."
 
 [task.18.1578.1]
 title = "Issue #1578: Isolate the inherited live-node tests from the MCP native-read proof"
@@ -138184,7 +138194,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.95.11]
 title = "Migrate the human service session-key test to the call-bound preparation shape"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -145888,7 +145898,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.80]
 title = "Repair the perps-data deploy test of the go-services sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -145933,7 +145943,7 @@ touches = ["services/wallet/attestor", "spec/layerx-merge/programme/sweeps/repai
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/go-sdk-modules.5.kvx"]
 build_cmd = "cd services/wallet/attestor && go vet ./..."
-verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/go-sdk-modules.5.kvx && cd services/wallet/attestor && go test -count=1 ./..."
+verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/go-sdk-modules.5.kvx && cd services/wallet/attestor && go test -count=1 -skip 'TestProofS28WalletAttestorsTss|TestXweb0x1019ApplicationPolicy' ./..."
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-wallet"
@@ -145945,6 +145955,7 @@ time_limit_minutes = 45
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue): decision 2501. TestProofS28WalletAttestorsTss (needs the installed TypeScript consumer dependencies) and TestXweb0x1019ApplicationPolicy (needs the xweb-proof-calldata flag the application proof passes) are producer inputs excluded by name in verify_cmd; list both under producer_input_tests in the repair record. The four remaining policy failures are deterministic and in scope (services/wallet/attestor is the edit scope): for each of TestTypedDataChainPinned, TestShippedPolicyListsSendAuthorizationKind, TestShippedPolicyAllowsWalletSDKWrites and TestShippedPolicyAllowsLaunchpadApproveThenBuy find with git log -S the commit that changed the behaviour the assertion encodes (permit verifying-contract requirement, lx_activity in the shipped default kinds, the perps precompile selector set, approve to an unlisted spender). Where that commit belongs to a qualified task that intended the change, align the assertion to the shipped policy and cite the task id in the repair record; otherwise restore the policy behaviour. Do not exclude these four tests."
 
 [task.22.99.30]
 title = "Repair the inventory sweep target sdk/launchpad/shared"
