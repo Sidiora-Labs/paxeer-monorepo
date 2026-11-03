@@ -14115,3 +14115,8 @@ fix = "Run go mod tidy with the pinned toolchain in the task that lands the repl
 title = "A single-minimum floor checker cannot express per-major floors"
 symptom = "tools/deps/lockfloor.py compares every resolved copy against one floor per package; a floor taken from the higher major's patched release fails the lower major's patched copy that a consumer pins (ajv 8 and fast-uri 3.1.9)."
 fix = "Floor the package at the lowest patched release across its major lines (decision 2372) and state in the task text which consumer pins the lower line."
+
+[gotcha.2859]
+title = "A verify that chains toolchains of two SDK families needs the all-SDK profile"
+symptom = "18.1503.1 verified cargo run, cargo test and mvn compile under the mixed profile and failed with mvn not found after every Rust step passed."
+fix = "Set the profile key (line 4) to the all-SDK profile for any task whose verify names tools of two SDK families (decision 2373); check the profile against every command in the verify when writing the task."
