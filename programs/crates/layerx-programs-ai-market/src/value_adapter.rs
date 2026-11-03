@@ -28,7 +28,8 @@ pub const REGISTRATION_PAYLOAD_BYTES: usize = 32 + 5 + 32 + 4 + REWARDS_ACCOUNT_
 
 /// The market's rewards account: the current Program, the fixed rewards seed
 /// and the immutable reward asset, derived exactly as the runtime derives it.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RewardsAccount {
     prepared: PreparedProgramAccount<'static>,
     program: ProgramId,
@@ -177,7 +178,8 @@ fn sdk_amount(amount: Amount) -> CodecResult<layerx_program_sdk::Amount> {
 }
 
 /// The one native action a committed reward transition stages.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum ValueAction {
     None,
     Fund {
