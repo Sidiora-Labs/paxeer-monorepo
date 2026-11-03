@@ -243,6 +243,7 @@ func TestHostLinksKernel(t *testing.T) {
 	require.Equal(t, Code(0), receipt.ResultCode)
 	require.Equal(t, uint64(1), receipt.GlobalSequence)
 	require.NotEmpty(t, receipt.Encoded)
+	require.Nil(t, chain.get(idempotencyKey(actor.register(t, host, 0, 1700000000000).IdempotencyKey)))
 	require.NotEqual(t, receipt.PreviousStateRoot, receipt.ResultingStateRoot)
 }
 

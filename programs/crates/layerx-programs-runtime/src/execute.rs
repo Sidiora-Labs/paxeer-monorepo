@@ -1541,7 +1541,9 @@ impl ProgramInstance {
         let result = func.call(&mut self.store, &inputs, &mut outputs);
         if let Err(error) = result {
             let fault = fault_from_error(&error);
-            if fault == ExecutionFault::OutOfFuel {
+            if fault == ExecutionFault::OutOfFuel
+                && self.store.data().meter().exhaustion().is_none()
+            {
                 self.store.data_mut().meter_mut().mark_cpu_exhausted();
             }
             self.store
@@ -5606,13 +5608,22 @@ impl ProgramInstance {
                 (captured.values, record, None)
             }
             Err(RuntimeBoundaryReplayError::Execution(fault)) => {
+                let trap = self.store.take_execution_trap_record();
                 if let Some(observer_fault) = self.execution_observer_fault() {
-                    return Err(observer_fault.into());
+                    if trap.is_none()
+                        || self.store.execution_observer_error()
+                            != Some(wasmi::ExecutionObserverError::UnsupportedState)
+                    {
+                        return Err(observer_fault.into());
+                    }
                 }
-                let trap = self
+                let trap = trap.ok_or(RuntimeBoundaryReplayError::Binding)?;
+                let fault = self
                     .store
-                    .take_execution_trap_record()
-                    .ok_or(RuntimeBoundaryReplayError::Binding)?;
+                    .data()
+                    .meter()
+                    .exhaustion()
+                    .map_or(fault, |refusal| ExecutionFault::Resource { refusal });
                 let terminal = if matches!(
                     fault,
                     ExecutionFault::Resource { .. } | ExecutionFault::OutOfFuel

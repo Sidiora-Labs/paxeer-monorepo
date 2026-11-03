@@ -14,7 +14,7 @@
 //! External defect: programs/crates/layerx-programs-runtime/src/execute.rs::
 //! ProgramInstance::call_market_sandbox_untrusted refuses an unreachable instruction
 //! with an UnsupportedState observer fault instead of producing a terminal trap
-//! record. runtime_producer_records_integer_steps_and_reports_current_trap_refusal
+//! record. runtime_producer_records_integer_steps_and_terminal_traps
 //! pins that current behavior without changing the original positive trap test.
 //!
 //! External interface gap: runtime/src/abi/mod.rs::AuthorizationContext::new
@@ -1369,7 +1369,7 @@ fn keeper_namespaces_cross_public_items_into_market_consumer_twice() {
 }
 
 #[test]
-fn runtime_producer_records_integer_steps_and_reports_current_trap_refusal() {
+fn runtime_producer_records_integer_steps_and_terminal_traps() {
     for _ in 0..2 {
         for trapped in [false, true] {
             let body = if trapped {
@@ -1422,15 +1422,24 @@ fn runtime_producer_records_integer_steps_and_reports_current_trap_refusal() {
                 replay_profile: ProgramReplayProfile::new(128, MAX as u32).unwrap(),
             });
             if trapped {
-                match result {
-                    Err(RuntimeBoundaryReplayError::Execution(ExecutionFault::EngineFault {
-                        reason,
-                    })) => assert_eq!(
-                        reason,
-                        "deterministic execution observer refused: UnsupportedState"
-                    ),
-                    other => panic!("recorded external trap-producer behavior changed: {other:?}"),
-                }
+                let execution = result.unwrap();
+                assert_eq!(
+                    execution.terminal_fault,
+                    Some(ExecutionFault::UnreachableExecuted)
+                );
+                assert_eq!(execution.record.terminal_status(), 1);
+                let terminal = PortableBoundary::decode_untrusted(
+                    execution.boundary_leaves.last().unwrap(),
+                    MAX,
+                )
+                .unwrap();
+                assert!(terminal.trap.is_some());
+                let observed =
+                    observe_market_sandbox_step(&validated, &terminal, &authority, MAX).unwrap();
+                assert_eq!(
+                    observed.reencode_untrusted(MAX).unwrap(),
+                    terminal.reencode_untrusted(MAX).unwrap()
+                );
             } else {
                 let execution = result.unwrap();
                 assert_eq!(execution.values, vec![WasmValue::I32(12)]);

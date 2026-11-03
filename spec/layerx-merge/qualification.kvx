@@ -19443,3 +19443,179 @@ symbol = "bind_call_refuses_budget_create_payload_rule_violations"
 observed = "bind_call's budgetCreate disclosure gained the SpendingLimit amount while this sibling test of the same crate kept expecting one amount; the task's verify ran only the disclosure_call target, so the whole-crate run of 22.9.17 found it."
 assumption = "22.9.17 updates the expectation per decision 2394."
 severity = "low"
+
+[finding.21.11.1.5]
+task = "21.11.1"
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+symbol = "proof_layerxledger_0x101a"
+observed = "The wallet consumer of the ledger 0x101a proof is registered as test(fn) without a name, which vitest 4.1.12 records as a todo, so the Go proof's 1 passed assertion fails whole-package."
+assumption = "22.11.8 registers it with an explicit name; apps/launchpad/web carries the same registration form for the closure sweep."
+severity = "medium"
+
+[finding.10.1.4.2]
+task = "10.1.4"
+file = "services/human/tools/boundary-check/src/lib.rs"
+symbol = "RETIRED_IMPORTS"
+observed = "The retired-import list names layerx_proof::receipt::AuthorizedBatch, a struct the proof crate defines and the human journeys engine consumes, and the pre-move lni path of the frame codec."
+assumption = "Decision 2397: the AuthorizedBatch row leaves and the KMS tests import the frame module."
+severity = "medium"
+
+[finding.20.2.2.2]
+task = "20.2.2"
+file = "engine/executor/precompiles/failfast.go"
+symbol = "MergeFailFastPrecompileAddresses"
+observed = "The layerxchains merge address 0x101E entered precompiles/setup.go MergeAddressTable without entering the fail-fast table that TestMergeAddressTableIsFailFast checks address by address."
+assumption = "Decision 2398: 22.6.5 adds the address to the fail-fast table."
+severity = "medium"
+
+[finding.22.9.37.1]
+task = "22.9.37"
+file = "services/agent/sdk/typescript/test/precompile-calls.test.ts"
+symbol = "perpsCancelOrderCall"
+observed = "The TypeScript SDK build compiles the test directory, and rows 151-153 still type the retired bytes32 open and cancel shapes, so the build stops before the task's own test."
+assumption = "Decision 2399: the rows move with the encoder in 22.9.37."
+severity = "low"
+
+[finding.22.9.31.1]
+task = "22.9.31"
+file = "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"
+symbol = "projection_fixture"
+observed = "The real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen test requires a JSON fixture named by PAXEER_X_HUMAN_PROJECTION_FACTS_FIXTURE that no producer in the repository writes, so it has failed since 3422bafe2."
+assumption = "Decision 2400: 22.9.38 derives the fixture from the in-process Human peer server and approval registry."
+severity = "medium"
+
+[finding.10.15.4.1]
+task = "10.15.4"
+file = "sdk/platform/conformance/operations.json"
+symbol = "O48"
+observed = "The portable operation catalogue names Journey as the response of agent.create, onboarding.resume and onboarding.status while the human schema and the generated Go catalogue answer AgentCreationJourney and OnboardingJourney, so the Go conformance command refuses O48."
+assumption = "Decision 2401: 22.25.5 moves the three rows, regenerates the Swift and C# catalogues and reseals the pipeline lock."
+severity = "medium"
+
+[finding.16.2.2.1]
+task = "16.2.2"
+file = "scripts/qualification/paxeer-x/program-terminal-v5.py"
+symbol = "build"
+observed = "Eight qualification producers under tools and scripts still request generated/lxp_checkpoint_settlement.h after the Makefile rule retired, so every terminal-v5 corpus build exits 2."
+assumption = "Decision 2402: 22.1.11 removes the eight requests."
+severity = "medium"
+
+[finding.22.13.9.4]
+task = "22.13.9"
+file = "programs/crates/layerx-programs-runtime/tests/step_conformance.rs"
+symbol = "fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly"
+observed = "take_execution_trap_record answers None after a recursive guest traps with StackOverflow under a 128-frame stack limit, so the test panics at :61 real terminal trap record on the current main."
+assumption = "Decision 2403: the vendored engine raises the trap at call entry without recording the terminal step; 22.13.12 records it."
+severity = "medium"
+
+[finding.22.7.3.3]
+task = "22.7.3"
+file = "rpc/tests/regression_test.go"
+symbol = "TestTransactionRegression"
+observed = "Two fixture cases replay Sei mainnet transactions that need the sei wasm capability and the seichain oracle vote type, which this chain does not carry."
+assumption = "Decision 2405: the two cases and fixtures leave."
+severity = "low"
+
+[finding.5.98.6.1]
+task = "5.98.6"
+file = "rpc/send_sequencer_test.go"
+symbol = "TestSendSequencerReturnsAfterReceipt"
+observed = "The sealed-layer send path continues to the pending context since 5.98.5 and 5.98.6, and the harness built without a WatermarkManager answers ErrPendingServedBySequencer where the test still expects ErrLayerNotOpen."
+assumption = "Decision 2405: the harness carries a WatermarkManager and expects ErrPendingBlockClosed."
+severity = "medium"
+
+[finding.7.18.1.1]
+task = "7.18.1"
+file = "rpc/tracers_test.go"
+symbol = "TestDebugGetRawMethodsNotSupported"
+observed = "The test still expects debug_getRawTransaction to refuse after 7.18.1 implemented it."
+assumption = "Decision 2405: the subtest leaves."
+severity = "low"
+
+[finding.7.10.1.1]
+task = "7.10.1"
+file = "rpc/subscribe_test.go"
+symbol = "TestSubscribeNewHeads"
+observed = "7.10.1 removed four header keys from encodeHead and 7.10.2 moved the head's gasUsed to the receipts, and the new-heads tests kept the old key set and the mock gas sum."
+assumption = "Decision 2406: both encoders carry the four keys and the test compares against eth_getBlockByNumber."
+severity = "medium"
+
+[finding.10.20.6.1]
+task = "10.20.6"
+file = "services/human/crates/layerx-human-service/tests/production_unhooked.rs"
+symbol = "components_binary_starts_without_recipient_environment"
+observed = "The human-owner daemon's network read needs the router's px_getNetwork, which the qualification environment cannot run (no Redis store, boundary, authority or client identity), so the proof answers it from a stand-in over the real node and consensus status; the router itself is outside this proof."
+assumption = "Decision 2407: a closure item adds a router helper to the localnode qualification once the environment carries its store."
+severity = "medium"
+
+[finding.22.11.8.1]
+task = "22.11.8"
+file = "modules/evm/keeper/msg_server.go"
+symbol = "VmError"
+observed = "The coded precompile suffix reaches only the transient receipt; the MsgServer response and EvmTxInfo carry the raw execution reverted string."
+assumption = "Decision 2408: a closure item decides whether the response carries the coded error too."
+severity = "low"
+
+[finding.9.35.17.1]
+task = "9.35.17"
+file = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"
+symbol = "SigningPreparation"
+observed = "Four human service test constructions still pass the authorization field that 9.35.17 removes from SigningPreparation, so the dependent-crate check fails to compile the human service tests."
+assumption = "Decision 2410: the constructions move with the struct inside 9.35.17."
+severity = "medium"
+
+[finding.21.95.1.5]
+task = "21.95.1"
+file = "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"
+symbol = "native_reads_producer_http_consumer_reopens_and_refuses_malformed_results"
+observed = "The task's enforced lists named the agent daemon test target that do_8 deleted, so a passing candidate was refused for a path with no change."
+assumption = "Decision 2411: the lists follow the finding."
+severity = "low"
+
+[finding.22.12.5.1]
+task = "22.12.5"
+file = "sdk/wallet/src/index.test.ts"
+symbol = "PaxeerWallet"
+observed = "The wallet SDK test file imports node built-ins while sdk/wallet/tsconfig.json compiles src/**/* with no node type declarations, so tsc -p sdk/wallet/tsconfig.json fails on every build."
+assumption = "Decision 2413: the build excludes the test files."
+severity = "medium"
+
+[finding.22.9.37.2]
+task = "22.9.37"
+file = "sdk/wallet/src/modules/exchange.ts"
+symbol = "exchange"
+observed = "The wallet SDK exchange module still calls the perps cancel encoder with two arguments after 22.9.37 narrowed it to one, so the web typecheck fails on main."
+assumption = "Decision 2413: 22.24.26 moves the caller; 22.23.13 requires it."
+severity = "medium"
+
+[finding.10.3.2.3]
+task = "10.3.2"
+file = "services/human/crates/layerx-human-service/src/server/stream_journal.rs"
+symbol = "StreamJournal"
+observed = "10.3.2 removed the settlement domain from the persisted stream record but left the StreamJournal::new parameter, its field and two unused read parameters, so the human service still imports the retired layerx_proof::checkpoint::SettlementDomain in five files."
+assumption = "Decision 2415: 10.1.4 removes the leftovers with the boundary gate as oracle."
+severity = "medium"
+
+[finding.9.97.15.2]
+task = "9.97.15"
+file = "services/agent/sdk/typescript/src/ai_market.ts"
+symbol = "decodeProgramsCallResult"
+observed = "The AI market decoder bounds the ABI response output by the call's declared responseCapacity, but the precompile packs the runtime's terminal envelope there, which carries the execution record and the applied legs and is larger than any guest response bound."
+assumption = "Decision 2416: the decoder unwraps the envelope and bounds the guest response inside it."
+severity = "medium"
+
+[finding.6.94.3.1]
+task = "6.94.3"
+file = "sdk/wallet/src/modules/web-data.ts"
+symbol = "WEB_DATA_EVENTS"
+observed = "6.94.3 declared and emits XWebProgramRequested in the xweb precompile ABI, but the wallet web-data module's event table and the modules test vectors still carry three events, so the wallet modules test that compares the vectors with the ABI fails on main."
+assumption = "Decision 2420: 22.24.27 adds the event spec and a vector; the consumer was never ported with the producer."
+severity = "medium"
+
+[finding.22.7.3.4]
+task = "22.7.3"
+file = "rpc/tests/mock_data/transactions"
+symbol = "testTx"
+observed = "The thirty regression fixtures encode their block transactions with the upstream chain's type URLs, which no codec of the repository registers; whether a debug_traceTransaction case reaches the whole-block decode of Backend.BlockByNumber depends on the cases that ran before it, so eleven cases fail or pass with the order of the package."
+assumption = "Decision 2419: isolate the cases, then re-encode the fixtures if the decode is on every case's path."
+severity = "medium"
