@@ -19435,3 +19435,11 @@ symbol = "layerx-wire"
 observed = "The crate gained a layerx-wire dependency while the boundary check's manifest rule forbade it outside layerx-intents; no gate ran the check."
 assumption = "Decision 2391 retires the manifest rule; the dependency stays."
 severity = "low"
+
+[finding.9.35.16.1]
+task = "9.35.16"
+file = "services/agent/crates/layerx-crypto/tests/budget_call.rs"
+symbol = "bind_call_refuses_budget_create_payload_rule_violations"
+observed = "bind_call's budgetCreate disclosure gained the SpendingLimit amount while this sibling test of the same crate kept expecting one amount; the task's verify ran only the disclosure_call target, so the whole-crate run of 22.9.17 found it."
+assumption = "22.9.17 updates the expectation per decision 2394."
+severity = "low"

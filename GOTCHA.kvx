@@ -14245,3 +14245,8 @@ fix = "A floor raise lists every manifest with an exact pin of the raised crate 
 title = "A client encoded to a call shape the chain never produced passes its own tests and fails the first look at the real ABI"
 symptom = "22.9.10 attempt 14: the perps v2 open and cancel signatures of 9.33.13 and 12.33.8 do not exist in precompiles/perps/abi/abi.json; the web proof had substituted them for the real declarations."
 fix = "A client call shape is asserted against the producer's ABI file, never against a declaration the test writes itself."
+
+[gotcha.2885]
+title = "A producer task whose verify runs one test target leaves sibling tests of the same crate asserting the old shape"
+symptom = "22.9.17 attempt 10: 9.35.16 changed bind_call's budgetCreate disclosure to two amounts and qualified on --test disclosure_call alone; tests/budget_call.rs in the same crate still expected one amount and failed the next whole-crate run."
+fix = "A task that changes a crate's behaviour runs that crate's whole test set in its verify, or names the sibling tests it leaves to a task that requires it."
