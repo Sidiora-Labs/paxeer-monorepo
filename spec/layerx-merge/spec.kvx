@@ -117368,7 +117368,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.12]
 title = "Close the open dependency advisories of the wallet-services manifests (22 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -117490,7 +117490,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.8]
 title = "Close the open dependency advisories of the launchpad-web manifests (33 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -135097,7 +135097,7 @@ do_4 = "Attempt 1 stopped on the out-of-scope readers that pin four V1 cases: sd
 
 [task.22.25.1]
 title = "Mount the chain registry and sequencer stores in the rpc receipt test chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["22.25.4"]
