@@ -48,6 +48,7 @@ LIB_SOURCES := $(filter-out src/storage/lxp_projection.c \
 	src/paxeer/lxp_da_challenge_record.c src/guarantor/lxp_da_challenge.c, \
 	$(shell find src -type f -name '*.c' -print | LC_ALL=C sort))
 LIB_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/obj/%.o,$(LIB_SOURCES))
+LIB_SOURCE_MEMBERSHIP := $(BUILD_DIR)/liblayerx.sources
 LIBRARY := $(BUILD_DIR)/liblayerx.a
 TEST_LIB_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/test-obj/%.o,$(LIB_SOURCES))
 TEST_LIBRARY := $(BUILD_DIR)/liblayerx-testing.a
@@ -182,7 +183,18 @@ build: $(LIBRARY)
 $(LIB_OBJECTS) $(TEST_LIB_OBJECTS): CFLAGS += $(CONSENSUS_CFLAGS)
 $(LIB_OBJECTS) $(TEST_LIB_OBJECTS): Makefile
 
-$(LIBRARY): $(LIB_OBJECTS)
+.PHONY: force-lib-source-membership
+force-lib-source-membership:
+
+$(LIB_SOURCE_MEMBERSHIP): force-lib-source-membership
+	@mkdir -p $(@D)
+	@set -eu; \
+		tmp=$$(mktemp "$@.XXXXXX"); \
+		trap 'rm -f "$$tmp"' EXIT HUP INT TERM; \
+		printf '%s\n' $(LIB_SOURCES) > "$$tmp"; \
+		if ! cmp -s "$$tmp" "$@"; then mv -f "$$tmp" "$@"; fi
+
+$(LIBRARY): $(LIB_OBJECTS) $(LIB_SOURCE_MEMBERSHIP)
 	@mkdir -p $(@D)
 	rm -f $@
 	$(AR) rcsD $@ $(LIB_OBJECTS)
@@ -191,7 +203,7 @@ $(BUILD_DIR)/obj/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
 
-$(TEST_LIBRARY): $(TEST_LIB_OBJECTS)
+$(TEST_LIBRARY): $(TEST_LIB_OBJECTS) $(LIB_SOURCE_MEMBERSHIP)
 	@mkdir -p $(@D)
 	rm -f $@
 	$(AR) rcsD $@ $(TEST_LIB_OBJECTS)
