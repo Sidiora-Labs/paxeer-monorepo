@@ -14245,3 +14245,33 @@ fix = "A floor raise lists every manifest with an exact pin of the raised crate 
 title = "A client encoded to a call shape the chain never produced passes its own tests and fails the first look at the real ABI"
 symptom = "22.9.10 attempt 14: the perps v2 open and cancel signatures of 9.33.13 and 12.33.8 do not exist in precompiles/perps/abi/abi.json; the web proof had substituted them for the real declarations."
 fix = "A client call shape is asserted against the producer's ABI file, never against a declaration the test writes itself."
+
+[gotcha.2885]
+title = "A producer task whose verify runs one test target leaves sibling tests of the same crate asserting the old shape"
+symptom = "22.9.17 attempt 10: 9.35.16 changed bind_call's budgetCreate disclosure to two amounts and qualified on --test disclosure_call alone; tests/budget_call.rs in the same crate still expected one amount and failed the next whole-crate run."
+fix = "A task that changes a crate's behaviour runs that crate's whole test set in its verify, or names the sibling tests it leaves to a task that requires it."
+
+[gotcha.2886]
+title = "A receipt-shape change that makes a field mandatory fails every vector builder and fixture copy another task owns"
+symptom = "22.23.8 attempt 5: ReceiptInput.PaymentDenom became required and the vector test's builder and the V1 to V3 fixture copies, owned by 22.25.3, were not in the task's touches."
+fix = "A task that adds a mandatory input field lists every builder of that input and every recorded fixture of its output in touches, and orders itself after the task that is regenerating the same fixtures."
+
+[gotcha.2887]
+title = "A test registered as test(fn) without a name is a todo under vitest 4 and never runs"
+symptom = "22.11.8 attempt 1: the wallet proof test(proof_layerxledger_0x101a) reported 1 todo and the Go proof that shells out to it demanded 1 passed; apps/launchpad/web registers tests the same way."
+fix = "Register every vitest test with an explicit name string and the function; a proof that shells out to another runner asserts 1 passed, never the absence of failures."
+
+[gotcha.2888]
+title = "A boundary gate's retired list drifts from its producers"
+symptom = "10.1.4: the retired-import list named a struct the proof crate still defines and a module path a done task had moved; the gate failed on 23 files of the merged tree."
+fix = "Before a gate lists a symbol or module as retired, read its producer at HEAD and the task that retired it; a moved module is a changed import, not a retired one."
+
+[gotcha.2889]
+title = "A hand-maintained catalogue drifts from the schema it mirrors"
+symptom = "22.25.3: operations.json named Journey for three operations whose schema answered AgentCreationJourney and OnboardingJourney since 10.15.4; the Go conformance command refused the catalogue."
+fix = "When a schema type is renamed, grep every catalogue that mirrors it (operations.json, the generated Go, Swift and C# catalogues) and regenerate before resealing the pipeline lock."
+
+[gotcha.2890]
+title = "Corpus builders still request a header whose rule retired"
+symptom = "22.9.18: eight qualification producers asked make for generated/lxp_checkpoint_settlement.h after 16.2.2 removed the rule, so every corpus build exited 2."
+fix = "A task that retires a Makefile rule greps tools and scripts for the generated artefact's name and removes every request in the same change."
