@@ -64,7 +64,7 @@ type Attribution struct {
 }
 type ExecutionPolicy struct {
 	Quality                   string        `json:"quality"`
-	FeeBPS                    *uint16       `json:"feeBps"`
+	FeeBPS                    *uint16       `json:"feeBPS"`
 	ConfigDigest              *Digest       `json:"configDigest"`
 	PreTransactionStateDigest *Digest       `json:"preTransactionStateDigest"`
 	ReplayEvidenceDigest      *Digest       `json:"replayEvidenceDigest"`

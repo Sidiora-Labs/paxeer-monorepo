@@ -12,6 +12,9 @@ defaults:
   run:
     working-directory: .
 
+permissions:
+  contents: read
+
 jobs:
   run-tests-devnet:
     name: Run Tests on Devnet

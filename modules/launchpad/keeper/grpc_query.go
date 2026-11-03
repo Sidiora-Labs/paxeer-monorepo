@@ -22,6 +22,16 @@ func NewQuerier(k *Keeper) Querier {
 	return Querier{Keeper: k}
 }
 
+type invalidAddressQueryError struct {
+	cause error
+}
+
+func (e invalidAddressQueryError) Error() string { return e.cause.Error() }
+func (e invalidAddressQueryError) Unwrap() error { return e.cause }
+func (e invalidAddressQueryError) GRPCStatus() *status.Status {
+	return status.New(codes.InvalidArgument, e.cause.Error())
+}
+
 func queryContext[T any](goCtx context.Context, req *T) (sdk.Context, error) {
 	if req == nil {
 		return sdk.Context{}, status.Error(codes.InvalidArgument, "empty request")
@@ -50,7 +60,7 @@ func queryContext[T any](goCtx context.Context, req *T) (sdk.Context, error) {
 	for _, field := range addresses {
 		if _, err := types.ParseHexAddress(field.name, field.value); err != nil {
 			if errors.Is(err, sdkerrors.ErrInvalidAddress) {
-				return sdk.Context{}, status.Error(codes.InvalidArgument, err.Error())
+				return sdk.Context{}, invalidAddressQueryError{cause: err}
 			}
 			break
 		}

@@ -1,6 +1,7 @@
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine as _;
 use layerx_human_kms::attestor::AttestorClient;
+use layerx_types::clock::{Clock, ClockError, ClockReading, Deadline};
 use p256::ecdsa::signature::Signer as _;
 use p256::ecdsa::{Signature, SigningKey};
 use serde_json::{json, Value};
@@ -15,7 +16,118 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
+
+pub struct StepClock {
+    unix_milliseconds: u64,
+    ticks: AtomicU64,
+}
+
+impl StepClock {
+    pub fn new() -> Result<Arc<Self>> {
+        let initial = layerx_client::runtime_clock::RuntimeClock::from_environment()?
+            .sample(Duration::from_secs(1))?;
+        Ok(Arc::new(Self {
+            unix_milliseconds: initial.unix_milliseconds,
+            ticks: AtomicU64::new(0),
+        }))
+    }
+
+    pub fn now(&self) -> Result<u64> {
+        Ok(self.sample(Duration::from_secs(1))?.unix_seconds())
+    }
+}
+
+impl Clock for StepClock {
+    fn sample(&self, _transport_budget: Duration) -> std::result::Result<ClockReading, ClockError> {
+        let ticks = self
+            .ticks
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |ticks| {
+                ticks.checked_add(1)
+            })
+            .map_err(|_| ClockError::Overflow)?;
+        Ok(ClockReading {
+            generation: [0x51; 16],
+            unix_milliseconds: self
+                .unix_milliseconds
+                .checked_add(ticks)
+                .ok_or(ClockError::Overflow)?,
+            monotonic_nanoseconds: ticks.checked_mul(1_000_000).ok_or(ClockError::Overflow)?,
+        })
+    }
+}
+
+pub struct ClockAuthority {
+    pub socket: PathBuf,
+    shutdown: Arc<AtomicBool>,
+    worker: Option<JoinHandle<std::io::Result<()>>>,
+    root: PathBuf,
+}
+
+impl ClockAuthority {
+    pub fn start(clock: Arc<StepClock>) -> Result<Self> {
+        use std::os::unix::net::UnixListener;
+        let root = scratch("kms-step-clock")?;
+        let socket = root.join("clock.sock");
+        let listener = UnixListener::bind(&socket)?;
+        fs::set_permissions(&socket, fs::Permissions::from_mode(0o600))?;
+        listener.set_nonblocking(true)?;
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let stopped = Arc::clone(&shutdown);
+        let worker = thread::spawn(move || {
+            use layerx_types::clock_protocol::{self, Request, REQUEST_BYTES};
+            while !stopped.load(Ordering::Acquire) {
+                let (mut stream, _) = match listener.accept() {
+                    Ok(peer) => peer,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(1));
+                        continue;
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                    Err(error) => return Err(error),
+                };
+                let peer = rustix::net::sockopt::socket_peercred(&stream)?;
+                if peer.uid != rustix::process::geteuid() {
+                    continue;
+                }
+                stream.set_read_timeout(Some(Duration::from_secs(1)))?;
+                stream.set_write_timeout(Some(Duration::from_secs(1)))?;
+                let mut bytes = [0; REQUEST_BYTES];
+                stream.read_exact(&mut bytes)?;
+                let mut trailing = [0];
+                if stream.read(&mut trailing)? != 0 {
+                    return Err(std::io::Error::other("clock request has trailing bytes"));
+                }
+                let request = Request::decode(&bytes).map_err(std::io::Error::other)?;
+                if request.wait_nanoseconds != 0 {
+                    thread::sleep(Duration::from_nanos(request.wait_nanoseconds));
+                }
+                stream.write_all(&clock_protocol::response(
+                    request.counter,
+                    clock.sample(Duration::from_secs(1)),
+                ))?;
+                stream.shutdown(std::net::Shutdown::Write)?;
+            }
+            Ok(())
+        });
+        Ok(Self {
+            socket,
+            shutdown,
+            worker: Some(worker),
+            root,
+        })
+    }
+}
+
+impl Drop for ClockAuthority {
+    fn drop(&mut self) {
+        self.shutdown.store(true, Ordering::Release);
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+        let _ = fs::remove_dir_all(&self.root);
+    }
+}
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -32,9 +144,11 @@ pub fn checked<T, E: std::fmt::Debug>(value: std::result::Result<T, E>) -> Resul
 }
 
 pub fn scratch(label: &str) -> Result<PathBuf> {
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+    let mut unique = [0; 16];
+    getrandom::fill(&mut unique)?;
+    let unique = hex(&unique);
     let root = std::env::temp_dir().join(format!(
-        "{label}-{}-{nanos}-{}",
+        "{label}-{}-{unique}-{}",
         std::process::id(),
         SCRATCH.fetch_add(1, Ordering::AcqRel)
     ));
@@ -320,6 +434,7 @@ fn respond(stream: &mut TcpStream, document: &str) -> Result<()> {
 }
 
 pub struct TokenSigner {
+    pub clock: Arc<StepClock>,
     key_id: String,
     key: SigningKey,
 }
@@ -354,6 +469,7 @@ impl TokenSigner {
             getrandom::fill(&mut scalar)?;
             if let Ok(key) = SigningKey::from_slice(&scalar) {
                 return Ok(Self {
+                    clock: StepClock::new()?,
                     key_id: key_id.to_owned(),
                     key,
                 });
@@ -375,7 +491,7 @@ impl TokenSigner {
     }
 
     pub fn mint(&self, subject: &str) -> Result<String> {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+        let now = self.clock.now()?;
         let header = json!({ "alg": "ES256", "typ": "JWT", "kid": self.key_id });
         let claims = json!({
             "iss": ISSUER,
@@ -399,6 +515,8 @@ impl TokenSigner {
 }
 
 pub struct Cluster {
+    pub clock: Arc<StepClock>,
+    pub clock_authority: ClockAuthority,
     root: PathBuf,
     pub pki: Pki,
     pub nodes: Vec<(String, SocketAddr)>,
@@ -491,7 +609,11 @@ impl Cluster {
             .map(|(index, id)| (id.clone(), addresses[index]))
             .collect();
         let peers: Vec<SocketAddr> = addresses[NODES..NODES * 2].to_vec();
+        let clock = Arc::clone(&tokens.clock);
+        let clock_authority = ClockAuthority::start(Arc::clone(&clock))?;
         let mut cluster = Self {
+            clock,
+            clock_authority,
             root: root.clone(),
             pki,
             nodes,
@@ -529,6 +651,15 @@ impl Cluster {
             let mut command = Command::new(&daemon);
             command
                 .env_clear()
+                .env(
+                    "LAYERX_RUNTIME_CLOCK_SOCKET",
+                    &cluster.clock_authority.socket,
+                )
+                .env("LAYERX_RUNTIME_CLOCK_PID", std::process::id().to_string())
+                .env(
+                    "LAYERX_RUNTIME_CLOCK_UID",
+                    rustix::process::geteuid().as_raw().to_string(),
+                )
                 .env("ATTESTOR_NODE_ID", id)
                 .env("ATTESTOR_REGION", "test")
                 .env("ATTESTOR_LISTEN_ADDR", cluster.nodes[index].1.to_string())
@@ -677,7 +808,7 @@ impl Cluster {
 
     fn publish_inventory(&mut self) -> Result<()> {
         self.inventory_sequence += 1;
-        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+        let now = self.clock.now()?;
         let claims = json!({
             "version": 1, "iss": ISSUER, "aud": "wallet-custody-inventory",
             "tenant": "attestor-test", "sequence": self.inventory_sequence.to_string(),
@@ -812,7 +943,7 @@ impl Cluster {
 
     fn wait_ready(&mut self) -> Result<()> {
         let client = self.client()?;
-        let started = Instant::now();
+        let mut deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(120))?;
         let mut pending: Vec<String> = self.nodes.iter().map(|(id, _)| id.clone()).collect();
         while !pending.is_empty() {
             let mut exited = None;
@@ -828,7 +959,7 @@ impl Cluster {
             pending.retain(|id| {
                 !matches!(client.health(id), Ok(health) if health.ready && health.reachable_peers == 4)
             });
-            if started.elapsed() > Duration::from_secs(120) {
+            if deadline.remaining(self.clock.as_ref())?.is_zero() {
                 return Err(
                     format!("attestors {pending:?} never became ready: {}", self.logs()).into(),
                 );

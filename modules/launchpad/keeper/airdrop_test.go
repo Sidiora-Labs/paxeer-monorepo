@@ -159,13 +159,13 @@ func TestAirdropEpochs(t *testing.T) {
 		keeperType := reflect.TypeOf((*keeper.Keeper)(nil))
 		for _, name := range []string{
 			"ExecuteAirdrop", "ClaimAirdrop", "AirdropEntitlement", "ClaimAirdropForEpoch",
-			"OpenHoldingHistory", "EpochBalance",
+			"OpenHoldingHistory", "EpochBalance", "BeforeBalanceChange", "HoldingCheckpointCount",
 		} {
 			_, found := keeperType.MethodByName(name)
 			require.False(t, found, "keeper still declares %s", name)
 		}
 		for _, name := range []string{
-			"TriggerAirdrop", "ClaimAirdropEpoch", "BeforeBalanceChange", "HoldingCheckpointCount",
+			"TriggerAirdrop", "ClaimAirdropEpoch", "ClaimLegacyAirdrop",
 		} {
 			_, found := keeperType.MethodByName(name)
 			require.True(t, found, "keeper must retain %s", name)

@@ -560,10 +560,7 @@ impl State {
                     .iter_mut()
                     .find(|submission| {
                         submission.tx_hash == *tx_hash
-                            && matches!(
-                                submission.status,
-                                SubmissionStatus::Pending | SubmissionStatus::Receipted { .. }
-                            )
+                            && submission.status == SubmissionStatus::Pending
                     })
                     .ok_or_else(|| {
                         JournalError::Conflict(format!("{item} has no pending {tx_hash:02x?}"))
@@ -1000,6 +997,201 @@ mod tests {
             .lines()
             .count();
         assert_eq!(lines, 3, "refused entries are never written");
+    }
+
+    #[test]
+    fn only_a_pending_submission_can_revert_and_replay_without_changing_its_identity() {
+        use k256::ecdsa::SigningKey;
+        use layerx_crypto::evm_transaction::Eip1559Call;
+        use sha3::{Digest as _, Keccak256};
+
+        let mut recipient = [0; 32];
+        recipient[12..].fill(0x77);
+        let deposit = InboundAttestation {
+            chain_id: 1,
+            vault: [0x11; 20],
+            tx_hash: [0xaa; 32],
+            log_index: 3,
+            recipient,
+            asset: [0x44; 20],
+            amount: crate::attestation::uint256_from_u64(1_000_000_000_000_000_000),
+        };
+        let mut secret = [0; 32];
+        secret[31] = 0xa1;
+        let (signature, recovery) = SigningKey::from_slice(&secret)
+            .unwrap()
+            .sign_prehash_recoverable(&deposit.digest())
+            .unwrap();
+        let mut recoverable = [0; 65];
+        recoverable[..64].copy_from_slice(&signature.to_bytes());
+        recoverable[64] = recovery.to_byte();
+        let signature = crate::attestation::to_attestor_signature(recoverable).unwrap();
+        secret[31] = 0xb1;
+        let raw = Eip1559Call {
+            chain_id: 229,
+            nonce: 5,
+            max_priority_fee_per_gas: 1_000_000_000,
+            max_fee_per_gas: 5_000_000_000,
+            gas_limit: 1_000_000,
+            to: crate::abi::LAYERX_BRIDGE_PRECOMPILE,
+            data: crate::abi::encode_bridge_in(&deposit, &[signature]),
+        }
+        .sign(&secret)
+        .unwrap();
+        let tx_hash: [u8; 32] = Keccak256::digest(&raw).into();
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../tests/fixtures/inbound_sequencer_receipt.json"
+        ))
+        .unwrap();
+        assert_eq!(hex::prefixed(&tx_hash), fixture["transactionHash"]);
+        let observation = Observation::inbound(
+            &deposit,
+            Position {
+                block_number: 100,
+                block_hash: [0xbb; 32],
+            },
+        );
+        let key = observation.key();
+        let path = directory("receipted-reverted").join("journal.jsonl");
+        let mut journal = open(&path);
+        append(
+            &mut journal,
+            &Entry::Observed {
+                item: key.clone(),
+                observation,
+            },
+        );
+        let submitted = Entry::Submitted {
+            item: key.clone(),
+            submitter: crate::attestation::ethereum_address(
+                SigningKey::from_slice(&secret).unwrap().verifying_key(),
+            ),
+            nonce: 5,
+            tx_hash,
+            raw: raw.clone(),
+        };
+        append(&mut journal, &submitted);
+        let pending_path = directory("pending-reverted").join("journal.jsonl");
+        let mut pending_journal = open(&pending_path);
+        append(
+            &mut pending_journal,
+            &Entry::Observed {
+                item: key.clone(),
+                observation,
+            },
+        );
+        append(&mut pending_journal, &submitted);
+        let pending_bytes = fs::read(&pending_path).unwrap();
+        refused(
+            &mut pending_journal,
+            &Entry::Reverted {
+                item: key.clone(),
+                tx_hash: [0xee; 32],
+            },
+        );
+        assert_eq!(fs::read(&pending_path).unwrap(), pending_bytes);
+        append(
+            &mut pending_journal,
+            &Entry::Reverted {
+                item: key.clone(),
+                tx_hash,
+            },
+        );
+        let item = &pending_journal.state().items[&key];
+        assert_eq!(item.submissions.len(), 1);
+        assert_eq!(item.submissions[0].tx_hash, tx_hash);
+        assert_eq!(item.submissions[0].raw, raw);
+        assert_eq!(item.submissions[0].status, SubmissionStatus::Reverted);
+        assert!(item.pending().is_none());
+        assert!(item.is_open());
+        assert_eq!(open(&pending_path).state(), pending_journal.state());
+        append(
+            &mut journal,
+            &Entry::Receipted {
+                item: key.clone(),
+                tx_hash,
+                sequence: 5,
+                height: 1002,
+            },
+        );
+        assert_eq!(journal.state().items[&key].submissions.len(), 1);
+        let pending = journal.state().items[&key].pending().unwrap();
+        assert_eq!(pending.tx_hash, tx_hash);
+        assert_eq!(pending.raw, raw);
+        assert_eq!(
+            pending.status,
+            SubmissionStatus::Receipted {
+                sequence: 5,
+                height: 1002
+            }
+        );
+        let before_refusal = fs::read(&path).unwrap();
+        refused(
+            &mut journal,
+            &Entry::Dropped {
+                item: key.clone(),
+                tx_hash,
+            },
+        );
+        refused(
+            &mut journal,
+            &Entry::Completed {
+                item: key.clone(),
+                completion: Completion::Included {
+                    tx_hash,
+                    block_number: 1001,
+                },
+            },
+        );
+        refused(
+            &mut journal,
+            &Entry::Reverted {
+                item: key.clone(),
+                tx_hash: [0xee; 32],
+            },
+        );
+        refused(
+            &mut journal,
+            &Entry::Reverted {
+                item: key.clone(),
+                tx_hash,
+            },
+        );
+        assert_eq!(fs::read(&path).unwrap(), before_refusal);
+        let item = &journal.state().items[&key];
+        assert_eq!(item.submissions.len(), 1);
+        assert_eq!(item.submissions[0].tx_hash, tx_hash);
+        assert_eq!(item.submissions[0].raw, raw);
+        assert_eq!(
+            item.submissions[0].status,
+            SubmissionStatus::Receipted {
+                sequence: 5,
+                height: 1002
+            }
+        );
+        assert_eq!(item.pending().unwrap().tx_hash, tx_hash);
+        assert!(item.is_open());
+        assert_eq!(open(&path).state(), journal.state());
+        append(
+            &mut journal,
+            &Entry::Completed {
+                item: key.clone(),
+                completion: Completion::Included {
+                    tx_hash,
+                    block_number: 1003,
+                },
+            },
+        );
+        let completed = fs::read(&path).unwrap();
+        refused(
+            &mut journal,
+            &Entry::Completed {
+                item: key,
+                completion: Completion::AlreadyBridged,
+            },
+        );
+        assert_eq!(fs::read(&path).unwrap(), completed);
+        assert_eq!(open(&path).state(), journal.state());
     }
 
     #[test]

@@ -25,7 +25,7 @@ type harness struct {
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 	stateDB := &state.DBImpl{}
-	stateDB.WithCtx(sdk.Context{})
+	stateDB.WithCtx(sdk.Context{}.WithBlockHeight(1))
 	p, err := layerxverify.NewPrecompile(nil)
 	require.NoError(t, err)
 	fixture, err := testvectors.Load()
@@ -104,12 +104,26 @@ func TestAddressAndMethods(t *testing.T) {
 	require.Len(t, h.precompile.GetABI().Methods, 5)
 }
 
+func (h *harness) requireRetired(name string, args ...interface{}) {
+	h.t.Helper()
+	out, err := h.precompile.Run(h.evm, common.Address{}, common.Address{}, h.input(name, args...), nil, true, false, nil)
+	require.ErrorIs(h.t, err, vm.ErrExecutionReverted)
+	require.Equal(h.t, pcommon.RetiredRevert("layerxVerify"), out)
+	reason, err := abi.UnpackRevert(out)
+	require.NoError(h.t, err)
+	require.Equal(h.t, "LXP_MODULE_DISABLED: module disabled; layerxVerify retired", reason)
+}
+
 func TestVerifyEd25519(t *testing.T) {
 	h := newHarness(t)
 	for _, v := range h.cases("ed25519") {
 		domain := layerxverify.RawMessageDomain
 		if _, ok := v.Fields["domain"]; ok {
 			domain = uint8(number(t, v, "domain")) //nolint:gosec
+		}
+		if domain != layerxverify.RawMessageDomain {
+			h.requireRetired(layerxverify.VerifyEd25519Method, array(t, v, "public_key"), domain, bytesOf(t, v, "message"), bytesOf(t, v, "signature"))
+			continue
 		}
 		out, err := h.call(layerxverify.VerifyEd25519Method, array(t, v, "public_key"), domain,
 			bytesOf(t, v, "message"), bytesOf(t, v, "signature"))
@@ -118,11 +132,8 @@ func TestVerifyEd25519(t *testing.T) {
 	}
 	valid := h.cases("ed25519")[0]
 	require.True(t, valid.Valid)
-	// The same signature under a neighbouring domain tag is a different digest.
-	out, err := h.call(layerxverify.VerifyEd25519Method, array(t, valid, "public_key"),
+	h.requireRetired(layerxverify.VerifyEd25519Method, array(t, valid, "public_key"),
 		uint8(number(t, valid, "domain")+1), bytesOf(t, valid, "message"), bytesOf(t, valid, "signature")) //nolint:gosec
-	require.NoError(t, err)
-	require.False(t, out[0].(bool))
 	for name, args := range map[string][]interface{}{
 		"unknown domain":  {array(t, valid, "public_key"), uint8(20), bytesOf(t, valid, "message"), bytesOf(t, valid, "signature")},
 		"short signature": {array(t, valid, "public_key"), uint8(2), bytesOf(t, valid, "message"), bytesOf(t, valid, "signature")[:63]},
@@ -130,8 +141,14 @@ func TestVerifyEd25519(t *testing.T) {
 		"oversize message": {array(t, valid, "public_key"), layerxverify.RawMessageDomain,
 			make([]byte, 1_048_577), bytesOf(t, valid, "signature")},
 	} {
-		_, err := h.call(layerxverify.VerifyEd25519Method, args...)
-		require.ErrorIs(t, err, vm.ErrExecutionReverted, name)
+		t.Run(name, func(t *testing.T) {
+			if args[1].(uint8) != layerxverify.RawMessageDomain {
+				h.requireRetired(layerxverify.VerifyEd25519Method, args...)
+			} else {
+				_, err := h.call(layerxverify.VerifyEd25519Method, args...)
+				require.ErrorIs(t, err, vm.ErrExecutionReverted)
+			}
+		})
 	}
 }
 
@@ -198,32 +215,17 @@ func inclusionArgs(t *testing.T, v testvectors.Vector) []interface{} {
 func TestVerifyReceiptInclusion(t *testing.T) {
 	h := newHarness(t)
 	for _, v := range h.cases("inclusion") {
-		out, err := h.call(layerxverify.VerifyReceiptInclusionMethod, inclusionArgs(t, v)...)
-		if !v.Valid {
-			require.ErrorIs(t, err, vm.ErrExecutionReverted, v.Name)
-			continue
-		}
-		require.NoError(t, err, v.Name)
-		facts := *abi.ConvertType(out[0], new(receiptFacts)).(*receiptFacts)
-		batch := *abi.ConvertType(out[1], new(batchFacts)).(*batchFacts)
-		require.Equal(t, array(t, v, "header_digest"), batch.HeaderDigest, v.Name)
-		require.Equal(t, array(t, v, "receipt_root"), batch.ReceiptRoot, v.Name)
-		require.Equal(t, array(t, v, "resulting_state_root"), batch.ResultingStateRoot, v.Name)
-		require.Equal(t, number(t, v, "batch_number"), batch.BatchNumber, v.Name)
-		require.Equal(t, array(t, v, "sequencer_id"), batch.SequencerId, v.Name)
-		require.Equal(t, batch.ResultingStateRoot, facts.ResultingStateRoot, v.Name)
-		require.GreaterOrEqual(t, facts.GlobalSequence, batch.FirstSequence, v.Name)
-		require.LessOrEqual(t, facts.GlobalSequence, batch.LastSequence, v.Name)
+		t.Run(v.Name, func(t *testing.T) {
+			h.requireRetired(layerxverify.VerifyReceiptInclusionMethod, inclusionArgs(t, v)...)
+		})
 	}
 	valid := h.cases("inclusion")[0]
 	args := inclusionArgs(t, valid)
 	args[3] = args[3].([]byte)[:63]
-	_, err := h.call(layerxverify.VerifyReceiptInclusionMethod, args...)
-	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	h.requireRetired(layerxverify.VerifyReceiptInclusionMethod, args...)
 	args = inclusionArgs(t, valid)
 	args[6], args[7] = uint64(9), uint64(8)
-	_, err = h.call(layerxverify.VerifyReceiptInclusionMethod, args...)
-	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	h.requireRetired(layerxverify.VerifyReceiptInclusionMethod, args...)
 }
 
 func TestVerifyStateProof(t *testing.T) {
@@ -256,24 +258,11 @@ type discoveryFacts = struct {
 func TestVerifyDiscoveryProof(t *testing.T) {
 	h := newHarness(t)
 	for _, v := range h.cases("discovery") {
-		out, err := h.call(layerxverify.VerifyDiscoveryProofMethod, bytesOf(t, v, "payload"),
-			bytesOf(t, v, "proof_material"), array(t, v, "program_id"), number(t, v, "staleness_ms"),
-			array(t, v, "public_key"))
-		if !v.Valid {
-			require.ErrorIs(t, err, vm.ErrExecutionReverted, v.Name)
-			continue
-		}
-		require.NoError(t, err, v.Name)
-		head := *abi.ConvertType(out[0], new(discoveryFacts)).(*discoveryFacts)
-		require.Equal(t, array(t, v, "digest"), head.Digest, v.Name)
-		require.Equal(t, array(t, v, "state_root"), head.StateRoot, v.Name)
-		require.Equal(t, array(t, v, "code_hash"), head.CodeHash, v.Name)
-		require.Equal(t, array(t, v, "head_receipt_digest"), head.HeadReceiptDigest, v.Name)
-		require.EqualValues(t, number(t, v, "version"), head.Version, v.Name)
-		require.EqualValues(t, number(t, v, "abi_version"), head.AbiVersion, v.Name)
-		require.Equal(t, number(t, v, "observed_sequence"), head.ObservedSequence, v.Name)
-		require.Equal(t, number(t, v, "observed_at"), head.ObservedAt, v.Name)
-		require.Equal(t, number(t, v, "valid_through"), head.ValidThrough, v.Name)
+		t.Run(v.Name, func(t *testing.T) {
+			h.requireRetired(layerxverify.VerifyDiscoveryProofMethod, bytesOf(t, v, "payload"),
+				bytesOf(t, v, "proof_material"), array(t, v, "program_id"), number(t, v, "staleness_ms"),
+				array(t, v, "public_key"))
+		})
 	}
 }
 
