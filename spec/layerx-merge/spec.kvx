@@ -130248,7 +130248,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.23.14]
 title = "Read paymentDenom in the relayer receipt decoder and classify the Programs call vector case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225587,7 +225587,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.46]
 title = "Triage issue #1557 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225618,7 +225618,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.45]
 title = "Triage issue #1556: Reconcile agent event ingestion with sequencer logs that have no block hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225649,7 +225649,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.44]
 title = "Triage issue #1555 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225680,7 +225680,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.43]
 title = "Triage issue #1554 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225711,7 +225711,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.42]
 title = "Triage issue #1553 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225742,7 +225742,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.41]
 title = "Triage issue #1552: Align cold scheduler ABI metadata with the served contract"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225773,7 +225773,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.40]
 title = "Triage issue #1551: Decode canonical receipt-key responses in both public PxClient SDKs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225804,7 +225804,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.39]
 title = "Triage issue #1550 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225835,7 +225835,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.38]
 title = "Triage issue #1549 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225866,7 +225866,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.37]
 title = "Triage issue #1548: Port gateway record schemas to the Zod 4 TypeScript signature"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225897,7 +225897,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.36]
 title = "Triage issue #1547 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225928,7 +225928,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.35]
 title = "Triage issue #1546: The Go advisory commit deletes the Cargo.lock of the attestor kernel-vector generator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225959,7 +225959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.34]
 title = "Triage issue #1545 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225990,7 +225990,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.33]
 title = "Triage issue #1544 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226021,7 +226021,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.32]
 title = "Triage issue #1543 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226052,7 +226052,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.31]
 title = "Triage issue #1542 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226083,7 +226083,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.30]
 title = "Triage issue #1541 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226114,7 +226114,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.29]
 title = "Triage issue #1540 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226145,7 +226145,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.28]
 title = "Triage issue #1539 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226176,7 +226176,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.27]
 title = "Triage issue #1538 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226734,7 +226734,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.9]
 title = "Triage issue #1520 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226765,7 +226765,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.8]
 title = "Triage issue #1519 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226827,7 +226827,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.6]
 title = "Triage issue #1517: Reconcile lxphost result names after retiring kernel code -804"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226858,7 +226858,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.5]
 title = "Triage issue #1516 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
