@@ -12,6 +12,8 @@ const LOCK_PATH: &str = "sdk/platform/pipeline.kvx";
 const RUST_OPERATION_GENERATED_PATH: &str =
     "services/agent/crates/layerx-agent-api/src/operation_generated.rs";
 const GO_GENERATED_PATH: &str = "sdk/platform/go/generated.go";
+const JVM_SCHEMA_PATH: &str =
+    "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java";
 const JVM_CONFORMANCE_PATH: &str = "sdk/platform/conformance/jvm.kvx";
 const RECEIPT_CONTRACT_PATH: &str = "sdk/platform/generators/receipt.kvx";
 const RUST_RECEIPT_GENERATED_PATH: &str =
@@ -1486,6 +1488,98 @@ fn write_go(repo_root: &Path) -> Result<(), String> {
         .map_err(|error| format!("write {}: {error}", path.display()))
 }
 
+pub(crate) fn jvm_verification_status(repo_root: &Path) -> Result<String, String> {
+    let agent = schema_sections(&repo_root.join(SOURCES[0].1))?;
+    let encoded = agent
+        .get("record.VerificationStatus")
+        .and_then(|entries| entries.get("verification_status"))
+        .ok_or_else(|| "missing record.VerificationStatus.verification_status".to_owned())?;
+    let contract = encoded
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+        .ok_or_else(|| "VerificationStatus contract must be quoted".to_owned())?
+        .replace(r#"\""#, "\"");
+    for shape in [
+        r#"{state:"achieved",rung:R}"#,
+        r#"{state:"unverified",requested:R,achieved:R,reason:ReasonCode}"#,
+        r#"{state:"pending",requested:R,achieved:R}"#,
+        r#"{state:"absent",requested:R}"#,
+        "submitted, receipted, committed",
+        "achieved strictly below requested",
+    ] {
+        if !contract.contains(shape) {
+            return Err(format!(
+                "unsupported VerificationStatus contract: missing {shape}"
+            ));
+        }
+    }
+    Ok(r#"        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        public record VerificationStatus(String state, String rung, String requested, String achieved, String reason) implements SchemaTypes.GeneratedResponse {
+            @JsonCreator
+            public VerificationStatus {
+                Objects.requireNonNull(state, "state");
+                boolean valid = switch (state) {
+                    case "achieved" -> rung != null && requested == null && achieved == null && reason == null;
+                    case "unverified" -> rung == null && requested != null && achieved != null && reason != null && !reason.isEmpty();
+                    case "pending" -> rung == null && requested != null && achieved != null && reason == null;
+                    case "absent" -> rung == null && requested != null && achieved == null && reason == null;
+                    default -> false;
+                };
+                if (!valid) throw new IllegalArgumentException("invalid verification status shape");
+                if (rung != null) rank(rung);
+                if (requested != null) rank(requested);
+                if (achieved != null && rank(achieved) >= rank(requested)) {
+                    throw new IllegalArgumentException("verification.inconsistent");
+                }
+            }
+            private static int rank(String rung) {
+                return switch (rung) {
+                    case "submitted" -> 0;
+                    case "receipted" -> 1;
+                    case "committed" -> 2;
+                    default -> throw new IllegalArgumentException("unknown verification rung");
+                };
+            }
+        }
+"#.to_owned())
+}
+
+pub(crate) fn jvm_schema_with_verification_status(repo_root: &Path) -> Result<String, String> {
+    let path = repo_root.join(JVM_SCHEMA_PATH);
+    let source =
+        fs::read_to_string(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
+    let declaration = jvm_verification_status(repo_root)?;
+    let boundary = "    }\n    public static final class HumanModels {";
+    let (agent, rest) = source
+        .split_once(boundary)
+        .ok_or_else(|| "generated JVM schema has no AgentModels boundary".to_owned())?;
+    let marker = "        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)\n        public record VerificationStatus(";
+    let (agent, following) = if let Some((before, existing)) = agent.split_once(marker) {
+        let (_, following) = existing
+            .split_once("\n        }\n")
+            .ok_or_else(|| "generated JVM VerificationStatus has no closing boundary".to_owned())?;
+        (before, following)
+    } else {
+        (agent, "")
+    };
+    Ok(format!("{agent}{declaration}{following}{boundary}{rest}"))
+}
+
+fn jvm_verification_status_contract(repo_root: &Path, write: bool) -> Result<(), String> {
+    let expected = jvm_schema_with_verification_status(repo_root)?;
+    let path = repo_root.join(JVM_SCHEMA_PATH);
+    if write {
+        fs::write(&path, expected).map_err(|error| format!("write {}: {error}", path.display()))
+    } else {
+        let actual = fs::read_to_string(&path)
+            .map_err(|error| format!("read {}: {error}", path.display()))?;
+        if actual != expected {
+            return Err("generated JVM VerificationStatus is stale or hand-edited; run make platform-sdk-generate".to_owned());
+        }
+        Ok(())
+    }
+}
+
 fn generate_jvm_conformance(repo_root: &Path) -> Result<String, String> {
     let operation_count = |root: &Path| -> Result<usize, String> {
         Ok(schema_sections(root)?
@@ -1902,6 +1996,7 @@ pub fn check(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
     check_rust_operation_catalog(repo_root)?;
     check_go(repo_root)?;
     check_jvm_conformance(repo_root)?;
+    jvm_verification_status_contract(repo_root, false)?;
     check_receipt_contracts(repo_root)
 }
 
@@ -1916,6 +2011,7 @@ pub fn write_lock(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
     write_rust_operation_catalog(repo_root)?;
     write_go(repo_root)?;
     write_jvm_conformance(repo_root)?;
+    jvm_verification_status_contract(repo_root, true)?;
     write_receipt_contracts(repo_root)?;
     replace_lock(lock_path, &classified_lock(repo_root, lock_path)?)
 }

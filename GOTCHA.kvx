@@ -14070,3 +14070,78 @@ fix = "Before appending a finding, check the id is unused; a duplicate is remove
 title = "A transport entry restored for a retired operation needs its operation declaration too"
 symptom = "The drift test compares the transport operations of the agent API schema with the [operation.<name>] declarations; a task restored the retired faucet.claim transport entry without the declaration and the next task to touch the schema failed the drift test."
 fix = "Restore or add transport entries and operation declarations together; the drift test is the oracle for both."
+
+[gotcha.2850]
+title = "Node's strip-only TypeScript loader refuses constructor parameter properties"
+symptom = "A TypeScript source loaded directly by node --test used constructor parameter properties (private readonly in the parameter list) and node 24 refused it with ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX in strip-only mode."
+fix = "A .ts file that node loads without a build step declares its fields explicitly and assigns them in the constructor body; parameter properties, enums and namespaces need a build step."
+
+[gotcha.2851]
+title = "An in-repo Maven module must be installed before a dependent module can resolve it"
+symptom = "mvn dependency:resolve on an integration module failed with 'Could not find artifact' for the repository's own sdk artifact, because the local repository had no copy and no remote carries it."
+fix = "Run mvn install (tests skipped) of the in-repo module first, then resolve the modules that depend on it; put both into the same command."
+
+[gotcha.2852]
+title = "A match-arm repair must cite the variant list of the current main, not a planned one"
+symptom = "A do item named two enum variants that a later task was going to add; the attempt added arms for them and the build failed with E0599 because the enum on main did not declare them."
+fix = "Before writing a do item that names enum variants or fields, read the declaration on the current main; a repair that depends on a planned variant belongs to the task that adds the variant."
+
+[gotcha.2853]
+title = "A pinned dependency requirement blocks a lock-file raise"
+symptom = "A lock-file raise to a floored version failed silently: the manifest pinned the dependency with an exact requirement (=9.3.1), so the lock could not move without a manifest edit outside the task's touches."
+fix = "A floor task whose package is pinned exactly in a manifest includes that manifest in its touches, raises the requirement with the lock, and builds the crate that uses it."
+
+[gotcha.2854]
+title = "A go.mod replace onto an in-repo module changes the module graph and go.sum must follow"
+symptom = "Replacing a published module with a relative in-repo path made the module graph load a requirement whose go.mod hash go.sum did not carry; the task's own environment built, a fresh environment failed with missing go.sum entry for go.mod file."
+fix = "A task that edits go.mod runs go list -mod=readonly -m all and go mod verify as part of its verify and commits the go.sum entries they need; the dependent check builds in a fresh module cache."
+
+[gotcha.2855]
+title = "Changing a package's decision rule while running only the new test file leaves the package suite red"
+symptom = "7829d8d2b (22.23.10) made a differing requestDigest a 409 receipt_reuse refusal and verified only two test files; the seller package suite failed on main at settlement-response.test.mjs:352 until 22.8.11 repaired it."
+fix = "A task that changes a decision rule of a package runs that package's whole test suite in its verify, not only the file it adds."
+
+[gotcha.2856]
+title = "A retired transport section must not be declared as a catalogue operation"
+symptom = "Adding [operation.faucet.claim] to satisfy the catalogue drift test generated an Operation variant that five exhaustive matches of the agent daemon did not cover and the dependent-crate check failed."
+fix = "Exempt retired transport sections in the drift test (decision 2370); never declare an operation for a name the daemon refuses by RETIRED_OPERATIONS."
+
+[gotcha.2857]
+title = "A replace onto an in-repo module needs go.mod's indirect requirements updated as well as go.sum"
+symptom = "After 66d80726c, go mod download alone left go vet reporting that go.mod needs updates: the graph selects newer golang.org/x modules than the indirect requirement lines record, and -mod=readonly refuses the build."
+fix = "Run go mod tidy with the pinned toolchain in the task that lands the replace and commit go.mod and go.sum together (decision 2371); every other Go task keeps go.mod and go.sum out of its edits."
+
+[gotcha.2858]
+title = "A single-minimum floor checker cannot express per-major floors"
+symptom = "tools/deps/lockfloor.py compares every resolved copy against one floor per package; a floor taken from the higher major's patched release fails the lower major's patched copy that a consumer pins (ajv 8 and fast-uri 3.1.9)."
+fix = "Floor the package at the lowest patched release across its major lines (decision 2372) and state in the task text which consumer pins the lower line."
+
+[gotcha.2859]
+title = "A verify that chains toolchains of two SDK families needs the all-SDK profile"
+symptom = "18.1503.1 verified cargo run, cargo test and mvn compile under the mixed profile and failed with mvn not found after every Rust step passed."
+fix = "Set the profile key (line 4) to the all-SDK profile for any task whose verify names tools of two SDK families (decision 2373); check the profile against every command in the verify when writing the task."
+
+[gotcha.2860]
+title = "An all-targets Rust build of the agent daemon workspace plus the human workspace exhausts the qualification environment storage"
+symptom = "22.9.33 built -p layerx-agentd -p layerx-agentd-host --all-targets and the human workspace tests, then the dependent-crate check failed to write rmeta with no space left on device (attempts 3, 5, 6)."
+fix = "Write build_cmd as the declared targets only: cargo test --no-run per test target and cargo build per binary (decision 2374); never --all-targets on the agent daemon workspace."
+
+[gotcha.2861]
+title = "mvn -o fails on an environment that has not cached the pom's plugins"
+symptom = "18.1503.1's verify ran mvn -q -o compile and Maven could not resolve maven-source-plugin 3.3.1 in offline mode although the compile itself needs nothing beyond the JDK."
+fix = "Write Maven verify steps without -o like every other JVM verify of the feature (decision 2375)."
+
+[gotcha.2862]
+title = "The serve_routes test target belongs to the agent daemon host crate"
+symptom = "22.9.33's build and verify named --test serve_routes under -p layerx-agentd and cargo refused: the target is declared in services/agent/crates/layerx-agentd-host/Cargo.toml (host-tests/serve_routes.rs)."
+fix = "Name each test target under the package whose Cargo.toml declares it; check [[test]] declarations before writing a cargo test --test command."
+
+[gotcha.2863]
+title = "A reuse refusal keyed on an unverified receipt hint is a settlement oracle"
+symptom = "The seller returned 409 receipt reuse from the payload's receiptDigest hint before verification, so a tampered payment got 409 instead of 402 and the status alone told whether the digest had been settled."
+fix = "Verify first, then decide reuse (decision 2376); any pre-verification lookup may only serve the identical-request replay."
+
+[gotcha.2864]
+title = "A loader precondition on module-9 activities reaches every test that executes one"
+symptom = "After 22.2.7 made programs activities require the active fee record, three lxphost tests that run a registry activity without the fixture helper failed with LXP_ERR_VERSION_UNSUPPORTED; the task listed two and attempt 2 stopped on the third as pre-existing."
+fix = "When a change adds a store precondition to a module's execution, grep the package for every test that executes that module's activities and give each the fixture call; run the task's whole verify selection before the single verify run."

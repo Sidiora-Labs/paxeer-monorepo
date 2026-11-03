@@ -28,58 +28,42 @@ static int snapshot_fixture_init(snapshot_fixture *fixture)
     return 0;
 }
 
-static int add_idempotency(snapshot_fixture *fixture)
-{
-    lxp_idempotency_key_state entry = { 0 };
-
-    entry.key_hash[0] = 0x52U;
-    entry.receipt[0] = 0x71U;
-    entry.receipt_length = 1U;
-    entry.recorded_sequence = 1U;
-    LXP_CASE_CHECK(lxp_idempotency_append(&fixture->state, &entry, 1U) ==
-                   LXP_OK);
-    LXP_CASE_CHECK(fixture->state.idempotency_count == 1U);
-    return 0;
-}
-
 static int root_ignores_idempotency(void)
 {
     snapshot_fixture *fixture = calloc(1U, sizeof(*fixture));
     lxp_state_witness *proof = calloc(1U, sizeof(*proof));
     uint8_t expected[32], actual[32];
     uint8_t key[33] = { 2U };
-    lxp_idempotency_key_state *entries;
+    lxp_state_snapshot *snapshot = NULL;
 
     LXP_CASE_CHECK(fixture != NULL && proof != NULL);
     LXP_CASE_CHECK(snapshot_fixture_init(fixture) == 0);
     LXP_CASE_CHECK(lxp_state_root(&fixture->kernel, expected) == LXP_OK);
-    LXP_CASE_CHECK(add_idempotency(fixture) == 0);
+    LXP_CASE_CHECK(lxp_state_snapshot_create(&fixture->state, &snapshot) ==
+                   LXP_OK);
     LXP_CASE_CHECK(lxp_state_root(&fixture->kernel, actual) == LXP_OK);
     LXP_CASE_CHECK(memcmp(actual, expected, sizeof(actual)) == 0);
-    (void)memcpy(key + 1U, fixture->state.idempotency[0].key_hash, 32U);
+    key[1] = 0x52U;
     LXP_CASE_CHECK(lxp_state_proof_build(&fixture->kernel, 0U,
         (lxp_byte_span){ key, sizeof(key) }, proof) == LXP_ERR_UNKNOWN_FIELD);
     LXP_CASE_CHECK(lxp_state_proof_build(&fixture->kernel, 0U,
         (lxp_byte_span){ (const uint8_t *)"sequence", 8U }, proof) == LXP_OK);
     LXP_CASE_CHECK(lxp_state_proof_verify(proof, expected) == LXP_OK);
 
-    fixture->state.idempotency[0].key_hash[0] ^= 1U;
-    fixture->state.idempotency[0].receipt[0] ^= 1U;
-    fixture->state.idempotency[0].receipt_length =
-        LXP_STATE_MAX_RECEIPT_BYTES + 1U;
+    key[1] ^= 1U;
+    LXP_CASE_CHECK(lxp_state_proof_build(&fixture->kernel, 0U,
+        (lxp_byte_span){ key, sizeof(key) }, proof) == LXP_ERR_UNKNOWN_FIELD);
     LXP_CASE_CHECK(lxp_state_root(&fixture->kernel, actual) == LXP_OK);
     LXP_CASE_CHECK(memcmp(actual, expected, sizeof(actual)) == 0);
-    entries = fixture->state.idempotency;
-    fixture->state.idempotency = NULL;
-    fixture->state.idempotency_count = SIZE_MAX;
-    LXP_CASE_CHECK(lxp_state_root(&fixture->kernel, actual) == LXP_OK);
-    LXP_CASE_CHECK(memcmp(actual, expected, sizeof(actual)) == 0);
-    fixture->state.idempotency = entries;
-    fixture->state.idempotency_count = 1U;
 
     fixture->state.cells[0].value.lo += 1U;
     LXP_CASE_CHECK(lxp_state_root(&fixture->kernel, actual) == LXP_OK);
     LXP_CASE_CHECK(memcmp(actual, expected, sizeof(actual)) != 0);
+    LXP_CASE_CHECK(lxp_state_snapshot_restore(snapshot, &fixture->state) ==
+                   LXP_OK);
+    LXP_CASE_CHECK(lxp_state_root(&fixture->kernel, actual) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(actual, expected, sizeof(actual)) == 0);
+    lxp_state_snapshot_destroy(snapshot);
     LXP_CASE_CHECK(lxp_state_store_destroy(&fixture->state) == LXP_OK);
     free(proof);
     free(fixture);
@@ -114,12 +98,7 @@ static int snapshot_count_word_zero(void)
                                  sizeof(populated_storage)) == LXP_OK);
     LXP_CASE_CHECK(lxp_snapshot_write(&source->kernel, 1U, &empty_arena,
                                      &empty_snapshot) == LXP_OK);
-    LXP_CASE_CHECK(add_idempotency(source) == 0);
-    source->state.idempotency[0].receipt_length =
-        LXP_STATE_MAX_RECEIPT_BYTES + 1U;
-    source->state.idempotency[0].canonical_length =
-        LXP_STATE_MAX_RECEIPT_BYTES + 1U;
-    LXP_CASE_CHECK(lxp_snapshot_write(&source->kernel, 1U, &populated_arena,
+    LXP_CASE_CHECK(lxp_snapshot_write(&target->kernel, 1U, &populated_arena,
                                      &populated_snapshot) == LXP_OK);
     LXP_CASE_CHECK(populated_snapshot.length == empty_snapshot.length);
     LXP_CASE_CHECK(memcmp(populated_snapshot.bytes, empty_snapshot.bytes,
@@ -170,8 +149,6 @@ static int snapshot_count_word_zero(void)
         populated_snapshot.length, &manifest, &target->kernel) == LXP_OK);
     LXP_CASE_CHECK(target->state.next_sequence == 2U);
     LXP_CASE_CHECK(target->state.cells[0].value.lo == 42U);
-    LXP_CASE_CHECK(target->state.idempotency_count == 0U);
-    LXP_CASE_CHECK(target->state.idempotency == NULL);
     LXP_CASE_CHECK(lxp_state_root(&target->kernel, loaded_root) == LXP_OK);
     LXP_CASE_CHECK(memcmp(loaded_root, root, sizeof(root)) == 0);
 
@@ -194,8 +171,6 @@ static int snapshot_count_word_zero(void)
             LXP_ERR_SNAPSHOT_MISMATCH);
         LXP_CASE_CHECK(target->state.cells[0].value.lo == 99U);
         LXP_CASE_CHECK(target->state.next_sequence == 7U);
-        LXP_CASE_CHECK(target->state.idempotency_count == 0U);
-        LXP_CASE_CHECK(target->state.idempotency == NULL);
         LXP_CASE_CHECK(memcmp(target->kernel.current_state_root, root,
                               sizeof(root)) == 0);
     }

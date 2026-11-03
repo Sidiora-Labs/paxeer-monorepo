@@ -91,8 +91,11 @@ fn transfer(endpoint: &SequencerEndpoint) -> Result<(Eip1559Call, [u8; 32]), Str
     let (_, signature) = decode_signed(&raw).map_err(|error| error.to_string())?;
     let sender = recover_sender(&call, &signature).map_err(|error| error.to_string())?;
     call.to = sender;
+    let latest = endpoint
+        .block_number()
+        .map_err(|error| format!("eth_blockNumber failed: {error:?}"))?;
     call.nonce = endpoint
-        .pending_nonce(&sender)
+        .nonce_at(&sender, latest)
         .map_err(|error| format!("eth_getTransactionCount failed: {error:?}"))?;
     call.gas_limit = endpoint
         .estimate_gas(&CallRequest {
