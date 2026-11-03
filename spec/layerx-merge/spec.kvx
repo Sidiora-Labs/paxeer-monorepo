@@ -136518,7 +136518,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.91]
 title = "Re-sweep the not-run targets of the rust-test-tools-platform inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136576,7 +136576,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.89]
 title = "Re-sweep the not-run targets of the rust-test-interop inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -145869,7 +145869,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.99.82]
 title = "Re-sweep the not-run targets of the go-launchpad-modules inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146113,7 +146113,7 @@ do_4 = "Decision 2496 (continue): the module's tests are bound to inputs the qua
 
 [task.22.99.14]
 title = "Repair the inventory sweep target the launchpad statistics module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200353,7 +200353,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.83]
 title = "Re-sweep the not-run targets of the go-modules-2 inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -235740,7 +235740,7 @@ do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible)
 
 [task.9.98.3]
 title = "Remove the Python SDK dead call to the retired program receipt verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
