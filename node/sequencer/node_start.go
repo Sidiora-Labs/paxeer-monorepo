@@ -82,6 +82,7 @@ func (n *Node) Start(ctx context.Context) (err error) {
 		}
 	}()
 	replayer := &nodeStartReplayer{AppReplayer: NewAppReplayer(n.Executor, n.Receipter), ctx: ctx}
+	replayer.src = n.ReceiptSource
 	result, err := n.WAL.Replay(replayer)
 	if err != nil {
 		return fmt.Errorf("sequencer: start WAL replay: %w", err)
