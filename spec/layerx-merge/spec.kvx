@@ -129101,7 +129101,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1568.1]
 title = "Issue #1568: Classify the fee-token receipt fixture in the SDK pipeline inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136746,7 +136746,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.79]
 title = "Repair the inventory sweep target layerx-platform-release"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -235909,7 +235909,7 @@ do_3 = "Attempt 1 (continue): the summary fails on c-kernel-make blocks 85 and 8
 
 [task.18.1573.1]
 title = "Issue #1573: Update the gateway renderer self-test for the split x402 vector suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -258479,7 +258479,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1574.1]
 title = "Issue #1574: Update the explorer receipt-vector counts for the Programs case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
