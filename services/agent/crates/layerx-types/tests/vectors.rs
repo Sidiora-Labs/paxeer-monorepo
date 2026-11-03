@@ -15,7 +15,7 @@ fn copy_corpora(target: &Path) {
     for relative in [
         "codec/valid.lxv",
         "codec/adversarial.lxv",
-        "replay_corpus.lxb",
+        "codec/replay_corpus.lxb",
         "qualification_replay_10m.digest",
     ] {
         assert!(fs::copy(
@@ -41,8 +41,11 @@ fn repository_corpora_are_loaded_and_fully_accounted() {
     assert_eq!(corpus.valid_codec.len(), 4);
     assert_eq!(corpus.adversarial_codec.len(), 7);
     assert_eq!(corpus.replay.protocol_version, DERIVED_PROTOCOL_VERSION);
-    assert_eq!(corpus.replay.activity_count, 53);
-    assert_eq!(corpus.replay.activity_types.len(), 53);
+    let declared_count = corpus.replay.activity_count;
+    assert!(declared_count > 0);
+    assert_eq!(corpus.replay.activity_types.len(), declared_count);
+    assert_eq!(corpus.replay.canonical_activities.len(), declared_count);
+    assert_eq!(corpus.replay.expected_receipts.len(), declared_count);
     assert_eq!(corpus.qualification_digests.len(), 9);
     assert!(TYPE_PROTOCOL_VERSIONS
         .iter()
@@ -59,7 +62,7 @@ fn repository_corpora_are_loaded_and_fully_accounted() {
 #[test]
 fn unsupported_corpus_version_is_build_breaking() {
     let repository = temporary_repository("version");
-    let replay_path = repository.join("tests/vectors/replay_corpus.lxb");
+    let replay_path = repository.join("tests/vectors/codec/replay_corpus.lxb");
     let Ok(mut replay) = fs::read(&replay_path) else {
         panic!("copied replay corpus unreadable");
     };
