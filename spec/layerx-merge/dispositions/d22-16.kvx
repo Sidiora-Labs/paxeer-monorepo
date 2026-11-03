@@ -1,0 +1,84 @@
+[disposition.22.97.10.2]
+finding = "22.97.10.2"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/custody.rs:530 constructs SigningPreparation with transaction and actor_address, and its EvmPrepared includes from, disclosure and disclosure_digest. Commit 28fb1aae3d610d3de9c09f93747702e3aa998101 landed the call-bound preparation migration in custody.rs and session_keys.rs under task 22.95.11."
+
+[disposition.22.23.13.1]
+finding = "22.23.13.1"
+status = "resolved"
+evidence = "On main, spec/layerx-merge/spec.kvx:126199 declares symbols = [] for task 22.23.13, as landed by commit c69af8b6706e55a243bc0f3a0e184b872b900e14. The web SDK at apps/web/src/api/sdk.ts:14 exports the retained perpsOpenPositionCall and perpsCancelOrderCall builders from the agent SDK."
+
+[disposition.22.95.11.2]
+finding = "22.95.11.2"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/custody.rs:542 creates a private clock directory, retains a RunningClock server and connects RuntimeClock to its binding before sampling the EVM plan time. Commit 28fb1aae3d610d3de9c09f93747702e3aa998101 landed this self-contained clock in the custody test."
+
+[disposition.22.98.152.1]
+finding = "22.98.152.1"
+status = "resolved"
+evidence = "On main, spec/layerx-merge/programme/reconcile_check.py:121 collects registered-path line references from remaining and excludes those lines from the retired-symbol absence check, as landed by commit f9fb7c0850e45bfb99a70dd9377df82ba84d482a. The retired row at spec/layerx-merge/programme/reconcile/r8-152.kvx:69 lists config.rs:424 and config.rs:452, whose test inputs demonstrate that finality depth ignores the retired block-time setting."
+
+[disposition.22.95.11.3]
+finding = "22.95.11.3"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/session_keys.rs:267 calls layerx_crypto::disclosure::call::bind_call with the diagnostic text call disclosure, then derives the disclosure signing digest. Commit 28fb1aae3d610d3de9c09f93747702e3aa998101 landed that diagnostic change while services/human/crates/layerx-human-service/tests/retired_crypto_codec_2.rs:12 retains its retired-identifier checks."
+
+[disposition.22.99.19.1]
+finding = "22.99.19.1"
+status = "resolved"
+evidence = "On main, modules/layerxexchange/keeper/intents.go:40 wraps types.ErrRetired with sdkerrors.Wrapf and includes the retirement upgrade and done height, preserving the registered ABCI error identity. Commit 9c5024439144bc970f2597336d2bae1ca8a2d521 landed this keeper repair."
+
+[disposition.22.99.42.1]
+finding = "22.99.42.1"
+status = "resolved"
+evidence = "On main, services/agent/sdk/python/layerx_sdk/programs.py:448 calls _verify_execution_receipt, whose implementation at line 478 verifies retained signed transaction evidence and binds the receipt fields; commit be40a6fb2f8473af121a3281856154efac84ed0a landed task 9.98.3. Commit ec75ccbc5965b7ae5074a5d0568b2adb5f3aa67a migrated the consumers under tests/agent/sdk/python, with the repair and verified revision recorded at spec/layerx-merge/programme/sweeps/repairs/python-pytest-collect.49.kvx:4."
+
+[disposition.22.99.62.1]
+finding = "22.99.62.1"
+status = "resolved"
+evidence = "On main, services/interop/specs/conformance/committed/vector-v4-committed.json:7 records sourceSha256 as 34e9f6abc84b7d714dea573b2a0db0bb055fc51715a72d63fd9a489594e81a03 and the committed receipts include paymentDenom = uhpx. Commit 8f1531ad056fce5788c246e601df553c09e7c916 landed the regenerated vector, while services/interop/crates/layerx-committed-proof/tests/committed_vectors.rs:394 retains the SHA-256 comparison against the recording."
+
+[disposition.22.99.65.1]
+finding = "22.99.65.1"
+status = "resolved"
+evidence = "On main, services/interop/specs/conformance/fiat/sequenced-journeys.json:171 binds the reverted-card journey to transaction 0xd9ea67d1ca9968723dbc84262f2fcf28bd44512b5035a92acb9f417f1c8e1b8e, matching the V2-layerxledger-revert receipt at sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:288. Commit 2a8e7aac2496a2aa9ba35b103466cf018cd6c769 landed the aligned journey record and receipt digest."
+
+[disposition.22.99.80.1]
+finding = "22.99.80.1"
+status = "resolved"
+evidence = "On main, services/platform/perps-data/deploy/Dockerfile.dockerignore:4 includes core/deps/geth and services/platform/perps-data/deploy/Dockerfile:14 copies its module files before dependency download, as landed by commit 34f5ddc0775031b44d2c14a6fd81b85b76892951. The repair record at spec/layerx-merge/programme/sweeps/repairs/go-services.13.kvx:4 names verified revision c31683c61b87eea00be98941431a38949fe5068b."
+
+[disposition.22.99.10.1]
+finding = "22.99.10.1"
+status = "resolved"
+evidence = "On main, services/launchpad/ranking-algo/internal/internaltest/runtime_database.go:76 maps legacy core/ and media/ migration paths into services/launchpad and retains the reviewed checksum comparison at line 90, as landed by commit 9c9ded074b4d7f3458019c37c50cd528620fdf94. The repair record at spec/layerx-merge/programme/sweeps/repairs/go-launchpad-modules.9.kvx:4 names verified revision c56bf8dab2a36860f56543433ebe85802b492d14 and separately lists the database, cache and moderation inputs."
+
+[disposition.22.99.3.1]
+finding = "22.99.3.1"
+status = "environment"
+evidence = "On main, services/launchpad/gateway/internal/app/app.go:484 builds each logical bucket reader with the configured S3 endpoint, region and access credentials. The bucket fixture at services/launchpad/gateway/internal/internaltest/containers.go:61 reads the MinIO endpoint and credentials and creates the requested buckets, while spec/layerx-merge/programme/sweeps/repairs/go-launchpad-modules-2.2.kvx:21 identifies the ready identity peers and PostgreSQL input required by the identity integration."
+
+[disposition.22.99.44.1]
+finding = "22.99.44.1"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/sourcify/api_client.rs:60 reads the remote chain catalog as JSON and requires both supported and etherscanAPI before import. The compiler path at services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/solc_compiler_cli.rs:32 converts compiler output without contracts into a compilation error, and its compiler tests fetch the selected legacy compiler at line 577."
+
+[disposition.22.99.102.1]
+finding = "22.99.102.1"
+status = "environment"
+evidence = "On main, services/platform/hosted/paxai-worker/tests/real_workload.rs:1933 requires the PAXAI_REAL_WORKLOAD document, loads the pinned inference and embedding artifacts, opens durable job storage and constructs ProcessRunner with the configured executable. The required runner, store, deployment and workload pins are declared at services/platform/hosted/paxai-worker/tests/real_workload.rs:1827, and absent provisioning returns Unprovisioned."
+
+[disposition.22.99.88.1]
+finding = "22.99.88.1"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/custody.rs:530 supplies transaction and actor_address to SigningPreparation, with from, disclosure and disclosure_digest in its EvmPrepared. Commit 28fb1aae3d610d3de9c09f93747702e3aa998101 landed this migration under task 22.95.11."
+
+[disposition.22.97.10.3]
+finding = "22.97.10.3"
+status = "resolved"
+evidence = "On main, programs/vendor/wasm-instrument/src/gas_metering/mod.rs:1643 and line 1688 gate the frozen memory-grow and bulk-memory helper-sequence tests with cfg(feature = bulk), matching the availability of their DynamicHelper and add_dynamic_helpers dependencies. Commit b022d25a241abfdbb0c6694cf82a9462e483e922 landed these feature gates."
+
+[disposition.22.99.62.2]
+finding = "22.99.62.2"
+status = "resolved"
+evidence = "On main, services/interop/crates/layerx-committed-proof/tests/receipted.rs:106 derives expected_v1_cases from the recorded V1 entries, and the acceptance and operation totals at lines 323 and 388 must equal that count. Commit 8f1531ad056fce5788c246e601df553c09e7c916 landed the fixture-derived counts while retaining the nonempty-fixture assertion and all six recorded V3 refusal checks."
