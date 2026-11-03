@@ -1,0 +1,35 @@
+[disposition.17.1.7.1]
+finding = "17.1.7.1"
+status = "environment"
+evidence = "The missing native archives were qualification prerequisites: modules/lxphost/host.go:7 links both libraries and spec/layerx-merge/programme/data/sandbox-profiles.kvx:12 prebuilds both for the go-cgo profile now assigned to the bring-up and rehearsal tasks."
+follow_up = "closure"
+
+[disposition.17.1.7.2]
+finding = "17.1.7.2"
+status = "resolved"
+evidence = "Landed commit e44e2cc5837eae6c7a25b563fff9e4d335df0d93 makes v6120LiveInState recognize the full-genesis module version map and refresh the selected precompiles, as node/precompiles_v6120.go:116 and node/precompiles_v6120_test.go:103 show."
+follow_up = "closure"
+
+[disposition.17.3.4.attempt1]
+finding = "17.3.4.attempt1"
+status = "environment"
+evidence = "The first rehearsal attempt shares the missing-archive failure identified by finding 17.1.7.1: modules/lxphost/host.go:7 requires both native libraries and spec/layerx-merge/programme/data/sandbox-profiles.kvx:12 supplies their prebuild for go-cgo qualification."
+follow_up = "closure"
+
+[disposition.17.3.4.attempt2]
+finding = "17.3.4.attempt2"
+status = "environment"
+evidence = "The reported missing liblayerx and liblayerx_programs_sandbox archives are environment prerequisites linked at modules/lxphost/host.go:7 and explicitly built by the go-cgo profile at spec/layerx-merge/programme/data/sandbox-profiles.kvx:12."
+follow_up = "closure"
+
+[disposition.17.3.4.attempt3]
+finding = "17.3.4.attempt3"
+status = "resolved"
+evidence = "The rehearsal activation-precompile refusal cross-referenced by finding 17.1.7.2 is repaired by landed commit e44e2cc5837eae6c7a25b563fff9e4d335df0d93, with node/precompiles_v6120.go:112 selecting from initialized module state and node/merge_rehearsal_test.go:73 refreshing and asserting the complete set before the merge."
+follow_up = "closure"
+
+[disposition.17.1.7.3]
+finding = "17.1.7.3"
+status = "resolved"
+evidence = "Landed commit 42b7882a5281cf3cffc2592aa1d591f948151a0f resolves the activation height before ValidateGenesis and returns the uncovered-key error before migrations at node/upgrades.go:508, with node/upgrades_sequencer_test.go:318 asserting the direct migration refuses without panicking."
+follow_up = "closure"

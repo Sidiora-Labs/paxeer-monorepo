@@ -1,0 +1,53 @@
+[disposition.22.9.30.1]
+finding = "22.9.30.1"
+status = "resolved"
+evidence = "Commit 7d983727f retargeted the FrameTransport import to the frame module while retaining the blanket HistorySource implementation at services/agent/crates/layerx-agentd/src/read/history.rs:238, so the transport still satisfies the history consumer's bound."
+follow_up = "closure"
+
+[disposition.22.11.7.5]
+finding = "22.11.7.5"
+status = "resolved"
+evidence = "Commit 7d816c4c0 corrected the journal test to accept Pending to Reverted and refuse Receipted to Reverted at services/interop/crates/layerx-bridge-relayer/src/journal.rs:1093 and services/interop/crates/layerx-bridge-relayer/src/journal.rs:1153, and the reverted-phase fixture asserts an unreceipted pending submission at services/interop/crates/layerx-bridge-relayer/tests/loops.rs:833."
+follow_up = "closure"
+
+[disposition.22.2.6.5]
+finding = "22.2.6.5"
+status = "resolved"
+evidence = "Commit 0ecd6928d aligned the service-view rows with TestGasTable's 1000 flat read charge at precompiles/layerxpay/gas.go:67 while retaining metering of actual store work, and added the explicit non-kernel DA-missing case and origin assertion at precompiles/common/lxp_errors_test.go:179."
+follow_up = "closure"
+
+[disposition.22.6.4.6]
+finding = "22.6.4.6"
+status = "resolved"
+evidence = "Commit 054988c9f corrected TestSidioraFeePaid at tests/chain/sidiora_fee_test.go:195 to expect zero remaining at the transaction collection address and the converted fee in the fee collector and holding account together, matching the existing end-of-block sweep and routing."
+follow_up = "closure"
+
+[disposition.22.8.11.5]
+finding = "22.8.11.5"
+status = "resolved"
+evidence = "Commit a5a196edb supplied the real budget ledger, remote signer and receipt resolver to createA2AIntegration at sdk/integrations/agents/test/a2a-store.test.mjs:158 and declared the gateway session and receipt-key inputs at sdk/integrations/agents/test/a2a-store.test.mjs:274, satisfying createAgentIntegration's required providers and configuration."
+follow_up = "closure"
+
+[disposition.22.23.8.2]
+finding = "22.23.8.2"
+status = "resolved"
+evidence = "Commit cfe658aca added paymentDenom to the relayer's receipted-field list and required decoder input at services/interop/crates/layerx-bridge-relayer/src/receipt.rs:95 and services/interop/crates/layerx-bridge-relayer/src/receipt.rs:186, and derives the receipt asset from payment_denom at services/interop/crates/layerx-bridge-relayer/src/receipt.rs:270 while retaining the separate fee check."
+follow_up = "closure"
+
+[disposition.22.25.3.1]
+finding = "22.25.3.1"
+status = "resolved"
+evidence = "Commit cfe658aca added V1-layerxprograms-call to the accepting classification at services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs:483, so the shared-vector reader no longer reaches the unclassified-case panic for that case."
+follow_up = "closure"
+
+[disposition.22.24.8.1]
+finding = "22.24.8.1"
+status = "resolved"
+evidence = "Commit b8bc22990 converted all three Vitest project configs to merge plain base objects and removed the obsolete minWorkers option, including apps/launchpad/web/src/core/wallet-sdk/vitest.l25.config.ts:5, and typed both search-shell refs as RefObject values at apps/launchpad/web/src/shell/global-search-parts.tsx:27 and apps/launchpad/web/src/shell/global-search-parts.tsx:41."
+follow_up = "closure"
+
+[disposition.22.24.12.1]
+finding = "22.24.12.1"
+status = "open"
+evidence = "services/wallet/gateway/src/chain.ts:15 still exports hyperPaxeer with the inferred defineChain return type and no portable Chain annotation, and pending task 18.1548.1 owns that annotation together with the Zod 4 record migration after task 22.95.7 was superseded."
+follow_up = "18.1548.1"

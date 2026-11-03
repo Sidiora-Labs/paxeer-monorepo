@@ -1,0 +1,15 @@
+interface.9.env-layerx-qualify-lni-socket
+interface.9.env-layerx-qualify-signed-activity
+interface.9.env-layerx-qualify-lni-daemon-uid
+interface.9.env-layerx-qualify-lni-client-gid
+interface.9.env-layerx-qualify-max-signed-activity
+interface.9.env-layerx-qualify-lni-deadline-ms
+interface.9.env-layerx-qualify-unknown-signed-activity
+interface.9.cli-agent-sdk-parity
+interface.9.cli-agent-qualification-gates-boundary
+interface.9.cli-layerx-boundary-check
+interface.9.cli-run-real-node-tests-test
+interface.9.cli-run-real-node-tests-sanitizers
+interface.9.cli-run-real-node-tests-prepare
+interface.9.cli-agent-sdk-gen-write
+interface.9.cli-agent-sdk-gen-check
