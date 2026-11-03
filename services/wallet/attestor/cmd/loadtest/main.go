@@ -648,6 +648,10 @@ func (lt *loadTester) execute(ctx context.Context) (Summary, error) {
 	if err != nil {
 		return Summary{}, err
 	}
+	return lt.measure(ctx, keys)
+}
+
+func (lt *loadTester) measure(ctx context.Context, keys []KeySummary) (Summary, error) {
 	var next atomic.Uint64
 	var mu sync.Mutex
 	var outcomes []outcome
