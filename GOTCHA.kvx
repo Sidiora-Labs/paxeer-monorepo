@@ -14300,3 +14300,18 @@ fix = "Before bounding a precompile output, read the handler that packs it (prec
 title = "A generic producer fixture cannot feed an application-specific journal"
 symptom = "9.97.15 do_2 asked the conformance case to resolve the fixture receipt in the AI operation journal, but the fixture program's calldata is two bytes and no PAXAI request intent can be built from it."
 fix = "A conformance case proves the shared layers (receipt, log, call result); the application layer is proved with the application's own signed record and a receipt view in the fixture's shape."
+
+[gotcha.2896]
+title = "A JSON-RPC HTTP status answer is an envelope"
+symptom = "10.20.6 attempt 7 read sync_info at the top level of the CometBFT /status answer and panicked on the latest height; the payload sits under result."
+fix = "Read a node's HTTP status through its JSON-RPC envelope (result, error, id) and assert the envelope before the field."
+
+[gotcha.2897]
+title = "A comparison compares the copies the finding names, not every fixture that looks alike"
+symptom = "18.1211.6 compared a daemon committed-fixture vector in another format with the sequencer receipt source and failed on a case the source never carried."
+fix = "List the files a finding names as copies and compare exactly those; a fixture in another format with its own producer is not a copy."
+
+[gotcha.2898]
+title = "A test that starts a toolchain binary names it where the environment can see it"
+symptom = "22.9.10 attempt 15 failed in gas-station.test, which starts anvil, although no command of the task names anvil; the environment installs toolchains from the commands it sees."
+fix = "When a suite starts a binary in a subprocess, the environment that runs the suite is told about the binary by the suite's name; record the dependency with the task."
