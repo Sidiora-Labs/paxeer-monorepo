@@ -203393,7 +203393,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.145]
 title = "Repair the inventory sweep target precompiles/layerxprograms"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.160"]
