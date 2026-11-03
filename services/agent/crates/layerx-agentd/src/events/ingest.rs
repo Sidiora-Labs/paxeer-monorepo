@@ -1,10 +1,8 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt::{Display, Formatter};
 
-use super::gap::{attempt_backfill, BackfillReport, Gap};
+use super::gap::{attempt_backfill, BackfillReport, EthLogSource, Gap};
 use crate::read::{Cursor, HistoryLimits};
-use layerx_client::lni::transport::FrameTransport;
-use layerx_client::rpc::history::ReadContext;
 use layerx_client::subscription::NodeSubscription;
 use layerx_types::{rung::Rung, verify as legacy};
 use serde_json::Value;
@@ -751,18 +749,16 @@ impl EventIngestor {
     pub fn read_head(
         &mut self,
         subscription: &mut NodeSubscription,
-        transport: &mut dyn FrameTransport,
+        source: &EthLogSource,
         limits: HistoryLimits,
-        context: ReadContext,
         maximum_records: u32,
         attributes: EventAttributes,
     ) -> Result<(), IngestError> {
         let head = subscription.next().map_err(IngestError::Subscription)?;
         self.new_head(
             quantity(&head, "number")?,
-            transport,
+            source,
             limits,
-            context,
             maximum_records,
             attributes,
         )
@@ -771,9 +767,8 @@ impl EventIngestor {
     pub fn new_head(
         &mut self,
         height: u64,
-        transport: &mut dyn FrameTransport,
+        source: &EthLogSource,
         limits: HistoryLimits,
-        context: ReadContext,
         maximum_records: u32,
         attributes: EventAttributes,
     ) -> Result<(), IngestError> {
@@ -785,7 +780,7 @@ impl EventIngestor {
                 });
             }
             if let Some(gap) = Gap::between_heads(previous, height) {
-                let report = attempt_backfill(transport, gap, context, limits, maximum_records);
+                let report = attempt_backfill(source, gap, limits, maximum_records);
                 let BackfillReport::Recovered { events, .. } = report else {
                     return Err(IngestError::GapBlocked(gap));
                 };
