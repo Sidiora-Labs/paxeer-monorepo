@@ -33,9 +33,16 @@ must resolve from that POM's own `properties` block. Requirements use `==` pins.
 Go replacements use the replacement version; local replacements cannot establish
 a version floor and fail if selected.
 
-Every resolved copy must meet its floor. Dotted numeric segments compare
-numerically, prereleases sort below releases, and `v` prefixes and build metadata
-are ignored. Exit status is 0 when all floors pass and 1 on violations or input
-errors. Each violation is one tab-separated line containing manifest, package,
-resolved version, and floor. Missing packages report `<unresolved>`; input errors
-go to stderr. No floors file is supplied by this task.
+Each package floor may also be an object such as
+`{"minimum": "2.8.0", "applies_from": "2.0.0"}` to scope it to an advisory's
+version range. Both fields must be valid version strings. Resolved copies below
+`applies_from` are outside the range and are skipped; every copy at or above it
+must meet `minimum`. A plain version string continues to apply to every copy,
+and violations report the minimum in the same tab-separated format.
+
+Every resolved copy within a floor's range must meet its minimum. Dotted numeric
+segments compare numerically, prereleases sort below releases, and `v` prefixes
+and build metadata are ignored. Exit status is 0 when all floors pass and 1 on
+violations or input errors. Each violation is one tab-separated line containing
+manifest, package, resolved version, and floor. Missing packages report
+`<unresolved>`; input errors go to stderr. No floors file is supplied by this task.
