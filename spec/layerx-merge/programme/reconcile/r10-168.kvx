@@ -1,0 +1,243 @@
+[reconcile.r10-168]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r10-168.1]
+interface = "interface.10.rs-human-service-custody-gateway-lxkp-gateway"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/custody/gateway.rs"
+line = 216
+symbol = "LxkpGateway"
+evidence = "pub struct LxkpGateway declares the production gateway holding the KMS provider, TLS, registry and connection gate; this is the type declaration matching the registered signature."
+
+[row.r10-168.2]
+interface = "interface.10.rs-human-service-custody-signer-custody-signer"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/custody/signer.rs"
+line = 369
+symbol = "CustodySigner"
+evidence = "pub struct CustodySigner declares the signer with keystore, principal store, registry and signing limits; the signature still matches this declaration."
+
+[row.r10-168.3]
+interface = "interface.10.rs-human-service-custody-signer-custody-signer-evm-binding"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/custody/signer.rs"
+line = 933
+symbol = "evm_binding"
+evidence = "CustodySigner::evm_binding is declared with &self, &PrincipalId and &KeyId and returns Result<super::PrincipalKeyBinding, CustodyError>, matching the registry; its body delegates to the keystore."
+
+[row.r10-168.4]
+interface = "interface.10.rs-human-service-custody-signer-custody-signer-public-wallet-identity"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/custody/signer.rs"
+line = 905
+symbol = "public_wallet_identity"
+evidence = "CustodySigner::public_wallet_identity takes &self, &PrincipalId and &KeyId and returns Result<([u8; 20], super::PrincipalKeyBinding, super::ProviderKeyReference), CustodyError>; the declaring signature matches."
+
+[row.r10-168.5]
+interface = "interface.10.rs-human-service-journeys-engine-journey-engine"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/engine.rs"
+line = 674
+symbol = "JourneyEngine"
+evidence = "pub struct JourneyEngine declares the durable journey state machine containing a JourneyRecord; this declaration matches the registered type signature."
+
+[row.r10-168.6]
+interface = "interface.10.rs-human-service-journeys-engine-journey-engine-advance"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/engine.rs"
+line = 964
+symbol = "advance"
+evidence = "JourneyEngine::advance is the public async declaration taking mutable self and scope, AgentClient, mutable dyn AgentBoundary, CustodySigner, ModuleRegistry, TraceId and now: u64, returning Result<JourneyStatus, JourneyError>; it delegates to advance_authorized with None."
+
+[row.r10-168.7]
+interface = "interface.10.rs-human-service-journeys-intent-submit-intent-driver"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs"
+line = 450
+symbol = "IntentDriver"
+evidence = "pub struct IntentDriver<'a> declares the borrowed agent contract, custody signer, registry and trace plus now: u64; the lifetime-bearing type declaration matches the registry."
+
+[row.r10-168.8]
+interface = "interface.10.rs-human-service-journeys-intent-submit-intent-submission"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs"
+line = 496
+symbol = "IntentSubmission"
+evidence = "pub struct IntentSubmission declares journey_id, plan_digest and state fields; this is the declaration of the registered return type."
+
+[row.r10-168.9]
+interface = "interface.10.rs-human-service-journeys-intent-submit-intent-submission-journey-id"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs"
+line = 523
+symbol = "journey_id"
+evidence = "Within impl IntentSubmission, pub const fn journey_id(&self) -> &JourneyId returns a reference to self.journey_id, exactly matching the registered method signature."
+
+[row.r10-168.10]
+interface = "interface.10.rs-human-service-journeys-intent-submit-intent-submission-state-copy-key"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs"
+line = 538
+symbol = "state_copy_key"
+evidence = "Within impl IntentSubmission, pub fn state_copy_key(&self) -> String formats the status key from self.state; the method declaration retains the registered signature."
+
+[row.r10-168.11]
+interface = "interface.10.rs-human-service-journeys-move-money-move-authorization"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/move_money.rs"
+line = 795
+symbol = "MoveAuthorization"
+evidence = "pub enum MoveAuthorization declares Allowed and Refused(LimitRefusal), matching the registered enum signature for movement preflight authorization."
+
+[row.r10-168.12]
+interface = "interface.10.rs-human-service-journeys-move-money-move-journey"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/move_money.rs"
+line = 983
+symbol = "MoveJourney"
+evidence = "pub struct MoveJourney declares the durable move facade containing StoredMove and JourneyEngine; this type declaration matches the registered signature."
+
+[row.r10-168.13]
+interface = "interface.10.rs-human-service-journeys-move-money-move-journey-advance"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/move_money.rs"
+line = 1093
+symbol = "advance"
+evidence = "MoveJourney::advance is the public async declaration with mutable self and scope, AgentClient, mutable dyn AgentBoundary, CustodySigner, ModuleRegistry, TraceId and now: u64, returning Result<MoveStatus, MoveJourneyError>; the body advances its engine then reads status."
+
+[row.r10-168.14]
+interface = "interface.10.rs-human-service-journeys-move-money-move-journey-commit"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/move_money.rs"
+line = 997
+symbol = "commit"
+evidence = "MoveJourney::commit declares scope: &mut PrincipalScope<'_>, plan: &MovePlan, authorization: MoveAuthorization, registry: &ModuleRegistry and now: u64, returning Result<Self, MoveJourneyError>; it calls commit_profile with false."
+
+[row.r10-168.15]
+interface = "interface.10.rs-human-service-journeys-move-money-move-journey-load"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/move_money.rs"
+line = 1070
+symbol = "load"
+evidence = "MoveJourney::load declares scope: &PrincipalScope<'_> and journey_id: &JourneyId, returning Result<Option<Self>, MoveJourneyError>; its body loads the stored move and associated engine, matching the registry signature."
+
+[row.r10-168.16]
+interface = "interface.10.rs-human-service-journeys-move-money-move-receipt-reference"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/move_money.rs"
+line = 812
+symbol = "MoveReceiptReference"
+evidence = "pub struct MoveReceiptReference declares leg: usize, activity_id: [u8; 32] and digest: [u8; 32]; this is the registered receipt reference type declaration."
+
+[row.r10-168.17]
+interface = "interface.10.rs-human-service-journeys-move-money-move-receipt-reference-activity-id"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/move_money.rs"
+line = 825
+symbol = "activity_id"
+evidence = "Within impl MoveReceiptReference, pub const fn activity_id(&self) -> [u8; 32] returns self.activity_id; the declaring line matches the registered accessor signature."
+
+[row.r10-168.18]
+interface = "interface.10.rs-human-service-journeys-move-money-move-receipt-reference-reference"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/move_money.rs"
+line = 836
+symbol = "reference"
+evidence = "Within impl MoveReceiptReference, pub fn reference(&self) -> String formats a receipt reference from the digest; its declaring signature matches the registry."
+
+[row.r10-168.19]
+interface = "interface.10.rs-human-service-journeys-move-money-move-stage"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/move_money.rs"
+line = 802
+symbol = "MoveStage"
+evidence = "pub enum MoveStage declares Committed, Moving, StillChecking, Done and Refused; this declaration retains the registered enum signature."
+
+[row.r10-168.20]
+interface = "interface.10.rs-human-service-journeys-resolver-change-surface"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/resolver.rs"
+line = 685
+symbol = "ChangeSurface"
+evidence = "pub enum ChangeSurface declares Policy, Budget and Capability settings surfaces; the enum declaration matches the registered signature."
+
+[row.r10-168.21]
+interface = "interface.10.rs-human-service-journeys-resolver-limit-refusal"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/resolver.rs"
+line = 715
+symbol = "LimitRefusal"
+evidence = "pub struct LimitRefusal declares source: LimitSource, limit: String and change_surface: Option<ChangeSurface>; this is the registered refusal type declaration."
+
+[row.r10-168.22]
+interface = "interface.10.rs-human-service-journeys-resolver-limit-refusal-new"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/resolver.rs"
+line = 728
+symbol = "new"
+evidence = "LimitRefusal::new declares source: LimitSource, limit: impl Into<String> and change_surface: Option<ChangeSurface>, returning Result<Self, LimitRefusalError>; it validates empty limits and mismatched surfaces, matching the registered constructor signature."
+
+[row.r10-168.23]
+interface = "interface.10.rs-human-service-journeys-resolver-limit-source"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/resolver.rs"
+line = 705
+symbol = "LimitSource"
+evidence = "pub enum LimitSource declares Policy, Budget, Capability and Protocol refusal authorities; the declaration matches the registered enum signature."
+
+[row.r10-168.24]
+interface = "interface.10.rs-human-service-journeys-resolver-movement-term"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/resolver.rs"
+line = 542
+symbol = "MovementTerm"
+evidence = "pub enum MovementTerm declares Deposit, Withdrawal, Fund, Allocate, Return and Transfer; this declaration matches the registered movement vocabulary enum."
+
+[row.r10-168.25]
+interface = "interface.10.rs-human-service-journeys-resolver-route"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/resolver.rs"
+line = 624
+symbol = "Route"
+evidence = "pub struct Route declares legs: Vec<RouteLeg> and bank_transfers: Vec<Eip1559Call>; this is the type declaration matching the registered Route signature."
+
+[row.r10-168.26]
+interface = "interface.10.rs-human-service-journeys-resolver-route-error"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/resolver.rs"
+line = 650
+symbol = "RouteError"
+evidence = "pub enum RouteError declares Unavailable with source, destination and relationship and InvalidIntent(IntentError); this declaration matches the registered resolver error enum."
+
+[row.r10-168.27]
+interface = "interface.10.rs-human-service-journeys-resolver-route-legs"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/resolver.rs"
+line = 632
+symbol = "legs"
+evidence = "Within impl Route, pub fn legs(&self) -> &[RouteLeg] returns &self.legs; this method declaration exactly matches the registered ordered-legs accessor signature."
+
+[row.r10-168.28]
+interface = "interface.10.rs-human-service-journeys-resolver-route-resolver"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/journeys/resolver.rs"
+line = 807
+symbol = "RouteResolver"
+evidence = "pub struct RouteResolver; declares the stateless resolver as a unit struct immediately before its resolve implementation; this is the registered type declaration."
+
+[row.r10-168.29]
+interface = "interface.10.rs-human-service-server-agent-creation-production-agent-creation"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/server/agent_creation.rs"
+line = 161
+symbol = "ProductionAgentCreation"
+evidence = "pub struct ProductionAgentCreation<'a> declares the lifetime-bound runtime, client, custody and trace adapter fields; the generic type declaration matches the registered signature."
+
+[row.r10-168.30]
+interface = "interface.10.rs-human-service-server-agent-runtime-agent-runtime"
+verdict = "served"
+path = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs"
+line = 201
+symbol = "AgentRuntime"
+evidence = "pub struct AgentRuntime declares the production journey adapter with clock, endpoint, connection gate, frame limits and registry; this is the type declaration matching the registered signature."
