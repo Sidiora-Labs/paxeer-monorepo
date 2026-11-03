@@ -120267,7 +120267,7 @@ do_3 = "Decision 2464 (attempt 1, df357bc8e, continue): the test fails inside @o
 
 [task.18.1518.1]
 title = "Issue #1518: Align TypeScript web search settlement with the sequencer receipt shape"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132417,7 +132417,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.95.10]
 title = "Move the x402 vector suite and the payload fixture to the eip155:125 network rule"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1211.6"]
@@ -193594,7 +193594,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1552.1]
 title = "Issue #1552: Align cold scheduler metadata with the served ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228520,7 +228520,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.27]
 title = "Disposition of qualification findings 18.1485.1.1 to 18.1502.1.2 (domain 18, part 16)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
