@@ -51,6 +51,16 @@ export const WEB_DATA_EVENTS: readonly ModuleEventSpec[] = [
     ],
   },
   {
+    name: 'XWebProgramRequested',
+    inputs: [
+      { name: 'programId', type: 'bytes32', indexed: true },
+      { name: 'requestId', type: 'uint64', indexed: true },
+      { name: 'origin', type: 'uint8', indexed: false },
+      { name: 'input', type: 'bytes', indexed: false },
+      { name: 'deadline', type: 'uint64', indexed: false },
+    ],
+  },
+  {
     name: 'XWebFulfilled',
     inputs: [
       { name: 'requestId', type: 'uint64', indexed: true },
