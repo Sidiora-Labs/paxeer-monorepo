@@ -1,0 +1,49 @@
+[issue.1528]
+number = 1528
+title = "[Coherence] The commit deletes every go.sum in the launchpad Go modules and the workspace go.work.sum, so none of the modules can verify or build"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit b6101fd075736c857ad85fd9d2eeeb6690239032 raised 15 launchpad manifests and deleted 17 go.sum files plus services/launchpad/go.work.sum, all still absent at this revision, while deploy/launchpad/Dockerfile.svc:10 and :12 and deploy/launchpad/Dockerfile.native:10 and :12 require immutable standalone checksum files before downloading dependencies; spec/layerx-merge/spec.kvx:137889 and :137897 still require raised locks and per-module builds, but tools/deps/lockfloor.py:129 and :232 inspect go.mod rather than checksum completeness, as reflected by tools/deps/tests/test_lockfloor.py:109."
+close_comment = "The launchpad module checksum files are still missing, which blocks the service images at their dependency-integrity step. Follow-up task 18.1528.1 restores checksums for the current dependency versions and adds a regression check for standalone read-only dependency resolution."
+
+[task.18.1528.1]
+title = "Issue #1528: Restore launchpad dependency checksums without lowering dependency floors"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181528.1"]
+capabilities = []
+interfaces = []
+do_1 = "Regenerate the 17 module go.sum files deleted by b6101fd075736c857ad85fd9d2eeeb6690239032 from each module's current manifest using Go's module download commands with GOWORK=off, including discovery and notifications whose manifests were unchanged; services/launchpad/api/go.mod:14 retains chi v5.4.0, services/launchpad/discovery/go.mod:19 and services/launchpad/notifications/go.mod:19 retain their local SDK replacements, and no go.mod, dependency floor, source file or Dockerfile changes."
+do_2 = "Restore services/launchpad/go.work.sum for the current workspace graph, retaining the workspace's use entries at services/launchpad/go.work:8 and the current module versions; regenerate checksums rather than copying only the obsolete pre-raise module sums, and preserve the dependency-integrity requirements of deploy/launchpad/Dockerfile.svc:12 and deploy/launchpad/Dockerfile.native:12."
+do_3 = "Add services/launchpad/security/supplychain/test_go_checksums.py with one test_go_checksums_support_readonly_resolution that enumerates exactly the 17 affected modules, asserts their go.sum and the restored go.work.sum are nonempty valid checksum records, snapshots all their manifests and checksum files, and runs real go list -mod=readonly -deps -test ./... followed by go mod verify per affected module with GOWORK=off and a fresh shared temporary module cache; assert every command succeeds and every snapshot is unchanged, without prepopulating checksums by a writable download command, skipping modules, mocking Go or weakening the Dockerfile checks."
+symbols = ["test_go_checksums_support_readonly_resolution"]
+touches = ["sdk/launchpad/protocol/go.sum", "sdk/launchpad/shared/go.sum", "services/launchpad/api/go.sum", "services/launchpad/discovery/go.sum", "services/launchpad/gateway/go.sum", "services/launchpad/go.work.sum", "services/launchpad/indexer/go.sum", "services/launchpad/livestream/go.sum", "services/launchpad/metadata/go.sum", "services/launchpad/notifications/go.sum", "services/launchpad/pnl-tracker/go.sum", "services/launchpad/ranking-algo/go.sum", "services/launchpad/security/control/go.sum", "services/launchpad/security/go.sum", "services/launchpad/social/go.sum", "services/launchpad/stats-workers/go.sum", "services/launchpad/trading-charts/go.sum", "services/launchpad/user/go.sum", "services/launchpad/security/supplychain/test_go_checksums.py"]
+tests = ["services/launchpad/security/supplychain/test_go_checksums.py::test_go_checksums_support_readonly_resolution"]
+planned_paths = []
+build_cmd = "python3 -m py_compile services/launchpad/security/supplychain/test_go_checksums.py"
+verify_cmd = "python3 -m pytest services/launchpad/security/supplychain/test_go_checksums.py::test_go_checksums_support_readonly_resolution -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181528]
+title = "Launchpad dependency checksums support immutable standalone module resolution"
+ac_1 = "Given the 17 launchpad module checksum files deleted by b6101fd075736c857ad85fd9d2eeeb6690239032 and the dependency versions still required by services/launchpad/api/go.mod:14, when each affected module resolves production and test imports with GOWORK=off and -mod=readonly from a fresh module cache and verifies its downloaded modules, then resolution and verification succeed without changing any manifest or checksum file, and services/launchpad/go.work.sum is restored with valid checksum records for the workspace declared at services/launchpad/go.work:8."
+
+[acceptance.18.1528.1]
+feature = "18"
+req = "181528.1"
+scenario = "Given the launchpad manifests at their raised dependency floors and restored checksum files, when test_go_checksums_support_readonly_resolution resolves each affected module's production and test imports with workspace resolution disabled and verifies the dependencies, then every resolution succeeds and the committed manifests and checksums remain unchanged."
+contract = "contracts/services.md#launchpad-security"
+test = "services/launchpad/security/supplychain/test_go_checksums.py::test_go_checksums_support_readonly_resolution (planned)"
+qualification = "UNRUN"

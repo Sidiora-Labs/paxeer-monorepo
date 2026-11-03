@@ -1,0 +1,243 @@
+{
+ "slug": "apps-explorer",
+ "manifests": [
+  "apps/explorer/deploy/tools/envs-validator/package.json",
+  "apps/explorer/deploy/tools/essential-dapps-chains-config-generator/package.json",
+  "apps/explorer/deploy/tools/llms-txt-generator/package.json",
+  "apps/explorer/deploy/tools/multichain-config-generator/package.json",
+  "apps/explorer/toolkit/package/package.json",
+  "apps/explorer/yarn.lock"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-8g5g-mxqh-grgj",
+   "number": 4662,
+   "package": "vite",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/deploy/tools/envs-validator/package.json",
+   "severity": "medium",
+   "range": "= 6.4.4",
+   "patched": "6.4.5"
+  },
+  {
+   "ghsa": "GHSA-8g5g-mxqh-grgj",
+   "number": 4663,
+   "package": "vite",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/deploy/tools/essential-dapps-chains-config-generator/package.json",
+   "severity": "medium",
+   "range": "= 6.4.4",
+   "patched": "6.4.5"
+  },
+  {
+   "ghsa": "GHSA-8g5g-mxqh-grgj",
+   "number": 4664,
+   "package": "vite",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/deploy/tools/llms-txt-generator/package.json",
+   "severity": "medium",
+   "range": "= 6.4.4",
+   "patched": "6.4.5"
+  },
+  {
+   "ghsa": "GHSA-8g5g-mxqh-grgj",
+   "number": 4665,
+   "package": "vite",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/deploy/tools/multichain-config-generator/package.json",
+   "severity": "medium",
+   "range": "= 6.4.4",
+   "patched": "6.4.5"
+  },
+  {
+   "ghsa": "GHSA-8g5g-mxqh-grgj",
+   "number": 4666,
+   "package": "vite",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/toolkit/package/package.json",
+   "severity": "medium",
+   "range": "= 6.4.4",
+   "patched": "6.4.5"
+  },
+  {
+   "ghsa": "GHSA-3gc7-fjrx-p6mg",
+   "number": 3217,
+   "package": "bigint-buffer",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "high",
+   "range": "<= 1.1.5",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-gcqx-w48m-w2h4",
+   "number": 4529,
+   "package": "deepmerge",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "low",
+   "range": ">= 4.2.0, <= 4.3.1",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-cmwh-pvxp-8882",
+   "number": 3404,
+   "package": "dompurify",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "medium",
+   "range": "<= 3.4.10",
+   "patched": "3.4.11"
+  },
+  {
+   "ghsa": "GHSA-c2j3-45gr-mqc4",
+   "number": 3424,
+   "package": "dompurify",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "low",
+   "range": "<= 3.4.11",
+   "patched": "3.4.12"
+  },
+  {
+   "ghsa": "GHSA-55q2-fjhq-7xh7",
+   "number": 3450,
+   "package": "dompurify",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "medium",
+   "range": "<= 3.4.12",
+   "patched": "3.4.13"
+  },
+  {
+   "ghsa": "GHSA-6688-9rhm-gjv2",
+   "number": 3523,
+   "package": "dompurify",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "low",
+   "range": "<= 3.4.15",
+   "patched": "3.4.16"
+  },
+  {
+   "ghsa": "GHSA-c6gr-qvv4-5v3f",
+   "number": 4330,
+   "package": "dompurify",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "low",
+   "range": "<= 3.4.16",
+   "patched": "3.4.17"
+  },
+  {
+   "ghsa": "GHSA-mrv2-3pqr-j5jr",
+   "number": 4331,
+   "package": "dompurify",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "high",
+   "range": "<= 3.4.16",
+   "patched": "3.4.17"
+  },
+  {
+   "ghsa": "GHSA-cg2g-xh64-v4q7",
+   "number": 4691,
+   "package": "dompurify",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "critical",
+   "range": ">= 3.4.4, <= 3.4.16",
+   "patched": "3.4.17"
+  },
+  {
+   "ghsa": "GHSA-8r9p-f939-6h3c",
+   "number": 4688,
+   "package": "follow-redirects",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "high",
+   "range": ">= 1.16.0, < 1.16.1",
+   "patched": "1.16.1"
+  },
+  {
+   "ghsa": "GHSA-q3jh-wrc6-jgq8",
+   "number": 4689,
+   "package": "follow-redirects",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "high",
+   "range": ">= 1.16.0, < 1.16.1",
+   "patched": "1.16.1"
+  },
+  {
+   "ghsa": "GHSA-mrwp-f3q8-3g9p",
+   "number": 4692,
+   "package": "follow-redirects",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "high",
+   "range": ">= 1.16.0, <= 1.16.1",
+   "patched": "1.16.2"
+  },
+  {
+   "ghsa": "GHSA-5r4p-p66f-jhc7",
+   "number": 4687,
+   "package": "hono",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "medium",
+   "range": ">= 4.12.4, < 4.13.11",
+   "patched": "4.13.11"
+  },
+  {
+   "ghsa": "GHSA-g3hv-75wg-m249",
+   "number": 4584,
+   "package": "minimatch",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "medium",
+   "range": "< 11.0.1",
+   "patched": "11.0.1"
+  },
+  {
+   "ghsa": "GHSA-28wg-ghj8-5hjv",
+   "number": 3455,
+   "package": "nanoid",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "high",
+   "range": ">= 4.0.0, < 5.1.16",
+   "patched": "5.1.16"
+  },
+  {
+   "ghsa": "GHSA-xwg4-73v4-xw9w",
+   "number": 3461,
+   "package": "nanoid",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "high",
+   "range": ">= 4.0.0, < 5.1.11",
+   "patched": "5.1.11"
+  },
+  {
+   "ghsa": "GHSA-j3f2-48v5-ccww",
+   "number": 4686,
+   "package": "protobufjs",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "medium",
+   "range": ">= 7.5.0, <= 7.6.4",
+   "patched": "7.6.5"
+  },
+  {
+   "ghsa": "GHSA-jj87-hc4r-jwfw",
+   "number": 4690,
+   "package": "stream-json",
+   "ecosystem": "npm",
+   "manifest": "apps/explorer/yarn.lock",
+   "severity": "medium",
+   "range": ">= 2.0.0, <= 3.6.0",
+   "patched": "3.7.0"
+  }
+ ]
+}

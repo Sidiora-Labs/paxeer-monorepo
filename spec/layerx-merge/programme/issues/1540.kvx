@@ -1,0 +1,7 @@
+[issue.1540]
+number = 1540
+title = "[Coherence] The new absence test names lxp_ledger_apply_bridge_credit, so the kernel-suite retired-uses CI check now fails"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "needs-owner"
+evidence = "Commit 55809ad556ff91001640a687861acd09351c811e removes the bridge-credit implementation, but spec/layerx-merge/spec.kvx:14581 requires the weak-reference absence proof at tests/codec/lxp_test_ledger_bridge_credit_absent.c:4, :8 and :21, while spec/layerx-merge/spec.kvx:27198 forbids every kernel-test mention and tests/ci/test_kernel_suite_retired_uses.py:6-23 and :76-77 reject those references plus the retirement inventory at tests/codec/lxp_test_kernel_complete.c:941; the owner must choose between these incompatible retirement contracts before either check can change without weakening its requirement."
+close_comment = "Bridge-credit execution is removed, but the required weak-reference absence proof conflicts with the requirement that no kernel test name the retired symbol. The owner must choose which retirement contract governs before the checks can be reconciled."

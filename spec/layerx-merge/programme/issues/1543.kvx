@@ -1,0 +1,49 @@
+[issue.1543]
+number = 1543
+title = "[Coherence] The Android sample app still pins the old Jackson and BouncyCastle versions, and its Gradle verification metadata has no checksums for the new ones"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit 4437823f8c16ab048cac56bf9f3f7e9cbdbac63a raised the Android POM floors to Jackson 2.18.9 and BouncyCastle 1.85 (sdk/integrations/android/pom.xml:25), but the sample still requests 2.17.2 and 1.78.1 alongside layerx-android:0.1.0 (sdk/integrations/android/sample-app/app/build.gradle.kts:69), resolves from mavenLocal (sdk/integrations/android/sample-app/settings.gradle.kts:18), and enables metadata verification with trust limited to repository artifacts (sdk/integrations/android/sample-app/gradle/verification-metadata.xml:4) while its only Jackson entries are 2.17.2 (sdk/integrations/android/sample-app/gradle/verification-metadata.xml:541) and its only bcprov entries are 1.77 and 1.78.1 (sdk/integrations/android/sample-app/gradle/verification-metadata.xml:1318), leaving the higher transitive versions without checksums."
+close_comment = "The Android sample still declares older Jackson and BouncyCastle versions and lacks verification checksums for the versions required by the Android binding. Follow-up task 18.1543.1 aligns the declarations and verification metadata and adds a regression test for dependency coverage."
+
+[task.18.1543.1]
+title = "Issue #1543: Align Android sample dependencies and verification checksums with the binding"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181543.1"]
+capabilities = []
+interfaces = []
+do_1 = "Raise the direct jackson-databind and bcprov-jdk18on declarations at sdk/integrations/android/sample-app/app/build.gradle.kts:71 and sdk/integrations/android/sample-app/app/build.gradle.kts:72 to 2.18.9 and 1.85 respectively, matching sdk/integrations/android/pom.xml:25 and sdk/integrations/android/pom.xml:26 and the Android floors in tools/deps/floors/jvm.json:14."
+do_2 = "Regenerate sdk/integrations/android/sample-app/gradle/verification-metadata.xml:541 and sdk/integrations/android/sample-app/gradle/verification-metadata.xml:1318 from the actual resolved artifacts, adding authentic SHA-256 checksums for Jackson databind 2.18.9, its resolved core, annotations, BOM, base and parent metadata, and bcprov-jdk18on 1.85; retain metadata verification and the existing trust boundary at sdk/integrations/android/sample-app/gradle/verification-metadata.xml:4 without ignoring artifacts or broadening trust."
+do_3 = "Add tools/deps/tests/test_android_sample_dependencies.py with test_android_sample_dependency_verification, reading the real Android POM, JVM floors, sample Gradle declarations and namespaced verification XML; assert both direct versions match the binding and meet the floors, require SHA-256 entries for the selected Jackson and BouncyCastle JARs and POMs plus Jackson BOM and parent POMs, and assert metadata verification remains enabled without new trust exemptions for these dependencies."
+symbols = ["test_android_sample_dependency_verification"]
+touches = ["sdk/integrations/android/sample-app/app/build.gradle.kts", "sdk/integrations/android/sample-app/gradle/verification-metadata.xml", "tools/deps/tests/test_android_sample_dependencies.py"]
+tests = ["tools/deps/tests/test_android_sample_dependencies.py::test_android_sample_dependency_verification"]
+planned_paths = ["tools/deps/tests/test_android_sample_dependencies.py"]
+build_cmd = "gradle --no-daemon --dependency-verification strict -p sdk/integrations/android/sample-app :app:assembleDebug"
+verify_cmd = "python3 -m pytest tools/deps/tests/test_android_sample_dependencies.py::test_android_sample_dependency_verification -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181543]
+title = "Android sample dependency declarations and verification metadata cover the binding's patched dependencies"
+ac_1 = "The direct dependencies at sdk/integrations/android/sample-app/app/build.gradle.kts:71 match the binding floors at sdk/integrations/android/pom.xml:25, and sdk/integrations/android/sample-app/gradle/verification-metadata.xml:541 contains SHA-256 checksums for the selected Jackson and BouncyCastle artifacts and required Jackson metadata, allowing the sample to assemble with strict dependency verification while preserving sdk/integrations/android/sample-app/gradle/verification-metadata.xml:4."
+
+[acceptance.18.1543.1]
+feature = "18"
+req = "181543.1"
+scenario = "Given the Android binding requires Jackson 2.18.9 and BouncyCastle 1.85, when the Android sample resolves its dependencies, then its direct declarations match those versions and its verification metadata covers their artifacts and Jackson dependency metadata without additional trust exemptions."
+contract = "contracts/platform-sdk.md#sdk-jvm"
+test = "tools/deps/tests/test_android_sample_dependencies.py::test_android_sample_dependency_verification (planned)"
+qualification = "UNRUN"

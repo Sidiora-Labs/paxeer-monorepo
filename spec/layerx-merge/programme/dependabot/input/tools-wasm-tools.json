@@ -1,0 +1,188 @@
+{
+ "slug": "tools-wasm-tools",
+ "manifests": [
+  "tools/wasm-tools/Cargo.lock"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-hc7m-r6v8-hg9q",
+   "number": 2104,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "low",
+   "range": ">= 26.0.0, < 36.0.3",
+   "patched": "36.0.3"
+  },
+  {
+   "ghsa": "GHSA-vc8c-j3xm-xj73",
+   "number": 2105,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "medium",
+   "range": ">= 29.0.0, < 36.0.5",
+   "patched": "36.0.5"
+  },
+  {
+   "ghsa": "GHSA-852m-cvvp-9p4w",
+   "number": 2106,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "medium",
+   "range": ">= 25.0.0, < 36.0.6",
+   "patched": "36.0.6"
+  },
+  {
+   "ghsa": "GHSA-243v-98vx-264h",
+   "number": 2107,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "medium",
+   "range": ">= 25.0.0, < 36.0.6",
+   "patched": "36.0.6"
+  },
+  {
+   "ghsa": "GHSA-hx6p-xpx3-jvvv",
+   "number": 2108,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "medium",
+   "range": ">= 25.0.0, < 36.0.7",
+   "patched": "36.0.7"
+  },
+  {
+   "ghsa": "GHSA-jxhv-7h78-9775",
+   "number": 2109,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "medium",
+   "range": ">= 25.0.0, < 36.0.7",
+   "patched": "36.0.7"
+  },
+  {
+   "ghsa": "GHSA-m758-wjhj-p3jq",
+   "number": 2110,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "medium",
+   "range": ">= 25.0.0, < 36.0.7",
+   "patched": "36.0.7"
+  },
+  {
+   "ghsa": "GHSA-qqfj-4vcm-26hv",
+   "number": 2111,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "medium",
+   "range": ">= 25.0.0, < 36.0.7",
+   "patched": "36.0.7"
+  },
+  {
+   "ghsa": "GHSA-m9w2-8782-2946",
+   "number": 2112,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "low",
+   "range": ">= 25.0.0, < 36.0.7",
+   "patched": "36.0.7"
+  },
+  {
+   "ghsa": "GHSA-q49f-xg75-m9xw",
+   "number": 2113,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "medium",
+   "range": ">= 25.0.0, < 36.0.7",
+   "patched": "36.0.7"
+  },
+  {
+   "ghsa": "GHSA-jhxm-h53p-jm7w",
+   "number": 2114,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "critical",
+   "range": ">= 32.0.0, < 36.0.7",
+   "patched": "36.0.7"
+  },
+  {
+   "ghsa": "GHSA-6wgr-89rj-399p",
+   "number": 2115,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "low",
+   "range": ">= 28.0.0, < 36.0.7",
+   "patched": "36.0.7"
+  },
+  {
+   "ghsa": "GHSA-394w-hwhg-8vgm",
+   "number": 2116,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "medium",
+   "range": ">= 25.0.0, < 36.0.7",
+   "patched": "36.0.7"
+  },
+  {
+   "ghsa": "GHSA-xx5w-cvp6-jv83",
+   "number": 2117,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "critical",
+   "range": ">= 25.0.0, < 36.0.7",
+   "patched": "36.0.7"
+  },
+  {
+   "ghsa": "GHSA-f984-pcp8-v2p7",
+   "number": 2118,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "medium",
+   "range": ">= 25.0.0, < 36.0.7",
+   "patched": "36.0.7"
+  },
+  {
+   "ghsa": "GHSA-p8xm-42r7-89xg",
+   "number": 2120,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "medium",
+   "range": ">= 30.0.0, < 36.0.8",
+   "patched": "36.0.8"
+  },
+  {
+   "ghsa": "GHSA-897f-g5gm-fmxm",
+   "number": 4455,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "critical",
+   "range": "< 36.0.19",
+   "patched": "36.0.19"
+  },
+  {
+   "ghsa": "GHSA-mghf-wjfp-p5xm",
+   "number": 4569,
+   "package": "wasmtime",
+   "ecosystem": "rust",
+   "manifest": "tools/wasm-tools/Cargo.lock",
+   "severity": "critical",
+   "range": "< 36.0.19",
+   "patched": "36.0.19"
+  }
+ ]
+}

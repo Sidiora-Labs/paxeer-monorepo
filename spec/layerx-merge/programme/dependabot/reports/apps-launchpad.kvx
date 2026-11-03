@@ -1,0 +1,8 @@
+[alert.GHSA-gcqx-w48m-w2h4]
+package = "deepmerge"
+manifest = "apps/launchpad/pnpm-lock.yaml"
+verdict = "no-fix"
+version_before = "4.3.1"
+version_after = "4.3.1"
+pinned_by = "mobile: direct devDependency @react-native-community/cli@20.1.2 -> deepmerge@4.3.1; the CLI also pulls @react-native-community/cli-config@20.1.2 and @react-native-community/cli-doctor@20.1.2, each requiring deepmerge@4.3.1. Direct react-native@0.86.0 -> @react-native/community-cli-plugin@0.86.0 -> optional peer @react-native-community/cli@20.1.2 -> deepmerge@4.3.1. mobile and web: direct @react-native-async-storage/async-storage@3.1.1 -> peer react-native@0.86.0 -> the same CLI plugin and CLI chain. web: direct wagmi@2.19.5 -> @wagmi/connectors@6.2.0 -> porto@0.2.35 -> optional peer react-native@0.86.0 -> the same CLI plugin and CLI chain. Latest @react-native-community/cli@20.2.0, cli-config@20.2.0 and cli-doctor@20.2.0 still require deepmerge ^4.3.0; upgrading the direct CLI does not remove it. react-native@0.88.1 still includes community-cli-plugin@0.88.1 with an optional CLI peer. wagmi@3.7.11 uses @wagmi/connectors@8.2.4, which removes the porto dependency and makes connector SDKs optional peers, removing that bundled web connector path; the direct CLI and async-storage paths remain. No patched deepmerge version is named by the advisory."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
