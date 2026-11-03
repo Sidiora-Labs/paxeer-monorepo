@@ -22,7 +22,7 @@
     "sdk/integrations/next/example/package.json": {
       "next": "16.4.1"
     },
-    "services/platform/hosted/dashboard/web/package.json": {
+    "apps/web/package-lock.json": {
       "next": "16.4.1"
     },
     "services/platform/docs/samples/paid-route-next/package.json": {
