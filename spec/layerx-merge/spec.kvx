@@ -146476,7 +146476,7 @@ do_4 = "Decision 2496 (continue): the module's tests are bound to inputs the qua
 
 [task.22.99.3]
 title = "Repair the inventory sweep target services/launchpad/gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
