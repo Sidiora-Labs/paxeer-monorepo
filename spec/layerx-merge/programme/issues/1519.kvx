@@ -1,0 +1,48 @@
+[issue.1519]
+number = 1519
+title = "[Coherence] The commit deletes all nine yarn.lock files that the new floors file and the task's verify command depend on, so the floor check cannot pass"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit 9d5d654de1d8d26e3cd97efc2e7c5b046e9c5fcc deleted all nine yarn.lock files and none exists at this revision, although tools/deps/floors/explorer-tools.json:3 still names them, tools/deps/lockfloor.py:239 rejects missing paths and returns failure at tools/deps/lockfloor.py:299, and spec/layerx-merge/spec.kvx:119478 and spec/layerx-merge/spec.kvx:119486 still require raised locks and the floor check followed by nine frozen installs."
+close_comment = "All nine explorer tool lockfiles are still missing, so the dependency floor check cannot validate the resolved versions. A repair task is defined to regenerate the lockfiles at the required floors and prove that each frozen install succeeds without changing its lockfile."
+
+[task.18.1519.1]
+title = "Issue #1519: Restore the nine explorer tool lockfiles at their dependency floors"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181519.1"]
+capabilities = []
+interfaces = []
+do_1 = "Regenerate and retain each of the nine yarn.lock files named by tools/deps/floors/explorer-tools.json:3, :18, :27, :35, :43, :51, :59, :67 and :74 using its directory's Yarn package manager; raise direct dependencies or resolutions in the corresponding package.json only where needed to meet every existing floor, including nested copies, as required by spec/layerx-merge/spec.kvx:119478 and :21439; preserve the floors file and checker unchanged and do not change application sources."
+do_2 = "Add test_explorer_tools_locks_meet_floors to tools/deps/tests/test_lockfloor.py, whose current format tests at tools/deps/tests/test_lockfloor.py:162 and missing-lock test at :305 do not cover the committed explorer locks; read the real explorer-tools floors file, assert that its nine expected lock paths exist, invoke the real checker from the repository root and assert exit 0 with no violations, then run yarn --cwd <directory> install --frozen-lockfile --ignore-scripts for each of those nine directories and assert every exit is 0 and every lockfile remains byte-identical, using no mocked subprocesses or generated lock fixtures."
+symbols = ["test_explorer_tools_locks_meet_floors"]
+touches = ["apps/explorer/toolkit/package", "apps/explorer/deploy/tools/essential-dapps-chains-config-generator", "apps/explorer/deploy/tools/affected-tests", "apps/explorer/deploy/tools/favicon-generator", "apps/explorer/deploy/tools/multichain-config-generator", "apps/explorer/deploy/tools/llms-txt-generator", "apps/explorer/deploy/tools/envs-validator", "apps/explorer/deploy/tools/feature-reporter", "apps/explorer/deploy/tools/sitemap-generator", "tools/deps/tests/test_lockfloor.py"]
+tests = ["tools/deps/tests/test_lockfloor.py::test_explorer_tools_locks_meet_floors"]
+planned_paths = ["apps/explorer/toolkit/package/yarn.lock", "apps/explorer/deploy/tools/essential-dapps-chains-config-generator/yarn.lock", "apps/explorer/deploy/tools/affected-tests/yarn.lock", "apps/explorer/deploy/tools/favicon-generator/yarn.lock", "apps/explorer/deploy/tools/multichain-config-generator/yarn.lock", "apps/explorer/deploy/tools/llms-txt-generator/yarn.lock", "apps/explorer/deploy/tools/envs-validator/yarn.lock", "apps/explorer/deploy/tools/feature-reporter/yarn.lock", "apps/explorer/deploy/tools/sitemap-generator/yarn.lock"]
+build_cmd = "python3 -m py_compile tools/deps/tests/test_lockfloor.py"
+verify_cmd = "python3 -m pytest tools/deps/tests/test_lockfloor.py::test_explorer_tools_locks_meet_floors -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181519]
+title = "Explorer tool dependency floors are enforced by retained reproducible lockfiles"
+ac_1 = "The nine Yarn lockfiles named by tools/deps/floors/explorer-tools.json:3 through :74 exist, every resolved copy meets its unchanged floor through tools/deps/lockfloor.py:271, and each directory's frozen install succeeds without modifying its lockfile, satisfying spec/layerx-merge/spec.kvx:21439."
+
+[acceptance.18.1519.1]
+feature = "18"
+req = "181519.1"
+scenario = "Given the nine regenerated explorer tool lockfiles, when the real dependency floor checker and each directory's frozen Yarn install run, then every advised resolved copy meets its existing floor, all nine installs succeed and all nine lockfiles remain byte-identical."
+contract = "contracts/programme.md#decisions"
+test = "tools/deps/tests/test_lockfloor.py::test_explorer_tools_locks_meet_floors (planned)"
+qualification = "UNRUN"
