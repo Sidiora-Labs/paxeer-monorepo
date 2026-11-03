@@ -10,6 +10,7 @@ def test_finality_vector_retired():
         [
             "git", "grep", "--null", "--files-with-matches", "--fixed-strings",
             "-e", "finality_evidence_v1.vec", "--", ".",
+            ":(exclude,glob)**/__pycache__/**",
         ],
         cwd=REPO_ROOT,
         capture_output=True,
