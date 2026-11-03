@@ -8,9 +8,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use release::{
+    ArtifactManifest, ArtifactSource, ImageRegistry, PublicationJob, ReleasePipeline,
     artifact_manifest, parse_artifact_manifest, plan, release_pipeline, release_pipeline_verify,
-    render_artifact_manifest, sha256_digest, ArtifactManifest, ArtifactSource, ImageRegistry,
-    PublicationJob, ReleasePipeline,
+    render_artifact_manifest, sha256_digest,
 };
 
 const VERSION: &str = "0.1.0";
@@ -18,8 +18,8 @@ const ROLLBACK: &str = "0.0.9";
 const REVISION: &str = "0123456789abcdef0123456789abcdef01234567";
 const OTHER_REVISION: &str = "fedcba9876543210fedcba9876543210fedcba98";
 const SOURCE_DIGEST: &str = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
-const ARTIFACT_COUNT: usize = 28;
-const IMAGE_COUNT: usize = 17;
+const ARTIFACT_COUNT: usize = 27;
+const IMAGE_COUNT: usize = 18;
 const IMAGE_TAG: &str = "sdk-v0.1.0";
 const IMAGE_PLATFORM: &str = "linux/amd64";
 
@@ -118,7 +118,9 @@ fn go_record(package: &str) -> Record {
         digest_of: "registry-bytes",
         signature: "tag-signature.txt".to_owned(),
         sbom: "layerx-go.sbom.spdx.json".to_owned(),
-        attestation: format!("go-checksum-database:sum.golang.org {package} v{VERSION} h1:fixture="),
+        attestation: format!(
+            "go-checksum-database:sum.golang.org {package} v{VERSION} h1:fixture="
+        ),
         location: format!(
             "https://proxy.golang.org/github.com/!sidiora-!labs/!layer-x-!protocol/platform/sdk/go/@v/v{VERSION}.zip"
         ),
@@ -439,9 +441,11 @@ fn manifest_lists_every_declared_artifact_bound_to_its_source() {
         );
         assert!(entry.published && entry.install_check);
         assert!(!entry.artifact.contains('/'));
-        assert!(entry
-            .retained
-            .starts_with(&format!("release-{}/", entry.registry)));
+        assert!(
+            entry
+                .retained
+                .starts_with(&format!("release-{}/", entry.registry))
+        );
     }
     let names = manifest
         .artifacts
@@ -485,14 +489,18 @@ fn matching_published_bytes_pass_verification() {
     )
     .unwrap_or_else(|error| panic!("verification refused matching bytes: {error}"));
     assert_eq!(verified.artifacts.len(), ARTIFACT_COUNT);
-    assert!(verified
-        .artifacts
-        .iter()
-        .any(|artifact| artifact.name == "layerx-sdk" && artifact.registry == "crates-io"));
+    assert!(
+        verified
+            .artifacts
+            .iter()
+            .any(|artifact| artifact.name == "layerx-sdk" && artifact.registry == "crates-io")
+    );
     assert_eq!(verified.images.len(), IMAGE_COUNT);
-    assert!(verified.images.iter().all(|image| image
-        .reference
-        .starts_with(&format!("ghcr.io/sidiora-labs/{}@sha256:", image.name))));
+    assert!(verified.images.iter().all(|image| {
+        image
+            .reference
+            .starts_with(&format!("ghcr.io/sidiora-labs/{}@sha256:", image.name))
+    }));
 }
 
 #[test]
@@ -515,7 +523,9 @@ fn tampered_published_artifact_halts_the_release_naming_it() {
     .err()
     .unwrap_or_else(|| panic!("tampered crate passed verification"));
     assert!(
-        error.starts_with("release halted before promotion: 1 of 28 artifacts failed verification"),
+        error.starts_with(&format!(
+            "release halted before promotion: 1 of {ARTIFACT_COUNT} artifacts failed verification"
+        )),
         "{error}"
     );
     assert!(
@@ -572,7 +582,9 @@ fn manifest_bound_to_another_revision_halts_the_release() {
     .unwrap_or_else(|| panic!("revision mismatch passed verification"));
     assert_eq!(
         error,
-        format!("release halted before promotion: the artifact manifest binds revision {REVISION}, not the release revision {OTHER_REVISION}")
+        format!(
+            "release halted before promotion: the artifact manifest binds revision {REVISION}, not the release revision {OTHER_REVISION}"
+        )
     );
 }
 
@@ -639,7 +651,10 @@ fn artifact_of_an_undeclared_package_is_refused_at_emission() {
     let error = artifact_manifest(&pipeline, &fixture.release_dir, Some(ROLLBACK))
         .err()
         .unwrap_or_else(|| panic!("undeclared package produced a manifest"));
-    assert_eq!(error, "release-pypi/artifacts.kvx lists layerx-django, which the manifest does not declare for pypi");
+    assert_eq!(
+        error,
+        "release-pypi/artifacts.kvx lists layerx-django, which the manifest does not declare for pypi"
+    );
 }
 
 #[test]
@@ -653,7 +668,12 @@ fn publication_from_another_revision_is_refused_at_emission() {
     let error = artifact_manifest(&pipeline, &fixture.release_dir, Some(ROLLBACK))
         .err()
         .unwrap_or_else(|| panic!("split revision produced a manifest"));
-    assert_eq!(error, format!("release-swiftpm/publication.txt records revision {OTHER_REVISION}, but {REVISION} published the other registries"));
+    assert_eq!(
+        error,
+        format!(
+            "release-swiftpm/publication.txt records revision {OTHER_REVISION}, but {REVISION} published the other registries"
+        )
+    );
 }
 
 #[test]
@@ -690,7 +710,10 @@ fn promotion_that_does_not_need_verification_is_refused() {
     let error = release_pipeline(&read("registries.kvx"), &source)
         .err()
         .unwrap_or_else(|| panic!("promotion without verification accepted"));
-    assert_eq!(error, "job release-promotion must need release-verification so no unverified artifact is promoted");
+    assert_eq!(
+        error,
+        "job release-promotion must need release-verification so no unverified artifact is promoted"
+    );
 }
 
 #[test]
@@ -703,7 +726,10 @@ fn verification_without_fetching_from_registries_is_refused() {
     let error = release_pipeline(&read("registries.kvx"), &source)
         .err()
         .unwrap_or_else(|| panic!("verification without fetch accepted"));
-    assert_eq!(error, "job release-verification lacks its fetch from every registry: expected `--fetch` in the job");
+    assert_eq!(
+        error,
+        "job release-verification lacks its fetch from every registry: expected `--fetch` in the job"
+    );
 }
 
 #[test]
@@ -846,7 +872,12 @@ fn image_published_from_another_revision_is_refused_at_emission() {
     let error = artifact_manifest(&pipeline, &fixture.release_dir, Some(ROLLBACK))
         .err()
         .unwrap_or_else(|| panic!("split image revision produced a manifest"));
-    assert_eq!(error, format!("release-image-ghcr/publication.txt records revision {OTHER_REVISION}, but {REVISION} published the other registries"));
+    assert_eq!(
+        error,
+        format!(
+            "release-image-ghcr/publication.txt records revision {OTHER_REVISION}, but {REVISION} published the other registries"
+        )
+    );
 }
 
 #[test]
@@ -902,7 +933,7 @@ fn image_reference_moved_off_its_digest_halts_the_release() {
     .err()
     .unwrap_or_else(|| panic!("tag-pinned image reference passed verification"));
     assert!(
-        error.contains("1 of 17 images failed verification"),
+        error.contains(&format!("1 of {IMAGE_COUNT} images failed verification")),
         "{error}"
     );
     assert!(
@@ -1025,7 +1056,7 @@ fn command_line_emits_the_manifest_and_verifies_downloaded_artifacts() {
         .unwrap_or_else(|error| panic!("run verify: {error}"));
     assert!(!halted.status.success());
     let stderr = String::from_utf8_lossy(&halted.stderr);
-    assert!(stderr.contains("release halted before promotion: 1 of 28 artifacts failed verification: com.sidiora.layerx:layerx-sdk@0.1.0 from maven-central (the downloaded layerx-sdk-0.1.0.pom hash to sha256:"), "{stderr}");
+    assert!(stderr.contains(&format!("release halted before promotion: 1 of {ARTIFACT_COUNT} artifacts failed verification: com.sidiora.layerx:layerx-sdk@{VERSION} from maven-central (the downloaded layerx-sdk-{VERSION}.pom hash to sha256:")), "{stderr}");
     let both = tool()
         .arg("verify")
         .arg("--manifest")
@@ -1037,6 +1068,8 @@ fn command_line_emits_the_manifest_and_verifies_downloaded_artifacts() {
         .output()
         .unwrap_or_else(|error| panic!("run verify: {error}"));
     assert!(!both.status.success());
-    assert!(String::from_utf8_lossy(&both.stderr)
-        .contains("verify needs exactly one of --from or --fetch"));
+    assert!(
+        String::from_utf8_lossy(&both.stderr)
+            .contains("verify needs exactly one of --from or --fetch")
+    );
 }

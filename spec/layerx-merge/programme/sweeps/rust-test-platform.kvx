@@ -1,10 +1,10 @@
 [sweep.rust-test-platform]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
 command = "cargo test --locked --manifest-path services/platform/Cargo.toml -p TARGET --no-fail-fast"
 targets_total = 22
-targets_passed = 14
-targets_failed = 6
-targets_not_run = 2
+targets_passed = 15
+targets_failed = 7
+targets_not_run = 0
 
 [target.rust-test-platform.1]
 target = "layerx-ramp-toolkit"
@@ -52,9 +52,9 @@ exit_code = 0
 
 [target.rust-test-platform.9]
 target = "layerx-platform-identity"
-result = "not_run"
-exit_code = 124
-reason = "The command was terminated after its 180-second allocation under the 30-minute task limit while session_capacity_excludes_expired_after_restart remained unfinished; a complete package result is unavailable."
+result = "passed"
+exit_code = 0
+observed = "49 tests passed with none failed, ignored or filtered out, including session_capacity_excludes_expired_after_restart; the service tests completed in 287.50s."
 
 [target.rust-test-platform.10]
 target = "layerx-platform-paxeer-boundary"
@@ -72,9 +72,10 @@ assumption = "The real authority contract case environment configuration is unse
 
 [target.rust-test-platform.12]
 target = "layerx-indexer"
-result = "not_run"
-exit_code = 124
-reason = "The command was terminated after its 180-second allocation under the 30-minute task limit while proof_layerxauth_0x101c_receipts remained unfinished; proof_layerxledger_0x101a and proof_layerxpay_0x101b had reported failures before termination."
+result = "failed"
+exit_code = 101
+observed = "test proof_layerxledger_0x101a ... FAILED"
+assumption = "The recorded command lacks stdin JSON receipts from precompiles/layerxledger/proof_layerxledger_0x101a_test.go and TestProofLayerxpay0x101b, so both consumers fail on EOF; proof_layerxauth_0x101c_receipts cannot produce LAYERX_AUTH_PROOF_INPUT because its Go producer cannot link liblayerx and liblayerx_programs_sandbox; names_api_accepts_the_explorer_query_parameters and names_api_answers_match_the_committed_vector appear to disagree with the event projection because the response reports transfer where the committed vector expects register."
 
 [target.rust-test-platform.13]
 target = "layerx-platform-registry"

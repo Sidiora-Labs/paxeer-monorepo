@@ -20091,3 +20091,59 @@ symbol = "00001_init.sql"
 observed = "Attempt 1: app_test.go:233 opens core/indexer/migrations/00001_init.sql, which lives at services/launchpad/indexer/migrations/00001_init.sql; the other failures need L19_POSTGRES_DSN, L19_REDIS_URL and the moderation inputs."
 assumption = "One deterministic path defect beside producer-input tests (decision 2496)."
 severity = "medium"
+
+[finding.9.35.19.1]
+task = "9.35.19"
+file = "services/agent/crates/layerx-agentd/tests/w7_core_time.rs"
+symbol = "prepared"
+observed = "Attempt 4: the test build fails with E0308 at w7_core_time.rs:245, 263 and 465 because prepared() returns prepare::Prepared while register and register_preparation take prepare::evm::Prepared."
+assumption = "A stale sibling test left behind by 9.35.17 (gotcha 2941); now inside 9.35.19's paths."
+severity = "medium"
+
+[finding.22.99.3.1]
+task = "22.99.3"
+file = "services/launchpad/gateway/internal/app/app_test.go"
+symbol = "CreateBucket"
+observed = "Attempt 1: the app, storage, serve and auth tests fail creating the kl-token bucket with empty static credentials, the identity peers test needs a running sociald, and the app package ran into its ten-minute limit."
+assumption = "Fixture-bound tests (object store, identity service); decision 2496 compile gate applies."
+severity = "low"
+
+[finding.22.99.52.1]
+task = "22.99.52"
+file = "services/agent/crates/layerx-mcp/tests/daemon_bound.rs"
+symbol = "Binding::parse"
+observed = "Attempt 1: five native-read proof tests need the local node; three binding tests are refused with mcp.binding_retired_key; the web section and receipt key index assertions fail; the settlement, web-scoped session, producer-consumer and payer artifact tests fail."
+assumption = "The live-node part belongs to 18.1578.1 (decision 2500); the rest are deterministic defects of the crate or its fixtures after the binding key retirement."
+severity = "high"
+
+[finding.22.99.31.1]
+task = "22.99.31"
+file = "services/wallet/attestor/internal/policy/policy_test.go"
+symbol = "TestShippedPolicyAllowsWalletSDKWrites"
+observed = "Attempt 2: TestTypedDataChainPinned (permit has no verifying contract), TestShippedPolicyListsSendAuthorizationKind (defaults omit lx_activity), TestShippedPolicyAllowsWalletSDKWrites (perps selector set), TestShippedPolicyAllowsLaunchpadApproveThenBuy (unlisted spender approve allowed) fail deterministically; TestXweb0x1019ApplicationPolicy needs the proof flag; TestProofS28WalletAttestorsTss fails with tsx not found in the TypeScript consumer."
+assumption = "The four policy tests diverge from behaviour changed by later qualified tasks and must be aligned to the shipped policy where that change was intended; the two proof tests are producer inputs (decision 2501)."
+severity = "medium"
+
+[finding.22.99.44.1]
+task = "22.99.44"
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/sourcify_from_etherscan.rs"
+symbol = "chain_not_supported_fail"
+observed = "Attempt 2 fixed fifteen deterministic failures of attempt 1; the remaining chain_not_supported_fail (third-party API reply not JSON), success_tests::solidity_0_4_10 and verify::solc_compiler_cli::tests::compile (fetched legacy compiler output lacks the contracts field) depend on inputs the repair cannot provide."
+assumption = "The three tests are producer inputs excluded by name (decision 2501)."
+severity = "low"
+
+[finding.22.99.102.1]
+task = "22.99.102"
+file = "services/platform/hosted/paxai-worker/tests/real_workload.rs"
+symbol = "a08_a11_real_inference_workload_end_to_end"
+observed = "Attempt 1 repaired the startup configuration; seven tests of real_workload.rs and job_recovery.rs stop on PAXAI_RUNNER is not provisioned / PAXAI_REAL_WORKLOAD names no pinned runner."
+assumption = "The real-workload family is qualified by the provisioning producer and is excluded by its shared name marker (decision 2501)."
+severity = "low"
+
+[finding.22.99.88.1]
+task = "22.99.88"
+file = "services/human/crates/layerx-human-service/tests/custody.rs"
+symbol = "SigningPreparation"
+observed = "Attempt 1 built the custody test target before the 22.95.11 repair was published: E0063 missing fields disclosure, disclosure_digest, from; E0560/E0609 no field authorization on SigningPreparation."
+assumption = "Resolved on main by 22.95.11; the re-sweep requalifies on the current main."
+severity = "low"
