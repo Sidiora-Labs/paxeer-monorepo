@@ -1,0 +1,501 @@
+[reconcile.r12-77]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r12-77.1]
+interface = "interface.12.ts-sdk-kernel-client-get-activity-status"
+verdict = "retired"
+path = "sdk/wallet/src/kernel.ts"
+line = 111
+symbol = "getActivityStatus"
+evidence = "KernelClient no longer declares getActivityStatus; its chain reads are getAccount, getBalances, getSequence and getReceipt. Repository search outside spec and docs finds only tests, including legacy endpoint calls and absence assertions. Remaining entries record the first exact-word occurrence per file from a repository-wide rg search excluding spec and docs directories."
+remaining_refs = 3
+remaining = ["sdk/wallet/test/endpoint.test.ts:309", "sdk/wallet/test/kernel-reads.test.ts:137", "services/agent/sdk/typescript/test/rpc-node.test.ts:118"]
+
+[row.r12-77.2]
+interface = "interface.12.ts-sdk-wallet-budget-cap"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 145
+symbol = "WalletBudgetCap"
+evidence = "export interface WalletBudgetCap remains; its current readonly fields include owner, asset, account, source_account, configured_limit, carry_cap, carried, period_start, period_length, expiry, revocation_height, closed and revoked, describing the chain budget rather than a retired lx_ document."
+
+[row.r12-77.3]
+interface = "interface.12.ts-sdk-wallet-grant-cap"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 164
+symbol = "WalletGrantCap"
+evidence = "export interface WalletGrantCap remains; the current chain grant shape carries owner, recipient, asset, per_draw_maximum, allowance, drawn_total, drawn_this_period, recurring, window_length, expiration, revocation_height, revoked_at_height and invoice_settled."
+
+[row.r12-77.4]
+interface = "interface.12.ts-sdk-wallet-caps-snapshot"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 182
+symbol = "WalletCapsSnapshot"
+evidence = "export interface WalletCapsSnapshot now includes context with principal, session_id, address, chain_id and expires_at, and observation with receipted/committed rung, block_number and state_root beside budgets, grants and optional history."
+
+[row.r12-77.5]
+interface = "interface.12.ts-sdk-wallet-caps-history"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 203
+symbol = "WalletCapsHistory"
+evidence = "export type WalletCapsHistory = retains the indexer/chain_scan union: indexer carries nullable indexed_height and chain_height; chain_scan carries floor and head. No signature rename is observed; the surrounding caps snapshot now carries chain observation context."
+
+[row.r12-77.6]
+interface = "interface.12.ts-sdk-wallet-caps-state"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 206
+symbol = "WalletCapsState"
+evidence = "export type WalletCapsState = now separates unavailable with the literal reason consensus_unavailable from refused with a string reason, alongside loading and WalletCapsSnapshot; the former combined unavailable/refused branch is gone."
+
+[row.r12-77.7]
+interface = "interface.12.ts-sdk-ladder-rung"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 11
+symbol = "LadderRung"
+evidence = "export type LadderRung = SequencerRung replaces the instant/sealed/final literal union; SequencerRung at sdk/wallet/src/types.ts:571 is submitted | receipted | committed."
+
+[row.r12-77.8]
+interface = "interface.12.ts-sdk-ladder-source"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 12
+symbol = "LadderSource"
+evidence = "export type LadderSource = 'receipt' | 'explorer' | 'journey' removes the former anchor alternative from the source union."
+
+[row.r12-77.9]
+interface = "interface.12.ts-sdk-ladder-step"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 14
+symbol = "LadderStep"
+evidence = "export interface LadderStep still declares rung: LadderRung | null, source: LadderSource and state: string; its referenced types now use submitted/receipted/committed and exclude anchor, changing the admitted step values."
+
+[row.r12-77.10]
+interface = "interface.12.ts-sdk-ladder-rungs"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 20
+symbol = "LADDER_RUNGS"
+evidence = "export const LADDER_RUNGS: readonly LadderRung[] = Object.freeze([...]) now orders submitted, receipted, committed instead of instant, sealed, final."
+
+[row.r12-77.11]
+interface = "interface.12.ts-sdk-status-ladder"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 58
+symbol = "statusLadder"
+evidence = "export const statusLadder: Readonly<{...}> replaces the inferred Object.freeze declaration with an explicit API including fromSequencerReceipt(answer: SequencerReceiptAnswer): readonly LadderStep[]; its tables contain explorer and journey without anchor."
+
+[row.r12-77.12]
+interface = "interface.12.ts-sdk-decode-explorer-status"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 101
+symbol = "decodeExplorerStatus"
+evidence = "export function decodeExplorerStatus(value: unknown): ExplorerTransactionStatus keeps its call signature but now accepts submitted/receipted/committed rungs and returns rung, block_number and committed_height; committed validates the height against the block."
+
+[row.r12-77.13]
+interface = "interface.12.ts-sdk-read-explorer-status"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 122
+symbol = "readExplorerStatus"
+evidence = "export async function readExplorerStatus(explorerUrl: string, transactionHash: string, fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis)): Promise<ExplorerTransactionStatus> retains its arguments; the decoded return shape now uses committed_height and sequencer rungs."
+
+[row.r12-77.14]
+interface = "interface.12.ts-sdk-transfer-evidence"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 160
+symbol = "TransferEvidence"
+evidence = "export interface TransferEvidence now declares optional sequencer?: SequencerReceiptAnswer alongside blockNumber, blockHash and steps, retaining signed sequencer evidence with the canonical block."
+
+[row.r12-77.15]
+interface = "interface.12.ts-sdk-transfer-observation"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 167
+symbol = "TransferObservation"
+evidence = "export interface TransferObservation now includes optional sequencer?: SequencerReceiptAnswer and carries steps using the sequencer rung types; lastVerified remains optional TransferEvidence, which also carries sequencer evidence."
+
+[row.r12-77.16]
+interface = "interface.12.ts-sdk-recover-transfer-observation"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 218
+symbol = "recoverTransferObservation"
+evidence = "export function recoverTransferObservation(identity: TransferIdentity, value: unknown): TransferObservation retains its signature; decision override.J50.5 is implemented by dropping anchor steps, mapping instant/sealed/final legacy rungs and decoding optional sequencer evidence."
+
+[row.r12-77.17]
+interface = "interface.12.ts-sdk-observe-transfer"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 332
+symbol = "observeTransfer"
+evidence = "export async function observeTransfer(rpc: TransferRpc, previous: TransferObservation, explorer?: { url: string; fetchImpl?: typeof fetch }): Promise<TransferObservation> keeps its parameters; the result now carries sequencer evidence read by readSequencerReceipt and checked against the canonical receipt block."
+
+[row.r12-77.18]
+interface = "interface.12.rpc-sdk-calls-eth-chain-id"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 338
+symbol = "eth_chainId"
+evidence = "observeTransfer still issues eth_chainId with empty parameters and checks that the connected chain matches the submitted transfer identity; the literal moved to the current observation implementation."
+
+[row.r12-77.19]
+interface = "interface.12.rpc-sdk-calls-eth-get-transaction-receipt"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 355
+symbol = "eth_getTransactionReceipt"
+evidence = "observeTransfer issues eth_getTransactionReceipt for identity.hash, validates receipt identity and status, then checks its canonical block; the outbound method remains in the registered file."
+
+[row.r12-77.20]
+interface = "interface.12.rpc-sdk-calls-eth-get-block-by-number"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 367
+symbol = "eth_getBlockByNumber"
+evidence = "observeTransfer issues eth_getBlockByNumber with receipt.blockNumber and false to verify inclusion; another call reads replacement transactions with a block tag and true."
+
+[row.r12-77.21]
+interface = "interface.12.rpc-sdk-calls-eth-get-transaction-by-hash"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 397
+symbol = "eth_getTransactionByHash"
+evidence = "observeTransfer issues eth_getTransactionByHash to match the submitted transfer intent and also to inspect a pending transaction; both outbound calls remain in ladder.ts."
+
+[row.r12-77.22]
+interface = "interface.12.rpc-sdk-calls-eth-get-transaction-count"
+verdict = "served"
+path = "sdk/wallet/src/ladder.ts"
+line = 486
+symbol = "eth_getTransactionCount"
+evidence = "observeTransfer issues eth_getTransactionCount with known.sender and latest when detecting replacement by a higher confirmed account nonce."
+
+[row.r12-77.23]
+interface = "interface.12.ts-sdk-bridge-module-address"
+verdict = "served"
+path = "sdk/wallet/src/modules/bridge.ts"
+line = 23
+symbol = "address"
+evidence = "BridgeModule still declares readonly address: string; bridge() returns the normalized target in its address property."
+
+[row.r12-77.24]
+interface = "interface.12.ts-sdk-bridge-module-events"
+verdict = "served"
+path = "sdk/wallet/src/modules/bridge.ts"
+line = 24
+symbol = "events"
+evidence = "BridgeModule still declares readonly events: readonly PrecompileEventSpec[]; bridge() retargets BRIDGE_EVENTS to the module address."
+
+[row.r12-77.25]
+interface = "interface.12.ts-sdk-exchange-module-address"
+verdict = "served"
+path = "sdk/wallet/src/modules/exchange.ts"
+line = 32
+symbol = "address"
+evidence = "ExchangeModule still declares readonly address: string; exchange() defaults to PERPS_PRECOMPILE and returns the normalized target."
+
+[row.r12-77.26]
+interface = "interface.12.ts-sdk-exchange-module-events"
+verdict = "served"
+path = "sdk/wallet/src/modules/exchange.ts"
+line = 33
+symbol = "events"
+evidence = "ExchangeModule still declares readonly events: readonly PrecompileEventSpec[]; exchange() now retargets PERPS_EVENTS for the perps venue."
+
+[row.r12-77.27]
+interface = "interface.12.rpc-sdk-calls-pax-gas"
+verdict = "served"
+path = "sdk/wallet/src/modules/fee-choice.ts"
+line = 6
+symbol = "pax_gas"
+evidence = "FeeChoiceId still includes the exact literal pax_gas and the native PAX gas choice selects eth_sendTransaction. Despite the registry kind jsonrpc_method, pax_gas is a choice identifier here, not an outbound RPC call."
+
+[row.r12-77.28]
+interface = "interface.12.rpc-sdk-calls-eth-send-transaction"
+verdict = "served"
+path = "sdk/wallet/src/modules/fee-choice.ts"
+line = 19
+symbol = "eth_sendTransaction"
+evidence = "FeePath still declares native_gas with method eth_sendTransaction and fee_token_preference uses the same method; feeChoice() exposes both paths. This file describes routing choices rather than directly issuing RPC."
+
+[row.r12-77.29]
+interface = "interface.12.rpc-sdk-calls-eth-sign"
+verdict = "served"
+path = "sdk/wallet/src/modules/fee-choice.ts"
+line = 20
+symbol = "eth_sign"
+evidence = "FeePath still declares sponsored_batch with method eth_sign and feeChoice() selects that construction for SID sponsorship; the literal describes the signing path rather than a direct RPC invocation here."
+
+[row.r12-77.30]
+interface = "interface.12.ts-sdk-fee-token-module-address"
+verdict = "served"
+path = "sdk/wallet/src/modules/fee-token.ts"
+line = 20
+symbol = "address"
+evidence = "FeeTokenModule still declares readonly address: string; feeToken() returns the normalized fee-token precompile target."
+
+[row.r12-77.31]
+interface = "interface.12.ts-sdk-sponsored-submission-evidence"
+verdict = "served"
+path = "sdk/wallet/src/modules/gas-station.ts"
+line = 95
+symbol = "SponsoredSubmissionEvidence"
+evidence = "export interface SponsoredSubmissionEvidence now adds readonly receipt: SequencerReceiptAnswer | null beside tx_hash, status and station, implementing the receipt addition named by decision override.J50.2."
+
+[row.r12-77.32]
+interface = "interface.12.ts-sdk-gas-budget"
+verdict = "served"
+path = "sdk/wallet/src/modules/gas-station.ts"
+line = 102
+symbol = "GasBudget"
+evidence = "export interface GasBudget now declares readonly account: string with gasLimit: bigint, rate: string and optional gasPrice?: bigint; quote sends the account in the per-account sponsored budget request."
+
+[row.r12-77.33]
+interface = "interface.12.ts-sdk-gas-budget-quote"
+verdict = "served"
+path = "sdk/wallet/src/modules/gas-station.ts"
+line = 109
+symbol = "GasBudgetQuote"
+evidence = "export interface GasBudgetQuote now declares readonly dailyRemaining: bigint alongside gasLimit, gasPrice, gasCost, rate, tokenAmount, token, symbol and decimals; quote decodes dailyRemaining from the sponsored quote response."
+
+[row.r12-77.34]
+interface = "interface.12.ts-sdk-gas-station-module-config"
+verdict = "served"
+path = "sdk/wallet/src/modules/gas-station.ts"
+line = 128
+symbol = "config"
+evidence = "GasStationModule still declares readonly config: GasStationConfig; gasStation() returns its resolved config in the module object."
+
+[row.r12-77.35]
+interface = "interface.12.ts-sdk-gas-station-module-quote"
+verdict = "served"
+path = "sdk/wallet/src/modules/gas-station.ts"
+line = 129
+symbol = "quote"
+evidence = "quote(budget: GasBudget): Promise<GasBudgetQuote> retains the method signature, but GasBudget now supplies account and GasBudgetQuote includes dailyRemaining; the implementation posts SPONSORED_QUOTE_PATH instead of relying only on local gas-price arithmetic."
+
+[row.r12-77.36]
+interface = "interface.12.ts-sdk-gas-station-module-status"
+verdict = "served"
+path = "sdk/wallet/src/modules/gas-station.ts"
+line = 172
+symbol = "status"
+evidence = "status(batch: SponsoredBatch, relayerSignature: string, signal?: AbortSignal): Promise<SponsoredSubmissionEvidence> retains its parameters; the return type now includes receipt: SequencerReceiptAnswer | null and the status implementation reads sequencer evidence, as decision override.J50.3 requires."
+
+[row.r12-77.37]
+interface = "interface.12.rpc-sdk-calls-eth-accounts"
+verdict = "served"
+path = "sdk/wallet/src/modules/gas-station.ts"
+line = 404
+symbol = "eth_accounts"
+evidence = "gasStation still requests eth_accounts from its ModuleProvider when checking the current signing account; multiple account checks remain in the registered file."
+
+[row.r12-77.38]
+interface = "interface.12.rpc-sdk-calls-eth-gas-price"
+verdict = "served"
+path = "sdk/wallet/src/modules/gas-station.ts"
+line = 838
+symbol = "eth_gasPrice"
+evidence = "quote still reads eth_gasPrice through ethQuantity when budget.gasPrice is absent before requesting a sponsored quote with account, gasLimit, gasPrice and rate."
+
+[row.r12-77.39]
+interface = "interface.12.rpc-sdk-calls-px-list-holder-records"
+verdict = "served"
+path = "sdk/wallet/src/modules/index.ts"
+line = 310
+symbol = "px_listHolderRecords"
+evidence = "The listHolderRecords page loop still requests px_listHolderRecords with holder, kind, cursor and HOLDER_RECORDS_PAGE, validating returned items, cursor and heights."
+
+[row.r12-77.40]
+interface = "interface.12.ts-sdk-launchpad-module-address"
+verdict = "served"
+path = "sdk/wallet/src/modules/launchpad.ts"
+line = 32
+symbol = "address"
+evidence = "LaunchpadModule still declares readonly address: string; launchpad() returns the normalized launchpad precompile target."
+
+[row.r12-77.41]
+interface = "interface.12.ts-sdk-launchpad-module-events"
+verdict = "served"
+path = "sdk/wallet/src/modules/launchpad.ts"
+line = 33
+symbol = "events"
+evidence = "LaunchpadModule still declares readonly events: readonly PrecompileEventSpec[]; launchpad() retargets LAUNCHPAD_EVENTS to its target."
+
+[row.r12-77.42]
+interface = "interface.12.ts-sdk-web-data-module-address"
+verdict = "served"
+path = "sdk/wallet/src/modules/web-data.ts"
+line = 119
+symbol = "address"
+evidence = "WebDataModule still declares readonly address: string; webData() returns the normalized XWEB_PRECOMPILE target. Its declaration moved after the added WebPayerGrant and WebDataCaps shapes."
+
+[row.r12-77.43]
+interface = "interface.12.ts-sdk-web-data-module-events"
+verdict = "served"
+path = "sdk/wallet/src/modules/web-data.ts"
+line = 120
+symbol = "events"
+evidence = "WebDataModule still declares readonly events: readonly ModuleEventSpec[] after the new caps shapes; webData() exposes the module event specifications."
+
+[row.r12-77.44]
+interface = "interface.12.rpc-sdk-provider-paxeer-sponsored-status"
+verdict = "served"
+path = "sdk/wallet/src/provider.ts"
+line = 224
+symbol = "paxeer_sponsoredStatus"
+evidence = "PaxeerProvider.request still dispatches paxeer_sponsoredStatus; its private handler now returns Promise<Record<string, unknown> & { rung: SequencerReceiptAnswer['rung'] | null }> and adds the rung obtained through readSequencerReceipt to the sponsored gateway answer."
+
+[row.r12-77.45]
+interface = "interface.12.rpc-sdk-provider-eth-send-transaction"
+verdict = "served"
+path = "sdk/wallet/src/provider.ts"
+line = 232
+symbol = "eth_sendTransaction"
+evidence = "PaxeerProvider.request still dispatches eth_sendTransaction to sendTransaction(params): Promise<Hex>, which validates SendTxResponse and returns response.tx_hash. This legacy method remains hash-only; the added paxeer_sendTransactionReceipted method waits for a receipted sequencer answer."
+
+[row.r12-77.46]
+interface = "interface.12.rpc-sdk-provider-paxeer-prepare-custody"
+verdict = "served"
+path = "sdk/wallet/src/provider.ts"
+line = 81
+symbol = "paxeer_prepareCustody"
+evidence = "The literal paxeer_prepareCustody remains only in UNSUPPORTED_METHODS; request() throws UnsupportedMethodError before dispatch. The custody operation is refused even though its method name remains present."
+
+[row.r12-77.47]
+interface = "interface.12.rpc-sdk-provider-paxeer-custody-status"
+verdict = "served"
+path = "sdk/wallet/src/provider.ts"
+line = 82
+symbol = "paxeer_custodyStatus"
+evidence = "The literal paxeer_custodyStatus remains in UNSUPPORTED_METHODS; request() rejects it before the switch with UnsupportedMethodError. There is no custody status handler."
+
+[row.r12-77.48]
+interface = "interface.12.rpc-sdk-provider-paxeer-restore-custody"
+verdict = "served"
+path = "sdk/wallet/src/provider.ts"
+line = 83
+symbol = "paxeer_restoreCustody"
+evidence = "The literal paxeer_restoreCustody remains in UNSUPPORTED_METHODS and request() throws UnsupportedMethodError before dispatch; no restore custody handler is served."
+
+[row.r12-77.49]
+interface = "interface.12.rpc-sdk-provider-paxeer-recover-custody"
+verdict = "served"
+path = "sdk/wallet/src/provider.ts"
+line = 84
+symbol = "paxeer_recoverCustody"
+evidence = "The literal paxeer_recoverCustody remains in UNSUPPORTED_METHODS and is rejected by request() before dispatch; the custody recovery implementation is absent."
+
+[row.r12-77.50]
+interface = "interface.12.rpc-sdk-provider-paxeer-sign-custody"
+verdict = "served"
+path = "sdk/wallet/src/provider.ts"
+line = 85
+symbol = "paxeer_signCustody"
+evidence = "The literal paxeer_signCustody remains in UNSUPPORTED_METHODS; request() throws UnsupportedMethodError before dispatch instead of executing custody signing."
+
+[row.r12-77.51]
+interface = "interface.12.rpc-sdk-calls-eth-estimate-gas"
+verdict = "retired"
+path = "sdk/wallet/src/provider.ts"
+line = 433
+symbol = "eth_estimateGas"
+evidence = "The explicit eth_estimateGas literal is absent from provider.ts. Its former named proxy entry is gone; default request dispatch now forwards arbitrary method strings through proxy(method, params). Remaining references include the wallet FeeChoice caller, node implementations and tests, so the RPC itself is not claimed retired. Remaining entries record the first exact-word occurrence per file from a repository-wide rg search excluding spec and docs directories."
+remaining_refs = 112
+remaining = ["GOTCHA.kvx:13695", "apps/explorer/public/openapi.yaml:14768", "apps/explorer/ui/address/contract/methods/ContractMethodsRegular.pw.tsx:47", "apps/launchpad/web/src/widgets/create/creation-chain.fixture.cjs:295", "apps/perps/src/hooks/perps/useContract.ts:85", "apps/wallet/src/proof_wallet_app.test.ts:299", "apps/wallet/src/surfaces/FeeChoice.test.tsx:425", "apps/wallet/src/surfaces/FeeChoice.tsx:91", "apps/wallet/src/surfaces/test/chain.tsx:86", "apps/web/e2e/gas-station.test.ts:290", "apps/web/e2e/wallet-sponsored-receipt.test.ts:168", "apps/web/src/api/wallet.ts:169", "core/deps/geth/ethclient/ethclient.go:652", "core/deps/geth/internal/ethapi/api.go:52", "core/deps/geth/internal/jsre/deps/web3.js:5432", "core/deps/geth/internal/web3ext/web3ext.go:505", "rpc/client_matrix_test.go:42", "rpc/served_labels_test.go:62", "rpc/simulate.go:110", "rpc/simulate_test.go:632", "rpc/testdata/served_methods_http.golden:19", "rpc/testdata/served_methods_ws.golden:9", "sdk/launchpad/shared/config/capabilities/measurement.go:360", "sdk/launchpad/shared/config/capabilities/preflight.go:156", "sdk/platform/dotnet/Programs.cs:161", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramsEvmTests.cs:278", "sdk/platform/go/programs.go:2637", "sdk/platform/go/programs_evm_test.go:90", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:537", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsEvmTest.java:194", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:509", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift:102", "sdk/wallet/test/fixtures/gateway/rpc-estimate-gas-unmapped.json:3", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs:260", "services/agent/crates/layerx-agentd/src/ops/program.rs:2275", "services/agent/crates/layerx-agentd/tests/node_rpc.rs:98", "services/agent/crates/layerx-client/src/sequencer.rs:393", "services/agent/crates/layerx-client/tests/payments_rpc.rs:199", "services/agent/crates/layerx-client/tests/sequencer.rs:560", "services/agent/crates/layerx-client/tests/withdrawal_rpc.rs:112", "services/agent/crates/layerx-sdk/src/rpc.rs:998", "services/agent/crates/layerx-sdk/tests/proof_layerx_wallet_rpc.rs:872", "services/agent/crates/layerx-sdk/tests/rpc_node.rs:202", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs:122", "services/agent/crates/layerx-sdk/tests/wallet_rpc_bin.rs:168", "services/agent/sdk/python/layerx_sdk/account_derivation.py:847", "services/agent/sdk/typescript/src/rpc.ts:127", "services/agent/sdk/typescript/test/rpc-node.test.ts:86", "services/agent/tests/boundary/gaps.rs:21", "services/agent/tests/boundary/src/main.rs:34", "services/agent/tests/boundary/src/production.rs:107", "services/agent/tests/qualify/boundary.rs:148", "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex:289", "services/explorer/backend/config/assets/precompiles-arbitrum.json:111", "services/explorer/swagger.yaml:14768", "services/interop/crates/layerx-bridge-relayer/src/relayer.rs:1331", "services/interop/crates/layerx-bridge-relayer/tests/fixtures/cosign_threshold_two.json:33", "services/interop/crates/layerx-bridge-relayer/tests/fixtures/duplicate_submissions.json:33", "services/interop/crates/layerx-bridge-relayer/tests/fixtures/inbound_sequencer_receipt.json:33", "services/interop/crates/layerx-bridge-relayer/tests/fixtures/inbound_threshold_one.json:33", "services/interop/crates/layerx-bridge-relayer/tests/fixtures/outbound_release.json:113", "services/interop/crates/layerx-bridge-relayer/tests/fixtures/solana_inbound.json:53", "services/interop/crates/layerx-gas-station/src/rpc.rs:75", "services/interop/crates/layerx-mirror/src/ethereum.rs:632", "services/interop/crates/x-websearch/src/payment.rs:2190", "services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json:174", "services/interop/crates/x-websearch/tests/fixtures/gateway/pending.json:99", "services/interop/crates/x-websearch/tests/fixtures/gateway/refusals.json:87", "services/interop/crates/x-websearch/tests/payment.rs:1648", "services/launchpad/pnl-tracker/internal/production/l18/journeys.go:446", "services/launchpad/pnl-tracker/internal/production/l18/journeys_test.go:208", "services/platform/examples/test/agent-program-call.test.mjs:194", "services/platform/hosted/core/src/chain_fund.rs:257", "services/platform/hosted/core/tests/chain_fund.rs:106", "services/platform/hosted/gateway/src/capabilities.rs:1422", "services/platform/hosted/paxeer/evm.py:392", "services/platform/hosted/testnet/tests/payment-journey.py:221", "services/platform/ramps/toolkit/tests/evm_submit.rs:280", "services/wallet/gateway/src/rpc/pool.ts:348", "services/wallet/gateway/test/agent-precompiles-streams.test.ts:269", "services/wallet/gateway/test/agent-receipt.test.ts:59", "services/wallet/gateway/test/attestor.test.ts:304", "services/wallet/gateway/test/owner-broadcast-outcome.test.ts:36", "services/wallet/gateway/test/provisioning.test.ts:338", "services/wallet/gateway/test/rpc-pool.test.ts:71", "services/wallet/gateway/test/support/chain.ts:244", "tests/agent/sdk/python/test_account_derivation.py:563", "tests/agent/sdk/python/test_binding_preflight.py:115", "tests/integration/evm_module/rpc_io_test/RPC_IO_README.md:107", "tests/integration/evm_module/rpc_io_test/testdata/eth_estimateGas/estimate-call-abi-error-pax.iox:1", "tests/integration/evm_module/rpc_io_test/testdata/eth_estimateGas/estimate-call-abi-panic-pax.iox:2", "tests/integration/evm_module/rpc_io_test/testdata/eth_estimateGas/estimate-gas-from-deploy.iox:1", "tests/integration/evm_module/rpc_io_test/testdata/eth_estimateGas/estimate-simple-transfer.io:2", "tests/integration/evm_module/rpc_io_test/testdata/eth_estimateGas/estimate-successful-call.io:3", "tests/integration/evm_module/rpc_io_test/testdata/eth_estimateGas/estimate-with-eip4844.iox:1", "tests/integration/evm_module/rpc_io_test/testdata/eth_estimateGas/estimate-with-eip7702.iox:1", "tests/integration/rpc_tests/_start/00_bootstrap.spec.ts:137", "tests/integration/rpc_tests/contracts/GasBurner.sol:7", "tests/integration/rpc_tests/eth/eth_estimateGas.spec.ts:15", "tests/integration/rpc_tests/utils/evmUtils.ts:281", "tests/integration/rpc_tests/utils/txUtils.ts:618", "tools/names/test/doubles.ts:187", "tools/platform/cli/README.md:175", "tools/platform/cli/src/chains.rs:320", "tools/platform/cli/src/programs.rs:1569", "tools/platform/cli/src/rpc.rs:100", "tools/platform/cli/src/wallet.rs:313", "tools/platform/cli/src/wallet_derive.rs:145", "tools/platform/cli/tests/chains_commands.rs:370", "tools/platform/cli/tests/wallet_estimate_fee.rs:150", "tools/platform/cli/tests/wallet_evm_writes.rs:549", "tools/release/rehearsal/programme.py:711"]
+
+[row.r12-77.52]
+interface = "interface.12.rpc-sdk-calls-eth-max-priority-fee-per-gas"
+verdict = "retired"
+path = "sdk/wallet/src/provider.ts"
+line = 434
+symbol = "eth_maxPriorityFeePerGas"
+evidence = "The explicit eth_maxPriorityFeePerGas literal is absent from provider.ts. The former named proxy entry is gone while the generic default proxy remains; repository references include fee-estimation callers, node implementations and fixtures. This verdict retires the stale explicit registry occurrence, not the network RPC. Remaining entries record the first exact-word occurrence per file from a repository-wide rg search excluding spec and docs directories."
+remaining_refs = 50
+remaining = ["apps/explorer/public/openapi.yaml:14779", "apps/wallet/src/widgets/send/SendWidget.test.ts:33", "core/deps/geth/ethclient/ethclient.go:595", "core/deps/geth/internal/web3ext/web3ext.go:614", "rpc/client_matrix_test.go:44", "rpc/info.go:340", "rpc/served_labels_test.go:93", "rpc/testdata/served_methods_http.golden:50", "rpc/testdata/served_methods_ws.golden:40", "sdk/platform/go/programs.go:2637", "sdk/platform/go/programs_evm_test.go:88", "sdk/wallet/test/fixtures/gateway/rpc-max-priority-fee.json:3", "services/agent/crates/layerx-sdk/src/rpc.rs:1021", "services/agent/crates/layerx-sdk/tests/proof_layerx_wallet_rpc.rs:868", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs:121", "services/agent/crates/layerx-sdk/tests/wallet_rpc_bin.rs:167", "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex:232", "services/explorer/deploy/tools/fixtures/eth_maxPriorityFeePerGas.json:2", "services/explorer/swagger.yaml:14779", "services/interop/crates/layerx-bridge-relayer/src/relayer.rs:1352", "services/interop/crates/layerx-bridge-relayer/tests/fixtures/cosign_threshold_two.json:43", "services/interop/crates/layerx-bridge-relayer/tests/fixtures/duplicate_submissions.json:43", "services/interop/crates/layerx-bridge-relayer/tests/fixtures/inbound_sequencer_receipt.json:43", "services/interop/crates/layerx-bridge-relayer/tests/fixtures/inbound_threshold_one.json:43", "services/interop/crates/layerx-bridge-relayer/tests/fixtures/outbound_release.json:123", "services/interop/crates/layerx-bridge-relayer/tests/fixtures/solana_inbound.json:58", "services/interop/crates/layerx-mirror/src/ethereum.rs:649", "services/interop/crates/x-websearch/src/submit.rs:1094", "services/interop/crates/x-websearch/tests/fixtures/api/evm.json:4", "services/interop/crates/x-websearch/tests/fixtures/evm/chain.json:25", "services/interop/crates/x-websearch/tests/submit.rs:491", "services/interop/deploy/x-websearch/tests/fixtures/dry-run.json:27", "services/platform/examples/test/agent-program-call.test.mjs:193", "services/platform/hosted/ai-evaluator/src/main.rs:1223", "services/platform/hosted/core/src/chain_fund.rs:246", "services/platform/hosted/core/tests/chain_fund.rs:105", "services/wallet/gateway/src/chainReads.ts:184", "services/wallet/gateway/src/provision/state.ts:310", "services/wallet/gateway/test/agent-receipt.test.ts:61", "services/wallet/gateway/test/owner-broadcast-outcome.test.ts:38", "services/wallet/gateway/test/rpc-pool.test.ts:73", "services/wallet/gateway/test/support/chain.ts:236", "tests/integration/evm_module/rpc_io_test/testdata/eth_maxPriorityFeePerGas/maxPriorityFeePerGas.io:2", "tests/integration/rpc_tests/eth/eth_gasPrice.spec.ts:64", "tests/integration/rpc_tests/eth/eth_maxPriorityFeePerGas.spec.ts:16", "tests/integration/rpc_tests/utils/gasPriceUtils.ts:22", "tools/names/test/doubles.ts:190", "tools/platform/cli/src/chains.rs:313", "tools/platform/cli/src/programs.rs:1562", "tools/platform/cli/tests/chains_commands.rs:368"]
+
+[row.r12-77.53]
+interface = "interface.12.ts-sdk-json-rpc-client-call"
+verdict = "served"
+path = "sdk/wallet/src/rpc.ts"
+line = 46
+symbol = "call"
+evidence = "JsonRpcClient still declares async call<T>(method: string, params: JsonRpcParams = []): Promise<T>, constructs an envelope, posts it and decodes the matching response id."
+
+[row.r12-77.54]
+interface = "interface.12.ts-sdk-send-tx-response"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 47
+symbol = "SendTxResponse"
+evidence = "export interface SendTxResponse now adds receipt?: SequencerReceiptAnswer beside tx_hash, address and chain_id, allowing the signed sequencer receipt to accompany the transaction hash."
+
+[row.r12-77.55]
+interface = "interface.12.ts-sdk-paxeer-account-half"
+verdict = "retired"
+path = "sdk/wallet/src/types.ts"
+line = 250
+symbol = "PaxeerAccountHalf"
+evidence = "PaxeerAccountHalf is absent from types.ts; ChainAccount now carries account and the paxeer address/balance/nonce/height object. Repository search outside spec and docs finds only the merged-types negative export assertion. Remaining entries record the first exact-word occurrence per file from a repository-wide rg search excluding spec and docs directories."
+remaining_refs = 1
+remaining = ["sdk/wallet/test/merged-types.test.ts:233"]
+
+[row.r12-77.56]
+interface = "interface.12.ts-sdk-joined-account"
+verdict = "retired"
+path = "sdk/wallet/src/types.ts"
+line = 256
+symbol = "JoinedAccount"
+evidence = "JoinedAccount is absent from types.ts; the source now declares ChainAccount with a single chain account layout. The only repository reference outside spec and docs is the merged-types test asserting that the old name is not exported. Remaining entries record the first exact-word occurrence per file from a repository-wide rg search excluding spec and docs directories."
+remaining_refs = 1
+remaining = ["sdk/wallet/test/merged-types.test.ts:234"]
+
+[row.r12-77.57]
+interface = "interface.12.ts-sdk-custody-asset-record"
+verdict = "retired"
+path = "sdk/wallet/src/types.ts"
+line = 262
+symbol = "CustodyAssetRecord"
+evidence = "CustodyAssetRecord is absent from types.ts; the chain bank asset model declares BankAsset without the retired custody record. Repository search outside spec and docs finds only the merged-types negative export assertion. Remaining entries record the first exact-word occurrence per file from a repository-wide rg search excluding spec and docs directories."
+remaining_refs = 1
+remaining = ["sdk/wallet/test/merged-types.test.ts:235"]
+
+[row.r12-77.58]
+interface = "interface.12.ts-sdk-joined-asset"
+verdict = "retired"
+path = "sdk/wallet/src/types.ts"
+line = 275
+symbol = "JoinedAsset"
+evidence = "JoinedAsset is absent from types.ts; BankAsset now describes asset_id, denom, kind, name, symbol, decimals and supply. Repository search outside spec and docs finds only the merged-types negative export assertion. Remaining entries record the first exact-word occurrence per file from a repository-wide rg search excluding spec and docs directories."
+remaining_refs = 1
+remaining = ["sdk/wallet/test/merged-types.test.ts:236"]
+
+[row.r12-77.59]
+interface = "interface.12.ts-sdk-asset-map"
+verdict = "retired"
+path = "sdk/wallet/src/types.ts"
+line = 281
+symbol = "AssetMap"
+evidence = "AssetMap is absent from types.ts; AssetPage now contains height, assets: BankAsset[] and joined_limit. The only repository reference outside spec and docs is the merged-types test checking that the old export is absent. Remaining entries record the first exact-word occurrence per file from a repository-wide rg search excluding spec and docs directories."
+remaining_refs = 1
+remaining = ["sdk/wallet/test/merged-types.test.ts:237"]
+
+[row.r12-77.60]
+interface = "interface.12.ts-sdk-joined-balance-row"
+verdict = "retired"
+path = "sdk/wallet/src/types.ts"
+line = 286
+symbol = "JoinedBalanceRow"
+evidence = "JoinedBalanceRow is absent from types.ts; BankBalance now declares denom and amount and Balances carries account, height and balances: BankBalance[]. Repository search outside spec and docs finds only the negative export assertion. Remaining entries record the first exact-word occurrence per file from a repository-wide rg search excluding spec and docs directories."
+remaining_refs = 1
+remaining = ["sdk/wallet/test/merged-types.test.ts:238"]

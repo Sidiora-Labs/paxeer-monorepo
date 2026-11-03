@@ -1,0 +1,217 @@
+[reconcile.r16-103]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 24
+
+[row.r16-103.1]
+interface = "interface.16.cli-pxx-paxeer-x-ai-evidence"
+verdict = "served"
+path = "tools/paxeer-x/ai_evidence.py"
+line = 834
+symbol = "if __name__ == '__main__':"
+evidence = "The entry signature remains if __name__ == '__main__':, now at line 834 rather than 848; it still calls main(). Contract pins now enumerate programs.md, platform-hosted.md, services.md and tools-ops.md under spec/layerx-merge/contracts (lines 38-40 and 383), replacing the missing legacy contract paths."
+
+[row.r16-103.2]
+interface = "interface.16.mk-pxx-104-35-35-paxeer-x-arbiter-native-authority-build"
+verdict = "served"
+path = "tools/paxeer-x/build/104.35.35.mk"
+line = 2
+symbol = "paxeer-x-arbiter-native-authority-build"
+evidence = "The declaring target now reads paxeer-x-arbiter-native-authority-build: $(BUILD_DIR)/tests/lxp_test_module_maintenance, continued with layerxd and layerx-genesis-build. The old arbiter-native-authority, daemon-finality-authority and guarantor-runtime tests and layerx-handover prerequisites are absent; the overlay target remains."
+
+[row.r16-103.3]
+interface = "interface.16.cli-pxx-paxeer-x-gates-0-5"
+verdict = "retired"
+path = "tools/paxeer-x/gates/0.5.sh"
+line = 1
+symbol = "tools/paxeer-x/gates/0.5.sh"
+evidence = "The registered gate file is absent, consistent with task 16.8.6 and override.J77.124. Remaining full command-path mentions are retirement assertions, not an executable gate; the former shebang cannot represent this command independently of its deleted file."
+remaining_refs = 1
+remaining = ["tools/paxeer-x/tests/test_gates_deleted_sources.py:13"]
+
+[row.r16-103.4]
+interface = "interface.16.cli-pxx-paxeer-x-gates-103-6-11"
+verdict = "served"
+path = "tools/paxeer-x/gates/103.6.11.sh"
+line = 1
+symbol = "#!/usr/bin/env bash"
+evidence = "The CLI signature remains #!/usr/bin/env bash at line 1, but its body now executes an embedded Python gate with schema layerx.composite-state-transition-build.v2. It accepts --build or no selector arguments (lines 585-587), compiles five current native state/genesis/bootstrap tests and verifies current Rust commitment/intent suites instead of the retired activity codec/C differential."
+
+[row.r16-103.5]
+interface = "interface.16.cli-pxx-paxeer-x-gates-111-6-11"
+verdict = "served"
+path = "tools/paxeer-x/gates/111.6.11.sh"
+line = 1
+symbol = "#!/usr/bin/env bash"
+evidence = "The CLI signature remains #!/usr/bin/env bash at line 1. The containers/check.sh argument list at line 8 now includes platform-agent-boundary, platform-node and the current hosted services; the retired replica and relay-archive container arguments are gone. Private evidence and reported test counts remain required."
+
+[row.r16-103.6]
+interface = "interface.16.env-pxx-paxeer-x-gates-2-2-paxeer-x-evidence-dir"
+verdict = "retired"
+path = "tools/paxeer-x/gates/2.2.sh"
+line = 7
+symbol = "PAXEER_X_EVIDENCE_DIR"
+evidence = "The registered 2.2.sh file and its required PAXEER_X_EVIDENCE_DIR read are absent, as directed by task 16.8.1 and override.J77.100. This retires that gate-local environment interface; the same variable remains in other gates, release tooling and workflows, all counted in remaining."
+remaining_refs = 74
+remaining = [".github/workflows/platform.yml:33", ".github/workflows/ramp-sandbox.yml:35", "GOTCHA.kvx:2009", "Makefile:2647", "scripts/ci/beta-ci-inputs.sh:6", "scripts/ci/beta-ledger-check.sh:644", "scripts/ci/beta-qualify.sh:6", "scripts/paxeer-x/qualify-scan-load.py:36", "sdk/platform/conformance/run-jvm.sh:10", "services/platform/examples/README.md:54", "services/platform/examples/qualify-reference-apps.mjs:13", "services/platform/ramps/sandbox-journey.sh:335", "tests/ci/websearch-context.py:233", "tests/modules/paxeer_x_metered_end_boundary.py:8", "tests/qualification/paxeer_x_airdrop_entitlements.py:50", "tests/qualification/paxeer_x_launchpad_governance.py:47", "tools/bringup/tests/foundation-artifacts.py:371", "tools/bringup/tests/paxeer-x-runtime-contract.py:3119", "tools/paxeer-x/gates/103.6.5.sh:11", "tools/paxeer-x/gates/104.16.4.sh:157", "tools/paxeer-x/gates/104.16.5.sh:254", "tools/paxeer-x/gates/104.17.3.sh:15", "tools/paxeer-x/gates/104.17.4.sh:13", "tools/paxeer-x/gates/104.18.2.sh:9", "tools/paxeer-x/gates/104.24.1.sh:211", "tools/paxeer-x/gates/104.26.1.sh:91", "tools/paxeer-x/gates/104.33.5.sh:275", "tools/paxeer-x/gates/104.33.7.sh:69", "tools/paxeer-x/gates/104.34.1.sh:11", "tools/paxeer-x/gates/104.34.2.sh:12", "tools/paxeer-x/gates/104.34.3.sh:12", "tools/paxeer-x/gates/104.34.4.sh:12", "tools/paxeer-x/gates/104.34.5.sh:13", "tools/paxeer-x/gates/104.34.6.sh:12", "tools/paxeer-x/gates/104.35.3.sh:18", "tools/paxeer-x/gates/104.35.4.sh:11", "tools/paxeer-x/gates/104.35.5.sh:18", "tools/paxeer-x/gates/104.35.6.sh:18", "tools/paxeer-x/gates/104.37.2.sh:12", "tools/paxeer-x/gates/104.38.3.sh:24", "tools/paxeer-x/gates/110.8.2.sh:38", "tools/paxeer-x/gates/111.6.11.sh:4", "tools/paxeer-x/gates/111.6.12.sh:4", "tools/paxeer-x/gates/20.2.sh:8", "tools/paxeer-x/release.sh:6", "tools/paxeer-x/tests/candidate_test.py:107", "tools/paxeer-x/tests/gate_dispatch_test.py:85", "tools/paxeer-x/verify-task.sh:8", "tools/qualification/paxeer-x/agent_http_bounds.py:13", "tools/qualification/paxeer-x/agent_operation_envelope.py:643", "tools/qualification/paxeer-x/budget-proof-exports.py:51", "tools/qualification/paxeer-x/event-delivery-contract.py:749", "tools/qualification/paxeer-x/explorer-availability.py:13", "tools/qualification/paxeer-x/external_custody.py:48", "tools/qualification/paxeer-x/fixtures/xweb_attestation.py:102", "tools/qualification/paxeer-x/gas-station-contract.py:1436", "tools/qualification/paxeer-x/human-movement-kms-assembly.py:175", "tools/qualification/paxeer-x/identity-assertion-binding.py:315", "tools/qualification/paxeer-x/mcp_binding_listener.py:226", "tools/qualification/paxeer-x/movement-executor-readiness.py:141", "tools/qualification/paxeer-x/program-storage.py:49", "tools/qualification/paxeer-x/program_execution_context.py:78", "tools/qualification/paxeer-x/program_fee_governance.py:71", "tools/qualification/paxeer-x/program_market_attestation.py:258", "tools/qualification/paxeer-x/program_spend_composition.py:98", "tools/qualification/paxeer-x/program_transfer_authority.py:194", "tools/qualification/paxeer-x/programs_all_form_validation.py:237", "tools/qualification/paxeer-x/programs_market_resolution.py:84", "tools/qualification/paxeer-x/programs_sandbox_bounds.py:73", "tools/qualification/paxeer-x/registry-router-bootstrap.py:1344", "tools/qualification/paxeer-x/router-complete-readiness.py:900", "tools/qualification/paxeer-x/storage-recovery.py:19", "tools/qualification/paxeer-x/unified-account-identity.py:76", "tools/qualification/paxeer_x_release.py:79"]
+
+[row.r16-103.7]
+interface = "interface.16.cli-pxx-paxeer-x-gates-2-2-sub-build"
+verdict = "retired"
+path = "tools/paxeer-x/gates/2.2.sh"
+line = 9
+symbol = "build)"
+evidence = "The registered 2.2.sh file and its build) case are absent under task 16.8.1 and override.J77.98. Remaining counts all other files containing the exact generic build) literal, including unrelated language expressions and shell cases; those textual matches do not restore the deleted 2.2 command."
+remaining_refs = 51
+remaining = ["GOTCHA.kvx:5238", "apps/launchpad/web/instrumentation-client.ts:2", "apps/launchpad/web/next.config.ts:50", "apps/perps/src/widgets/network-pill/NetworkPill.tsx:5", "apps/web/src/app/launchpad/launchpad-client.tsx:73", "chain.mk:279", "core/deps/cosmwasm/devtools/release_checks.sh:10", "core/deps/geth/build/ci.go:786", "precompiles/common/lxp_errors_test.go:88", "programs/porting/cosmwasm/src/qualify.rs:268", "programs/porting/evm/src/qualify.rs:267", "programs/porting/solana/src/qualify.rs:266", "programs/vendor/binaryen-sys-0.12.0/binaryen/scripts/test/shared.py:57", "programs/vendor/ed25519-dalek-2.2.0/tests/ed25519.rs:694", "programs/vendor/semver-1.0.28/src/display.rs:12", "programs/vendor/semver-1.0.28/src/parse.rs:142", "programs/vendor/synstructure-0.13.2/src/macros.rs:219", "programs/vendor/zerocopy-derive-0.8.56/src/output_tests/mod.rs:52", "scripts/gates/wave-0.sh:5", "sdk/Makefile:185", "sdk/chainflow/rust/src/client.rs:456", "sdk/chainflow/rust/src/transport.rs:317", "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/build-aux/m4/ax_prog_cc_for_build.m4:60", "sdk/js/test/retired-tendermint-check-tx-type.test.cjs:60", "sdk/launchpad/protocol/catalog/registry_input_test.go:111", "services/bridge/deploy/tests/deploy-scripts-check.sh:1116", "services/explorer/README.md:144", "services/interop/deploy/x-websearch/tests/packaging-check.sh:83", "services/launchpad/indexer/internal/decode/measurement.go:369", "services/launchpad/indexer/internal/source/source.go:32", "services/platform/hosted/node/bootstrap.sh:305", "services/platform/hosted/node/supervisor.sh:534", "services/platform/hosted/registry/src/routes.rs:1033", "services/platform/hosted/tests/beta-cluster.sh:22", "services/platform/ramps/toolkit/src/clients.rs:858", "storage/db_engine/pebbledb/mvcc/db.go:69", "tests/ci/test_real_node_build_ownership.py:62", "tests/ci/websearch-context.py:149", "tests/wallet/check-deploy.test.sh:99", "tools/build/npm-workspace-build.mjs:102", "tools/ci/tests/test_paxd_native_toolchain.py:11", "tools/containers/check.sh:304", "tools/launchpad/production/interfaces/contracts/export.cjs:11", "tools/paxeer-x/gates/24.14.sh:8", "tools/paxeer-x/gates/24.16.sh:6", "tools/paxeer-x/gates/24.18.sh:7", "tools/paxeer-x/gates/24.20.sh:17", "tools/paxeer-x/gates/5.1.sh:8", "tools/qualification/paxeer-x/runtime-boundary-witness.py:20", "tools/release/verify-release.sh:69", "wasm-runtime/Makefile:41"]
+
+[row.r16-103.8]
+interface = "interface.16.cli-pxx-paxeer-x-gates-2-2-sub-verify"
+verdict = "retired"
+path = "tools/paxeer-x/gates/2.2.sh"
+line = 33
+symbol = "verify)"
+evidence = "The registered 2.2.sh file and its verify) case are absent under task 16.8.1 and override.J77.99. Remaining counts all other files containing the exact generic verify) literal, including unrelated language expressions and shell cases; those textual matches do not restore the deleted 2.2 command."
+remaining_refs = 52
+remaining = ["Makefile:2536", "consensus/internal/autobahn/consensus/persist/wal.go:95", "core/deps/cosmwasm/packages/vm/src/instance.rs:194", "core/deps/geth/crypto/secp256k1/libsecp256k1/src/bench.c:54", "core/deps/geth/crypto/secp256k1/libsecp256k1/src/tests.c:7425", "modules/evm/keeper/keeper_activation_test.go:106", "programs/crates/layerx-programs-runtime/src/crypto/signature.rs:383", "programs/vendor/openssl-0.10.81/src/cms.rs:235", "programs/vendor/openssl-0.10.81/src/ecdsa.rs:83", "programs/vendor/openssl-0.10.81/src/ocsp.rs:194", "programs/vendor/openssl-0.10.81/src/pkcs7.rs:250", "programs/vendor/openssl-0.10.81/src/pkey_ctx.rs:240", "programs/vendor/openssl-0.10.81/src/ssl/callbacks.rs:60", "programs/vendor/openssl-0.10.81/src/ssl/error.rs:166", "programs/vendor/openssl-0.10.81/src/ssl/mod.rs:774", "programs/vendor/openssl-0.10.81/src/x509/mod.rs:649", "programs/vendor/rustls-webpki-0.103.15/src/verify_cert.rs:81", "scripts/ci/xweb-workflow-check.sh:487", "scripts/qualification/paxeer-x/program-http-producer.py:276", "sdk/client/input/input.go:89", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:131", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/SequencerReceiptTests.cs:167", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/CommittedReceiptTest.java:84", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/optimism_controller.ex:747", "services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/polygon_zkevm/lifecycle_transactions.ex:98", "services/explorer/backend/apps/explorer/lib/explorer/chain/polygon_zkevm/lifecycle_transaction.ex:9", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/polygon_zkevm/transaction_batch.ex:359", "services/launchpad/gateway/internal/auth/identity_http_test.go:163", "services/launchpad/indexer/internal/processor/live_ingest_postgres_test.go:322", "services/launchpad/stats-workers/internal/analytics/phase2_integration_test.go:261", "services/launchpad/stats-workers/internal/analytics/reactions_test.go:44", "services/launchpad/stats-workers/internal/httpapi/reactions.go:386", "services/launchpad/user/internal/account/account_test.go:250", "services/platform/hosted/tests/beta-cluster.sh:3622", "services/platform/hosted/tests/publish-images.sh:630", "services/wallet/ceremony/internal/attestor/golden_test.go:118", "services/wallet/gateway/migrations/004_agent_native.sql:70", "services/wallet/gateway/src/env.ts:140", "services/wallet/gateway/src/index.ts:158", "services/wallet/gateway/src/middleware/principal.ts:21", "storage/common/utils/path_test.go:138", "tools/launchpad/production/dispatcher/patches.py:209", "tools/paxeer-x/gates/24.14.sh:15", "tools/paxeer-x/gates/24.16.sh:13", "tools/paxeer-x/gates/24.18.sh:77", "tools/paxeer-x/gates/24.20.sh:69", "tools/qualification/paxeer-x/custody-provider-producer.py:191", "tools/qualification/paxeer-x/program_balance_read.py:244", "tools/qualification/paxeer-x/program_cache_native_equivalence.py:235", "tools/release/rollback.sh:66", "tools/release/stage.sh:215", "tools/release/swap.sh:34"]
+
+[row.r16-103.9]
+interface = "interface.16.env-pxx-paxeer-x-gates-2-2-paxeer-x-finality-supplemental-manifest"
+verdict = "retired"
+path = "tools/paxeer-x/gates/2.2.sh"
+line = 34
+symbol = "PAXEER_X_FINALITY_SUPPLEMENTAL_MANIFEST"
+evidence = "The 2.2.sh default assignment for PAXEER_X_FINALITY_SUPPLEMENTAL_MANIFEST is absent with the deleted file, matching task 16.8.1 and override.J77.101. A repository-wide identifier search excluding spec and docs finds no remaining file mentioning this environment variable."
+remaining_refs = 0
+remaining = []
+
+[row.r16-103.10]
+interface = "interface.16.cli-pxx-paxeer-x-gates-2-2"
+verdict = "retired"
+path = "tools/paxeer-x/gates/2.2.sh"
+line = 38
+symbol = "tools/paxeer-x/gates/2.2.sh"
+evidence = "The registered 2.2.sh command file and its build|verify usage branch are absent, matching task 16.8.1 and override.J77.97. Remaining full command-path references concern the retirement; there is no executable command at the registered path."
+remaining_refs = 2
+remaining = ["GOTCHA.kvx:11580", "tools/paxeer-x/tests/test_gates_guarantor_retired.py:29"]
+
+[row.r16-103.11]
+interface = "interface.16.cli-pxx-paxeer-x-gates-24-16"
+verdict = "served"
+path = "tools/paxeer-x/gates/24.16.sh"
+line = 17
+symbol = "*) echo 'usage: 24.16.sh build|verify' >&2; exit 2 ;;"
+evidence = "The usage signature is unchanged: *) echo usage for 24.16.sh build|verify and exit 2, now at line 17 rather than 20. Build mode compiles paxeer-build, the platform paxeer boundary and BetaUsdl/WETH artifacts; verify mode checks the two artifacts. The former layerxAnchor checkpoint dependency is absent."
+
+[row.r16-103.12]
+interface = "interface.16.cli-pxx-paxeer-x-gov-render"
+verdict = "served"
+path = "tools/paxeer-x/gov/render.sh"
+line = 9
+symbol = "usage: render.sh --out DIR --height H --release-url URL --release-sha256 HEX"
+evidence = "The declared usage signature remains render.sh --out DIR --height H --release-url URL --release-sha256 HEX at line 9, with the following options still parsed. The proposal submission body now dry-runs only templates 01-03 and bridge proposals 04/05; the deleted exchange, custody and anchor templates are no longer submitted."
+
+[row.r16-103.13]
+interface = "interface.16.fmt-pxx-gov-templates-04-exchange-markets-json"
+verdict = "retired"
+path = "tools/paxeer-x/gov/templates/04-exchange-markets.json"
+line = 1
+symbol = "04-exchange-markets.json"
+evidence = "The registered exchange-markets JSON template file is absent, matching task 16.8.5 and override.J77.105. Remaining basename mentions are the governance README and the test asserting retirement, not another served template."
+remaining_refs = 2
+remaining = ["tools/paxeer-x/gov/README.md:22", "tools/paxeer-x/tests/test_gov_templates.py:16"]
+
+[row.r16-103.14]
+interface = "interface.16.fmt-pxx-gov-templates-05-custody-json"
+verdict = "retired"
+path = "tools/paxeer-x/gov/templates/05-custody.json"
+line = 1
+symbol = "05-custody.json"
+evidence = "The registered custody JSON template file is absent, matching task 16.8.5 and override.J77.106. Remaining basename mentions are the governance README and the test asserting retirement; render.sh no longer submits this template."
+remaining_refs = 2
+remaining = ["tools/paxeer-x/gov/README.md:23", "tools/paxeer-x/tests/test_gov_templates.py:17"]
+
+[row.r16-103.15]
+interface = "interface.16.fmt-pxx-gov-templates-06-anchor-sequencer-authorization-json"
+verdict = "retired"
+path = "tools/paxeer-x/gov/templates/06-anchor-sequencer-authorization.json"
+line = 1
+symbol = "06-anchor-sequencer-authorization.json"
+evidence = "The registered anchor sequencer authorization JSON template file is absent, matching task 16.8.5 and override.J77.107. Remaining basename mentions are the governance README and the test asserting retirement, not another served template."
+remaining_refs = 2
+remaining = ["tools/paxeer-x/gov/README.md:24", "tools/paxeer-x/tests/test_gov_templates.py:18"]
+
+[row.r16-103.16]
+interface = "interface.16.cli-pxx-paxeer-x-gov-test"
+verdict = "served"
+path = "tools/paxeer-x/gov/test.sh"
+line = 1
+symbol = "#!/usr/bin/env bash"
+evidence = "The CLI signature remains #!/usr/bin/env bash at line 1. Its asserted proposal list is now 01-software-upgrade, 02-fee-token-params, 03-xweb-fee and the bridge proposals (lines 71-77); former custody/exchange/anchor output assertions are absent. The script also checks the v6.12.0 upgrade name."
+
+[row.r16-103.17]
+interface = "interface.16.cli-pxx-paxeer-x-release"
+verdict = "served"
+path = "tools/paxeer-x/release.sh"
+line = 2
+symbol = "# Usage: release.sh [--manifest PATH] <scope-file|task-id|req.N>..."
+evidence = "The usage signature remains # Usage: release.sh [--manifest PATH] <scope-file|task-id|req.N>... at line 2. Requirement expansion now reads tools/paxeer-x/gates/registry.kvx at line 50, replacing the missing spec/paxeer-x/spec.kvx reference; execution still dispatches verify-task.sh and records private release evidence."
+
+[row.r16-103.18]
+interface = "interface.16.fmt-pxx-route-catalogue-json"
+verdict = "served"
+path = "tools/paxeer-x/route-catalogue.json"
+line = 1
+symbol = "{"
+evidence = "The JSON format still opens with { at line 1 and declares schema paxeer-x.routes.v1 at line 2. Its top-level keys remain schema, chain_id, canonical_origin, rpc_records, preserve_api1_original_host, wallet_authentication, wallet_placement, services, routes, denied_surfaces, node_signing_methods and rpc_paths. The routes array now contains 1966 entries instead of the registered 1985; relay_archive source annotations still remain, so this verdict records current service rather than asserting every legacy reference was removed."
+
+[row.r16-103.19]
+interface = "interface.16.cli-pxx-paxeer-x-tests-candidate-test"
+verdict = "served"
+path = "tools/paxeer-x/tests/candidate_test.py"
+line = 315
+symbol = "if __name__ == '__main__':"
+evidence = "The entry signature remains if __name__ == '__main__': followed by unittest.main(verbosity=2), now at line 315 rather than 288. Catalogue inputs now use candidate.SERVICE_CATALOGUE (lines 20-21), whose declaration is spec/layerx-merge/spec.kvx, replacing the missing legacy spec/paxeer-x/spec.kvx path."
+
+[row.r16-103.20]
+interface = "interface.16.cli-pxx-paxeer-x-tests-gate-dispatch-test"
+verdict = "served"
+path = "tools/paxeer-x/tests/gate_dispatch_test.py"
+line = 312
+symbol = "if __name__ == '__main__':"
+evidence = "The entry signature remains if __name__ == '__main__': followed by unittest.main(verbosity=2), now at line 312 rather than 313. Setup now writes its task/service registry under tools/paxeer-x/gates/registry.kvx (lines 38-41) rather than the removed spec/paxeer-x/spec.kvx location."
+
+[row.r16-103.21]
+interface = "interface.16.cli-pxx-paxeer-x-tests-routes-test"
+verdict = "served"
+path = "tools/paxeer-x/tests/routes_test.py"
+line = 825
+symbol = "if __name__ == '__main__':"
+evidence = "The entry signature remains if __name__ == '__main__': at line 825 and still invokes run() with typed refusal handling. Manifest validation now uses SERVICE_CATALOGUE imported from candidate (lines 19 and 649), replacing the missing legacy spec path. tools/call at line 561 is an RPC method literal; the lx_get refusal check remains at line 805, so this records presence without asserting its retirement is finished."
+
+[row.r16-103.22]
+interface = "interface.16.env-pxx-paxeer-x-tests-versioned-boundaries-build-dir"
+verdict = "retired"
+path = "tools/paxeer-x/tests/versioned_boundaries.py"
+line = 15
+symbol = "BUILD_DIR"
+evidence = "The registered versioned_boundaries.py file and its BUILD_DIR = os.environ.get assignment are absent under task 16.8.6 and override.J77.126. This retires only the deleted script environment interface; BUILD_DIR remains a shared identifier in other build tools and tests, all enumerated in remaining."
+remaining_refs = 51
+remaining = ["GOTCHA.kvx:5072", "Makefile:5", "programs/crates/layerx-programs-sandbox/tests/host_ffi_link.rs:41", "scripts/ci/run-tests.sh:7", "scripts/qualification/paxeer-x/program-event-bounds.py:53", "scripts/qualification/paxeer-x/program-terminal-v5.py:48", "scripts/qualification/paxeer-x/reference-custody.py:25", "services/agent/tools/run-real-node-tests.sh:55", "services/platform/Makefile.inc:247", "tests/ci/test_native_archive_membership.py:60", "tests/ci/test_retired_make_rules.py:32", "tests/explorer_fixture_test.py:12", "tests/modules/paxeer_x_metered_end_boundary.py:20", "tests/protocol/paxeer_x_rejection_policy.py:18", "tools/build/sanitizers.mk:7", "tools/ci/tests/test_completion_gate.py:18", "tools/ci/tests/test_makefile_wave3.py:104", "tools/ci/tests/test_makefile_wave4.py:78", "tools/loadtest/Makefile:8", "tools/paxctl/Makefile:2", "tools/paxeer-x/build/104.30.2.mk:3", "tools/paxeer-x/build/104.31.2.mk:1", "tools/paxeer-x/build/104.32.1.mk:1", "tools/paxeer-x/build/104.32.4.mk:4", "tools/paxeer-x/build/104.35.29.mk:4", "tools/paxeer-x/build/104.35.35.mk:2", "tools/paxeer-x/build/104.35.7.mk:15", "tools/paxeer-x/build/6.6.mk:10", "tools/paxeer-x/build/proof.mk:11", "tools/paxeer-x/gates/103.6.11.sh:270", "tools/paxeer-x/gates/104.19.4.sh:140", "tools/paxeer-x/gates/104.21.1.sh:83", "tools/paxeer-x/gates/104.30.3.sh:181", "tools/paxeer-x/gates/104.30.5.sh:164", "tools/qualification/paxeer-x/build-caps-discovery.sh:19", "tools/qualification/paxeer-x/deterministic-execution-producer.py:237", "tools/qualification/paxeer-x/native-programs-link.py:167", "tools/qualification/paxeer-x/program-interface-producer.py:149", "tools/qualification/paxeer-x/program_execution_context.mk:4", "tools/qualification/paxeer-x/program_execution_context.py:140", "tools/qualification/paxeer-x/program_fee_governance.py:131", "tools/qualification/paxeer-x/program_spend_composition.mk:4", "tools/qualification/paxeer-x/program_spend_composition.py:182", "tools/qualification/paxeer-x/program_transfer_authority.py:93", "tools/qualification/paxeer-x/programs_accounts_winddown.py:123", "tools/qualification/paxeer-x/programs_all_form_validation.py:132", "tools/qualification/paxeer-x/programs_language_abi.py:216", "tools/qualification/paxeer-x/programs_native_migration.py:201", "tools/qualification/paxeer-x/programs_sandbox_bounds.py:49", "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py:179", "tools/release/build-paxd.sh:119"]
+
+[row.r16-103.23]
+interface = "interface.16.cli-pxx-paxeer-x-tests-versioned-boundaries"
+verdict = "retired"
+path = "tools/paxeer-x/tests/versioned_boundaries.py"
+line = 217
+symbol = "tools/paxeer-x/tests/versioned_boundaries.py"
+evidence = "The registered versioned_boundaries.py command file and its Python main entry are absent, matching task 16.8.6 and override.J77.125. Remaining full command-path mentions document or assert the retirement; no replacement command was found under that name."
+remaining_refs = 2
+remaining = ["GOTCHA.kvx:3993", "tools/paxeer-x/tests/test_gates_deleted_sources.py:12"]
+
+[row.r16-103.24]
+interface = "interface.16.cli-pxx-paxeer-x-verify-task"
+verdict = "served"
+path = "tools/paxeer-x/verify-task.sh"
+line = 2
+symbol = "# Usage:"
+evidence = "The CLI usage signature remains # Usage: at line 2 with task-id, --identity and --check forms below it. Gate registration now requires tools/paxeer-x/gates/registry.kvx (lines 6-7); manifest validation uses SERVICE_CATALOGUE imported from candidate (lines 31 and 133), replacing the missing spec/paxeer-x/spec.kvx path."

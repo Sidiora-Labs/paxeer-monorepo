@@ -1,0 +1,483 @@
+[reconcile.r8-32]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r8-32.1]
+interface = "interface.8.go-sdkcs-platformoperation-humanapprovalprogrambudget"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 86
+symbol = "HumanApprovalProgramBudget"
+evidence = "PlatformOperation still declares HumanApprovalProgramBudget, at line 86 (registered line 84); enum signature unchanged. Descriptor at line 371 maps approval.program.budget to GET /v1/program-approvals/{approval_id}/budget, Empty -> ProgramApprovalBudget."
+
+[row.r8-32.2]
+interface = "interface.8.go-sdkcs-platformoperation-humanapprovalprogramdisclosure"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 87
+symbol = "HumanApprovalProgramDisclosure"
+evidence = "PlatformOperation still declares HumanApprovalProgramDisclosure, at line 87 (registered line 85); enum signature unchanged. Descriptor at line 372 maps approval.program.disclosure to POST /v1/program-approvals/{approval_id}/disclosure, ProgramApprovalDisclosureRequest -> ProgramApprovalDisclosure."
+
+[row.r8-32.3]
+interface = "interface.8.go-sdkcs-platformoperation-humanapprovalprogramget"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 88
+symbol = "HumanApprovalProgramGet"
+evidence = "PlatformOperation still declares HumanApprovalProgramGet, at line 88 (registered line 86); enum signature unchanged. Descriptor at line 373 maps approval.program.get to GET /v1/program-approvals/{approval_id}, Empty -> ProgramApprovalDetail."
+
+[row.r8-32.4]
+interface = "interface.8.go-sdkcs-platformoperation-humanapprovalprogramlist"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 89
+symbol = "HumanApprovalProgramList"
+evidence = "PlatformOperation still declares HumanApprovalProgramList, at line 89 (registered line 87); enum signature unchanged. Descriptor at line 374 maps approval.program.list to GET /v1/program-approvals/page/{cursor}, Empty -> ProgramApprovalPage."
+
+[row.r8-32.5]
+interface = "interface.8.go-sdkcs-platformoperation-humanapprovalprogrammaterial"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 90
+symbol = "HumanApprovalProgramMaterial"
+evidence = "PlatformOperation still declares HumanApprovalProgramMaterial, at line 90 (registered line 88); enum signature unchanged. Descriptor at line 375 maps approval.program.material to GET /v1/program-approvals/{approval_id}/material, Empty -> ProgramApprovalMaterial."
+
+[row.r8-32.6]
+interface = "interface.8.go-sdkcs-platformoperation-humanapprovalprogramreject"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 91
+symbol = "HumanApprovalProgramReject"
+evidence = "PlatformOperation still declares HumanApprovalProgramReject, at line 91 (registered line 89); enum signature unchanged. Descriptor at line 376 maps approval.program.reject to POST /v1/program-approvals/{approval_id}/reject, ProgramApprovalDecisionRequest -> ProgramApprovalDecision."
+
+[row.r8-32.7]
+interface = "interface.8.go-sdkcs-platformoperation-humanapprovalreject"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 92
+symbol = "HumanApprovalReject"
+evidence = "PlatformOperation still declares HumanApprovalReject, at line 92 (registered line 90); enum signature unchanged. Descriptor at line 377 maps approval.reject to POST /v1/approvals/{approval_id}/reject, Empty -> ApprovalDecision."
+
+[row.r8-32.8]
+interface = "interface.8.go-sdkcs-platformoperation-humanauthenticatorbackuprotate"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 93
+symbol = "HumanAuthenticatorBackupRotate"
+evidence = "PlatformOperation still declares HumanAuthenticatorBackupRotate, at line 93 (registered line 91); enum signature unchanged. Descriptor at line 378 maps authenticator.backup.rotate to POST /v1/security/authenticators/backup-codes, BackupCodeRotation -> BackupCodeSet."
+
+[row.r8-32.9]
+interface = "interface.8.go-sdkcs-platformoperation-humanauthenticatordisable"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 94
+symbol = "HumanAuthenticatorDisable"
+evidence = "PlatformOperation still declares HumanAuthenticatorDisable, at line 94 (registered line 92); enum signature unchanged. Descriptor at line 379 maps authenticator.disable to POST /v1/security/authenticators/{authenticator_id}/disable, AuthenticatorDisable -> AuthenticatorStatus."
+
+[row.r8-32.10]
+interface = "interface.8.go-sdkcs-platformoperation-humanauthenticatorsetupbegin"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 95
+symbol = "HumanAuthenticatorSetupBegin"
+evidence = "PlatformOperation still declares HumanAuthenticatorSetupBegin, at line 95 (registered line 93); enum signature unchanged. Descriptor at line 380 maps authenticator.setup.begin to POST /v1/security/authenticators/setups, AuthenticatorSetupBegin -> AuthenticatorSetupChallenge."
+
+[row.r8-32.11]
+interface = "interface.8.go-sdkcs-platformoperation-humanauthenticatorsetupfinish"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 96
+symbol = "HumanAuthenticatorSetupFinish"
+evidence = "PlatformOperation still declares HumanAuthenticatorSetupFinish, at line 96 (registered line 94); enum signature unchanged. Descriptor at line 381 maps authenticator.setup.finish to POST /v1/security/authenticators/setups/{setup_id}, AuthenticatorSetupFinish -> AuthenticatorSetupResult."
+
+[row.r8-32.12]
+interface = "interface.8.go-sdkcs-platformoperation-humanauthenticatorstatus"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 97
+symbol = "HumanAuthenticatorStatus"
+evidence = "PlatformOperation still declares HumanAuthenticatorStatus, at line 97 (registered line 95); enum signature unchanged. Descriptor at line 382 maps authenticator.status to GET /v1/security/authenticators, Empty -> AuthenticatorStatus."
+
+[row.r8-32.13]
+interface = "interface.8.go-sdkcs-platformoperation-humanevidenceget"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 98
+symbol = "HumanEvidenceGet"
+evidence = "PlatformOperation still declares HumanEvidenceGet, at line 98 (registered line 103); enum signature unchanged. Descriptor at line 383 maps evidence.get to GET /v1/evidence/{evidence_id}, Empty -> EvidenceMaterial."
+
+[row.r8-32.14]
+interface = "interface.8.go-sdkcs-platformoperation-humanhomesummary"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 99
+symbol = "HumanHomeSummary"
+evidence = "PlatformOperation still declares HumanHomeSummary, at line 99 (registered line 106); enum signature unchanged. Descriptor at line 384 maps home.summary to GET /v1/home, Empty -> HomeSummary."
+
+[row.r8-32.15]
+interface = "interface.8.go-sdkcs-platformoperation-humanintentplan"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 100
+symbol = "HumanIntentPlan"
+evidence = "PlatformOperation still declares HumanIntentPlan, at line 100 (registered line 107); enum signature unchanged. Descriptor at line 385 maps intent.plan to POST /v1/intents/plan, PlanIntentRequest -> IntentPlan. The change-status row has moved lines only: Transport at line 243 still selects HTTP POST with null To/Selector and PerLeg=false; the planned per-leg EVM conversion noted in the registry is not present in this catalog entry."
+
+[row.r8-32.16]
+interface = "interface.8.go-sdkcs-platformoperation-humanintentsubmit"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 101
+symbol = "HumanIntentSubmit"
+evidence = "PlatformOperation still declares HumanIntentSubmit, at line 101 (registered line 108); enum signature unchanged. Descriptor at line 386 maps intent.submit to POST /v1/intents/submit, SubmitPlanRequest -> IntentSubmission. The change-status row has moved lines only: Transport at line 244 still selects HTTP POST with null To/Selector and PerLeg=false; the planned per-leg EVM conversion noted in the registry is not present in this catalog entry."
+
+[row.r8-32.17]
+interface = "interface.8.go-sdkcs-platformoperation-humanjourneyget"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 102
+symbol = "HumanJourneyGet"
+evidence = "PlatformOperation still declares HumanJourneyGet, at line 102 (registered line 109); enum signature unchanged. Descriptor at line 387 maps journey.get to GET /v1/journeys/{journey_id}, Empty -> Journey."
+
+[row.r8-32.18]
+interface = "interface.8.go-sdkcs-platformoperation-humanjourneylist"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 103
+symbol = "HumanJourneyList"
+evidence = "PlatformOperation still declares HumanJourneyList, at line 103 (registered line 110); enum signature unchanged. Descriptor at line 388 maps journey.list to GET /v1/journeys, Empty -> JourneyPage."
+
+[row.r8-32.19]
+interface = "interface.8.go-sdkcs-platformoperation-humanjourneypage"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 104
+symbol = "HumanJourneyPage"
+evidence = "PlatformOperation still declares HumanJourneyPage, at line 104 (registered line 111); enum signature unchanged. Descriptor at line 389 maps journey.page to GET /v1/journeys/page/{cursor}, Empty -> JourneyPage."
+
+[row.r8-32.20]
+interface = "interface.8.go-sdkcs-platformoperation-humanmovecommit"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 105
+symbol = "HumanMoveCommit"
+evidence = "PlatformOperation still declares HumanMoveCommit, at line 105 (registered line 112); enum signature unchanged. Descriptor at line 390 maps move.commit to POST /v1/moves, MoveCommitRequest -> Journey."
+
+[row.r8-32.21]
+interface = "interface.8.go-sdkcs-platformoperation-humanmovequote"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 106
+symbol = "HumanMoveQuote"
+evidence = "PlatformOperation still declares HumanMoveQuote, at line 106 (registered line 113); enum signature unchanged. Descriptor at line 391 maps move.quote to POST /v1/moves/quote, MoveQuoteRequest -> MoveQuote."
+
+[row.r8-32.22]
+interface = "interface.8.go-sdkcs-platformoperation-humannativesendaccessbegin"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 107
+symbol = "HumanNativeSendAccessBegin"
+evidence = "PlatformOperation still declares HumanNativeSendAccessBegin, at line 107 (registered line 114); enum signature unchanged. Descriptor at line 392 maps native.send.access.begin to POST /v1/native/send/access/begin, NativeSendAccessRequest -> NativeSendAccessDisclosure."
+
+[row.r8-32.23]
+interface = "interface.8.go-sdkcs-platformoperation-humannativesendaccessconfirm"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 108
+symbol = "HumanNativeSendAccessConfirm"
+evidence = "PlatformOperation still declares HumanNativeSendAccessConfirm, at line 108 (registered line 115); enum signature unchanged. Descriptor at line 393 maps native.send.access.confirm to POST /v1/native/send/access/confirm, NativeSendAccessConfirmation -> NativeSendAccessResult."
+
+[row.r8-32.24]
+interface = "interface.8.go-sdkcs-platformoperation-humannotificationlist"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 109
+symbol = "HumanNotificationList"
+evidence = "PlatformOperation still declares HumanNotificationList, at line 109 (registered line 116); enum signature unchanged. Descriptor at line 394 maps notification.list to GET /v1/notifications, Empty -> NotificationPage."
+
+[row.r8-32.25]
+interface = "interface.8.go-sdkcs-platformoperation-humannotificationpreferencesget"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 110
+symbol = "HumanNotificationPreferencesGet"
+evidence = "PlatformOperation still declares HumanNotificationPreferencesGet, at line 110 (registered line 117); enum signature unchanged. Descriptor at line 395 maps notification.preferences.get to GET /v1/notifications/preferences, Empty -> NotificationPreferences."
+
+[row.r8-32.26]
+interface = "interface.8.go-sdkcs-platformoperation-humannotificationpreferencesset"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 111
+symbol = "HumanNotificationPreferencesSet"
+evidence = "PlatformOperation still declares HumanNotificationPreferencesSet, at line 111 (registered line 118); enum signature unchanged. Descriptor at line 396 maps notification.preferences.set to POST /v1/notifications/preferences, NotificationPreferences -> NotificationPreferences."
+
+[row.r8-32.27]
+interface = "interface.8.go-sdkcs-platformoperation-humannotificationread"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 112
+symbol = "HumanNotificationRead"
+evidence = "PlatformOperation still declares HumanNotificationRead, at line 112 (registered line 119); enum signature unchanged. Descriptor at line 397 maps notification.read to POST /v1/notifications/{notification_id}/read, Empty -> NotificationSummary."
+
+[row.r8-32.28]
+interface = "interface.8.go-sdkcs-platformoperation-humanonboardingresume"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 113
+symbol = "HumanOnboardingResume"
+evidence = "PlatformOperation still declares HumanOnboardingResume, at line 113 (registered line 120); enum signature unchanged. Descriptor at line 398 maps onboarding.resume to POST /v1/onboarding/resume, Empty -> OnboardingJourney."
+
+[row.r8-32.29]
+interface = "interface.8.go-sdkcs-platformoperation-humanonboardingstatus"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 114
+symbol = "HumanOnboardingStatus"
+evidence = "PlatformOperation still declares HumanOnboardingStatus, at line 114 (registered line 121); enum signature unchanged. Descriptor at line 399 maps onboarding.status to GET /v1/onboarding, Empty -> OnboardingJourney."
+
+[row.r8-32.30]
+interface = "interface.8.go-sdkcs-platformoperation-humanpasskeyassertbegin"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 115
+symbol = "HumanPasskeyAssertBegin"
+evidence = "PlatformOperation still declares HumanPasskeyAssertBegin, at line 115 (registered line 122); enum signature unchanged. Descriptor at line 400 maps passkey.assert.begin to POST /v1/passkeys/assertions, PasskeyAssertionBegin -> PasskeyAssertionChallenge."
+
+[row.r8-32.31]
+interface = "interface.8.go-sdkcs-platformoperation-humanpasskeyassertfinish"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 116
+symbol = "HumanPasskeyAssertFinish"
+evidence = "PlatformOperation still declares HumanPasskeyAssertFinish, at line 116 (registered line 123); enum signature unchanged. Descriptor at line 401 maps passkey.assert.finish to POST /v1/passkeys/assertions/{assertion_id}, PasskeyAssertionFinish -> PasskeyAssertion."
+
+[row.r8-32.32]
+interface = "interface.8.go-sdkcs-platformoperation-humanpasskeyregisterbegin"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 117
+symbol = "HumanPasskeyRegisterBegin"
+evidence = "PlatformOperation still declares HumanPasskeyRegisterBegin, at line 117 (registered line 124); enum signature unchanged. Descriptor at line 402 maps passkey.register.begin to POST /v1/passkeys/registrations, PasskeyRegistrationBegin -> PasskeyRegistrationChallenge."
+
+[row.r8-32.33]
+interface = "interface.8.go-sdkcs-platformoperation-humanpasskeyregisterfinish"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 118
+symbol = "HumanPasskeyRegisterFinish"
+evidence = "PlatformOperation still declares HumanPasskeyRegisterFinish, at line 118 (registered line 125); enum signature unchanged. Descriptor at line 403 maps passkey.register.finish to POST /v1/passkeys/registrations/{registration_id}, PasskeyRegistrationFinish -> Passkey."
+
+[row.r8-32.34]
+interface = "interface.8.go-sdkcs-platformoperation-humanprofileget"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 119
+symbol = "HumanProfileGet"
+evidence = "PlatformOperation still declares HumanProfileGet, at line 119 (registered line 126); enum signature unchanged. Descriptor at line 404 maps profile.get to GET /v1/profile, Empty -> Profile."
+
+[row.r8-32.35]
+interface = "interface.8.go-sdkcs-platformoperation-humanprofileupdate"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 120
+symbol = "HumanProfileUpdate"
+evidence = "PlatformOperation still declares HumanProfileUpdate, at line 120 (registered line 127); enum signature unchanged. Descriptor at line 405 maps profile.update to PATCH /v1/profile, ProfileUpdate -> Profile."
+
+[row.r8-32.36]
+interface = "interface.8.go-sdkcs-platformoperation-humansecurityaction"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 121
+symbol = "HumanSecurityAction"
+evidence = "PlatformOperation still declares HumanSecurityAction, at line 121 (registered line 128); enum signature unchanged. Descriptor at line 406 maps security.action to POST /v1/security/actions, SecurityActionRequest -> SecurityAction."
+
+[row.r8-32.37]
+interface = "interface.8.go-sdkcs-platformoperation-humansecuritykeyexportbegin"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 122
+symbol = "HumanSecurityKeyExportBegin"
+evidence = "PlatformOperation still declares HumanSecurityKeyExportBegin, at line 122 (registered line 129); enum signature unchanged. Descriptor at line 407 maps security.key-export.begin to POST /v1/security/key-export/begin, KeyExportBegin -> KeyExportChallenge."
+
+[row.r8-32.38]
+interface = "interface.8.go-sdkcs-platformoperation-humansecuritykeyexportfinish"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 123
+symbol = "HumanSecurityKeyExportFinish"
+evidence = "PlatformOperation still declares HumanSecurityKeyExportFinish, at line 123 (registered line 130); enum signature unchanged. Descriptor at line 408 maps security.key-export.finish to POST /v1/security/key-export/finish, KeyExportFinish -> ExportedPrimaryKey."
+
+[row.r8-32.39]
+interface = "interface.8.go-sdkcs-platformoperation-humansecuritypasskeylist"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 124
+symbol = "HumanSecurityPasskeyList"
+evidence = "PlatformOperation still declares HumanSecurityPasskeyList, at line 124 (registered line 131); enum signature unchanged. Descriptor at line 409 maps security.passkey.list to GET /v1/security/passkeys, Empty -> PasskeyList."
+
+[row.r8-32.40]
+interface = "interface.8.go-sdkcs-platformoperation-humansecuritypasskeyregisterbegin"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 125
+symbol = "HumanSecurityPasskeyRegisterBegin"
+evidence = "PlatformOperation still declares HumanSecurityPasskeyRegisterBegin, at line 125 (registered line 132); enum signature unchanged. Descriptor at line 410 maps security.passkey.register.begin to POST /v1/security/passkeys/registrations, SecurityPasskeyRegistrationBegin -> PasskeyRegistrationChallenge."
+
+[row.r8-32.41]
+interface = "interface.8.go-sdkcs-platformoperation-humansecuritypasskeyregisterfinish"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 126
+symbol = "HumanSecurityPasskeyRegisterFinish"
+evidence = "PlatformOperation still declares HumanSecurityPasskeyRegisterFinish, at line 126 (registered line 133); enum signature unchanged. Descriptor at line 411 maps security.passkey.register.finish to POST /v1/security/passkeys/registrations/{registration_id}, SecurityPasskeyRegistrationFinish -> Passkey."
+
+[row.r8-32.42]
+interface = "interface.8.go-sdkcs-platformoperation-humansecuritypasskeyrevoke"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 127
+symbol = "HumanSecurityPasskeyRevoke"
+evidence = "PlatformOperation still declares HumanSecurityPasskeyRevoke, at line 127 (registered line 134); enum signature unchanged. Descriptor at line 412 maps security.passkey.revoke to POST /v1/security/passkeys/{passkey_id}/revoke, SecurityPasskeyRevocation -> PasskeyList."
+
+[row.r8-32.43]
+interface = "interface.8.go-sdkcs-platformoperation-humansecurityrecoveryreveal"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 128
+symbol = "HumanSecurityRecoveryReveal"
+evidence = "PlatformOperation still declares HumanSecurityRecoveryReveal, at line 128 (registered line 135); enum signature unchanged. Descriptor at line 413 maps security.recovery.reveal to POST /v1/security/recovery/evidence, SecurityRecoveryReveal -> TimedSecret."
+
+[row.r8-32.44]
+interface = "interface.8.go-sdkcs-platformoperation-humansecuritysessionrevoke"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 129
+symbol = "HumanSecuritySessionRevoke"
+evidence = "PlatformOperation still declares HumanSecuritySessionRevoke, at line 129 (registered line 136); enum signature unchanged. Descriptor at line 414 maps security.session.revoke to POST /v1/security/sessions/{session_id}/revoke, SecuritySessionRevocation -> SessionRevocation."
+
+[row.r8-32.45]
+interface = "interface.8.go-sdkcs-platformoperation-humansecuritysessionrevokeall"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 130
+symbol = "HumanSecuritySessionRevokeAll"
+evidence = "PlatformOperation still declares HumanSecuritySessionRevokeAll, at line 130 (registered line 137); enum signature unchanged. Descriptor at line 415 maps security.session.revoke-all to POST /v1/security/sessions/revoke-all, SecuritySessionRevocation -> SessionRevocation."
+
+[row.r8-32.46]
+interface = "interface.8.go-sdkcs-platformoperation-humansessionfeepolicy"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 131
+symbol = "HumanSessionFeePolicy"
+evidence = "PlatformOperation still declares HumanSessionFeePolicy, at line 131 (registered line 138); enum signature unchanged. Descriptor at line 416 maps session.fee-policy to GET /v1/sessions/fee-policy, Empty -> NativeFeeAsset."
+
+[row.r8-32.47]
+interface = "interface.8.go-sdkcs-platformoperation-humansessionlist"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 132
+symbol = "HumanSessionList"
+evidence = "PlatformOperation still declares HumanSessionList, at line 132 (registered line 139); enum signature unchanged. Descriptor at line 417 maps session.list to GET /v1/sessions, Empty -> SessionList."
+
+[row.r8-32.48]
+interface = "interface.8.go-sdkcs-platformoperation-humansessionopen"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 133
+symbol = "HumanSessionOpen"
+evidence = "PlatformOperation still declares HumanSessionOpen, at line 133 (registered line 140); enum signature unchanged. Descriptor at line 418 maps session.open to POST /v1/sessions, SessionOpenRequest -> Session."
+
+[row.r8-32.49]
+interface = "interface.8.go-sdkcs-platformoperation-humansessionrefresh"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 134
+symbol = "HumanSessionRefresh"
+evidence = "PlatformOperation still declares HumanSessionRefresh, at line 134 (registered line 141); enum signature unchanged. Descriptor at line 419 maps session.refresh to POST /v1/sessions/refresh, Empty -> Session."
+
+[row.r8-32.50]
+interface = "interface.8.go-sdkcs-platformoperation-humansessionrevoke"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 135
+symbol = "HumanSessionRevoke"
+evidence = "PlatformOperation still declares HumanSessionRevoke, at line 135 (registered line 142); enum signature unchanged. Descriptor at line 420 maps session.revoke to DELETE /v1/sessions/{session_id}, Empty -> SessionRevocation."
+
+[row.r8-32.51]
+interface = "interface.8.go-sdkcs-platformoperation-humansessionrevokeall"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 136
+symbol = "HumanSessionRevokeAll"
+evidence = "PlatformOperation still declares HumanSessionRevokeAll, at line 136 (registered line 143); enum signature unchanged. Descriptor at line 421 maps session.revoke-all to POST /v1/sessions/revoke-all, Empty -> SessionRevocation."
+
+[row.r8-32.52]
+interface = "interface.8.go-sdkcs-platformoperation-humanstepupbegin"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 137
+symbol = "HumanStepupBegin"
+evidence = "PlatformOperation still declares HumanStepupBegin, at line 137 (registered line 144); enum signature unchanged. Descriptor at line 422 maps stepup.begin to POST /v1/step-up, StepUpRequest -> StepUpChallenge."
+
+[row.r8-32.53]
+interface = "interface.8.go-sdkcs-platformoperation-humanstepupfinish"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 138
+symbol = "HumanStepupFinish"
+evidence = "PlatformOperation still declares HumanStepupFinish, at line 138 (registered line 145); enum signature unchanged. Descriptor at line 423 maps stepup.finish to POST /v1/step-up/{challenge_id}, StepUpFinish -> StepUpEvidence."
+
+[row.r8-32.54]
+interface = "interface.8.go-sdkcs-platformoperation-humanstreamnext"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 139
+symbol = "HumanStreamNext"
+evidence = "PlatformOperation still declares HumanStreamNext, at line 139 (registered line 146); enum signature unchanged. Descriptor at line 424 maps stream.next to GET /v1/stream/{cursor}, Empty -> StreamPage."
+
+[row.r8-32.55]
+interface = "interface.8.go-sdkcs-platformoperation-humanstreamopen"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 140
+symbol = "HumanStreamOpen"
+evidence = "PlatformOperation still declares HumanStreamOpen, at line 140 (registered line 147); enum signature unchanged. Descriptor at line 425 maps stream.open to POST /v1/stream, Empty -> StreamPosition."
+
+[row.r8-32.56]
+interface = "interface.8.go-sdkcs-platformoperation-humansupportcreate"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 141
+symbol = "HumanSupportCreate"
+evidence = "PlatformOperation still declares HumanSupportCreate, at line 141 (registered line 148); enum signature unchanged. Descriptor at line 426 maps support.create to POST /v1/support/conversations, SupportCreateRequest -> SupportConversation."
+
+[row.r8-32.57]
+interface = "interface.8.go-sdkcs-platformoperation-humansupportfeedback"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 142
+symbol = "HumanSupportFeedback"
+evidence = "PlatformOperation still declares HumanSupportFeedback, at line 142 (registered line 149); enum signature unchanged. Descriptor at line 427 maps support.feedback to POST /v1/support/conversations/{conversation_id}/feedback, SupportFeedbackRequest -> SupportConversation."
+
+[row.r8-32.58]
+interface = "interface.8.go-sdkcs-platformoperation-humansupportlist"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 143
+symbol = "HumanSupportList"
+evidence = "PlatformOperation still declares HumanSupportList, at line 143 (registered line 150); enum signature unchanged. Descriptor at line 428 maps support.list to GET /v1/support/conversations, Empty -> SupportConversationPage."
+
+[row.r8-32.59]
+interface = "interface.8.go-sdkcs-platformoperation-humansupportread"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 144
+symbol = "HumanSupportRead"
+evidence = "PlatformOperation still declares HumanSupportRead, at line 144 (registered line 151); enum signature unchanged. Descriptor at line 429 maps support.read to POST /v1/support/conversations/{conversation_id}/read, SupportReadRequest -> SupportConversationStatus."
+
+[row.r8-32.60]
+interface = "interface.8.go-sdkcs-platformoperation-humansupportreply"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 145
+symbol = "HumanSupportReply"
+evidence = "PlatformOperation still declares HumanSupportReply, at line 145 (registered line 152); enum signature unchanged. Descriptor at line 430 maps support.reply to POST /v1/support/conversations/{conversation_id}/replies, SupportReplyRequest -> SupportConversation."
