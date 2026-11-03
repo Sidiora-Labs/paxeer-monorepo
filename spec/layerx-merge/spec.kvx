@@ -117689,7 +117689,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.37]
 title = "Encode the perps open and cancel calls in the precompile ABI's shapes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -165516,7 +165516,7 @@ do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/
 
 [task.22.25.5]
 title = "Name the journey responses of the portable catalogue after the human schema and reseal the pipeline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
