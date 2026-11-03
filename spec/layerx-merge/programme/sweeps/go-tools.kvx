@@ -1,9 +1,9 @@
 [sweep.go-tools]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "aad55ff559a3c54df2a7c39827bc1793129e3e6f"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 21
-targets_passed = 19
-targets_failed = 2
+targets_passed = 20
+targets_failed = 1
 targets_not_run = 0
 enumeration_command = "CGO_ENABLED=1 go list ./tools/..."
 native_libraries_command = "make paxd-native-libs"
@@ -63,8 +63,8 @@ exit_code = 0
 target = "tools/qualification/localnode"
 result = "failed"
 exit_code = 1
-observed = "TestLocalPerpsGatewayServesMarkets at tools/qualification/localnode/perps_gateway_test.go:29 fails because NEXT_PUBLIC_PERPS_GATEWAY_URL is empty and must name the running loopback gateway."
-assumption = "This is an environmental failure: the sandbox lacks the running local perps gateway and node environment, including the RPC, Comet, address, key and node-home settings required by the other failing tests."
+observed = "runLocalNodeTests at tools/qualification/localnode/main_test.go:23 aborts the suite because PERPS_DATA_TEST_DATABASE_URL must name a disposable loopback Postgres database."
+assumption = "This is an environmental failure: PERPS_DATA_TEST_DATABASE_URL is unset, so the repaired suite cannot start its disposable node and gateway without the required PostgreSQL database."
 
 [target.go-tools.12]
 target = "tools/release/upgradeinfo"
@@ -78,10 +78,8 @@ exit_code = 0
 
 [target.go-tools.14]
 target = "tools/specgen"
-result = "failed"
-exit_code = 1
-observed = "TestRepositorySpecIsValidAndCurrent at tools/specgen/validate_test.go:82 fails with one validation error because task 9.35.17 references unknown requirement 22056.2."
-assumption = "The existing active feature specification appears to contain a stale requirement reference to 22056.2 in task 9.35.17."
+result = "passed"
+exit_code = 0
 
 [target.go-tools.15]
 target = "tools/tx-scanner/client"

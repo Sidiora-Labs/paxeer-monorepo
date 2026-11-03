@@ -521,7 +521,7 @@ fn chain_only_readiness_omits_kernel_backends() {
             .as_object()
             .expect("backend object")
             .values()
-            .all(|backend| backend["state"] == "ready"));
+            .all(|backend| *backend == json!({"state": "ready", "reason": "ready"})));
         for backend in kernel_backends {
             assert!(
                 document["backends"].get(backend).is_none(),
@@ -538,9 +538,13 @@ fn chain_only_readiness_omits_kernel_backends() {
                 .is_none(),
             "{document}"
         );
+        assert!(document["capabilities"].get("layerx_activity").is_none());
         assert_eq!(
-            document["capabilities"]["layerx_activity"]["reason"],
-            "not_configured"
+            document["capabilities"]
+                .as_object()
+                .expect("capabilities")
+                .len(),
+            1
         );
         assert_eq!(document["capabilities"]["chain_serving"]["state"], "ready");
         assert_eq!(status, 200, "{document}");
