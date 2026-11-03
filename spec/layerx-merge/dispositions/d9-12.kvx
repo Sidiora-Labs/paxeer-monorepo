@@ -1,0 +1,59 @@
+[disposition.9.35.9.1]
+finding = "9.35.9.1"
+status = "environment"
+evidence = "The twelve Unavailable failures came from running without the runtime clock supervisor, while services/human/crates/layerx-human-kms/tests/provider.rs:75 now starts the real clock server and connects Host to it at line 93."
+follow_up = "closure"
+
+[disposition.9.35.9.2]
+finding = "9.35.9.2"
+status = "resolved"
+evidence = "Commit a6f861c6809df8f8b682d8ffbbef9380bf2e7b6c added the shared budget_create_terms check to budgetCreate decoding, retained at services/agent/crates/layerx-crypto/src/disclosure/call.rs:452 with all zero-value, expiry and rollover refusals in disclosure/native.rs:283."
+follow_up = "closure"
+
+[disposition.9.35.9.3]
+finding = "9.35.9.3"
+status = "resolved"
+evidence = "Commit be701395c88ab69d793228f5868f276bc4bcf353 replaced unsigned_payload fixtures with type-2 calls bound by construct_signing_call at services/human/crates/layerx-human-kms/tests/provider.rs:825 and made native_setup.rs:356 refuse the unsupported version-2 budget fixture before its version-1 corruption matrix."
+follow_up = "closure"
+
+[disposition.9.35.11.1]
+finding = "9.35.11.1"
+status = "resolved"
+evidence = "Commit 09911f5f32b4705dd41d4cead5b9b0d5f064e1a5 added the BoundLifecycleCall payload and fee_limit accessors retained at services/human/crates/layerx-human-service/src/agents/create.rs:492 and replaced validate_outer with checks of the bound registration fields at src/onboarding/native.rs:390."
+follow_up = "closure"
+
+[disposition.9.35.9.4]
+finding = "9.35.9.4"
+status = "resolved"
+evidence = "Commit be701395c88ab69d793228f5868f276bc4bcf353 made setup_call reject non-211-byte budget payloads at services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:172 and explicitly assert version-2 refusal at line 356 before running corruption checks for version 1 only."
+follow_up = "closure"
+
+[disposition.9.35.9.5]
+finding = "9.35.9.5"
+status = "resolved"
+evidence = "Commit be701395c88ab69d793228f5868f276bc4bcf353 routed both grant restart tests through canonical_send and construct_signing_call at services/human/crates/layerx-human-kms/tests/provider.rs:1701 and :1812, while native_setup.rs:308 records unsupported native creation calls before signing the supported set."
+follow_up = "closure"
+
+[disposition.9.35.11.2]
+finding = "9.35.11.2"
+status = "resolved"
+evidence = "Commit 8307372dd1419086d7b5ab0a51f80296c3cecf74 supplied the sixth clock argument retained at services/human/crates/layerx-human-service/tests/native_journey_approval.rs:258, and commit 09911f5f32b4705dd41d4cead5b9b0d5f064e1a5 added BoundLifecycleCall::protocol_version at src/agents/create.rs:502."
+follow_up = "closure"
+
+[disposition.9.35.9.6]
+finding = "9.35.9.6"
+status = "resolved"
+evidence = "Commit be701395c88ab69d793228f5868f276bc4bcf353 separated lifecycle shape refusals from provider body-corruption findings at services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:420, recorded unsupported creation fixtures at line 308 and added stage-specific canonical_send errors at tests/provider.rs:597 and :632."
+follow_up = "closure"
+
+[disposition.9.35.9.7]
+finding = "9.35.9.7"
+status = "resolved"
+evidence = "Commit be701395c88ab69d793228f5868f276bc4bcf353 restricted both restart tests to mutated_payment_fields at services/human/crates/layerx-human-kms/tests/provider.rs:1661, retained their restart halves at lines 1717 and 1783 and separately asserted refusal of grant metadata absent from the payment call."
+follow_up = "closure"
+
+[disposition.9.35.11.3]
+finding = "9.35.11.3"
+status = "resolved"
+evidence = "Commit 09911f5f32b4705dd41d4cead5b9b0d5f064e1a5 changed services/human/crates/layerx-human-service/src/approvals/render.rs:153 to use audit_digest when reencode returns FieldMismatch(source), allowing bound calls to reach the digest comparison and budget rung check."
+follow_up = "closure"
