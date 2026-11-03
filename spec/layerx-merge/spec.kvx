@@ -136072,7 +136072,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.10.6]
 title = "Make the newHeads subscription tests pass against the test node after the state-root rule"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["7.10.3", "22.25.4"]
