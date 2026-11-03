@@ -136896,7 +136896,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.75]
 title = "Repair the inventory sweep target layerx-programs-registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -138069,7 +138069,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.97.10]
 title = "Record the wasm-instrument build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -200081,7 +200081,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.98]
 title = "Repair the kernel make target test-storage of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.97"]
