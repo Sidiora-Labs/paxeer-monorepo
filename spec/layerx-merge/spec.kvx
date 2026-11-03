@@ -135806,7 +135806,7 @@ do_4 = "Decision 2371: go mod download alone is not enough; after it go vet stil
 
 [task.22.25.3]
 title = "Add the accepted Programs call case to the sequencer receipt vectors and refresh every copy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["22.25.4", "22.25.5"]
