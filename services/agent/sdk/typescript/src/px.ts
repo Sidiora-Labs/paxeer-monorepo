@@ -175,7 +175,7 @@ export class PxClient {
   }
 
   public async getReceiptKeys(): Promise<readonly PxReceiptKeyEntry[]> {
-    return decodePxReceiptKeys((await this.call("px_getReceiptKeys", [])).keys);
+    return decodePxReceiptKeys(await this.call("px_getReceiptKeys", []));
   }
 
   /** The indexed history of one EVM address or bound DID, oldest first by position. */
@@ -227,18 +227,6 @@ export class PxClient {
     const answer: unknown = JSON.parse(
       new TextDecoder("utf-8", { fatal: true }).decode(bytes),
     );
-    if (
-      method === "px_getReceiptKeys" &&
-      answer !== null &&
-      typeof answer === "object" &&
-      !Array.isArray(answer) &&
-      "result" in answer
-    ) {
-      return decodeJsonRpcResponse(
-        { ...answer, result: { keys: answer.result } },
-        id,
-      );
-    }
     return decodeJsonRpcResponse(answer, id);
   }
 
@@ -470,9 +458,17 @@ export function decodePxNetworkHead(value: unknown): PxNetworkHead {
 export function decodePxReceiptKeys(
   value: unknown,
 ): readonly PxReceiptKeyEntry[] {
-  if (!Array.isArray(value)) throw new Error("Invalid gateway receipt keys");
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    Object.keys(value).length !== 1 ||
+    !("keys" in value) ||
+    !Array.isArray(value.keys)
+  )
+    throw new Error("Invalid gateway receipt keys");
   const seen = new Set<string>();
-  const keys = value.map((value): PxReceiptKeyEntry => {
+  const keys = value.keys.map((value): PxReceiptKeyEntry => {
     const entry = object(value);
     present(entry, ["keyId", "publicKey", "firstHeight", "lastHeight"]);
     if (Object.keys(entry).length !== 4)
@@ -496,12 +492,13 @@ export function decodePxReceiptKeys(
 }
 
 function receiptKeyBytes(value: unknown): string {
-  if (typeof value !== "string" || value.length !== 44)
+  if (
+    typeof value !== "string" ||
+    value.length !== 66 ||
+    !/^0x[0-9a-fA-F]{64}$/u.test(value)
+  )
     throw new Error("Invalid gateway receipt key bytes");
-  const bytes = Buffer.from(value, "base64");
-  if (bytes.length !== 32 || bytes.toString("base64") !== value)
-    throw new Error("Invalid gateway receipt key bytes");
-  return bytes.toString("hex");
+  return value.slice(2).toLowerCase();
 }
 
 function decodePaxeerAccount(value: unknown): PxPaxeerAccount {
