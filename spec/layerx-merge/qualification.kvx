@@ -20635,3 +20635,83 @@ symbol = "signed_submission"
 observed = "Attempt 6: the agent daemon test build fails because tests/fixtures/authority/provider-subject/consent.activity, included at human_runtime.rs:19709 and subject/tests.rs:100, is absent on main (gotcha 2956)."
 assumption = "Requires 22.99.159; the attempt-6 tree is continued after it."
 severity = "medium"
+
+[finding.22.99.145.2]
+task = "22.99.145"
+file = "precompiles/layerxprograms/fuzz_test.go"
+symbol = "FuzzProgramsDecodeArgs"
+observed = "Attempt 2: build passes and every test but the fuzz corpus entries 128 and 129 passes; those two call getRetirementControl without a record and the attempt's new per-method expectation demands LXP_NOT_FOUND while the handler forwards the kernel code LXP_UNKNOWN_FIELD that the host read returns for an absent progretire/v1 field (modules/lxphost/read.go:268 through read_program.go:399)."
+assumption = "The kernel code is the contract: the precompile forwards it unchanged and the expectation follows it; the attempt-2 tree is continued."
+severity = "low"
+
+[finding.13.99.1.4]
+task = "13.99.1"
+file = "programs/Cargo.lock"
+symbol = "layerx-programs-ai-market"
+observed = "Commit 051e6c3e0 removed the wasm32 spin dependency of the AI market crate but programs/Cargo.lock, services/agent/Cargo.lock, services/human/Cargo.lock and services/platform/Cargo.lock still list it under the crate, so every --locked build in those workspaces and make paxd-native-libs fail on main (first seen 20:48Z on 22.99.155 a3, 22.99.58 a4, 22.99.72 a8, 22.99.159 a1)."
+assumption = "Repaired by 22.99.160 (decision 2513, gotcha 2957); the task's own verify passed on a tree whose refreshed lock did not reach the commit."
+severity = "high"
+
+[finding.22.99.155.2]
+task = "22.99.155"
+file = "programs/Cargo.lock"
+symbol = "layerx-indexer"
+observed = "Attempt 3: the build stopped in make paxd-native-libs on the stale programs lock (gotcha 2957) before any indexer test ran; the only change is the repair record."
+assumption = "Requalify once 22.99.160 is on main."
+severity = "low"
+
+[finding.22.99.58.2]
+task = "22.99.58"
+file = "services/human/Cargo.lock"
+symbol = "layerx-human-identity-provider"
+observed = "Attempt 4: the locked build stopped on the stale services/human lock (gotcha 2957) before compiling; the attempt-4 tree carries the attestor assertion and state-lock changes of the attempt-3 ruling."
+assumption = "Continue once 22.99.160 is on main."
+severity = "low"
+
+[finding.22.99.72.5]
+task = "22.99.72"
+file = "services/platform/Cargo.lock"
+symbol = "layerx-platform-gateway"
+observed = "Attempt 8: the locked build stopped on the stale services/platform lock (gotcha 2957) before compiling the gateway."
+assumption = "Continue once 22.99.160 is on main."
+severity = "low"
+
+[finding.22.99.159.1]
+task = "22.99.159"
+file = "services/agent/Cargo.lock"
+symbol = "layerx-agentd"
+observed = "Attempt 1: the locked build stopped on the stale services/agent lock (gotcha 2957) before the consent fixture work started."
+assumption = "Relaunch once 22.99.160 is on main."
+severity = "low"
+
+[finding.22.99.77.2]
+task = "22.99.77"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "layerx-agentd"
+observed = "Attempt 3: the native harness builds and the crate tests build; the dependent-crate check fails compiling layerx-agentd tests because tests/fixtures/authority/provider-subject/consent.activity is absent on main (gotcha 2956)."
+assumption = "Requires 22.99.159 and 22.99.160; continue the attempt-3 tree."
+severity = "low"
+
+[finding.18.1562.1.1]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go"
+symbol = "TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 6: go build and the TypeScript build pass; the verify links rpc.test without the native libraries (the programs environment library is missing from the link), so go test ./rpc/ fails before TestAiMarketTransferAuthorityReceipt runs."
+assumption = "The build now runs make paxd-native-libs first (which requires 22.99.160); continue the attempt-6 tree."
+severity = "low"
+
+[finding.22.23.11.3]
+task = "22.23.11"
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+symbol = "lookup_authenticated"
+observed = "Attempt 4: only lookup_authenticated_checks_the_payment_asset_when_fees_use_a_token fails, with FieldMismatch(feeDenom): src/rpc/receipt.rs:289 compares the protocol asset of the canonical receipt with sha256(feeDenom) while the receipt view and src/sequencer.rs (executed, paymentDenom) make the payment asset sha256(paymentDenom); the file was outside the task's paths."
+assumption = "src/rpc/receipt.rs joins the paths; the asset check follows paymentDenom; continue the attempt-4 tree."
+severity = "medium"
+
+[finding.22.99.150.3]
+task = "22.99.150"
+file = "tests/bridge/retired/test_retired_bridge_emergency_exit.py"
+symbol = "test_emergency_exit_is_retired"
+observed = "Attempt 3: the verify passed (498 tests collected, record written) at the commit the qualification run recorded, but the final tree differs from that commit (an edit landed after the qualification run), so the attempt was not published."
+assumption = "Requalify the attempt-3 tree as it stands."
+severity = "low"
