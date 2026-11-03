@@ -191189,7 +191189,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.60]
 title = "Inventory every Go package under precompiles/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
