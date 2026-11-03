@@ -1,0 +1,483 @@
+[reconcile.r8-30]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r8-30.1]
+interface = "interface.8.fmt-sdk-fixture-account-derivation-v1"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/account-derivation-v1.json"
+line = 2
+symbol = "layerx.account-derivation.v1"
+evidence = "The declaring schema remains \"layerx.account-derivation.v1\"; vector records now add evm_address and resolution objects with getEvmAddrByLayerX ABI answers at 0x1004. Historical derivation and signed bind bytes remain; resolution_provenance disclaims live-chain execution."
+
+[row.r8-30.2]
+interface = "interface.8.cli-sdk-fixturegen-generate-native-lifecycle-fixtures-py"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py"
+line = 159
+symbol = "main"
+evidence = "def main() implements the CLI. Signature is now python3 sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py [--encoder PATH] [--check] [--evm-only | --wind-down-only]; --encoder is required in the default mode. Added modes wrap retained deploy/upgrade or wind-down payloads in chain-125 EVM calldata to 0x101D; the default also validates historical v3 and emits v4 vectors."
+
+[row.r8-30.3]
+interface = "interface.8.cli-sdk-fixturegen-generate-native-program-fixture-py"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/generate_native_program_fixture.py"
+line = 54
+symbol = "main"
+evidence = "def main() replaces the module-level no-argument writer. Signature is now python3 sdk/platform/conformance/fixtures/generate_native_program_fixture.py [--check]; it adds or checks evm wrappers in both native-program-call-v3.json and -v4.json using chainId 125, target 0x101d and call selector 0x54bd2b48."
+
+[row.r8-30.4]
+interface = "interface.8.fmt-sdk-fixture-intent-plan-v1"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/intent-plan-v1.json"
+line = 2
+symbol = "intent-plan-v1"
+evidence = "The declaring name remains \"intent-plan-v1\" with contract_major 1. The vector now carries source/destination EVM addresses and 0x1004 resolution answers plus per-leg layerxledger.payExact EVM calls; provenance identifies expected wire shapes rather than an execution claim."
+
+[row.r8-30.5]
+interface = "interface.8.fmt-sdk-fixture-native-program-call-v3"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/native-program-call-v3.json"
+line = 2
+symbol = "native-program-call-v3"
+evidence = "The declaring name remains \"native-program-call-v3\" and the retained native payload has protocol_version 3, module 9, ordinal 3. The format now adds evm.to = 0x000000000000000000000000000000000000101d, evm.chainId = 125 and ABI calldata with selector 0x54bd2b48; native payload and signed activity fields remain for historical conformance."
+
+[row.r8-30.6]
+interface = "interface.8.fmt-sdk-fixture-native-program-call-v4"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/native-program-call-v4.json"
+line = 2
+symbol = "native-program-call-v4"
+evidence = "The declaring name remains \"native-program-call-v4\" and the retained native payload has protocol_version 3, module 9, ordinal 3. The format now adds evm.to = 0x000000000000000000000000000000000000101d, evm.chainId = 125 and ABI calldata with selector 0x54bd2b48; native payload and signed activity fields remain for historical conformance."
+
+[row.r8-30.7]
+interface = "interface.8.fmt-sdk-fixture-native-program-deploy-v3"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/native-program-deploy-v3.json"
+line = 2
+symbol = "native-program-deploy-v3"
+evidence = "The declaring name remains \"native-program-deploy-v3\" and the retained native payload has protocol_version 3, module 9, ordinal 1. The format now adds evm.to = 0x101D, evm.chainId = 125 and ABI calldata with selector 0xbde3ff66; native payload and signed activity fields remain for historical conformance."
+
+[row.r8-30.8]
+interface = "interface.8.fmt-sdk-fixture-native-program-deploy-v4"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/native-program-deploy-v4.json"
+line = 2
+symbol = "native-program-deploy-v4"
+evidence = "The declaring name remains \"native-program-deploy-v4\" and the retained native payload has protocol_version 3, module 9, ordinal 1. The format now adds evm.to = 0x101D, evm.chainId = 125 and ABI calldata with selector 0xbde3ff66; native payload and signed activity fields remain for historical conformance."
+
+[row.r8-30.9]
+interface = "interface.8.fmt-sdk-fixture-native-program-upgrade-v3"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/native-program-upgrade-v3.json"
+line = 2
+symbol = "native-program-upgrade-v3"
+evidence = "The declaring name remains \"native-program-upgrade-v3\" and the retained native payload has protocol_version 3, module 9, ordinal 2. The format now adds evm.to = 0x101D, evm.chainId = 125 and ABI calldata with selector 0xa860929f; native payload and signed activity fields remain for historical conformance."
+
+[row.r8-30.10]
+interface = "interface.8.fmt-sdk-fixture-native-program-upgrade-v4"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/native-program-upgrade-v4.json"
+line = 2
+symbol = "native-program-upgrade-v4"
+evidence = "The declaring name remains \"native-program-upgrade-v4\" and the retained native payload has protocol_version 3, module 9, ordinal 2. The format now adds evm.to = 0x101D, evm.chainId = 125 and ABI calldata with selector 0xa860929f; native payload and signed activity fields remain for historical conformance."
+
+[row.r8-30.11]
+interface = "interface.8.fmt-sdk-fixture-native-program-wind-down-deprecate-v3"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/native-program-wind-down-deprecate-v3.json"
+line = 2
+symbol = "native-program-wind-down-deprecate-v3"
+evidence = "The declaring name remains \"native-program-wind-down-deprecate-v3\" and the retained native payload has protocol_version 3, module 9, ordinal 7. The format now adds evm.to = 0x101D, evm.chainId = 125 and ABI calldata with selector 0x86ba1a99; native payload and signed activity fields remain for historical conformance."
+
+[row.r8-30.12]
+interface = "interface.8.fmt-sdk-fixture-native-program-wind-down-deprecate-v4"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/native-program-wind-down-deprecate-v4.json"
+line = 2
+symbol = "native-program-wind-down-deprecate-v4"
+evidence = "The declaring name remains \"native-program-wind-down-deprecate-v4\" and the retained native payload has protocol_version 3, module 9, ordinal 7. The format now adds evm.to = 0x101D, evm.chainId = 125 and ABI calldata with selector 0x86ba1a99; native payload and signed activity fields remain for historical conformance."
+
+[row.r8-30.13]
+interface = "interface.8.fmt-sdk-fixture-native-program-wind-down-exit-v3"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/native-program-wind-down-exit-v3.json"
+line = 2
+symbol = "native-program-wind-down-exit-v3"
+evidence = "The declaring name remains \"native-program-wind-down-exit-v3\" and the retained native payload has protocol_version 3, module 9, ordinal 7. The format now adds evm.to = 0x101D, evm.chainId = 125 and ABI calldata with selector 0x4dc50730; native payload and signed activity fields remain for historical conformance."
+
+[row.r8-30.14]
+interface = "interface.8.fmt-sdk-fixture-native-program-wind-down-exit-v4"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/native-program-wind-down-exit-v4.json"
+line = 2
+symbol = "native-program-wind-down-exit-v4"
+evidence = "The declaring name remains \"native-program-wind-down-exit-v4\" and the retained native payload has protocol_version 3, module 9, ordinal 7. The format now adds evm.to = 0x101D, evm.chainId = 125 and ABI calldata with selector 0x4dc50730; native payload and signed activity fields remain for historical conformance."
+
+[row.r8-30.15]
+interface = "interface.8.fmt-sdk-fixture-native-program-wind-down-route-v3"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/native-program-wind-down-route-v3.json"
+line = 2
+symbol = "native-program-wind-down-route-v3"
+evidence = "The declaring name remains \"native-program-wind-down-route-v3\" and the retained native payload has protocol_version 3, module 9, ordinal 7. The format now adds evm.to = 0x101D, evm.chainId = 125 and ABI calldata with selector 0x23330dd5; native payload and signed activity fields remain for historical conformance."
+
+[row.r8-30.16]
+interface = "interface.8.fmt-sdk-fixture-native-program-wind-down-route-v4"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/native-program-wind-down-route-v4.json"
+line = 2
+symbol = "native-program-wind-down-route-v4"
+evidence = "The declaring name remains \"native-program-wind-down-route-v4\" and the retained native payload has protocol_version 3, module 9, ordinal 7. The format now adds evm.to = 0x101D, evm.chainId = 125 and ABI calldata with selector 0x23330dd5; native payload and signed activity fields remain for historical conformance."
+
+[row.r8-30.17]
+interface = "interface.8.fmt-sdk-fixture-native-program-wind-down-tombstone-v3"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/native-program-wind-down-tombstone-v3.json"
+line = 2
+symbol = "native-program-wind-down-tombstone-v3"
+evidence = "The declaring name remains \"native-program-wind-down-tombstone-v3\" and the retained native payload has protocol_version 3, module 9, ordinal 7. The format now adds evm.to = 0x101D, evm.chainId = 125 and ABI calldata with selector 0xa512f1a9; native payload and signed activity fields remain for historical conformance."
+
+[row.r8-30.18]
+interface = "interface.8.fmt-sdk-fixture-native-program-wind-down-tombstone-v4"
+verdict = "served"
+path = "sdk/platform/conformance/fixtures/native-program-wind-down-tombstone-v4.json"
+line = 2
+symbol = "native-program-wind-down-tombstone-v4"
+evidence = "The declaring name remains \"native-program-wind-down-tombstone-v4\" and the retained native payload has protocol_version 3, module 9, ordinal 7. The format now adds evm.to = 0x101D, evm.chainId = 125 and ABI calldata with selector 0xa512f1a9; native payload and signed activity fields remain for historical conformance."
+
+[row.r8-30.19]
+interface = "interface.8.cfg-sdk-jvm-kvx-verification-receipt"
+verdict = "served"
+path = "sdk/platform/conformance/jvm.kvx"
+line = 20
+symbol = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceipt"
+evidence = "The declaring receipt config value remains \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceipt\". No config signature change landed: LocalVerifier.java has no verifyReceipt method and instead declares verifySequencerReceipt(byte[] receiptBytes, byte[] rawTransaction, ReceiptKeys keys), plus a view overload. The key is present but its configured method target is stale."
+
+[row.r8-30.20]
+interface = "interface.8.cfg-sdk-jvm-kvx-verification-receipt-outcome"
+verdict = "served"
+path = "sdk/platform/conformance/jvm.kvx"
+line = 21
+symbol = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceiptOutcome"
+evidence = "The declaring receipt_outcome config value remains \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceiptOutcome\". No config signature change landed: LocalVerifier.java no longer declares verifyReceiptOutcome; sequencer verification returns SequencerReceiptVerification, whose requireSuccess() checks status. The key is present but its configured method target is stale."
+
+[row.r8-30.21]
+interface = "interface.8.cfg-sdk-jvm-kvx-verification-merkle"
+verdict = "served"
+path = "sdk/platform/conformance/jvm.kvx"
+line = 22
+symbol = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyMerkleInclusion"
+evidence = "The declaring merkle config value remains \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyMerkleInclusion\"; the key moved from registered line 25 to line 22. Its target still declares verifyMerkleInclusion(byte[] canonicalLeaf, MerkleProof proof, byte[] expectedRoot) in LocalVerifier.java, so this configured signature is unchanged."
+
+[row.r8-30.22]
+interface = "interface.8.fmt-sdk-operations-json"
+verdict = "served"
+path = "sdk/platform/conformance/operations.json"
+line = 3
+symbol = "operations"
+evidence = "The declaring JSON key \"operations\" now holds an object of O-number buckets rather than the registered flat array; schema remains 1. There are 26 buckets containing 137 entries (53 agent, 84 human), with added transport/to/selector metadata for EVM operations; intent entries retain HTTP transport. The registered 54-agent/95-human count is stale."
+
+[row.r8-30.23]
+interface = "interface.8.fmt-sdk-op-agent-program-activity"
+verdict = "served"
+path = "sdk/platform/conformance/operations.json"
+line = 538
+symbol = "program.activity"
+evidence = "The declaring name \"program.activity\" is served in O32. Signature changed from GET /v1/programs/activities/{activity_id} to agent program.activity eth_getTransactionByHash path=\"\" request=ProgramActivitySelector response=ProgramSubmission idempotency=false bodyless=false, transport=evm; the REST path is empty and request/response types remain."
+
+[row.r8-30.24]
+interface = "interface.8.fmt-sdk-op-agent-program-call"
+verdict = "served"
+path = "sdk/platform/conformance/operations.json"
+line = 469
+symbol = "program.call"
+evidence = "The declaring name \"program.call\" is served in O30. Signature changed from POST /v1/programs/call to agent program.call eth_sendRawTransaction path=\"\" request=ProgramCallRequest response=ProgramSubmission idempotency=true bodyless=false, transport=evm, to=0x000000000000000000000000000000000000101d, selector=call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128); the REST path is empty and request/response types remain."
+
+[row.r8-30.25]
+interface = "interface.8.fmt-sdk-op-agent-program-deploy"
+verdict = "served"
+path = "sdk/platform/conformance/operations.json"
+line = 497
+symbol = "program.deploy"
+evidence = "The declaring name \"program.deploy\" is served in O31. Signature changed from POST /v1/programs/deploy to agent program.deploy eth_sendRawTransaction path=\"\" request=NativeProgramDeployRequest response=ProgramLifecycleResponse idempotency=true bodyless=false, transport=evm, to=0x000000000000000000000000000000000000101d, selector=deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes); the REST path is empty and request/response types remain."
+
+[row.r8-30.26]
+interface = "interface.8.fmt-sdk-op-agent-program-discover"
+verdict = "served"
+path = "sdk/platform/conformance/operations.json"
+line = 549
+symbol = "program.discover"
+evidence = "The declaring name \"program.discover\" is served in O32. Signature changed from GET /v1/programs/registry/{program_id} to agent program.discover eth_call path=\"\" request=ProgramSelector response=VerifiedProgramDiscovery idempotency=false bodyless=false, transport=evm, to=0x000000000000000000000000000000000000101d, selector=getProgram(bytes32); the REST path is empty and request/response types remain."
+
+[row.r8-30.27]
+interface = "interface.8.fmt-sdk-op-agent-program-interface"
+verdict = "served"
+path = "sdk/platform/conformance/operations.json"
+line = 562
+symbol = "program.interface"
+evidence = "The declaring name \"program.interface\" is served in O32. Signature changed from GET /v1/programs/registry/{program_id}/interface to agent program.interface eth_call path=\"\" request=ProgramSelector response=VerifiedProgramInterface idempotency=false bodyless=false, transport=evm, to=0x000000000000000000000000000000000000101d, selector=getInterface(bytes32); the REST path is empty and request/response types remain."
+
+[row.r8-30.28]
+interface = "interface.8.fmt-sdk-op-agent-program-receipt"
+verdict = "served"
+path = "sdk/platform/conformance/operations.json"
+line = 575
+symbol = "program.receipt"
+evidence = "The declaring name \"program.receipt\" is served in O32. Signature changed from GET /v1/programs/receipts/by-idempotency/{idempotency_key} to agent program.receipt eth_getTransactionByHash path=\"\" request=ProgramReceiptSelector response=ProgramReceiptResponse idempotency=false bodyless=false, transport=evm; the REST path is empty and request/response types remain."
+
+[row.r8-30.29]
+interface = "interface.8.fmt-sdk-op-agent-program-simulate"
+verdict = "served"
+path = "sdk/platform/conformance/operations.json"
+line = 482
+symbol = "program.simulate"
+evidence = "The declaring name \"program.simulate\" is served in O30. Signature changed from POST /v1/programs/simulate to agent program.simulate eth_call path=\"\" request=ProgramCallRequest response=ProgramSimulation idempotency=false bodyless=false, transport=evm, to=0x000000000000000000000000000000000000101d, selector=simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128); the REST path is empty and request/response types remain."
+
+[row.r8-30.30]
+interface = "interface.8.fmt-sdk-op-agent-program-upgrade"
+verdict = "served"
+path = "sdk/platform/conformance/operations.json"
+line = 510
+symbol = "program.upgrade"
+evidence = "The declaring name \"program.upgrade\" is served in O31. Signature changed from POST /v1/programs/upgrade to agent program.upgrade eth_sendRawTransaction path=\"\" request=NativeProgramUpgradeRequest response=ProgramLifecycleResponse idempotency=true bodyless=false, transport=evm, to=0x000000000000000000000000000000000000101d, selector=upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128); the REST path is empty and request/response types remain."
+
+[row.r8-30.31]
+interface = "interface.8.fmt-sdk-op-agent-program-wind-down"
+verdict = "served"
+path = "sdk/platform/conformance/operations.json"
+line = 523
+symbol = "program.wind-down"
+evidence = "The declaring name \"program.wind-down\" is served in O31. Signature changed from POST /v1/programs/wind-down to agent program.wind-down eth_sendRawTransaction path=\"\" request=NativeProgramWindDownRequest response=ProgramLifecycleResponse idempotency=true bodyless=false, transport=evm, to=0x000000000000000000000000000000000000101d, selector=deprecate(bytes32,bytes32,uint64); the REST path is empty and request/response types remain."
+
+[row.r8-30.32]
+interface = "interface.8.fmt-sdk-op-human-intent-plan"
+verdict = "served"
+path = "sdk/platform/conformance/operations.json"
+line = 1430
+symbol = "intent.plan"
+evidence = "The declaring name \"intent.plan\" moved into O57. Current signature is human intent.plan POST path=\"/v1/intents/plan\" request=PlanIntentRequest response=IntentPlan idempotency=false bodyless=false, transport=http. The registered HTTP method, path and request/response types remain unchanged; this catalog row does not declare per-leg EVM calldata."
+
+[row.r8-30.33]
+interface = "interface.8.fmt-sdk-op-human-intent-submit"
+verdict = "served"
+path = "sdk/platform/conformance/operations.json"
+line = 1441
+symbol = "intent.submit"
+evidence = "The declaring name \"intent.submit\" moved into O57. Current signature is human intent.submit POST path=\"/v1/intents/submit\" request=SubmitPlanRequest response=IntentSubmission idempotency=true bodyless=false, transport=http. The registered HTTP method, path and request/response types remain unchanged; this catalog row does not declare per-leg EVM calldata."
+
+[row.r8-30.34]
+interface = "interface.8.go-sdkcs-mirrorerrorcode-authorization"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/MirrorSchema.cs"
+line = 13
+symbol = "Authorization"
+evidence = "The MirrorErrorCode enum still declares Authorization in the registered MirrorSchema.cs; the shared csharp signature line lists multiple members, and this exact identifier remains unchanged."
+
+[row.r8-30.35]
+interface = "interface.8.go-sdkcs-mirrorerrorcode-bounds"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/MirrorSchema.cs"
+line = 13
+symbol = "Bounds"
+evidence = "The MirrorErrorCode enum still declares Bounds in the registered MirrorSchema.cs; the shared csharp signature line lists multiple members, and this exact identifier remains unchanged."
+
+[row.r8-30.36]
+interface = "interface.8.go-sdkcs-mirrorerrorcode-commitment"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/MirrorSchema.cs"
+line = 13
+symbol = "Commitment"
+evidence = "The MirrorErrorCode enum still declares Commitment in the registered MirrorSchema.cs; the shared csharp signature line lists multiple members, and this exact identifier remains unchanged."
+
+[row.r8-30.37]
+interface = "interface.8.go-sdkcs-mirrorerrorcode-malformed"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/MirrorSchema.cs"
+line = 13
+symbol = "Malformed"
+evidence = "The MirrorErrorCode enum still declares Malformed in the registered MirrorSchema.cs; the shared csharp signature line lists multiple members, and this exact identifier remains unchanged."
+
+[row.r8-30.38]
+interface = "interface.8.go-sdkcs-mirrorerrorcode-sourcemismatch"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/MirrorSchema.cs"
+line = 13
+symbol = "SourceMismatch"
+evidence = "The MirrorErrorCode enum still declares SourceMismatch in the registered MirrorSchema.cs; the shared csharp signature line lists multiple members, and this exact identifier remains unchanged."
+
+[row.r8-30.39]
+interface = "interface.8.go-sdkcs-mirrorerrorcode-targetmismatch"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/MirrorSchema.cs"
+line = 13
+symbol = "TargetMismatch"
+evidence = "The MirrorErrorCode enum still declares TargetMismatch in the registered MirrorSchema.cs; the shared csharp signature line lists multiple members, and this exact identifier remains unchanged."
+
+[row.r8-30.40]
+interface = "interface.8.go-sdkcs-mirrorerrorcode-checkpointunavailable"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/MirrorSchema.cs"
+line = 14
+symbol = "CheckpointUnavailable"
+evidence = "The MirrorErrorCode enum still declares CheckpointUnavailable in the registered MirrorSchema.cs; the shared csharp signature line lists multiple members, and this exact identifier remains unchanged."
+
+[row.r8-30.41]
+interface = "interface.8.go-sdkcs-mirrorerrorcode-divergent"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/MirrorSchema.cs"
+line = 14
+symbol = "Divergent"
+evidence = "The MirrorErrorCode enum still declares Divergent in the registered MirrorSchema.cs; the shared csharp signature line lists multiple members, and this exact identifier remains unchanged."
+
+[row.r8-30.42]
+interface = "interface.8.go-sdkcs-mirrorerrorcode-insufficientagreement"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/MirrorSchema.cs"
+line = 14
+symbol = "InsufficientAgreement"
+evidence = "The MirrorErrorCode enum still declares InsufficientAgreement in the registered MirrorSchema.cs; the shared csharp signature line lists multiple members, and this exact identifier remains unchanged."
+
+[row.r8-30.43]
+interface = "interface.8.go-sdkcs-mirrorerrorcode-proof"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/MirrorSchema.cs"
+line = 14
+symbol = "Proof"
+evidence = "The MirrorErrorCode enum still declares Proof in the registered MirrorSchema.cs; the shared csharp signature line lists multiple members, and this exact identifier remains unchanged."
+
+[row.r8-30.44]
+interface = "interface.8.go-sdkcs-mirrorerrorcode-reorged"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/MirrorSchema.cs"
+line = 14
+symbol = "Reorged"
+evidence = "The MirrorErrorCode enum still declares Reorged in the registered MirrorSchema.cs; the shared csharp signature line lists multiple members, and this exact identifier remains unchanged."
+
+[row.r8-30.45]
+interface = "interface.8.go-sdkcs-platformoperation-agentagentregister"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 11
+symbol = "AgentAgentRegister"
+evidence = "The PlatformOperation enum still declares AgentAgentRegister, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 8 to its current declaration line."
+
+[row.r8-30.46]
+interface = "interface.8.go-sdkcs-platformoperation-agentapprovalapprove"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 12
+symbol = "AgentApprovalApprove"
+evidence = "The PlatformOperation enum still declares AgentApprovalApprove, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 9 to its current declaration line."
+
+[row.r8-30.47]
+interface = "interface.8.go-sdkcs-platformoperation-agentapprovalget"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 13
+symbol = "AgentApprovalGet"
+evidence = "The PlatformOperation enum still declares AgentApprovalGet, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 10 to its current declaration line."
+
+[row.r8-30.48]
+interface = "interface.8.go-sdkcs-platformoperation-agentapprovallist"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 14
+symbol = "AgentApprovalList"
+evidence = "The PlatformOperation enum still declares AgentApprovalList, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 11 to its current declaration line."
+
+[row.r8-30.49]
+interface = "interface.8.go-sdkcs-platformoperation-agentapprovalreject"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 15
+symbol = "AgentApprovalReject"
+evidence = "The PlatformOperation enum still declares AgentApprovalReject, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 12 to its current declaration line."
+
+[row.r8-30.50]
+interface = "interface.8.go-sdkcs-platformoperation-agentavailabilityfetch"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 16
+symbol = "AgentAvailabilityFetch"
+evidence = "The PlatformOperation enum still declares AgentAvailabilityFetch, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 13 to its current declaration line."
+
+[row.r8-30.51]
+interface = "interface.8.go-sdkcs-platformoperation-agentbudgetcreate"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 17
+symbol = "AgentBudgetCreate"
+evidence = "The PlatformOperation enum still declares AgentBudgetCreate, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 14 to its current declaration line."
+
+[row.r8-30.52]
+interface = "interface.8.go-sdkcs-platformoperation-agentbudgetfund"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 18
+symbol = "AgentBudgetFund"
+evidence = "The PlatformOperation enum still declares AgentBudgetFund, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 15 to its current declaration line."
+
+[row.r8-30.53]
+interface = "interface.8.go-sdkcs-platformoperation-agentbudgetlist"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 19
+symbol = "AgentBudgetList"
+evidence = "The PlatformOperation enum still declares AgentBudgetList, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 16 to its current declaration line."
+
+[row.r8-30.54]
+interface = "interface.8.go-sdkcs-platformoperation-agentbudgetreconciliation"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 20
+symbol = "AgentBudgetReconciliation"
+evidence = "The PlatformOperation enum still declares AgentBudgetReconciliation, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 17 to its current declaration line."
+
+[row.r8-30.55]
+interface = "interface.8.go-sdkcs-platformoperation-agentbudgetrevoke"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 21
+symbol = "AgentBudgetRevoke"
+evidence = "The PlatformOperation enum still declares AgentBudgetRevoke, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 18 to its current declaration line."
+
+[row.r8-30.56]
+interface = "interface.8.go-sdkcs-platformoperation-agentbudgetstate"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 22
+symbol = "AgentBudgetState"
+evidence = "The PlatformOperation enum still declares AgentBudgetState, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 19 to its current declaration line."
+
+[row.r8-30.57]
+interface = "interface.8.go-sdkcs-platformoperation-agentcapabilityattenuate"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 23
+symbol = "AgentCapabilityAttenuate"
+evidence = "The PlatformOperation enum still declares AgentCapabilityAttenuate, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 20 to its current declaration line."
+
+[row.r8-30.58]
+interface = "interface.8.go-sdkcs-platformoperation-agentcapabilitycreate"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 24
+symbol = "AgentCapabilityCreate"
+evidence = "The PlatformOperation enum still declares AgentCapabilityCreate, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 21 to its current declaration line."
+
+[row.r8-30.59]
+interface = "interface.8.go-sdkcs-platformoperation-agentcapabilitylist"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 25
+symbol = "AgentCapabilityList"
+evidence = "The PlatformOperation enum still declares AgentCapabilityList, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 22 to its current declaration line."
+
+[row.r8-30.60]
+interface = "interface.8.go-sdkcs-platformoperation-agentcapabilityrevoke"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 26
+symbol = "AgentCapabilityRevoke"
+evidence = "The PlatformOperation enum still declares AgentCapabilityRevoke, unchanged from the registry signature. The preceding OperationTransport record moved the enum member from registered line 23 to its current declaration line."
