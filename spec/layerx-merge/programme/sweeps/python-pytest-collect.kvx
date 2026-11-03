@@ -47,6 +47,7 @@ assumption = "The collection environment lacks the jsonschema Python dependency.
 
 [target.python-pytest-collect.8]
 target = "deploy/launchpad/production/observability/phase2/tests"
+revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 result = "failed"
 exit_code = 2
 observed = "deploy/launchpad/production/observability/phase2/tests/test_phase4.py:13 imports phase4, whose phase4.py:28 raises ModuleNotFoundError for jsonschema during collection."

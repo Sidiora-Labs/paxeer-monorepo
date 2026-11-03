@@ -411,19 +411,19 @@ func (a *SubscriptionAPI) notifyReceiptedLogs(ctx context.Context, notifier *rpc
 				}
 				return
 			}
-			logs, err := a.scopeLogs(ctx, []*FilterLog{&notice.log})
-			if err != nil {
-				wpMetrics.RecordSubscriptionError()
-				logger.Warn("Skipping receipted log after scope failure", "subscription", sub.ID, "height", notice.log.BlockNumber, "transaction", notice.log.TxHash, "err", err)
-				continue
-			}
-			if len(logs) == 0 {
-				continue
-			}
 			if notice.lagged > 0 {
 				if err := notifier.Notify(sub.ID, pendingTxLag1315{Lagged: hexutil.Uint64(notice.lagged)}); err != nil {
 					return
 				}
+			}
+			logs, err := a.scopeLogs(ctx, []*FilterLog{&notice.log})
+			if err != nil {
+				wpMetrics.RecordSubscriptionError()
+				logger.Warn("Ending receipted log subscription after scope failure", "subscription", sub.ID, "height", notice.log.BlockNumber, "transaction", notice.log.TxHash, "err", err)
+				return
+			}
+			if len(logs) == 0 {
+				continue
 			}
 			if err := notifier.Notify(sub.ID, notice.log); err != nil {
 				return
