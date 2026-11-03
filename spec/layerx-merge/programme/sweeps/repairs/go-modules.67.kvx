@@ -1,0 +1,6 @@
+[repair.go-modules.67]
+target = "modules/layerxexchange/types"
+command = "CGO_ENABLED=1 go vet ./modules/layerxexchange/types/ && CGO_ENABLED=1 go test -count=1 ./modules/layerxexchange/types/"
+revision = "c56bf8dab2a36860f56543433ebe85802b492d14"
+result = "repaired"
+change = "modules/layerxexchange/keeper/intents.go preserves retirement ABCI identity, intents.go and modules/layerxexchange/keeper/proofs.go omit source locations from proof refusals under decision 2336, and modules/layerxexchange/types/proof_layerxexchange_retirement_test.go also asserts the transported retirement message."

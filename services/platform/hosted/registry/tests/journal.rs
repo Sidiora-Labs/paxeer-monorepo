@@ -799,7 +799,27 @@ fn assert_incomplete_envelope(
         .proofs()
         .is_err_and(|error| error.contains("ends before its seal")));
 
+    assert_eq!(
+        open(root).append(&evidence.replacement),
+        Err(format!(
+            "could not commit {}: deployment publication conflicts with committed bytes",
+            second_path.display()
+        ))
+    );
+    assert_eq!(read(second_path), whole[..whole.len() - 32]);
+    let staged = unit_path(root, second, "envelope.tmp");
+    assert_eq!(read(&staged), whole);
+    open(root)
+        .discard(second)
+        .unwrap_or_else(|error| panic!("discard quarantined unit: {error}"));
+    assert!(!second_path.exists());
+    assert!(!staged.exists());
+    assert_eq!(digests(&load(&open(root))), BTreeSet::from([first]));
+
     assert_eq!(append(&open(root), &evidence.replacement), second);
+    assert_eq!(append(&open(root), &evidence.replacement), second);
+    assert_eq!(read(second_path), whole);
+    assert!(!staged.exists());
     assert_eq!(digests(&load(&open(root))), BTreeSet::from([first, second]));
 }
 

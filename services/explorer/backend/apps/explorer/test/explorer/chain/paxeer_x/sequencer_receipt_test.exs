@@ -14,6 +14,7 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceiptTest do
     {:ok,
      kernel: Map.new(vectors["receipts"], &{&1["name"], &1}),
      cases: Map.new(vectors["sequencer"]["cases"], &{&1["id"], &1}),
+     accepted_count: Enum.count(vectors["sequencer"]["cases"], &(&1["vector"] in ["V1", "V2"])),
      commits: commits}
   end
 
@@ -136,10 +137,13 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceiptTest do
   end
 
   describe "node-signed sequencer receipts" do
-    test "every V1 and V2 receipt decodes, re-encodes byte-exact and verifies receipted", %{cases: cases} do
+    test "every V1 and V2 receipt decodes, re-encodes byte-exact and verifies receipted", %{
+      cases: cases,
+      accepted_count: accepted_count
+    } do
       accepted = cases |> Map.values() |> Enum.filter(&(&1["vector"] in ["V1", "V2"]))
 
-      assert length(accepted) == 5
+      assert length(accepted) == accepted_count
 
       for test_case <- accepted do
         receipt_bytes = bytes(test_case["signedReceipt"])
