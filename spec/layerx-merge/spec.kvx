@@ -7659,6 +7659,18 @@ value = "The consumer's receipt binding check (layerx-human-service src/agents/c
 basis = "18.1434.1 attempt 8 (2fc305234): four move_commit tests receive 503 after Refused(transaction receipt binding differs)."
 affects = ["18.1434.1"]
 
+[decision.2425]
+title = "The agent SDK gas-station test asserts the pending block tag of the sponsored nonce discovery"
+value = "9.33.11 (9f2211ab3) moved discoverSponsoredNonce and the fee preference read to the pending block tag, the contract clients.md O41 and O42 state; the paymaster_nonce_stream case of test/gas-station.test.ts (280e62a35, five days older) still asserts the latest tag for the code and nonce reads and never ran because its local EVM was absent from every qualification environment. The test follows the contract: its three expectations assert the pending tag, the source is unchanged, and gas-station.test.ts joins 22.9.10's touches."
+basis = "22.9.10 attempt 16 (c6d4816275): every suite passes until paymaster_nonce_stream, where the recorded eth_getCode and eth_call requests carry pending and the test expects latest (dist/test/gas-station.test.js:492)."
+affects = ["22.9.10"]
+
+[decision.2426]
+title = "The programs language ABI harness retires its web case with the kernel web module"
+value = "1.18.2 (285bd6769) deleted the kernel web module and lx_web.h, and the kernel's program web view (src/modules/programs/call.c:1139) answers every request with the module-disabled result; tests/programs/test_language_abi.c still includes lx_web.h and commits a web observation for its web case, so the fixture fails to compile, and so does the terminal v5 corpus that projects the fixture verbatim (scripts/qualification/paxeer-x/program-terminal-v5.py:36-40). 22.1.12 retires the web case from the fixture, the harness case list and the three language programs; 22.9.18 requires it and its attempt 10 candidate is re-qualified unchanged afterwards."
+basis = "22.9.18 attempt 10 (359867035): the corpus build's cc step fails at terminal-v5-language-fixture.inc:9 fatal error layerx/lx_web.h: No such file or directory; tests/programs/test_language_abi.c:8 carries the include on main."
+affects = ["22.1.12", "22.9.18"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -21279,6 +21291,10 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22101]
+title = "The programs language ABI harness exercises only the capabilities the kernel serves"
+ac_1 = "Given the kernel without its web module, when the programs language ABI fixture and the terminal v5 corpus are built from main, then both compile, the harness case list names no web case, and no language program of the harness reads a committed web answer."
 
 [req.22100]
 title = "The wallet web-data module decodes every event the xweb precompile ABI declares"
@@ -36255,6 +36271,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.1.12]
+title = "Retire the web case from the programs language ABI harness"
+reqs = ["22101.1"]
+touches = ["tests/programs/test_language_abi.c", "tools/qualification/paxeer-x/programs_language_abi.py", "programs/sdk/c/tests/language_abi.c", "programs/sdk/rust/tests/fixtures/language_abi.rs", "programs/sdk/assemblyscript/tests/language_abi.ts"]
+tests = []
+verification_contract = "! grep -nP 'lx_web|LANGUAGE_WEB|language_web|\x22web\x22' tests/programs/test_language_abi.c tools/qualification/paxeer-x/programs_language_abi.py && ! grep -nP 'web_read|web::read|readWebV4|WebAnswerV4' programs/sdk/c/tests/language_abi.c programs/sdk/rust/tests/fixtures/language_abi.rs programs/sdk/assemblyscript/tests/language_abi.ts && d=$(mktemp -d) && git worktree add -q --detach $d/src HEAD && (cd $d/src && export CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-$d/target} && (python3 scripts/qualification/paxeer-x/program-terminal-v5.py --build --output $d/out || { tail -c 4000 $d/out/build-*.log; false; })); r=$?; git worktree remove --force $d/src > /dev/null 2>&1; test $r -eq 0"
+do_1 = "Decision 2426: 1.18.2 (285bd6769) deleted the kernel web module and include/layerx/lx_web.h, and the kernel's program web view (src/modules/programs/call.c:1139, layerx_programs_call_web_view_begin) answers every request with LXP_ERR_MODULE_DISABLED. tests/programs/test_language_abi.c still includes layerx/lx_web.h, keeps language_web_text and LANGUAGE_WEB_RECORD_BYTES, commits an lx_web_observation in language_inputs (lines 257 and 285-303) and expects the web record for operation 2 in language_cases (names web, operation 2, lines 459-460 and 505-506). Remove the include, the web text and record size, the observation and its expected record, the web name and operation from the case tables and the operation 2 expectation; the oracle, basic, refusal, call, account and denied cases are unchanged."
+symbols = ["language_cases", "language_inputs"]
 
 [capability.22.24.27]
 title = "Decode the xweb program request event in the wallet web-data module"
@@ -119097,7 +119122,7 @@ do_1 = "services/agent/sdk/typescript/src/ai_market.ts:3273 decodeProgramsReceip
 do_2 = "Share d9-6.kvx with 22.9.11: set follow_up of [disposition.9.97.8.3] to 22.9.10."
 do_3 = "Set follow_up of [disposition.9.97.8.3] in spec/layerx-merge/dispositions/d9-6.kvx to 22.9.10 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
 symbols = ["decodeProgramsReceipt"]
-touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/package.json", "sdk/platform/conformance/fixtures/intent-plan-v1.json", "services/agent/sdk/typescript/test/intent.test.ts", "sdk/platform/conformance/evm-call-wrapping.test.py", "tests/agent/sdk/python/test_intent.py", "services/agent/sdk/typescript/src/intent.ts", "services/agent/sdk/typescript/test/exchange-v2.test.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/typescript/test/proof_exchange.test.ts", "services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/test/support/exchange_consumers.ts", "services/agent/sdk/typescript/test/xweb-api.test.ts"]
+touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/package.json", "sdk/platform/conformance/fixtures/intent-plan-v1.json", "services/agent/sdk/typescript/test/intent.test.ts", "sdk/platform/conformance/evm-call-wrapping.test.py", "tests/agent/sdk/python/test_intent.py", "services/agent/sdk/typescript/src/intent.ts", "services/agent/sdk/typescript/test/exchange-v2.test.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/typescript/test/proof_exchange.test.ts", "services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/test/support/exchange_consumers.ts", "services/agent/sdk/typescript/test/xweb-api.test.ts", "services/agent/sdk/typescript/test/gas-station.test.ts"]
 tests = []
 planned_paths = ["services/agent/sdk/typescript/test/ai-market.test.ts"]
 build_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build"
@@ -119126,6 +119151,7 @@ do_13 = "Attempt 12: the precompile-calls test asserts the five-input placeOrder
 do_14 = "Attempt 13: the build failed in test/support/exchange_consumers.ts:52 and test/xweb-api.test.ts:546, which still pass accountId to exchangePlaceOrderCall after the call builder dropped it. Both files are in touches now: remove the accountId field from the xweb-api order literal and the accountId word from the expected calldata of the consumers helper, so the expectation is the five-input encoding of the ABI. No other test expectation changes."
 do_15 = "Decision 2389: the perps rows of services/agent/sdk/typescript/test/precompile-calls.test.ts:146-150 assert openPosition(uint256,address,uint256,uint256,bool) and cancelOrder(uint256), the declarations precompiles/perps/abi/abi.json carries, with argument shapes from the PerpsOpenPosition of 22.9.37 (market id, collateral token, collateral amount, leverage, direction; order id); this task requires 22.9.37 and its attempt 14 candidate (0773a0441) continues on top of it."
 do_16 = "Decision 2423 (attempt 15, 12ff7db1b, re-qualify unchanged): every suite before gas-station.test passes; paymaster_nonce_stream (test/gas-station.test.ts:677) starts a local EVM with the anvil binary (ANVIL_BIN or anvil on PATH) and the qualification environment of attempt 15 carried no foundry toolchain, so the start failed with local EVM exited before readiness before any assertion. The toolchain is a property of the qualification environment and is provided now; the candidate of attempt 15 is re-qualified unchanged."
+do_17 = "Decision 2425 (attempt 16, c6d4816275, continue): with the local EVM provided every suite passes until paymaster_nonce_stream in test/gas-station.test.ts, where the recorded eth_getCode and eth_call requests of discoverSponsoredNonce carry the pending block tag and the test expects latest (lines 807-813 and 833-836). 9.33.11 (9f2211ab3) moved the discovery to pending, the contract clients.md O41 states; the test predates it and never ran. The three expectations assert pending; services/agent/sdk/typescript/src/gas-station.ts is unchanged; gas-station.test.ts is now in touches. Rerun the task's verify afterwards."
 
 [task.22.91.38]
 title = "Inventory the platform examples packages"
@@ -129547,6 +129573,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.1.12]
+title = "Retire the web case from the programs language ABI harness"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22101.1"]
+capabilities = ["22.1.12"]
+interfaces = []
+do_1 = "Decision 2426: 1.18.2 (285bd6769) deleted the kernel web module and include/layerx/lx_web.h, and the kernel's program web view (src/modules/programs/call.c:1139, layerx_programs_call_web_view_begin) answers every request with LXP_ERR_MODULE_DISABLED. tests/programs/test_language_abi.c still includes layerx/lx_web.h, keeps language_web_text and LANGUAGE_WEB_RECORD_BYTES, commits an lx_web_observation in language_inputs (lines 257 and 285-303) and expects the web record for operation 2 in language_cases (names web, operation 2, lines 459-460 and 505-506). Remove the include, the web text and record size, the observation and its expected record, the web name and operation from the case tables and the operation 2 expectation; the oracle, basic, refusal, call, account and denied cases are unchanged."
+do_2 = "tools/qualification/paxeer-x/programs_language_abi.py:14 CASES drops web, and its inventory list (lines 30-33) drops tests/test_programs_web_read.c, which 1.18.2 retired. The three language programs of the harness drop their web operation: programs/sdk/c/tests/language_abi.c (lxp_program_web_read, lines 56-62), programs/sdk/rust/tests/fixtures/language_abi.rs (sdk::web::read, line 42) and programs/sdk/assemblyscript/tests/language_abi.ts (readWebV4 and WebAnswerV4, lines 5-6, 32 and 94); the SDK web bindings themselves stay, the ABI v4 import exists and the runtime answers it with the kernel's refusal."
+do_3 = "The producer of the fixture's consumer is scripts/qualification/paxeer-x/program-terminal-v5.py, which projects tests/programs/test_language_abi.c verbatim into terminal-v5-language-fixture.inc and compiles tests/programs/test_terminal_v5.c against it; the verify runs that build from a detached checkout of HEAD the way 22.9.18's verify does, so the corpus compiles again. Nothing under src or include changes."
+symbols = []
+touches = ["tests/programs/test_language_abi.c", "tools/qualification/paxeer-x/programs_language_abi.py", "programs/sdk/c/tests/language_abi.c", "programs/sdk/rust/tests/fixtures/language_abi.rs", "programs/sdk/assemblyscript/tests/language_abi.ts"]
+tests = []
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "! grep -nP 'lx_web|LANGUAGE_WEB|language_web|\x22web\x22' tests/programs/test_language_abi.c tools/qualification/paxeer-x/programs_language_abi.py && ! grep -nP 'web_read|web::read|readWebV4|WebAnswerV4' programs/sdk/c/tests/language_abi.c programs/sdk/rust/tests/fixtures/language_abi.rs programs/sdk/assemblyscript/tests/language_abi.ts && d=$(mktemp -d) && git worktree add -q --detach $d/src HEAD && (cd $d/src && export CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-$d/target} && (python3 scripts/qualification/paxeer-x/program-terminal-v5.py --build --output $d/out || { tail -c 4000 $d/out/build-*.log; false; })); r=$?; git worktree remove --force $d/src > /dev/null 2>&1; test $r -eq 0"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit; the fixture returns to the retired include."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.91.58]
 title = "Inventory every test run of the services/explorer/services/smart-contract-verifier/Cargo.toml Rust workspace again at the current revision"
 status = "pending"
@@ -131398,7 +131454,7 @@ title = "Reconcile the agent API schema, daemon freshness, SDK corpus and MCP sc
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.16", "22.9.24", "22.9.25", "22.9.33", "22.1.11"]
+requires = ["22.9.16", "22.9.24", "22.9.25", "22.9.33", "22.1.11", "22.1.12"]
 reqs = ["22012.1"]
 capabilities = ["22.9.18"]
 interfaces = []
@@ -131427,6 +131483,7 @@ do_5 = "Finding 22.9.18.3 and decision 2347: the verify runs the named targets o
 do_6 = "Decision 2392 and attempt 6 ruling: the verify builds the terminal v5 corpus with scripts/qualification/paxeer-x/program-terminal-v5.py (--build into a private directory from a detached worktree of HEAD, then --manifest, which prints the PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS assignment) and runs the layerx-sdk library tests with that variable exported, so v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes (services/agent/crates/layerx-sdk/src/program_http.rs:2337) is exercised against the signed corpus instead of returning Verification for a missing path; the candidate of attempt 6 (c420cc24e) is re-qualified unchanged under that verify, and a failure of the corpus test on the real corpus is a decoder finding, not an environment one."
 do_7 = "Decision 2402 (attempts 5 to 8): every terminal-v5 corpus build exits 2 because scripts/qualification/paxeer-x/program-terminal-v5.py:45-50 asks make for generated/lxp_checkpoint_settlement.h, whose rule 16.2.2 retired. This task now requires 22.1.11, which removes that request; the attempt 7 candidate is re-qualified unchanged once 22.1.11 has published."
 do_8 = "Decision 2417 (attempt 9, 9c2263840, re-qualify unchanged): with 22.1.11 published the corpus build passes its make and cargo steps and exits 1 in the third, the cc compile and link of tests/programs/test_terminal_v5.c against liblayerx.a and the programs environment crate archive, whose log the build keeps in its private output directory. The verify now prints the tail of every build log when the corpus build fails, so the qualification run records the compiler error; the candidate of attempt 9 is re-qualified unchanged under that verify and the recorded error is ruled on before any further change."
+do_9 = "Decision 2426 (attempt 10, 359867035, re-qualify unchanged): the corpus build exits 1 in its cc step at terminal-v5-language-fixture.inc:9, fatal error layerx/lx_web.h: No such file or directory; the fixture is tests/programs/test_language_abi.c projected verbatim, and that file still includes the header 1.18.2 deleted. 22.1.12 retires the web case from the language ABI harness; this task now requires it and the attempt 10 candidate is re-qualified unchanged once 22.1.12 has published."
 
 [task.22.9.17]
 title = "Reconcile the agent crates' vector counts, settlement fixtures and address casing"
