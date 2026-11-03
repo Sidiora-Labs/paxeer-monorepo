@@ -193385,7 +193385,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.95.2]
 title = "Rebuild the sequencer receipt source from the write-ahead log replay on node start"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
