@@ -5,7 +5,8 @@ usage: python3 spec/layerx-merge/programme/reconcile_check.py <slice> [<reconcil
 The slice file <reconcile_dir>/slices/<slice>.txt lists registry ids, one per line. The fragment
 <reconcile_dir>/<slice>.kvx carries a [reconcile.<slice>] header (revision, rows) and one
 [row.<slice>.k] block per id, in slice order, with the keys interface, verdict, path, line,
-symbol and evidence; a retired row adds remaining_refs and, above zero, remaining. Exit 0 when
+symbol and evidence; a retired row adds remaining_refs and, above zero, remaining (path:line
+references; a reference inside the registered path marks a test-code line the absence check skips). Exit 0 when
 every check passes, 1 with one line per failure otherwise. Run from the repository root.
 """
 from __future__ import annotations
@@ -117,8 +118,16 @@ def check(slice_name: str, reconcile_dir: Path) -> list[str]:
                 failures.append(f"[{name}] a served change row needs evidence quoting the declaring line")
         else:
             registered_file = ROOT / str(registered["path"])
-            if registered_file.is_file() and _present(registered_file.read_text(encoding="utf-8", errors="replace"), symbol):
-                failures.append(f"[{name}] retired: {symbol!r} is still present in {registered['path']}")
+            listed = {
+                int(ref.rsplit(":", 1)[1])
+                for ref in (body.get("remaining") or [])
+                if isinstance(ref, str) and ref.rsplit(":", 1)[0] == str(registered["path"]) and ref.rsplit(":", 1)[1].isdigit()
+            }
+            if registered_file.is_file():
+                for number, text in enumerate(registered_file.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+                    if number not in listed and _present(text, symbol):
+                        failures.append(f"[{name}] retired: {symbol!r} is still present in {registered['path']}:{number}")
+                        break
             remaining_refs = body.get("remaining_refs")
             if not isinstance(remaining_refs, int) or remaining_refs < 0:
                 failures.append(f"[{name}] retired needs remaining_refs as a non-negative integer")

@@ -1,0 +1,243 @@
+[reconcile.r14-186]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r14-186.1]
+interface = "interface.14.ts-web-api-generated-index-channelpreference"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1858
+symbol = "ChannelPreference"
+evidence = "Declaration 'export interface ChannelPreference' matches the registered signature at current line 1858, previously registered at 1763; the other 6 occurrences are type references, including line 1863."
+
+[row.r14-186.2]
+interface = "interface.14.ts-web-api-generated-index-classtoggle"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1880
+symbol = "ClassToggle"
+evidence = "Declaration 'export interface ClassToggle' matches the registered signature at current line 1880, previously registered at 1785; the other 4 occurrences are type references, including line 1860."
+
+[row.r14-186.3]
+interface = "interface.14.ts-web-api-generated-index-decodeagentpage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1241
+symbol = "decodeAgentPage"
+evidence = "Declaration 'export function decodeAgentPage(value: JsonValue | undefined, at: string): AgentPage' matches the registered signature at current line 1241, previously registered at 1153; the other occurrence is a call or decoder callback at line 6131."
+
+[row.r14-186.4]
+interface = "interface.14.ts-web-api-generated-index-decodeagentspend"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1287
+symbol = "decodeAgentSpend"
+evidence = "Declaration 'export function decodeAgentSpend(value: JsonValue | undefined, at: string): AgentSpend' matches the registered signature at current line 1287, previously registered at 1198; the other occurrence is a call or decoder callback at line 1075."
+
+[row.r14-186.5]
+interface = "interface.14.ts-web-api-generated-index-decodeapierror"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1330
+symbol = "decodeApiError"
+evidence = "Declaration 'export function decodeApiError(value: JsonValue | undefined, at: string): ApiError' matches the registered signature at current line 1330, previously registered at 1235; the other 3 occurrences are calls or decoder callbacks, including line 4507."
+
+[row.r14-186.6]
+interface = "interface.14.ts-web-api-generated-index-decodeapprovaldecision"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1389
+symbol = "decodeApprovalDecision"
+evidence = "Declaration 'export function decodeApprovalDecision(value: JsonValue | undefined, at: string): ApprovalDecision' matches the registered signature at current line 1389, previously registered at 1294; the other 2 occurrences are calls or decoder callbacks, including line 6147."
+
+[row.r14-186.7]
+interface = "interface.14.ts-web-api-generated-index-decodeapprovaldetail"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1427
+symbol = "decodeApprovalDetail"
+evidence = "Declaration 'export function decodeApprovalDetail(value: JsonValue | undefined, at: string): ApprovalDetail' matches the registered signature at current line 1427, previously registered at 1332; the other occurrence is a call or decoder callback at line 6149."
+
+[row.r14-186.8]
+interface = "interface.14.ts-web-api-generated-index-decodeapprovalfacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1468
+symbol = "decodeApprovalFacts"
+evidence = "Declaration 'export function decodeApprovalFacts(value: JsonValue | undefined, at: string): ApprovalFacts' matches the registered signature at current line 1468, previously registered at 1373; the other occurrence is a call or decoder callback at line 1436."
+
+[row.r14-186.9]
+interface = "interface.14.ts-web-api-generated-index-decodeapprovalpage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1496
+symbol = "decodeApprovalPage"
+evidence = "Declaration 'export function decodeApprovalPage(value: JsonValue | undefined, at: string): ApprovalPage' matches the registered signature at current line 1496, previously registered at 1401; the other occurrence is a call or decoder callback at line 6151."
+
+[row.r14-186.10]
+interface = "interface.14.ts-web-api-generated-index-decodeapprovalsummary"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1525
+symbol = "decodeApprovalSummary"
+evidence = "Declaration 'export function decodeApprovalSummary(value: JsonValue | undefined, at: string): ApprovalSummary' matches the registered signature at current line 1525, previously registered at 1430; the other 3 occurrences are calls or decoder callbacks, including line 1499."
+
+[row.r14-186.11]
+interface = "interface.14.ts-web-api-generated-index-decodeauthenticatormethod"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1582
+symbol = "decodeAuthenticatorMethod"
+evidence = "Declaration 'export function decodeAuthenticatorMethod(value: JsonValue | undefined, at: string): AuthenticatorMethod' matches the registered signature at current line 1582, previously registered at 1487; the other 2 occurrences are calls or decoder callbacks, including line 1687."
+
+[row.r14-186.12]
+interface = "interface.14.ts-web-api-generated-index-decodeauthenticatorsetupchallenge"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1636
+symbol = "decodeAuthenticatorSetupChallenge"
+evidence = "Declaration 'export function decodeAuthenticatorSetupChallenge(value: JsonValue | undefined, at: string): AuthenticatorSetupChallenge' matches the registered signature at current line 1636, previously registered at 1541; the other occurrence is a call or decoder callback at line 6173."
+
+[row.r14-186.13]
+interface = "interface.14.ts-web-api-generated-index-decodeauthenticatorsetupresult"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1684
+symbol = "decodeAuthenticatorSetupResult"
+evidence = "Declaration 'export function decodeAuthenticatorSetupResult(value: JsonValue | undefined, at: string): AuthenticatorSetupResult' matches the registered signature at current line 1684, previously registered at 1589; the other occurrence is a call or decoder callback at line 6175."
+
+[row.r14-186.14]
+interface = "interface.14.ts-web-api-generated-index-decodeauthenticatorstatus"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1706
+symbol = "decodeAuthenticatorStatus"
+evidence = "Declaration 'export function decodeAuthenticatorStatus(value: JsonValue | undefined, at: string): AuthenticatorStatus' matches the registered signature at current line 1706, previously registered at 1611; the other 2 occurrences are calls or decoder callbacks, including line 6171."
+
+[row.r14-186.15]
+interface = "interface.14.ts-web-api-generated-index-decodechannelpreference"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1863
+symbol = "decodeChannelPreference"
+evidence = "Declaration 'export function decodeChannelPreference(value: JsonValue | undefined, at: string): ChannelPreference' matches the registered signature at current line 1863, previously registered at 1768; the other 3 occurrences are calls or decoder callbacks, including line 3197."
+
+[row.r14-186.16]
+interface = "interface.14.ts-web-api-generated-index-decodeclasstoggle"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1885
+symbol = "decodeClassToggle"
+evidence = "Declaration 'export function decodeClassToggle(value: JsonValue | undefined, at: string): ClassToggle' matches the registered signature at current line 1885, previously registered at 1790; the other occurrence is a call or decoder callback at line 1867."
+
+[row.r14-186.17]
+interface = "interface.14.ts-web-api-generated-index-decodedevice"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1960
+symbol = "decodeDevice"
+evidence = "Declaration 'export function decodeDevice(value: JsonValue | undefined, at: string): Device' matches the registered signature at current line 1960, previously registered at 1865; the other occurrence is a call or decoder callback at line 4707."
+
+[row.r14-186.18]
+interface = "interface.14.ts-web-api-generated-index-decodeevidencematerial"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2001
+symbol = "decodeEvidenceMaterial"
+evidence = "Declaration 'export function decodeEvidenceMaterial(value: JsonValue | undefined, at: string): EvidenceMaterial' matches the registered signature at current line 2001, previously registered at 1904; the other occurrence is a call or decoder callback at line 6179."
+
+[row.r14-186.19]
+interface = "interface.14.ts-web-api-generated-index-decodeevidenceref"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2049
+symbol = "decodeEvidenceRef"
+evidence = "Declaration 'export function decodeEvidenceRef(value: JsonValue | undefined, at: string): EvidenceRef' matches the registered signature at current line 2049, previously registered at 1940; the other 21 occurrences are calls or decoder callbacks, including line 705."
+
+[row.r14-186.20]
+interface = "interface.14.ts-web-api-generated-index-decodeexportartefact"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2146
+symbol = "decodeExportArtefact"
+evidence = "Declaration 'export function decodeExportArtefact(value: JsonValue | undefined, at: string): ExportArtefact' matches the registered signature at current line 2146, previously registered at 2036; the other 2 occurrences are calls or decoder callbacks, including line 6117."
+
+[row.r14-186.21]
+interface = "interface.14.ts-web-api-generated-index-decodeexportedprimarykey"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2232
+symbol = "decodeExportedPrimaryKey"
+evidence = "Declaration 'export function decodeExportedPrimaryKey(value: JsonValue | undefined, at: string): ExportedPrimaryKey' matches the registered signature at current line 2232, previously registered at 2116; the other occurrence is a call or decoder callback at line 6229."
+
+[row.r14-186.22]
+interface = "interface.14.ts-web-api-generated-index-decodehomesummary"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2260
+symbol = "decodeHomeSummary"
+evidence = "Declaration 'export function decodeHomeSummary(value: JsonValue | undefined, at: string): HomeSummary' matches the registered signature at current line 2260, previously registered at 2143; the other occurrence is a call or decoder callback at line 6181."
+
+[row.r14-186.23]
+interface = "interface.14.ts-web-api-generated-index-decodeintentconstraints"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2299
+symbol = "decodeIntentConstraints"
+evidence = "Declaration 'export function decodeIntentConstraints(value: JsonValue | undefined, at: string): IntentConstraints' matches the registered signature at current line 2299, previously registered at 2176; the other occurrence is a call or decoder callback at line 3627."
+
+[row.r14-186.24]
+interface = "interface.14.ts-web-api-generated-index-decodeintentendpoint"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2323
+symbol = "decodeIntentEndpoint"
+evidence = "Declaration 'export function decodeIntentEndpoint(value: JsonValue | undefined, at: string): IntentEndpoint' matches the registered signature at current line 2323, previously registered at 2200; the other 4 occurrences are calls or decoder callbacks, including line 2368."
+
+[row.r14-186.25]
+interface = "interface.14.ts-web-api-generated-index-decodeintentleg"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2362
+symbol = "decodeIntentLeg"
+evidence = "Declaration 'export function decodeIntentLeg(value: JsonValue | undefined, at: string): IntentLeg' matches the registered signature at current line 2362, previously registered at 2231; the other occurrence is a call or decoder callback at line 2495."
+
+[row.r14-186.26]
+interface = "interface.14.ts-web-api-generated-index-decodeintentplan"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2489
+symbol = "decodeIntentPlan"
+evidence = "Declaration 'export function decodeIntentPlan(value: JsonValue | undefined, at: string): IntentPlan' matches the registered signature at current line 2489, previously registered at 2309; the other occurrence is a call or decoder callback at line 6183."
+
+[row.r14-186.27]
+interface = "interface.14.ts-web-api-generated-index-decodeintentsigningrequirement"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2525
+symbol = "decodeIntentSigningRequirement"
+evidence = "Declaration 'export function decodeIntentSigningRequirement(value: JsonValue | undefined, at: string): IntentSigningRequirement' matches the registered signature at current line 2525, previously registered at 2339; the other occurrence is a call or decoder callback at line 2496."
+
+[row.r14-186.28]
+interface = "interface.14.ts-web-api-generated-index-decodeintentsubmission"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2554
+symbol = "decodeIntentSubmission"
+evidence = "Declaration 'export function decodeIntentSubmission(value: JsonValue | undefined, at: string): IntentSubmission' matches the registered signature at current line 2554, previously registered at 2367; the other occurrence is a call or decoder callback at line 6185."
+
+[row.r14-186.29]
+interface = "interface.14.ts-web-api-generated-index-decodejourney"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2594
+symbol = "decodeJourney"
+evidence = "Declaration 'export function decodeJourney(value: JsonValue | undefined, at: string): Journey' matches the registered signature at current line 2594, previously registered at 2401; the other 7 occurrences are calls or decoder callbacks, including line 758."
+
+[row.r14-186.30]
+interface = "interface.14.ts-web-api-generated-index-decodejourneypage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2640
+symbol = "decodeJourneyPage"
+evidence = "Declaration 'export function decodeJourneyPage(value: JsonValue | undefined, at: string): JourneyPage' matches the registered signature at current line 2640, previously registered at 2447; the other 2 occurrences are calls or decoder callbacks, including line 6189."

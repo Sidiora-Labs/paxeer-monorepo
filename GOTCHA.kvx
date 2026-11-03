@@ -14480,3 +14480,23 @@ fix = "Make the task depend on the task that repairs the broken package, and rec
 title = "A hand-built EIP-1559 call with a placeholder target is refused by the disclosure binder"
 symptom = "A test built an Eip1559Call with to = 0x1a repeated and a kernel authorization as data; bind_call in layerx-crypto's disclosure/call.rs refused it with MalformedPayload because the binder accepts only registered targets with canonical ABI payloads."
 fix = "Build test calls against a registered target with the ABI the binder decodes, and sign kernel authorizations through their own path instead of wrapping them in an EVM call."
+
+[gotcha.2932]
+title = "A completion check rejects a symbol that names a file instead of a definition"
+symptom = "A task whose symbols list carries a file or module name (exchange-client) fails the completion check with not defined in the graph after a passing verify, on every attempt."
+fix = "Declare symbols = [] unless every entry is a function, type or constant the code graph defines; a file is proven by touches, not symbols."
+
+[gotcha.2933]
+title = "The explorer typecheck fails on the main line before a dependency change is tested"
+symptom = "yarn tsc --noEmit in apps/explorer reports 343 errors in toolkit/chakra, toolkit/components and ui/zetaChain whatever the lock change, so a build command that runs it fails every attempt."
+fix = "Build dependency tasks with the frozen install alone and restore the typecheck in its own task (14.99.1); record the pre-existing failure as a finding."
+
+[gotcha.2934]
+title = "A service test takes its clock from the environment and panics in qualification"
+symptom = "RuntimeClock::from_environment in a test needs the runtime clock authority variables; without a running node runtime the test panics with clock authority unavailable while its siblings pass."
+fix = "Start the in-process clock the component frame test uses (RunningClock::start, RuntimeClock::connect) and never read the ambient clock authority from a test."
+
+[gotcha.2935]
+title = "A whole-file absence rule rejects retirements proven by test inputs"
+symptom = "The reconcile checker refused a retired row because the retired variable survives only as test literals in the registered file."
+fix = "List those lines in remaining as path:line references inside the registered path; the checker skips exactly them (decision 2494)."
