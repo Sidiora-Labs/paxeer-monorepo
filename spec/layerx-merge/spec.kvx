@@ -120368,7 +120368,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.34]
 title = "Restore the explorer backend app npm lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -120428,7 +120428,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.31]
 title = "Restore the wallet app pnpm lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132903,7 +132903,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.32]
 title = "Restore the Solana bridge Cargo lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228834,7 +228834,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.30]
 title = "Scope a lock floor to the advisory's version range"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
