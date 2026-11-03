@@ -148145,7 +148145,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.133]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/portal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148176,7 +148176,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.132]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/pnl"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148238,7 +148238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.130]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148300,7 +148300,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.128]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
