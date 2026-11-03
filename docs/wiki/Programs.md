@@ -569,41 +569,26 @@ Sources:
 
 ---
 
-## Custody credit and program funding
+## Custody credit retirement and program funding
 
-Genesis registers Programs v4 on every accepted protocol version; Asset v1 is
-protocol-3-conditional (`src/protocol/lxp_genesis.c:594-598`). A CALL needs a
-funded fee-paying principal. When a bridge profile is present, genesis writes
-a zero `custody-issued:` supply key (`src/protocol/lxp_genesis.c:549-553`).
+The kernel custody credit activity and its light client are retired.
+The former bridge-profile genesis and deposit-backed issuance procedures
+are no longer supported funding paths. See
+[Custody](Custody.md) for the retirement notice and the
+[Human service payment path](../site/docs/human/payments) for current ledger payments.
 
-Custody credit is Bridge module 8 ordinal 1:
-`LXP_BRIDGE_CREDIT = (8U << 16U) | 1U`. It exists only when genesis carries
-the 223-byte profile under key `custody-credit-profile/v1` (`LXBC3` … protocol
-bytes `0, 3`). Profile genesis requires protocol 3
-(`lxp_bridge_genesis_profile`). Credit verify and credit validate also
-require protocol 3. The activity actor must be `LXP_AUTHORITY_OWNER`.
-
-Credit does not preallocate balances. It issues against a Paxeer deposit
-proven by light client against the profile's trusted header, then
-`lxp_ctx_bridge_credit`
-(`src/protocol/lxp_module_ctx.c:1215`) credits the beneficiary main account via
-`402LXP`. That account can then pay CALL fees and ABI-2 `PROGRAM_FUNDING`
-legs into `module:programs:value:<account-id>` accounts. A principal can
-fund a program account; it cannot authorize debits from one (ABI-1 has no
-program-source kind; ABI-2 program debits require the deriving program's
-frame and seed).
-
-See [Custody](Custody.md) for the profile layout and evidence path.
+Program-account funding is a separate operation. A CALL needs a funded
+fee-paying principal. A principal can use ABI-2 `PROGRAM_FUNDING` transfer
+legs to fund `module:programs:value:<account-id>` accounts. It cannot
+authorize debits from a program account: ABI-1 has no program-source kind,
+and ABI-2 program debits require the deriving program's frame and seed.
 
 Sources:
 
-- `include/layerx/lxp_bridge_credit.h` (`LXP_BRIDGE_CREDIT`, sizes)
-- `src/modules/bridge/lxp_bridge_credit.c` (`lxp_bridge_profile_key`, `lxp_bridge_genesis_profile`, `validate_credit`, `lxp_bridge_module_iface`)
-- `src/protocol/lxp_module_ctx.c:1215` (`lxp_ctx_bridge_credit`)
-- `src/protocol/lxp_genesis.c:549-553, 594-598`
-- `src/modules/programs/call.c:1520-1565` (`PROGRAM_TRANSFER_SOURCE_PROGRAM_FUNDING`)
-- `src/modules/programs/accounts.c` (program account derivation / lookup)
-- `docs/wiki/Custody.md`
+- `src/modules/programs/call.c:1993` (`layerx_programs_call_transfer_leg`)
+- `src/modules/programs/call.c:2142` (`transfer_source_validate`, including `PROGRAM_TRANSFER_SOURCE_PROGRAM_FUNDING`)
+- `src/modules/programs/accounts.c:496` (`lxp_programs_account_derive`)
+- `src/modules/programs/accounts.c:530` (`lxp_programs_account_lookup`)
 
 ---
 

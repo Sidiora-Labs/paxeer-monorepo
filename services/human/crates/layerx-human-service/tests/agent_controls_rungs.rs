@@ -1251,7 +1251,6 @@ mod archive_fixture {
         Ok(SigningPreparation {
             transaction: prepare_bound(prepared, actor_address)?,
             actor_address,
-            authorization: prepared.clone(),
         })
     }
 
