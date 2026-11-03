@@ -1,0 +1,1196 @@
+# Pre-upgrade audit: launchpad authorization, delivery and qualification tools.
+
+[audit.22.30.29]
+task = "22.30.29"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 111
+findings = 41
+docs_reviewed = 16
+upgrade_ready = false
+blocking = ["active-rebuild-restart"]
+review_basis = "Whole-file static review against the package requirements, interface registry and merged-network brief. No application suite, provider workload, frozen install or capacity gate was executed. Requirement22076 concerns manifests and lockfiles outside this member set; the audit does not assert dependency advisory closure."
+
+[file.001]
+path = "apps/launchpad/web/src/widgets/trade/slippage-selector.tsx"
+lines = 83
+verdict = "clean"
+note = "Read in full: preset and custom slippage are bounded and feed the shared trade preferences; no chain or retired endpoint authority is introduced."
+
+[file.002]
+path = "sdk/launchpad/shared/auth/assertion.go"
+lines = 182
+verdict = "clean"
+note = "Read in full: Ed25519 service assertions bind method, request URI, body hash and short expiry; verification preserves the authenticated service identity."
+
+[file.003]
+path = "sdk/launchpad/shared/auth/audit_delivery.go"
+lines = 214
+verdict = "clean"
+note = "Read in full: transaction-bound sanitized audit envelopes and sink inbox effects agree with delivery encoding, subject policy and immutable authorization evidence."
+
+[file.004]
+path = "sdk/launchpad/shared/auth/audit_delivery_integration_test.go"
+lines = 287
+verdict = "issues"
+note = "Read in full: audit-durable-fixture. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.005]
+path = "sdk/launchpad/shared/auth/authorization_test.go"
+lines = 373
+verdict = "clean"
+note = "Read in full: actual signed mutation authorization covers wallet identity, nonce, request payload, expiry, replay and action binding."
+
+[file.006]
+path = "sdk/launchpad/shared/auth/contract.go"
+lines = 1036
+verdict = "clean"
+note = "Read in full: current session authority, wallet proof variants, nonce and mutation transactions preserve authorization and audited result state; EIP-191 and ERC1271 checks use actual typed backends."
+
+[file.007]
+path = "sdk/launchpad/shared/auth/contract_integration_test.go"
+lines = 215
+verdict = "clean"
+note = "Read in full: PostgreSQL authorization state and signed proofs exercise the real mutation ledger and repeat-request semantics."
+
+[file.008]
+path = "sdk/launchpad/shared/auth/eip191.go"
+lines = 94
+verdict = "clean"
+note = "Read in full: personal-sign framing, strict65-byte low-S recovery and normalized nonzero20-byte wallet identities agree with the EOA proof consumer."
+
+[file.009]
+path = "sdk/launchpad/shared/auth/eip191_test.go"
+lines = 85
+verdict = "clean"
+note = "Read in full: golden personal-sign recovery and malformed signature/address rejection assert the actual EIP-191 boundary."
+
+[file.010]
+path = "sdk/launchpad/shared/auth/http_authorization.go"
+lines = 454
+verdict = "clean"
+note = "Read in full: bounded HTTP auth inputs, signed service assertions, live session authority and mTLS transport preserve public refusal and mutation contracts."
+
+[file.011]
+path = "sdk/launchpad/shared/auth/http_authorization_integration_test.go"
+lines = 467
+verdict = "clean"
+note = "Read in full: real HTTP and PostgreSQL exercise signed mutation, expiry, request binding, denial and audit persistence; no test execution is claimed by this static verdict."
+
+[file.012]
+path = "sdk/launchpad/shared/auth/http_chat_ticket.go"
+lines = 34
+verdict = "clean"
+note = "Read in full: one-use chat ticket calls carry the exact scoped body to the authenticated identity endpoint and decode its declared response."
+
+[file.013]
+path = "sdk/launchpad/shared/auth/http_chat_ticket_test.go"
+lines = 64
+verdict = "clean"
+note = "Read in full: ticket request shape, upstream refusals and response validation exercise the actual HTTP client boundary."
+
+[file.014]
+path = "sdk/launchpad/shared/auth/http_identity_plain_test.go"
+lines = 62
+verdict = "clean"
+note = "Read in full: plaintext identity transport is refused by default and requires the explicit nonproduction insecure opt-in."
+
+[file.015]
+path = "sdk/launchpad/shared/auth/http_identity_session.go"
+lines = 20
+verdict = "clean"
+note = "Read in full: session-check client preserves current session and wallet identity and propagates identity authority failures."
+
+[file.016]
+path = "sdk/launchpad/shared/auth/http_identity_session_test.go"
+lines = 71
+verdict = "clean"
+note = "Read in full: identity session endpoint and result decoding are checked through a real local HTTP handler."
+
+[file.017]
+path = "sdk/launchpad/shared/auth/ledger.go"
+lines = 188
+verdict = "clean"
+note = "Read in full: advisory lock, nonce uniqueness, recorded mutations and sanitized denial audit preserve atomicity and idempotent authorized effects."
+
+[file.018]
+path = "sdk/launchpad/shared/auth/load_measurement.go"
+lines = 866
+verdict = "clean"
+note = "Read in full: signed HTTPS load driver uses bounded fixed-arrival work and actual PostgreSQL snapshots; missed arrivals and recovery comparisons remain explicit evidence rather than capacity claims."
+
+[file.019]
+path = "sdk/launchpad/shared/auth/load_measurement_integration_test.go"
+lines = 417
+verdict = "clean"
+note = "Read in full: real signed HTTPS and PostgreSQL measurements retain scheduled-arrival latency, immutable auth-state recovery and bounded audit evidence."
+
+[file.020]
+path = "sdk/launchpad/shared/auth/mtls_identity_client.go"
+lines = 123
+verdict = "clean"
+note = "Read in full: TLS1.3, client certificate, explicit roots and optional peer identity pin support the authenticated identity authority with bounded timeouts."
+
+[file.021]
+path = "sdk/launchpad/shared/auth/mtls_identity_client_test.go"
+lines = 124
+verdict = "clean"
+note = "Read in full: real certificate fixtures exercise trust, client identity and rejected transport configurations."
+
+[file.022]
+path = "sdk/launchpad/shared/auth/mtls_test.go"
+lines = 209
+verdict = "clean"
+note = "Read in full: actual TLS handshakes cover client trust, server trust and authenticated service request boundaries."
+
+[file.023]
+path = "sdk/launchpad/shared/auth/operation.go"
+lines = 243
+verdict = "clean"
+note = "Read in full: canonical mutation messages bind chain, wallet, session, nonce, request identity, action and payload digest with strict lengths and expiry."
+
+[file.024]
+path = "sdk/launchpad/shared/auth/public_error.go"
+lines = 22
+verdict = "clean"
+note = "Read in full: public error mapping keeps stable denial and unavailable codes without exposing private authorization evidence."
+
+[file.025]
+path = "sdk/launchpad/shared/auth/reported_hash_backend.go"
+lines = 125
+verdict = "clean"
+note = "Read in full: reported node block hashes are preserved and before/after pinned-height reads detect changes without reconstructing a different Comet EVM block hash."
+
+[file.026]
+path = "sdk/launchpad/shared/auth/reported_hash_backend_test.go"
+lines = 388
+verdict = "clean"
+note = "Read in full: actual RPC fixtures cover reported-hash versus locally calculated hash and canonical-height changes during wallet verification."
+
+[file.027]
+path = "sdk/launchpad/shared/auth/webhook.go"
+lines = 83
+verdict = "clean"
+note = "Read in full: HMAC uses timestamp plus exact raw body and constant-time comparison, matching the declared sha256 signature prefix and default replay window."
+
+[file.028]
+path = "sdk/launchpad/shared/auth/webhook_test.go"
+lines = 70
+verdict = "clean"
+note = "Read in full: golden HMAC and timestamp/scheme/signature rejection cover the ordinary producer and consumer wire contract."
+
+[file.029]
+path = "sdk/launchpad/shared/delivery/archive.go"
+lines = 301
+verdict = "clean"
+note = "Read in full: hash-pinned manifests, bounded S3 segments and canonical raw source records bind stream, code and ABI provenance to complete block ranges."
+
+[file.030]
+path = "sdk/launchpad/shared/delivery/archive_test.go"
+lines = 120
+verdict = "clean"
+note = "Read in full: manifest validation and archive identities enforce exact counts, ranges, hashes and code/ABI provenance."
+
+[file.031]
+path = "sdk/launchpad/shared/delivery/delivery_test.go"
+lines = 481
+verdict = "clean"
+note = "Read in full: actual PostgreSQL exercises outbox, inbox, lease and retry state, transactional effects, duplicate handling and broker acknowledgement ordering."
+
+[file.032]
+path = "sdk/launchpad/shared/delivery/envelope.go"
+lines = 165
+verdict = "clean"
+note = "Read in full: schema1 chain125 envelopes use snake_case fields, exact payload hashes and bounded signed63-bit source positions; strict decoding matches producers."
+
+[file.033]
+path = "sdk/launchpad/shared/delivery/natsdriver/driver.go"
+lines = 253
+verdict = "clean"
+note = "Read in full: file-backed pre-provisioned durable validation, bounded pulls, MsgID publication, PubAck identity and DoubleAck match the delivery lifecycle."
+
+[file.034]
+path = "sdk/launchpad/shared/delivery/natsdriver/driver_test.go"
+lines = 878
+verdict = "clean"
+note = "Read in full: real broker fixtures provision exact durable configs and exercise publish acknowledgements, fetch bounds, redelivery, reconnect and consumer closure."
+
+[file.035]
+path = "sdk/launchpad/shared/delivery/natsdriver/epoch.go"
+lines = 417
+verdict = "issues"
+note = "Read in full: broker-fence-resume; broker-fence-runtime-wiring. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.036]
+path = "sdk/launchpad/shared/delivery/natsdriver/epoch_test.go"
+lines = 304
+verdict = "issues"
+note = "Read in full: broker-fence-crash-tests. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.037]
+path = "sdk/launchpad/shared/delivery/ordered_batch.go"
+lines = 237
+verdict = "clean"
+note = "Read in full: ordered batches bind lease, owner epoch, contiguous predecessor positions, inbox effects and committed watermarks before broker acknowledgement."
+
+[file.038]
+path = "sdk/launchpad/shared/delivery/ordered_test.go"
+lines = 271
+verdict = "clean"
+note = "Read in full: real PostgreSQL ordered delivery exercises predecessor gaps, duplicates, checkpoint progression and transactional application."
+
+[file.039]
+path = "sdk/launchpad/shared/delivery/partition.go"
+lines = 353
+verdict = "clean"
+note = "Read in full: append identities and partition sequences bind projection version, source order and payload digest under the current epoch and predecessor contract."
+
+[file.040]
+path = "sdk/launchpad/shared/delivery/partition.sql"
+lines = 41
+verdict = "clean"
+note = "Read in full: immutable partition positions, predecessor links, owner leases and checkpoints match the typed partition operations and restrictive grants."
+
+[file.041]
+path = "sdk/launchpad/shared/delivery/relay.go"
+lines = 104
+verdict = "clean"
+note = "Read in full: bounded claim and publication preserve persisted outbox retry state, classify failures and mark delivery only after a valid broker persistence acknowledgement."
+
+[file.042]
+path = "sdk/launchpad/shared/delivery/replay.go"
+lines = 464
+verdict = "issues"
+note = "Read in full: active-rebuild-restart; rollback-generation-freshness. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.043]
+path = "sdk/launchpad/shared/delivery/replay.sql"
+lines = 45
+verdict = "clean"
+note = "Read in full: archive manifests, rebuild leases, aliases, cutover history and consumer watermarks match the replay SQL users; the scope of shadow proofs is recorded against shadow.go."
+
+[file.044]
+path = "sdk/launchpad/shared/delivery/replay_test.go"
+lines = 16
+verdict = "issues"
+note = "Read in full: replay-lifecycle-tests. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.045]
+path = "sdk/launchpad/shared/delivery/schema.sql"
+lines = 54
+verdict = "clean"
+note = "Read in full: outbox, inbox, retry and lease schema constraints match store.go state transitions and immutable delivery identities."
+
+[file.046]
+path = "sdk/launchpad/shared/delivery/shadow.go"
+lines = 199
+verdict = "issues"
+note = "Read in full: shadow-proof-scope. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.047]
+path = "sdk/launchpad/shared/delivery/shadow_test.go"
+lines = 20
+verdict = "issues"
+note = "Read in full: shadow-durable-tests. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.048]
+path = "sdk/launchpad/shared/delivery/store.go"
+lines = 771
+verdict = "clean"
+note = "Read in full: epoch-fenced mutations, owner leases, duplicate identity validation, inbox atomicity and durable retries preserve exactly-once effects across at-least-once broker delivery."
+
+[file.049]
+path = "sdk/launchpad/shared/delivery/stream.go"
+lines = 565
+verdict = "clean"
+note = "Read in full: committed source functions verify six stream families, strict frame encodings and persistent source provenance; routed relays bind PubAck to the expected stream before offsets advance."
+
+[file.050]
+path = "sdk/launchpad/shared/delivery/stream_market.go"
+lines = 27
+verdict = "clean"
+note = "Read in full: authorized market head reads use the committed SQL function within the caller transaction and admit only price/stats pool topics."
+
+[file.051]
+path = "sdk/launchpad/shared/delivery/stream_route_test.go"
+lines = 55
+verdict = "clean"
+note = "Read in full: all committed topic families require one unambiguous stream route and invalid or overlapping filters are rejected."
+
+[file.052]
+path = "sdk/launchpad/shared/delivery/webhook.go"
+lines = 349
+verdict = "clean"
+note = "Read in full: HTTPS target and secret admission, signed exact envelope bytes, per-target cursor, durable retries and quarantines agree with the webhook state schema."
+
+[file.053]
+path = "sdk/launchpad/shared/delivery/webhook.sql"
+lines = 30
+verdict = "clean"
+note = "Read in full: target generation, cursor and delivery retry state persist independently with restrictive grants and uniqueness constraints matching the bridge."
+
+[file.054]
+path = "sdk/launchpad/shared/delivery/webhook_test.go"
+lines = 210
+verdict = "clean"
+note = "Read in full: real HTTP and PostgreSQL fixtures exercise signature delivery, cursor persistence, failures and retry/quarantine behavior."
+
+[file.055]
+path = "tools/launchpad/production/interfaces/accounting_check.py"
+lines = 261
+verdict = "clean"
+note = "Read in full: required explicit schema/spec/case inputs drive exact accounting shape and identity checks; no generic schema success substitutes for canonical publication evidence."
+
+[file.056]
+path = "tools/launchpad/production/interfaces/capability_check.py"
+lines = 273
+verdict = "issues"
+note = "Read in full: capability-authority-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.057]
+path = "tools/launchpad/production/interfaces/codegen.py"
+lines = 176
+verdict = "issues"
+note = "Read in full: codegen-authority-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.058]
+path = "tools/launchpad/production/interfaces/compatibility_check.py"
+lines = 64
+verdict = "issues"
+note = "Read in full: compatibility-authority-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.059]
+path = "tools/launchpad/production/interfaces/compatibility_check_test.py"
+lines = 33
+verdict = "issues"
+note = "Read in full: compatibility-test-authority. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.060]
+path = "tools/launchpad/production/interfaces/contracts/ContractWalletFixture.sol"
+lines = 15
+verdict = "clean"
+note = "Read in full: isolated ERC1271 fixture returns the exact magic bytes4 only for its owner signature and rejects invalid lengths and recovery results."
+
+[file.061]
+path = "tools/launchpad/production/interfaces/contracts/artifact-identity.cjs"
+lines = 4
+verdict = "clean"
+note = "Read in full: artifact bytecode identity uses reviewed runtime hash and immutable references rather than accepting arbitrary observed code."
+
+[file.062]
+path = "tools/launchpad/production/interfaces/contracts/attest.cjs"
+lines = 6
+verdict = "clean"
+note = "Read in full: explicit source/output roots and real chain/code reads create identity attestation bound to the declared deployment roles."
+
+[file.063]
+path = "tools/launchpad/production/interfaces/contracts/client-deployment.cjs"
+lines = 46
+verdict = "clean"
+note = "Read in full against4499.1/4499.2: role kind/runtime hash comes from sdk current.json and manifest/current role-address disagreement is refused; generation preserves implementation identities."
+
+[file.064]
+path = "tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs"
+lines = 78
+verdict = "clean"
+note = "Read in full against4498.1 and4499: deriveDeployment defaults to repository contracts without CONTRACT_SOURCE_ROOT and each role-address disagreement is asserted; no suite execution is claimed."
+
+[file.065]
+path = "tools/launchpad/production/interfaces/contracts/export.cjs"
+lines = 14
+verdict = "issues"
+note = "Read in full: contract-export-authorities. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.066]
+path = "tools/launchpad/production/interfaces/contracts/fixture.cjs"
+lines = 226
+verdict = "clean"
+note = "Read in full: actual deployed contract calls and receipts cover creation, swaps, fee accounting, negative selectors and EOA/ERC1271 wallet behavior; optional capabilities remain explicitly blocked."
+
+[file.067]
+path = "tools/launchpad/production/interfaces/contracts/hardhat.config.cjs"
+lines = 4
+verdict = "clean"
+note = "Read in full: explicit contract-source tooling, Solidity0.8.27 and bounded isolated chain125 fixture configuration agree with run.sh;4498 applies to the separate client test suite."
+
+[file.068]
+path = "tools/launchpad/production/interfaces/contracts/identity-guard.cjs"
+lines = 34
+verdict = "clean"
+note = "Read in full: exact chain, runtime identity, proxy/beacon implementation and signed attestation checks reject mismatched contract authority."
+
+[file.069]
+path = "tools/launchpad/production/interfaces/contracts/identity-guard.test.cjs"
+lines = 15
+verdict = "clean"
+note = "Read in full: negative chain, identity and attestation cases assert the actual guard contract without weakening deployment identity checks."
+
+[file.070]
+path = "tools/launchpad/production/interfaces/contracts/run.sh"
+lines = 12
+verdict = "clean"
+note = "Read in full: required explicit roots drive the isolated contract export, real fixture, attestation and validation stages; stage failures propagate to the caller."
+
+[file.071]
+path = "tools/launchpad/production/interfaces/contracts/validate.cjs"
+lines = 10
+verdict = "issues"
+note = "Read in full: frozen-baseline-silently-absent. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.072]
+path = "tools/launchpad/production/interfaces/examples_check.py"
+lines = 279
+verdict = "issues"
+note = "Read in full: examples-authority-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.073]
+path = "tools/launchpad/production/interfaces/examples_check_test.py"
+lines = 111
+verdict = "issues"
+note = "Read in full: examples-test-authority. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.074]
+path = "tools/launchpad/production/interfaces/materialize.py"
+lines = 403
+verdict = "issues"
+note = "Read in full: materializer-authority-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.075]
+path = "tools/launchpad/production/interfaces/persistence_check.py"
+lines = 195
+verdict = "issues"
+note = "Read in full: persistence-authority-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.076]
+path = "tools/launchpad/production/interfaces/test_capability_check.py"
+lines = 109
+verdict = "issues"
+note = "Read in full: capability-test-authority. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.077]
+path = "tools/launchpad/production/interfaces/test_codegen.py"
+lines = 16
+verdict = "issues"
+note = "Read in full: codegen-drift-test-target. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.078]
+path = "tools/launchpad/production/interfaces/test_materialize.py"
+lines = 83
+verdict = "issues"
+note = "Read in full: materializer-test-authority. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.079]
+path = "tools/launchpad/production/load/README.md"
+lines = 29
+verdict = "issues"
+note = "Read in full: local-load-command-doc. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.080]
+path = "tools/launchpad/production/load/calibration.py"
+lines = 72
+verdict = "clean"
+note = "Read in full: actual raw counters, source digests, freshness and CPU/NIC headroom validate the four-host measurements; capacity remains false pending trusted external attestations."
+
+[file.081]
+path = "tools/launchpad/production/load/capture.py"
+lines = 289
+verdict = "clean"
+note = "Read in full: bounded source-bound captures, exact per-second joins and Ed25519 native attestations bind scenario, candidate, tool and raw artifacts; final acceptance requires full declared duration."
+
+[file.082]
+path = "tools/launchpad/production/load/eventdriver/main.go"
+lines = 266
+verdict = "clean"
+note = "Read in full: canonical SQL joins, admitted actual broker credentials and file-backed stream enforce real publication provenance, bounded arrivals and persistent acknowledgement samples."
+
+[file.083]
+path = "tools/launchpad/production/load/final-integrated-gate-readiness.json"
+lines = 119
+verdict = "clean"
+note = "Read in full: source readiness honestly remains false and names genuine external host, socket, canonical source and native egress prerequisites; no measured capacity is asserted."
+
+[file.084]
+path = "tools/launchpad/production/load/final-shared-capture.schema.json"
+lines = 652
+verdict = "clean"
+note = "Read in full: strict capture records define source commits, gateway intervals, faults and expected browser delivery with exact bindings and integer/string units."
+
+[file.085]
+path = "tools/launchpad/production/load/network.py"
+lines = 36
+verdict = "clean"
+note = "Read in full: owned loopback null receiver and actual RFC6455 subscription retain genuine sender/receiver timestamps and fail occupied ports."
+
+[file.086]
+path = "tools/launchpad/production/load/phase-1-evidence-policy.json"
+lines = 26
+verdict = "clean"
+note = "Read in full: bounded local calibration evidence does not claim managed provider, global capacity, long soak or cross-host attestation."
+
+[file.087]
+path = "tools/launchpad/production/load/phase-1-scenario-manifest.json"
+lines = 28
+verdict = "issues"
+note = "Read in full: local-load-manifest-command. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.088]
+path = "tools/launchpad/production/load/phase-2-evidence-policy.json"
+lines = 21
+verdict = "clean"
+note = "Read in full: actual journey, replay and generator evidence must share source-bound candidate authority; local calibration is not runtime capacity proof."
+
+[file.089]
+path = "tools/launchpad/production/load/phase-2-scenario-manifest.json"
+lines = 47
+verdict = "clean"
+note = "Read in full: declared actual phase2 provider journeys preserve exact workload and source/receiver correlation requirements with explicit external admission."
+
+[file.090]
+path = "tools/launchpad/production/load/phase-3-evidence-policy.json"
+lines = 59
+verdict = "clean"
+note = "Read in full: actual provider faults require source-bound commands, raw failure evidence, reconciliation and bounded recovery rather than caller success booleans."
+
+[file.091]
+path = "tools/launchpad/production/load/phase-3-scenario-manifest.json"
+lines = 106
+verdict = "clean"
+note = "Read in full: hot-pool skew, authorization and restart/fault journeys retain real provider effects and exact latency/recovery criteria."
+
+[file.092]
+path = "tools/launchpad/production/load/phase-4-evidence-policy.json"
+lines = 54
+verdict = "clean"
+note = "Read in full: full shared capacity requires all49 lane authorities, native signed scenario proofs, raw artifact bindings and uncensored latency evidence."
+
+[file.093]
+path = "tools/launchpad/production/load/phase-4-scenario-manifest.json"
+lines = 119
+verdict = "issues"
+note = "Read in full: load-phase4-qualification-command. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.094]
+path = "tools/launchpad/production/load/phase2_accounts.py"
+lines = 110
+verdict = "clean"
+note = "Read in full: source-bound actual signer, wallet login and metadata headers use canonical requests and current credentials; secrets remain in private runtime configuration."
+
+[file.095]
+path = "tools/launchpad/production/load/phase2_browser.ts"
+lines = 95
+verdict = "clean"
+note = "Read in full: real browser delivery validates sequence/checkpoint lifecycle and emits actual browser-observed source event timestamps to the parent."
+
+[file.096]
+path = "tools/launchpad/production/load/phase2_browser.tsconfig.json"
+lines = 11
+verdict = "clean"
+note = "Read in full: the browser harness compiles with the repository TypeScript target and module settings, without disabling type checks."
+
+[file.097]
+path = "tools/launchpad/production/load/phase2_feeder.py"
+lines = 122
+verdict = "clean"
+note = "Read in full: explicit primary PostgreSQL authority, read-only bounded queries and actual root-path chain125 transactions bind source commits and stream replay identities."
+
+[file.098]
+path = "tools/launchpad/production/load/phase2_http.py"
+lines = 80
+verdict = "clean"
+note = "Read in full: bounded asynchronous HTTPS requests require exact origins and explicit owned-local opt-in, preserve raw response/error evidence and timeouts."
+
+[file.099]
+path = "tools/launchpad/production/load/phase2_latency.py"
+lines = 35
+verdict = "clean"
+note = "Read in full: source and browser event identities join on actual commit timestamps with independently bounded clock uncertainty; missing evidence and duplicates are rejected."
+
+[file.100]
+path = "tools/launchpad/production/load/phase2_receivers.py"
+lines = 203
+verdict = "clean"
+note = "Read in full: real sockets enforce frozen frames, explicit source sequence and checkpoint/reconnect lifecycle; missing or regressing evidence fails."
+
+[file.101]
+path = "tools/launchpad/production/load/phase2_runner.py"
+lines = 394
+verdict = "issues"
+note = "Read in full: load-route-catalog-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.102]
+path = "tools/launchpad/production/load/phase2_types.py"
+lines = 120
+verdict = "issues"
+note = "Read in full: load-v2-contract-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.103]
+path = "tools/launchpad/production/load/phase3_runner.py"
+lines = 551
+verdict = "clean"
+note = "Read in full: real admitted provider commands, raw fault evidence, fixed-arrival histograms and reconciliation preserve runtime and candidate bindings; absent runtime prerequisites are not replaced."
+
+[file.104]
+path = "tools/launchpad/production/load/phase4_runner.py"
+lines = 344
+verdict = "issues"
+note = "Read in full: load-final-admission-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.105]
+path = "tools/launchpad/production/load/protocol.py"
+lines = 13
+verdict = "issues"
+note = "Read in full: load-v1-contract-path. The findings identify the current authority, lifecycle or fixture disagreements and propose repairs without changing runtime behavior."
+
+[file.106]
+path = "tools/launchpad/production/load/scheduler.py"
+lines = 63
+verdict = "clean"
+note = "Read in full: independent fixed arrivals, bounded inflight work and explicit missed/timeout states preserve the full latency denominator."
+
+[file.107]
+path = "tools/launchpad/production/load/test_load.py"
+lines = 114
+verdict = "clean"
+note = "Read in full: exact workload arithmetic, positive/negative frozen frames, real loopback pause and CPU/NIC/source bindings assert local primitives; protocol authority path issue is recorded against protocol.py."
+
+[file.108]
+path = "tools/launchpad/production/load/test_phase2_journeys.py"
+lines = 80
+verdict = "clean"
+note = "Read in full: explicit source-bound provider configuration is required and real browser/replay/ingest journeys assert actual evidence; this is a live gate rather than phase1 calibration."
+
+[file.109]
+path = "tools/launchpad/production/load/test_phase3_faults.py"
+lines = 85
+verdict = "clean"
+note = "Read in full: actual configured faults must produce retained denial/recovery evidence and histogram assertions; no synthetic provider success replaces live execution."
+
+[file.110]
+path = "tools/launchpad/production/load/test_phase4_capacity.py"
+lines = 97
+verdict = "clean"
+note = "Read in full: required real runtime configuration and integrated evidence assertions remain distinct from final task9.1 capacity admission."
+
+[file.111]
+path = "tools/launchpad/production/load/workload.py"
+lines = 90
+verdict = "clean"
+note = "Read in full: exact500000 DAU arithmetic, included quote/write subsets, immutable traffic mix and final scenario budgets agree with the load capture policies; capacity remains unqualified."
+
+[finding.audit-durable-fixture]
+file = "sdk/launchpad/shared/auth/audit_delivery_integration_test.go"
+line = 133
+class = "test-gap"
+severity = "medium"
+observed = "The fixture creates a new stream and calls NewConsumer for audit_fixture and audit_replay without provisioning either durable. NewConsumer only looks up an existing consumer through js.Consumer and validates its broker configuration, so the fixture stops before sink outage and replay assertions."
+expected = "The authentication audit integration fixture must use the actual pre-provisioned durable consumer contract and reach its sink outage, duplicate delivery and immutable auth-state assertions."
+proposal = "In sdk/launchpad/shared/auth/audit_delivery_integration_test.go provision both durables with ConsumerConfig.BrokerConsumerConfig and js.CreateConsumer before attaching NewConsumer; preserve all sink failure and replay assertions."
+owner_domain = 4
+interface = "4.go-shared-delivery-natsdriver-new-consumer"
+
+[finding.broker-fence-resume]
+file = "sdk/launchpad/shared/delivery/natsdriver/epoch.go"
+line = 369
+class = "restart-recovery"
+severity = "medium"
+observed = "Fence commits an applying recovery_broker_fences row before changing broker configuration, but persists credential evidence only after all members finish. A crash or later-member failure leaves a unique proposal row and possibly revoked members; retry inserts the same key and cannot resume, and original-config validation rejects a changed member."
+expected = "A partially applied broker credential fence must resume after process loss without restoring revoked credentials or requiring an operator to discard the durable recovery proposal."
+proposal = "In sdk/launchpad/shared/delivery/natsdriver/epoch.go persist per-member transition progress, recognize the reviewed replacement configuration on restart, and resume denial verification before recording aggregate success; prove crashes after rename, reload and between members."
+owner_domain = 4
+interface = "4.go-shared-delivery-natsdriver-broker-epoch-controller-fence"
+
+[finding.broker-fence-runtime-wiring]
+file = "sdk/launchpad/shared/delivery/natsdriver/epoch.go"
+line = 103
+class = "wiring-gap"
+severity = "medium"
+observed = "NewBrokerEpochController and BrokerEpochController.Fence are referenced by epoch_test.go but have no production caller in sdk, services or tools/launchpad. The concrete broker revocation implementation is therefore not connected to a runtime recovery coordinator."
+expected = "An admitted recovery operation must invoke actual broker credential revocation and consume the durable verified fence before transferring recovery authority."
+proposal = "Wire sdk/launchpad/shared/delivery/natsdriver/epoch.go into the owning launchpad recovery coordinator with explicit member authorities and durable proof consumption; expose an authorized operational entry point and qualify its real broker path."
+owner_domain = 4
+interface = "4.go-shared-delivery-natsdriver-broker-epoch-controller-fence"
+
+[finding.broker-fence-crash-tests]
+file = "sdk/launchpad/shared/delivery/natsdriver/epoch_test.go"
+line = 242
+class = "test-gap"
+severity = "medium"
+observed = "The broker fence tests exercise one member success, repeated proposal refusal and configuration rejection, but never interrupt a partially applied multi-member fence and reconstruct the controller from persisted state."
+expected = "Recovery qualification must prove the irreversible broker changes and durable recovery journal agree across process restart and partial cluster progress."
+proposal = "Extend sdk/launchpad/shared/delivery/natsdriver/epoch_test.go with real broker members and process interruptions after configuration publication and reload; require resumed completion with old publish and acknowledgement credentials still denied."
+owner_domain = 4
+interface = "4.go-shared-delivery-natsdriver-broker-epoch-controller-fence"
+
+[finding.active-rebuild-restart]
+file = "sdk/launchpad/shared/delivery/replay.go"
+line = 63
+class = "restart-recovery"
+severity = "high"
+observed = "Start returns ErrIntegrity when delivery_read_aliases already points to this generation. The live indexer rebuild worker in services/launchpad/indexer/internal/app/app.go:530 calls Start on every startup, including after Promote persisted an active generation. Its AddOnce worker records that error and runtimeWorkers.Ready remains unavailable with the unchanged rebuild configuration."
+expected = "A successfully promoted configured rebuild must survive an ordinary indexer restart and remain ready when its persisted manifest, generation and active alias agree."
+proposal = "In sdk/launchpad/shared/delivery/replay.go and services/launchpad/indexer/internal/app/app.go recognize an already completed matching rebuild as successful recovery, verify the manifest and alias identity, and bypass duplicate promotion; test promotion followed by process restart with identical configuration."
+owner_domain = 4
+interface = "4.go-shared-delivery-replay-engine-start"
+
+[finding.rollback-generation-freshness]
+file = "sdk/launchpad/shared/delivery/replay.go"
+line = 352
+class = "runtime-risk"
+severity = "medium"
+observed = "RollbackAlias accepts prior generations with status active, verified or retired and switches the read alias using only its revision. Unlike Promote it does not compare the current source frontier, current projection digest or retained archive availability. No live RollbackAlias caller was found, but its exported recovery API can select a stale prior projection."
+expected = "An operational rollback must preserve the declared completeness and integrity of reads at the current committed frontier, or refuse a prior generation that cannot provide them."
+proposal = "Before wiring RollbackAlias, add prior-generation catch-up, digest and retention checks in sdk/launchpad/shared/delivery/replay.go and bind the rollback to its current recovery authority; exercise a source advance and expired archive after promotion."
+owner_domain = 4
+interface = "4.go-shared-delivery-replay-engine-rollback-alias"
+
+[finding.replay-lifecycle-tests]
+file = "sdk/launchpad/shared/delivery/replay_test.go"
+line = 7
+class = "test-gap"
+severity = "medium"
+observed = "replay_test.go tests only DiskRunwaySeconds. It contains no database-backed Start, RunBlock, Promote or RollbackAlias lifecycle exercise, although the indexer runtime uses the rebuild engine and persists its alias and lease state."
+expected = "Replay qualification must assert the real archive, PostgreSQL projector, lease, alias and worker lifecycle across retries, promotion and restart."
+proposal = "Add real PostgreSQL and object-store lifecycle coverage in sdk/launchpad/shared/delivery/replay_test.go, including duplicate startup after promotion, stale lease refusal, changed canonical data, rollback freshness and crash recovery."
+owner_domain = 4
+interface = "4.go-shared-delivery-replay-engine-promote"
+
+[finding.shadow-proof-scope]
+file = "sdk/launchpad/shared/delivery/shadow.go"
+line = 174
+class = "test-gap"
+severity = "medium"
+observed = "CompareShadowRange accepts a caller-selected subjects set, but its persisted delivery_shadow_comparisons row stores only manifest_digest, event_digest and event_count. Promote accepts any nonempty comparison for that manifest; the persisted proof cannot establish which subject coverage was actually compared for a later consumer cutover."
+expected = "A cutover proof must identify the compared subject coverage and bind the proof consumed by promotion to the intended consumer and generation."
+proposal = "In sdk/launchpad/shared/delivery/shadow.go and replay.sql persist the canonical subject set and consumer or generation coverage, have replay.go require the matching proof, and test rejection of a comparison made for a different subset."
+owner_domain = 4
+interface = "4.go-shared-delivery-replay-engine-promote"
+
+[finding.shadow-durable-tests]
+file = "sdk/launchpad/shared/delivery/shadow_test.go"
+line = 8
+class = "test-gap"
+severity = "medium"
+observed = "The shadow suite checks CompareShadow over in-memory records only. It does not exercise RecordShadowTx, CompareShadowRange, the outbox source-of-truth query or the persisted comparison proof later consumed by Promote."
+expected = "Shadow qualification must prove the actual database observation and comparison path, including range boundaries, durable retries and the scope required for a cutover."
+proposal = "Extend sdk/launchpad/shared/delivery/shadow_test.go with real PostgreSQL observations and outbox rows, then assert missing, extra, changed and wrong-range records prevent persisted promotion evidence."
+owner_domain = 4
+interface = "4.go-shared-delivery-replay-engine-promote"
+
+[finding.capability-authority-path]
+file = "tools/launchpad/production/interfaces/capability_check.py"
+line = 62
+class = "config-drift"
+severity = "medium"
+observed = "Default bundle and chain_bundle resolve to launchpad/spec/production-system/integration/contracts/v1 and the default spec uses launchpad/spec/production-system/spec.kvx. Those authority files are absent, so the default check cannot inspect the current deployment capabilities."
+expected = "The capability qualifier must locate the reviewed authority bundle of this checkout and fail clearly when a required bundle is not supplied."
+proposal = "Update tools/launchpad/production/interfaces/capability_check.py to use an explicitly supplied current spec and frozen bundle, or migrate the authoritative bundle into its reviewed repository location and align its CLI and registry defaults."
+owner_domain = 4
+interface = "4.cfg-lp-tools-production-interfaces-capability-check-bundle"
+
+[finding.codegen-authority-path]
+file = "tools/launchpad/production/interfaces/codegen.py"
+line = 151
+class = "config-drift"
+severity = "medium"
+observed = "The default schema and codegen manifest are under the absent launchpad/spec/production-system/integration/contracts tree. The output manifest allowlist at line161 also requires that obsolete prefix, so moving only the input schema does not move the provenance record."
+expected = "Code generation must resolve both its schema and provenance manifest against the reviewed contract authority of the merged repository."
+proposal = "In tools/launchpad/production/interfaces/codegen.py migrate the schema and manifest locations together and retain traversal and output checks around the new reviewed authority; align invoking commands and registry defaults."
+owner_domain = 4
+interface = "4.cfg-lp-tools-production-interfaces-codegen-root"
+
+[finding.compatibility-authority-path]
+file = "tools/launchpad/production/interfaces/compatibility_check.py"
+line = 60
+class = "config-drift"
+severity = "medium"
+observed = "With --root pointing at this monorepo, the default manifest is spec/production-system/integration/contracts/v1/compatibility.json, which does not exist. The companion suite uses a different launchpad/spec prefix, so the default CLI and suite do not share one manifest location."
+expected = "The compatibility CLI and its suite must resolve the same explicit current source root and frozen mapping manifest."
+proposal = "Align tools/launchpad/production/interfaces/compatibility_check.py and compatibility_check_test.py on a reviewed monorepo authority path or required manifest argument; keep hash, route, field inventory and schema checks intact."
+owner_domain = 4
+interface = "4.cfg-lp-tools-production-interfaces-compatibility-check-root"
+
+[finding.compatibility-test-authority]
+file = "tools/launchpad/production/interfaces/compatibility_check_test.py"
+line = 10
+class = "test-gap"
+severity = "medium"
+observed = "The suite defaults COMPAT_SOURCE_ROOT to /root/mk-falcon/KindleLaunch and unconditionally reads the absent launchpad/spec/production-system/integration/contracts/v1/compatibility.json. A fresh checkout cannot reach the intended negative mapping assertions."
+expected = "The frozen mapping suite must exercise the current repository sources and a present reviewed mapping document without depending on a previous workstation."
+proposal = "In tools/launchpad/production/interfaces/compatibility_check_test.py derive the repository source root and bind the current manifest explicitly; retain every negative mutation and source-hash assertion."
+owner_domain = 4
+interface = "4.env-lp-tools-compat-source-root"
+
+[finding.contract-export-authorities]
+file = "tools/launchpad/production/interfaces/contracts/export.cjs"
+line = 13
+class = "config-drift"
+severity = "medium"
+observed = "The exporter reads event-authorities.json from the absent launchpad/spec/production-system/integration/contracts/v1/chain directory after writing abi-catalog.json. CONTRACT_SOURCE_ROOT and CONTRACT_FREEZE_OUTPUT cannot redirect this required authority input."
+expected = "A contract export must bind the current reviewed event-authority document and produce a complete source-verified bundle, with all required inputs resolved before publication."
+proposal = "Give tools/launchpad/production/interfaces/contracts/export.cjs an explicit hash-bound event-authority input at the current reviewed location, validate it before writing outputs, and update the owning export invocation."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-interfaces-contracts-export"
+
+[finding.frozen-baseline-silently-absent]
+file = "tools/launchpad/production/interfaces/contracts/validate.cjs"
+line = 9
+class = "test-gap"
+severity = "medium"
+observed = "Frozen comparison is guarded by fs.existsSync of the old launchpad/spec/production-system/integration/contracts/v1/chain/abi-catalog.json, which is absent. Validation therefore skips ABI, artifact, source, scenario proof and getter baseline comparisons while frozenInterfaceCompared is reported solely from output-path inequality."
+expected = "A frozen-interface validation must require and actually compare its reviewed baseline before reporting that frozen interfaces were compared."
+proposal = "In tools/launchpad/production/interfaces/contracts/validate.cjs require an explicit present baseline for comparison, fail on a missing baseline, and derive frozenInterfaceCompared from the comparisons performed; preserve all exact equality assertions."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-interfaces-contracts-validate"
+
+[finding.examples-authority-path]
+file = "tools/launchpad/production/interfaces/examples_check.py"
+line = 251
+class = "config-drift"
+severity = "medium"
+observed = "The example checker defaults --spec and --contracts to absent launchpad/spec/production-system authority files, so its normal check cannot generate or validate the declared examples in this checkout."
+expected = "Example generation and validation must consume the current reviewed semantic catalogue and frozen schema bundle through one consistent authority binding."
+proposal = "Update tools/launchpad/production/interfaces/examples_check.py and its owning invocation to require or resolve the current spec and contract bundle together; retain exact endpoint coverage, instance validation and read-only drift checks."
+owner_domain = 4
+interface = "4.cfg-lp-tools-production-interfaces-examples-check-spec"
+
+[finding.examples-test-authority]
+file = "tools/launchpad/production/interfaces/examples_check_test.py"
+line = 18
+class = "test-gap"
+severity = "medium"
+observed = "setUpClass reads SPEC and schema-definitions.json from absent launchpad/spec/production-system defaults before any of the exact108 endpoint, wallet-proof, SSE or negative-schema assertions execute."
+expected = "The example regression suite must use present authoritative repository inputs and reach all of its declared positive and negative shape assertions."
+proposal = "Bind current reviewed inputs in tools/launchpad/production/interfaces/examples_check_test.py and its test invocation, replacing the missing default locations without weakening endpoint counts or schema assertions."
+owner_domain = 4
+interface = "4.env-lp-tools-example-contracts"
+
+[finding.materializer-authority-path]
+file = "tools/launchpad/production/interfaces/materialize.py"
+line = 387
+class = "config-drift"
+severity = "medium"
+observed = "The materializer defaults --spec and --out to launchpad/spec/production-system, whose spec and contract bundle are absent. Its major-version overwrite protection is also tied to that old v1 output location."
+expected = "The materializer must derive the current frozen contract artifacts from the reviewed semantic spec and retain explicit version separation at their current locations."
+proposal = "Migrate the input, output and version-protection bindings together in tools/launchpad/production/interfaces/materialize.py and update its registered invocation; require an explicit authoritative spec rather than inventing replacement shapes."
+owner_domain = 4
+interface = "4.cfg-lp-tools-production-interfaces-materialize-spec"
+
+[finding.persistence-authority-path]
+file = "tools/launchpad/production/interfaces/persistence_check.py"
+line = 113
+class = "config-drift"
+severity = "medium"
+observed = "The default --register points at an absent launchpad/spec/production-system/integration/contracts/v1/migration-register.json. The special rule requiring --runtime-source for a revised register compares against that same missing legacy path."
+expected = "Persistence privilege checks must bind a present reviewed migration register to the matching runtime source and exact migration history checksums."
+proposal = "Update tools/launchpad/production/interfaces/persistence_check.py and its invocation to name the current migration register and authoritative runtime source together, preserving the local-only connection and SQL privilege assertions."
+owner_domain = 4
+interface = "4.cfg-lp-tools-production-interfaces-persistence-check-register"
+
+[finding.capability-test-authority]
+file = "tools/launchpad/production/interfaces/test_capability_check.py"
+line = 17
+class = "test-gap"
+severity = "medium"
+observed = "setUp reads the absent capabilities.json and old spec location, and pins contract authority to /root/mk-falcon/contracts and evidence to a dated /tmp directory. The materialized bundle test repeats the missing old contract prefix."
+expected = "Capability regression checks must bind current repository contract sources and explicitly admitted evidence, with reproducible authority inputs for the negative cases."
+proposal = "Replace workstation defaults in tools/launchpad/production/interfaces/test_capability_check.py with the current repository roots and explicit reviewed bundle and evidence bindings; retain real provenance and freshness checks."
+owner_domain = 4
+interface = "4.env-lp-tools-capability-materialized-root"
+
+[finding.codegen-drift-test-target]
+file = "tools/launchpad/production/interfaces/test_codegen.py"
+line = 10
+class = "test-gap"
+severity = "medium"
+observed = "test_check_never_writes_and_detects_drift emits sdk/launchpad/shared/interfaces/v1/types.gen.go but writes stale bytes to root/shared/interfaces/v1/types.gen.go. The latter parent is never generated, so write_text raises before the intended drift check and would target the wrong artifact even if the directory existed."
+expected = "The drift regression must alter the actual generated SDK artifact and prove --check reports its change without rewriting it."
+proposal = "Use the emitted sdk/launchpad/shared/interfaces/v1/types.gen.go path in tools/launchpad/production/interfaces/test_codegen.py and retain both the nonzero drift result and exact stale-byte preservation assertions."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-interfaces-test-codegen"
+
+[finding.materializer-test-authority]
+file = "tools/launchpad/production/interfaces/test_materialize.py"
+line = 9
+class = "test-gap"
+severity = "medium"
+observed = "setUpClass unconditionally opens the absent launchpad/spec/production-system/spec.kvx and v1/inputs/supplementary.json. The schema and contract assertions therefore cannot run from the current checkout."
+expected = "The materializer suite must generate from the current reviewed spec and supplementary authority and execute all contract and schema assertions."
+proposal = "Bind the current spec and supplementary bundle in tools/launchpad/production/interfaces/test_materialize.py and the owning test command, preserving all generated schema checks and version isolation assertions."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-interfaces-test-materialize"
+
+[finding.load-v1-contract-path]
+file = "tools/launchpad/production/load/protocol.py"
+line = 6
+class = "config-drift"
+severity = "medium"
+observed = "CONTRACTS is fixed to the absent launchpad/spec/production-system/integration/contracts/v1 directory. subscribe and validate cannot read their frozen schema, including the positive event assertion in test_load.py."
+expected = "Local protocol calibration must validate exact reviewed stream schemas from the current repository authority before using network fixtures."
+proposal = "In tools/launchpad/production/load/protocol.py bind the current frozen contract bundle explicitly and update the owning local test invocation; retain positive and negative validation against the same real schema."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-load-protocol"
+
+[finding.load-v2-contract-path]
+file = "tools/launchpad/production/load/phase2_types.py"
+line = 51
+class = "config-drift"
+severity = "medium"
+observed = "validate_v2 always reads the absent launchpad/spec/production-system/integration/contracts/v2/schema-definitions.json. Every phase2 through phase4 caller that validates a stream or response is blocked regardless of its admitted runtime configuration."
+expected = "The shared load harness must bind one current reviewed v2 contract bundle to its candidate and interface provenance before validating actual runtime traffic."
+proposal = "Provide a required source-bound schema authority in tools/launchpad/production/load/phase2_types.py and propagate it through phase2, phase3 and phase4 configuration; migrate all consumers together without bypassing validation."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-load-phase2-types"
+
+[finding.load-route-catalog-path]
+file = "tools/launchpad/production/load/phase2_runner.py"
+line = 65
+class = "config-drift"
+severity = "medium"
+observed = "resolve_routes reads openapi.json from the absent launchpad/spec/production-system/integration/contracts/v2 directory. The phase2 runner and phase4 HTTP mix cannot resolve or validate operation identifiers for actual traffic."
+expected = "The admitted workload must resolve its exact operations, methods and response schemas against the current source-bound API authority."
+proposal = "Update tools/launchpad/production/load/phase2_runner.py and its phase4 caller to receive the reviewed OpenAPI authority with an interface digest, keeping exact category, operation and method agreement checks."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-load-phase2-runner"
+
+[finding.load-final-admission-path]
+file = "tools/launchpad/production/load/phase4_runner.py"
+line = 54
+class = "config-drift"
+severity = "medium"
+observed = "Final runtime validation opens the absent launchpad/spec/production-system/spec.kvx and requires the old task4.99 and task9.1 states. An admitted final run cannot establish its coordinator lifecycle against the current layerx-merge task graph."
+expected = "Final load admission must refer to the reviewed current programme lifecycle and exact candidate authority before an integrated capacity execution."
+proposal = "Replace the legacy spec and task binding in tools/launchpad/production/load/phase4_runner.py with the current coordinator authority agreed by the root programme; preserve strict admission, candidate and all49 lane checks."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-load-phase4-runner"
+
+[finding.load-phase4-qualification-command]
+file = "tools/launchpad/production/load/phase-4-scenario-manifest.json"
+line = 116
+class = "config-drift"
+severity = "medium"
+observed = "verify_cmd invokes qualify.py --task4.48 with the absent launchpad/spec/production-system/spec.kvx. The published scenario manifest therefore names a qualification command that cannot bind this monorepo programme."
+expected = "The scenario manifest must name the current reviewed qualification entry point and spec that own its source and runtime evidence."
+proposal = "Update tools/launchpad/production/load/phase-4-scenario-manifest.json together with the coordinator migration, recording the current task and authority path while preserving all workload and evidence requirements."
+owner_domain = 4
+interface = "4.fmt-lp-tools-production-load-phase-4-scenario-manifest"
+
+[finding.local-load-command-doc]
+file = "tools/launchpad/production/load/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The README describes unittest discovery of test_*.py as opening only loopback ports24800 and24801, but the same directory includes phase2 journey, phase3 fault and phase4 capacity suites that require explicit provider configuration and exercise actual admitted runtimes."
+expected = "The local calibration instructions must select the bounded local suite and describe the live provider and fault suites as separately admitted commands."
+proposal = "In tools/launchpad/production/load/README.md document test_load.py as the local primitive command and list phase2 through phase4 invocations with their required source-bound runtime configuration and actual workload effects."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-load-test-load"
+
+[finding.local-load-manifest-command]
+file = "tools/launchpad/production/load/phase-1-scenario-manifest.json"
+line = 25
+class = "config-drift"
+severity = "medium"
+observed = "The bounded-local-primitives-only manifest selects test_*.py. That includes test_phase2_journeys.py, test_phase3_faults.py and test_phase4_capacity.py, which require actual provider configurations and are not the declared phase1 loopback workload."
+expected = "The phase1 command must execute exactly the bounded local primitives while retaining separate explicit execution of every admitted live phase suite."
+proposal = "Change the phase1 command pattern to test_load.py in tools/launchpad/production/load/phase-1-scenario-manifest.json and keep the provider suites as their own configured qualification commands; do not skip or remove their assertions."
+owner_domain = 4
+interface = "4.fmt-lp-tools-production-load-phase-1-scenario-manifest"
+
+[finding.precompile-retirement-doc]
+file = "docs/system/precompiles.md"
+line = 1170
+class = "doc-drift"
+severity = "medium"
+observed = "The ABI inventory lists layerxanchor, layerxverify and custody withdrawal, forced-exit and deposit-root functions as ordinary callable surfaces at lines1170-1320 and1552-1562, without the post-upgrade refusal or replacement semantics. These components are explicitly retired in programme/data/retired.kvx."
+expected = "Integrators must see which historical ABI selectors refuse after the upgrade and use committed block finality, native balance moves, bridgeOut and node proofs for the supported operations."
+proposal = "Update the tools/docs generator that owns docs/system/precompiles.md to annotate retired selectors, refusal codes and activation boundaries, link the supported node and native replacements, and regenerate the page."
+owner_domain = 6
+
+[finding.site-beta]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The cluster instructions mount a custody profile into layerxd and retain separate primary and observer boundary provisioning and receipt-authority topology. The page presents these as the current beta bring-up rather than historical pre-merge infrastructure."
+expected = "Operators must bring up the merged paxd BFT network with native custody and committed-block finality, without the retired layerxd daemon or separate receipt-authority service."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md around the current paxd bootstrap and native custody configuration, remove layerxd and retired authority provisioning steps, and synchronize the site and wiki operator instructions."
+owner_domain = 8
+
+[finding.wiki-beta]
+file = "docs/wiki/BetaCluster.md"
+line = 42
+class = "doc-drift"
+severity = "medium"
+observed = "The cluster instructions mount a custody profile into layerxd and retain separate primary and observer boundary provisioning and receipt-authority topology. The page presents these as the current beta bring-up rather than historical pre-merge infrastructure."
+expected = "Operators must bring up the merged paxd BFT network with native custody and committed-block finality, without the retired layerxd daemon or separate receipt-authority service."
+proposal = "Rewrite docs/wiki/BetaCluster.md around the current paxd bootstrap and native custody configuration, remove layerxd and retired authority provisioning steps, and synchronize the site and wiki operator instructions."
+owner_domain = 8
+
+[finding.site-agent]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The agent submission section sends eth_sendRawTransaction to /rpc. This tells integrators to address the removed unified router path rather than the public node JSON-RPC root."
+expected = "Agent EVM submissions must use the root JSON-RPC endpoint of the chain125 api1 through api14 or api-mainnet-beta node origins; a committed receipt is final."
+proposal = "Update docs/site/docs/agents/running.md submission examples and endpoint guidance to the current node root and merged finality model, with hosted px_ gateway calls documented separately."
+owner_domain = 9
+
+[finding.wiki-agent]
+file = "docs/wiki/RunningAnAgent.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The agent submission section sends eth_sendRawTransaction to /rpc. This tells integrators to address the removed unified router path rather than the public node JSON-RPC root."
+expected = "Agent EVM submissions must use the root JSON-RPC endpoint of the chain125 api1 through api14 or api-mainnet-beta node origins; a committed receipt is final."
+proposal = "Update docs/wiki/RunningAnAgent.md submission examples and endpoint guidance to the current node root and merged finality model, with hosted px_ gateway calls documented separately."
+owner_domain = 9
+
+[finding.site-node]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The page advertises an image that builds layerxd and documents layerxd --serve, an authority replica and the LNI Unix socket as the running hosted node stack, including daemon configuration and receipt-authority routes."
+expected = "The hosted node operator contract must describe paxd with its merged proposing kernel and BFT committed-block finality; layerxd, LNI and separate finality authority are retired."
+proposal = "Rewrite docs/site/docs/platform/hosted-node.md from the current paxd deployment and supported proof/query boundaries; remove daemon and authority replica startup, socket and key instructions and synchronize the site and wiki copies."
+owner_domain = 8
+
+[finding.wiki-node]
+file = "docs/wiki/HostedNode.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The page advertises an image that builds layerxd and documents layerxd --serve, an authority replica and the LNI Unix socket as the running hosted node stack, including daemon configuration and receipt-authority routes."
+expected = "The hosted node operator contract must describe paxd with its merged proposing kernel and BFT committed-block finality; layerxd, LNI and separate finality authority are retired."
+proposal = "Rewrite docs/wiki/HostedNode.md from the current paxd deployment and supported proof/query boundaries; remove daemon and authority replica startup, socket and key instructions and synchronize the site and wiki copies."
+owner_domain = 8
+
+[finding.site-gateway]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway page declares POST /rpc, GET /rpc/schema and GET /rpc/ws as public JSON-RPC and repeats them in the route table at lines198-200. The site also claims15 methods while the wiki claims18 for that same legacy surface."
+expected = "Public node JSON-RPC uses the node root, with no unified /rpc router; hosted px_ methods are governed by services/platform/hosted/gateway/openrpc.json."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md route and authentication guidance around the current hosted OpenRPC contract and node root origins, remove the retired /rpc endpoints, and generate matching site and wiki method coverage."
+owner_domain = 8
+
+[finding.wiki-gateway]
+file = "docs/wiki/HostedGateway.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway page declares POST /rpc, GET /rpc/schema and GET /rpc/ws as public JSON-RPC and repeats them in the route table at lines198-200. The site also claims15 methods while the wiki claims18 for that same legacy surface."
+expected = "Public node JSON-RPC uses the node root, with no unified /rpc router; hosted px_ methods are governed by services/platform/hosted/gateway/openrpc.json."
+proposal = "Rewrite docs/wiki/HostedGateway.md route and authentication guidance around the current hosted OpenRPC contract and node root origins, remove the retired /rpc endpoints, and generate matching site and wiki method coverage."
+owner_domain = 8
+
+[finding.site-registry]
+file = "docs/site/docs/platform/registry.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The registry topology directs operators to layerx-agent-boundary and layerx-receipt-authority services and line29 requires distinct node and receipt-authority credentials. The durability section restores program state through those separate pre-merge authorities."
+expected = "Registry reads and rebuild verification must describe current chain-height state and commit/proof authority without the retired separate receipt-authority and LNI boundary topology."
+proposal = "Update docs/site/docs/platform/registry.md topology, credentials and restart procedure from the merged node-backed registry design, replacing separate authority endpoints with current chain state and proof sources and synchronizing both published copies."
+owner_domain = 8
+
+[finding.wiki-registry]
+file = "docs/wiki/HostedRegistry.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The registry topology directs operators to layerx-agent-boundary and layerx-receipt-authority services and line29 requires distinct node and receipt-authority credentials. The durability section restores program state through those separate pre-merge authorities."
+expected = "Registry reads and rebuild verification must describe current chain-height state and commit/proof authority without the retired separate receipt-authority and LNI boundary topology."
+proposal = "Update docs/wiki/HostedRegistry.md topology, credentials and restart procedure from the merged node-backed registry design, replacing separate authority endpoints with current chain state and proof sources and synchronizing both published copies."
+owner_domain = 8
+
+[finding.sdk-generated-symbol-doc]
+file = "docs/system/sdk.md"
+line = 916
+class = "doc-drift"
+severity = "low"
+observed = "The generated Rust SDK table lists an exported item named fn with kind const. This is a parser artifact rather than a usable Rust SDK declaration and gives readers an invalid API entry."
+expected = "The SDK inventory must list real declared public symbols with their correct kinds and omit parser tokens from the published API surface."
+proposal = "Correct the Rust declaration extraction in the tools/docs generator for docs/system/sdk.md, regenerate the inventory and confirm actual pub const fn declarations retain their real function names."
+owner_domain = 16
+
+[doc.01]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "precompile-retirement-doc: line1170 The ABI inventory lists layerxanchor, layerxverify and custody withdrawal, forced-exit and deposit-root functions as ordinary callable surfaces at lines1170-1320 and1552-1562, without the post-upgrade refusal or replacement semantics. These components are explicitly retired in programme/data/retired.kvx."
+
+[doc.02]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "misleading"
+notes = "site-beta: line50 The cluster instructions mount a custody profile into layerxd and retain separate primary and observer boundary provisioning and receipt-authority topology. The page presents these as the current beta bring-up rather than historical pre-merge infrastructure."
+
+[doc.03]
+path = "docs/site/docs/agents/running.md"
+status = "misleading"
+notes = "site-agent: line512 The agent submission section sends eth_sendRawTransaction to /rpc. This tells integrators to address the removed unified router path rather than the public node JSON-RPC root."
+
+[doc.04]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "misleading"
+notes = "site-node: line4 The page advertises an image that builds layerxd and documents layerxd --serve, an authority replica and the LNI Unix socket as the running hosted node stack, including daemon configuration and receipt-authority routes."
+
+[doc.05]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "site-gateway: line50 The gateway page declares POST /rpc, GET /rpc/schema and GET /rpc/ws as public JSON-RPC and repeats them in the route table at lines198-200. The site also claims15 methods while the wiki claims18 for that same legacy surface."
+
+[doc.06]
+path = "docs/site/docs/platform/registry.md"
+status = "misleading"
+notes = "site-registry: line7 The registry topology directs operators to layerx-agent-boundary and layerx-receipt-authority services and line29 requires distinct node and receipt-authority credentials. The durability section restores program state through those separate pre-merge authorities."
+
+[doc.07]
+path = "docs/wiki/HostedGateway.md"
+status = "misleading"
+notes = "wiki-gateway: line50 The gateway page declares POST /rpc, GET /rpc/schema and GET /rpc/ws as public JSON-RPC and repeats them in the route table at lines198-200. The site also claims15 methods while the wiki claims18 for that same legacy surface."
+
+[doc.08]
+path = "docs/wiki/HostedRegistry.md"
+status = "misleading"
+notes = "wiki-registry: line7 The registry topology directs operators to layerx-agent-boundary and layerx-receipt-authority services and line29 requires distinct node and receipt-authority credentials. The durability section restores program state through those separate pre-merge authorities."
+
+[doc.09]
+path = "docs/wiki/BetaCluster.md"
+status = "misleading"
+notes = "wiki-beta: line42 The cluster instructions mount a custody profile into layerxd and retain separate primary and observer boundary provisioning and receipt-authority topology. The page presents these as the current beta bring-up rather than historical pre-merge infrastructure."
+
+[doc.10]
+path = "docs/wiki/RunningAnAgent.md"
+status = "misleading"
+notes = "wiki-agent: line512 The agent submission section sends eth_sendRawTransaction to /rpc. This tells integrators to address the removed unified router path rather than the public node JSON-RPC root."
+
+[doc.11]
+path = "docs/wiki/HostedNode.md"
+status = "misleading"
+notes = "wiki-node: line4 The page advertises an image that builds layerxd and documents layerxd --serve, an authority replica and the LNI Unix socket as the running hosted node stack, including daemon configuration and receipt-authority routes."
+
+[doc.12]
+path = "docs/system/sdk.md"
+status = "stale"
+notes = "sdk-generated-symbol-doc: line916 The generated Rust SDK table lists an exported item named fn with kind const. This is a parser artifact rather than a usable Rust SDK declaration and gives readers an invalid API entry."
+
+[doc.13]
+path = "tools/launchpad/production/load/README.md"
+status = "misleading"
+notes = "Line3 broad unittest discovery includes live phase2 through phase4 provider gates despite the following loopback-only claim; the capacity limitations elsewhere are explicit and accurate."
+
+[doc.14]
+path = "contracts/launchpad.md"
+status = "missing"
+notes = "The interface registry links this contract page, but the page is absent in the audited checkout; the linked source declarations were used to trace actual producer and consumer contracts."
+
+[doc.15]
+path = "contracts/clients.md"
+status = "missing"
+notes = "The interface registry links this contract page, but the page is absent in the audited checkout; the linked source declarations were used to trace actual producer and consumer contracts."
+
+[doc.16]
+path = "contracts/services.md"
+status = "missing"
+notes = "The interface registry links this contract page, but the page is absent in the audited checkout; the linked source declarations were used to trace actual producer and consumer contracts."
