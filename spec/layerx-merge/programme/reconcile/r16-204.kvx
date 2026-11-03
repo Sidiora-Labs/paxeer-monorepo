@@ -1,0 +1,243 @@
+[reconcile.r16-204]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r16-204.1]
+interface = "interface.16.mk-builddir-tests-test-programs-web-read"
+verdict = "served"
+path = "Makefile"
+line = 2824
+symbol = "$(BUILD_DIR)/tests/test_programs_web_read"
+evidence = "Makefile:2824-2825 declares the web-read binary from tests/test_programs_web_read.c, $(LIBRARY) and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. The registered tests/programs/test_call_activity.c prerequisite is no longer present; lines 2832-2833 only depend on and invoke the binary."
+
+[row.r16-204.2]
+interface = "interface.16.mk-builddir-tests-test-qual-arith"
+verdict = "served"
+path = "Makefile"
+line = 1200
+symbol = "$(BUILD_DIR)/tests/test_qual_arith"
+evidence = "Makefile:1200 declares the arithmetic qualification binary with $(QUAL_ARITH_SOURCES), matching the registered signature. Lines 1207-1208 are its qualification dependency and invocation, not its definition."
+
+[row.r16-204.3]
+interface = "interface.16.mk-builddir-tests-test-qual-recovery"
+verdict = "served"
+path = "Makefile"
+line = 1137
+symbol = "$(BUILD_DIR)/tests/test_qual_recovery"
+evidence = "Makefile:1137-1140 declares the recovery binary with tests/test_qual_recovery.c, lxp_qual_faults.c, lxp_projection.c, $(LIBRARY), migrations/0001_projection.sql and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. Lines 1148-1149 consume this target."
+
+[row.r16-204.4]
+interface = "interface.16.mk-builddir-tests-test-reserve-reconcile"
+verdict = "served"
+path = "Makefile"
+line = 959
+symbol = "$(BUILD_DIR)/tests/test_reserve_reconcile"
+evidence = "Makefile:959-960 declares the reserve reconciliation binary from tests/test_reserve_reconcile.c, $(LIBRARY) and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. Lines 970 and 972 are dependency and execution references."
+
+[row.r16-204.5]
+interface = "interface.16.mk-builddir-tests-test-service-acceptance"
+verdict = "served"
+path = "Makefile"
+line = 704
+symbol = "$(BUILD_DIR)/tests/test_service_acceptance"
+evidence = "Makefile:704-707 declares the service acceptance binary with tests/modules/test_service_acceptance.c, test_service_helpers.h, $(LIBRARY) and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. Lines 713-714 consume the declared binary."
+
+[row.r16-204.6]
+interface = "interface.16.mk-builddir-tests-test-service-attest"
+verdict = "served"
+path = "Makefile"
+line = 680
+symbol = "$(BUILD_DIR)/tests/test_service_attest"
+evidence = "Makefile:680-682 declares the service attestation binary with tests/modules/test_service_attest.c, test_service_helpers.h, $(LIBRARY) and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. Lines 688-689 are consumers."
+
+[row.r16-204.7]
+interface = "interface.16.mk-builddir-tests-test-service-commit"
+verdict = "served"
+path = "Makefile"
+line = 668
+symbol = "$(BUILD_DIR)/tests/test_service_commit"
+evidence = "Makefile:668-670 declares the service commit binary with tests/modules/test_service_commit.c, test_service_helpers.h, $(LIBRARY) and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. Lines 676-677 depend on and execute it."
+
+[row.r16-204.8]
+interface = "interface.16.mk-builddir-tests-test-service-deliver"
+verdict = "served"
+path = "Makefile"
+line = 692
+symbol = "$(BUILD_DIR)/tests/test_service_deliver"
+evidence = "Makefile:692-694 declares the service delivery binary with tests/modules/test_service_deliver.c, test_service_helpers.h, $(LIBRARY) and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. Lines 700-701 are consumers rather than declarations."
+
+[row.r16-204.9]
+interface = "interface.16.mk-builddir-tests-test-service-dispute"
+verdict = "served"
+path = "Makefile"
+line = 717
+symbol = "$(BUILD_DIR)/tests/test_service_dispute"
+evidence = "Makefile:717-720 declares the service dispute binary with tests/modules/test_service_dispute.c, test_service_helpers.h, $(LIBRARY) and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. Lines 726-727 depend on and run it."
+
+[row.r16-204.10]
+interface = "interface.16.mk-builddir-tests-test-service-offer"
+verdict = "served"
+path = "Makefile"
+line = 656
+symbol = "$(BUILD_DIR)/tests/test_service_offer"
+evidence = "Makefile:656-658 declares the service offer binary with tests/modules/test_service_offer.c, test_service_helpers.h, $(LIBRARY) and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. Lines 664-665 are dependency and execution references."
+
+[row.r16-204.11]
+interface = "interface.16.mk-builddir-tests-test-shadow-replay"
+verdict = "served"
+path = "Makefile"
+line = 1118
+symbol = "$(BUILD_DIR)/tests/test_shadow_replay"
+evidence = "Makefile:1118-1119 declares the shadow replay binary with tests/test_shadow_replay.c, tools/lxp_shadow_compare.c, tools/lxp_legacy_reader.c and $(LIBRARY), matching the signature. Lines 1125-1126 consume this binary."
+
+[row.r16-204.12]
+interface = "interface.16.mk-builddir-tests-test-snapshot"
+verdict = "served"
+path = "Makefile"
+line = 855
+symbol = "$(BUILD_DIR)/tests/test_snapshot"
+evidence = "Makefile:855-856 declares the snapshot binary from tests/test_snapshot.c, $(LIBRARY) and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. Lines 861-862 are the test target's dependency and invocation."
+
+[row.r16-204.13]
+interface = "interface.16.mk-builddir-tests-test-spot-book"
+verdict = "served"
+path = "Makefile"
+line = 783
+symbol = "$(BUILD_DIR)/tests/test_spot_book"
+evidence = "Makefile:783-784 declares the spot book binary from tests/modules/test_spot_book.c, $(LIBRARY) and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. Lines 790-791 only depend on and invoke the binary."
+
+[row.r16-204.14]
+interface = "interface.16.mk-builddir-tests-test-stream-accrue"
+verdict = "served"
+path = "Makefile"
+line = 614
+symbol = "$(BUILD_DIR)/tests/test_stream_accrue"
+evidence = "Makefile:614-615 declares the stream accrual binary from tests/modules/test_stream_accrue.c and $(LIBRARY), matching the registered prerequisites without a programs runtime dependency. Lines 620-621 consume this binary."
+
+[row.r16-204.15]
+interface = "interface.16.mk-builddir-tests-test-stream-lifecycle"
+verdict = "served"
+path = "Makefile"
+line = 644
+symbol = "$(BUILD_DIR)/tests/test_stream_lifecycle"
+evidence = "Makefile:644-646 declares the lifecycle binary from tests/modules/test_stream_lifecycle.c, $(TEST_LIBRARY) and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. Its recipe uses -DLXP_TESTING; lines 652-653 consume the binary."
+
+[row.r16-204.16]
+interface = "interface.16.mk-builddir-tests-test-stream-meter"
+verdict = "served"
+path = "Makefile"
+line = 623
+symbol = "$(BUILD_DIR)/tests/test_stream_meter"
+evidence = "Makefile:623-624 declares the stream meter binary from tests/modules/test_stream_meter.c, $(LIBRARY) and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. Lines 630-631 are dependency and invocation references."
+
+[row.r16-204.17]
+interface = "interface.16.mk-builddir-tests-test-stream-open"
+verdict = "served"
+path = "Makefile"
+line = 603
+symbol = "$(BUILD_DIR)/tests/test_stream_open"
+evidence = "Makefile:603-604 declares the stream open binary from tests/modules/test_stream_open.c, $(LIBRARY) and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. Lines 610-611 consume the binary rather than define it."
+
+[row.r16-204.18]
+interface = "interface.16.mk-builddir-tests-test-stream-settle"
+verdict = "served"
+path = "Makefile"
+line = 633
+symbol = "$(BUILD_DIR)/tests/test_stream_settle"
+evidence = "Makefile:633-634 declares the stream settlement binary from tests/modules/test_stream_settle.c, $(LIBRARY) and $(PROGRAMS_RUNTIME_LIB), with order-only programs-build. Lines 640-641 are dependency and execution references."
+
+[row.r16-204.19]
+interface = "interface.16.mk-builddir-tools-log-inspect"
+verdict = "served"
+path = "Makefile"
+line = 1455
+symbol = "$(BUILD_DIR)/tools/log_inspect"
+evidence = "Makefile:1455 declares the log inspection executable with tools/log_inspect.c and $(LIBRARY), followed by its compile recipe. Makefile:1459 merely lists the executable as a test-rebuild prerequisite."
+
+[row.r16-204.20]
+interface = "interface.16.mk-builddir-tools-lxp-reserve-report"
+verdict = "served"
+path = "Makefile"
+line = 966
+symbol = "$(BUILD_DIR)/tools/lxp-reserve-report"
+evidence = "Makefile:966 declares the reserve report executable from tools/lxp_reserve_report.c, matching the registered signature. Lines 971 and 973 are the test-reserve prerequisite and --classes invocation."
+
+[row.r16-204.21]
+interface = "interface.16.mk-dblint"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "Makefile:2411 includes dblint in PAXEER_FORWARDED_TARGETS. The registered $(PAXEER_FORWARDED_TARGETS): rule is declared at line 2422 and invokes $(PAXEER_MAKE) $@ at line 2423; line 2421 only marks the expanded targets phony."
+
+[row.r16-204.22]
+interface = "interface.16.mk-developer-dashboard-build"
+verdict = "served"
+path = "Makefile"
+line = 2546
+symbol = "developer-dashboard-build"
+evidence = "Makefile:2546 declares developer-dashboard-build: with no prerequisites and builds @layerx/ui and the hosted dashboard in its recipe. Line 2372 is a phony declaration and line 2597 is an aggregate dependency."
+
+[row.r16-204.23]
+interface = "interface.16.mk-developer-dashboard-install"
+verdict = "served"
+path = "Makefile"
+line = 2538
+symbol = "developer-dashboard-install"
+evidence = "Makefile:2538 declares developer-dashboard-install: with no prerequisites; its recipe runs developer-dashboard-lock.mjs, human-js-install and dashboard node_modules link checks. Lines 2371 and 2593 are phony and recursive make references."
+
+[row.r16-204.24]
+interface = "interface.16.mk-developer-dashboard-static-test"
+verdict = "served"
+path = "Makefile"
+line = 2550
+symbol = "developer-dashboard-static-test"
+evidence = "Makefile:2550 declares developer-dashboard-static-test: with no prerequisites and runs the hosted dashboard's test:static script. Line 2372 is a phony declaration; lines 2603 and 2607 are aggregate dependencies."
+
+[row.r16-204.25]
+interface = "interface.16.mk-docker-cluster-start"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "Makefile:2411 includes docker-cluster-start in PAXEER_FORWARDED_TARGETS. Its registered shared rule $(PAXEER_FORWARDED_TARGETS): is declared at line 2422 and forwards through $(PAXEER_MAKE) $@ at line 2423; line 2421 is only the phony declaration."
+
+[row.r16-204.26]
+interface = "interface.16.mk-docker-cluster-start-ci"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "Makefile:2412 includes docker-cluster-start-ci in PAXEER_FORWARDED_TARGETS. The signature's shared rule $(PAXEER_FORWARDED_TARGETS): is defined at line 2422 and forwards through $(PAXEER_MAKE) $@ at line 2423, after the separate phony declaration."
+
+[row.r16-204.27]
+interface = "interface.16.mk-docker-cluster-start-giga-mixed"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "Makefile:2412 includes docker-cluster-start-giga-mixed in PAXEER_FORWARDED_TARGETS. Line 2422 defines the registered $(PAXEER_FORWARDED_TARGETS): rule; line 2423 forwards the selected target with $(PAXEER_MAKE) $@. Line 2421 is only its phony declaration."
+
+[row.r16-204.28]
+interface = "interface.16.mk-docker-cluster-start-monitoring"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "Makefile:2413 includes docker-cluster-start-monitoring in PAXEER_FORWARDED_TARGETS. Line 2422 declares the signature's shared $(PAXEER_FORWARDED_TARGETS): rule and line 2423 forwards with $(PAXEER_MAKE) $@; line 2421 only marks these targets phony."
+
+[row.r16-204.29]
+interface = "interface.16.mk-docker-cluster-start-skipbuild"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "Makefile:2413 includes docker-cluster-start-skipbuild in PAXEER_FORWARDED_TARGETS. Its registered $(PAXEER_FORWARDED_TARGETS): rule is declared at line 2422 and forwards with $(PAXEER_MAKE) $@ at line 2423; the preceding line is only the phony declaration."
+
+[row.r16-204.30]
+interface = "interface.16.mk-docker-cluster-stop"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "Makefile:2414 includes docker-cluster-stop in PAXEER_FORWARDED_TARGETS. The registered shared rule $(PAXEER_FORWARDED_TARGETS): is declared at line 2422 and dispatches $(PAXEER_MAKE) $@ at line 2423; line 2421 is only the phony declaration."
