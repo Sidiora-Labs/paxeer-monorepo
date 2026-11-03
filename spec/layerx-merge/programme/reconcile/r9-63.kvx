@@ -1,0 +1,551 @@
+[reconcile.r9-63]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r9-63.1]
+interface = "interface.9.ts-sdk-gas-station-requestgasquote"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/gas-station.ts"
+line = 525
+symbol = "requestGasQuote"
+evidence = "export async function requestGasQuote remains exported at line 525 instead of 523; the registered declaration prefix is unchanged. The current signature takes GasStationConfig, GasQuoteRequest and optional signal/now/fetch, returning Promise<GasResult<SignedGasQuote>>."
+
+[row.r9-63.2]
+interface = "interface.9.ts-sdk-gas-station-submitsponsoredgasbatch"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/gas-station.ts"
+line = 935
+symbol = "submitSponsoredGasBatch"
+evidence = "export async function submitSponsoredGasBatch remains exported at line 935 instead of 889. The registered prefix is unchanged; the full signature takes config, batch, accountSignature, relayerSignature and SignedEip7702Authorization, returning Promise<GasResult<SponsoredGasSubmission>>."
+
+[row.r9-63.3]
+interface = "interface.9.ts-sdk-gas-station-discoversponsorednonce"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/gas-station.ts"
+line = 1106
+symbol = "discoverSponsoredNonce"
+evidence = "export async function discoverSponsoredNonce remains exported at line 1106 instead of 1056; its registered prefix is unchanged. The current signature takes GasStationConfig, account and a typed RPC request callback, returning Promise<GasResult<bigint>>."
+
+[row.r9-63.4]
+interface = "interface.9.ts-sdk-gas-station-readnativefeepreference"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/gas-station.ts"
+line = 1221
+symbol = "readNativeFeePreference"
+evidence = "export async function readNativeFeePreference remains exported at line 1221 instead of 1171; its registered prefix is unchanged. The current signature accepts account and required restUrl/request options with optional fetch/signal, returning Promise<NativeFeePreference>."
+
+[row.r9-63.5]
+interface = "interface.9.ts-sdk-generated-client-rung"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/generated/client.ts"
+line = 65
+symbol = "Rung"
+evidence = "export enum Rung remains declared, now at line 65 instead of 42; the registered declaration kind and name are unchanged. Its current members are Submitted = 0, Receipted = 1 and Committed = 2."
+
+[row.r9-63.6]
+interface = "interface.9.ts-sdk-generated-client-submissionstate"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/generated/client.ts"
+line = 71
+symbol = "SubmissionState"
+evidence = "export type SubmissionState remains declared at line 71 instead of 48; the registered type alias prefix is unchanged. Its current union has Submitted with txHash, Receipted, Committed and Reverted with revertReason."
+
+[row.r9-63.7]
+interface = "interface.9.ts-sdk-generated-receipt-programs-module-id"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/generated/receipt.ts"
+line = 3
+symbol = "PROGRAMS_MODULE_ID"
+evidence = "generated/receipt.ts now exports receipt version/domain constants and PROGRAM_ABI_V1 through V5, without the registered module-id constant. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 5 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 5
+remaining = ["GOTCHA.kvx:11720", "programs/crates/layerx-programs-registry/src/account_state.rs:24", "programs/crates/layerx-programs-registry/src/chain_evidence.rs:4", "programs/crates/layerx-programs-registry/src/protocol_evidence.rs:13", "services/agent/crates/layerx-proof/src/receipt.rs:17"]
+
+[row.r9-63.8]
+interface = "interface.9.ts-sdk-generated-receipt-program-outcome-tags"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/generated/receipt.ts"
+line = 4
+symbol = "PROGRAM_OUTCOME_TAGS"
+evidence = "generated/receipt.ts no longer declares the kernel program-outcome tag array; it contains ReceiptFailureCode and program guest ABI constants instead. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 1 other file; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 1
+remaining = ["GOTCHA.kvx:11720"]
+
+[row.r9-63.9]
+interface = "interface.9.ts-sdk-generated-receipt-required-nonzero-checks"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/generated/receipt.ts"
+line = 29
+symbol = "REQUIRED_NONZERO_CHECKS"
+evidence = "generated/receipt.ts no longer declares the required-nonzero check array; no occurrence of its identifier remains in that file. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 0 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 0
+remaining = []
+
+[row.r9-63.10]
+interface = "interface.9.ts-sdk-history-historypage"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/history.ts"
+line = 68
+symbol = "HistoryPage"
+evidence = "export interface HistoryPage remains at line 68 instead of 67; its registered declaration kind and name are unchanged. Its current fields are readonly account: string, items: readonly HistoryRow[] and nextCursor: string | null."
+
+[row.r9-63.11]
+interface = "interface.9.ts-sdk-history-historyparams"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/history.ts"
+line = 105
+symbol = "historyParams"
+evidence = "export function historyParams(account: string, options: HistoryOptions = {}): readonly RpcParam[] retains the registered typed signature, now split across lines 105-108 instead of line 86; it produces positional account/cursor/limit/kind parameters."
+
+[row.r9-63.12]
+interface = "interface.9.ts-sdk-intent-intentplan"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/intent.ts"
+line = 170
+symbol = "IntentPlan"
+evidence = "export interface IntentPlan remains at line 170 instead of 167; the registered declaration kind and name are unchanged. The current shape includes planDigest, journeyKind, totalFee: IntentMoney, sponsored, readonly legs and signingRequirements."
+
+[row.r9-63.13]
+interface = "interface.9.ts-sdk-perps-encodedactivity"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/perps.ts"
+line = 180
+symbol = "EncodedActivity"
+evidence = "perps.ts no longer declares the kernel EncodedActivity interface; perpsCall and typed precompile write helpers serve EVM writes, as directed by override.J44.163. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 0 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 0
+remaining = []
+
+[row.r9-63.14]
+interface = "interface.9.ts-sdk-program-wire-decodeandverifyprogramterminal"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/program-wire.ts"
+line = 149
+symbol = "decodeAndVerifyProgramTerminal"
+evidence = "program-wire.ts no longer declares decodeAndVerifyProgramTerminal; the current file exposes signed-call binding and retained-call validation instead. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 1 other file; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 1
+remaining = ["tests/sdk/typescript/program-terminal-v5.test.mjs:6"]
+
+[row.r9-63.15]
+interface = "interface.9.ts-sdk-programs-verifiedprogramreceipt"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/programs.ts"
+line = 79
+symbol = "VerifiedProgramReceipt"
+evidence = "programs.ts no longer declares VerifiedProgramReceipt; its current program operations expose discovery/interface verification and execution-document parsing instead. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 5 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 5
+remaining = ["sdk/platform/go/programs.go:280", "services/agent/sdk/python/layerx_sdk/__init__.py:149", "services/agent/sdk/python/layerx_sdk/__init__.pyi:123", "services/agent/sdk/python/layerx_sdk/programs.py:148", "services/agent/sdk/python/layerx_sdk/programs.pyi:74"]
+
+[row.r9-63.16]
+interface = "interface.9.ts-sdk-programs-verifyprogramreceipt"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/programs.ts"
+line = 127
+symbol = "verifyProgramReceipt"
+evidence = "programs.ts no longer declares verifyProgramReceipt; retired-kernel-receipts.test.ts explicitly asserts that the SDK export is absent. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 2 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 2
+remaining = ["services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:7", "tests/sdk/typescript/program-terminal-v5.test.mjs:4"]
+
+[row.r9-63.17]
+interface = "interface.9.ts-sdk-programs-verifyprogramreceiptv5"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/programs.ts"
+line = 179
+symbol = "verifyProgramReceiptV5"
+evidence = "programs.ts no longer declares verifyProgramReceiptV5; retired-kernel-receipts.test.ts includes it in the list of exports required to be absent. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 2 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 2
+remaining = ["services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:18", "tests/sdk/typescript/program-terminal-v5.test.mjs:4"]
+
+[row.r9-63.18]
+interface = "interface.9.ts-sdk-programs-resolvelifecycleresponse"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/programs.ts"
+line = 370
+symbol = "resolveLifecycleResponse"
+evidence = "programs.ts no longer declares resolveLifecycleResponse; retired-kernel-receipts.test.ts explicitly requires this export to be absent. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 1 other file; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 1
+remaining = ["services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:20"]
+
+[row.r9-63.19]
+interface = "interface.9.ts-sdk-programs-verifylifecyclerecovery"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/programs.ts"
+line = 389
+symbol = "verifyLifecycleRecovery"
+evidence = "programs.ts no longer declares verifyLifecycleRecovery; retired-kernel-receipts.test.ts explicitly requires this export to be absent. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 1 other file; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 1
+remaining = ["services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:21"]
+
+[row.r9-63.20]
+interface = "interface.9.ts-sdk-px-px-methods"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/px.ts"
+line = 31
+symbol = "PX_METHODS"
+evidence = "export const PX_METHODS remains at line 31. Its array now lists px_resolveAccount, px_getAccount, px_getBalances, px_listAssets, px_getNetwork, px_getReceiptKeys, px_getHistory and px_getUnifiedHistory; the const declaration prefix is unchanged and no anchor-head method remains."
+
+[row.r9-63.21]
+interface = "interface.9.ts-sdk-px-pxanchorhead"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/px.ts"
+line = 106
+symbol = "PxAnchorHead"
+evidence = "px.ts no longer declares PxAnchorHead; override.J44.161 retires the layerxanchor head shape because px_getNetwork no longer returns it. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 3 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 3
+remaining = ["GOTCHA.kvx:8909", "services/agent/sdk/python/tests/test_px_commit.py:30", "tools/paxeer-x/retired_callers.json:21"]
+
+[row.r9-63.22]
+interface = "interface.9.ts-sdk-px-decodepxanchorhead"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/px.ts"
+line = 516
+symbol = "decodePxAnchorHead"
+evidence = "px.ts no longer declares decodePxAnchorHead; override.J44.162 retires the decoder alongside the removed anchor-head response. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 0 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 0
+remaining = []
+
+[row.r9-63.23]
+interface = "interface.9.ts-sdk-rpc-subscription-subscriptiontopic"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/rpc-subscription.ts"
+line = 4
+symbol = "SubscriptionTopic"
+evidence = "export type SubscriptionTopic = \"heads\" | \"account\" at line 4 replaces the registered \"receipts\" | \"checkpoints\" | \"account\" union. override.J44.160 directs heads and account logs; subscriptionSelector maps these to newHeads or address-filtered logs."
+
+[row.r9-63.24]
+interface = "interface.9.ts-sdk-rpc-subscription-subscriberpc"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/rpc-subscription.ts"
+line = 75
+symbol = "subscribeRpc"
+evidence = "export async function* subscribeRpc retains the registered endpoint/authorization/requestId/topic/account/cursor/signal signature and AsyncGenerator<SubscriptionEvent> return, now at line 75 instead of 80. Its topic type now selects heads/account and it sends eth_subscribe over WebSocket."
+
+[row.r9-63.25]
+interface = "interface.9.ts-sdk-rpc-jsonrpcclient"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/rpc.ts"
+line = 54
+symbol = "JsonRpcClient"
+evidence = "export class JsonRpcClient remains at line 54 instead of 47; the registered class declaration is unchanged. Its current surface includes getBalance/getIdentitySequence via eth_ and account/history reads via px_, implementing the retargeting described by override.J44.159."
+
+[row.r9-63.26]
+interface = "interface.9.ts-sdk-verifier-programsmoduleversionforprotocol"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 49
+symbol = "programsModuleVersionForProtocol"
+evidence = "verifier.ts no longer declares programsModuleVersionForProtocol; retired-kernel-receipts.test.ts explicitly requires this export to be absent. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 1 other file; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 1
+remaining = ["services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:19"]
+
+[row.r9-63.27]
+interface = "interface.9.ts-sdk-verifier-merkleproof"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 67
+symbol = "MerkleProof"
+evidence = "verifier.ts no longer declares the TypeScript MerkleProof interface. Same-name cross-language types remain separate surfaces and are counted as references below. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 39 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 39
+remaining = ["contracts/libraries/Types.sol:16", "daemon/committed-fixture/vector_v4.go:47", "interchain/modules/core/03-connection/client/utils/utils.go:205", "interchain/modules/core/23-commitment/types/bench_test.go:9", "interchain/modules/core/23-commitment/types/codec.go:42", "interchain/modules/core/23-commitment/types/commitment.pb.go:159", "interchain/modules/core/23-commitment/types/merkle.go:129", "interchain/modules/core/23-commitment/types/merkle_test.go:29", "interchain/modules/core/23-commitment/types/utils.go:9", "interchain/modules/light-clients/07-tendermint/types/client_state.go:556", "interchain/modules/light-clients/07-tendermint/types/upgrade.go:59", "interchain/proto/ibc/core/commitment/v1/commitment.proto:34", "layerxproof/codec/merkle.go:24", "layerxproof/verify/receipt.go:72", "sdk/platform/dotnet/Committed.cs:42", "sdk/platform/dotnet/Verifier.cs:34", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/CommittedReceiptTests.cs:349", "sdk/platform/go/verify.go:407", "sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java:184", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/Committed.java:82", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:38", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/CommittedReceiptTest.java:111", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GoldenVectorTest.java:159", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java:312", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:37", "services/agent/crates/layerx-types/src/checkpoint.rs:29", "services/agent/crates/layerx-wire/src/receipt.rs:1646", "services/agent/sdk/python/layerx_sdk/__init__.py:199", "services/agent/sdk/python/layerx_sdk/__init__.pyi:172", "services/agent/sdk/python/layerx_sdk/verifier.py:69", "services/agent/sdk/python/layerx_sdk/verifier.pyi:12", "services/agent/sdk/python/layerx_sdk/x402.py:15", "services/agent/sdk/python/layerx_sdk/x402_rpc.py:320", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:61", "tools/benchmark/loadtest/contracts/evm/lib/openzeppelin-contracts/contracts/mocks/MerkleProofCustomHashMock.sol:5", "tools/benchmark/loadtest/contracts/evm/lib/openzeppelin-contracts/contracts/mocks/Stateless.sol:32", "tools/benchmark/loadtest/contracts/evm/lib/openzeppelin-contracts/contracts/utils/README.adoc:15", "tools/benchmark/loadtest/contracts/evm/lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol:2", "tools/benchmark/loadtest/contracts/evm/lib/openzeppelin-contracts/contracts/utils/structs/MerkleTree.sol:16"]
+
+[row.r9-63.28]
+interface = "interface.9.ts-sdk-verifier-batchheader"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 73
+symbol = "BatchHeader"
+evidence = "verifier.ts no longer declares the TypeScript BatchHeader interface. Same-name Rust and Go declarations are separate surfaces, not a relocation of this TS export. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 36 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 36
+remaining = ["GOTCHA.kvx:5208", "daemon/committed-fixture/vector_v4.go:405", "daemon/committed-fixture/vector_v4_test.go:41", "layerxproof/codec/batch.go:10", "layerxproof/codec/checkpoint.go:110", "layerxproof/exportcheck/inclusion_exports_test.go:18", "layerxproof/verify/receipt.go:41", "modules/layerxcustody/keeper/claims.go:230", "modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go:11", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:96", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:34", "services/agent/crates/layerx-agentd/src/human_runtime.rs:12898", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs:21", "services/agent/crates/layerx-client/src/lni/report.rs:142", "services/agent/crates/layerx-client/src/lni/schema.rs:77", "services/agent/crates/layerx-proof/src/checkpoint.rs:9", "services/agent/crates/layerx-proof/src/inclusion.rs:7", "services/agent/crates/layerx-proof/src/receipt.rs:690", "services/agent/crates/layerx-types/src/batch.rs:26", "services/agent/crates/layerx-types/src/checkpoint.rs:3", "services/agent/crates/layerx-types/src/vectors.rs:22", "services/agent/crates/layerx-wire/src/batch_maintenance.rs:6", "services/agent/crates/layerx-wire/src/hash.rs:29", "services/agent/crates/layerx-wire/src/receipt.rs:1413", "services/agent/crates/layerx-wire/tests/batch_maintenance.rs:7", "services/agent/crates/layerx-wire/tests/hashing.rs:28", "services/agent/crates/layerx-wire/tests/support/maintenance.rs:1", "services/agent/qualification/pay2/pay2e_test.rs:269", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:32", "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/arbitrum/constants/contracts.ex:44", "services/human/crates/layerx-human-identity-provider/src/provision_head.rs:71", "services/human/crates/layerx-intents/src/canonical.rs:14", "services/human/crates/layerx-intents/tests/canonical_surface.rs:3", "services/interop/crates/layerx-mirror/src/publisher.rs:252", "services/platform/hosted/gateway/src/state.rs:9", "tests/codec/lxp_test_kernel_complete.c:1430"]
+
+[row.r9-63.29]
+interface = "interface.9.ts-sdk-verifier-inclusionkind"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 98
+symbol = "InclusionKind"
+evidence = "verifier.ts no longer declares the TypeScript InclusionKind alias; the current receipt path verifies sequencer and committed receipts instead. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 7 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 7
+remaining = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:96", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:34", "services/agent/crates/layerx-agentd/tests/audit_export.rs:15", "services/agent/crates/layerx-proof/src/export.rs:37", "services/agent/crates/layerx-proof/tests/offline_export.rs:2", "services/human/crates/layerx-human-service/src/activity/export.rs:6", "services/human/crates/layerx-human-service/tests/export.rs:25"]
+
+[row.r9-63.30]
+interface = "interface.9.ts-sdk-verifier-inclusionverification"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 100
+symbol = "InclusionVerification"
+evidence = "verifier.ts no longer declares InclusionVerification; the current receipt path exposes ReceiptVerification and committed receipt verification instead. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 3 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 3
+remaining = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:96", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:35", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:26"]
+
+[row.r9-63.31]
+interface = "interface.9.ts-sdk-verifier-checkpointattestation"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 107
+symbol = "CheckpointAttestation"
+evidence = "verifier.ts no longer declares CheckpointAttestation; guarantor checkpoint verification is absent from the current TypeScript receipt verifier. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 3 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 3
+remaining = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:105", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:40", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:27"]
+
+[row.r9-63.32]
+interface = "interface.9.ts-sdk-verifier-guarantorkey"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 127
+symbol = "GuarantorKey"
+evidence = "verifier.ts no longer declares the TypeScript GuarantorKey interface. Rust and Go symbols with this spelling are separate surfaces, retained in the reference count. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 10 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 10
+remaining = ["modules/layerxanchor/keeper/bond_return_test.go:254", "modules/layerxanchor/keeper/guarantors.go:13", "modules/layerxanchor/types/keys.go:50", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:105", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:40", "services/agent/crates/layerx-proof/src/checkpoint.rs:169", "services/agent/crates/layerx-proof/src/settlement.rs:7", "services/agent/crates/layerx-proof/tests/checkpoint.rs:8", "services/agent/crates/layerx-sdk/tests/sdk.rs:382", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:28"]
+
+[row.r9-63.33]
+interface = "interface.9.ts-sdk-verifier-checkpointcertificate"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 133
+symbol = "CheckpointCertificate"
+evidence = "verifier.ts no longer declares the TypeScript CheckpointCertificate interface; same-name cross-language types remain separate surfaces and references. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 14 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 14
+remaining = ["layerxproof/codec/checkpoint.go:103", "layerxproof/exportcheck/checkpoint_exports_test.go:26", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:105", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:40", "services/agent/crates/layerx-crypto/tests/verify.rs:87", "services/agent/crates/layerx-types/src/checkpoint.rs:93", "services/agent/crates/layerx-types/src/receipt.rs:5", "services/agent/crates/layerx-types/src/vectors.rs:23", "services/agent/crates/layerx-wire/src/hash.rs:33", "services/agent/crates/layerx-wire/src/receipt.rs:1750", "services/agent/crates/layerx-wire/tests/hashing.rs:30", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:29", "services/interop/crates/layerx-mirror/src/publisher.rs:257", "tests/codec/lxp_test_kernel_complete.c:1433"]
+
+[row.r9-63.34]
+interface = "interface.9.ts-sdk-verifier-checkpointverificationinput"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 141
+symbol = "CheckpointVerificationInput"
+evidence = "verifier.ts no longer declares CheckpointVerificationInput; the current verifier accepts sequencer receipt and Comet committed-receipt evidence instead. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 3 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 3
+remaining = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:106", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:41", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:30"]
+
+[row.r9-63.35]
+interface = "interface.9.ts-sdk-verifier-checkpointverification"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 151
+symbol = "CheckpointVerification"
+evidence = "verifier.ts no longer declares CheckpointVerification; the current verifier exposes sequencer-signed and committed receipt verification instead. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 3 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 3
+remaining = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:106", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:41", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:31"]
+
+[row.r9-63.36]
+interface = "interface.9.ts-sdk-verifier-localsignatureverifier"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 159
+symbol = "LocalSignatureVerifier"
+evidence = "verifier.ts no longer declares the TypeScript LocalSignatureVerifier interface; the Python protocol of that name is a separate SDK surface, not a moved TypeScript export. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 13 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 13
+remaining = ["sdk/integrations/fastapi/layerx_fastapi/integration.py:10", "sdk/integrations/fastapi/layerx_fastapi/seller.py:8", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:41", "services/agent/sdk/python/examples/offline_receipt_verification.py:3", "services/agent/sdk/python/layerx_sdk/__init__.py:198", "services/agent/sdk/python/layerx_sdk/__init__.pyi:171", "services/agent/sdk/python/layerx_sdk/ai_market.py:43", "services/agent/sdk/python/layerx_sdk/programs.py:22", "services/agent/sdk/python/layerx_sdk/programs.pyi:9", "services/agent/sdk/python/layerx_sdk/verifier.py:131", "services/agent/sdk/python/layerx_sdk/verifier.pyi:17", "services/agent/sdk/python/layerx_sdk/web_search.pyi:5", "tests/agent/sdk/python/test_program_typed_responses.py:17"]
+
+[row.r9-63.37]
+interface = "interface.9.ts-sdk-verifier-programreceiptoutcome"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 179
+symbol = "ProgramReceiptOutcome"
+evidence = "verifier.ts no longer declares the TypeScript ProgramReceiptOutcome interface; same-name Go, Swift, JVM and .NET types are separate SDK surfaces. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 11 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 11
+remaining = ["sdk/platform/dotnet/Programs.cs:526", "sdk/platform/dotnet/Verifier.cs:40", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramsContractTests.cs:258", "sdk/platform/go/programs.go:2560", "sdk/platform/go/programs_http_test.go:922", "sdk/platform/go/verify.go:107", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:748", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:49", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:911", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:64", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py:23"]
+
+[row.r9-63.38]
+interface = "interface.9.ts-sdk-verifier-authorizedreceiptbatch"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 85
+symbol = "AuthorizedReceiptBatch"
+evidence = "export interface AuthorizedReceiptBatch remains at line 85 instead of 239; the registered declaration prefix is unchanged. Its current typed fields are batchId, asset, previousStateRoot, resultingStateRoot and sequencerPublicKey, all readonly Uint8Array."
+
+[row.r9-63.39]
+interface = "interface.9.ts-sdk-verifier-verifymerkleinclusion"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 330
+symbol = "verifyMerkleInclusion"
+evidence = "verifier.ts no longer declares verifyMerkleInclusion; same-name Swift and JVM methods remain separate SDK surfaces, not a moved TypeScript function. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 6 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 6
+remaining = ["sdk/platform/conformance/jvm.kvx:22", "sdk/platform/generators/src/main.rs:1580", "sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java:184", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:373", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GoldenVectorTest.java:160", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:206"]
+
+[row.r9-63.40]
+interface = "interface.9.ts-sdk-verifier-decodebatchheader"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 457
+symbol = "decodeBatchHeader"
+evidence = "verifier.ts no longer declares decodeBatchHeader; the remaining JVM retirement-test mention does not provide a TypeScript implementation. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 1 other file; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 1
+remaining = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:33"]
+
+[row.r9-63.41]
+interface = "interface.9.ts-sdk-verifier-verifybatchinclusion"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 552
+symbol = "verifyBatchInclusion"
+evidence = "verifier.ts no longer declares verifyBatchInclusion, implementing override.J44.165 retirement of kernel batch inclusion verification. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 1 other file; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 1
+remaining = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:33"]
+
+[row.r9-63.42]
+interface = "interface.9.ts-sdk-verifier-verifycheckpoint"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 633
+symbol = "verifyCheckpoint"
+evidence = "verifier.ts no longer declares verifyCheckpoint, implementing override.J44.166 retirement of guarantor checkpoint verification. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 2 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 2
+remaining = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:39", "services/launchpad/api/internal/store/accounting_readmodel.go:127"]
+
+[row.r9-63.43]
+interface = "interface.9.ts-sdk-verifier-decodeprogramreceiptoutcome"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 833
+symbol = "decodeProgramReceiptOutcome"
+evidence = "verifier.ts no longer declares decodeProgramReceiptOutcome; retired-kernel-receipts.test.ts explicitly requires this SDK export to be absent. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 5 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 5
+remaining = ["sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:445", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ReceiptFixtureTest.java:92", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:187", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:115", "services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:16"]
+
+[row.r9-63.44]
+interface = "interface.9.ts-sdk-verifier-verifyprogramlifecyclereceipt"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 1064
+symbol = "verifyProgramLifecycleReceipt"
+evidence = "verifier.ts no longer declares verifyProgramLifecycleReceipt; retired-kernel-receipts.test.ts explicitly requires this SDK export to be absent. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 3 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 3
+remaining = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:47", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:229", "services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:14"]
+
+[row.r9-63.45]
+interface = "interface.9.ts-sdk-verifier-verifyreceiptoutcome"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 1076
+symbol = "verifyReceiptOutcome"
+evidence = "verifier.ts no longer declares verifyReceiptOutcome; retired-kernel-receipts.test.ts asserts its SDK export is absent and verifies that verifySequencerReceipt remains available. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 5 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 5
+remaining = ["sdk/platform/conformance/jvm.kvx:21", "sdk/platform/generators/src/main.rs:1579", "sdk/platform/jvm/examples/OfflineVerificationExample.java:29", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:46", "services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:6"]
+
+[row.r9-63.46]
+interface = "interface.9.ts-sdk-verifier-verifynativeprogramreceiptoutcomev5"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 1122
+symbol = "verifyNativeProgramReceiptOutcomeV5"
+evidence = "verifier.ts no longer declares verifyNativeProgramReceiptOutcomeV5; its retirement test requires absence, while tests/sdk/typescript/program-terminal-v5.test.mjs still mentions the old import. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 2 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 2
+remaining = ["services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:15", "tests/sdk/typescript/program-terminal-v5.test.mjs:5"]
+
+[row.r9-63.47]
+interface = "interface.9.ts-sdk-verifier-verifyreceipt"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 1168
+symbol = "verifyReceipt"
+evidence = "verifier.ts no longer declares verifyReceipt; retired-kernel-receipts.test.ts asserts its SDK export is absent. Other SDK methods and Solidity precompile names are separate surfaces. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 14 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 14
+remaining = ["contracts/src/precompiles/ILayerXVerify.sol:17", "precompiles/layerxverify/LayerXVerify.sol:17", "precompiles/layerxverify/abi.json:1", "precompiles/layerxverify/layerxverify.go:17", "sdk/platform/conformance/jvm.kvx:20", "sdk/platform/generators/src/main.rs:1578", "sdk/platform/jvm/README.md:101", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:592", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/PortableReceipt.java:103", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:46", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsEvmTest.java:66", "sdk/platform/swift/Sources/LayerXSDK/PortableReceipt.swift:27", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:619", "services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:5"]
+
+[row.r9-63.48]
+interface = "interface.9.ts-sdk-web-search-websettlement"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/web-search.ts"
+line = 87
+symbol = "WebSettlement"
+evidence = "export interface WebSettlement remains at line 87 instead of 85; the registered declaration prefix is unchanged. Its current settlement shape exposes scheme, currency, network, asset, amount, payer, receiptDigest and transaction: string for the EVM transaction."
+
+[row.r9-63.49]
+interface = "interface.9.ts-sdk-web-search-websearchclient"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/web-search.ts"
+line = 329
+symbol = "WebSearchClient"
+evidence = "export class WebSearchClient remains at line 329 instead of 312; the registered class declaration is unchanged. Its constructor accepts WebSearchClientOptions, validates an eip155 network and retains typed search, fetch and content operations using transaction settlement."
+
+[row.r9-63.50]
+interface = "interface.9.ts-sdk-x402-activity-bindreceiveactivity"
+verdict = "retired"
+path = "services/agent/sdk/typescript/src/x402/activity.ts"
+line = 3
+symbol = "bindReceiveActivity"
+evidence = "x402/activity.ts no longer declares bindReceiveActivity; bindDrawTransaction now binds raw EIP-1559 transactions to draw precompile calldata, as directed by override.J44.164. A repository-wide exact-identifier search excluding spec/ and docs/ directories found 0 other files; the remaining list records one occurrence per file, including tests and cross-language names."
+remaining_refs = 0
+remaining = []
+
+[row.r9-63.51]
+interface = "interface.9.ts-sdk-x402-draw-preparedgrantdraws"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/x402/draw.ts"
+line = 12
+symbol = "PreparedGrantDraws"
+evidence = "export class PreparedGrantDraws remains at line 12 instead of 6; the registered class declaration is unchanged. Its constructor now binds path, actor, chainId: bigint, GrantDrawRpc and receiptKeys; execute returns pending or settled with SequencerReceiptVerification for stored raw transactions."
+
+[row.r9-63.52]
+interface = "interface.9.ts-sdk-x402-grant-validategrantdraw"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/x402/grant.ts"
+line = 45
+symbol = "validateGrantDraw"
+evidence = "export function validateGrantDraw(wire: Uint8Array, offer: GrantOffer, idempotencyKey: string): GrantDraw at line 45 removes the registered networkId: number and now: bigint parameters and replaces the Receive return type with GrantDraw. It decodes and binds EVM draw calldata."
+
+[row.r9-63.53]
+interface = "interface.9.ts-sdk-x402-receive-encodeassetregister"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/x402/receive.ts"
+line = 126
+symbol = "encodeAssetRegister"
+evidence = "export function encodeAssetRegister(issuerDidId32: string, registration: AssetRegistration): Uint8Array retains the registered signature at line 126 instead of 122. It validates registration fields and derives the native asset identifier before encoding."
+
+[row.r9-63.54]
+interface = "interface.9.ts-sdk-x402-receive-encodegrant"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/x402/receive.ts"
+line = 170
+symbol = "encodeGrant"
+evidence = "export function encodeGrant(grant: PayerGrant): Uint8Array retains the registered signature at line 170 instead of 151. The adjacent issueGrantCall wraps the encoded grant as issueGrant(bytes) calldata for LAYERX_LEDGER_PRECOMPILE."
+
+[row.r9-63.55]
+interface = "interface.9.ts-sdk-x402-receive-encodeaccountopen"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/x402/receive.ts"
+line = 217
+symbol = "encodeAccountOpen"
+evidence = "export function encodeAccountOpen(asset: string): Uint8Array retains the registered signature at line 217 instead of 191. The adjacent openAccountCall exposes openAccount(bytes32) precompile calldata; the byte encoder remains exported."
+
+[row.r9-63.56]
+interface = "interface.9.cli-agent-boundary-conformance"
+verdict = "served"
+path = "services/agent/tests/boundary/src/main.rs"
+line = 112
+symbol = "NODE REPOSITORY"
+evidence = "The NODE REPOSITORY argument form remains served: run accepts two positional arguments and treats NODE as a UTF-8 node RPC URL, then validates the repository boundary crate. The usage literal NODE REPOSITORY is now at line 112 rather than the registered command string at line 8."
+
+[row.r9-63.57]
+interface = "interface.9.cli-agent-boundary-conformance-production-required"
+verdict = "served"
+path = "services/agent/tests/boundary/src/main.rs"
+line = 107
+symbol = "--production-required"
+evidence = "The --production-required literal remains dispatched by run at line 107 to production::run_required. The registered prefixed command string is now a separately parsed flag; the suite uses the node RPC boundary and also accepts this mode in --check-report."
+
+[row.r9-63.58]
+interface = "interface.9.cli-agent-boundary-conformance-production-recovery"
+verdict = "served"
+path = "services/agent/tests/boundary/src/main.rs"
+line = 108
+symbol = "--production-recovery"
+evidence = "The --production-recovery literal remains dispatched by run at line 108 to production::run_recovery. The registered prefixed command string is now a separately parsed flag; check_report requires the retained-transaction-receipt-recovery result marker."
+
+[row.r9-63.59]
+interface = "interface.9.cli-agent-boundary-conformance-production-duplicate"
+verdict = "served"
+path = "services/agent/tests/boundary/src/main.rs"
+line = 109
+symbol = "--production-duplicate"
+evidence = "The --production-duplicate literal remains dispatched by run at line 109 to production::run_duplicate. The registered prefixed command string is now a separately parsed flag; check_report requires the identical-raw-transaction-preserves-hash-and-receipt marker."
+
+[row.r9-63.60]
+interface = "interface.9.cli-agent-boundary-conformance-production-peer-refusal"
+verdict = "served"
+path = "services/agent/tests/boundary/src/main.rs"
+line = 110
+symbol = "--production-peer-refusal"
+evidence = "The --production-peer-refusal literal remains dispatched by run at line 110 to production::run_peer_refusal. The registered prefixed command string is now a separately parsed flag; check_report requires the wrong-chain-id-refusal marker."
