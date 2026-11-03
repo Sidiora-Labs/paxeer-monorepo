@@ -14405,3 +14405,18 @@ fix = "Grep every initializer of a struct before adding a field and list each fi
 title = "A frozen install consumed the whole task limit"
 symptom = "A yarn frozen install of a large app took fifteen minutes and the attempt ended before its verify ran."
 fix = "Give install-heavy tasks a longer time limit and measure the install before fixing the limit."
+
+[gotcha.2917]
+title = "A command template substitution doubled a directory prefix"
+symptom = "A verify command cloned from a template received a full path in place of a file name and named the dispositions directory twice; twenty-three tasks failed their verify with FileNotFoundError after doing the work."
+fix = "After substituting into a cloned command, assert that every path it names exists or will be created by the task before landing it."
+
+[gotcha.2918]
+title = "A continued attempt carried an edit of a file that had left the scope"
+symptom = "A ruling removed a file from a task's touches, but the next attempt continued from the earlier tree and kept the file's edit it could no longer revert."
+fix = "When a ruling removes a file from the scope, start the next attempt from main instead of continuing from the earlier tree."
+
+[gotcha.2919]
+title = "A restore path returned the new record into a cache typed for the old one"
+symptom = "Carriers were migrated to restore the call-bound preparation while the runtime cache still held the legacy record, so the two insertions failed to compile."
+fix = "When a producer changes a record type, enumerate every cache that holds it and decide the holding shape in the same task."

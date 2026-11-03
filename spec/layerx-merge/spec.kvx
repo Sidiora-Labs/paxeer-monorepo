@@ -7905,6 +7905,30 @@ value = "161 findings of 80 done tasks had no disposition task; tasks 22.94.19 t
 basis = "The closure ruling requires every finding resolved or ruled out in writing; the finding list was computed from qualification.kvx against the do_1 lists of tasks 22.<n>.k and 22.94.1 to 22.94.18."
 affects = ["22.94.19", "22.94.41"]
 
+[decision.2466]
+title = "The disposition tasks verify the file they write"
+value = "The verify commands of tasks 22.94.19 to 22.94.41 named their dispositions file with the directory prefix twice (spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d<domain>-<part>.kvx) and could never open it; each now names spec/layerx-merge/dispositions/d<domain>-<part>.kvx once. The files the first attempts wrote are re-qualified unchanged."
+basis = "22.94.19 attempt 1 (bb13cf52d) and the other 22 first attempts fail their verify with FileNotFoundError on the doubled path after writing the disposition."
+affects = ["22.94.19", "22.94.41"]
+
+[decision.2467]
+title = "The human service session-key test follows the 9.35.17 preparation shape"
+value = "9.35.17 (done) gave EvmPrepared the fields from, disclosure and disclosure_digest and removed authorization from SigningPreparation; services/human/crates/layerx-human-service/tests/session_keys.rs:263-269 still builds the old shapes, so the layerx-human-service test target does not compile on main and the dependent-crate check of 21.45.1 fails. Task 22.95.11 migrates the test; 21.45.1 requires it and is re-qualified unchanged once it publishes."
+basis = "21.45.1 attempt 13 (94a308a4a): build passed, dependent-crate check exit 101 in layerx-human-service test session_keys (E0063 at :263, E0560 at :269); main's session_keys.rs carries the same lines since 58b76c623."
+affects = ["22.95.11", "21.45.1", "9.35.17"]
+
+[decision.2468]
+title = "Restored call-bound preparations wait beside the legacy cache until 9.35.20"
+value = "9.35.19 makes the native-effect and native-program carriers restore an EvmPrepared, while CachedPreparation (services/agent/crates/layerx-agentd/src/human_runtime.rs:2389) holds a legacy Prepared whose envelope cannot be rebuilt without the envelope builder the task removes. In 9.35.19 the operations state gains a restored_preparations map keyed like the prepared cache and holding the restored EvmPrepared with its ModuleRegistry; restore_native_cache (:7723) and restore_native_effect_cache (:7767) insert there and no longer build a CachedPreparation; a sign or submit on a key present only there answers as it does today for an unknown key. 9.35.20, which makes the cache hold the EvmPrepared only, folds the map into the cache."
+basis = "9.35.19 attempt 1 (6cd5d5ba0): cargo build --tests fails with E0308 at human_runtime.rs:7768 and :7812, expected prepare::legacy::Prepared, found evm::Prepared, at the two cache insertions."
+affects = ["9.35.19", "9.35.20"]
+
+[decision.2469]
+title = "The scheduler cold-metadata test starts from main"
+value = "18.1552.1 attempt 2 continued from attempt 1 and carried attempt 1's edit of precompiles/setup.go (two events removed), a file no longer in its touches, so the served-versus-cold equality failed again. The next attempt starts from the current main, leaves precompiles/setup.go identical to main and changes only precompiles/setup_test.go."
+basis = "18.1552.1 attempt 2 (2f9b908f7): precompiles/setup.go differs from main by three lines and TestPrecompileInfoResolvesWithoutMergeKeepers fails on the scheduler entry with JobFailed missing from the cold ABI."
+affects = ["18.1552.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -21525,6 +21549,10 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22116]
+title = "The human service session-key test compiles against the current preparation shapes"
+ac_1 = "Given the layerx-human-service crate on main, when cargo test runs the session_keys target, then it compiles with EvmPrepared carrying from, disclosure and disclosure_digest and SigningPreparation without authorization, and every test of the target passes."
 
 [req.22115]
 title = "The x402 vector and seller suites pass under the eip155:125 network rule"
@@ -36681,6 +36709,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.95.11]
+title = "Migrate the human service session-key test to the call-bound preparation shape"
+reqs = ["22116.1"]
+touches = ["services/human/crates/layerx-human-service/tests/session_keys.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test session_keys"
+do_1 = "Decision 2467: services/human/crates/layerx-human-service/tests/session_keys.rs:263 builds an EvmPrepared without from, disclosure and disclosure_digest and :269 builds a SigningPreparation with an authorization field; 9.35.17 changed both shapes. Build the EvmPrepared with the test's sender address as from, the disclosure from binding the test call with layerx_crypto::disclosure::call::bind_call(&call, from) and its digest as disclosure_digest, and drop the authorization field; keep every assertion of the file."
+symbols = []
 
 [capability.22.94.41]
 title = "Disposition of qualification findings 22.9.30.1 to 22.24.12.1 (domain 22, part 13)"
@@ -132348,6 +132385,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.95.11]
+title = "Migrate the human service session-key test to the call-bound preparation shape"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22116.1"]
+capabilities = ["22.95.11"]
+interfaces = []
+do_1 = "Decision 2467: services/human/crates/layerx-human-service/tests/session_keys.rs:263 builds an EvmPrepared without from, disclosure and disclosure_digest and :269 builds a SigningPreparation with an authorization field; 9.35.17 changed both shapes. Build the EvmPrepared with the test's sender address as from, the disclosure from binding the test call with layerx_crypto::disclosure::call::bind_call(&call, from) and its digest as disclosure_digest, and drop the authorization field; keep every assertion of the file."
+do_2 = "Change nothing outside the test file; if a test of the target fails for a reason other than these two shapes, report implemented-not-qualified naming the test and the line."
+do_3 = "Run the task's verify, which runs the session_keys target."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/tests/session_keys.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test session_keys"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.95.10]
 title = "Move the x402 vector suite and the payload fixture to the eip155:125 network rule"
 status = "pending"
@@ -132649,6 +132716,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2447 (attempt 1, b6601504f, continue): with the fixtures serving the keys object, three handshake tests panic with NodeRpc(Sequencer(Malformed)) at handshake_gate.rs:33 because decode_receipt_keys (services/agent/crates/layerx-client/src/sequencer.rs:860) refuses a keys array with no entries, while the readiness gate (services/agent/crates/layerx-agentd/src/boot.rs:146-149) is written to turn an empty set into GateError::NoReceiptKeys and the node serves its pinned keys as that list (rpc/sequencer_receipt.go:335-341). Make decode_receipt_keys return an empty list for an empty keys array (remove the non-empty filter), keep refusing unknown fields, duplicate ids, invalid keys and ranges, update its doc comment, and add a unit case in the same module's tests for the empty list. services/agent/crates/layerx-client/src/sequencer.rs is now in touches. Rerun the task's verify."
+do_5 = "Attempt 2 (e681c68c9) did not edit services/agent/crates/layerx-client/src/sequencer.rs although it is in the task's touches since decision 2447: the empty-list filter at sequencer.rs:864 is in scope and do_4 is the repair; the test assertions stay as they are."
 
 [task.22.23.14]
 title = "Read paymentDenom in the relayer receipt decoder and classify the Programs call vector case"
@@ -133668,6 +133736,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Decision 2468 (attempt 1, 6cd5d5ba0, continue): the two cache insertions at human_runtime.rs:7768 and :7812 cannot hold the restored EvmPrepared in CachedPreparation, whose legacy Prepared needs the envelope builder this task removes. Give the operations state a restored_preparations map keyed like the prepared cache and holding the restored EvmPrepared with its ModuleRegistry; restore_native_cache and restore_native_effect_cache insert there and build no CachedPreparation; a sign or submit on a key present only in that map answers as for an unknown key; task 9.35.20 folds the map into the cache. If a lib test signs a restored record and fails for that reason, report implemented-not-qualified naming the test."
 
 [task.9.35.18]
 title = "Hold approvals over the unsigned EIP-1559 call and replay them through bind_call"
@@ -136548,7 +136617,7 @@ title = "Prove the sdk path end to end: producer, transport, consumer"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.24", "22.9.33", "22.9.36", "22.95.2"]
+requires = ["22.9.24", "22.9.33", "22.9.36", "22.95.2", "22.95.11"]
 reqs = ["21045.1"]
 capabilities = ["21.45.1"]
 interfaces = []
@@ -136581,6 +136650,7 @@ do_9 = "Finding 21.45.1.2 and decision 2343: after the funding receipt is final 
 do_10 = "Finding 21.45.1.3: proof_sdk.rs:815-826 builds the AuthorizedBatch from the asset, batch id and state roots the decoded receipt summary carries and asserts verify_receipt succeeds (economic verification of the node-produced receipt under the pinned key), then asserts a batch with a different asset is refused at ReceiptCheck::Asset; the 'must not claim economic verification' assertion leaves and the doc comment names receipt.rs:344 and :375. Continue from attempt 8 with no other change."
 do_11 = "Decision 2385: attempt 11 (9f861946a on b9ae495fc) failed only at tests/proof_sdk.rs:827 because the receipt verifier (services/agent/crates/layerx-proof/src/receipt.rs:385-392) ignores the gas fee the debit account paid; 22.9.36 carries the fee-aware identity and this task now requires it. Re-qualify 9f861946a unchanged once 22.9.36 has published; if the proof then fails on another check, continue from 9f861946a and name the check."
 do_12 = "Decision 2434 (attempt 12, f82c126be, re-qualify unchanged once 22.95.2 publishes): after the restart helper respawns the node, get_identity_sequence and get_receipt pass and reopened.sequencer_receipt fails InvalidResponse at rpc.rs:1109-1125 because the node answers null for a send accepted before the restart; the receipt source is in-memory and the replay does not record. The task now requires 22.95.2, which rebuilds the source from the write-ahead log on start. The attempt 12 candidate is re-qualified unchanged; if the proof then fails elsewhere, continue from it and name the failing check."
+do_13 = "Decision 2467 (attempt 13, 94a308a4a, re-qualify unchanged once eligible): the build passes and the dependent-crate check fails only in the layerx-human-service session_keys test, broken on main by 9.35.17 and repaired by task 22.95.11, which this task now requires."
 
 [task.21.42.1]
 title = "Prove the client path end to end: producer, transport, consumer"
@@ -193551,6 +193621,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Decision 2455 (attempt 1, f9dc7617a, continue): attempt 1 removed JobExecuted and JobFailed from the cold entry and the equality assertion at setup_test.go:458 failed with the served ABI carrying five events and the cold three. Restore precompiles/setup.go to its base content (it is no longer in touches), assert five events in the test, keep the snapshots, and rerun the task's verify."
+do_4 = "Decision 2469 (attempt 2, 2f9b908f7): the attempt still carried the earlier edit of precompiles/setup.go. The next attempt starts from the current main, leaves precompiles/setup.go byte-identical to main (its scheduler entry already carries the five served events) and changes only precompiles/setup_test.go as do_2 says."
 
 [task.18.1551.1]
 title = "Issue #1551: Decode canonical receipt-key responses in both public PxClient SDKs"
@@ -228004,7 +228075,7 @@ touches = ["spec/layerx-merge/dispositions/d22-13.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d22-13.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-13.kvx 22.9.30.1,22.11.7.5,22.2.6.5,22.6.4.6,22.8.11.5,22.23.8.2,22.25.3.1,22.24.8.1,22.24.12.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d22-13.kvx 22.9.30.1,22.11.7.5,22.2.6.5,22.6.4.6,22.8.11.5,22.23.8.2,22.25.3.1,22.24.8.1,22.24.12.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228016,6 +228087,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.40]
 title = "Disposition of qualification findings 22.13.9.2 to 22.9.29.1 (domain 22, part 12)"
@@ -228036,7 +228108,7 @@ touches = ["spec/layerx-merge/dispositions/d22-12.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d22-12.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-12.kvx 22.13.9.2,22.9.13.1,22.9.13.2,22.13.6.8,22.9.17.2,22.6.4.5,22.1.9.1,22.13.9.3,22.9.29.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d22-12.kvx 22.13.9.2,22.9.13.1,22.9.13.2,22.13.6.8,22.9.17.2,22.6.4.5,22.1.9.1,22.13.9.3,22.9.29.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228048,6 +228120,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.39]
 title = "Disposition of qualification findings 22.6.7.4 to 22.13.8.2 (domain 22, part 11)"
@@ -228068,7 +228141,7 @@ touches = ["spec/layerx-merge/dispositions/d22-11.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d22-11.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-11.kvx 22.6.7.4,22.2.5.4,22.8.11.4,22.2.6.2,22.2.6.3,22.11.7.3,22.16.9.2,22.9.7.1,22.13.8.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d22-11.kvx 22.6.7.4,22.2.5.4,22.8.11.4,22.2.6.2,22.2.6.3,22.11.7.3,22.16.9.2,22.9.7.1,22.13.8.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228080,6 +228153,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.38]
 title = "Disposition of qualification findings 22.13.9.1 to 22.4.5.4 (domain 22, part 10)"
@@ -228100,7 +228174,7 @@ touches = ["spec/layerx-merge/dispositions/d22-10.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d22-10.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-10.kvx 22.13.9.1,22.9.17.1,22.11.7.1,22.11.7.2,22.16.9.1,22.12.7.2,22.6.4.4,22.13.6.7,22.4.5.4 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d22-10.kvx 22.13.9.1,22.9.17.1,22.11.7.1,22.11.7.2,22.16.9.1,22.12.7.2,22.6.4.4,22.13.6.7,22.4.5.4 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228112,6 +228186,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.37]
 title = "Disposition of qualification findings 22.13.6.5 to 22.13.8.1 (domain 22, part 9)"
@@ -228132,7 +228207,7 @@ touches = ["spec/layerx-merge/dispositions/d22-9.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d22-9.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-9.kvx 22.13.6.5,22.2.5.2,22.8.11.3,22.4.5.3,22.1.6.1,22.13.6.6,22.6.4.3,22.2.5.3,22.13.8.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d22-9.kvx 22.13.6.5,22.2.5.2,22.8.11.3,22.4.5.3,22.1.6.1,22.13.6.6,22.6.4.3,22.2.5.3,22.13.8.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228144,6 +228219,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.36]
 title = "Disposition of qualification findings 22.10.7.3 to 22.6.7.3 (domain 22, part 8)"
@@ -228164,7 +228240,7 @@ touches = ["spec/layerx-merge/dispositions/d22-8.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d22-8.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-8.kvx 22.10.7.3,22.4.5.2,22.12.7.1,22.1.4.2,22.2.6.1,22.9.23.2,22.16.4.5,22.10.7.4,22.6.7.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d22-8.kvx 22.10.7.3,22.4.5.2,22.12.7.1,22.1.4.2,22.2.6.1,22.9.23.2,22.16.4.5,22.10.7.4,22.6.7.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228176,6 +228252,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.35]
 title = "Disposition of qualification findings 22.6.4.1 to 22.8.11.2 (domain 22, part 7)"
@@ -228196,7 +228273,7 @@ touches = ["spec/layerx-merge/dispositions/d22-7.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d22-7.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-7.kvx 22.6.4.1,22.12.4.2,22.13.6.3,22.9.24.1,22.1.4.1,22.13.6.4,22.6.7.2,22.6.4.2,22.9.24.2,22.8.11.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d22-7.kvx 22.6.4.1,22.12.4.2,22.13.6.3,22.9.24.1,22.1.4.1,22.13.6.4,22.6.7.2,22.6.4.2,22.9.24.2,22.8.11.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228208,6 +228285,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.34]
 title = "Disposition of qualification findings 22.13.6.2 to 22.4.5.1 (domain 22, part 6)"
@@ -228228,7 +228306,7 @@ touches = ["spec/layerx-merge/dispositions/d22-6.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d22-6.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-6.kvx 22.13.6.2,22.8.11.1,22.9.16.1,22.2.4.2,22.2.7.1,22.10.7.2,22.17.4.1,22.90.9.2,22.16.4.3,22.4.5.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d22-6.kvx 22.13.6.2,22.8.11.1,22.9.16.1,22.2.4.2,22.2.7.1,22.10.7.2,22.17.4.1,22.90.9.2,22.16.4.3,22.4.5.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228240,6 +228318,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.33]
 title = "Disposition of qualification findings 22.16.7.1 to 22.16.8.1 (domain 22, part 5)"
@@ -228260,7 +228339,7 @@ touches = ["spec/layerx-merge/dispositions/d22-5.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d22-5.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-5.kvx 22.16.7.1,22.16.5.2,22.5.7.1,22.6.7.1,22.6.8.1,22.8.12.1,22.11.5.1,22.9.11.1,22.12.4.1,22.16.8.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d22-5.kvx 22.16.7.1,22.16.5.2,22.5.7.1,22.6.7.1,22.6.8.1,22.8.12.1,22.11.5.1,22.9.11.1,22.12.4.1,22.16.8.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228272,6 +228351,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.32]
 title = "Disposition of qualification findings 22.90.9.1 to 22.10.7.1 (domain 22, part 4)"
@@ -228292,7 +228372,7 @@ touches = ["spec/layerx-merge/dispositions/d22-4.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d22-4.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-4.kvx 22.90.9.1,22.16.4.1,22.13.6.1,22.5.4.1,22.4.3.1,22.10.6.1,22.16.5.1,22.9.12.1,22.2.4.1,22.10.7.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d22-4.kvx 22.90.9.1,22.16.4.1,22.13.6.1,22.5.4.1,22.4.3.1,22.10.6.1,22.16.5.1,22.9.12.1,22.2.4.1,22.10.7.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228304,6 +228384,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.31]
 title = "Disposition of qualification findings 21.142.1.1 to 21.18.1.3 (domain 21, part 4)"
@@ -228324,7 +228405,7 @@ touches = ["spec/layerx-merge/dispositions/d21-4.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d21-4.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d21-4.kvx 21.142.1.1,21.63.1.1,21.130.1.2,21.11.1.3,21.18.1.2,21.92.1.3,21.11.1.4,21.18.1.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d21-4.kvx 21.142.1.1,21.63.1.1,21.130.1.2,21.11.1.3,21.18.1.2,21.92.1.3,21.11.1.4,21.18.1.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228336,6 +228417,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.30]
 title = "Disposition of qualification findings 21.5.1.1 to 21.11.1.2 (domain 21, part 3)"
@@ -228356,7 +228438,7 @@ touches = ["spec/layerx-merge/dispositions/d21-3.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d21-3.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d21-3.kvx 21.5.1.1,21.19.1.1,21.5.1.2,21.87.1.1,21.92.1.1,21.160.1.1,21.18.1.1,21.130.1.1,21.11.1.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d21-3.kvx 21.5.1.1,21.19.1.1,21.5.1.2,21.87.1.1,21.92.1.1,21.160.1.1,21.18.1.1,21.130.1.1,21.11.1.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228368,6 +228450,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.29]
 title = "Disposition of qualification findings 20.3.4.1 to 20.4.3.1 (domain 20, part 3)"
@@ -228388,7 +228471,7 @@ touches = ["spec/layerx-merge/dispositions/d20-3.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d20-3.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d20-3.kvx 20.3.4.1,20.4.4.1,20.3.4.2,20.3.4.3,20.3.4.4,20.3.4.5,20.3.4.6,20.4.3.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d20-3.kvx 20.3.4.1,20.4.4.1,20.3.4.2,20.3.4.3,20.3.4.4,20.3.4.5,20.3.4.6,20.4.3.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228400,6 +228483,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.28]
 title = "Disposition of qualification findings 18.1471.1.5 to 18.1144.1.3 (domain 18, part 17)"
@@ -228420,7 +228504,7 @@ touches = ["spec/layerx-merge/dispositions/d18-17.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d18-17.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d18-17.kvx 18.1471.1.5,18.1471.1.6,18.1503.1.1,18.1506.1.1,18.1509.1.1,18.1129.1.6,18.1434.1.1,18.1144.1.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d18-17.kvx 18.1471.1.5,18.1471.1.6,18.1503.1.1,18.1506.1.1,18.1509.1.1,18.1129.1.6,18.1434.1.1,18.1144.1.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228432,6 +228516,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.27]
 title = "Disposition of qualification findings 18.1485.1.1 to 18.1502.1.2 (domain 18, part 16)"
@@ -228452,7 +228537,7 @@ touches = ["spec/layerx-merge/dispositions/d18-16.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d18-16.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d18-16.kvx 18.1485.1.1,18.1487.1.1,18.1471.1.1,18.1487.1.2,18.1471.1.3,18.1471.1.4,18.1496.1.1,18.1502.1.1,18.1502.1.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d18-16.kvx 18.1485.1.1,18.1487.1.1,18.1471.1.1,18.1487.1.2,18.1471.1.3,18.1471.1.4,18.1496.1.1,18.1502.1.1,18.1502.1.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228464,6 +228549,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.26]
 title = "Disposition of qualification findings 17.1.7.1 to 17.1.7.3 (domain 17, part 6)"
@@ -228484,7 +228570,7 @@ touches = ["spec/layerx-merge/dispositions/d17-6.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d17-6.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d17-6.kvx 17.1.7.1,17.1.7.2,17.3.4.attempt1,17.3.4.attempt2,17.3.4.attempt3,17.1.7.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d17-6.kvx 17.1.7.1,17.1.7.2,17.3.4.attempt1,17.3.4.attempt2,17.3.4.attempt3,17.1.7.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228496,6 +228582,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.25]
 title = "Disposition of qualification findings 11.23.3.2 to 11.23.3.2 (domain 11, part 5)"
@@ -228516,7 +228603,7 @@ touches = ["spec/layerx-merge/dispositions/d11-5.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d11-5.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d11-5.kvx 11.23.3.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d11-5.kvx 11.23.3.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228528,6 +228615,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.24]
 title = "Disposition of qualification findings 9.35.9.1 to 9.35.11.3 (domain 9, part 12)"
@@ -228548,7 +228636,7 @@ touches = ["spec/layerx-merge/dispositions/d9-12.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d9-12.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d9-12.kvx 9.35.9.1,9.35.9.2,9.35.9.3,9.35.11.1,9.35.9.4,9.35.9.5,9.35.11.2,9.35.9.6,9.35.9.7,9.35.11.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d9-12.kvx 9.35.9.1,9.35.9.2,9.35.9.3,9.35.11.1,9.35.9.4,9.35.9.5,9.35.11.2,9.35.9.6,9.35.9.7,9.35.11.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228560,6 +228648,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.23]
 title = "Disposition of qualification findings 8.101.4.1 to 8.101.4.2 (domain 8, part 10)"
@@ -228580,7 +228669,7 @@ touches = ["spec/layerx-merge/dispositions/d8-10.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d8-10.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d8-10.kvx 8.101.4.1,8.101.4.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d8-10.kvx 8.101.4.1,8.101.4.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228592,6 +228681,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.22]
 title = "Disposition of qualification findings 6.96.6.1 to 6.96.6.3 (domain 6, part 5)"
@@ -228612,7 +228702,7 @@ touches = ["spec/layerx-merge/dispositions/d6-5.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d6-5.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d6-5.kvx 6.96.6.1,6.96.6.2,6.96.6.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d6-5.kvx 6.96.6.1,6.96.6.2,6.96.6.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228624,6 +228714,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.21]
 title = "Disposition of qualification findings 5.0.9.1 to 5.0.9.1 (domain 5, part 6)"
@@ -228644,7 +228735,7 @@ touches = ["spec/layerx-merge/dispositions/d5-6.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d5-6.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d5-6.kvx 5.0.9.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d5-6.kvx 5.0.9.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228656,6 +228747,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.20]
 title = "Disposition of qualification findings 3.54.7.1 to 3.54.7.1 (domain 3, part 4)"
@@ -228676,7 +228768,7 @@ touches = ["spec/layerx-merge/dispositions/d3-4.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d3-4.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d3-4.kvx 3.54.7.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d3-4.kvx 3.54.7.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228688,6 +228780,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.22.94.19]
 title = "Disposition of qualification findings 1.2.4.1 to 1.2.4.1 (domain 1, part 5)"
@@ -228708,7 +228801,7 @@ touches = ["spec/layerx-merge/dispositions/d1-5.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/dispositions/d1-5.kvx"]
 build_cmd = "test -f spec/layerx-merge/qualification.kvx"
-verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d1-5.kvx 1.2.4.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/d1-5.kvx 1.2.4.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
@@ -228720,6 +228813,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the dispositions file with its directory twice and could not open it; it now names the file once. The dispositions written by the first attempt stand and are re-qualified without change."
 
 [task.18.1558.1]
 title = "Issue #1558: Document the actual scope of the perps ABI decision commit"
@@ -228811,6 +228905,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2454 (attempt 1, 756754b7f, continue): the readonly listing of services/launchpad/api fails because internal/rest/production_integration_test.go:32 imports github.com/pressly/goose/v3, which services/launchpad/api/go.mod does not require; no go.sum content can satisfy that. Add the goose requirement to services/launchpad/api/go.mod at the version services/launchpad/user, indexer, trading-charts, metadata and livestream use, regenerate the api module's go.sum and the go.work.sum accordingly, and run go list -mod=readonly -deps -test ./... in each of the seventeen modules before the verify. If another module shows the same manifest gap, stop and report implemented-not-qualified naming the module and the package. Rerun the task's verify."
+do_5 = "Attempt 2 (9ece46d24) reported services/launchpad/api/go.mod as out of scope; it is in the task's touches since decision 2454 and do_4 is the repair: add the goose requirement there and regenerate the api go.sum and go.work.sum."
 
 [task.18.1522.1]
 title = "Issue #1522: Check the dashboard Next floor against its shared install lock"

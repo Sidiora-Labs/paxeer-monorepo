@@ -19755,3 +19755,11 @@ symbol = "overrides"
 observed = "The override @opentelemetry/core@<2.8.0 -> 2.8.0 rewrites the ^1.30.1 core dependency of @opentelemetry/sdk-trace-base 1.30.1 (pnpm-lock.yaml:8101-8104); sdk-trace-base 1.x reads TracesSamplerValues from core, removed in 2.x, so loading the production Next config fails with Cannot read properties of undefined (reading AlwaysOn) (18.1521.1 attempt 1)."
 assumption = "The task verified the floors and the frozen install only; decision 2464 narrows the override through 18.1521.1."
 severity = "major"
+
+[finding.9.35.17.2]
+task = "9.35.17"
+file = "services/human/crates/layerx-human-service/tests/session_keys.rs"
+symbol = "EvmPrepared"
+observed = "9.35.17 added from, disclosure and disclosure_digest to EvmPrepared and removed authorization from SigningPreparation; session_keys.rs:263 and :269 still build the previous shapes, so the layerx-human-service test target fails to compile on main (21.45.1 attempt 13)."
+assumption = "The task's verify did not build the human service tests; task 22.95.11 migrates the test."
+severity = "major"
