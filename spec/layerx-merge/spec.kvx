@@ -226672,7 +226672,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.11]
 title = "Triage issue #1522 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226920,7 +226920,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.3]
 title = "Triage issue #1513: Invalidate native archives when their source membership shrinks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226951,7 +226951,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.2]
 title = "Triage issue #1512: Update retained test-log after retired log append kinds are refused"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226982,7 +226982,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.1]
 title = "Triage issue #1511: Restore PAY2's standalone lockfile for its declared locked qualification gates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
