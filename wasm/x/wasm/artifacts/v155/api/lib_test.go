@@ -50,10 +50,9 @@ func TestInitCacheWorksForNonExistentDir(t *testing.T) {
 }
 
 func TestInitCacheErrorsForBrokenDir(t *testing.T) {
-	// Use colon to make this fail on Windows
-	// https://gist.github.com/doctaphred/d01d05291546186941e1b7ddc02034d3
-	// On Unix we should not have permission to create this.
-	cannotBeCreated := "/foo:bar"
+	parentFile := filepath.Join(t.TempDir(), "not-a-directory")
+	require.NoError(t, os.WriteFile(parentFile, []byte("not a directory"), 0600))
+	cannotBeCreated := filepath.Join(parentFile, "cache")
 	_, err := InitCache(cannotBeCreated, TESTING_CAPABILITIES, TESTING_CACHE_SIZE, TESTING_MEMORY_LIMIT)
 	require.ErrorContains(t, err, "Error creating state directory")
 }

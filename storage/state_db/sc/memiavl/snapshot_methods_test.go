@@ -2,6 +2,9 @@ package memiavl
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -156,9 +159,12 @@ func TestWriterLoopErrors(t *testing.T) {
 	_, _, err := tree.SaveVersion(true)
 	require.NoError(t, err)
 
-	// Try to write to invalid directory
-	err = tree.WriteSnapshot(context.Background(), "/invalid/path/snapshot")
+	parentFile := filepath.Join(t.TempDir(), "not-a-directory")
+	require.NoError(t, os.WriteFile(parentFile, []byte("snapshot parent"), 0o600))
+
+	err = tree.WriteSnapshot(context.Background(), filepath.Join(parentFile, "snapshot"))
 	require.Error(t, err)
+	require.ErrorIs(t, err, syscall.ENOTDIR)
 }
 
 // TestImportCancellation tests import with context cancellation
