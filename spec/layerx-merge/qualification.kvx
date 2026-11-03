@@ -19659,3 +19659,27 @@ symbol = "cases"
 observed = "The regenerated fixture carries twelve cases that all pay in the base denomination, so no recorded case has a paymentDenom distinct from feeDenom and no consumer can prove the fee-token asset path against producer bytes."
 assumption = "Decision 2430: consumers prove the check on derived views; a producer task records a fee-token case in a later batch."
 severity = "medium"
+
+[finding.21.78.1.1]
+task = "21.78.1"
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+symbol = "decode_receipt_keys"
+observed = "21.78.1 changed the shared receipt_keys decoder to the node's object shape and verified only the gateway proof; the agent daemon fixtures in human_node_budgets.rs, human_node.rs and handshake_gate.rs still serve the bare list, and the budget pipeline test fails with UnverifiedReceipt on the decode error (9.35.17 attempt 5)."
+assumption = "Every consumer fixture of a decoder's shape is run in the task that changes the shape."
+severity = "high"
+
+[finding.18.1129.1.6]
+task = "18.1129.1"
+file = "services/interop/crates/x-websearch/tests/fixtures/client-exchange.json"
+symbol = "offers"
+observed = "18.1129.1 re-recorded the client exchange with every offer on eip155:125 and ran only the Rust payment test; the TypeScript sdk consumer test still configures eip155:1337 and fails every web-search case with offer-network-mismatch (22.9.10 attempt 17)."
+assumption = "A re-recorded exchange is run against every consumer test that reads it in the same task."
+severity = "medium"
+
+[finding.18.1434.1.1]
+task = "18.1434.1"
+file = "node/app.go"
+symbol = "EVMReceiptModuleID"
+observed = "The EVM sequencer receipt carries module id EVMReceiptModuleID (reserved module count plus one, 12) and protocol version 2, while the human service move-commit binding expects the kernel ledger module 1 and the envelope protocol 3 and refuses every node-produced receipt with upstream-degraded; interfaces.kvx records no contract for the EVM receipt module id and protocol version."
+assumption = "interfaces.kvx gains the EVM receipt module and protocol contract and every consumer binds to the constant, not a literal."
+severity = "high"

@@ -1,0 +1,18 @@
+{
+ "slug": "sdk-cosmovisor",
+ "manifests": [
+  "sdk/cosmovisor/go.mod"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-2v4p-qf9q-27wj",
+   "number": 4698,
+   "package": "google.golang.org/grpc",
+   "ecosystem": "go",
+   "manifest": "sdk/cosmovisor/go.mod",
+   "severity": "high",
+   "range": ">= 1.83.0, < 1.83.2",
+   "patched": "1.83.2"
+  }
+ ]
+}

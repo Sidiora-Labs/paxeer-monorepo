@@ -1,0 +1,78 @@
+{
+ "slug": "core-deps-tm-db",
+ "manifests": [
+  "core/deps/tm-db/go.mod"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-4374-p667-p6c8",
+   "number": 2060,
+   "package": "golang.org/x/net",
+   "ecosystem": "go",
+   "manifest": "core/deps/tm-db/go.mod",
+   "severity": "high",
+   "range": "< 0.17.0",
+   "patched": "0.17.0"
+  },
+  {
+   "ghsa": "GHSA-2wrh-6pvc-2jm9",
+   "number": 2061,
+   "package": "golang.org/x/net",
+   "ecosystem": "go",
+   "manifest": "core/deps/tm-db/go.mod",
+   "severity": "medium",
+   "range": "< 0.13.0",
+   "patched": "0.13.0"
+  },
+  {
+   "ghsa": "GHSA-qppj-fm5r-hxr3",
+   "number": 2062,
+   "package": "golang.org/x/net",
+   "ecosystem": "go",
+   "manifest": "core/deps/tm-db/go.mod",
+   "severity": "medium",
+   "range": "< 0.17.0",
+   "patched": "0.17.0"
+  },
+  {
+   "ghsa": "GHSA-4v7x-pqxf-cx7m",
+   "number": 2064,
+   "package": "golang.org/x/net",
+   "ecosystem": "go",
+   "manifest": "core/deps/tm-db/go.mod",
+   "severity": "medium",
+   "range": "< 0.23.0",
+   "patched": "0.23.0"
+  },
+  {
+   "ghsa": "GHSA-qxp5-gwg8-xv66",
+   "number": 2067,
+   "package": "golang.org/x/net",
+   "ecosystem": "go",
+   "manifest": "core/deps/tm-db/go.mod",
+   "severity": "medium",
+   "range": "< 0.36.0",
+   "patched": "0.36.0"
+  },
+  {
+   "ghsa": "GHSA-vvgc-356p-c3xw",
+   "number": 2068,
+   "package": "golang.org/x/net",
+   "ecosystem": "go",
+   "manifest": "core/deps/tm-db/go.mod",
+   "severity": "medium",
+   "range": "< 0.38.0",
+   "patched": "0.38.0"
+  },
+  {
+   "ghsa": "GHSA-5cv4-jp36-h3mw",
+   "number": 2069,
+   "package": "golang.org/x/net",
+   "ecosystem": "go",
+   "manifest": "core/deps/tm-db/go.mod",
+   "severity": "medium",
+   "range": "< 0.55.0",
+   "patched": "0.55.0"
+  }
+ ]
+}
