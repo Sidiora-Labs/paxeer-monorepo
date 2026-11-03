@@ -15,6 +15,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pointer"
+	precompiletest "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/testutil"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
 )
 
@@ -116,6 +117,10 @@ func GovernanceSubmitProposal(tCtx *utils.TestContext, count int) []*utils.TestM
 // This creates ERC20 pointers to previously deployed CW20 tokens using an EVM transaction to the precompile
 func ERC20toCWAssets(tCtx *utils.TestContext, count int) []*utils.TestMessage {
 	var msgs []*utils.TestMessage
+
+	if err := precompiletest.Install(tCtx.TestApp); err != nil {
+		panic(err)
+	}
 
 	// Get the pointer precompile information
 	pInfo := precompiles.GetPrecompileInfo(pointer.PrecompileName)

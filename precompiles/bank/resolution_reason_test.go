@@ -72,7 +72,7 @@ func TestResolutionBankReason(t *testing.T) {
 		require.Equal(t, "LXP_PRECOMPILE_INVALID_ADDR: invalid addr", resolutionDecodeReason(t, revert(height, holder, unboundSendNative, big.NewInt(1), false)))
 		// A bank failure outside the registry keeps its text as the reason.
 		require.Equal(t, "invalid denom", resolutionDecodeReason(t, revert(height, holder, emptyDenomBalance, nil, false)))
-		require.Equal(t, "cannot call sendNative from staticcall", resolutionDecodeReason(t, revert(height, holder, unboundSendNative, big.NewInt(1), true)))
+		require.Equal(t, "LXP_BANK_STATICCALL: cannot call <method> from staticcall; sendNative", resolutionDecodeReason(t, revert(height, holder, unboundSendNative, big.NewInt(1), true)))
 	}
 
 	// A payment with a wei remainder into the bank precompile's account is

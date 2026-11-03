@@ -29,6 +29,7 @@ export const PAYMENT_RESPONSE_HEADER = "PAYMENT-RESPONSE" as const;
 const MAX_U128 = 340282366920938463463374607431768211455n;
 const MAX_HEADER_BYTES = 64 * 1024;
 const PAYMENT_KEY_DOMAIN = new TextEncoder().encode("LayerX/middleware/x402/idempotency\0");
+const RECEIPT_KEY_DOMAIN = new TextEncoder().encode("LayerX/middleware/x402/receipt\0");
 const paymentPurpose = readPaymentPurpose;
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { readonly [key: string]: JsonValue };
@@ -175,7 +176,7 @@ export type SellerDecision<T> =
   | { readonly kind: "pending"; readonly status: 202 }
   | {
     readonly kind: "refused";
-    readonly status: 402;
+    readonly status: 402 | 409;
     readonly headers: Readonly<Record<typeof PAYMENT_RESPONSE_HEADER, string>>;
     readonly settlement: SettlementResponse;
   }
@@ -250,18 +251,22 @@ export class SellerMiddleware<T> {
     const canonical = canonicalJson(payload);
     const requestDigestBytes = await sha256(new TextEncoder().encode(canonical));
     const requestDigest = toHex(requestDigestBytes);
-    const idempotencyKey = toHex(await sha256(
+    const requestIdempotencyKey = toHex(await sha256(
       PAYMENT_KEY_DOMAIN,
       new TextEncoder().encode(principal),
       requestDigestBytes,
     ));
-    let stored = await this.#fulfillments.get(idempotencyKey);
-    if (stored === undefined) {
+    const receiptHint = payload.payload["receiptDigest"];
+    let fulfillmentKey = typeof receiptHint === "string" && /^0x[0-9a-f]{64}$/u.test(receiptHint)
+      ? await idempotencyKey(principal, receiptHint)
+      : undefined;
+    let stored = fulfillmentKey === undefined ? undefined : await this.#fulfillments.get(fulfillmentKey);
+    if (stored === undefined || stored.requestDigest !== requestDigest) {
       const outcome = await this.#authority.settle({
         principal,
         payload,
         requirements,
-        idempotencyKey,
+        idempotencyKey: requestIdempotencyKey,
         requestDigest,
       });
       if (outcome.kind === "pending") {
@@ -279,22 +284,42 @@ export class SellerMiddleware<T> {
         receiptKey: outcome.receiptKey,
       });
       const verification = await verifyPaymentReceipt(proof, requirements, this.#receiptKeys, this.#commitments);
+      fulfillmentKey = await idempotencyKey(principal, proof.receiptDigest);
       const proposed = {
         ...proof,
-        idempotencyKey,
+        idempotencyKey: fulfillmentKey,
         requestDigest,
         txHash: verification.txHash,
         ...(verification.commitmentEvidence === undefined ? {} : {
           commitmentEvidence: verification.commitmentEvidence,
         }),
       };
-      stored = await this.#fulfillments.fulfill(proposed, () => release(idempotencyKey));
+      stored = await this.#fulfillments.get(fulfillmentKey);
+      if (stored !== undefined && stored.requestDigest !== requestDigest) {
+        return receiptReuseDecision(requirements);
+      }
+      if (stored === undefined) {
+        try {
+          stored = await this.#fulfillments.fulfill(proposed, () => release(proposed.idempotencyKey));
+        } catch (error) {
+          if (error instanceof MiddlewareError && error.code === "fulfillment-conflict") {
+            const settled = await this.#fulfillments.get(fulfillmentKey);
+            if (settled !== undefined && settled.requestDigest !== requestDigest) {
+              return receiptReuseDecision(requirements);
+            }
+          }
+          throw error;
+        }
+      }
       if (stored.receiptDigest !== proposed.receiptDigest || stored.txHash !== proposed.txHash) {
         throw new MiddlewareError("fulfillment-conflict");
       }
     }
-    if (stored.idempotencyKey !== idempotencyKey || stored.requestDigest !== requestDigest) {
+    if (stored.idempotencyKey !== fulfillmentKey) {
       throw new MiddlewareError("fulfillment-conflict");
+    }
+    if (stored.requestDigest !== requestDigest) {
+      return receiptReuseDecision(requirements);
     }
     const commitmentEvidence = stored.commitmentEvidence;
     if (stored.verificationLevel === "committed" && commitmentEvidence === undefined) {
@@ -797,6 +822,16 @@ function refusalDecision<T>(
     headers: { [PAYMENT_RESPONSE_HEADER]: encodeSettlementHeader(settlement) },
     settlement,
   };
+}
+
+async function idempotencyKey(principal: string, receiptDigest: string): Promise<string> {
+  return toHex(await sha256(RECEIPT_KEY_DOMAIN, new TextEncoder().encode(principal), parseReceiptHex(receiptDigest, 32)));
+}
+
+function receiptReuseDecision<T>(
+  requirements: PaymentRequirements,
+): Extract<SellerDecision<T>, { readonly kind: "refused" }> {
+  return { ...refusalDecision<T>(requirements, "receipt_reuse"), status: 409 };
 }
 
 function parseLayerXEvidence(value: unknown): PortableReceiptV2 {

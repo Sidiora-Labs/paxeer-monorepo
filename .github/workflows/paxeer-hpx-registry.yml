@@ -10,8 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 concurrency:
   group: paxeer-hpx-registry-${{ github.sha }}
@@ -22,6 +21,9 @@ env:
 
 jobs:
   release:
+    permissions:
+      contents: write
+      packages: write
     name: Publish registry runtimes
     runs-on: macos-latest
     steps:

@@ -21,15 +21,16 @@ import (
 )
 
 const (
-	testNetworkID     = 7
-	registerType      = 0x00070001
-	grantType         = 0x00070008
-	programsRegistry  = 0x00090004
-	stateCommitment   = 3
-	governanceModule  = 7
-	identityStateSize = 223
-	revocationOffset  = 69
-	sequenceOffset    = 215
+	testNetworkID      = 7
+	registerType       = 0x00070001
+	grantType          = 0x00070008
+	programsRegistry   = 0x00090004
+	programsFeeVersion = 1
+	stateCommitment    = 3
+	governanceModule   = 7
+	identityStateSize  = 223
+	revocationOffset   = 69
+	sequenceOffset     = 215
 )
 
 type testChain struct {
@@ -101,7 +102,7 @@ func (c *testChain) get(key []byte) []byte {
 
 func seedProgramsFeeRecord(t *testing.T, chain *testChain, authority [32]byte) {
 	t.Helper()
-	record := binary.BigEndian.AppendUint32([]byte("LXFR1"), 1)
+	record := binary.BigEndian.AppendUint32([]byte("LXFR1"), programsFeeVersion)
 	for i := 0; i < 7; i++ {
 		record = binary.BigEndian.AppendUint64(record, 1)
 	}
@@ -114,7 +115,7 @@ func seedProgramsFeeRecord(t *testing.T, chain *testChain, authority [32]byte) {
 	require.Len(t, record, 217)
 	store := sdk.NewContext(chain.cms, tmproto.Header{}, false).KVStore(chain.key)
 	store.Set(moduleKVKey(9, []byte("progfee/active/v1")), record)
-	store.Set(moduleKVKey(9, binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)), record)
+	store.Set(moduleKVKey(9, binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), programsFeeVersion)), record)
 }
 
 type testActor struct {
@@ -242,6 +243,7 @@ func TestHostLinksKernel(t *testing.T) {
 	require.Equal(t, Code(0), receipt.ResultCode)
 	require.Equal(t, uint64(1), receipt.GlobalSequence)
 	require.NotEmpty(t, receipt.Encoded)
+	require.Nil(t, chain.get(idempotencyKey(actor.register(t, host, 0, 1700000000000).IdempotencyKey)))
 	require.NotEqual(t, receipt.PreviousStateRoot, receipt.ResultingStateRoot)
 }
 

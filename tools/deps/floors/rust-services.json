@@ -1,0 +1,29 @@
+{
+  "manifests": {
+    "services/human/Cargo.toml": {
+      "jsonwebtoken": "10.3.0",
+      "rustls": "0.23.46"
+    },
+    "services/platform/Cargo.toml": {
+      "rustls": "0.23.46"
+    },
+    "tools/platform/Cargo.toml": {
+      "rustls": "0.23.46"
+    },
+    "services/interop/Cargo.toml": {
+      "rustls": "0.23.46"
+    },
+    "services/agent/Cargo.toml": {
+      "rustls": "0.23.46"
+    },
+    "services/agent/fuzz/Cargo.toml": {
+      "rustls": "0.23.46"
+    },
+    "cmd/layerxctl/Cargo.toml": {
+      "rustls": "0.23.46"
+    },
+    "sdk/chainflow/rust/Cargo.toml": {
+      "tokio": "1.54.1"
+    }
+  }
+}

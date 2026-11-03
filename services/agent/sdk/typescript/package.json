@@ -47,5 +47,6 @@
     "@scure/bip32": "2.4.0",
     "@scure/bip39": "2.4.0",
     "ws": "8.21.3"
-  }
+  },
+  "module": "./dist/src/index.js"
 }
