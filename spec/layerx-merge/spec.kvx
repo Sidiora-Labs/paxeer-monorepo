@@ -123381,7 +123381,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.39]
 title = "Repair the inventory sweep target sdk/integrations/next/example"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136640,7 +136640,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.67]
 title = "Repair the inventory sweep target layerx-x402"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -145743,7 +145743,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.7]
 title = "Repair the inventory sweep target services/launchpad/discovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199375,7 +199375,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.99.38]
 title = "Repair the inventory sweep target wasm/x/wasm/artifacts/v155/api"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199435,7 +199435,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.36]
 title = "Repair the inventory sweep target wasm-runtime/internal/api"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199525,7 +199525,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.33]
 title = "Repair the inventory sweep target storage/state_db/sc/memiavl"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199555,7 +199555,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.32]
 title = "Repair the inventory sweep target storage/db_engine/litt/util"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199585,7 +199585,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.27]
 title = "Repair the inventory sweep target precompiles/pricefeed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199645,7 +199645,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.25]
 title = "Repair the inventory sweep target precompiles/layerxagent/teeattestor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199675,7 +199675,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.24]
 title = "Repair the inventory sweep target precompiles/layerxagent/streams"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199735,7 +199735,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.22]
 title = "Repair the inventory sweep target precompiles/layerxagent/eip712"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199795,7 +199795,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.20]
 title = "Repair the inventory sweep target modules/layerxledger/types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234701,7 +234701,7 @@ do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible)
 
 [task.22.99.43]
 title = "Repair the inventory sweep target tools/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -236738,7 +236738,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.152]
 title = "Reconcile drifted interface registry rows: services/platform part 32"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
