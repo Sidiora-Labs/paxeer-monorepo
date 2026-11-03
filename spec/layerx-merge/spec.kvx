@@ -233744,7 +233744,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.119]
 title = "Reconcile drifted interface registry rows: precompiles/addr and precompiles/common part 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -233774,7 +233774,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.118]
 title = "Reconcile drifted interface registry rows: interchain/modules and modules/layerxanchor part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -233804,7 +233804,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.117]
 title = "Reconcile drifted interface registry rows: node and node/sequencer part 3"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -233834,7 +233834,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.116]
 title = "Reconcile drifted interface registry rows: node part 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
