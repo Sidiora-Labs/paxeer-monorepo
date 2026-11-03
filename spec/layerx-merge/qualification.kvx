@@ -20379,3 +20379,43 @@ symbol = "test_no_claim_or_deposit_root_callers"
 observed = "Attempt 2: nine guard tests still fail, among them two beta-withdrawal genesis runs (bootstrap: public testnet genesis requires seven configured modules) and the claim-caller guard that flags the retired-use guard test itself."
 assumption = "All nine lie in the planned paths; each is repaired or reported with its path."
 severity = "medium"
+
+[finding.22.99.50.1]
+task = "22.99.50"
+file = "services/agent/Cargo.lock"
+symbol = "layerx-sdk"
+observed = "After the merges of 22.99.49 and 22.99.50 the services/agent lock lacks the entries their manifests added; cargo build --locked fails for every package of the workspace (9.35.19 attempt 5)."
+assumption = "22.99.158 refreshes the lock (decision 2511)."
+severity = "high"
+
+[finding.9.35.19.2]
+task = "9.35.19"
+file = "services/agent/Cargo.lock"
+symbol = "layerx-agentd"
+observed = "Attempt 5: the build fails under --locked on the stale workspace lock before any test runs."
+assumption = "Requires 22.99.158; the attempt-5 tree is requalified after it."
+severity = "medium"
+
+[finding.22.95.7.1]
+task = "22.95.7"
+file = "services/wallet/gateway/src/routes/sign.ts"
+symbol = "tsc"
+observed = "Attempt 2 (base ca29b9a66): six TS2554 errors in routes/sign.ts and schemas/agent.ts outside the task's one file; on the current main line those lines are imports and the calls have changed."
+assumption = "The attempt-2 tree is requalified on the current main line."
+severity = "low"
+
+[finding.22.99.76.1]
+task = "22.99.76"
+file = "services/human/crates/layerx-human-service/tests/custody.rs"
+symbol = "SigningPreparation"
+observed = "Attempts 1 of 22.99.76, 22.99.77 and 22.99.58 (base 3bc9e23f9): the dependent-crate check stopped on custody.rs:415 (missing disclosure fields, removed authorization field); the current main line has neither reference."
+assumption = "The three attempt trees are requalified on the current main line."
+severity = "low"
+
+[finding.22.9.18.5]
+task = "22.9.18"
+file = "services/agent/crates/layerx-sdk/src/programs"
+symbol = "v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes"
+observed = "Attempt 13: the test fails with Error: Decode on the terminal-v5 corpus the verify builds with scripts/qualification/paxeer-x/program-terminal-v5.py; the error names neither the record nor the offset."
+assumption = "The decoder error carries record and offset; the decoder follows the kernel terminal-v5 wire or the script's path is reported."
+severity = "medium"
