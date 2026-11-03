@@ -1401,21 +1401,8 @@ lxp_result lxp_module_ctx_preview_state_root(
         return status;
     }
     preview_state->count = journal->store->count;
-    preview_state->idempotency_retention =
-        journal->store->idempotency_retention;
     (void)memcpy(preview_state->cells, journal->store->cells,
                  sizeof(preview_state->cells));
-    if (journal->store->idempotency_count != 0U) {
-        status = lxp_idempotency_reserve(preview_state);
-        if (status == LXP_OK) {
-            (void)memcpy(preview_state->idempotency,
-                         journal->store->idempotency,
-                         journal->store->idempotency_count *
-                             sizeof(preview_state->idempotency[0]));
-            preview_state->idempotency_count =
-                journal->store->idempotency_count;
-        }
-    }
     if (status == LXP_OK && journal->store->accounts != NULL) {
         preview_accounts = (lx_account_registry *)malloc(
             sizeof(*preview_accounts));
