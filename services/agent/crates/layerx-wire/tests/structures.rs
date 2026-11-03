@@ -24,34 +24,40 @@ fn activity_type(module: ModuleId, ordinal: u16) -> ActivityType {
     value
 }
 
-fn registry() -> ModuleRegistry {
-    let module_maximums = [
-        (ModuleId::Asset, 8),
-        (ModuleId::Escrow, 7),
-        (ModuleId::Budget, 7),
-        (ModuleId::Stream, 7),
-        (ModuleId::Service, 13),
-        (ModuleId::Perps, 11),
-        (ModuleId::Governance, 1),
-        (ModuleId::Bridge, 1),
-        (ModuleId::Programs, 7),
-    ];
-    let registrations: Vec<_> = module_maximums
+fn registry(corpus: &Corpus) -> ModuleRegistry {
+    let registrations: Vec<_> = ModuleId::ALL
         .into_iter()
-        .map(|(module, maximum)| {
-            let activity_types: Vec<_> = (1..=maximum)
-                .map(|ordinal| activity_type(module, ordinal))
+        .filter_map(|module| {
+            let mut activity_types: Vec<_> = corpus
+                .replay
+                .activity_types
+                .iter()
+                .copied()
+                .filter(|kind| kind.module() == module)
                 .collect();
-            let Ok(registration) = ModuleRegistration::new(module, &activity_types) else {
-                panic!("valid module registration rejected");
-            };
-            registration
+            match module {
+                ModuleId::Governance | ModuleId::Bridge => {
+                    activity_types.push(activity_type(module, 1));
+                }
+                ModuleId::Programs => {
+                    activity_types.extend((1..=7).map(|ordinal| activity_type(module, ordinal)));
+                }
+                _ => {}
+            }
+            activity_types.sort();
+            activity_types.dedup();
+            if activity_types.is_empty() {
+                return None;
+            }
+            Some(
+                ModuleRegistration::new(module, &activity_types).unwrap_or_else(|error| {
+                    panic!("published activity registration rejected: {error:?}")
+                }),
+            )
         })
         .collect();
-    let Ok(registry) = ModuleRegistry::new(&registrations) else {
-        panic!("valid registry rejected");
-    };
-    registry
+    ModuleRegistry::new(&registrations)
+        .unwrap_or_else(|error| panic!("published registry rejected: {error:?}"))
 }
 
 fn batch_bytes() -> Vec<u8> {
@@ -177,7 +183,7 @@ fn every_published_activity_and_receipt_round_trips_exactly() {
     let Ok(corpus) = Corpus::load(&repository_root()) else {
         panic!("published corpora failed to load");
     };
-    let registry = registry();
+    let registry = registry(&corpus);
     for (index, bytes) in corpus.replay.canonical_activities.iter().enumerate() {
         let Ok(activity) = decode_signed(bytes, &registry) else {
             panic!("activity vector {index} failed decode");
@@ -215,7 +221,7 @@ fn all_nine_module_payload_tags_are_preserved() {
     let Ok(corpus) = Corpus::load(&repository_root()) else {
         panic!("published corpora failed to load");
     };
-    let registry = registry();
+    let registry = registry(&corpus);
     let template = &corpus.replay.canonical_activities[0];
     for module in 1_u32..=9 {
         let mut bytes = template.clone();
@@ -317,7 +323,7 @@ fn unknown_version_activity_and_field_are_deterministic_rejections() {
     let Ok(corpus) = Corpus::load(&repository_root()) else {
         panic!("published corpora failed to load");
     };
-    let registry = registry();
+    let registry = registry(&corpus);
     let template = &corpus.replay.canonical_activities[0];
     assert_eq!(&template[..2], &[0, 1]);
     assert_eq!(&template[6..8], &[0, 1]);

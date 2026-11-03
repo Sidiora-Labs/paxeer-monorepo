@@ -30,7 +30,7 @@ export class GrantPaymentAuthority implements SellerPaymentAuthority {
         || grantUint(data.subarray(68, 100)) >= 1n << 128n
         || grantUint(data.subarray(68, 100)) !== BigInt(request.requirements.amount)
         || grantUint(data.subarray(132, 164)) >= 1n << 64n
-        || grantHexString(data.subarray(164, 196)).slice(2) !== payload["idempotencyKey"]) {
+        || grantHexString(data.subarray(100, 132)).slice(2) !== payload["idempotencyKey"]) {
         throw new Error("invalid-draw");
       }
     } catch {
@@ -58,8 +58,9 @@ export class GrantPaymentAuthority implements SellerPaymentAuthority {
         throw new Error("invalid-draw-receipt");
       }
       const eventData = new Uint8Array(128);
-      eventData.set(data.subarray(36, 100));
-      eventData.set(data.subarray(164, 228), 64);
+      eventData.set(grantHex(request.requirements.asset, 32));
+      eventData.set(data.subarray(68, 132), 32);
+      eventData.set(data.subarray(196, 228), 96);
       const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", eventData));
       const topic = keccak256(new TextEncoder().encode("PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)"));
       let matches = 0;
@@ -74,8 +75,8 @@ export class GrantPaymentAuthority implements SellerPaymentAuthority {
         if (!sameGrantBytes(body.subarray(body.length - 32), digest)) throw new Error("invalid-draw-log");
         const payment = decodePaymentDrawnLog({ address, data: eventData,
           topics: Array.from({ length: count }, (_, i) => body.slice(21 + i * 32, 53 + i * 32)) });
-        if (!sameGrantBytes(payment.grantId, data.subarray(100, 132))
-          || !sameGrantBytes(payment.from, data.subarray(4, 36))
+        if (!sameGrantBytes(payment.grantId, data.subarray(4, 36))
+          || !sameGrantBytes(payment.from, data.subarray(36, 68))
           || !sameGrantBytes(payment.to, grantHex(request.requirements.payTo, 32))
           || !sameGrantBytes(payment.assetId, grantHex(request.requirements.asset, 32))) throw new Error("draw-payment-mismatch");
         matches += 1;

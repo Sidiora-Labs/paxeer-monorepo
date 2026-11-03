@@ -311,8 +311,8 @@ func TestReadBridgeInvalidStore(t *testing.T) {
 	}{
 		{"sequence_length", []byte{lastSequenceKey}, []byte{1}, codeFatalInvariant},
 		{"sequence_overflow", []byte{lastSequenceKey}, binary.BigEndian.AppendUint64(nil, math.MaxUint64), Code(-307)},
-		{"module_key", []byte{moduleKVPrefix, 1}, []byte{1}, codeFatalInvariant},
-		{"replay_key", []byte{idempotencyPrefix, 1}, []byte{1}, codeFatalInvariant},
+		{"module_key", moduleKVKey(governanceModule, nil), []byte{1}, codeFatalInvariant},
+		{"replay_key", []byte{idempotencyPrefix, 1}, []byte{1}, Code(-7)},
 		{"account_key", []byte{accountPrefix, 1}, []byte{1}, codeFatalInvariant},
 	} {
 		t.Run(test.name, func(t *testing.T) {
