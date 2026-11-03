@@ -137673,7 +137673,7 @@ do_5 = "Attempt 2 (continue): decision 2503. The serve_http::proof tests (and th
 
 [task.22.99.50]
 title = "Repair the inventory sweep target layerx-sdk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
