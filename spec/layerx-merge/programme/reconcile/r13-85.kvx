@@ -1,0 +1,523 @@
+[reconcile.r13-85]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r13-85.1]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprotocolhead"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 506
+symbol = "VerifiedProtocolHead"
+evidence = "pub struct VerifiedProtocolHead remains; its fields now hold VerifiedHeader, transaction_hash and ReadFreshness instead of kernel batch evidence."
+
+[row.r13-85.2]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprotocolhead-activity-id"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 512
+symbol = "activity_id"
+evidence = "VerifiedProtocolHead still declares pub const fn activity_id(&self) -> [u8; 32]; the signature is unchanged, but the value is now transaction_hash authenticated by the chain transaction proof."
+
+[row.r13-85.3]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprotocolhead-receipt-digest"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 515
+symbol = "receipt_digest"
+evidence = "VerifiedProtocolHead still declares pub const fn receipt_digest(&self) -> [u8; 32]; the signature is unchanged and now returns transaction_hash rather than a kernel receipt digest."
+
+[row.r13-85.4]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprotocolhead-batch-header-digest"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 384
+symbol = "batch_header_digest"
+evidence = "VerifiedProtocolHead no longer declares batch_header_digest; chain app_hash is exposed by state_root instead, as required by decision.1303 and override.J51.27. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 28
+remaining = ["programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:791", "programs/crates/layerx-programs-registry/tests/completion_gate.rs:46", "services/agent/crates/layerx-agentd/src/human_runtime.rs:19869", "services/agent/crates/layerx-agentd/tests/audit_export.rs:22", "services/agent/crates/layerx-agentd/tests/checkpoint.rs:11", "services/agent/crates/layerx-agentd/tests/degraded.rs:15", "services/agent/crates/layerx-agentd/tests/support/mod.rs:44", "services/agent/crates/layerx-proof/src/export_codec.rs:5", "services/agent/crates/layerx-proof/src/inclusion.rs:5", "services/agent/crates/layerx-proof/tests/export_complete.rs:20", "services/agent/crates/layerx-proof/tests/inclusion.rs:9", "services/agent/crates/layerx-proof/tests/maintained_outcome.rs:9", "services/agent/crates/layerx-proof/tests/state.rs:10", "services/agent/crates/layerx-sdk/tests/offline_export.rs:9", "services/agent/crates/layerx-wire/src/handover.rs:1", "services/agent/crates/layerx-wire/src/hash.rs:343", "services/agent/tests/limits/exactly_once.rs:1165", "services/human/crates/layerx-human-test-support/src/lib.rs:376", "services/human/crates/layerx-intents/src/canonical.rs:2", "services/human/crates/layerx-intents/src/vectors.rs:105", "services/platform/hosted/authority/src/trust.rs:25", "services/platform/hosted/authority/tests/chain_receipts.rs:427", "services/platform/hosted/authority/tests/human_tls.rs:213", "services/platform/hosted/authority/tests/maintenance_identity.rs:8", "services/platform/hosted/registry/src/routes.rs:1951", "services/platform/hosted/registry/src/verified.rs:42", "tools/platform/cli/tests/wallet_evm_writes.rs:21", "tools/qualification/paxeer-x/programs_source_abi.py:44"]
+
+[row.r13-85.5]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprotocolhead-state-root"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 518
+symbol = "state_root"
+evidence = "VerifiedProtocolHead still declares pub const fn state_root(&self) -> [u8; 32]; the signature is unchanged and now returns the verified chain header app_hash."
+
+[row.r13-85.6]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprotocolhead-freshness"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 524
+symbol = "freshness"
+evidence = "VerifiedProtocolHead still declares pub const fn freshness(&self) -> ReadFreshness; the signature is unchanged and freshness is populated by chain header verification."
+
+[row.r13-85.7]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprotocolhead-sequencer-public-key"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 399
+symbol = "sequencer_public_key"
+evidence = "VerifiedProtocolHead no longer declares sequencer_public_key; it contains a verified chain header and transaction hash, matching decision.1303 and override.J51.28. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 147
+remaining = ["docker/kernel/init.sh:300", "include/layerx/lxp_receipt.h:239", "include/layerx/lxp_verify.h:8", "modules/layerxanchor/testdata/anchor_vectors.json:3", "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:307", "programs/crates/layerx-programs-arbiter/tests/market_sandbox_profile.rs:224", "programs/crates/layerx-programs-arbiter/tests/verified_step.rs:211", "programs/crates/layerx-programs-registry/tests/completion_gate.rs:48", "scripts/qualification/paxeer-x/program-http-producer.py:343", "sdk/platform/go/programs.go:153", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:904", "services/agent/crates/layerx-agentd/src/enrolment.rs:325", "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs:69", "services/agent/crates/layerx-agentd/src/human_runtime.rs:960", "services/agent/crates/layerx-agentd/src/ops/program.rs:667", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs:1508", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:326", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:323", "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:740", "services/agent/crates/layerx-mcp/README.md:156", "services/agent/crates/layerx-mcp/src/binding.rs:1190", "services/agent/crates/layerx-mcp/src/tools/web.rs:364", "services/agent/crates/layerx-mcp/tests/daemon_bound.rs:1015", "services/agent/crates/layerx-mcp/tests/web.rs:1642", "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs:441", "services/agent/crates/layerx-proof/src/export_codec.rs:406", "services/agent/crates/layerx-proof/src/program.rs:45", "services/agent/crates/layerx-proof/src/receipt.rs:94", "services/agent/crates/layerx-proof/src/receipt/native_credit.rs:15", "services/agent/crates/layerx-proof/src/receipt/withdrawal.rs:60", "services/agent/crates/layerx-proof/tests/native_terminal_outcome.rs:416", "services/agent/crates/layerx-proof/tests/pre_runtime_refusal.rs:82", "services/agent/crates/layerx-proof/tests/receipt.rs:465", "services/agent/crates/layerx-proof/tests/response_code.rs:54", "services/agent/crates/layerx-sdk/src/program_http.rs:1256", "services/agent/crates/layerx-sdk/src/program_lifecycle.rs:150", "services/agent/sdk/python/layerx_sdk/programs.py:118", "services/agent/sdk/python/layerx_sdk/programs.pyi:66", "services/agent/sdk/python/layerx_sdk/verifier.py:193", "services/agent/sdk/python/layerx_sdk/verifier.pyi:76", "services/agent/sdk/typescript/src/programs.ts:69", "services/agent/sdk/typescript/test/web-search.test.ts:45", "services/explorer/backend/apps/explorer/priv/repo/migrations/20261001000200_create_paxeer_x_guarantor_and_deposit_root_tables.exs:50", "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs:619", "services/human/crates/layerx-human-service/src/activity/mod.rs:1009", "services/human/crates/layerx-human-service/src/journeys/engine.rs:625", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4511", "services/human/crates/layerx-human-service/tests/activity.rs:732", "services/human/crates/layerx-human-service/tests/agent_controls.rs:786", "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:197", "services/interop/crates/layerx-migrate/src/lib.rs:630", "services/interop/crates/x-websearch/src/config.rs:420", "services/interop/crates/x-websearch/tests/binary.rs:657", "services/interop/crates/x-websearch/tests/config.rs:181", "services/interop/crates/x-websearch/tests/fixtures/binary/config.json:42", "services/interop/crates/x-websearch/tests/fixtures/config/extra-asset.json:46", "services/interop/crates/x-websearch/tests/fixtures/config/key-material.json:42", "services/interop/crates/x-websearch/tests/fixtures/config/loopback.json:42", "services/interop/crates/x-websearch/tests/fixtures/config/missing-asset.json:38", "services/interop/crates/x-websearch/tests/fixtures/config/placeholders.json:41", "services/interop/crates/x-websearch/tests/fixtures/config/refusals.json:406", "services/interop/crates/x-websearch/tests/fixtures/config/unknown-field.json:42", "services/interop/crates/x-websearch/tests/payment.rs:390", "services/interop/deploy/gateway/render.py:381", "services/interop/deploy/x-websearch/tests/dry-run-check.sh:1269", "services/interop/deploy/x-websearch/tests/packaging-check.sh:298", "services/interop/deploy/x-websearch/tests/test_config_example.py:12", "services/platform/examples/run-reference-apps.mjs:273", "services/platform/hosted/agent-boundary/src/artifacts.rs:79", "services/platform/hosted/agent-boundary/src/batch_maintenance_tests.rs:19", "services/platform/hosted/agent-boundary/src/main.rs:527", "services/platform/hosted/authority/README.md:93", "services/platform/hosted/authority/src/human.rs:561", "services/platform/hosted/authority/src/human/dynamic.rs:396", "services/platform/hosted/authority/src/lib.rs:183", "services/platform/hosted/authority/src/main.rs:92", "services/platform/hosted/authority/src/native_state.rs:94", "services/platform/hosted/authority/tests/budget_proof_exports.rs:415", "services/platform/hosted/authority/tests/chain_receipts.rs:77", "services/platform/hosted/authority/tests/fixtures/native-module-outcomes.json:9", "services/platform/hosted/authority/tests/human_tls.rs:298", "services/platform/hosted/authority/tests/maintenance_identity.rs:162", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs:140", "services/platform/hosted/authority/tests/support/native_module_outcomes.rs:29", "services/platform/hosted/gateway/src/authority_evidence.rs:108", "services/platform/hosted/gateway/src/lib.rs:306", "services/platform/hosted/gateway/src/main.rs:342", "services/platform/hosted/gateway/src/settlement.rs:529", "services/platform/hosted/gateway/src/state.rs:229", "services/platform/hosted/gateway/tests/fixtures/maintained-authority.json:19", "services/platform/hosted/gateway/tests/receipt_keys.rs:390", "services/platform/hosted/human/material.py:202", "services/platform/hosted/human/native_manifest.py:18", "services/platform/hosted/human/owner_native.py:284", "services/platform/hosted/human/provision.py:509", "services/platform/hosted/human/test_owner_native.py:49", "services/platform/hosted/paxeer/custody-genesis.py:82", "services/platform/hosted/testnet/tests/hosted-smoke.sh:154", "services/platform/hosted/tests/beta-cluster.sh:2974", "services/platform/hosted/tests/sequencer-pins.py:19", "services/platform/hosted/tests/test_sequencer_pins.py:41", "services/platform/hosted/webhooks/src/trusted.rs:189", "services/platform/ramps/sandbox-journey.sh:252", "services/platform/ramps/toolkit/src/clients.rs:1738", "src/protocol/lxp_receipt.c:946", "src/protocol/lxp_receipt_verify.c:10", "tests/agent/sdk/python/test_program_executed_v3.py:24", "tests/agent/sdk/python/test_program_http.py:51", "tests/agent/sdk/python/test_program_pre_runtime.py:34", "tests/agent/sdk/python/test_web_search.py:76", "tests/agent/sdk/python/test_x402.py:81", "tests/explorer_fixture.c:135", "tests/fixtures/programs/account-bound-call/execution.json:8", "tests/fixtures/programs/emulator-response-code/execution.json:8", "tests/fixtures/programs/pre-runtime-refusal/execution.json:8", "tests/fixtures/public-testnet-genesis-v3/expected.json:17", "tests/fixtures/public-testnet-genesis/expected.json:26", "tests/platform/gateway_maintenance_head.rs:11", "tests/sdk/typescript/program-terminal-v5.test.mjs:65", "tests/support/generate_beta_genesis.py:70", "tests/vectors/native-head-attestation.json:1", "tools/bringup/check-live.sh:3251", "tools/bringup/check-live.test.sh:3683", "tools/bringup/kernel-genesis.sh:137", "tools/bringup/tests/kernel-genesis.test.sh:53", "tools/bringup/tests/paxeer-x-fixture-foundation.py:381", "tools/bringup/tests/paxeer-x-runtime-contract.py:1676", "tools/bringup/xweb-config.sh:246", "tools/platform/cli/src/emulator.rs:829", "tools/platform/cli/src/main.rs:290", "tools/platform/cli/src/programs.rs:1357", "tools/platform/cli/src/receipt.rs:15", "tools/platform/cli/tests/clean-bootstrap.sh:109", "tools/platform/cli/tests/emulator.rs:537", "tools/platform/cli/tests/install-journey.sh:274", "tools/platform/emulator/core/emulator_core.c:130", "tools/platform/emulator/core/emulator_core.h:15", "tools/platform/emulator/src/main.rs:55", "tools/platform/emulator/src/settlement.rs:199", "tools/qualification/beta_driver.py:835", "tools/qualification/paxeer-x/fixtures/caps_fixture.py:145", "tools/qualification/paxeer-x/fixtures/event_source_fixture.py:178", "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py:154", "tools/qualification/paxeer-x/mcp_binding_listener.py:33", "tools/qualification/paxeer-x/native-terminal-outcome.py:37", "tools/qualification/paxeer-x/paid-web-contract.py:815", "tools/qualification/paxeer-x/registry-router-bootstrap.py:1192"]
+
+[row.r13-85.8]
+interface = "interface.13.rs-reg-protocol-evidence-programheadkind"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 94
+symbol = "ProgramHeadKind"
+evidence = "pub enum ProgramHeadKind retains Ordinary and Maintenance variants; the declaration signature is unchanged, and verify_current_chain_head still selects a digest tag from this enum."
+
+[row.r13-85.9]
+interface = "interface.13.rs-reg-protocol-evidence-programheadkind-wire-byte"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 103
+symbol = "wire_byte"
+evidence = "ProgramHeadKind still declares pub const fn wire_byte(self) -> u8; the signature and mapping Ordinary = 0, Maintenance = 1 are unchanged."
+
+[row.r13-85.10]
+interface = "interface.13.rs-reg-protocol-evidence-programheadkind-from-wire-byte"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 111
+symbol = "from_wire_byte"
+evidence = "ProgramHeadKind still declares pub const fn from_wire_byte(byte: u8) -> Option<Self>; the signature is unchanged and unknown tags still return None."
+
+[row.r13-85.11]
+interface = "interface.13.rs-reg-protocol-evidence-receiptevidencedigest"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 122
+symbol = "ReceiptEvidenceDigest"
+evidence = "pub enum ReceiptEvidenceDigest retains OrdinaryUnsignedReceipt([u8; 32]) and MaintenanceReceiptSha256([u8; 32]); the enum declaration is unchanged, while verify_current_chain_head now constructs either tag from a verified transaction hash."
+
+[row.r13-85.12]
+interface = "interface.13.rs-reg-protocol-evidence-receiptevidencedigest-bytes"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 131
+symbol = "bytes"
+evidence = "ReceiptEvidenceDigest still declares pub const fn bytes(self) -> [u8; 32]; the signature is unchanged and both digest variants return their stored 32-byte value."
+
+[row.r13-85.13]
+interface = "interface.13.rs-reg-protocol-evidence-receiptevidencedigest-head-kind"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 140
+symbol = "head_kind"
+evidence = "ReceiptEvidenceDigest still declares pub const fn head_kind(self) -> ProgramHeadKind; the signature is unchanged and the two variants map to Ordinary and Maintenance."
+
+[row.r13-85.14]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedmaintenancehead"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 462
+symbol = "VerifiedMaintenanceHead"
+evidence = "VerifiedMaintenanceHead and its impl are absent from the registered module, matching decision.1303 and override.J51.11; its remaining mention is an absence assertion in completion_gate.rs. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 1
+remaining = ["programs/crates/layerx-programs-registry/tests/completion_gate.rs:50"]
+
+[row.r13-85.15]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedmaintenancehead-maintenance-receipt-sha256"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 472
+symbol = "maintenance_receipt_sha256"
+evidence = "VerifiedMaintenanceHead and its maintenance_receipt_sha256 accessor are absent from the registered module, matching decision.1303 and override.J51.15. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 0
+remaining = []
+
+[row.r13-85.16]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedmaintenancehead-batch-header-digest"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 477
+symbol = "batch_header_digest"
+evidence = "VerifiedMaintenanceHead and its batch_header_digest accessor are absent from the registered module, matching decision.1303 and override.J51.13. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 28
+remaining = ["programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:791", "programs/crates/layerx-programs-registry/tests/completion_gate.rs:46", "services/agent/crates/layerx-agentd/src/human_runtime.rs:19869", "services/agent/crates/layerx-agentd/tests/audit_export.rs:22", "services/agent/crates/layerx-agentd/tests/checkpoint.rs:11", "services/agent/crates/layerx-agentd/tests/degraded.rs:15", "services/agent/crates/layerx-agentd/tests/support/mod.rs:44", "services/agent/crates/layerx-proof/src/export_codec.rs:5", "services/agent/crates/layerx-proof/src/inclusion.rs:5", "services/agent/crates/layerx-proof/tests/export_complete.rs:20", "services/agent/crates/layerx-proof/tests/inclusion.rs:9", "services/agent/crates/layerx-proof/tests/maintained_outcome.rs:9", "services/agent/crates/layerx-proof/tests/state.rs:10", "services/agent/crates/layerx-sdk/tests/offline_export.rs:9", "services/agent/crates/layerx-wire/src/handover.rs:1", "services/agent/crates/layerx-wire/src/hash.rs:343", "services/agent/tests/limits/exactly_once.rs:1165", "services/human/crates/layerx-human-test-support/src/lib.rs:376", "services/human/crates/layerx-intents/src/canonical.rs:2", "services/human/crates/layerx-intents/src/vectors.rs:105", "services/platform/hosted/authority/src/trust.rs:25", "services/platform/hosted/authority/tests/chain_receipts.rs:427", "services/platform/hosted/authority/tests/human_tls.rs:213", "services/platform/hosted/authority/tests/maintenance_identity.rs:8", "services/platform/hosted/registry/src/routes.rs:1951", "services/platform/hosted/registry/src/verified.rs:42", "tools/platform/cli/tests/wallet_evm_writes.rs:21", "tools/qualification/paxeer-x/programs_source_abi.py:44"]
+
+[row.r13-85.17]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedmaintenancehead-state-root"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 482
+symbol = "VerifiedMaintenanceHead::state_root"
+evidence = "VerifiedMaintenanceHead and its impl are absent, so the qualified method VerifiedMaintenanceHead::state_root is retired under decision.1303 and override.J51.17. Bare state_root accessors remain on other types in this module; the reference count searches this qualified method identity. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 0
+remaining = []
+
+[row.r13-85.18]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedmaintenancehead-freshness"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 487
+symbol = "VerifiedMaintenanceHead::freshness"
+evidence = "VerifiedMaintenanceHead and its impl are absent, so the qualified method VerifiedMaintenanceHead::freshness is retired under decision.1303 and override.J51.14. Bare freshness accessors remain on other types in this module; the reference count searches this qualified method identity. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 0
+remaining = []
+
+[row.r13-85.19]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedmaintenancehead-sequencer-public-key"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 492
+symbol = "sequencer_public_key"
+evidence = "VerifiedMaintenanceHead and its sequencer_public_key accessor are absent from the registered module, matching decision.1303 and override.J51.16. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 147
+remaining = ["docker/kernel/init.sh:300", "include/layerx/lxp_receipt.h:239", "include/layerx/lxp_verify.h:8", "modules/layerxanchor/testdata/anchor_vectors.json:3", "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:307", "programs/crates/layerx-programs-arbiter/tests/market_sandbox_profile.rs:224", "programs/crates/layerx-programs-arbiter/tests/verified_step.rs:211", "programs/crates/layerx-programs-registry/tests/completion_gate.rs:48", "scripts/qualification/paxeer-x/program-http-producer.py:343", "sdk/platform/go/programs.go:153", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:904", "services/agent/crates/layerx-agentd/src/enrolment.rs:325", "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs:69", "services/agent/crates/layerx-agentd/src/human_runtime.rs:960", "services/agent/crates/layerx-agentd/src/ops/program.rs:667", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs:1508", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:326", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:323", "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:740", "services/agent/crates/layerx-mcp/README.md:156", "services/agent/crates/layerx-mcp/src/binding.rs:1190", "services/agent/crates/layerx-mcp/src/tools/web.rs:364", "services/agent/crates/layerx-mcp/tests/daemon_bound.rs:1015", "services/agent/crates/layerx-mcp/tests/web.rs:1642", "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs:441", "services/agent/crates/layerx-proof/src/export_codec.rs:406", "services/agent/crates/layerx-proof/src/program.rs:45", "services/agent/crates/layerx-proof/src/receipt.rs:94", "services/agent/crates/layerx-proof/src/receipt/native_credit.rs:15", "services/agent/crates/layerx-proof/src/receipt/withdrawal.rs:60", "services/agent/crates/layerx-proof/tests/native_terminal_outcome.rs:416", "services/agent/crates/layerx-proof/tests/pre_runtime_refusal.rs:82", "services/agent/crates/layerx-proof/tests/receipt.rs:465", "services/agent/crates/layerx-proof/tests/response_code.rs:54", "services/agent/crates/layerx-sdk/src/program_http.rs:1256", "services/agent/crates/layerx-sdk/src/program_lifecycle.rs:150", "services/agent/sdk/python/layerx_sdk/programs.py:118", "services/agent/sdk/python/layerx_sdk/programs.pyi:66", "services/agent/sdk/python/layerx_sdk/verifier.py:193", "services/agent/sdk/python/layerx_sdk/verifier.pyi:76", "services/agent/sdk/typescript/src/programs.ts:69", "services/agent/sdk/typescript/test/web-search.test.ts:45", "services/explorer/backend/apps/explorer/priv/repo/migrations/20261001000200_create_paxeer_x_guarantor_and_deposit_root_tables.exs:50", "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs:619", "services/human/crates/layerx-human-service/src/activity/mod.rs:1009", "services/human/crates/layerx-human-service/src/journeys/engine.rs:625", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4511", "services/human/crates/layerx-human-service/tests/activity.rs:732", "services/human/crates/layerx-human-service/tests/agent_controls.rs:786", "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:197", "services/interop/crates/layerx-migrate/src/lib.rs:630", "services/interop/crates/x-websearch/src/config.rs:420", "services/interop/crates/x-websearch/tests/binary.rs:657", "services/interop/crates/x-websearch/tests/config.rs:181", "services/interop/crates/x-websearch/tests/fixtures/binary/config.json:42", "services/interop/crates/x-websearch/tests/fixtures/config/extra-asset.json:46", "services/interop/crates/x-websearch/tests/fixtures/config/key-material.json:42", "services/interop/crates/x-websearch/tests/fixtures/config/loopback.json:42", "services/interop/crates/x-websearch/tests/fixtures/config/missing-asset.json:38", "services/interop/crates/x-websearch/tests/fixtures/config/placeholders.json:41", "services/interop/crates/x-websearch/tests/fixtures/config/refusals.json:406", "services/interop/crates/x-websearch/tests/fixtures/config/unknown-field.json:42", "services/interop/crates/x-websearch/tests/payment.rs:390", "services/interop/deploy/gateway/render.py:381", "services/interop/deploy/x-websearch/tests/dry-run-check.sh:1269", "services/interop/deploy/x-websearch/tests/packaging-check.sh:298", "services/interop/deploy/x-websearch/tests/test_config_example.py:12", "services/platform/examples/run-reference-apps.mjs:273", "services/platform/hosted/agent-boundary/src/artifacts.rs:79", "services/platform/hosted/agent-boundary/src/batch_maintenance_tests.rs:19", "services/platform/hosted/agent-boundary/src/main.rs:527", "services/platform/hosted/authority/README.md:93", "services/platform/hosted/authority/src/human.rs:561", "services/platform/hosted/authority/src/human/dynamic.rs:396", "services/platform/hosted/authority/src/lib.rs:183", "services/platform/hosted/authority/src/main.rs:92", "services/platform/hosted/authority/src/native_state.rs:94", "services/platform/hosted/authority/tests/budget_proof_exports.rs:415", "services/platform/hosted/authority/tests/chain_receipts.rs:77", "services/platform/hosted/authority/tests/fixtures/native-module-outcomes.json:9", "services/platform/hosted/authority/tests/human_tls.rs:298", "services/platform/hosted/authority/tests/maintenance_identity.rs:162", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs:140", "services/platform/hosted/authority/tests/support/native_module_outcomes.rs:29", "services/platform/hosted/gateway/src/authority_evidence.rs:108", "services/platform/hosted/gateway/src/lib.rs:306", "services/platform/hosted/gateway/src/main.rs:342", "services/platform/hosted/gateway/src/settlement.rs:529", "services/platform/hosted/gateway/src/state.rs:229", "services/platform/hosted/gateway/tests/fixtures/maintained-authority.json:19", "services/platform/hosted/gateway/tests/receipt_keys.rs:390", "services/platform/hosted/human/material.py:202", "services/platform/hosted/human/native_manifest.py:18", "services/platform/hosted/human/owner_native.py:284", "services/platform/hosted/human/provision.py:509", "services/platform/hosted/human/test_owner_native.py:49", "services/platform/hosted/paxeer/custody-genesis.py:82", "services/platform/hosted/testnet/tests/hosted-smoke.sh:154", "services/platform/hosted/tests/beta-cluster.sh:2974", "services/platform/hosted/tests/sequencer-pins.py:19", "services/platform/hosted/tests/test_sequencer_pins.py:41", "services/platform/hosted/webhooks/src/trusted.rs:189", "services/platform/ramps/sandbox-journey.sh:252", "services/platform/ramps/toolkit/src/clients.rs:1738", "src/protocol/lxp_receipt.c:946", "src/protocol/lxp_receipt_verify.c:10", "tests/agent/sdk/python/test_program_executed_v3.py:24", "tests/agent/sdk/python/test_program_http.py:51", "tests/agent/sdk/python/test_program_pre_runtime.py:34", "tests/agent/sdk/python/test_web_search.py:76", "tests/agent/sdk/python/test_x402.py:81", "tests/explorer_fixture.c:135", "tests/fixtures/programs/account-bound-call/execution.json:8", "tests/fixtures/programs/emulator-response-code/execution.json:8", "tests/fixtures/programs/pre-runtime-refusal/execution.json:8", "tests/fixtures/public-testnet-genesis-v3/expected.json:17", "tests/fixtures/public-testnet-genesis/expected.json:26", "tests/platform/gateway_maintenance_head.rs:11", "tests/sdk/typescript/program-terminal-v5.test.mjs:65", "tests/support/generate_beta_genesis.py:70", "tests/vectors/native-head-attestation.json:1", "tools/bringup/check-live.sh:3251", "tools/bringup/check-live.test.sh:3683", "tools/bringup/kernel-genesis.sh:137", "tools/bringup/tests/kernel-genesis.test.sh:53", "tools/bringup/tests/paxeer-x-fixture-foundation.py:381", "tools/bringup/tests/paxeer-x-runtime-contract.py:1676", "tools/bringup/xweb-config.sh:246", "tools/platform/cli/src/emulator.rs:829", "tools/platform/cli/src/main.rs:290", "tools/platform/cli/src/programs.rs:1357", "tools/platform/cli/src/receipt.rs:15", "tools/platform/cli/tests/clean-bootstrap.sh:109", "tools/platform/cli/tests/emulator.rs:537", "tools/platform/cli/tests/install-journey.sh:274", "tools/platform/emulator/core/emulator_core.c:130", "tools/platform/emulator/core/emulator_core.h:15", "tools/platform/emulator/src/main.rs:55", "tools/platform/emulator/src/settlement.rs:199", "tools/qualification/beta_driver.py:835", "tools/qualification/paxeer-x/fixtures/caps_fixture.py:145", "tools/qualification/paxeer-x/fixtures/event_source_fixture.py:178", "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py:154", "tools/qualification/paxeer-x/mcp_binding_listener.py:33", "tools/qualification/paxeer-x/native-terminal-outcome.py:37", "tools/qualification/paxeer-x/paid-web-contract.py:815", "tools/qualification/paxeer-x/registry-router-bootstrap.py:1192"]
+
+[row.r13-85.20]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedmaintenancehead-account-state-head"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 497
+symbol = "account_state_head"
+evidence = "VerifiedMaintenanceHead and its account_state_head accessor are absent from the registered module, matching decision.1303 and override.J51.12. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 3
+remaining = ["programs/crates/layerx-programs-registry/src/account_state.rs:259", "programs/crates/layerx-programs-registry/src/state_record.rs:691", "programs/crates/layerx-programs-registry/tests/winddown.rs:105"]
+
+[row.r13-85.21]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedchainhead"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 530
+symbol = "VerifiedChainHead"
+evidence = "pub struct VerifiedChainHead remains; it now wraps a chain-backed VerifiedProtocolHead plus ReceiptEvidenceDigest, with no batch digest, global sequence or sequencer key accessors."
+
+[row.r13-85.22]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedchainhead-head-kind"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 535
+symbol = "head_kind"
+evidence = "VerifiedChainHead still declares pub const fn head_kind(&self) -> ProgramHeadKind; the signature is unchanged and delegates to evidence_digest.head_kind()."
+
+[row.r13-85.23]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedchainhead-receipt-evidence-digest"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 538
+symbol = "receipt_evidence_digest"
+evidence = "VerifiedChainHead still declares pub const fn receipt_evidence_digest(&self) -> ReceiptEvidenceDigest; the signature is unchanged and returns the tagged chain transaction hash."
+
+[row.r13-85.24]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedchainhead-receipt-digest"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 541
+symbol = "receipt_digest"
+evidence = "VerifiedChainHead still declares pub const fn receipt_digest(&self) -> [u8; 32]; the signature is unchanged and now delegates to the protocol head transaction hash."
+
+[row.r13-85.25]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedchainhead-batch-header-digest"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 535
+symbol = "batch_header_digest"
+evidence = "VerifiedChainHead no longer declares batch_header_digest; its protocol wrapper exposes verified chain state_root instead, matching decision.1303 and override.J51.29. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 28
+remaining = ["programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:791", "programs/crates/layerx-programs-registry/tests/completion_gate.rs:46", "services/agent/crates/layerx-agentd/src/human_runtime.rs:19869", "services/agent/crates/layerx-agentd/tests/audit_export.rs:22", "services/agent/crates/layerx-agentd/tests/checkpoint.rs:11", "services/agent/crates/layerx-agentd/tests/degraded.rs:15", "services/agent/crates/layerx-agentd/tests/support/mod.rs:44", "services/agent/crates/layerx-proof/src/export_codec.rs:5", "services/agent/crates/layerx-proof/src/inclusion.rs:5", "services/agent/crates/layerx-proof/tests/export_complete.rs:20", "services/agent/crates/layerx-proof/tests/inclusion.rs:9", "services/agent/crates/layerx-proof/tests/maintained_outcome.rs:9", "services/agent/crates/layerx-proof/tests/state.rs:10", "services/agent/crates/layerx-sdk/tests/offline_export.rs:9", "services/agent/crates/layerx-wire/src/handover.rs:1", "services/agent/crates/layerx-wire/src/hash.rs:343", "services/agent/tests/limits/exactly_once.rs:1165", "services/human/crates/layerx-human-test-support/src/lib.rs:376", "services/human/crates/layerx-intents/src/canonical.rs:2", "services/human/crates/layerx-intents/src/vectors.rs:105", "services/platform/hosted/authority/src/trust.rs:25", "services/platform/hosted/authority/tests/chain_receipts.rs:427", "services/platform/hosted/authority/tests/human_tls.rs:213", "services/platform/hosted/authority/tests/maintenance_identity.rs:8", "services/platform/hosted/registry/src/routes.rs:1951", "services/platform/hosted/registry/src/verified.rs:42", "tools/platform/cli/tests/wallet_evm_writes.rs:21", "tools/qualification/paxeer-x/programs_source_abi.py:44"]
+
+[row.r13-85.26]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedchainhead-state-root"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 544
+symbol = "state_root"
+evidence = "VerifiedChainHead still declares pub const fn state_root(&self) -> [u8; 32]; the signature is unchanged and delegates to the protocol head verified chain app_hash."
+
+[row.r13-85.27]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedchainhead-global-sequence"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 545
+symbol = "global_sequence"
+evidence = "VerifiedChainHead no longer declares global_sequence; the chain-backed wrapper exposes freshness and state_root instead, matching decision.1303 and override.J51.31. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 323
+remaining = ["GOTCHA.kvx:2058", "api/layerxprograms/query.proto:83", "apps/web/e2e/explorer-rungs.test.ts:82", "apps/web/src/explorer/model.ts:276", "cmd/layerx-genesis/lxp_genesis_build_cli.c:630", "cmd/layerx-genesis/lxp_genesis_builder.c:276", "cmd/layerxctl/src/main.rs:253", "include/layerx/lx_asset.h:270", "include/layerx/lx_escrow.h:78", "include/layerx/lx_oracle.h:53", "include/layerx/lx_perps.h:94", "include/layerx/lx_service.h:125", "include/layerx/lx_spot.h:105", "include/layerx/lxp_authority.h:195", "include/layerx/lxp_batch_identity.h:17", "include/layerx/lxp_fee.h:105", "include/layerx/lxp_gateway.h:40", "include/layerx/lxp_history.h:39", "include/layerx/lxp_identity.h:72", "include/layerx/lxp_kernel.h:179", "include/layerx/lxp_ledger.h:288", "include/layerx/lxp_maintenance.h:13", "include/layerx/lxp_projection.h:33", "include/layerx/lxp_receipt.h:84", "include/layerx/lxp_shadow.h:31", "include/layerx/lxp_snapshot.h:36", "include/layerx/lxp_state.h:41", "include/layerx/lxp_storage.h:29", "include/layerx/lxp_tools.h:22", "include/layerx/programs.h:958", "layerxproof/codec/codec_test.go:75", "layerxproof/testdata/vectors.json:121", "migrations/0001_projection.sql:23", "migrations/0007_history_index.sql:14", "modules/layerxauth/types/params.go:10", "modules/lxphost/authority_test.go:122", "modules/lxphost/host.go:76", "modules/lxphost/simulate.go:103", "precompiles/layerxauth/parity_test.go:224", "precompiles/layerxprograms/types/query.pb.go:585", "precompiles/layerxverify/layerxverify_test.go:185", "programs/crates/layerx-programs-arbiter/src/authority.rs:140", "programs/crates/layerx-programs-arbiter/src/market.rs:254", "programs/crates/layerx-programs-arbiter/src/step.rs:532", "programs/crates/layerx-programs-registry/tests/completion_gate.rs:47", "programs/fixtures/pay5/native_roundtrip.h:128", "programs/tests/differential/parallel.c:100", "sdk/platform/go/programs.go:247", "sdk/platform/go/programs_http_test.go:440", "services/agent/crates/layerx-agent-api/tests/read.rs:455", "services/agent/crates/layerx-agentd-host/src/payer.rs:480", "services/agent/crates/layerx-agentd/src/approval/events.rs:62", "services/agent/crates/layerx-agentd/src/approval/native_program.rs:1011", "services/agent/crates/layerx-agentd/src/budget/execution_state.rs:24", "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs:68", "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs:372", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs:114", "services/agent/crates/layerx-agentd/src/budget/reserve.rs:1454", "services/agent/crates/layerx-agentd/src/events/deliver.rs:39", "services/agent/crates/layerx-agentd/src/events/gap.rs:40", "services/agent/crates/layerx-agentd/src/events/ingest.rs:30", "services/agent/crates/layerx-agentd/src/events/outbound.rs:153", "services/agent/crates/layerx-agentd/src/human_runtime.rs:1087", "services/agent/crates/layerx-agentd/src/managed_agent.rs:608", "services/agent/crates/layerx-agentd/src/ops/program.rs:707", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs:399", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:103", "services/agent/crates/layerx-agentd/src/read/committed.rs:205", "services/agent/crates/layerx-agentd/src/receipt.rs:24", "services/agent/crates/layerx-agentd/src/session_control.rs:1445", "services/agent/crates/layerx-agentd/tests/delivery.rs:106", "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs:407", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:344", "services/agent/crates/layerx-agentd/tests/ingest.rs:30", "services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs:119", "services/agent/crates/layerx-agentd/tests/outbox_recover.rs:41", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs:551", "services/agent/crates/layerx-agentd/tests/receipts.rs:22", "services/agent/crates/layerx-agentd/tests/subscription.rs:545", "services/agent/crates/layerx-agentd/tests/support/mod.rs:528", "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:927", "services/agent/crates/layerx-agentd/tests/webhook.rs:132", "services/agent/crates/layerx-client/src/ai_market.rs:1274", "services/agent/crates/layerx-client/src/rpc/account.rs:74", "services/agent/crates/layerx-client/src/rpc/receipt.rs:96", "services/agent/crates/layerx-client/tests/ai_market_commit.rs:486", "services/agent/crates/layerx-client/tests/ai_market_rpc.rs:447", "services/agent/crates/layerx-client/tests/receipt_rpc.rs:219", "services/agent/crates/layerx-proof/src/export.rs:298", "services/agent/crates/layerx-proof/src/receipt.rs:443", "services/agent/crates/layerx-proof/src/state.rs:235", "services/agent/crates/layerx-proof/tests/sequencer_receipt_vectors.rs:193", "services/agent/crates/layerx-sdk/src/program_http.rs:1270", "services/agent/crates/layerx-types/src/receipt.rs:14", "services/agent/crates/layerx-types/tests/receipt.rs:18", "services/agent/crates/layerx-wire/src/batch_maintenance.rs:47", "services/agent/crates/layerx-wire/src/hash.rs:363", "services/agent/crates/layerx-wire/src/maintenance.rs:25", "services/agent/crates/layerx-wire/src/receipt.rs:198", "services/agent/crates/layerx-wire/tests/maintenance_identity.rs:62", "services/agent/qualification/pay2/pay2e_test.rs:377", "services/agent/sdk/python/layerx_sdk/ai_market.py:1404", "services/agent/sdk/python/layerx_sdk/programs.py:433", "services/agent/sdk/python/layerx_sdk/verifier.py:158", "services/agent/sdk/python/layerx_sdk/verifier.pyi:42", "services/agent/sdk/python/tests/test_ai_market_commit.py:136", "services/agent/sdk/typescript/src/programs.ts:70", "services/agent/tests/limits/exactly_once.rs:1064", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:49", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs:73", "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json:11", "services/human/crates/layerx-human-identity-provider/src/provision_head.rs:83", "services/human/crates/layerx-human-service/src/agents/create.rs:583", "services/human/crates/layerx-human-service/src/agents/create_native.rs:119", "services/human/crates/layerx-human-service/src/onboarding/native.rs:163", "services/human/crates/layerx-human-service/src/server/agent_creation.rs:688", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:683", "services/human/crates/layerx-human-service/src/server/production_components.rs:255", "services/human/crates/layerx-human-service/src/server/production_rotation.rs:363", "services/human/crates/layerx-human-service/tests/activity.rs:292", "services/human/crates/layerx-human-service/tests/archive.rs:676", "services/human/crates/layerx-human-service/tests/receipt_material_rungs.rs:50", "services/human/crates/layerx-human-service/tests/session_keys.rs:313", "services/human/crates/layerx-human-service/tests/spend.rs:314", "services/human/crates/layerx-human-test-support/src/lib.rs:273", "services/human/crates/layerx-human-test-support/tests/proof_human_test_support.rs:247", "services/human/crates/layerx-human-test-support/tests/receipt_evidence_key.rs:64", "services/human/crates/layerx-intents/tests/canonical_surface.rs:31", "services/interop/crates/layerx-bridge-relayer/src/receipt.rs:261", "services/interop/crates/layerx-bridge-relayer/tests/loops.rs:326", "services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs:588", "services/interop/crates/layerx-interop-service/src/server.rs:3871", "services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs:306", "services/interop/crates/layerx-portable/src/receipt.rs:293", "services/interop/crates/layerx-portable/tests/proof_portable_receipt.rs:147", "services/interop/crates/layerx-portable/tests/receipt_vectors.rs:85", "services/interop/crates/layerx-portable/tests/sequencer_vectors.rs:128", "services/interop/crates/layerx-ucp/src/lib.rs:737", "services/interop/crates/layerx-visa-tap/src/lib.rs:494", "services/interop/crates/layerx-visa-tap/tests/conformance.rs:504", "services/interop/crates/layerx-x402/tests/buyer_sequencer.rs:473", "services/interop/crates/x-websearch/src/payment.rs:2379", "services/interop/crates/x-websearch/tests/sequencer_vectors.rs:356", "services/platform/hosted/agent-boundary/src/artifacts.rs:224", "services/platform/hosted/agent-boundary/src/batch_maintenance_tests.rs:73", "services/platform/hosted/agent-boundary/src/main.rs:548", "services/platform/hosted/authority/src/human.rs:414", "services/platform/hosted/authority/src/human/dynamic.rs:200", "services/platform/hosted/authority/src/human/session_membership.rs:127", "services/platform/hosted/authority/src/lib.rs:185", "services/platform/hosted/authority/src/native_state.rs:42", "services/platform/hosted/authority/tests/human_tls.rs:797", "services/platform/hosted/authority/tests/maintenance_identity.rs:309", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs:128", "services/platform/hosted/authority/tests/support/native_module_outcomes.rs:124", "services/platform/hosted/core/src/main.rs:167", "services/platform/hosted/core/src/public_reads.rs:548", "services/platform/hosted/gateway/src/lib.rs:411", "services/platform/hosted/gateway/src/main.rs:1179", "services/platform/hosted/gateway/src/settlement.rs:354", "services/platform/hosted/gateway/src/state.rs:52", "services/platform/hosted/gateway/src/store.rs:677", "services/platform/hosted/gateway/tests/receipt_keys.rs:130", "services/platform/hosted/gateway/tests/tap_nonce.rs:379", "services/platform/hosted/human/owner_native.py:414", "services/platform/hosted/human/provision.sh:354", "services/platform/hosted/node/tests/probe/src/main.rs:134", "services/platform/hosted/testnet/tests/payment-journey.py:62", "src/ledger/lx_account_registry.c:577", "src/ledger/lxp_receipt.c:38", "src/modules/asset/lx_asset_execution.h:90", "src/modules/asset/lx_asset_registry.c:309", "src/modules/asset/lx_asset_state.c:49", "src/modules/escrow/lx_escrow_state.c:168", "src/modules/escrow/lx_escrow_timeout.c:266", "src/modules/governance/lxp_governance.c:259", "src/modules/governance/lxp_governance_onboarding.c:92", "src/modules/governance/lxp_governance_rotation.c:176", "src/modules/perps/lx_oracle_intake.c:97", "src/modules/perps/lx_perps_book.c:22", "src/modules/perps/lx_perps_dispatch.c:1215", "src/modules/perps/lx_perps_insurance.c:61", "src/modules/perps/lx_perps_state.c:312", "src/modules/programs/accounts.c:679", "src/modules/programs/blob_lifecycle.c:454", "src/modules/programs/call.c:2748", "src/modules/programs/deploy.c:163", "src/modules/programs/fees.c:576", "src/modules/programs/occupancy.c:259", "src/modules/programs/occupancy.h:42", "src/modules/programs/sandbox_expiry.c:398", "src/modules/programs/state_record.c:561", "src/modules/service/lx_service_acceptance.c:135", "src/modules/service/lx_service_attest.c:62", "src/modules/service/lx_service_commit.c:49", "src/modules/service/lx_service_deliver.c:99", "src/modules/service/lx_service_dispute.c:72", "src/modules/service/lx_service_module.c:117", "src/modules/service/lx_service_offer.c:47", "src/modules/service/lx_service_state.c:168", "src/modules/spot/lx_spot_book.c:17", "src/modules/spot/lx_spot_dispatch.c:500", "src/modules/spot/lx_spot_state.c:100", "src/network/lxp_gateway_kv.c:465", "src/network/lxp_gateway_send.c:446", "src/protocol/lxp_batch_identity.c:17", "src/protocol/lxp_fee_policy.c:162", "src/protocol/lxp_genesis.c:1241", "src/protocol/lxp_kernel.c:216", "src/protocol/lxp_maintenance.c:117", "src/protocol/lxp_module_ctx.c:37", "src/protocol/lxp_receipt.c:359", "src/state/lxp_authority.c:751", "src/state/lxp_identity.c:188", "src/state/lxp_journal.c:775", "src/state/lxp_snapshot.c:37", "src/state/lxp_state_root.c:804", "src/storage/lxp_log.c:77", "src/storage/lxp_log_recover.c:34", "src/storage/lxp_projection.c:111", "src/storage/lxp_snapshot_store.c:79", "tests/agent/sdk/python/test_ai_market.py:1069", "tests/agent/sdk/python/test_receipt_fixture.py:41", "tests/codec/lxp_test_binding_authority_receive.c:357", "tests/codec/lxp_test_binding_ctx_stage.c:147", "tests/codec/lxp_test_binding_custody_stage.c:158", "tests/codec/lxp_test_budget_pull_retired.c:42", "tests/codec/lxp_test_fee_meter_refused.c:143", "tests/codec/lxp_test_fee_relay_retired.c:151", "tests/codec/lxp_test_global_sequence.c:181", "tests/codec/lxp_test_idempotency_retired.c:145", "tests/codec/lxp_test_kernel_entry_retired.c:320", "tests/codec/lxp_test_kernel_writer.c:110", "tests/codec/lxp_test_log_kinds.c:69", "tests/codec/lxp_test_migration_authorization.c:26", "tests/codec/lxp_test_program_signer_binding.c:143", "tests/codec/lxp_test_receipt_authority_v2.c:37", "tests/codec/lxp_test_receive_retired.c:118", "tests/codec/lxp_test_sandbox_expiry_bound.c:58", "tests/codec/lxp_test_sandbox_lifecycle.c:192", "tests/codec/lxp_test_sandbox_receipt.c:232", "tests/codec/lxp_test_service_arbiter.c:325", "tests/codec/lxp_test_settled_maintenance.c:269", "tests/codec/lxp_test_snapshot_golden.c:15", "tests/codec/lxp_test_state_feed_unbound.c:108", "tests/codec/lxp_test_state_record.c:103", "tests/explorer_fixture.c:174", "tests/fixtures/programs/account-bound-call/execution.json:12", "tests/fixtures/programs/emulator-response-code/execution.json:12", "tests/fixtures/programs/pre-runtime-refusal/execution.json:12", "tests/fuzz/lxp_prop_escrow_codec.c:100", "tests/fuzz/lxp_prop_kernel_integrated.c:297", "tests/fuzz/lxp_prop_prepare_workers.c:207", "tests/fuzz/lxp_prop_reexecution.c:44", "tests/fuzz/lxp_prop_service_codec.c:119", "tests/fuzz/lxp_prop_snapshot_load.c:72", "tests/ledger/test_account_id.c:157", "tests/ledger/test_receipt.c:21", "tests/modules/test_asset_transfer.c:104", "tests/modules/test_asset_withdraw.c:34", "tests/modules/test_budget_close.c:235", "tests/modules/test_budget_create.c:182", "tests/modules/test_budget_delegate.c:219", "tests/modules/test_escrow_open.c:89", "tests/modules/test_oracle_intake.c:73", "tests/modules/test_perps_book.c:36", "tests/modules/test_perps_funding.c:36", "tests/modules/test_perps_insurance.c:36", "tests/modules/test_perps_liquidate.c:36", "tests/modules/test_perps_market.c:36", "tests/modules/test_perps_position.c:36", "tests/modules/test_service_attest.c:439", "tests/modules/test_service_commit.c:205", "tests/modules/test_service_deliver.c:322", "tests/modules/test_service_dispute.c:462", "tests/modules/test_service_offer.c:222", "tests/network/test_gateway_kv.c:151", "tests/programs/test_accounts.c:730", "tests/programs/test_ai_host_boundary.c:258", "tests/programs/test_blob_lifecycle.c:400", "tests/programs/test_cache_native_equivalence.c:109", "tests/programs/test_call_activity.c:972", "tests/programs/test_execution_context.c:108", "tests/programs/test_language_abi.c:197", "tests/programs/test_lifecycle.c:1077", "tests/programs/test_market_attestation.c:276", "tests/programs/test_metered_call.c:231", "tests/programs/test_module_registration.c:97", "tests/programs/test_monetary_law.c:739", "tests/programs/test_paxai_native_gaps.c:367", "tests/programs/test_programs_abi5_admission.c:282", "tests/programs/test_spend_capability_composition.c:146", "tests/programs/test_terminal_v5.c:25", "tests/programs/test_transfer_principal.c:148", "tests/proof/lxp_proof_lx_service_h.c:313", "tests/proof/lxp_proof_lxp_receipt_h.c:65", "tests/proof/lxp_proof_programs_h.c:79", "tests/protocol/lxp_test_dispatch.c:173", "tests/protocol/lxp_test_module_ctx.c:66", "tests/qualification/lxp_qual_faults.c:136", "tests/qualification/lxp_wallet_caps_discovery.c:498", "tests/sdk/typescript/program-terminal-v5.test.mjs:57", "tests/storage/lxp_test_rebuild.c:18", "tests/storage/lxp_test_recovery.c:81", "tests/test_authority_multisig.c:430", "tests/test_bridge_withdraw.c:31", "tests/test_fee_replay.c:343", "tests/test_gateway_send.c:175", "tests/test_genesis_builder_cli.c:534", "tests/test_genesis_manifest.c:265", "tests/test_programs_oracle_read.c:481", "tests/test_shadow_replay.c:20", "tests/test_state_commitment_transition.c:146", "tests/test_web_program_path.c:258", "tools/bringup/check-live.sh:4683", "tools/lxp_shadow_compare.c:86", "tools/platform/cli/src/wallet.rs:1061", "tools/platform/emulator/core/emulator_core.c:57", "tools/platform/emulator/core/emulator_core.h:16", "tools/qualification/paxeer-x/agent_tenant_readiness.py:152", "tools/qualification/paxeer-x/mcp_daemon_revocation.py:195", "tools/qualification/paxeer-x/mcp_served_writes.py:401", "tools/qualification/paxeer-x/registry-router-bootstrap.py:1183"]
+
+[row.r13-85.28]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedchainhead-freshness"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 550
+symbol = "freshness"
+evidence = "VerifiedChainHead still declares pub const fn freshness(&self) -> ReadFreshness; the signature is unchanged and delegates to the protocol head chain freshness."
+
+[row.r13-85.29]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedchainhead-sequencer-public-key"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 555
+symbol = "sequencer_public_key"
+evidence = "VerifiedChainHead no longer declares sequencer_public_key; chain trust authenticates its protocol header, matching decision.1303 and override.J51.30. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 147
+remaining = ["docker/kernel/init.sh:300", "include/layerx/lxp_receipt.h:239", "include/layerx/lxp_verify.h:8", "modules/layerxanchor/testdata/anchor_vectors.json:3", "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:307", "programs/crates/layerx-programs-arbiter/tests/market_sandbox_profile.rs:224", "programs/crates/layerx-programs-arbiter/tests/verified_step.rs:211", "programs/crates/layerx-programs-registry/tests/completion_gate.rs:48", "scripts/qualification/paxeer-x/program-http-producer.py:343", "sdk/platform/go/programs.go:153", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:904", "services/agent/crates/layerx-agentd/src/enrolment.rs:325", "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs:69", "services/agent/crates/layerx-agentd/src/human_runtime.rs:960", "services/agent/crates/layerx-agentd/src/ops/program.rs:667", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs:1508", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:326", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:323", "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:740", "services/agent/crates/layerx-mcp/README.md:156", "services/agent/crates/layerx-mcp/src/binding.rs:1190", "services/agent/crates/layerx-mcp/src/tools/web.rs:364", "services/agent/crates/layerx-mcp/tests/daemon_bound.rs:1015", "services/agent/crates/layerx-mcp/tests/web.rs:1642", "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs:441", "services/agent/crates/layerx-proof/src/export_codec.rs:406", "services/agent/crates/layerx-proof/src/program.rs:45", "services/agent/crates/layerx-proof/src/receipt.rs:94", "services/agent/crates/layerx-proof/src/receipt/native_credit.rs:15", "services/agent/crates/layerx-proof/src/receipt/withdrawal.rs:60", "services/agent/crates/layerx-proof/tests/native_terminal_outcome.rs:416", "services/agent/crates/layerx-proof/tests/pre_runtime_refusal.rs:82", "services/agent/crates/layerx-proof/tests/receipt.rs:465", "services/agent/crates/layerx-proof/tests/response_code.rs:54", "services/agent/crates/layerx-sdk/src/program_http.rs:1256", "services/agent/crates/layerx-sdk/src/program_lifecycle.rs:150", "services/agent/sdk/python/layerx_sdk/programs.py:118", "services/agent/sdk/python/layerx_sdk/programs.pyi:66", "services/agent/sdk/python/layerx_sdk/verifier.py:193", "services/agent/sdk/python/layerx_sdk/verifier.pyi:76", "services/agent/sdk/typescript/src/programs.ts:69", "services/agent/sdk/typescript/test/web-search.test.ts:45", "services/explorer/backend/apps/explorer/priv/repo/migrations/20261001000200_create_paxeer_x_guarantor_and_deposit_root_tables.exs:50", "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs:619", "services/human/crates/layerx-human-service/src/activity/mod.rs:1009", "services/human/crates/layerx-human-service/src/journeys/engine.rs:625", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4511", "services/human/crates/layerx-human-service/tests/activity.rs:732", "services/human/crates/layerx-human-service/tests/agent_controls.rs:786", "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:197", "services/interop/crates/layerx-migrate/src/lib.rs:630", "services/interop/crates/x-websearch/src/config.rs:420", "services/interop/crates/x-websearch/tests/binary.rs:657", "services/interop/crates/x-websearch/tests/config.rs:181", "services/interop/crates/x-websearch/tests/fixtures/binary/config.json:42", "services/interop/crates/x-websearch/tests/fixtures/config/extra-asset.json:46", "services/interop/crates/x-websearch/tests/fixtures/config/key-material.json:42", "services/interop/crates/x-websearch/tests/fixtures/config/loopback.json:42", "services/interop/crates/x-websearch/tests/fixtures/config/missing-asset.json:38", "services/interop/crates/x-websearch/tests/fixtures/config/placeholders.json:41", "services/interop/crates/x-websearch/tests/fixtures/config/refusals.json:406", "services/interop/crates/x-websearch/tests/fixtures/config/unknown-field.json:42", "services/interop/crates/x-websearch/tests/payment.rs:390", "services/interop/deploy/gateway/render.py:381", "services/interop/deploy/x-websearch/tests/dry-run-check.sh:1269", "services/interop/deploy/x-websearch/tests/packaging-check.sh:298", "services/interop/deploy/x-websearch/tests/test_config_example.py:12", "services/platform/examples/run-reference-apps.mjs:273", "services/platform/hosted/agent-boundary/src/artifacts.rs:79", "services/platform/hosted/agent-boundary/src/batch_maintenance_tests.rs:19", "services/platform/hosted/agent-boundary/src/main.rs:527", "services/platform/hosted/authority/README.md:93", "services/platform/hosted/authority/src/human.rs:561", "services/platform/hosted/authority/src/human/dynamic.rs:396", "services/platform/hosted/authority/src/lib.rs:183", "services/platform/hosted/authority/src/main.rs:92", "services/platform/hosted/authority/src/native_state.rs:94", "services/platform/hosted/authority/tests/budget_proof_exports.rs:415", "services/platform/hosted/authority/tests/chain_receipts.rs:77", "services/platform/hosted/authority/tests/fixtures/native-module-outcomes.json:9", "services/platform/hosted/authority/tests/human_tls.rs:298", "services/platform/hosted/authority/tests/maintenance_identity.rs:162", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs:140", "services/platform/hosted/authority/tests/support/native_module_outcomes.rs:29", "services/platform/hosted/gateway/src/authority_evidence.rs:108", "services/platform/hosted/gateway/src/lib.rs:306", "services/platform/hosted/gateway/src/main.rs:342", "services/platform/hosted/gateway/src/settlement.rs:529", "services/platform/hosted/gateway/src/state.rs:229", "services/platform/hosted/gateway/tests/fixtures/maintained-authority.json:19", "services/platform/hosted/gateway/tests/receipt_keys.rs:390", "services/platform/hosted/human/material.py:202", "services/platform/hosted/human/native_manifest.py:18", "services/platform/hosted/human/owner_native.py:284", "services/platform/hosted/human/provision.py:509", "services/platform/hosted/human/test_owner_native.py:49", "services/platform/hosted/paxeer/custody-genesis.py:82", "services/platform/hosted/testnet/tests/hosted-smoke.sh:154", "services/platform/hosted/tests/beta-cluster.sh:2974", "services/platform/hosted/tests/sequencer-pins.py:19", "services/platform/hosted/tests/test_sequencer_pins.py:41", "services/platform/hosted/webhooks/src/trusted.rs:189", "services/platform/ramps/sandbox-journey.sh:252", "services/platform/ramps/toolkit/src/clients.rs:1738", "src/protocol/lxp_receipt.c:946", "src/protocol/lxp_receipt_verify.c:10", "tests/agent/sdk/python/test_program_executed_v3.py:24", "tests/agent/sdk/python/test_program_http.py:51", "tests/agent/sdk/python/test_program_pre_runtime.py:34", "tests/agent/sdk/python/test_web_search.py:76", "tests/agent/sdk/python/test_x402.py:81", "tests/explorer_fixture.c:135", "tests/fixtures/programs/account-bound-call/execution.json:8", "tests/fixtures/programs/emulator-response-code/execution.json:8", "tests/fixtures/programs/pre-runtime-refusal/execution.json:8", "tests/fixtures/public-testnet-genesis-v3/expected.json:17", "tests/fixtures/public-testnet-genesis/expected.json:26", "tests/platform/gateway_maintenance_head.rs:11", "tests/sdk/typescript/program-terminal-v5.test.mjs:65", "tests/support/generate_beta_genesis.py:70", "tests/vectors/native-head-attestation.json:1", "tools/bringup/check-live.sh:3251", "tools/bringup/check-live.test.sh:3683", "tools/bringup/kernel-genesis.sh:137", "tools/bringup/tests/kernel-genesis.test.sh:53", "tools/bringup/tests/paxeer-x-fixture-foundation.py:381", "tools/bringup/tests/paxeer-x-runtime-contract.py:1676", "tools/bringup/xweb-config.sh:246", "tools/platform/cli/src/emulator.rs:829", "tools/platform/cli/src/main.rs:290", "tools/platform/cli/src/programs.rs:1357", "tools/platform/cli/src/receipt.rs:15", "tools/platform/cli/tests/clean-bootstrap.sh:109", "tools/platform/cli/tests/emulator.rs:537", "tools/platform/cli/tests/install-journey.sh:274", "tools/platform/emulator/core/emulator_core.c:130", "tools/platform/emulator/core/emulator_core.h:15", "tools/platform/emulator/src/main.rs:55", "tools/platform/emulator/src/settlement.rs:199", "tools/qualification/beta_driver.py:835", "tools/qualification/paxeer-x/fixtures/caps_fixture.py:145", "tools/qualification/paxeer-x/fixtures/event_source_fixture.py:178", "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py:154", "tools/qualification/paxeer-x/mcp_binding_listener.py:33", "tools/qualification/paxeer-x/native-terminal-outcome.py:37", "tools/qualification/paxeer-x/paid-web-contract.py:815", "tools/qualification/paxeer-x/registry-router-bootstrap.py:1192"]
+
+[row.r13-85.30]
+interface = "interface.13.rs-reg-protocol-evidence-programstatebundle"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 556
+symbol = "ProgramStateBundle"
+evidence = "pub struct ProgramStateBundle remains; its public fields now carry CommitmentProof, ProgramId, program_record_ops, interface_ops and optional ChainWindDownProof rather than kernel receipt evidence."
+
+[row.r13-85.31]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogrambundle"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 589
+symbol = "VerifiedProgramBundle"
+evidence = "pub struct VerifiedProgramBundle remains with private program, chain and interface fields; its declaration signature is unchanged, while its heads are populated by chain commitment verification."
+
+[row.r13-85.32]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogrambundle-program-head"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 595
+symbol = "program_head"
+evidence = "VerifiedProgramBundle still declares pub const fn program_head(&self) -> &VerifiedProgramHead; the signature is unchanged and returns the program head populated from chain state proofs."
+
+[row.r13-85.33]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogrambundle-chain-head"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 598
+symbol = "chain_head"
+evidence = "VerifiedProgramBundle still declares pub const fn chain_head(&self) -> &VerifiedChainHead; the signature is unchanged and returns the chain-backed head used to bind the bundle."
+
+[row.r13-85.34]
+interface = "interface.13.rs-reg-protocol-evidence-verifiedprogrambundle-interface"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 601
+symbol = "interface"
+evidence = "VerifiedProgramBundle still declares pub const fn interface(&self) -> &VerifiedInterfaceRead; the signature is unchanged and returns the interface authenticated by the bundle proof operations."
+
+[row.r13-85.35]
+interface = "interface.13.rs-reg-protocol-evidence-programbundleerror"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 150
+symbol = "ProgramBundleError"
+evidence = "pub enum ProgramBundleError remains with Evidence, Interface, HeadKind, ChainHeadMismatch, SignerMismatch and ProgramMismatch; the enum declaration signature is unchanged and the error now serves chain-backed bundle verification."
+
+[row.r13-85.36]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 183
+symbol = "ProtocolDeploymentVerifier"
+evidence = "pub struct ProtocolDeploymentVerifier remains; it now stores Option<ChainProofVerifier> and the freshness limit, while obsolete anchors and signed_history use Infallible instead of sequencer trust data."
+
+[row.r13-85.37]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-from-protected-history"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 696
+symbol = "from_protected_history"
+evidence = "ProtocolDeploymentVerifier no longer declares from_protected_history; chain_evidence/trust_root.rs implements from_chain_trust instead, matching decision.1303 and override.J51.20. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 3
+remaining = ["GOTCHA.kvx:1950", "programs/crates/layerx-programs-registry/tests/completion_gate.rs:39", "services/human/crates/layerx-human-security-provider/README.md:151"]
+
+[row.r13-85.38]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-with-signed-history"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 740
+symbol = "with_signed_history"
+evidence = "ProtocolDeploymentVerifier no longer declares with_signed_history; chain trust uses a persisted validator set instead, matching decision.1303 and override.J51.21. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 1
+remaining = ["programs/crates/layerx-programs-registry/tests/completion_gate.rs:44"]
+
+[row.r13-85.39]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-staleness-limit-ms"
+verdict = "kept"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 197
+symbol = "staleness_limit_ms"
+evidence = "Override decision J51.22 (override.J51.22, finding.13.4.6.2) keeps pub const fn staleness_limit_ms(&self) -> u64; from_chain_trust stores max_age_ms in this field at chain_evidence/trust_root.rs:30, and the accessor returns it."
+
+[row.r13-85.40]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-deployment"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 663
+symbol = "verify_deployment"
+evidence = "pub fn verify_deployment(&self, proof: &DeploymentProof, now_ms: u64) -> Result<VerifiedDeploymentEvidence, ProtocolEvidenceError> keeps its signature; DeploymentProof now carries chain commitment, lifecycle and transaction proofs, verified against chain trust."
+
+[row.r13-85.41]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-historical-deployment"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 677
+symbol = "verify_historical_deployment"
+evidence = "verify_historical_deployment now takes proof: &DeploymentProof, current: &VerifiedHeader, trust_chain: &[(ChainHeader, Commit, ValidatorSet)] and now_ms: u64 after &self; compared with the registered proof-only signature it adds the current head, validator transition history and freshness time; the result type is unchanged."
+
+[row.r13-85.42]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-current-program"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 771
+symbol = "verify_current_program"
+evidence = "pub fn verify_current_program(&self, proof: &ProgramStateProof, expected_program: ProgramId, now_ms: u64) -> Result<VerifiedProgramHead, ProtocolEvidenceError> keeps its signature; ProgramStateProof now supplies chain commitment, lifecycle, wind-down and transaction proofs."
+
+[row.r13-85.43]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-current-protocol-head"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 804
+symbol = "verify_current_protocol_head"
+evidence = "verify_current_protocol_head now takes proof: &ProtocolHeadProof<'_> and now_ms: u64 after &self, replacing separate receipt, receipt_proof: &Proof, header and header_signature parameters; Result<VerifiedProtocolHead, ProtocolEvidenceError> is unchanged."
+
+[row.r13-85.44]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-historical-protocol-head"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 838
+symbol = "verify_historical_protocol_head"
+evidence = "verify_historical_protocol_head now takes proof: &ProtocolHeadProof<'_>, trusted_header: &ChainHeader, trusted_commit: &Commit and history: &[(ChainHeader, Commit, ValidatorSet)] after &self; these replace receipt, receipt_proof, header and header_signature, with the same Result<VerifiedProtocolHead, ProtocolEvidenceError> result."
+
+[row.r13-85.45]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-current-protocol-head-proof"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 830
+symbol = "verify_current_protocol_head_proof"
+evidence = "pub fn verify_current_protocol_head_proof(&self, proof: &ProtocolHeadProof<'_>, now_ms: u64) -> Result<VerifiedProtocolHead, ProtocolEvidenceError> keeps its signature; the proof now binds chain commitment, chain head evidence and a transaction inclusion proof."
+
+[row.r13-85.46]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-historical-protocol-head-proof"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 877
+symbol = "verify_historical_protocol_head_proof"
+evidence = "verify_historical_protocol_head_proof now adds trusted_header: &ChainHeader, trusted_commit: &Commit and history: &[(ChainHeader, Commit, ValidatorSet)] after proof: &ProtocolHeadProof<'_>; its Result<VerifiedProtocolHead, ProtocolEvidenceError> return is unchanged and it delegates to historical chain verification."
+
+[row.r13-85.47]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-current-maintenance-head"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 1133
+symbol = "verify_current_maintenance_head"
+evidence = "ProtocolDeploymentVerifier no longer declares verify_current_maintenance_head; the sequencer maintenance-head API was removed under decision.1303 and override.J51.23. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 1
+remaining = ["programs/crates/layerx-programs-registry/tests/completion_gate.rs:40"]
+
+[row.r13-85.48]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-current-maintenance-head-typed"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 1155
+symbol = "verify_current_maintenance_head_typed"
+evidence = "ProtocolDeploymentVerifier no longer declares verify_current_maintenance_head_typed; VerifiedMaintenanceHead was also removed under decision.1303 and override.J51.24. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 1
+remaining = ["programs/crates/layerx-programs-registry/tests/completion_gate.rs:41"]
+
+[row.r13-85.49]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-historical-maintenance-head-typed"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 1176
+symbol = "verify_historical_maintenance_head_typed"
+evidence = "ProtocolDeploymentVerifier no longer declares verify_historical_maintenance_head_typed; VerifiedMaintenanceHead was also removed under decision.1303 and override.J51.26. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 1
+remaining = ["programs/crates/layerx-programs-registry/tests/completion_gate.rs:43"]
+
+[row.r13-85.50]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-current-chain-head"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 887
+symbol = "verify_current_chain_head"
+evidence = "verify_current_chain_head now takes kind: ProgramHeadKind, proof: &CommitmentProof, transaction: &[u8], transaction_proof: &SimpleProof and now_ms: u64 after &self; these replace receipt, receipt_proof: &Proof, header and header_signature; Result<VerifiedChainHead, ProtocolEvidenceError> remains."
+
+[row.r13-85.51]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-current-program-bundle"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 937
+symbol = "verify_current_program_bundle"
+evidence = "pub fn verify_current_program_bundle(&self, bundle: &ProgramStateBundle, chain: &VerifiedChainHead, expected_program: ProgramId, now_ms: u64) -> Result<VerifiedProgramBundle, ProgramBundleError> drops the registered authorised_signer: &[u8; 32] parameter; chain trust and proof equality bind the bundle."
+
+[row.r13-85.52]
+interface = "interface.13.rs-reg-protocol-evidence-protocoldeploymentverifier-verify-historical-maintenance-head"
+verdict = "retired"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 1314
+symbol = "verify_historical_maintenance_head"
+evidence = "ProtocolDeploymentVerifier no longer declares verify_historical_maintenance_head; chain historical protocol proofs replace sequencer maintenance evidence under decision.1303 and override.J51.25. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 1
+remaining = ["programs/crates/layerx-programs-registry/tests/completion_gate.rs:42"]
+
+[row.r13-85.53]
+interface = "interface.13.rs-reg-protocol-evidence-deploymentproof-canonical-encoding"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 1061
+symbol = "canonical_encoding"
+evidence = "DeploymentProof::canonical_encoding now declares pub fn canonical_encoding(&self) -> Result<Vec<u8>, ProtocolEvidenceError>, replacing the registered infallible Vec<u8> return; it emits LXDP version 2 chain proof bytes with encoding bounds."
+
+[row.r13-85.54]
+interface = "interface.13.rs-reg-protocol-evidence-deploymentproof-decode"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 1103
+symbol = "decode"
+evidence = "DeploymentProof still declares pub fn decode(bytes: &[u8]) -> Result<Self, ProtocolEvidenceError>; the signature is unchanged, but the decoder now requires LXDP version 2 and reconstructs chain commitment, lifecycle, wind-down and transaction proofs."
+
+[row.r13-85.55]
+interface = "interface.13.rs-reg-protocol-evidence-deploymentproof-claimed-receipt-digest"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 1175
+symbol = "claimed_receipt_digest"
+evidence = "DeploymentProof still declares pub fn claimed_receipt_digest(&self) -> Result<[u8; 32], ProtocolEvidenceError>; the signature is unchanged and now hashes the bounded nonempty state.transaction bytes."
+
+[row.r13-85.56]
+interface = "interface.13.rs-reg-protocol-evidence-programstatebundle-canonical-encoding"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 573
+symbol = "canonical_encoding"
+evidence = "ProgramStateBundle::canonical_encoding now declares pub fn canonical_encoding(&self) -> Result<Vec<u8>, ProgramBundleError>, replacing the registered Vec<u8> return; it delegates to the chain bundle encoder and propagates encoding failures."
+
+[row.r13-85.57]
+interface = "interface.13.rs-reg-protocol-evidence-programstatebundle-decode"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+line = 576
+symbol = "decode"
+evidence = "ProgramStateBundle now declares pub fn decode(bytes: &[u8]) -> Result<Self, ProgramBundleError>, replacing the registered ProtocolEvidenceError with ProgramBundleError; it reconstructs commitment and chain record/interface proof operations."
+
+[row.r13-85.58]
+interface = "interface.13.rs-rt-abi-abieffects-canonical-program-event-envelope"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/abi/mod.rs"
+line = 646
+symbol = "canonical_program_event_envelope"
+evidence = "AbiEffects still declares pub fn canonical_program_event_envelope(&self) -> Result<Vec<u8>, AbiError>; the signature is unchanged and the body still encodes the LayerX/programs/events/v1 domain with program, principal and frame for each event; chain log retargeting is not a signature change here."
+
+[row.r13-85.59]
+interface = "interface.13.rs-rt-ffi-call-raw-native-receipt-authority-v1-bytes"
+verdict = "retired"
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 3870
+symbol = "RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES"
+evidence = "RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES is absent from ffi_call.rs; RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES = 151 is declared at line 4607 instead, matching decision.1305 and override.J51.8; the V1 name survives in an absence assertion. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 1
+remaining = ["programs/crates/layerx-programs-registry/tests/completion_gate.rs:59"]
+
+[row.r13-85.60]
+interface = "interface.13.rs-rt-ffi-call-rawnativereceiptauthorityv1"
+verdict = "retired"
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 3873
+symbol = "RawNativeReceiptAuthorityV1"
+evidence = "RawNativeReceiptAuthorityV1 is absent from ffi_call.rs; RawNativeReceiptAuthorityV2 is declared at line 4610 with block-height authority fields instead, matching decision.1305 and override.J51.9; the V1 name survives in an absence assertion. Repository-wide whole-symbol search excludes spec and docs directories; remaining entries count one mention per other file, including other APIs and absence assertions."
+remaining_refs = 1
+remaining = ["programs/crates/layerx-programs-registry/tests/completion_gate.rs:60"]
