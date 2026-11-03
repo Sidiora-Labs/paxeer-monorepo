@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import type { PerpsOrderInputs } from "../src/app/exchange/exchange-client.tsx";
+import type { PerpsOpenPosition } from "../src/api/sdk.ts";
 import { decodeFunctionData, encodeErrorResult, encodeFunctionData, encodeFunctionResult, isHex, parseAbi, type Abi, type Hex } from "viem";
 
 registerHooks({
@@ -46,19 +47,10 @@ const client = await import("../src/app/exchange/exchange-client.tsx");
 const wallet = await import("../src/api/wallet.ts");
 
 // The ABI the chain publishes for 0x1015; every answer below is encoded from it.
-const PERPS_ABI: Abi = [
-  ...(JSON.parse(readFileSync(new URL("../../../precompiles/perps/abi/abi.json", import.meta.url), "utf8")) as Abi).filter(
-    (entry) => entry.type !== "function" || (entry.name !== "openPosition" && entry.name !== "cancelOrder"),
-  ),
-  ...parseAbi([
-    "function openPosition(bytes32 marketId, bytes32 accountId, uint8 side, uint256 size, uint256 leverage) returns (uint256 orderId)",
-    "function cancelOrder(bytes32 orderId, bytes32 accountId)",
-  ]),
-];
+const PERPS_ABI = JSON.parse(readFileSync(new URL("../../../precompiles/perps/abi/abi.json", import.meta.url), "utf8")) as Abi;
 const PERPS = "0x0000000000000000000000000000000000001015";
 const USDL = precompiles.PERPS_COLLATERAL_TOKEN;
 const TRADER = `0x${"11".repeat(20)}`;
-const accountId = `0x${"7c".repeat(32)}`;
 function word(id: bigint): Hex {
   return `0x${id.toString(16).padStart(64, "0")}`;
 }
@@ -281,26 +273,36 @@ function walletWindow(answer: (method: string, params: readonly unknown[]) => un
   return requests;
 }
 
-async function opening_a_position_sends_the_v2_perps_write_without_an_approve() {
+async function opening_a_position_sends_the_precompile_perps_write_without_an_approve() {
   const collateral = { token: USDL, decimals: precompiles.PERPS_COLLATERAL_DECIMALS, symbol: "USDL" };
-  const order = { marketId: word(3n), accountId, side: 2 as const, size: 50n * 10n ** 18n, leverage: 5n * 10n ** 18n };
-  const call = sdk.perpsOpenPositionCall(order);
+  const order: PerpsOpenPosition = {
+    marketId: 3n,
+    collateralToken: USDL,
+    collateralAmount: 2_000_000n,
+    leverage: 5n * 10n ** 18n,
+    isLong: false,
+  };
+  const call = client.perpsMarketPositionCall(order.marketId, collateral, order.collateralAmount, order.leverage, order.isLong);
+  assert.deepEqual(call, sdk.perpsOpenPositionCall(order));
   assert.equal(call.to, PERPS);
+  assert.equal(call.data.slice(0, 10), sdk.abiSelector("openPosition(uint256,address,uint256,uint256,bool)"));
   assert.equal(
     call.data,
     encodeFunctionData({
       abi: PERPS_ABI,
       functionName: "openPosition",
-      args: [order.marketId, order.accountId, order.side, order.size, order.leverage],
+      args: [order.marketId, order.collateralToken, order.collateralAmount, order.leverage, order.isLong],
     }),
   );
   const writeHash = `0x${"bb".repeat(32)}`;
+  const receipts = new Set<string>();
   const requests = walletWindow((method, params) => {
     switch (method) {
       case "eth_call":
         return ZERO_WORD;
       case "eth_sendTransaction":
         assert.equal((params[0] as { to: string }).to.toLowerCase(), PERPS);
+        receipts.add(writeHash);
         return writeHash;
       case "eth_getTransactionReceipt":
         return { status: "0x1" };
@@ -311,16 +313,23 @@ async function opening_a_position_sends_the_v2_perps_write_without_an_approve() 
   const approving: boolean[] = [];
   try {
     await gateway(
-      (preflight, name) => {
+      (preflight, name, args) => {
         assert.equal(name, "openPosition");
         assert.equal(preflight.from, TRADER);
+        assert.deepEqual(args.map((arg) => typeof arg === "string" ? arg.toLowerCase() : arg),
+          [order.marketId, order.collateralToken, order.collateralAmount, order.leverage, order.isLong]);
         return { result: encodeFunctionResult({ abi: PERPS_ABI, functionName: "openPosition", result: 4n }) };
       },
       async (called) => {
         const outcome = await client.sendPerpsWrite(TRADER, collateral, 0n, call, (active) => approving.push(active));
-        assert.deepEqual(outcome, { outcome: "sent", transactionHash: writeHash });
+        assert.deepEqual(outcome, {
+          outcome: "sent",
+          transactionHash: writeHash,
+          receipt: { transactionHash: writeHash, blockNumber: 1n, status: "success", logs: [] },
+        });
         assert.deepEqual(called, ["openPosition"]);
       },
+      receipts,
     );
     const sends = requests
       .filter((request) => request.method === "eth_sendTransaction")
@@ -331,16 +340,41 @@ async function opening_a_position_sends_the_v2_perps_write_without_an_approve() 
     assert.ok(requests.every((request) => request.method !== "eth_call"));
     assert.ok(sends.every((send) => !send.data.startsWith(sdk.abiSelector("approve(address,uint256)"))));
     assert.deepEqual(approving, [false]);
-    assert.equal(
-      sdk.perpsCancelOrderCall(word(9n), accountId).data,
-      encodeFunctionData({ abi: PERPS_ABI, functionName: "cancelOrder", args: [word(9n), accountId] }),
+    const cancel = client.perpsOrderCancelCall(9n);
+    assert.deepEqual(cancel, sdk.perpsCancelOrderCall(9n));
+    assert.equal(cancel.to, PERPS);
+    assert.equal(cancel.data.slice(0, 10), sdk.abiSelector("cancelOrder(uint256)"));
+    assert.equal(cancel.data, encodeFunctionData({ abi: PERPS_ABI, functionName: "cancelOrder", args: [9n] }));
+    await gateway(
+      (preflight, name, args) => {
+        assert.equal(name, "cancelOrder");
+        assert.equal(preflight.from, TRADER);
+        assert.deepEqual(args, [9n]);
+        return { result: encodeFunctionResult({ abi: PERPS_ABI, functionName: "cancelOrder" }) };
+      },
+      async (called) => {
+        const outcome = await client.sendPerpsWrite(TRADER, collateral, 0n, cancel, (active) => approving.push(active));
+        assert.deepEqual(outcome, {
+          outcome: "sent",
+          transactionHash: writeHash,
+          receipt: { transactionHash: writeHash, blockNumber: 1n, status: "success", logs: [] },
+        });
+        assert.deepEqual(called, ["cancelOrder"]);
+      },
+      receipts,
     );
+    const allSends = requests.filter((request) => request.method === "eth_sendTransaction")
+      .map((request) => request.params[0] as { to: string; data: string });
+    assert.deepEqual(allSends.map((send) => send.data), [call.data, cancel.data]);
+    assert.ok(allSends.every((send) => send.to.toLowerCase() === PERPS));
+    assert.ok(requests.every((request) => request.method !== "eth_call"));
+    assert.deepEqual(approving, [false, false]);
   } finally {
     delete (globalThis as { window?: unknown }).window;
   }
 }
 
-test(opening_a_position_sends_the_v2_perps_write_without_an_approve);
+test(opening_a_position_sends_the_precompile_perps_write_without_an_approve);
 
 test("a refused perps write is reported with its reason and never reaches the wallet", async () => {
   const collateral = { token: USDL, decimals: precompiles.PERPS_COLLATERAL_DECIMALS, symbol: "USDL" };
@@ -353,7 +387,7 @@ test("a refused perps write is reported with its reason and never reaches the wa
         error: { code: 3, message: "execution reverted", data: encodeErrorResult({ abi: PERPS_ABI, errorName: "PerpsUnknownOrder" }) },
       }),
       async () => {
-        const outcome = await client.sendPerpsWrite(TRADER, collateral, 0n, sdk.perpsCancelOrderCall(word(9n), accountId), () => undefined);
+        const outcome = await client.sendPerpsWrite(TRADER, collateral, 0n, sdk.perpsCancelOrderCall(9n), () => undefined);
         assert.deepEqual(outcome, { outcome: "failed", detail: "The perps precompile refused: PerpsUnknownOrder" });
       },
     );
