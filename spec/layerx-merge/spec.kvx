@@ -129667,7 +129667,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.56]
 title = "Inventory every test run of the tools/platform/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129791,7 +129791,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.52]
 title = "Inventory every test run of the services/agent/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129884,7 +129884,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.49]
 title = "Inventory every build target of the services/explorer/services/libs/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136898,7 +136898,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.76]
 title = "Inventory the Go SDK modules again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136929,7 +136929,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.75]
 title = "Inventory every Go module under services/launchpad again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190080,7 +190080,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.73]
 title = "Inventory every Go package under tests/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190111,7 +190111,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.72]
 title = "Inventory every Go package under tools/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190142,7 +190142,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.71]
 title = "Inventory every Go package under utils/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190328,7 +190328,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.65]
 title = "Inventory every Go package under consensus/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190391,7 +190391,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.63]
 title = "Inventory every Go package under daemon/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
