@@ -138027,7 +138027,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.91]
 title = "Inventory every build target of the tools/platform/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -138155,7 +138155,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.87]
 title = "Inventory every build target of the services/agent/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -138187,7 +138187,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.86]
 title = "Inventory every build target of the programs/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.45"]
@@ -138557,7 +138557,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.98.2]
 title = "Repair the agent daemon library tests that fail on the main line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -202980,7 +202980,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.107]
 title = "Inventory every Go package under cmd/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -239791,7 +239791,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.92.6]
 title = "Write the closure dispositions 21 for 9 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239821,7 +239821,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.92.5]
 title = "Write the closure dispositions 18 for 9 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239911,7 +239911,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.92.2]
 title = "Write the closure dispositions 22-2 for 19 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
