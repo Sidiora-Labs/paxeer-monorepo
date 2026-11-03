@@ -124703,7 +124703,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.122]
 title = "Inventory the sdk integrations packages a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.39"]
@@ -124735,7 +124735,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.121]
 title = "Inventory the platform middleware packages a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -137707,7 +137707,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.101]
 title = "Inventory every test run of the services/explorer/services/smart-contract-verifier/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.153"]
@@ -138091,7 +138091,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.89]
 title = "Inventory every build target of the services/interop/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -138219,7 +138219,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.158]
 title = "Refresh the services/agent workspace lock for the layerx-client and layerx-sdk manifest changes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -202757,7 +202757,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.114]
 title = "Inventory every Go package under utils/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -202789,7 +202789,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.113]
 title = "Inventory every Go package under wasm-runtime/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.36"]
@@ -203796,7 +203796,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.107]
 title = "Repair the inventory sweep target modules/evm/ante"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203859,7 +203859,7 @@ do_5 = "Attempt 1 (requalify): go test ./modules/evm/ passes at the attempt revi
 
 [task.22.99.105]
 title = "Repair the inventory sweep target modules/epoch/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203890,7 +203890,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.104]
 title = "Repair the inventory sweep target modules/epoch/client/cli"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239763,7 +239763,7 @@ do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible)
 
 [task.22.92.7]
 title = "Write the closure dispositions misc for 8 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239853,7 +239853,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.92.4]
 title = "Write the closure dispositions 17 for 18 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239883,7 +239883,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.92.3]
 title = "Write the closure dispositions 22-3 for 17 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239943,7 +239943,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.92.1]
 title = "Write the closure dispositions 22-1 for 19 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
