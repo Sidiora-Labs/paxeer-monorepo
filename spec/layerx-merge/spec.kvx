@@ -123648,7 +123648,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1565.1]
 title = "Issue #1565: Verify the wallet lockfile satisfies the frozen install"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137447,7 +137447,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1564.1]
 title = "Issue #1564: Verify the Solana bridge lockfile satisfies the locked metadata read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234879,7 +234879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1569.1]
 title = "Issue #1569: Verify the Blockscout floor gate lockfiles are present"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
