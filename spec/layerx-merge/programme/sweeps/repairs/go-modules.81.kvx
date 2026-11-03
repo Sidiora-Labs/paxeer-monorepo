@@ -1,0 +1,11 @@
+[repair.go-modules.81]
+target = "modules/mint"
+command = "CGO_ENABLED=1 go vet ./modules/mint/ && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/mint/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "modules/mint/module_test.go reports node fixture initialization time; no product behavior or test assertions changed because the recorded timeout no longer reproduces."
+producer_input_tests = []
+go_flags = "-v"
+package_wall_time_seconds = 0.845
+proposal_handler_wall_time_seconds = 0.69
+qualification_wall_time_seconds = 51

@@ -24,11 +24,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/audit"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/agent"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/jwt"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/lxwire"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy"
@@ -148,11 +150,45 @@ func (is *issuer) mint(t *testing.T, signer *rsa.PrivateKey, subject string) str
 }
 
 type network struct {
-	endpoints  []string
-	caFile     string
-	clientCert string
-	clientKey  string
-	issuer     *issuer
+	endpoints       []string
+	caFile          string
+	clientCert      string
+	clientKey       string
+	issuer          *issuer
+	inventoryKey    *ecdsa.PrivateKey
+	inventoryPath   string
+	inventoryPublic string
+	inventory       server.WalletInventory
+	pins            map[string]string
+	sequence        uint64
+}
+
+func (n *network) publishInventory(t *testing.T) {
+	t.Helper()
+	n.sequence++
+	now := time.Now().Unix()
+	n.inventory.SignedClaims = agent.SignedClaims{Version: 1, Issuer: "loadtest", Audience: agent.InventoryAudience,
+		Tenant: "loadtest", Sequence: strconv.FormatUint(n.sequence, 10), IssuedAt: now - 1, ExpiresAt: now + 3600}
+	header, err := json.Marshal(map[string]string{"alg": "ES256", "typ": agent.InventoryAudience + "+jwt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := json.Marshal(n.inventory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := b64(header) + "." + b64(body)
+	digest := sha256.Sum256([]byte(input))
+	r, s, err := ecdsa.Sign(rand.Reader, n.inventoryKey, digest[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature := make([]byte, 64)
+	r.FillBytes(signature[:32])
+	s.FillBytes(signature[32:])
+	if err := os.WriteFile(n.inventoryPath, []byte(input+"."+b64(signature)), 0o600); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func startNetwork(t *testing.T, n int) *network {
@@ -168,6 +204,19 @@ func startNetwork(t *testing.T, n int) *network {
 	operator, _, _ := certificate(t, operatorDir, "ca", nil)
 	_, clientCert, clientKey := certificate(t, gatewayDir, "wallet-gateway", gateway)
 	nw := &network{caFile: gateway.path, clientCert: clientCert, clientKey: clientKey, issuer: newIssuer(t)}
+	var err error
+	nw.inventoryKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	public, err := x509.MarshalPKIXPublicKey(&nw.inventoryKey.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nw.inventoryPath, nw.inventoryPublic = filepath.Join(dir, "inventory.jwt"), filepath.Join(dir, "inventory-public.pem")
+	writePEM(t, nw.inventoryPublic, "PUBLIC KEY", public)
+	nw.inventory = server.WalletInventory{Protocol: "wallet", Threshold: 3}
+	nw.pins = make(map[string]string, n)
 
 	policyFile, kernelFile := filepath.Join(dir, "policy.json"), filepath.Join(dir, "kernel-policy.json")
 	if err := os.WriteFile(policyFile, []byte(signPolicy), 0o600); err != nil {
@@ -205,8 +254,11 @@ func startNetwork(t *testing.T, n int) *network {
 		nodeCert, certs[i], keys[i] = certificate(t, gatewayDir, ids[i], gateway)
 		pin := transport.SPKIHash(nodeCert.cert)
 		peers[i] = transport.Peer{ID: ids[i], Address: peerListeners[i].Addr().String(), SPKISHA256: hex.EncodeToString(pin[:])}
+		nw.pins[ids[i]] = peers[i].SPKISHA256
+		nw.inventory.Members = append(nw.inventory.Members, server.InventoryMember{ID: ids[i], Pin: peers[i].SPKISHA256})
 		nw.endpoints = append(nw.endpoints, ids[i]+"="+apiListeners[i].Addr().String())
 	}
+	nw.publishInventory(t)
 	for i, id := range ids {
 		nodeKey := sha256.Sum256([]byte("load test store key " + id))
 		dataDir := filepath.Join(dir, id)
@@ -262,10 +314,15 @@ func startNetwork(t *testing.T, n int) *network {
 				probe[p.ID] = p.Address
 			}
 		}
+		inventory, err := server.NewInventory(nw.inventoryPath, nw.inventoryPublic, "loadtest", "loadtest", st, nw.pins)
+		if err != nil {
+			t.Fatal(err)
+		}
 		srv, err := server.New(server.Options{
 			NodeID: id, Region: fmt.Sprintf("region-%d", i+1), ChainID: testChainID, Participants: ids,
 			Store: st, Audit: lg, Transport: tr, Policy: engine, Kernel: kernel, Ledger: ledger,
 			Clients: clients, Tokens: tokens, Activities: registry, PeerProbe: server.TCPPeerProbe(probe),
+			Inventory: inventory,
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -292,12 +349,49 @@ func (n *network) env(token string) map[string]string {
 	}
 }
 
-func runTool(t *testing.T, env map[string]string, args ...string) (Summary, []byte) {
+func runTool(t *testing.T, nw *network, env map[string]string, args ...string) (Summary, []byte) {
 	t.Helper()
 	var out, errs bytes.Buffer
-	summary, err := run(context.Background(), args, func(k string) string { return env[k] }, &out, &errs)
+	cfg, err := load(args, func(k string) string { return env[k] }, &errs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := mtlsClient(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(client.CloseIdleConnections)
+	runID, err := randomHex(8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lt := &loadTester{cfg: cfg, client: client, runID: runID, quorums: quorums(cfg.endpoints, 3)}
+	ctx := context.Background()
+	if err := lt.checkEndpoints(ctx); err != nil {
+		t.Fatal(err)
+	}
+	first := len(nw.inventory.Keys)
+	for _, curve := range []string{store.CurveSecp256k1, store.CurveEd25519} {
+		nw.inventory.Keys = append(nw.inventory.Keys, server.InventoryKey{
+			KeyID: "loadtest-" + runID + "-" + curve, Curve: curve, Owner: cfg.subject, Operations: []string{"generate"},
+		})
+	}
+	nw.publishInventory(t)
+	keys, err := lt.generateKeys(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, key := range keys {
+		nw.inventory.Keys[first+i].PublicKey = key.PublicKey
+		nw.inventory.Keys[first+i].Operations = []string{"sign"}
+	}
+	nw.publishInventory(t)
+	summary, err := lt.measure(ctx, keys)
 	if err != nil {
 		t.Fatalf("loadtest: %v (stderr %s)", err, errs.String())
+	}
+	if err := json.NewEncoder(&out).Encode(summary); err != nil {
+		t.Fatal(err)
 	}
 	return summary, out.Bytes()
 }
@@ -390,7 +484,7 @@ func TestLoadTestAgainstFiveHardenedDaemons(t *testing.T) {
 
 	const concurrency = 4
 	duration := 15 * time.Second
-	summary, raw := runTool(t, nw.env(token), "-duration", duration.String(), "-concurrency", "4")
+	summary, raw := runTool(t, nw, nw.env(token), "-duration", duration.String(), "-concurrency", "4")
 	checkShape(t, "owner token", summary, raw, concurrency, duration)
 	if len(summary.Refusals) != 0 {
 		t.Fatalf("owner token: refusals %v\n%s", summary.Refusals, raw)
@@ -411,7 +505,7 @@ func TestLoadTestAgainstFiveHardenedDaemons(t *testing.T) {
 	forged := nw.issuer.mint(t, foreign, testSubject)
 	env := nw.env(forged)
 	env[EnvDuration], env[EnvConcurrency] = "2s", "2"
-	refused, raw := runTool(t, env)
+	refused, raw := runTool(t, nw, env)
 	checkShape(t, "forged token", refused, raw, 2, 2*time.Second)
 	if refused.Successes != 0 || len(refused.Refusals) != 1 || refused.Refusals[server.CodeTokenInvalid] != refused.Sessions {
 		t.Fatalf("forged token: %d successes, refusals %v over %d sessions", refused.Successes, refused.Refusals, refused.Sessions)
