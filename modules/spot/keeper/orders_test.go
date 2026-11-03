@@ -560,6 +560,7 @@ func TestOrderMinOutput(t *testing.T) {
 		gs.Books = append(gs.Books, book)
 	}
 	require.NoError(t, gs.Validate())
+	e.ctx = pricefeedtest.WithPriceFeedStore(e.ctx, e.key)
 	e.k.InitGenesis(e.ctx, *gs)
 	before := e.snapshot()
 	events, err := e.k.ExecuteLimit(e.ctx, id)
