@@ -400,6 +400,12 @@ func TestOpticalFactoryAfterUpgrade(t *testing.T) {
 	require.NotEmpty(t, h.stateDB.GetCode(optical))
 	require.True(t, retBool(t, h.view(feeAccumulatorSurface, "hasRole(bytes32,address)", opticalClaimRole, optical)))
 	require.Equal(t, big.NewInt(1), retUint(t, h.view(factory, "getDeployedCount()"), 0))
+	require.False(t, retBool(t, h.view(generation2OpticalRegistry, "isApproved(address)", optical)))
+	h.reverts(h.creator, routerSurface, revertData("OpticalNotApproved()"),
+		"createMarket(string,string,uint8,address)", "Optical Token", "OPTX", uint8(types.FeeStrategyClaim), optical)
+	h.send(h.admin, generation2OpticalRegistry, "registerOptical(address,string,string,uint8,string)", optical,
+		"Launchpad optical", "Factory optical hooks", uint8(1), "unaudited")
+	require.True(t, retBool(t, h.view(generation2OpticalRegistry, "isApproved(address)", optical)))
 
 	// The creation transfer of the virtual token supply to the pool runs the
 	// optical's beforeTokenTransfer, which records the start once

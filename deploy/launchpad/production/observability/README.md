@@ -1,5 +1,7 @@
 # Observability v1 primitives
 
+Install the Python dependencies from the repository root with `python3 -m pip install -r deploy/launchpad/production/observability/requirements.txt` before collecting or running the observability tests. This includes the pinned `jsonschema` dependency used by the phase4 plan validator.
+
 `config.json` is strict revision1 configuration, not an activated deployment. `contracts.py` validates it and implements bounded observation/privacy/SLI/state contracts. Unknown fields, unowned alerts, excessive limits and unproven capacity claims reject. Runtime activation intentionally fails closed until serial wiring and exporter privacy proof exist.
 
 `prometheus-rules.json` is native Prometheus-compatible JSON/YAML: sixteen windowed burn/denominator recording rules and fifteen owned alerts. Read99.95% and mutation99.9% budgets use simultaneous14.4x five-minute/one-hour critical and6x thirty-minute/six-hour warning gates, with >=100 requests in each applicable window. Insufficient traffic is explicit. Expected synthetic journey inventory must originate independently of probe results. The dashboard includes normal denominators, availability, latency and storage horizon, as well as alert expressions.

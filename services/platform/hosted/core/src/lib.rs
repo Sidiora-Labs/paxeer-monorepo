@@ -56,12 +56,10 @@ impl SocketSigner {
         timeout: std::time::Duration,
     ) -> Result<Self, String> {
         let did = custody::SocketSigner::connect_with_timeout(path, timeout)?;
-        let evm =
-            EvmSender::from_env("LAYERX_CORE_FUNDING_SENDER").map_err(|error| error.to_string())?;
-        Ok(Self {
-            did,
-            evm: Ok(Arc::new(evm)),
-        })
+        let evm = EvmSender::from_env("LAYERX_CORE_FUNDING_SENDER")
+            .map(Arc::new)
+            .map_err(|error| error.to_string());
+        Ok(Self { did, evm })
     }
 
     pub fn connect_with_evm_sender(path: &std::path::Path, evm: EvmSender) -> Result<Self, String> {

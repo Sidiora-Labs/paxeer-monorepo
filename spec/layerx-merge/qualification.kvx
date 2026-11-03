@@ -19955,3 +19955,27 @@ symbol = "tsc"
 observed = "yarn tsc --noEmit reports 343 error TS lines in toolkit/chakra, toolkit/components and ui/zetaChain on attempts 3 and 4 while the attempts' lock diffs do not touch Chakra packages."
 assumption = "The explorer typecheck is broken on the main line by Chakra ConditionalValue variant typing; 14.99.1 restores it."
 severity = "medium"
+
+[finding.22.95.11.2]
+task = "22.95.11"
+file = "services/human/crates/layerx-human-service/tests/custody.rs"
+symbol = "RuntimeClock::from_environment"
+observed = "Attempt 5: the custody test panics at custody.rs:439 with plan clock: clock authority unavailable; the same call is on the main line at line 427."
+assumption = "The qualification environment has no runtime clock authority; the test must start its own clock as component_frame.rs does (decision 2493)."
+severity = "medium"
+
+[finding.22.98.152.1]
+task = "22.98.152"
+file = "spec/layerx-merge/programme/reconcile_check.py"
+symbol = "retired"
+observed = "Attempts 1 and 2: row 9 fails the retired absence check on the test literals at config.rs:424 and :452 after the production lookup was removed."
+assumption = "The checker rule was too coarse; decision 2494 lets remaining list test-code lines of the registered path and the check skips them."
+severity = "low"
+
+[finding.22.9.10.10]
+task = "22.9.10"
+file = "services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json"
+symbol = "txHash"
+observed = "Attempt 23: web-search.test.js:201 throws receipt-unverified because the exact fixtures carry a synthetic transaction hash with no signed transaction bytes."
+assumption = "The fixture producer never signed a transaction for the exact payments; 11.98.1 records rawTransaction and 22.9.10 consumes it (decision 2495)."
+severity = "high"
