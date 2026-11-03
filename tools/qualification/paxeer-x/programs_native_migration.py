@@ -188,7 +188,7 @@ def build(directory):
             and stat.S_ISDIR(cargo_info.st_mode) and cargo_info.st_uid == os.geteuid()
             and not cargo_info.st_mode & 0o022, 'protected caller-owned build target required')
     library = native / 'liblayerx.a'
-    header = native / 'generated/lxp_checkpoint_settlement.h'
+    generated = native / 'generated'
     sandbox = cargo / 'debug/liblayerx_programs_sandbox.a'
     binary = native / 'tests/programs_lifecycle'
     binary.parent.mkdir(mode=0o700)
@@ -199,10 +199,10 @@ def build(directory):
     commands = [
         ['make', '--no-print-directory', '-j' + str(jobs),
          'BUILD_DIR=' + str(native), 'LXP_REVISION=' + source['revision'],
-         str(library), str(header)],
+         str(library)],
         ['cargo', 'build', '--locked', '--manifest-path', str(ROOT / 'programs/Cargo.toml'),
          '-p', 'layerx-programs-sandbox', '--features', 'host-ffi'],
-        [compiler, '-Iinclude', '-I' + str(header.parent), '-std=c17', '-pedantic',
+        [compiler, '-Iinclude', '-I' + str(generated), '-std=c17', '-pedantic',
          '-Werror', '-Wall', '-Wextra', '-Wconversion', '-Wshadow', '-Wvla',
          '-fno-strict-aliasing', '-ffp-contract=off', '-O2',
          'tests/programs/test_lifecycle.c', '-Wl,--start-group', str(library),
@@ -229,8 +229,7 @@ def build(directory):
             require(code == 0, 'candidate build failed; log=' + str(log))
         require(identity() == source, 'source changed during build')
         record['artifacts'] = {'programs_lifecycle': artifact(binary, executable=True),
-            'native_library': artifact(library), 'sandbox_library': artifact(sandbox),
-            'checkpoint_header': artifact(header)}
+            'native_library': artifact(library), 'sandbox_library': artifact(sandbox)}
         record['completed_ns'] = time.time_ns()
     finally:
         write_private(directory / 'artifacts.json', record)
@@ -474,8 +473,8 @@ def verify(directory, manifest_path, authority_path, governor_path, legacy_path,
                 and step['command'] == command and step['exit_code'] == 0
                 and artifact(step['log']['path']) == step['log'], 'unverifiable build step')
     artifacts = manifest['artifacts']
-    require(set(artifacts) == {'programs_lifecycle', 'native_library', 'sandbox_library',
-                               'checkpoint_header'}, 'candidate artifacts missing')
+    require(set(artifacts) == {'programs_lifecycle', 'native_library', 'sandbox_library'},
+            'candidate artifacts missing')
     for name, saved in artifacts.items():
         require(artifact(saved['path'], executable=name == 'programs_lifecycle') == saved,
                 'candidate artifact changed')
