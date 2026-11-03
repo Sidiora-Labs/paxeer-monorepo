@@ -13,19 +13,23 @@ use crate::{
     admission, aggregation, closure, commit_reveal, epoch, evidence, queries, rewards, tasks,
     value_adapter, workers, MAX_STATE_BYTES,
 };
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum SequencePolicy {
     Role,
     ObjectLocal,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum CallBoundary {
     Mutation,
     ProgramRead,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Operation(u16);
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct OperationMetadata {
     pub operation: Operation,
     pub name: &'static str,
@@ -41,6 +45,7 @@ impl Operation {
     ///
     /// # Errors
     /// Returns `UNKNOWN_OPERATION` when the selector is not in the table.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(selector: u16) -> CodecResult<Self> {
         OPERATIONS
             .iter()
@@ -60,6 +65,9 @@ impl Operation {
                 return m;
             }
         }
+        #[cfg(target_arch = "wasm32")]
+        core::arch::wasm32::unreachable();
+        #[cfg(not(target_arch = "wasm32"))]
         unreachable!("Operation is constructed only by the frozen table")
     }
     /// Checks a payload length against the operation's bounds.
@@ -734,7 +742,8 @@ pub struct Buffers<'b> {
     pub result: &'b mut [u8],
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Routed {
     /// `next[..state_len]` and `event[..event_len]` must be committed together with the
     /// `Ok` result frame in `result[..result_len]`.
@@ -1158,6 +1167,7 @@ fn settlement(
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,

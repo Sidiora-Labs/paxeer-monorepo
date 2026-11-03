@@ -69,7 +69,8 @@ const FINAL_PHASE: u8 = 5;
 
 /// The F01 receipt: market, committed revision, request id, action, config and the current
 /// policy digest.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Receipt {
     bytes: [u8; RECEIPT_MAX_BYTES],
     pub digest: ResultDigest,
@@ -106,7 +107,8 @@ impl Receipt {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Outcome {
     /// One revision increment was composed into `next` and its event into `event`. `effect`
     /// is the single F06 native effect the activity must apply atomically with the state:
@@ -283,6 +285,7 @@ impl Call<'_> {
 /// The section bytes of `section` with `pending` withdrawn: the pending record is absent and
 /// its CANCELLED history header is appended, folding the oldest header into the root when the
 /// recent list is full.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn encode_withdrawn(
     section: &PolicySection<'_>,
     pending: &PendingPolicy,
@@ -456,6 +459,7 @@ fn task_set_identity(
 }
 
 /// Writes the reward state produced by `transition` followed by the unchanged F05 `tail`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_settlement(
     tail: &[u8],
     out: &mut [u8],

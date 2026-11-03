@@ -18,6 +18,8 @@ pub mod evaluators {
     pub mod codec;
     pub mod model;
 }
+#[cfg(target_arch = "wasm32")]
+mod guest_cell;
 pub mod host_adapter;
 pub mod policy;
 pub mod queries;
@@ -36,13 +38,10 @@ pub mod value_adapter;
 pub mod workers;
 
 pub fn merged_chain_domain(chain_id: u64) -> [u8; 32] {
-    use sha2::{Digest, Sha256};
-
-    Sha256::new()
-        .chain_update(b"PAXAI/chain-domain/v1")
-        .chain_update(chain_id.to_be_bytes())
-        .finalize()
-        .into()
+    let mut hash = codec::Sha256State::new();
+    hash.update(b"PAXAI/chain-domain/v1");
+    hash.update(&chain_id.to_be_bytes());
+    hash.finalize()
 }
 
 pub fn deployment_chain_domain() -> CodecResult<ChainDomain> {
@@ -211,7 +210,7 @@ mod guest {
         result: [u8; MAX_RESULT_BYTES],
     }
 
-    static ARENA: spin::Mutex<Arena> = spin::Mutex::new(Arena {
+    static ARENA: crate::guest_cell::GuestCell<Arena> = crate::guest_cell::GuestCell::new(Arena {
         current: [0; MAX_STATE_BYTES],
         next: [0; MAX_STATE_BYTES],
         scratch: [0; SCRATCH_BYTES],
@@ -222,9 +221,9 @@ mod guest {
     const EMPTY_REFUSAL: ProgramRefusal<'static> = match RefusalReason::new(&[]) {
         Ok(reason) => match ProgramRefusal::new(RefusalClass::Rejected, reason) {
             Ok(refusal) => refusal,
-            Err(_) => panic!("Rejected is guest publishable"),
+            Err(_) => panic!(),
         },
-        Err(_) => panic!("an empty reason is within the ABI bound"),
+        Err(_) => panic!(),
     };
 
     fn rejected(reason: &'static [u8]) -> ProgramRefusal<'static> {
@@ -246,7 +245,7 @@ mod guest {
     }
 
     fn handle(input: &[u8]) -> Result<EntryResponse<'static>, ProgramRefusal<'static>> {
-        let arena = spin::MutexGuard::leak(ARENA.try_lock().ok_or(EMPTY_REFUSAL)?);
+        let arena = ARENA.try_borrow_mut().ok_or(EMPTY_REFUSAL)?.leak();
         let Arena {
             current,
             next,
