@@ -14535,3 +14535,13 @@ fix = "When a task changes a type that tests construct, every test file construc
 title = "A sweep repair of a crate that another open task is already fixing must wait for that task"
 symptom = "The layerx-mcp sweep repair hit the same live-node tests issue task 18.1578.1 isolates; running both at once would have made the repair task re-solve or skip the proof."
 fix = "Make the sweep repair require the open task that owns the failure and leave its verify exercising the fixed tests."
+
+[gotcha.2943]
+title = "A re-sweep that started before the repair it depended on was published failed on the old break"
+symptom = "The human-service re-sweep (22.99.88) built the custody test target minutes before the custody.rs repair of 22.95.11 landed and stopped on E0063/E0560/E0609."
+fix = "Make the re-sweep require the repair task and requalify it on the current main once the repair is published."
+
+[gotcha.2944]
+title = "The Rust test harness skip filter matches by substring"
+symptom = "A seven-test real-workload family in the hosted PaxAI service shares the _real_ name marker; listing each test separately bloated the verify command."
+fix = "Exclude a family with its shared marker in one --skip filter and list every excluded test by name in the repair record."
