@@ -2,8 +2,8 @@
 revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 162
-targets_passed = 161
-targets_failed = 1
+targets_passed = 162
+targets_failed = 0
 targets_not_run = 0
 
 [target.go-consensus.1]
