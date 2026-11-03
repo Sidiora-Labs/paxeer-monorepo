@@ -68,18 +68,14 @@ func productionReadsFixture(t *testing.T) (*pgxpool.Pool, *store.AccountingReadM
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile("../../../../../launchpad/spec/production-system/integration/contracts/v2/examples.json")
+	raw, err := os.ReadFile("testdata/contracts/v2/examples.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var examples struct {
 		Endpoints map[string]struct {
 			Successes []struct {
-				Body struct {
-					Data struct {
-						Stats json.RawMessage `json:"stats"`
-					} `json:"data"`
-				} `json:"body"`
+				Body json.RawMessage `json:"body"`
 			} `json:"successes"`
 		} `json:"endpoints"`
 	}
@@ -90,8 +86,21 @@ func productionReadsFixture(t *testing.T) (*pgxpool.Pool, *store.AccountingReadM
 	if len(successes) == 0 {
 		t.Fatal("frozen stats example required")
 	}
+	for _, success := range successes {
+		if err = interfaces.ValidateJSON("StatsResponse", success.Body); err != nil {
+			t.Fatalf("invalid frozen stats example: %v", err)
+		}
+	}
 	var stats map[string]json.RawMessage
-	if err = json.Unmarshal(successes[0].Body.Data.Stats, &stats); err != nil {
+	var body struct {
+		Data struct {
+			Stats json.RawMessage `json:"stats"`
+		} `json:"data"`
+	}
+	if err = json.Unmarshal(successes[0].Body, &body); err != nil {
+		t.Fatal(err)
+	}
+	if err = json.Unmarshal(body.Data.Stats, &stats); err != nil {
 		t.Fatal(err)
 	}
 	stats["volume24hRaw"] = json.RawMessage(`"1000000"`)

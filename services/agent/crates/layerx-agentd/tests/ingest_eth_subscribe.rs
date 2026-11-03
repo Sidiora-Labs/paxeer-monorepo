@@ -1,9 +1,8 @@
 #[path = "gaps.rs"]
 mod gap_integration;
-#[path = "ingest.rs"]
-mod ingest_integration;
 
-use gap_integration::{attributes, context, history_limits, log, page, row, HistoryServer};
+use gap_integration::ingest_integration;
+use gap_integration::{attributes, history_limits, log, HistoryServer};
 use ingest_integration::SubscriptionServer;
 use layerx_agentd::events::{CoreEvent, EventIngestor, IngestError};
 use layerx_agentd::read::Cursor;
@@ -58,16 +57,9 @@ fn logs_are_ingested_in_block_position_order() {
     let mut heads = subscribe(&heads_server.url, &[], SubscriptionTopic::NewHeads).unwrap();
     // No history request is needed for adjacent heads.
     let history = HistoryServer::new(vec![]);
-    let mut transport = history.connect();
+    let source = history.connect();
     ingestor
-        .read_head(
-            &mut heads,
-            &mut transport,
-            history_limits(),
-            context(),
-            8,
-            attributes(),
-        )
+        .read_head(&mut heads, &source, history_limits(), 8, attributes())
         .unwrap();
     let expected = vec![
         Cursor {
@@ -103,14 +95,7 @@ fn logs_are_ingested_in_block_position_order() {
     );
     ingestor.commit_block(&checkpoint).unwrap();
     ingestor
-        .read_head(
-            &mut heads,
-            &mut transport,
-            history_limits(),
-            context(),
-            8,
-            attributes(),
-        )
+        .read_head(&mut heads, &source, history_limits(), 8, attributes())
         .unwrap();
     heads_server.finish();
     history.finish();
@@ -169,32 +154,17 @@ fn missing_block_range_is_backfilled_from_history() {
     let mut ingestor =
         EventIngestor::open(Store::open(&root).unwrap(), tenant.clone(), 8, 0).unwrap();
     let history = HistoryServer::new(vec![
-        (
-            Value::Null,
-            2,
-            page(vec![row(11, 0, 0), row(11, 1, 1)], json!(["11", "1", "1"])),
-        ),
-        (
-            json!(["11", "1", "1"]),
-            2,
-            page(vec![row(12, 0, 0)], Value::Null),
-        ),
+        (11, json!([log(11, 0, 0), log(11, 1, 1)])),
+        (12, json!([log(12, 0, 0)])),
     ]);
-    let mut transport = history.connect();
+    let source = history.connect();
     let heads_server = SubscriptionServer::new(
         json!(["newHeads"]),
         vec![json!({"number":"0xa"}), json!({"number":"0xd"})],
     );
     let mut heads = subscribe(&heads_server.url, &[], SubscriptionTopic::NewHeads).unwrap();
     ingestor
-        .read_head(
-            &mut heads,
-            &mut transport,
-            history_limits(),
-            context(),
-            4,
-            attributes(),
-        )
+        .read_head(&mut heads, &source, history_limits(), 4, attributes())
         .unwrap();
     ingestor.ingest_log(&log(10, 0, 0), attributes()).unwrap();
     ingestor.ingest_log(&log(13, 0, 0), attributes()).unwrap();
@@ -202,14 +172,7 @@ fn missing_block_range_is_backfilled_from_history() {
     ingestor.ingest_log(&log(11, 0, 0), attributes()).unwrap();
     assert!(ingestor.take_next().is_none());
     ingestor
-        .read_head(
-            &mut heads,
-            &mut transport,
-            history_limits(),
-            context(),
-            4,
-            attributes(),
-        )
+        .read_head(&mut heads, &source, history_limits(), 4, attributes())
         .unwrap();
     heads_server.finish();
     history.finish();
@@ -251,8 +214,24 @@ fn missing_block_range_is_backfilled_from_history() {
         4
     );
     drop(ingestor);
-    let resumed = EventIngestor::open(Store::open(&root).unwrap(), tenant, 8, 0).unwrap();
+    let mut resumed = EventIngestor::open(Store::open(&root).unwrap(), tenant, 8, 0).unwrap();
     assert_eq!(resumed.watermark().last_position.unwrap().block_height, 12);
     assert_eq!(resumed.buffered_len(), 1, "open block logs survive restart");
+    let history = HistoryServer::new(vec![]);
+    let source = history.connect();
+    let heads_server = SubscriptionServer::new(json!(["newHeads"]), vec![json!({"number":"0xe"})]);
+    let mut heads = subscribe(&heads_server.url, &[], SubscriptionTopic::NewHeads).unwrap();
+    resumed
+        .read_head(&mut heads, &source, history_limits(), 4, attributes())
+        .unwrap();
+    heads_server.finish();
+    history.finish();
+    let recovered_pending = resumed.take_next().unwrap();
+    assert_eq!(recovered_pending.position().unwrap().block_height, 13);
+    assert_eq!(
+        recovered_pending.canonical_bytes,
+        serde_json::to_vec(&log(13, 0, 0)).unwrap()
+    );
+    assert!(resumed.take_next().is_none());
     std::fs::remove_dir_all(root).unwrap();
 }

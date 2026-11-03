@@ -62,7 +62,6 @@ kernel_library_built_first() {
   [ "$ar_line" -lt "$go_line" ] || { echo "build/liblayerx.a archived at log line $ar_line, after the go build at $go_line" >&2; return 1; }
   [ -f build/liblayerx.a ] || { echo "build/liblayerx.a is missing" >&2; return 1; }
   [ "$(stat -c %Y build/liblayerx.a)" -ge "$start" ] || { echo "build/liblayerx.a predates this build" >&2; return 1; }
-  [ -f build/generated/lxp_checkpoint_settlement.h ] || { echo "the checkpoint settlement header is missing" >&2; return 1; }
 }
 
 sandbox_library_built_first() {

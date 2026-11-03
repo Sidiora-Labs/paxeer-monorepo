@@ -2,7 +2,7 @@
 
 use crate::human_node::HumanNode;
 use crate::node_rpc::NodeRpcError;
-use layerx_client::lni::transport::FrameTransport;
+use layerx_client::frame::transport::FrameTransport;
 use layerx_client::rpc::history::{HistoryKind, ReadContext};
 use layerx_client::sequencer::{RpcRefusal, SequencerEndpoint, SequencerError};
 use serde_json::{json, Value};
@@ -441,5 +441,76 @@ impl HistoryPage {
             response_bytes,
             true,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{validate_request, Cursor, HistoryLimits, HistoryReadError};
+
+    #[test]
+    fn history_cursor_round_trip_and_canonical_refusals() -> Result<(), HistoryReadError> {
+        let cursor = Cursor {
+            block_height: u64::MAX,
+            tx_index: u32::MAX,
+            log_index: 10,
+        };
+        let encoded = cursor.to_hex();
+        assert_eq!(Cursor::from_hex(&encoded)?, cursor);
+        assert_eq!(
+            Cursor::from_hex(&encoded.to_uppercase()),
+            Err(HistoryReadError::Cursor)
+        );
+        assert_eq!(
+            Cursor::from_hex(&encoded[..30]),
+            Err(HistoryReadError::Cursor)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn history_request_preserves_finite_limits_and_cursor_range() {
+        let limits = HistoryLimits {
+            maximum_items: 1,
+            maximum_response_bytes: 1,
+        };
+        let cursor = Cursor {
+            block_height: 12,
+            tx_index: 0,
+            log_index: 0,
+        };
+        assert_eq!(validate_request(12, 12, Some(cursor), limits), Ok(()));
+        assert_eq!(
+            validate_request(13, 12, None, limits),
+            Err(HistoryReadError::InvalidRange)
+        );
+        assert_eq!(
+            validate_request(13, 14, Some(cursor), limits),
+            Err(HistoryReadError::Cursor)
+        );
+        assert_eq!(
+            validate_request(
+                0,
+                12,
+                None,
+                HistoryLimits {
+                    maximum_items: 0,
+                    ..limits
+                }
+            ),
+            Err(HistoryReadError::InvalidLimits)
+        );
+        assert_eq!(
+            validate_request(
+                0,
+                12,
+                None,
+                HistoryLimits {
+                    maximum_response_bytes: 0,
+                    ..limits
+                }
+            ),
+            Err(HistoryReadError::InvalidLimits)
+        );
     }
 }

@@ -712,7 +712,6 @@ static int caps_asset_mutation(int argc, char **argv)
     return 0;
 }
 #include "layerx/lx_budget.h"
-#include "layerx/lxp_bridge_credit.h"
 #include "layerx/lxp_state_proof.h"
 
 static int budget_read(int fd, uint16_t module, const uint8_t *key, size_t key_length, const char *label)
@@ -786,19 +785,7 @@ static int build_budget_activity(const signer *key, uint64_t account_sequence,
         activity.idempotency_key[index] =
             (uint8_t)(account_sequence >> ((7U - index) * 8U));
     activity.idempotency_key[31] = 0xa5U;
-    activity.fee_limit = (lxp_u128){0U, activity_type == LXP_BRIDGE_CREDIT ? 0U : 10000U};
-    if (activity_type == LXP_BRIDGE_CREDIT) {
-        lxp_bridge_credit credit;
-        lxp_bridge_profile profile;
-        FILE *file = fopen(getenv("BUDGET_CREDIT_PROFILE"), "rb");
-        REQUIRE(file != NULL && fread(profile.bytes, 1U, sizeof(profile.bytes), file) == sizeof(profile.bytes));
-        REQUIRE(fgetc(file) == EOF && fclose(file) == 0);
-        REQUIRE(lxp_bridge_credit_parse(payload, payload_length, &credit) == LXP_OK);
-        uint64_t seconds = load_u64(credit.proof + 29U);
-        REQUIRE(seconds <= UINT64_MAX / 1000U);
-        REQUIRE(lxp_bridge_credit_verify(&profile, &credit, NETWORK_ID, 3U, NULL,
-            seconds * 1000U, activity.idempotency_key, NULL) == LXP_OK);
-    }
+    activity.fee_limit = (lxp_u128){0U, 10000U};
     activity.payload = (lxp_byte_span){payload, payload_length};
     if (lxp_hash_payload(payload, payload_length, activity.payload_hash) !=
             LXP_OK ||
@@ -906,13 +893,7 @@ static int caps_budget_mutation(int argc, char **argv)
     uint64_t sequence=strtoull(argv[4],NULL,10), amount=strtoull(argv[5],NULL,10);
     static uint8_t payload[LXP_MAX_PAYLOAD_BYTES]={0U,1U}; memcpy(payload+2,object,32);
     uint32_t type=LX_BUDGET_DEFUND; size_t length=LX_BUDGET_DEFUND_PAYLOAD_BYTES;
-    if (strncmp(argv[3], "credit-", 7U) == 0) {
-        type = LXP_BRIDGE_CREDIT;
-        FILE *credit_file = fopen(getenv("BUDGET_CREDIT_FILE"), "rb");
-        REQUIRE(credit_file != NULL);
-        length = fread(payload, 1U, sizeof(payload), credit_file);
-        REQUIRE(length > 363U && fgetc(credit_file) == EOF && fclose(credit_file) == 0);
-    } else if (strncmp(argv[3],"create",6)==0) {
+    if (strncmp(argv[3],"create",6)==0) {
         type=LX_BUDGET_CREATE; length=LX_BUDGET_CREATE_V2_PAYLOAD_BYTES; payload[1]=2U;
         memcpy(payload+34,budget,32); memcpy(payload+66,asset,32); payload[98]=0x55U;
         REQUIRE(lxp_u128_to_be((lxp_u128){0,200},payload+130)==LXP_OK);
@@ -932,7 +913,7 @@ static int caps_budget_mutation(int argc, char **argv)
     } else {
         REQUIRE(lxp_u128_to_be((lxp_u128){strcmp(argv[3],"overflow")==0?UINT64_MAX:0U,amount},payload+34)==LXP_OK);
     }
-    bool unauthorized=strncmp(argv[3],"unauthorized",12)==0 || strcmp(argv[3],"credit-bob")==0;
+    bool unauthorized=strncmp(argv[3],"unauthorized",12)==0;
     memcpy(REGISTERED_DID,unauthorized?bob_did:did,76);
     REQUIRE(budget_submit(fd,unauthorized?&bob:&owner,sequence,type,payload,length,argv[6],strcmp(argv[3],"replay")==0,atoi(argv[7]))==0);
     REQUIRE(close(fd)==0); return 0;

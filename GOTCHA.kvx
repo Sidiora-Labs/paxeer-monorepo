@@ -14070,3 +14070,208 @@ fix = "Before appending a finding, check the id is unused; a duplicate is remove
 title = "A transport entry restored for a retired operation needs its operation declaration too"
 symptom = "The drift test compares the transport operations of the agent API schema with the [operation.<name>] declarations; a task restored the retired faucet.claim transport entry without the declaration and the next task to touch the schema failed the drift test."
 fix = "Restore or add transport entries and operation declarations together; the drift test is the oracle for both."
+
+[gotcha.2850]
+title = "Node's strip-only TypeScript loader refuses constructor parameter properties"
+symptom = "A TypeScript source loaded directly by node --test used constructor parameter properties (private readonly in the parameter list) and node 24 refused it with ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX in strip-only mode."
+fix = "A .ts file that node loads without a build step declares its fields explicitly and assigns them in the constructor body; parameter properties, enums and namespaces need a build step."
+
+[gotcha.2851]
+title = "An in-repo Maven module must be installed before a dependent module can resolve it"
+symptom = "mvn dependency:resolve on an integration module failed with 'Could not find artifact' for the repository's own sdk artifact, because the local repository had no copy and no remote carries it."
+fix = "Run mvn install (tests skipped) of the in-repo module first, then resolve the modules that depend on it; put both into the same command."
+
+[gotcha.2852]
+title = "A match-arm repair must cite the variant list of the current main, not a planned one"
+symptom = "A do item named two enum variants that a later task was going to add; the attempt added arms for them and the build failed with E0599 because the enum on main did not declare them."
+fix = "Before writing a do item that names enum variants or fields, read the declaration on the current main; a repair that depends on a planned variant belongs to the task that adds the variant."
+
+[gotcha.2853]
+title = "A pinned dependency requirement blocks a lock-file raise"
+symptom = "A lock-file raise to a floored version failed silently: the manifest pinned the dependency with an exact requirement (=9.3.1), so the lock could not move without a manifest edit outside the task's touches."
+fix = "A floor task whose package is pinned exactly in a manifest includes that manifest in its touches, raises the requirement with the lock, and builds the crate that uses it."
+
+[gotcha.2854]
+title = "A go.mod replace onto an in-repo module changes the module graph and go.sum must follow"
+symptom = "Replacing a published module with a relative in-repo path made the module graph load a requirement whose go.mod hash go.sum did not carry; the task's own environment built, a fresh environment failed with missing go.sum entry for go.mod file."
+fix = "A task that edits go.mod runs go list -mod=readonly -m all and go mod verify as part of its verify and commits the go.sum entries they need; the dependent check builds in a fresh module cache."
+
+[gotcha.2855]
+title = "Changing a package's decision rule while running only the new test file leaves the package suite red"
+symptom = "7829d8d2b (22.23.10) made a differing requestDigest a 409 receipt_reuse refusal and verified only two test files; the seller package suite failed on main at settlement-response.test.mjs:352 until 22.8.11 repaired it."
+fix = "A task that changes a decision rule of a package runs that package's whole test suite in its verify, not only the file it adds."
+
+[gotcha.2856]
+title = "A retired transport section must not be declared as a catalogue operation"
+symptom = "Adding [operation.faucet.claim] to satisfy the catalogue drift test generated an Operation variant that five exhaustive matches of the agent daemon did not cover and the dependent-crate check failed."
+fix = "Exempt retired transport sections in the drift test (decision 2370); never declare an operation for a name the daemon refuses by RETIRED_OPERATIONS."
+
+[gotcha.2857]
+title = "A replace onto an in-repo module needs go.mod's indirect requirements updated as well as go.sum"
+symptom = "After 66d80726c, go mod download alone left go vet reporting that go.mod needs updates: the graph selects newer golang.org/x modules than the indirect requirement lines record, and -mod=readonly refuses the build."
+fix = "Run go mod tidy with the pinned toolchain in the task that lands the replace and commit go.mod and go.sum together (decision 2371); every other Go task keeps go.mod and go.sum out of its edits."
+
+[gotcha.2858]
+title = "A single-minimum floor checker cannot express per-major floors"
+symptom = "tools/deps/lockfloor.py compares every resolved copy against one floor per package; a floor taken from the higher major's patched release fails the lower major's patched copy that a consumer pins (ajv 8 and fast-uri 3.1.9)."
+fix = "Floor the package at the lowest patched release across its major lines (decision 2372) and state in the task text which consumer pins the lower line."
+
+[gotcha.2859]
+title = "A verify that chains toolchains of two SDK families needs the all-SDK profile"
+symptom = "18.1503.1 verified cargo run, cargo test and mvn compile under the mixed profile and failed with mvn not found after every Rust step passed."
+fix = "Set the profile key (line 4) to the all-SDK profile for any task whose verify names tools of two SDK families (decision 2373); check the profile against every command in the verify when writing the task."
+
+[gotcha.2860]
+title = "An all-targets Rust build of the agent daemon workspace plus the human workspace exhausts the qualification environment storage"
+symptom = "22.9.33 built -p layerx-agentd -p layerx-agentd-host --all-targets and the human workspace tests, then the dependent-crate check failed to write rmeta with no space left on device (attempts 3, 5, 6)."
+fix = "Write build_cmd as the declared targets only: cargo test --no-run per test target and cargo build per binary (decision 2374); never --all-targets on the agent daemon workspace."
+
+[gotcha.2861]
+title = "mvn -o fails on an environment that has not cached the pom's plugins"
+symptom = "18.1503.1's verify ran mvn -q -o compile and Maven could not resolve maven-source-plugin 3.3.1 in offline mode although the compile itself needs nothing beyond the JDK."
+fix = "Write Maven verify steps without -o like every other JVM verify of the feature (decision 2375)."
+
+[gotcha.2862]
+title = "The serve_routes test target belongs to the agent daemon host crate"
+symptom = "22.9.33's build and verify named --test serve_routes under -p layerx-agentd and cargo refused: the target is declared in services/agent/crates/layerx-agentd-host/Cargo.toml (host-tests/serve_routes.rs)."
+fix = "Name each test target under the package whose Cargo.toml declares it; check [[test]] declarations before writing a cargo test --test command."
+
+[gotcha.2863]
+title = "A reuse refusal keyed on an unverified receipt hint is a settlement oracle"
+symptom = "The seller returned 409 receipt reuse from the payload's receiptDigest hint before verification, so a tampered payment got 409 instead of 402 and the status alone told whether the digest had been settled."
+fix = "Verify first, then decide reuse (decision 2376); any pre-verification lookup may only serve the identical-request replay."
+
+[gotcha.2864]
+title = "A loader precondition on module-9 activities reaches every test that executes one"
+symptom = "After 22.2.7 made programs activities require the active fee record, three lxphost tests that run a registry activity without the fixture helper failed with LXP_ERR_VERSION_UNSUPPORTED; the task listed two and attempt 2 stopped on the third as pre-existing."
+fix = "When a change adds a store precondition to a module's execution, grep the package for every test that executes that module's activities and give each the fixture call; run the task's whole verify selection before the single verify run."
+
+[gotcha.2865]
+title = "A catalogue-absence test needs every deleting task in its requires, not only the ones that failed before"
+symptom = "16.90.1 gained the daemon, guarantor and bridge deletions as requires after attempts 1 and 2 and still failed on attempt 3 because the LNI client module deletion (9.24.7) was never listed; each attempt found the next present tree."
+fix = "Before relaunching a test task that asserts absence, check every tree it asserts against main and the catalogue and add the owner task of each present tree to requires in one pass."
+
+[gotcha.2866]
+title = "A rewrite that leaves a test module unimportable passes when its own verify never collects that module"
+symptom = "16.97.6 rewrote tests/agent/sdk/python/test_receipt_fixture.py without the sys.path insertion its siblings carry; its verify ran only the meta-tests of tests/ci, so the import error surfaced weeks later in 22.25.3, whose verify collects the whole directory."
+fix = "When a task rewrites a test module, its verify_cmd runs that module itself, not only a test that reads it; when a later task fails collecting a module it did not write, add the module to touches and rule the fix in a do item instead of relaunching."
+
+[gotcha.2867]
+title = "Two do items pinning opposite call counts for the same test case stall the attempt"
+symptom = "22.8.11 do_14 pinned settleCount 1 for the differing-request-digest replay and decision 2376 made the authority settle before refusing the reuse; attempt 13 implemented the decision, saw the pinned count fail, and stopped to ask instead of choosing."
+fix = "A decision that changes control flow restates every count it moves, in the same batch, naming the test case and the new values; a later do item that contradicts an earlier one says so."
+
+[gotcha.2868]
+title = "A behaviour change closed on its own package tests leaves an earlier task's chain test asserting the old behaviour"
+symptom = "The fee-token sweep of 63dfe3cbc was closed on the modules/evm/keeper tests alone while TestSidioraFeePaid, written the same day, asserted that the collection address keeps the converted fee; the contradiction surfaced only when 22.6.4 made the chain test run again, and two findings and a bisect order were spent on a design that was already documented in the sweep's closure note."
+fix = "Before ordering a bisect for a failing assertion, read the git log of the production code the assertion depends on and the closure note of the commit that introduced the behaviour; when the behaviour is documented, rule the test wrong and move on."
+
+[gotcha.2869]
+title = "A Python test module that imports names a retirement task removed fails at collection in every later task that collects it"
+symptom = "tests/agent/sdk/python/test_receipt_fixture.py imported verify_receipt and decode_program_receipt_outcome after 9.97.7 retired them from layerx_sdk; the port of 18.1478.1 covered three sibling files and not this one, so 22.25.3 stopped at collection with ImportError."
+fix = "When a retirement removes public names, grep every test tree that imports the package (tests/agent/sdk/python as well as services/agent/sdk/python/tests) and port or delete each importer in the same task; decision 2381 assigns this file to 22.25.3."
+
+[gotcha.2870]
+title = "A precompile that resolves the caller before the method lookup answers the unknown-method case with the caller's error"
+symptom = "precompiles/layerxauth/layerxauth.go:70-95 calls Actor for every non-constant method before looking the method up, so the bound-caller case of TestAuthWriteRefusals reads LXP_UNKNOWN_FIELD from lxphost.DIDID instead of the unknown-method text once the lxphost resolution changed under it."
+fix = "Decision 2382: the failure belongs to the task that owns modules/lxphost (22.11.8); a task that did not change the refusal path narrows its verify to the table it owns and names the base failure in its commit message."
+
+[gotcha.2871]
+title = "A dependency raise that deletes go.sum and a vendored Cargo.lock breaks every build of the module while its own verify passes"
+symptom = "22.24.16 (3a45b8541) deleted services/wallet/attestor/go.sum and the kernelvectors Cargo.lock while raising three floors; its verify ran go mod verify and go build inside the module where the Go toolchain resolved modules without the sum file, and the human-service tests that build the attestor binary with -mod=readonly then failed on a missing go.sum entry."
+fix = "A raise that touches a module manifest ends with go mod tidy (or cargo generate-lockfile offline) and the verify asserts test -s on the sum or lock file; decision 2383 restores both files in 22.24.24 and 22.24.25."
+
+[gotcha.2872]
+title = "A lock-file raise re-applied onto lock files that moved keeps the old version in every manifest"
+symptom = "22.24.19 attempt 4 re-applied attempt 3's rustls 0.23.46 raise onto six Cargo.lock files that main had regenerated (0108cb23e, e8ef05d35); the merge kept the regenerated 0.23.45 entries without a conflict, so the floor check reported 0.23.45 < 0.23.46 in services/human, services/platform, tools/platform, services/interop, services/agent and services/agent/fuzz."
+fix = "A lock-file raise is redone on the current lock files with cargo update -p <crate> --precise <version> per manifest, never re-applied as a patch; the floors file and the pinned manifests carry the intent."
+
+[gotcha.2873]
+title = "A test that pins a retired header value by its generated enum variant fails to compile after the header retires it"
+symptom = "1.1.5 (f8721c8e3) retired LXP_ERR_DA_MISSING from include/layerx/lxp_result.h; services/agent/crates/layerx-types generates KnownResult from that header, so tests/errors.rs:321 (Some(KnownResult::DaMissing)) stopped compiling and every task whose verify builds the layerx-types tests failed with E0599."
+fix = "A header retirement greps the generated-enum consumers (services/agent/crates/layerx-types/tests) for the variant name and drops or re-pins the expectation in the same task; 22.9.17 carries the drop for errors.rs:321."
+
+[gotcha.2874]
+title = "A fixture test that expects an admission to expire fails once the reader bridges admissions of any age"
+symptom = "tests/program_chain_head.rs:686 expected HistoricalTrustAnchor for an admission 14 days and 1 ms old; after 9be053c27 the reader bridges the admission through served checkpoints and verifies it, so unwrap_err panicked on an Ok value."
+fix = "Decision 2384: assert the bridge (the admission verifies at the later time) and construct the refusal by withholding an intermediate checkpoint read; the 14-day constant is a step-push rule, not an expiry."
+
+[gotcha.2875]
+title = "A receipt verifier written for a fee-separate ledger refuses every real EVM receipt whose sender paid gas"
+symptom = "node/sequencer/receipt.go captures the sender's native balance before and after the transaction, so debit_after is lower by amount plus the gas fee when the fee is paid in the receipt asset; services/agent/crates/layerx-proof/src/receipt.rs:385-392 checks debit_before - amount == debit_after and reports DebitBalance for an account-open receipt whose only debit was the fee."
+fix = "Decision 2385: the identity accounts for fee_charged when the fee denomination in Effects[0].Body[108..] digests to the receipt asset; 22.9.36 carries it with vectors for both fee paths."
+
+[gotcha.2876]
+title = "A sample's Next build output committed past its own ignore rule turned a passing qualification into a different candidate"
+symptom = "22.8.11 attempt 14 qualified bd51e24b3 and then committed 5a1534c62 with 150 files under services/platform/docs/samples/paid-route-next/.next, although that sample's .gitignore ignores .next/; the recorded verification revision no longer matched the candidate."
+fix = "The qualification records the commit it ran on; a later commit is a new candidate. Build output under an ignored path is never force-added, and a candidate is inspected with git status --ignored before the qualification run."
+
+[gotcha.2877]
+title = "Deleting a source file leaves its public declarations in the header until a completion gate counts them"
+symptom = "src/network/lxp_batch_publish.c and src/sequencer/lxp_batch_time.c were deleted with their tests, but include/layerx/lxp_batch.h still declares lxp_batch_body (:72-82), lxp_batch_timestamp_select (:91) and lxp_batch_timestamp_validate (:93); the domain-1 completion gate (1.0.9) found the three catalogued retire-status interfaces present."
+fix = "A source deletion greps include/ for every symbol the file defined and removes the declarations in the same task; decision 2386 assigns the three to 1.0.10."
+
+[gotcha.2878]
+title = "A pinned-digest test on the former asset field and a stale transient-receipt comparison stop a receipt task that changed neither"
+symptom = "22.23.8 attempt 3: TestReceiptFeeFields (node/sequencer/receipt_equality_test.go:44 in the fee-token case) pins the fee token's digest as the receipt asset, which decision 2360 moved to the payment asset; TestAccepterReceiptsASendAcrossASeal (node/sequencer/accepter_test.go:383) compares the transient receipt (CumulativeGasUsed 0 at execution) with the signed receipt's Exec, which carries the cumulative gas Receipter.after adds (receipt.go:457, accepter.go:103)."
+fix = "The fee-token case asserts the payment-asset digest; the across-a-seal comparison takes CumulativeGasUsed from the signed summary (Effects[0].Body[8:16]) before comparing, the way accepter.go:103 does; both files are in 22.23.8's touches."
+
+[gotcha.2879]
+title = "A task whose symbol list names files or deleted declarations never qualifies"
+symptom = "22.24.24, 22.24.25 and 1.0.10 attempts 1 and 2: the completion check reported symbol go.sum, symbol Cargo.lock and the three retired lxp_batch declarations as not defined in the graph, with every build and test passing."
+fix = "The symbols list names only code symbols that exist in the indexed graph after the change; a lock-file or deletion task declares an empty symbols list."
+
+[gotcha.2880]
+title = "A Go build list that names a test-only package fails before any test runs"
+symptom = "22.6.5 attempts 1 to 3: go build ./precompiles/layerxagent/served/ stopped with no non-test Go files; the same list under go vet and go test is fine."
+fix = "Build lists name packages with non-test sources; test-only packages belong to the vet and test lists only."
+
+[gotcha.2881]
+title = "The SDK corpus-bound library test needs the built terminal v5 corpus exported"
+symptom = "22.9.18 attempts 4 and 6: v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes returned Verification because PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS was unset; 1.18.4's verify shows how the corpus is built and where its path is printed."
+fix = "A verify that runs the layerx-sdk library tests builds the corpus first (program-terminal-v5.py --build, then --manifest) and exports the printed path."
+
+[gotcha.2882]
+title = "Adding a served RPC method without regenerating the served-methods golden fails the next whole-package run"
+symptom = "22.7.3 attempt 5: TestServedMethodsHTTPGolden found px_getReceiptKeys (22.9.28) in the served set but not in rpc/testdata/served_methods_http.golden."
+fix = "Every task that registers or removes a served method updates the golden in the same change and lists it in touches."
+
+[gotcha.2883]
+title = "An exact version pin in a manifest blocks a lock-file floor raise that does not touch the manifest"
+symptom = "22.24.19 attempt 5: six lock files stayed at rustls 0.23.45 because six manifests pin rustls with an exact =0.23.45 requirement, outside the task's touches."
+fix = "A floor raise lists every manifest with an exact pin of the raised crate and moves the pin with the lock files."
+
+[gotcha.2884]
+title = "A client encoded to a call shape the chain never produced passes its own tests and fails the first look at the real ABI"
+symptom = "22.9.10 attempt 14: the perps v2 open and cancel signatures of 9.33.13 and 12.33.8 do not exist in precompiles/perps/abi/abi.json; the web proof had substituted them for the real declarations."
+fix = "A client call shape is asserted against the producer's ABI file, never against a declaration the test writes itself."
+
+[gotcha.2885]
+title = "A producer task whose verify runs one test target leaves sibling tests of the same crate asserting the old shape"
+symptom = "22.9.17 attempt 10: 9.35.16 changed bind_call's budgetCreate disclosure to two amounts and qualified on --test disclosure_call alone; tests/budget_call.rs in the same crate still expected one amount and failed the next whole-crate run."
+fix = "A task that changes a crate's behaviour runs that crate's whole test set in its verify, or names the sibling tests it leaves to a task that requires it."
+
+[gotcha.2886]
+title = "A receipt-shape change that makes a field mandatory fails every vector builder and fixture copy another task owns"
+symptom = "22.23.8 attempt 5: ReceiptInput.PaymentDenom became required and the vector test's builder and the V1 to V3 fixture copies, owned by 22.25.3, were not in the task's touches."
+fix = "A task that adds a mandatory input field lists every builder of that input and every recorded fixture of its output in touches, and orders itself after the task that is regenerating the same fixtures."
+
+[gotcha.2887]
+title = "A test registered as test(fn) without a name is a todo under vitest 4 and never runs"
+symptom = "22.11.8 attempt 1: the wallet proof test(proof_layerxledger_0x101a) reported 1 todo and the Go proof that shells out to it demanded 1 passed; apps/launchpad/web registers tests the same way."
+fix = "Register every vitest test with an explicit name string and the function; a proof that shells out to another runner asserts 1 passed, never the absence of failures."
+
+[gotcha.2888]
+title = "A boundary gate's retired list drifts from its producers"
+symptom = "10.1.4: the retired-import list named a struct the proof crate still defines and a module path a done task had moved; the gate failed on 23 files of the merged tree."
+fix = "Before a gate lists a symbol or module as retired, read its producer at HEAD and the task that retired it; a moved module is a changed import, not a retired one."
+
+[gotcha.2889]
+title = "A hand-maintained catalogue drifts from the schema it mirrors"
+symptom = "22.25.3: operations.json named Journey for three operations whose schema answered AgentCreationJourney and OnboardingJourney since 10.15.4; the Go conformance command refused the catalogue."
+fix = "When a schema type is renamed, grep every catalogue that mirrors it (operations.json, the generated Go, Swift and C# catalogues) and regenerate before resealing the pipeline lock."
+
+[gotcha.2890]
+title = "Corpus builders still request a header whose rule retired"
+symptom = "22.9.18: eight qualification producers asked make for generated/lxp_checkpoint_settlement.h after 16.2.2 removed the rule, so every corpus build exited 2."
+fix = "A task that retires a Makefile rule greps tools and scripts for the generated artefact's name and removes every request in the same change."
