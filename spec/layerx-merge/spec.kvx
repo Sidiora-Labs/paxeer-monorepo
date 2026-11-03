@@ -120308,7 +120308,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.36]
 title = "Restore the dapp integration tests npm lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -120398,7 +120398,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.33]
 title = "Restore the explorer web assets npm lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -194052,7 +194052,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.97.8]
 title = "Record the two unrun module test packages and the packages without tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228805,7 +228805,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.97.4]
 title = "Declare the phase2 observability test requirements"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
