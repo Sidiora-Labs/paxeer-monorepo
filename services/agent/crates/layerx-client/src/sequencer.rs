@@ -362,6 +362,15 @@ impl SequencerEndpoint {
         Ok(page)
     }
 
+    /// Nonce of `address` at the node's latest committed block.
+    ///
+    /// # Errors
+    /// Transport, refusal and decode failures as [`SequencerError`].
+    pub fn latest_nonce(&self, address: &[u8; 20]) -> Result<u64, SequencerError> {
+        let result = self.call("eth_getTransactionCount", &json!([hex(address), "latest"]))?;
+        quantity_u64(&result).ok_or(SequencerError::Malformed)
+    }
+
     /// Next nonce of `address` from the sequencer's pending nonce map.
     ///
     /// # Errors
