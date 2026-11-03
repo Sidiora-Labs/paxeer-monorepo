@@ -202755,7 +202755,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.91.127]
 title = "Finish the Go modules inventory for the twenty-two packages the first pass did not run a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.17", "22.99.18", "22.99.103", "22.99.115", "22.99.116", "22.99.117", "22.99.118", "22.99.119", "22.99.121", "22.99.122"]
