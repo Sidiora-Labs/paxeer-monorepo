@@ -138005,7 +138005,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.96]
 title = "Inventory every test run of the services/human/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.54", "22.99.55", "22.99.56", "22.99.57", "22.99.58"]
