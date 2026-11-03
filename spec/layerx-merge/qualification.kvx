@@ -20539,3 +20539,43 @@ symbol = "layerx-agentd"
 observed = "Attempt 5: the webhook fixture repairs compiled nothing because the locked build stopped on the stale services/agent lock (gotcha 2954); verification did not run."
 assumption = "Requires 22.99.158; the attempt-5 tree is requalified after it."
 severity = "low"
+
+[finding.22.99.58.1]
+task = "22.99.58"
+file = "services/human/crates/layerx-human-identity-provider/tests/catalog.rs"
+symbol = "generated_catalog_loads_through_the_service_reader"
+observed = "Attempt 2: three tests fail. catalog.rs:17 runs services/platform/hosted/human/test_provision.py, which stops at import yaml because the qualification environment lacks pyyaml; assertion_capability_reaches_existing_attestor_admission needs the isolated attestor admission fixture that no producer provides; provision_resolve_device_and_restart_replay fails with InvalidData state already locked when the replayed provider reopens its state."
+assumption = "The first is environmental and the build installs pyyaml; the second is a producer input excluded by name (decision 2496); the third is a restart defect in the provider repaired inside the crate."
+severity = "medium"
+
+[finding.22.99.76.2]
+task = "22.99.76"
+file = "programs/crates/layerx-programs-runtime/src/market_tests.rs"
+symbol = "compiled_market_dispute_refuses_forged_wrong_replayed_unauthorized_and_premature_moves"
+observed = "Attempt 2: the compiled market dispute test refuses operation 10 at index 6 with a V2AuthorizedExecutionRecord that the test expects to be accepted (market_tests.rs:642); six actual_ tests of tests/program_spend_composition.rs stop because the source-bound native guest producer and its signed receipt terminal evidence are NotPresent."
+assumption = "The actual_ tests are producer inputs excluded by name (decision 2496); the dispute refusal is compared with the dispute contract of the module and repaired inside the crate."
+severity = "medium"
+
+[finding.22.99.77.1]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs"
+symbol = "f03_a04_empty_vector_returns_no_scores"
+observed = "Attempt 2: 21 tests fail. Ten native harness tests stop because build/paxai-host-boundary/manifest is absent (make paxai-host-boundary-build never ran); four F03 host tests receive generic refusal codes 2, 3, 4, 5 and 20 where the F03 codes of src/errors.rs (0x0307 to 0x030C) are expected; rewards_native.rs:2193 and view_binding.rs:529 publish a committed snapshot at the evidence rank (2 or 3) where FINALIZED_RANK 4 is expected."
+assumption = "The task moves to the mixed environment profile and the build runs make -s paxai-host-boundary-build first; the host boundary propagates the F03 codes unchanged; a binding whose block is committed is published at FINALIZED_RANK because a committed block is final on this chain."
+severity = "medium"
+
+[finding.22.9.10.11]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/test/receipt-fixture.test.ts"
+symbol = "decodeProgramsReceipt"
+observed = "Attempt 24: npm run build fails with TS2724 at test/receipt-fixture.test.ts:13 because that test still imports decodeProgramsReceipt, which this task removed from src/ai_market.ts; the file was outside the paths."
+assumption = "The test file joins the paths and follows the decoder this task keeps."
+severity = "low"
+
+[finding.22.9.18.6]
+task = "22.9.18"
+file = "services/agent/crates/layerx-sdk/src/program_http.rs"
+symbol = "signed_program_transaction"
+observed = "Attempt 14: following the attempt-13 ruling the corpus record 0 (abi3-success) was compared with the decoder: its signed activity starts with byte 0x00, the native activity form the kernel emits, while signed_program_transaction in program_http.rs accepts only the EIP-1559 envelope (type byte 0x02); the file was outside the paths so no gate ran."
+assumption = "program_http.rs joins the paths; the decoder accepts the native activity form the kernel wire defines alongside the EIP-1559 envelope."
+severity = "medium"

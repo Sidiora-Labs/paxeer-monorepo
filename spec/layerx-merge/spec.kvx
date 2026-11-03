@@ -126976,7 +126976,7 @@ do_1 = "services/agent/sdk/typescript/src/ai_market.ts:3273 decodeProgramsReceip
 do_2 = "Share d9-6.kvx with 22.9.11: set follow_up of [disposition.9.97.8.3] to 22.9.10."
 do_3 = "Set follow_up of [disposition.9.97.8.3] in spec/layerx-merge/dispositions/d9-6.kvx to 22.9.10 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
 symbols = ["decodeProgramsReceipt"]
-touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/package.json", "sdk/platform/conformance/fixtures/intent-plan-v1.json", "services/agent/sdk/typescript/test/intent.test.ts", "sdk/platform/conformance/evm-call-wrapping.test.py", "tests/agent/sdk/python/test_intent.py", "services/agent/sdk/typescript/src/intent.ts", "services/agent/sdk/typescript/test/exchange-v2.test.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/typescript/test/proof_exchange.test.ts", "services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/test/support/exchange_consumers.ts", "services/agent/sdk/typescript/test/xweb-api.test.ts", "services/agent/sdk/typescript/test/gas-station.test.ts", "services/agent/sdk/typescript/test/web-search.test.ts", "services/agent/sdk/typescript/src/web-search.ts", "services/agent/sdk/typescript/test/web-search-sequencer.test.ts", "services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json"]
+touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/package.json", "sdk/platform/conformance/fixtures/intent-plan-v1.json", "services/agent/sdk/typescript/test/intent.test.ts", "sdk/platform/conformance/evm-call-wrapping.test.py", "tests/agent/sdk/python/test_intent.py", "services/agent/sdk/typescript/src/intent.ts", "services/agent/sdk/typescript/test/exchange-v2.test.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/typescript/test/proof_exchange.test.ts", "services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/test/support/exchange_consumers.ts", "services/agent/sdk/typescript/test/xweb-api.test.ts", "services/agent/sdk/typescript/test/gas-station.test.ts", "services/agent/sdk/typescript/test/web-search.test.ts", "services/agent/sdk/typescript/src/web-search.ts", "services/agent/sdk/typescript/test/web-search-sequencer.test.ts", "services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json", "services/agent/sdk/typescript/test/receipt-fixture.test.ts"]
 tests = []
 planned_paths = ["services/agent/sdk/typescript/test/ai-market.test.ts"]
 build_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build"
@@ -127011,6 +127011,7 @@ do_19 = "Decision 2446 (attempt 19, f724e236706, continue), superseding do_18's 
 do_20 = "Decision 2474: services/agent/sdk/typescript/test/web-search-sequencer.test.ts constructs WebSearchExactPayment at line 167 (exact: async () => ({ receipt, rawTransaction })) and no longer type-checks against the shape do_19 gives src/web-search.ts:57-62 (receipt, txHash, idempotencyKey, optional rawTransaction). Migrate that test, not the source: return receipt, txHash taken from the transactionHash the test already reads at line 96 (vector.receiptJson.txHash) and idempotencyKey taken from the exact settlement expectation the test asserts, keep rawTransaction, and align the settlement payload assertions at lines 197 and 285 with the fields the port sends. The build (tsc) must pass before the verify runs."
 do_21 = "test/web-search.test.ts (exact payer, lines 190-203) recomputes receiptDigest as sha256 of the domain prefix LXP/v1/merkle-leaf followed by the receipt bytes and compares it with the receiptDigest recorded in services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json; the values differ. Read how the recording producer (services/interop/crates/x-websearch/tests/payment.rs and the gateway code that writes receiptDigest) derives the digest and compute it the same way in the test. If the fixture predates the current receipt bytes, re-record it with the producer under its recording environment variable and commit the new fixture; never relax or drop the digest check."
 do_22 = "Decision 2495 (attempt 23, 5256ba333, continue): the exact fixtures now carry rawTransaction (task 11.98.1, required). In test/web-search.test.ts the exact payer (lines 190-203) returns rawTransaction decoded from the recorded payment's rawTransaction field beside receipt, txHash and idempotencyKey, and the receiptDigest comparison stays as do_21 settled it. Do not change src/web-search.ts for this case; the client's checks that the receipt verifies against the signed bytes and that txHash equals keccak of them are the contract."
+do_23 = "Attempt 24 (continue): test/receipt-fixture.test.ts is now in the paths. Lines 13, 275 and 282 still import and call decodeProgramsReceipt, which this task removed from src/ai_market.ts; move those two assertions to the decoder this task keeps for the native programs receipt, or delete only the assertions whose fixture no longer exists, so npm run build and npm test pass."
 
 [task.22.91.38]
 title = "Inventory the platform examples packages"
@@ -138726,10 +138727,10 @@ symbols = []
 touches = ["programs/crates/layerx-programs-ai-market", "spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.10.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.10.kvx"]
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+build_cmd = "make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
 verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.10.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast"
 gate_kind = "planned"
-sandbox_profile = "rust"
+sandbox_profile = "mixed"
 owner_role = "fm-programs"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -138739,6 +138740,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue): the task now runs in the mixed environment profile and the build runs make -s paxai-host-boundary-build before the crate build, which writes build/paxai-host-boundary/manifest for the native harness tests (f03_evaluator_host.rs, host_boundary.rs, rewards_native.rs and the other native_ tests). With the manifest present, repair the real failures: (1) the F03 host tests expect the F03 refusal codes of src/errors.rs (F03_NO_SCORES and its neighbours, 0x0307 to 0x030C) while the host boundary returns the generic codes 2, 3, 4, 5 and 20; make the host boundary propagate the F03 application codes unchanged, as the codec tests already require. (2) rewards_native.rs:2193 and view_binding.rs:529 expect a snapshot bound to a committed block to publish FINALIZED_RANK while bind_snapshot in src/queries.rs copies the evidence rank; a committed block is final on this chain (decision 2317 and the architecture ruling of 2026-10-31), so bind_snapshot publishes FINALIZED_RANK whenever the finality facts carry the committed block hash, while a rank above finalized stays refused. Record the repaired tests in the repair record."
 
 [task.22.99.76]
 title = "Repair the inventory sweep target layerx-programs-runtime"
@@ -138757,7 +138759,7 @@ touches = ["programs/crates/layerx-programs-runtime", "spec/layerx-merge/program
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.4.kvx"]
 build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --tests"
-verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.4.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --no-fail-fast"
+verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.4.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --no-fail-fast -- --skip actual_"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-programs"
@@ -138769,6 +138771,8 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2496 (continue): the tests actual_ are qualified by their producer inputs and are excluded by name from the verify; list each in the repair record as producer_input_tests with the input it needs. Every other failure the recorded command exposes is a defect to repair inside the task's paths; none may be excluded."
+do_5 = "Attempt 2 (continue): execute::market_tests::compiled_market_dispute_refuses_forged_wrong_replayed_unauthorized_and_premature_moves refuses operation 10 at index 6 (market_tests.rs:642) although the test expects that authorized dispute move to be accepted. Compare the move with the dispute contract documented in the module (which moves are authorized after the dispute window, by whom and against which record), then repair the runtime check that refuses it; change the test only when the contract shows the move is not authorized, and say so in the repair record."
 
 [task.22.99.75]
 title = "Repair the inventory sweep target layerx-programs-registry"
@@ -139318,8 +139322,8 @@ symbols = []
 touches = ["services/human/crates/layerx-human-identity-provider", "spec/layerx-merge/programme/sweeps/repairs/rust-test-human.6.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/rust-test-human.6.kvx"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider --tests"
-verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-test-human.6.kvx && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider --no-fail-fast"
+build_cmd = "(python3 -c 'import yaml' || python3 -m pip install -q --break-system-packages pyyaml) && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider --tests"
+verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-test-human.6.kvx && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider --no-fail-fast -- --skip assertion_capability_reaches_existing_attestor_admission"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -139331,6 +139335,8 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2496 (continue): the tests assertion_capability_reaches_existing_attestor_admission are qualified by their producer inputs and are excluded by name from the verify; list each in the repair record as producer_input_tests with the input it needs. Every other failure the recorded command exposes is a defect to repair inside the task's paths; none may be excluded."
+do_5 = "Attempt 2 (continue): the build now installs pyyaml for services/platform/hosted/human/test_provision.py, so generated_catalog_loads_through_the_service_reader runs against the real generator. provision_resolve_device_and_restart_replay fails with InvalidData state already locked: the restarted provider reopens the state store while the lock of the instance it replaces is still held. Release the state lock when a provider instance shuts down (and on drop), and make the restart path in the crate reopen through that released lock; the test keeps asserting that the replayed resolution matches the pre-restart one. Report the repaired test in the repair record."
 
 [task.22.99.57]
 title = "Repair the inventory sweep target layerx-network-gateway"
@@ -142368,7 +142374,7 @@ interfaces = []
 do_1 = "layerx-agent-api/tests/schema.rs:233 expects the earlier signed-activity programs contract where the published contract moved to EIP-1559 transactions: assert the published contract. layerx-agentd/src/agent_rpc_adapters.rs:2559 freshness_serializes_block_height_coordinates expects an unprefixed hash where JSON now carries 0x-prefixed hashes: assert the prefixed form. layerx-sdk programs::http::source_contract v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes fails with Verification: regenerate the native corpus evidence from the current program verification contract or repair the verifier, stating which in the commit. layerx-mcp/tests/activity_evm_signatures.rs:54 expects a native submit schema the MCP tool contract no longer exposes: assert the EVM submission schema the contract declares."
 do_2 = "The four crates test clean with cargo test --locked."
 symbols = []
-touches = ["services/agent/crates/layerx-agent-api/tests/schema.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-sdk/src/programs", "services/agent/crates/layerx-sdk/tests", "services/agent/crates/layerx-mcp/tests/activity_evm_signatures.rs"]
+touches = ["services/agent/crates/layerx-agent-api/tests/schema.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-sdk/src/programs", "services/agent/crates/layerx-sdk/tests", "services/agent/crates/layerx-mcp/tests/activity_evm_signatures.rs", "services/agent/crates/layerx-sdk/src/program_http.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api -p layerx-agentd -p layerx-sdk -p layerx-mcp --tests"
@@ -142392,6 +142398,7 @@ do_7 = "Decision 2402 (attempts 5 to 8): every terminal-v5 corpus build exits 2 
 do_8 = "Decision 2417 (attempt 9, 9c2263840, re-qualify unchanged): with 22.1.11 published the corpus build passes its make and cargo steps and exits 1 in the third, the cc compile and link of tests/programs/test_terminal_v5.c against liblayerx.a and the programs environment crate archive, whose log the build keeps in its private output directory. The verify now prints the tail of every build log when the corpus build fails, so the qualification run records the compiler error; the candidate of attempt 9 is re-qualified unchanged under that verify and the recorded error is ruled on before any further change."
 do_9 = "Decision 2426 (attempt 10, 359867035, re-qualify unchanged): the corpus build exits 1 in its cc step at terminal-v5-language-fixture.inc:9, fatal error layerx/lx_web.h: No such file or directory; the fixture is tests/programs/test_language_abi.c projected verbatim, and that file still includes the header 1.18.2 deleted. 22.1.12 retires the web case from the language ABI harness; this task now requires it and the attempt 10 candidate is re-qualified unchanged once 22.1.12 has published."
 do_10 = "Attempt 13 (continue): the corpus test fails with Error: Decode on the corpus the verify builds. Make the programs source-contract decoder error name the record index, the field and the byte offset it refused, then compare that record with the kernel terminal-v5 wire (tests/ under the kernel tree and the corpus manifest): when the decoder in services/agent/crates/layerx-sdk/src/programs disagrees with the kernel wire, repair the decoder; when the corpus script writes a record the kernel wire does not define, stop and report scripts/qualification/paxeer-x/program-terminal-v5.py with the record and field."
+do_11 = "Attempt 14 (continue): services/agent/crates/layerx-sdk/src/program_http.rs is now in the paths. The corpus record 0 (abi3-success) carries a signed activity whose first byte is 0x00, the native activity form the kernel emits, and signed_program_transaction accepts only the EIP-1559 envelope (type byte 0x02). The decoder disagrees with the kernel wire, so repair the decoder: branch on the first byte, keep the EIP-1559 path for 0x02 and decode the native activity form as the kernel terminal-v5 wire defines it (sender, target, call body and signature), binding both to the same NativeProgramCallRequest checks; refuse any other first byte. Then run the corpus test and the schema and freshness gates."
 
 [task.22.9.17]
 title = "Reconcile the agent crates' vector counts, settlement fixtures and address casing"
