@@ -1,0 +1,6 @@
+[repair.c-kernel-make.112]
+target = "test-journal"
+command = "make -s test-journal"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "already-passing"
+change = "The journal ThreadSanitizer recipe already uses the current journal, account registry, crypto, storage and protocol sources without the retired src/state/lxp_idempotency.c dependency; journal assertions are unchanged."
