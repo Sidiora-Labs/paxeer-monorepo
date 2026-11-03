@@ -895,6 +895,20 @@ mod tests {
         assert_eq!(execution.terminal_status, 1);
         let last = execution.truth.last().expect("terminal boundary");
         assert!(last.trap.is_some());
+        let observed = layerx_programs_runtime::execute::observe_market_sandbox_step(
+            &execution.module,
+            last,
+            &execution.authority,
+            MAX_BYTES as usize,
+        )
+        .expect("observed terminal trap");
+        assert_eq!(
+            observed
+                .reencode_untrusted(MAX_BYTES as usize)
+                .expect("observed trap bytes"),
+            last.reencode_untrusted(MAX_BYTES as usize)
+                .expect("terminal trap bytes")
+        );
         let honest = CommittedTrace::new(execution.leaves.clone()).expect("honest trap trace");
         let mut game = execution.game(&honest);
         let settlement = play(&mut game, &honest, |_, _| true);

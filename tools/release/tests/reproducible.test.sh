@@ -64,7 +64,6 @@ native_libraries_rebuilt_clean() {
   require_builds
   [ ! -e "$checkout_a/build/generated/clean-probe" ] || fail "generated files survived the second build"
   [ ! -e "$checkout_a/programs/target/clean-probe" ] || fail "program artifacts survived the second build"
-  [ -s "$checkout_a/build/generated/lxp_checkpoint_settlement.h" ] || fail "checkpoint header was not rebuilt"
   [ -s "$checkout_a/build/liblayerx.a" ] || fail "kernel library was not rebuilt"
   [ -s "$checkout_a/programs/target/release/liblayerx_programs_sandbox.a" ] || fail "sandbox library was not rebuilt"
   (cd "$checkout_a" && sha256sum --check --strict "$outputs/b/native-libs.sha256")

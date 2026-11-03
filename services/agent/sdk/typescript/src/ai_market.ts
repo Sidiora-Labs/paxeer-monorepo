@@ -26,10 +26,9 @@ import {
 } from "./account-derivation.js";
 import { abiSelector, type PrecompileCall } from "./exchange.js";
 import { decodeRevertReason, RevertReasonError } from "./revert.js";
-import type {
-  ProtocolReceipt,
-  ReceiptEffect,
-  SequencerAuthorization,
+import {
+  verifySequencerReceipt,
+  type SequencerAuthorization,
 } from "./verifier.js";
 
 /** Values of sdk/platform/schema/paxai-v1.kvx [limits]. */
@@ -732,16 +731,7 @@ export type EpochStatus =
 export type ParticipantKind = "worker" | "evaluator";
 export type KindFilter = "all" | ParticipantKind;
 export type FeatureName =
-  | "F01"
-  | "F02"
-  | "F03"
-  | "F04"
-  | "F05"
-  | "F06"
-  | "F07"
-  | "F08"
-  | "F09"
-  | "F10";
+  "F01" | "F02" | "F03" | "F04" | "F05" | "F06" | "F07" | "F08" | "F09" | "F10";
 export type Components = Readonly<Record<FeatureName, Availability>>;
 
 const PROJECTIONS: readonly ProjectionState[] = [
@@ -3081,7 +3071,7 @@ export class OperationJournal {
     submission: unknown,
   ): Promise<OperationRecord> {
     requireState(record, ["pending", "unknown"]);
-    const execution = decodeProgramsReceipt(
+    const execution = await decodeProgramsReceipt(
       submission,
       record.signedBytes,
       this.#receiptKeys,
@@ -3179,6 +3169,7 @@ export class OperationJournal {
 export function decodeProgramsCallResult(
   bytes: Uint8Array,
   responseCapacity: number,
+  transferSetRoot?: Uint8Array,
 ) {
   if (
     !Number.isInteger(responseCapacity) ||
@@ -3203,18 +3194,165 @@ export function decodeProgramsCallResult(
     refuse("ReceiptMismatch");
   const length = word(3);
   if (
-    length > BigInt(responseCapacity) ||
+    length > 1_048_576n ||
     bytes.length !== 128 + Math.ceil(Number(length) / 32) * 32
   )
     refuse("ReceiptMismatch");
-  const response = bytes.slice(128, 128 + Number(length));
+  let response: Uint8Array = bytes.slice(128, 128 + Number(length));
   if (bytes.slice(128 + Number(length)).some((byte) => byte !== 0))
     refuse("ReceiptMismatch");
+  const domain = ascii("LXP/programs/terminal-applied-legs/v1\0");
+  if (equal(response.slice(0, domain.length), domain)) {
+    if (transferSetRoot === undefined || transferSetRoot.length !== 32)
+      refuse("ReceiptMismatch");
+    const reader = new Reader(response.slice(domain.length), () =>
+      refuse("ReceiptMismatch"),
+    );
+    const execution = reader.sized(1_048_576);
+    const legs = reader.sized(256 * 115);
+    reader.end();
+    if (execution.length === 0 || legs.length % 115 !== 0)
+      refuse("ReceiptMismatch");
+    let leaves: Uint8Array[] = [];
+    for (let offset = 0; offset < legs.length; offset += 115) {
+      const leg = legs.slice(offset, offset + 115);
+      if (
+        leg[0] !== 0 ||
+        leg[113] !== 0 ||
+        leg[114] !== 1 ||
+        [
+          leg.slice(1, 33),
+          leg.slice(33, 65),
+          leg.slice(65, 97),
+          leg.slice(97, 113),
+        ].some((field) => field.every((byte) => byte === 0))
+      )
+        refuse("ReceiptMismatch");
+      leaves.push(sha256(concat(ascii("LXP/v1/merkle-leaf\0"), leg)));
+    }
+    while (leaves.length > 1) {
+      const next: Uint8Array[] = [];
+      for (let index = 0; index < leaves.length; index += 2)
+        next.push(
+          sha256(
+            concat(
+              ascii("LXP/v1/merkle-internal\0"),
+              leaves[index]!,
+              leaves[index + 1] ?? leaves[index]!,
+            ),
+          ),
+        );
+      leaves = next;
+    }
+    if (!equal(leaves[0] ?? new Uint8Array(32), transferSetRoot))
+      refuse("ReceiptMismatch");
+    validateProgramsExecutionResponse(
+      execution,
+      responseCapacity,
+      Number(word(1)),
+    );
+    response = execution;
+  } else if (response.length > responseCapacity) {
+    refuse("ReceiptMismatch");
+  }
   return Object.freeze({
     terminalResult: Number(signed),
     terminalKind: Number(word(1)),
     response,
   });
+}
+
+function validateProgramsExecutionResponse(
+  execution: Uint8Array,
+  responseCapacity: number,
+  terminalKind: number,
+): void {
+  const occupancy = ascii("LXP/program-execution-with-occupancy/v1\0");
+  let inner = execution;
+  if (equal(inner.slice(0, occupancy.length), occupancy)) {
+    const wrapper = new Reader(inner.slice(occupancy.length), () =>
+      refuse("ReceiptMismatch"),
+    );
+    inner = wrapper.sized(1_048_576);
+    if (wrapper.sized(1_048_576).length === 0) refuse("ReceiptMismatch");
+    wrapper.end();
+  }
+  const domains = [2, 3, 4, 5].map((version) =>
+    ascii(`LXP/program-execution/v${version}\0`),
+  );
+  const version =
+    domains.findIndex((domain) =>
+      equal(inner.slice(0, domain.length), domain),
+    ) + 2;
+  if (version < 2) refuse("ReceiptMismatch");
+  const reader = new Reader(inner.slice(domains[version - 2]!.length), () =>
+    refuse("ReceiptMismatch"),
+  );
+  const sized64 = (maximum: number): Uint8Array => {
+    const length = reader.u64();
+    if (length > BigInt(maximum)) refuse("ReceiptMismatch");
+    return reader.fixed(Number(length));
+  };
+  if (reader.u16() === 0) refuse("ReceiptMismatch");
+  if (version <= 3) {
+    if (terminalKind !== 1 || reader.u16() !== 1 || reader.u32() === 0)
+      refuse("ReceiptMismatch");
+  } else if (reader.u32() === 0 || reader.u32() === 0) {
+    refuse("ReceiptMismatch");
+  }
+  const count = version <= 3 ? reader.u128() : reader.u64();
+  if (count > BigInt(Math.floor(inner.length / 5))) refuse("ReceiptMismatch");
+  for (let index = 0n; index < count; index += 1n) {
+    const tag = reader.u8();
+    if (tag !== 1 && tag !== 2) refuse("ReceiptMismatch");
+    reader.fixed(tag === 1 ? 4 : 8);
+  }
+  reader.fixed(8 * 4 + 4);
+  if (version >= 4) reader.u64();
+  reader.u128();
+  if (version >= 3) {
+    const trace = reader.u8();
+    if (trace === 1) sized64(34 + 65_536 * 52);
+    else if (trace !== 0 || version === 3) refuse("ReceiptMismatch");
+  }
+  if (version >= 4) {
+    reader.fixed(32);
+    const abi = reader.u16();
+    if (version === 4 ? abi !== 2 : abi < 3 || abi > 5)
+      refuse("ReceiptMismatch");
+    const tag = reader.u8();
+    if (tag === 0) {
+      if (terminalKind !== 1 || reader.u32() > 0x7fff_ffff)
+        refuse("ReceiptMismatch");
+      sized64(responseCapacity);
+    } else if (tag === 1) {
+      if (terminalKind !== 2) refuse("ReceiptMismatch");
+      const failure = new Reader(sized64(4_136), () =>
+        refuse("ReceiptMismatch"),
+      );
+      if (failure.fixed(32).every((byte) => byte === 0))
+        refuse("ReceiptMismatch");
+      const kind = failure.u32();
+      const reason = failure.sized(4_096);
+      if (
+        ![1, 2, 3, 4, 5, 254, 255].includes(kind) ||
+        (kind >= 254 && reason.length !== 0)
+      )
+        refuse("ReceiptMismatch");
+      failure.end();
+    } else if (tag === 2) {
+      if (terminalKind !== 3) refuse("ReceiptMismatch");
+      const kind = reader.u8(),
+        resource = reader.u8();
+      if (resource > 6) refuse("ReceiptMismatch");
+      if (kind === 0) {
+        const limit = reader.u64();
+        if (reader.u64() <= limit) refuse("ReceiptMismatch");
+      } else if (kind !== 1) refuse("ReceiptMismatch");
+    } else refuse("ReceiptMismatch");
+    sized64(1_048_576);
+  }
+  reader.end();
 }
 
 function receiptObject(value: unknown): Readonly<Record<string, unknown>> {
@@ -3241,9 +3379,15 @@ function rpcQuantity(value: unknown): bigint {
 }
 
 /** Decode the gateway's key document; JSON numbers must remain exact in JavaScript. */
-export function decodeGatewayReceiptKeys(value: unknown): readonly SequencerAuthorization[] {
+export function decodeGatewayReceiptKeys(
+  value: unknown,
+): readonly SequencerAuthorization[] {
   const document = receiptObject(value);
-  if (Object.keys(document).length !== 1 || !Array.isArray(document.keys) || document.keys.length === 0)
+  if (
+    Object.keys(document).length !== 1 ||
+    !Array.isArray(document.keys) ||
+    document.keys.length === 0
+  )
     refuse("ReceiptMismatch");
   const seen = new Set<string>();
   return document.keys.map((value: unknown) => {
@@ -3251,26 +3395,45 @@ export function decodeGatewayReceiptKeys(value: unknown): readonly SequencerAuth
     if (Object.keys(entry).length !== 4) refuse("ReceiptMismatch");
     const sequencerId = rpcBytes(entry.keyId, 32);
     const publicKey = rpcBytes(entry.publicKey, 32);
-    const first = entry.firstHeight, last = entry.lastHeight;
-    if (typeof first !== "number" || typeof last !== "number" ||
-        !Number.isSafeInteger(first) || !Number.isSafeInteger(last) ||
-        first < 1 || last < first || sequencerId.every((byte) => byte === 0) ||
-        seen.has(hex(sequencerId))) refuse("ReceiptMismatch");
+    const first = entry.firstHeight,
+      last = entry.lastHeight;
+    if (
+      typeof first !== "number" ||
+      typeof last !== "number" ||
+      !Number.isSafeInteger(first) ||
+      !Number.isSafeInteger(last) ||
+      first < 1 ||
+      last < first ||
+      sequencerId.every((byte) => byte === 0) ||
+      seen.has(hex(sequencerId))
+    )
+      refuse("ReceiptMismatch");
     try {
       const point = ed25519.Point.fromBytes(publicKey, false);
-      if (point.isSmallOrder() || !point.isTorsionFree()) refuse("ReceiptMismatch");
-    } catch { return refuse("ReceiptMismatch"); }
+      if (point.isSmallOrder() || !point.isTorsionFree())
+        refuse("ReceiptMismatch");
+    } catch {
+      return refuse("ReceiptMismatch");
+    }
     seen.add(hex(sequencerId));
-    return Object.freeze({ sequencerId, publicKey,
-      firstBatchNumber: BigInt(first), lastBatchNumber: BigInt(last) });
+    return Object.freeze({
+      sequencerId,
+      publicKey,
+      firstBatchNumber: BigInt(first),
+      lastBatchNumber: BigInt(last),
+    });
   });
 }
 
-export async function gatewayReceiptKeys(operations: Eip1193Requester): Promise<readonly SequencerAuthorization[]> {
-  return decodeGatewayReceiptKeys(await operations.request({method: "px_getReceiptKeys", params: []}));
+export async function gatewayReceiptKeys(
+  operations: Eip1193Requester,
+): Promise<readonly SequencerAuthorization[]> {
+  return decodeGatewayReceiptKeys(
+    await operations.request({ method: "px_getReceiptKeys", params: [] }),
+  );
 }
 
-export function decodeProgramsReceipt(
+export async function decodeProgramsReceipt(
   value: unknown,
   signed: Uint8Array,
   receiptKeys: readonly SequencerAuthorization[],
@@ -3300,72 +3463,23 @@ export function decodeProgramsReceipt(
   }
   if (v.rung !== "receipted" && v.rung !== "committed")
     refuse("ReceiptMismatch");
-  const canonical = rpcBytes(v.receipt);
-  if (canonical.length > 1_048_576) refuse("ReceiptMismatch");
-  const r = new Reader(canonical, () => refuse("ReceiptMismatch"));
-  if (r.u16() !== 2 || r.u16() !== 0x5201 || r.u16() !== 2)
-    refuse("ReceiptMismatch");
-  const arr = (): Uint8Array => r.sized(32, 32);
-  const activityId = arr(),
-    globalSequence = r.u64(),
-    previousStateRoot = arr(),
-    resultingStateRoot = arr(),
-    activityRoot = arr();
-  const resultCode = new DataView(r.fixed(4).buffer).getInt32(0);
-  const effectCount = r.u32();
-  if (effectCount === 0 || effectCount > Math.floor(1_048_576 / 48))
-    refuse("ReceiptMismatch");
-  const effects: ReceiptEffect[] = [];
-  for (let index = 0; index < effectCount; index += 1) {
-    const moduleId = r.u16(),
-      ordinal = r.u16(),
-      eventType = r.u16(),
-      kind = r.u8(),
-      monetary = r.u8();
-    const transferSetRoot = arr(),
-      body = r.sized(256);
-    if (
-      ordinal !== index ||
-      eventType !== 0 ||
-      kind !== (index === 0 ? 1 : 3) ||
-      monetary !== 0 ||
-      transferSetRoot.some((byte) => byte !== 0)
-    )
-      refuse("ReceiptMismatch");
-    effects.push({
-      moduleId,
-      ordinal,
-      eventType,
-      kind: index === 0 ? 1 : 3,
-      monetary: false,
-      transferSetRoot,
-      body,
-    });
+  let verified: Awaited<ReturnType<typeof verifySequencerReceipt>>;
+  try {
+    verified = await verifySequencerReceipt(
+      rpcBytes(v.receipt),
+      signed,
+      receiptKeys.map((key) => ({
+        keyId: key.sequencerId,
+        publicKey: key.publicKey,
+        first_height: key.firstBatchNumber,
+        last_height: key.lastBatchNumber,
+      })),
+    );
+  } catch {
+    return refuse("ReceiptMismatch");
   }
-  const feeCharged = r.u128(),
-    batchId = arr(),
-    moduleId = r.u16(),
-    moduleVersion = r.u32(),
-    parameterVersion = r.u32(),
-    operation = r.u8();
-  const asset = arr(),
-    amount = r.u128(),
-    from = arr(),
-    fromBalanceBefore = r.u128(),
-    fromBalanceAfter = r.u128(),
-    fromSequence = r.u64();
-  const to = arr(),
-    toBalanceBefore = r.u128(),
-    toBalanceAfter = r.u128(),
-    transferSetRoot = arr(),
-    authorizationHash = arr(),
-    contextHash = arr(),
-    timestamp = r.u64();
-  if (r.u8() !== 1) refuse("ReceiptMismatch");
-  const sequencerSignature = r.sized(64, 64);
-  r.end();
-  const receipt: ProtocolReceipt = Object.freeze({
-    protocolVersion: 2,
+  const { receipt, height } = verified;
+  const {
     activityId,
     globalSequence,
     previousStateRoot,
@@ -3382,52 +3496,19 @@ export function decodeProgramsReceipt(
     asset,
     amount,
     from,
-    fromBalanceBefore,
-    fromBalanceAfter,
     fromSequence,
     to,
-    toBalanceBefore,
-    toBalanceAfter,
     transferSetRoot,
     authorizationHash,
     contextHash,
     timestamp,
-    sequencerSignature,
-  });
-  const height = new DataView(
-    batchId.buffer,
-    batchId.byteOffset,
-    batchId.byteLength,
-  ).getBigUint64(24);
-  const key = receiptKeys.find(
-    (entry) =>
-      equal(entry.sequencerId, contextHash) &&
-      entry.firstBatchNumber <= height &&
-      height <= entry.lastBatchNumber,
-  );
-  if (
-    key === undefined ||
-    !ed25519.verify(
-      sequencerSignature,
-      sha256(
-        concat(
-          ascii("LXP/v1/receipt\0"),
-          canonical.slice(0, -69),
-          Uint8Array.of(0),
-        ),
-      ),
-      key.publicKey,
-      { zip215: false },
-    )
-  ) {
-    refuse("ReceiptMismatch");
-  }
+  } = receipt;
   if (
     height === 0n ||
     batchId.slice(0, 24).some((byte) => byte !== 0) ||
     globalSequence === 0n ||
     timestamp === 0n ||
-    moduleId <= 11 ||
+    moduleId !== 12 ||
     moduleVersion !== 1 ||
     parameterVersion !== 0 ||
     operation !== 2 ||
@@ -3441,7 +3522,16 @@ export function decodeProgramsReceipt(
     ) ||
     transferSetRoot.some((byte) => byte !== 0) ||
     authorizationHash.some((byte) => byte !== 0) ||
-    effects.some((effect) => effect.moduleId !== moduleId) ||
+    effects.length === 0 ||
+    effects.some(
+      (effect, index) =>
+        effect.moduleId !== moduleId ||
+        effect.ordinal !== index ||
+        effect.eventType !== 0 ||
+        effect.kind !== (index === 0 ? 1 : 3) ||
+        effect.monetary ||
+        effect.transferSetRoot.some((byte) => byte !== 0),
+    ) ||
     !equal(
       resultingStateRoot,
       sha256(
@@ -3546,12 +3636,41 @@ export function decodeProgramsReceipt(
       refuse("ReceiptMismatch");
   }
   const call = decodeNativeProgramCallV1(transaction.activity.payload);
+  const outcomeTopic = keccak_256(
+    ascii(
+      "ProgramCallOutcome(bytes32,bytes32,bytes32,uint64,uint8,uint16,uint16,uint32,uint32,int32,bytes32,bytes32,bytes32,bytes32)",
+    ),
+  );
+  let appliedTransferRoot: Uint8Array | undefined;
+  for (const value of v.logs) {
+    const log = receiptObject(value);
+    const topics = log.topics as unknown[];
+    if (
+      !equal(rpcBytes(log.address, 20), to.slice(12)) ||
+      topics.length === 0 ||
+      !equal(rpcBytes(topics[0], 32), outcomeTopic)
+    )
+      continue;
+    const data = rpcBytes(log.data, 13 * 32);
+    if (
+      appliedTransferRoot !== undefined ||
+      topics.length !== 2 ||
+      !equal(rpcBytes(topics[1], 32), call.programId) ||
+      !equal(data.slice(8 * 32, 9 * 32), returnData.slice(0, 32))
+    )
+      refuse("ReceiptMismatch");
+    appliedTransferRoot = data.slice(9 * 32, 10 * 32);
+  }
   const revert = status === 0n ? decodeRevertReason(returnData) : null;
   return Object.freeze({
     receipt,
     programResult:
       status === 1n
-        ? decodeProgramsCallResult(returnData, call.responseCapacity)
+        ? decodeProgramsCallResult(
+            returnData,
+            call.responseCapacity,
+            appliedTransferRoot,
+          )
         : null,
     refusal:
       revert === null
