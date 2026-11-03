@@ -1,0 +1,483 @@
+[reconcile.r10-68]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r10-68.1]
+interface = "interface.10.rs-network-gateway-decode-account-balances"
+verdict = "served"
+path = "services/human/crates/layerx-network-gateway/src/lib.rs"
+line = 955
+symbol = "decode_account_balances"
+evidence = "pub fn decode_account_balances(result: &Value) -> Result<AccountBalances, GatewayError> {; The Rust parameter and return types are unchanged from the registry. The body decodes account identities, height and bank denom/amount rows, rejects duplicate denominations and reports GatewayReported evidence; override.J46.18 refers to the chain-only shape."
+
+[row.r10-68.2]
+interface = "interface.10.rs-network-gateway-lib-decode-assets-l1017-j46"
+verdict = "served"
+path = "services/human/crates/layerx-network-gateway/src/lib.rs"
+line = 984
+symbol = "decode_assets"
+evidence = "pub fn decode_assets(result: &Value) -> Result<AssetTable, GatewayError> {; The Rust parameter and return types are unchanged from the registry. AssetEntry now carries asset_id, optional denom, kind and nullable metadata; AssetTable includes height and joined_limit, with GatewayReported evidence."
+
+[row.r10-68.3]
+interface = "interface.10.rs-network-gateway-decode-network"
+verdict = "served"
+path = "services/human/crates/layerx-network-gateway/src/lib.rs"
+line = 1026
+symbol = "decode_network"
+evidence = "pub fn decode_network(result: &Value) -> Result<NetworkHead, GatewayError> {; The Rust parameter and return types are unchanged from the registry. The body decodes network_id and paxeer chain_id/latest_block plus an optional consensus head; null consensus requires reason consensus_unavailable. See override.J46.19."
+
+[row.r10-68.4]
+interface = "interface.10.http-human-activity-export-evidence"
+verdict = "served"
+path = "services/human/schema/human-api/activity.kvx"
+line = 141
+symbol = "/v1/activity/exports/evidence"
+evidence = "path = \"/v1/activity/exports/evidence\"; POST and the route literal are unchanged. ExportEvidenceRequest still returns ExportArtefact; the response now permits optional rung:Rung and explicitly preserves the achieved verification level."
+
+[row.r10-68.5]
+interface = "interface.10.fmt-human-api-type-agent-spend"
+verdict = "served"
+path = "services/human/schema/human-api/agents.kvx"
+line = 35
+symbol = "[type.AgentSpend]"
+evidence = "[type.AgentSpend]; Required period_start, period_end, spent, remaining and verification are unchanged; optional rung:Rung was added alongside reconciliation_copy_key:CopyKey."
+
+[row.r10-68.6]
+interface = "interface.10.fmt-human-api-type-verified-money"
+verdict = "served"
+path = "services/human/schema/human-api/agents.kvx"
+line = 89
+symbol = "[type.VerifiedMoney]"
+evidence = "[type.VerifiedMoney]; Required money:Money and verification:VerificationLevel are unchanged; optional rung:Rung was added to the declared shape."
+
+[row.r10-68.7]
+interface = "interface.10.http-human-agent-create"
+verdict = "served"
+path = "services/human/schema/human-api/agents.kvx"
+line = 122
+symbol = "/v1/agents"
+evidence = "path = \"/v1/agents\"; POST and the route literal are unchanged. AgentCreateRequest now permits native_fee_budget:NativeFeeBudget; AgentCreationJourney now permits rung:Rung. The declared operation remains idempotent."
+
+[row.r10-68.8]
+interface = "interface.10.fmt-human-api-module-baseline"
+verdict = "served"
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1
+symbol = "[manifest]"
+evidence = "[manifest]; This file remains the schema baseline, declared by [manifest], tool layerx-human-schema-check and schema_major = 1. Its entries now include AgentSpend optional rung:Rung and binding/deposit retirement metadata; the registered file path is a locator, not a literal in its contents."
+
+[row.r10-68.9]
+interface = "interface.10.fmt-human-api-module-compatibility"
+verdict = "served"
+path = "services/human/schema/human-api/compatibility.kvx"
+line = 1
+symbol = "[compatibility]"
+evidence = "[compatibility]; This file remains the compatibility table under [compatibility]. It currently declares compatibility.row.1 through compatibility.row.11, ending at schema 1.10 with service and web_app 0.1.x; the registered file path is a locator, not a literal in its contents."
+
+[row.r10-68.10]
+interface = "interface.10.err-human-api-exit-unavailable"
+verdict = "served"
+path = "services/human/schema/human-api/errors.kvx"
+line = 9
+symbol = "exit-unavailable"
+evidence = "variants = [\"unauthenticated\",\"session-expired\",\"step-up-required\",\"forbidden\",\"not-found\",\"invalid-request\",\"conflict\",\"rate-limited\",\"cursor-expired\",\"unavailable\",\"upstream-degraded\",\"challenge-expired\",\"refused-by-policy\",\"refused-by-budget\",\"refused-by-capability\",\"refused-by-protocol\",\"refused-by-limit\",\"quote-expired\",\"wallet-not-bound\",\"exit-unavailable\",\"already-decided\",\"hold-expired\",\"hold-defective\",\"archive-needs-disposition\",\"confirmation-mismatch\",\"not-suppressible\",\"support-unavailable\",\"support-conversation-unknown\",\"support-message-unknown\",\"operation-retired\"]; The literal exit-unavailable is still declared in ErrorCode variants at line 9 and also listed in retired_variants at line 10. Retirement metadata does not remove this schema declaration."
+
+[row.r10-68.11]
+interface = "interface.10.err-human-api-wallet-not-bound"
+verdict = "served"
+path = "services/human/schema/human-api/errors.kvx"
+line = 9
+symbol = "wallet-not-bound"
+evidence = "variants = [\"unauthenticated\",\"session-expired\",\"step-up-required\",\"forbidden\",\"not-found\",\"invalid-request\",\"conflict\",\"rate-limited\",\"cursor-expired\",\"unavailable\",\"upstream-degraded\",\"challenge-expired\",\"refused-by-policy\",\"refused-by-budget\",\"refused-by-capability\",\"refused-by-protocol\",\"refused-by-limit\",\"quote-expired\",\"wallet-not-bound\",\"exit-unavailable\",\"already-decided\",\"hold-expired\",\"hold-defective\",\"archive-needs-disposition\",\"confirmation-mismatch\",\"not-suppressible\",\"support-unavailable\",\"support-conversation-unknown\",\"support-message-unknown\",\"operation-retired\"]; The literal wallet-not-bound is still declared in ErrorCode variants at line 9 and also listed in retired_variants at line 10. Retirement metadata does not remove this schema declaration."
+
+[row.r10-68.12]
+interface = "interface.10.err-human-api-retry-final"
+verdict = "served"
+path = "services/human/schema/human-api/errors.kvx"
+line = 14
+symbol = "final"
+evidence = "variants = [\"retriable\",\"retriable-after\",\"structural\",\"final\"]; Retriability still declares the exact variant final; final.semantics describes a settled outcome without automatic retries. The registry signature combines the type and variant rather than quoting a contiguous literal."
+
+[row.r10-68.13]
+interface = "interface.10.err-human-api-retry-retriable"
+verdict = "served"
+path = "services/human/schema/human-api/errors.kvx"
+line = 14
+symbol = "retriable"
+evidence = "variants = [\"retriable\",\"retriable-after\",\"structural\",\"final\"]; Retriability still declares the exact variant retriable; retriable.semantics permits retrying the same request as-is. The registry signature combines the type and variant rather than quoting a contiguous literal."
+
+[row.r10-68.14]
+interface = "interface.10.err-human-api-retry-retriable-after"
+verdict = "served"
+path = "services/human/schema/human-api/errors.kvx"
+line = 14
+symbol = "retriable-after"
+evidence = "variants = [\"retriable\",\"retriable-after\",\"structural\",\"final\"]; Retriability still declares the exact variant retriable-after; its semantics require the carried retry_after_ms delay. The registry signature combines the type and variant rather than quoting a contiguous literal."
+
+[row.r10-68.15]
+interface = "interface.10.err-human-api-retry-structural"
+verdict = "served"
+path = "services/human/schema/human-api/errors.kvx"
+line = 14
+symbol = "structural"
+evidence = "variants = [\"retriable\",\"retriable-after\",\"structural\",\"final\"]; Retriability still declares the exact variant structural; its semantics require surrounding state to change before retrying. The registry signature combines the type and variant rather than quoting a contiguous literal."
+
+[row.r10-68.16]
+interface = "interface.10.fmt-human-api-golden-vectors"
+verdict = "served"
+path = "services/human/schema/human-api/golden/version.request.json"
+line = 3
+symbol = "/v1/version"
+evidence = "\"path\": \"/v1/version\"; The representative version.request.json still declares method GET and path /v1/version. Its paired version.response.json now reports schema major 1, minor 10. The registry wildcard describes fixture filenames rather than a literal in the request JSON."
+
+[row.r10-68.17]
+interface = "interface.10.fmt-human-api-type-account-balance"
+verdict = "served"
+path = "services/human/schema/human-api/home.kvx"
+line = 12
+symbol = "[type.AccountBalance]"
+evidence = "[type.AccountBalance]; Required account_id, money, verification, freshness and evidence remain as registered; optional rung:Rung was added to AccountBalance."
+
+[row.r10-68.18]
+interface = "interface.10.http-human-account-balance"
+verdict = "served"
+path = "services/human/schema/human-api/home.kvx"
+line = 27
+symbol = "/v1/account/balance"
+evidence = "path = \"/v1/account/balance\"; GET and the route literal are unchanged; request Empty still returns AccountBalance, whose shape now permits optional rung:Rung while retaining money, verification and evidence."
+
+[row.r10-68.19]
+interface = "interface.10.http-human-home-summary"
+verdict = "served"
+path = "services/human/schema/human-api/home.kvx"
+line = 34
+symbol = "/v1/home"
+evidence = "path = \"/v1/home\"; GET and the route literal are unchanged; request Empty still returns HomeSummary, which now permits program_approvals:ProgramApprovalSummary[] and rung:Rung alongside its required balance, agents, approvals and recent_activity."
+
+[row.r10-68.20]
+interface = "interface.10.fmt-human-api-module-identity"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 1
+symbol = "[module]"
+evidence = "[module]; The identity [module] remains contract_major = 1 and compatibility = additive_only. Its sponsorship declaration now specifies gas station submission of bindLayerX at 0x1004 and confirmation by the LayerXBound log; binding types and operations remain declared with retirement metadata."
+
+[row.r10-68.21]
+interface = "interface.10.http-human-onboarding-status"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 475
+symbol = "/v1/onboarding"
+evidence = "path = \"/v1/onboarding\"; GET and the route literal are unchanged; request Empty still returns OnboardingJourney. The module now declares gas station sponsorship of bindLayerX at 0x1004 and LayerXBound confirmation; the route retains its receipt-backed activation rule."
+
+[row.r10-68.22]
+interface = "interface.10.http-human-onboarding-resume"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 484
+symbol = "/v1/onboarding/resume"
+evidence = "path = \"/v1/onboarding/resume\"; POST and the route literal are unchanged; request Empty still returns OnboardingJourney. The module now declares gas station sponsorship of bindLayerX at 0x1004; the route retains convergent resumption without restarting completed stages."
+
+[row.r10-68.23]
+interface = "interface.10.fmt-human-api-type-binding-statement-request"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 489
+symbol = "[type.BindingStatementRequest]"
+evidence = "[type.BindingStatementRequest]; BindingStatementRequest remains declared with required address:EvmAddress and retired = true; the declaration has not been removed despite the registry retirement status."
+
+[row.r10-68.24]
+interface = "interface.10.fmt-human-api-type-binding-statement"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 493
+symbol = "[type.BindingStatement]"
+evidence = "[type.BindingStatement]; BindingStatement remains declared with statement:string, address:EvmAddress and expires_at:Timestamp and retired = true; the schema still describes the exact wallet statement."
+
+[row.r10-68.25]
+interface = "interface.10.fmt-human-api-type-binding-submission"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 499
+symbol = "[type.BindingSubmission]"
+evidence = "[type.BindingSubmission]; BindingSubmission remains declared with address:EvmAddress, statement:string and signature:EvmSignature and retired = true; the declaration remains in the registered file."
+
+[row.r10-68.26]
+interface = "interface.10.fmt-human-api-type-binding-state"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 503
+symbol = "[type.BindingState]"
+evidence = "[type.BindingState]; BindingState still declares none, binding, bound and rebinding with retired = true. The schema retains the enum despite the registry retirement status."
+
+[row.r10-68.27]
+interface = "interface.10.fmt-human-api-type-wallet-binding"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 507
+symbol = "[type.WalletBinding]"
+evidence = "[type.WalletBinding]; WalletBinding still declares required state:BindingState and optional address, bound_at and evidence with retired = true; the declaration remains in the registered file."
+
+[row.r10-68.28]
+interface = "interface.10.fmt-human-api-type-rebinding-submission"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 514
+symbol = "[type.RebindingSubmission]"
+evidence = "[type.RebindingSubmission]; RebindingSubmission still declares address, statement, signature and step_up:StepUpEvidence with retired = true; retirement has not removed this schema type."
+
+[row.r10-68.29]
+interface = "interface.10.http-human-binding-statement"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 522
+symbol = "/v1/wallet-binding/statement"
+evidence = "path = \"/v1/wallet-binding/statement\"; POST /v1/wallet-binding/statement remains declared as operation.binding.statement with BindingStatementRequest -> BindingStatement and retired = true; the route declaration remains present."
+
+[row.r10-68.30]
+interface = "interface.10.http-human-binding-submit"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 530
+symbol = "/v1/wallet-binding"
+evidence = "path = \"/v1/wallet-binding\"; POST /v1/wallet-binding remains declared as operation.binding.submit with BindingSubmission -> Journey, idempotency = true and retired = true; this is the submit declaration, distinct from the GET status operation."
+
+[row.r10-68.31]
+interface = "interface.10.http-human-binding-status"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 540
+symbol = "/v1/wallet-binding"
+evidence = "path = \"/v1/wallet-binding\"; GET /v1/wallet-binding remains declared as operation.binding.status with Empty -> WalletBinding and retired = true; this is the status declaration, distinct from the POST submit operation."
+
+[row.r10-68.32]
+interface = "interface.10.fmt-human-api-type-binding-rebind-action"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 544
+symbol = "[type.BindingRebindAction]"
+evidence = "[type.BindingRebindAction]; BindingRebindAction still declares binding:BindingStatement and confirms:OperationDigest with retired = true; the schema still describes the server-issued replacement statement and confirmation digest."
+
+[row.r10-68.33]
+interface = "interface.10.http-human-binding-rebind-action"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 553
+symbol = "/v1/wallet-binding/rebind/action"
+evidence = "path = \"/v1/wallet-binding/rebind/action\"; POST /v1/wallet-binding/rebind/action remains declared as operation.binding.rebind.action with BindingStatementRequest -> BindingRebindAction and retired = true; the declaration has not been removed."
+
+[row.r10-68.34]
+interface = "interface.10.http-human-binding-rebind"
+verdict = "served"
+path = "services/human/schema/human-api/identity.kvx"
+line = 562
+symbol = "/v1/wallet-binding/rebind"
+evidence = "path = \"/v1/wallet-binding/rebind\"; POST /v1/wallet-binding/rebind remains declared as operation.binding.rebind with RebindingSubmission -> Journey, wallet-rebind authorization and retired = true; the declaration has not been removed."
+
+[row.r10-68.35]
+interface = "interface.10.fmt-human-api-type-intent-leg-binding"
+verdict = "served"
+path = "services/human/schema/human-api/intent.kvx"
+line = 51
+symbol = "[type.IntentLegBinding]"
+evidence = "[type.IntentLegBinding]; The required fields are unchanged from the registered IntentLegBinding signature. New account_sequence semantics explicitly retain the integer field name and interpret it as the sender EVM nonce read at the pending tag, per decision.1003."
+
+[row.r10-68.36]
+interface = "interface.10.http-human-intent-plan"
+verdict = "served"
+path = "services/human/schema/human-api/intent.kvx"
+line = 70
+symbol = "/v1/intents/plan"
+evidence = "path = \"/v1/intents/plan\"; POST and the route literal are unchanged; PlanIntentRequest -> IntentPlan remains declared. IntentPlan now permits tx_hash:WalletTxId and IntentLeg now permits EVM transaction fields including to, value, calldata, nonce, chain_id and gas limits."
+
+[row.r10-68.37]
+interface = "interface.10.http-human-intent-submit"
+verdict = "served"
+path = "services/human/schema/human-api/intent.kvx"
+line = 79
+symbol = "/v1/intents/submit"
+evidence = "path = \"/v1/intents/submit\"; POST and the route literal are unchanged; SubmitPlanRequest -> IntentSubmission remains declared. SubmitPlanRequest now permits native_access_id:string and IntentSubmission permits actual tx_hash:WalletTxId; submission still rechecks the plan digest."
+
+[row.r10-68.38]
+interface = "interface.10.fmt-human-api-module-journeys"
+verdict = "served"
+path = "services/human/schema/human-api/journeys.kvx"
+line = 1
+symbol = "[module]"
+evidence = "[module]; The journeys [module] remains contract_major = 1 and compatibility = additive_only. Its declarations now mark custody JourneyKind variants and finality VerificationLevel variants retired, add rung_mapping and permit rung/inclusion_height on EvidenceMaterial."
+
+[row.r10-68.39]
+interface = "interface.10.fmt-human-api-type-journey-kind"
+verdict = "served"
+path = "services/human/schema/human-api/journeys.kvx"
+line = 7
+symbol = "[type.JourneyKind]"
+evidence = "[type.JourneyKind]; The registered JourneyKind variants are still declared unchanged; retired_variants now marks wallet-binding, deposit, withdraw and exit as retired without deleting those identifiers."
+
+[row.r10-68.40]
+interface = "interface.10.fmt-human-api-type-verification-level"
+verdict = "served"
+path = "services/human/schema/human-api/journeys.kvx"
+line = 25
+symbol = "[type.VerificationLevel]"
+evidence = "[type.VerificationLevel]; The registered VerificationLevel variants remain declared; retired_variants marks paxeer-finalised and settlement-anchored, and rung_mapping adds submitted:unverified, receipted:receipt-verified and committed:checkpoint-finalised."
+
+[row.r10-68.41]
+interface = "interface.10.fmt-human-api-type-evidence-ref"
+verdict = "served"
+path = "services/human/schema/human-api/journeys.kvx"
+line = 31
+symbol = "[type.EvidenceRef]"
+evidence = "[type.EvidenceRef]; Required evidence_id, class and verification and optional settlement_domain:SettlementDomain remain unchanged; settlement_domain.retired = true now marks the legacy optional field without removing it."
+
+[row.r10-68.42]
+interface = "interface.10.fmt-human-api-type-evidence-material"
+verdict = "served"
+path = "services/human/schema/human-api/journeys.kvx"
+line = 50
+symbol = "[type.EvidenceMaterial]"
+evidence = "[type.EvidenceMaterial]; Required evidence_id, class, verification, content_type and bytes_base64 remain unchanged. Optional rung:Rung and inclusion_height:integer were added alongside settlement_domain; settlement_domain.retired = true marks the legacy field."
+
+[row.r10-68.43]
+interface = "interface.10.http-human-evidence-get"
+verdict = "served"
+path = "services/human/schema/human-api/journeys.kvx"
+line = 60
+symbol = "/v1/evidence/{evidence_id}"
+evidence = "path = \"/v1/evidence/{evidence_id}\"; GET and the route literal are unchanged; request Empty still returns EvidenceMaterial. The response now permits rung:Rung and inclusion_height:integer and marks settlement_domain retired."
+
+[row.r10-68.44]
+interface = "interface.10.http-human-journey-get"
+verdict = "served"
+path = "services/human/schema/human-api/journeys.kvx"
+line = 67
+symbol = "/v1/journeys/{journey_id}"
+evidence = "path = \"/v1/journeys/{journey_id}\"; GET and the route literal are unchanged; request Empty still returns Journey. Its JourneyStage now permits tx_hash:TransactionHash and nonce:integer; JourneyKind retains legacy variants with retired_variants metadata."
+
+[row.r10-68.45]
+interface = "interface.10.http-human-journey-list"
+verdict = "served"
+path = "services/human/schema/human-api/journeys.kvx"
+line = 74
+symbol = "/v1/journeys"
+evidence = "path = \"/v1/journeys\"; GET and the route literal are unchanged; request Empty still returns JourneyPage with journeys:Journey[] and next_cursor:Cursor. Nested JourneyStage now permits tx_hash:TransactionHash and nonce:integer."
+
+[row.r10-68.46]
+interface = "interface.10.http-human-journey-page"
+verdict = "served"
+path = "services/human/schema/human-api/journeys.kvx"
+line = 81
+symbol = "/v1/journeys/page/{cursor}"
+evidence = "path = \"/v1/journeys/page/{cursor}\"; GET and the route literal are unchanged; request Empty still returns JourneyPage with journeys:Journey[] and next_cursor:Cursor. Nested JourneyStage now permits tx_hash:TransactionHash and nonce:integer."
+
+[row.r10-68.47]
+interface = "interface.10.fmt-human-api-module-movement"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 1
+symbol = "[module]"
+evidence = "[module]; The movement [module] remains contract_major = 1 and compatibility = additive_only. Its bank_sends declaration now specifies bank 0x1001 sends on the EVM; WalletSignRequest adds EIP-1559 fields while legacy custody types and operations retain retirement metadata."
+
+[row.r10-68.48]
+interface = "interface.10.fmt-human-api-type-settlement-domain"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 43
+symbol = "[type.SettlementDomain]"
+evidence = "[type.SettlementDomain]; SettlementDomain still declares the paxeer variant and retired = true. The schema declaration and its sole_domain/reservation rules remain in the registered file despite the retirement status."
+
+[row.r10-68.49]
+interface = "interface.10.fmt-human-api-type-wallet-sign-request"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 61
+symbol = "[type.WalletSignRequest]"
+evidence = "[type.WalletSignRequest]; Required stage_id, copy_key, from_address and to_sign_base64 remain unchanged. Optional chain_id:EvmChainId, nonce:EvmNonce, max_fee_per_gas:Amount and max_priority_fee_per_gas:Amount were added alongside settlement_domain, which is marked retired."
+
+[row.r10-68.50]
+interface = "interface.10.fmt-human-api-type-deposit-start-request"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 88
+symbol = "[type.DepositStartRequest]"
+evidence = "[type.DepositStartRequest]; DepositStartRequest still declares required money:Money, optional settlement_domain:SettlementDomain and retired = true; the declaration remains despite registry retirement status."
+
+[row.r10-68.51]
+interface = "interface.10.fmt-human-api-type-deposit-confirm-request"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 94
+symbol = "[type.DepositConfirmRequest]"
+evidence = "[type.DepositConfirmRequest]; DepositConfirmRequest still declares required wallet_transaction:WalletTxId, optional settlement_domain:SettlementDomain and retired = true; the declaration remains despite registry retirement status."
+
+[row.r10-68.52]
+interface = "interface.10.fmt-human-api-type-withdraw-start-request"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 100
+symbol = "[type.WithdrawStartRequest]"
+evidence = "[type.WithdrawStartRequest]; WithdrawStartRequest still declares required money:Money and destination:WalletAddress, optional settlement_domain:SettlementDomain and retired = true; the declaration remains in the registered file."
+
+[row.r10-68.53]
+interface = "interface.10.fmt-human-api-type-withdraw-claim-request"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 107
+symbol = "[type.WithdrawClaimRequest]"
+evidence = "[type.WithdrawClaimRequest]; WithdrawClaimRequest still declares required claim_signature:WalletSignature, optional settlement_domain:SettlementDomain and retired = true; the declaration remains in the registered file."
+
+[row.r10-68.54]
+interface = "interface.10.fmt-human-api-type-exit-start-request"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 113
+symbol = "[type.ExitStartRequest]"
+evidence = "[type.ExitStartRequest]; ExitStartRequest still declares required confirmation:string, optional settlement_domain:SettlementDomain and retired = true; the declaration remains in the registered file."
+
+[row.r10-68.55]
+interface = "interface.10.fmt-human-api-type-exit-eligibility"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 120
+symbol = "[type.ExitEligibility]"
+evidence = "[type.ExitEligibility]; ExitEligibility still declares eligible:boolean and copy_key:CopyKey, optional withdraw_instead_path:string and settlement_domain:SettlementDomain, and retired = true; the declaration remains present."
+
+[row.r10-68.56]
+interface = "interface.10.http-human-move-quote"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 130
+symbol = "/v1/moves/quote"
+evidence = "path = \"/v1/moves/quote\"; POST and the route literal are unchanged; MoveQuoteRequest -> MoveQuote remains declared. MoveQuote now permits native_send_access:NativeSendAccessRequest; the module bank_sends rule specifies EVM bank 0x1001 sends."
+
+[row.r10-68.57]
+interface = "interface.10.http-human-move-commit"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 138
+symbol = "/v1/moves"
+evidence = "path = \"/v1/moves\"; POST and the exact /v1/moves route are unchanged; MoveCommitRequest -> Journey remains idempotent. MoveCommitRequest now permits native_access_id:string, and the module bank_sends rule specifies EVM bank 0x1001 sends."
+
+[row.r10-68.58]
+interface = "interface.10.http-human-deposit-start"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 148
+symbol = "/v1/deposits"
+evidence = "path = \"/v1/deposits\"; POST /v1/deposits remains declared as operation.deposit.start with DepositStartRequest -> Journey, idempotency = true and retired = true; the declaration remains despite registry retirement status."
+
+[row.r10-68.59]
+interface = "interface.10.http-human-deposit-confirm"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 158
+symbol = "/v1/deposits/{journey_id}/confirm"
+evidence = "path = \"/v1/deposits/{journey_id}/confirm\"; POST /v1/deposits/{journey_id}/confirm remains declared as operation.deposit.confirm with DepositConfirmRequest -> Journey and retired = true; the declaration remains despite registry retirement status."
+
+[row.r10-68.60]
+interface = "interface.10.http-human-withdraw-start"
+verdict = "served"
+path = "services/human/schema/human-api/movement.kvx"
+line = 167
+symbol = "/v1/withdrawals"
+evidence = "path = \"/v1/withdrawals\"; POST /v1/withdrawals remains declared as operation.withdraw.start with WithdrawStartRequest -> Journey, withdrawal authorization, idempotency = true and retired = true; the declaration remains present."

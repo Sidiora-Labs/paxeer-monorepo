@@ -1,0 +1,497 @@
+[reconcile.r9-50]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r9-50.1]
+interface = "interface.9.err-rs-layerx-agent-api-error-class-idempotency-conflict"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/error.rs"
+line = 53
+symbol = "IdempotencyConflict"
+evidence = "ErrorClass still declares IdempotencyConflict at line 53 and lists it in ALL; the signature remains a unit variant, while UnavailableCapability and CapabilityRefusal are now separate classes. The core ErrorClass conversion still has no IdempotencyConflict input variant."
+
+[row.r9-50.2]
+interface = "interface.9.rs-agent-api-error-level"
+verdict = "retired"
+path = "services/agent/crates/layerx-agent-api/src/error.rs"
+line = 129
+symbol = "Level"
+evidence = "The enum Level is absent from error.rs; line 9 now aliases layerx_types::rung::Rung, and RungStatus replaces the former verification-level status. Repository-wide whole-identifier search excludes spec and docs; remaining lists every matching file, including unrelated logging, web-attestation and charting names, rather than claiming those are API consumers."
+remaining_refs = 218
+remaining = ["GOTCHA.kvx:6825", "admin/server_test.go:110", "admin/service.go:24", "admin/service_test.go:32", "admin/types/admin.pb.go:35", "apps/explorer/ui/shared/monaco/utils/composeFileTree.ts:9", "apps/launchpad/web/public/charting_library/bundles/ar.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/ca_ES.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/cs.1184.6d58c41dc2e7296f172a.js:1", "apps/launchpad/web/public/charting_library/bundles/cs.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/cs.9321.8f5474a51e036a732ec3.js:1", "apps/launchpad/web/public/charting_library/bundles/de.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/de.8697.515001609aed7a10329e.js:2", "apps/launchpad/web/public/charting_library/bundles/el.1184.6d58c41dc2e7296f172a.js:1", "apps/launchpad/web/public/charting_library/bundles/el.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/el.9321.8f5474a51e036a732ec3.js:1", "apps/launchpad/web/public/charting_library/bundles/en.4026.6f886b4ecb915f046a50.js:1", "apps/launchpad/web/public/charting_library/bundles/es.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/fa.1184.6d58c41dc2e7296f172a.js:1", "apps/launchpad/web/public/charting_library/bundles/fa.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/fa.9321.8f5474a51e036a732ec3.js:1", "apps/launchpad/web/public/charting_library/bundles/fr.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/he_IL.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/hu_HU.1184.6d58c41dc2e7296f172a.js:1", "apps/launchpad/web/public/charting_library/bundles/hu_HU.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/hu_HU.9321.8f5474a51e036a732ec3.js:1", "apps/launchpad/web/public/charting_library/bundles/id_ID.1184.6d58c41dc2e7296f172a.js:1", "apps/launchpad/web/public/charting_library/bundles/id_ID.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/id_ID.8697.515001609aed7a10329e.js:2", "apps/launchpad/web/public/charting_library/bundles/id_ID.9321.8f5474a51e036a732ec3.js:1", "apps/launchpad/web/public/charting_library/bundles/it.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/ja.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/ko.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/library.f5eaeb6901219f861981.js:94", "apps/launchpad/web/public/charting_library/bundles/ms_MY.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/nl_NL.1184.6d58c41dc2e7296f172a.js:1", "apps/launchpad/web/public/charting_library/bundles/nl_NL.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/nl_NL.9321.8f5474a51e036a732ec3.js:1", "apps/launchpad/web/public/charting_library/bundles/pl.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/pt.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/ro.1184.6d58c41dc2e7296f172a.js:1", "apps/launchpad/web/public/charting_library/bundles/ro.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/ro.9321.8f5474a51e036a732ec3.js:1", "apps/launchpad/web/public/charting_library/bundles/ru.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/sv.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/th.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/tr.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/vi.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/zh.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/bundles/zh_TW.4026.6f886b4ecb915f046a50.js:2", "apps/launchpad/web/public/charting_library/charting_library.d.ts:2119", "apps/launchpad/web/public/charting_library/datafeed-api.d.ts:71", "apps/perps/public/static/charting_library/charting_library.d.ts:2119", "apps/perps/src/types/perps.ts:254", "consensus/spec/consensus/consensus-paper/IEEEtran.bst:1168", "consensus/spec/light-client/verification/README.md:58", "core/deps/geth/ethdb/leveldb/leveldb.go:277", "core/deps/geth/ethdb/pebble/pebble.go:102", "core/deps/geth/internal/testlog/testlog.go:49", "core/deps/geth/log/format.go:37", "core/deps/geth/log/handler.go:27", "core/deps/geth/log/handler_glog.go:46", "core/deps/geth/log/logger.go:24", "core/deps/geth/signer/fourbyte/4byte.json:257199", "core/deps/log/README.md:27", "core/deps/log/seilog.go:166", "core/deps/log/seilog_bench_test.go:23", "core/deps/log/seilog_test.go:47", "daemon/paxd/cmd/log.go:58", "deploy/launchpad/production/topology/fixtures/cnpg-clusters-v1.29.0.yaml:4224", "deploy/launchpad/production/topology/fixtures/cnpg-poolers-v1.29.0.yaml:2927", "docker/monitornode/dashboards/cryptosim-dashboard.json:10856", "modules/xweb/keeper/fulfil.go:120", "modules/xweb/keeper/fulfil_test.go:238", "modules/xweb/keeper/msg_server_test.go:694", "modules/xweb/keeper/request.go:40", "modules/xweb/keeper/request_test.go:122", "modules/xweb/keeper/storage_receipt_request_test.go:31", "modules/xweb/merge_plan_test.go:143", "modules/xweb/types/api.go:94", "modules/xweb/types/api_test.go:24", "modules/xweb/types/msgs_test.go:171", "modules/xweb/types/query.pb.go:1305", "modules/xweb/types/query_test.go:94", "modules/xweb/types/state.go:286", "precompiles/xweb/xweb.go:101", "precompiles/xweb/xweb_test.go:282", "programs/vendor/binaryen-sys-0.12.0/binaryen/third_party/llvm-project/YAMLParser.cpp:419", "programs/vendor/binaryen-sys-0.12.0/binaryen/third_party/llvm-project/include/llvm/MC/MCExpr.h:1", "programs/vendor/binaryen-sys-0.12.0/binaryen/third_party/llvm-project/include/llvm/Support/CodeGen.h:33", "programs/vendor/binaryen-sys-0.12.0/binaryen/third_party/llvm-project/include/llvm/Support/FileSystem.h:1334", "programs/vendor/binaryen-sys-0.12.0/binaryen/third_party/llvm-project/include/llvm/Support/TargetRegistry.h:142", "programs/vendor/hermit-abi-0.5.2/src/errno.rs:133", "programs/vendor/libc-0.2.189/src/unix/redox/mod.rs:412", "programs/vendor/log-0.4.34/CHANGELOG.md:59", "programs/vendor/log-0.4.34/src/__private_api.rs:4", "programs/vendor/log-0.4.34/src/lib.rs:179", "programs/vendor/log-0.4.34/src/macros.rs:13", "programs/vendor/log-0.4.34/src/serde.rs:9", "programs/vendor/log-0.4.34/tests/integration.rs:3", "programs/vendor/log-0.4.34/tests/macros.rs:28", "programs/vendor/regex-1.13.1/CHANGELOG.md:1454", "programs/vendor/regex-1.13.1/UNICODE.md:7", "programs/vendor/regex-1.13.1/src/lib.rs:554", "programs/vendor/ureq-3.4.0/src/run.rs:159", "programs/vendor/ureq-3.4.0/src/util.rs:227", "programs/vendor/wasm-encoder-0.31.1/src/component/aliases.rs:83", "programs/vendor/wast-38.0.1/src/ast/expr.rs:36", "programs/vendor/wast-62.0.1/src/core/expr.rs:43", "programs/vendor/winapi-0.3.9/src/shared/d3d9.rs:815", "programs/vendor/winapi-0.3.9/src/shared/evntprov.rs:66", "programs/vendor/winapi-0.3.9/src/shared/evntrace.rs:247", "programs/vendor/winapi-0.3.9/src/shared/mstcpip.rs:132", "programs/vendor/winapi-0.3.9/src/shared/netioapi.rs:112", "programs/vendor/winapi-0.3.9/src/shared/ws2def.rs:308", "programs/vendor/winapi-0.3.9/src/um/d3d11.rs:2858", "programs/vendor/winapi-0.3.9/src/um/dxva2api.rs:376", "programs/vendor/winapi-0.3.9/src/um/dxvahd.rs:277", "programs/vendor/winapi-0.3.9/src/um/exdisp.rs:30", "programs/vendor/winapi-0.3.9/src/um/http.rs:267", "programs/vendor/winapi-0.3.9/src/um/lmaccess.rs:868", "programs/vendor/winapi-0.3.9/src/um/lmdfs.rs:358", "programs/vendor/winapi-0.3.9/src/um/lmstats.rs:13", "programs/vendor/winapi-0.3.9/src/um/lmuse.rs:24", "programs/vendor/winapi-0.3.9/src/um/ntlsa.rs:104", "programs/vendor/winapi-0.3.9/src/um/sapi51.rs:694", "programs/vendor/winapi-0.3.9/src/um/winnt.rs:2380", "programs/vendor/winapi-0.3.9/src/um/winspool.rs:917", "programs/vendor/windows-sys-0.52.0/src/Windows/Wdk/System/SystemServices/mod.rs:5820", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/Devices/Display/mod.rs:1261", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/Devices/Fax/mod.rs:1130", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/Graphics/Printing/mod.rs:2656", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/Media/KernelStreaming/mod.rs:2733", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/Networking/ActiveDirectory/mod.rs:1834", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/Networking/HttpServer/mod.rs:871", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/Networking/WinSock/mod.rs:5358", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/Security/Authentication/Identity/mod.rs:6107", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/Security/Authorization/mod.rs:889", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/Security/mod.rs:1060", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/Storage/DistributedFileSystem/mod.rs:78", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/Storage/IscsiDisc/mod.rs:1652", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/Diagnostics/Debug/Extensions/mod.rs:2601", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/Diagnostics/Etw/mod.rs:1116", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/Ioctl/mod.rs:7197", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/RemoteDesktop/mod.rs:1489", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/SystemInformation/mod.rs:510", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/System/WindowsProgramming/mod.rs:2077", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/Web/InternetExplorer/mod.rs:565", "programs/vendor/windows-sys-0.61.2/src/Windows/Wdk/System/SystemServices/mod.rs:2669", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/Devices/Display/mod.rs:226", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/Devices/Fax/mod.rs:526", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/Graphics/Printing/mod.rs:839", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/Media/KernelStreaming/mod.rs:599", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/Networking/ActiveDirectory/mod.rs:822", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/Networking/HttpServer/mod.rs:473", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/Networking/WinSock/mod.rs:4637", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/Security/Authentication/Identity/mod.rs:4624", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/Security/Authorization/mod.rs:389", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/Security/mod.rs:487", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/Storage/DistributedFileSystem/mod.rs:37", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/Storage/IscsiDisc/mod.rs:1423", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/Diagnostics/Debug/Extensions/mod.rs:1744", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/Diagnostics/Etw/mod.rs:382", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/Ioctl/mod.rs:5447", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/RemoteDesktop/mod.rs:1034", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/SystemInformation/mod.rs:68", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/System/WindowsProgramming/mod.rs:1708", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/Web/InternetExplorer/mod.rs:489", "programs/vendor/wit-bindgen-0.57.1/src/lib.rs:208", "sdk/launchpad/shared/log/log.go:26", "sdk/launchpad/shared/log/log_test.go:12", "sdk/platform/dotnet/MirrorSource.cs:13", "sdk/platform/dotnet/Programs.cs:231", "sdk/platform/dotnet/Transport.cs:495", "sdk/platform/dotnet/Verifier.cs:97", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:26", "sdk/platform/go/cmd/conformance/main.go:181", "sdk/platform/go/committed.go:100", "sdk/platform/go/committed_inclusion_test.go:205", "sdk/platform/go/committed_receipt_test.go:282", "sdk/platform/go/conformance_vectors_test.go:104", "sdk/platform/go/mirror.go:28", "sdk/platform/go/portable_receipt_test.go:34", "sdk/platform/go/sequencer_receipt_test.go:94", "sdk/platform/go/verify.go:167", "sdk/server/util.go:212", "sdk/store/cachemulti/store_test.go:99", "services/agent/crates/layerx-agent-api/tests/proof_agent_api.rs:17", "services/agent/crates/layerx-agent-api/tests/schema.rs:146", "services/agent/crates/layerx-agent-api/tests/schema_retired.rs:92", "services/agent/qualification/pay2/pay2e_test.rs:409", "services/explorer/backend/apps/block_scout_web/assets/js/lib/ace/src-min/ace.js:1", "services/interop/crates/x-websearch/src/api.rs:17", "services/interop/crates/x-websearch/src/attest.rs:370", "services/interop/crates/x-websearch/src/program.rs:13", "services/interop/crates/x-websearch/tests/api.rs:30", "services/interop/crates/x-websearch/tests/attest.rs:17", "services/platform/perps-data/internal/feeds/book.go:39", "services/platform/perps-data/internal/feeds/feeds_test.go:303", "services/platform/perps-data/internal/feeds/topics.go:96", "services/platform/perps-data/internal/rest/venue.go:102", "services/platform/perps-data/loadtest/load.go:467", "storage/db_engine/litt/test/testdata/v3/test/keymap/data/OPTIONS-000003:50", "storage/db_engine/litt/util/test_logger.go:13", "storage/db_engine/pebbledb/pebble_metrics.go:494", "storage/db_engine/rocksdb/mvcc/opts.go:58", "tests/integration/dapp_tests/package-lock.json:6532", "tools/benchmark/loadtest/main.go:305", "tools/paxctl/sidecar/tasks/config_reload_test.go:31", "tools/wasm-tools/crates/wasm-encoder/src/component/aliases.rs:84", "tools/wasm-tools/crates/wast/src/core/expr.rs:113", "tools/wasm-tools/fuzz/src/incremental_parse.rs:17", "tools/wasm-tools/fuzz/src/lib.rs:86", "tools/wasm-tools/fuzz/src/mutate.rs:32", "tools/wasm-tools/fuzz/src/roundtrip.rs:54", "tools/wasm-tools/fuzz/src/roundtrip_wit.rs:153", "tools/wasm-tools/fuzz/src/wit64.rs:108", "tools/wasm-tools/src/bin/wasm-tools/wast.rs:512"]
+
+[row.r9-50.3]
+interface = "interface.9.err-reason-native-activity-module"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 186
+symbol = "native_activity.module"
+evidence = "The native request decoder still emits the exact native_activity.module reason at line 186: .map_err(|_| ContractError::Malformed(\"native_activity.module\"))?;"
+
+[row.r9-50.4]
+interface = "interface.9.err-reason-native-activity-ordinal"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 188
+symbol = "native_activity.ordinal"
+evidence = "The native request decoder still emits the exact native_activity.ordinal reason at line 188: .map_err(|_| ContractError::Zero(\"native_activity.ordinal\"))"
+
+[row.r9-50.5]
+interface = "interface.9.err-reason-native-activity-length"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 201
+symbol = "native_activity.length"
+evidence = "The native request decoder still emits the exact native_activity.length reason at line 201: .map_err(|_| ContractError::Malformed(\"native_activity.length\"))?;"
+
+[row.r9-50.6]
+interface = "interface.9.err-reason-native-activity-version"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 203
+symbol = "native_activity.version"
+evidence = "The native request decoder still emits the exact native_activity.version reason at line 203: return Err(ContractError::Malformed(\"native_activity.version\"));"
+
+[row.r9-50.7]
+interface = "interface.9.err-reason-native-purpose-domain"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 264
+symbol = "native_purpose.domain"
+evidence = "The native request decoder still emits the exact native_purpose.domain reason at line 264: .ok_or(ContractError::Malformed(\"native_purpose.domain\"))?;"
+
+[row.r9-50.8]
+interface = "interface.9.err-reason-native-purpose-version"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 267
+symbol = "native_purpose.version"
+evidence = "The native request decoder still emits the exact native_purpose.version reason at line 267: .ok_or(ContractError::Malformed(\"native_purpose.version\"))?;"
+
+[row.r9-50.9]
+interface = "interface.9.err-reason-native-purpose-length"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 275
+symbol = "native_purpose.length"
+evidence = "The native request decoder still emits the exact native_purpose.length reason at line 275: return Err(ContractError::Malformed(\"native_purpose.length\"));"
+
+[row.r9-50.10]
+interface = "interface.9.err-reason-native-purpose-canonical-bytes"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 292
+symbol = "native_purpose.canonical_bytes"
+evidence = "The native request decoder still emits the exact native_purpose.canonical_bytes reason at line 292: return Err(ContractError::Malformed(\"native_purpose.canonical_bytes\"));"
+
+[row.r9-50.11]
+interface = "interface.9.err-reason-native-send-did"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 410
+symbol = "native_send.did"
+evidence = "The native request decoder still emits the exact native_send.did reason at line 410: return Err(ContractError::Malformed(\"native_send.did\"));"
+
+[row.r9-50.12]
+interface = "interface.9.err-reason-native-send-owner"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 420
+symbol = "native_send.owner"
+evidence = "The native request decoder still emits the exact native_send.owner reason at line 420: return Err(ContractError::Mismatch(\"native_send.owner\"));"
+
+[row.r9-50.13]
+interface = "interface.9.err-reason-native-send-lifetime"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 425
+symbol = "native_send.lifetime"
+evidence = "The native request decoder still emits the exact native_send.lifetime reason at line 425: return Err(ContractError::Zero(\"native_send.lifetime\"));"
+
+[row.r9-50.14]
+interface = "interface.9.err-reason-native-send-domain"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 431
+symbol = "native_send.domain"
+evidence = "The native request decoder still emits the exact native_send.domain reason at line 431: return Err(ContractError::Mismatch(\"native_send.domain\"));"
+
+[row.r9-50.15]
+interface = "interface.9.err-reason-native-send-version"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 487
+symbol = "native_send.version"
+evidence = "The native request decoder still emits the exact native_send.version reason at line 487: .ok_or(ContractError::Malformed(\"native_send.version\"))?;"
+
+[row.r9-50.16]
+interface = "interface.9.err-reason-native-send-length"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 497
+symbol = "native_send.length"
+evidence = "The native request decoder still emits the exact native_send.length reason at line 497: return Err(ContractError::Malformed(\"native_send.length\"));"
+
+[row.r9-50.17]
+interface = "interface.9.err-reason-native-send-canonical-bytes"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 521
+symbol = "native_send.canonical_bytes"
+evidence = "The native request decoder still emits the exact native_send.canonical_bytes reason at line 521: return Err(ContractError::Malformed(\"native_send.canonical_bytes\"));"
+
+[row.r9-50.18]
+interface = "interface.9.err-reason-native-send-signature-owner"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 538
+symbol = "native_send.signature_owner"
+evidence = "The native request decoder still emits the exact native_send.signature_owner reason at line 538: return Err(ContractError::Mismatch(\"native_send.signature_owner\"));"
+
+[row.r9-50.19]
+interface = "interface.9.err-reason-native-prepare-module"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 595
+symbol = "native_prepare.module"
+evidence = "The native request decoder still emits the exact native_prepare.module reason at line 595: return Err(ContractError::Mismatch(\"native_prepare.module\"));"
+
+[row.r9-50.20]
+interface = "interface.9.err-reason-native-effect-prepare-module"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 651
+symbol = "native_effect_prepare.module"
+evidence = "The native request decoder still emits the exact native_effect_prepare.module reason at line 651: return Err(ContractError::Mismatch(\"native_effect_prepare.module\"));"
+
+[row.r9-50.21]
+interface = "interface.9.err-reason-native-registration-prepare-activity"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 698
+symbol = "native_registration_prepare.activity"
+evidence = "Native registration preparation still rejects an activity mismatch with ContractError::Mismatch and the exact native_registration_prepare.activity code at line 698."
+
+[row.r9-50.22]
+interface = "interface.9.err-reason-native-send-prepare-activity"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 727
+symbol = "native_send_prepare.activity"
+evidence = "The native request decoder still emits the exact native_send_prepare.activity reason at line 727: return Err(ContractError::Mismatch(\"native_send_prepare.activity\"));"
+
+[row.r9-50.23]
+interface = "interface.9.err-reason-native-send-prepare-request"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 756
+symbol = "native_send_prepare.request"
+evidence = "The native request decoder still emits the exact native_send_prepare.request reason at line 756: return Err(ContractError::Mismatch(\"native_send_prepare.request\"));"
+
+[row.r9-50.24]
+interface = "interface.9.rs-agent-api-identity-protocolbudgetview"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 1134
+symbol = "ProtocolBudgetView"
+evidence = "pub struct ProtocolBudgetView remains at line 1134 under decision override.J43.1, which classifies it as change. The current fields use achieved_rung: Rung and retain explicit budget amounts and millisecond periods; the old verification-level representation is gone."
+
+[row.r9-50.25]
+interface = "interface.9.rs-agent-api-protocolbudgetview-from-proven-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 1162
+symbol = "from_proven"
+evidence = "pub fn from_proven now takes record: &layerx_client::budget::ProtocolBudgetRecord and achieved_rung: Rung, returning Result<Self, ContractError>; it rejects rungs below Committed and projects the record into ProtocolBudgetView."
+
+[row.r9-50.26]
+interface = "interface.9.rs-agent-api-read-relativeto"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 98
+symbol = "RelativeTo"
+evidence = "pub enum RelativeTo now has Block { height: u64, hash: [u8; 32] }; the registered Batch and Checkpoint variants have been replaced by an explicit block coordinate."
+
+[row.r9-50.27]
+interface = "interface.9.rs-agent-api-read-freshness"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 104
+symbol = "Freshness"
+evidence = "pub struct Freshness now contains chain_head: u64, value_height: u64 and relative_to: RelativeTo. The registered sealed-batch, finalised-checkpoint and value-sequence fields have been replaced with block freshness."
+
+[row.r9-50.28]
+interface = "interface.9.rs-agent-api-read-verifiedread"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 119
+symbol = "VerifiedRead"
+evidence = "pub struct VerifiedRead<T: CoreProduced> retains value and freshness but now declares achieved_rung: Rung in place of achieved_verification_level: Level; its constructor requires all three values."
+
+[row.r9-50.29]
+interface = "interface.9.rs-agent-api-read-readrequest"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 137
+symbol = "ReadRequest"
+evidence = "pub struct ReadRequest<S> retains selector: S but now declares requested_rung: Rung in place of requested_verification_level: Level."
+
+[row.r9-50.30]
+interface = "interface.9.rs-agent-api-read-modulestateselector"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 149
+symbol = "ModuleStateSelector"
+evidence = "pub struct ModuleStateSelector remains { module: ModuleRef, key: CanonicalBytes }; the public signature is unchanged and its declaration moved from registered line 140 to 149 as read-contract helpers were added."
+
+[row.r9-50.31]
+interface = "interface.9.rs-agent-api-read-historyselector"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 155
+symbol = "HistorySelector"
+evidence = "pub struct HistorySelector now uses from_height and to_height with cursor: Option<HistoryCursor>, replacing the registered sequence range. page_limit remains u32 and validate rejects zero or values above 65_535."
+
+[row.r9-50.32]
+interface = "interface.9.rs-agent-api-read-balancevalue"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 182
+symbol = "BalanceValue"
+evidence = "pub struct BalanceValue retains account, asset, amount and canonical_state and now adds height: u64, addressing the registered missing-height field."
+
+[row.r9-50.33]
+interface = "interface.9.rs-agent-api-read-historyvalue"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 197
+symbol = "HistoryValue"
+evidence = "pub struct HistoryValue now includes height: u64 and next_cursor: Option<HistoryCursor>; records: Vec<CanonicalBytes> and next_cursor names remain, rather than the schema names items and cursor."
+
+[row.r9-50.34]
+interface = "interface.9.rs-agent-api-read-checkpointvalue"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 207
+symbol = "CheckpointValue"
+evidence = "pub struct CheckpointValue is now a named-field struct with commit: CanonicalBytes, validator_set: CanonicalBytes and height: u64, replacing the registered opaque CanonicalBytes tuple."
+
+[row.r9-50.35]
+interface = "interface.9.rs-agent-api-read-proofbundle"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 214
+symbol = "ProofBundle"
+evidence = "pub struct ProofBundle replaces target and proofs with format, verification_level: Rung, raw_transaction, signed_receipt, receipt_digest, receipt_key and optional block_header, receipt_inclusion, commit, validator_set and account_proof fields."
+
+[row.r9-50.36]
+interface = "interface.9.rs-agent-api-read-offlineexport"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 589
+symbol = "OfflineExport"
+evidence = "pub struct OfflineExport now contains facts: Vec<FactRef>, bundles: Vec<ProofBundle> and height: u64, replacing the registered certificates and headers export shape. validate requires nonempty evidence and Committed bundles."
+
+[row.r9-50.37]
+interface = "interface.9.rs-agent-api-read-feeprojection"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 686
+symbol = "FeeProjection"
+evidence = "pub struct FeeProjection now includes gas_units: u64, denom: String and snapshot_height: u64 instead of the registered snapshot_sequence coordinate, plus the request, parameter version, canonical schedule and snapshot state root."
+
+[row.r9-50.38]
+interface = "interface.9.rs-agent-api-stream-receiptreference"
+verdict = "served"
+path = "services/agent/crates/layerx-agent-api/src/stream.rs"
+line = 206
+symbol = "ReceiptReference"
+evidence = "pub enum ReceiptReference remains at line 206 under decision override.J43.2, which classifies it as change. Its current variants are None and Verified { receipt_ref: ReceiptRef, rung: Rung }; verified references explicitly carry a rung."
+
+[row.r9-50.39]
+interface = "interface.9.rs-agentd-host-payer-registeredownerwebaccess-j43"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd-host/src/payer.rs"
+line = 27
+symbol = "RegisteredOwnerWebAccess"
+evidence = "RegisteredOwnerWebAccess is absent from payer.rs and repository-wide identifier search outside spec and docs found no remaining files. ProductionWebPayer::from_owner now checks the shared owner registry directly."
+remaining_refs = 0
+remaining = []
+
+[row.r9-50.40]
+interface = "interface.9.rs-agentd-host-payer-nativecontextsource-j43"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd-host/src/payer.rs"
+line = 34
+symbol = "NativeContextSource"
+evidence = "NativeContextSource is absent from payer.rs and repository-wide identifier search outside spec and docs found no remaining files. The payer now stores a SequencerEndpoint and owner-check callback instead of this native source alias."
+remaining_refs = 0
+remaining = []
+
+[row.r9-50.41]
+interface = "interface.9.rs-agentd-host-payer-nativepurposesource-j43"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd-host/src/payer.rs"
+line = 36
+symbol = "NativePurposeSource"
+evidence = "NativePurposeSource is absent from payer.rs and repository-wide identifier search outside spec and docs found no remaining files. Current payer callbacks are private OwnerCheck and SearchQuote aliases."
+remaining_refs = 0
+remaining = []
+
+[row.r9-50.42]
+interface = "interface.9.rs-agentd-host-payer-productionwebpayer-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd-host/src/payer.rs"
+line = 56
+symbol = "ProductionWebPayer"
+evidence = "pub struct ProductionWebPayer now stores an AttestorSigner, SequencerEndpoint, receipt keys, HTTP agent, owner_check and search_quote callbacks, and prepared PrecompileCalls. The registered native source aliases and RegisteredOwnerWebAccess type are gone."
+
+[row.r9-50.43]
+interface = "interface.9.cli-agentd-operator-unknown-inspect"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/admin.rs"
+line = 147
+symbol = "unknown.inspect"
+evidence = "The unknown.inspect CommandDescriptor remains at line 147. Its action now reads transaction hash, nonce and daemon-local outbox status, replacing the registry note about kernel resultByIdempotency lookup."
+
+[row.r9-50.44]
+interface = "interface.9.cli-agentd-operator-unknown-resolve"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/admin.rs"
+line = 153
+symbol = "unknown.resolve"
+evidence = "The unknown.resolve CommandDescriptor remains at line 153. Its action now looks up a verified sequencer receipt and resends identical bytes only at the pending nonce, replacing the registered resultByIdempotency resolution path."
+
+[row.r9-50.45]
+interface = "interface.9.err-reason-mcp-operation-refused"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
+line = 2104
+symbol = "mcp.operation_refused"
+evidence = "Operation::McpInvoke still returns a PolicyRefusal with the exact reason literal mcp.operation_refused; its declaring branch moved from line 1365 to 2104."
+
+[row.r9-50.46]
+interface = "interface.9.err-reason-gateway-invalid"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_tls.rs"
+line = 154
+symbol = "gateway.invalid"
+evidence = "The exact gateway.invalid literal remains at line 154 only as a peer hostname in absent_material_and_inexact_peer_fail_closed. It is TLS test data passed to from_paths, not an emitted error reason; the registry kind and contract interpretation are stale."
+
+[row.r9-50.47]
+interface = "interface.9.fmt-audit-record"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/audit/record.rs"
+line = 17
+symbol = "LXAR"
+evidence = "The format still uses LXAR magic at line 17, but ENTRY_VERSION is now 3 and LEGACY_ENTRY_VERSION is 2, replacing the registered version 2 with legacy version 1. Entry now carries receipt_id, tx_hash, nonce and rung fields."
+
+[row.r9-50.48]
+interface = "interface.9.rs-agentd-boot-handshake-gate"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/boot.rs"
+line = 156
+symbol = "handshake_gate"
+evidence = "handshake_gate is absent from boot.rs; startup now declares readiness_gate over NodeRpc and ReadinessStatus instead of a FrameTransport handshake. Repository-wide identifier search excluding spec and docs retains four files, including an unrelated private test helper and historical build references."
+remaining_refs = 4
+remaining = ["GOTCHA.kvx:10059", "Makefile:2287", "services/agent/crates/layerx-agentd/tests/readiness_node_rpc.rs:1", "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1405"]
+
+[row.r9-50.49]
+interface = "interface.9.fmt-budget-proof"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"
+line = 217
+symbol = "layerx.human.budget-proof.v1"
+evidence = "The layerx.human.budget-proof.v1 literal is absent from budget_proof.rs; verify_native_budget_proof now requires layerx.human.budget-proof.v2 at line 241 and binds committed height and block hash. Repository-wide literal search excluding spec and docs finds only the retained qualification script."
+remaining_refs = 1
+remaining = ["tools/qualification/paxeer-x/budget-proof-exports.py:87"]
+
+[row.r9-50.50]
+interface = "interface.9.rs-agentd-budget-create-create-protocol-budget-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/budget/create.rs"
+line = 537
+symbol = "create_protocol_budget"
+evidence = "The exported free function is now pub fn create_protocol_budget<R: BudgetReceiptEvidence, S>, taking Store, BudgetRequest, ModuleRegistry, EvidenceAuthority and a BudgetPipeline<R, S>, with ProtocolBudgetState<S>: BudgetStateEvidence. It returns Result<ProtocolBudget, BudgetCreationError>; this is distinct from the same-named BudgetRequest method at line 250."
+
+[row.r9-50.51]
+interface = "interface.9.rs-agentd-budget-daemon-consumption-updates-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/budget/daemon.rs"
+line = 421
+symbol = "consumption_updates"
+evidence = "pub fn consumption_updates now takes &Store, &TenantId and &[DurableBudgetReservation], returning Result<Vec<(TenantKey, Vec<u8>)>, DaemonLimitError>. Its durable-hold accounting includes the projected transaction fee; the function moved from line 376 to 421."
+
+[row.r9-50.52]
+interface = "interface.9.rs-agentd-budget-mutate-budgetmutation-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/budget/mutate.rs"
+line = 23
+symbol = "BudgetMutation"
+evidence = "pub enum BudgetMutation now decodes layerxpay calls: Fund carries budget_id, amount, encoding_version and source_height: Option<u64>; Revoke carries budget_id and revocation_height: u64, using committed height coordinates."
+
+[row.r9-50.53]
+interface = "interface.9.rs-agentd-budget-program-settlement-read-retained-program-debit-settlement-at-execution-j43"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs"
+line = 239
+symbol = "read_retained_program_debit_settlement_at_execution"
+evidence = "read_retained_program_debit_settlement_at_execution is absent from program_settlement.rs and a repository-wide identifier search excluding spec and docs found no remaining files. The module now imports program_lifecycle_settlement and verifies authorized program execution evidence."
+remaining_refs = 0
+remaining = []
+
+[row.r9-50.54]
+interface = "interface.9.rs-agentd-budget-reconcile-protocolbudgetstate-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/budget/reconcile.rs"
+line = 12
+symbol = "ProtocolBudgetState"
+evidence = "pub struct ProtocolBudgetState<E = RawStateEvidence> is now generic and contains evidence: E. The raw-state default preserves proof verification, replacing a directly exposed budget-state representation with an evidence-backed wrapper."
+
+[row.r9-50.55]
+interface = "interface.9.rs-agentd-compat-verify-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/compat.rs"
+line = 46
+symbol = "verify"
+evidence = "pub fn verify now accepts daemon_version: &str, node_client_version: &str, contract_version: u16 and sdk_version: &str, returning Result<Compatibility, CompatibilityError>. Node compatibility is parsed from web3_clientVersion instead of the retired node transport handshake."
+
+[row.r9-50.56]
+interface = "interface.9.cfg-agentd-startup-node-endpoint"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/config.rs"
+line = 34
+symbol = "node_endpoint"
+evidence = "node_endpoint remains a required file key with exact LAYERX_NODE_ENDPOINT override at lines 34-35. StartupConfig keeps a String, but parse_node_endpoint now requires an HTTP or HTTPS JSON-RPC URL instead of the registered LNI socket endpoint."
+
+[row.r9-50.57]
+interface = "interface.9.cfg-agentd-startup-expected-protocol-version"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/config.rs"
+line = 372
+symbol = "expected_protocol_version"
+evidence = "expected_protocol_version and LAYERX_EXPECTED_PROTOCOL_VERSION survive only in reject_retired_setting at lines 372-373 and return RejectionReason::Retired. They are no longer StartupConfig fields or accepted settings; expected_chain_id is the current u64 startup identity check."
+
+[row.r9-50.58]
+interface = "interface.9.cfg-agentd-startup-sequencer-authority-source"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/config.rs"
+line = 374
+symbol = "sequencer_authority_source"
+evidence = "sequencer_authority_source and LAYERX_SEQUENCER_AUTHORITY_SOURCE survive only in reject_retired_setting at lines 374-375 and return RejectionReason::Retired. They are no longer accepted settings; receipt_key_source now selects NodeRpc or a pinned file."
+
+[row.r9-50.59]
+interface = "interface.9.fmt-agentd-startup-config"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/config.rs"
+line = 338
+symbol = "parse_file"
+evidence = "The startup file is still key=value text, parsed by fn parse_file at line 338 with MAX_CONFIG_BYTES = 65_536 and MAX_LINE_BYTES = 4_096. Its accepted shape now requires expected_chain_id and receipt_key_source, and explicitly rejects the legacy protocol-version and sequencer-authority keys."
+
+[row.r9-50.60]
+interface = "interface.9.rs-agentd-events-gap-detect-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/events/gap.rs"
+line = 164
+symbol = "detect"
+evidence = "pub fn detect retains &mut SubscriptionStore, &SubscriptionTarget, expected: u64 and observed: u64, returning Result<Option<Gap>, GapError>. It now first requires an unbound target and delegates to detect_inner; bound targets use the separate detect_authorized function."

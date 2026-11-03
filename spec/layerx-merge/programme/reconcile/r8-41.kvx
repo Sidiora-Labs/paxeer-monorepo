@@ -1,0 +1,485 @@
+[reconcile.r8-41]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r8-41.1]
+interface = "interface.8.go-sdkswift-platformclient-agentprogramdeploy"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 502
+symbol = "agentProgramDeploy"
+evidence = "Signature unchanged from the registry; declaration moved from line 379 to 502. Transport metadata at line 174 now uses eth_sendRawTransaction and deploy on layerxprograms 0x101d instead of the former /v1/programs/deploy ingress. Declaring line: func agentProgramDeploy(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {"
+
+[row.r8-41.2]
+interface = "interface.8.go-sdkswift-platformclient-agentprogramdiscover"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 505
+symbol = "agentProgramDiscover"
+evidence = "Signature unchanged from the registry; declaration moved from line 382 to 505. Transport metadata at line 175 now uses eth_call/getProgram(bytes32) on 0x101d instead of GET /v1/programs/registry/{program_id}. Declaring line: func agentProgramDiscover(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {"
+
+[row.r8-41.3]
+interface = "interface.8.go-sdkswift-platformclient-agentprograminterface"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 508
+symbol = "agentProgramInterface"
+evidence = "Signature unchanged from the registry; declaration moved from line 385 to 508. Transport metadata at line 176 now uses eth_call/getInterface(bytes32) on 0x101d instead of the registry interface REST route. Declaring line: func agentProgramInterface(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {"
+
+[row.r8-41.4]
+interface = "interface.8.go-sdkswift-platformclient-agentprogramreceipt"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 511
+symbol = "agentProgramReceipt"
+evidence = "Signature unchanged from the registry; declaration moved from line 388 to 511. Transport metadata at line 177 now uses eth_getTransactionByHash instead of the by-idempotency REST receipt route. Declaring line: func agentProgramReceipt(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {"
+
+[row.r8-41.5]
+interface = "interface.8.go-sdkswift-platformclient-agentprogramsimulate"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 514
+symbol = "agentProgramSimulate"
+evidence = "Signature unchanged from the registry; declaration moved from line 391 to 514. Transport metadata at line 178 now uses eth_call/simulateCall on 0x101d instead of POST /v1/programs/simulate. Declaring line: func agentProgramSimulate(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {"
+
+[row.r8-41.6]
+interface = "interface.8.go-sdkswift-platformclient-agentprogramupgrade"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 517
+symbol = "agentProgramUpgrade"
+evidence = "Signature unchanged from the registry; declaration moved from line 394 to 517. Transport metadata at line 179 now uses eth_sendRawTransaction/upgrade on 0x101d instead of POST /v1/programs/upgrade. Declaring line: func agentProgramUpgrade(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {"
+
+[row.r8-41.7]
+interface = "interface.8.go-sdkswift-platformclient-agentprogramwinddown"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 520
+symbol = "agentProgramWindDown"
+evidence = "Signature unchanged from the registry; declaration moved from line 397 to 520. Transport metadata at line 180 now uses eth_sendRawTransaction/deprecate on 0x101d instead of POST /v1/programs/wind-down. Declaring line: func agentProgramWindDown(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {"
+
+[row.r8-41.8]
+interface = "interface.8.go-sdkswift-platformclient-humanintentplan"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 703
+symbol = "humanIntentPlan"
+evidence = "Signature unchanged from the registry; declaration moved from line 607 to 703. It still delegates to read(.humanIntentPlan); descriptor line 383 retains POST /v1/intents/plan and transport line 241 remains HTTP. Declaring line: func humanIntentPlan(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {"
+
+[row.r8-41.9]
+interface = "interface.8.go-sdkswift-platformclient-humanintentsubmit"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 706
+symbol = "humanIntentSubmit"
+evidence = "Signature unchanged from the registry; declaration moved from line 610 to 706. It still delegates to mutate(.humanIntentSubmit) with an IdempotencyKey; descriptor line 384 retains POST /v1/intents/submit and transport line 242 remains HTTP. Declaring line: func humanIntentSubmit(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {"
+
+[row.r8-41.10]
+interface = "interface.8.go-sdkswift-receiptcheck"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/ReceiptContract.swift"
+line = 8
+symbol = "ReceiptCheck"
+evidence = "Enum signature remains public enum ReceiptCheck: String, Sendable, CaseIterable, now at line 8. Its cases now describe sequencer receipts: receiptVersion, keyId, keyHeight, rawTransaction, fields, returnData, logs, sequenceHash and signature replace the old kernel checks; compatibility aliases live in Verifier.swift:549-566. Declaring line: public enum ReceiptCheck: String, Sendable, CaseIterable {"
+
+[row.r8-41.11]
+interface = "interface.8.go-sdkswift-receiptcheck-decode"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/ReceiptContract.swift"
+line = 9
+symbol = "decode"
+evidence = "Signature and raw value are unchanged: case decode = \"decode\", now at line 9 instead of 10 inside ReceiptCheck. The surrounding enum now contains sequencer receipt checks. Declaring line: case decode = \"decode\""
+
+[row.r8-41.12]
+interface = "interface.8.go-sdkswift-receiptcheck-canonicalencoding"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/ReceiptContract.swift"
+line = 10
+symbol = "canonicalEncoding"
+evidence = "Signature and raw value are unchanged: case canonicalEncoding = \"canonical-encoding\", now at line 10 instead of 11 inside ReceiptCheck. The migrated missingSignature compatibility alias maps to this case in Verifier.swift:551. Declaring line: case canonicalEncoding = \"canonical-encoding\""
+
+[row.r8-41.13]
+interface = "interface.8.go-sdkswift-receiptcheck-receiptshape"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 550
+symbol = "receiptShape"
+evidence = "Former enum case receiptShape = \"receipt-shape\" is now a compatibility member in extension ReceiptCheck: public static let receiptShape: ReceiptCheck = .fields. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.14]
+interface = "interface.8.go-sdkswift-receiptcheck-missingsignature"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 551
+symbol = "missingSignature"
+evidence = "Former enum case missingSignature = \"missing-signature\" is now a compatibility member in extension ReceiptCheck: public static let missingSignature: ReceiptCheck = .canonicalEncoding. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.15]
+interface = "interface.8.go-sdkswift-receiptcheck-protocolversion"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 552
+symbol = "protocolVersion"
+evidence = "Former enum case protocolVersion = \"protocol-version\" is now a compatibility member in extension ReceiptCheck: public static let protocolVersion: ReceiptCheck = .receiptVersion. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.16]
+interface = "interface.8.go-sdkswift-receiptcheck-resultcode"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 553
+symbol = "resultCode"
+evidence = "Former enum case resultCode = \"result-code\" is now a compatibility member in extension ReceiptCheck: public static let resultCode: ReceiptCheck = .fields. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.17]
+interface = "interface.8.go-sdkswift-receiptcheck-operation"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 554
+symbol = "operation"
+evidence = "Former enum case operation = \"operation\" is now a compatibility member in extension ReceiptCheck: public static let operation: ReceiptCheck = .fields. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.18]
+interface = "interface.8.go-sdkswift-receiptcheck-activityid"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/ReceiptContract.swift"
+line = 12
+symbol = "activityId"
+evidence = "Signature and raw value are unchanged: case activityId = \"activity-id\", now at line 12 instead of 17 inside ReceiptCheck. The check remains a real enum case in the sequencer receipt contract. Declaring line: case activityId = \"activity-id\""
+
+[row.r8-41.19]
+interface = "interface.8.go-sdkswift-receiptcheck-globalsequence"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 555
+symbol = "globalSequence"
+evidence = "Former enum case globalSequence = \"global-sequence\" is now a compatibility member in extension ReceiptCheck: public static let globalSequence: ReceiptCheck = .fields. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.20]
+interface = "interface.8.go-sdkswift-receiptcheck-moduleid"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 556
+symbol = "moduleId"
+evidence = "Former enum case moduleId = \"module-id\" is now a compatibility member in extension ReceiptCheck: public static let moduleId: ReceiptCheck = .fields. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.21]
+interface = "interface.8.go-sdkswift-receiptcheck-moduleversion"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 557
+symbol = "moduleVersion"
+evidence = "Former enum case moduleVersion = \"module-version\" is now a compatibility member in extension ReceiptCheck: public static let moduleVersion: ReceiptCheck = .fields. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.22]
+interface = "interface.8.go-sdkswift-receiptcheck-timestamp"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 558
+symbol = "timestamp"
+evidence = "Former enum case timestamp = \"timestamp\" is now a compatibility member in extension ReceiptCheck: public static let timestamp: ReceiptCheck = .fields. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.23]
+interface = "interface.8.go-sdkswift-receiptcheck-batchid"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 559
+symbol = "batchId"
+evidence = "Former enum case batchId = \"batch-id\" is now a compatibility member in extension ReceiptCheck: public static let batchId: ReceiptCheck = .fields. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.24]
+interface = "interface.8.go-sdkswift-receiptcheck-asset"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 560
+symbol = "asset"
+evidence = "Former enum case asset = \"asset\" is now a compatibility member in extension ReceiptCheck: public static let asset: ReceiptCheck = .fields. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.25]
+interface = "interface.8.go-sdkswift-receiptcheck-previousstateroot"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 561
+symbol = "previousStateRoot"
+evidence = "Former enum case previousStateRoot = \"previous-state-root\" is now a compatibility member in extension ReceiptCheck: public static let previousStateRoot: ReceiptCheck = .fields. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.26]
+interface = "interface.8.go-sdkswift-receiptcheck-resultingstateroot"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 562
+symbol = "resultingStateRoot"
+evidence = "Former enum case resultingStateRoot = \"resulting-state-root\" is now a compatibility member in extension ReceiptCheck: public static let resultingStateRoot: ReceiptCheck = .fields. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.27]
+interface = "interface.8.go-sdkswift-receiptcheck-debitbalance"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 563
+symbol = "debitBalance"
+evidence = "Former enum case debitBalance = \"debit-balance\" is now a compatibility member in extension ReceiptCheck: public static let debitBalance: ReceiptCheck = .fields. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.28]
+interface = "interface.8.go-sdkswift-receiptcheck-creditbalance"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 564
+symbol = "creditBalance"
+evidence = "Former enum case creditBalance = \"credit-balance\" is now a compatibility member in extension ReceiptCheck: public static let creditBalance: ReceiptCheck = .fields. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.29]
+interface = "interface.8.go-sdkswift-receiptcheck-programoutcome"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 565
+symbol = "programOutcome"
+evidence = "Former enum case programOutcome = \"program-outcome\" is now a compatibility member in extension ReceiptCheck: public static let programOutcome: ReceiptCheck = .fields. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.30]
+interface = "interface.8.go-sdkswift-receiptcheck-sequencersignature"
+verdict = "served_elsewhere"
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 566
+symbol = "sequencerSignature"
+evidence = "Former enum case sequencerSignature = \"sequencer-signature\" is now a compatibility member in extension ReceiptCheck: public static let sequencerSignature: ReceiptCheck = .signature. It is a static ReceiptCheck alias rather than a distinct generated enum case; its raw value follows the aliased sequencer check."
+
+[row.r8-41.31]
+interface = "interface.8.go-sdkswift-jsonvalue-null"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/JSONValue.swift"
+line = 4
+symbol = "null"
+evidence = "JSONValue still declares case null at line 4; no associated value or signature change. Declaring line: case null"
+
+[row.r8-41.32]
+interface = "interface.8.go-sdkswift-mirrorsourceverifying"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/MirrorSource.swift"
+line = 45
+symbol = "MirrorSourceVerifying"
+evidence = "MirrorSourceVerifying remains a Sendable protocol at line 45 with receipt and state verification requirements accepting canonical bytes and returning MirrorVerification. Declaring line: public protocol MirrorSourceVerifying: Sendable {"
+
+[row.r8-41.33]
+interface = "interface.8.go-sdkswift-nativecapability-storageread"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeCapabilitySet.swift"
+line = 5
+symbol = "storageRead"
+evidence = "NativeCapability still declares case storageRead at line 5; the case remains without associated values in the registered enum. Declaring line: case storageRead"
+
+[row.r8-41.34]
+interface = "interface.8.go-sdkswift-nativecapability-storagewrite"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeCapabilitySet.swift"
+line = 6
+symbol = "storageWrite"
+evidence = "NativeCapability still declares case storageWrite at line 6; the case remains without associated values in the registered enum. Declaring line: case storageWrite"
+
+[row.r8-41.35]
+interface = "interface.8.go-sdkswift-nativecapability-emitevent"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeCapabilitySet.swift"
+line = 7
+symbol = "emitEvent"
+evidence = "NativeCapability still declares case emitEvent at line 7; the case remains without associated values in the registered enum. Declaring line: case emitEvent"
+
+[row.r8-41.36]
+interface = "interface.8.go-sdkswift-nativecapability-sharedstorageread"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeCapabilitySet.swift"
+line = 13
+symbol = "sharedStorageRead"
+evidence = "NativeCapability still declares case sharedStorageRead at line 13; the case remains without associated values in the registered enum. Declaring line: case sharedStorageRead"
+
+[row.r8-41.37]
+interface = "interface.8.go-sdkswift-nativecapability-sharedstoragewrite"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeCapabilitySet.swift"
+line = 14
+symbol = "sharedStorageWrite"
+evidence = "NativeCapability still declares case sharedStorageWrite at line 14; the case remains without associated values in the registered enum. Declaring line: case sharedStorageWrite"
+
+[row.r8-41.38]
+interface = "interface.8.go-sdkswift-programguestabi-v1"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeProgramCall.swift"
+line = 4
+symbol = "v1"
+evidence = "ProgramGuestABI still declares case v1 = 1 at line 4; its UInt16 ABI number and Sendable enum are unchanged. Declaring line: case v1 = 1"
+
+[row.r8-41.39]
+interface = "interface.8.go-sdkswift-programguestabi-v2"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeProgramCall.swift"
+line = 5
+symbol = "v2"
+evidence = "ProgramGuestABI still declares case v2 = 2 at line 5; its UInt16 ABI number and Sendable enum are unchanged. Declaring line: case v2 = 2"
+
+[row.r8-41.40]
+interface = "interface.8.go-sdkswift-programguestabi-v3"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeProgramCall.swift"
+line = 6
+symbol = "v3"
+evidence = "ProgramGuestABI still declares case v3 = 3 at line 6; its UInt16 ABI number and Sendable enum are unchanged. Declaring line: case v3 = 3"
+
+[row.r8-41.41]
+interface = "interface.8.go-sdkswift-programguestabi-v4"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeProgramCall.swift"
+line = 7
+symbol = "v4"
+evidence = "ProgramGuestABI still declares case v4 = 4 at line 7; its UInt16 ABI number and Sendable enum are unchanged. Declaring line: case v4 = 4"
+
+[row.r8-41.42]
+interface = "interface.8.go-sdkswift-programguestabi-v5"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeProgramCall.swift"
+line = 8
+symbol = "v5"
+evidence = "ProgramGuestABI still declares case v5 = 5 at line 8; its UInt16 ABI number and Sendable enum are unchanged. Declaring line: case v5 = 5"
+
+[row.r8-41.43]
+interface = "interface.8.go-sdkswift-nativeprogramlifecycle"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeProgramLifecycle.swift"
+line = 21
+symbol = "NativeProgramLifecycle"
+evidence = "NativeProgramLifecycle remains a Sendable protocol at line 21, requiring ordinal: UInt16 and encode() -> Data. Declaring line: public protocol NativeProgramLifecycle: Sendable {"
+
+[row.r8-41.44]
+interface = "interface.8.go-sdkswift-nativeprogramlifecyclerequest"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeProgramLifecycle.swift"
+line = 202
+symbol = "NativeProgramLifecycleRequest"
+evidence = "Struct declaration remains public struct NativeProgramLifecycleRequest: Sendable at line 202. It still retains signedActivity, activityID and idempotencyKey; comments at lines 206-207 distinguish the activity digest from the EVM transaction hash, and calldata(feeLimit:) at line 217 now emits EVM calldata. Declaring line: public struct NativeProgramLifecycleRequest: Sendable {"
+
+[row.r8-41.45]
+interface = "interface.8.go-sdkswift-nativeprogramlifecyclerequest-init"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeProgramLifecycle.swift"
+line = 210
+symbol = "init"
+evidence = "Constructor signature remains init(operation: any NativeProgramLifecycle, signedActivity: Data) throws, now at line 210 instead of 208. It decodes the lifecycle payload, binds the signed activity and derives the LXP/v1/activity-id digest; the EVM calldata helpers follow it. Declaring line: public init(operation: any NativeProgramLifecycle, signedActivity: Data) throws {"
+
+[row.r8-41.46]
+interface = "interface.8.go-sdkswift-sdkerrorcode-deadline"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Production.swift"
+line = 20
+symbol = "deadline"
+evidence = "SDKErrorCode still declares case deadline, now at line 20 instead of 11; its String raw value remains implicit. Declaring line: case deadline"
+
+[row.r8-41.47]
+interface = "interface.8.go-sdkswift-idempotencykey-init"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Production.swift"
+line = 62
+symbol = "init"
+evidence = "IdempotencyKey retains public init?(rawValue: String), now at line 62 instead of 49; it rejects empty strings, strings over 255 UTF-8 bytes and embedded NUL. Declaring line: public init?(rawValue: String) {"
+
+[row.r8-41.48]
+interface = "interface.8.go-sdkswift-secretbytes-withbytes"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Production.swift"
+line = 117
+symbol = "withBytes"
+evidence = "SecretBytes retains public func withBytes<T>(_ consume: (Data) throws -> T) throws -> T, now at line 117 instead of 94; it locks the storage, rejects destroyed secrets and passes the Data to the throwing closure. Declaring line: public func withBytes<T>(_ consume: (Data) throws -> T) throws -> T {"
+
+[row.r8-41.49]
+interface = "interface.8.go-sdkswift-programtransportcall-init"
+verdict = "retired"
+path = "sdk/platform/swift/Sources/LayerXSDK/Production.swift"
+line = 143
+symbol = "ProgramTransportCall"
+evidence = "The registered public init(operation: String, request: JSONValue, pathParameters: [String: String] = [:], ...) disappeared together with its owning ProgramTransportCall type from Production.swift. TransportCall at line 161 now carries PlatformOperation instead of an operation string. Repository-wide whole-word searches excluding spec and docs find one other file mentioning the removed type: a .NET retirement test asserting that it is absent; no Swift declaration or initializer remains."
+remaining_refs = 1
+remaining = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramTransportRetiredTests.cs:58"]
+
+[row.r8-41.50]
+interface = "interface.8.go-sdkswift-platformtransport"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Production.swift"
+line = 168
+symbol = "PlatformTransport"
+evidence = "PlatformTransport remains public protocol PlatformTransport: Sendable, now at line 168 instead of 150; send(_ call: TransportCall) async throws -> JSONValue remains its transport requirement. Declaring line: public protocol PlatformTransport: Sendable {"
+
+[row.r8-41.51]
+interface = "interface.8.go-sdkswift-programcapability-transfer"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 207
+symbol = "transfer"
+evidence = "ProgramCapability still declares case transfer with its implicit String raw value, now at line 207 instead of 13; its ordering remains 3. Declaring line: case transfer"
+
+[row.r8-41.52]
+interface = "interface.8.go-sdkswift-programcapability-compose"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 209
+symbol = "compose"
+evidence = "ProgramCapability still declares case compose with its implicit String raw value, now at line 209 instead of 15; its ordering remains 5. Declaring line: case compose"
+
+[row.r8-41.53]
+interface = "interface.8.go-sdkswift-programcall"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 222
+symbol = "ProgramCall"
+evidence = "Struct signature remains public struct ProgramCall: Sendable, now at line 222 instead of 28. It now exposes transactionHash: Data? at line 229 alongside the native call, calldata, budget, capabilities and signedActivity, and has an EVM-oriented initializer at line 258. Declaring line: public struct ProgramCall: Sendable {"
+
+[row.r8-41.54]
+interface = "interface.8.go-sdkswift-programcall-init"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 231
+symbol = "init"
+evidence = "The registered programID/calldata/budget constructor is still present in ProgramCall, now at line 231 instead of 33. The full current signature includes capabilities: [ProgramCapability], signedActivity: Data, nativeCall: NativeProgramCall? = nil and throws. This signed-activity initializer sets transactionHash to nil at line 241. Declaring line: public init("
+
+[row.r8-41.55]
+interface = "interface.8.go-sdkswift-programcall-init-2"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 249
+symbol = "init"
+evidence = "Signature unchanged: public init(nativeCall: NativeProgramCall, feeLimit: ProtocolAmount, signedActivity: Data) throws, now at line 249 instead of 44. It still validates and delegates to the signed-activity initializer; the separate EVM initializer at line 258 accepts transactionHash: Data? = nil. Declaring line: public init(nativeCall: NativeProgramCall, feeLimit: ProtocolAmount, signedActivity: Data) throws"
+
+[row.r8-41.56]
+interface = "interface.8.go-sdkswift-programsource-unpublished"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 293
+symbol = "unpublished"
+evidence = "ProgramSource still declares case unpublished without associated values, now at line 293 instead of 54. Declaring line: case unpublished"
+
+[row.r8-41.57]
+interface = "interface.8.go-sdkswift-programsubmission"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 346
+symbol = "ProgramSubmission"
+evidence = "Struct signature remains public struct ProgramSubmission: Sendable, now at line 346 instead of 87. Its transactionHash: Data and sequencerReceipt: SequencerReceiptVerification? now identify the EVM submission; activityID is a computed alias returning transactionHash at line 350. Declaring line: public struct ProgramSubmission: Sendable {"
+
+[row.r8-41.58]
+interface = "interface.8.go-sdkswift-programsubmission-isunknown"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 355
+symbol = "isUnknown"
+evidence = "Signature and predicate remain public var isUnknown: Bool { state == \"unknown\" }, now at line 355 instead of 94. The surrounding ProgramSubmission now carries the transaction hash and an optional verified sequencer receipt. Declaring line: public var isUnknown: Bool { state == \"unknown\" }"
+
+[row.r8-41.59]
+interface = "interface.8.go-sdkswift-programsclient"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 371
+symbol = "ProgramsClient"
+evidence = "Struct signature remains public struct ProgramsClient: Sendable, now at line 371 instead of 103. Its EVM constructor at line 384 takes rpcURL, sender, optional actor, receiptKeys and fee parameters; transport() returns ProgramRPC or throws protocolIncompatibility for the legacy client constructor. Declaring line: public struct ProgramsClient: Sendable {"
+
+[row.r8-41.60]
+interface = "interface.8.go-sdkswift-programsclient-lifecyclereceipt"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 573
+symbol = "lifecycleReceipt"
+evidence = "The former lifecycleReceipt(_ request: NativeProgramLifecycleRequest) async throws signature now requires transactionHash: Data and returns Data, at lines 573-575. It rejects the LXP activity digest as transaction identity, resolves activity(transactionHash:) and returns the verified sequencer receipt canonicalBytes. Declaring line: public func lifecycleReceipt("

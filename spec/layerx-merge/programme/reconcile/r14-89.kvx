@@ -1,0 +1,521 @@
+[reconcile.r14-89]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 54
+
+[row.r14-89.1]
+interface = "interface.14.ts-web-journeys-agents-model-evidencereceiptverified"
+verdict = "served"
+path = "apps/web/src/journeys/agents/model.ts"
+line = 157
+symbol = "evidenceReceiptVerified"
+evidence = "export function evidenceReceiptVerified(evidence: readonly EvidenceRef[]): boolean keeps its registered signature; the receiptBacked predicate at lines 145-155 now accepts only receipt-verified or checkpoint-finalised layerx-receipt/checkpoint-proof evidence, excluding the old finality levels."
+
+[row.r14-89.2]
+interface = "interface.14.ts-web-journeys-agents-model-stagereceiptverified"
+verdict = "served"
+path = "apps/web/src/journeys/agents/model.ts"
+line = 161
+symbol = "stageReceiptVerified"
+evidence = "export function stageReceiptVerified(stage: JourneyStage): boolean keeps its registered signature; after requiring done or done-finalised, it delegates to evidenceReceiptVerified, whose receipt levels are now receipt-verified and checkpoint-finalised only."
+
+[row.r14-89.3]
+interface = "interface.14.ts-web-journeys-approvals-model-verificationlabel"
+verdict = "served"
+path = "apps/web/src/journeys/approvals/model.ts"
+line = 95
+symbol = "verificationLabel"
+evidence = "export function verificationLabel(level: string): string changes the parameter from VerificationLevel to string; verificationRung normalizes the input before indexing the three-entry VERIFICATION_COPY map, removing the old finality labels."
+
+[row.r14-89.4]
+interface = "interface.14.ts-web-journeys-custody-evidence-verificationatleast"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/evidence.ts"
+line = 18
+symbol = "verificationAtLeast"
+evidence = "verificationAtLeast is absent because its registered custody module no longer exists; the former custody handoff/evidence/timeline API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.5]
+interface = "interface.14.ts-web-journeys-custody-evidence-stageevidencerule"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/evidence.ts"
+line = 44
+symbol = "stageEvidenceRule"
+evidence = "stageEvidenceRule is absent because its registered custody module no longer exists; the former custody handoff/evidence/timeline API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.6]
+interface = "interface.14.ts-web-journeys-custody-evidence-stageevidencebacked"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/evidence.ts"
+line = 48
+symbol = "stageEvidenceBacked"
+evidence = "stageEvidenceBacked is absent because its registered custody module no longer exists; the former custody handoff/evidence/timeline API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.7]
+interface = "interface.14.ts-web-journeys-custody-evidence-presentedstagestate"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/evidence.ts"
+line = 58
+symbol = "presentedStageState"
+evidence = "presentedStageState is absent because its registered custody module no longer exists; the former custody handoff/evidence/timeline API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.8]
+interface = "interface.14.ts-web-journeys-custody-evidence-presentedjourneystate"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/evidence.ts"
+line = 95
+symbol = "presentedJourneyState"
+evidence = "presentedJourneyState is absent because its registered custody module no longer exists; the former custody handoff/evidence/timeline API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.9]
+interface = "interface.14.ts-web-journeys-custody-handoff-paxeerwalletbridge"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/handoff.ts"
+line = 21
+symbol = "PaxeerWalletBridge"
+evidence = "PaxeerWalletBridge is absent because its registered custody module no longer exists; the former custody handoff/evidence/timeline API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.10]
+interface = "interface.14.ts-web-journeys-custody-handoff-eip1193provider"
+verdict = "served_elsewhere"
+path = "apps/web/src/api/provider.ts"
+line = 1
+symbol = "Eip1193Provider"
+evidence = "The custody handoff module is absent. Eip1193Provider is now exported from api/provider.ts with request(args: Readonly<{ method: string; params?: readonly unknown[] }>): Promise<unknown>; wallet-receipt.test.ts imports this shared interface."
+
+[row.r14-89.11]
+interface = "interface.14.ts-web-journeys-custody-handoff-custodyfromwalletsignrequest"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/handoff.ts"
+line = 124
+symbol = "custodyFromWalletSignRequest"
+evidence = "custodyFromWalletSignRequest is absent because its registered custody module no longer exists; the former custody handoff/evidence/timeline API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.12]
+interface = "interface.14.ts-web-journeys-custody-handoff-custodyhandoffstoragekey"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/handoff.ts"
+line = 148
+symbol = "custodyHandoffStorageKey"
+evidence = "custodyHandoffStorageKey is absent because its registered custody module no longer exists; the former custody handoff/evidence/timeline API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.13]
+interface = "interface.14.ts-web-journeys-custody-handoff-browserwalletbridge"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/handoff.ts"
+line = 183
+symbol = "browserWalletBridge"
+evidence = "browserWalletBridge is absent because its registered custody module no longer exists; the former custody handoff/evidence/timeline API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.14]
+interface = "interface.14.ts-web-journeys-custody-handoff-windowwalletprovider"
+verdict = "served_elsewhere"
+path = "apps/web/src/api/provider.ts"
+line = 5
+symbol = "windowWalletProvider"
+evidence = "The custody handoff module is absent. export function windowWalletProvider(): Eip1193Provider | undefined now lives in api/provider.ts, validates window.ethereum.request, and is imported therefrom by api/wallet.ts and the exchange and launchpad clients."
+
+[row.r14-89.15]
+interface = "interface.14.ts-web-journeys-custody-model-custody-currency"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/model.ts"
+line = 9
+symbol = "CUSTODY_CURRENCY"
+evidence = "CUSTODY_CURRENCY is absent because its registered custody module no longer exists; the former custody handoff/evidence/timeline API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.16]
+interface = "interface.14.ts-web-journeys-custody-model-journeytimeline"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/model.ts"
+line = 18
+symbol = "journeyTimeline"
+evidence = "journeyTimeline is absent because its registered custody module no longer exists; the former custody handoff/evidence/timeline API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.17]
+interface = "interface.14.ts-web-journeys-custody-model-newidempotencykey"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/model.ts"
+line = 137
+symbol = "newIdempotencyKey"
+evidence = "The exported custody newIdempotencyKey(randomBytes: RandomBytes = defaultRandomBytes): string API is gone with custody/model.ts. The two remaining same-name functions are private, parameterless UUID helpers in agents/model.ts and wallet KernelPlan.tsx; neither serves the former injectable RandomBytes export. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 2 other files."
+remaining_refs = 2
+remaining = ["apps/wallet/src/account/KernelPlan.tsx:70", "apps/web/src/journeys/agents/model.ts:594"]
+
+[row.r14-89.18]
+interface = "interface.14.ts-web-journeys-custody-time-custodytiming"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/time.ts"
+line = 9
+symbol = "CustodyTiming"
+evidence = "CustodyTiming is absent because its registered custody module no longer exists; the former custody handoff/evidence/timeline API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.19]
+interface = "interface.14.ts-web-journeys-custody-timeline-journeytimelineview"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/timeline.tsx"
+line = 31
+symbol = "JourneyTimelineView"
+evidence = "JourneyTimelineView is absent because its registered custody module no longer exists; the former custody handoff/evidence/timeline API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.20]
+interface = "interface.14.ts-web-journeys-custody-timeline-journeytechnicaldetails"
+verdict = "retired"
+path = "apps/web/src/journeys/custody/timeline.tsx"
+line = 54
+symbol = "JourneyTechnicalDetails"
+evidence = "JourneyTechnicalDetails is absent because its registered custody module no longer exists; the former custody handoff/evidence/timeline API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.21]
+interface = "interface.14.ts-web-journeys-deposit-model-deposit-final-stage"
+verdict = "retired"
+path = "apps/web/src/journeys/deposit/model.ts"
+line = 23
+symbol = "DEPOSIT_FINAL_STAGE"
+evidence = "DEPOSIT_FINAL_STAGE is absent because journeys/deposit/model.ts no longer exists; the former custody deposit journey API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.22]
+interface = "interface.14.ts-web-journeys-deposit-model-depositplan-2"
+verdict = "retired"
+path = "apps/web/src/journeys/deposit/model.ts"
+line = 58
+symbol = "depositPlan"
+evidence = "The exported depositPlan(input: DepositPlanInput): DepositPlan function is gone with journeys/deposit/model.ts. The sole remaining exact-name reference is a local bridge-card.tsx variable containing planDeposit output, not the retired web journey function. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 1 other file."
+remaining_refs = 1
+remaining = ["apps/bridge/src/components/bridge/bridge-card.tsx:189"]
+
+[row.r14-89.23]
+interface = "interface.14.ts-web-journeys-deposit-model-depositcontroller"
+verdict = "retired"
+path = "apps/web/src/journeys/deposit/model.ts"
+line = 153
+symbol = "DepositController"
+evidence = "The TypeScript DepositController class is gone with journeys/deposit/model.ts. All five remaining files refer to the unrelated BlockScoutWeb.API.V2.Ethereum.DepositController Elixir module or its aliases/routes, not a relocated web journey controller. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 5 other files."
+remaining_refs = 5
+remaining = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/address_controller.ex:38", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/block_controller.ex:35", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/ethereum/deposit_controller.ex:1", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/transaction_controller.ex:48", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex:435"]
+
+[row.r14-89.24]
+interface = "interface.14.ts-web-journeys-exit-model-exit-confirmation-phrase"
+verdict = "retired"
+path = "apps/web/src/journeys/exit/model.ts"
+line = 24
+symbol = "EXIT_CONFIRMATION_PHRASE"
+evidence = "EXIT_CONFIRMATION_PHRASE is absent because journeys/exit/model.ts no longer exists; the forced-exit journey API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.25]
+interface = "interface.14.ts-web-journeys-exit-model-exit-final-stage"
+verdict = "retired"
+path = "apps/web/src/journeys/exit/model.ts"
+line = 25
+symbol = "EXIT_FINAL_STAGE"
+evidence = "EXIT_FINAL_STAGE is absent because journeys/exit/model.ts no longer exists; the forced-exit journey API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.26]
+interface = "interface.14.ts-web-journeys-exit-model-exitconfirmationready"
+verdict = "retired"
+path = "apps/web/src/journeys/exit/model.ts"
+line = 34
+symbol = "exitConfirmationReady"
+evidence = "exitConfirmationReady is absent because journeys/exit/model.ts no longer exists; the forced-exit journey API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.27]
+interface = "interface.14.ts-web-journeys-exit-model-exitplan-2"
+verdict = "retired"
+path = "apps/web/src/journeys/exit/model.ts"
+line = 72
+symbol = "exitPlan"
+evidence = "exitPlan is absent because journeys/exit/model.ts no longer exists; the forced-exit journey API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.28]
+interface = "interface.14.ts-web-journeys-exit-model-exitcontroller"
+verdict = "retired"
+path = "apps/web/src/journeys/exit/model.ts"
+line = 141
+symbol = "ExitController"
+evidence = "ExitController is absent because journeys/exit/model.ts no longer exists; the forced-exit journey API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.29]
+interface = "interface.14.ts-web-journeys-home-model-home-destinations"
+verdict = "served"
+path = "apps/web/src/journeys/home/model.ts"
+line = 30
+symbol = "HOME_DESTINATIONS"
+evidence = "export const HOME_DESTINATIONS = Object.freeze({ keeps the exported constant declaration; its inferred readonly object now assigns both add and withdraw to /bridge rather than the retired /app/deposit and /app/withdraw routes; move remains MOVE_ROUTE."
+
+[row.r14-89.30]
+interface = "interface.14.ts-web-journeys-move-model-verifiedoutcomeevidence"
+verdict = "served"
+path = "apps/web/src/journeys/move/model.ts"
+line = 382
+symbol = "verifiedOutcomeEvidence"
+evidence = "export function verifiedOutcomeEvidence(item: EvidenceRef): boolean keeps its registered signature; its implementation now delegates to activityReceiptBacked, which requires layerx-receipt evidence at receipt-verified or checkpoint-finalised rather than old finality classes/levels."
+
+[row.r14-89.31]
+interface = "interface.14.ts-web-journeys-move-model-receiptbacked"
+verdict = "served"
+path = "apps/web/src/journeys/move/model.ts"
+line = 386
+symbol = "receiptBacked"
+evidence = "export function receiptBacked(journey: Journey): boolean keeps its registered signature; it requires nonempty stages, done/done-finalised state on every stage, and verifiedOutcomeEvidence backed by the shared activity receipt predicate, excluding the old finality levels."
+
+[row.r14-89.32]
+interface = "interface.14.ts-web-journeys-onboarding-model-accountactive"
+verdict = "served"
+path = "apps/web/src/journeys/onboarding/model.ts"
+line = 60
+symbol = "accountActive"
+evidence = "export function accountActive(journey: Journey): boolean keeps its registered signature; it requires an unrefused journey and a completed protocol identity stage with layerx-receipt evidence normalized by verificationRung, rejecting the old finality levels."
+
+[row.r14-89.33]
+interface = "interface.14.ts-web-journeys-withdraw-model-withdraw-final-stage"
+verdict = "retired"
+path = "apps/web/src/journeys/withdraw/model.ts"
+line = 28
+symbol = "WITHDRAW_FINAL_STAGE"
+evidence = "WITHDRAW_FINAL_STAGE is absent because journeys/withdraw/model.ts no longer exists; the former custody withdrawal journey API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.34]
+interface = "interface.14.ts-web-journeys-withdraw-model-settlementpresentation-2"
+verdict = "retired"
+path = "apps/web/src/journeys/withdraw/model.ts"
+line = 36
+symbol = "settlementPresentation"
+evidence = "settlementPresentation is absent because journeys/withdraw/model.ts no longer exists; the former custody withdrawal journey API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.35]
+interface = "interface.14.ts-web-journeys-withdraw-model-challengeholdpresentation-2"
+verdict = "retired"
+path = "apps/web/src/journeys/withdraw/model.ts"
+line = 53
+symbol = "challengeHoldPresentation"
+evidence = "challengeHoldPresentation is absent because journeys/withdraw/model.ts no longer exists; the former custody withdrawal journey API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.36]
+interface = "interface.14.ts-web-journeys-withdraw-model-withdrawplan-2"
+verdict = "retired"
+path = "apps/web/src/journeys/withdraw/model.ts"
+line = 114
+symbol = "withdrawPlan"
+evidence = "withdrawPlan is absent because journeys/withdraw/model.ts no longer exists; the former custody withdrawal journey API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.37]
+interface = "interface.14.ts-web-journeys-withdraw-model-withdrawcontroller"
+verdict = "retired"
+path = "apps/web/src/journeys/withdraw/model.ts"
+line = 206
+symbol = "WithdrawController"
+evidence = "WithdrawController is absent because journeys/withdraw/model.ts no longer exists; the former custody withdrawal journey API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.38]
+interface = "interface.14.ts-web-kit-model-verification-presentations"
+verdict = "served"
+path = "apps/web/src/kit/model.ts"
+line = 38
+symbol = "VERIFICATION_PRESENTATIONS"
+evidence = "export const VERIFICATION_PRESENTATIONS = Object.freeze({ keeps the exported constant declaration; its inferred readonly keys now comprise only unverified, receipt-verified and checkpoint-finalised. The former paxeer-finalised and settlement-anchored presentations are absent."
+
+[row.r14-89.39]
+interface = "interface.14.ts-web-kit-model-verificationword"
+verdict = "served"
+path = "apps/web/src/kit/model.ts"
+line = 88
+symbol = "verificationWord"
+evidence = "export function verificationWord(level: string): string replaces the VerificationKey parameter with string; it now indexes VERIFICATION_PRESENTATIONS through verificationRung(level), normalizing unsupported old finality labels to unverified."
+
+[row.r14-89.40]
+interface = "interface.14.ts-web-settings-wallet-bridge-walletbridgefailure"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/bridge.ts"
+line = 4
+symbol = "WalletBridgeFailure"
+evidence = "WalletBridgeFailure is absent because settings/wallet/bridge.ts no longer exists; the former binding bridge API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.41]
+interface = "interface.14.ts-web-settings-wallet-bridge-walletaccountoutcome"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/bridge.ts"
+line = 6
+symbol = "WalletAccountOutcome"
+evidence = "WalletAccountOutcome is absent because settings/wallet/bridge.ts no longer exists; the former binding bridge API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.42]
+interface = "interface.14.ts-web-settings-wallet-bridge-walletsignatureoutcome"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/bridge.ts"
+line = 10
+symbol = "WalletSignatureOutcome"
+evidence = "WalletSignatureOutcome is absent because settings/wallet/bridge.ts no longer exists; the former binding bridge API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.43]
+interface = "interface.14.ts-web-settings-wallet-bridge-bindingwalletbridge"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/bridge.ts"
+line = 14
+symbol = "BindingWalletBridge"
+evidence = "BindingWalletBridge is absent because settings/wallet/bridge.ts no longer exists; the former binding bridge API is removed. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.44]
+interface = "interface.14.ts-web-settings-wallet-bridge-browserbindingwalletbridge"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/bridge.ts"
+line = 47
+symbol = "browserBindingWalletBridge"
+evidence = "browserBindingWalletBridge is absent because settings/wallet/bridge.ts no longer exists; the former binding bridge API is removed. Its sole remaining reference is the wallet-settings.test.ts assertion that this binding export is absent. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 1 other file."
+remaining_refs = 1
+remaining = ["apps/web/e2e/wallet-settings.test.ts:93"]
+
+[row.r14-89.45]
+interface = "interface.14.ts-web-settings-wallet-model-wallet-binding-domain"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/model.ts"
+line = 22
+symbol = "WALLET_BINDING_DOMAIN"
+evidence = "WALLET_BINDING_DOMAIN is absent from settings/wallet/model.ts, which now exports fee preference and security notification helpers instead of the binding API. Its sole remaining reference is the wallet-settings.test.ts assertion that this binding export is absent. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 1 other file."
+remaining_refs = 1
+remaining = ["apps/web/e2e/wallet-settings.test.ts:92"]
+
+[row.r14-89.46]
+interface = "interface.14.ts-web-settings-wallet-model-activewalletbinding"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/model.ts"
+line = 25
+symbol = "ActiveWalletBinding"
+evidence = "ActiveWalletBinding is absent from settings/wallet/model.ts, which now exports fee preference and security notification helpers instead of the binding API. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.47]
+interface = "interface.14.ts-web-settings-wallet-model-walletbindingphase"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/model.ts"
+line = 31
+symbol = "WalletBindingPhase"
+evidence = "WalletBindingPhase is absent from settings/wallet/model.ts, which now exports fee preference and security notification helpers instead of the binding API. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.48]
+interface = "interface.14.ts-web-settings-wallet-model-walletbindingsnapshot"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/model.ts"
+line = 41
+symbol = "WalletBindingSnapshot"
+evidence = "WalletBindingSnapshot is absent from settings/wallet/model.ts, which now exports fee preference and security notification helpers instead of the binding API. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 0 other files."
+remaining_refs = 0
+remaining = []
+
+[row.r14-89.49]
+interface = "interface.14.ts-web-settings-wallet-model-receiptbackedbinding"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/model.ts"
+line = 49
+symbol = "receiptBackedBinding"
+evidence = "receiptBackedBinding is absent from settings/wallet/model.ts, which now exports fee preference and security notification helpers instead of the binding API. Its sole remaining reference is the wallet-settings.test.ts assertion that this binding export is absent. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 1 other file."
+remaining_refs = 1
+remaining = ["apps/web/e2e/wallet-settings.test.ts:93"]
+
+[row.r14-89.50]
+interface = "interface.14.ts-web-settings-wallet-model-validbindingstatement"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/model.ts"
+line = 67
+symbol = "validBindingStatement"
+evidence = "validBindingStatement is absent from settings/wallet/model.ts, which now exports fee preference and security notification helpers instead of the binding API. Its sole remaining reference is the wallet-settings.test.ts assertion that this binding export is absent. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 1 other file."
+remaining_refs = 1
+remaining = ["apps/web/e2e/wallet-settings.test.ts:93"]
+
+[row.r14-89.51]
+interface = "interface.14.ts-web-settings-wallet-model-walletbindingcontroller"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/model.ts"
+line = 92
+symbol = "WalletBindingController"
+evidence = "WalletBindingController is absent from settings/wallet/model.ts, which now exports fee preference and security notification helpers instead of the binding API. Its sole remaining reference is the wallet-settings.test.ts assertion that this binding export is absent. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 1 other file."
+remaining_refs = 1
+remaining = ["apps/web/e2e/wallet-settings.test.ts:92"]
+
+[row.r14-89.52]
+interface = "interface.14.ts-web-settings-wallet-model-wallet-binding"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/model.ts"
+line = 209
+symbol = "wallet_binding"
+evidence = "The wallet_binding exported constant is absent from settings/wallet/model.ts, which now implements wallet fee preferences. Remaining references are an export-absence assertion plus human-service Rust credential fields, plumbing and a signing test helper; none serves the former web binding export. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 8 other files."
+remaining_refs = 8
+remaining = ["apps/web/e2e/wallet-settings.test.ts:94", "services/human/crates/layerx-human-service/src/server/backend.rs:344", "services/human/crates/layerx-human-service/src/server/component.rs:409", "services/human/crates/layerx-human-service/src/server/component_protocol.rs:47", "services/human/crates/layerx-human-service/src/server/http.rs:527", "services/human/crates/layerx-human-service/src/server/production_components.rs:921", "services/human/crates/layerx-human-service/tests/bearer_admission.rs:507", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:1025"]
+
+[row.r14-89.53]
+interface = "interface.14.ts-web-settings-wallet-model-human-web-wallet-binding"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/model.ts"
+line = 216
+symbol = "human_web_wallet_binding"
+evidence = "human_web_wallet_binding is absent from settings/wallet/model.ts, which now exports fee preference and security notification helpers instead of the binding API. Its sole remaining reference is the wallet-settings.test.ts assertion that this binding export is absent. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 1 other file."
+remaining_refs = 1
+remaining = ["apps/web/e2e/wallet-settings.test.ts:94"]
+
+[row.r14-89.54]
+interface = "interface.14.ts-web-settings-wallet-wallet-screen-walletbindingscreen"
+verdict = "retired"
+path = "apps/web/src/settings/wallet/wallet-screen.tsx"
+line = 60
+symbol = "WalletBindingScreen"
+evidence = "WalletBindingScreen is absent from settings/wallet/wallet-screen.tsx; that file now exports WalletFeeChoice and WalletFeeSettings. Its sole remaining reference is the wallet-settings.test.ts assertion that no binding screen export exists. Repository-wide exact-identifier searches (rg and git grep, excluding spec and docs directories) found 1 other file."
+remaining_refs = 1
+remaining = ["apps/web/e2e/wallet-settings.test.ts:92"]
