@@ -19723,3 +19723,35 @@ symbol = "hyperPaxeer"
 observed = "8dc0d37ce raised viem; the package's type check fails at src/chain.ts:15 with TS2742 (18.1548.1 attempt 1 at ef4e3121e)."
 assumption = "The task verified the lock floor and the frozen install only; 22.95.7 annotates the chain constant."
 severity = "major"
+
+[finding.22.7.3.5]
+task = "22.7.3"
+file = "rpc/tests/regression_test.go"
+symbol = "Test0x5174c3eae7c0d87dca905c42a0f1241c2d3834c1421594ad8f067e0f486808a8"
+observed = "The 34 recorded upstream regression cases trace against usei balances and a sei Wasm capability absent on this chain; attempt 11 re-typed the encoded transactions and the traces still failed with insufficient usei funds, duplicate usei denominations and the unavailable capability."
+assumption = "The corpus was recorded on the upstream chain; decision 2461 retires it through task 22.95.8."
+severity = "major"
+
+[finding.22.7.3.6]
+task = "22.7.3"
+file = "rpc/rpcstack.go"
+symbol = "HTTPServer.Start"
+observed = "Attempt 11 (c814c4d2c) crashed the rpc test binary with a nil pointer in net/http.(*Server).Serve called from the goroutine HTTPServer.Start spawns at rpcstack.go:191, which reads h.server after Stop and doStop (rpcstack.go:311, :319) released it."
+assumption = "The goroutine reads the server field without the mutex; task 22.95.9 captures the server before spawning and makes Stop wait for Serve to return."
+severity = "major"
+
+[finding.18.1162.1.4]
+task = "18.1162.1"
+file = "services/interop/crates/layerx-x402/tests/vectors.rs"
+symbol = "layerx_offer"
+observed = "e556c8b04 made eip155:125 the only x402 network and refuses a layerx profile block elsewhere; tests/vectors.rs still builds offers on layerx:beta and specs/conformance/x402/payment-payload.json still carries layerx: networks, so six of fifteen vector tests fail on main (18.1211.6 attempt 7)."
+assumption = "The task ran the seller tests only; task 22.95.10 moves the vector suite and the payload fixture to the eip155:125 rule."
+severity = "major"
+
+[finding.22.24.6.1]
+task = "22.24.6"
+file = "apps/perps/package.json"
+symbol = "overrides"
+observed = "The override @opentelemetry/core@<2.8.0 -> 2.8.0 rewrites the ^1.30.1 core dependency of @opentelemetry/sdk-trace-base 1.30.1 (pnpm-lock.yaml:8101-8104); sdk-trace-base 1.x reads TracesSamplerValues from core, removed in 2.x, so loading the production Next config fails with Cannot read properties of undefined (reading AlwaysOn) (18.1521.1 attempt 1)."
+assumption = "The task verified the floors and the frozen install only; decision 2464 narrows the override through 18.1521.1."
+severity = "major"
