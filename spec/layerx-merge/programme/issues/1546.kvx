@@ -1,0 +1,7 @@
+[issue.1546]
+number = 1546
+title = "[Coherence] The Go advisory commit deletes the Cargo.lock of the attestor kernel-vector generator"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "already-fixed"
+evidence = "Commit 3a45b8541b41b4ead9a244ff463d6d042e05f2cc deleted the generator lockfile, but commit 3260ae0399bad15c3094edddaadd1008a71a8ff2 restored it for task 22.24.25, and services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.lock:28 now records the generator's dependencies while services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/tests/no_kernel_codec.rs:26 still compares its output with the pinned fixture."
+close_comment = "The kernel-vector generator's Cargo.lock was restored on main in commit 3260ae0399bad15c3094edddaadd1008a71a8ff2, pinning its resolved dependencies again. The existing generator test still checks that its output matches the committed kernel_activities.json fixture."

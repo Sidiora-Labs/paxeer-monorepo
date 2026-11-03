@@ -112,28 +112,33 @@ fn ambient_clock_reads_are_rejected() {
 }
 
 #[test]
-fn service_crate_wire_dependency_is_rejected() {
+fn service_crate_wire_dependency_is_allowed_while_encoding_is_caught() {
     let fixture = Fixture::new();
-    fixture.write(
-        "layerx-human-service/Cargo.toml",
-        "[package]\nname = \"layerx-human-service\"\n[dependencies]\nlayerx-wire = { path = \"../wire\" }\n",
-    );
-    let violations = human_payload_authority_gate(fixture.path())
-        .err()
-        .unwrap_or_else(|| panic!("wire dependency in a service crate must be caught"));
-    assert!(violations
-        .iter()
-        .any(|violation| violation.rule == "payload-authority-dependency"));
-}
-
-#[test]
-fn workspace_inherited_wire_dependency_is_rejected() {
-    let fixture = Fixture::new();
-    fixture.write(
-        "layerx-explorer-index/Cargo.toml",
-        "[dependencies]\nlayerx-wire.workspace = true\n",
-    );
-    assert!(human_payload_authority_gate(fixture.path()).is_err());
+    for dependency in [
+        "layerx-wire = { path = \"../wire\" }",
+        "layerx-wire.workspace = true",
+    ] {
+        fixture.write(
+            "layerx-human-service/Cargo.toml",
+            &format!("[package]\nname = \"layerx-human-service\"\n[dependencies]\n{dependency}\n"),
+        );
+        assert_eq!(human_payload_authority_gate(fixture.path()), Ok(()));
+        for source in [
+            "layerx-human-service/src/lib.rs",
+            "layerx-human-service/tests/receipt.rs",
+        ] {
+            fixture.write(source, "use layerx_wire::encode::Encoder;\n");
+            let violations = human_payload_authority_gate(fixture.path())
+                .err()
+                .unwrap_or_else(|| {
+                    panic!("encode entry point in a service source or test must be caught")
+                });
+            assert_eq!(violations.len(), 1);
+            assert_eq!(violations[0].path, fixture.path().join(source));
+            assert_eq!(violations[0].rule, "payload-encoding-entry-point");
+            fixture.write(source, "");
+        }
+    }
 }
 
 #[test]

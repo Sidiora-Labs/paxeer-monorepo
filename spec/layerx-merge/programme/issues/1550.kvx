@@ -1,0 +1,48 @@
+[issue.1550]
+number = 1550
+title = "[Coherence] The added recipient, spending limit and expiry on version-1 budgetCreate disclosures break two existing tests that still assert the old shape"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "The version-1 binder discloses Transfer, Recipient, SpendingLimit and expiry at services/agent/crates/layerx-crypto/src/disclosure/call.rs:770-790 and its constructor test asserts them at services/agent/crates/layerx-crypto/tests/disclosure_call.rs:758-766, while commit 9b9f71f043fd795a16f6d408368c9103d1e64c59 corrected the crypto amount assertions retained at services/agent/crates/layerx-crypto/tests/budget_call.rs:108-112, but services/human/crates/layerx-intents/tests/budget_payloads.rs:245-248 still expects one amount and no counterparties, leaving a defect distinct from the corrected crypto-only claim in issue #1559 (spec/layerx-merge/programme/issues/input/1559.md:40)."
+close_comment = "The crypto payload-rule test already checks both disclosed amounts. Task 18.1550.1 tracks the remaining correction to the intents budget-create test so it checks the recipient, transfer, spending limit and expiry while preserving its rejection checks."
+
+[task.18.1550.1]
+title = "Issue #1550: Align the intents budget-create test with the complete version-1 disclosure"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181550.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update budget_create_compiles_to_canonical_call_payload in services/human/crates/layerx-intents/tests/budget_payloads.rs:216-250 to assert the version-1 disclosure emitted by services/agent/crates/layerx-crypto/src/disclosure/call.rs:770-790: exactly two amounts, Transfer then SpendingLimit, both equal to AMOUNT for this fixture; exactly one Recipient equal to account_id(&budget_account()); and payload_expires_at equal to 1_900_000_000_000 milliseconds; retain the existing asset, budget identity, canonical payload and signing assertions."
+do_2 = "Use the existing focused budget_create_compiles_to_canonical_call_payload test to prove the complete disclosure for both rollover policies at services/human/crates/layerx-intents/tests/budget_payloads.rs:218-220, retaining every malformed-input and disclosure-mismatch rejection at lines 251-309; leave the binder and the already-corrected crypto amount assertions unchanged."
+symbols = ["budget_create_compiles_to_canonical_call_payload"]
+touches = ["services/human/crates/layerx-intents/tests/budget_payloads.rs"]
+tests = ["services/human/crates/layerx-intents/tests/budget_payloads.rs::budget_create_compiles_to_canonical_call_payload"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test budget_payloads budget_create_compiles_to_canonical_call_payload -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181550]
+title = "The intents budget-create test checks the complete version-1 call disclosure"
+ac_1 = "Given either rollover fixture in services/human/crates/layerx-intents/tests/budget_payloads.rs:218-235, when the compiled version-1 budgetCreate call is bound, then budget_create_compiles_to_canonical_call_payload asserts exactly one Recipient for the budget account, Transfer and SpendingLimit amounts in that order with value AMOUNT, and payload expiry 1_900_000_000_000, matching services/agent/crates/layerx-crypto/src/disclosure/call.rs:770-790, while all canonical binding and rejection assertions at budget_payloads.rs:240-309 remain enforced."
+
+[acceptance.18.1550.1]
+feature = "18"
+req = "181550.1"
+scenario = "Given a version-1 budget-create intent with either supported rollover policy, when the intent is compiled and its EIP-1559 call is bound, then the focused test checks the budget recipient, initial transfer, per-period spending limit and millisecond expiry and still rejects every existing invalid-input case."
+contract = "contracts/pay.md#budget"
+test = "services/human/crates/layerx-intents/tests/budget_payloads.rs::budget_create_compiles_to_canonical_call_payload (planned)"
+qualification = "UNRUN"

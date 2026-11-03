@@ -1,0 +1,49 @@
+[issue.1558]
+number = 1558
+title = "[Coherence] The commit message says the perps callers, the boundary-check rule and the served-methods golden were changed, but the commit only edits spec, gotcha and qualification records"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "The subject of c1f5f4d31ef0f4885db9b4203821d350fd249cb1 claims implementation although its diff changes only GOTCHA.kvx, spec/layerx-merge/qualification.kvx and spec/layerx-merge/spec.kvx; the later SDK fix c31ded3a33b5c890e15e40b05be99c5b763307e9 now encodes the real ABI at services/agent/sdk/typescript/src/perps.ts:740-753 with ABI-derived assertions at services/agent/sdk/typescript/test/perps-v2.test.ts:33-88, and the web page uses real signatures at apps/web/src/app/exchange/exchange-client.tsx:72-77, but wallet cancellation at sdk/wallet/src/modules/exchange.ts:54, the substituted web-test ABI at apps/web/e2e/exchange-perps.test.ts:50-55, the manifest rule at services/human/tools/boundary-check/src/lib.rs:255-259 and the missing px_getReceiptKeys row between rpc/testdata/served_methods_http.golden:100-101 remain assigned to pending tasks at spec/layerx-merge/spec.kvx:119043, spec/layerx-merge/spec.kvx:119012, spec/layerx-merge/spec.kvx:175311 and spec/layerx-merge/spec.kvx:191684, so the historical implementation claim still needs a published correction."
+close_comment = "Commit c1f5f4d31ef0f4885db9b4203821d350fd249cb1 records decisions 2387-2393 and follow-up tasks; its subject overstates the implementation delivered by that commit. The SDK ABI correction arrived separately in c31ded3a33b5c890e15e40b05be99c5b763307e9, while wallet compatibility, the remaining web proof, boundary manifest-rule retirement and the served-methods golden refresh remain tracked separately."
+
+[task.18.1558.1]
+title = "Issue #1558: Document the actual scope of the perps ABI decision commit"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181558.1"]
+capabilities = []
+interfaces = []
+do_1 = "Create docs/perps-abi-change-history.md and link it from the documentation index at docs/README.md:9-32; correct the historical summary of c1f5f4d31ef0f4885db9b4203821d350fd249cb1, whose three-file diff records decisions 2387-2393 and follow-up tasks rather than the implementation named in its subject, with this exact standalone sentence: c1f5f4d31ef0f4885db9b4203821d350fd249cb1 records decisions 2387-2393 and follow-up tasks; it does not implement the perps callers, boundary manifest-rule retirement or served-methods golden refresh."
+do_2 = "Distinguish the original decision commit from SDK implementation c31ded3a33b5c890e15e40b05be99c5b763307e9, citing services/agent/sdk/typescript/src/perps.ts:740-753 and its ABI-based tests at services/agent/sdk/typescript/test/perps-v2.test.ts:33-88; record the web page signatures at apps/web/src/app/exchange/exchange-client.tsx:72-77 and the outstanding wallet, web-proof, boundary and golden changes under existing tasks 22.24.26, 22.23.13, 10.1.4 and 22.7.3, whose pending statuses are at spec/layerx-merge/spec.kvx:119043, :119012, :175311 and :191684 at revision 210639d0360c53f5c2fdd81c9c7c5e84b24b8c84."
+do_3 = "The focused documentation check asserts the complete corrected commit-scope sentence and the index link; describe completion only where a separate implementation commit supplies it, and retain the existing code fixes and their tests under their existing tasks."
+symbols = []
+touches = ["docs/perps-abi-change-history.md", "docs/README.md"]
+tests = ["docs/perps-abi-change-history.md::commit_scope_correction"]
+planned_paths = ["docs/perps-abi-change-history.md"]
+build_cmd = "true"
+verify_cmd = "grep -Fx 'c1f5f4d31ef0f4885db9b4203821d350fd249cb1 records decisions 2387-2393 and follow-up tasks; it does not implement the perps callers, boundary manifest-rule retirement or served-methods golden refresh.' docs/perps-abi-change-history.md && grep -Fq '[Perps ABI change history](perps-abi-change-history.md)' docs/README.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181558]
+title = "The perps ABI change history distinguishes decisions from delivered changes"
+ac_1 = "The documentation identifies c1f5f4d31ef0f4885db9b4203821d350fd249cb1 as a decision and task-recording commit, identifies c31ded3a33b5c890e15e40b05be99c5b763307e9 as the later SDK implementation at services/agent/sdk/typescript/src/perps.ts:740-753, and leaves the changes whose tasks are pending at spec/layerx-merge/spec.kvx:119043, :119012, :175311 and :191684 explicitly outstanding at the cited revision."
+
+[acceptance.18.1558.1]
+feature = "18"
+req = "181558.1"
+scenario = "Given the perps ABI decision commit and its later SDK implementation, when the change-history documentation is read, then the original commit is described as recording decisions and follow-up tasks, the later SDK correction is identified separately, and unfinished follow-up changes are not described as delivered."
+contract = "contracts/programme.md#decisions"
+test = "docs/perps-abi-change-history.md::commit_scope_correction (planned)"
+qualification = "UNRUN"

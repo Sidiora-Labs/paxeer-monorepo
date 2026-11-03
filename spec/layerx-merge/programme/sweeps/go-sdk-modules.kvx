@@ -1,5 +1,5 @@
 [sweep.go-sdk-modules]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "cd TARGET && go vet ./... && go test -count=1 ./..."
 targets_total = 6
 targets_passed = 2
@@ -22,22 +22,22 @@ exit_code = 0
 target = "sdk/launchpad/protocol"
 result = "failed"
 exit_code = 1
-observed = "TestRealReviewedHistoricalDecoderMeasurement failed at sdk/launchpad/protocol/coverage/measure_test.go:68 because actual reviewed L02 historical measurement manifest/digest and chain125 RPC inputs are required."
-assumption = "The sandbox lacks the reviewed historical measurement manifest, digest and chain125 RPC configuration required by this integration test."
+observed = "go vet failed at sdk/launchpad/protocol/bindings/eventemitter.go:11:2 with a missing go.sum entry for github.com/ethereum/go-ethereum, so tests did not run."
+assumption = "The module dependency checksums appear incomplete for the declared go-ethereum dependency."
 
 [target.go-sdk-modules.4]
 target = "sdk/launchpad/shared"
 result = "failed"
 exit_code = 1
-observed = "TestPublicationV1IndependentIdentitiesAndRoundTrip failed at sdk/launchpad/shared/accounting/wire_test.go:105 because the canonical wire omitted explicit null \"feeBPS\":null."
-assumption = "The accounting publication serializer appears to omit a null feeBPS field that its canonical-wire test requires."
+observed = "go vet failed at sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go:17:2 with a missing go.sum entry for github.com/jackc/pgx/v5, so tests did not run."
+assumption = "The module dependency checksums appear incomplete for the declared pgx dependency and other imports."
 
 [target.go-sdk-modules.5]
 target = "services/wallet/attestor"
 result = "failed"
 exit_code = 1
-observed = "Loading the module declared at services/wallet/attestor/go.mod:1 failed during go vet with \"updates to go.mod needed; to update it: go mod tidy\" before tests ran."
-assumption = "The checked-in dependency graph likely needs reconciliation for the inherited Go 1.25.8 toolchain."
+observed = "TestLoadTestAgainstFiveHardenedDaemons failed at services/wallet/attestor/cmd/loadtest/loadtest_test.go:393 because secp256k1 generation returned HTTP 409 key_invalid_share: owner-approved wallet inventory does not admit operation."
+assumption = "The sandbox load-test setup likely lacks the owner-approved wallet inventory authorization required by current daemon policy."
 
 [target.go-sdk-modules.6]
 target = "services/platform/docs/samples/first-payment-go"

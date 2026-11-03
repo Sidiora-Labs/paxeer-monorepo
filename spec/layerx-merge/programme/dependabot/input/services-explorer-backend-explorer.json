@@ -1,0 +1,48 @@
+{
+ "slug": "services-explorer-backend-explorer",
+ "manifests": [
+  "services/explorer/backend/apps/explorer/package-lock.json"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-8r9p-f939-6h3c",
+   "number": 4669,
+   "package": "follow-redirects",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/backend/apps/explorer/package-lock.json",
+   "severity": "high",
+   "range": ">= 1.16.0, < 1.16.1",
+   "patched": "1.16.1"
+  },
+  {
+   "ghsa": "GHSA-q3jh-wrc6-jgq8",
+   "number": 4670,
+   "package": "follow-redirects",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/backend/apps/explorer/package-lock.json",
+   "severity": "high",
+   "range": ">= 1.16.0, < 1.16.1",
+   "patched": "1.16.1"
+  },
+  {
+   "ghsa": "GHSA-mrwp-f3q8-3g9p",
+   "number": 4671,
+   "package": "follow-redirects",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/backend/apps/explorer/package-lock.json",
+   "severity": "high",
+   "range": ">= 1.16.0, <= 1.16.1",
+   "patched": "1.16.2"
+  },
+  {
+   "ghsa": "GHSA-7c78-jf6q-g5cm",
+   "number": 4668,
+   "package": "tmp",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/backend/apps/explorer/package-lock.json",
+   "severity": "high",
+   "range": ">= 0.2.6, < 0.2.7",
+   "patched": "0.2.7"
+  }
+ ]
+}
