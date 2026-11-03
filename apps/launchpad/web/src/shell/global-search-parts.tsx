@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react';
+import { useEffect, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { ClipboardPaste, Search, User, Wallet, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, IconButton, MoneyValue, UnavailableState } from '@/ui/primitives';
@@ -24,7 +24,7 @@ export function ShortcutChip({ label, className }: { label: string; className?: 
 }
 
 /** Top-bar trigger shaped like an input; the real combobox lives inside the palette dialog. */
-export function SearchTrigger({ onOpen, shortcut, triggerRef, compact = false }: { onOpen: () => void; shortcut: string; triggerRef: Ref<HTMLButtonElement>; compact?: boolean }) {
+export function SearchTrigger({ onOpen, shortcut, triggerRef, compact = false }: { onOpen: () => void; shortcut: string; triggerRef: RefObject<HTMLButtonElement | null>; compact?: boolean }) {
   return (
     <button ref={triggerRef} type="button" onClick={onOpen} aria-haspopup="dialog" aria-label={`Search coins and users (${shortcut})`}
       className={cn('flex h-control-height-md w-full min-w-0 items-center gap-2 rounded-md bg-surface-2 px-3 text-left text-sm text-text-faint transition-colors duration-fast hover:bg-surface-hover', compact && 'w-control-height-md justify-center px-0')}>
@@ -38,7 +38,7 @@ export function SearchTrigger({ onOpen, shortcut, triggerRef, compact = false }:
 }
 
 export function PaletteInput({ value, onChange, inputRef, onKeyDown, listId, activeId, onPaste, pasteState }: {
-  value: string; onChange: (value: string) => void; inputRef: Ref<HTMLInputElement>;
+  value: string; onChange: (value: string) => void; inputRef: RefObject<HTMLInputElement | null>;
   onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void; listId: string; activeId: string | undefined;
   onPaste: () => void; pasteState: 'idle' | 'denied' | 'empty';
 }) {
