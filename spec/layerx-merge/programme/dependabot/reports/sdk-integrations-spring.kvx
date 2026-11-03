@@ -1,0 +1,62 @@
+[alert.GHSA-wjgm-6hv5-3cvf]
+package = "com.fasterxml.jackson.core:jackson-databind"
+manifest = "sdk/integrations/spring/pom.xml"
+verdict = "upgraded"
+version_before = "2.18.9"
+version_after = "2.18.11"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-q4xh-88c3-wmh7]
+package = "com.fasterxml.jackson.core:jackson-databind"
+manifest = "sdk/integrations/spring/pom.xml"
+verdict = "upgraded"
+version_before = "2.18.9"
+version_after = "2.18.11"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-gx83-3vf8-gh7j]
+package = "com.fasterxml.jackson.core:jackson-databind"
+manifest = "sdk/integrations/spring/pom.xml"
+verdict = "upgraded"
+version_before = "2.18.9"
+version_after = "2.18.11"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-wv8q-qhhj-9h54]
+package = "com.fasterxml.jackson.core:jackson-databind"
+manifest = "sdk/integrations/spring/pom.xml"
+verdict = "upgraded"
+version_before = "2.18.9"
+version_after = "2.18.11"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-cxp5-3px4-pw24]
+package = "com.fasterxml.jackson.core:jackson-databind"
+manifest = "sdk/integrations/spring/pom.xml"
+verdict = "upgraded"
+version_before = "2.18.9"
+version_after = "2.18.11"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-wwpq-f5c3-7hvx]
+package = "org.springframework.boot:spring-boot"
+manifest = "sdk/integrations/spring/pom.xml"
+verdict = "no-fix"
+version_before = "3.3.11"
+version_after = "3.3.11"
+pinned_by = "com.sidiora.layerx:layerx-spring-boot-starter:0.1.0 -> org.springframework.boot:spring-boot:3.3.11 (direct dependency)"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-ggg2-9786-hwc8]
+package = "org.springframework.boot:spring-boot-autoconfigure"
+manifest = "sdk/integrations/spring/pom.xml"
+verdict = "no-fix"
+version_before = "3.3.11"
+version_after = "3.3.11"
+pinned_by = "com.sidiora.layerx:layerx-spring-boot-starter:0.1.0 -> org.springframework.boot:spring-boot-autoconfigure:3.3.11 (direct dependency)"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"

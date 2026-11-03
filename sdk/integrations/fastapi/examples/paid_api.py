@@ -14,8 +14,6 @@ from layerx_fastapi import (
     JsonValue,
     LayerXMountOptions,
     LayerXResource,
-    MiddlewareError,
-    MiddlewareErrorCode,
     ProposedFulfillment,
     PxReceiptKeyEntry,
     SingleProcessWebhookDeliveryStore,
@@ -67,11 +65,9 @@ class FileFulfillmentRepository:
 
     def read(self, path: Path, proposed: ProposedFulfillment) -> StoredFulfillment[LayerXResource]:
         stored = json.loads(path.read_text(encoding="utf-8"))
-        if stored["requestDigest"] != proposed.request_digest:
-            raise MiddlewareError(MiddlewareErrorCode.FULFILLMENT_CONFLICT)
         return StoredFulfillment(
             idempotency_key=proposed.idempotency_key,
-            request_digest=proposed.request_digest,
+            request_digest=stored["requestDigest"],
             raw_transaction=b64decode(stored["rawTransaction"], validate=True),
             signed_receipt=b64decode(stored["signedReceipt"], validate=True),
             receipt_key=PxReceiptKeyEntry(**stored["receiptKey"]),
