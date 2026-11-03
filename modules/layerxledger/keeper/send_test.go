@@ -12,6 +12,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -151,7 +152,22 @@ func TestSendMovesBalance(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), account.NextSequence)
 	nextPayload := f.envelope(t, f.from, f.to, sdk.NewInt(40), 1, key, uint64(f.ctx.BlockTime().UnixMilli())+1000)
-	next, err := f.keeper.Send(f.ctx, f.actor, nextPayload, key)
+	hostBefore := ledgerViewStore(t, f.ctx, f.hostKey)
+	bankKey := testkeeper.EVMTestApp.GetKey(banktypes.StoreKey)
+	bankBefore := ledgerViewStore(t, f.ctx, bankKey)
+	eventsBefore := len(f.ctx.EventManager().Events())
+	duplicate, err := f.keeper.Send(f.ctx, f.actor, nextPayload, key)
+	require.ErrorIs(t, err, types.ErrIdempotentReplay)
+	require.Equal(t, ledgerkeeper.Result{}, duplicate)
+	require.Equal(t, hostBefore, ledgerViewStore(t, f.ctx, f.hostKey))
+	require.Equal(t, bankBefore, ledgerViewStore(t, f.ctx, bankKey))
+	require.Len(t, f.ctx.EventManager().Events(), eventsBefore)
+	f.assertBalance(t, f.from, 210)
+	f.assertBalance(t, f.to, 40)
+
+	nextKey := [32]byte{0x46}
+	nextPayload = f.envelope(t, f.from, f.to, sdk.NewInt(40), 1, nextKey, uint64(f.ctx.BlockTime().UnixMilli())+1000)
+	next, err := f.keeper.Send(f.ctx, f.actor, nextPayload, nextKey)
 	require.NoError(t, err)
 	require.Equal(t, lxphost.Code(0), next.Receipt.ResultCode)
 	require.Equal(t, f.global+2, next.Receipt.GlobalSequence)
@@ -164,7 +180,18 @@ func TestSendMovesBalance(t *testing.T) {
 	account, err = f.host.ReadAccount(f.ctx, name, f.from)
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), account.NextSequence)
-	replayed, err := f.keeper.Send(f.ctx, f.actor, payload, key)
+	hostBefore = ledgerViewStore(t, f.ctx, f.hostKey)
+	bankBefore = ledgerViewStore(t, f.ctx, bankKey)
+	eventsBefore = len(f.ctx.EventManager().Events())
+	duplicate, err = f.keeper.Send(f.ctx, f.actor, payload, key)
+	require.ErrorIs(t, err, types.ErrIdempotentReplay)
+	require.Equal(t, ledgerkeeper.Result{}, duplicate)
+	require.Equal(t, hostBefore, ledgerViewStore(t, f.ctx, f.hostKey))
+	require.Equal(t, bankBefore, ledgerViewStore(t, f.ctx, bankKey))
+	require.Len(t, f.ctx.EventManager().Events(), eventsBefore)
+	staleKey := [32]byte{0x47}
+	stalePayload := f.envelope(t, f.from, f.to, sdk.NewInt(40), 0, staleKey, uint64(f.ctx.BlockTime().UnixMilli())+1000)
+	replayed, err := f.keeper.Send(f.ctx, f.actor, stalePayload, staleKey)
 	require.ErrorIs(t, err, types.ErrSequenceMismatch)
 	require.Equal(t, lxphost.Code(-305), replayed.Receipt.ResultCode)
 	require.NotEmpty(t, replayed.Receipt.Encoded)

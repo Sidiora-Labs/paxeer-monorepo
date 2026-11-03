@@ -15,6 +15,8 @@ export const CORE_DEPLOYMENT = Object.freeze({
   "feeAccumulator": "0x7b14808b72f61664cDb79D25E6d1587655571a66",
   "poolRegistry": "0x1dC357d2B7B850332a91F06A9E66634F46fC4Ba7",
   "poolBeacon": "0x0c60Ea33B1DD602A17E1EF1875eE912F3fad71BE",
+  "treasury": "0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723",
+  "launchpadPrecompile": "0x0000000000000000000000000000000000001017",
   "roleIdentity": {
     "router": {
       "kind": "surface",
@@ -59,6 +61,13 @@ export const CORE_DEPLOYMENT = Object.freeze({
     "poolRegistry": {
       "kind": "surface",
       "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+    },
+    "treasury": {
+      "kind": "surface",
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+    },
+    "launchpadPrecompile": {
+      "kind": "precompile"
     },
     "poolBeacon": {
       "kind": "beacon",

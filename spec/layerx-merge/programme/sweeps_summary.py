@@ -14,7 +14,7 @@ else:
 
 
 ROOT = Path(__file__).resolve().parents[3]
-RESULTS = ("passed", "failed", "not_run")
+RESULTS = ("passed", "failed", "not_run", "no_tests")
 ReportValue = KvxValue | float
 
 
@@ -75,7 +75,7 @@ def sweeps_summary(spec_dir: str | PathLike[str]) -> Path:
     names: set[str] = set()
     revisions: set[str] = set()
 
-    for path in sorted(directory.rglob("*.kvx")):
+    for path in sorted(directory.glob("*.kvx")):
         if path == destination:
             continue
         sections = _load_report(path)
@@ -156,7 +156,11 @@ def sweeps_summary(spec_dir: str | PathLike[str]) -> Path:
                     outcomes[identity] = (pass_number, outcome)
 
             expected = {"targets_total": len(targets[name])}
-            expected.update({f"targets_{result}": counts[result] for result in RESULTS})
+            expected.update(
+                {f"targets_{result}": counts[result] for result in RESULTS[:3]}
+            )
+            if counts["no_tests"] or "targets_no_tests" in sweep:
+                expected["targets_no_tests"] = counts["no_tests"]
             for field, count in expected.items():
                 actual = sweep.get(field)
                 if type(actual) is not int or actual != count:
