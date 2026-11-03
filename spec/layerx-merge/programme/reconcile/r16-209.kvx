@@ -1,0 +1,243 @@
+[reconcile.r16-209]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r16-209.1]
+interface = "interface.16.mk-run-rpc-node-integration-ci"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "PAXEER_FORWARDED_TARGETS"
+evidence = "The target run-rpc-node-integration-ci is listed in PAXEER_FORWARDED_TARGETS at Makefile:2419; the registered $(PAXEER_FORWARDED_TARGETS): declaration is at 2422 and forwards through $(PAXEER_MAKE) $@ at 2423."
+
+[row.r16-209.2]
+interface = "interface.16.mk-run-rpc-node-skipbuild"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "PAXEER_FORWARDED_TARGETS"
+evidence = "The target run-rpc-node-skipbuild is listed in PAXEER_FORWARDED_TARGETS at Makefile:2419; the registered $(PAXEER_FORWARDED_TARGETS): declaration is at 2422 and forwards through $(PAXEER_MAKE) $@ at 2423."
+
+[row.r16-209.3]
+interface = "interface.16.mk-scan-consensus"
+verdict = "served"
+path = "Makefile"
+line = 1611
+symbol = "scan-consensus"
+evidence = "The declaration scan-consensus: build is at Makefile:1611; its recipe runs no-float-scan.sh and symbol-allowlist.sh. Other occurrences are PHONY or dependency references."
+
+[row.r16-209.4]
+interface = "interface.16.mk-specgen-build"
+verdict = "served"
+path = "Makefile"
+line = 2553
+symbol = "specgen-build"
+evidence = "The declaration specgen-build: is at Makefile:2553 and runs go build -o /dev/null ./tools/specgen; the PHONY list and workspace-build dependency are references."
+
+[row.r16-209.5]
+interface = "interface.16.mk-specgen-lint"
+verdict = "served"
+path = "Makefile"
+line = 2559
+symbol = "specgen-lint"
+evidence = "The declaration specgen-lint: is at Makefile:2559 and runs go vet ./tools/specgen followed by go run ./tools/specgen -root . -check; other occurrences are references."
+
+[row.r16-209.6]
+interface = "interface.16.mk-specgen-test"
+verdict = "served"
+path = "Makefile"
+line = 2556
+symbol = "specgen-test"
+evidence = "The declaration specgen-test: is at Makefile:2556 and runs go test ./tools/specgen; the PHONY list and workspace-test dependency are references."
+
+[row.r16-209.7]
+interface = "interface.16.mk-split-test-packages"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "PAXEER_FORWARDED_TARGETS"
+evidence = "The target split-test-packages is listed in PAXEER_FORWARDED_TARGETS at Makefile:2419; the registered $(PAXEER_FORWARDED_TARGETS): declaration is at 2422 and forwards through $(PAXEER_MAKE) $@ at 2423."
+
+[row.r16-209.8]
+interface = "interface.16.mk-test-activity-codec"
+verdict = "served"
+path = "Makefile"
+line = 1494
+symbol = "test-activity-codec"
+evidence = "The declaration test-activity-codec: $(BUILD_DIR)/tests/lxp_test_activity_codec is at Makefile:1494 and executes that binary through RUN_PREFIX; earlier occurrences are PHONY and aggregate dependencies."
+
+[row.r16-209.9]
+interface = "interface.16.mk-test-admission"
+verdict = "served"
+path = "Makefile"
+line = 1530
+symbol = "test-admission"
+evidence = "The declaration test-admission: $(BUILD_DIR)/tests/lxp_test_admission is at Makefile:1530 and executes that binary through RUN_PREFIX; the aggregate dependency and command string are uses."
+
+[row.r16-209.10]
+interface = "interface.16.mk-test-allowance"
+verdict = "served"
+path = "Makefile"
+line = 1578
+symbol = "test-allowance"
+evidence = "The declaration test-allowance: $(BUILD_DIR)/tests/lxp_test_allowance remains at Makefile:1578 and executes that binary through RUN_PREFIX. Registry override.J58.26 does not remove this declaration."
+
+[row.r16-209.11]
+interface = "interface.16.mk-test-arith-nofloat"
+verdict = "served"
+path = "Makefile"
+line = 1398
+symbol = "test-arith-nofloat"
+evidence = "The declaration test-arith-nofloat: build $(BUILD_DIR)/tests/lxp_test_nofloat is at Makefile:1398; its recipe runs the no-float binary and compile-fail checks. Earlier matches are references."
+
+[row.r16-209.12]
+interface = "interface.16.mk-test-arith-property"
+verdict = "served"
+path = "Makefile"
+line = 1388
+symbol = "test-arith-property"
+evidence = "The declaration at Makefile:1388 continues at 1389, retaining both $(BUILD_DIR)/tests/lxp_test_arith_property and $(BUILD_DIR)/tests/lxp_test_arith_property_san prerequisites from the signature; earlier matches are references."
+
+[row.r16-209.13]
+interface = "interface.16.mk-test-arith-rounding"
+verdict = "served"
+path = "Makefile"
+line = 1370
+symbol = "test-arith-rounding"
+evidence = "The declaration test-arith-rounding: $(BUILD_DIR)/tests/lxp_test_rounding is at Makefile:1370 and executes the rounding binary through RUN_PREFIX; the qualify-arith occurrence is a dependency."
+
+[row.r16-209.14]
+interface = "interface.16.mk-test-arith-u128"
+verdict = "served"
+path = "Makefile"
+line = 1346
+symbol = "test-arith-u128"
+evidence = "The declaration at Makefile:1346 continues at 1347, retaining both $(BUILD_DIR)/tests/lxp_test_u128 and $(BUILD_DIR)/tests/lxp_test_u128_ubsan prerequisites; the recipe runs both binaries."
+
+[row.r16-209.15]
+interface = "interface.16.mk-test-arith-u256"
+verdict = "served"
+path = "Makefile"
+line = 1361
+symbol = "test-arith-u256"
+evidence = "The declaration at Makefile:1361 continues at 1362, retaining both $(BUILD_DIR)/tests/lxp_test_u256 and $(BUILD_DIR)/tests/lxp_test_u256_ubsan prerequisites; the recipe runs both binaries."
+
+[row.r16-209.16]
+interface = "interface.16.mk-test-asset-withdraw-activity"
+verdict = "served"
+path = "Makefile"
+line = 3125
+symbol = "test-asset-withdraw-activity"
+evidence = "The declaration test-asset-withdraw-activity: $(BUILD_DIR)/tests/test_asset_withdraw_activity is at Makefile:3125 and executes that binary through RUN_PREFIX; line 3124 is only its PHONY declaration."
+
+[row.r16-209.17]
+interface = "interface.16.mk-test-authority-multisig"
+verdict = "served"
+path = "Makefile"
+line = 1570
+symbol = "test-authority-multisig"
+evidence = "The declaration test-authority-multisig: $(BUILD_DIR)/tests/test_authority_multisig remains at Makefile:1570 and executes that binary through RUN_PREFIX. Registry override.J58.25 does not remove this declaration."
+
+[row.r16-209.18]
+interface = "interface.16.mk-test-authority-resolve"
+verdict = "served"
+path = "Makefile"
+line = 1561
+symbol = "test-authority-resolve"
+evidence = "The declaration test-authority-resolve: $(BUILD_DIR)/tests/lxp_test_authority_resolve remains at Makefile:1561 and executes that binary through RUN_PREFIX. Registry override.J58.24 does not remove this declaration."
+
+[row.r16-209.19]
+interface = "interface.16.mk-test-batch"
+verdict = "served"
+path = "Makefile"
+line = 850
+symbol = "test-batch"
+evidence = "The declaration test-batch: $(BUILD_DIR)/tests/test_batch_header is at Makefile:850 and executes that binary through RUN_PREFIX; test-wave-10 at 853 only depends on this target."
+
+[row.r16-209.20]
+interface = "interface.16.mk-test-bridge-withdraw"
+verdict = "served"
+path = "Makefile"
+line = 956
+symbol = "test-bridge-withdraw"
+evidence = "The declaration test-bridge-withdraw: $(BUILD_DIR)/tests/test_bridge_withdraw test-contracts remains at Makefile:956 with both registered prerequisites. Registry override.J58.16 does not remove this declaration."
+
+[row.r16-209.21]
+interface = "interface.16.mk-test-budget-create"
+verdict = "served"
+path = "Makefile"
+line = 556
+symbol = "test-budget-create"
+evidence = "The declaration test-budget-create: $(BUILD_DIR)/tests/test_budget_create is at Makefile:556; its recipe runs that binary and the sole-writer check. Aggregate and PHONY occurrences are references."
+
+[row.r16-209.22]
+interface = "interface.16.mk-test-budget-delegate"
+verdict = "served"
+path = "Makefile"
+line = 588
+symbol = "test-budget-delegate"
+evidence = "The declaration test-budget-delegate: $(BUILD_DIR)/tests/test_budget_delegate remains at Makefile:588; its recipe runs that binary and the sole-writer check. Registry override.J58.15 does not remove this declaration."
+
+[row.r16-209.23]
+interface = "interface.16.mk-test-budget-period"
+verdict = "served"
+path = "Makefile"
+line = 567
+symbol = "test-budget-period"
+evidence = "The declaration at Makefile:567 is now test-budget-period: $(BUILD_DIR)/tests/test_budget_period and runs only that binary. The registered signature also lists $(BUILD_DIR)/tests/lxp_test_epoch_budget_rollback, which is absent from the current prerequisites and recipe."
+
+[row.r16-209.24]
+interface = "interface.16.mk-test-budget-revoke"
+verdict = "served"
+path = "Makefile"
+line = 599
+symbol = "test-budget-revoke"
+evidence = "The declaration test-budget-revoke: $(BUILD_DIR)/tests/test_budget_close is at Makefile:599; its recipe runs the close binary and the sole-writer check. Aggregate and PHONY occurrences are references."
+
+[row.r16-209.25]
+interface = "interface.16.mk-test-budget-spend"
+verdict = "served"
+path = "Makefile"
+line = 577
+symbol = "test-budget-spend"
+evidence = "The declaration test-budget-spend: $(BUILD_DIR)/tests/test_budget_spend is at Makefile:577; its recipe runs that binary and the sole-writer check. Aggregate and PHONY occurrences are references."
+
+[row.r16-209.26]
+interface = "interface.16.mk-test-codec"
+verdict = "served"
+path = "Makefile"
+line = 1222
+symbol = "test-codec"
+evidence = "The declaration test-codec: $(BUILD_DIR)/tests/lxp_test_codec_primitives is at Makefile:1222 and executes the primitives binary through RUN_PREFIX; codec-limits, codec-version and codec-vectors declare separate targets."
+
+[row.r16-209.27]
+interface = "interface.16.mk-test-codec-limits"
+verdict = "served"
+path = "Makefile"
+line = 1230
+symbol = "test-codec-limits"
+evidence = "The declaration test-codec-limits: $(BUILD_DIR)/tests/lxp_test_codec_composite is at Makefile:1230 and executes the composite binary through RUN_PREFIX; earlier PHONY and aggregate occurrences are references."
+
+[row.r16-209.28]
+interface = "interface.16.mk-test-codec-vectors"
+verdict = "served"
+path = "Makefile"
+line = 1247
+symbol = "test-codec-vectors"
+evidence = "The declaration test-codec-vectors: $(BUILD_DIR)/tests/lxp_test_codec_vectors is at Makefile:1247 and executes the vectors binary through RUN_PREFIX; earlier PHONY and aggregate occurrences are references."
+
+[row.r16-209.29]
+interface = "interface.16.mk-test-codec-version"
+verdict = "served"
+path = "Makefile"
+line = 1238
+symbol = "test-codec-version"
+evidence = "The declaration test-codec-version: $(BUILD_DIR)/tests/lxp_test_codec_strict is at Makefile:1238 and executes the strict binary through RUN_PREFIX; earlier PHONY and aggregate occurrences are references."
+
+[row.r16-209.30]
+interface = "interface.16.mk-test-contract-state-surface"
+verdict = "served"
+path = "Makefile"
+line = 1128
+symbol = "test-contract-state-surface"
+evidence = "The declaration test-contract-state-surface: is at Makefile:1128 and runs scripts/ci/solidity-state-surface.sh; line 1131 only lists this target as a prerequisite of test-contracts."

@@ -1,0 +1,243 @@
+[reconcile.r8-130]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-130.1]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-approvalfacts"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1251
+symbol = "ApprovalFacts"
+evidence = "HumanModels record declaration retains amount, counterparty, asset, fees and expires_at; the compact constructor and type references are not the declaration. Observed declaration: public record ApprovalFacts(HumanModels.Money amount, String counterparty, String asset, HumanModels.Money fees, String expires_at) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.2]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-approvalpage"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1260
+symbol = "ApprovalPage"
+evidence = "HumanModels record declaration retains List<HumanModels.ApprovalSummary> approvals and String next_cursor; the following occurrence is its compact constructor. Observed declaration: public record ApprovalPage(List<HumanModels.ApprovalSummary> approvals, String next_cursor) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.3]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-approvalstate-approved"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1268
+symbol = "APPROVED"
+evidence = "HumanModels.ApprovalState enum constant maps APPROVED to lowercase approved; the later HumanModels.ProgramApprovalState APPROVED constant is a different declaration. Observed declaration: APPROVED(\"approved\"),"
+
+[row.r8-130.4]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-approvalstate-defective"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1271
+symbol = "DEFECTIVE"
+evidence = "HumanModels.ApprovalState enum constant maps DEFECTIVE to lowercase defective and ends the variant list; ProgramApprovalState and AgentModels have separate constants. Observed declaration: DEFECTIVE(\"defective\");"
+
+[row.r8-130.5]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-approvalstate-expired"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1270
+symbol = "EXPIRED"
+evidence = "HumanModels.ApprovalState enum constant maps EXPIRED to lowercase expired; other EXPIRED constants belong to different enums. Observed declaration: EXPIRED(\"expired\"),"
+
+[row.r8-130.6]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-approvalstate-pending"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1267
+symbol = "PENDING"
+evidence = "HumanModels.ApprovalState enum constant maps PENDING to lowercase pending; the later ProgramApprovalState constant is a different declaration. Observed declaration: PENDING(\"pending\"),"
+
+[row.r8-130.7]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-approvalstate-rejected"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1269
+symbol = "REJECTED"
+evidence = "HumanModels.ApprovalState enum constant maps REJECTED to lowercase rejected; ProgramApprovalState and AgentModels have separate constants. Observed declaration: REJECTED(\"rejected\"),"
+
+[row.r8-130.8]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-approvalsummary"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1280
+symbol = "ApprovalSummary"
+evidence = "HumanModels record declaration retains the registered approval fields, ApprovalState state and VerifiedMoney budget_remaining_after; constructor and consumer uses are distinct. Observed declaration: public record ApprovalSummary(String approval_id, String agent_id, String agent_name, String counterparty, HumanModels.Money amount, String reason_copy_key, String expires_at, HumanModels.ApprovalState state, HumanModels.VerifiedMoney budget_remaining_after) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.9]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-authenticatordisable"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1293
+symbol = "AuthenticatorDisable"
+evidence = "HumanModels record declaration retains StepUpEvidence step_up; the adjacent compact constructor and AuthenticatorDisableRequest/Response are distinct declarations. Observed declaration: public record AuthenticatorDisable(HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.10]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-authenticatorsetupbegin"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1305
+symbol = "AuthenticatorSetupBegin"
+evidence = "HumanModels record declaration retains String label and StepUpEvidence step_up; the following compact constructor does not declare the record signature. Observed declaration: public record AuthenticatorSetupBegin(String label, HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.11]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-authenticatorsetupchallenge"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1311
+symbol = "AuthenticatorSetupChallenge"
+evidence = "HumanModels record declaration retains setup_id, TimedSecret secret, TimedSecret otpauth_uri and expires_at; the following occurrence is its compact constructor. Observed declaration: public record AuthenticatorSetupChallenge(String setup_id, HumanModels.TimedSecret secret, HumanModels.TimedSecret otpauth_uri, String expires_at) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.12]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-authenticatorsetupfinish"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1320
+symbol = "AuthenticatorSetupFinish"
+evidence = "HumanModels record declaration retains String code and StepUpEvidence step_up; the compact constructor is not the record declaration. Observed declaration: public record AuthenticatorSetupFinish(String code, HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.13]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-authenticatorsetupresult"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1326
+symbol = "AuthenticatorSetupResult"
+evidence = "HumanModels record declaration retains AuthenticatorMethod method and BackupCodeSet backup_codes; the following occurrence is its compact constructor. Observed declaration: public record AuthenticatorSetupResult(HumanModels.AuthenticatorMethod method, HumanModels.BackupCodeSet backup_codes) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.14]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-authenticatorstatus"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1332
+symbol = "AuthenticatorStatus"
+evidence = "HumanModels record declaration retains the methods list and IntegerNumberDeserializer-annotated long backup_codes_remaining; the compact constructor follows. Observed declaration: public record AuthenticatorStatus(List<HumanModels.AuthenticatorMethod> methods, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long backup_codes_remaining) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.15]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-backupcoderotation"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1337
+symbol = "BackupCodeRotation"
+evidence = "HumanModels record declaration retains StepUpEvidence step_up; the following compact constructor is a separate occurrence. Observed declaration: public record BackupCodeRotation(HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.16]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-backupcodeset"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1342
+symbol = "BackupCodeSet"
+evidence = "HumanModels record declaration retains List<String> codes, String remask_at and boolean copyable; constructor and result-field references are separate occurrences. Observed declaration: public record BackupCodeSet(List<String> codes, String remask_at, boolean copyable) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.17]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-channelpreference"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1348
+symbol = "ChannelPreference"
+evidence = "HumanModels record declaration retains boolean enabled and List<HumanModels.ClassToggle> classes; the compact constructor and notification fields are uses of this record. Observed declaration: public record ChannelPreference(boolean enabled, List<HumanModels.ClassToggle> classes) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.18]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-classtoggle"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1353
+symbol = "ClassToggle"
+evidence = "HumanModels record declaration retains the JsonProperty class annotation on NotificationClass class_ and boolean enabled; the compact constructor follows. Observed declaration: public record ClassToggle(@JsonProperty(\"class\") HumanModels.NotificationClass class_, boolean enabled) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.19]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-device"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1358
+symbol = "Device"
+evidence = "HumanModels record declaration retains String device_id, String label and String platform; the compact constructor and device-list references are not this declaration. Observed declaration: public record Device(String device_id, String label, String platform) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.20]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-errorcode"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1365
+symbol = "ErrorCode"
+evidence = "HumanModels enum declaration is the registered ErrorCode type; the constructor, fromWire return type and schema error fields are uses of this enum. Observed declaration: public enum ErrorCode {"
+
+[row.r8-130.21]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-errorcode-conflict"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1372
+symbol = "CONFLICT"
+evidence = "HumanModels.ErrorCode enum constant maps CONFLICT to lowercase conflict; the earlier AgentModels.ApprovalDecisionOutcome constant maps to capitalized Conflict and is a different declaration. Observed declaration: CONFLICT(\"conflict\"),"
+
+[row.r8-130.22]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-evidenceclass"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1402
+symbol = "EvidenceClass"
+evidence = "HumanModels enum declaration is the registered EvidenceClass type; its constructor, fromWire method and evidence record components are uses of the type. Observed declaration: public enum EvidenceClass {"
+
+[row.r8-130.23]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-evidencematerial"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1418
+symbol = "EvidenceMaterial"
+evidence = "HumanModels record still exists, but verification changed from HumanModels.VerificationLevel to HumanModels.HumanVerificationLevel; SettlementDomain settlement_domain was replaced by HumanModels.Rung rung and IntegerNumberDeserializer-annotated Long inclusion_height. The declaring line below records the current signature. Observed declaration: public record EvidenceMaterial(String evidence_id, @JsonProperty(\"class\") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64, HumanModels.Rung rung, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) Long inclusion_height) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.24]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-evidenceref"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1427
+symbol = "EvidenceRef"
+evidence = "HumanModels record still exists, but verification changed from HumanModels.VerificationLevel to HumanModels.HumanVerificationLevel and the HumanModels.SettlementDomain settlement_domain component was removed. The declaring line below records the current signature. Observed declaration: public record EvidenceRef(String evidence_id, @JsonProperty(\"class\") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.25]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-exportartefact"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1434
+symbol = "ExportArtefact"
+evidence = "HumanModels record retains the registered export fields and evidence list, and now appends HumanModels.Rung rung to the record signature. The declaring line below records that added component. Observed declaration: public record ExportArtefact(String export_id, HumanModels.ExportKind kind, String download_path, String content_type, String created_at, List<HumanModels.EvidenceRef> evidence, HumanModels.Rung rung) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.26]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-exportedprimarykey"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1462
+symbol = "ExportedPrimaryKey"
+evidence = "HumanModels record declaration retains String public_key, TimedSecret secret and String self_custodied_at; the compact constructor and key-export response references are separate occurrences. Observed declaration: public record ExportedPrimaryKey(String public_key, HumanModels.TimedSecret secret, String self_custodied_at) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.27]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-exportevidencerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1444
+symbol = "ExportEvidenceRequest"
+evidence = "HumanModels record declaration retains ActivityFilter filter and List<String> entry_ids; the following occurrence is the compact constructor. Observed declaration: public record ExportEvidenceRequest(HumanModels.ActivityFilter filter, List<String> entry_ids) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.28]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-exportkind"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1449
+symbol = "ExportKind"
+evidence = "HumanModels enum declaration retains STATEMENT and EVIDENCE_BUNDLE wire variants; its constructor, fromWire method and export fields use the declared type. Observed declaration: public enum ExportKind {"
+
+[row.r8-130.29]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-homesummary"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1470
+symbol = "HomeSummary"
+evidence = "HumanModels record retains balance, agents, approvals, recent_activity and program_approvals, and now appends HumanModels.Rung rung to its record signature; HomeSummaryResponse is a separate record. Observed declaration: public record HomeSummary(HumanModels.AccountBalance balance, List<HumanModels.Agent> agents, List<HumanModels.ApprovalSummary> approvals, List<HumanModels.ActivityEntryDetail> recent_activity, List<HumanModels.ProgramApprovalSummary> program_approvals, HumanModels.Rung rung) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-130.30]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-intentendpointkind-agent"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1512
+symbol = "AGENT"
+evidence = "HumanModels.IntentEndpointKind enum constant maps AGENT to lowercase agent between HUMAN and AGENT_BUDGET; this is the registered endpoint-kind variant rather than a type reference. Observed declaration: AGENT(\"agent\"),"

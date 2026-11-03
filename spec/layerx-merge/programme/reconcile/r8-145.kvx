@@ -1,0 +1,243 @@
+[reconcile.r8-145]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-145.1]
+interface = "interface.8.go-sdkswift-platformclient-humanstepupfinish"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 817
+symbol = "humanStepupFinish"
+evidence = "PlatformClient declares the registered async throwing JSONValue method with required request and default empty pathParameters; its body calls read(.humanStepupFinish). The enum case and descriptor branches are separate occurrences."
+
+[row.r8-145.2]
+interface = "interface.8.go-sdkswift-platformclient-humanstreamnext"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 820
+symbol = "humanStreamNext"
+evidence = "PlatformClient declares the registered async throwing JSONValue method with request default .object([:]) and empty pathParameters; its body calls read(.humanStreamNext). The enum case and switch branches do not declare this method."
+
+[row.r8-145.3]
+interface = "interface.8.go-sdkswift-platformclient-humanstreamopen"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 823
+symbol = "humanStreamOpen"
+evidence = "PlatformClient declares the registered async throwing JSONValue method with request default .object([:]) and empty pathParameters; its body calls read(.humanStreamOpen). The operation enum case is a distinct declaration."
+
+[row.r8-145.4]
+interface = "interface.8.go-sdkswift-platformclient-humansupportcreate"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 826
+symbol = "humanSupportCreate"
+evidence = "PlatformClient declares the registered async throwing JSONValue method with required request, IdempotencyKey and default empty pathParameters; its body calls mutate(.humanSupportCreate). Enum and descriptor occurrences are not the method."
+
+[row.r8-145.5]
+interface = "interface.8.go-sdkswift-platformclient-humansupportfeedback"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 829
+symbol = "humanSupportFeedback"
+evidence = "PlatformClient declares the registered async throwing JSONValue method with required request and default empty pathParameters; its body calls read(.humanSupportFeedback). The operation enum case and switch branches are distinct occurrences."
+
+[row.r8-145.6]
+interface = "interface.8.go-sdkswift-platformclient-humansupportlist"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 832
+symbol = "humanSupportList"
+evidence = "PlatformClient declares the registered async throwing JSONValue method with request default .object([:]) and empty pathParameters; its body calls read(.humanSupportList). Enum and descriptor occurrences are not the method."
+
+[row.r8-145.7]
+interface = "interface.8.go-sdkswift-platformclient-humansupportread"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 835
+symbol = "humanSupportRead"
+evidence = "PlatformClient declares the registered async throwing JSONValue method with required request and default empty pathParameters; its body calls read(.humanSupportRead). Enum and descriptor occurrences do not declare the method."
+
+[row.r8-145.8]
+interface = "interface.8.go-sdkswift-platformclient-humansupportreply"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 838
+symbol = "humanSupportReply"
+evidence = "PlatformClient declares the registered async throwing JSONValue method with required request, IdempotencyKey and default empty pathParameters; its body calls mutate(.humanSupportReply). Enum and descriptor occurrences are separate."
+
+[row.r8-145.9]
+interface = "interface.8.go-sdkswift-platformclient-humansupportstatus"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 841
+symbol = "humanSupportStatus"
+evidence = "PlatformClient declares the registered async throwing JSONValue method with request default .object([:]) and empty pathParameters; its body calls read(.humanSupportStatus). The operation enum case is not this method."
+
+[row.r8-145.10]
+interface = "interface.8.go-sdkswift-platformclient-humanversion"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 844
+symbol = "humanVersion"
+evidence = "PlatformClient declares the registered async throwing JSONValue method with request default .object([:]) and empty pathParameters; its body calls read(.humanVersion). Enum and descriptor occurrences do not declare the method."
+
+[row.r8-145.11]
+interface = "interface.8.go-sdkswift-programbudget"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 195
+symbol = "ProgramBudget"
+evidence = "public struct ProgramBudget: Sendable declares fuel: UInt64 and feeLimit: ProtocolAmount. Later ProgramCall fields and ProgramBudget(...) expressions refer to this type rather than declaring it."
+
+[row.r8-145.12]
+interface = "interface.8.go-sdkswift-programbudget-init"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 198
+symbol = "init"
+evidence = "ProgramBudget declares public init(fuel: UInt64, feeLimit: ProtocolAmount) and assigns both fields on the following lines. Other init declarations belong to ProgramRPC, ProgramCall and other types, and have different parameters."
+
+[row.r8-145.13]
+interface = "interface.8.go-sdkswift-programcapability"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 204
+symbol = "ProgramCapability"
+evidence = "public enum ProgramCapability: String, Sendable is the registered declaration, with storageRead, storageWrite, transfer, emitEvent and compose cases. ProgramCall capability array annotations are uses of the type."
+
+[row.r8-145.14]
+interface = "interface.8.go-sdkswift-programdiscovery"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 297
+symbol = "ProgramDiscovery"
+evidence = "public struct ProgramDiscovery: Sendable is the registered declaration and contains lifecycle: ProgramLifecycle and program metadata. The later decoder constructs ProgramDiscovery and returns it but does not declare the type."
+
+[row.r8-145.15]
+interface = "interface.8.go-sdkswift-programinterface"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 311
+symbol = "ProgramInterface"
+evidence = "public struct ProgramInterface: Sendable is the registered declaration and contains source: ProgramSource and interface metadata. The decoder constructor and bindProgramInterface parameter annotations refer to this type."
+
+[row.r8-145.16]
+interface = "interface.8.go-sdkswift-programlifecycle"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 291
+symbol = "ProgramLifecycle"
+evidence = "public enum ProgramLifecycle: String, Sendable { case active, deprecated, tombstoned } matches the registered signature. The ProgramDiscovery lifecycle field and rawValue decoding refer to this enum."
+
+[row.r8-145.17]
+interface = "interface.8.go-sdkswift-programlifecycle-active"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 291
+symbol = "active"
+evidence = "ProgramLifecycle declares case active, deprecated, tombstoned on its enum declaration line. The earlier ProgramRegistryRecord.active Bool property and later ABI decoding variable active belong to different interfaces."
+
+[row.r8-145.18]
+interface = "interface.8.go-sdkswift-programlifecycle-deprecated"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 291
+symbol = "deprecated"
+evidence = "ProgramLifecycle declares deprecated in case active, deprecated, tombstoned on the enum declaration line, matching the registered combined signature rather than a lifecycle value use."
+
+[row.r8-145.19]
+interface = "interface.8.go-sdkswift-programlifecycle-tombstoned"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 291
+symbol = "tombstoned"
+evidence = "ProgramLifecycle declares tombstoned in case active, deprecated, tombstoned on the enum declaration line, matching the registered combined signature rather than a lifecycle value use."
+
+[row.r8-145.20]
+interface = "interface.8.go-sdkswift-programsimulation"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 340
+symbol = "ProgramSimulation"
+evidence = "public struct ProgramSimulation: Sendable is the registered declaration, containing value, terminalResult, terminalKind and response. ProgramsClient.simulate returns and constructs this type later in the file."
+
+[row.r8-145.21]
+interface = "interface.8.go-sdkswift-programsource"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 292
+symbol = "ProgramSource"
+evidence = "public enum ProgramSource: Sendable declares unpublished, verified and mismatch cases. ProgramInterface.source and the typedSource return annotation refer to the enum rather than declaring it."
+
+[row.r8-145.22]
+interface = "interface.8.go-sdkswift-programsource-environmentdigest"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 294
+symbol = "environmentDigest"
+evidence = "ProgramSource declares case verified(sourceDigest: Data, environmentDigest: Data, pipeline: String), matching the registered associated-value signature. The later typedSource environmentDigest argument is a construction use."
+
+[row.r8-145.23]
+interface = "interface.8.go-sdkswift-programsource-mismatch"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 295
+symbol = "mismatch"
+evidence = "ProgramSource declares case mismatch(expectedCodeHash: Data, reproducedArtifactDigest: Data), matching the registered signature. Later mismatch string switch branches and .mismatch(...) calls decode values rather than declare this case."
+
+[row.r8-145.24]
+interface = "interface.8.go-sdkswift-programsource-pipeline"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 294
+symbol = "pipeline"
+evidence = "ProgramSource declares pipeline: String in case verified(sourceDigest: Data, environmentDigest: Data, pipeline: String). Later pipeline decoding arguments and JSON field strings are uses, not the associated-value declaration."
+
+[row.r8-145.25]
+interface = "interface.8.go-sdkswift-programsource-reproducedartifactdigest"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 295
+symbol = "reproducedArtifactDigest"
+evidence = "ProgramSource declares reproducedArtifactDigest: Data in case mismatch(expectedCodeHash: Data, reproducedArtifactDigest: Data). The later typedSource argument decodes that associated value rather than declaring it."
+
+[row.r8-145.26]
+interface = "interface.8.go-sdkswift-programsource-verified"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 294
+symbol = "verified"
+evidence = "ProgramSource declares case verified(sourceDigest: Data, environmentDigest: Data, pipeline: String), matching the registered signature. Later verified locals, string switch branches and .verified(...) constructors are separate occurrences."
+
+[row.r8-145.27]
+interface = "interface.8.go-sdkswift-verifiedprogramexecution"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 326
+symbol = "VerifiedProgramExecution"
+evidence = "public struct VerifiedProgramExecution: Sendable is the registered declaration and contains receipt, terminalPayload, callGraph and computed roots. ProgramSubmission.execution and initializer annotations reference the type."
+
+[row.r8-145.28]
+interface = "interface.8.go-sdkswift-verifiedprogramexecution-callgraphroot"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 338
+symbol = "callGraphRoot"
+evidence = "VerifiedProgramExecution declares public var callGraphRoot: Data { receipt.receipt.programOutcome?.callGraphRoot ?? Data() }, matching the registered signature. Later receipt.callGraphRoot hash comparisons are property uses."
+
+[row.r8-145.29]
+interface = "interface.8.go-sdkswift-verifiedprogramexecution-terminalpayloadroot"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 335
+symbol = "terminalPayloadRoot"
+evidence = "VerifiedProgramExecution declares public var terminalPayloadRoot: Data with body receipt.receipt.programOutcome?.terminalPayloadRoot ?? Data() on the next line. The registered one-line signature is now multiline; later receipt root checks are uses."
+
+[row.r8-145.30]
+interface = "interface.8.go-sdkswift-agentcertificateauthority"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift"
+line = 725
+symbol = "AgentCertificateAuthority"
+evidence = "public struct AgentCertificateAuthority: Sendable is the registered declaration and owns pemFile: URL, der: Data and init(pemFile: URL). Earlier transport parameter types and the later delegate property and initializer reference this struct."
