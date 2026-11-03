@@ -306,7 +306,21 @@ fn go_signed_positive_and_revert_receipts_verify_with_identical_fields() {
             other => panic!("unexpected vector {other}"),
         }
     }
-    assert_eq!(seen, (4, 1));
+    assert_eq!(seen, (5, 1));
+    assert_eq!(
+        cases(&document)
+            .iter()
+            .filter(|case| text(case, "vector") == "V1")
+            .map(id)
+            .collect::<Vec<_>>(),
+        [
+            "V1-pax-transfer",
+            "V1-erc20-approve",
+            "V1-layerxledger-pay-exact",
+            "V1-layerxbridge-bridge-out",
+            "V1-layerxprograms-call",
+        ]
+    );
 }
 
 #[test]
