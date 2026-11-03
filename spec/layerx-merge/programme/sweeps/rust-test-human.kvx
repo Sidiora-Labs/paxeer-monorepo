@@ -1,10 +1,10 @@
 [sweep.rust-test-human]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
 command = "cargo test --locked --manifest-path services/human/Cargo.toml -p TARGET --no-fail-fast"
 targets_total = 7
 targets_passed = 1
-targets_failed = 5
-targets_not_run = 1
+targets_failed = 6
+targets_not_run = 0
 
 [target.rust-test-human.1]
 target = "layerx-human-security-provider"
@@ -15,11 +15,12 @@ assumption = "The environment lacks the supervised runtime clock required by Run
 
 [target.rust-test-human.2]
 target = "layerx-human-service"
-result = "not_run"
-exit_code = 124
-reason = "The package command was started but terminated after 600 seconds to reserve the remaining task wall-clock budget for other workspace packages and qualification, so its suite did not complete."
-observed = "Before termination, server::agent_runtime::subject_tests::cloned_subject_handle_binds_every_coordinate_without_changing_original_head_frame panicked at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4672:29 with typed runtime."
-assumption = "The environment lacks the supervised runtime clock required by AgentRuntime::new(), and the full package test command did not finish within its allocation."
+result = "failed"
+exit_code = 101
+observed = "error[E0063]: missing fields `disclosure`, `disclosure_digest` and `from` in initializer of `layerx_agentd::prepare::evm::Prepared`"
+assumption = "The custody test at services/human/crates/layerx-human-service/tests/custody.rs:415 still constructs the older EvmPrepared and SigningPreparation shapes: EvmPrepared now requires disclosure, disclosure_digest and from, and SigningPreparation no longer exposes authorization."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+log = "/out/logs/rust-test-human-resweep.log"
 
 [target.rust-test-human.3]
 target = "layerx-human-kms"
