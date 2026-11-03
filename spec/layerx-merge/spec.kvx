@@ -140431,7 +140431,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1510.1]
 title = "Preserve subscription lag signals when another chain's log is excluded"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["18.1509.1", "22.25.4"]
@@ -229887,7 +229887,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.17.6]
 title = "Regenerate the sweep summary from the second-pass reports"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.91.43", "22.91.44", "22.91.45", "22.91.46", "22.91.47", "22.91.48", "22.91.49", "22.91.50", "22.91.51", "22.91.52", "22.91.53", "22.91.54", "22.91.55", "22.91.56", "22.91.57", "22.91.58", "22.91.59", "22.91.60", "22.91.61", "22.91.62", "22.91.63", "22.91.64", "22.91.65", "22.91.66", "22.91.67", "22.91.68", "22.91.69", "22.91.70", "22.91.71", "22.91.72", "22.91.73", "22.91.74", "22.91.75", "22.91.76", "22.91.77", "22.91.78", "22.91.79", "22.91.80", "22.91.81", "22.91.82", "22.91.83", "22.91.84", "22.91.85"]
