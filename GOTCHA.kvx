@@ -14380,3 +14380,28 @@ fix = "Run go list -mod=readonly -deps -test at the base before regenerating sum
 title = "A build command names a tool the environment profile lacks"
 symptom = "pnpm against an npm-pinned package and gradle in an image without it failed before any code ran."
 fix = "Match the build command to the package's pinned manager and the profile's toolchain; compute what the absent tool would have produced from published artifacts."
+
+[gotcha.2912]
+title = "A recorded upstream corpus cannot be re-typed onto another chain"
+symptom = "Thirty-four recorded transactions traced against upstream balances and a Wasm capability the chain does not have; rewriting type URLs left insufficient-funds and duplicate-denomination traces."
+fix = "Retire corpora recorded on another chain and record new ones on this chain instead of patching their encodings."
+
+[gotcha.2913]
+title = "A network-rule change left the vector suite on the old grammar"
+symptom = "The model moved to one eip155 network and refused the layerx: namespace; the vector tests and a payload fixture kept the namespace and six tests went red without any task running them."
+fix = "A task that changes an acceptance rule runs every test file that includes the fixtures the rule reads."
+
+[gotcha.2914]
+title = "A range override drags a 1.x consumer onto a 2.x major"
+symptom = "An override written as package@<2.8.0 matched the ^1.30.1 dependency of a 1.x consumer and forced it to 2.8.0, which dropped an export the consumer reads at load time."
+fix = "Bound alert overrides below by the first affected major and check every dependent range the override rewrites in the lock."
+
+[gotcha.2915]
+title = "A new struct field breaks an initializer outside the task scope"
+symptom = "Adding a field to a context struct failed the lib test build in another module's initializer that the task could not edit."
+fix = "Grep every initializer of a struct before adding a field and list each file in touches."
+
+[gotcha.2916]
+title = "A frozen install consumed the whole task limit"
+symptom = "A yarn frozen install of a large app took fifteen minutes and the attempt ended before its verify ran."
+fix = "Give install-heavy tasks a longer time limit and measure the install before fixing the limit."
