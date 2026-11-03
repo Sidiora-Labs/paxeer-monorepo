@@ -1,0 +1,47 @@
+[disposition.20.3.4.1]
+finding = "20.3.4.1"
+status = "resolved"
+evidence = "Commit ec287c0ea replaces raw address casts with GetPaxAddressOrDefault for bond, funding and retirement refunds in modules/layerxchains/keeper/keeper.go:198 and resolves the precompile caller in precompiles/layerxchains/layerxchains.go:181."
+follow_up = "closure"
+
+[disposition.20.4.4.1]
+finding = "20.4.4.1"
+status = "resolved"
+evidence = "Commit ae3406a26 binds WebSocket subscriptions to the connection's DomainScope in rpc/rpcstack.go:470 and sets Block.MaxGasWanted to Block.MaxGas in rpc/pending_filter_test.go:112."
+follow_up = "closure"
+
+[disposition.20.3.4.2]
+finding = "20.3.4.2"
+status = "resolved"
+evidence = "Commit 50deffff9 resolves registered active chain IDs in modules/evm/ante/sig.go:59 and node/ante/evm_checktx.go:181 and recovers protected signatures with their transaction chain ID in modules/evm/ante/preprocess.go:172 and node/ante/evm_checktx.go:300."
+follow_up = "closure"
+
+[disposition.20.3.4.3]
+finding = "20.3.4.3"
+status = "resolved"
+evidence = "Commit 50deffff9 makes Accept include the ABCI code and codespace when res.Log is empty in node/sequencer/accept.go:49 and includes the returned error in the harness failure at node/layerxchains_block_test.go:166."
+follow_up = "closure"
+
+[disposition.20.3.4.4]
+finding = "20.3.4.4"
+status = "resolved"
+evidence = "Commit 50deffff9 moves ActiveDomains and NextBaseFee routing reads to an infinite gas meter in modules/evm/keeper/msg_server.go:77 and modules/evm/keeper/msg_server.go:248 and supplies empty-log refusal diagnostics in node/sequencer/accept.go:49."
+follow_up = "closure"
+
+[disposition.20.3.4.5]
+finding = "20.3.4.5"
+status = "resolved"
+evidence = "Commit 50deffff9 removes routing read charges with infinite gas meters, asserts exactly 21000 transfer gas in node/layerxchains_block_test.go:235 and fixes the restarted getChain context to use hyperpax_125-1 at node/layerxchains_block_test.go:266 and RefreshPrecompiles at node/layerxchains_block_test.go:269 before asserting persisted state at node/layerxchains_block_test.go:307."
+follow_up = "closure"
+
+[disposition.20.3.4.6]
+finding = "20.3.4.6"
+status = "resolved"
+evidence = "Commit 50deffff9 excludes hashes in the block's domain transaction set from evmTotalGasUsed at the current main's node/app.go:2550 before EndBlock and retains the unchanged root base fee assertion in node/layerxchains_block_test.go:293."
+follow_up = "closure"
+
+[disposition.20.4.3.1]
+finding = "20.4.3.1"
+status = "resolved"
+evidence = "Commit c27e674b7 changes only rpc/ethclient_domain_test.go, follows actual committed blocks across proposal boundaries at rpc/ethclient_domain_test.go:157 and waits for each receipt at rpc/ethclient_domain_test.go:230 without asserting that every send precedes the first proposal."
+follow_up = "closure"
