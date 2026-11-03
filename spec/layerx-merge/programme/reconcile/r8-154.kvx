@@ -1,0 +1,281 @@
+[reconcile.r8-154]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-154.1]
+interface = "interface.8.rs-ramp-toolkit-journal-stagedcallback-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/journal.rs"
+line = 740
+symbol = "StagedCallback"
+evidence = "The matching declaration is pub struct StagedCallback at line 740, holding callback_id, identity and order. The impl at line 746 and Projection::stage call are uses of this type, not its declaration."
+
+[row.r8-154.2]
+interface = "interface.8.rs-ramp-toolkit-journal-torntail-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/journal.rs"
+line = 851
+symbol = "TornTail"
+evidence = "The matching declaration is pub struct TornTail at line 851, with public offset and bytes fields of type u64. Journal recovery fields and constructors elsewhere in this file reference this declaration."
+
+[row.r8-154.3]
+interface = "interface.8.rs-ramp-toolkit-journal-writefault-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/journal.rs"
+line = 845
+symbol = "WriteFault"
+evidence = "The matching declaration is pub enum WriteFault at line 845, with Fail and Interrupt variants. Journal fault fields and fault-injection matches are uses, not declarations."
+
+[row.r8-154.4]
+interface = "interface.8.rs-ramp-toolkit-journal-writestep-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/journal.rs"
+line = 826
+symbol = "WriteStep"
+evidence = "The matching declaration is pub enum WriteStep at line 826, with BeforeRecord, DuringRecord, BeforeTerminator, AfterRecord and AfterSync variants. The impl at line 834 only defines ALL for this enum."
+
+[row.r8-154.5]
+interface = "interface.8.rs-ramp-toolkit-layerx-ramp-toolkit-journal-journal"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/journal.rs"
+line = 880
+symbol = "Journal"
+evidence = "The matching declaration is pub struct Journal at line 880, holding the durable file, append intent, projection, recovery and write-fault state. The impl at line 897 and RampError::Journal variants are not this struct declaration."
+
+[row.r8-154.6]
+interface = "interface.8.cli-cli-layerx-program-deploy-idempotency-key"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 368
+symbol = "ProgramLifecycleArgs::idempotency_key"
+evidence = "layerx program deploy still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old idempotency_key: String, field is absent from that struct; identical field names remain on PaymentCommand::Test (265), ProgramInterfaceCommand::Publish (428) and RegistryCommand::VerifySource (457), which are different commands. The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.7]
+interface = "interface.8.cli-cli-layerx-program-deploy-key"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 370
+symbol = "ProgramLifecycleArgs::key"
+evidence = "layerx program deploy still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old key: Option<String>, field is absent from that struct; AccountCommand::Create (235) and installation options still declare unrelated key fields. Program lifecycle signing now uses evm_key_file: PathBuf (372). The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.8]
+interface = "interface.8.cli-cli-layerx-program-deploy-previous-state-root"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 380
+symbol = "ProgramLifecycleArgs::previous_state_root"
+evidence = "layerx program deploy still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old previous_state_root: String, field is absent from that struct. The declaration at line 286 belongs to VerifyReceiptArgs for receipt verify, not a program lifecycle command. The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.9]
+interface = "interface.8.cli-cli-layerx-program-upgrade-idempotency-key"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 368
+symbol = "ProgramLifecycleArgs::idempotency_key"
+evidence = "layerx program upgrade still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old idempotency_key: String, field is absent from that struct; identical field names remain on PaymentCommand::Test (265), ProgramInterfaceCommand::Publish (428) and RegistryCommand::VerifySource (457), which are different commands. The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.10]
+interface = "interface.8.cli-cli-layerx-program-upgrade-key"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 370
+symbol = "ProgramLifecycleArgs::key"
+evidence = "layerx program upgrade still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old key: Option<String>, field is absent from that struct; AccountCommand::Create (235) and installation options still declare unrelated key fields. Program lifecycle signing now uses evm_key_file: PathBuf (372). The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.11]
+interface = "interface.8.cli-cli-layerx-program-upgrade-previous-state-root"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 380
+symbol = "ProgramLifecycleArgs::previous_state_root"
+evidence = "layerx program upgrade still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old previous_state_root: String, field is absent from that struct. The declaration at line 286 belongs to VerifyReceiptArgs for receipt verify, not a program lifecycle command. The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.12]
+interface = "interface.8.cli-cli-layerx-program-wind-down-deprecate-idempotency-key"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 368
+symbol = "ProgramLifecycleArgs::idempotency_key"
+evidence = "layerx program wind-down deprecate still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old idempotency_key: String, field is absent from that struct; identical field names remain on PaymentCommand::Test (265), ProgramInterfaceCommand::Publish (428) and RegistryCommand::VerifySource (457), which are different commands. The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.13]
+interface = "interface.8.cli-cli-layerx-program-wind-down-deprecate-key"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 370
+symbol = "ProgramLifecycleArgs::key"
+evidence = "layerx program wind-down deprecate still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old key: Option<String>, field is absent from that struct; AccountCommand::Create (235) and installation options still declare unrelated key fields. Program lifecycle signing now uses evm_key_file: PathBuf (372). The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.14]
+interface = "interface.8.cli-cli-layerx-program-wind-down-deprecate-previous-state-root"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 380
+symbol = "ProgramLifecycleArgs::previous_state_root"
+evidence = "layerx program wind-down deprecate still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old previous_state_root: String, field is absent from that struct. The declaration at line 286 belongs to VerifyReceiptArgs for receipt verify, not a program lifecycle command. The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.15]
+interface = "interface.8.cli-cli-layerx-program-wind-down-exit-idempotency-key"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 368
+symbol = "ProgramLifecycleArgs::idempotency_key"
+evidence = "layerx program wind-down exit still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old idempotency_key: String, field is absent from that struct; identical field names remain on PaymentCommand::Test (265), ProgramInterfaceCommand::Publish (428) and RegistryCommand::VerifySource (457), which are different commands. The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.16]
+interface = "interface.8.cli-cli-layerx-program-wind-down-exit-key"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 370
+symbol = "ProgramLifecycleArgs::key"
+evidence = "layerx program wind-down exit still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old key: Option<String>, field is absent from that struct; AccountCommand::Create (235) and installation options still declare unrelated key fields. Program lifecycle signing now uses evm_key_file: PathBuf (372). The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.17]
+interface = "interface.8.cli-cli-layerx-program-wind-down-exit-previous-state-root"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 380
+symbol = "ProgramLifecycleArgs::previous_state_root"
+evidence = "layerx program wind-down exit still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old previous_state_root: String, field is absent from that struct. The declaration at line 286 belongs to VerifyReceiptArgs for receipt verify, not a program lifecycle command. The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.18]
+interface = "interface.8.cli-cli-layerx-program-wind-down-route-idempotency-key"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 368
+symbol = "ProgramLifecycleArgs::idempotency_key"
+evidence = "layerx program wind-down route still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old idempotency_key: String, field is absent from that struct; identical field names remain on PaymentCommand::Test (265), ProgramInterfaceCommand::Publish (428) and RegistryCommand::VerifySource (457), which are different commands. The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.19]
+interface = "interface.8.cli-cli-layerx-program-wind-down-route-key"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 370
+symbol = "ProgramLifecycleArgs::key"
+evidence = "layerx program wind-down route still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old key: Option<String>, field is absent from that struct; AccountCommand::Create (235) and installation options still declare unrelated key fields. Program lifecycle signing now uses evm_key_file: PathBuf (372). The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.20]
+interface = "interface.8.cli-cli-layerx-program-wind-down-route-previous-state-root"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 380
+symbol = "ProgramLifecycleArgs::previous_state_root"
+evidence = "layerx program wind-down route still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old previous_state_root: String, field is absent from that struct. The declaration at line 286 belongs to VerifyReceiptArgs for receipt verify, not a program lifecycle command. The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.21]
+interface = "interface.8.cli-cli-layerx-program-wind-down-tombstone-idempotency-key"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 368
+symbol = "ProgramLifecycleArgs::idempotency_key"
+evidence = "layerx program wind-down tombstone still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old idempotency_key: String, field is absent from that struct; identical field names remain on PaymentCommand::Test (265), ProgramInterfaceCommand::Publish (428) and RegistryCommand::VerifySource (457), which are different commands. The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.22]
+interface = "interface.8.cli-cli-layerx-program-wind-down-tombstone-key"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 370
+symbol = "ProgramLifecycleArgs::key"
+evidence = "layerx program wind-down tombstone still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old key: Option<String>, field is absent from that struct; AccountCommand::Create (235) and installation options still declare unrelated key fields. Program lifecycle signing now uses evm_key_file: PathBuf (372). The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.23]
+interface = "interface.8.cli-cli-layerx-program-wind-down-tombstone-previous-state-root"
+verdict = "retired"
+path = "tools/platform/cli/src/main.rs"
+line = 380
+symbol = "ProgramLifecycleArgs::previous_state_root"
+evidence = "layerx program wind-down tombstone still flattens ProgramLifecycleArgs, whose complete declaration at main.rs:368-375 now contains only program_id, evm_key_file and fee_limit. The old previous_state_root: String, field is absent from that struct. The declaration at line 286 belongs to VerifyReceiptArgs for receipt verify, not a program lifecycle command. The qualified symbol identifies the removed shared field rather than an unrelated short-name occurrence. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.24]
+interface = "interface.8.rs-cli-rpc-decode-response-j42"
+verdict = "served"
+path = "tools/platform/cli/src/rpc.rs"
+line = 281
+symbol = "decode_response"
+evidence = "The matching declaration is pub fn decode_response(method: &str, response: &Value) -> Result<Value, String> at line 281. It validates the JSON-RPC envelope, IDs, errors and result shape; other occurrences call the decoder."
+
+[row.r8-154.25]
+interface = "interface.8.cfg-cli-walletpolicy-checkpoint-context-digest"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 1411
+symbol = "checkpoint_context_digest"
+evidence = "WalletPolicy declares checkpoint_context_digest: Option<String>, at line 1411 under serde deny_unknown_fields. The policy validation and trusted_checkpoint_context_digest assignment are reads of this field, not its declaration."
+
+[row.r8-154.26]
+interface = "interface.8.cfg-cli-walletpolicy-network-id"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 1406
+symbol = "network_id"
+evidence = "WalletPolicy declares network_id: u32, at line 1406, immediately after protocol_version. SigningFacts construction, policy comparisons and receipt policy construction use network_id but do not declare the registered configuration field."
+
+[row.r8-154.27]
+interface = "interface.8.cfg-cli-walletpolicy-protocol-version"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 1405
+symbol = "protocol_version"
+evidence = "WalletPolicy declares protocol_version: u16, at line 1405 under serde deny_unknown_fields. Runtime protocol checks, transaction fields and test JSON fixtures are separate occurrences, not this configuration declaration."
+
+[row.r8-154.28]
+interface = "interface.8.cli-cli-layerx-wallet-receipt-activity-id"
+verdict = "retired"
+path = "tools/platform/cli/src/wallet.rs"
+line = 59
+symbol = "WalletCommand::Receipt::activity_id"
+evidence = "WalletCommand::Receipt at wallet.rs:63-70 now declares tx_hash: String, plus wait and receipt_policy; the registered activity_id: String, argument is gone. Surviving activity_id occurrences are protocol accessors, RpcError::Pending bindings and output JSON keys, not a receipt command argument. The qualified symbol distinguishes this removed argument from those unrelated occurrences. Repository-wide git grep -n -I -F found zero files mentioning this qualified symbol outside spec/ and docs/ directories, including nested directories; remaining_refs counts that qualified spelling."
+remaining_refs = 0
+remaining = []
+
+[row.r8-154.29]
+interface = "interface.8.rs-cli-wallet-encoding-assetoperation-j42"
+verdict = "served"
+path = "tools/platform/cli/src/wallet_encoding.rs"
+line = 67
+symbol = "AssetOperation"
+evidence = "The matching declaration is pub enum AssetOperation<'a> at line 67, with Register, OpenAccount, RevokeGrant, Mint and Burn variants. The impl at line 88 supplies ordinal and encode methods and is not the declaration."
+
+[row.r8-154.30]
+interface = "interface.8.rs-cli-wallet-encoding-assetregistration-j42"
+verdict = "served"
+path = "tools/platform/cli/src/wallet_encoding.rs"
+line = 57
+symbol = "AssetRegistration"
+evidence = "The matching declaration is pub struct AssetRegistration<'a> at line 57, holding issuer, salt, symbol, name, decimals and supply_cap. AssetOperation::Register at line 68 refers to this struct rather than declaring it."

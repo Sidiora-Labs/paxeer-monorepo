@@ -1,0 +1,243 @@
+[reconcile.r14-193]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r14-193.1]
+interface = "interface.14.ts-web-api-generated-index-operationnames"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5573
+symbol = "operationNames"
+evidence = "export const operationNames = [ is declared at line 5573, replacing registered line 5235. The exported const array starts with account.balance; OperationName later derives its union from this array."
+
+[row.r14-193.2]
+interface = "interface.14.ts-web-api-generated-index-operationshape"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5563
+symbol = "OperationShape"
+evidence = "export interface OperationShape is declared at line 5563, replacing registered line 5225. The exported interface declares readonly method, path, pathParams, request, response, idempotency and bodyless fields."
+
+[row.r14-193.3]
+interface = "interface.14.ts-web-api-generated-index-ownerrotationdisclosurerequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3355
+symbol = "OwnerRotationDisclosureRequest"
+evidence = "export interface OwnerRotationDisclosureRequest is declared at line 3355, replacing registered line 3066. The exported interface declares delay_seconds, window_seconds and idempotency_key; decoder and encoder signatures only reference it."
+
+[row.r14-193.4]
+interface = "interface.14.ts-web-api-generated-index-ownerrotationrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3380
+symbol = "OwnerRotationRequest"
+evidence = "export interface OwnerRotationRequest is declared at line 3380, replacing registered line 3091. The exported interface declares delay_seconds, window_seconds and step_up: StepUpEvidence; API method signatures reference this declaration."
+
+[row.r14-193.5]
+interface = "interface.14.ts-web-api-generated-index-passkey"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3405
+symbol = "Passkey"
+evidence = "export interface Passkey is declared at line 3405, replacing registered line 3116. The exported interface declares passkey_id, label, created_at and optional last_used_at; PasskeyList and API methods use this type."
+
+[row.r14-193.6]
+interface = "interface.14.ts-web-api-generated-index-passkeyassertion"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3437
+symbol = "PasskeyAssertion"
+evidence = "export interface PasskeyAssertion is declared at line 3437, replacing registered line 3148. The exported interface declares assertion_id, passkey_id, completed_at and expires_at; the assertion-finish operation references this response type."
+
+[row.r14-193.7]
+interface = "interface.14.ts-web-api-generated-index-passkeyassertionbegin"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3465
+symbol = "PasskeyAssertionBegin"
+evidence = "export interface PasskeyAssertionBegin is declared at line 3465, replacing registered line 3176. The exported interface declares optional email: EmailAddress; its decoder, encoder and assertion-begin operation reference this type."
+
+[row.r14-193.8]
+interface = "interface.14.ts-web-api-generated-index-passkeyassertionchallenge"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3486
+symbol = "PasskeyAssertionChallenge"
+evidence = "export interface PasskeyAssertionChallenge is declared at line 3486, replacing registered line 3197. The exported interface declares assertion_id, ceremony and expires_at; the assertion-begin operation returns this response type."
+
+[row.r14-193.9]
+interface = "interface.14.ts-web-api-generated-index-passkeyassertionfinish"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3511
+symbol = "PasskeyAssertionFinish"
+evidence = "export interface PasskeyAssertionFinish is declared at line 3511, replacing registered line 3222. The exported interface declares credential: OpaqueCredential; the assertion-finish operation uses this request type."
+
+[row.r14-193.10]
+interface = "interface.14.ts-web-api-generated-index-passkeylist"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3530
+symbol = "PasskeyList"
+evidence = "export interface PasskeyList is declared at line 3530, replacing registered line 3241. The exported interface declares passkeys: Passkey[]; security list and revoke operations reference this response type."
+
+[row.r14-193.11]
+interface = "interface.14.ts-web-api-generated-index-passkeyregistrationbegin"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3549
+symbol = "PasskeyRegistrationBegin"
+evidence = "export interface PasskeyRegistrationBegin is declared at line 3549, replacing registered line 3260. The exported interface declares account_id: AccountId; the registration-begin operation references this request type."
+
+[row.r14-193.12]
+interface = "interface.14.ts-web-api-generated-index-passkeyregistrationchallenge"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3568
+symbol = "PasskeyRegistrationChallenge"
+evidence = "export interface PasskeyRegistrationChallenge is declared at line 3568, replacing registered line 3279. The exported interface declares registration_id, ceremony and expires_at; both registration-begin operations reference this response type."
+
+[row.r14-193.13]
+interface = "interface.14.ts-web-api-generated-index-passkeyregistrationfinish"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3593
+symbol = "PasskeyRegistrationFinish"
+evidence = "export interface PasskeyRegistrationFinish is declared at line 3593, replacing registered line 3304. The exported interface declares credential: OpaqueCredential; the registration-finish operation references this request type."
+
+[row.r14-193.14]
+interface = "interface.14.ts-web-api-generated-index-planintentrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3612
+symbol = "PlanIntentRequest"
+evidence = "export interface PlanIntentRequest is declared at line 3612, replacing registered line 3323. The exported interface declares source, destination, asset_id, money and constraints; the intent.plan operation references this request type."
+
+[row.r14-193.15]
+interface = "interface.14.ts-web-api-generated-index-profile"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3643
+symbol = "Profile"
+evidence = "export interface Profile is declared at line 3643, replacing registered line 3354. The exported interface declares display_name and optional avatar_url; profile get and update operations reference this response type."
+
+[row.r14-193.16]
+interface = "interface.14.ts-web-api-generated-index-profileupdate"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3669
+symbol = "ProfileUpdate"
+evidence = "export interface ProfileUpdate is declared at line 3669, replacing registered line 3380. The exported interface declares optional display_name and avatar_url; the profile.update operation references this request type."
+
+[row.r14-193.17]
+interface = "interface.14.ts-web-api-generated-index-programapprovalbudget"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3697
+symbol = "ProgramApprovalBudget"
+evidence = "export interface ProgramApprovalBudget is declared at line 3697, replacing registered line 3408. The exported interface declares approval_id, held_digest, budget_id, remaining, sequence freshness, verification and proof fields, evidence and optional rung."
+
+[row.r14-193.18]
+interface = "interface.14.ts-web-api-generated-index-programapprovaldecision"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3768
+symbol = "ProgramApprovalDecision"
+evidence = "export interface ProgramApprovalDecision is declared at line 3768, replacing registered line 3472. The exported interface declares approval_id, held_digest, state, state_copy_key, money_moved, moved_copy_key, evidence and optional release_ref and rung."
+
+[row.r14-193.19]
+interface = "interface.14.ts-web-api-generated-index-programapprovaldecisionrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3819
+symbol = "ProgramApprovalDecisionRequest"
+evidence = "export interface ProgramApprovalDecisionRequest is declared at line 3819, replacing registered line 3516. The exported interface declares held_digest and step_up_evidence: EvidenceId; approve and reject operations reference this request type."
+
+[row.r14-193.20]
+interface = "interface.14.ts-web-api-generated-index-programapprovaldetail"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3841
+symbol = "ProgramApprovalDetail"
+evidence = "export interface ProgramApprovalDetail is declared at line 3841, replacing registered line 3538. The exported interface declares approval identity, operation, semantics, authorized_limits, evidence, state and sequence fields, plus optional release_ref and budget."
+
+[row.r14-193.21]
+interface = "interface.14.ts-web-api-generated-index-programapprovaldisclosure"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3916
+symbol = "ProgramApprovalDisclosure"
+evidence = "export interface ProgramApprovalDisclosure is declared at line 3916, replacing registered line 3613. The exported interface declares approval_id, held_digest, decision, confirms and evidence; the disclosure operation references this response type."
+
+[row.r14-193.22]
+interface = "interface.14.ts-web-api-generated-index-programapprovaldisclosurerequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3947
+symbol = "ProgramApprovalDisclosureRequest"
+evidence = "export interface ProgramApprovalDisclosureRequest is declared at line 3947, replacing registered line 3644. The exported interface declares decision, held_digest and idempotency_key; the disclosure operation references this request type."
+
+[row.r14-193.23]
+interface = "interface.14.ts-web-api-generated-index-programapprovalmaterial"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3972
+symbol = "ProgramApprovalMaterial"
+evidence = "export interface ProgramApprovalMaterial is declared at line 3972, replacing registered line 3669. The exported interface declares approval_id, held_digest, provenance, canonical_unsigned, immutable_carrier, budget_reservation and evidence."
+
+[row.r14-193.24]
+interface = "interface.14.ts-web-api-generated-index-programapprovaloperation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4009
+symbol = "ProgramApprovalOperation"
+evidence = "export interface ProgramApprovalOperation is declared at line 4009, replacing registered line 3706. The exported interface declares kind and program_id with optional deploy, upgrade, call and wind_down facts; approval detail and summary fields reference it."
+
+[row.r14-193.25]
+interface = "interface.14.ts-web-api-generated-index-programapprovalpage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4059
+symbol = "ProgramApprovalPage"
+evidence = "export interface ProgramApprovalPage is declared at line 4059, replacing registered line 3756. The exported interface declares approvals: ProgramApprovalSummary[] and next_cursor: Cursor; the approval list operation references this response type."
+
+[row.r14-193.26]
+interface = "interface.14.ts-web-api-generated-index-programapprovalsummary"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4081
+symbol = "ProgramApprovalSummary"
+evidence = "export interface ProgramApprovalSummary is declared at line 4081, replacing registered line 3778. The exported interface declares approval identity, state, timestamps, held_digest, operation, semantics, authorized_limits and evidence; page and home fields reference it."
+
+[row.r14-193.27]
+interface = "interface.14.ts-web-api-generated-index-programbytescommitment"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4168
+symbol = "ProgramBytesCommitment"
+evidence = "export interface ProgramBytesCommitment is declared at line 4168, replacing registered line 3865. The exported interface declares sha256: string and byte_length: Amount; call, deploy and upgrade fact fields reference this commitment type."
+
+[row.r14-193.28]
+interface = "interface.14.ts-web-api-generated-index-programcallfacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4190
+symbol = "ProgramCallFacts"
+evidence = "export interface ProgramCallFacts is declared at line 4190, replacing registered line 3887. The exported interface declares guest_abi, entrypoint_hex, calldata, capabilities, access_declaration, response_capacity and resources; the operation call field references it."
+
+[row.r14-193.29]
+interface = "interface.14.ts-web-api-generated-index-programdeployfacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4227
+symbol = "ProgramDeployFacts"
+evidence = "export interface ProgramDeployFacts is declared at line 4227, replacing registered line 3924. The exported interface declares guest_abi, policy, new_hash, wasm and optional interface commitment; the operation deploy field references it."
+
+[row.r14-193.30]
+interface = "interface.14.ts-web-api-generated-index-programupgradefacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4262
+symbol = "ProgramUpgradeFacts"
+evidence = "export interface ProgramUpgradeFacts is declared at line 4262, replacing registered line 3959. The exported interface declares guest_abi, old_hash, new_hash, migration_hook_hex, clear_interface, wasm and optional interface commitment."
