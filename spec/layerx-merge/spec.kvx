@@ -130278,7 +130278,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.1.12]
 title = "Retire the web case from the programs language ABI harness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130401,7 +130401,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.55]
 title = "Inventory every test run of the services/platform/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130463,7 +130463,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.53]
 title = "Inventory every test run of the services/human/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190693,7 +190693,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.91.84]
 title = "Finish the Go modules inventory for the twenty-two packages the first pass did not run again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191127,7 +191127,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.62]
 title = "Inventory every Go package under node/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191189,7 +191189,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.60]
 title = "Inventory every Go package under precompiles/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191220,7 +191220,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.59]
 title = "Inventory every Go package under modules/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

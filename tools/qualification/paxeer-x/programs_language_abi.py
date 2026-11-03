@@ -11,7 +11,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[3]
 LANGUAGES = ("c", "rust", "assemblyscript")
-CASES = ("basic", "oracle", "web", "refusal", "call", "account", "denied")
+CASES = ("basic", "oracle", "refusal", "call", "account", "denied")
 FIELDS = ("result_code", "response_hex", "refusal_hex", "effects_hex", "events_hex", "calldata_hex")
 
 
@@ -27,7 +27,7 @@ def save(path, value):
 
 def inventory():
     paths = subprocess.run(["git", "ls-files", "-z", "--", "Makefile", "src", "include",
-        "programs", "tests/programs", "tests/test_programs_oracle_read.c", "tests/test_programs_web_read.c",
+        "programs", "tests/programs", "tests/test_programs_oracle_read.c",
         "tools/qualification/paxeer-x/programs_language_abi.py"], cwd=ROOT,
         check=True, capture_output=True).stdout.split(b"\0")
     return {os.fsdecode(p): sha(ROOT / os.fsdecode(p)) for p in paths if p}
