@@ -1335,7 +1335,7 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
         );
         assert_eq!(
             client.evm_operation(6, &human, &reference, &[]).err(),
-            Some(KmsError::Refused)
+            Some(KmsError::SelfCustodied)
         );
         assert_eq!(
             executor.export_primary_key(&human, &reference).err(),
