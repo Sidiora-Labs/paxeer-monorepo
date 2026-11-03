@@ -14335,3 +14335,13 @@ fix = "When a view gains a field, list the consumers whose tests enumerate the v
 title = "A triage report is cheaper than a guess"
 symptom = "Fifty-one open issues and eighty-seven findings waited for a reader; writing one report task per issue and one disposition task per ten findings turns the backlog into checkable files."
 fix = "Triage by report with a fixed shape and a checker, then splice the accepted blocks; never author tasks from issue text that nobody checked against main."
+
+[gotcha.2903]
+title = "A fixture shape is a contract shared by both sides"
+symptom = "The receipt-key decoder was retyped to the node's object shape and verified against the gateway proof alone; three agent daemon fixtures still served the old bare list, and the budget pipeline test failed on a decode error two tasks later."
+fix = "When a decoder or a recorded exchange changes shape, grep every fixture and test that serves or consumes the shape and run them in the same task."
+
+[gotcha.2904]
+title = "An in-memory index behind an RPC needs a restart proof"
+symptom = "The sequencer receipt source was filled only by the live accepter; a restart replayed the log, re-executed every send and answered null to every receipt lookup."
+fix = "Every in-memory read model that an RPC serves is rebuilt from durable state on start, and the restart test reads a pre-restart record back."

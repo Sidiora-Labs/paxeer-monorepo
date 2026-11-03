@@ -1,0 +1,23 @@
+[disposition.21.45.1.4]
+finding = "21.45.1.4"
+status = "resolved"
+evidence = "Landed commit 3a6ea0be9 makes the debit identity at services/agent/crates/layerx-proof/src/receipt.rs:382 digest the execution effect's fee denomination and subtract fee_charged with checked arithmetic when that digest equals the receipt asset, accounting for the sender's gas debit."
+follow_up = "closure"
+
+[disposition.21.87.1.2]
+finding = "21.87.1.2"
+status = "resolved"
+evidence = "Landed commit 75256e389 sets the expected transient receipt's CumulativeGasUsed from the verified signed execution summary at node/sequencer/accepter_test.go:383 before comparing it with result.receipt.Exec, matching the receipt-bound value returned by Accepter."
+follow_up = "closure"
+
+[disposition.21.11.1.5]
+finding = "21.11.1.5"
+status = "resolved"
+evidence = "Landed commit 41642833f registers the wallet consumer with the explicit name proof_layerxledger_0x101a and its declared function at apps/wallet/src/surfaces/WebDataView.test.tsx:902, replacing the unnamed test(fn) registration that Vitest recorded as a todo."
+follow_up = "closure"
+
+[disposition.21.95.1.5]
+finding = "21.95.1.5"
+status = "resolved"
+evidence = "Landed commit fcecd1e7d removes the deleted layerx-agentd proof target from task 21.95.1's touches and makes tests and planned_paths name the layerx-mcp proof at spec/layerx-merge/spec.kvx:133646, resolving the graph-list mismatch while the proof task itself remains pending."
+follow_up = "closure"
