@@ -2,6 +2,7 @@ package evmrpc_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/binary"
@@ -20,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
@@ -31,15 +33,19 @@ import (
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	seqnode "github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store"
 	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	occutils "github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
+	"go.opentelemetry.io/otel"
 )
 
 const (
@@ -365,9 +371,9 @@ type seqReceiptRPCError9005 struct {
 }
 
 // callSeqReceipt9005 posts one JSON-RPC call and returns its raw result or its error.
-func callSeqReceipt9005(t *testing.T, port int, method string, param any) (json.RawMessage, *seqReceiptRPCError9005) {
+func callSeqReceipt9005(t *testing.T, port int, method string, param ...any) (json.RawMessage, *seqReceiptRPCError9005) {
 	t.Helper()
-	params, err := json.Marshal([]any{param})
+	params, err := json.Marshal(append([]any{}, param...))
 	require.NoError(t, err)
 	body := fmt.Sprintf(`{"jsonrpc":"2.0","method":%q,"params":%s,"id":1}`, method, params)
 	res, err := http.Post(fmt.Sprintf("http://%s:%d", TestAddr, port), "application/json", strings.NewReader(body))
@@ -399,6 +405,143 @@ func seqReceiptTwoLogs9005() []*types.Log {
 		{Address: seqReceiptLogAddr9005.Hex(), Topics: []string{seqReceiptTopicA9005.Hex(), seqReceiptTopicB9005.Hex()}, Data: []byte("transfer")},
 		{Address: seqReceiptTo9005.Hex(), Topics: []string{}, Data: nil},
 	}
+}
+
+func TestReceiptKeysServedByTheNode(t *testing.T) {
+	chain := newSeqReceiptChain9005(t)
+	testApp := app.Setup(t, false, false, false)
+	port := startSeqReceiptServer9005(t, testApp, chain.ctxProvider, evmrpc.SequencerReceiptOption{Source: chain, Keeper: &chain.keeper})
+	proposerURL, err := url.Parse(fmt.Sprintf("http://%s:%d", TestAddr, port))
+	require.NoError(t, err)
+	// The forwarder's local store is empty: it must answer the proposer's pins.
+	other := newSeqReceiptChain9005(t)
+	require.NoError(t, other.keeper.SetReceiptKeys(other.writeCtx9005(7), seqkeeper.ReceiptKeys{}))
+	other.commit9005(7)
+	forwardPort := startSeqReceiptServer9005(t, testApp, other.ctxProvider, evmrpc.SequencerReceiptOption{Keeper: &other.keeper, ForwardURL: proposerURL})
+
+	checkKeys := func(want seqkeeper.ReceiptKeys) seqkeeper.ReceiptKeys {
+		t.Helper()
+		raw, rpcErr := callSeqReceipt9005(t, port, evmrpc.ReceiptKeysMethod)
+		require.Nil(t, rpcErr)
+		var fields map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(raw, &fields))
+		require.Len(t, fields, 1)
+		var entries []map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(fields["keys"], &entries))
+		require.NotNil(t, entries, "an empty key list is [], never null")
+		require.Len(t, entries, len(want))
+		for i, entry := range entries {
+			require.Len(t, entry, 4)
+			entryJSON, err := json.Marshal(entry)
+			require.NoError(t, err)
+			require.JSONEq(t, fmt.Sprintf(`{"keyId":%q,"publicKey":%q,"firstHeight":%d,"lastHeight":%d}`,
+				"0x"+hex.EncodeToString(want[i].KeyId), "0x"+hex.EncodeToString(want[i].PublicKey), want[i].FirstHeight, want[i].LastHeight), string(entryJSON))
+		}
+		var result evmrpc.ReceiptKeysResult
+		require.NoError(t, json.Unmarshal(raw, &result))
+		pins := make(seqkeeper.ReceiptKeys, len(result.Keys))
+		for i, key := range result.Keys {
+			pins[i] = seqkeeper.ReceiptKeyEntry{KeyId: bytes.Clone(key.KeyID[:]), PublicKey: bytes.Clone(key.PublicKey), FirstHeight: key.FirstHeight, LastHeight: key.LastHeight}
+		}
+		require.Equal(t, want, pins)
+		forwarded, rpcErr := callSeqReceipt9005(t, forwardPort, evmrpc.ReceiptKeysMethod)
+		require.Nil(t, rpcErr)
+		require.JSONEq(t, string(raw), string(forwarded))
+		return pins
+	}
+
+	public := chain.receiptKey.PublicKey()
+	want := seqkeeper.ReceiptKeys{{KeyId: bytes.Clone(chain.keyID[:]), PublicKey: bytes.Clone(public[:]), FirstHeight: 1, LastHeight: 1999}}
+	pins := checkKeys(want)
+	hash, _ := chain.accept9005(seqReceiptTx9005{nonce: 1, height: 7, txIndex: 1, status: 1, returnData: []byte{0x01}})
+	_, receipt, _ := seqReceiptResult9005(t, port, hash)
+	require.NotNil(t, receipt)
+	require.NoError(t, receipt.Verify(pins))
+
+	// An update after server startup must be read at the latest height, in pinned order.
+	secondID := bytes.Repeat([]byte{0x66}, 32)
+	secondPublic := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x31}, ed25519.SeedSize)).Public().(ed25519.PublicKey)
+	want = append(want, seqkeeper.ReceiptKeyEntry{KeyId: secondID, PublicKey: secondPublic, FirstHeight: 8, LastHeight: 2999})
+	require.NoError(t, chain.keeper.SetReceiptKeys(chain.writeCtx9005(7), want))
+	chain.commit9005(7)
+	pins = checkKeys(want)
+	require.NoError(t, receipt.Verify(pins))
+
+	require.NoError(t, chain.keeper.SetReceiptKeys(chain.writeCtx9005(8), seqkeeper.ReceiptKeys{}))
+	chain.commit9005(8)
+	checkKeys(seqkeeper.ReceiptKeys{})
+
+	_, rpcErr := callSeqReceipt9005(t, TestPort, evmrpc.ReceiptKeysMethod)
+	require.NotNil(t, rpcErr)
+	require.Equal(t, -32000, rpcErr.Code)
+
+	t.Run("sent transaction", func(t *testing.T) {
+		sender := occutils.NewSigner()
+		h := newSendSeqHarness(t, sender)
+		nodeCtxProvider := resolutionCtxProvider1315(h)
+		public := h.key.PublicKey()
+		keyID, err := h.key.KeyID(sendSeqOpenHeight)
+		require.NoError(t, err)
+		want := seqkeeper.ReceiptKeys{{KeyId: keyID[:], PublicKey: public[:], FirstHeight: 1, LastHeight: 1000}}
+		committedStore := h.app.CommitMultiStore()
+		header := tmproto.Header{ChainID: sendSeqChainID, Height: sendSeqOpenHeight}
+		ctx := sdk.NewContext(committedStore, header, false)
+		require.NoError(t, h.app.SequencerKeeper.SetReceiptKeys(ctx, want))
+		require.Equal(t, sendSeqOpenHeight, committedStore.Commit(true).Version)
+		ctxProvider := func(height int64) sdk.Context {
+			if height == evmrpc.PendingCtxHeight {
+				return nodeCtxProvider(height)
+			}
+			return sdk.NewContext(committedStore.CacheMultiStore(), header, false)
+		}
+		committedPins, err := h.app.SequencerKeeper.ReceiptKeys(ctxProvider(evmrpc.LatestCtxHeight))
+		require.NoError(t, err)
+		require.Equal(t, []seqtypes.ReceiptKey{{KeyId: keyID, PublicKey: public, FirstHeight: 1, LastHeight: 1000}}, committedPins)
+
+		log, err := wal.OpenWAL(t.TempDir(), wal.DefaultConfig())
+		require.NoError(t, err)
+		t.Cleanup(log.Close)
+		replicator, err := seqnode.NewReplicator(seqnode.ReplicatorConfig{WAL: log, Standalone: true})
+		require.NoError(t, err)
+		t.Cleanup(replicator.Close)
+		_, err = replicator.Release(context.Background(), &wal.Open{
+			Height: uint64(sendSeqOpenHeight), OpenTimeMs: uint64(time.Now().UnixMilli()), BaseFee: uint256.NewInt(0),
+		})
+		require.NoError(t, err)
+		metrics, err := seqnode.NewMetrics(otel.Meter("receipt-keys-test"))
+		require.NoError(t, err)
+		source := seqnode.NewReceiptSource(8)
+		accepter := seqnode.NewAccepter(h.accepter.r, replicator, source, metrics)
+		config := evmrpcconfig.DefaultConfig
+		config.HTTPAddress, config.HTTPPort = TestAddr, seqReceiptFreePort9005(t)
+		server, err := evmrpc.NewEVMHTTPServer(config, h.client, &h.app.EvmKeeper, h.app.BeginBlockKeepers, h.app.BaseApp,
+			h.app.TracerAnteHandler, ctxProvider, func(int64) client.TxConfig { return h.app.GetTxConfig() }, "", nil,
+			evmrpc.NewSequencerOption(accepter, evmrpc.NewReceiptLogFeed(sendSeqCommittedTip)),
+			evmrpc.SequencerReceiptOption{Source: source, Keeper: &h.app.SequencerKeeper})
+		require.NoError(t, err)
+		require.NoError(t, server.Start())
+		t.Cleanup(server.Stop)
+
+		tx, rawTx := sendSeqTransfer(t, sender, 0, seqReceiptTo9005, big.NewInt(1), sendSeqTransferGas)
+		raw, rpcErr := callSeqReceipt9005(t, config.HTTPPort, "eth_sendRawTransaction", rawTx)
+		require.Nil(t, rpcErr)
+		var hash common.Hash
+		require.NoError(t, json.Unmarshal(raw, &hash))
+		require.Equal(t, tx.Hash(), hash)
+		raw, rpcErr = callSeqReceipt9005(t, config.HTTPPort, evmrpc.ReceiptKeysMethod)
+		require.Nil(t, rpcErr)
+		var result evmrpc.ReceiptKeysResult
+		require.NoError(t, json.Unmarshal(raw, &result))
+		require.Len(t, result.Keys, 1)
+		key := result.Keys[0]
+		pins := seqkeeper.ReceiptKeys{{KeyId: key.KeyID[:], PublicKey: key.PublicKey, FirstHeight: key.FirstHeight, LastHeight: key.LastHeight}}
+		require.Equal(t, want, pins)
+		_, receipt, _ := seqReceiptResult9005(t, config.HTTPPort, hash)
+		require.NotNil(t, receipt)
+		require.Equal(t, evmrpc.RungReceipted, receipt.Rung)
+		require.NoError(t, receipt.Verify(pins))
+		require.Zero(t, h.client.broadcastCount())
+	})
 }
 
 func TestSequencerReceiptRungs(t *testing.T) {
