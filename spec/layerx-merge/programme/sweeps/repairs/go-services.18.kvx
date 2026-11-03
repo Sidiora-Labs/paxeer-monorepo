@@ -1,0 +1,7 @@
+[repair.go-services.18]
+target = "services/platform/perps-data/internal/delivery"
+command = "cd services/platform/perps-data && go vet ./internal/delivery/ && go test -count=1 ./internal/delivery/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "store_test.go documents the PostgreSQL permissions required by the tests; no product code changes."
+producer_input_tests = ["TestDeliveryStore: PERPS_DATA_TEST_DATABASE_URL pointing to a disposable PostgreSQL database with permission to migrate the perps schema and truncate its delivery tables", "TestStore: PERPS_DATA_TEST_DATABASE_URL pointing to PostgreSQL with permission to create and drop databases and migrate the perps schema"]

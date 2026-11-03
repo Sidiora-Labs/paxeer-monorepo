@@ -62,6 +62,7 @@ func (a *Accepter) Accept(txBytes []byte) (evmrpc.AcceptedSend, error) {
 	ackStart := time.Now()
 	ack, err := a.rep.Release(context.Background(), &wal.Accept{
 		Seq: acc.Seq, Height: uint64(acc.Height), Tx: txBytes, Receipt: receipt,
+		ReturnData: send.ReturnData, LogData: send.LogData, VMError: send.VMError,
 	})
 	a.m.ObserveStandbyAck(time.Since(ackStart))
 	if err == nil && ack.Status != AckOK {
