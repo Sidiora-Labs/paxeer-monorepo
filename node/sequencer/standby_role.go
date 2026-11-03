@@ -217,7 +217,7 @@ func (r *standbyRoleReplay) Execute(a *wal.Accept) ([]byte, error) {
 	if msg := r.r.host.GetEVMMsg(tx); msg != nil {
 		etx, _ = msg.AsTransaction()
 	}
-	in := &ReceiptInput{ModuleID: r.r.moduleID}
+	in := &ReceiptInput{ModuleID: r.r.moduleID, PaymentDenom: r.r.evm.GetBaseDenom(pre)}
 	if etx != nil {
 		err = r.r.beforeEVM(pre, etx, in)
 	} else {

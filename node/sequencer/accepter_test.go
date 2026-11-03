@@ -380,6 +380,7 @@ func TestAccepterReceiptsASendAcrossASeal(t *testing.T) {
 	require.Equal(t, result.receipt.Receipt, send.Receipt)
 	rcpt, err := h.h.app.EvmKeeper.GetTransientReceipt(sealing.sealed.Ctx, tx.Hash(), 1)
 	require.NoError(t, err)
+	rcpt.CumulativeGasUsed = binary.BigEndian.Uint64(verified.Receipt.Effects[0].Body[8:16])
 	require.Equal(t, rcpt, result.receipt.Exec)
 	require.Equal(t, rcpt.VmError, send.VMError)
 	require.Len(t, send.LogData, len(rcpt.Logs))
