@@ -199991,7 +199991,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.99.101]
 title = "Repair the kernel make target test-programs-metered-call of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.97.10"]
