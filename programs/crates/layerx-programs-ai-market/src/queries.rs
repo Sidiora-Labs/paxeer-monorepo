@@ -1,6 +1,8 @@
 //! F10 read-only selectors, exact snapshot binding and bounded off-chain page framing.
 //! Selectors read one captured common state value; they never write, emit, pay or stage blobs.
 //! Host `ProgramRead` facts and finality evidence are inputs; nothing here establishes them.
+#[cfg(target_arch = "wasm32")]
+use crate::codec::Sha256State as Sha256;
 use crate::{
     codec::{self, ChunkResponse, ReadHeader, Reader, RosterView, Writer},
     dispatch,
@@ -18,6 +20,7 @@ use crate::{
     workers::{WorkerState, WorkerTable},
     MAX_CHUNK_BYTES, MAX_STATE_BYTES, SCHEMA_VERSION,
 };
+#[cfg(not(target_arch = "wasm32"))]
 use sha2::{Digest, Sha256};
 
 pub const FULL_CAPTURE_CHUNKS: usize = MAX_STATE_BYTES / MAX_CHUNK_BYTES;
@@ -38,7 +41,8 @@ pub const BINDING_MAX_BYTES: usize = BINDING_PREFIX_MAX_BYTES + 8 + 32 + 32 + 32
 const HEX: &[u8; 16] = b"0123456789abcdef";
 
 /// Off-chain view failures keep their own names, separate from on-chain application codes.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum QueryError {
     Application(ApplicationError),
     BindingMismatch,
@@ -75,6 +79,7 @@ fn policy_of<'s>(shared: &'s SharedState<'_>) -> CodecResult<PolicySection<'s>> 
 /// # Errors
 /// Refuses a noncanonical state, an uncreated market (`NOT_FOUND`) and a chain or program
 /// other than the market's own (`WRONG_DOMAIN`, `WRONG_PROGRAM`).
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn read_header(
     state_bytes: &[u8],
     chain: ChainDomain,
@@ -116,6 +121,7 @@ pub fn policy_digest(state_bytes: &[u8]) -> CodecResult<PolicyDigest> {
 /// # Errors
 /// `NON_CANONICAL` for a malformed payload or an offset outside the state, `CONFLICT` for a
 /// pin that no longer matches the captured state, `CAPACITY` for an oversized state or `out`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn read_state_chunk(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> CodecResult<usize> {
     dispatch::READ_STATE_CHUNK.validate_payload_length(payload.len())?;
     let request = codec::decode_chunk_request(payload)?;
@@ -160,7 +166,8 @@ pub fn frame_read_result(
 }
 
 /// Outer `ProgramRead` facts returned with each chunk by the host read interface.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ReadProof {
     pub chain: ChainDomain,
     pub program: ProgramId,
@@ -171,7 +178,8 @@ pub struct ReadProof {
 }
 
 /// Facts of one complete capture: every chunk proved the same root and state identity.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct CaptureFacts {
     pub proof: ReadProof,
     pub revision: u64,
@@ -271,7 +279,8 @@ impl<'a> StateCapture<'a> {
 }
 
 /// Finality evidence supplied by the native block-commit verifier for one root.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct FinalityEvidence {
     pub native_state_root: Digest32,
     pub block_height: u64,
@@ -282,7 +291,8 @@ pub struct FinalityEvidence {
 }
 
 /// `SnapshotBindingV2` in canonical field order.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct SnapshotBinding {
     pub chain: ChainDomain,
     pub program: ProgramId,
@@ -361,6 +371,7 @@ impl SnapshotBinding {
     /// # Errors
     /// `BAD_VERSION` for another schema; codec refusals for malformed, oversized,
     /// trailing or reserved bytes, revision zero, or a rank above finalized.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut input = Reader::new(bytes);
         if input.u16()? != 1 {
@@ -370,23 +381,23 @@ impl SnapshotBinding {
             return Err(NON_CANONICAL);
         }
         let binding = SnapshotBinding {
-            chain: ChainDomain::new(input.fixed()?)?,
-            program: ProgramId::new(input.fixed()?)?,
-            market: MarketId::new(input.fixed()?)?,
+            chain: input.chain_domain()?,
+            program: input.program_id()?,
+            market: input.market_id()?,
             observed_sequence: input.u64()?,
             execution_height: input.u64()?,
-            batch_id: Digest32::new(input.fixed()?)?,
-            native_state_root: Digest32::new(input.fixed()?)?,
+            batch_id: input.digest32()?,
+            native_state_root: input.digest32()?,
             revision: input.u64()?,
-            state_digest: StateDigest::new(input.fixed()?)?,
+            state_digest: input.state_digest()?,
             epoch: input.presence(Reader::u64)?,
-            config: Version::new(input.u64()?)?,
-            policy: PolicyDigest::new(input.fixed()?)?,
-            roster: input.presence(|reader| RosterDigest::new(reader.fixed()?))?,
+            config: input.version()?,
+            policy: input.policy_digest()?,
+            roster: input.presence(|reader| reader.roster_digest())?,
             block_height: input.u64()?,
-            block_hash: Digest32::new(input.fixed()?)?,
-            app_hash: Digest32::new(input.fixed()?)?,
-            store_proof_digest: Digest32::new(input.fixed()?)?,
+            block_hash: input.digest32()?,
+            app_hash: input.digest32()?,
+            store_proof_digest: input.digest32()?,
             rank: input.u8()?,
             publication_time_ms: input.u64()?,
         };
@@ -435,6 +446,7 @@ impl SnapshotBinding {
         Ok((self.block_height, self.block_hash))
     }
 
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write_prefix(&self, w: &mut Writer<'_>) -> CodecResult<()> {
         w.u16(SCHEMA_VERSION)?;
         w.put(self.chain.as_bytes())?;
@@ -455,6 +467,7 @@ impl SnapshotBinding {
     ///
     /// # Errors
     /// `NON_CANONICAL` for revision 0 or a rank above 4, `CAPACITY` for a short `out`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         if self.revision == 0 || self.rank > FINALIZED_RANK {
             return Err(NON_CANONICAL);
@@ -497,7 +510,8 @@ impl SnapshotBinding {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum Availability {
     Available = 1,
@@ -527,14 +541,16 @@ pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 10
     Ok(out)
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum ParticipantKind {
     Worker = 1,
     Evaluator = 2,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum ScoreStatus {
     Present = 1,
@@ -546,7 +562,8 @@ pub enum ScoreStatus {
 }
 
 /// Present carries an actual number (zero included); every other status carries none.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ScoreField {
     epoch: Presence<u64>,
     status: ScoreStatus,
@@ -592,7 +609,8 @@ impl ScoreField {
 }
 
 /// F06-backed entitlement. Only an F06 producer may supply available values.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RewardField {
     status: Availability,
     asset: Presence<AssetId>,
@@ -650,7 +668,8 @@ pub const ELIGIBLE_NEW_WORK: u8 = 2;
 pub const IDENTITY_STATE_UNAVAILABLE: u8 = 0;
 
 /// One participant row. For evaluators, `generation` is the frozen grant version.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ParticipantRow {
     pub kind: ParticipantKind,
     pub id: [u8; 32],
@@ -670,6 +689,7 @@ pub struct ParticipantRow {
 impl ParticipantRow {
     /// # Errors
     /// `CAPACITY` when the writer is full.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, w: &mut Writer<'_>) -> CodecResult<()> {
         w.u8(self.kind as u8)?;
         w.put(&self.id)?;
@@ -781,7 +801,8 @@ pub fn participant_rows(
     Ok(total)
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum KindFilter {
     All = 0,
@@ -857,7 +878,8 @@ pub struct CursorKey<'k> {
     pub generation: u32,
 }
 /// Visibility scope, snapshot and exact normalized filters a cursor is bound to.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct CursorScope {
     pub visibility: Digest32,
     pub market: MarketId,
@@ -872,16 +894,14 @@ fn hmac(secret: &[u8; 32], payload: &[u8]) -> [u8; 32] {
         *i ^= k;
         *o ^= k;
     }
-    let inner: [u8; 32] = Sha256::new()
-        .chain_update(ipad)
-        .chain_update(payload)
-        .finalize()
-        .into();
-    Sha256::new()
-        .chain_update(opad)
-        .chain_update(inner)
-        .finalize()
-        .into()
+    let mut inner = Sha256::new();
+    inner.update(&ipad);
+    inner.update(payload);
+    let inner = inner.finalize();
+    let mut outer = Sha256::new();
+    outer.update(&opad);
+    outer.update(&inner);
+    outer.finalize().into()
 }
 fn cursor_payload(
     key: &CursorKey<'_>,
@@ -1026,6 +1046,7 @@ pub fn bound_response(length: usize) -> QueryResult<usize> {
 /// # Errors
 /// `ResponseTooLarge` above 32 rows, a cursor above 1024 bytes or a frame above 65536 bytes;
 /// `CAPACITY` for a short `out`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_page(
     snapshot: Digest32,
     rows: &[ParticipantRow],

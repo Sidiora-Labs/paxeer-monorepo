@@ -49,6 +49,7 @@ func newSealBatchHarness(t *testing.T, funded ...utils.TestAcct) *harness {
 		FirstHeight: 1,
 		LastHeight:  math.MaxUint64,
 	}}))
+	require.NoError(t, a.SequencerKeeper.SetActivationHeight(tw.Ctx, openHeight))
 	a.UpgradeKeeper.SetDone(tw.Ctx.WithBlockHeight(openHeight-1), app.MergeUpgrade)
 	_, err := a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
 		Header: &tmproto.Header{ChainID: testChainID, Height: committedTip},
@@ -91,6 +92,8 @@ func (h *harness) processSequencedBlock(t *testing.T, ms int64, block [][]byte) 
 		ChainID:         testChainID,
 		Height:          openHeight,
 		Time:            time.UnixMilli(ms).UTC(),
+		AppHash:         h.app.CommitMultiStore().LastCommitID().Hash,
+		LastBlockId:     h.app.LastBlockID(),
 		ProposerAddress: h.proposer,
 	}
 	ctx := sdk.NewContext(h.app.CommitMultiStore().CacheMultiStore(), header, false)

@@ -158,7 +158,7 @@ fn encode_execution(execution: &ExecutedReceipt, signature: Option<[u8; 64]>) ->
     wire(encoder.u32(1))?;
     wire(encoder.u32(0))?;
     wire(encoder.u8(2))?;
-    wire(encoder.bytes(&sha256(execution.fee_denom.as_bytes()), 32))?;
+    wire(encoder.bytes(&sha256(execution.payment_denom.as_bytes()), 32))?;
     wire(encoder.u128(0))?;
     wire(encoder.bytes(&from, 32))?;
     wire(encoder.u128(0))?;
@@ -236,6 +236,7 @@ pub fn signed_execution(
         cumulative_gas_used: 0x10000,
         effective_gas_price: 1_000_000_000,
         fee_denom: "upax".to_owned(),
+        payment_denom: "upax".to_owned(),
         fee_amount: fee,
         sponsor: [0; 20],
         from: sender,
