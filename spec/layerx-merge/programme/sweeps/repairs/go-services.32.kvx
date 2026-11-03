@@ -1,0 +1,7 @@
+[repair.go-services.32]
+target = "services/platform/perps-data/internal/replay"
+command = "cd services/platform/perps-data && go vet ./internal/replay/ && go test -count=1 ./internal/replay/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "services/platform/perps-data/internal/replay/replay_test.go opens and prepares the required PostgreSQL database before starting the lease-renewal test node."
+producer_input_tests = ["TestReplayRenewsLeaseWithinBatch: PERPS_DATA_TEST_DATABASE_URL for a writable PostgreSQL test database; PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET for a chain-125 node, or the in-tree local node prerequisites when either endpoint is unset", "TestReplaySnapshotScoped: PERPS_DATA_TEST_DATABASE_URL for a writable PostgreSQL test database", "TestReplay: PERPS_DATA_TEST_DATABASE_URL for a writable PostgreSQL test database and PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET for a chain-125 node with at least 22 blocks and pricefeed rows in the replay range"]
