@@ -258,13 +258,13 @@ func TestCustodyAddressIsModuleAccount(t *testing.T) {
 	cw20 := address("cw20 pointer")
 	require.NoError(t, testkeeper.EVMTestApp.EvmKeeper.SetERC20CW20Pointer(e.ctx,
 		sdk.AccAddress(address("cw20 contract").Bytes()).String(), cw20))
-	e.register(types.TokenParams{Address: cw20, Kind: types.TokenKindERC20, Decimals: 6, MaxUtilizationBps: 9_000})
+	e.register(types.TokenParams{Address: cw20, Kind: types.TokenKindERC20, MarketID: types.PAXMarketID, Decimals: 6, MaxUtilizationBps: 9_000})
 	_, err = e.k.TokenOf(e.ctx, cw20)
 	requireAbiError(t, err, types.ErrUnsupportedTransfer)
 
 	// A NATIVE token must be the native pointer of its denom.
 	notPointer := address("not a pointer")
-	e.register(types.TokenParams{Address: notPointer, Kind: types.TokenKindNative, Decimals: 6, MaxUtilizationBps: 9_000})
+	e.register(types.TokenParams{Address: notPointer, Kind: types.TokenKindNative, MarketID: types.PAXMarketID, Decimals: 6, MaxUtilizationBps: 9_000})
 	_, err = e.k.TokenOf(e.ctx, notPointer)
 	requireAbiError(t, err, types.ErrUnsupportedTransfer)
 	_, _, err = e.k.CustodyBalance(e.ctx, notPointer)
@@ -387,7 +387,7 @@ func TestFailedTransferRevertsAtomically(t *testing.T) {
 	// A token whose transfer returns false is a failed operation.
 	falseToken := e.deploy("false token deployer", common.FromHex(falseTokenCreation))
 	require.NotEmpty(t, testkeeper.EVMTestApp.EvmKeeper.GetCode(e.ctx, falseToken))
-	e.register(types.TokenParams{Address: falseToken, Kind: types.TokenKindERC20, Decimals: 6, MaxUtilizationBps: 9_000})
+	e.register(types.TokenParams{Address: falseToken, Kind: types.TokenKindERC20, MarketID: types.PAXMarketID, Decimals: 6, MaxUtilizationBps: 9_000})
 	_, _, err = e.k.PullTokens(e.ctx, rail, falseToken, caller, sdk.NewInt(1))
 	requireAbiError(t, err, types.SafeERC20FailedOperation(falseToken))
 	_, err = e.k.PushTokens(e.ctx, falseToken, caller, sdk.NewInt(1))
