@@ -1154,17 +1154,16 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 		return Receipt{}, err
 	}
 	modules := activityModules(module)
-	if module == C.LXP_MODULE_GOVERNANCE {
-		active := branch.store.Get(moduleKVKey(C.LXP_MODULE_PROGRAMS, []byte("progfee/active/v1")))
-		if len(active) >= 9 && string(active[:5]) == "LXFR1" {
-			modules = append(modules, C.LXP_MODULE_PROGRAMS)
-		}
-	}
 	if err := lxphost_authority_write(h.node, authority); err != nil {
 		return Receipt{}, err
 	}
 	if err := branch.load(h, modules); err != nil {
 		return Receipt{}, err
+	}
+	if module == C.LXP_MODULE_GOVERNANCE {
+		if err := branch.loadProgramsFeeRecords(h); err != nil {
+			return Receipt{}, err
+		}
 	}
 	loadedBlobs, err := h.loadBlobs(branch.store, modules)
 	if err != nil {

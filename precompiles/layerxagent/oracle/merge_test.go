@@ -10,6 +10,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
 	agentcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/oracle"
+	precompiletest "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/testutil"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -23,7 +24,7 @@ func TestOracleMergeConstructorCaps(t *testing.T) {
 	require.Equal(t, cap, oracle.MergeMaxConfidence)
 
 	testApp := app.Setup(t, false, true, false)
-	keepers := app.NewPrecompileKeepers(testApp)
+	keepers := precompiletest.Keepers(testApp)
 	missingEVM := *keepers
 	missingEVM.EVMKeeper = nil
 	nilEVM := *keepers

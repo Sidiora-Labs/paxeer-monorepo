@@ -363,8 +363,11 @@ export type MerchantErrorCode =
   | "invalid-webhook";
 
 export class MerchantError extends Error {
-  public constructor(public readonly code: MerchantErrorCode) {
+  public readonly code: MerchantErrorCode;
+
+  public constructor(code: MerchantErrorCode) {
     super(code);
+    this.code = code;
     this.name = "MerchantError";
   }
 }

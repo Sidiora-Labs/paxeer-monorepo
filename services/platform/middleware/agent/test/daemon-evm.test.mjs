@@ -151,7 +151,7 @@ function decodeDaemonSubmissionAcceptsOnlyRungLevels() {
     receiptDigest: `0x${hex(keccak_256(bytes(observation.receipt.signed_receipt)))}`,
     receiptKey: {
       keyId: `0x${observation.receipt.receipt_key.key_id}`, publicKey: `0x${observation.receipt.receipt_key.public_key}`,
-      firstHeight: "1000", lastHeight: "1999",
+      firstHeight: "0x3e8", lastHeight: "0x7cf",
     },
   });
   const committed = structuredClone(observation);

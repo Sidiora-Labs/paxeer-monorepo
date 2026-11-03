@@ -7377,6 +7377,102 @@ value = "Since the loader change of 22.2.7 (4120aa4c4) a module-9 activity execu
 basis = "22.25.2 attempt 2: TestHostAuthorityDelegatedScope (authority_test.go:25-50) passed at 1.23.3 (44edbdfbc), executes a programs registry activity without the fixture call and failed with LXP_ERR_VERSION_UNSUPPORTED at host_test.go:213 after the loader change; the same class as the two failures of finding 22.2.5.7."
 affects = ["22.25.2"]
 
+[decision.2378]
+title = "The retired-catalogue acceptance test runs after every deletion it asserts"
+value = "test_deleted_trees_absent_and_catalogue_valid asserts that each deleted tree of the catalogue components guarantor-runtime, lni, replica and intent-ingester is absent; the task that owns it (16.90.1) requires every task that deletes one of those trees, and the LNI client module services/agent/crates/layerx-client/src/lni is deleted by 9.24.7, so 16.90.1 requires 9.24.7 and runs only once that deletion is published. The two assertion files stay as written."
+basis = "16.90.1 attempt 3 (base 144ec64cf): both tests present, the verify failed only on the lni component because services/agent/crates/layerx-client/src/lni still exists on main; tools/paxeer-x/retired_callers.json lists it under lni deleted_trees and 9.24.7 (pending, wave 36, behind 22.9.29 to 22.9.31) deletes it; every other deleted tree of the four components is already absent."
+affects = ["16.90.1"]
+
+[decision.2379]
+title = "SDK Python readers under tests/agent/sdk/python import the package through the repository path insertion"
+value = "Every test module under tests/agent/sdk/python that imports layerx_sdk inserts services/agent/sdk/python on sys.path from the repository root it derives from its own location (the pattern of test_ai_market.py:22-23) before the import; a module without the insertion is a defect of that module, and installing the package into the qualification environment or changing a task's environment profile is never the fix."
+basis = "22.25.3 attempt 2 (4e2c455b1 on 8019d18ff) passed every Go check and stopped while collecting tests/agent/sdk/python/test_receipt_fixture.py with ModuleNotFoundError for layerx_sdk: that file (rewritten by 16.97.6 at 77864823b) imports the package at line 9 with no path insertion, while its siblings carry one; no conftest or root pytest configuration supplies the path and the package's own pyproject pythonpath applies only inside its directory."
+affects = ["22.25.3", "16.97.6"]
+
+[decision.2380]
+title = "The per-transaction fee collection address is a within-block transient; chain tests assert fee tokens at the routed accounts"
+value = "The end-of-block sweep of modules/evm/keeper/abci.go:183-196 (commit 63dfe3cbc, 2026-09-26) moves every allowed non-network fee denom from each transaction coinbase to the block coinbase, and RouteCollectedFeeTokens then holds it in the fee-token holding account or leaves it with the fee collector under distribution. A chain test of a fee-token payment therefore expects the collection address to end the block where it started and the fee collector and holding account together to gain the converted fee; the verify helper tests/testutil/processblock/verify/feetoken.go and the routing code are right as written. The bisect ordered by do_10 of 22.6.4 is withdrawn: the sweep predates both ends of its range."
+basis = "22.6.4 attempt 13 (3b736cb1c on 8019d18ff) failed only TestSidioraFeePaid at the collection-address assertion (expected 32697, actual 0). The sweep commit's own closure ran only the modules/evm/keeper tests, and the chain test (f7745bc65, written earlier the same day) has asserted the pre-sweep layout ever since; it panicked on main before 22.6.4 and was never green with the sweep."
+affects = ["22.6.4", "22.6.5", "22.7.3"]
+
+[decision.2381]
+title = "The SDK Python receipt fixture reader keeps only the sequencer-vector tests and drops the retired kernel receipt verification"
+value = "tests/agent/sdk/python/test_receipt_fixture.py imports verify_receipt and decode_program_receipt_outcome, two names task 9.97.7 (efc169938) retired from layerx_sdk; the reader loses those imports, the three tests that call them (test_explicit_protocol_three, test_program_outcome_v3_vector, test_core_programs_fixture_preserves_optional_outcome) and the helpers only they use, keeps the four sequencer-vector tests, and carries the repository path insertion of decision 2379. services/agent/sdk/python/tests/test_retired_kernel_receipts.py is the oracle for the retired names; 22.25.3 owns the port."
+basis = "22.25.3 attempt 3 (fefe165d6 on dcfbed2f9) stopped at collection with ImportError for verify_receipt; the 18.1478.1 port (ee31e18f5) covered only test_native_abi5.py, test_native_batch_header.py and test_program_account_bound.py."
+affects = ["22.25.3", "9.97.7", "18.1478.1"]
+
+[decision.2382]
+title = "The bound-caller refusal of TestAuthWriteRefusals is a base failure owned by 22.11.8; 22.2.5 qualifies on TestAuthRevertReasons"
+value = "precompiles/layerxauth/layerxauth.go:70-95 resolves the caller's actor (modules/layerxauth/keeper/authority.go:26, through lxphost.DIDID) before the method lookup that answers the unknown-method text at :93, so the bound-caller case of TestAuthWriteRefusals now reads the kernel -7 (LXP_UNKNOWN_FIELD) for its bound caller. 22.2.5 changed no refusal text; its verify runs TestAuthRevertReasons alone and its candidate 7b461a9e0 is re-qualified unchanged. 22.11.8, whose touches hold modules/lxphost, repairs the case."
+basis = "22.2.5 attempt 8 (7b461a9e0 on dcfbed2f9) failed only that subtest; modules/lxphost/ctx.go, host.go and execute.go and src/protocol/lxp_kernel.c moved after 21.21.1 (2095e9c5b) last changed the test."
+affects = ["22.2.5", "22.11.8"]
+
+[decision.2383]
+title = "The attestor module manifests deleted by the dependency raise are restored before the human-service tests that build the attestor run"
+value = "22.24.16 (3a45b8541) raised edwards25519, go-ethereum and gnark-crypto in services/wallet/attestor/go.mod and deleted services/wallet/attestor/go.sum and services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.lock; every build of the attestor fails with a missing go.sum entry for filippo.io/edwards25519 (internal/lxwire/send.go:10). New tasks 22.24.24 (go.sum from the module's own tidy at the raised versions) and 22.24.25 (the kernelvectors lock regenerated offline against the committed manifest) restore them; 10.20.6 and 18.1434.1 require 22.24.24."
+basis = "10.20.6 attempt 4 (d2bf4c2c4) and 18.1434.1 attempt 5 (6ac4ea361), both on b9ae495fc, failed seven human-service tests on the attestor build alone."
+affects = ["22.24.16", "22.24.24", "22.24.25", "10.20.6", "18.1434.1"]
+
+[decision.2384]
+title = "A journal admission has no age limit once every intermediate checkpoint is served; the fixture test asserts the bridge and a withheld-checkpoint refusal"
+value = "verify_journal_admission (services/agent/crates/layerx-agentd/src/read/program_node.rs:391-440) bridges the admission to the current head through historical_trust_chain (:654), which refuses only a gap, a non-advancing time, a chain-id change or an unverifiable step; the 14-day constant at :660 decides when a step is pushed, not how old an admission may be (unit test historical_deployment_bridges_a_twenty_day_old_admission at :948). The expired-admission expectation of tests/program_chain_head.rs:686 is withdrawn: with the intermediate checkpoints served the admission verifies at any later time, and a refusal is asserted by serving an intermediate block whose checkpoint read is withheld (:418 maps that to HistoricalTrustAnchor)."
+basis = "18.1507.1 attempt 5 (b90239dfb on b9ae495fc) failed only that assertion with unwrap_err on an Ok verified evidence."
+affects = ["18.1507.1", "22.9.12"]
+
+[decision.2385]
+title = "The receipt verifier's debit identity accounts for the gas fee the debit account pays in the receipt asset"
+value = "node/sequencer/receipt.go:400 and :479 capture the sender's native balance before and after execution, so for a transaction whose fee is charged in the receipt asset the identity is debit_before - amount - fee_charged == debit_after, and debit_before - amount == debit_after when the fee is charged in a fee token (the fee denomination at Effects[0].Body[108] length and Body[109:] text, pinned by TestReceiptFeeFields of node/sequencer/receipt_equality_test.go; its digest equals the receipt asset exactly when the fee is paid in the asset). services/agent/crates/layerx-proof/src/receipt.rs:385-392 applies the kernel-era identity that ignores fee_charged and refuses every real receipt whose sender paid gas; new task 22.9.36 (requires 22.23.8, which settles the asset as the payment asset) carries the fee-aware identity and its vectors; 21.45.1 requires 22.9.36 and its candidate is re-qualified unchanged."
+basis = "21.45.1 attempt 11 (9f861946a on b9ae495fc) failed at tests/proof_sdk.rs:827 with VerificationFailure at DebitBalance for a node-produced account-open receipt whose only debit was the gas fee."
+affects = ["21.45.1", "22.9.36", "22.23.8"]
+
+[decision.2386]
+title = "The retired batch declarations leave include/layerx/lxp_batch.h in a task of their own and the domain-1 completion gate requires it"
+value = "lxp_batch_body (include/layerx/lxp_batch.h:72-82), lxp_batch_timestamp_select (:91) and lxp_batch_timestamp_validate (:93) are catalogued retire-status interfaces (interface.1.c-lxp-batch-body, interface.1.c-lxp-batch-timestamp-select, interface.1.c-lxp-batch-timestamp-validate) whose definitions left with src/network/lxp_batch_publish.c and src/sequencer/lxp_batch_time.c while the declarations stayed; nothing under src, tests, modules or precompiles uses them (modules/lxphost/retired_batch_time_test.go and tests/ci/test_retired_replay_support.py pin them absent). New task 1.0.10 deletes the three declarations and 1.0.9 requires it."
+basis = "1.0.9 attempt 1 (baa087ec9 on 5c2af253c) wrote kernel_completion_retired_surfaces_absent over the 481 retired interfaces and 52 planned paths and failed on exactly these three."
+affects = ["1.0.9", "1.0.10"]
+
+[decision.2387]
+title = "The pre-upgrade nil base fee test is a legacy of another chain and leaves the RPC package"
+value = "rpc/simulate_test.go TestPreV620UpgradeUsesBaseFeeNil (:391) asserts that HeaderByNumber answers a nil base fee for the pacific-1 chain before its v6.2.0 upgrade. This chain (id 125) has no pacific-1 era and no v6.2.0 upgrade height; getHeader (rpc/simulate.go:887-925) prices every block with GetNextBaseFeePerGas of the parent height. The test is deleted; no production code changes for it."
+basis = "22.7.3 attempt 5 (de2753849 on b27d47051) failed the test with 67000000 in place of nil; the candidate did not touch getHeader, so the failure is the test's expectation, carried over from the upstream fork."
+affects = ["22.7.3"]
+
+[decision.2388]
+title = "A denied JSON-RPC method answers with the request's id; the deny-list and receipt-log subscription tests leave 22.7.3 for tasks of their own"
+value = "core/deps/geth/rpc/handler.go:501 refuses a denied method after the request is parsed, so the error answer echoes the request id as JSON-RPC 2.0 requires; TestHttpDenyList (rpc/rpcstack_test.go:603) still expects a null id and becomes task 22.7.4. TestSubscribeLogsFromReceipts (rpc/subscribe_test.go:511) fails its WebSocket handshake over the pipe listener in the qualification environment and becomes task 22.7.5, which owns the whole rpc directory after 22.7.3 and 22.7.4 publish. 22.7.3's verify skips exactly those two tests."
+basis = "22.7.3 attempt 5 reported five failures in ./rpc/; two of them (the deny-list id and the handshake) are independent of the task's change set and would otherwise hold a nine-file candidate hostage."
+affects = ["22.7.3", "22.7.4", "22.7.5"]
+
+[decision.2389]
+title = "The perps precompile ABI is the producer of the open and cancel call shapes; every client follows it"
+value = "precompiles/perps/Perps.sol:343-349 declares openPosition(uint256 marketId, address collateralToken, uint256 collateralAmount, uint256 leverage, bool isLong) and :319 cancelOrder(uint256 orderId); precompiles/perps/abi/abi.json and positions.go serve exactly these. The exchange v2 shapes openPosition(bytes32,bytes32,uint8,uint256,uint256) and cancelOrder(bytes32,bytes32) that 9.33.13 and 12.33.8 wrote into the TypeScript SDK, the wallet SDK module, the wallet surface and the web exchange have no producer and none is planned. The SDK (22.9.37), the wallet (22.24.26) and the web exchange (22.23.13) move to the precompile's shapes; 22.9.10 updates its precompile-calls rows and requires 22.9.37."
+basis = "22.9.10 attempt 14 (0773a0441 on b27d47051) failed because services/agent/sdk/typescript/test/precompile-calls.test.ts:150 looks the v2 signature up in the real ABI file and does not find it; apps/web/e2e/exchange-perps.test.ts:50-55 even strips the real declarations from the ABI and substitutes the v2 ones, so the web proof never met the producer."
+affects = ["22.9.10", "22.9.37", "22.24.26", "22.23.13"]
+
+[decision.2390]
+title = "Account history has no node producer; the native-reads proof asserts the typed refusal for history.list"
+value = "px_getHistory is served only by the hosted gateway (services/platform/hosted/gateway/src/history.rs:546, answered from the indexer read API); the node serves no px_ history method (rpc/testdata/served_methods_http.golden lists none). layerx-client sequencer.rs:358 calls px_getHistory on the node endpoint and the daemon's history read therefore meets HTTP 503 on every node. In the native-reads proof the history.list read against the local node yields the boundary's unavailable refusal naming the method, and that refusal is what the proof asserts; the other four reads stay as they are. No environment-provided service enters the proof (decision 2292)."
+basis = "21.95.1 attempt 9 (e2ea380ca on 1bc32fef3) panicked at services/agent/crates/layerx-mcp/tests/proof_native_reads.rs:55 with Unavailable because the node lacks px_getHistory; the read has never had a node-side producer."
+affects = ["21.95.1"]
+
+[decision.2391]
+title = "Payload authority is the encode entry point, not the wire dependency; the manifest rule of the human boundary check retires"
+value = "services/human/tools/boundary-check/src/lib.rs:242-275 flags every Cargo.toml outside layerx-intents that declares layerx-wire and every source invoking layerx_wire::encode. Since eb689ab6b (the workspace move) layerx-human-service declares layerx-wire for receipt decoding and encoding, protocol limits and hash derivation, and 22.90.9 added it to layerx-human-kms; seventeen files read the wire format legitimately. The manifest rule (payload-authority-dependency, manifest_declares_wire_dependency, PAYLOAD_ENCODING_CRATE) is removed together with its two fixture tests; the encode entry-point rule stays for every file including tests, so the one invocation in services/human/crates/layerx-human-service/tests/support/production_fixture.rs:474 moves to the receipt encoder the service itself uses. 10.1.4 carries these changes."
+basis = "10.1.4 attempt 4 (967aaa4f2 on bb835c328) reported the two manifests and the fixture as violations; the gate had been red on main since the move and no task had run it."
+affects = ["10.1.4"]
+
+[decision.2392]
+title = "22.9.18 builds the terminal v5 corpus and runs the SDK corpus test with the corpus exported"
+value = "The library test v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes (services/agent/crates/layerx-sdk/src/program_http.rs:2337) returns the Verification error whenever PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS is unset. The verify of 22.9.18 builds the corpus the way 1.18.4's verify does (program-terminal-v5.py --build then --manifest in a detached worktree), exports the path the manifest step prints, and runs the layerx-sdk library tests with it; no library test is skipped beyond the live-identity one."
+basis = "22.9.18 attempts 4 and 6 (c420cc24e) failed only that test, without a corpus; skipping it would leave the corpus binding untested by any gate."
+affects = ["22.9.18"]
+
+[decision.2393]
+title = "A Go build list names only packages with non-test files"
+value = "precompiles/layerxagent/served holds only served_test.go, so go build of that package stops with no non-test Go files. 22.6.5's build_cmd drops that package; go vet and go test in the verify keep it."
+basis = "22.6.5 attempts 1 to 3 (3f399e38b) failed the build on that message with every test passing."
+affects = ["22.6.5"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20997,6 +21093,42 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22095]
+title = "The web exchange opens and cancels perps positions through the precompile ABI's shapes"
+ac_1 = "Given the web exchange client, when a position is opened or an order cancelled, then the call encodes the precompile ABI's openPosition(uint256,address,uint256,uint256,bool) and cancelOrder(uint256) and the proof asserts them against the unmodified precompiles/perps/abi/abi.json."
+
+[req.22094]
+title = "The wallet opens and cancels perps positions through the precompile ABI's shapes"
+ac_1 = "Given the wallet exchange module and the ExchangeView surface, when the user opens a position with a market, a collateral token, a collateral amount, a leverage and a direction, then the wallet sends the SDK's openPosition(uint256,address,uint256,uint256,bool) call and cancels with cancelOrder(uint256); no bytes32 account id enters either call."
+
+[req.22093]
+title = "The TypeScript SDK encodes the perps open and cancel calls in the precompile ABI's shapes"
+ac_1 = "Given a PerpsOpenPosition with marketId, collateralToken, collateralAmount, leverage and isLong, when the SDK builds the call, then its data starts with the selector of openPosition(uint256,address,uint256,uint256,bool) from precompiles/perps/abi/abi.json followed by the five words; and perpsCancelOrderCall(orderId) encodes cancelOrder(uint256) from the same file."
+
+[req.22092]
+title = "The receipt log subscription test completes its WebSocket handshake over the pipe listener"
+ac_1 = "Given the chain-path WebSocket server of rpc/subscribe_test.go, when the test dials ws://pipe/ with Origin localhost through the pipe listener, then the handshake answers 101 and the subscription assertions run, three times in a row."
+
+[req.22091]
+title = "A denied JSON-RPC method over HTTP answers with the request's id"
+ac_1 = "Given an HTTP server with test_sleep on its deny list, when a request with id 1 names that method, then the error answer carries code -32601, the method-unavailable message and id 1, as the parsed-request refusal of the fork's handler produces."
+
+[req.22090]
+title = "The kernel batch header declares no retired batch body or timestamp interface"
+ac_1 = "Given include/layerx/lxp_batch.h, when it is read, then lxp_batch_body, lxp_batch_timestamp_select and lxp_batch_timestamp_validate are absent, the kernel static library builds, and the retired-batch-time symbol test of modules/lxphost passes."
+
+[req.22089]
+title = "The receipt verifier's debit identity accounts for the gas fee the debit account pays in the receipt asset"
+ac_1 = "Given a node-produced receipt, when the fee denomination carried in the first execution effect digests to the receipt asset, then the verifier accepts debit_before - amount - fee_charged == debit_after and refuses any other debit_after; when the fee denomination digests to another asset, the verifier accepts debit_before - amount == debit_after and refuses any other debit_after."
+
+[req.22088]
+title = "The kernelvectors fixture crate carries a lock file that builds under --locked"
+ac_1 = "Given services/wallet/attestor/internal/policy/lx/testdata/kernelvectors, when cargo build --locked runs against its manifest with all targets, then the build resolves from the committed Cargo.lock without changing it and the lock file is non-empty."
+
+[req.22087]
+title = "The attestor module carries a go.sum that resolves every import at the raised dependency floors"
+ac_1 = "Given services/wallet/attestor at the dependency floors of decision 2362, when the module is built with the default read-only module mode, then every imported package resolves through go.sum, go mod verify reports all modules verified, and the sum file is non-empty."
 
 [req.22086]
 title = "The root module's go.sum carries every entry its module graph needs"
@@ -35918,6 +36050,87 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.23.13]
+title = "Open and cancel perps positions from the web exchange with the precompile ABI's shapes"
+reqs = ["22095.1"]
+touches = ["apps/web/src/api/sdk.ts", "apps/web/e2e/exchange-perps.test.ts", "apps/web/src/app/exchange/exchange-client.tsx"]
+tests = ["apps/web/e2e/exchange-perps.test.ts::opening_a_position_sends_the_precompile_perps_write_without_an_approve"]
+verification_contract = "(cd services/agent/sdk/typescript && npm ci && npm run build) && node --test apps/web/e2e/exchange-perps.test.ts"
+do_1 = "Decision 2389: apps/web/src/api/sdk.ts and apps/web/src/app/exchange/exchange-client.tsx open positions with the SDK's PerpsOpenPosition (market id, collateral token, collateral amount, leverage, direction) and cancel with cancelOrder(orderId); the account id and size of the v2 form leave the client."
+symbols = ["exchange-client"]
+
+[capability.22.24.26]
+title = "Open and cancel perps positions from the wallet with the precompile ABI's shapes"
+reqs = ["22094.1"]
+touches = ["sdk/wallet/src/modules/exchange.ts", "sdk/wallet/test/modules.test.ts", "apps/wallet/src/surfaces/ExchangeView.tsx", "apps/wallet/src/surfaces/ExchangeView.test.tsx"]
+tests = ["apps/wallet/src/surfaces/ExchangeView.test.tsx::exchange_view_opens_a_perps_position_through_the_precompile_call_and_shows_the_decoded_event"]
+verification_contract = "pnpm --dir sdk/wallet run build:agent-sdk && pnpm --dir sdk/wallet exec vitest run test/modules.test.ts && pnpm --dir apps/wallet exec vitest run src/surfaces/ExchangeView.test.tsx"
+do_1 = "Decision 2389: sdk/wallet/src/modules/exchange.ts:53-54 passes the SDK's PerpsOpenPosition and cancelOrder(orderId) through unchanged (the accountId argument of cancelOrder disappears) and sdk/wallet/test/modules.test.ts:630-652 builds its expectations from the new shapes."
+symbols = ["ExchangeView"]
+
+[capability.22.9.37]
+title = "Encode the perps open and cancel calls in the precompile ABI's shapes"
+reqs = ["22093.1"]
+touches = ["services/agent/sdk/typescript/src/perps.ts", "services/agent/sdk/typescript/test/perps-v2.test.ts"]
+tests = ["services/agent/sdk/typescript/test/perps-v2.test.ts::perps_open_position_call_uses_the_precompile_selector", "services/agent/sdk/typescript/test/perps-v2.test.ts::perps_cancel_order_call_carries_the_order_id"]
+verification_contract = "cd services/agent/sdk/typescript && npm ci && npm run build && node --test dist/test/perps-v2.test.js"
+do_1 = "Decision 2389: PerpsOpenPosition (services/agent/sdk/typescript/src/perps.ts:723-728) becomes marketId: bigint, collateralToken: string (an address), collateralAmount: bigint, leverage: bigint, isLong: boolean, and perpsOpenPositionCall (:742-750) encodes openPosition(uint256,address,uint256,uint256,bool) exactly as precompiles/perps/Perps.sol:343-349 and precompiles/perps/abi/abi.json declare it (selector pinned by precompiles/perps/abi_test.go:172)."
+symbols = ["PerpsOpenPosition", "perpsOpenPositionCall", "perpsCancelOrderCall"]
+
+[capability.22.7.5]
+title = "Make the receipt log subscription test complete its WebSocket handshake"
+reqs = ["22092.1"]
+touches = ["rpc"]
+tests = ["rpc/subscribe_test.go::TestSubscribeLogsFromReceipts"]
+verification_contract = "CGO_ENABLED=1 go vet ./rpc/ && CGO_ENABLED=1 go test -count=3 ./rpc/ -run '^TestSubscribeLogsFromReceipts$'"
+do_1 = "Decision 2388: TestSubscribeLogsFromReceipts (rpc/subscribe_test.go:511, via :596) dials ws://pipe/ with Origin localhost through a net.Pipe listener and the dial fails with websocket: bad handshake, a non-101 answer. Read rpc/rpcstack.go to find the refusal: the wsAllowed gate (:720) answers 503 while the handler atomic is still nil, the virtual-host handler refuses a host it does not know, or the origin check refuses localhost. When a legitimate client is refused by production ordering, fix production (publish the WebSocket handler before the listener accepts, or accept the pipe host); when only the harness races the server, make the harness wait for the server to serve before dialing. The subscription's assertions after the handshake do not change."
+symbols = ["TestSubscribeLogsFromReceipts"]
+
+[capability.22.7.4]
+title = "Expect the request id on a denied HTTP method"
+reqs = ["22091.1"]
+touches = ["rpc/rpcstack_test.go"]
+tests = ["rpc/rpcstack_test.go::TestHttpDenyList"]
+verification_contract = "CGO_ENABLED=1 go vet ./rpc/ && CGO_ENABLED=1 go test -count=1 ./rpc/ -run '^TestHttpDenyList$'"
+do_1 = "Decision 2388: TestHttpDenyList (rpc/rpcstack_test.go:603-623) expects a null id in the error answer for the denied method test_sleep; core/deps/geth/rpc/handler.go:501 refuses the method after parsing the request, so the answer carries the request's id 1, as JSON-RPC 2.0 requires for a parsed request. The expected body becomes the same answer with id 1 and nothing else in the test or in production changes."
+symbols = ["TestHttpDenyList"]
+
+[capability.1.0.10]
+title = "Delete the retired batch body and timestamp declarations from the kernel batch header"
+reqs = ["22090.1"]
+touches = ["include/layerx/lxp_batch.h"]
+tests = ["modules/lxphost/retired_batch_time_test.go::TestRetiredBatchTimeSymbolsAbsent"]
+verification_contract = "! grep -nE 'lxp_batch_body|lxp_batch_timestamp_(select|validate)' include/layerx/lxp_batch.h && make -C . build/liblayerx.a && CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestRetiredBatchTimeSymbolsAbsent$'"
+do_1 = "Decision 2386: include/layerx/lxp_batch.h:72-82 still declares the lxp_batch_body struct typedef with its #define of the same name, :91 lxp_batch_timestamp_select and :93 lxp_batch_timestamp_validate, whose definitions left with src/network/lxp_batch_publish.c and src/sequencer/lxp_batch_time.c; nothing under src, tests, modules or precompiles uses them (modules/lxphost/retired_batch_time_test.go and tests/ci/test_retired_replay_support.py:39 pin them absent). Delete the typedef, the #define and the two prototypes with any comment that documents only them; keep every other declaration of the header, including the batch header struct and its validation functions, exactly as they are."
+symbols = ["lxp_batch_body", "lxp_batch_timestamp_select", "lxp_batch_timestamp_validate"]
+
+[capability.22.9.36]
+title = "Account for the gas fee in the receipt verifier's debit balance identity"
+reqs = ["22089.1"]
+touches = ["services/agent/crates/layerx-proof/src/receipt.rs", "services/agent/crates/layerx-proof/tests/receipt.rs"]
+tests = ["services/agent/crates/layerx-proof/tests/receipt.rs::debit_identity_accounts_for_the_fee_in_the_receipt_asset", "services/agent/crates/layerx-proof/tests/receipt.rs::debit_identity_ignores_a_fee_in_another_asset"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test receipt"
+do_1 = "Decision 2385: services/agent/crates/layerx-proof/src/receipt.rs:385-392 checks debit_balance_before - amount == debit_balance_after and reports ReceiptCheck::DebitBalance otherwise, ignoring fee_charged (:233/:257). node/sequencer/receipt.go:400 and :479 capture the sender's native balance before and after execution, so a sender who pays gas in the receipt asset ends lower by amount plus the fee and every such receipt is refused (21.45.1 attempt 11 at tests/proof_sdk.rs:827 for an account-open receipt whose only debit was the fee). The verifier reads the fee denomination from the first execution effect (layerx_wire receipt effects(): Body[108] is the denomination length and Body[109..109+len] the denomination text, the layout TestReceiptFeeFields of node/sequencer/receipt_equality_test.go pins) and digests it with sha256; when the digest equals the receipt asset the identity is debit_before - amount - fee_charged == debit_after, otherwise debit_before - amount == debit_after. A receipt with no execution effect, a Body shorter than 109 + len, or a length that overruns the Body keeps the fee-free identity. Every subtraction stays checked; an underflow is DebitBalance."
+symbols = ["ReceiptCheck::DebitBalance", "debit_identity_accounts_for_the_fee_in_the_receipt_asset", "debit_identity_ignores_a_fee_in_another_asset"]
+
+[capability.22.24.25]
+title = "Restore the kernelvectors fixture lock file so the crate builds under --locked"
+reqs = ["22088.1"]
+touches = ["services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.lock"]
+tests = []
+verification_contract = "cargo build --locked --manifest-path services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.toml --all-targets && test -s services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.lock"
+do_1 = "3a45b8541 (task 22.24.16) deleted services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.lock while raising the dependency floors; tasks 12.95.2, 12.18.2 and 12.95.1 built that crate with cargo build --locked against its manifest and every later build under --locked refuses to proceed without the lock. Regenerate it with cargo generate-lockfile --manifest-path services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.toml against the committed manifest (no manifest edit; Cargo.toml is not in touches), then build with --locked and --all-targets to prove the lock resolves."
+symbols = ["Cargo.lock"]
+
+[capability.22.24.24]
+title = "Restore the attestor go.sum at the raised dependency floors"
+reqs = ["22087.1"]
+touches = ["services/wallet/attestor/go.sum"]
+tests = []
+verification_contract = "cd services/wallet/attestor && go mod verify && go vet ./... && go build ./... && test -s go.sum"
+do_1 = "3a45b8541 (task 22.24.16) raised filippo.io/edwards25519 to 1.1.1, github.com/ethereum/go-ethereum to 1.17.0 and github.com/consensys/gnark-crypto to 0.18.1 in services/wallet/attestor/go.mod and deleted services/wallet/attestor/go.sum, so every build of the module in read-only module mode stops with a missing go.sum entry for the module providing filippo.io/edwards25519 (imported by services/wallet/attestor/internal/lxwire/send.go:10). Regenerate the sum file inside the module with GOFLAGS=-mod=mod go build ./... followed by GOFLAGS=-mod=mod go vet ./... so that every import of every package, test files included, gains its entry, then confirm with go mod verify; go.mod is not in touches and must not change, so if go mod tidy would alter go.mod, keep go.mod as committed and record the difference in the commit message instead of applying it."
+symbols = ["go.sum"]
+
 [capability.22.25.4]
 title = "Complete the root go.sum for the in-repo go-ethereum replace"
 reqs = ["22086.1"]
@@ -37183,7 +37396,7 @@ title = "Reconcile the latest-tag pending expectation and export the gas price h
 reqs = ["22011.1"]
 touches = ["rpc/block_txcount_parity_test.go", "rpc/info.go", "rpc/tests/gas_price_test.go"]
 tests = []
-verification_contract = "CGO_ENABLED=1 go vet ./rpc/ ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 ./rpc/ ./rpc/tests/"
+verification_contract = "CGO_ENABLED=1 go vet ./rpc/ ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 -skip '^(TestHttpDenyList|TestSubscribeLogsFromReceipts)$' ./rpc/ ./rpc/tests/"
 do_1 = "rpc/block_txcount_parity_test.go:209 TestBlockAPILatestTagResolves expects an error containing 'pending served by sequencer' and receives nil now that pending reads are served from the committed state (task 22.7.2): assert the served response. rpc/tests/gas_price_test.go:31 fails vet because InfoAPI.GasPriceHelper is unexported (gasPriceHelper): export the helper with a doc comment or point the test at the exported entry."
 symbols = []
 
@@ -37228,7 +37441,7 @@ title = "Align the capability replay order, the retired payer-grant reader and t
 reqs = ["22011.1"]
 touches = ["modules/layerxauth/keeper/capability.go", "modules/layerxauth/keeper/capability_test.go", "precompiles/layerxledger/pause_test.go", "modules/lxphost/authority_test.go", "modules/lxphost/host_test.go", "precompiles/layerxauth/errors_test.go", "precompiles/common"]
 tests = []
-verification_contract = "CGO_ENABLED=1 go vet ./modules/layerxauth/keeper/ ./precompiles/layerxledger/ ./modules/lxphost/ ./precompiles/layerxauth/ ./precompiles/common/ && CGO_ENABLED=1 go test -count=1 ./modules/layerxauth/keeper/ -run '^(TestGrantCapability|TestGrantCapabilityRefusesOwnKey|TestAuthModuleStoreHasNoIdempotencyKeys|TestSharedHostIdempotencyAcrossModules)$' && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxledger/ -run '^(TestGovernancePauseRefusesLedgerWrites|TestPrecompileIssueRevokeGrant|TestPrecompileDraw|TestPrecompilePayExact|TestPrecompileLedgerViews|TestPrecompileViewsIgnorePause|TestPublishedLedgerAndAuthABIFrozen)$' && CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestHost' && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxauth/ -run '^(TestAuthRevertReasons|TestAuthWriteRefusals)$' && CGO_ENABLED=1 go test -count=1 ./precompiles/common/"
+verification_contract = "CGO_ENABLED=1 go vet ./modules/layerxauth/keeper/ ./precompiles/layerxledger/ ./modules/lxphost/ ./precompiles/layerxauth/ ./precompiles/common/ && CGO_ENABLED=1 go test -count=1 ./modules/layerxauth/keeper/ -run '^(TestGrantCapability|TestGrantCapabilityRefusesOwnKey|TestAuthModuleStoreHasNoIdempotencyKeys|TestSharedHostIdempotencyAcrossModules)$' && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxledger/ -run '^(TestGovernancePauseRefusesLedgerWrites|TestPrecompileIssueRevokeGrant|TestPrecompileDraw|TestPrecompilePayExact|TestPrecompileLedgerViews|TestPrecompileViewsIgnorePause|TestPublishedLedgerAndAuthABIFrozen)$' && CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestHost' && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxauth/ -run '^TestAuthRevertReasons$' && CGO_ENABLED=1 go test -count=1 ./precompiles/common/"
 do_1 = "modules/layerxauth/keeper/capability_test.go:88 expects LXP_IDEMPOTENT_REPLAY for a repeated GrantCapability with the same idempotency key and receives LXP_SEQUENCE_REUSED; read the kernel's validation order in src/protocol/lxp_kernel.c (the idempotency receipt check against the sequence check) and make the Go keeper report the same reason the kernel reports for an identical replay, updating the test only if the kernel's order is the authority and the test is stale; record the order in a comment at the check."
 symbols = []
 
@@ -103070,7 +103283,7 @@ title = "Gate domain 1 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.2.3", "1.2.4", "1.2.5", "1.6.1", "1.6.3", "1.15.2", "1.17.4", "1.18.2", "1.18.3", "1.19.3", "1.26.1", "1.26.2", "1.27.1", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.4", "1.29.5", "1.31.1", "1.31.2", "1.31.3", "1.31.5", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.36.1", "1.36.2", "1.36.3", "1.37.1", "1.38.1", "1.38.2", "1.39.2", "1.97.1", "16.2.1", "6.96.5", "21.38.1", "21.164.1", "21.165.1", "21.166.1", "21.167.1", "21.168.1", "21.169.1", "21.170.1", "21.171.1", "22.25.4"]
+requires = ["1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.2.3", "1.2.4", "1.2.5", "1.6.1", "1.6.3", "1.15.2", "1.17.4", "1.18.2", "1.18.3", "1.19.3", "1.26.1", "1.26.2", "1.27.1", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.4", "1.29.5", "1.31.1", "1.31.2", "1.31.3", "1.31.5", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.36.1", "1.36.2", "1.36.3", "1.37.1", "1.38.1", "1.38.2", "1.39.2", "1.97.1", "16.2.1", "6.96.5", "21.38.1", "21.164.1", "21.165.1", "21.166.1", "21.167.1", "21.168.1", "21.169.1", "21.170.1", "21.171.1", "22.25.4", "1.0.10"]
 reqs = ["1999.1"]
 capabilities = ["1.0.9"]
 interfaces = []
@@ -103094,6 +103307,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2386: attempts 1 (baa087ec9) and 2 (63baac208) failed only on lxp_batch_body, lxp_batch_timestamp_select and lxp_batch_timestamp_validate remaining in include/layerx/lxp_batch.h; task 1.0.10 deletes them and this task now requires it. Re-qualify 63baac208 unchanged once 1.0.10 has published; if the completion check then reports another retired interface present, continue from 63baac208 and name the interface and the header or source that still declares it."
 
 [task.1.1.1]
 title = "Register LXP_ERR_ARBITER_REQUIRED, UNAUTHORIZED_ARBITER and ESCROW_LINK_MISMATCH"
@@ -103360,7 +103574,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.2.3]
 title = "Delete the kernel idempotency table and its journal staging"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 46
 requires = ["1.2.2", "1.25.1", "1.25.2", "1.0.4", "16.2.1", "1.2.4", "6.96.5", "22.25.4"]
@@ -103439,7 +103653,7 @@ do_11 = "Attempt 4: do_4 must not delete lxp_ctx_bridge_credit (src/protocol/lxp
 
 [task.1.2.5]
 title = "Delete the bridge reserve credit from the ledger apply layer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 46
 requires = ["1.2.4", "16.2.1", "16.97.1", "6.96.5", "1.19.3", "22.25.4"]
@@ -103860,7 +104074,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.6.1]
 title = "Pin the kernel snapshot format with a conformance golden"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 47
 requires = ["1.2.3", "1.4.5", "16.2.1", "6.96.5", "22.25.4"]
@@ -103888,6 +104102,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 1 ruling: the second run of attempt 1 produced the 24-activity snapshot (9099 bytes, SHA-256 8ccc862c7051533e04d1ab1d6ee34df1a40faee2bca57b39bfd34ab429595d04) and d62d8252e pinned that digest in golden_digest without a verify run afterwards. Continue from d62d8252e: run both checks of the verify (snapshot_golden_digest and snapshot_golden_reload_identical) once before the single verify run; if the digest differs again, regenerate the golden from the same activity sequence in the same commit and name the value in the commit message."
 
 [task.1.6.2]
 title = "Retire the queue disposition WAL record codec"
@@ -107567,7 +107782,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.38.2]
 title = "Delete the DA, replica and sequencer headers; trim the batch, history and crypto headers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 46
 requires = ["1.0.3", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.3", "1.29.4", "1.29.5", "1.30.1", "1.31.1", "1.31.2", "1.31.3", "1.31.4", "1.31.5", "1.31.6", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.38.1", "13.34.1", "6.96.5", "1.2.4", "22.25.4"]
@@ -117294,6 +117509,97 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.23.13]
+title = "Open and cancel perps positions from the web exchange with the precompile ABI's shapes"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.9.37"]
+reqs = ["22095.1"]
+capabilities = ["22.23.13"]
+interfaces = []
+do_1 = "Decision 2389: apps/web/src/api/sdk.ts and apps/web/src/app/exchange/exchange-client.tsx open positions with the SDK's PerpsOpenPosition (market id, collateral token, collateral amount, leverage, direction) and cancel with cancelOrder(orderId); the account id and size of the v2 form leave the client."
+do_2 = "apps/web/e2e/exchange-perps.test.ts:50-55 stops filtering openPosition and cancelOrder out of precompiles/perps/abi/abi.json and stops appending its own declarations; the gateway double answers only functions the real ABI declares, and opening_a_position_sends_the_v2_perps_write_without_an_approve becomes opening_a_position_sends_the_precompile_perps_write_without_an_approve asserting the selector of openPosition(uint256,address,uint256,uint256,bool)."
+do_3 = "Only the three touches change; the SDK types come from 22.9.37."
+symbols = ["exchange-client"]
+touches = ["apps/web/src/api/sdk.ts", "apps/web/e2e/exchange-perps.test.ts", "apps/web/src/app/exchange/exchange-client.tsx"]
+tests = ["apps/web/e2e/exchange-perps.test.ts::opening_a_position_sends_the_precompile_perps_write_without_an_approve"]
+planned_paths = []
+build_cmd = "npm --prefix apps/web run typecheck"
+verify_cmd = "(cd services/agent/sdk/typescript && npm ci && npm run build) && node --test apps/web/e2e/exchange-perps.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web"
+rollback = "Revert the task's commit; the web exchange sends the producer-less v2 calls again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.24.26]
+title = "Open and cancel perps positions from the wallet with the precompile ABI's shapes"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.9.37"]
+reqs = ["22094.1"]
+capabilities = ["22.24.26"]
+interfaces = []
+do_1 = "Decision 2389: sdk/wallet/src/modules/exchange.ts:53-54 passes the SDK's PerpsOpenPosition and cancelOrder(orderId) through unchanged (the accountId argument of cancelOrder disappears) and sdk/wallet/test/modules.test.ts:630-652 builds its expectations from the new shapes."
+do_2 = "apps/wallet/src/surfaces/ExchangeView.tsx collects a market, a collateral token, a collateral amount, a leverage and a long or short direction and opens the position through the module; the account id and size inputs of the v2 form leave. apps/wallet/src/surfaces/ExchangeView.test.tsx replaces exchange_view_opens_a_perps_position_through_the_v2_call_and_shows_the_decoded_event with exchange_view_opens_a_perps_position_through_the_precompile_call_and_shows_the_decoded_event, asserting the selector of openPosition(uint256,address,uint256,uint256,bool) from precompiles/perps/abi/abi.json and the five argument words."
+do_3 = "No file outside the four touches changes; the SDK types come from 22.9.37."
+symbols = ["ExchangeView"]
+touches = ["sdk/wallet/src/modules/exchange.ts", "sdk/wallet/test/modules.test.ts", "apps/wallet/src/surfaces/ExchangeView.tsx", "apps/wallet/src/surfaces/ExchangeView.test.tsx"]
+tests = ["apps/wallet/src/surfaces/ExchangeView.test.tsx::exchange_view_opens_a_perps_position_through_the_precompile_call_and_shows_the_decoded_event"]
+planned_paths = []
+build_cmd = "pnpm --dir sdk/wallet run build && pnpm --dir apps/wallet run typecheck"
+verify_cmd = "pnpm --dir sdk/wallet run build:agent-sdk && pnpm --dir sdk/wallet exec vitest run test/modules.test.ts && pnpm --dir apps/wallet exec vitest run src/surfaces/ExchangeView.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit; the wallet sends the producer-less v2 calls again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.9.37]
+title = "Encode the perps open and cancel calls in the precompile ABI's shapes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22093.1"]
+capabilities = ["22.9.37"]
+interfaces = []
+do_1 = "Decision 2389: PerpsOpenPosition (services/agent/sdk/typescript/src/perps.ts:723-728) becomes marketId: bigint, collateralToken: string (an address), collateralAmount: bigint, leverage: bigint, isLong: boolean, and perpsOpenPositionCall (:742-750) encodes openPosition(uint256,address,uint256,uint256,bool) exactly as precompiles/perps/Perps.sol:343-349 and precompiles/perps/abi/abi.json declare it (selector pinned by precompiles/perps/abi_test.go:172)."
+do_2 = "perpsCancelOrderCall (:754-759) takes orderId: bigint and encodes cancelOrder(uint256) (Perps.sol:319); the accountId parameter disappears."
+do_3 = "services/agent/sdk/typescript/test/perps-v2.test.ts asserts both selectors against the ABI file precompiles/perps/abi/abi.json loaded the way test/precompile-calls.test.ts:76-77 loads it, never against a signature the test writes itself; the tests are renamed perps_open_position_call_uses_the_precompile_selector and perps_cancel_order_call_carries_the_order_id and check the argument words (market id, collateral token right-aligned in its word, collateral amount, leverage, direction flag; order id)."
+do_4 = "Only the two SDK files change; test/precompile-calls.test.ts is updated by 22.9.10, which requires this task, and the wallet and web callers by 22.24.26 and 22.23.13."
+symbols = ["PerpsOpenPosition", "perpsOpenPositionCall", "perpsCancelOrderCall"]
+touches = ["services/agent/sdk/typescript/src/perps.ts", "services/agent/sdk/typescript/test/perps-v2.test.ts"]
+tests = ["services/agent/sdk/typescript/test/perps-v2.test.ts::perps_open_position_call_uses_the_precompile_selector", "services/agent/sdk/typescript/test/perps-v2.test.ts::perps_cancel_order_call_carries_the_order_id"]
+planned_paths = []
+build_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build"
+verify_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build && node --test dist/test/perps-v2.test.js"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; the SDK encodes the producer-less v2 shapes again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.24.15]
 title = "Close the open dependency advisories of the web-sdk-misc manifests (10 floors)"
 status = "done"
@@ -117901,7 +118207,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.8.11]
 title = "Build the workspace SDK and buyer middleware before their dependents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117940,6 +118246,8 @@ do_12 = "Attempt 9: the seller test package fails to resolve express from test/p
 do_13 = "Attempt 10: the merchant middleware test (node --test over test/*.test.mjs) loads services/platform/middleware/conformance/src/scenarios.ts:67 directly and node 24 refuses the constructor parameter properties in strip-only mode (ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX). Declare the two fields explicitly and assign them in the constructor body; check the other .ts files node loads directly for parameter properties, enums and namespaces. If the paid-route sample build then reports an unknown module type for a dependency, next.config.mjs gains transpilePackages for that dependency."
 do_14 = "Attempt 11: the only failing check is services/platform/middleware/seller/test/settlement-response.test.mjs:352-354 (replayedSettlementAnswersStoredTransaction): since 7829d8d2b (task 22.23.10) a stored fulfilment whose requestDigest differs from the request is answered with the receipt-reuse refusal (kind refused, status 409, errorReason receipt_reuse) and no longer throws fulfillment-conflict. Change that second expectation to await the decision and assert kind, status and settlement.errorReason, with settleCount and releaseCount still 1; the first expectation (a stored txHash that disagrees with the receipt is a fulfillment-conflict) stays. The seller test directory is inside touches."
 do_15 = "Attempt 12, decision 2376: the only failing check is sdk/integrations/next/test/receipt-keys.test.mjs:296, which presents the settled receipt with a changed receipt key and expects 402 verification-failure but receives 409. services/platform/middleware/seller/src/index.ts:264-266 returns the reuse refusal from the receiptDigest hint of the unverified payload before the authority settles. The hint lookup serves the identical-request replay only: when the stored fulfilment's requestDigest differs, fall through to the authority settlement, whose verification refuses the tampered payload with verification-failure; the reuse refusals after verification (index.ts:301-313) stand, so receipt-replay.test.mjs keeps its 409 for a verified receipt under a second request. The Next test expectation stays 402. Rerun the task's verify afterwards."
+do_16 = "Decision 2376 moves one count that do_14 pinned, and this item supersedes do_14 for that case only: in services/platform/middleware/seller/test/settlement-response.test.mjs the case replayedSettlementAnswersStoredTransaction, after the stored record is rewritten with the wrong request digest, now reaches the authority a second time before the 409 receipt_reuse refusal, so its final assertions become settleCount 2, releaseCount 1 and one stored fulfillment; the identical first, second and third replays keep one settle call and the fulfillment-conflict expectation stays as written. Keep the seller change of attempt 13 (15c074853), adjust only those counts, rebuild on the current main and rerun the verify."
+do_17 = "Attempt 14 ruling: the verify passed on bd51e24b3 (exit 0) and the task then committed 5a1534c62, which adds 150 files under services/platform/docs/samples/paid-route-next/.next although that sample's own .gitignore ignores .next/ (git check-ignore confirms it), so the recorded verification revision no longer named the candidate. Rebuild the candidate from bd51e24b3's content on the current main with no file under services/platform/docs/samples/paid-route-next/.next and no other build output (git status --ignored shows what the ignore rules hold back; nothing ignored is force-added), run the verify once, and commit nothing after the verify: the qualification run records the commit it verified and a later commit is an unqualified candidate. Continue from attempt 14."
 
 [task.22.9.14]
 title = "Admit guest ABI 5 in the TypeScript lifecycle test"
@@ -117975,7 +118283,7 @@ title = "Finalize TypeScript market operations against commit finality"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.14"]
+requires = ["22.9.14", "22.9.37"]
 reqs = ["22006.1"]
 capabilities = ["22.9.10"]
 interfaces = []
@@ -118010,6 +118318,7 @@ do_11 = "Finding 22.9.10.7: precompile-calls.test.ts asserts the five-argument p
 do_12 = "Attempt 11: the published ABI precompiles/layerxexchange/abi.json declares placeOrder with five inputs (bytes32,uint8,uint256,uint256,uint8) while exchange-v2.test.ts:37, precompile-calls.test.ts:137 and :209 and proof_exchange.test.ts:49 (now in touches) still assert the six-argument signature; do_11 applies to all four and the published ABI is the fact."
 do_13 = "Attempt 12: the precompile-calls test asserts the five-input placeOrder selector 0x36633730 of precompiles/layerxexchange/abi.json (marketId, side, price, quantity, timeInForce) while services/agent/sdk/typescript/src/exchange.ts:586-606 exchangePlaceOrderCall still encodes the six-input signature with accountId and produces 0xf9835781 (finding 22.9.10.8). Encode the five ABI inputs, drop the accountId argument from the call builder and its callers in src, and keep the test's expectation."
 do_14 = "Attempt 13: the build failed in test/support/exchange_consumers.ts:52 and test/xweb-api.test.ts:546, which still pass accountId to exchangePlaceOrderCall after the call builder dropped it. Both files are in touches now: remove the accountId field from the xweb-api order literal and the accountId word from the expected calldata of the consumers helper, so the expectation is the five-input encoding of the ABI. No other test expectation changes."
+do_15 = "Decision 2389: the perps rows of services/agent/sdk/typescript/test/precompile-calls.test.ts:146-150 assert openPosition(uint256,address,uint256,uint256,bool) and cancelOrder(uint256), the declarations precompiles/perps/abi/abi.json carries, with argument shapes from the PerpsOpenPosition of 22.9.37 (market id, collateral token, collateral amount, leverage, direction; order id); this task requires 22.9.37 and its attempt 14 candidate (0773a0441) continues on top of it."
 
 [task.22.91.38]
 title = "Inventory the platform examples packages"
@@ -128431,6 +128740,67 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.9.36]
+title = "Account for the gas fee in the receipt verifier's debit balance identity"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.23.8"]
+reqs = ["22089.1"]
+capabilities = ["22.9.36"]
+interfaces = []
+do_1 = "Decision 2385: services/agent/crates/layerx-proof/src/receipt.rs:385-392 checks debit_balance_before - amount == debit_balance_after and reports ReceiptCheck::DebitBalance otherwise, ignoring fee_charged (:233/:257). node/sequencer/receipt.go:400 and :479 capture the sender's native balance before and after execution, so a sender who pays gas in the receipt asset ends lower by amount plus the fee and every such receipt is refused (21.45.1 attempt 11 at tests/proof_sdk.rs:827 for an account-open receipt whose only debit was the fee). The verifier reads the fee denomination from the first execution effect (layerx_wire receipt effects(): Body[108] is the denomination length and Body[109..109+len] the denomination text, the layout TestReceiptFeeFields of node/sequencer/receipt_equality_test.go pins) and digests it with sha256; when the digest equals the receipt asset the identity is debit_before - amount - fee_charged == debit_after, otherwise debit_before - amount == debit_after. A receipt with no execution effect, a Body shorter than 109 + len, or a length that overruns the Body keeps the fee-free identity. Every subtraction stays checked; an underflow is DebitBalance."
+do_2 = "services/agent/crates/layerx-proof/tests/receipt.rs gains debit_identity_accounts_for_the_fee_in_the_receipt_asset (fee denomination digesting to the asset: after = before - amount - fee verifies, after = before - amount is refused with DebitBalance) and debit_identity_ignores_a_fee_in_another_asset (fee denomination digesting elsewhere: after = before - amount verifies, after = before - amount - fee is refused), both built from the existing receipt builders of that file with an execution effect whose Body carries the denomination at :108."
+do_3 = "Only the two layerx-proof files change; node/sequencer and the layerx-sdk proof do not. 21.45.1 requires this task and its candidate is re-qualified unchanged once it publishes."
+symbols = ["ReceiptCheck::DebitBalance", "debit_identity_accounts_for_the_fee_in_the_receipt_asset", "debit_identity_ignores_a_fee_in_another_asset"]
+touches = ["services/agent/crates/layerx-proof/src/receipt.rs", "services/agent/crates/layerx-proof/tests/receipt.rs"]
+tests = ["services/agent/crates/layerx-proof/tests/receipt.rs::debit_identity_accounts_for_the_fee_in_the_receipt_asset", "services/agent/crates/layerx-proof/tests/receipt.rs::debit_identity_ignores_a_fee_in_another_asset"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test receipt"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; the verifier applies the fee-free identity to every receipt again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.24.25]
+title = "Restore the kernelvectors fixture lock file so the crate builds under --locked"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22088.1"]
+capabilities = ["22.24.25"]
+interfaces = []
+do_1 = "3a45b8541 (task 22.24.16) deleted services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.lock while raising the dependency floors; tasks 12.95.2, 12.18.2 and 12.95.1 built that crate with cargo build --locked against its manifest and every later build under --locked refuses to proceed without the lock. Regenerate it with cargo generate-lockfile --manifest-path services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.toml against the committed manifest (no manifest edit; Cargo.toml is not in touches), then build with --locked and --all-targets to prove the lock resolves."
+do_2 = "The commit message names 3a45b8541 as the commit that deleted the file. The only changed path is services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.lock."
+do_3 = "The verify builds the crate under --locked with all targets and checks the lock file is non-empty."
+symbols = []
+touches = ["services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.lock"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.toml --all-targets"
+verify_cmd = "cargo build --locked --manifest-path services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.toml --all-targets && test -s services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.lock"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit; the crate builds again only without --locked."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Gotcha 2879: the symbols list is empty; the completion check reported symbol Cargo.lock as not defined in the graph. The latest attempt is re-qualified unchanged."
+
 [task.22.24.20]
 title = "Close the open dependency advisories of the rust-vendored manifests (22 floors)"
 status = "done"
@@ -128475,7 +128845,7 @@ do_1 = "Decision 2362: the open dependency advisories of these manifests at HEAD
 do_2 = "A floor that a resolution cannot reach without raising a direct dependency raises that direct dependency in the manifest to the lowest version that resolves above the floor; the manifest change is part of this task. Where the directory's package.json defines a typecheck or build script, it is run once after the raise and a breakage it shows is recorded in the task's qualification note rather than resolved by pinning below the floor. No source file changes."
 do_3 = "Advised packages with no patched release are not in the floors file; they are listed in finding 22.24.1.1 for the owner. The verify is the floor checker (task 22.24.1) followed by the frozen install or lock-consistency command of each manifest, so a lock file that drifts from its manifest fails."
 symbols = []
-touches = ["services/human/Cargo.lock", "services/platform/Cargo.lock", "tools/platform/Cargo.lock", "services/interop/Cargo.lock", "services/agent/Cargo.lock", "services/agent/fuzz/Cargo.lock", "cmd/layerxctl/Cargo.lock", "sdk/chainflow/rust/Cargo.lock", "tools/deps/floors/rust-services.json", "services/human/crates/layerx-human-identity-provider/Cargo.toml"]
+touches = ["services/human/Cargo.lock", "services/platform/Cargo.lock", "tools/platform/Cargo.lock", "services/interop/Cargo.lock", "services/agent/Cargo.lock", "services/agent/fuzz/Cargo.lock", "cmd/layerxctl/Cargo.lock", "sdk/chainflow/rust/Cargo.lock", "tools/deps/floors/rust-services.json", "services/human/crates/layerx-human-identity-provider/Cargo.toml", "services/agent/crates/layerx-agentd-host/Cargo.toml", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/crates/layerx-sdk/Cargo.toml", "services/platform/Cargo.toml", "services/platform/hosted/ai-artifacts/Cargo.toml", "services/interop/Cargo.toml"]
 tests = []
 planned_paths = ["tools/deps/floors/rust-services.json"]
 build_cmd = "python3 -m py_compile tools/deps/lockfloor.py"
@@ -128493,6 +128863,8 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1: rustls 0.23.45 is below the 0.23.46 floor in six lock files and jsonwebtoken 9.3.1 is below 10.3.0 in services/human. Raise rustls with cargo update -p rustls --precise 0.23.46 per manifest. services/human/crates/layerx-human-identity-provider/Cargo.toml:20 pins jsonwebtoken exactly (=9.3.1): raise the pin to =10.3.0 with the lock and build the crate; if its source no longer compiles against 10, record a finding naming the changed API, keep the 9.3.1 pin, remove that floor and name it in the commit message."
 do_5 = "Attempt 3 is complete: the nine floors are applied, the floor checker passes and every cargo metadata --locked call succeeds; the dependent-crate check of the human workspace fails on services/human/crates/layerx-human-kms/tests/no_layerx_intents.rs:82-85, which calls account_sequence(), network_id(), actor_did() and authority() on a BoundLifecycleCall that has none of them. That test is repaired by task 22.9.33, which this task requires now; the attempt 3 candidate eff168642 is re-qualified unchanged once it publishes."
+do_6 = "Attempt 4 ruling: attempt 3's rustls 0.23.46 raise was re-applied as a patch onto lock files that main had regenerated (0108cb23e, e8ef05d35), so the merged lock files kept 0.23.45 in services/human, services/platform, tools/platform, services/interop, services/agent and services/agent/fuzz and the floor check failed on all six. Redo the raise on the current main with cargo update -p rustls --precise 0.23.46 --manifest-path <dir>/Cargo.toml for each of those six manifests (cmd/layerxctl and sdk/chainflow/rust only if they still resolve below the floor), keep the floors file tools/deps/floors/rust-services.json and the jsonwebtoken pin of attempt 3 as they are, and never hand-edit a lock file. Continue from attempt 4."
+do_7 = "Attempt 5 ruling: six lock files stay at rustls 0.23.45 because six manifests pin rustls exactly at =0.23.45 (services/agent/crates/layerx-agentd-host/Cargo.toml:54, services/agent/crates/layerx-agentd/Cargo.toml:25, services/agent/crates/layerx-sdk/Cargo.toml:20, services/platform/Cargo.toml:56, services/platform/hosted/ai-artifacts/Cargo.toml:19, services/interop/Cargo.toml:44); those manifests are now in touches. Move each pin to =0.23.46 keeping its feature set, then cargo update -p rustls --precise 0.23.46 in services/human, services/platform, tools/platform, services/interop, services/agent and services/agent/fuzz, and keep every other lock entry as it is; continue from the attempt 5 candidate (e6896cbc6)."
 
 [task.22.23.11]
 title = "Read paymentDenom in the Rust client's receipt view and check the asset against it"
@@ -128556,7 +128928,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.1.11]
 title = "Remove the ambient randomness, clock and environment writes from the KMS proofs and the evidence node fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.9.33"]
@@ -128813,7 +129185,7 @@ do_3 = "In services/agent/crates/layerx-agentd/src/human_runtime.rs the two buil
 do_4 = "The six test files that build a SigningPreparation drop their authorization: services/agent/crates/layerx-agentd/tests/evm_signing.rs prepared() (:145-190) and services/agent/crates/layerx-agentd/tests/signing.rs prepared() (:131-176) and services/agent/crates/layerx-agentd/tests/signature_binding.rs prepared() (:106-151) and services/agent/crates/layerx-agentd/tests/human_node_budgets.rs prepared() (:364-413) remove the restore_canonical call, its Authority argument and the restore_canonical import; signing.rs asserts at :187-192 and :257-261 compare prepared.transaction.call.encode_unsigned() and prepared.transaction.disclosure_digest instead of the legacy canonical bytes and digest; signature_binding.rs:176 reads prepared.transaction.disclosure.idempotency_key; services/agent/crates/layerx-agentd/tests/proof_agentd.rs signing_preparation (:145-178) takes the payload only and the test inconsistent_prepared_envelope_preimage_and_audit_are_refused (:372) becomes inconsistent_prepared_call_and_disclosure_are_refused, asserting that a SigningPreparation whose transaction.disclosure_digest is altered is refused by verify_before_submit with SigningError::Disclosure and one whose call data changed after preparation with SigningError::PreparedBytesChanged; services/agent/tests/limits/exactly_once.rs send_payload (:980-1070) drops the authorization field and the restore step at :1025-1034 while its envelope step stays until task 9.35.22 ports it."
 do_5 = "The verify builds the crate's test targets and runs prepare, evm_signing, signing, signature_binding, human_node_budgets, proof_agentd and the limits-exactly-once target; the prepare target's canonical_bytes_and_preimage_come_only_from_layerx_wire (services/agent/crates/layerx-agentd/tests/prepare.rs:98) also asserts that prepared.disclosure.idempotency_key equals the request's idempotency key and that verify_call_binding accepts the preparation."
 symbols = ["EvmPrepared", "verify_call_binding", "SigningPreparation", "inconsistent_prepared_call_and_disclosure_are_refused"]
-touches = ["services/agent/crates/layerx-agentd/src/prepare/mod.rs", "services/agent/crates/layerx-agentd/src/sign.rs", "services/agent/crates/layerx-agentd/src/sign_verify.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs", "services/agent/crates/layerx-agentd/tests/evm_signing.rs", "services/agent/crates/layerx-agentd/tests/signing.rs", "services/agent/crates/layerx-agentd/tests/signature_binding.rs", "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs", "services/agent/crates/layerx-agentd/tests/prepare.rs", "services/agent/tests/limits/exactly_once.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/prepare/mod.rs", "services/agent/crates/layerx-agentd/src/sign.rs", "services/agent/crates/layerx-agentd/src/sign_verify.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs", "services/agent/crates/layerx-agentd/tests/evm_signing.rs", "services/agent/crates/layerx-agentd/tests/signing.rs", "services/agent/crates/layerx-agentd/tests/signature_binding.rs", "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs", "services/agent/crates/layerx-agentd/tests/prepare.rs", "services/agent/tests/limits/exactly_once.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/proof_agentd.rs::inconsistent_prepared_call_and_disclosure_are_refused", "services/agent/crates/layerx-agentd/tests/prepare.rs::canonical_bytes_and_preimage_come_only_from_layerx_wire", "services/agent/crates/layerx-agentd/tests/signing.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -128829,10 +129201,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 ruling: the build stops with E0063 (missing fields disclosure, disclosure_digest and from in the initializer of evm::Prepared) in the RPC adapter module of services/agent/crates/layerx-agentd/src that constructs crate::prepare::evm::Prepared at line 185, the file the error names; that file is now in touches. Fill the three fields there from the adapter's bound call (the call-bound disclosure, its digest and the sender) the way prepare/mod.rs fills them, run the crate build with --tests, and continue from the attempt 2 candidate (6e474201d)."
 
 [task.9.35.16]
 title = "Make bind_call construct every precompile call the agent daemon's EVM preparation offers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.9.33"]
@@ -128864,7 +129237,7 @@ do_5 = "Decision 2366 (2026-11-03): when the binder gains PayBudgetCreateNative 
 
 [task.9.35.15]
 title = "Port the human intents proof test from the activity send envelope to the ledger payment call and bind_call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.33"]
@@ -128895,7 +129268,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.14]
 title = "Rename the remote custody signer's disclosed-call signing method to sign_call and drop its unused registry parameter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.33"]
@@ -128986,7 +129359,7 @@ do_4 = "Decision 2358 (2026-11-02): superseded; task 22.9.33 carries this port t
 
 [task.22.9.33]
 title = "Make the serve-http helpers of the agent daemon visible to the module that includes them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129082,7 +129455,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.30]
 title = "Re-home the frame codec and Unix-socket transport and port the agent daemon library off the LNI module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.33"]
@@ -129116,7 +129489,7 @@ do_7 = "Finding 22.9.30.1: do_4 is amended to keep the blanket impl; continue fr
 
 [task.18.1507.1]
 title = "Issue #1507: Serve the intermediate checkpoint reads in the historical-admission fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.33"]
@@ -129143,10 +129516,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2384: the expired-admission assertion of tests/program_chain_head.rs:686 is withdrawn. verify_journal_admission (services/agent/crates/layerx-agentd/src/read/program_node.rs:391-440) bridges the admission to the head through historical_trust_chain (:654); the 14-day constant decides when a step is pushed, not how old an admission may be, and the unit test historical_deployment_bridges_a_twenty_day_old_admission (:948) is the design oracle. Rewrite the case: advance the head two heights past the admission, serve the intermediate block and its checkpoint, and assert the admission verifies at now = admission time + 14 days + 1 ms; add the refusal case that serves the intermediate block but withholds its checkpoint read and asserts ChainHeadError::HistoricalTrustAnchor (program_node.rs:418). Keep the rest of attempt 5 (b90239dfb) and continue from it."
 
 [task.22.9.29]
 title = "Port the agent daemon event ingestor and gap backfill off the LNI frame transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.33"]
@@ -129494,6 +129868,8 @@ do_4 = "Finding 22.13.9.1: verify_cmd now excludes the producer-input tests by n
 do_5 = "monetary_law.rs:401, :723 and :775: an escalation test presents an ABI-valid capability so the composition authority refusal (CapabilityEscalation) is the one exercised; the ABI invalid-capability refusal gets its own assertion in the same file; the composition order (ABI validation before authority) is the product behaviour and is not reordered for the test."
 do_6 = "Finding 22.13.9.2: the agentd proof_serve_errors.rs build break is repaired by task 22.9.25, which this task now requires; continue from the latest candidate rebased onto a main that carries 22.9.25."
 do_7 = "Finding 22.13.9.3: the attempt 6 candidate (step_conformance.rs asserting the integer-profile refusals of reference and vector types, lease.rs repaired) is requalified as it stands; the dependent-crate check runs once per candidate revision, so a build that already passed on the same revision is not rebuilt before the verify; no further change to the candidate."
+do_8 = "Attempt 9 ruling: the candidate re-ran attempt 7's test changes against a runtime that moved underneath them. Redo the work on the current main from the oracles the task names: tests/program_replay.rs:204 (EngineFault with the commitment accounting the replay asserts), step_conformance.rs:55 (Some(UnsupportedState)) and :362 (the fuel-exhaustion terminal fault). For each assertion that disagrees with the current runtime, read the runtime commit that moved the behaviour (git log -S on the symbol) and name it in the commit message; move the assertion only when the runtime change is a done task's decision, otherwise stop with a finding naming the task that changed the runtime. Continue from attempt 9."
+do_9 = "Attempt 10 ruling: the candidate (ac48e0934) repaired the three oracles of do_8 and its fuel change regressed two facts: budgeted_resource_exhaustion_supersedes_published_refusal_but_legacy_does_not (programs/crates/layerx-programs-runtime/tests/activity_budget.rs:3234) and published_refusal_survives_same_frame_cpu_exhaustion_at_root_and_nested_leaf (tests/activity_failure.rs:1349). Those two tests are the product: in the legacy executor and at the root and nested leaf a published refusal (class Rejected, its reason bytes) survives same-frame cpu exhaustion, and only the budgeted executor's resource exhaustion supersedes it; the meter's actual refusal is preserved for the fuel-exhaustion golden without turning a published refusal into a resource refusal in src/execute.rs or src/meter/inject.rs. Third, fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly (tests/step_conformance.rs:61) finds no terminal trap record for the recursive overflow: the execution observer records the stack-exhaustion trap at the call instruction that overflowed, with the pre-state captured before that call, exactly as it records the indirect signature trap, so the replay of the trap step is exact. Continue from attempt 10; no assertion of the three tests moves."
 
 [task.22.13.8]
 title = "Order the program ABI validation so unsupported versions are refused first"
@@ -129666,7 +130042,7 @@ touches = ["services/agent/crates/layerx-agent-api/tests/schema.rs", "services/a
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api -p layerx-agentd -p layerx-sdk -p layerx-mcp --tests"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api --test schema && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- freshness && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --lib -- --skip checks_the_actual_server_identity && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test activity_evm_signatures"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api --test schema && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- freshness && d=$(mktemp -d) && git worktree add -q --detach $d/src HEAD && (cd $d/src && export CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-$d/target} && python3 scripts/qualification/paxeer-x/program-terminal-v5.py --build --output $d/out && python3 scripts/qualification/paxeer-x/program-terminal-v5.py --manifest $d/out/manifest.json > $d/manifest.out); r=$?; git worktree remove --force $d/src > /dev/null 2>&1; test $r -eq 0 && c=$(sed -n 's/^PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS=//p' $d/manifest.out) && test -s $c && PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS=$c cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --lib -- --skip checks_the_actual_server_identity && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test activity_evm_signatures"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -129681,6 +130057,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_3 = "Finding 22.9.18.1: the agentd proof_serve_errors.rs build break is repaired by task 22.9.25, which this task now requires; continue from the latest candidate rebased onto a main that carries 22.9.25."
 do_4 = "Finding 22.9.18.2: the build break in layerx-agentd tests/proof_serve_errors.rs is repaired by task 22.9.25 (required); the batch 330 ruling stands; continue from the third candidate rebased onto a main that carries 22.9.25."
 do_5 = "Finding 22.9.18.3 and decision 2347: the verify runs the named targets only: layerx-agent-api --test schema, layerx-agentd --lib filtered to freshness, layerx-sdk --lib skipping the three checks_the_actual_server_identity cases (decision 2325, producer input) and layerx-mcp --test activity_evm_signatures; v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes must pass: the candidate regenerates or carries the native corpus the test binds under services/agent/crates/layerx-sdk/src/programs and names it in the commit message. Continue from attempt 4."
+do_6 = "Decision 2392 and attempt 6 ruling: the verify builds the terminal v5 corpus with scripts/qualification/paxeer-x/program-terminal-v5.py (--build into a private directory from a detached worktree of HEAD, then --manifest, which prints the PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS assignment) and runs the layerx-sdk library tests with that variable exported, so v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes (services/agent/crates/layerx-sdk/src/program_http.rs:2337) is exercised against the signed corpus instead of returning Verification for a missing path; the candidate of attempt 6 (c420cc24e) is re-qualified unchanged under that verify, and a failure of the corpus test on the real corpus is a decoder finding, not an environment one."
 
 [task.22.9.17]
 title = "Reconcile the agent crates' vector counts, settlement fixtures and address casing"
@@ -129713,6 +130090,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_3 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fails inside layerx-agent-api's build script until 22.9.24 restores the faucet.claim operation block of the agent API contract; this task requires 22.9.24 and continues from its last candidate, which is not at fault."
 do_4 = "Finding 22.9.17.1: verify_cmd excludes the four native_terminal_outcome.rs tests by name (decision 2325; their producer is the genuine native terminal corpus); checkpoint-settlement.json gains the schema key (decision 2331) and every key-pinning reader named there accepts it; tests/terminal_v4.rs is deleted or rewritten against fixtures that exist (decision 2026 lineage: the v4 fixtures were deleted by 8.47.6 and their readers by 8.47.10; a reader that survived is stale), and the commit message names which; the namespace table adds system:paxeer-reserve (decision 2332); for vectors 53-57 the candidate reads the kernel activity table (include/layerx) for the five activity types the corpus carries and adds them to the Rust registry the tests build if the kernel defines them, or regenerates the corpus with tests/vectors/codec's generator if the corpus carries types the kernel never defined, and names which in the commit message; the hashing.rs:93 and structures.rs:183 decode then succeeds."
 do_5 = "Finding 22.9.17.2: the dependent-crate build break in layerx-agentd tests/proof_serve_errors.rs is repaired by task 22.9.25, which this task now requires; nothing in the fifth candidate changes; continue from the fifth candidate rebased onto a main that carries 22.9.25."
+do_6 = "Attempt 9 ruling: the verify stopped compiling services/agent/crates/layerx-types/tests/errors.rs:319-322, which asserts KnownResult::from_revert_reason over the LXP_DA_MISSING text yields Some(KnownResult::DaMissing); task 1.1.5 (f8721c8e3) retired LXP_ERR_DA_MISSING from include/layerx/lxp_result.h and build.rs generates KnownResult from that header, so the variant no longer exists. Drop that expectation (the text now maps to None, which the neighbouring unknown-text assertion already covers) and redo the task on the current main. Continue from attempt 9."
 
 [task.22.9.16]
 title = "Make the agent daemon host crate build all its targets"
@@ -131156,6 +131534,7 @@ do_8 = "Finding 21.95.1.1: the proof lives in services/agent/crates/layerx-mcp/t
 do_9 = "Finding 21.95.1.2 (decision 2322): produce_transaction reads the sender nonce at the latest block (SequencerEndpoint::nonce_at with the latest height from block_number, or a new latest_nonce in services/agent/crates/layerx-client/src/sequencer.rs, now in touches, that passes the 'latest' tag) instead of pending_nonce; the refusal text 'pending served by sequencer' never appears in the proof's output."
 do_10 = "Finding 21.95.1.3 and decision 2292: build_cmd now installs the node (make -f chain.mk install); the proof starts it from std::process::Command by running tools/qualification/localnode/v6120-node.sh --sequencer --env-out <tempdir>/localnode.env as 21.45.1 does, reads LOCAL_NODE_KEY and the RPC endpoint from that file (never from the process environment; the two std::env::var reads at :153 and :249 leave), funds nothing it does not need, stops the node when the test ends, and drops the module doc comment's out-of-scope paragraph about the inherited setup; the boundary.rs and latest_nonce repairs of the seventh candidate stand; continue from the seventh candidate."
 do_11 = "Finding 21.95.1.4 and decision 2345: the proof keeps reading receipt keys from the node through layerx-client (sequencer.rs:515); task 22.9.28 serves px_getReceiptKeys on the node and this task now requires it; continue from attempt 8 once 22.9.28 is on main, with no other change to the candidate."
+do_12 = "Decision 2390 and attempt 9 ruling: the node serves no px_getHistory (the method is the hosted gateway's, services/platform/hosted/gateway/src/history.rs:546), so in services/agent/crates/layerx-mcp/tests/proof_native_reads.rs the history.list read is asserted as the boundary's typed unavailable refusal naming the method (no panic, no HTTP 503 leaking as a transport error), while receipt, proof, checkpoint and availability stay positive reads; services/agent/crates/layerx-mcp/src/boundary.rs:395-397 maps the daemon's unavailable answer for /v1/reads/history to that refusal. No history producer is started for the proof; decision 2292 stands."
 
 [task.21.94.1]
 title = "Prove the serve errors path end to end: producer, transport, consumer"
@@ -131225,7 +131604,7 @@ do_7 = "Decision 2295: attempt 2 (d800e2d50) failed on its own guard `missing LA
 
 [task.21.92.1]
 title = "Prove the agent boundary conformance path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.7.2", "18.1502.1", "22.9.24", "22.9.27"]
@@ -131629,7 +132008,7 @@ title = "Prove the sdk path end to end: producer, transport, consumer"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.24", "22.9.33"]
+requires = ["22.9.24", "22.9.33", "22.9.36"]
 reqs = ["21045.1"]
 capabilities = ["21.45.1"]
 interfaces = []
@@ -131660,6 +132039,7 @@ do_7 = "Finding 21.45.1.1: the build installs the node (make -f chain.mk install
 do_8 = "The receipt poll in proof_sdk.rs treats Ok(Value::Null) from get_receipt as not yet mined and retries until its deadline (decode_response at rpc.rs:1192-1195 returns the result as is); when get_receipt returns RpcError::InvalidResponse the proof prints the raw response body of the same eth_getTransactionReceipt call before failing, and if that body is a valid JSON-RPC 2.0 envelope the decode in rpc.rs (in touches) is repaired to accept it; the proof never unwraps the first read."
 do_9 = "Finding 21.45.1.2 and decision 2343: after the funding receipt is final the proof asserts eth_getBalance of the funded account at latest is at least 21000 times the fee cap, then estimates the transfer with rpc.estimate_fee_from(&transfer, account.evm_address()) and asserts 21000; the doc comment of RpcClient::estimate_fee (rpc.rs:1010) states that a call carrying maxFeePerGas uses estimate_fee_from because the node checks the payer's balance, and the proof's module doc comment names this per do_4; the direct-node routing and receipt diagnostics of the seventh candidate stand; continue from the seventh candidate."
 do_10 = "Finding 21.45.1.3: proof_sdk.rs:815-826 builds the AuthorizedBatch from the asset, batch id and state roots the decoded receipt summary carries and asserts verify_receipt succeeds (economic verification of the node-produced receipt under the pinned key), then asserts a batch with a different asset is refused at ReceiptCheck::Asset; the 'must not claim economic verification' assertion leaves and the doc comment names receipt.rs:344 and :375. Continue from attempt 8 with no other change."
+do_11 = "Decision 2385: attempt 11 (9f861946a on b9ae495fc) failed only at tests/proof_sdk.rs:827 because the receipt verifier (services/agent/crates/layerx-proof/src/receipt.rs:385-392) ignores the gas fee the debit account paid; 22.9.36 carries the fee-aware identity and this task now requires it. Re-qualify 9f861946a unchanged once 22.9.36 has published; if the proof then fails on another check, continue from 9f861946a and name the check."
 
 [task.21.42.1]
 title = "Prove the client path end to end: producer, transport, consumer"
@@ -133127,7 +133507,7 @@ title = "Issue #1434: Persist the accepted Move money submission before the rece
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["18.1433.1", "10.1.8", "10.21.8", "9.100.2", "22.9.24", "22.9.33"]
+requires = ["18.1433.1", "10.1.8", "10.21.8", "9.100.2", "22.9.24", "22.9.33", "22.24.24"]
 reqs = ["8298.1"]
 capabilities = ["18.1434.1"]
 interfaces = []
@@ -133153,6 +133533,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Decision 2270: the verify runs the move_commit_bank_send target through sh tools/runtime/run-with-clock.sh, as the Makefile runs every human-workspace test."
+do_6 = "Decision 2383: attempt 5 (6ac4ea361 on b9ae495fc) failed only because the attestor build stopped on a missing go.sum entry (3a45b8541 deleted services/wallet/attestor/go.sum); this task now requires 22.24.24, which restores the file. Re-qualify 6ac4ea361 unchanged once 22.24.24 has published."
 
 [task.18.1433.1]
 title = "Issue #1433: Encode the owner receipt lookup answer as one shared frame the Human decoder reads"
@@ -135054,6 +135435,95 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.7.5]
+title = "Make the receipt log subscription test complete its WebSocket handshake"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.7.3", "22.7.4"]
+reqs = ["22092.1"]
+capabilities = ["22.7.5"]
+interfaces = []
+do_1 = "Decision 2388: TestSubscribeLogsFromReceipts (rpc/subscribe_test.go:511, via :596) dials ws://pipe/ with Origin localhost through a net.Pipe listener and the dial fails with websocket: bad handshake, a non-101 answer. Read rpc/rpcstack.go to find the refusal: the wsAllowed gate (:720) answers 503 while the handler atomic is still nil, the virtual-host handler refuses a host it does not know, or the origin check refuses localhost. When a legitimate client is refused by production ordering, fix production (publish the WebSocket handler before the listener accepts, or accept the pipe host); when only the harness races the server, make the harness wait for the server to serve before dialing. The subscription's assertions after the handshake do not change."
+do_2 = "The task owns the rpc directory and runs after 22.7.3 and 22.7.4 publish; the verify runs the test three times so a race cannot pass by luck."
+symbols = ["TestSubscribeLogsFromReceipts"]
+touches = ["rpc"]
+tests = ["rpc/subscribe_test.go::TestSubscribeLogsFromReceipts"]
+planned_paths = []
+build_cmd = "CGO_ENABLED=1 go build ./rpc/"
+verify_cmd = "CGO_ENABLED=1 go vet ./rpc/ && CGO_ENABLED=1 go test -count=3 ./rpc/ -run '^TestSubscribeLogsFromReceipts$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit; the handshake fails in the qualification environment again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.7.4]
+title = "Expect the request id on a denied HTTP method"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22091.1"]
+capabilities = ["22.7.4"]
+interfaces = []
+do_1 = "Decision 2388: TestHttpDenyList (rpc/rpcstack_test.go:603-623) expects a null id in the error answer for the denied method test_sleep; core/deps/geth/rpc/handler.go:501 refuses the method after parsing the request, so the answer carries the request's id 1, as JSON-RPC 2.0 requires for a parsed request. The expected body becomes the same answer with id 1 and nothing else in the test or in production changes."
+do_2 = "The null-id expectation came from the upstream fork, where the deny list refused before parsing; 18.1043.1 moved the refusal into the handler per member of a batch and did not revisit this test."
+symbols = ["TestHttpDenyList"]
+touches = ["rpc/rpcstack_test.go"]
+tests = ["rpc/rpcstack_test.go::TestHttpDenyList"]
+planned_paths = []
+build_cmd = "CGO_ENABLED=1 go build ./rpc/"
+verify_cmd = "CGO_ENABLED=1 go vet ./rpc/ && CGO_ENABLED=1 go test -count=1 ./rpc/ -run '^TestHttpDenyList$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit; the test expects the null id again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.24.24]
+title = "Restore the attestor go.sum at the raised dependency floors"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22087.1"]
+capabilities = ["22.24.24"]
+interfaces = []
+do_1 = "3a45b8541 (task 22.24.16) raised filippo.io/edwards25519 to 1.1.1, github.com/ethereum/go-ethereum to 1.17.0 and github.com/consensys/gnark-crypto to 0.18.1 in services/wallet/attestor/go.mod and deleted services/wallet/attestor/go.sum, so every build of the module in read-only module mode stops with a missing go.sum entry for the module providing filippo.io/edwards25519 (imported by services/wallet/attestor/internal/lxwire/send.go:10). Regenerate the sum file inside the module with GOFLAGS=-mod=mod go build ./... followed by GOFLAGS=-mod=mod go vet ./... so that every import of every package, test files included, gains its entry, then confirm with go mod verify; go.mod is not in touches and must not change, so if go mod tidy would alter go.mod, keep go.mod as committed and record the difference in the commit message instead of applying it."
+do_2 = "The commit message names 3a45b8541 as the commit that deleted the file. The only changed path is services/wallet/attestor/go.sum; its content is whatever the Go toolchain writes for the committed go.mod at the raised floors, never a hand-edited list."
+do_3 = "The verify runs go mod verify, go vet, go build and a non-empty check on the sum file inside the module in the default module mode; it passes only when every entry the module needs is present."
+symbols = []
+touches = ["services/wallet/attestor/go.sum"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/wallet/attestor && go build ./..."
+verify_cmd = "cd services/wallet/attestor && go mod verify && go vet ./... && go build ./... && test -s go.sum"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit; the module builds again only with -mod=mod."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Gotcha 2879: the symbols list is empty; the completion check reported symbol go.sum as not defined in the graph. Attempt 2 (9a40262b0) is re-qualified unchanged."
+
 [task.22.25.4]
 title = "Complete the root go.sum for the in-repo go-ethereum replace"
 status = "done"
@@ -135098,7 +135568,7 @@ do_1 = "rpc/sequencer_receipt_vectors_test.go TestSequencerReceiptVectors (:562)
 do_2 = "The pins move with the fixture: 11 to 12 cases and 4 to 5 V1 cases in TestVectorFilesV1ToV3MatchSequencerReceiptFixture (:699) and in the case assertion helper. Regenerate sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json and daemon/committed-fixture/vectors/vector-v1-receipted-positive.json byte-identical to the source group."
 do_3 = "A reader outside touches that pins the old count (the Go conformance readers under sdk/platform/go, the Python readers, the market namespaces vector test) stops the attempt with a finding naming the file and line; it is not edited here. If no committed fixture program can be deployed from the vectors chain, record a finding naming the missing fixture and stop."
 symbols = ["TestSequencerReceiptVectors", "TestVectorFilesV1ToV3MatchSequencerReceiptFixture"]
-touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures", "daemon/committed-fixture", "sdk/platform/go/conformance_vectors_test.go", "sdk/platform/go/cmd/conformance/main.go"]
+touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures", "daemon/committed-fixture", "sdk/platform/go/conformance_vectors_test.go", "sdk/platform/go/cmd/conformance/main.go", "tests/agent/sdk/python/test_receipt_fixture.py", "tests/agent/sdk/python/test_supply_receipt.py"]
 tests = ["rpc/sequencer_receipt_vectors_test.go"]
 planned_paths = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures", "daemon/committed-fixture"]
 build_cmd = "go vet ./rpc/ ./daemon/committed-fixture/"
@@ -135115,6 +135585,9 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1 stopped on the out-of-scope readers that pin four V1 cases: sdk/platform/go/conformance_vectors_test.go:171 and sdk/platform/go/cmd/conformance/main.go:226. Both files are in touches now: move each pin from 4 to 5 with the new V1-layerxprograms-call case, and the verify runs the Go platform module's V1-to-V3 vector test and its conformance command tests after the rpc and committed-fixture tests. The Python readers pin no count. do_3 no longer stops on these two files."
+do_5 = "Decision 2379: attempt 2 (4e2c455b1 on 8019d18ff) passed every Go check and stopped while collecting tests/agent/sdk/python/test_receipt_fixture.py with ModuleNotFoundError for layerx_sdk, because that reader imports the package at line 9 without the repository path insertion its siblings carry. The file is now in touches: add the insertion of test_ai_market.py:22-23 (ROOT = Path(__file__).resolve().parents[4]; sys.path.insert(0, str(ROOT / 'services/agent/sdk/python')) before the layerx_sdk imports, marked noqa: E402), keep its assertions and the rest of attempt 2 as they are, and if the file pins the V1 case count move the pin to the count the fixture now carries. Installing the package or changing the environment profile is not the fix."
+do_6 = "Decision 2381: attempt 3 (fefe165d6 on dcfbed2f9) carried the path insertion of decision 2379 and stopped at collection with ImportError, because tests/agent/sdk/python/test_receipt_fixture.py:14-15 imports verify_receipt and decode_program_receipt_outcome, two names task 9.97.7 (efc169938) retired from layerx_sdk (services/agent/sdk/python/tests/test_retired_kernel_receipts.py is the oracle). Port the reader: drop those two imports, delete test_explicit_protocol_three (:70), test_program_outcome_v3_vector (:100) and test_core_programs_fixture_preserves_optional_outcome (:151) together with the helpers only they use (_signature_verifier_class, _SIGNATURES_PATH, _NATIVE, _native_execution, _PROGRAM_OUTCOME_V3 and the imports that become unused), keep the four sequencer-vector tests and the path insertion as attempt 3 left them, and run the module alone with python3 -m pytest tests/agent/sdk/python/test_receipt_fixture.py before the single verify run. Continue from fefe165d6."
+do_7 = "Attempt 4 ruling: tests/ci/test_receipt_fixture_readers.py::test_sdk_tests_read_sequencer_receipt_vectors collects tests/agent/sdk/python/test_supply_receipt.py, whose line 8 imports verify_receipt, a name 9.97.7 (efc169938) retired from layerx_sdk; that file is now in touches. When its cases only verify the retired kernel receipts of tests/fixtures/asset/daemon-send-supply, delete the module; otherwise port it to the sequencer-vector reader of test_receipt_fixture.py the way decision 2381 ported that file. Continue from the attempt 4 candidate (405f8a9df)."
 
 [task.22.25.1]
 title = "Mount the chain registry and sequencer stores in the rpc receipt test chain"
@@ -135208,7 +135681,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.16]
 title = "Close the open dependency advisories of the go-root manifests (37 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1", "22.25.4"]
@@ -135515,7 +135988,7 @@ do_4 = "Finding 18.1508.1.1: the verify covers the store package only; the secon
 
 [task.22.9.28]
 title = "Serve px_getReceiptKeys from the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.35", "22.25.1", "22.25.4"]
@@ -135548,7 +136021,7 @@ do_6 = "Attempt 6: TestReceiptKeysServedByTheNode returned an empty key list whi
 
 [task.22.9.27]
 title = "Answer an identical raw transaction resubmission with its known hash and unchanged receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.35", "22.25.1", "22.25.4"]
@@ -164001,7 +164474,7 @@ do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/co
 
 [task.22.24.21]
 title = "Close the open dependency advisories of the jvm manifests (8 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1", "18.1503.1"]
@@ -172583,7 +173056,7 @@ do_1 = "services/human/tools/boundary-check/src/main.rs:23-25 runs the dependenc
 do_2 = "Print `human dependency, boundary, payload-authority and retired-surface policies passed` in place of the line at services/human/tools/boundary-check/src/main.rs:29."
 do_3 = "Create services/human/tools/boundary-check/tests/retired_surface_tree.rs (planned) running the real binary through `CARGO_BIN_EXE_layerx-human-boundary-check` over services/human/crates."
 symbols = ["main", "human_retired_surface_gate"]
-touches = ["services/human/tools/boundary-check/src/main.rs", "services/human/tools/boundary-check/tests/retired_surface_tree.rs"]
+touches = ["services/human/tools/boundary-check/src/main.rs", "services/human/tools/boundary-check/tests/retired_surface_tree.rs", "services/human/tools/boundary-check/src/lib.rs", "services/human/tools/boundary-check/tests/fixtures.rs", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs"]
 tests = ["services/human/tools/boundary-check/tests/retired_surface_tree.rs::boundary_check_binary_passes_the_merged_human_tree"]
 planned_paths = ["services/human/tools/boundary-check/tests/retired_surface_tree.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/tools/boundary-check/Cargo.toml -p layerx-human-boundary-check"
@@ -172602,6 +173075,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Finding 10.1.4.1 and decision 2236: continue from attempt 1 (d3d6e63aa) rebased onto main once tasks 10.1.5 to 10.1.10 are on it, keeping the tree unchanged; the real-binary test then runs as written over the whole tree."
 do_5 = "Finding at the second attempt: the boundary-check binary test fails only on ambient-nondeterminism hits in services/human/crates/layerx-human-test-support/src/evidence_node.rs, services/human/crates/layerx-human-kms/tests/proof_human_kms.rs and proof_human_kms_wire.rs, none of which is in this task's touches; task 10.1.11 clears them and is now in requires, and this task is rerun from its second attempt once 10.1.11 publishes; the boundary check itself does not change for it."
 do_6 = "Attempt 2: the boundary check reports ambient nondeterminism in services/human/crates/layerx-human-test-support/src/evidence_node.rs, services/human/crates/layerx-human-kms/tests/proof_human_kms.rs and services/human/crates/layerx-human-kms/tests/proof_human_kms_wire.rs, the three files task 10.1.11 repairs; this task already requires 10.1.11 and is requalified unchanged once it publishes."
+do_7 = "Decision 2391 and attempt 4 ruling, part A: in services/human/tools/boundary-check/src/lib.rs remove the manifest rule of human_payload_authority_gate (the payload-authority-dependency violation, manifest_declares_wire_dependency and PAYLOAD_ENCODING_CRATE) and keep the payload-encoding-entry-point rule for every file, tests included; the doc comment says the gate returns every component other than layerx-intents that invokes the payload-encoding entry points. In services/human/tools/boundary-check/tests/fixtures.rs delete service_crate_wire_dependency_is_rejected and workspace_inherited_wire_dependency_is_rejected and add service_crate_wire_dependency_is_allowed_while_encoding_is_caught (a service manifest declaring layerx-wire passes; a source invoking layerx_wire::encode in the same fixture is still reported)."
+do_8 = "Decision 2391 and attempt 4 ruling, part B: services/human/crates/layerx-human-service/tests/support/production_fixture.rs:474 imports the raw layerx_wire::encode::Encoder to build the fixture's sequencer answer; build those bytes through the receipt encoder the service itself uses (layerx_wire::receipt::encode, as the service's own src/agents/create.rs:563 does), or carry the pre-encoded answer bytes as a fixture constant when the receipt encoder cannot express them, so no file under services/human/crates invokes the encode entry point; then the boundary-check binary passes the merged human tree and the task's verify runs green."
 
 [task.10.2.1]
 title = "Record activity entries with rungs instead of kernel verification levels"
@@ -174505,7 +174980,7 @@ title = "Prove the human service production startup against the merged node"
 status = "pending"
 mode = "BUILD"
 wave = 45
-requires = ["10.20.3", "5.50.7", "5.98.4", "9.25.16", "13.8.3", "10.99.2", "10.1.9", "10.21.8", "9.100.2", "22.9.24", "22.9.33"]
+requires = ["10.20.3", "5.50.7", "5.98.4", "9.25.16", "13.8.3", "10.99.2", "10.1.9", "10.21.8", "9.100.2", "22.9.24", "22.9.33", "22.24.24"]
 reqs = ["10034.1", "10034.2", "10034.3"]
 capabilities = ["10.20.6"]
 interfaces = ["interface.10.rs-human-service-server-production-components-production-components-config", "interface.10.rs-human-service-server-production-components-production-components-config-from-environment", "interface.10.env-layerx-human-onboarding-sponsor-principal", "interface.10.env-layerx-human-binding-statement-ttl-seconds", "interface.10.env-layerx-human-paxeer-rpc-url", "interface.10.env-layerx-human-paxeer-rpc-timeout-seconds", "interface.10.env-layerx-human-paxeer-trust-anchor-der", "interface.10.env-layerx-human-paxeer-chain-id", "interface.10.env-layerx-human-exit-required-confirmations", "interface.10.env-layerx-human-exit-poll-cadence-seconds", "interface.10.env-layerx-human-exit-delayed-after-polls", "interface.10.rs-human-service-server-production-components-production-components", "interface.10.rs-human-service-server-production-components-production-components-open", "interface.10.env-layerx-human-protocol-version", "interface.10.env-layerx-human-paxeer-minimum-agreement", "interface.10.env-layerx-human-paxeer-rpc-urls", "interface.10.rs-human-service-journeys-intent-submit-start-withdrawal-intent", "interface.10.fmt-human-recipient-packet", "interface.10.env-layerx-human-recipient-socket", "interface.10.env-layerx-human-recipient-caller-uid", "interface.10.env-layerx-human-recipient-caller-gid", "interface.10.env-layerx-human-recipient-deadline-seconds"]
@@ -174532,6 +175007,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing proof: the two tests start the real layerx-agentd against the real local node and open the real production components; no daemon stub, no mocked agent socket (decision.1990)."
+do_5 = "Decision 2383: attempt 4 (d2bf4c2c4 on b9ae495fc) failed only because the attestor build stopped on a missing go.sum entry (3a45b8541 deleted services/wallet/attestor/go.sum); this task now requires 22.24.24, which restores the file. Re-qualify d2bf4c2c4 unchanged once 22.24.24 has published."
 
 [task.10.20.5]
 title = "Commit Move money through bank sends and delete the movement provider client"
@@ -187948,9 +188424,40 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.1.0.10]
+title = "Delete the retired batch body and timestamp declarations from the kernel batch header"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22090.1"]
+capabilities = ["1.0.10"]
+interfaces = []
+do_1 = "Decision 2386: include/layerx/lxp_batch.h:72-82 still declares the lxp_batch_body struct typedef with its #define of the same name, :91 lxp_batch_timestamp_select and :93 lxp_batch_timestamp_validate, whose definitions left with src/network/lxp_batch_publish.c and src/sequencer/lxp_batch_time.c; nothing under src, tests, modules or precompiles uses them (modules/lxphost/retired_batch_time_test.go and tests/ci/test_retired_replay_support.py:39 pin them absent). Delete the typedef, the #define and the two prototypes with any comment that documents only them; keep every other declaration of the header, including the batch header struct and its validation functions, exactly as they are."
+do_2 = "The kernel static library builds, TestRetiredBatchTimeSymbolsAbsent of modules/lxphost passes, and the header grep for the three names is empty. The only changed path is include/layerx/lxp_batch.h."
+do_3 = "Task 1.0.9 requires this task; its completion check kernel_completion_retired_surfaces_absent then finds the three catalogued retire-status interfaces absent."
+symbols = []
+touches = ["include/layerx/lxp_batch.h"]
+tests = ["modules/lxphost/retired_batch_time_test.go::TestRetiredBatchTimeSymbolsAbsent"]
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "! grep -nE 'lxp_batch_body|lxp_batch_timestamp_(select|validate)' include/layerx/lxp_batch.h && make -C . build/liblayerx.a && CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestRetiredBatchTimeSymbolsAbsent$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit; the three declarations return to the header."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Gotcha 2879: the symbols list is empty because the three declarations the task deletes cannot exist in the graph after the change. The latest attempt is re-qualified unchanged."
+
 [task.22.25.2]
 title = "Admit the active programs fee record and keep unrelated module-9 rows out of the lxphost loader tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["22.25.4"]
@@ -188023,7 +188530,7 @@ do_2 = "rpc/sequencer_receipt.go: the receipt view gains paymentDenom beside fee
 do_3 = "node/sequencer/proof_sequencer_receipt_test.go gains TestReceiptAssetIsPaymentAsset: a transfer whose fee is charged in a fee token produces a receipt whose asset is the base-denom digest, whose feeDenom is the fee token and whose decode passes, while a receipt with the fee token's digest as asset is refused; rpc/sequencer_receipt_test.go gains TestSequencerReceiptViewCarriesPaymentDenom; the conformance fixture sdk/platform/conformance/fixtures/sequencer-receipt-v1.json is regenerated with the vectors test's update flag (every recorded case pays in the base denom, so only the new field changes) and TestSequencerReceiptVectors and TestVectorFilesV1ToV3MatchSequencerReceiptFixture pass."
 do_4 = "The Python verifier (services/agent/sdk/python/layerx_sdk/x402.py verify_payment_receipt :139) already compares the receipt asset with the offer asset; with the asset naming the payment it needs no change in this task. Consumers decoding the JSON view (layerx-client, the TypeScript sdk) are recorded as a finding for the closure sweep."
 symbols = ["ReceiptInput.PaymentDenom", "decodeSequencerReceipt", "TestReceiptAssetIsPaymentAsset"]
-touches = ["node/sequencer/receipt.go", "rpc/sequencer_receipt.go", "node/sequencer/proof_sequencer_receipt_test.go", "rpc/sequencer_receipt_test.go", "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", "node/sequencer/standby_role.go", "node/sequencer/receipt_equality_test.go", "node/sequencer/receipt_source_test.go", "node/sequencer/proof_sequencer_config_test.go"]
+touches = ["node/sequencer/receipt.go", "rpc/sequencer_receipt.go", "node/sequencer/proof_sequencer_receipt_test.go", "rpc/sequencer_receipt_test.go", "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", "node/sequencer/standby_role.go", "node/sequencer/receipt_equality_test.go", "node/sequencer/receipt_source_test.go", "node/sequencer/proof_sequencer_config_test.go", "node/sequencer/accepter_test.go"]
 tests = ["node/sequencer/proof_sequencer_receipt_test.go::TestReceiptAssetIsPaymentAsset", "rpc/sequencer_receipt_test.go::TestSequencerReceiptViewCarriesPaymentDenom"]
 planned_paths = []
 build_cmd = "go build ./node/sequencer/... ./rpc/..."
@@ -188040,6 +188547,8 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempts 1 and 2: the receipt digest now covers the payment asset, so every receipt producer sets PaymentDenom: node/sequencer/standby_role.go (:220) sets it the way Accept does, and the receipt tests of receipt_equality_test.go, receipt_source_test.go and proof_sequencer_config_test.go set PaymentDenom to the fee denom upax in their inputs so the pinned digests are unchanged. TestReceiptLatencyP99UnderBound is the environment-bound test of finding 5.16.1 and is skipped by the verify. If TestAccepterReceiptsASendAcrossASeal still reports CumulativeGasUsed 0x5208 against expected 0 after the asset change, record a finding naming accepter_test.go:383 and the producer and stop; do not edit the expectation."
+do_6 = "Decision 2386 and attempt 3 ruling, part A: TestReceiptFeeFields (node/sequencer/receipt_equality_test.go, the fee-token case at :44 of attempt 3) asserts sha256 of the fee token denomination as the receipt asset; decision 2360 made the asset the payment asset, so the fee-token case asserts sha256 of the payment denomination (uhpx) as rec.Asset while the fee denomination stays at Effects[0].Body[109:] with its length at Body[108]. Do not change receipt.go for this."
+do_7 = "Decision 2386 and attempt 3 ruling, part B, superseding the stop of do_5 for this case: TestAccepterReceiptsASendAcrossASeal (node/sequencer/accepter_test.go:383) compares the transient receipt, whose CumulativeGasUsed is 0 at execution time, with result.receipt.Exec, which carries the cumulative gas that Receipter.after adds to the signed summary (receipt.go:457; the comment at accepter.go:103 records exactly this). node/sequencer/accepter_test.go is now in touches: before the comparison the test sets the expected receipt's CumulativeGasUsed from the signed summary (Effects[0].Body[8:16], big-endian) the way accepter.go:103 does, and compares the rest unchanged. The test last changed in 21.87.1 (2f080287b) and fails on main since; name that in the commit message. Continue from attempt 3 (f65b3851565) on the current main."
 
 [task.22.23.6]
 title = "Authorize a delegate's spend through the delegate authorization in the kernel budget module"
@@ -188221,6 +188730,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Decision 2382: the bound-caller case of TestAuthWriteRefusals (precompiles/layerxauth) fails on main since the lxphost resolution moved: layerxauth.go:70-95 calls p.keeper.Actor(ctx, caller) for every non-constant method before the authHandlers lookup at :93, Actor (modules/layerxauth/keeper/authority.go:26) resolves through lxphost.DIDID, and for the test's bound caller that read answers LXP_UNKNOWN_FIELD (-7), so the unknown-method refusal is never reached. Find why DIDID refuses the bound caller the test registers (modules/lxphost/ctx.go, host.go and execute.go moved after 21.21.1 last changed the test) and repair it within modules/lxphost or the precompile's ordering so the unknown-method text is answered for a bound caller; if the cause is under src/, stop with a finding naming the kernel function. The whole TestAuthWriteRefusals table is in this task's verify."
 
 [task.22.6.10]
 title = "Select the v6.12.0 precompile set from the module version map so the merge plan gate passes on a full-genesis chain"
@@ -188352,11 +188862,11 @@ interfaces = []
 do_1 = "rpc/block_txcount_parity_test.go:209 TestBlockAPILatestTagResolves expects an error containing 'pending served by sequencer' and receives nil now that pending reads are served from the committed state (task 22.7.2): assert the served response. rpc/tests/gas_price_test.go:31 fails vet because InfoAPI.GasPriceHelper is unexported (gasPriceHelper): export the helper with a doc comment or point the test at the exported entry."
 do_2 = "Both packages vet and test clean."
 symbols = []
-touches = ["rpc/block_txcount_parity_test.go", "rpc/info.go", "rpc/tests/gas_price_test.go", "rpc/debug_tracer_shape_test.go", "rpc/simulate.go", "rpc/utils.go", "rpc/header_receipts_root_test.go", "rpc/pending_state_test.go", "rpc/notifier.go"]
+touches = ["rpc/block_txcount_parity_test.go", "rpc/info.go", "rpc/tests/gas_price_test.go", "rpc/debug_tracer_shape_test.go", "rpc/simulate.go", "rpc/utils.go", "rpc/header_receipts_root_test.go", "rpc/pending_state_test.go", "rpc/notifier.go", "rpc/testdata/served_methods_http.golden", "rpc/simulate_test.go"]
 tests = []
 planned_paths = []
 build_cmd = "CGO_ENABLED=1 go build ./rpc/..."
-verify_cmd = "CGO_ENABLED=1 go vet ./rpc/ ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 ./rpc/ ./rpc/tests/"
+verify_cmd = "CGO_ENABLED=1 go vet ./rpc/ ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 -skip '^(TestHttpDenyList|TestSubscribeLogsFromReceipts)$' ./rpc/ ./rpc/tests/"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-rpc-api"
@@ -188374,6 +188884,10 @@ do_5 = "Finding 22.7.3.2: newDebugTracerShapeFixture (rpc/debug_tracer_shape_tes
 do_6 = "Finding 22.7.3.2: eth_estimateGas with no open block (TestEstimateGasWithoutOpenBlockUsesLatestState, rpc/pending_state_test.go:92) answers from the latest committed state the way eth_sendRawTransaction does since 5.98.5; the panic path rpc/simulate.go:110 -> :334 -> :935 and rpc/utils.go:493 (both files now in touches) resolves the pending tag to the committed height when the sequencer reports no open block instead of propagating the panic."
 do_7 = "Finding 22.7.3.2: TestHeaderReceiptsRootIsSameBlockResults (rpc/header_receipts_root_test.go:140-194, now in touches) waits on tmHeads or committedHeads for height 13 and neither arrives within 180 s; first make awaitHead report which subscription stalled (event-bus newHeads versus BlockHeaderNotifier.OnBlockCommitted at rpc/notifier.go:111), then repair the stalled producer in rpc so both heads arrive for every committed block; the commit message names the stalled subscription and the cause."
 do_8 = "Finding 22.7.3.2: rpc/tests TestGetPaxBlockByHash panics in the merge precompile harness for the reason 22.6.4 repairs (keepers for the merge precompiles); this task requires 22.6.4 and is judged only on a base that carries it; it does not patch rpc/tests/tx.go itself."
+do_9 = "Attempt 5 ruling, part A: TestServedMethodsHTTPGolden fails because rpc/testdata/served_methods_http.golden lacks px_getReceiptKeys, which 22.9.28 (b333bce4c) registered without updating the golden; regenerate the golden from the served set (105 methods) so it lists px_getReceiptKeys in sorted position. The golden is now in touches."
+do_10 = "Decision 2387 and attempt 5 ruling, part B: delete TestPreV620UpgradeUsesBaseFeeNil from rpc/simulate_test.go (the pacific-1 pre-v6.2.0 nil base fee is another chain's history; getHeader prices every block); rpc/simulate_test.go is now in touches and no production code changes for it."
+do_11 = "Attempt 5 ruling, part C: TestSendSequencerReturnsAfterReceipt (rpc/send_sequencer_test.go:426) expects exactly sequencer.ErrLayerNotOpen after the seal and attempt 5 answered pending served by sequencer. The test is the fact: it qualified with 22.9.27 (2afc32013) and rpc/send.go and rpc/watermark_manager.go are unchanged since. The candidate's own rewrite of ctxAtHeight into a helper that returns ErrPendingServedBySequencer for the pending height when no block is open, and panics on a snapshot error, is the first suspect: for the pending height with no open block the resolver answers the provider's context at the last committed height exactly as main did, never a refusal, and a snapshot error falls back to the latest committed context instead of panicking. Then run the test alone and confirm it passes before the whole package."
+do_12 = "Decision 2388: TestHttpDenyList and TestSubscribeLogsFromReceipts are owned by 22.7.4 and 22.7.5; this task's verify skips exactly those two and nothing else in ./rpc/ or ./rpc/tests/ is skipped."
 
 [task.22.4.5]
 title = "Reconcile the launchpad module, CLI, airdrop and legacy fixtures"
@@ -188479,7 +188993,7 @@ do_12 = "Finding at the sixth attempt: precompiles/layerxpay/gas_test.go:41-64 e
 
 [task.22.2.5]
 title = "Align the capability replay order, the retired payer-grant reader and the lxphost authority payload version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.2.4", "22.2.6", "22.25.2", "22.25.4"]
@@ -188494,7 +189008,7 @@ touches = ["modules/layerxauth/keeper/capability.go", "modules/layerxauth/keeper
 tests = []
 planned_paths = []
 build_cmd = "CGO_ENABLED=1 go build ./modules/layerxauth/... ./precompiles/layerxledger/ ./modules/lxphost/ ./precompiles/layerxauth/"
-verify_cmd = "CGO_ENABLED=1 go vet ./modules/layerxauth/keeper/ ./precompiles/layerxledger/ ./modules/lxphost/ ./precompiles/layerxauth/ ./precompiles/common/ && CGO_ENABLED=1 go test -count=1 ./modules/layerxauth/keeper/ -run '^(TestGrantCapability|TestGrantCapabilityRefusesOwnKey|TestAuthModuleStoreHasNoIdempotencyKeys|TestSharedHostIdempotencyAcrossModules)$' && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxledger/ -run '^(TestGovernancePauseRefusesLedgerWrites|TestPrecompileIssueRevokeGrant|TestPrecompileDraw|TestPrecompilePayExact|TestPrecompileLedgerViews|TestPrecompileViewsIgnorePause|TestPublishedLedgerAndAuthABIFrozen)$' && CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestHost' && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxauth/ -run '^(TestAuthRevertReasons|TestAuthWriteRefusals)$' && CGO_ENABLED=1 go test -count=1 ./precompiles/common/"
+verify_cmd = "CGO_ENABLED=1 go vet ./modules/layerxauth/keeper/ ./precompiles/layerxledger/ ./modules/lxphost/ ./precompiles/layerxauth/ ./precompiles/common/ && CGO_ENABLED=1 go test -count=1 ./modules/layerxauth/keeper/ -run '^(TestGrantCapability|TestGrantCapabilityRefusesOwnKey|TestAuthModuleStoreHasNoIdempotencyKeys|TestSharedHostIdempotencyAcrossModules)$' && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxledger/ -run '^(TestGovernancePauseRefusesLedgerWrites|TestPrecompileIssueRevokeGrant|TestPrecompileDraw|TestPrecompilePayExact|TestPrecompileLedgerViews|TestPrecompileViewsIgnorePause|TestPublishedLedgerAndAuthABIFrozen)$' && CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestHost' && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxauth/ -run '^TestAuthRevertReasons$' && CGO_ENABLED=1 go test -count=1 ./precompiles/common/"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-ledger-auth-pay"
@@ -188513,6 +189027,7 @@ do_7 = "Finding 22.2.5.4 and decision 2337: shared_host_test.go (now in touches)
 do_8 = "Finding 22.2.5.5 and decision 2344: delete the 0x04 replay marker read and write of revoke.go (now in touches) so the module store holds params only; a repeat revoke with the bound actor is refused by the kernel reason execute maps (-302 to ErrIdempotentReplay at kernel_codes.go:17) or, when the kernel checks the sequence first, by the sequence reason, pinned in a comment naming the kernel check order; revoke_test.go (now in touches) repeats :372-380 with the bound actor and expects that refusal, and the unbound-actor repeat expects ErrAuthScope; retire_test.go keeps assertParamsOnly; 22.2.4 do_4's 'before validation' clause no longer applies. This task requires 22.2.6 because the precompiles/common tests in its verify fail at main until 22.2.6 repairs the LXP_DA_MISSING registry origin. Continue from attempt 5."
 do_9 = "Attempt 6 fails TestPublishedLedgerAndAuthABIFrozen (precompiles/layerxledger/abi_published_views_test.go:57-65) because task 21.11.1 (8fc4a07ff) gave register and openAccount a bytes32 return value in precompiles/layerxledger/abi.json and task 21.21.1 (2095e9c5b) changed precompiles/layerxauth/abi.json, while the test still pins the older digests and the attestor copy services/wallet/attestor/internal/policy/evm/abi/layerxledger.json (now in touches) still holds the older ledger bytes; the published ABI files are the producer fact: the attestor ledger copy becomes byte-identical to precompiles/layerxledger/abi.json, the two digests in the frozen test become the digests of the current published files, and the test keeps comparing bytes, not parsed shapes."
 do_10 = "Attempt 7: the task's change is correct; the two lxphost failures (the scoped programs load and the unrelated-rows test) pre-exist on main and are finding 22.2.5.7, repaired by task 22.25.2 which this task requires. Continue the attempt's change unchanged once 22.25.2 publishes."
+do_11 = "Decision 2382: attempt 8 (7b461a9e0 on dcfbed2f9) passed every check except the bound-caller case of TestAuthWriteRefusals in precompiles/layerxauth, which now reads the kernel -7 (LXP_UNKNOWN_FIELD) instead of the unknown-method text because precompiles/layerxauth/layerxauth.go:70-95 resolves the caller's actor (modules/layerxauth/keeper/authority.go:26 through lxphost.DIDID) before the method lookup at :93. This task changed no refusal path; the verify now runs TestAuthRevertReasons alone in that package and 22.11.8, which owns modules/lxphost, repairs the case. Re-qualify 7b461a9e0 unchanged and name the base failure and decision 2382 in the commit message."
 
 [task.22.6.8]
 title = "Reconcile the pointer gas, xweb ABI and IBC timestamp expectations"
@@ -188625,7 +189140,7 @@ symbols = []
 touches = ["precompiles/missing_merge_test.go", "engine/executor/precompiles/merge_table_test.go", "precompiles/layerxagent/served/served_test.go", "modules/evm/keeper/keeper_activation_test.go"]
 tests = []
 planned_paths = []
-build_cmd = "CGO_ENABLED=1 go build ./precompiles/ ./engine/executor/precompiles/ ./precompiles/layerxagent/served/ ./modules/evm/keeper/"
+build_cmd = "CGO_ENABLED=1 go build ./precompiles/ ./engine/executor/precompiles/ ./modules/evm/keeper/"
 verify_cmd = "CGO_ENABLED=1 go vet ./precompiles/ ./engine/executor/precompiles/ ./precompiles/layerxagent/served/ ./modules/evm/keeper/ && CGO_ENABLED=1 go test -count=1 ./precompiles/ ./engine/executor/precompiles/ ./precompiles/layerxagent/served/ ./modules/evm/keeper/"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
@@ -188638,6 +189153,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Decision 2393: precompiles/layerxagent/served holds only served_test.go, so the build list no longer names it; go vet and go test in the verify keep it. Attempt 3 (3f399e38b) passed every test and is re-qualified unchanged."
 
 [task.22.5.7]
 title = "Preserve every key in the Litt 3-to-3 migration and open the anchor tree once in the memiavl fixture"
@@ -188972,7 +189488,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.6.4]
 title = "Resolve precompile info without merge keepers and supply the pay and chains keepers in every merge-table harness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.25.4"]
@@ -188984,7 +189500,7 @@ do_2 = "Give every test harness that builds the merge table the keepers the merg
 do_3 = "Add TestPrecompileInfoResolvesWithoutMergeKeepers to precompiles/setup_test.go: GetPrecompileInfoE for xweb and for layerxpay succeeds before any keepers are registered; and TestMergeTableRequiresPayAndChainsKeepers asserting GetCustomPrecompilesE refuses a keepers value without LayerXPayKeepers with the LXP_PRECOMPILE_NO_CONTEXT reason and succeeds with the shared test keepers."
 do_4 = "The verify runs the precompiles package tests, the three layerxagent merge tests, the node/sequencer test TestExecutorOpenRefreshesPrecompilesItself and the two tests/chain and tests/occ cases the inventory saw panic (TestSidioraFeePaid at tests/chain, TestParallelTransactionsPointerCreation at tests/occ)."
 symbols = ["GetPrecompileInfoE", "GetCustomPrecompilesE", "LayerXPayKeepers"]
-touches = ["precompiles/setup.go", "precompiles/setup_test.go", "precompiles/layerxpay/layerxpay.go", "precompiles/layerxagent/oracle/merge_test.go", "precompiles/layerxagent/scheduler/merge_test.go", "precompiles/layerxagent/streams/merge_test.go", "tests/testutil/processblock/msgs/feetoken.go", "tests/occ/messages/test_msgs.go", "node/sequencer/position_test.go", "node/sequencer/precompile_refresh_test.go", "precompiles/testutil", "rpc/tests/tx.go", "rpc/tests", "precompiles/missing_merge_test.go", "precompiles/precompile_info_e_test.go", "precompiles/merge_gateway_parity_test.go", "node/precompiles.go"]
+touches = ["precompiles/setup.go", "precompiles/setup_test.go", "precompiles/layerxpay/layerxpay.go", "precompiles/layerxagent/oracle/merge_test.go", "precompiles/layerxagent/scheduler/merge_test.go", "precompiles/layerxagent/streams/merge_test.go", "tests/testutil/processblock/msgs/feetoken.go", "tests/occ/messages/test_msgs.go", "node/sequencer/position_test.go", "node/sequencer/precompile_refresh_test.go", "precompiles/testutil", "rpc/tests/tx.go", "rpc/tests", "precompiles/missing_merge_test.go", "precompiles/precompile_info_e_test.go", "precompiles/merge_gateway_parity_test.go", "node/precompiles.go", "tests/chain/sidiora_fee_test.go"]
 tests = ["precompiles/setup_test.go"]
 planned_paths = ["precompiles/setup_test.go"]
 build_cmd = "cd services/wallet && pnpm install --frozen-lockfile && cd ../.. && CGO_ENABLED=1 go build ./precompiles/... ./node/sequencer/ ./tests/..."
@@ -189011,6 +189527,7 @@ do_12 = "Finding at the ninth attempt: precompiles/proof_activation_test.go:192 
 do_13 = "Attempt 10: TestInitializePrecompilesKeepsMergeOutOfVM (precompiles/precompile_info_e_test.go:148-170) requires every MergeAddressTable entry (0x101A-0x101E and 0x0901-0x0908) absent from the VM tables after InitializePrecompiles(false, keepers), while proof_activation_test.go:192 requires each activation row published after activation; both are right: before the activation state the merge addresses are absent, after it they are published, so setup.go gates the publication on the activation state the activation test sets and neither test changes."
 do_14 = "Attempt 11, decision 2365 (2026-11-03): drop the PrecompileContextProvider of attempt 11. node/precompiles.go PrecompileKeepers keeps the application NewPrecompileKeepers was built from and gains MergePlanActive() bool: open a query context at the latest committed height with the application's CreateQueryContext(0, false) (sdk/baseapp/abci.go:662), return false when no height is committed or the context cannot be opened, else return the upgrade keeper's IsUpgradeActiveAtHeight(ctx, pcommon.MergeUpgrade, ctx.BlockHeight()). precompiles/setup.go publishes the merge rows into the VM tables (the addPrecompileToVM loop over merge) only when keepers implements MergePlanActive and it returns true; the info rows stay unconditional. GetPrecompileKeepers (node/app.go:3888) returns that value, so proof_activation_test.go (:170) sees the rows on the reopened consumer and precompile_info_e_test.go (:96), whose keepers lack the method, sees none. Both tests are oracles and are not edited."
 do_15 = "Attempt 12: TestInitializePrecompilesUsesMergeActivationContext (setup_test.go:469) failed with unexpected ChainID, got empty, want pax-test: the application app.Setup builds carries no chain id, so FinalizeBlock refuses the pax-test header. Build the application the way precompiles/proof_activation_test.go:92-107 does (app.New, then InitChain with ChainId pax-test and the default genesis) before finalizing the first block. go.mod and go.sum are outside this task: the module gap is repaired by task 22.25.4, which this task requires; the attempt that edits either file is refused."
+do_16 = "Decision 2380 closes findings 22.6.4.5 and 22.6.4.6 and withdraws the bisect of do_10: the 32697 Sidiora leaves the collection address of transaction 0 at the end of the block by design. modules/evm/keeper/abci.go:183-196 (commit 63dfe3cbc, 2026-09-26) sweeps every allowed non-network fee denom from each transaction coinbase to the block coinbase and RouteCollectedFeeTokens then holds it in the fee-token holding account or leaves it with the fee collector under distribution; that commit predates both ends of the bisect range and its closure ran only the modules/evm/keeper tests, so TestSidioraFeePaid (f7745bc65, written earlier the same day) has asserted the pre-sweep layout ever since. tests/chain/sidiora_fee_test.go is now in touches: the expectation of TestSidioraFeePaid becomes FeeCollected sdk.ZeroInt() (the collection address ends the block where it started) and FeeRouted sdk.NewInt(sidioraFeeConverted) (the fee collector and the holding account together hold the converted fee), with the comment above FeeRouted rewritten to name the end-of-block sweep; tests/testutil/processblock/verify/feetoken.go, the routing code and the payer-side assertions do not change. Continue from attempt 13 (3b736cb1c)."
 
 [task.22.5.4]
 title = "Return the committed block's own id from LastBlockID"
@@ -210986,6 +211503,78 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.22.23.13.1]
+feature = "22"
+req = "22095.1"
+scenario = "Given the web exchange client and the unmodified perps ABI, when a position is opened, then the write carries the precompile ABI's openPosition selector and the proof passes without an approve."
+contract = "node --test apps/web/e2e/exchange-perps.test.ts"
+test = "apps/web/e2e/exchange-perps.test.ts::opening_a_position_sends_the_precompile_perps_write_without_an_approve"
+qualification = "UNRUN"
+
+[acceptance.22.24.26.1]
+feature = "22"
+req = "22094.1"
+scenario = "Given the wallet exchange surface, when a position is opened with a market, collateral token, collateral amount, leverage and direction, then the sent call carries the precompile ABI's openPosition selector and words and the decoded event shows."
+contract = "pnpm --dir apps/wallet exec vitest run src/surfaces/ExchangeView.test.tsx"
+test = "apps/wallet/src/surfaces/ExchangeView.test.tsx::exchange_view_opens_a_perps_position_through_the_precompile_call_and_shows_the_decoded_event"
+qualification = "UNRUN"
+
+[acceptance.22.9.37.1]
+feature = "22"
+req = "22093.1"
+scenario = "Given a PerpsOpenPosition and an order id, when the SDK builds the calls, then openPosition(uint256,address,uint256,uint256,bool) and cancelOrder(uint256) selectors from precompiles/perps/abi/abi.json head the data and the argument words follow in order."
+contract = "cd services/agent/sdk/typescript && npm ci && npm run build && node --test dist/test/perps-v2.test.js"
+test = "services/agent/sdk/typescript/test/perps-v2.test.ts::perps_open_position_call_uses_the_precompile_selector"
+qualification = "UNRUN"
+
+[acceptance.22.7.5.1]
+feature = "22"
+req = "22092.1"
+scenario = "Given the chain-path WebSocket server, when the test dials through the pipe listener with Origin localhost, then the handshake answers 101 and the receipt log assertions pass three times in a row."
+contract = "CGO_ENABLED=1 go test -count=3 ./rpc/ -run '^TestSubscribeLogsFromReceipts$'"
+test = "rpc/subscribe_test.go::TestSubscribeLogsFromReceipts"
+qualification = "UNRUN"
+
+[acceptance.22.7.4.1]
+feature = "22"
+req = "22091.1"
+scenario = "Given the deny-listed method test_sleep, when the HTTP request with id 1 names it, then the error answer carries code -32601 and id 1."
+contract = "CGO_ENABLED=1 go test -count=1 ./rpc/ -run '^TestHttpDenyList$'"
+test = "rpc/rpcstack_test.go::TestHttpDenyList"
+qualification = "UNRUN"
+
+[acceptance.1.0.10.1]
+feature = "1"
+req = "22090.1"
+scenario = "Given the kernel batch header, when the retired names are grepped, the library is built and the lxphost retired-symbol test runs, then the grep is empty and both pass."
+contract = "! grep -nE 'lxp_batch_body|lxp_batch_timestamp_(select|validate)' include/layerx/lxp_batch.h && make -C . build/liblayerx.a && CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestRetiredBatchTimeSymbolsAbsent$'"
+test = "include/layerx/lxp_batch.h"
+qualification = "UNRUN"
+
+[acceptance.22.9.36.1]
+feature = "22"
+req = "22089.1"
+scenario = "Given a receipt whose first execution effect carries a fee denomination, when the verifier checks the debit balance, then it subtracts fee_charged exactly when that denomination digests to the receipt asset and refuses every other debit_after."
+contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test receipt"
+test = "services/agent/crates/layerx-proof/tests/receipt.rs"
+qualification = "UNRUN"
+
+[acceptance.22.24.25.1]
+feature = "22"
+req = "22088.1"
+scenario = "Given the kernelvectors fixture crate, when cargo build --locked runs with all targets, then it resolves from the committed Cargo.lock and the lock file is non-empty."
+contract = "cargo build --locked --manifest-path services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.toml --all-targets && test -s services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.lock"
+test = "services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.lock"
+qualification = "UNRUN"
+
+[acceptance.22.24.24.1]
+feature = "22"
+req = "22087.1"
+scenario = "Given the attestor module at the raised floors, when go mod verify, go vet and go build run in the default module mode, then every import resolves through the committed go.sum and the sum file is non-empty."
+contract = "cd services/wallet/attestor && go mod verify && go vet ./... && go build ./... && test -s go.sum"
+test = "services/wallet/attestor/go.sum"
+qualification = "UNRUN"
+
 [acceptance.22.25.4.1]
 feature = "22"
 req = "22086.1"
@@ -225687,7 +226276,7 @@ title = "Write the two tooling acceptance tests the merged spec names"
 status = "pending"
 mode = "BUILD"
 wave = 47
-requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3", "6.60.2"]
+requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3", "6.60.2", "9.24.7"]
 reqs = ["16044.1", "16966.4"]
 capabilities = ["16.90.1"]
 interfaces = []
@@ -225712,6 +226301,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 16.9.4.4 and decision 2198: both acceptances hold only once cmd/layerxd (task 5.50.7), cmd/layerx-guarantor (5.51.1 and 5.51.4), tests/daemon (5.54.9) and the bridge credit suites (1.19.3) are deleted, so this task runs at wave 47 after them; the tests themselves stay as written in attempt 1 (0dacda199)."
 do_4 = "Decision 2294: attempt 2 (base a86f1a980) saw tests/bridge/test_credit.c and tests/bridge/sign_credit.c still present; task 6.60.2 (done) deleted them, so this task now requires 6.60.2 and its own scope (the two assertion files) is unchanged. Continue from attempt 2 on the current main."
+do_5 = "Decision 2378: attempt 3 (base 144ec64cf) carried both tests and failed only on the lni component, whose deleted tree services/agent/crates/layerx-client/src/lni is deleted by 9.24.7; this task now requires 9.24.7 and every other deleted tree of the four asserted components is already absent on main. The two assertion files stay as written in attempt 3 (b0fcbda46); continue from it on the current main once 9.24.7 is published."
 
 [task.19.0.1]
 title = "Refuse the name-system closure while any name task is not done"
