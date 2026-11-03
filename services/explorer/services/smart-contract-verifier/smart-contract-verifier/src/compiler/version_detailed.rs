@@ -33,7 +33,7 @@ impl FromStr for ReleaseVersion {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (_prefix, major, minor, patch, pre, commit) = sscanf::scanf!(
             s,
-            "{:/v?/}{}.{}.{}{:/(?:-.*)?/}+commit.{:/[A-Fa-f0-9]+/}",
+            "{:/v?/}{}.{}.{}{:/(?:-.*|(?:a|b|rc)[0-9]+)?/}+commit.{:/[A-Fa-f0-9]+/}",
             String,
             u64,
             u64,
@@ -236,6 +236,50 @@ mod tests {
         ReleaseVersion::from_str("-v0.8.9+commit.deadbeef").unwrap_err();
         ReleaseVersion::from_str("v0.8.9+commit.alivebee").unwrap_err();
         ReleaseVersion::from_str("0.1.0beta.17+commit.0671b7b").unwrap_err();
+    }
+
+    #[test]
+    fn parse_vyper_prerelease() {
+        for prerelease in ["a1", "b1", "rc1"] {
+            let version = format!("0.5.0{prerelease}+commit.577d2534");
+            let parsed = check_parsing::<DetailedVersion>(&version);
+            assert_eq!(parsed.version().major, 0);
+            assert_eq!(parsed.version().minor, 5);
+            assert_eq!(parsed.version().patch, 0);
+            assert_eq!(parsed.version().pre.as_str(), prerelease);
+            assert_eq!(parsed.commit(), "577d2534");
+            assert_eq!(
+                parsed,
+                check_parsing::<DetailedVersion>(&format!("v0.5.0-{prerelease}+commit.577d2534"))
+            );
+            assert_eq!(
+                check_parsing::<DetailedVersion>(&parsed.to_string()),
+                parsed
+            );
+        }
+
+        for version in [
+            "0.5.0b+commit.577d2534",
+            "0.5.0b1extra+commit.577d2534",
+            "0.5.0rc+commit.577d2534",
+            "0.5.0beta.1+commit.577d2534",
+            "0.5.0b1+commit.invalid",
+        ] {
+            assert!(DetailedVersion::from_str(version).is_err(), "{version}");
+        }
+    }
+
+    #[test]
+    fn order_vyper_prereleases() {
+        let versions = [
+            "0.5.0a1+commit.577d2534",
+            "0.5.0b1+commit.577d2534",
+            "0.5.0b2+commit.577d2534",
+            "0.5.0rc1+commit.577d2534",
+            "0.5.0+commit.577d2534",
+        ]
+        .map(check_parsing::<DetailedVersion>);
+        assert!(versions.windows(2).all(|pair| pair[0] < pair[1]));
     }
 
     #[test]
