@@ -240089,7 +240089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.125]
 title = "Inventory every pytest tree for collection errors a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.40", "22.99.41", "22.99.42", "22.99.43", "22.99.149", "22.99.150", "22.99.151", "22.99.152"]
