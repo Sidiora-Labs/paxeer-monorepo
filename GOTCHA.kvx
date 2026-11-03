@@ -14275,3 +14275,43 @@ fix = "When a schema type is renamed, grep every catalogue that mirrors it (oper
 title = "Corpus builders still request a header whose rule retired"
 symptom = "22.9.18: eight qualification producers asked make for generated/lxp_checkpoint_settlement.h after 16.2.2 removed the rule, so every corpus build exited 2."
 fix = "A task that retires a Makefile rule greps tools and scripts for the generated artefact's name and removes every request in the same change."
+
+[gotcha.2891]
+title = "A producer change leaves consumer tests stale in other packages"
+symptom = "7.10.1 removed four header keys and left rpc/subscribe_test.go pinning them; 5.98.6 changed the sealed-layer send path and left rpc/send_sequencer_test.go expecting the old error; 9.35.17 dropped a struct field and left four human-service test constructions with it; 22.9.37 narrowed an SDK encoder and left the wallet SDK caller with two arguments."
+fix = "Before a task that changes an encoder, a struct, an error path or a signature is marked done, grep the whole repository for every consumer and test of the changed symbol and either change them in the task or hand them to a named task the dependents require."
+
+[gotcha.2892]
+title = "Vendored source reformatted alongside a behavioural change"
+symptom = "22.13.12 attempt 1 ran a formatter over the vendored engine (404 lines in one file) and inside that diff replaced a fallible push with an infallible one, which two metering tests caught."
+fix = "Vendored sources keep the upstream formatting; a change to them is the smallest behavioural diff, reviewed line by line, with the checksum refreshed afterwards."
+
+[gotcha.2893]
+title = "A planned file that a later ruling moved stays in the enforced lists"
+symptom = "21.95.1 do_8 moved the proof to the consumer crate and deleted the daemon test target, but touches, tests and planned_paths still named the deleted file, so the done check refused a passing candidate for a path with no change."
+fix = "A ruling that moves or deletes a planned file updates touches, tests and planned_paths in the same ruling; the done check requires a change for every touches entry."
+
+[gotcha.2894]
+title = "An ABI output that carries a runtime envelope is bounded by the envelope, not by the call's declared capacity"
+symptom = "9.97.15 attempt 4 refused the producer's own conformance case because the decoder compared the 372-byte terminal envelope the precompile packs as response against the call's responseCapacity of 64, which bounds the guest response inside the envelope."
+fix = "Before bounding a precompile output, read the handler that packs it (precompiles/layerxprograms/method_call.go) and a reference decoder (sdk/platform/go/programs.go); a capacity declared in the call bounds the guest payload, not the runtime framing around it."
+
+[gotcha.2895]
+title = "A generic producer fixture cannot feed an application-specific journal"
+symptom = "9.97.15 do_2 asked the conformance case to resolve the fixture receipt in the AI operation journal, but the fixture program's calldata is two bytes and no PAXAI request intent can be built from it."
+fix = "A conformance case proves the shared layers (receipt, log, call result); the application layer is proved with the application's own signed record and a receipt view in the fixture's shape."
+
+[gotcha.2896]
+title = "A JSON-RPC HTTP status answer is an envelope"
+symptom = "10.20.6 attempt 7 read sync_info at the top level of the CometBFT /status answer and panicked on the latest height; the payload sits under result."
+fix = "Read a node's HTTP status through its JSON-RPC envelope (result, error, id) and assert the envelope before the field."
+
+[gotcha.2897]
+title = "A comparison compares the copies the finding names, not every fixture that looks alike"
+symptom = "18.1211.6 compared a daemon committed-fixture vector in another format with the sequencer receipt source and failed on a case the source never carried."
+fix = "List the files a finding names as copies and compare exactly those; a fixture in another format with its own producer is not a copy."
+
+[gotcha.2898]
+title = "A test that starts a toolchain binary names it where the environment can see it"
+symptom = "22.9.10 attempt 15 failed in gas-station.test, which starts anvil, although no command of the task names anvil; the environment installs toolchains from the commands it sees."
+fix = "When a suite starts a binary in a subprocess, the environment that runs the suite is told about the binary by the suite's name; record the dependency with the task."

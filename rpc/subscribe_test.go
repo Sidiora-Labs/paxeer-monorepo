@@ -32,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	gethrpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 )
@@ -98,6 +99,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 					}
 				}
 			}
+			assertNewHeadStateRootMatchesBlock(t, resultMap)
 			// Event validated successfully, no need to wait further
 			return
 		case <-timer.C:
@@ -117,7 +119,6 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 	defer func() { done <- struct{}{} }()
 
 	hash := common.HexToHash("0x4242424242424242424242424242424242424242424242424242424242424242").Bytes()
-	appHash := common.HexToHash("0x3131313131313131313131313131313131313131313131313131313131313131").Bytes()
 	parentHash := common.HexToHash("0x5252525252525252525252525252525252525252525252525252525252525252").Bytes()
 	dataHash := common.HexToHash("0x6363636363636363636363636363636363636363636363636363636363636363").Bytes()
 	resultsHash := common.HexToHash("0x7474747474747474747474747474747474747474747474747474747474747474").Bytes()
@@ -126,6 +127,10 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 	// The served receiptsRoot is the results root of block H, the value
 	// header H+1 commits as LastResultsHash, not header H's own field.
 	blockHeight := int64(MockHeight8)
+	block, err := (&MockClient{}).Block(context.Background(), &blockHeight)
+	require.NoError(t, err)
+	appHash := block.Block.AppHash
+	require.Len(t, appHash, common.HashLength)
 	blockResults, err := (&MockClient{}).BlockResults(context.Background(), &blockHeight)
 	require.NoError(t, err)
 	resultLeaves, err := abci.MarshalTxResults(blockResults.TxsResults)
@@ -160,6 +165,7 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 					LastBlockId:     tmproto.BlockID{Hash: parentHash},
 					DataHash:        dataHash,
 					LastResultsHash: resultsHash,
+					AppHash:         appHash,
 					ProposerAddress: proposer,
 				}, &abci.ResponseFinalizeBlock{
 					AppHash: appHash,
@@ -177,6 +183,7 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 			paramMap := resObj["params"].(map[string]interface{})
 			require.Equal(t, subscriptionId, paramMap["subscription"])
 			resultMap := paramMap["result"].(map[string]interface{})
+			assertNewHeadStateRootMatchesBlock(t, resultMap)
 			for _, k := range expectedKeys {
 				_, ok := resultMap[k]
 				require.Truef(t, ok, "missing key %q in header", k)
@@ -186,7 +193,6 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 			require.Equal(t, common.BytesToAddress(proposer).Hex(), resultMap["miner"])
 			require.Equal(t, common.BytesToHash(appHash).Hex(), resultMap["stateRoot"])
 			require.Equal(t, fmt.Sprintf("0x%x", ts.Unix()), resultMap["timestamp"])
-			require.Equal(t, fmt.Sprintf("0x%x", 21000+50000), resultMap["gasUsed"])
 			// gasLimit comes from the SDK ConsensusParams that the test
 			// runtime sets; just assert it's a non-zero hex string.
 			gasLimitStr, _ := resultMap["gasLimit"].(string)
@@ -194,12 +200,38 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 			require.NotEqual(t, "0x0", gasLimitStr)
 			require.Equal(t, common.BytesToHash(parentHash).Hex(), resultMap["parentHash"])
 			require.Equal(t, sameBlockRoot.Hex(), resultMap["receiptsRoot"])
-			require.Equal(t, common.BytesToHash(dataHash).Hex(), resultMap["transactionsRoot"])
 			return
 		case <-timer.C:
 			t.Fatal("No event received within 5 seconds")
 		}
 	}
+}
+
+func assertNewHeadStateRootMatchesBlock(t *testing.T, head map[string]interface{}) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	client, err := gethrpc.DialHTTP(fmt.Sprintf("http://%s:%d", TestAddr, TestPort))
+	require.NoError(t, err)
+	defer client.Close()
+	var block map[string]interface{}
+	require.NoError(t, client.CallContext(ctx, &block, "eth_getBlockByNumber", head["number"], false))
+	require.NotNil(t, block)
+	root, ok := head["stateRoot"].(string)
+	require.True(t, ok)
+	decoded, err := hexutil.Decode(root)
+	require.NoError(t, err)
+	require.Len(t, decoded, common.HashLength)
+	require.Equal(t, block["stateRoot"], root)
+	for _, key := range []string{"gasUsed", "logsBloom", "transactionsRoot"} {
+		require.Contains(t, block, key)
+		require.Contains(t, head, key)
+		require.Equal(t, block[key], head[key], "%s differs from block at %v", key, head["number"])
+	}
+	require.Equal(t, ethtypes.EmptyWithdrawalsHash.Hex(), head["withdrawalsRoot"])
+	require.Equal(t, "0x0", head["blobGasUsed"])
+	require.Equal(t, "0x0", head["excessBlobGas"])
+	require.Equal(t, common.Hash{}.Hex(), head["parentBeaconBlockRoot"])
 }
 
 func TestSubscribeEmptyLogs(t *testing.T) {
