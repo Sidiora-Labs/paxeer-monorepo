@@ -1,0 +1,491 @@
+[reconcile.r9-52]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r9-52.1]
+interface = "interface.9.proto-human-peer-native-effect-approval-material-v4"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 113
+symbol = "NATIVE_EFFECT_APPROVAL_MATERIAL_V4"
+evidence = "Signature remains pub const NATIVE_EFFECT_APPROVAL_MATERIAL_V4: u8 = 55; The declaration moved from registry line 110 to 113; no opcode value or type change. Opcode 55 still decodes approval_id and held_digest into NativeEffectApprovalMaterialV4 at human.rs:2802."
+
+[row.r9-52.2]
+interface = "interface.9.proto-human-peer-native-effect-approval-budget-v4"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 114
+symbol = "NATIVE_EFFECT_APPROVAL_BUDGET_V4"
+evidence = "Signature remains pub const NATIVE_EFFECT_APPROVAL_BUDGET_V4: u8 = 56; The declaration moved from registry line 111 to 114; no opcode value or type change. Opcode 56 still decodes approval_id, held_digest and nonzero current_sequence into NativeEffectApprovalBudgetV4 at human.rs:2811."
+
+[row.r9-52.3]
+interface = "interface.9.proto-human-peer-agent-budget-proof-v4"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 115
+symbol = "AGENT_BUDGET_PROOF_V4"
+evidence = "Signature remains pub const AGENT_BUDGET_PROOF_V4: u8 = 57; The declaration moved from registry line 112 to 115; no opcode value or type change. Opcode 57 decodes active_budget_id into AgentBudgetProofV4 at human.rs:2857."
+
+[row.r9-52.4]
+interface = "interface.9.proto-human-peer-native-send-preview-v1"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 116
+symbol = "NATIVE_SEND_PREVIEW_V1"
+evidence = "Signature remains pub const NATIVE_SEND_PREVIEW_V1: u8 = 63; The declaration moved from registry line 113 to 116; no opcode value or type change. Opcode 63 decodes credential, request_id, prepare, owner_public_key, purpose expiry, commitment and validated local_grant at human.rs:2481."
+
+[row.r9-52.5]
+interface = "interface.9.proto-human-peer-native-owner-context-v1"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 117
+symbol = "NATIVE_OWNER_CONTEXT_V1"
+evidence = "Signature remains pub const NATIVE_OWNER_CONTEXT_V1: u8 = 64; The declaration moved from registry line 114 to 117; no opcode value or type change. Opcode 64 decodes credential, owner_public_key and request_id into NativeOwnerContextV1 at human.rs:2466."
+
+[row.r9-52.6]
+interface = "interface.9.proto-human-peer-native-journey-envelope-v1"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 118
+symbol = "NATIVE_JOURNEY_ENVELOPE_V1"
+evidence = "Signature remains pub const NATIVE_JOURNEY_ENVELOPE_V1: u8 = 65; The declaration moved from registry line 115 to 118; no opcode value or type change. Opcode 65 now has a decoder arm at human.rs:2578, sharing the version-1 envelope decoder with opcode 67; the registry note claiming no references is stale."
+
+[row.r9-52.7]
+interface = "interface.9.proto-human-peer-native-send-owner-preview-v1"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 119
+symbol = "NATIVE_SEND_OWNER_PREVIEW_V1"
+evidence = "Signature remains pub const NATIVE_SEND_OWNER_PREVIEW_V1: u8 = 66; The declaration moved from registry line 116 to 119; no opcode value or type change. Opcode 66 checks u16 version 1 and decodes credential, prepare, owner, purpose expiry, commitment, economic_action and local_grant at human.rs:2527."
+
+[row.r9-52.8]
+interface = "interface.9.proto-human-peer-native-send-envelope-v1"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 120
+symbol = "NATIVE_SEND_ENVELOPE_V1"
+evidence = "Signature remains pub const NATIVE_SEND_ENVELOPE_V1: u8 = 67; The declaration moved from registry line 117 to 120; no opcode value or type change. Opcode 67 shares the u8 version-1, length-prefixed Zeroizing envelope decoder at human.rs:2578."
+
+[row.r9-52.9]
+interface = "interface.9.proto-human-peer-head"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 121
+symbol = "HEAD"
+evidence = "Signature remains pub const HEAD: u8 = 7; The declaration moved from registry line 118 to 121; no opcode value or type change. Opcode 7 maps directly to HumanRequest::Head at human.rs:2873."
+
+[row.r9-52.10]
+interface = "interface.9.proto-human-peer-evidence"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 122
+symbol = "EVIDENCE"
+evidence = "Signature remains pub const EVIDENCE: u8 = 8; The declaration moved from registry line 119 to 122; no opcode value or type change. Opcode 8 decodes idempotency_key and tx_hash into HumanRequest::Evidence at human.rs:2874."
+
+[row.r9-52.11]
+interface = "interface.9.err-reason-program-stale-head"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1527
+symbol = "program.stale_head"
+evidence = "HumanRefusal::reason still maps StalePinnedHead to program.stale_head. The literal moved from registry line 1449 to 1527."
+
+[row.r9-52.12]
+interface = "interface.9.err-reason-projection-fee-snapshot-skew"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1528
+symbol = "projection.fee_snapshot_skew"
+evidence = "HumanRefusal::reason still maps FeeSnapshotSkew to projection.fee_snapshot_skew. The literal moved from registry line 1450 to 1528."
+
+[row.r9-52.13]
+interface = "interface.9.err-reason-export-response-too-large"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1529
+symbol = "export.response_too_large"
+evidence = "HumanRefusal::reason still maps ExportResponseTooLarge to export.response_too_large. The literal moved from registry line 1451 to 1529."
+
+[row.r9-52.14]
+interface = "interface.9.err-reason-export-level-unattainable"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1452
+symbol = "export.level_unattainable"
+evidence = "The literal export.level_unattainable is absent from human.rs; ExportLevelUnattainable now returns export.rung_unattainable at human.rs:1530. The sole remaining non-spec, non-doc file mentions the old literal only in a negative assertion."
+remaining_refs = 1
+remaining = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs:29"]
+
+[row.r9-52.15]
+interface = "interface.9.err-reason-budget-codec"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1532
+symbol = "budget.codec"
+evidence = "HumanRefusal::reason still maps BudgetCodec to budget.codec. The literal moved from registry line 1455 to 1532."
+
+[row.r9-52.16]
+interface = "interface.9.err-reason-budget-expired"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1533
+symbol = "budget.expired"
+evidence = "HumanRefusal::reason still maps BudgetExpired to budget.expired. The literal moved from registry line 1456 to 1533."
+
+[row.r9-52.17]
+interface = "interface.9.err-reason-budget-stale-revocation"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1534
+symbol = "budget.stale_revocation"
+evidence = "HumanRefusal::reason still maps BudgetStaleRevocation to budget.stale_revocation. The literal moved from registry line 1457 to 1534."
+
+[row.r9-52.18]
+interface = "interface.9.err-reason-budget-not-live"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1535
+symbol = "budget.not_live"
+evidence = "HumanRefusal::reason still maps BudgetNotLive to budget.not_live. The literal moved from registry line 1458 to 1535."
+
+[row.r9-52.19]
+interface = "interface.9.err-reason-budget-context-mismatch"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1536
+symbol = "budget.context_mismatch"
+evidence = "HumanRefusal::reason still maps BudgetContextMismatch to budget.context_mismatch. The literal moved from registry line 1459 to 1536."
+
+[row.r9-52.20]
+interface = "interface.9.err-reason-budget-authorization-required"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1537
+symbol = "budget.authorization_required"
+evidence = "HumanRefusal::reason still maps BudgetAuthorizationRequired to budget.authorization_required. The literal moved from registry line 1460 to 1537."
+
+[row.r9-52.21]
+interface = "interface.9.err-reason-budget-authorization-unexpected"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1538
+symbol = "budget.authorization_unexpected"
+evidence = "HumanRefusal::reason still maps BudgetAuthorizationUnexpected to budget.authorization_unexpected. The literal moved from registry line 1461 to 1538."
+
+[row.r9-52.22]
+interface = "interface.9.err-reason-budget-daemon-limit-funding"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1539
+symbol = "budget.daemon_limit_funding"
+evidence = "HumanRefusal::reason still maps BudgetDaemonLimitFunding to budget.daemon_limit_funding. The literal moved from registry line 1462 to 1539."
+
+[row.r9-52.23]
+interface = "interface.9.err-reason-budget-limit-exceeded"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1540
+symbol = "budget.limit_exceeded"
+evidence = "HumanRefusal::reason still maps BudgetLimitExceeded to budget.limit_exceeded. The literal moved from registry line 1463 to 1540."
+
+[row.r9-52.24]
+interface = "interface.9.err-reason-budget-limit-collision"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1541
+symbol = "budget.limit_collision"
+evidence = "HumanRefusal::reason still maps BudgetLimitCollision to budget.limit_collision. The literal moved from registry line 1464 to 1541."
+
+[row.r9-52.25]
+interface = "interface.9.err-reason-budget-limit-revoked"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1542
+symbol = "budget.limit_revoked"
+evidence = "HumanRefusal::reason still maps BudgetLimitRevoked to budget.limit_revoked. The literal moved from registry line 1465 to 1542."
+
+[row.r9-52.26]
+interface = "interface.9.err-reason-budget-limit-conflict"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1543
+symbol = "budget.limit_conflict"
+evidence = "HumanRefusal::reason still maps BudgetLimitConflict to budget.limit_conflict. The literal moved from registry line 1466 to 1543."
+
+[row.r9-52.27]
+interface = "interface.9.err-reason-policy-context-mismatch-tenant"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1546
+symbol = "policy.context_mismatch.tenant"
+evidence = "HumanRefusal::PolicyContextMismatch still maps PolicyContextField::Tenant to policy.context_mismatch.tenant. The literal moved from registry line 1469 to 1546."
+
+[row.r9-52.28]
+interface = "interface.9.err-reason-policy-context-mismatch-agent-did"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1547
+symbol = "policy.context_mismatch.agent_did"
+evidence = "HumanRefusal::PolicyContextMismatch still maps PolicyContextField::AgentDid to policy.context_mismatch.agent_did. The literal moved from registry line 1470 to 1547."
+
+[row.r9-52.29]
+interface = "interface.9.err-reason-policy-context-mismatch-authority-ref"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1548
+symbol = "policy.context_mismatch.authority_ref"
+evidence = "HumanRefusal::PolicyContextMismatch still maps PolicyContextField::AuthorityRef to policy.context_mismatch.authority_ref. The literal moved from registry line 1471 to 1548."
+
+[row.r9-52.30]
+interface = "interface.9.err-reason-policy-context-mismatch-permitted-activity-types"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1550
+symbol = "policy.context_mismatch.permitted_activity_types"
+evidence = "HumanRefusal::PolicyContextMismatch still maps PolicyContextField::PermittedActivityTypes to policy.context_mismatch.permitted_activity_types. The literal moved from registry line 1473 to 1550."
+
+[row.r9-52.31]
+interface = "interface.9.err-reason-policy-context-mismatch-expiry"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1552
+symbol = "policy.context_mismatch.expiry"
+evidence = "HumanRefusal::PolicyContextMismatch still maps PolicyContextField::Expiry to policy.context_mismatch.expiry. The literal moved from registry line 1475 to 1552."
+
+[row.r9-52.32]
+interface = "interface.9.err-reason-policy-context-mismatch-client"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1553
+symbol = "policy.context_mismatch.client"
+evidence = "HumanRefusal::PolicyContextMismatch still maps PolicyContextField::Client to policy.context_mismatch.client. The literal moved from registry line 1476 to 1553."
+
+[row.r9-52.33]
+interface = "interface.9.err-reason-policy-context-mismatch-policy-version"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1554
+symbol = "policy.context_mismatch.policy_version"
+evidence = "HumanRefusal::PolicyContextMismatch still maps PolicyContextField::PolicyVersion to policy.context_mismatch.policy_version. The literal moved from registry line 1477 to 1554."
+
+[row.r9-52.34]
+interface = "interface.9.err-reason-policy-session-binding-missing"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1556
+symbol = "policy.session_binding_missing"
+evidence = "HumanRefusal::reason still maps SessionBindingMissing to policy.session_binding_missing. The literal moved from registry line 1479 to 1556."
+
+[row.r9-52.35]
+interface = "interface.9.err-reason-policy-session-expiry-binding-missing"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1557
+symbol = "policy.session_expiry_binding_missing"
+evidence = "HumanRefusal::reason still maps SessionExpiryBindingMissing to policy.session_expiry_binding_missing. The literal moved from registry line 1480 to 1557."
+
+[row.r9-52.36]
+interface = "interface.9.err-reason-policy-session-expired"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1558
+symbol = "policy.session_expired"
+evidence = "HumanRefusal::reason still maps SessionExpired to policy.session_expired. The literal moved from registry line 1481 to 1558."
+
+[row.r9-52.37]
+interface = "interface.9.err-reason-policy-purpose-undisclosed"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1559
+symbol = "policy.purpose_undisclosed"
+evidence = "HumanRefusal::reason still maps PurposeUndisclosed to policy.purpose_undisclosed. The literal moved from registry line 1482 to 1559."
+
+[row.r9-52.38]
+interface = "interface.9.err-reason-policy-intent-malformed"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1560
+symbol = "policy.intent_malformed"
+evidence = "HumanRefusal::reason still maps IntentMalformed to policy.intent_malformed. The literal moved from registry line 1483 to 1560."
+
+[row.r9-52.39]
+interface = "interface.9.err-reason-policy-intent-effect-underivable"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1561
+symbol = "policy.intent_effect_underivable"
+evidence = "HumanRefusal::reason still maps IntentEffectUnderivable to policy.intent_effect_underivable. The literal moved from registry line 1484 to 1561."
+
+[row.r9-52.40]
+interface = "interface.9.cli-layerx-agentd-mode-human-owner"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human_owner_mode.rs"
+line = 24
+symbol = "human-owner"
+evidence = "Mode::parse still matches Some(human-owner) to HumanOwner at line 24; the command selector is unchanged. serve_human_owner still exposes authenticated GET /healthz only, while dependencies_ready now checks NodeRpc connectivity and human authority readiness at lines 51-56."
+
+[row.r9-52.41]
+interface = "interface.9.rs-agentd-idempotency-store"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/idempotency.rs"
+line = 95
+symbol = "Store"
+evidence = "The declaration remains pub struct Store, moved from line 89 to 95. Its current fields are tenant: TenantId, retention: RetentionPolicy and inner: Mutex<Inner>; Inner owns durable storage and records. This is the thread-safe durable idempotency store, not the imported DurableStore alias."
+
+[row.r9-52.42]
+interface = "interface.9.rs-agentd-store-execute-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/idempotency.rs"
+line = 170
+symbol = "execute"
+evidence = "The declaration remains pub fn execute<F>, moved from line 151 to 170. Its current signature is (&self, key: [u8; 32], request_bytes: &[u8], current_height: u64, operation: F) -> Result<Outcome, IdempotencyError>, with F: FnOnce(ProtocolAttempt) -> Result<EconomicResult, String>. It now delegates to execute_with_request_id(RequestId(0), ...) at line 180."
+
+[row.r9-52.43]
+interface = "interface.9.env-layerx-agent-mcp-web-sequencer-public-key"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 483
+symbol = "LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY"
+evidence = "The old parse_digest environment input is absent from main.rs. mcp_web now selects px_getReceiptKeys output through LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX at main.rs:278-296. node_rpc.rs:96 explicitly rejects the old variable; the other mentions are retirement assertions or qualification inventory."
+remaining_refs = 4
+remaining = ["services/agent/crates/layerx-agentd/host-tests/retired_env.rs:13", "services/agent/crates/layerx-agentd/src/node_rpc.rs:96", "services/agent/crates/layerx-agentd/tests/proof_agentd_env.rs:45", "tools/qualification/paxeer-x/mcp_binding_listener.py:41"]
+
+[row.r9-52.44]
+interface = "interface.9.env-layerx-agent-mcp-expiry-sequence"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 522
+symbol = "LAYERX_AGENT_MCP_EXPIRY_SEQUENCE"
+evidence = "The old parse_u64 sequence environment input is absent from main.rs. McpHeights::from_environment now reads LAYERX_AGENT_MCP_EXPIRY_HEIGHT in node_rpc.rs and main.rs:320-337 maps the height into the enrolment sequence field. Remaining mentions explicitly reject the old variable or inventory/assert its retirement."
+remaining_refs = 3
+remaining = ["services/agent/crates/layerx-agentd/src/node_rpc.rs:98", "services/agent/crates/layerx-agentd/tests/proof_agentd_env.rs:44", "tools/qualification/paxeer-x/mcp_binding_listener.py:42"]
+
+[row.r9-52.45]
+interface = "interface.9.env-layerx-agent-mcp-core-sequence"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 525
+symbol = "LAYERX_AGENT_MCP_CORE_SEQUENCE"
+evidence = "The old parse_u64 sequence environment input is absent from main.rs. McpHeights::from_environment now reads LAYERX_AGENT_MCP_CORE_HEIGHT in node_rpc.rs and main.rs:320-337 maps the height into the enrolment sequence field. Remaining mentions explicitly reject the old variable or inventory/assert its retirement."
+remaining_refs = 3
+remaining = ["services/agent/crates/layerx-agentd/src/node_rpc.rs:97", "services/agent/crates/layerx-agentd/tests/proof_agentd_env.rs:43", "tools/qualification/paxeer-x/mcp_binding_listener.py:42"]
+
+[row.r9-52.46]
+interface = "interface.9.env-layerx-agent-human-protocol-version"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/src/node_rpc.rs"
+line = 38
+symbol = "LAYERX_AGENT_HUMAN_PROTOCOL_VERSION"
+evidence = "The required environment read moved from main.rs into node_rpc.rs:38, inside environment::human_protocol_version() -> Result<u16, String>. It parses the value and rejects versions without occupancy support or unequal to STATE_COMMITMENT_PROTOCOL_VERSION; HumanNodeEnvironment calls it at line 58."
+
+[row.r9-52.47]
+interface = "interface.9.env-layerx-agent-human-network-id"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 821
+symbol = "LAYERX_AGENT_HUMAN_NETWORK_ID"
+evidence = "The required LAYERX_AGENT_HUMAN_NETWORK_ID input remains in main.rs, moved from line 698 to 821. It still parses the network id for SessionKeyRegistry::open. NodeRpc HumanNodeEnvironment also parses it as u32 and checks equality with the configured chain id at node_rpc.rs:59-65; the registered input name has not changed."
+
+[row.r9-52.48]
+interface = "interface.9.err-reason-mcp-invocation-conflict"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1086
+symbol = "mcp.invocation_conflict"
+evidence = "mcp_authority_response maps durable McpInvocationError::Conflict to IdempotencyConflict with reason mcp.invocation_conflict. The literal moved from registry line 1204 to 1086."
+
+[row.r9-52.49]
+interface = "interface.9.err-reason-mcp-invocation-unavailable"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1088
+symbol = "mcp.invocation_unavailable"
+evidence = "mcp_authority_response maps other DurableInvocation failures to InternalFault with reason mcp.invocation_unavailable. The literal moved from registry line 1206 to 1088."
+
+[row.r9-52.50]
+interface = "interface.9.err-reason-mcp-awaiting-approval"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1140
+symbol = "mcp.awaiting_approval"
+evidence = "RpcExchangeResponse::write maps BoundaryRefusal::Held to PolicyRefusal with reason mcp.awaiting_approval. The literal moved from registry line 1258 to 1140."
+
+[row.r9-52.51]
+interface = "interface.9.err-reason-mcp-tool-not-served"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1146
+symbol = "mcp.tool_not_served"
+evidence = "RpcExchangeResponse::write maps NotServed or UnsupportedRead to UnavailableCapability with reason mcp.tool_not_served. The literal moved from registry line 1264 to 1146."
+
+[row.r9-52.52]
+interface = "interface.9.err-reason-mcp-malformed"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1152
+symbol = "mcp.malformed"
+evidence = "RpcExchangeResponse::write maps BoundaryRefusal::Malformed to ProtocolIncompatibility with reason mcp.malformed; JSON argument encoding failure also emits it at main.rs:1332. The literal moved from registry line 1270 to 1152."
+
+[row.r9-52.53]
+interface = "interface.9.err-reason-mcp-owner-unavailable"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1307
+symbol = "mcp.owner_unavailable"
+evidence = "agent_rpc_exchange returns UnavailableCapability with reason mcp.owner_unavailable when no binding matches the credential; the later absent owner environment also emits it at main.rs:1393. The literal moved from registry line 1425 to 1307."
+
+[row.r9-52.54]
+interface = "interface.9.err-reason-mcp-tool-absent"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1353
+symbol = "mcp.tool_absent"
+evidence = "agent_rpc_exchange returns PolicyRefusal with reason mcp.tool_absent when the invocation tool is absent from the combined catalogues. The literal moved from registry line 1471 to 1353."
+
+[row.r9-52.55]
+interface = "interface.9.err-http-serve-request-timeout"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+line = 390
+symbol = "request_timeout"
+evidence = "parse_request emits HTTP 408 with error request_timeout when its absolute request deadline expires. The live producer moved from main.rs into this shared host module, imported by main.rs:59-60 as serve_http; this occurrence is executable response code, not a test assertion."
+
+[row.r9-52.56]
+interface = "interface.9.err-http-serve-headers-too-large"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+line = 409
+symbol = "headers_too_large"
+evidence = "parse_request emits HTTP 431 with error headers_too_large when no header terminator fits in HEADER_LIMIT. The live producer moved from main.rs into this shared host module, imported by main.rs:59-60 as serve_http; this occurrence is executable response code, not a test assertion."
+
+[row.r9-52.57]
+interface = "interface.9.err-http-serve-invalid-request"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+line = 412
+symbol = "invalid_request"
+evidence = "parse_request emits HTTP 400 with error invalid_request for invalid UTF-8, invalid request line or malformed body declaration. The live producer moved from main.rs into this shared host module, imported by main.rs:59-60 as serve_http; this occurrence is executable response code, not a test assertion."
+
+[row.r9-52.58]
+interface = "interface.9.err-http-serve-body-too-large"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+line = 423
+symbol = "body_too_large"
+evidence = "parse_request emits HTTP 413 with error body_too_large for a declared nonzero body or bytes after the header terminator. The live producer moved from main.rs into this shared host module, imported by main.rs:59-60 as serve_http; this occurrence is executable response code, not a test assertion."
+
+[row.r9-52.59]
+interface = "interface.9.err-http-serve-unauthorized"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+line = 440
+symbol = "unauthorized"
+evidence = "parse_request emits HTTP 401 with error unauthorized unless exactly one Authorization header matches the configured Bearer credential. The live producer moved from main.rs into this shared host module, imported by main.rs:59-60 as serve_http; this occurrence is executable response code, not a test assertion."
+
+[row.r9-52.60]
+interface = "interface.9.http-agentd-serve-get-healthz"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+line = 454
+symbol = "/healthz"
+evidence = "The bearer-authenticated GET /healthz serve route moved from main.rs into route_request in this shared host module, imported at main.rs:59-60 and started at main.rs:1748. It retains HTTP 200/503 and ready, transport_ready, verified_reads_ready, tenant_writes fields. Readiness now uses NodeRpc::connect_with_ca and readiness_gate at lines 456-458, replacing the registered probe-program balance-read description. The /healthz literal still in main.rs belongs to the separate agent RPC listener."
