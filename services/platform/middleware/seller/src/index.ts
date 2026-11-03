@@ -261,10 +261,7 @@ export class SellerMiddleware<T> {
       ? await idempotencyKey(principal, receiptHint)
       : undefined;
     let stored = fulfillmentKey === undefined ? undefined : await this.#fulfillments.get(fulfillmentKey);
-    if (stored !== undefined && stored.requestDigest !== requestDigest) {
-      return receiptReuseDecision(requirements);
-    }
-    if (stored === undefined) {
+    if (stored === undefined || stored.requestDigest !== requestDigest) {
       const outcome = await this.#authority.settle({
         principal,
         payload,
