@@ -19619,3 +19619,19 @@ symbol = "testTx"
 observed = "The thirty regression fixtures encode their block transactions with the upstream chain's type URLs, which no codec of the repository registers; whether a debug_traceTransaction case reaches the whole-block decode of Backend.BlockByNumber depends on the cases that ran before it, so eleven cases fail or pass with the order of the package."
 assumption = "Decision 2419: isolate the cases, then re-encode the fixtures if the decode is on every case's path."
 severity = "medium"
+
+[finding.1.18.2.1]
+task = "1.18.2"
+file = "tests/programs/test_language_abi.c"
+symbol = "language_inputs"
+observed = "1.18.2 deleted include/layerx/lx_web.h and asked domain 16 only for the three web test files; tests/programs/test_language_abi.c still includes the header and commits a web observation, so the programs language ABI fixture and the terminal v5 corpus that projects it have not compiled since 285bd6769."
+assumption = "Decision 2426: 22.1.12 retires the web case from the harness; the fixture was a consumer the deletion never listed."
+severity = "high"
+
+[finding.9.33.11.1]
+task = "9.33.11"
+file = "services/agent/sdk/typescript/test/gas-station.test.ts"
+symbol = "paymaster_nonce_stream"
+observed = "9.33.11 moved discoverSponsoredNonce to the pending block tag and left the gas-station test's paymaster_nonce_stream expectations at latest; the test starts a local EVM that no qualification environment carried, so the mismatch stayed hidden until 22.9.10 attempt 16."
+assumption = "Decision 2425: the test follows the contract and asserts pending."
+severity = "medium"

@@ -14315,3 +14315,13 @@ fix = "List the files a finding names as copies and compare exactly those; a fix
 title = "A test that starts a toolchain binary names it where the environment can see it"
 symptom = "22.9.10 attempt 15 failed in gas-station.test, which starts anvil, although no command of the task names anvil; the environment installs toolchains from the commands it sees."
 fix = "When a suite starts a binary in a subprocess, the environment that runs the suite is told about the binary by the suite's name; record the dependency with the task."
+
+[gotcha.2899]
+title = "A generator that projects a source file verbatim inherits every retired include"
+symptom = "22.9.18's corpus build failed on a header the kernel retired three days earlier, because program-terminal-v5.py copies tests/programs/test_language_abi.c into its fixture and that file was never ported."
+fix = "When a module is retired, list every file that includes its header, generated projections included, and port or retire each in the same wave."
+
+[gotcha.2900]
+title = "A test that never ran is stale on arrival"
+symptom = "The agent SDK gas-station test asserted the latest block tag five days after the source moved to pending; no environment had the local EVM, so the test never ran and nobody noticed."
+fix = "When a toolchain is first provided, read the test's expectations against the current contract before treating a failure as a regression of the candidate."
