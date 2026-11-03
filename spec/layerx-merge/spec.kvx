@@ -37084,6 +37084,15 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.99.161]
+title = "Refresh the interop and tools-platform workspace lockfiles for the manifest changes since 6378efda0"
+reqs = ["22998.1"]
+touches = ["services/interop/Cargo.lock", "tools/platform/Cargo.lock"]
+tests = []
+verification_contract = "cargo metadata --locked --format-version 1 --manifest-path services/interop/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path tools/platform/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path programs/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/human/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/platform/Cargo.toml >/dev/null"
+do_1 = "services/interop/Cargo.lock (last refreshed by 6378efda0) and tools/platform/Cargo.lock predate the manifest changes of 1ea64199b (task 22.99.49, layerx-client pins getrandom), f7646b1ab (task 22.99.72, layerx-platform-gateway adds layerx-platform-authority, signal-hook and tempfile), 051e6c3e0 (task 13.99.1, layerx-programs-ai-market drops the wasm32-only spin dependency) and b022d25a2 (task 22.97.10, the vendored wasm-instrument drops its binaryen dev-dependency), so cargo metadata --locked and cargo build --locked fail in both workspaces on main (decision 2513; 22.99.160 refreshed the other four workspace locks only)."
+symbols = []
+
 [capability.22.99.160]
 title = "Refresh the four workspace lockfiles for the AI market manifest change"
 reqs = ["22998.1"]
@@ -126999,7 +127008,7 @@ title = "Finalize TypeScript market operations against commit finality"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.14", "22.9.37", "18.1518.1", "11.98.1"]
+requires = ["22.9.14", "22.9.37", "18.1518.1", "11.98.1", "22.99.161"]
 reqs = ["22006.1"]
 capabilities = ["22.9.10"]
 interfaces = []
@@ -130321,6 +130330,37 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.99.161]
+title = "Refresh the interop and tools-platform workspace lockfiles for the manifest changes since 6378efda0"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.99.161"]
+interfaces = []
+do_1 = "services/interop/Cargo.lock (last refreshed by 6378efda0) and tools/platform/Cargo.lock predate the manifest changes of 1ea64199b (task 22.99.49, layerx-client pins getrandom), f7646b1ab (task 22.99.72, layerx-platform-gateway adds layerx-platform-authority, signal-hook and tempfile), 051e6c3e0 (task 13.99.1, layerx-programs-ai-market drops the wasm32-only spin dependency) and b022d25a2 (task 22.97.10, the vendored wasm-instrument drops its binaryen dev-dependency), so cargo metadata --locked and cargo build --locked fail in both workspaces on main (decision 2513; 22.99.160 refreshed the other four workspace locks only)."
+do_2 = "In each of the two workspaces (services/interop, tools/platform) run cargo update --workspace --offline (without --offline only if the offline run cannot resolve); the resulting diff of each Cargo.lock is limited to the dependency lists of the crates whose manifests changed after 6378efda0 and to package entries no other package still lists (plus the new entries the layerx-platform-gateway manifest requires where the lock names that crate). No other lock line changes and no Cargo.toml changes; if cargo wants to change anything else, stop and report the exact diff instead of committing it."
+do_3 = "The two lockfiles are the only changed files of this task. The verify runs cargo metadata --locked for both workspaces and for the four workspaces 22.99.160 refreshed, which fails while any lock is stale."
+do_4 = "Record the before and after lock entries of layerx-client, layerx-programs-ai-market and layerx-platform-gateway for each workspace in the task record."
+symbols = []
+touches = ["services/interop/Cargo.lock", "tools/platform/Cargo.lock"]
+tests = []
+planned_paths = []
+build_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/interop/Cargo.toml >/dev/null"
+verify_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/interop/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path tools/platform/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path programs/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/human/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/platform/Cargo.toml >/dev/null"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 45
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -139227,7 +139267,7 @@ title = "Repair the inventory sweep target layerx-interop-service"
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.23.11"]
+requires = ["22.23.11", "22.99.161"]
 reqs = ["22998.1"]
 capabilities = ["22.99.64"]
 interfaces = []
@@ -139252,6 +139292,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1 (continue): the relay tests fail with a malformed receipt because the exact receipt field set of layerx-client (sequencer.rs:902) omits paymentDenom; task 22.23.11 (required) changes it. Rerun the recorded command after it lands and repair whatever remains inside the crate."
+do_5 = "Attempt 2 (relaunch after 22.99.161): the locked build failed only on the stale services/interop lock, which 22.99.161 refreshes; this task now requires it. Repair the interop service test target as specified once the lock is current."
 
 [task.22.99.63]
 title = "Repair the inventory sweep target layerx-gas-station"
@@ -141552,7 +141593,7 @@ do_2 = "The program families read the same facts from the EvmPrepared: services/
 do_3 = "The prepare lifecycle (services/agent/crates/layerx-agentd/src/prepare/expiry.rs register_inner :99-127 reading not_after and payload_hash) and services/agent/crates/layerx-agentd/src/session_control.rs (two envelope reads) read the same mapping, so PreparationLifecycle::register takes &EvmPrepared from this task on; the callers in services/agent/crates/layerx-agentd/src/human_runtime.rs that pass a legacy record to register, register_authorized or the carrier bind pass the EvmPrepared they hold beside it (task 9.35.20 removes the legacy record itself)."
 do_4 = "The verify runs the crate's lib tests and the native_send_preview_evm, program_ops_layerxprograms, fee_projection_program_state and approval_ops targets."
 symbols = ["NativeEffectApprovalCarrier", "verify_call_binding"]
-touches = ["services/agent/crates/layerx-agentd/src/approval/native_effect.rs", "services/agent/crates/layerx-agentd/src/approval/native_program.rs", "services/agent/crates/layerx-agentd/src/approval/program_requirement.rs", "services/agent/crates/layerx-agentd/src/approval/native_program_presentation.rs", "services/agent/crates/layerx-agentd/src/policy/native_program.rs", "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs", "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs", "services/agent/crates/layerx-agentd/src/prepare/expiry.rs", "services/agent/crates/layerx-agentd/src/session_control.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs", "services/agent/crates/layerx-agentd/tests/w7_core_time.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/approval/native_effect.rs", "services/agent/crates/layerx-agentd/src/approval/native_program.rs", "services/agent/crates/layerx-agentd/src/approval/program_requirement.rs", "services/agent/crates/layerx-agentd/src/approval/native_program_presentation.rs", "services/agent/crates/layerx-agentd/src/policy/native_program.rs", "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs", "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs", "services/agent/crates/layerx-agentd/src/prepare/expiry.rs", "services/agent/crates/layerx-agentd/src/session_control.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs", "services/agent/crates/layerx-agentd/tests/w7_core_time.rs", "services/agent/crates/layerx-agentd/tests/prepare_expiry.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/program_ops_layerxprograms.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -141573,6 +141614,7 @@ do_6 = "tests/budget_durable_limits.rs line 488 passes prepared: &self.prepared 
 do_7 = "Attempt 4 (continue): the test build fails in tests/w7_core_time.rs (lines 245, 263, 465) because its prepared() helper (line 108) returns prepare::Prepared while LifecycleRegistry register and the permit register_preparation now take the call-bound prepare::evm::Prepared (task 9.35.17). Migrate the helper and its callers to the call-bound preparation (construct it the way tests/approval.rs or the native_send_preview_evm test does after 9.35.17) without weakening any assertion; the file is now inside the task's paths."
 do_8 = "Attempt 5 (continue after 22.99.158): the build failed only on the stale services/agent lock (gotcha 2954); requalify the attempt-5 tree once 22.99.158 is on main. If the migration of w7_core_time to the call-bound preparation then fails a test, repair it inside the task's paths."
 do_9 = "Attempt 6 (continue after 22.99.159): the build failed only because tests/fixtures/authority/provider-subject/consent.activity was absent on main (gotcha 2956); 22.99.159 restores it and this task now requires it. Continue the attempt-6 tree unchanged and run the gates."
+do_10 = "Attempt 7 (continue): services/agent/crates/layerx-agentd/tests/prepare_expiry.rs is now in the paths. Its expiry registry callers at lines 164, 170 and 198 pass the legacy prepare::Prepared to register, which since this task takes the call-bound prepare::evm::Prepared; migrate those callers the way w7_core_time.rs was migrated (attempt 4 ruling), keeping the assertions on expiry behaviour unchanged, so cargo build --tests passes and the verify runs. Report any further caller outside the paths with file and line instead of editing it."
 
 [task.9.35.18]
 title = "Hold approvals over the unsigned EIP-1559 call and replay them through bind_call"
@@ -142472,7 +142514,7 @@ do_3 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fail
 
 [task.22.9.18]
 title = "Reconcile the agent API schema, daemon freshness, SDK corpus and MCP schema tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.16", "22.9.24", "22.9.25", "22.9.33", "22.1.11", "22.1.12", "1.18.5", "22.95.11", "22.99.159", "22.99.160"]
@@ -204403,6 +204445,7 @@ do_4 = "Attempt 1 (continue): decision 2504. verify_cmd now runs the same file l
 do_5 = "Attempt 2 (continue): the nine remaining guard failures lie in the planned paths and are repaired here, not inherited: test_no_claim_or_deposit_root_callers flags tests/codec/lxp_test_bridge_claims_retired.c, itself a retired-use guard, so that file is removed or its symbol mentions move behind the guard's allow-list; test_kernel_rule_builds_and_runs_codec_primitives, test_makefile_chain_domain_is_merged_chain_golden, test_replay_crossarch_retired, test_checkpoint_and_library_suites_retired and test_state_withdraw_web_retired are repaired in the kernel tree; the two beta-withdrawal genesis runs fail with bootstrap: public testnet genesis requires seven configured modules, so the bootstrap input gains the seventh module or, when the bootstrap source lies outside the planned paths, its path is reported. The bridge-credit guard stays deselected (decision 2438)."
 do_6 = "Attempt 3 (continue): services/platform/hosted/node/bootstrap.sh is now in the paths. genesis-modules.conf lists six modules since the registry reconciliation of task 22.1.9 (budget, escrow, perps, service, spot, stream) while bootstrap.sh:334 still demands seven: make the count check compare against the module list the registry defines (the same list tests/test_beta_withdrawal_genesis.py takes from the genesis preparation) instead of a literal, so the two public-bootstrap genesis runs pass. The locked agent build is repaired by 22.99.158, which this task now requires; keep every guard repair of attempt 3."
 do_7 = "Attempt 4 (continue): keep every guard repair and the bootstrap module-count change of attempt 4. Revert the generator move: tests/vectors/codec/generate.py stays at its path with its original content and the Makefile recipe agent-prepare-codec-corpus runs python3 tests/vectors/codec/generate.py again, because services/agent/crates/layerx-types/tests/vectors.rs:19-31 copies that path into the clean checkout and tests/ci/test_agent_codec_corpus.py fails on the move; where test_replay_crossarch_retired flags the generator's use of the replay fixture module, add tests/vectors to the exclude list of that guard in tests/ci/test_retired_replay_crossarch.py (a codec generator like those under tests/codec) rather than moving the file. The public-bootstrap genesis case starts build/bin/layerxd, which cmd/layerxd no longer provides on main (tasks 5.50.1-5.50.7, 16.9.4) and which no root Makefile rule builds: record test_public_bootstrap_and_real_builder_bind_v3_and_native_authority under producer_input_tests naming the retired binary, keep test_explicit_price_preserves_records_and_existing_fee_components running, and note in the record that services/platform/hosted/node/bootstrap.sh:82 and :444 still resolve layerxd. The verify deselects that case."
+do_8 = "Attempt 5 (requalify): the verify passed on the commit the qualification run recorded but the final tree differs from it. Make no further edit after the qualification run; the attempt-5 tree is requalified as it stands."
 
 [task.22.99.86]
 title = "Re-sweep the not-run targets of the go-precompiles inventory sweep"

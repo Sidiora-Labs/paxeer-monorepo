@@ -20803,3 +20803,27 @@ symbol = "TestAiMarketTransferAuthorityReceipt"
 observed = "Attempt 7: the build passes (make paxd-native-libs, go build ./rpc/..., SDK build); TestAiMarketTransferAuthorityReceipt fails at sequencer_receipt_vectors_test.go:707 (from :1385): the AI market CREATE call reverts with LXP_VERSION_UNSUPPORTED. The test assembles the create record and the 307-byte policy by hand (lines 688-700) and packs envelope(0x0101, 1, create); task 13.99.1 (051e6c3e0, required by this task) rewrote the guest codec in programs/crates/layerx-programs-ai-market so that record fields read as u64 before are read as nonzero big-endian versions (the version reader of reputation_codec.rs, the config version of the create record), and the guest refuses the hand-built bytes. Earlier attempts never reached this call (attempt 5 failed on the guest size that 13.99.1 fixed)."
 assumption = "The guest codec is the producer contract: the create fixture of the test is rebuilt from the record layout the guest decodes after 13.99.1, and the guest is not changed."
 severity = "medium"
+
+[finding.22.99.64.2]
+task = "22.99.64"
+file = "services/interop/Cargo.lock"
+symbol = "layerx-interop-service"
+observed = "Attempt 2: cargo build --locked in services/interop fails on main because services/interop/Cargo.lock (last refreshed by 6378efda0) predates the manifest changes of 1ea64199b (layerx-client), f7646b1ab (layerx-platform-gateway), 051e6c3e0 (layerx-programs-ai-market) and b022d25a2 (the vendored wasm-instrument); tools/platform/Cargo.lock is stale for the same manifests; 22.99.160 refreshed only the programs, services/agent, services/human and services/platform locks. No change inside the task's paths was made."
+assumption = "Repaired by 22.99.161; 22.99.64 and 22.9.10 require it (decision 2513)."
+severity = "high"
+
+[finding.9.35.19.4]
+task = "9.35.19"
+file = "services/agent/crates/layerx-agentd/tests/prepare_expiry.rs"
+symbol = "layerx-agentd"
+observed = "Attempt 7: the test build fails with E0308 at tests/prepare_expiry.rs:164, :170 and :198 because the expiry registry callers there pass prepare::Prepared while src/prepare/expiry.rs:71 register now takes the call-bound prepare::evm::Prepared the task introduced; the file was outside the task's paths, so the migration stopped."
+assumption = "tests/prepare_expiry.rs joins the paths and its callers follow the call-bound preparation type; continue the attempt-7 tree."
+severity = "medium"
+
+[finding.22.99.92.6]
+task = "22.99.92"
+file = "spec/layerx-merge/programme/sweeps/repairs/c-kernel-make.5.kvx"
+symbol = "test-tests-python"
+observed = "Attempt 5: the verify passed (102 tests and 9 subtests, two declared deselections, record written) at the commit the qualification run recorded, but the final tree differs from that commit (the repair record was edited after the qualification run), so the attempt was not published."
+assumption = "Requalify the attempt-5 tree as it stands."
+severity = "low"
