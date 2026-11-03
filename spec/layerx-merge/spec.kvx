@@ -137460,7 +137460,7 @@ do_3 = "Attempt 1 (continue): decision 2501, gotcha 2944. The real-workload test
 
 [task.11.98.1]
 title = "Record signed transaction bytes in the exact web-search payment fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.68"]
@@ -138236,7 +138236,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.55]
 title = "Repair the inventory sweep target layerx-human-kms"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -147082,7 +147082,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.127]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/feeds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147113,7 +147113,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.126]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147206,7 +147206,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.123]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/auth"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
