@@ -10,7 +10,16 @@ import (
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 )
+
+type notAdmittedError struct {
+	error
+	cause error
+}
+
+func (e notAdmittedError) Unwrap() error { return e.error }
+func (e notAdmittedError) Cause() error  { return e.cause }
 
 type admissionKey struct{}
 
@@ -75,8 +84,17 @@ func (s *sequential) admit(tx sdk.Tx, txBytes []byte) error {
 	chains := used.chains
 	if chainID != nil {
 		id, gas, bytes, active, known := s.host.DomainAllowance(s.open.ctx, chainID)
-		if !known || !active {
-			return fmt.Errorf("%w: chain %s: %w", ErrNotAdmitted, chainID, chainstypes.ErrDomainNotActive)
+		if !known {
+			return notAdmittedError{
+				error: fmt.Errorf("%w: chain %s: %w", ErrNotAdmitted, chainID, sdkerrors.ErrInvalidChainID),
+				cause: sdkerrors.ErrInvalidChainID,
+			}
+		}
+		if !active {
+			return notAdmittedError{
+				error: fmt.Errorf("%w: chain %s: %w", ErrNotAdmitted, chainID, chainstypes.ErrDomainNotActive),
+				cause: chainstypes.ErrDomainNotActive,
+			}
 		}
 		if id != 0 {
 			chain := chains[id]
