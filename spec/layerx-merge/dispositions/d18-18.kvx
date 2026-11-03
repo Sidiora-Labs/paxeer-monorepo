@@ -1,0 +1,46 @@
+# Main revision: 52c0e2d626dc404116922a63a8b0427845ff254f
+
+[disposition.18.1471.1.2]
+finding = "18.1471.1.2"
+status = "resolved"
+evidence = "On main, node/app.go:1245 registers the anchor retirement message service independently of the module lifecycle, and modules/layerxanchor/proof_retirement_test.go:39 requires the application route to exist. Commit 143889db56bf587948feec0b3cdf968deaa45f71 landed this registration and the proof at modules/layerxanchor/proof_retirement_test.go:77 that both message routing and governance return ErrModuleRetired without state or event changes after retirement."
+
+[disposition.18.1508.1.1]
+finding = "18.1508.1.1"
+status = "resolved"
+evidence = "On main, services/launchpad/api/internal/rest/production_integration_test.go:71 reads the tracked package fixture services/launchpad/api/internal/rest/testdata/contracts/v2/examples.json, and line 90 validates every frozen stats response against StatsResponse. Commit 30e461072 landed these package-local fixtures for task 18.1508.2."
+
+[disposition.18.1043.2.1]
+finding = "18.1043.2.1"
+status = "resolved"
+evidence = "On main, go.mod:293 selects the in-repository geth fork, core/deps/geth/go.mod:64 requires automaxprocs v1.5.2, and go.sum:2107 carries that version's go.mod checksum. Commit 64ec3815374b5bb3b63b1015525cf18100e0b97d reconciled the root manifest and checksums with that graph, removing the obsolete root automaxprocs v1.6.0 requirement."
+
+[disposition.18.1456.1.1]
+finding = "18.1456.1.1"
+status = "resolved"
+evidence = "On main, sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:1029 declares AgentModels.VerificationStatus with state, rung, requested, achieved and reason fields, and its constructor validates the achieved, unverified, pending and absent shapes. Commit c5867b3753e6284fcd8f40e70a26376320726274 landed the generated declaration and its generator for task 18.1503.1."
+
+[disposition.18.1162.1.4]
+finding = "18.1162.1.4"
+status = "resolved"
+evidence = "On main, services/interop/crates/layerx-x402/tests/vectors.rs:290 constructs offers with LAYERX_NETWORK, whose value is eip155:125 at services/interop/crates/layerx-x402/src/model.rs:19, and services/interop/specs/conformance/x402/payment-payload.json:12 uses that network for the valid payload. Commit 39e7ecadf landed the vector and payload alignment for task 22.95.10."
+
+[disposition.18.1528.1.1]
+finding = "18.1528.1.1"
+status = "resolved"
+evidence = "On main, services/launchpad/livestream/go.mod:19 includes the completed indirect dependency graph, including fastcache, pebble and protobuf, alongside the direct dependencies and local SDK replacements. Commit 5a448fda8 landed the manifest and checksum repair; services/launchpad/security/supplychain/test_go_checksums.py:62 retains readonly dependency listing and module verification for every one of the seventeen modules and checks that their manifests and checksums remain unchanged."
+
+[disposition.18.1574.1.1]
+finding = "18.1574.1.1"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json:87 holds sequencer.cases with six V1/V2 receipts, including the Programs call at line 304. The explorer receipt test at services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs:146 and the signature controller test at services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs:46 derive the accepted count from that list and retain per-case decoding and signature assertions, as landed by 6e6cb10a92fcdecfc8070aa45bce0ab2167044af."
+
+[disposition.18.1573.1.1]
+finding = "18.1573.1.1"
+status = "resolved"
+evidence = "On main, services/interop/deploy/gateway/render.py:950 builds the root fixture through beta_roots with one key for every BETA_AP2_USE_CASES entry, then validates all external root bindings at line 975 before the self-test consumes them. Commit 6ec56fedc landed this fixture producer and the split-suite reader at services/interop/deploy/gateway/render.py:1139, which includes both vectors.rs and sequenced_vectors.rs."
+
+[disposition.18.1568.1.1]
+finding = "18.1568.1.1"
+status = "resolved"
+evidence = "On main, sdk/platform/generators/src/main.rs:1544 renders the JVM pom with Jackson 2.18.11 and Bouncy Castle 1.85 at lines 1570 and 1571, matching sdk/platform/jvm/pom.xml:26 and line 27. Commit a1693c33608e92fea70f2c493cf2d894c06856de landed these dependency floors in the generator for task 18.1568.1."
