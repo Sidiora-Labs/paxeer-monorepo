@@ -118183,7 +118183,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.27]
 title = "Decode the xweb program request event in the wallet web-data module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -118213,7 +118213,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.80]
 title = "Inventory the platform examples packages again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -118306,7 +118306,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.77]
 title = "Inventory the agent sdk packages again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129605,7 +129605,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.58]
 title = "Inventory every test run of the services/explorer/services/smart-contract-verifier/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129853,7 +129853,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.50]
 title = "Inventory every build target of the services/explorer/services/smart-contract-verifier/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129915,7 +129915,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.48]
 title = "Inventory every build target of the tools/platform/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130070,7 +130070,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.43]
 title = "Inventory every build target of the programs/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190359,7 +190359,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.64]
 title = "Inventory every Go package under cmd/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
