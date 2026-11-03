@@ -48,7 +48,8 @@ pub fn prune_candidate(
         .ok_or(F08_NO_PRUNABLE_MEMBER)
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Health {
     pub roster_evaluators: u8,
     pub eligible_evaluators: u8,
@@ -87,7 +88,8 @@ pub fn require_quorum(table: &AdmissionTable) -> CodecResult<()> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Rollover {
     pub epoch: u64,
     pub removed: u8,
@@ -217,7 +219,8 @@ pub const ROLLOVER_SCRATCH_BYTES: usize =
     TABLE_MAX_BYTES + Section::IdentityRoster.payload_cap() + Section::Control.payload_cap();
 
 /// `RosterOpened` summary of one complete rollover over the shared state value.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RosterOpened {
     pub rollover: Rollover,
     pub previous: Option<u64>,

@@ -1,9 +1,9 @@
 [sweep.python-compile]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "python3 -m compileall -q -f TARGET"
 selection = "TARGET expands to the tracked Python file operands in each top-level directory, excluding core/deps, sdk/contrib and every node_modules directory."
 bytecode = "PYTHONPYCACHEPREFIX redirects compiler output to private evidence storage outside the repository."
-files_total = 1199
+files_total = 1217
 targets_total = 13
 targets_passed = 13
 targets_failed = 0
@@ -61,28 +61,28 @@ files_total = 23
 target = "sdk"
 result = "passed"
 exit_code = 0
-files_total = 171
+files_total = 172
 
 [target.python-compile.10]
 target = "services"
 result = "passed"
 exit_code = 0
-files_total = 213
+files_total = 217
 
 [target.python-compile.11]
 target = "spec"
 result = "passed"
 exit_code = 0
-files_total = 76
+files_total = 80
 
 [target.python-compile.12]
 target = "tests"
 result = "passed"
 exit_code = 0
-files_total = 178
+files_total = 183
 
 [target.python-compile.13]
 target = "tools"
 result = "passed"
 exit_code = 0
-files_total = 401
+files_total = 405
