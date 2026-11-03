@@ -131922,7 +131922,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1511.1]
 title = "Issue #1511: Restore PAY2's tracked standalone dependency lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -193025,7 +193025,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1513.1]
 title = "Issue #1513: Invalidate native archives when source membership changes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -193054,7 +193054,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1512.1]
 title = "Issue #1512: Align the retained log test with admitted append kinds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -227427,7 +227427,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1516.1]
 title = "Issue #1516: Preserve the stored request digest in the FastAPI example repository"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
