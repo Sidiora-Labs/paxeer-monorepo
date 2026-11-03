@@ -125,7 +125,10 @@ def main():
     keys = PRIVATE_KEYS if args.keys_file is None else [int(value, 16) for value in json.loads(args.keys_file.read_text())]
     output.mkdir(parents=True, exist_ok=True)
     settlement = json.loads(args.settlement.read_text())
+    assert next(iter(settlement)) == "schema"
     assert settlement["schema"] == "layerx/checkpoint-settlement/1"
+    assert settlement["checkpoint_certificate_domain"] == "LXP/v2/checkpoint-certificate"
+    assert settlement["guarantor_attestation_domain"] == "LXP/v2/guarantor-attestation"
     domain = settlement["settlement_domains"][args.domain]
     protocol_version = domain.get("protocol_version", settlement["protocol_version"])
     assert protocol_version in (2, 3)

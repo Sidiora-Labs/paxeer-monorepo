@@ -39,7 +39,7 @@ use layerx_agentd::read::{
 use layerx_agentd::session::{SessionId, SessionRegistry};
 use layerx_agentd::session_keys::SessionKeyRegistry;
 use layerx_agentd::store::{Store, TenantId};
-use layerx_client::lni::transport::Limits;
+use layerx_client::frame::transport::Limits;
 type PxEndpoint = layerx_client::px::PxEndpoint;
 type SequencerEndpoint = layerx_client::sequencer::SequencerEndpoint;
 use layerx_programs::{
@@ -464,7 +464,7 @@ fn publish_mcp_binding(
     Ok(republish)
 }
 
-fn human_lni_limits(deadline: Duration) -> Result<Limits, String> {
+fn human_frame_limits(deadline: Duration) -> Result<Limits, String> {
     Limits {
         maximum_frame_bytes: required("LAYERX_AGENT_HUMAN_MAX_FRAME_BYTES")?
             .parse()
@@ -481,7 +481,7 @@ fn human_lni_limits(deadline: Duration) -> Result<Limits, String> {
         deadline,
     }
     .validate()
-    .map_err(|_| "human LNI limits are invalid".to_owned())
+    .map_err(|_| "human frame limits are invalid".to_owned())
 }
 
 fn connect_human_node() -> Result<SequencerEndpoint, String> {
@@ -739,7 +739,7 @@ fn start_shared_owner(
         );
     }
     let deadline = Duration::from_millis(parse_u64("LAYERX_AGENT_HUMAN_DEADLINE_MS")?);
-    let human_limits = human_lni_limits(deadline)?;
+    let human_limits = human_frame_limits(deadline)?;
     let store_path = PathBuf::from(required("LAYERX_AGENT_HUMAN_STORE")?);
     let socket_path = PathBuf::from(required("LAYERX_AGENT_HUMAN_SOCKET")?);
     let session_key_root = PathBuf::from(required("LAYERX_AGENT_HUMAN_SESSION_KEY_ROOT")?);

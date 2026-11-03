@@ -14,7 +14,8 @@ impl RetainedNativeOwner {
     pub(super) fn decode(
         canonical: Vec<u8>,
         registry: &ModuleRegistry,
-        node: &layerx_client::lni::handshake::NodeInfo,
+        network_id: u32,
+        protocol_version: u16,
         action: [u8; 32],
         identifier: [u8; 32],
     ) -> Result<Option<Self>, HumanOperationError> {
@@ -23,8 +24,8 @@ impl RetainedNativeOwner {
         if encode_signed(&activity).map_err(|_| HumanOperationError::Refused)? != canonical
             || activity_id(&activity).map_err(|_| HumanOperationError::Refused)? != identifier
             || activity.idempotency_key() != action
-            || activity.network_id() != node.network_id
-            || activity.protocol_version() != node.protocol_version
+            || activity.network_id() != network_id
+            || activity.protocol_version() != protocol_version
         {
             return Err(HumanOperationError::Refused);
         }
