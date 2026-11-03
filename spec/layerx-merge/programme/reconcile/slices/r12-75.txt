@@ -1,0 +1,3 @@
+interface.12.ts-app-use-module-send
+interface.12.ts-app-fee-selection
+interface.12.ts-app-use-fee-selection

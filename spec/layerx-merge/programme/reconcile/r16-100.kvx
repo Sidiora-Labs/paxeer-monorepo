@@ -1,0 +1,567 @@
+[reconcile.r16-100]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r16-100.1]
+interface = "interface.16.mk-build"
+verdict = "served"
+path = "Makefile"
+line = 181
+symbol = "build:"
+evidence = "Declaration remains build: $(LIBRARY) at line 181. Additional rules now add layerx-genesis-build (1027) and layerx-module-registry (3139); retired layerx-guarantor and layerx-handover dependencies are absent."
+
+[row.r16-100.2]
+interface = "interface.16.mk-test"
+verdict = "served"
+path = "Makefile"
+line = 273
+symbol = "test:"
+evidence = "Declaration now starts test: test-result test-protocol test-state-commitment-transition; retired DA, program-artifact, daemon-maintenance and daemon-LNI prerequisites were removed. Further rules add test-program-call-builders (3158) and test-owner-rotation (3168)."
+
+[row.r16-100.3]
+interface = "interface.16.mk-test-oracle-intake"
+verdict = "served"
+path = "Makefile"
+line = 737
+symbol = "test-oracle-intake:"
+evidence = "Declaration remains test-oracle-intake: $(BUILD_DIR)/tests/test_oracle_intake; recipe now runs the intake binary and tests/ledger/lxp_check_sole_writer.sh, with the retired tests/oracle/lx_oracle_adapter_isolation.sh invocation removed."
+
+[row.r16-100.4]
+interface = "interface.16.mk-test-oracle-bounds"
+verdict = "served"
+path = "Makefile"
+line = 748
+symbol = "test-oracle-bounds:"
+evidence = "Declaration remains test-oracle-bounds: $(BUILD_DIR)/tests/test_oracle_checks; recipe now runs only that binary, with the retired tests/oracle/lx_oracle_adapter_isolation.sh invocation removed."
+
+[row.r16-100.5]
+interface = "interface.16.mk-test-oracle-failclosed"
+verdict = "served"
+path = "Makefile"
+line = 758
+symbol = "test-oracle-failclosed:"
+evidence = "Declaration remains test-oracle-failclosed: $(BUILD_DIR)/tests/test_oracle_halt; recipe now runs only that binary, with the retired tests/oracle/lx_oracle_adapter_isolation.sh invocation removed."
+
+[row.r16-100.6]
+interface = "interface.16.mk-test-batch-seal"
+verdict = "retired"
+path = "Makefile"
+line = 1013
+symbol = "test-batch-seal:"
+evidence = "The registered Make rule literal test-batch-seal: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave2.py:26"]
+
+[row.r16-100.7]
+interface = "interface.16.mk-test-batch-distribute"
+verdict = "retired"
+path = "Makefile"
+line = 1021
+symbol = "test-batch-distribute:"
+evidence = "The registered Make rule literal test-batch-distribute: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave2.py:27"]
+
+[row.r16-100.8]
+interface = "interface.16.mk-test-replica"
+verdict = "retired"
+path = "Makefile"
+line = 1045
+symbol = "test-replica:"
+evidence = "The registered Make rule literal test-replica: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave2.py:23"]
+
+[row.r16-100.9]
+interface = "interface.16.mk-test-replay"
+verdict = "retired"
+path = "Makefile"
+line = 1053
+symbol = "test-replay:"
+evidence = "The registered Make rule literal test-replay: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave2.py:24"]
+
+[row.r16-100.10]
+interface = "interface.16.mk-test-replica-divergence"
+verdict = "retired"
+path = "Makefile"
+line = 1063
+symbol = "test-replica-divergence:"
+evidence = "The registered Make rule literal test-replica-divergence: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave2.py:25"]
+
+[row.r16-100.11]
+interface = "interface.16.mk-test-history"
+verdict = "retired"
+path = "Makefile"
+line = 1081
+symbol = "test-history:"
+evidence = "The registered Make rule literal test-history: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 2
+remaining = ["migrations/README.md:16", "tools/ci/tests/test_makefile_wave5.py:24"]
+
+[row.r16-100.12]
+interface = "interface.16.mk-test-replay-crossarch"
+verdict = "retired"
+path = "Makefile"
+line = 1084
+symbol = "test-replay-crossarch:"
+evidence = "The registered Make rule literal test-replay-crossarch: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave6.py:59"]
+
+[row.r16-100.13]
+interface = "interface.16.mk-test-equivocation"
+verdict = "retired"
+path = "Makefile"
+line = 1120
+symbol = "test-equivocation:"
+evidence = "The registered Make rule literal test-equivocation: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave5.py:25"]
+
+[row.r16-100.14]
+interface = "interface.16.mk-test-da"
+verdict = "retired"
+path = "Makefile"
+line = 1137
+symbol = "test-da:"
+evidence = "The registered Make rule literal test-da: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave2.py:17"]
+
+[row.r16-100.15]
+interface = "interface.16.mk-test-da-possession"
+verdict = "retired"
+path = "Makefile"
+line = 1145
+symbol = "test-da-possession:"
+evidence = "The registered Make rule literal test-da-possession: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave2.py:18"]
+
+[row.r16-100.16]
+interface = "interface.16.mk-test-da-verified"
+verdict = "retired"
+path = "Makefile"
+line = 1153
+symbol = "test-da-verified:"
+evidence = "The registered Make rule literal test-da-verified: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave2.py:19"]
+
+[row.r16-100.17]
+interface = "interface.16.mk-test-da-retrieval"
+verdict = "retired"
+path = "Makefile"
+line = 1164
+symbol = "test-da-retrieval:"
+evidence = "The registered Make rule literal test-da-retrieval: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave2.py:20"]
+
+[row.r16-100.18]
+interface = "interface.16.mk-test-da-challenge"
+verdict = "retired"
+path = "Makefile"
+line = 1172
+symbol = "test-da-challenge:"
+evidence = "The registered Make rule literal test-da-challenge: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave2.py:21"]
+
+[row.r16-100.19]
+interface = "interface.16.mk-test-da-unavailable"
+verdict = "retired"
+path = "Makefile"
+line = 1180
+symbol = "test-da-unavailable:"
+evidence = "The registered Make rule literal test-da-unavailable: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave2.py:22"]
+
+[row.r16-100.20]
+interface = "interface.16.mk-test-wave-12"
+verdict = "served"
+path = "Makefile"
+line = 938
+symbol = "test-wave-12:"
+evidence = "Declaration now reads test-wave-12: test-governance test-governance-activation test-governance-emergency test-fees test-metering test-fee-replay across two lines; retired guarantor, equivocation and DA prerequisites were removed."
+
+[row.r16-100.21]
+interface = "interface.16.mk-builddir-contracts-paxeer-built"
+verdict = "retired"
+path = "Makefile"
+line = 1266
+symbol = "$(BUILD_DIR)/contracts/.paxeer-built:"
+evidence = "The registered Make rule literal $(BUILD_DIR)/contracts/.paxeer-built: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 0
+remaining = []
+
+[row.r16-100.22]
+interface = "interface.16.mk-test-paxeer"
+verdict = "retired"
+path = "Makefile"
+line = 1272
+symbol = "test-paxeer:"
+evidence = "The registered Make rule literal test-paxeer: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_makefile_wave4.py:18", "tools/platform/cli/src/workspace.rs:285"]
+
+[row.r16-100.23]
+interface = "interface.16.mk-test-paxeer-bond"
+verdict = "retired"
+path = "Makefile"
+line = 1281
+symbol = "test-paxeer-bond:"
+evidence = "The registered Make rule literal test-paxeer-bond: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 3
+remaining = ["tools/ci/tests/test_makefile_wave4.py:50", "tools/ci/tests/test_makefile_wave6.py:60", "tools/platform/cli/src/workspace.rs:286"]
+
+[row.r16-100.24]
+interface = "interface.16.mk-test-bridge-deposit"
+verdict = "served"
+path = "Makefile"
+line = 947
+symbol = "test-bridge-deposit:"
+evidence = "Declaration remains test-bridge-deposit: $(BUILD_DIR)/tests/test_bridge_deposit test-contracts at line 947, with the recipe executing test_bridge_deposit. Its registered prerequisite signature is unchanged; only the recorded location drifted from 1291."
+
+[row.r16-100.25]
+interface = "interface.16.mk-test-gateway-receive"
+verdict = "retired"
+path = "Makefile"
+line = 1372
+symbol = "test-gateway-receive:"
+evidence = "The registered Make rule literal test-gateway-receive: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_makefile_wave2.py:28", "tools/platform/cli/src/workspace.rs:293"]
+
+[row.r16-100.26]
+interface = "interface.16.mk-layerxd"
+verdict = "retired"
+path = "Makefile"
+line = 1430
+symbol = "layerxd:"
+evidence = "The registered Make rule literal layerxd: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location. The layerxd: matches in real_authority.rs are Rust parameters, not Make rules."
+remaining_refs = 90
+remaining = ["CITATION.cff:7", "CODEMAP.md:10", "CONTRIBUTING.md:18", "GOTCHA.kvx:1121", "README.md:47", "RELEASE.md:31", "cmd/retirement/test_kernel_symbol_consumers_retired.py:30", "cmd/retirement/test_layerxd_artifacts.py:7", "cmd/retirement/test_layerxd_batch_wal.py:7", "cmd/retirement/test_layerxd_core.py:7", "cmd/retirement/test_layerxd_evidence.py:7", "cmd/retirement/test_layerxd_finality.py:7", "cmd/retirement/test_layerxd_lni.py:7", "cmd/retirement/test_layerxd_replicas.py:7", "consensus/README.md:16", "docker/kernel/init.sh:14", "docker/platform-node/Dockerfile:12", "layerxproof/codec/checkpoint.go:104", "migrations/README.md:3", "modules/launchpad/client/cli/proof_module_cli_test.go:1", "modules/launchpad/client/cli/query_airdrop.go:16", "modules/launchpad/client/cli/query_feeright.go:16", "modules/launchpad/client/cli/query_market.go:13", "modules/launchpad/client/cli/query_markets.go:44", "modules/launchpad/client/cli/query_params.go:35", "modules/launchpad/client/cli/query_surface.go:57", "node/sequencer/completion_gate_test.go:83", "scripts/ci/xweb-workflow-check.sh:71", "scripts/qualification/paxeer-x/program-http-producer.py:29", "sdk/README.md:3", "services/agent/README.md:4", "services/agent/crates/layerx-agentd/src/read/program_node.rs:1", "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:358", "services/agent/tests/parity/tests/arguments.rs:47", "services/agent/tests/qualify/tests/boundary_gate.rs:22", "services/agent/tests/qualify/tests/real_node_script.rs:11", "services/interop/PORTABILITY.md:20", "services/platform/hosted/authority/tests/fixtures/real-program-deploy-receipt.json:2", "services/platform/hosted/human/provision.sh:230", "services/platform/hosted/human/test_material.py:384", "services/platform/hosted/node/bootstrap.sh:6", "services/platform/hosted/node/deployment.yaml:147", "services/platform/hosted/node/sequencer-env.sh:2", "services/platform/hosted/node/supervisor.sh:13", "services/platform/hosted/node/tests/genesis-modules-test.py:32", "services/platform/hosted/node/tests/node-topology-test.py:142", "services/platform/hosted/node/tests/sequencer-seed-test.py:107", "services/platform/hosted/node/tests/signer-test.py:607", "services/platform/hosted/tests/beta-cluster.sh:901", "services/platform/hosted/tests/test_platform_make_targets.py:9", "services/platform/hosted/tests/test_retired_core_kernel_tests.py:23", "tests/bridge/retired/test_retired_daemon_consumers.py:31", "tests/daemon/test_protocol_owner_binds_state_feed.py:9", "tests/daemon/test_serve_commits_programs_call.py:113", "tests/daemon/test_serve_startup_without_anchor_bind.py:9", "tests/explorer/test_paxeer_x_data_boundary_cases.py:70", "tests/explorer/test_paxeer_x_data_boundary_retired_cases.py:50", "tests/test_beta_withdrawal_genesis.py:65", "tools/bringup/check-live.sh:2815", "tools/bringup/check-live.test.sh:1729", "tools/bringup/kernel-genesis.sh:221", "tools/bringup/tests/foundation-artifacts.py:17", "tools/bringup/tests/paxeer-x-fixture-foundation.py:325", "tools/bringup/tests/paxeer-x-runtime-contract.py:1730", "tools/ci/tests/test_completion_gate.py:70", "tools/ci/tests/test_human_workflow.py:10", "tools/ci/tests/test_makefile_wave6.py:13", "tools/containers/test_kernel_init.py:92", "tools/jev/tests/test_ledger.py:87", "tools/paxeer-x/build/104.35.35.mk:3", "tools/paxeer-x/build/6.6.mk:13", "tools/paxeer-x/gates/104.30.5.sh:182", "tools/paxeer-x/gates/24.18.sh:27", "tools/paxeer-x/gates/24.20.sh:31", "tools/paxeer-x/retired_callers.json:101", "tools/paxeer-x/tests/test_retired_catalogue_deleted.py:12", "tools/qualification/paxeer-x/build-caps-codecs.sh:6", "tools/qualification/paxeer-x/caps-discovery.py:40", "tools/qualification/paxeer-x/event-delivery-contract.py:1723", "tools/qualification/paxeer-x/fixtures/agentd_fixture.py:15", "tools/qualification/paxeer-x/fixtures/caps_fixture.py:130", "tools/qualification/paxeer-x/interop-archive-contract.py:581", "tools/qualification/paxeer-x/native-programs-link.py:16", "tools/qualification/paxeer-x/programs_accounts_winddown.py:55", "tools/qualification/paxeer-x/programs_native_interfaces.py:52", "tools/qualification/paxeer-x/programs_typed_interfaces.py:25", "tools/qualification/paxeer-x/registry-contract.py:462", "tools/qualification/paxeer-x/storage-recovery.py:54", "tools/qualification/paxeer-x/wallet-402-caps.py:454", "tools/release/build-paxd.sh:4"]
+
+[row.r16-100.27]
+interface = "interface.16.mk-builddir-tests-test-layerxd"
+verdict = "retired"
+path = "Makefile"
+line = 1464
+symbol = "$(BUILD_DIR)/tests/test_layerxd:"
+evidence = "The registered Make rule literal $(BUILD_DIR)/tests/test_layerxd: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 0
+remaining = []
+
+[row.r16-100.28]
+interface = "interface.16.mk-test-layerxd"
+verdict = "retired"
+path = "Makefile"
+line = 1473
+symbol = "test-layerxd:"
+evidence = "The registered Make rule literal test-layerxd: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 3
+remaining = ["tools/ci/tests/test_completion_gate.py:178", "tools/ci/tests/test_makefile_wave6.py:19", "tools/platform/cli/src/workspace.rs:295"]
+
+[row.r16-100.29]
+interface = "interface.16.mk-test-tools"
+verdict = "retired"
+path = "Makefile"
+line = 1510
+symbol = "test-tools:"
+evidence = "The registered Make rule literal test-tools: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 3
+remaining = ["tools/ci/tests/test_completion_gate.py:194", "tools/ci/tests/test_makefile_wave6.py:20", "tools/platform/cli/src/workspace.rs:296"]
+
+[row.r16-100.30]
+interface = "interface.16.mk-layerx-verify"
+verdict = "retired"
+path = "Makefile"
+line = 1525
+symbol = "layerx-verify:"
+evidence = "The registered Make rule literal layerx-verify: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 9
+remaining = ["CODEMAP.md:28", "cmd/retirement/test_kernel_symbol_consumers_retired.py:24", "cmd/retirement/test_layerx_verify.py:7", "node/sequencer/completion_gate_test.go:75", "tools/ci/tests/test_completion_gate.py:66", "tools/ci/tests/test_makefile_wave6.py:16", "tools/paxeer-x/retired_callers.json:105", "tools/paxeer-x/tests/test_retired_catalogue_deleted.py:14", "tools/qualification/paxeer-x/native-programs-link.py:18"]
+
+[row.r16-100.31]
+interface = "interface.16.mk-test-verify-cli"
+verdict = "retired"
+path = "Makefile"
+line = 1541
+symbol = "test-verify-cli:"
+evidence = "The registered Make rule literal test-verify-cli: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:198", "tools/ci/tests/test_makefile_wave6.py:21"]
+
+[row.r16-100.32]
+interface = "interface.16.mk-test-genesis-bootstrap"
+verdict = "served"
+path = "Makefile"
+line = 1072
+symbol = "test-genesis-bootstrap:"
+evidence = "Declaration now lists test-genesis-bootstrap: $(BUILD_DIR)/tests/test_genesis_manifest $(BUILD_DIR)/tests/test_genesis_module_table $(BUILD_DIR)/tests/test_genesis_builder_cli; the retired test_daemon_bootstrap_artifact prerequisite and execution were removed."
+
+[row.r16-100.33]
+interface = "interface.16.mk-test-wave-8"
+verdict = "served"
+path = "Makefile"
+line = 1211
+symbol = "test-wave-8:"
+evidence = "Declaration retains service offer, commit, attest, deliver, acceptance and dispute plus test-oracle-intake, test-oracle-bounds and test-oracle-failclosed; retired test-oracle-adapter and test-oracle-root prerequisites were removed from test-wave-8."
+
+[row.r16-100.34]
+interface = "interface.16.mk-builddir-tests-lxp-test-maintenance-publication"
+verdict = "retired"
+path = "Makefile"
+line = 1975
+symbol = "$(BUILD_DIR)/tests/lxp_test_maintenance_publication:"
+evidence = "The registered Make rule literal $(BUILD_DIR)/tests/lxp_test_maintenance_publication: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 0
+remaining = []
+
+[row.r16-100.35]
+interface = "interface.16.mk-test-maintenance-publication"
+verdict = "retired"
+path = "Makefile"
+line = 1987
+symbol = "test-maintenance-publication:"
+evidence = "The registered Make rule literal test-maintenance-publication: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave5.py:14"]
+
+[row.r16-100.36]
+interface = "interface.16.mk-builddir-tests-lxp-test-terminal-rejection"
+verdict = "retired"
+path = "Makefile"
+line = 1990
+symbol = "$(BUILD_DIR)/tests/lxp_test_terminal_rejection:"
+evidence = "The registered Make rule literal $(BUILD_DIR)/tests/lxp_test_terminal_rejection: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 0
+remaining = []
+
+[row.r16-100.37]
+interface = "interface.16.mk-test-terminal-rejection"
+verdict = "retired"
+path = "Makefile"
+line = 2000
+symbol = "test-terminal-rejection:"
+evidence = "The registered Make rule literal test-terminal-rejection: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave5.py:15"]
+
+[row.r16-100.38]
+interface = "interface.16.mk-test-versioned-boundaries"
+verdict = "retired"
+path = "Makefile"
+line = 2004
+symbol = "test-versioned-boundaries:"
+evidence = "The registered Make rule literal test-versioned-boundaries: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave5.py:26"]
+
+[row.r16-100.39]
+interface = "interface.16.mk-builddir-tests-lxp-test-batch-identity"
+verdict = "retired"
+path = "Makefile"
+line = 2007
+symbol = "$(BUILD_DIR)/tests/lxp_test_batch_identity:"
+evidence = "The registered Make rule literal $(BUILD_DIR)/tests/lxp_test_batch_identity: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 0
+remaining = []
+
+[row.r16-100.40]
+interface = "interface.16.mk-test-batch-identity"
+verdict = "retired"
+path = "Makefile"
+line = 2017
+symbol = "test-batch-identity:"
+evidence = "The registered Make rule literal test-batch-identity: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave5.py:16"]
+
+[row.r16-100.41]
+interface = "interface.16.mk-test-batch-wal-recovery"
+verdict = "retired"
+path = "Makefile"
+line = 2020
+symbol = "test-batch-wal-recovery:"
+evidence = "The registered Make rule literal test-batch-wal-recovery: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_makefile_wave5.py:13", "tools/qualification/beta_driver.py:1125"]
+
+[row.r16-100.42]
+interface = "interface.16.mk-test-finality-evidence"
+verdict = "retired"
+path = "Makefile"
+line = 2036
+symbol = "test-finality-evidence:"
+evidence = "The registered Make rule literal test-finality-evidence: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_makefile_wave5.py:17", "tools/qualification/beta_driver.py:1129"]
+
+[row.r16-100.43]
+interface = "interface.16.mk-test-program-artifacts"
+verdict = "retired"
+path = "Makefile"
+line = 2070
+symbol = "test-program-artifacts:"
+evidence = "The registered Make rule literal test-program-artifacts: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 2
+remaining = ["GOTCHA.kvx:5233", "tools/ci/tests/test_makefile_wave5.py:27"]
+
+[row.r16-100.44]
+interface = "interface.16.mk-test-daemon-maintenance-protocol"
+verdict = "retired"
+path = "Makefile"
+line = 2087
+symbol = "test-daemon-maintenance-protocol:"
+evidence = "The registered Make rule literal test-daemon-maintenance-protocol: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave5.py:28"]
+
+[row.r16-100.45]
+interface = "interface.16.mk-builddir-tests-lxp-test-finality-json"
+verdict = "retired"
+path = "Makefile"
+line = 2090
+symbol = "$(BUILD_DIR)/tests/lxp_test_finality_json:"
+evidence = "The registered Make rule literal $(BUILD_DIR)/tests/lxp_test_finality_json: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 0
+remaining = []
+
+[row.r16-100.46]
+interface = "interface.16.mk-test-daemon-finality-authority"
+verdict = "retired"
+path = "Makefile"
+line = 2103
+symbol = "test-daemon-finality-authority:"
+evidence = "The registered Make rule literal test-daemon-finality-authority: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave5.py:18"]
+
+[row.r16-100.47]
+interface = "interface.16.mk-builddir-tests-lxp-test-journal-tsan"
+verdict = "served"
+path = "Makefile"
+line = 1469
+symbol = "$(BUILD_DIR)/tests/lxp_test_journal_tsan:"
+evidence = "Declaration starts $(BUILD_DIR)/tests/lxp_test_journal_tsan: tests/state/lxp_test_journal.c and still compiles journal, crypto, ledger, storage and protocol sources with -fsanitize=thread; retired src/state/lxp_idempotency.c was removed from the source prerequisites."
+
+[row.r16-100.48]
+interface = "interface.16.mk-test-journal"
+verdict = "served"
+path = "Makefile"
+line = 1481
+symbol = "test-journal:"
+evidence = "Declaration remains test-journal: $(BUILD_DIR)/tests/lxp_test_journal $(BUILD_DIR)/tests/lxp_test_journal_tsan across two lines at 1481; both binaries still run, with TSAN_OPTIONS=halt_on_error=1 and setarch for the latter. Registered prerequisite signature is unchanged."
+
+[row.r16-100.49]
+interface = "interface.16.mk-test-idempotency"
+verdict = "retired"
+path = "Makefile"
+line = 2189
+symbol = "test-idempotency:"
+evidence = "The registered Make rule literal test-idempotency: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 3
+remaining = ["GOTCHA.kvx:5395", "tools/ci/tests/test_makefile_wave1.py:21", "tools/qualification/beta_driver.py:1099"]
+
+[row.r16-100.50]
+interface = "interface.16.mk-human-test"
+verdict = "served"
+path = "Makefile"
+line = 1646
+symbol = "human-test:"
+evidence = "Declaration now reads human-test: human-test-hosted-provisioning; the retired $(BUILD_DIR)/tests/explorer_fixture prerequisite was removed. Shared rules add human-test-custody-prerequisites and human-test-webhooks, and the recipe runs workspace Rust and npm tests."
+
+[row.r16-100.51]
+interface = "interface.16.mk-test-owner-movement-proof"
+verdict = "retired"
+path = "Makefile"
+line = 2303
+symbol = "test-owner-movement-proof:"
+evidence = "The registered Make rule literal test-owner-movement-proof: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 0
+remaining = []
+
+[row.r16-100.52]
+interface = "interface.16.mk-human-test-provider-probe"
+verdict = "served"
+path = "Makefile"
+line = 1685
+symbol = "human-test-provider-probe:"
+evidence = "Declaration remains human-test-provider-probe: with no prerequisites; recipe now selects layerx-human-identity-provider and layerx-human-security-provider --test probe through run-with-clock.sh, with retired layerx-human-movement-provider removed."
+
+[row.r16-100.53]
+interface = "interface.16.mk-kernel-human-test-integration"
+verdict = "served"
+path = "Makefile"
+line = 1692
+symbol = "human-test-integration:"
+evidence = "Declaration now reads human-test-integration: with no direct prerequisites, removing $(BUILD_DIR)/tests/explorer_fixture; shared rules add custody and webhook prerequisites. Recipe runs the human workspace --tests through run-with-clock.sh; retired custody-proof invocation is absent."
+
+[row.r16-100.54]
+interface = "interface.16.mk-human-test-explorer"
+verdict = "retired"
+path = "Makefile"
+line = 2378
+symbol = "human-test-explorer:"
+evidence = "The registered Make rule literal human-test-explorer: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/qualification/tests/test_requested_inputs_removed.py:65"]
+
+[row.r16-100.55]
+interface = "interface.16.mk-human-test-paxeer"
+verdict = "retired"
+path = "Makefile"
+line = 2398
+symbol = "human-test-paxeer:"
+evidence = "The registered Make rule literal human-test-paxeer: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/qualification/tests/test_requested_inputs_removed.py:65"]
+
+[row.r16-100.56]
+interface = "interface.16.mk-agent-test-boundary"
+verdict = "served"
+path = "Makefile"
+line = 2028
+symbol = "agent-test-boundary:"
+evidence = "Declaration now reads agent-test-boundary: with no layerxd-lni or lni-preparation-state prerequisites; recipe runs AGENT_BOUNDARY_COMMAND against AGENT_NODE_RPC_URL, checks the captured report with --check-report and prints it. Retired LNI preparation invocation is absent."
+
+[row.r16-100.57]
+interface = "interface.16.mk-agent-qualify-boundary"
+verdict = "served"
+path = "Makefile"
+line = 2036
+symbol = "agent-qualify-boundary:"
+evidence = "Declaration now reads agent-qualify-boundary: with no layerxd-lni prerequisite; recipe builds services/agent/tests/boundary/Cargo.toml and runs services/agent/tests/qualify/Cargo.toml -- boundary with CURDIR, AGENT_NODE_RPC_URL and AGENT_BOUNDARY_HARNESS."
+
+[row.r16-100.58]
+interface = "interface.16.mk-agent-qualify-faults"
+verdict = "served"
+path = "Makefile"
+line = 2047
+symbol = "agent-qualify-faults:"
+evidence = "Declaration now reads agent-qualify-faults: with no layerxd-lni prerequisite; recipe invokes agent-test-sdk-parity then runs services/agent/tests/qualify/Cargo.toml -- faults $(CURDIR), replacing the retired LNI daemon dependency."
+
+[row.r16-100.59]
+interface = "interface.16.mk-agent-test-sdk-parity"
+verdict = "served"
+path = "Makefile"
+line = 2338
+symbol = "agent-test-sdk-parity:"
+evidence = "Declaration now reads agent-test-sdk-parity: with no layerxd-lni prerequisite; recipe invokes agent-test-sdk-ts and agent-test-sdk-py then services/agent/tests/parity/Cargo.toml with AGENT_NODE_RPC_URL and CURDIR, replacing the retired LNI daemon transport."
+
+[row.r16-100.60]
+interface = "interface.16.mk-agent-test-wire-parity"
+verdict = "retired"
+path = "Makefile"
+line = 3060
+symbol = "agent-test-wire-parity:"
+evidence = "The registered Make rule literal agent-test-wire-parity: is absent from Makefile; no replacement Make declaration was found in the repository search excluding spec and docs. remaining lists other files mentioning the bare target name (including retirement assertions and stale callers), one first occurrence per file; line retains the historical registry location."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave3.py:18"]

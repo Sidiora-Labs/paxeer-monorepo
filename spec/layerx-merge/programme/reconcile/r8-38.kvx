@@ -1,0 +1,511 @@
+[reconcile.r8-38]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r8-38.1]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-faucetclaimrequest"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2941
+symbol = "FaucetClaimRequest"
+evidence = "FaucetClaimRequest is absent from the entire registered file sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java; line 2941 is the former registry location. Repository-wide rg -n --hidden -w search excluding spec and docs directories found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-38.2]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-faucetclaimresponse"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2947
+symbol = "FaucetClaimResponse"
+evidence = "FaucetClaimResponse is absent from the entire registered file sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java; line 2947 is the former registry location. Repository-wide rg -n --hidden -w search excluding spec and docs directories found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-38.3]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programactivityrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2904
+symbol = "ProgramActivityRequest"
+evidence = "Renamed JsonNode requested_verification_level to JsonNode requested_rung; JsonNode activity_id remains. Current declaration: public record ProgramActivityRequest(JsonNode activity_id, JsonNode requested_rung) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-38.4]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programactivityresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2910
+symbol = "ProgramActivityResponse"
+evidence = "Replaced activity_id and idempotency_key with tx_hash, submission_ref and rung; state remains, all four components are JsonNode. Current declaration: public record ProgramActivityResponse(JsonNode tx_hash, JsonNode submission_ref, JsonNode state, JsonNode rung) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-38.5]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-program-activity"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2918
+symbol = "PROGRAM_ACTIVITY"
+evidence = "No change to the TypedOperation<ProgramActivityRequest, ProgramActivityResponse> signature, AGENT plane, program.activity name or false mutability flag. Adjacent PROGRAM_ACTIVITY_TRANSPORT now selects eth_getLogs at layerxprograms 0x101D instead of the registered REST ingress. Current declaration: public static final SchemaTypes.TypedOperation<ProgramActivityRequest, ProgramActivityResponse> PROGRAM_ACTIVITY = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, \"program.activity\", false, ProgramActivityRequest.class, ProgramActivityResponse.class);"
+
+[row.r8-38.6]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programcallrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2920
+symbol = "ProgramCallRequest"
+evidence = "Replaced program_id, calldata, ProgramCallBudget budget, capabilities and signed_activity components with the single JsonNode idempotency_key component. Current declaration: public record ProgramCallRequest(JsonNode idempotency_key) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-38.7]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programcallresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2925
+symbol = "ProgramCallResponse"
+evidence = "Replaced activity_id and idempotency_key with tx_hash, submission_ref and rung; state remains, all four components are JsonNode. Current declaration: public record ProgramCallResponse(JsonNode tx_hash, JsonNode submission_ref, JsonNode state, JsonNode rung) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-38.8]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-program-call"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2933
+symbol = "PROGRAM_CALL"
+evidence = "No change to the TypedOperation<ProgramCallRequest, ProgramCallResponse> signature, AGENT plane, program.call name or true mutability flag. Adjacent PROGRAM_CALL_TRANSPORT now selects eth_sendRawTransaction and layerxprograms.call at 0x101D. Current declaration: public static final SchemaTypes.TypedOperation<ProgramCallRequest, ProgramCallResponse> PROGRAM_CALL = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, \"program.call\", true, ProgramCallRequest.class, ProgramCallResponse.class);"
+
+[row.r8-38.9]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programdeployrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2935
+symbol = "ProgramDeployRequest"
+evidence = "Replaced JsonNode signed_activity with AgentModels.NativeProgramCallFields native_call and String signed_transaction. Current declaration: public record ProgramDeployRequest(AgentModels.NativeProgramCallFields native_call, String signed_transaction) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-38.10]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programdeployresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2941
+symbol = "ProgramDeployResponse"
+evidence = "No signature change: the generated response still wraps AgentModels.ProgramLifecycleResponse value and implements SchemaTypes.GeneratedResponse. The adjacent deploy transport now broadcasts an EVM transaction to layerxprograms 0x101D. Current declaration: public record ProgramDeployResponse(AgentModels.ProgramLifecycleResponse value) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-38.11]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-program-deploy"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2948
+symbol = "PROGRAM_DEPLOY"
+evidence = "No change to the TypedOperation<ProgramDeployRequest, ProgramDeployResponse> signature, AGENT plane, program.deploy name or true mutability flag. Adjacent PROGRAM_DEPLOY_TRANSPORT now selects eth_sendRawTransaction and layerxprograms.deploy at 0x101D. Current declaration: public static final SchemaTypes.TypedOperation<ProgramDeployRequest, ProgramDeployResponse> PROGRAM_DEPLOY = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, \"program.deploy\", true, ProgramDeployRequest.class, ProgramDeployResponse.class);"
+
+[row.r8-38.12]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programdiscoverrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2950
+symbol = "ProgramDiscoverRequest"
+evidence = "Renamed JsonNode requested_verification_level to JsonNode requested_rung; JsonNode program_id remains. Current declaration: public record ProgramDiscoverRequest(JsonNode program_id, JsonNode requested_rung) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-38.13]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programdiscoverresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2956
+symbol = "ProgramDiscoverResponse"
+evidence = "No signature change: all fourteen registered components remain, including receipt_digest, state_root, verification, deployment_receipt_digest and nullable discovery_public_key/discovery_signature. The discover transport now uses eth_call with layerxprograms.getProgram at 0x101D. Current declaration: public record ProgramDiscoverResponse(JsonNode program_id, JsonNode lifecycle, JsonNode version, JsonNode code_hash, AgentModels.ProgramGuestAbi abi_version, JsonNode receipt_digest, JsonNode state_root, JsonNode observed_sequence, JsonNode observed_at, JsonNode valid_through, JsonNode verification, JsonNode deployment_receipt_digest, JsonNode discovery_public_key, JsonNode discovery_signature) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-38.14]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-program-discover"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2972
+symbol = "PROGRAM_DISCOVER"
+evidence = "No change to the TypedOperation<ProgramDiscoverRequest, ProgramDiscoverResponse> signature, AGENT plane, program.discover name or false mutability flag. Adjacent PROGRAM_DISCOVER_TRANSPORT now selects eth_call and layerxprograms.getProgram at 0x101D. Current declaration: public static final SchemaTypes.TypedOperation<ProgramDiscoverRequest, ProgramDiscoverResponse> PROGRAM_DISCOVER = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, \"program.discover\", false, ProgramDiscoverRequest.class, ProgramDiscoverResponse.class);"
+
+[row.r8-38.15]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programinterfacerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2974
+symbol = "ProgramInterfaceRequest"
+evidence = "Renamed JsonNode requested_verification_level to JsonNode requested_rung; JsonNode program_id remains. Current declaration: public record ProgramInterfaceRequest(JsonNode program_id, JsonNode requested_rung) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-38.16]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programinterfaceresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2980
+symbol = "ProgramInterfaceResponse"
+evidence = "No signature change: all thirteen registered components remain, including the JsonProperty interface annotation, interface_digest, AgentModels.ProgramSource source and verification. The interface transport now uses eth_call with layerxprograms.getInterface at 0x101D. Current declaration: public record ProgramInterfaceResponse(JsonNode program_id, JsonNode version, JsonNode code_hash, AgentModels.ProgramGuestAbi abi_version, @JsonProperty(\"interface\") JsonNode interface_, JsonNode interface_digest, JsonNode receipt_digest, JsonNode state_root, JsonNode observed_sequence, JsonNode observed_at, JsonNode valid_through, AgentModels.ProgramSource source, JsonNode verification) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-38.17]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-program-interface"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2997
+symbol = "PROGRAM_INTERFACE"
+evidence = "No change to the TypedOperation<ProgramInterfaceRequest, ProgramInterfaceResponse> signature, AGENT plane, program.interface name or false mutability flag. Adjacent PROGRAM_INTERFACE_TRANSPORT now selects eth_call and layerxprograms.getInterface at 0x101D. Current declaration: public static final SchemaTypes.TypedOperation<ProgramInterfaceRequest, ProgramInterfaceResponse> PROGRAM_INTERFACE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, \"program.interface\", false, ProgramInterfaceRequest.class, ProgramInterfaceResponse.class);"
+
+[row.r8-38.18]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programreceiptrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2999
+symbol = "ProgramReceiptRequest"
+evidence = "Renamed JsonNode requested_verification_level to JsonNode requested_rung; JsonNode idempotency_key and expected_activity_id remain. Current declaration: public record ProgramReceiptRequest(JsonNode idempotency_key, JsonNode expected_activity_id, JsonNode requested_rung) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-38.19]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programreceiptresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3006
+symbol = "ProgramReceiptResponse"
+evidence = "No signature change: the generated response still wraps AgentModels.ProgramReceiptResponse value with a delegating creator and wireValue accessor. The receipt transport now selects eth_getLogs for layerxprograms.ProgramCallOutcome at 0x101D. Current declaration: public record ProgramReceiptResponse(AgentModels.ProgramReceiptResponse value) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-38.20]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-program-receipt"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3013
+symbol = "PROGRAM_RECEIPT"
+evidence = "No change to the TypedOperation<ProgramReceiptRequest, ProgramReceiptResponse> signature, AGENT plane, program.receipt name or false mutability flag. Adjacent PROGRAM_RECEIPT_TRANSPORT now selects eth_getLogs for layerxprograms.ProgramCallOutcome at 0x101D. Current declaration: public static final SchemaTypes.TypedOperation<ProgramReceiptRequest, ProgramReceiptResponse> PROGRAM_RECEIPT = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, \"program.receipt\", false, ProgramReceiptRequest.class, ProgramReceiptResponse.class);"
+
+[row.r8-38.21]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programsimulaterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3015
+symbol = "ProgramSimulateRequest"
+evidence = "Removed all five registered components: program_id, calldata, ProgramCallBudget budget, capabilities and signed_activity. The generated request is now a zero-component record. Current declaration: public record ProgramSimulateRequest() implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-38.22]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programsimulateresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3017
+symbol = "ProgramSimulateResponse"
+evidence = "Replaced execution and simulation_evidence with program_id, terminal_result, terminal_kind, response, block and rung; committed remains. All seven components are JsonNode. Current declaration: public record ProgramSimulateResponse(JsonNode committed, JsonNode program_id, JsonNode terminal_result, JsonNode terminal_kind, JsonNode response, JsonNode block, JsonNode rung) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-38.23]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-program-simulate"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3028
+symbol = "PROGRAM_SIMULATE"
+evidence = "No change to the TypedOperation<ProgramSimulateRequest, ProgramSimulateResponse> signature, AGENT plane, program.simulate name or false mutability flag. Adjacent PROGRAM_SIMULATE_TRANSPORT now selects eth_call and layerxprograms.simulateCall at 0x101D. Current declaration: public static final SchemaTypes.TypedOperation<ProgramSimulateRequest, ProgramSimulateResponse> PROGRAM_SIMULATE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, \"program.simulate\", false, ProgramSimulateRequest.class, ProgramSimulateResponse.class);"
+
+[row.r8-38.24]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programupgraderequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3030
+symbol = "ProgramUpgradeRequest"
+evidence = "Replaced JsonNode signed_activity with AgentModels.NativeProgramCallFields native_call and String signed_transaction. Current declaration: public record ProgramUpgradeRequest(AgentModels.NativeProgramCallFields native_call, String signed_transaction) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-38.25]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programupgraderesponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3036
+symbol = "ProgramUpgradeResponse"
+evidence = "No signature change: the generated response still wraps AgentModels.ProgramLifecycleResponse value and implements SchemaTypes.GeneratedResponse. The adjacent upgrade transport now broadcasts an EVM transaction to layerxprograms 0x101D. Current declaration: public record ProgramUpgradeResponse(AgentModels.ProgramLifecycleResponse value) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-38.26]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-program-upgrade"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3043
+symbol = "PROGRAM_UPGRADE"
+evidence = "No change to the TypedOperation<ProgramUpgradeRequest, ProgramUpgradeResponse> signature, AGENT plane, program.upgrade name or true mutability flag. Adjacent PROGRAM_UPGRADE_TRANSPORT now selects eth_sendRawTransaction and layerxprograms.upgrade at 0x101D. Current declaration: public static final SchemaTypes.TypedOperation<ProgramUpgradeRequest, ProgramUpgradeResponse> PROGRAM_UPGRADE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, \"program.upgrade\", true, ProgramUpgradeRequest.class, ProgramUpgradeResponse.class);"
+
+[row.r8-38.27]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programwinddownrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3045
+symbol = "ProgramWindDownRequest"
+evidence = "Replaced JsonNode signed_activity with AgentModels.NativeProgramCallFields native_call and String signed_transaction. Current declaration: public record ProgramWindDownRequest(AgentModels.NativeProgramCallFields native_call, String signed_transaction) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-38.28]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-programwinddownresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3051
+symbol = "ProgramWindDownResponse"
+evidence = "No signature change: the generated response still wraps AgentModels.ProgramLifecycleResponse value and implements SchemaTypes.GeneratedResponse. The adjacent wind-down transport now broadcasts EVM transactions for layerxprograms lifecycle functions at 0x101D. Current declaration: public record ProgramWindDownResponse(AgentModels.ProgramLifecycleResponse value) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-38.29]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-program-wind-down"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3058
+symbol = "PROGRAM_WIND_DOWN"
+evidence = "No change to the TypedOperation<ProgramWindDownRequest, ProgramWindDownResponse> signature, AGENT plane, program.wind-down name or true mutability flag. Adjacent PROGRAM_WIND_DOWN_TRANSPORT now selects eth_sendRawTransaction for setExitRoute, deprecate, tombstone and exitValue at 0x101D. Current declaration: public static final SchemaTypes.TypedOperation<ProgramWindDownRequest, ProgramWindDownResponse> PROGRAM_WIND_DOWN = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, \"program.wind-down\", true, ProgramWindDownRequest.class, ProgramWindDownResponse.class);"
+
+[row.r8-38.30]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-binding-rebind"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4025
+symbol = "BINDING_REBIND"
+evidence = "BINDING_REBIND is absent from the entire registered file sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java; line 4025 is the former registry location. Repository-wide rg -n --hidden -w search excluding spec and docs directories found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-38.31]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-binding-rebind-action"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4037
+symbol = "BINDING_REBIND_ACTION"
+evidence = "BINDING_REBIND_ACTION is absent from the entire registered file sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java; line 4037 is the former registry location. Repository-wide rg -n --hidden -w search excluding spec and docs directories found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-38.32]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-binding-statement"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4050
+symbol = "BINDING_STATEMENT"
+evidence = "BINDING_STATEMENT is absent from the entire registered file sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java; line 4050 is the former registry location. Repository-wide rg -n --hidden -w search excluding spec and docs directories found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-38.33]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-binding-status"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4058
+symbol = "BINDING_STATUS"
+evidence = "BINDING_STATUS is absent from the entire registered file sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java; line 4058 is the former registry location. Repository-wide rg -n --hidden -w search excluding spec and docs directories found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-38.34]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-binding-submit"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4078
+symbol = "BINDING_SUBMIT"
+evidence = "BINDING_SUBMIT is absent from the entire registered file sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java; line 4078 is the former registry location. Repository-wide rg -n --hidden -w search excluding spec and docs directories found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-38.35]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-deposit-confirm"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4096
+symbol = "DEPOSIT_CONFIRM"
+evidence = "DEPOSIT_CONFIRM is absent from the entire registered file sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java; line 4096 is the former registry location. Repository-wide rg -n --hidden -w search excluding spec and docs directories found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-38.36]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-deposit-start"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4114
+symbol = "DEPOSIT_START"
+evidence = "DEPOSIT_START is absent from the entire registered file sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java; line 4114 is the former registry location. Repository-wide rg -n --hidden -w search excluding spec and docs directories found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-38.37]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-exit-eligibility"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4134
+symbol = "EXIT_ELIGIBILITY"
+evidence = "EXIT_ELIGIBILITY is absent from the entire registered file sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java; line 4134 is the former registry location. Repository-wide rg -n --hidden -w search excluding spec and docs directories found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-38.38]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-exit-start"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4152
+symbol = "EXIT_START"
+evidence = "EXIT_START is absent from the entire registered file sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java; line 4152 is the former registry location. Repository-wide rg -n --hidden -w search excluding spec and docs directories found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-38.39]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-intentplanrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3926
+symbol = "IntentPlanRequest"
+evidence = "No signature change: source, destination, asset_id, money and constraints retain their registered types and order. HumanModels.IntentLeg at GeneratedSchema.java:1522 now carries EVM to, data and chainId fields in the resulting plan. Current declaration: public record IntentPlanRequest(HumanModels.IntentEndpoint source, HumanModels.IntentEndpoint destination, String asset_id, HumanModels.Money money, HumanModels.IntentConstraints constraints) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-38.40]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-intentplanresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3935
+symbol = "IntentPlanResponse"
+evidence = "Added String tx_hash after signing_requirements; plan_digest, journey_kind, total_fee, legs and signing_requirements retain their registered types and order. Current declaration: public record IntentPlanResponse(String plan_digest, String journey_kind, HumanModels.Money total_fee, List<HumanModels.IntentLeg> legs, List<HumanModels.IntentSigningRequirement> signing_requirements, String tx_hash) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-38.41]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-intent-plan"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3944
+symbol = "INTENT_PLAN"
+evidence = "No change to the TypedOperation<IntentPlanRequest, IntentPlanResponse> signature, HUMAN plane, intent.plan name or false mutability flag. Its response now adds String tx_hash and HumanModels.IntentLeg contains EVM to, data and chainId fields. Current declaration: public static final SchemaTypes.TypedOperation<IntentPlanRequest, IntentPlanResponse> INTENT_PLAN = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, \"intent.plan\", false, IntentPlanRequest.class, IntentPlanResponse.class);"
+
+[row.r8-38.42]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-intentsubmitrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3945
+symbol = "IntentSubmitRequest"
+evidence = "No signature change: String plan_digest, String signed_digest, List<HumanModels.IntentLegBinding> bindings and String native_access_id remain in their registered order; bindings are copied defensively. Current declaration: public record IntentSubmitRequest(String plan_digest, String signed_digest, List<HumanModels.IntentLegBinding> bindings, String native_access_id) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-38.43]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-intentsubmitresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3952
+symbol = "IntentSubmitResponse"
+evidence = "Added List<HumanModels.IntentLeg> legs and String tx_hash after state_copy_key; journey_id, plan_digest, state and state_copy_key retain their String types. Current declaration: public record IntentSubmitResponse(String journey_id, String plan_digest, String state, String state_copy_key, List<HumanModels.IntentLeg> legs, String tx_hash) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-38.44]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-intent-submit"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3961
+symbol = "INTENT_SUBMIT"
+evidence = "No change to the TypedOperation<IntentSubmitRequest, IntentSubmitResponse> signature, HUMAN plane, intent.submit name or true mutability flag. Its response now adds List<HumanModels.IntentLeg> legs and String tx_hash. Current declaration: public static final SchemaTypes.TypedOperation<IntentSubmitRequest, IntentSubmitResponse> INTENT_SUBMIT = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, \"intent.submit\", true, IntentSubmitRequest.class, IntentSubmitResponse.class);"
+
+[row.r8-38.45]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-withdraw-claim"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4799
+symbol = "WITHDRAW_CLAIM"
+evidence = "WITHDRAW_CLAIM is absent from the entire registered file sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java; line 4799 is the former registry location. Repository-wide rg -n --hidden -w search excluding spec and docs directories found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-38.46]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-withdraw-start"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4818
+symbol = "WITHDRAW_START"
+evidence = "WITHDRAW_START is absent from the entire registered file sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java; line 4818 is the former registry location. Repository-wide rg -n --hidden -w search excluding spec and docs directories found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-38.47]
+interface = "interface.8.go-sdkjvm-internal-program-routes-30"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java"
+line = 30
+symbol = "PROGRAM_ROUTES"
+evidence = "The private Java Map<String, ProgramRoute> PROGRAM_ROUTES and REST dispatch table are absent from HttpProductionTransport.java; line 30 is the former registry location. Repository-wide rg -n --hidden -w search excluding spec and docs directories found one other file: services/agent/sdk/typescript/src/agent-http.ts:37 declares its separate TypeScript REST table, also used at line 127; this is a surviving cross-language table, not a moved Java declaration."
+remaining_refs = 1
+remaining = ["services/agent/sdk/typescript/src/agent-http.ts:37"]
+
+[row.r8-38.48]
+interface = "interface.8.go-sdkjvm-internal-agentenvelope-346"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java"
+line = 280
+symbol = "body.put(\"version\", 2);"
+evidence = "Changed the envelope writer literal from body.put(\"version\", 1); to body.put(\"version\", 2); inside agentEnvelope(Call call, String requestId, boolean mutating). Current declaration: body.put(\"version\", 2);"
+
+[row.r8-38.49]
+interface = "interface.8.go-sdkjvm-nativeprogramcall-bindsignedactivity"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/NativeProgramCall.java"
+line = 52
+symbol = "bindSignedActivity"
+evidence = "No public signature change: byte[] bindSignedActivity(byte[] signedActivity) remains. Its implementation now decodes EVM transactionData, compares canonical call encodings and returns the transactionHash rather than a kernel activity identity. Current declaration: public byte[] bindSignedActivity(byte[] signedActivity) {"
+
+[row.r8-38.50]
+interface = "interface.8.go-sdkjvm-nativeprogramcall-decodesignedactivity"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/NativeProgramCall.java"
+line = 59
+symbol = "decodeSignedActivity"
+evidence = "No public signature change: static NativeProgramCall decodeSignedActivity(byte[] signedActivity) remains. Its body now decodes EVM transactionData through decodeCalldata, whose selector is 54bd2b48. Current declaration: public static NativeProgramCall decodeSignedActivity(byte[] signedActivity) {"
+
+[row.r8-38.51]
+interface = "interface.8.go-sdkjvm-nativeprogramlifecyclerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/NativeProgramLifecycleRequest.java"
+line = 8
+symbol = "NativeProgramLifecycleRequest"
+evidence = "No change to the public final class declaration. Its stored identity is now byte[] transactionHash with an explicit IdempotencyKey; constructors validate signed EVM transaction calldata and expose signedTransaction() and transactionHash(). Current declaration: public final class NativeProgramLifecycleRequest {"
+
+[row.r8-38.52]
+interface = "interface.8.go-sdkjvm-nativeprogramlifecyclerequest-nativeprogramlifecyclerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/NativeProgramLifecycleRequest.java"
+line = 14
+symbol = "NativeProgramLifecycleRequest"
+evidence = "The registered (NativeProgramLifecycle operation, byte[] signedActivity) constructor signature remains and delegates to a new overload adding IdempotencyKey key at line 17. The overload validates EVM calldata and derives transactionHash. Current declaration: public NativeProgramLifecycleRequest(NativeProgramLifecycle operation, byte[] signedActivity) {"
+
+[row.r8-38.53]
+interface = "interface.8.go-sdkjvm-nativeprogramlifecyclerequest-ordinal"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/NativeProgramLifecycleRequest.java"
+line = 32
+symbol = "ordinal"
+evidence = "No signature or body change: public int ordinal() still returns operation.ordinal(). The enclosing request now validates a signed EVM transaction and stores its transactionHash. Current declaration: public int ordinal() { return operation.ordinal(); }"
+
+[row.r8-38.54]
+interface = "interface.8.go-sdkjvm-nativeprogramlifecyclerequest-payload"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/NativeProgramLifecycleRequest.java"
+line = 33
+symbol = "payload"
+evidence = "No signature or body change: public byte[] payload() still returns operation.encode(). The enclosing request now separately validates signed EVM calldata through its calldata(operation, fee) encoder. Current declaration: public byte[] payload() { return operation.encode(); }"
+
+[row.r8-38.55]
+interface = "interface.8.go-sdkjvm-nativeprogramlifecyclerequest-signedactivity"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/NativeProgramLifecycleRequest.java"
+line = 34
+symbol = "signedActivity"
+evidence = "No signature change: public byte[] signedActivity() still returns signed.clone(). The stored signed bytes now pass EVM transactionData validation in the constructor; signedTransaction() is also exposed at line 41. Current declaration: public byte[] signedActivity() { return signed.clone(); }"
+
+[row.r8-38.56]
+interface = "interface.8.go-sdkjvm-nativeprogramlifecyclerequest-activityid"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/NativeProgramLifecycleRequest.java"
+line = 35
+symbol = "activityId"
+evidence = "The public byte[] activityId() signature remains; the body changed from activityId.clone() to transactionHash(), which returns a clone of the signed EVM transaction hash. Current declaration: public byte[] activityId() { return transactionHash(); }"
+
+[row.r8-38.57]
+interface = "interface.8.go-sdkjvm-nativeprogramlifecyclerequest-idempotencykey"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/NativeProgramLifecycleRequest.java"
+line = 36
+symbol = "idempotencyKey"
+evidence = "The public String idempotencyKey() signature remains. Its body now requires a non-null IdempotencyKey supplied to the constructor and returns idempotencyKey.value(), replacing HexFormat encoding of derived key bytes. Current declaration: public String idempotencyKey() {"
+
+[row.r8-38.58]
+interface = "interface.8.go-sdkjvm-platformsdkexception-receiptverification"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/PlatformSdkException.java"
+line = 116
+symbol = "receiptVerification"
+evidence = "No signature change: public static PlatformSdkException receiptVerification(ReceiptCheck check) still rejects null and returns VERIFICATION_FAILURE with Retry.NEVER while preserving the GeneratedReceiptContract.ReceiptCheck value. Current declaration: public static PlatformSdkException receiptVerification(ReceiptCheck check) {"
+
+[row.r8-38.59]
+interface = "interface.8.go-sdkjvm-platformsdkexception-receiptcheck"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/PlatformSdkException.java"
+line = 135
+symbol = "receiptCheck"
+evidence = "No signature or body change: public ReceiptCheck receiptCheck() returns the stored receiptCheck imported from verify.GeneratedReceiptContract. The adjacent safeDetails() still emits its wire value when present. Current declaration: public ReceiptCheck receiptCheck() { return receiptCheck; }"
+
+[row.r8-38.60]
+interface = "interface.8.go-sdkjvm-programsclient"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 29
+symbol = "ProgramsClient"
+evidence = "No change to the public final class declaration. ProgramsClient now declares PROGRAMS_ADDRESS 0x101D and CHAIN_ID 125, prepares EIP-1559 ProgramCall transactions through eth_estimateGas, and submits signed transactions with transactionHash and sequencer receipt verification. Current declaration: public final class ProgramsClient {"

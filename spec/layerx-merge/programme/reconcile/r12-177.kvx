@@ -1,0 +1,243 @@
+[reconcile.r12-177]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r12-177.1]
+interface = "interface.12.http-app-post-api-chat"
+verdict = "served"
+path = "apps/wallet/src/app/api/chat/route.ts"
+line = 96
+symbol = "POST"
+evidence = "The /api/chat route still declares export async function POST(request: NextRequest) at the registered line 96; the later method: 'POST' is the upstream request, not the route declaration."
+
+[row.r12-177.2]
+interface = "interface.12.ts-app-commit-result"
+verdict = "served"
+path = "apps/wallet/src/lib/pns.ts"
+line = 362
+symbol = "CommitResult"
+evidence = "export interface CommitResult declares commitmentHash, secret, txHash and registration: RegistrationTuple at line 362; the Promise<CommitResult> occurrence is a return type use."
+
+[row.r12-177.3]
+interface = "interface.12.ts-app-get-rent-price"
+verdict = "served"
+path = "apps/wallet/src/lib/pns.ts"
+line = 308
+symbol = "getRentPrice"
+evidence = "export async function getRentPrice(label: string, durationSeconds: number): Promise<PriceResult> is declared at line 308 and returns base, premium and total from controller.rentPrice; the later occurrence is a call."
+
+[row.r12-177.4]
+interface = "interface.12.ts-app-pnsaddress"
+verdict = "served"
+path = "apps/wallet/src/lib/pns.ts"
+line = 181
+symbol = "PNSAddress"
+evidence = "export interface PNSAddress is declared at line 181 with hash: string and optional ens_domain_name; later occurrences annotate address fields on domain and event interfaces."
+
+[row.r12-177.5]
+interface = "interface.12.ts-app-pnsdetailed-domain"
+verdict = "served"
+path = "apps/wallet/src/lib/pns.ts"
+line = 197
+symbol = "PNSDetailedDomain"
+evidence = "export interface PNSDetailedDomain extends PNSDomain is declared at line 197 with tokens, registrant, other_addresses, stored_offchain and resolver_address; later occurrences are function parameter or return types."
+
+[row.r12-177.6]
+interface = "interface.12.ts-app-pnsdomain"
+verdict = "served"
+path = "apps/wallet/src/lib/pns.ts"
+line = 186
+symbol = "PNSDomain"
+evidence = "export interface PNSDomain is declared at line 186 with id, name and optional address, registration, expiry and protocol fields; the extends clause and Promise<PNSDomain[]> occurrences refer to this declaration."
+
+[row.r12-177.7]
+interface = "interface.12.ts-app-pnsdomain-event"
+verdict = "served"
+path = "apps/wallet/src/lib/pns.ts"
+line = 205
+symbol = "PNSDomainEvent"
+evidence = "export interface PNSDomainEvent is declared at line 205 with transaction_hash, timestamp, optional from_address and action; fetchDomainEvents uses it as its array result type."
+
+[row.r12-177.8]
+interface = "interface.12.ts-app-price-result"
+verdict = "served"
+path = "apps/wallet/src/lib/pns.ts"
+line = 297
+symbol = "PriceResult"
+evidence = "export interface PriceResult is declared at line 297 with bigint base, premium and total fields; getRentPrice and the registration function reference the type rather than declare it."
+
+[row.r12-177.9]
+interface = "interface.12.ts-app-registration-params"
+verdict = "served"
+path = "apps/wallet/src/lib/pns.ts"
+line = 356
+symbol = "RegistrationParams"
+evidence = "export interface RegistrationParams is declared at line 356 with label: string, owner: string and durationSeconds: number; the later params annotation is a use."
+
+[row.r12-177.10]
+interface = "interface.12.ts-app-registration-tuple"
+verdict = "served"
+path = "apps/wallet/src/lib/pns.ts"
+line = 369
+symbol = "RegistrationTuple"
+evidence = "export interface RegistrationTuple is declared at line 369 with label, owner, bigint duration, secret, resolver, data, reverseRecord, referrer and _array; CommitResult and registration variables reference this type."
+
+[row.r12-177.11]
+interface = "interface.12.ts-app-token-list"
+verdict = "served"
+path = "apps/wallet/src/lib/swap/sdk/addresses.ts"
+line = 139
+symbol = "TOKEN_LIST"
+evidence = "The declaration export const TOKEN_LIST = Object.values(TOKENS); is at line 139 with the registered initializer unchanged; the following STABLECOINS and TRADE_TOKENS declarations filter this list."
+
+[row.r12-177.12]
+interface = "interface.12.evt-app-sw-skip-waiting"
+verdict = "served"
+path = "apps/wallet/src/pwa/register.ts"
+line = 100
+symbol = "SKIP_WAITING"
+evidence = "applyUpdate still emits waiting.postMessage({ type: 'SKIP_WAITING' }) at registered line 100 after checking for a waiting worker; this is the concrete message producer described by the signature."
+
+[row.r12-177.13]
+interface = "interface.12.err-app-path-invalid"
+verdict = "served"
+path = "apps/wallet/src/server/http.ts"
+line = 158
+symbol = "PATH_INVALID"
+evidence = "encodePathSegments still throws HttpBoundaryError(400, 'PATH_INVALID', 'Request path is invalid') at registered line 158 for invalid segment arrays; line 172 emits the same HTTP 400 code for invalid individual segments."
+
+[row.r12-177.14]
+interface = "interface.12.ts-app-launchpad-view-props"
+verdict = "served"
+path = "apps/wallet/src/surfaces/LaunchpadView.tsx"
+line = 67
+symbol = "LaunchpadViewProps"
+evidence = "export interface LaunchpadViewProps is declared at line 67 with readonly sidRate, optional legs and optional now; the LaunchpadView function parameter at line 73 uses this type."
+
+[row.r12-177.15]
+interface = "interface.12.ts-app-bound-did"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 728
+symbol = "boundDid"
+evidence = "export async function boundDid(provider: ModuleProvider, address: string): Promise<string> is declared at line 728; it reads layerXDid, refuses a ZERO_WORD public key and returns the DID string. The earlier occurrence calls it."
+
+[row.r12-177.16]
+interface = "interface.12.ts-app-fee-blocked"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 269
+symbol = "feeBlocked"
+evidence = "export function feeBlocked(choice: FeeChoiceId, feeDenom: string | null): string | null is declared at line 269 and checks the selected fee against the known denomination; later occurrences call this function."
+
+[row.r12-177.17]
+interface = "interface.12.ts-app-grant-log-batch"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 678
+symbol = "GRANT_LOG_BATCH"
+evidence = "export const GRANT_LOG_BATCH = 8; is declared at line 678 with the registered value unchanged; the later batching loop uses it as both the increment and slice width."
+
+[row.r12-177.18]
+interface = "interface.12.ts-app-grant-log-window"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 677
+symbol = "GRANT_LOG_WINDOW"
+evidence = "export const GRANT_LOG_WINDOW = 10_000n; is declared at line 677 with the registered bigint value unchanged; the later history scan uses it to count and construct block windows."
+
+[row.r12-177.19]
+interface = "interface.12.ts-app-grant-log-window-ceiling"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 680
+symbol = "GRANT_LOG_WINDOW_CEILING"
+evidence = "export const GRANT_LOG_WINDOW_CEILING = 1024n; is declared at line 680 with the registered value unchanged; the adjacent comment explains the maximum history and the later count comparison enforces the ceiling."
+
+[row.r12-177.20]
+interface = "interface.12.ts-app-sponsored-approve-unsupported"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 171
+symbol = "SPONSORED_APPROVE_UNSUPPORTED"
+evidence = "export const SPONSORED_APPROVE_UNSUPPORTED starts at line 171; its next line retains the exact allowance-approve message directing users to a PAX or SID gas fee. The later throw uses this constant."
+
+[row.r12-177.21]
+interface = "interface.12.ts-app-sponsored-selection"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 278
+symbol = "SponsoredSelection"
+evidence = "export interface SponsoredSelection is declared at line 278 with readonly phase and optional batch, consent, relayerSignature, digest, reason and txHash; fee state and publish annotations reference this declaration."
+
+[row.r12-177.22]
+interface = "interface.12.ts-app-surfaces-use-surface-error-message"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 159
+symbol = "errorMessage"
+evidence = "export function errorMessage(error: unknown): string is declared at line 159 and returns a nonempty Error message or 'the request failed'; later error handlers call it."
+
+[row.r12-177.23]
+interface = "interface.12.ts-app-use-wallet"
+verdict = "served"
+path = "apps/wallet/src/wallet/WalletProvider.tsx"
+line = 654
+symbol = "useWallet"
+evidence = "export function useWallet(): WalletContextValue is declared at line 654 and reads WalletContext, throwing when the provider is absent; the error string and later hooks are mentions and calls."
+
+[row.r12-177.24]
+interface = "interface.12.ts-app-wallet-account-2"
+verdict = "served"
+path = "apps/wallet/src/wallet/WalletProvider.tsx"
+line = 675
+symbol = "walletAccount"
+evidence = "export function walletAccount starts at line 675; the multiline signature retains mode: CustodyMode, address: Hex, label: string | null and return type WalletAccount. useWalletState calls it later."
+
+[row.r12-177.25]
+interface = "interface.12.ts-app-wallet-actions"
+verdict = "served"
+path = "apps/wallet/src/wallet/WalletProvider.tsx"
+line = 667
+symbol = "WalletActions"
+evidence = "export interface WalletActions is declared at line 667 with readonly send, getReceiveAddress, reset, refresh and getSigner methods; useWalletActions returns and memoizes this interface."
+
+[row.r12-177.26]
+interface = "interface.12.ts-app-wallet-context-value"
+verdict = "served"
+path = "apps/wallet/src/wallet/WalletProvider.tsx"
+line = 119
+symbol = "WalletContextValue"
+evidence = "export interface WalletContextValue is declared at line 119 with readonly connection state and wallet operations; createContext, useMemo and useWallet later reference this type."
+
+[row.r12-177.27]
+interface = "interface.12.ts-app-wallet-not-ready-error"
+verdict = "served"
+path = "apps/wallet/src/wallet/WalletProvider.tsx"
+line = 147
+symbol = "WalletNotReadyError"
+evidence = "export class WalletNotReadyError extends Error is declared at line 147 with an action: string constructor; the constructor name assignment and later new expressions are not class declarations."
+
+[row.r12-177.28]
+interface = "interface.12.ts-app-wallet-provider"
+verdict = "served"
+path = "apps/wallet/src/wallet/WalletProvider.tsx"
+line = 201
+symbol = "WalletProvider"
+evidence = "export function WalletProvider starts at line 201; its multiline WalletProviderProps destructuring retains children, config: configProp, identity: identityProp, eventTarget and fetch: fetchImpl. The later useWallet error merely names it."
+
+[row.r12-177.29]
+interface = "interface.12.ts-app-wallet-provider-props"
+verdict = "served"
+path = "apps/wallet/src/wallet/WalletProvider.tsx"
+line = 163
+symbol = "WalletProviderProps"
+evidence = "export interface WalletProviderProps is declared at line 163 with readonly children and optional config, identity, eventTarget and fetch; the WalletProvider parameter annotation uses it at line 207."
+
+[row.r12-177.30]
+interface = "interface.12.ts-app-wallet-state"
+verdict = "served"
+path = "apps/wallet/src/wallet/WalletProvider.tsx"
+line = 660
+symbol = "WalletState"
+evidence = "export interface WalletState is declared at line 660 with ready, hasWallet, accounts: WalletAccount[] and activeAccount: WalletAccount | null; the useWalletState return annotation references this declaration."

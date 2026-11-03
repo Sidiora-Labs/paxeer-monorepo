@@ -1979,7 +1979,11 @@ agent-test-types-receipt:
 agent-test-types-verification:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-types --test verification
 
-agent-test-vectors:
+.PHONY: agent-prepare-codec-corpus
+agent-prepare-codec-corpus:
+	python3 tests/vectors/codec/generate.py
+
+agent-test-vectors: agent-prepare-codec-corpus
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-types --test vectors
 
 agent-test-crypto-verify: test-crypto-ed25519 test-crypto-secp256k1

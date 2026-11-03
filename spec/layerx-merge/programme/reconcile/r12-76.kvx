@@ -1,0 +1,537 @@
+[reconcile.r12-76]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r12-76.1]
+interface = "interface.12.rpc-sdk-calls-px-resolve-account"
+verdict = "served"
+path = "sdk/wallet/src/endpoint.ts"
+line = 50
+symbol = "px_resolveAccount"
+evidence = "resolveAccount(account: string): Promise<UnifiedAccountDocument> still calls px_resolveAccount; the answer is decoded by decodeAccountDocument."
+
+[row.r12-76.2]
+interface = "interface.12.ts-sdk-endpoint-client-get-account"
+verdict = "retired"
+path = "sdk/wallet/src/endpoint.ts"
+line = 54
+symbol = "getAccount"
+evidence = "EndpointClient.getAccount(account: string): Promise<JoinedAccount> is absent. getChainAccount(address: string): Promise<ChainAccount> replaces it at endpoint.ts:53; remaining identifier mentions include KernelClient.getAccount and unrelated owners, not this removed method."
+remaining_refs = 36
+remaining = ["apps/perps/src/app/modals/DepositWithdrawModal.tsx:32", "apps/perps/src/core/network/abi/PerpsPrecompile.ts:1493", "apps/perps/src/core/perps/accountView.ts:6", "apps/perps/src/core/perps/calls.ts:45", "apps/perps/src/core/perps/portfolio.ts:21", "apps/perps/src/core/viem/clients.ts:9", "apps/perps/src/hooks/perps/useAccount.ts:20", "apps/perps/src/hooks/perps/useAutoCollateral.ts:14", "apps/perps/src/hooks/perps/usePortfolioStats.ts:254", "apps/perps/src/page-modules/portfolio/index.tsx:15", "apps/perps/tests/audit-regressions.test.ts:17", "apps/perps/tests/auto-collateral.test.ts:42", "apps/perps/tests/e2e-local-node.test.ts:414", "apps/perps/tests/perps-abi.test.ts:52", "apps/perps/tests/perps-calls.test.ts:370", "apps/perps/tests/portfolio-stats.test.ts:60", "apps/wallet/src/account/hooks.ts:55", "core/deps/geth/signer/fourbyte/4byte.json:72467", "precompiles/perps/Perps.sol:290", "precompiles/perps/abi/abi.json:1", "precompiles/perps/perps.go:56", "precompiles/perps/testdata/abi_golden.txt:13", "precompiles/perps/testdata/views_account_golden.json:2", "precompiles/perps/views.go:117", "precompiles/perps/views_golden_account_test.go:24", "precompiles/perps/views_test.go:333", "sdk/wallet/src/kernel.ts:102", "sdk/wallet/test/endpoint.test.ts:172", "sdk/wallet/test/kernel-reads.test.ts:58", "services/agent/sdk/typescript/src/px.ts:157", "services/agent/sdk/typescript/src/rpc.ts:86", "services/agent/sdk/typescript/test/px.test.ts:984", "services/agent/sdk/typescript/test/rpc-node.test.ts:96", "services/explorer/services/libs/sourcify/src/types.rs:540", "services/wallet/attestor/internal/policy/evm/abi/perps.json:1", "tools/release/rehearsal/programme.py:1377"]
+
+[row.r12-76.3]
+interface = "interface.12.rpc-sdk-calls-px-get-account"
+verdict = "served"
+path = "sdk/wallet/src/endpoint.ts"
+line = 54
+symbol = "px_getAccount"
+evidence = "The call is now px_getAccount([address]) in getChainAccount(address: string): Promise<ChainAccount>; decodeChainAccount validates the Paxeer address, balance, nonce and height instead of JoinedAccount."
+
+[row.r12-76.4]
+interface = "interface.12.ts-sdk-endpoint-client-list-assets"
+verdict = "retired"
+path = "sdk/wallet/src/endpoint.ts"
+line = 58
+symbol = "listAssets"
+evidence = "EndpointClient.listAssets(): Promise<AssetMap> is absent. listBankAssets(): Promise<AssetPage> at endpoint.ts:57 decodes height, bank assets and joined_limit; remaining listAssets mentions are other SDK methods, fixtures or removal assertions."
+remaining_refs = 7
+remaining = ["core/deps/geth/signer/fourbyte/4byte.json:59819", "sdk/wallet/test/endpoint.test.ts:172", "services/agent/sdk/typescript/src/px.ts:169", "services/agent/sdk/typescript/src/rpc.ts:106", "services/agent/sdk/typescript/test/px.test.ts:976", "services/agent/sdk/typescript/test/rpc-node.test.ts:103", "services/agent/sdk/typescript/test/rpc.test.ts:112"]
+
+[row.r12-76.5]
+interface = "interface.12.rpc-sdk-calls-px-list-assets"
+verdict = "served"
+path = "sdk/wallet/src/endpoint.ts"
+line = 58
+symbol = "px_listAssets"
+evidence = "The px_listAssets([]) literal remains, but listBankAssets(): Promise<AssetPage> and decodeBankAssetPage replace listAssets(): Promise<AssetMap> and the custody-map decoder."
+
+[row.r12-76.6]
+interface = "interface.12.rpc-sdk-calls-px-get-route-catalogue"
+verdict = "served"
+path = "sdk/wallet/src/endpoint.ts"
+line = 62
+symbol = "px_getRouteCatalogue"
+evidence = "getRouteCatalogue(): Promise<RouteCatalogue> still calls px_getRouteCatalogue with an empty parameter list and decodes the returned route catalogue."
+
+[row.r12-76.7]
+interface = "interface.12.rpc-sdk-calls-px-get-capabilities"
+verdict = "served"
+path = "sdk/wallet/src/endpoint.ts"
+line = 66
+symbol = "px_getCapabilities"
+evidence = "getCapabilities(): Promise<Capabilities> still calls px_getCapabilities with an empty parameter list and validates the capability answer."
+
+[row.r12-76.8]
+interface = "interface.12.ts-sdk-endpoint-client-get-network"
+verdict = "served"
+path = "sdk/wallet/src/endpoint.ts"
+line = 69
+symbol = "getNetwork"
+evidence = "async getNetwork(): Promise<NetworkHead> keeps its TypeScript signature. Its NetworkHead now contains consensus and consensus_reason instead of anchor/kernel status, implementing the change described by override.J50.9."
+
+[row.r12-76.9]
+interface = "interface.12.rpc-sdk-calls-px-get-network"
+verdict = "served"
+path = "sdk/wallet/src/endpoint.ts"
+line = 70
+symbol = "px_getNetwork"
+evidence = "px_getNetwork([]) keeps its outbound method name and parameters; decodeNetwork now consumes a consensus head or consensus_unavailable instead of anchor/kernel fields, as described by override.J50.10."
+
+[row.r12-76.10]
+interface = "interface.12.ts-sdk-endpoint-client-get-balances"
+verdict = "retired"
+path = "sdk/wallet/src/endpoint.ts"
+line = 74
+symbol = "getBalances"
+evidence = "EndpointClient.getBalances(account, assets): Promise<AccountBalances> is absent. getBankBalances(address: string): Promise<Balances> at endpoint.ts:73 replaces joined completion and custody filtering with bank rows; other owners and removal assertions still mention getBalances."
+remaining_refs = 9
+remaining = ["core/deps/geth/signer/fourbyte/4byte.json:110", "sdk/wallet/src/kernel.ts:107", "sdk/wallet/test/endpoint.test.ts:172", "sdk/wallet/test/kernel-reads.test.ts:59", "services/agent/sdk/typescript/src/px.ts:163", "services/agent/sdk/typescript/src/rpc.ts:66", "services/agent/sdk/typescript/test/px.test.ts:949", "services/agent/sdk/typescript/test/rpc-node.test.ts:98", "services/platform/hosted/gateway/src/lib.rs:1380"]
+
+[row.r12-76.11]
+interface = "interface.12.rpc-sdk-calls-px-get-balances"
+verdict = "served"
+path = "sdk/wallet/src/endpoint.ts"
+line = 74
+symbol = "px_getBalances"
+evidence = "px_getBalances now receives [address] through getBankBalances(address: string): Promise<Balances>; decodeBankBalances returns account, height and denom/amount rows instead of JoinedBalances with completion reads."
+
+[row.r12-76.12]
+interface = "interface.12.ts-sdk-endpoint-client-get-unified-history"
+verdict = "retired"
+path = "sdk/wallet/src/endpoint.ts"
+line = 92
+symbol = "getUnifiedHistory"
+evidence = "EndpointClient.getUnifiedHistory(account, cursor, query): Promise<HistoryPage> is absent. getChainHistory(address, cursor, Pick<HistoryQuery, limit>): Promise<ChainHistoryPage> at endpoint.ts:77 replaces the public joined-history method; removal assertions and another SDK still mention the old identifier."
+remaining_refs = 3
+remaining = ["sdk/wallet/test/endpoint.test.ts:172", "services/agent/sdk/typescript/src/px.ts:194", "services/agent/sdk/typescript/test/px.test.ts:1425"]
+
+[row.r12-76.13]
+interface = "interface.12.rpc-sdk-calls-px-get-unified-history"
+verdict = "served"
+path = "sdk/wallet/src/endpoint.ts"
+line = 91
+symbol = "px_getUnifiedHistory"
+evidence = "The px_getUnifiedHistory literal remains in getChainHistory; parameters are [address, cursor, query.limit ?? null, null]. The result now passes through decodeChainHistoryPage and exposes chain-only rows instead of the public joined HistoryPage."
+
+[row.r12-76.14]
+interface = "interface.12.rpc-sdk-calls-eth-get-balance"
+verdict = "retired"
+path = "sdk/wallet/src/endpoint.ts"
+line = 125
+symbol = "eth_getBalance"
+evidence = "No eth_getBalance literal remains in endpoint.ts: native balance completion was removed in favor of getBankBalances and px_getBalances. Repository references below include RPC servers, fixtures, tests and other consumers; they do not restore this SDK endpoint call."
+remaining_refs = 108
+remaining = ["GOTCHA.kvx:13501", "apps/explorer/public/openapi.yaml:12454", "apps/explorer/ui/pages/Address.pw.tsx:48", "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/eip1193.ts:11", "apps/launchpad/web/src/core/wallet-sdk/test-fixtures/run-l25-phase4-check.py:141", "apps/perps/src/core/wallet/embedded/eip1193.ts:11", "apps/perps/swagger_spot.json:199", "apps/wallet/src/hooks/useRpcBalances.ts:4", "core/deps/geth/ethclient/ethclient.go:398", "core/deps/geth/internal/jsre/deps/web3.js:5306", "node/sequencer/proof_sequencer_executor_test.go:205", "node/sequencer/rpc_e2e_test.go:290", "node/sequencer_rpc_option_test.go:244", "rpc/client_matrix_test.go:34", "rpc/http_ws_parity_test.go:60", "rpc/pending_state_test.go:195", "rpc/resolution_pending_test.go:166", "rpc/served_labels_test.go:66", "rpc/state.go:53", "rpc/state_test.go:73", "rpc/testdata/served_methods_http.golden:23", "rpc/testdata/served_methods_ws.golden:13", "rpc/ws_transport_test.go:151", "sdk/wallet/test/fixtures/endpoint/available.json:209", "services/agent/crates/layerx-agentd/src/read/balance.rs:50", "services/agent/crates/layerx-agentd/tests/balance_pending.rs:21", "services/agent/crates/layerx-client/src/sequencer.rs:310", "services/agent/crates/layerx-client/tests/proof_client.rs:538", "services/agent/crates/layerx-client/tests/sequencer.rs:525", "services/agent/crates/layerx-sdk/src/rpc.rs:786", "services/agent/crates/layerx-sdk/tests/rpc_node.rs:191", "services/agent/sdk/typescript/src/rpc.ts:89", "services/agent/sdk/typescript/test/gas-station.test.ts:780", "services/agent/sdk/typescript/test/rpc-node.test.ts:76", "services/agent/tests/boundary/gaps.rs:10", "services/agent/tests/boundary/src/main.rs:34", "services/agent/tests/qualify/boundary.rs:148", "services/bridge/deploy/tests/evm-dry-run-check.sh:63", "services/bridge/deploy/tests/fixtures/evm_dry_run.json:166", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/etherscan.ex:1202", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/eth_controller_test.exs:587", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/transaction_state_controller_test.exs:195", "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc.ex:206", "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/fetched_balance.ex:3", "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/fetched_balances.ex:3", "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/throttle.ex:17", "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/paxeer_x.ex:78", "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/http/throttle_test.exs:71", "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc_test.exs:1030", "services/explorer/backend/apps/explorer/config/dev/besu.exs:20", "services/explorer/backend/apps/explorer/config/dev/erigon.exs:20", "services/explorer/backend/apps/explorer/config/dev/nethermind.exs:20", "services/explorer/backend/apps/explorer/config/dev/rsk.exs:20", "services/explorer/backend/apps/explorer/config/prod/besu.exs:20", "services/explorer/backend/apps/explorer/config/prod/erigon.exs:20", "services/explorer/backend/apps/explorer/config/prod/nethermind.exs:20", "services/explorer/backend/apps/explorer/config/prod/rsk.exs:20", "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex:40", "services/explorer/backend/apps/explorer/lib/test_helper.ex:391", "services/explorer/backend/apps/explorer/test/explorer/chain/supply/rsk_test.exs:23", "services/explorer/backend/apps/indexer/config/dev/besu.exs:26", "services/explorer/backend/apps/indexer/config/dev/erigon.exs:26", "services/explorer/backend/apps/indexer/config/dev/nethermind.exs:26", "services/explorer/backend/apps/indexer/config/dev/rsk.exs:27", "services/explorer/backend/apps/indexer/config/prod/besu.exs:25", "services/explorer/backend/apps/indexer/config/prod/erigon.exs:25", "services/explorer/backend/apps/indexer/config/prod/nethermind.exs:25", "services/explorer/backend/apps/indexer/config/prod/rsk.exs:27", "services/explorer/backend/apps/indexer/test/indexer/block/catchup/bound_interval_supervisor_test.exs:138", "services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs:165", "services/explorer/backend/apps/indexer/test/indexer/block/realtime/batch_test.exs:95", "services/explorer/backend/apps/indexer/test/indexer/block/realtime/fetcher_test.exs:41", "services/explorer/backend/apps/indexer/test/indexer/fetcher/coin_balance/catchup_test.exs:240", "services/explorer/backend/apps/indexer/test/indexer/fetcher/contract_code_test.exs:78", "services/explorer/deploy/tools/fixtures/eth_getBalance.json:2", "services/explorer/swagger.yaml:12454", "services/interop/crates/layerx-gas-station/src/rate.rs:517", "services/interop/crates/layerx-gas-station/src/station.rs:307", "services/interop/crates/layerx-gas-station/tests/did_budget.rs:223", "services/interop/crates/layerx-gas-station/tests/fixtures/cycle.json:5", "services/interop/crates/layerx-gas-station/tests/rate.rs:298", "services/interop/crates/layerx-gas-station/tests/station.rs:492", "services/launchpad/security/control/chain_reported_hash_test.go:57", "services/platform/hosted/gateway/src/evm.rs:834", "services/platform/hosted/gateway/src/paxeer.rs:586", "services/platform/hosted/gateway/tests/one_source_reads.rs:490", "services/platform/hosted/gateway/tests/router_surface.rs:497", "services/platform/hosted/paxeer/evm.py:370", "services/platform/hosted/paxeer/tests/real_chain.py:140", "services/platform/hosted/paxeer/tests/tls_shutdown.py:16", "services/platform/hosted/testnet/tests/payment-journey.py:212", "services/platform/perps-data/internal/source/rpc.go:420", "services/wallet/gateway/test/proof_s27_embedded_wallet_gateway.test.ts:260", "services/wallet/gateway/test/support/chain.ts:240", "storage/tools/rpc_bench/main.go:815", "tests/integration/evm_module/rpc_io_test/testdata/eth_getBalance/get-balance-blockhash.iox:1", "tests/integration/evm_module/rpc_io_test/testdata/eth_getBalance/get-balance-unknown-account.io:2", "tests/integration/evm_module/rpc_io_test/testdata/eth_getBalance/get-balance.io:2", "tests/integration/rpc_tests/README.md:180", "tests/integration/rpc_tests/eth/eth_getBalance.spec.ts:8", "tests/integration/rpc_tests/utils/cosmosUtils.ts:166", "tools/bringup/xweb-config.sh:486", "tools/hpx/stake-fleet.sh:116", "tools/qualification/paxeer-x/gas-station-contract.py:489", "tools/qualification/paxeer-x/paid-web-contract.py:3548", "tools/qualification/paxeer-x/wallet-injected-entry.tsx:90", "tools/qualification/paxeer-x/wallet-sponsored-fees.py:193", "tools/release/rehearsal/programme.py:762"]
+
+[row.r12-76.15]
+interface = "interface.12.rpc-sdk-calls-eth-call"
+verdict = "served_elsewhere"
+path = "sdk/wallet/src/modules/index.ts"
+line = 90
+symbol = "eth_call"
+evidence = "endpoint.ts no longer issues eth_call for joined balance completion. A live SDK call remains in modules/index.ts: ethCall(provider, to, data): Promise<string> requests eth_call([{ to, data }, latest])."
+
+[row.r12-76.16]
+interface = "interface.12.ts-sdk-in-custody-map"
+verdict = "retired"
+path = "sdk/wallet/src/endpoint.ts"
+line = 147
+symbol = "inCustodyMap"
+evidence = "The exported inCustodyMap(asset: CompletionAsset, map: AssetMap): boolean helper is absent. getBankBalances decodes bank denom/amount rows directly without custody-map completion; repository search found no remaining identifier mentions outside spec and docs."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.17]
+interface = "interface.12.ts-sdk-decode-joined-account"
+verdict = "retired"
+path = "sdk/wallet/src/endpoint.ts"
+line = 215
+symbol = "decodeJoinedAccount"
+evidence = "decodeJoinedAccount(value: unknown): JoinedAccount is absent. The private decodeChainAccount(value: unknown, address: string): ChainAccount at endpoint.ts:181 validates only the chain account half; repository search found no remaining old identifier mentions outside spec and docs."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.18]
+interface = "interface.12.ts-sdk-decode-asset-map"
+verdict = "retired"
+path = "sdk/wallet/src/endpoint.ts"
+line = 257
+symbol = "decodeAssetMap"
+evidence = "decodeAssetMap(value: unknown): AssetMap is absent. The private decodeBankAssetPage(value: unknown): AssetPage at endpoint.ts:211 validates bank assets and joined_limit; repository search found no remaining old identifier mentions outside spec and docs."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.19]
+interface = "interface.12.ts-sdk-decode-joined-balances"
+verdict = "retired"
+path = "sdk/wallet/src/endpoint.ts"
+line = 268
+symbol = "decodeJoinedBalances"
+evidence = "decodeJoinedBalances(value: unknown): JoinedBalances is absent. The private decodeBankBalances(value: unknown): Balances at endpoint.ts:250 decodes bank rows; repository search found no remaining old identifier mentions outside spec and docs."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.20]
+interface = "interface.12.ts-sdk-decode-kernel-status"
+verdict = "retired"
+path = "sdk/wallet/src/endpoint.ts"
+line = 306
+symbol = "decodeKernelStatus"
+evidence = "decodeKernelStatus(value: unknown): KernelStatus is absent, as required by override.J50.13 and task 12.24.6. decodeNetwork now uses decodeConsensusHead and no longer reads a kernel field; repository search found no remaining identifier mentions outside spec and docs."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.21]
+interface = "interface.12.ts-sdk-decode-network"
+verdict = "served"
+path = "sdk/wallet/src/endpoint.ts"
+line = 309
+symbol = "decodeNetwork"
+evidence = "export function decodeNetwork(value: unknown): NetworkHead keeps its signature but now decodes consensus through decodeConsensusHead, requires consensus_unavailable when null and returns consensus_reason; anchor/kernel decoding is gone, matching override.J50.8."
+
+[row.r12-76.22]
+interface = "interface.12.ts-sdk-decode-history-page"
+verdict = "served"
+path = "sdk/wallet/src/endpoint.ts"
+line = 384
+symbol = "decodeHistoryPage"
+evidence = "export function decodeHistoryPage(value: unknown): HistoryPage retains its signature and joined wire validation. The public read now uses decodeChainHistoryPage, which extracts the EVM address, filters Paxeer items and removes chain/side fields; this decoder has not itself been retired."
+
+[row.r12-76.23]
+interface = "interface.12.err-sdk-provider-user-rejected-request"
+verdict = "served"
+path = "sdk/wallet/src/errors.ts"
+line = 2
+symbol = "userRejectedRequest"
+evidence = "PROVIDER_ERROR_CODES still declares userRejectedRequest: 4001 as const; the registered provider error code is unchanged."
+
+[row.r12-76.24]
+interface = "interface.12.err-sdk-provider-unauthorized"
+verdict = "served"
+path = "sdk/wallet/src/errors.ts"
+line = 3
+symbol = "unauthorized"
+evidence = "PROVIDER_ERROR_CODES still declares unauthorized: 4100 as const; the registered provider error code is unchanged."
+
+[row.r12-76.25]
+interface = "interface.12.err-sdk-provider-unsupported-method"
+verdict = "served"
+path = "sdk/wallet/src/errors.ts"
+line = 4
+symbol = "unsupportedMethod"
+evidence = "PROVIDER_ERROR_CODES still declares unsupportedMethod: 4200 as const; the registered provider error code is unchanged."
+
+[row.r12-76.26]
+interface = "interface.12.err-sdk-provider-disconnected"
+verdict = "served"
+path = "sdk/wallet/src/errors.ts"
+line = 5
+symbol = "disconnected"
+evidence = "PROVIDER_ERROR_CODES still declares disconnected: 4900 as const; the registered provider error code is unchanged."
+
+[row.r12-76.27]
+interface = "interface.12.err-sdk-provider-chain-disconnected"
+verdict = "served"
+path = "sdk/wallet/src/errors.ts"
+line = 6
+symbol = "chainDisconnected"
+evidence = "PROVIDER_ERROR_CODES still declares chainDisconnected: 4901 as const; the registered provider error code is unchanged."
+
+[row.r12-76.28]
+interface = "interface.12.err-sdk-provider-invalid-params"
+verdict = "served"
+path = "sdk/wallet/src/errors.ts"
+line = 7
+symbol = "invalidParams"
+evidence = "PROVIDER_ERROR_CODES still declares invalidParams: -32602 as const; the registered provider error code is unchanged."
+
+[row.r12-76.29]
+interface = "interface.12.err-sdk-provider-internal"
+verdict = "served"
+path = "sdk/wallet/src/errors.ts"
+line = 8
+symbol = "internal"
+evidence = "PROVIDER_ERROR_CODES still declares internal: -32603 as const; the registered provider error code is unchanged."
+
+[row.r12-76.30]
+interface = "interface.12.rpc-sdk-calls-wallet-request"
+verdict = "served"
+path = "sdk/wallet/src/human.ts"
+line = 346
+symbol = "wallet_request"
+evidence = "decodeJourney retains wallet_request only as an optional journey field, validated with record(). No outbound this.rpc.call(wallet_request) exists in human.ts; the registered JSON-RPC-call classification is stale."
+
+[row.r12-76.31]
+interface = "interface.12.ts-sdk-activity-disclosure-wire"
+verdict = "served_elsewhere"
+path = "services/wallet/gateway/src/attestor/client.ts"
+line = 161
+symbol = "ActivityDisclosureWire"
+evidence = "The SDK export is absent from index.ts. The gateway still declares ActivityDisclosureWire with account, module, operation, amounts, destinations, sequence and validity bounds for lx_send_authorization; SDK EVM reviews instead use EvmTransactionReview."
+
+[row.r12-76.32]
+interface = "interface.12.ts-sdk-activity-approval-wire"
+verdict = "served_elsewhere"
+path = "services/wallet/gateway/src/attestor/client.ts"
+line = 172
+symbol = "ActivityApprovalWire"
+evidence = "The SDK export is absent from index.ts. The gateway still declares ActivityApprovalWire with version, principal, key/session ids, network/protocol versions and activity digest for lx_send_authorization; SDK EVM approvals now use EvmApproval."
+
+[row.r12-76.33]
+interface = "interface.12.ts-sdk-lx-activity-review"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 60
+symbol = "LxActivityReview"
+evidence = "LxActivityReview is absent from the SDK index. EvmTransactionReview at index.ts:41 now carries transaction, signing_hash and EVM destination/value/data; repository search found no remaining old identifier mentions outside spec and docs."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.34]
+interface = "interface.12.ts-sdk-lx-activity-approved"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 80
+symbol = "LxActivityApproved"
+evidence = "LxActivityApproved is absent. EvmApproval at index.ts:61 now derives from EvmTransactionReview and binds the approval to a signing_hash; repository search found no remaining old identifier mentions outside spec and docs."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.35]
+interface = "interface.12.ts-sdk-lx-activity-signing-unknown"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 84
+symbol = "LxActivitySigningUnknown"
+evidence = "LxActivitySigningUnknown is absent. The signing_unknown state is now part of the EvmApproval state union at index.ts:62; repository search found no remaining old identifier mentions outside spec and docs."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.36]
+interface = "interface.12.ts-sdk-lx-activity-signed"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 87
+symbol = "LxActivitySigned"
+evidence = "LxActivitySigned is absent. The signed state is now part of the EvmApproval state union at index.ts:62; repository search found no remaining old identifier mentions outside spec and docs."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.37]
+interface = "interface.12.ts-sdk-lx-activity-artifact"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 95
+symbol = "LxActivityArtifact"
+evidence = "LxActivityArtifact is absent. Retained EVM records now use EvmTransactionReview | EvmApproval in evmLoad and evmApprovalStatus; repository search found no remaining old identifier mentions outside spec and docs."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.38]
+interface = "interface.12.ts-sdk-lx-activity-storage"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 98
+symbol = "LxActivityStorage"
+evidence = "LxActivityStorage is absent. EvmReviewStorage at index.ts:73 declares getItem/setItem for retained EVM reviews; repository search found no remaining old identifier mentions outside spec and docs."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.39]
+interface = "interface.12.ts-sdk-lx-activity-options"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 103
+symbol = "LxActivityOptions"
+evidence = "LxActivityOptions is absent. EvmReviewWalletConfig now exposes evmReview with storage: EvmReviewStorage and no activity confirm callback; repository search found no remaining old identifier mentions outside spec and docs."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.40]
+interface = "interface.12.cfg-sdk-lx-activity-options-storage"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 104
+symbol = "storage: LxActivityStorage"
+evidence = "The legacy member declaration storage: LxActivityStorage and its owning LxActivityOptions are absent. The unrelated replacement is readonly evmReview?: { readonly storage: EvmReviewStorage } at index.ts:79; remaining references count the old typed member literal, not unrelated storage properties."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.41]
+interface = "interface.12.cfg-sdk-lx-activity-options-confirm"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 105
+symbol = "confirm"
+evidence = "The confirm: (review: LxActivityReview) => boolean | Promise<boolean> callback and LxActivityOptions are absent from index.ts. Approval is explicit through approveEvmTransaction; remaining confirm identifier mentions belong to other APIs, UI code or dependencies, not this removed callback."
+remaining_refs = 280
+remaining = ["GOTCHA.kvx:205", "SECURITY.md:21", "apps/explorer/lib/api/services/rewards.ts:51", "apps/explorer/ui/publicTags/submit/PublicTagsSubmitForm.tsx:136", "apps/launchpad/web/public/charting_library/bundles/library.f5eaeb6901219f861981.js:62", "apps/launchpad/web/public/charting_library/bundles/new-confirm-inputs-dialog.75020f7929f7774b9c4e.js:1", "apps/launchpad/web/public/charting_library/bundles/runtime.4d986d07cb97d8edacba.js:2", "apps/launchpad/web/public/charting_library/bundles/simple-dialog.caf1cb0bd206c046c24b.js:3", "apps/launchpad/web/public/charting_library/bundles/study-property-pages-with-definitions.dbe10d449ea5420c3f0d.js:2", "apps/launchpad/web/public/charting_library/charting_library.d.ts:20088", "apps/launchpad/web/src/core/wallet-sdk/funding.integration.test.ts:70", "apps/launchpad/web/src/core/wallet-sdk/measurement.ts:1", "apps/launchpad/web/src/core/wallet-sdk/test-fixtures/run-l25-phase4-check.py:92", "apps/launchpad/web/src/hooks/tx/use-optimistic-receipt.ts:24", "apps/launchpad/web/src/ui/primitives/overlays.tsx:211", "apps/launchpad/web/src/ui/shared/platform-rules-modal.tsx:62", "apps/launchpad/web/src/widgets/bounties/judge-panel.tsx:69", "apps/launchpad/web/src/widgets/community-interactions/interaction-controls.test.tsx:39", "apps/launchpad/web/src/widgets/community-interactions/interaction-controls.tsx:112", "apps/launchpad/web/src/widgets/create-chain/chain-adapters.test.ts:100", "apps/launchpad/web/src/widgets/create-chain/chain-adapters.ts:26", "apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts:21", "apps/launchpad/web/src/widgets/create-chain/chain-storage.ts:45", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.hydration.test.tsx:94", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.test.tsx:136", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.tsx:61", "apps/launchpad/web/src/widgets/create/create-form.test.tsx:141", "apps/launchpad/web/src/widgets/create/create-wizard.tsx:544", "apps/launchpad/web/src/widgets/create/creation-controller.ts:219", "apps/launchpad/web/src/widgets/create/fee-summary.tsx:45", "apps/launchpad/web/src/widgets/create/launch-copy.ts:40", "apps/launchpad/web/src/widgets/funding/transfer-panel.tsx:110", "apps/launchpad/web/src/widgets/funding/transfer.ts:116", "apps/launchpad/web/src/widgets/home/column-chrome.tsx:30", "apps/launchpad/web/src/widgets/meta-ag/open-orders-list.tsx:66", "apps/launchpad/web/src/widgets/terminal/activity-tabs/activity-tabs.test.tsx:252", "apps/launchpad/web/src/widgets/terminal/right-rail/preset-editor.tsx:77", "apps/launchpad/web/src/widgets/trading/trade-panel.tsx:248", "apps/launchpad/web/src/widgets/trading/trade-settings-popover.tsx:144", "apps/perps/public/static/charting_library/charting_library.d.ts:20088", "apps/perps/src/components/paxeer/ConfirmSlider.tsx:4", "apps/perps/src/hooks/spot/useSpotOrders.ts:7", "apps/perps/src/page-modules/legal/TermsOfService.tsx:166", "apps/perps/src/widgets/trading/PerpsOrderForm.tsx:1593", "apps/wallet/e2e/send.spec.ts:338", "apps/wallet/src/components/ConfirmDrawer.tsx:84", "apps/wallet/src/components/ui/toaster.tsx:15", "apps/wallet/src/lib/locale/additional-messages.ts:11", "apps/wallet/src/lib/locale/messages.ts:12", "apps/wallet/src/lib/optimistic.ts:18", "apps/wallet/src/surfaces/useSurface.ts:228", "apps/wallet/src/wallet/session.ts:26", "apps/wallet/src/widgets/contacts/ContactFormView.tsx:112", "apps/wallet/src/widgets/send/SendConfirmation.tsx:69", "apps/wallet/src/widgets/send/useSendForm.ts:6", "apps/wallet/src/widgets/swap/SwapWidget.tsx:11", "apps/wallet/src/widgets/swap/TokenBadge.tsx:4", "apps/wallet/src/widgets/swap/prettifyError.ts:187", "apps/web/copy/catalog.ts:127", "apps/web/copy/messages.generated.ts:96", "apps/web/e2e/browser/agents.spec.ts:144", "apps/web/e2e/exchange-perps.test.ts:279", "apps/web/e2e/gas-station.test.ts:248", "apps/web/e2e/kit.spec.ts:4", "apps/web/e2e/program-approvals.test.ts:122", "apps/web/e2e/proof_api.test.ts:111", "apps/web/e2e/shell.spec.ts:61", "apps/web/e2e/wallet-sponsored-receipt.test.ts:285", "apps/web/packages/layerx-ui/src/components/responsive-dialog.tsx:71", "apps/web/src/api/generated/conformance.ts:229", "apps/web/src/api/generated/index.ts:5618", "apps/web/src/api/wallet.ts:199", "apps/web/src/journeys/agents/controls.tsx:7", "apps/web/src/journeys/approvals/programs.tsx:12", "apps/web/src/journeys/approvals/screens.tsx:16", "apps/web/src/journeys/onboarding/onboarding.tsx:227", "apps/web/src/kit/index.ts:75", "apps/web/src/settings/security/security-screen.tsx:565", "apps/web/src/shell/app-shell.tsx:111", "apps/web/src/shell/selector.ts:91", "apps/web/src/states/error.tsx:15", "consensus/internal/consensus/state.go:1453", "consensus/internal/rpc/core/mempool.go:146", "consensus/light/client_test.go:453", "consensus/proto/tendermint/privval/types.pb.go:427", "consensus/proto/tendermint/privval/types.proto:60", "contracts/bridge/README.md:213", "contracts/bridge/solana/admin/src/main.rs:699", "contracts/launchpad/artifacts/build-info/8acf36d78a14c78ece67169a78128e3a.json:1", "contracts/launchpad/contracts/opticals/interfaces/IOptical.sol:31", "contracts/launchpad/scripts/event-emitter-v2/04-wire-registries.js:122", "contracts/launchpad/scripts/meta-ag/register-tokens-oracle.js:284", "contracts/launchpad/scripts/meta-ag/seed-vault-liquidity.js:302", "contracts/launchpad/test/data/EventEmitterV2.test.js:215", "contracts/src/SidioraNativeERC20.sol:12", "contracts/test/CW721toERC721PointerTest.js:49", "contracts/test/ERC20toNativePointerTest.js:103", "core/deps/cosmwasm/packages/vm/src/instance.rs:668", "core/deps/geth/accounts/usbwallet/ledger.go:158", "core/deps/geth/accounts/usbwallet/trezor.go:180", "core/deps/geth/accounts/usbwallet/wallet.go:67", "core/deps/geth/cmd/clef/README.md:93", "core/deps/geth/cmd/clef/main.go:480", "core/deps/geth/cmd/clef/tutorial.md:64", "core/deps/geth/cmd/geth/dbcmd.go:264", "core/deps/geth/cmd/utils/prompt.go:38", "core/deps/geth/crypto/secp256k1/libsecp256k1/src/tests.c:5552", "core/deps/geth/signer/core/cliui.go:78", "core/deps/geth/signer/fourbyte/4byte.json:42977", "interchain/modules/apps/transfer/keeper/grpc_query.go:91", "interchain/modules/core/03-connection/keeper/events.go:60", "interchain/modules/core/03-connection/keeper/handshake.go:366", "interchain/modules/core/03-connection/keeper/handshake_test.go:676", "interchain/modules/core/03-connection/keeper/metrics.go:34", "interchain/modules/core/04-channel/keeper/events.go:74", "interchain/modules/core/04-channel/keeper/handshake.go:442", "interchain/modules/core/04-channel/keeper/metrics.go:36", "interchain/modules/core/keeper/msg_server.go:167", "modules/oracle/keeper/migrations_test.go:74", "programs/vendor/aho-corasick-1.1.5/src/packed/teddy/README.md:37", "programs/vendor/aho-corasick-1.1.5/src/util/prefilter.rs:65", "programs/vendor/binaryen-sys-0.12.0/binaryen/third_party/llvm-project/YAMLParser.cpp:724", "programs/vendor/bip39-2.2.0/src/language/english.rs:377", "programs/vendor/form_urlencoded-1.2.2/src/lib.rs:415", "programs/vendor/http-1.5.0/src/header/name.rs:820", "programs/vendor/memchr-2.8.3/README.md:74", "programs/vendor/memchr-2.8.3/src/arch/all/memchr.rs:135", "programs/vendor/memchr-2.8.3/src/arch/generic/memchr.rs:356", "programs/vendor/memchr-2.8.3/src/memmem/searcher.rs:573", "programs/vendor/percent-encoding-2.3.2/src/lib.rs:352", "programs/vendor/regex-1.13.1/src/lib.rs:238", "programs/vendor/regex-automata-0.4.18/src/dfa/dense.rs:130", "programs/vendor/regex-automata-0.4.18/src/hybrid/dfa.rs:3025", "programs/vendor/regex-automata-0.4.18/src/meta/strategy.rs:280", "programs/vendor/regex-automata-0.4.18/src/nfa/thompson/backtrack.rs:66", "programs/vendor/regex-automata-0.4.18/src/nfa/thompson/map.rs:163", "programs/vendor/regex-automata-0.4.18/src/nfa/thompson/pikevm.rs:106", "programs/vendor/regex-automata-0.4.18/src/util/pool.rs:60", "programs/vendor/regex-automata-0.4.18/src/util/prefilter/mod.rs:16", "programs/vendor/regex-automata-0.4.18/tests/hybrid/api.rs:72", "programs/vendor/regex-syntax-0.8.11/src/hir/literal.rs:90", "programs/vendor/regex-syntax-0.8.11/src/lib.rs:91", "programs/vendor/rustls-0.23.45/src/client/hs.rs:990", "programs/vendor/yoke-0.8.3/src/yoke.rs:1927", "programs/vendor/zerocopy-0.8.56/agent_docs/reviewing.md:19", "programs/vendor/zerocopy-0.8.56/src/layout.rs:865", "programs/vendor/zerocopy-0.8.56/src/util/macro_util.rs:250", "programs/vendor/zerocopy-0.8.56/src/util/macros.rs:530", "sdk/chainflow/go/tests/smoke-test.go:19", "sdk/chainflow/python/tests/smoke-test.py:3", "sdk/chainflow/typescript/tests/smoke-test.ts:3", "sdk/client/keys/delete.go:43", "sdk/client/keys/export.go:71", "sdk/client/tx/tx.go:123", "sdk/crypto/hd/testdata/test.json:1", "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/tests.c:2628", "sdk/launchpad/shared/delivery/natsdriver/driver_test.go:196", "sdk/names/.npmrc:1", "sdk/platform/conformance/operations.json:1028", "sdk/platform/dotnet/Generated/OperationCatalog.cs:393", "sdk/platform/generators/tests/test_generate_jvm_retired.py:23", "sdk/platform/go/generated.go:191", "sdk/platform/go/human_catalogue_test.go:101", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java:186", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:4072", "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift:109", "sdk/tasks/scheduler_test.go:216", "sdk/wallet/src/modules/gas-station.ts:124", "sdk/wallet/src/provider.ts:71", "sdk/wallet/test/modules.test.ts:1268", "sdk/wallet/test/proof_wallet_sdk.test.ts:420", "sdk/wallet/test/provider.test.ts:215", "sdk/x/capability/keeper/keeper_test.go:284", "services/agent/crates/layerx-agentd/src/admin.rs:205", "services/agent/crates/layerx-agentd/src/shutdown.rs:164", "services/agent/crates/layerx-mcp/src/stdio.rs:19", "services/agent/crates/layerx-sdk/src/production.rs:189", "services/agent/sdk/python/layerx_sdk/bip39_english.py:53", "services/agent/sdk/python/layerx_sdk/production.py:28", "services/agent/sdk/python/layerx_sdk/production.pyi:14", "services/agent/sdk/typescript/src/production.ts:79", "services/agent/tests/boundary/tests/proof_agent_boundary_conformance.rs:216", "services/bridge/deploy/deploy-evm-chain.sh:38", "services/explorer/backend/apps/block_scout_web/assets/js/pages/account/delete_item_handler.js:6", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/account.ex:9", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/templates/layout/_account_menu_item.html.eex:21", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/templates/layout/app.html.eex:100", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/arbitrum_view.ex:490", "services/explorer/backend/apps/block_scout_web/priv/gettext/default.pot:2775", "services/explorer/backend/apps/block_scout_web/priv/gettext/en/LC_MESSAGES/default.po:2775", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/account/api/v2/authenticate_controller_test.exs:298", "services/explorer/backend/apps/explorer/lib/explorer/account/authentication.ex:76", "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/reader/indexer/settlement.ex:10", "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/compiler_tests.json:15", "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/home_bridge.sol:103", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/home_bridge/source.sol:103", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_vyper/erc667.json:6", "services/human/crates/layerx-human-service/src/agents/archive.rs:383", "services/human/crates/layerx-human-service/src/security.rs:67", "services/human/crates/layerx-human-service/src/server/backend.rs:1011", "services/human/crates/layerx-human-service/src/server/production_auth.rs:495", "services/human/crates/layerx-human-service/src/server/production_components.rs:144", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:3385", "services/human/crates/layerx-human-service/tests/archive.rs:724", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs:448", "services/human/crates/layerx-human-service/tests/native_send_producer.rs:236", "services/human/crates/layerx-human-service/tests/production_unhooked.rs:44", "services/human/crates/layerx-human-service/tests/retired_operations.rs:48", "services/human/schema/human-api/baseline.kvx:690", "services/human/schema/human-api/golden/deposit.confirm.request.json:3", "services/human/schema/human-api/golden/native.send.access.confirm.request.json:3", "services/human/schema/human-api/identity.kvx:450", "services/human/schema/human-api/movement.kvx:154", "services/human/schema/human-api/v1.kvx:157", "services/human/tools/schema-check/tests/merged_schema_retired.rs:79", "services/human/tools/schema-check/tests/merged_schema_shapes.rs:173", "services/human/tools/schema-check/tests/retired_markers.rs:216", "services/human/tools/schema-check/tests/retired_movement_goldens.rs:14", "services/interop/crates/layerx-interop-service/src/server.rs:778", "services/interop/crates/layerx-migrate/src/journal.rs:88", "services/interop/crates/layerx-migrate/src/main.rs:152", "services/interop/crates/layerx-mirror/tests/publish.rs:465", "services/interop/crates/layerx-x402/tests/transports.rs:945", "services/interop/crates/x-websearch/src/main.rs:1013", "services/interop/crates/x-websearch/src/submit.rs:731", "services/interop/crates/x-websearch/tests/submit.rs:458", "services/interop/specs/vendor/ap2/specification.md:208", "services/interop/specs/vendor/ucp/specification-checkout.html:5459", "services/interop/specs/vendor/ucp/specification-order.html:3865", "services/interop/specs/vendor/x402/x402-specification-v2.md:596", "services/launchpad/api/internal/broker/durable.go:17", "services/launchpad/livestream/PROGRESS.md:15", "services/platform/hosted/paxeer/gov-consensus-params.sh:3", "services/platform/hosted/paxeer/gov-lib.sh:4", "services/platform/hosted/paxeer/gov-upgrade.sh:16", "services/platform/hosted/paxeer/tests/gov-scripts-test.sh:102", "services/platform/middleware/examples/public-rpc.mjs:205", "services/platform/middleware/examples/public_rpc.py:310", "services/wallet/demo/src/components/FundedAccountPanel.tsx:38", "services/wallet/gateway/migrations/005_agent_actions.sql:6", "services/wallet/gateway/src/agent/actions/orchestrator.ts:214", "services/wallet/gateway/src/agent/actions/plan.ts:23", "services/wallet/gateway/src/env.ts:187", "services/wallet/gateway/src/index.ts:158", "services/wallet/gateway/src/routes/agentActions.ts:24", "services/wallet/gateway/test/e2e/wallet-signing-adapters.production.ts:162", "storage/db_engine/litt/test/db_test.go:359", "storage/db_engine/pebbledb/mvcc/descending_marker_test.go:41", "storage/state_db/sc/composite/random_test.go:65", "storage/state_db/sc/composite/random_test_framework_test.go:1400", "storage/state_db/sc/composite/store_test.go:2117", "storage/state_db/sc/hashvault/pebble_hashvault_test.go:215", "storage/state_db/sc/migration/OPERATIONS.md:292", "storage/state_db/sc/migration/migration_test_framework_test.go:235", "storage/state_db/sc/migration/module_router_test.go:441", "storage/state_db/sc/migration/passthrough_router_test.go:76", "storage/state_db/sc/migration/thread_safe_router_test.go:67", "tests/integration/autobahn/autobahn_test.go:335", "tests/integration/contracts/verify_flatkv_crash_recovery.sh:148", "tests/integration/contracts/verify_flatkv_evm_migrate.sh:564", "tests/integration/contracts/verify_flatkv_total_loss_recovery.sh:453", "tests/integration/rpc_tests/utils/evmUtils.ts:60", "tests/integration/rpc_tests/utils/logsUtils.ts:75", "tests/integration/rpc_tests/utils/subscribeUtils.ts:199", "tests/integration/rpc_tests/utils/txLookupUtils.ts:108", "tools/benchmark/loadtest/contracts/evm/lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol:78", "tools/benchmark/loadtest/contracts/evm/lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol:16", "tools/hpx/hpx:73", "tools/hpx/uninstall.sh:8", "tools/paxctl/sidecar/tasks/assemble_genesis_test.go:296", "tools/paxctl/sidecar/tasks/restart_seid.go:154", "tools/paxctl/sidecar/tasks/sign_and_broadcast.go:318", "tools/paxctl/sidecar/tasks/stop_seid.go:104", "tools/paxctl/sidecar/wire/wire.go:87", "tools/paxeer-x/route-catalogue.json:2478", "tools/platform/cli/src/faucet.rs:50", "tools/platform/cli/src/programs.rs:1250", "tools/qualification/paxeer-x/gas-station-contract.py:360", "tools/qualification/paxeer-x/human_deposit_initial_response.py:133", "tools/qualification/paxeer-x/wallet-injected-fixture.mjs:82"]
+
+[row.r12-76.42]
+interface = "interface.12.ts-sdk-lx-activity-wallet-config"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 108
+symbol = "LxActivityWalletConfig"
+evidence = "LxActivityWalletConfig is absent. EvmReviewWalletConfig at index.ts:78 now intersects PaxeerWalletConfig with optional evmReview storage; repository search found no remaining old identifier mentions outside spec and docs."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.43]
+interface = "interface.12.cfg-sdk-lx-activity-wallet-config-lx-activity"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 109
+symbol = "lxActivity"
+evidence = "The lxActivity?: LxActivityOptions configuration member is absent. EvmReviewWalletConfig instead offers evmReview storage; the remaining lxActivity mention is a retirement assertion in sdk/wallet/test/lx-retired.test.ts."
+remaining_refs = 1
+remaining = ["sdk/wallet/test/lx-retired.test.ts:46"]
+
+[row.r12-76.44]
+interface = "interface.12.ts-sdk-paxeer-wallet-send-transaction"
+verdict = "served"
+path = "sdk/wallet/src/index.ts"
+line = 226
+symbol = "sendTransaction"
+evidence = "async sendTransaction(tx: TxRequest): Promise<SendTxResponse> keeps its signature but SendTxResponse now includes a sequencer receipt beside tx_hash. The method validates a supplied receipt or reads one from chain RPC and checks that its hash matches the sent transaction."
+
+[row.r12-76.45]
+interface = "interface.12.ts-sdk-paxeer-wallet-review-lx-activity"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 272
+symbol = "reviewLxActivity"
+evidence = "PaxeerWallet.reviewLxActivity(activity): Promise<LxActivityReview> is absent; reviewEvmTransaction now accepts TransactionSerializable and returns EvmTransactionReview. Remaining mentions include SDK retirement documentation/assertions and the separate AttestorClient.reviewLxActivity gateway method, not a moved PaxeerWallet method."
+remaining_refs = 4
+remaining = ["sdk/wallet/README.md:91", "sdk/wallet/test/lx-retired.test.ts:7", "services/wallet/gateway/src/attestor/client.ts:608", "services/wallet/gateway/src/routes/sign.ts:1146"]
+
+[row.r12-76.46]
+interface = "interface.12.ts-sdk-paxeer-wallet-review-lx-send-authorization"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 276
+symbol = "reviewLxSendAuthorization"
+evidence = "PaxeerWallet.reviewLxSendAuthorization(activity): Promise<LxActivityReview> is absent. The SDK now exposes EVM transaction review; remaining mentions are SDK retirement documentation and the test asserting that the old prototype method does not exist."
+remaining_refs = 2
+remaining = ["sdk/wallet/README.md:91", "sdk/wallet/test/lx-retired.test.ts:8"]
+
+[row.r12-76.47]
+interface = "interface.12.ts-sdk-paxeer-wallet-approve-lx-activity"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 304
+symbol = "approveLxActivity"
+evidence = "PaxeerWallet.approveLxActivity(reviewId): Promise<LxActivityApproved> is absent. approveEvmTransaction(reviewId: string): Promise<EvmApproval> binds EVM signing hashes; remaining mentions are SDK retirement documentation and removal assertions."
+remaining_refs = 2
+remaining = ["sdk/wallet/README.md:91", "sdk/wallet/test/lx-retired.test.ts:10"]
+
+[row.r12-76.48]
+interface = "interface.12.ts-sdk-paxeer-wallet-sign-approved-lx-activity"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 344
+symbol = "signApprovedLxActivity"
+evidence = "PaxeerWallet.signApprovedLxActivity(approvalId): Promise<LxActivityArtifact> is absent. The SDK has no public replacement with this name; remaining mentions are SDK retirement documentation and the test asserting removal from PaxeerWallet.prototype."
+remaining_refs = 2
+remaining = ["sdk/wallet/README.md:91", "sdk/wallet/test/lx-retired.test.ts:11"]
+
+[row.r12-76.49]
+interface = "interface.12.ts-sdk-paxeer-wallet-lx-approval-status"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 372
+symbol = "lxApprovalStatus"
+evidence = "PaxeerWallet.lxApprovalStatus(approvalId): Promise<LxActivityArtifact> is absent. evmApprovalStatus(reviewId: string): Promise<EvmTransactionReview | EvmApproval> now reads EVM approval records; remaining mentions are retirement documentation and removal assertions."
+remaining_refs = 2
+remaining = ["sdk/wallet/README.md:91", "sdk/wallet/test/lx-retired.test.ts:12"]
+
+[row.r12-76.50]
+interface = "interface.12.key-sdk-lx-activity-v1"
+verdict = "retired"
+path = "sdk/wallet/src/index.ts"
+line = 433
+symbol = "paxeer:lx-activity:v1:"
+evidence = "The paxeer:lx-activity:v1: storage namespace is absent. evmStorageKey at index.ts:358 now returns paxeer:evm-review:v1:${principal}; repository search found no remaining old namespace mentions outside spec and docs."
+remaining_refs = 0
+remaining = []
+
+[row.r12-76.51]
+interface = "interface.12.err-sdk-kernel-unavailable"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 15
+symbol = "KERNEL_UNAVAILABLE_CODE"
+evidence = "export const KERNEL_UNAVAILABLE_CODE = -32010; remains unchanged. kernelUnavailableFrom still maps structured RPC refusals, now accepting consensus_unavailable while KernelClient reads chain endpoints instead of retired lx_ methods."
+
+[row.r12-76.52]
+interface = "interface.12.ts-sdk-availability-from-status"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 31
+symbol = "availabilityFromStatus"
+evidence = "The former exported availabilityFromStatus(status: KernelStatus) is now a private function availabilityFromStatus(network: NetworkHead): KernelAvailabilityState. It derives availability from non-null consensus with catching_up false, matching override.J50.15."
+
+[row.r12-76.53]
+interface = "interface.12.ts-sdk-kernel-availability-current"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 68
+symbol = "current"
+evidence = "async current(): Promise<KernelAvailabilityState> retains its signature, TTL cache and in-flight deduplication. It now maps endpoint.getNetwork() through availabilityFromStatus(NetworkHead), deriving availability from consensus instead of kernel backend status."
+
+[row.r12-76.54]
+interface = "interface.12.ts-sdk-kernel-availability-record"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 84
+symbol = "record"
+evidence = "record(state: KernelAvailabilityState): void retains its signature and stores state with the current timestamp. KernelClient now records structured unavailability from chain endpoint reads rather than lx_ RPC reads."
+
+[row.r12-76.55]
+interface = "interface.12.ts-sdk-kernel-availability-invalidate"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 88
+symbol = "invalidate"
+evidence = "invalidate(): void retains its signature and clears cached availability. The next current() refresh now derives state from the NetworkHead consensus head rather than the removed KernelStatus contract."
+
+[row.r12-76.56]
+interface = "interface.12.ts-sdk-kernel-client"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 93
+symbol = "KernelClient"
+evidence = "export class KernelClient remains, but its methods now return typed ChainAccount, Balances, decimal nonce and SequencerReceiptAnswer results. It routes through chain/bank endpoints, pending eth_getTransactionCount and readSequencerReceipt instead of lx_ RPC methods."
+
+[row.r12-76.57]
+interface = "interface.12.ts-sdk-kernel-client-get-account"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 102
+symbol = "getAccount"
+evidence = "getAccount(accountId: string): Promise<KernelRead<KernelDocument>> changed to getAccount(address: string): Promise<KernelRead<ChainAccount>>. It validates an EVM address and calls endpoint.getChainAccount instead of lx_getAccount."
+
+[row.r12-76.58]
+interface = "interface.12.ts-sdk-kernel-client-get-balances"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 107
+symbol = "getBalances"
+evidence = "getBalances(did: string): Promise<KernelRead<KernelDocument>> changed to getBalances(address: string): Promise<KernelRead<Balances>>. It validates the account address and calls endpoint.getBankBalances instead of lx_getBalances."
+
+[row.r12-76.59]
+interface = "interface.12.ts-sdk-kernel-client-get-sequence"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 112
+symbol = "getSequence"
+evidence = "getSequence(accountId: string): Promise<KernelRead<KernelDocument>> changed to getSequence(address: string): Promise<KernelRead<string>>. It calls eth_getTransactionCount(address, pending), validates a canonical hex nonce and converts it to a decimal string."
+
+[row.r12-76.60]
+interface = "interface.12.ts-sdk-kernel-client-get-receipt"
+verdict = "served"
+path = "sdk/wallet/src/kernel.ts"
+line = 125
+symbol = "getReceipt"
+evidence = "getReceipt(activityId: string): Promise<KernelRead<KernelDocument>> changed to getReceipt(hash: string): Promise<KernelRead<SequencerReceiptAnswer | null>>. It calls readSequencerReceipt using the transaction hash instead of lx_getReceipt."

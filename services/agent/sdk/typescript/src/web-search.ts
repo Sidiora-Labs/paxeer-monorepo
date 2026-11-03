@@ -318,14 +318,10 @@ async function verifySequencerReceipt(receipt: Uint8Array, rawTransaction: Uint8
     if (rawTransaction === undefined || rawTransaction.length === 0 || receiptKeys === undefined) throw new WebSearchError("receipt-unverified");
     verified = await verifyPinnedSequencerReceipt(receipt, rawTransaction, receiptKeys);
     if (verified.receipt.resultCode !== 0) throw new WebSearchError("receipt-unverified");
-    const outcome = verified.receipt;
-    if (outcome.moduleId === 1 && (outcome.operation === 0 || outcome.fromBalanceBefore < outcome.amount
-      || outcome.fromBalanceBefore - outcome.amount !== outcome.fromBalanceAfter
-      || outcome.toBalanceBefore + outcome.amount >= 1n << 128n
-      || outcome.toBalanceBefore + outcome.amount !== outcome.toBalanceAfter)) throw new WebSearchError("receipt-unverified");
   } catch {
     throw new WebSearchError("receipt-unverified");
   }
+  if (verified.receipt.moduleId !== 12 || verified.receipt.operation !== 2) throw new WebSearchError("settlement-operation-mismatch");
   if (hex(verified.receipt.asset) !== offer.asset || verified.receipt.amount !== BigInt(offer.amount) || hex(verified.receipt.to) !== offer.payTo) throw new WebSearchError("receipt-offer-mismatch");
   return verified;
 }
@@ -508,7 +504,6 @@ export class WebSearchClient {
     const from = hex(verified.receipt.from);
     if (settlement["payer"] !== from) throw new WebSearchError("settlement-payer-mismatch");
     if (offer.scheme === "metered") {
-      if (verified.receipt.moduleId !== 1 || verified.receipt.operation !== 6) throw new WebSearchError("settlement-operation-mismatch");
       if (from !== offer.payer) throw new WebSearchError("settlement-payer-mismatch");
       if (layerx["purposeHash"] !== offer.purposeHash) throw new WebSearchError("settlement-purpose-mismatch");
     }

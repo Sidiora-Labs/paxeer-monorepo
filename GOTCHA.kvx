@@ -14350,3 +14350,153 @@ fix = "Every in-memory read model that an RPC serves is rebuilt from durable sta
 title = "A reader refuses a value shape its producer writes"
 symptom = "The sweep records wrote decimal elapsed seconds; the summary reader written against the records accepted integers only and refused the first file with a decimal."
 fix = "Derive a reader's accepted value shapes from the files it will read, and test it on one real record of each producer."
+
+[gotcha.2906]
+title = "A service test fails on the key loader, not the key"
+symptom = "The gas station's documented-deploy test failed with KeySource although every documented variable was set: from_config used a prefixed file-or-KMS loader while the deploy contract exports the raw key in the named variable."
+fix = "Read the deploy template and the init script before choosing a loader; the loader must read what the operator sets."
+
+[gotcha.2907]
+title = "A completion gate requires the planned paths of retired tasks"
+symptom = "The gate collected planned paths from a task list and required each as a file; one belonged to a capability a later decision retired and deleted."
+fix = "Exclude the planned paths of retired tasks explicitly and assert the retired files are absent."
+
+[gotcha.2908]
+title = "A floor raise that verifies only the install leaves consumers red"
+symptom = "Two dependency floor tasks raised vitest, vite and viem and verified the lock floor and a frozen install; the apps' type checks broke in config and component files nobody touched."
+fix = "A floor task's verify runs the type check of every package whose lock it raises, or a follow-up task does so before dependents launch."
+
+[gotcha.2909]
+title = "A triage report compared against the wrong served source"
+symptom = "The report took the pre-merge executor ABI as the served scheduler ABI; under the merge upgrade a wrapper precompile serves five events and the cold metadata was right."
+fix = "Resolve which type is served at the upgrade in force before calling metadata stale."
+
+[gotcha.2910]
+title = "A test file imports a module its manifest lacks"
+symptom = "Regenerating go.sum could not make go list -mod=readonly pass: the production test imported a module absent from go.mod."
+fix = "Run go list -mod=readonly -deps -test at the base before regenerating sums, and add missing requirements to the manifest."
+
+[gotcha.2911]
+title = "A build command names a tool the environment profile lacks"
+symptom = "pnpm against an npm-pinned package and gradle in an image without it failed before any code ran."
+fix = "Match the build command to the package's pinned manager and the profile's toolchain; compute what the absent tool would have produced from published artifacts."
+
+[gotcha.2912]
+title = "A recorded upstream corpus cannot be re-typed onto another chain"
+symptom = "Thirty-four recorded transactions traced against upstream balances and a Wasm capability the chain does not have; rewriting type URLs left insufficient-funds and duplicate-denomination traces."
+fix = "Retire corpora recorded on another chain and record new ones on this chain instead of patching their encodings."
+
+[gotcha.2913]
+title = "A network-rule change left the vector suite on the old grammar"
+symptom = "The model moved to one eip155 network and refused the layerx: namespace; the vector tests and a payload fixture kept the namespace and six tests went red without any task running them."
+fix = "A task that changes an acceptance rule runs every test file that includes the fixtures the rule reads."
+
+[gotcha.2914]
+title = "A range override drags a 1.x consumer onto a 2.x major"
+symptom = "An override written as package@<2.8.0 matched the ^1.30.1 dependency of a 1.x consumer and forced it to 2.8.0, which dropped an export the consumer reads at load time."
+fix = "Bound alert overrides below by the first affected major and check every dependent range the override rewrites in the lock."
+
+[gotcha.2915]
+title = "A new struct field breaks an initializer outside the task scope"
+symptom = "Adding a field to a context struct failed the lib test build in another module's initializer that the task could not edit."
+fix = "Grep every initializer of a struct before adding a field and list each file in touches."
+
+[gotcha.2916]
+title = "A frozen install consumed the whole task limit"
+symptom = "A yarn frozen install of a large app took fifteen minutes and the attempt ended before its verify ran."
+fix = "Give install-heavy tasks a longer time limit and measure the install before fixing the limit."
+
+[gotcha.2917]
+title = "A command template substitution doubled a directory prefix"
+symptom = "A verify command cloned from a template received a full path in place of a file name and named the dispositions directory twice; twenty-three tasks failed their verify with FileNotFoundError after doing the work."
+fix = "After substituting into a cloned command, assert that every path it names exists or will be created by the task before landing it."
+
+[gotcha.2918]
+title = "A continued attempt carried an edit of a file that had left the scope"
+symptom = "A ruling removed a file from a task's touches, but the next attempt continued from the earlier tree and kept the file's edit it could no longer revert."
+fix = "When a ruling removes a file from the scope, start the next attempt from main instead of continuing from the earlier tree."
+
+[gotcha.2919]
+title = "A restore path returned the new record into a cache typed for the old one"
+symptom = "Carriers were migrated to restore the call-bound preparation while the runtime cache still held the legacy record, so the two insertions failed to compile."
+fix = "When a producer changes a record type, enumerate every cache that holds it and decide the holding shape in the same task."
+
+[gotcha.2920]
+title = "A directory-scoped publication dropped the tracked lock files under it"
+symptom = "Tasks whose scope named a directory were published without the lock and checksum files tracked there, because those files were classed as generated; frozen installs and readonly module resolution failed later on main."
+fix = "When a scope is a directory, keep every tracked lock file under it in the published tree and verify the ecosystem's frozen install on the published revision."
+
+[gotcha.2921]
+title = "A flat version floor failed instances outside the advisory's range"
+symptom = "A minimum version derived from an advisory on one major was applied to every resolved instance of the package, so a 1.x instance pinned by an unrelated dependency failed a floor meant for 2.x."
+fix = "Scope a floor to the advisory's version range when the lock legitimately carries an older major."
+
+[gotcha.2922]
+title = "A struct gaining a field broke initializers in dependent crates"
+symptom = "A context struct gained a required field in one crate; the dependent-crate check found the initializers in two other crates and their tests uncompilable."
+fix = "When a task adds a required field, list every crate that initializes the struct in its scope and migrate them in the same task."
+
+[gotcha.2923]
+title = "A registry presence check ignored the row's status"
+symptom = "The interface sweep counted every absent symbol as missing, including thousands of rows whose status already said retire, so the report could not tell a wrongly dropped interface from a retired one."
+fix = "Classify registry rows by status and presence together, and settle the rows that need judgement with written evidence per row."
+
+[gotcha.2924]
+title = "An SDK type change left a sibling test on the old shape"
+symptom = "A task ported a payment type and its named test, but a second test file constructing the same type was outside its scope, so the package no longer type-checked."
+fix = "When a task changes an exported type, search the package for every construction of it and put each file in the task's scope."
+
+[gotcha.2925]
+title = "A fixture chain lacking receipt fields starved the view under test"
+symptom = "View tests waited forever for a receipt because the shared fixture chain returned receipts without the nonce and logIndex fields the SDK readers require."
+fix = "Build fixture receipts from the fields the reader checks, and assert those fields in the fixture's own test."
+
+[gotcha.2926]
+title = "A refusal tag renumbering left a native corpus fixture asserting the old tag"
+symptom = "The runtime began reporting a kernel refusal of a settlement leg under the kernel tag instead of the receipt-mismatch tag; the native corpus fixture kept asserting the old tag and the signed corpus was no longer emitted, so every consumer of the corpus failed its qualification."
+fix = "When a producer changes an encoded tag, run the native corpus producer and every fixture that asserts the tag in the same task."
+
+[gotcha.2927]
+title = "A scope rename stranded a publication that deleted the old path"
+symptom = "A task moved a test file to another crate; its scope was renamed to the new path only, so the publication that deleted the old file was refused for a change outside the scope although the verify and the done check had passed."
+fix = "When a task moves or deletes a file, keep the old path in the scope beside the new one; a deletion is a change of the old path."
+
+[gotcha.2928]
+title = "CMake 4 refuses projects declaring a minimum version below 3.5"
+symptom = "A Rust crate that compiles a bundled C++ project through the cmake crate failed in its build script with Compatibility with CMake < 3.5 has been removed, because CMake 4 no longer accepts cmake_minimum_required values below 3.5."
+fix = "Upgrade or drop the dependency that bundles the old project; CMAKE_POLICY_VERSION_MINIMUM=3.5 only probes whether the rest of the build would succeed."
+
+[gotcha.2929]
+title = "A test that starts a tool binary needs the binary in the qualification environment"
+symptom = "The TypeScript SDK gas-station test starts a local EVM through anvil; run directly as node dist/test/gas-station.test.js in an environment without Foundry it fails with local EVM exited before readiness after every other case passed."
+fix = "Install Foundry before running the compiled SDK tests, or set ANVIL_BIN to the binary; the failure is environmental, not a product defect."
+
+[gotcha.2930]
+title = "A dependent-crate check fails on a test package already broken on the main line"
+symptom = "A change to the agent daemon's tests built cleanly, but the dependent-crate check compiled the human service's custody test, which no longer matches the daemon's prepare types on the main line, and reported the task as failed."
+fix = "Make the task depend on the task that repairs the broken package, and record the break as a finding so nobody re-investigates it."
+
+[gotcha.2931]
+title = "A hand-built EIP-1559 call with a placeholder target is refused by the disclosure binder"
+symptom = "A test built an Eip1559Call with to = 0x1a repeated and a kernel authorization as data; bind_call in layerx-crypto's disclosure/call.rs refused it with MalformedPayload because the binder accepts only registered targets with canonical ABI payloads."
+fix = "Build test calls against a registered target with the ABI the binder decodes, and sign kernel authorizations through their own path instead of wrapping them in an EVM call."
+
+[gotcha.2932]
+title = "A completion check rejects a symbol that names a file instead of a definition"
+symptom = "A task whose symbols list carries a file or module name (exchange-client) fails the completion check with not defined in the graph after a passing verify, on every attempt."
+fix = "Declare symbols = [] unless every entry is a function, type or constant the code graph defines; a file is proven by touches, not symbols."
+
+[gotcha.2933]
+title = "The explorer typecheck fails on the main line before a dependency change is tested"
+symptom = "yarn tsc --noEmit in apps/explorer reports 343 errors in toolkit/chakra, toolkit/components and ui/zetaChain whatever the lock change, so a build command that runs it fails every attempt."
+fix = "Build dependency tasks with the frozen install alone and restore the typecheck in its own task (14.99.1); record the pre-existing failure as a finding."
+
+[gotcha.2934]
+title = "A service test takes its clock from the environment and panics in qualification"
+symptom = "RuntimeClock::from_environment in a test needs the runtime clock authority variables; without a running node runtime the test panics with clock authority unavailable while its siblings pass."
+fix = "Start the in-process clock the component frame test uses (RunningClock::start, RuntimeClock::connect) and never read the ambient clock authority from a test."
+
+[gotcha.2935]
+title = "A whole-file absence rule rejects retirements proven by test inputs"
+symptom = "The reconcile checker refused a retired row because the retired variable survives only as test literals in the registered file."
+fix = "List those lines in remaining as path:line references inside the registered path; the checker skips exactly them (decision 2494)."

@@ -1,0 +1,243 @@
+[reconcile.r8-138]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-138.1]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-nativesendaccessbeginresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4046
+symbol = "NativeSendAccessBeginResponse"
+evidence = "HumanOperations record declaration moved from registered line 4284 to line 4046. The record components and implemented interface match the registered signature. Current declaration: public record NativeSendAccessBeginResponse(String access_id, String confirms) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.2]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-nativesendaccessconfirmrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4053
+symbol = "NativeSendAccessConfirmRequest"
+evidence = "HumanOperations record declaration moved from registered line 4291 to line 4053. The request retains its registered components and appends String nonce after HumanModels.NativeFeeBudget native_fee_budget. Current declaration: public record NativeSendAccessConfirmRequest(String access_id, String counterparty, String asset, ProtocolAmount maximum_amount, String not_before, String expires_at, String rate_window_ms, String maximum_uses, String commitment, HumanModels.StepUpEvidence step_up, HumanModels.NativeFeeBudget native_fee_budget, String nonce) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-138.3]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-nativesendaccessconfirmresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4067
+symbol = "NativeSendAccessConfirmResponse"
+evidence = "HumanOperations record declaration moved from registered line 4305 to line 4067. The record components and implemented interface match the registered signature. Current declaration: public record NativeSendAccessConfirmResponse(String native_access_id) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.4]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-notificationlistrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4073
+symbol = "NotificationListRequest"
+evidence = "HumanOperations record declaration moved from registered line 4311 to line 4073. The record components and implemented interface match the registered signature. Current declaration: public record NotificationListRequest() implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-138.5]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-notificationlistresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4075
+symbol = "NotificationListResponse"
+evidence = "HumanOperations record declaration moved from registered line 4313 to line 4075. The record components and implemented interface match the registered signature. Current declaration: public record NotificationListResponse(List<HumanModels.NotificationGroup> groups, String next_cursor, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long unread_count) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.6]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-notificationpreferencesgetrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4082
+symbol = "NotificationPreferencesGetRequest"
+evidence = "HumanOperations record declaration moved from registered line 4320 to line 4082. The record components and implemented interface match the registered signature. Current declaration: public record NotificationPreferencesGetRequest() implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-138.7]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-notificationpreferencesgetresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4084
+symbol = "NotificationPreferencesGetResponse"
+evidence = "HumanOperations record declaration moved from registered line 4322 to line 4084. The record components and implemented interface match the registered signature. Current declaration: public record NotificationPreferencesGetResponse(HumanModels.ChannelPreference push, HumanModels.ChannelPreference email, HumanModels.ChannelPreference in_app, HumanModels.NotificationDetailLevel detail) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.8]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-notificationpreferencessetrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4093
+symbol = "NotificationPreferencesSetRequest"
+evidence = "HumanOperations record declaration moved from registered line 4331 to line 4093. The record components and implemented interface match the registered signature. Current declaration: public record NotificationPreferencesSetRequest(HumanModels.ChannelPreference push, HumanModels.ChannelPreference email, HumanModels.ChannelPreference in_app, HumanModels.NotificationDetailLevel detail) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-138.9]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-notificationpreferencessetresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4101
+symbol = "NotificationPreferencesSetResponse"
+evidence = "HumanOperations record declaration moved from registered line 4339 to line 4101. The record components and implemented interface match the registered signature. Current declaration: public record NotificationPreferencesSetResponse(HumanModels.ChannelPreference push, HumanModels.ChannelPreference email, HumanModels.ChannelPreference in_app, HumanModels.NotificationDetailLevel detail) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.10]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-notificationreadrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4110
+symbol = "NotificationReadRequest"
+evidence = "HumanOperations record declaration moved from registered line 4348 to line 4110. The record components and implemented interface match the registered signature. Current declaration: public record NotificationReadRequest() implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-138.11]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-notificationreadresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4112
+symbol = "NotificationReadResponse"
+evidence = "HumanOperations record declaration moved from registered line 4350 to line 4112. The record components and implemented interface match the registered signature. Current declaration: public record NotificationReadResponse(String notification_id, @JsonProperty(\"class\") HumanModels.NotificationClass class_, String title_copy_key, String body_copy_key, String deep_link, boolean read, String created_at, HumanModels.Money money, String agent_id, String approval_id, String journey_id, String action_copy_key) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.12]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-onboardingresumerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4123
+symbol = "OnboardingResumeRequest"
+evidence = "HumanOperations record declaration moved from registered line 4361 to line 4123. The record components and implemented interface match the registered signature. Current declaration: public record OnboardingResumeRequest() implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-138.13]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-onboardingresumeresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4125
+symbol = "OnboardingResumeResponse"
+evidence = "HumanOperations record declaration moved from registered line 4363 to line 4125. The response retains its registered components and appends String sponsor and String tx_hash after HumanModels.WalletSignRequest wallet_request. Current declaration: public record OnboardingResumeResponse(String journey_id, HumanModels.JourneyKind kind, HumanModels.JourneyState state, String state_copy_key, List<HumanModels.JourneyStage> stages, List<HumanModels.EvidenceRef> evidence, String started_at, String updated_at, HumanModels.Refusal refusal, HumanModels.WalletSignRequest wallet_request, String sponsor, String tx_hash) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.14]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-onboardingstatusrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4138
+symbol = "OnboardingStatusRequest"
+evidence = "HumanOperations record declaration moved from registered line 4376 to line 4138. The record components and implemented interface match the registered signature. Current declaration: public record OnboardingStatusRequest() implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-138.15]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-onboardingstatusresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4140
+symbol = "OnboardingStatusResponse"
+evidence = "HumanOperations record declaration moved from registered line 4378 to line 4140. The response retains its registered components and appends String sponsor and String tx_hash after HumanModels.WalletSignRequest wallet_request. Current declaration: public record OnboardingStatusResponse(String journey_id, HumanModels.JourneyKind kind, HumanModels.JourneyState state, String state_copy_key, List<HumanModels.JourneyStage> stages, List<HumanModels.EvidenceRef> evidence, String started_at, String updated_at, HumanModels.Refusal refusal, HumanModels.WalletSignRequest wallet_request, String sponsor, String tx_hash) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.16]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-passkeyassertbeginrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4153
+symbol = "PasskeyAssertBeginRequest"
+evidence = "HumanOperations record declaration moved from registered line 4391 to line 4153. The record components and implemented interface match the registered signature. Current declaration: public record PasskeyAssertBeginRequest(String email) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-138.17]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-passkeyassertbeginresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4155
+symbol = "PasskeyAssertBeginResponse"
+evidence = "HumanOperations record declaration moved from registered line 4393 to line 4155. The record components and implemented interface match the registered signature. Current declaration: public record PasskeyAssertBeginResponse(String assertion_id, String ceremony, String expires_at) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.18]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-passkeyassertfinishrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4163
+symbol = "PasskeyAssertFinishRequest"
+evidence = "HumanOperations record declaration moved from registered line 4401 to line 4163. The record components and implemented interface match the registered signature. Current declaration: public record PasskeyAssertFinishRequest(String credential) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-138.19]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-passkeyassertfinishresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4169
+symbol = "PasskeyAssertFinishResponse"
+evidence = "HumanOperations record declaration moved from registered line 4407 to line 4169. The record components and implemented interface match the registered signature. Current declaration: public record PasskeyAssertFinishResponse(String assertion_id, String passkey_id, String completed_at, String expires_at) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.20]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-passkeyregisterbeginrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4178
+symbol = "PasskeyRegisterBeginRequest"
+evidence = "HumanOperations record declaration moved from registered line 4416 to line 4178. The record components and implemented interface match the registered signature. Current declaration: public record PasskeyRegisterBeginRequest(String account_id) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-138.21]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-passkeyregisterbeginresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4183
+symbol = "PasskeyRegisterBeginResponse"
+evidence = "HumanOperations record declaration moved from registered line 4421 to line 4183. The record components and implemented interface match the registered signature. Current declaration: public record PasskeyRegisterBeginResponse(String registration_id, String ceremony, String expires_at) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.22]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-passkeyregisterfinishrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4191
+symbol = "PasskeyRegisterFinishRequest"
+evidence = "HumanOperations record declaration moved from registered line 4429 to line 4191. The record components and implemented interface match the registered signature. Current declaration: public record PasskeyRegisterFinishRequest(String credential) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-138.23]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-passkeyregisterfinishresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4197
+symbol = "PasskeyRegisterFinishResponse"
+evidence = "HumanOperations record declaration moved from registered line 4435 to line 4197. The record components and implemented interface match the registered signature. Current declaration: public record PasskeyRegisterFinishResponse(String passkey_id, String label, String created_at, String last_used_at) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.24]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-profilegetrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4205
+symbol = "ProfileGetRequest"
+evidence = "HumanOperations record declaration moved from registered line 4443 to line 4205. The record components and implemented interface match the registered signature. Current declaration: public record ProfileGetRequest() implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-138.25]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-profilegetresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4207
+symbol = "ProfileGetResponse"
+evidence = "HumanOperations record declaration moved from registered line 4445 to line 4207. The record components and implemented interface match the registered signature. Current declaration: public record ProfileGetResponse(String display_name, String avatar_url) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.26]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-profileupdaterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4213
+symbol = "ProfileUpdateRequest"
+evidence = "HumanOperations record declaration moved from registered line 4451 to line 4213. The record components and implemented interface match the registered signature. Current declaration: public record ProfileUpdateRequest(String display_name, String avatar_url) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-138.27]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-profileupdateresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4215
+symbol = "ProfileUpdateResponse"
+evidence = "HumanOperations record declaration moved from registered line 4453 to line 4215. The record components and implemented interface match the registered signature. Current declaration: public record ProfileUpdateResponse(String display_name, String avatar_url) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.28]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securityactionrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4221
+symbol = "SecurityActionRequest"
+evidence = "HumanOperations record declaration moved from registered line 4459 to line 4221. Matches the registered GeneratedRequest signature in HumanOperations; the namesake at line 2293 belongs to HumanModels and implements GeneratedResponse. Current declaration: public record SecurityActionRequest(HumanModels.SecurityActionKind action, String target_id) implements SchemaTypes.GeneratedRequest {"
+
+[row.r8-138.29]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securityactionresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4226
+symbol = "SecurityActionResponse"
+evidence = "HumanOperations record declaration moved from registered line 4464 to line 4226. The record components and implemented interface match the registered signature. Current declaration: public record SecurityActionResponse(String confirms) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-138.30]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitykeyexportbeginrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4232
+symbol = "SecurityKeyExportBeginRequest"
+evidence = "HumanOperations record declaration moved from registered line 4470 to line 4232. The record components and implemented interface match the registered signature. Current declaration: public record SecurityKeyExportBeginRequest(HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedRequest {"

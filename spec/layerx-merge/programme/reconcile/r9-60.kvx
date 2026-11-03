@@ -1,0 +1,483 @@
+[reconcile.r9-60]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r9-60.1]
+interface = "interface.9.rs-types-settlement-checkpoint-settlement-path"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 11
+symbol = "CHECKPOINT_SETTLEMENT_PATH"
+evidence = "Observed declaring line 11: pub const CHECKPOINT_SETTLEMENT_PATH: &str = \"contracts/config/checkpoint-settlement.json\"; CHECKPOINT_SETTLEMENT_PATH remains implemented in the settlement module; the registered retirement and task 9.26.3 removal have not occurred."
+
+[row.r9-60.2]
+interface = "interface.9.rs-types-settlement-declaredguarantor-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 15
+symbol = "DeclaredGuarantor"
+evidence = "Observed declaring line 15: pub struct DeclaredGuarantor { DeclaredGuarantor remains implemented in the settlement module; the registered retirement and task 9.26.3 removal have not occurred."
+
+[row.r9-60.3]
+interface = "interface.9.rs-types-settlement-declaredsettlementdomain-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 43
+symbol = "DeclaredSettlementDomain"
+evidence = "Observed declaring line 43: pub struct DeclaredSettlementDomain { DeclaredSettlementDomain remains implemented in the settlement module; the registered retirement and task 9.26.3 removal have not occurred."
+
+[row.r9-60.4]
+interface = "interface.9.rs-types-settlement-declaredfinalitypolicy-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 85
+symbol = "DeclaredFinalityPolicy"
+evidence = "Observed declaring line 85: pub struct DeclaredFinalityPolicy { DeclaredFinalityPolicy remains implemented in the settlement module; the registered retirement and task 9.26.3 removal have not occurred."
+
+[row.r9-60.5]
+interface = "interface.9.rs-types-settlement-declaredcheckpointsettlement"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 112
+symbol = "DeclaredCheckpointSettlement"
+evidence = "Observed declaring line 112: pub struct DeclaredCheckpointSettlement { DeclaredCheckpointSettlement remains implemented in the settlement module; the registered retirement and task 9.26.3 removal have not occurred."
+
+[row.r9-60.6]
+interface = "interface.9.rs-types-settlement-settlementerror"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 124
+symbol = "SettlementError"
+evidence = "Observed declaring line 124: pub enum SettlementError { SettlementError remains implemented in the settlement module; the registered retirement and task 9.26.3 removal have not occurred."
+
+[row.r9-60.7]
+interface = "interface.9.rs-types-declaredcheckpointsettlement-parse-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 265
+symbol = "parse"
+evidence = "Observed declaring line 265: pub fn parse(text: &str) -> Result<Self, SettlementError> { DeclaredCheckpointSettlement::parse remains implemented in the settlement module; the registered retirement and task 9.26.3 removal have not occurred."
+
+[row.r9-60.8]
+interface = "interface.9.rs-types-declaredcheckpointsettlement-protocol-version-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 345
+symbol = "protocol_version"
+evidence = "Observed declaring line 345: pub const fn protocol_version(&self) -> u16 { DeclaredCheckpointSettlement::protocol_version remains implemented in the settlement module; the registered retirement and task 9.26.3 removal have not occurred."
+
+[row.r9-60.9]
+interface = "interface.9.rs-types-declaredcheckpointsettlement-checkpoint-certificate-domain-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 351
+symbol = "checkpoint_certificate_domain"
+evidence = "Observed declaring line 351: pub fn checkpoint_certificate_domain(&self) -> &[u8] { DeclaredCheckpointSettlement::checkpoint_certificate_domain remains implemented in the settlement module; the registered retirement and task 9.26.3 removal have not occurred."
+
+[row.r9-60.10]
+interface = "interface.9.rs-types-declaredcheckpointsettlement-guarantor-attestation-domain-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 357
+symbol = "guarantor_attestation_domain"
+evidence = "Observed declaring line 357: pub fn guarantor_attestation_domain(&self) -> &[u8] { DeclaredCheckpointSettlement::guarantor_attestation_domain remains implemented in the settlement module; the registered retirement and task 9.26.3 removal have not occurred."
+
+[row.r9-60.11]
+interface = "interface.9.rs-types-declaredcheckpointsettlement-header-encoding-prefix-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 363
+symbol = "header_encoding_prefix"
+evidence = "Observed declaring line 363: pub fn header_encoding_prefix(&self) -> &[u8] { DeclaredCheckpointSettlement::header_encoding_prefix remains implemented in the settlement module; the registered retirement and task 9.26.3 removal have not occurred."
+
+[row.r9-60.12]
+interface = "interface.9.rs-types-declaredcheckpointsettlement-header-length-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 369
+symbol = "header_length"
+evidence = "Observed declaring line 369: pub const fn header_length(&self) -> usize { DeclaredCheckpointSettlement::header_length remains implemented in the settlement module; the registered retirement and task 9.26.3 removal have not occurred."
+
+[row.r9-60.13]
+interface = "interface.9.rs-types-declaredcheckpointsettlement-finality-policy-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 375
+symbol = "finality_policy"
+evidence = "Observed declaring line 375: pub const fn finality_policy(&self) -> DeclaredFinalityPolicy { DeclaredCheckpointSettlement::finality_policy remains implemented in the settlement module; the registered retirement and task 9.26.3 removal have not occurred."
+
+[row.r9-60.14]
+interface = "interface.9.rs-types-declaredcheckpointsettlement-domain-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 390
+symbol = "domain"
+evidence = "Observed declaring line 390: pub fn domain(&self, name: &str) -> Result<&DeclaredSettlementDomain, SettlementError> { DeclaredCheckpointSettlement::domain remains implemented in the settlement module; the registered retirement and task 9.26.3 removal have not occurred."
+
+[row.r9-60.15]
+interface = "interface.9.rs-types-verify-verificationlevel"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 22
+symbol = "VerificationLevel"
+evidence = "Observed declaring line 22: pub struct VerificationLevel(VerificationRank); The registered signature is unchanged; the declaration moved from registered line 19 to 22. The added rung() method maps the legacy lattice to Rung; SettlementAnchored maps to None. The legacy interface remains rather than being replaced as planned by task 9.26.1."
+
+[row.r9-60.16]
+interface = "interface.9.rs-types-verificationlevel-unverified-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 30
+symbol = "UNVERIFIED"
+evidence = "Observed declaring line 30: pub const UNVERIFIED: Self = Self(VerificationRank::Unverified); The registered signature is unchanged; the declaration moved from registered line 23 to 30. The added rung() method maps UNVERIFIED to Submitted. The legacy interface remains rather than being replaced as planned by task 9.26.1."
+
+[row.r9-60.17]
+interface = "interface.9.rs-types-verificationlevel-sequencer-signed-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 32
+symbol = "SEQUENCER_SIGNED"
+evidence = "Observed declaring line 32: pub const SEQUENCER_SIGNED: Self = Self(VerificationRank::SequencerSigned); The registered signature is unchanged; the declaration moved from registered line 25 to 32. The added rung() method maps SEQUENCER_SIGNED to Submitted. The legacy interface remains rather than being replaced as planned by task 9.26.1."
+
+[row.r9-60.18]
+interface = "interface.9.rs-types-verificationlevel-batch-included-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 34
+symbol = "BATCH_INCLUDED"
+evidence = "Observed declaring line 34: pub const BATCH_INCLUDED: Self = Self(VerificationRank::BatchIncluded); The registered signature is unchanged; the declaration moved from registered line 27 to 34. The added rung() method maps BATCH_INCLUDED to Receipted. The legacy interface remains rather than being replaced as planned by task 9.26.1."
+
+[row.r9-60.19]
+interface = "interface.9.rs-types-verificationlevel-state-proven-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 36
+symbol = "STATE_PROVEN"
+evidence = "Observed declaring line 36: pub const STATE_PROVEN: Self = Self(VerificationRank::StateProven); The registered signature is unchanged; the declaration moved from registered line 29 to 36. The added rung() method maps STATE_PROVEN to Receipted. The legacy interface remains rather than being replaced as planned by task 9.26.1."
+
+[row.r9-60.20]
+interface = "interface.9.rs-types-verificationlevel-checkpoint-finalised-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 38
+symbol = "CHECKPOINT_FINALISED"
+evidence = "Observed declaring line 38: pub const CHECKPOINT_FINALISED: Self = Self(VerificationRank::CheckpointFinalised); The registered signature is unchanged; the declaration moved from registered line 31 to 38. The added rung() method maps CHECKPOINT_FINALISED to Committed. The legacy interface remains rather than being replaced as planned by task 9.26.1."
+
+[row.r9-60.21]
+interface = "interface.9.rs-types-verificationlevel-settlement-anchored-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 40
+symbol = "SETTLEMENT_ANCHORED"
+evidence = "Observed declaring line 40: pub const SETTLEMENT_ANCHORED: Self = Self(VerificationRank::SettlementAnchored); The registered signature is unchanged; the declaration moved from registered line 33 to 40. The added rung() method maps SETTLEMENT_ANCHORED to None. The legacy interface remains rather than being replaced as planned by task 9.26.1."
+
+[row.r9-60.22]
+interface = "interface.9.rs-types-verificationlevel-compare-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 44
+symbol = "compare"
+evidence = "Observed declaring line 44: pub const fn compare(self, requested: Self) -> Ordering { The registered signature is unchanged; the declaration moved from registered line 37 to 44. compare still compares the numeric legacy ranks and returns std::cmp::Ordering. The legacy interface remains rather than being replaced as planned by task 9.26.1."
+
+[row.r9-60.23]
+interface = "interface.9.rs-types-verificationlevel-wire-rank-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 58
+symbol = "wire_rank"
+evidence = "Observed declaring line 58: pub const fn wire_rank(self) -> u8 { The registered signature is unchanged; the declaration moved from registered line 51 to 58. wire_rank still returns u8 from VerificationRank, with wire ranks zero through five. The legacy interface remains rather than being replaced as planned by task 9.26.1."
+
+[row.r9-60.24]
+interface = "interface.9.rs-wire-activity-timestampbound"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 21
+symbol = "TimestampBound"
+evidence = "Observed declaring line 21: pub struct TimestampBound { TimestampBound remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.25]
+interface = "interface.9.rs-wire-activity-activity"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 31
+symbol = "Activity"
+evidence = "Observed declaring line 31: pub struct Activity { Activity remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.26]
+interface = "interface.9.rs-wire-activity-protocol-version-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 49
+symbol = "protocol_version"
+evidence = "Observed declaring line 49: pub const fn protocol_version(&self) -> u16 { Activity::protocol_version remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.27]
+interface = "interface.9.rs-wire-activity-network-id-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 55
+symbol = "network_id"
+evidence = "Observed declaring line 55: pub const fn network_id(&self) -> u32 { Activity::network_id remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.28]
+interface = "interface.9.rs-wire-activity-activity-type-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 61
+symbol = "activity_type"
+evidence = "Observed declaring line 61: pub const fn activity_type(&self) -> ActivityType { Activity::activity_type remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.29]
+interface = "interface.9.rs-wire-activity-actor-did-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 67
+symbol = "actor_did"
+evidence = "Observed declaring line 67: pub fn actor_did(&self) -> &[u8] { Activity::actor_did remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.30]
+interface = "interface.9.rs-wire-activity-authority-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 73
+symbol = "authority"
+evidence = "Observed declaring line 73: pub fn authority(&self) -> &[u8] { Activity::authority remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.31]
+interface = "interface.9.rs-wire-activity-account-sequence-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 79
+symbol = "account_sequence"
+evidence = "Observed declaring line 79: pub const fn account_sequence(&self) -> u64 { Activity::account_sequence remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.32]
+interface = "interface.9.rs-wire-activity-timestamp-bound-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 85
+symbol = "timestamp_bound"
+evidence = "Observed declaring line 85: pub const fn timestamp_bound(&self) -> TimestampBound { Activity::timestamp_bound remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.33]
+interface = "interface.9.rs-wire-activity-idempotency-key-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 91
+symbol = "idempotency_key"
+evidence = "Observed declaring line 91: pub const fn idempotency_key(&self) -> [u8; 32] { Activity::idempotency_key remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.34]
+interface = "interface.9.rs-wire-activity-fee-limit-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 97
+symbol = "fee_limit"
+evidence = "Observed declaring line 97: pub const fn fee_limit(&self) -> u128 { Activity::fee_limit remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.35]
+interface = "interface.9.rs-wire-activity-payload-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 103
+symbol = "payload"
+evidence = "Observed declaring line 103: pub fn payload(&self) -> &[u8] { Activity::payload remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.36]
+interface = "interface.9.rs-wire-activity-payload-hash-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 109
+symbol = "payload_hash"
+evidence = "Observed declaring line 109: pub const fn payload_hash(&self) -> [u8; 32] { Activity::payload_hash remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.37]
+interface = "interface.9.rs-wire-activity-signature-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 115
+symbol = "signature"
+evidence = "Observed declaring line 115: pub fn signature(&self) -> Option<&[u8]> { Activity::signature remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.38]
+interface = "interface.9.rs-wire-activity-signingbytes-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 122
+symbol = "SigningBytes"
+evidence = "Observed declaring line 122: pub struct SigningBytes(Vec<u8>); SigningBytes remains implemented in the canonical kernel activity module; decision.921 and task 9.29.1 retirement have not removed it."
+
+[row.r9-60.39]
+interface = "interface.9.rs-wire-activity-decode-signed"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 244
+symbol = "decode_signed"
+evidence = "Observed declaring line 244: pub fn decode_signed(bytes: &[u8], registry: &ModuleRegistry) -> Result<Activity, WireError> { The signature is unchanged and still uses the kernel activity codec. decode_signed calls decode_internal with signed=true. Registered line 244; current line 244. Task 9.29.1 retirement has not removed the entry point."
+
+[row.r9-60.40]
+interface = "interface.9.rs-wire-activity-decode-unsigned"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 282
+symbol = "decode_unsigned"
+evidence = "Observed declaring line 282: pub fn decode_unsigned(bytes: &[u8], registry: &ModuleRegistry) -> Result<Activity, WireError> { The signature is unchanged and still uses the kernel activity codec. decode_unsigned calls decode_internal with signed=false; the intervening peek_signed_activity_type function accounts for its later declaration. Registered line 253; current line 282. Task 9.29.1 retirement has not removed the entry point."
+
+[row.r9-60.41]
+interface = "interface.9.rs-wire-activity-encode-unsigned"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 336
+symbol = "encode_unsigned"
+evidence = "Observed declaring line 336: pub fn encode_unsigned(activity: &Activity) -> Result<Vec<u8>, WireError> { The signature is unchanged and still uses the kernel activity codec. encode_unsigned delegates to encode_internal with signed=false. Registered line 307; current line 336. Task 9.29.1 retirement has not removed the entry point."
+
+[row.r9-60.42]
+interface = "interface.9.rs-wire-activity-encode-unsigned-envelope"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 346
+symbol = "encode_unsigned_envelope"
+evidence = "Observed declaring line 346: pub fn encode_unsigned_envelope(envelope: &UnsignedEnvelope) -> Result<Vec<u8>, WireError> { The signature is unchanged and still uses the kernel activity codec. encode_unsigned_envelope converts through activity_from_unsigned and encode_internal. Registered line 317; current line 346. Task 9.29.1 retirement has not removed the entry point."
+
+[row.r9-60.43]
+interface = "interface.9.rs-wire-activity-encode-signed"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 355
+symbol = "encode_signed"
+evidence = "Observed declaring line 355: pub fn encode_signed(activity: &Activity) -> Result<Vec<u8>, WireError> { The signature is unchanged and still uses the kernel activity codec. encode_signed delegates to encode_internal with signed=true. Registered line 326; current line 355. Task 9.29.1 retirement has not removed the entry point."
+
+[row.r9-60.44]
+interface = "interface.9.rs-wire-activity-encode-signed-envelope"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 364
+symbol = "encode_signed_envelope"
+evidence = "Observed declaring line 364: pub fn encode_signed_envelope(envelope: &Envelope) -> Result<Vec<u8>, WireError> { The signature is unchanged and still uses the kernel activity codec. encode_signed_envelope converts through activity_from_signed and encode_internal. Registered line 335; current line 364. Task 9.29.1 retirement has not removed the entry point."
+
+[row.r9-60.45]
+interface = "interface.9.rs-wire-activity-signing-bytes"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 373
+symbol = "signing_bytes"
+evidence = "Observed declaring line 373: pub fn signing_bytes(activity: &Activity) -> Result<SigningBytes, WireError> { The signature is unchanged and still uses the kernel activity codec. signing_bytes maps encode_unsigned output into SigningBytes. Registered line 344; current line 373. Task 9.29.1 retirement has not removed the entry point."
+
+[row.r9-60.46]
+interface = "interface.9.rs-wire-hash-canonical-activity-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/hash.rs"
+line = 116
+symbol = "canonical_activity"
+evidence = "Observed declaring line 116: pub fn canonical_activity(activity: &Activity) -> Result<CanonicalBytes, WireError> { canonical_activity still wraps encode_signed output in CanonicalBytes; decision.921 and task 9.29.1 retirement has not removed it."
+
+[row.r9-60.47]
+interface = "interface.9.rs-wire-hash-canonical-payload-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/hash.rs"
+line = 122
+symbol = "canonical_payload"
+evidence = "Observed declaring line 122: pub fn canonical_payload(activity: &Activity) -> CanonicalBytes { canonical_payload still copies Activity::payload into CanonicalBytes; task 9.29.1 retirement has not removed it. payload_hash_for remains a separate helper."
+
+[row.r9-60.48]
+interface = "interface.9.rs-wire-hash-activity-id"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/hash.rs"
+line = 148
+symbol = "activity_id"
+evidence = "Observed declaring line 148: pub fn activity_id(activity: &Activity) -> Result<[u8; 32], WireError> { activity_id still hashes canonical_activity under Domain::ActivityId. override.J44.54 calls for retirement under decision.921 in task 9.29.1, but the function remains implemented."
+
+[row.r9-60.49]
+interface = "interface.9.rs-wire-hash-payload-hash"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/hash.rs"
+line = 157
+symbol = "payload_hash"
+evidence = "Observed declaring line 157: pub fn payload_hash(activity: &Activity) -> Result<[u8; 32], WireError> { payload_hash still hashes canonical_payload under Domain::PayloadHash. override.J44.55 calls for retirement in task 9.29.1 while retaining payload_hash_for; both functions still exist."
+
+[row.r9-60.50]
+interface = "interface.9.rs-wire-sign-signingpreimage-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/sign.rs"
+line = 11
+symbol = "SigningPreimage"
+evidence = "Observed declaring line 11: pub struct SigningPreimage([u8; 32]); SigningPreimage still wraps the 32-byte domain-separated signing digest; decision.921 and task 9.29.1 retirement has not removed it."
+
+[row.r9-60.51]
+interface = "interface.9.rs-wire-signingpreimage-as-bytes-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/sign.rs"
+line = 16
+symbol = "as_bytes"
+evidence = "Observed declaring line 16: pub const fn as_bytes(&self) -> &[u8; 32] { SigningPreimage::as_bytes still borrows its exact 32-byte digest; task 9.29.1 retirement has not removed the accessor."
+
+[row.r9-60.52]
+interface = "interface.9.rs-wire-sign-preimage"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/sign.rs"
+line = 32
+symbol = "preimage"
+evidence = "Observed declaring line 32: pub fn preimage(activity: &Activity) -> Result<SigningPreimage, WireError> { preimage still encodes Activity with encode_unsigned and hashes under Domain::SignaturePreimage. override.J44.56 calls for retirement by decision.921 in task 9.29.1, but the function remains implemented."
+
+[row.r9-60.53]
+interface = "interface.9.rs-wire-sign-preimage-unsigned"
+verdict = "served"
+path = "services/agent/crates/layerx-wire/src/sign.rs"
+line = 42
+symbol = "preimage_unsigned"
+evidence = "Observed declaring line 42: pub fn preimage_unsigned(envelope: &UnsignedEnvelope) -> Result<SigningPreimage, WireError> { preimage_unsigned still encodes UnsignedEnvelope with encode_unsigned_envelope and hashes under Domain::SignaturePreimage. override.J44.57 calls for retirement by decision.921 in task 9.29.1, but the function remains implemented."
+
+[row.r9-60.54]
+interface = "interface.9.cli-agent-fuzz-envelope-decode-j44"
+verdict = "served"
+path = "services/agent/fuzz/Cargo.toml"
+line = 33
+symbol = "envelope_decode"
+evidence = "Observed declaring line 33: name = \"envelope_decode\" The cargo fuzz run envelope_decode command and bin declaration are unchanged. fuzz_targets/envelope_decode.rs now calls codec::envelope_round_trip; codec.rs decodes and reassembles EIP-1559 transactions via layerx_crypto::evm_transaction, replacing the kernel Activity codec as planned by task 9.30.1."
+
+[row.r9-60.55]
+interface = "interface.9.cli-agent-fuzz-roundtrip-j44"
+verdict = "served"
+path = "services/agent/fuzz/Cargo.toml"
+line = 61
+symbol = "roundtrip"
+evidence = "Observed declaring line 61: name = \"roundtrip\" The cargo fuzz run roundtrip command and bin declaration are unchanged. fuzz_targets/roundtrip.rs now calls codec::roundtrip_case; selectors 0 and 1 use EIP-1559 decode/reassemble while the other selectors retain receipt and proof codecs, implementing task 9.30.1 retargeting."
+
+[row.r9-60.56]
+interface = "interface.9.fmt-agent-api-schema-errors"
+verdict = "served"
+path = "services/agent/schema/agent-api/errors.kvx"
+line = 2
+symbol = "errors"
+evidence = "Observed declaring line 2: name = \"errors\" The schema module identity is unchanged, with contract_major = 2. The schema now declares Rung variants Submitted/Receipted/Committed, VerificationStatus, receipt_key_unknown and sequencer-receipt replay semantics in place of the settlement-domain model described by the stale registry note."
+
+[row.r9-60.57]
+interface = "interface.9.err-class-budgetrefusal"
+verdict = "served"
+path = "services/agent/schema/agent-api/errors.kvx"
+line = 10
+symbol = "BudgetRefusal"
+evidence = "Observed declaring line 10: variants = [\"TransportFailure\",\"Deadline\",\"ProtocolIncompatibility\",\"UnavailableCapability\",\"CoreRejection\",\"VerificationFailure\",\"PolicyRefusal\",\"CapabilityRefusal\",\"BudgetRefusal\",\"RateLimit\",\"IdempotencyConflict\",\"InternalFault\"] BudgetRefusal remains an explicit variant in [type.ErrorClass] at line 10. The exact class literal exists; the registry signature ErrorClass BudgetRefusal is a descriptive label rather than a contiguous source string."
+
+[row.r9-60.58]
+interface = "interface.9.err-class-capabilityrefusal"
+verdict = "served"
+path = "services/agent/schema/agent-api/errors.kvx"
+line = 10
+symbol = "CapabilityRefusal"
+evidence = "Observed declaring line 10: variants = [\"TransportFailure\",\"Deadline\",\"ProtocolIncompatibility\",\"UnavailableCapability\",\"CoreRejection\",\"VerificationFailure\",\"PolicyRefusal\",\"CapabilityRefusal\",\"BudgetRefusal\",\"RateLimit\",\"IdempotencyConflict\",\"InternalFault\"] CapabilityRefusal remains an explicit variant in [type.ErrorClass] at line 10. The exact class literal exists; the registry signature ErrorClass CapabilityRefusal is a descriptive label rather than a contiguous source string."
+
+[row.r9-60.59]
+interface = "interface.9.err-class-corerejection"
+verdict = "served"
+path = "services/agent/schema/agent-api/errors.kvx"
+line = 10
+symbol = "CoreRejection"
+evidence = "Observed declaring line 10: variants = [\"TransportFailure\",\"Deadline\",\"ProtocolIncompatibility\",\"UnavailableCapability\",\"CoreRejection\",\"VerificationFailure\",\"PolicyRefusal\",\"CapabilityRefusal\",\"BudgetRefusal\",\"RateLimit\",\"IdempotencyConflict\",\"InternalFault\"] CoreRejection remains an explicit variant in [type.ErrorClass] at line 10. The exact class literal exists; the registry signature ErrorClass CoreRejection is a descriptive label rather than a contiguous source string. CoreRejection is also used by error.LXP_IDEMPOTENT_REPLAY at line 17."
+
+[row.r9-60.60]
+interface = "interface.9.err-class-deadline"
+verdict = "served"
+path = "services/agent/schema/agent-api/errors.kvx"
+line = 10
+symbol = "Deadline"
+evidence = "Observed declaring line 10: variants = [\"TransportFailure\",\"Deadline\",\"ProtocolIncompatibility\",\"UnavailableCapability\",\"CoreRejection\",\"VerificationFailure\",\"PolicyRefusal\",\"CapabilityRefusal\",\"BudgetRefusal\",\"RateLimit\",\"IdempotencyConflict\",\"InternalFault\"] Deadline remains an explicit variant in [type.ErrorClass] at line 10. The exact class literal exists; the registry signature ErrorClass Deadline is a descriptive label rather than a contiguous source string."
