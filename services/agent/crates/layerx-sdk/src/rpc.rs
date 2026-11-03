@@ -7,6 +7,8 @@ use std::time::Duration;
 
 /// Page size `px_listAssets` applies when a request omits an explicit limit.
 pub const LIST_ASSETS_DEFAULT_PAGE: u16 = 64;
+/// Maximum EVM calldata accepted by SDK transaction entry points.
+pub const MAX_TRANSACTION_CALLDATA_BYTES: usize = 524_288;
 /// Largest page the published `px_listAssets` contract accepts.
 pub const LIST_ASSETS_MAX_PAGE: u16 = 256;
 /// The gateway JSON-RPC method that creates a self-service principal.
@@ -707,6 +709,34 @@ impl RpcClient {
         Self::connect_with_roots(endpoint.as_str(), credential, roots, None)
     }
 
+    /// Connects directly to a node's JSON-RPC URL, preserving its exact path.
+    /// Gateway connections continue to use [`Self::connect`] and its `/rpc` route.
+    /// # Errors
+    /// Rejects insecure non-loopback endpoints and embedded credentials.
+    pub fn connect_node(
+        endpoint: &str,
+        credential: Option<LayerXKeyCredential>,
+    ) -> Result<Self, RpcError> {
+        let mut client = Self::connect(endpoint, credential)?;
+        client.endpoint =
+            crate::programs::http::validate_endpoint(endpoint).map_err(RpcError::Configuration)?;
+        Ok(client)
+    }
+
+    /// Connects directly to a node using one explicitly trusted DER root.
+    /// # Errors
+    /// Preserves endpoint and certificate validation refusals.
+    pub fn connect_node_with_ca_der(
+        endpoint: &str,
+        credential: Option<LayerXKeyCredential>,
+        ca_der: &[u8],
+    ) -> Result<Self, RpcError> {
+        let mut client = Self::connect_with_ca_der(endpoint, credential, ca_der)?;
+        client.endpoint =
+            crate::programs::http::validate_endpoint(endpoint).map_err(RpcError::Configuration)?;
+        Ok(client)
+    }
+
     /// Connects with one explicitly trusted DER root certificate.
     /// # Errors
     /// Rejects an empty or oversized trust root and invalid endpoints.
@@ -975,10 +1005,15 @@ impl RpcClient {
         }
     }
 
+    /// Estimates gas without specifying a payer.
+    ///
+    /// For a call carrying `maxFeePerGas`, use [`Self::estimate_fee_from`]
+    /// with the funded payer: the node checks the payer's balance.
+    ///
     /// # Errors
     /// Rejects oversized call data and preserves gas-estimation refusals.
     pub fn estimate_fee(&self, call: &Eip1559Call) -> Result<u64, RpcError> {
-        if call.data.len() > 524_288 {
+        if call.data.len() > MAX_TRANSACTION_CALLDATA_BYTES {
             return Err(RpcError::InvalidRequest);
         }
         let transaction = json!({
@@ -1001,6 +1036,9 @@ impl RpcClient {
     }
 
     pub fn estimate_fee_from(&self, call: &Eip1559Call, from: [u8; 20]) -> Result<u64, RpcError> {
+        if call.data.len() > MAX_TRANSACTION_CALLDATA_BYTES {
+            return Err(RpcError::InvalidRequest);
+        }
         let transaction = json!({
             "from": format!("0x{}", encode_hex(&from)), "type": "0x2",
             "chainId": format!("0x{:x}", call.chain_id), "nonce": format!("0x{:x}", call.nonce),
