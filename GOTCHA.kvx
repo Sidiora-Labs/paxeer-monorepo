@@ -14555,3 +14555,8 @@ fix = "The fee-token vector records a fee paid in another asset (22.23.8, 22.95.
 title = "Generated pointer files go stale when the workflow spec changes without a re-render"
 symptom = "tools/specgen TestRepositorySpecIsValidAndCurrent reports CLAUDE.md, AGENTS.md, .cursor/rules/spec-workflow.mdc and .github/copilot-instructions.md stale and fails every specgen change."
 fix = "Re-render with go run ./tools/specgen -root . and commit the four outputs in the same change."
+
+[gotcha.2947]
+title = "Feature-gated helpers used by ungated tests break an all-targets build with default features"
+symptom = "The vendored wasm-instrument crate defines DynamicHelper and add_dynamic_helpers under the bulk feature while two helper-sequence tests in src/gas_metering/mod.rs use them without a gate; cargo build --all-targets fails with E0433/E0425."
+fix = "Gate the tests with the same feature attribute as the items they use, or enable the feature in the test profile; never widen default features to make a test compile."

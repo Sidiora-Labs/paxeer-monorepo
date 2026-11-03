@@ -8127,6 +8127,12 @@ value = "When a producer-generated corpus grows (a new sequencer receipt case) o
 basis = "22.99.28 attempt 2: eleven hardcoded cases against a twelve-case corpus (22.25.3), vector-v5-portable embeds a V1-pax-transfer receipt copy predating 22.23.8; 22.99.35 attempt 2: four generated pointer outputs stale."
 affects = ["22.99.28", "22.99.35"]
 
+[decision.2503]
+title = "Live-node proof tests reached through a path include are isolated once by the task that owns the included file"
+value = "When a crate's test target includes another crate's proof source through a path attribute and that source requires the live local node (LOCAL_NODE_RPC), the sweep repair of the including crate requires the task that isolates the live-node tests in the owning crate (18.1578.1 for layerx-agentd tests/proof_serve_errors.rs) instead of excluding or editing the included tests itself. Deterministic failures in the including crate's own tests stay in the repair."
+basis = "22.99.51 attempt 2: serve_http::proof tests of layerx-agentd-host panic at proof_serve_errors.rs:708 real local node required; two healthz route tests fail deterministically with 503."
+affects = ["22.99.51", "18.1578.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -137315,6 +137321,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1 (continue): committed_vectors.rs:394-397 checks provenance.sourceSha256 of services/interop/specs/conformance/committed/vector-v4-committed.json against the digest of daemon/committed-fixture/vectors/vector-v4-committed.json; the record declares dc364da8 while the recording hashes to 34e9f6ab. Regenerate the record from the recording with the crate's recorder (digest and every dependent field), commit it (now inside the task's paths) and keep the test unchanged."
+do_5 = "Attempt 2 (continue): decision 2502. The receipted fixture carries five V1 cases since 22.25.3 added the accepted Programs call case; tests/receipted.rs:318 (all recorded V1 cases must execute) and :377 (all recorded V1 operations must be checked) hardcode four. Take the expected count from the fixture case list, keep the regenerated vector-v4-committed.json and the paymentDenom binding of attempt 2, and run verify_cmd as written."
 
 [task.22.99.61]
 title = "Repair the inventory sweep target layerx-mirror"
@@ -137629,7 +137636,7 @@ title = "Repair the inventory sweep target layerx-agentd-host"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.95.11"]
+requires = ["22.95.11", "18.1578.1"]
 reqs = ["22998.1"]
 capabilities = ["22.99.51"]
 interfaces = []
@@ -137637,7 +137644,7 @@ do_1 = "Decision 2492: the inventory sweep rust-test-agent (spec/layerx-merge/pr
 do_2 = "If the defect lies in a file outside the task's paths, stop and report the exact path and the failing output instead of editing it. If the recorded failure no longer reproduces on the current main line, no product change is made and the repair record says so."
 do_3 = "Write spec/layerx-merge/programme/sweeps/repairs/rust-test-agent.10.kvx with one block [repair.rust-test-agent.10] holding target (the recorded target), command (the recorded command as run), revision (the 40-hex commit of main the verify passed at), result (repaired or already-passing) and change (one sentence naming the files changed, or none). Product facts only; no names of people, nothing about how or where work is executed. The sweep record itself is left unchanged; a later inventory pass re-records it."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd-host", "spec/layerx-merge/programme/sweeps/repairs/rust-test-agent.10.kvx"]
+touches = ["services/agent/crates/layerx-agentd-host", "spec/layerx-merge/programme/sweeps/repairs/rust-test-agent.10.kvx", "services/agent/crates/layerx-agentd/host-tests"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/rust-test-agent.10.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --tests"
@@ -137654,6 +137661,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1 (continue): the recorded failure (tests/proof_serve_errors.rs:708, LOCAL_NODE_RPC) belongs to layerx-agentd, not this crate, and the human service break is repaired by 22.95.11 (required). Run the recorded command for this crate, repair what fails inside it and record the result."
+do_5 = "Attempt 2 (continue): decision 2503. The serve_http::proof tests (and their daemon duplicates) include layerx-agentd tests/proof_serve_errors.rs by path and need the live node; task 18.1578.1 isolates them and is now required, so do not exclude or edit them. The two healthz tests of host-tests/serve_routes.rs are deterministic defects: with the NodePeer fixture set ready the route service still answers 503; compare the readiness probe of layerx-agentd-host (chain id 125, the ready state it requires) with what NodePeer serves and repair the probe or the fixture (host-tests is now in the edit scope). Then run verify_cmd as written."
 
 [task.22.99.50]
 title = "Repair the inventory sweep target layerx-sdk"
@@ -138062,7 +138070,7 @@ capabilities = ["22.97.10"]
 interfaces = []
 do_1 = "Decision 2473: wasm-instrument (programs/vendor/wasm-instrument) builds a native dependency through cmake. Build it with cmake on PATH (the task's verify) and update [target.rust-build-programs.19] of spec/layerx-merge/programme/sweeps/rust-build-programs.kvx with the result, exit code and the 40-hex revision; if the build fails with cmake present, record the first error in observed."
 symbols = []
-touches = ["spec/layerx-merge/programme/sweeps/rust-build-programs.kvx", "programs/vendor/wasm-instrument/Cargo.toml", "programs/vendor/wasm-instrument/src/gas_metering/validation.rs", "programs/Cargo.lock"]
+touches = ["spec/layerx-merge/programme/sweeps/rust-build-programs.kvx", "programs/vendor/wasm-instrument/Cargo.toml", "programs/vendor/wasm-instrument/src/gas_metering/validation.rs", "programs/Cargo.lock", "programs/vendor/wasm-instrument/src/gas_metering/mod.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo metadata --locked --manifest-path programs/Cargo.toml --format-version 1 >/dev/null"
@@ -138079,6 +138087,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_2 = "Decision 2481 (attempt 4, 399c35e72, continue): the verify fails inside the binaryen-sys 0.12.0 build script because its bundled binaryen declares a CMake minimum below 3.5 and CMake 4 refuses it; cmake being installed does not help. Remove the binaryen entry from the dev-dependencies of programs/vendor/wasm-instrument/Cargo.toml; in programs/vendor/wasm-instrument/src/gas_metering/validation.rs replace the translate_to_fuzz_mvp generator of test_build_control_flow_graph with modules parsed by wat::parse_str from at least eight fixed wat texts covering blocks, loops, br, br_if, br_table, if-else, call and return, keeping the loop that meters each module and asserts validate_metering_injections, and keeping the fixed SplitMix64 generator state constant only if it is still used; then run cargo metadata --manifest-path programs/Cargo.toml --format-version 1 without --locked once so programs/Cargo.lock drops binaryen, binaryen-sys and the packages only they used (cmake stays only if another package needs it), and commit the lock. Then run the verify and update [target.rust-build-programs.19] of spec/layerx-merge/programme/sweeps/rust-build-programs.kvx with result, exit_code, the 40-hex revision, an observed sentence naming the dropped test dependency and an assumption that names the qualification environment and no hosting environment. All three product files and the lock are in scope."
+do_3 = "Attempt 6 (continue): gotcha 2947. src/gas_metering/mod.rs is now in the edit scope. The two LayerX helper-sequence tests of its test module (memory grow at about line 1643 and memory copy at about line 1688) use DynamicHelper and add_dynamic_helpers, which exist only under the bulk feature: add the same bulk feature attribute to those two tests (and any other test using bulk-only items), leave the default features unchanged, record the build result in the sweep record and run verify_cmd as written."
 
 [task.22.97.9]
 title = "Record the verifier proto crate build"
