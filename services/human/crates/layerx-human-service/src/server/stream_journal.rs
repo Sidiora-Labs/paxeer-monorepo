@@ -3,7 +3,6 @@
 use super::backend::ApiFailure;
 use crate::store::{PrincipalScope, RowKey, StoreError, Table};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
-use layerx_proof::checkpoint::SettlementDomain;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
@@ -70,14 +69,10 @@ fn settlement_domain(record: &mut Value) -> bool {
 
 pub struct StreamJournal {
     key: [u8; 32],
-    settlement_domain: SettlementDomain,
 }
 impl StreamJournal {
-    pub const fn new(key: [u8; 32], settlement_domain: SettlementDomain) -> Self {
-        Self {
-            key,
-            settlement_domain,
-        }
+    pub const fn new(key: [u8; 32]) -> Self {
+        Self { key }
     }
 
     pub fn append(
@@ -253,13 +248,7 @@ impl StreamJournal {
                     })
                     .transpose()?
                     .flatten()
-                    .map(|journey| {
-                        super::production_reads::journey_json(
-                            scope,
-                            self.settlement_domain,
-                            &journey,
-                        )
-                    })
+                    .map(|journey| super::production_reads::journey_json(scope, &journey))
                     .transpose()?
             } else {
                 None

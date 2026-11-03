@@ -1,0 +1,248 @@
+{
+ "slug": "tests-integration-dapp-tests",
+ "manifests": [
+  "tests/integration/dapp_tests/package-lock.json"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-5h3x-9wvq-w4m2",
+   "number": 4675,
+   "package": "@openzeppelin/contracts",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "medium",
+   "range": ">= 4.3.0, < 4.9.1",
+   "patched": "4.9.1"
+  },
+  {
+   "ghsa": "GHSA-wprv-93r4-jj2p",
+   "number": 4676,
+   "package": "@openzeppelin/contracts",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "medium",
+   "range": ">= 4.7.0, < 4.9.2",
+   "patched": "4.9.2"
+  },
+  {
+   "ghsa": "GHSA-g4vp-m682-qqmp",
+   "number": 4677,
+   "package": "@openzeppelin/contracts",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "medium",
+   "range": ">= 4.0.0, < 4.9.3",
+   "patched": "4.9.3"
+  },
+  {
+   "ghsa": "GHSA-9vx6-7xxf-x967",
+   "number": 4678,
+   "package": "@openzeppelin/contracts",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "medium",
+   "range": ">= 4.5.0, < 4.9.6",
+   "patched": "4.9.6"
+  },
+  {
+   "ghsa": "GHSA-848j-6mx2-7j84",
+   "number": 2179,
+   "package": "elliptic",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "low",
+   "range": "<= 6.6.1",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-8r9p-f939-6h3c",
+   "number": 4683,
+   "package": "follow-redirects",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "high",
+   "range": ">= 1.16.0, < 1.16.1",
+   "patched": "1.16.1"
+  },
+  {
+   "ghsa": "GHSA-q3jh-wrc6-jgq8",
+   "number": 4684,
+   "package": "follow-redirects",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "high",
+   "range": ">= 1.16.0, < 1.16.1",
+   "patched": "1.16.1"
+  },
+  {
+   "ghsa": "GHSA-mrwp-f3q8-3g9p",
+   "number": 4685,
+   "package": "follow-redirects",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "high",
+   "range": ">= 1.16.0, <= 1.16.1",
+   "patched": "1.16.2"
+  },
+  {
+   "ghsa": "GHSA-g3hv-75wg-m249",
+   "number": 4604,
+   "package": "minimatch",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "medium",
+   "range": "< 11.0.1",
+   "patched": "11.0.1"
+  },
+  {
+   "ghsa": "GHSA-p8p7-x288-28g6",
+   "number": 2142,
+   "package": "request",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "medium",
+   "range": "<= 2.88.2",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-qffp-2rhf-9h96",
+   "number": 2199,
+   "package": "tar",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "high",
+   "range": "<= 7.5.9",
+   "patched": "7.5.10"
+  },
+  {
+   "ghsa": "GHSA-9ppj-qmqm-q256",
+   "number": 2201,
+   "package": "tar",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "high",
+   "range": "<= 7.5.10",
+   "patched": "7.5.11"
+  },
+  {
+   "ghsa": "GHSA-vmf3-w455-68vh",
+   "number": 2220,
+   "package": "tar",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "medium",
+   "range": "<= 7.5.15",
+   "patched": "7.5.16"
+  },
+  {
+   "ghsa": "GHSA-gvwx-54wh-qm9j",
+   "number": 2232,
+   "package": "tar",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "medium",
+   "range": "<= 7.5.16",
+   "patched": "7.5.17"
+  },
+  {
+   "ghsa": "GHSA-8x88-c5mf-7j5w",
+   "number": 2233,
+   "package": "tar",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "high",
+   "range": "<= 7.5.17",
+   "patched": "7.5.18"
+  },
+  {
+   "ghsa": "GHSA-23hp-3jrh-7fpw",
+   "number": 2234,
+   "package": "tar",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "critical",
+   "range": "<= 7.5.18",
+   "patched": "7.5.19"
+  },
+  {
+   "ghsa": "GHSA-w8wr-v893-vjvp",
+   "number": 2235,
+   "package": "tar",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "medium",
+   "range": "<= 7.5.17",
+   "patched": "7.5.18"
+  },
+  {
+   "ghsa": "GHSA-r292-9mhp-454m",
+   "number": 2237,
+   "package": "tar",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "high",
+   "range": "<= 7.5.20",
+   "patched": "7.5.21"
+  },
+  {
+   "ghsa": "GHSA-7c78-jf6q-g5cm",
+   "number": 4682,
+   "package": "tmp",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "high",
+   "range": ">= 0.2.6, < 0.2.7",
+   "patched": "0.2.7"
+  },
+  {
+   "ghsa": "GHSA-2j4c-9qqq-896r",
+   "number": 2175,
+   "package": "web3-core-method",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "low",
+   "range": "<= 1.10.3",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-hhf6-3xpg-pggx",
+   "number": 2174,
+   "package": "web3-core-subscriptions",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "low",
+   "range": "<= 2.0.0-alpha.1",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-3h5v-q93c-6h6q",
+   "number": 4679,
+   "package": "ws",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "high",
+   "range": ">= 8.0.0, < 8.17.1",
+   "patched": "8.17.1"
+  },
+  {
+   "ghsa": "GHSA-58qx-3vcg-4xpx",
+   "number": 4680,
+   "package": "ws",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "medium",
+   "range": ">= 8.0.0, < 8.20.1",
+   "patched": "8.20.1"
+  },
+  {
+   "ghsa": "GHSA-96hv-2xvq-fx4p",
+   "number": 4681,
+   "package": "ws",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "high",
+   "range": ">= 8.0.0, < 8.21.0",
+   "patched": "8.21.0"
+  }
+ ]
+}

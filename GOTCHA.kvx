@@ -14335,3 +14335,48 @@ fix = "When a view gains a field, list the consumers whose tests enumerate the v
 title = "A triage report is cheaper than a guess"
 symptom = "Fifty-one open issues and eighty-seven findings waited for a reader; writing one report task per issue and one disposition task per ten findings turns the backlog into checkable files."
 fix = "Triage by report with a fixed shape and a checker, then splice the accepted blocks; never author tasks from issue text that nobody checked against main."
+
+[gotcha.2903]
+title = "A fixture shape is a contract shared by both sides"
+symptom = "The receipt-key decoder was retyped to the node's object shape and verified against the gateway proof alone; three agent daemon fixtures still served the old bare list, and the budget pipeline test failed on a decode error two tasks later."
+fix = "When a decoder or a recorded exchange changes shape, grep every fixture and test that serves or consumes the shape and run them in the same task."
+
+[gotcha.2904]
+title = "An in-memory index behind an RPC needs a restart proof"
+symptom = "The sequencer receipt source was filled only by the live accepter; a restart replayed the log, re-executed every send and answered null to every receipt lookup."
+fix = "Every in-memory read model that an RPC serves is rebuilt from durable state on start, and the restart test reads a pre-restart record back."
+
+[gotcha.2905]
+title = "A reader refuses a value shape its producer writes"
+symptom = "The sweep records wrote decimal elapsed seconds; the summary reader written against the records accepted integers only and refused the first file with a decimal."
+fix = "Derive a reader's accepted value shapes from the files it will read, and test it on one real record of each producer."
+
+[gotcha.2906]
+title = "A service test fails on the key loader, not the key"
+symptom = "The gas station's documented-deploy test failed with KeySource although every documented variable was set: from_config used a prefixed file-or-KMS loader while the deploy contract exports the raw key in the named variable."
+fix = "Read the deploy template and the init script before choosing a loader; the loader must read what the operator sets."
+
+[gotcha.2907]
+title = "A completion gate requires the planned paths of retired tasks"
+symptom = "The gate collected planned paths from a task list and required each as a file; one belonged to a capability a later decision retired and deleted."
+fix = "Exclude the planned paths of retired tasks explicitly and assert the retired files are absent."
+
+[gotcha.2908]
+title = "A floor raise that verifies only the install leaves consumers red"
+symptom = "Two dependency floor tasks raised vitest, vite and viem and verified the lock floor and a frozen install; the apps' type checks broke in config and component files nobody touched."
+fix = "A floor task's verify runs the type check of every package whose lock it raises, or a follow-up task does so before dependents launch."
+
+[gotcha.2909]
+title = "A triage report compared against the wrong served source"
+symptom = "The report took the pre-merge executor ABI as the served scheduler ABI; under the merge upgrade a wrapper precompile serves five events and the cold metadata was right."
+fix = "Resolve which type is served at the upgrade in force before calling metadata stale."
+
+[gotcha.2910]
+title = "A test file imports a module its manifest lacks"
+symptom = "Regenerating go.sum could not make go list -mod=readonly pass: the production test imported a module absent from go.mod."
+fix = "Run go list -mod=readonly -deps -test at the base before regenerating sums, and add missing requirements to the manifest."
+
+[gotcha.2911]
+title = "A build command names a tool the environment profile lacks"
+symptom = "pnpm against an npm-pinned package and gradle in an image without it failed before any code ran."
+fix = "Match the build command to the package's pinned manager and the profile's toolchain; compute what the absent tool would have produced from published artifacts."

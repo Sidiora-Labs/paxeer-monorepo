@@ -1,0 +1,49 @@
+[issue.1536]
+number = 1536
+title = "[Coherence] Bridge, Programs and Custody pages still document the custody credit activity and cite the source files this commit deletes"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit d3612ed8deac2a380d4e840cc8360834bdacf07d removes the custody credit implementation, light client and genesis supply insertion, confirmed by tests/codec/lxp_test_bridge_credit_absent.c:41 and src/protocol/lxp_genesis.c:558, but docs/wiki/Bridge.md:4, docs/wiki/Bridge.md:42, docs/wiki/Bridge.md:64, docs/wiki/Programs.md:577, docs/wiki/Programs.md:600, docs/site/docs/programs/index.md:536, docs/site/docs/programs/index.md:559, docs/wiki/Custody.md:26, docs/wiki/Custody.md:79, docs/site/docs/human/custody.md:21 and docs/site/docs/human/custody.md:74 still describe those removed paths as active, while spec/layerx-merge/spec.kvx:22623 covers only retired script references."
+close_comment = "The kernel custody credit activity and its light client are retired, but the Bridge, Programs and Custody pages still describe them as active. A documentation update is needed to remove obsolete source references and genesis funding instructions."
+
+[task.18.1536.1]
+title = "Issue #1536: Document the retirement of kernel custody credit and its light client"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181536.1"]
+capabilities = []
+interfaces = []
+do_1 = "Rewrite the custody credit descriptions at docs/wiki/Bridge.md:3, docs/wiki/Bridge.md:34, docs/wiki/Custody.md:8 and docs/site/docs/human/custody.md:3 to state that the kernel custody credit activity and its light client are retired; remove their active verification, execution, profile, payload and issuance instructions and citations to the deleted headers, sources and functions at docs/wiki/Bridge.md:17, docs/wiki/Bridge.md:42, docs/wiki/Bridge.md:64, docs/wiki/Custody.md:26, docs/wiki/Custody.md:79, docs/site/docs/human/custody.md:21 and docs/site/docs/human/custody.md:74."
+do_2 = "Rewrite the custody funding sections at docs/wiki/Programs.md:572 and docs/site/docs/programs/index.md:531 to explain the retirement, remove the obsolete bridge-profile genesis and zero custody-issued supply claims and the deleted source citations at docs/wiki/Programs.md:600 and docs/site/docs/programs/index.md:559, and retain the separate program-account funding guidance with current source citations and the existing Human service payment links; src/protocol/lxp_genesis.c:558 validates legacy accounts and commit d3612ed8deac2a380d4e840cc8360834bdacf07d removes the bridge-profile supply insertion."
+do_3 = "Add test_custody_credit_docs_are_retired to spec/layerx-merge/programme/tests/test_retired_docs.py, using its existing ROOT at line 4 to read all five pages, normalize whitespace, assert that each explicitly states the retirement of kernel custody credit and its light client, and reject the removed implementation references lxp_bridge_credit, lxp_bridge_light, lxp_ctx_bridge_credit and LXP_BRIDGE_CREDIT and the obsolete custody-credit-profile/v1 and custody-issued: instructions in each page; keep every existing documentation assertion intact."
+symbols = ["test_custody_credit_docs_are_retired"]
+touches = ["docs/wiki/Bridge.md", "docs/wiki/Programs.md", "docs/site/docs/programs/index.md", "docs/wiki/Custody.md", "docs/site/docs/human/custody.md", "spec/layerx-merge/programme/tests/test_retired_docs.py"]
+tests = ["spec/layerx-merge/programme/tests/test_retired_docs.py::test_custody_credit_docs_are_retired"]
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_retired_docs.py"
+verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_retired_docs.py::test_custody_credit_docs_are_retired -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181536]
+title = "Bridge, Programs and Custody documentation describes kernel custody credit and its light client as retired"
+ac_1 = "The descriptions at docs/wiki/Bridge.md:4, docs/wiki/Programs.md:574, docs/site/docs/programs/index.md:533, docs/wiki/Custody.md:8 and docs/site/docs/human/custody.md:3 explicitly state that kernel custody credit and its light client are retired, contain no references to the removed credit or light-client implementations, and offer no bridge-profile genesis or custody-issued supply instructions."
+
+[acceptance.18.1536.1]
+feature = "18"
+req = "181536.1"
+scenario = "Given the five Bridge, Programs and Custody pages after the kernel custody credit retirement, when their documentation regression test reads them, then each states that custody credit and its light client are retired and contains no removed implementation references or obsolete genesis issuance instructions."
+contract = "contracts/kernel.md#bridge-retired"
+test = "spec/layerx-merge/programme/tests/test_retired_docs.py::test_custody_credit_docs_are_retired (planned)"
+qualification = "UNRUN"

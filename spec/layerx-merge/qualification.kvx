@@ -19377,7 +19377,7 @@ task = "21.87.1"
 file = "node/sequencer/accepter_test.go"
 symbol = "TestAccepterReceiptsASendAcrossASeal"
 observed = "2f080287b left the across-a-seal test comparing the transient receipt (CumulativeGasUsed 0) with the signed receipt's Exec, which carries the cumulative gas Receipter.after adds (receipt.go:457); the test fails on main and stopped 22.23.8 attempts 1 to 3, none of which changed it."
-assumption = "The proof of 21.87.1 did not run this test; decision 2386 rules cumulative gas receipt-bound, 22.23.8 aligns the comparison, and 21.87.1 stays done."
+assumption = "The proof of 21.87.1 did not run this test; decision 2443 rules cumulative gas receipt-bound, 22.23.8 aligns the comparison, and 21.87.1 stays done."
 severity = "major"
 
 [finding.1.0.9.1]
@@ -19659,3 +19659,67 @@ symbol = "cases"
 observed = "The regenerated fixture carries twelve cases that all pay in the base denomination, so no recorded case has a paymentDenom distinct from feeDenom and no consumer can prove the fee-token asset path against producer bytes."
 assumption = "Decision 2430: consumers prove the check on derived views; a producer task records a fee-token case in a later batch."
 severity = "medium"
+
+[finding.21.78.1.1]
+task = "21.78.1"
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+symbol = "decode_receipt_keys"
+observed = "21.78.1 changed the shared receipt_keys decoder to the node's object shape and verified only the gateway proof; the agent daemon fixtures in human_node_budgets.rs, human_node.rs and handshake_gate.rs still serve the bare list, and the budget pipeline test fails with UnverifiedReceipt on the decode error (9.35.17 attempt 5)."
+assumption = "Every consumer fixture of a decoder's shape is run in the task that changes the shape."
+severity = "high"
+
+[finding.18.1129.1.6]
+task = "18.1129.1"
+file = "services/interop/crates/x-websearch/tests/fixtures/client-exchange.json"
+symbol = "offers"
+observed = "18.1129.1 re-recorded the client exchange with every offer on eip155:125 and ran only the Rust payment test; the TypeScript sdk consumer test still configures eip155:1337 and fails every web-search case with offer-network-mismatch (22.9.10 attempt 17)."
+assumption = "A re-recorded exchange is run against every consumer test that reads it in the same task."
+severity = "medium"
+
+[finding.18.1434.1.1]
+task = "18.1434.1"
+file = "node/app.go"
+symbol = "EVMReceiptModuleID"
+observed = "The EVM sequencer receipt carries module id EVMReceiptModuleID (reserved module count plus one, 12) and protocol version 2, while the human service move-commit binding expects the kernel ledger module 1 and the envelope protocol 3 and refuses every node-produced receipt with upstream-degraded; interfaces.kvx records no contract for the EVM receipt module id and protocol version."
+assumption = "interfaces.kvx gains the EVM receipt module and protocol contract and every consumer binds to the constant, not a literal."
+severity = "high"
+
+[finding.11.23.3.2]
+task = "11.23.3"
+file = "services/interop/crates/layerx-gas-station/src/signer.rs"
+symbol = "LocalSigner::from_config"
+observed = "from_config loads the relayer key through the prefixed file-or-KMS loader while the deploy template, init script and interface contract export the raw key in the variable relayer_key_env names; documented_deploy_inputs_start_service fails with KeySource (18.1211.6 attempts 5 and 6)."
+assumption = "11.23.3 verified one test by name and never ran the documented-deploy test; decision 2441 and task 22.95.4 align the loader with the deploy contract."
+severity = "major"
+
+[finding.18.1144.1.3]
+task = "18.1144.1"
+file = "node/sequencer/standby_role_test.go"
+symbol = "TestStartStandbyReplaysLedgerAfterCommit"
+observed = "3ed1f47aa made StartStandby install the standby's sequencer source at start (standby_role.go:140); the assertion require.Nil(backup.SequencerSource()) at standby_role_test.go:138 fails on main since (22.95.2 attempt 1 at acb0ede97)."
+assumption = "18.1144.1 verified only its own test; 22.95.5 updates the assertion to the installed source."
+severity = "major"
+
+[finding.22.95.2.1]
+task = "22.95.2"
+file = "node/sequencer/resolution_test.go"
+symbol = "TestResolutionStandbyReplay"
+observed = "At base acb0ede97 the validator replica rejects the standby's proposal (resolution_test.go:330, sequence batch order check failed at height 2); the test is not run by any task's verify and the node/sequencer package sweep did not run."
+assumption = "The failure is not caused by the replay candidate, which the test's standby and validator do not exercise; 22.95.5 diagnoses it at its base."
+severity = "major"
+
+[finding.22.24.8.1]
+task = "22.24.8"
+file = "apps/launchpad/web/src/core/wallet-sdk/vitest.l25.config.ts"
+symbol = "defineConfig"
+observed = "bb08c0099 raised vitest to 4.x and vite to 7.3.7; the package's type check fails in three vitest project configs and src/shell/global-search-parts.tsx (18.1515.1 attempt 1 at ef4e3121e)."
+assumption = "The task verified the lock floor and the frozen install only; 22.95.6 repairs the types."
+severity = "major"
+
+[finding.22.24.12.1]
+task = "22.24.12"
+file = "services/wallet/gateway/src/chain.ts"
+symbol = "hyperPaxeer"
+observed = "8dc0d37ce raised viem; the package's type check fails at src/chain.ts:15 with TS2742 (18.1548.1 attempt 1 at ef4e3121e)."
+assumption = "The task verified the lock floor and the frozen install only; 22.95.7 annotates the chain constant."
+severity = "major"

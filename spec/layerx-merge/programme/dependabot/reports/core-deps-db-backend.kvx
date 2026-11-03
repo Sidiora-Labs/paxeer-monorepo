@@ -1,0 +1,8 @@
+[alert.GHSA-2v4p-qf9q-27wj]
+package = "google.golang.org/grpc"
+manifest = "core/deps/db-backend/go.mod"
+verdict = "upgraded"
+version_before = "1.83.1"
+version_after = "1.83.2"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"

@@ -1,6 +1,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -30,6 +31,45 @@ def run_checker(root, manifests):
         text=True,
         check=False,
     )
+
+
+def test_dashboard_floor_uses_shared_install_lock(tmp_path):
+    root = SCRIPT.parents[2]
+    manifests = json.loads(
+        (SCRIPT.parent / "floors/platform-node.json").read_text()
+    )["manifests"]
+    shared_lock_name = "apps/web/package-lock.json"
+    dashboard = Path("services/platform/hosted/dashboard/web")
+    assert str(dashboard / "package.json") not in manifests
+    assert manifests[shared_lock_name] == {"next": "16.4.1"}
+    assert not (root / dashboard / "package-lock.json").exists()
+
+    shared_lock = json.loads((root / shared_lock_name).read_text())
+    dashboard_manifest = json.loads((root / dashboard / "package.json").read_text())
+    assert dashboard_manifest["dependencies"]["next"] == (
+        shared_lock["packages"]["node_modules/next"]["version"]
+    )
+    assert shared_lock["packages"]["node_modules/next"]["version"] == "16.4.1"
+
+    shared_copy = tmp_path / shared_lock_name
+    shared_copy.parent.mkdir(parents=True)
+    shutil.copyfile(root / shared_lock_name, shared_copy)
+    dashboard_copy = tmp_path / dashboard / "package-lock.json"
+    dashboard_copy.parent.mkdir(parents=True)
+    shutil.copyfile(root / shared_lock_name, dashboard_copy)
+    configured_entry = {shared_lock_name: manifests[shared_lock_name]}
+    passed = run_checker(tmp_path, configured_entry)
+    assert (passed.returncode, passed.stdout, passed.stderr) == (0, "", "")
+
+    shared_lock["packages"]["node_modules/next"]["version"] = "16.3.5"
+    shared_copy.write_text(json.dumps(shared_lock))
+    assert json.loads(dashboard_copy.read_text())["packages"]["node_modules/next"][
+        "version"
+    ] == "16.4.1"
+    failed = run_checker(tmp_path, configured_entry)
+    assert failed.returncode == 1
+    assert failed.stdout == "apps/web/package-lock.json\tnext\t16.3.5\t16.4.1\n"
+    assert failed.stderr == ""
 
 
 @pytest.mark.parametrize(
