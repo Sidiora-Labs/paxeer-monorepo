@@ -139264,7 +139264,7 @@ do_4 = "Attempt 1 (continue): sequenced_vectors.rs:337 finds the transaction_has
 
 [task.22.99.64]
 title = "Repair the inventory sweep target layerx-interop-service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.23.11", "22.99.161"]
