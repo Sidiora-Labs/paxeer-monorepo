@@ -1,0 +1,495 @@
+[reconcile.r9-55]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r9-55.1]
+interface = "interface.9.rs-client-evidence-module-state-verify-module-evidence-with-history"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/evidence/module_state.rs"
+line = 68
+symbol = "verify_module_evidence_with_history"
+evidence = "The registered evidence/module_state.rs file is deleted, including verify_module_evidence_with_history and its SequencerHistory parameter. The RPC module_state reader is a different API; a repository-wide tracked-file word search excluding spec and docs finds no remaining mention of this identifier."
+remaining_refs = 0
+remaining = []
+
+[row.r9-55.2]
+interface = "interface.9.rs-client-head-head"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/mod.rs"
+line = 5
+symbol = "Head"
+evidence = "The deleted head.rs declaration is now pub struct Head in rpc/mod.rs, retaining chain_sequence, sealed_batch and finalised_checkpoint freshness coordinates. The registered override.J44.122 row now has a different defining path."
+
+[row.r9-55.3]
+interface = "interface.9.rs-client-head-headtracker"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/head.rs"
+line = 31
+symbol = "HeadTracker"
+evidence = "The registered head.rs file is deleted and the Rust client no longer declares HeadTracker. Repository-wide tracked-file word search excluding spec and docs finds only two files in the vendored geth beacon light client, describing a distinct Go type rather than this Rust interface."
+remaining_refs = 2
+remaining = ["core/deps/geth/beacon/light/head_tracker.go:28", "core/deps/geth/beacon/light/sync/head_sync.go:33"]
+
+[row.r9-55.4]
+interface = "interface.9.rs-client-lni-abi-abiversion-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/abi.rs"
+line = 13
+symbol = "AbiVersion"
+evidence = "Still declares pub struct AbiVersion. ABI major/minor fields and V1_0, packed and from_packed methods remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.5]
+interface = "interface.9.rs-client-lni-abi-abiincompatible-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/abi.rs"
+line = 38
+symbol = "AbiIncompatible"
+evidence = "Still declares pub struct AbiIncompatible. The built and peer AbiVersion mismatch fields remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.6]
+interface = "interface.9.rs-client-lni-abi-fn-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/abi.rs"
+line = 48
+symbol = "negotiate"
+evidence = "Still declares pub const fn negotiate(built: AbiVersion, peer: AbiVersion) -> Result<AbiVersion, AbiIncompatible>. The const function still accepts built and peer AbiVersion and returns Result<AbiVersion, AbiIncompatible>. The registered retire status has not removed this declaration."
+
+[row.r9-55.7]
+interface = "interface.9.rs-client-lni-abi-functions-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/abi.rs"
+line = 65
+symbol = "Functions"
+evidence = "Still declares pub struct Functions. The C ABI version, send, receive, release and close function pointers remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.8]
+interface = "interface.9.rs-client-lni-abi-handle-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/abi.rs"
+line = 74
+symbol = "Handle"
+evidence = "Still declares pub struct Handle. The opaque connection owner still stores raw, functions and maximum_frame_bytes. The registered retire status has not removed this declaration."
+
+[row.r9-55.9]
+interface = "interface.9.rs-client-lni-abi-abiopenerror-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/abi.rs"
+line = 116
+symbol = "AbiOpenError"
+evidence = "Still declares pub enum AbiOpenError. NullHandle, FrameLimit and Incompatible variants remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.10]
+interface = "interface.9.rs-client-lni-capabilities-capabilities"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/capabilities.rs"
+line = 11
+symbol = "Capabilities"
+evidence = "Still declares pub struct Capabilities. The available and unavailable capability sets and unknown advertised names remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.11]
+interface = "interface.9.rs-client-lni-handshake-noderole"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/handshake.rs"
+line = 17
+symbol = "NodeRole"
+evidence = "Still declares pub enum NodeRole. Sequencer, Follower, Archive and Validator variants remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.12]
+interface = "interface.9.rs-client-lni-handshake-nodeinfo"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/handshake.rs"
+line = 47
+symbol = "NodeInfo"
+evidence = "Still declares pub struct NodeInfo. Interface and protocol versions, network role, head coordinates, sequencer key and advertised capabilities remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.13]
+interface = "interface.9.rs-client-lni-handshake-handshakeconfig"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/handshake.rs"
+line = 61
+symbol = "HandshakeConfig"
+evidence = "Still declares pub struct HandshakeConfig. Built interface version, expected protocol version and expected network ID remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.14]
+interface = "interface.9.rs-client-lni-handshake-sequencerkeychange-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/handshake.rs"
+line = 69
+symbol = "SequencerKeyChange"
+evidence = "Still declares pub struct SequencerKeyChange. The previous and current sequencer key arrays remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.15]
+interface = "interface.9.rs-client-lni-handshake-handshake"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/handshake.rs"
+line = 76
+symbol = "Handshake"
+evidence = "Still declares pub struct Handshake. The accepted node, negotiated capabilities and optional sequencer key change remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.16]
+interface = "interface.9.rs-client-lni-handshake-handshakeerror"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/handshake.rs"
+line = 101
+symbol = "HandshakeError"
+evidence = "Still declares pub enum HandshakeError. Transport, interface, protocol, network and malformed-message refusal variants remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.17]
+interface = "interface.9.rs-client-lni-handshake-perform"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/handshake.rs"
+line = 129
+symbol = "perform"
+evidence = "Still declares pub fn perform<T: FrameTransport>(transport: &mut T, config: &HandshakeConfig, previous: Option<&Handshake>) -> Result<Handshake, HandshakeError>. The function still accepts FrameTransport, HandshakeConfig and previous Handshake and delegates to perform_with_schema. The registered retire status has not removed this declaration."
+
+[row.r9-55.18]
+interface = "interface.9.rs-client-lni-handshake-perform-with-schema-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/handshake.rs"
+line = 137
+symbol = "perform_with_schema"
+evidence = "Still declares pub fn perform_with_schema<T: FrameTransport>(. The generic FrameTransport exchange still takes config, previous handshake and an explicit Schema. The registered retire status has not removed this declaration."
+
+[row.r9-55.19]
+interface = "interface.9.rs-client-lni-handshake-validate"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/handshake.rs"
+line = 190
+symbol = "validate"
+evidence = "Still declares pub fn validate(node: NodeInfo, config: &HandshakeConfig, previous: Option<&Handshake>) -> Result<Handshake, HandshakeError>. NodeInfo, HandshakeConfig and previous Handshake still feed validate_with_schema. The registered retire status has not removed this declaration."
+
+[row.r9-55.20]
+interface = "interface.9.rs-client-lni-handshake-validate-with-schema-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/handshake.rs"
+line = 198
+symbol = "validate_with_schema"
+evidence = "Still declares pub fn validate_with_schema(. The function still takes NodeInfo, config, previous handshake and Schema and checks identity and versions. The registered retire status has not removed this declaration."
+
+[row.r9-55.21]
+interface = "interface.9.rs-client-lni-handshake-encode-node-info"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/handshake.rs"
+line = 255
+symbol = "encode_node_info"
+evidence = "Still declares pub fn encode_node_info(node: &NodeInfo) -> Result<Vec<u8>, HandshakeError>. The function still takes &NodeInfo and returns Result<Vec<u8>, HandshakeError>. The registered retire status has not removed this declaration."
+
+[row.r9-55.22]
+interface = "interface.9.rs-client-lni-handshake-decode-node-info"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/handshake.rs"
+line = 304
+symbol = "decode_node_info"
+evidence = "Still declares pub fn decode_node_info(bytes: &[u8]) -> Result<NodeInfo, HandshakeError>. The function still takes &[u8] and returns Result<NodeInfo, HandshakeError>. The registered retire status has not removed this declaration."
+
+[row.r9-55.23]
+interface = "interface.9.rs-client-lni-refusal-corerefusal"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/refusal.rs"
+line = 7
+symbol = "CoreRefusal"
+evidence = "Still declares pub struct CoreRefusal. The class: u8 and result: ResultCode payload fields remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.24]
+interface = "interface.9.rs-client-lni-refusal-decode-core-refusal"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/refusal.rs"
+line = 14
+symbol = "decode_core_refusal"
+evidence = "Still declares pub fn decode_core_refusal(payload: &[u8]) -> Option<CoreRefusal>. The function still decodes the five-byte payload into Option<CoreRefusal>. The registered retire status has not removed this declaration."
+
+[row.r9-55.25]
+interface = "interface.9.rs-client-lni-report-capabilitystatus-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/report.rs"
+line = 12
+symbol = "CapabilityStatus"
+evidence = "Still declares pub struct CapabilityStatus. The capability, exposed flag and absent_behavior fields remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.26]
+interface = "interface.9.rs-client-lni-report-capabilityreport"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/report.rs"
+line = 20
+symbol = "CapabilityReport"
+evidence = "Still declares pub struct CapabilityReport. The ordered status entries and unknown advertised names remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.27]
+interface = "interface.9.rs-client-lni-report-capability-report"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/report.rs"
+line = 109
+symbol = "capability_report"
+evidence = "Still declares pub fn capability_report(capabilities: &Capabilities) -> CapabilityReport. The function still takes &Capabilities and returns CapabilityReport through capability_report_with_schema. The registered retire status has not removed this declaration."
+
+[row.r9-55.28]
+interface = "interface.9.rs-client-lni-report-capability-report-with-schema-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/report.rs"
+line = 114
+symbol = "capability_report_with_schema"
+evidence = "Still declares pub fn capability_report_with_schema(. The function still takes &Capabilities and &Schema to enumerate capability status entries. The registered retire status has not removed this declaration."
+
+[row.r9-55.29]
+interface = "interface.9.rs-client-lni-schema-version"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 5
+symbol = "Version"
+evidence = "Still declares pub struct Version. The major: u16 and minor: u16 fields and compatibility method remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.30]
+interface = "interface.9.rs-client-lni-schema-messagekind-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 59
+symbol = "MessageKind"
+evidence = "Still declares pub enum MessageKind. Request, Response and Stream variants remain; the current declaration is three lines before the registered location. The registered retire status has not removed this declaration."
+
+[row.r9-55.31]
+interface = "interface.9.rs-client-lni-schema-capability"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 70
+symbol = "Capability"
+evidence = "Still declares pub enum Capability. The advertised capability enum remains, including execution prestate and arbiter variants. The registered retire status has not removed this declaration."
+
+[row.r9-55.32]
+interface = "interface.9.rs-client-lni-schema-messagedescriptor-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 132
+symbol = "MessageDescriptor"
+evidence = "Still declares pub struct MessageDescriptor. The name, tag, kind, capability and protocol/proof flags remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.33]
+interface = "interface.9.rs-client-lni-schema-schema-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 143
+symbol = "Schema"
+evidence = "Still declares pub struct Schema. The version, messages and capabilities fields remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.34]
+interface = "interface.9.rs-client-lni-schema-fn-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 563
+symbol = "lni_schema_v1"
+evidence = "Still declares pub const fn lni_schema_v1() -> &'static Schema. The const function still returns a static Schema reference to SCHEMA. The registered retire status has not removed this declaration."
+
+[row.r9-55.35]
+interface = "interface.9.rs-client-lni-schema-fn-2-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 610
+symbol = "lni_schema_arbiter_prestate_v2"
+evidence = "Still declares pub const fn lni_schema_arbiter_prestate_v2() -> &'static Schema. The const function still returns a static Schema reference to ARBITER_PRESTATE_SCHEMA. The registered retire status has not removed this declaration."
+
+[row.r9-55.36]
+interface = "interface.9.rs-client-lni-schema-fn-2-3-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 653
+symbol = "lni_schema_arbiter_admission_v3"
+evidence = "Still declares pub const fn lni_schema_arbiter_admission_v3() -> &'static Schema. The const function still returns a static Schema reference to ADMISSION_SCHEMA. The registered retire status has not removed this declaration."
+
+[row.r9-55.37]
+interface = "interface.9.rs-client-lni-schema-goldenvector-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 659
+symbol = "GoldenVector"
+evidence = "Still declares pub struct GoldenVector. The message, payload, proof_material and encoded_hex fields remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.38]
+interface = "interface.9.rs-client-lni-schema-fn-2-3-4-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 970
+symbol = "lni_golden_vectors"
+evidence = "Still declares pub const fn lni_golden_vectors() -> &'static [GoldenVector]. The const function still returns the static GOLDENS slice of GoldenVector. The registered retire status has not removed this declaration."
+
+[row.r9-55.39]
+interface = "interface.9.rs-client-lni-schema-envelope"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 976
+symbol = "Envelope"
+evidence = "Still declares pub struct Envelope<'a>. The lifetime-bearing envelope still carries version, message tag, correlation ID, canonical payload and proof material. The registered retire status has not removed this declaration."
+
+[row.r9-55.40]
+interface = "interface.9.rs-client-lni-schema-schemaerror"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 986
+symbol = "SchemaError"
+evidence = "Still declares pub enum SchemaError. UnknownMessage, LengthLimit and MalformedEnvelope variants remain. The registered retire status has not removed this declaration."
+
+[row.r9-55.41]
+interface = "interface.9.rs-client-lni-schema-encode-envelope"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 997
+symbol = "encode_envelope"
+evidence = "Still declares pub fn encode_envelope(envelope: Envelope<'_>) -> Result<Vec<u8>, SchemaError>. The function still accepts Envelope and returns Result<Vec<u8>, SchemaError> via the default schema. The registered retire status has not removed this declaration."
+
+[row.r9-55.42]
+interface = "interface.9.rs-client-lni-schema-encode-envelope-with-schema-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 1001
+symbol = "encode_envelope_with_schema"
+evidence = "Still declares pub fn encode_envelope_with_schema(. The function still accepts Envelope and &Schema, validates tags and encodes bounded payload and proof bytes. The registered retire status has not removed this declaration."
+
+[row.r9-55.43]
+interface = "interface.9.rs-client-lni-schema-decode-envelope"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 1038
+symbol = "decode_envelope"
+evidence = "Still declares pub fn decode_envelope(bytes: &[u8]) -> Result<Envelope<'_>, SchemaError>. The function still accepts &[u8] and returns Result<Envelope, SchemaError> via the default schema. The registered retire status has not removed this declaration."
+
+[row.r9-55.44]
+interface = "interface.9.rs-client-lni-schema-decode-envelope-with-schema-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 1042
+symbol = "decode_envelope_with_schema"
+evidence = "Still declares pub fn decode_envelope_with_schema<'a>(. The function still accepts borrowed bytes and &Schema and returns a borrowed Envelope or SchemaError. The registered retire status has not removed this declaration."
+
+[row.r9-55.45]
+interface = "interface.9.rs-client-payments-snapshotcontext"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/payments.rs"
+line = 12
+symbol = "SnapshotContext"
+evidence = "The deleted payments.rs declaration is now pub struct SnapshotContext in rpc/payments.rs, with interface_version, correlation_id and minimum_sequence. The registered override.J44.117 row has moved to the RPC module."
+
+[row.r9-55.46]
+interface = "interface.9.rs-client-payments-committedsnapshot"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/payments.rs"
+line = 19
+symbol = "CommittedSnapshot"
+evidence = "The deleted payments.rs declaration is now pub struct CommittedSnapshot<T> in rpc/payments.rs, carrying observed_sequence, state_root and value. The registered override.J44.118 row has moved to the RPC module."
+
+[row.r9-55.47]
+interface = "interface.9.rs-client-payments-assetmetadata"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/payments.rs"
+line = 26
+symbol = "AssetMetadata"
+evidence = "The deleted payments.rs declaration is now pub struct AssetMetadata in rpc/payments.rs, retaining asset identity, denomination, custody, issuer and supply fields. The registered override.J44.119 row has moved to the RPC module."
+
+[row.r9-55.48]
+interface = "interface.9.rs-client-payments-list-assets"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/payments.rs"
+line = 54
+symbol = "list_assets"
+evidence = "Now pub fn list_assets(endpoint: &PxEndpoint) -> Result<PxAssetTable, SequencerError> in rpc/payments.rs. The FrameTransport argument and optional asset filter are replaced by a PxEndpoint; the result is the RPC asset table rather than the old snapshot read."
+
+[row.r9-55.49]
+interface = "interface.9.rs-client-payments-get-asset"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/payments.rs"
+line = 58
+symbol = "get_asset"
+evidence = "Now pub fn get_asset(endpoint: &PxEndpoint, asset: [u8; 32]) -> Result<PxAssetEntry, SequencerError> in rpc/payments.rs. FrameTransport is replaced by PxEndpoint, and the function selects a PxAssetEntry from the RPC asset table."
+
+[row.r9-55.50]
+interface = "interface.9.rs-client-payments-estimate-fee"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/payments.rs"
+line = 66
+symbol = "estimate_fee"
+evidence = "Now pub fn estimate_fee(endpoint: &SequencerEndpoint, call: &CallRequest) -> Result<FeeEstimate, SequencerError> in rpc/payments.rs. FrameTransport, activity and resource counts, and SnapshotContext are replaced by endpoint and call; the return no longer wraps FeeEstimate in CommittedSnapshot."
+
+[row.r9-55.51]
+interface = "interface.9.rs-client-payments-nativefeepolicy"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/payments.rs"
+line = 49
+symbol = "NativeFeePolicy"
+evidence = "The deleted payments.rs declaration is now pub struct NativeFeePolicy in rpc/payments.rs, with version: u8 and asset: AssetMetadata. The registered override.J44.120 row has moved to the RPC module."
+
+[row.r9-55.52]
+interface = "interface.9.rs-client-payments-native-fee-policy-j44"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/src/budget/fee_policy.rs"
+line = 123
+symbol = "native_fee_policy"
+evidence = "The client payments.rs free function is gone; the daemon budget reader now declares pub fn native_fee_policy(endpoint: &SequencerEndpoint, height: u64) -> Result<NativeFeePolicy, FeeReadError>. It reads policy and metadata at a committed height; NativeFeePolicy here aliases CommittedSnapshot of the RPC payment policy value."
+
+[row.r9-55.53]
+interface = "interface.9.rs-client-payments-session-fee-state-j44"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/payments.rs"
+line = 380
+symbol = "session_fee_state"
+evidence = "The registered payments.rs file is deleted and rpc/payments.rs has no session_fee_state function. Repository-wide tracked-file word search excluding spec and docs finds the listed boundary methods, schema literal and consumers. The daemon method at human_runtime.rs:14406 returns Unavailable; its comment cites task 9.25.2, whose current task record is done and deletes Client, so that stale comment does not establish a pending implementation."
+remaining_refs = 8
+remaining = ["services/agent/crates/layerx-agentd/src/human.rs:998", "services/agent/crates/layerx-agentd/src/human_runtime.rs:3148", "services/agent/crates/layerx-client/src/lni/schema.rs:119", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:1939", "services/human/crates/layerx-human-service/src/server/production_components.rs:6825", "services/human/crates/layerx-human-service/src/server/production_rotation.rs:449", "services/human/crates/layerx-human-service/tests/native_send_producer.rs:628", "tests/qualification/lxp_wallet_caps_discovery.c:347"]
+
+[row.r9-55.54]
+interface = "interface.9.rs-client-read-requested"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/account.rs"
+line = 17
+symbol = "Requested"
+evidence = "The old pub struct Requested(VerificationLevel) in deleted read.rs is replaced by pub struct Requested(Rung) in rpc/account.rs. new returns Result<Self, ReadError> and rejects Submitted; the distinct rpc/history.rs proof context still declares Requested(VerificationLevel)."
+
+[row.r9-55.55]
+interface = "interface.9.rs-client-read-readcontext"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/account.rs"
+line = 34
+symbol = "ReadContext"
+evidence = "The deleted read.rs context is replaced for account reads by pub struct ReadContext in rpc/account.rs, with committed_height: u64 and requested: Requested over Rung. rpc/history.rs separately retains a proof-verification ReadContext; override.J44.90 is the registered override."
+
+[row.r9-55.56]
+interface = "interface.9.rs-client-read-readvalue"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/read.rs"
+line = 85
+symbol = "ReadValue"
+evidence = "The registered read.rs file is deleted and ReadValue is absent from the RPC client. Repository-wide tracked-file word search excluding spec and docs finds no remaining mention of ReadValue; account reads now return Amount directly."
+remaining_refs = 0
+remaining = []
+
+[row.r9-55.57]
+interface = "interface.9.rs-client-read-historycursor"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/read.rs"
+line = 149
+symbol = "HistoryCursor"
+evidence = "The registered read.rs file and its client HistoryCursor are deleted; the RPC history API takes an opaque string cursor. Repository-wide tracked-file word search excluding spec and docs finds the listed agent API u64 position triplet, SDK uses, schema and tracked generated references. These describe the separate agent-envelope cursor rather than a relocated client type."
+remaining_refs = 27
+remaining = ["GOTCHA.kvx:2606", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:335", "sdk/platform/jvm/target/apidocs/allclasses-index.html:166", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/GeneratedSchema.AgentModels.HistoryCursor.html:5", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/GeneratedSchema.AgentModels.html:201", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/SchemaTypes.GeneratedResponse.html:93", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/class-use/GeneratedSchema.AgentModels.HistoryCursor.html:5", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/class-use/SchemaTypes.GeneratedResponse.html:146", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/package-summary.html:222", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/package-tree.html:240", "sdk/platform/jvm/target/apidocs/index-all.html:1998", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "sdk/platform/jvm/target/apidocs/overview-tree.html:262", "sdk/platform/jvm/target/apidocs/type-search-index.js:1", "sdk/platform/jvm/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst:229", "services/agent/crates/layerx-agent-api/src/lib.rs:67", "services/agent/crates/layerx-agent-api/src/read.rs:41", "services/agent/crates/layerx-agent-api/tests/read.rs:231", "services/agent/crates/layerx-agent-api/tests/read_heights.rs:10", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:1240", "services/agent/crates/layerx-agentd/src/human_runtime.rs:21426", "services/agent/crates/layerx-agentd/tests/read_ops_rpc.rs:3", "services/agent/crates/layerx-mcp/src/tools/read.rs:7", "services/agent/crates/layerx-mcp/tests/read.rs:8", "services/agent/crates/layerx-sdk/src/lib.rs:20", "services/agent/crates/layerx-sdk/src/rpc_history.rs:11", "services/agent/schema/agent-api/read.kvx:39"]
+
+[row.r9-55.58]
+interface = "interface.9.rs-client-read-historykind"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/history.rs"
+line = 92
+symbol = "HistoryKind"
+evidence = "The deleted read.rs declaration is now pub enum HistoryKind in rpc/history.rs, with Activity, Receipt and Event variants. The daemon history reader imports this RPC type; override.J44.93 is the registered override."
+
+[row.r9-55.59]
+interface = "interface.9.rs-client-read-historyitem"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/read.rs"
+line = 204
+symbol = "HistoryItem"
+evidence = "The registered read.rs file and its client HistoryItem are deleted; sequencer::HistoryPage now stores Vec<Value>. Repository-wide tracked-file word search excluding spec and docs finds the listed daemon and SDK record types, schema literals, wallet and explorer types, and tracked generated references; these are separate interfaces rather than a relocated client HistoryItem."
+remaining_refs = 25
+remaining = ["sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:342", "sdk/platform/jvm/target/apidocs/allclasses-index.html:168", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/GeneratedSchema.AgentModels.HistoryItem.html:5", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/GeneratedSchema.AgentModels.html:204", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/SchemaTypes.GeneratedResponse.html:93", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/class-use/GeneratedSchema.AgentModels.HistoryItem.html:5", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/class-use/SchemaTypes.GeneratedResponse.html:149", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/package-summary.html:224", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/package-tree.html:241", "sdk/platform/jvm/target/apidocs/index-all.html:2343", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "sdk/platform/jvm/target/apidocs/overview-tree.html:263", "sdk/platform/jvm/target/apidocs/type-search-index.js:1", "sdk/platform/jvm/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst:163", "sdk/wallet/src/endpoint.ts:15", "sdk/wallet/src/types.ts:356", "sdk/wallet/test/merged-types.test.ts:13", "services/agent/crates/layerx-agent-api/tests/read.rs:450", "services/agent/crates/layerx-agentd/src/read/history.rs:98", "services/agent/crates/layerx-client/src/lni/schema.rs:266", "services/agent/crates/layerx-sdk/src/rpc_history.rs:14", "services/agent/schema/agent-api/read.kvx:161", "services/platform/perps-data/e2e_test.go:701", "services/platform/perps-data/internal/explorer/explorer.go:188", "services/platform/perps-data/internal/explorer/explorer_test.go:373"]
+
+[row.r9-55.60]
+interface = "interface.9.rs-client-read-historypage"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/sequencer.rs"
+line = 220
+symbol = "HistoryPage"
+evidence = "The client history result now declares pub struct HistoryPage in sequencer.rs and rpc/history.rs re-exports it through a type alias. It carries items: Vec<Value>, next_cursor: Option<String>, and optional indexed_height and chain_height, replacing the deleted read.rs page declaration; registry override.J44.95 records the prior override."
