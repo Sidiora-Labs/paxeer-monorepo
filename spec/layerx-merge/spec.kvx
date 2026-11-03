@@ -142472,7 +142472,7 @@ do_3 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fail
 
 [task.22.9.18]
 title = "Reconcile the agent API schema, daemon freshness, SDK corpus and MCP schema tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.16", "22.9.24", "22.9.25", "22.9.33", "22.1.11", "22.1.12", "1.18.5", "22.95.11", "22.99.159", "22.99.160"]
