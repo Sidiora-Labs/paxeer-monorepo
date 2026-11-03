@@ -26,8 +26,17 @@
     <spring.boot.version>3.3.11</spring.boot.version>
     <spring.framework.version>6.1.21</spring.framework.version>
     <jakarta.servlet.version>6.0.0</jakarta.servlet.version>
-    <jackson.version>2.18.9</jackson.version>
+    <jackson.version>2.18.11</jackson.version>
   </properties>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${jackson.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
   <dependencies>
     <dependency>
       <groupId>com.sidiora.layerx</groupId>
@@ -57,7 +66,6 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>${jackson.version}</version>
     </dependency>
     <dependency>
       <groupId>jakarta.servlet</groupId>

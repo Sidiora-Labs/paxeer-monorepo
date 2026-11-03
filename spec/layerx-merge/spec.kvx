@@ -119989,7 +119989,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.14]
 title = "Close the 1 dependency alerts of package-lock.json"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -139578,7 +139578,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.11]
 title = "Report the 2 dependency alerts of core/deps/geth/go.mod that name no patched version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -139608,7 +139608,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.10]
 title = "Close the 1 dependency alerts of core/deps/db-backend/go.mod"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -168831,7 +168831,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.16]
 title = "Close the 5 dependency alerts of sdk/integrations/android/pom.xml"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
