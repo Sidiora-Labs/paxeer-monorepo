@@ -1,0 +1,47 @@
+[disposition.17.5.2.8]
+finding = "17.5.2.8"
+status = "resolved"
+evidence = "Commit 453ee8152 fixes the stale operation count at services/human/tools/api-gen/tests/generation.rs:222 by comparing generated operations with live declarations, separately checking retired declarations and requiring both counts to sum to all declarations."
+follow_up = "closure"
+
+[disposition.17.5.3.4]
+finding = "17.5.3.4"
+status = "resolved"
+evidence = "Commit 453ee8152 removes the wave-2 blocker at services/human/tools/api-gen/tests/generation.rs:222 by counting live operations separately from retired operations and asserting their sum equals the complete schema declaration count."
+follow_up = "closure"
+
+[disposition.17.5.4.3]
+finding = "17.5.4.3"
+status = "resolved"
+evidence = "Commit 453ee8152 removes the stale all-declarations comparison at services/human/tools/api-gen/tests/generation.rs:222 and checks live coverage, retired counts and absence of retired client methods, eliminating the reported wave-3 operation-count mismatch."
+follow_up = "closure"
+
+[disposition.17.5.1.9]
+finding = "17.5.1.9"
+status = "superseded"
+evidence = "Commit d8b9d7244 deletes the retired services/human/crates/layerx-explorer-index/src/lib.rs library containing ProtocolProgramIngestor::ingest, and services/human/crates/layerx-human-test-support/tests/retired_explorer_index_library.rs:12 asserts the library, package and indexer references are absent."
+follow_up = "closure"
+
+[disposition.17.5.1.10]
+finding = "17.5.1.10"
+status = "resolved"
+evidence = "Commit 739a39689 replaces both bare NodeRpcError propagations in start_shared_owner with explicit String error mappings, retained at services/agent/crates/layerx-agentd/src/main.rs:775 for configuration and line 781 for connection."
+follow_up = "closure"
+
+[disposition.17.5.1.11]
+finding = "17.5.1.11"
+status = "resolved"
+evidence = "Commit d755049b5 replaces the provider's deleted from_protected_history calls with TrustRoot decoding and ChainProofVerifier verification, retained at services/human/crates/layerx-human-security-provider/src/state.rs:63 and in read_trust_root at line 74."
+follow_up = "closure"
+
+[disposition.17.5.1.12]
+finding = "17.5.1.12"
+status = "environment"
+evidence = "The missing tsup executable reflects the qualification environment installing only root workspaces listed at package.json:9, which exclude apps/web, while apps/web/package.json:51 declares tsup and Makefile:1632 invokes the separately installed web build."
+follow_up = "closure"
+
+[disposition.17.5.1.13]
+finding = "17.5.1.13"
+status = "resolved"
+evidence = "Commit cf3827a1e removes the client component's direct gateway import and introduces the server action at apps/web/src/app/exchange/actions.ts:15, declares all four missing packages at apps/web/package.json:29 and configures webpack to resolve wallet source dependencies through the web app's node_modules."
+follow_up = "closure"

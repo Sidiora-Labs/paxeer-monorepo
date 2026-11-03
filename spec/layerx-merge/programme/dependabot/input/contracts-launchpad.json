@@ -1,0 +1,18 @@
+{
+ "slug": "contracts-launchpad",
+ "manifests": [
+  "contracts/launchpad/pnpm-lock.yaml"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-848j-6mx2-7j84",
+   "number": 3778,
+   "package": "elliptic",
+   "ecosystem": "npm",
+   "manifest": "contracts/launchpad/pnpm-lock.yaml",
+   "severity": "low",
+   "range": "<= 6.6.1",
+   "patched": null
+  }
+ ]
+}

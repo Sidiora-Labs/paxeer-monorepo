@@ -1,0 +1,8 @@
+[alert.GHSA-5r4p-p66f-jhc7]
+package = "hono"
+manifest = "package-lock.json"
+verdict = "upgraded"
+version_before = "4.13.7"
+version_after = "4.13.11"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"

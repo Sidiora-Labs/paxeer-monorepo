@@ -1,0 +1,48 @@
+{
+ "slug": "services-explorer-block-scout-web-assets",
+ "manifests": [
+  "services/explorer/backend/apps/block_scout_web/assets/package-lock.json"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-gcqx-w48m-w2h4",
+   "number": 4551,
+   "package": "deepmerge",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/backend/apps/block_scout_web/assets/package-lock.json",
+   "severity": "low",
+   "range": ">= 4.2.0, <= 4.3.1",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-848j-6mx2-7j84",
+   "number": 3548,
+   "package": "elliptic",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/backend/apps/block_scout_web/assets/package-lock.json",
+   "severity": "low",
+   "range": "<= 6.6.1",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-g3hv-75wg-m249",
+   "number": 4602,
+   "package": "minimatch",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/backend/apps/block_scout_web/assets/package-lock.json",
+   "severity": "medium",
+   "range": "< 11.0.1",
+   "patched": "11.0.1"
+  },
+  {
+   "ghsa": "GHSA-p8p7-x288-28g6",
+   "number": 3537,
+   "package": "request",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/backend/apps/block_scout_web/assets/package-lock.json",
+   "severity": "medium",
+   "range": "<= 2.88.2",
+   "patched": null
+  }
+ ]
+}

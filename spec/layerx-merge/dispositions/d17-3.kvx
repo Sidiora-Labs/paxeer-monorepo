@@ -1,0 +1,59 @@
+[disposition.17.5.2]
+finding = "17.5.2"
+status = "superseded"
+evidence = "Commit 05b1f8e8e retires the layerxd process core and deletes cmd/layerxd/lxp_daemon_process.c, including open_process and the asset-runtime initializer that stopped the wave gate."
+follow_up = "closure"
+
+[disposition.17.5.2.1]
+finding = "17.5.2.1"
+status = "open"
+evidence = "Although commits 6b9420582 and 60ba879e7 land the cited agent and webhook ports, scripts/gates/wave-1.sh:4 still runs workspace-build, workspace-test, core-test-all and test-sanitizer-suite, and task 17.5.2 remains pending at spec/layerx-merge/spec.kvx:207466 without a landed passing aggregate gate."
+follow_up = "17.5.2"
+
+[disposition.17.5.1.2]
+finding = "17.5.1.2"
+status = "resolved"
+evidence = "Commit 9ea5dac81 ports the human activity projection to delivery.cursor.block_height and its tx_index and log_index fields, as retained at services/human/crates/layerx-human-service/src/activity/mod.rs:607 and :666, removing the obsolete tuple-cursor access."
+follow_up = "closure"
+
+[disposition.17.5.2.2]
+finding = "17.5.2.2"
+status = "resolved"
+evidence = "Commit 9ea5dac81 repairs the shared human-service failure by replacing tuple-cursor reads with block_height, tx_index and log_index, retained at services/human/crates/layerx-human-service/src/activity/mod.rs:607 and :666."
+follow_up = "closure"
+
+[disposition.17.5.1.3]
+finding = "17.5.1.3"
+status = "resolved"
+evidence = "Commit 1794c3d55 replaces CheckpointValue tuple access with checked sizing of commit and validator_set, retained at services/agent/crates/layerx-mcp/src/tools/read.rs:213 and matching the named fields at services/agent/crates/layerx-agent-api/src/read.rs:207."
+follow_up = "closure"
+
+[disposition.17.5.1.4]
+finding = "17.5.1.4"
+status = "resolved"
+evidence = "Commit 88892b19a ports the daemon's read, export and payer calls, with services/agent/crates/layerx-agentd/src/main.rs:1710 passing endpoint and chain id to NativeReadRoute::new, :1658 handling signed_authority as a Result, :673 passing receipt keys and validators to ExportTrustSource::new, and services/agent/crates/layerx-agentd-host/src/payer.rs:249 signing EVM transactions."
+follow_up = "closure"
+
+[disposition.17.5.2.3]
+finding = "17.5.2.3"
+status = "resolved"
+evidence = "Commit 88892b19a repairs the daemon API mismatches retained at services/agent/crates/layerx-agentd/src/main.rs:673 and :1710, while commit a3d452df1 ports the CLI fee and write paths retained at tools/platform/cli/src/wallet.rs:313 and :912 to eth_estimateGas and send_raw_transaction."
+follow_up = "closure"
+
+[disposition.17.5.1.5]
+finding = "17.5.1.5"
+status = "open"
+evidence = "Task 17.5.1 remains pending at spec/layerx-merge/spec.kvx:207421 and still requires the merged wave-0 aggregate proof, while scripts/gates/wave-0.sh:5 retains workspace-build and workspace-lint and the planned test_wave_0_gate.py has no landed implementation or passing task commit."
+follow_up = "17.5.1"
+
+[disposition.17.5.2.4]
+finding = "17.5.2.4"
+status = "open"
+evidence = "Task 17.5.2 remains pending at spec/layerx-merge/spec.kvx:207466 and still requires the merged wave-1 aggregate proof, while scripts/gates/wave-1.sh:4 retains the aggregate targets and the planned test_wave_1_gate.py has no landed implementation or passing task commit."
+follow_up = "17.5.2"
+
+[disposition.17.5.3.1]
+finding = "17.5.3.1"
+status = "resolved"
+evidence = "Commit 266e32829 moves wave-2 step logs beside the wave evidence at scripts/gates/wave-2.sh:22 and prints the failing log path and its last 200 lines at scripts/gates/run_gate.py:64, making the failed target identifiable from the retained wave output."
+follow_up = "closure"
