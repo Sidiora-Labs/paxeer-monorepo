@@ -338,8 +338,17 @@ func (r *GigaRouter) executeBlock(ctx context.Context, b *atypes.GlobalBlock) (*
 		// because reward is distributed with a delay. This is not our problem here though.
 		ProposerAddress: proposerAddress,
 	}
+	header.LastBlockID.Hash = make([]byte, common.HashLength)
+	if b.GlobalNumber > r.data.Committee().FirstBlock() {
+		parent, err := r.data.GlobalBlock(ctx, b.GlobalNumber-1)
+		if err != nil {
+			return nil, fmt.Errorf("load committed parent: %w", err)
+		}
+		parentHash := parent.Header.Hash()
+		header.LastBlockID.Hash = parentHash.Bytes()
+	}
 	// TODO: add metrics to understand execution latency.
-	resp, err := app.FinalizeBlock(ctx, &abci.RequestFinalizeBlock{
+	req := &abci.RequestFinalizeBlock{
 		Txs: txs,
 		// Empty DecidedLastCommit does not indicate missing votes.
 		DecidedLastCommit: abci.CommitInfo{},
@@ -348,13 +357,24 @@ func (r *GigaRouter) executeBlock(ctx context.Context, b *atypes.GlobalBlock) (*
 		// and is fed as block hash to EVM contracts.
 		Hash:   hash[:],
 		Header: header.ToProto(),
-	})
+	}
+	resp, err := app.FinalizeBlock(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("r.cfg.App.FinalizeBlock(): %w", err)
 	}
 	if err := r.cfg.StateStore.SaveFinalizeBlockResponses(height, resp); err != nil {
 		return nil, fmt.Errorf("r.cfg.StateStore.SaveFinalizeBlockResponses(%v): %w", height, err)
 	}
+	commitResp, err := app.Commit(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("r.cfg.App.Commit(): %w", err)
+	}
+	if err := r.data.PushAppHash(ctx, b.GlobalNumber, resp.AppHash); err != nil {
+		return nil, fmt.Errorf("r.data.PushAppHash(%v): %w", b.GlobalNumber, err)
+	}
+	header.AppHash = req.Header.AppHash
+	header.DataHash = req.Header.DataHash
+	header.LastResultsHash = req.Header.LastResultsHash
 	if bus, ok := r.eventBus.Get(); ok {
 		if err := bus.PublishEventNewBlockHeader(types.EventDataNewBlockHeader{
 			Header:              header,
@@ -373,13 +393,6 @@ func (r *GigaRouter) executeBlock(ctx context.Context, b *atypes.GlobalBlock) (*
 				logger.Error("Failed to publish Tx event", "height", height, "index", i, "err", err)
 			}
 		}
-	}
-	commitResp, err := app.Commit(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("r.cfg.App.Commit(): %w", err)
-	}
-	if err := r.data.PushAppHash(ctx, b.GlobalNumber, resp.AppHash); err != nil {
-		return nil, fmt.Errorf("r.data.PushAppHash(%v): %w", b.GlobalNumber, err)
 	}
 	return commitResp, nil
 }
