@@ -14130,3 +14130,23 @@ fix = "Write build_cmd as the declared targets only: cargo test --no-run per tes
 title = "mvn -o fails on an environment that has not cached the pom's plugins"
 symptom = "18.1503.1's verify ran mvn -q -o compile and Maven could not resolve maven-source-plugin 3.3.1 in offline mode although the compile itself needs nothing beyond the JDK."
 fix = "Write Maven verify steps without -o like every other JVM verify of the feature (decision 2375)."
+
+[gotcha.2862]
+title = "The serve_routes test target belongs to the agent daemon host crate"
+symptom = "22.9.33's build and verify named --test serve_routes under -p layerx-agentd and cargo refused: the target is declared in services/agent/crates/layerx-agentd-host/Cargo.toml (host-tests/serve_routes.rs)."
+fix = "Name each test target under the package whose Cargo.toml declares it; check [[test]] declarations before writing a cargo test --test command."
+
+[gotcha.2863]
+title = "A reuse refusal keyed on an unverified receipt hint is a settlement oracle"
+symptom = "The seller returned 409 receipt reuse from the payload's receiptDigest hint before verification, so a tampered payment got 409 instead of 402 and the status alone told whether the digest had been settled."
+fix = "Verify first, then decide reuse (decision 2376); any pre-verification lookup may only serve the identical-request replay."
+
+[gotcha.2864]
+title = "A loader precondition on module-9 activities reaches every test that executes one"
+symptom = "After 22.2.7 made programs activities require the active fee record, three lxphost tests that run a registry activity without the fixture helper failed with LXP_ERR_VERSION_UNSUPPORTED; the task listed two and attempt 2 stopped on the third as pre-existing."
+fix = "When a change adds a store precondition to a module's execution, grep the package for every test that executes that module's activities and give each the fixture call; run the task's whole verify selection before the single verify run."
+
+[gotcha.2865]
+title = "A catalogue-absence test needs every deleting task in its requires, not only the ones that failed before"
+symptom = "16.90.1 gained the daemon, guarantor and bridge deletions as requires after attempts 1 and 2 and still failed on attempt 3 because the LNI client module deletion (9.24.7) was never listed; each attempt found the next present tree."
+fix = "Before relaunching a test task that asserts absence, check every tree it asserts against main and the catalogue and add the owner task of each present tree to requires in one pass."

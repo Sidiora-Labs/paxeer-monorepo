@@ -7365,6 +7365,24 @@ value = "Every qualified JVM verify of this feature (52 commands) runs mvn witho
 basis = "18.1503.1 attempt 10 passed the generator check and the 27 drift tests and failed with PluginResolutionException for maven-source-plugin 3.3.1 in offline mode."
 affects = ["18.1503.1"]
 
+[decision.2376]
+title = "The seller verifies a payment before it decides receipt reuse"
+value = "A refusal that names receipt reuse is decided only after the payment authority has verified the presented payload; the receiptDigest hint of an unverified payload serves the identical-request replay alone and never answers a differing request, so a tampered payload is a 402 verification failure and no caller learns from a 409 whether a receipt digest was settled without holding a valid payment. The post-verification reuse refusals of task 22.23.10 (before fulfil runs) stand."
+basis = "22.8.11 attempt 12: sdk/integrations/next/test/receipt-keys.test.mjs:296 presents the settled receipt with a changed receipt key and received 409 from services/platform/middleware/seller/src/index.ts:264-266, which returns the reuse refusal from the unverified hint before the authority runs."
+affects = ["22.8.11"]
+
+[decision.2377]
+title = "Every lxphost test that executes a programs activity installs the active fee record first"
+value = "Since the loader change of 22.2.7 (4120aa4c4) a module-9 activity executes only with an active programs fee record in the store, so each test in modules/lxphost that runs a programs registry activity calls the programs fee record fixture helper of host_test.go:102 before it; a test that passed before that change and now reports LXP_ERR_VERSION_UNSUPPORTED from Execute is missing that call, not exposing a kernel defect."
+basis = "22.25.2 attempt 2: TestHostAuthorityDelegatedScope (authority_test.go:25-50) passed at 1.23.3 (44edbdfbc), executes a programs registry activity without the fixture call and failed with LXP_ERR_VERSION_UNSUPPORTED at host_test.go:213 after the loader change; the same class as the two failures of finding 22.2.5.7."
+affects = ["22.25.2"]
+
+[decision.2378]
+title = "The retired-catalogue acceptance test runs after every deletion it asserts"
+value = "test_deleted_trees_absent_and_catalogue_valid asserts that each deleted tree of the catalogue components guarantor-runtime, lni, replica and intent-ingester is absent; the task that owns it (16.90.1) requires every task that deletes one of those trees, and the LNI client module services/agent/crates/layerx-client/src/lni is deleted by 9.24.7, so 16.90.1 requires 9.24.7 and runs only once that deletion is published. The two assertion files stay as written."
+basis = "16.90.1 attempt 3 (base 144ec64cf): both tests present, the verify failed only on the lni component because services/agent/crates/layerx-client/src/lni still exists on main; tools/paxeer-x/retired_callers.json lists it under lni deleted_trees and 9.24.7 (pending, wave 36, behind 22.9.29 to 22.9.31) deletes it; every other deleted tree of the four components is already absent."
+affects = ["16.90.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -36460,7 +36478,7 @@ title = "Make the serve-http helpers of the agent daemon visible to the module t
 reqs = ["22047.1"]
 touches = ["services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"]
-verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors --test serve_routes --no-run && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && grep -c 'pub(crate) fn response\|pub(crate) enum Parsed\|pub(crate) fn parse_request' services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs | grep -qx 3 && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test no_layerx_intents"
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors --no-run && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test serve_routes --no-run && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && grep -c 'pub(crate) fn response\|pub(crate) enum Parsed\|pub(crate) fn parse_request' services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs | grep -qx 3 && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test no_layerx_intents"
 do_1 = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:332 (fn response), :353 (enum Parsed) and :383 (fn parse_request) are included as the daemon's serve_http module (main.rs:60) and imported by src/human_owner_mode.rs:1 beside DeadlineStream (:36, already pub(crate)); since task 22.9.25 made them private the host binary layerx-agentd, its test target and the serve_routes test fail with E0603; the three items become pub(crate), nothing else in the file changes, and the two cfg(test) modules keep reaching them through super::."
 symbols = ["response", "Parsed", "parse_request"]
 
@@ -103348,7 +103366,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.2.3]
 title = "Delete the kernel idempotency table and its journal staging"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 46
 requires = ["1.2.2", "1.25.1", "1.25.2", "1.0.4", "16.2.1", "1.2.4", "6.96.5", "22.25.4"]
@@ -103427,7 +103445,7 @@ do_11 = "Attempt 4: do_4 must not delete lxp_ctx_bridge_credit (src/protocol/lxp
 
 [task.1.2.5]
 title = "Delete the bridge reserve credit from the ledger apply layer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 46
 requires = ["1.2.4", "16.2.1", "16.97.1", "6.96.5", "1.19.3", "22.25.4"]
@@ -105441,7 +105459,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.19.3]
 title = "Delete bridge credit and light-client sources and headers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 46
 requires = ["1.18.1", "1.0.4", "16.2.1", "16.97.2", "5.97.4", "1.2.4", "6.96.5", "22.25.4"]
@@ -117927,6 +117945,7 @@ do_11 = "Finding 22.8.11.5: the environment() fixture of a2a-store.test.mjs decl
 do_12 = "Attempt 9: the seller test package fails to resolve express from test/proof_middleware_seller_ts_exports.test.mjs, and the merchant build fails on a TypeScript parameter property (merchant/src/index.ts:366) under strip-only type stripping; express becomes a declared dependency of the seller package's test setup and the parameter property becomes an explicit field assigned in the constructor."
 do_13 = "Attempt 10: the merchant middleware test (node --test over test/*.test.mjs) loads services/platform/middleware/conformance/src/scenarios.ts:67 directly and node 24 refuses the constructor parameter properties in strip-only mode (ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX). Declare the two fields explicitly and assign them in the constructor body; check the other .ts files node loads directly for parameter properties, enums and namespaces. If the paid-route sample build then reports an unknown module type for a dependency, next.config.mjs gains transpilePackages for that dependency."
 do_14 = "Attempt 11: the only failing check is services/platform/middleware/seller/test/settlement-response.test.mjs:352-354 (replayedSettlementAnswersStoredTransaction): since 7829d8d2b (task 22.23.10) a stored fulfilment whose requestDigest differs from the request is answered with the receipt-reuse refusal (kind refused, status 409, errorReason receipt_reuse) and no longer throws fulfillment-conflict. Change that second expectation to await the decision and assert kind, status and settlement.errorReason, with settleCount and releaseCount still 1; the first expectation (a stored txHash that disagrees with the receipt is a fulfillment-conflict) stays. The seller test directory is inside touches."
+do_15 = "Attempt 12, decision 2376: the only failing check is sdk/integrations/next/test/receipt-keys.test.mjs:296, which presents the settled receipt with a changed receipt key and expects 402 verification-failure but receives 409. services/platform/middleware/seller/src/index.ts:264-266 returns the reuse refusal from the receiptDigest hint of the unverified payload before the authority settles. The hint lookup serves the identical-request replay only: when the stored fulfilment's requestDigest differs, fall through to the authority settlement, whose verification refuses the tampered payload with verification-failure; the reuse refusals after verification (index.ts:301-313) stand, so receipt-replay.test.mjs keeps its 409 for a verified receipt under a second request. The Next test expectation stays 402. Rerun the task's verify afterwards."
 
 [task.22.9.14]
 title = "Admit guest ABI 5 in the TypeScript lifecycle test"
@@ -121279,7 +121298,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1503.1]
 title = "Issue #1503: Emit the VerificationStatus declaration the JVM AgentHttpSuccess record references"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128987,8 +129006,8 @@ symbols = ["response", "Parsed", "parse_request"]
 touches = ["services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs", "services/human/crates/layerx-human-kms/tests/no_layerx_intents.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"]
 planned_paths = []
-build_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors --test serve_routes --no-run && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test no_layerx_intents --no-run"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors --test serve_routes --no-run && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && grep -c 'pub(crate) fn response\|pub(crate) enum Parsed\|pub(crate) fn parse_request' services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs | grep -qx 3 && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test no_layerx_intents"
+build_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors --no-run && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test serve_routes --no-run && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test no_layerx_intents --no-run"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors --no-run && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test serve_routes --no-run && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && grep -c 'pub(crate) fn response\|pub(crate) enum Parsed\|pub(crate) fn parse_request' services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs | grep -qx 3 && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test no_layerx_intents"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -129005,6 +129024,7 @@ do_5 = "services/human/crates/layerx-human-service/src/agents/create.rs:647 matc
 do_6 = "The verify now runs the no_layerx_intents target and builds the human service; the commit message names both workspaces. Task 22.9.34 is superseded by this task."
 do_7 = "Attempt 4, decision 2366 (2026-11-03): do item 5 is superseded. The call binder on main declares no PayBudgetCreateNative or AuthSession variant, so the match of services/human/crates/layerx-human-service/src/agents/create.rs is exhaustive today and the file leaves touches: restore it to its content on the base revision and keep the proof_serve_errors.rs and no_layerx_intents.rs changes. Task 9.35.16 adds the arms with the variants."
 do_8 = "Decision 2374, attempts 3, 5 and 6: the all-targets build of the agent daemon workspace followed by the human workspace tests exhausted the storage of the qualification environment (no space left on device while the dependent-crate check wrote its metadata). The build is the task's declared targets now: the two agent daemon test targets with --no-run, the layerx-agentd binary, and the no_layerx_intents target of layerx-human-kms with --no-run. The attempt 4 candidate carries the proof_serve_errors.rs change; apply do_4 to no_layerx_intents.rs on top of it (the create.rs file stays at its main content per do_7), then run the task's build and verify."
+do_9 = "Attempt 7 is complete: the three visibility fixes of proof_serve_errors.rs, the four assertion updates of no_layerx_intents.rs, create.rs at its main content. The build failed only because the command named --test serve_routes under -p layerx-agentd while services/agent/crates/layerx-agentd-host/Cargo.toml declares that target (gotcha 2862); the build and verify now compile it under -p layerx-agentd-host. The attempt 7 candidate 49e844e1b is re-qualified unchanged with the corrected build and verify."
 
 [task.22.9.32]
 title = "Port the pay2 qualification harness off the LNI handshake"
@@ -135534,7 +135554,7 @@ do_6 = "Attempt 6: TestReceiptKeysServedByTheNode returned an empty key list whi
 
 [task.22.9.27]
 title = "Answer an identical raw transaction resubmission with its known hash and unchanged receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.35", "22.25.1", "22.25.4"]
@@ -163987,7 +164007,7 @@ do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/co
 
 [task.22.24.21]
 title = "Close the open dependency advisories of the jvm manifests (8 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1", "18.1503.1"]
@@ -187963,6 +187983,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2, decision 2377: the loader change and the two test repairs are complete; the verify selection fails only on TestHostAuthorityDelegatedScope (authority_test.go:25-50), which executes a programs registry activity (0x71) without the active fee record and gets LXP_ERR_VERSION_UNSUPPORTED from Execute at host_test.go:213. It passed at 1.23.3 before the loader change of 22.2.7, so it is the third failure of the class of do_1, not a kernel defect: call the programs fee record fixture helper of host_test.go:102 with the actor id before the registry activity, exactly as scope_test.go now does. Run the whole ^TestHost selection before the single verify run."
 
 [task.18.1043.2]
 title = "Build the root module against the in-repo go-ethereum fork and run the deny-list batch parity tests from the root"
@@ -225672,7 +225693,7 @@ title = "Write the two tooling acceptance tests the merged spec names"
 status = "pending"
 mode = "BUILD"
 wave = 47
-requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3", "6.60.2"]
+requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3", "6.60.2", "9.24.7"]
 reqs = ["16044.1", "16966.4"]
 capabilities = ["16.90.1"]
 interfaces = []
@@ -225697,6 +225718,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 16.9.4.4 and decision 2198: both acceptances hold only once cmd/layerxd (task 5.50.7), cmd/layerx-guarantor (5.51.1 and 5.51.4), tests/daemon (5.54.9) and the bridge credit suites (1.19.3) are deleted, so this task runs at wave 47 after them; the tests themselves stay as written in attempt 1 (0dacda199)."
 do_4 = "Decision 2294: attempt 2 (base a86f1a980) saw tests/bridge/test_credit.c and tests/bridge/sign_credit.c still present; task 6.60.2 (done) deleted them, so this task now requires 6.60.2 and its own scope (the two assertion files) is unchanged. Continue from attempt 2 on the current main."
+do_5 = "Decision 2378: attempt 3 (base 144ec64cf) carried both tests and failed only on the lni component, whose deleted tree services/agent/crates/layerx-client/src/lni is deleted by 9.24.7; this task now requires 9.24.7 and every other deleted tree of the four asserted components is already absent on main. The two assertion files stay as written in attempt 3 (b0fcbda46); continue from it on the current main once 9.24.7 is published."
 
 [task.19.0.1]
 title = "Refuse the name-system closure while any name task is not done"
