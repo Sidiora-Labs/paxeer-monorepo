@@ -122170,7 +122170,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.1]
 title = "Close the 23 dependency alerts of apps-explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -133808,7 +133808,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.18.5]
 title = "Align the terminal v5 settlement corpus case with the kernel refusal tag"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232169,7 +232169,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.27]
 title = "Reconcile interface registry rows: precompiles/layerxcustody and precompiles/layerxverify part 6"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232199,7 +232199,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.26]
 title = "Reconcile interface registry rows: precompiles/layerxanchor part 5"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232229,7 +232229,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.25]
 title = "Reconcile interface registry rows: modules/xweb and node/app.go part 4"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232259,7 +232259,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.24]
 title = "Reconcile interface registry rows: contracts/src and interchain/modules part 3"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232289,7 +232289,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.23]
 title = "Reconcile interface registry rows: contracts/src part 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232319,7 +232319,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.22]
 title = "Reconcile interface registry rows: api/layerxanchor and api/layerxcustody part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232379,7 +232379,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.20]
 title = "Reconcile interface registry rows: node/sequencer and node/wasmbinding part 3"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232409,7 +232409,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.19]
 title = "Reconcile interface registry rows: node/abci.go and node/app.go part 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232439,7 +232439,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.18]
 title = "Reconcile interface registry rows: admin/config.go and cmd/layerx-genesis part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232469,7 +232469,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.17]
 title = "Reconcile interface registry rows: sdk/launchpad and services/launchpad part 5"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232499,7 +232499,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.16]
 title = "Reconcile interface registry rows: sdk/launchpad part 4"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232559,7 +232559,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.14]
 title = "Reconcile interface registry rows: modules/launchpad part 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232589,7 +232589,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.13]
 title = "Reconcile interface registry rows: apps/launchpad and contracts/launchpad part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232619,7 +232619,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.12]
 title = "Reconcile interface registry rows: services/platform part 5"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232919,7 +232919,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.2]
 title = "Reconcile interface registry rows: include/layerx part 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232949,7 +232949,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.1]
 title = "Reconcile interface registry rows: include/layerx part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
