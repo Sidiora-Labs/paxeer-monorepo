@@ -1,0 +1,753 @@
+[audit.22.30.80]
+task = "22.30.80"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 44
+findings = 39
+docs_reviewed = 15
+upgrade_ready = false
+blocking = ["artifact-revocation-restore", "identity-compaction-replay", "emulator-settlement-v2-contract", "release-relative-git-fetch"]
+decision = 2515
+interfaces_reviewed = 800
+interface_basis = "The supplied package explicitly lists 400 produced and 400 consumed registry rows. Its produces_total and consumes_total describe larger inventories; this record reviews the rows actually supplied, their declarations and relevant real consumers. Stale registry positions are located by identifiers rather than assumed line offsets."
+review_basis = "All 36 non-generated members read in full; eight MockGen outputs classified from generator provenance under the brief exemption. Documentation reviewed in full, including equivalent site/wiki content and differences. Findings are static source conclusions; no source build, source test suite, live network probe or production qualification is claimed."
+requirements_basis = "Package requirement acceptance criteria read from spec.kvx. Current retirement 8323.1 is preserved; retained emulator acceptance 8544.2 and 8969.1 has missing positive evidence. Starter-credit unit/amount and Go module/tag requirements were checked against their actual declarations. The declared task gate qualifies this audit record and does not establish that source repair target acceptance 22998.1 has been satisfied by source tests."
+
+[file.01]
+path = "sdk/tests/mocks/account_retriever.go"
+lines = 177
+verdict = "generated"
+note = "Generated Go MockGen test support; generator provenance inspected. Exempt from hand-written implementation review under the audit brief; regenerate from the owned interface source when that contract changes."
+
+[file.02]
+path = "sdk/tests/mocks/grpc_server.go"
+lines = 47
+verdict = "generated"
+note = "Generated Go MockGen test support; generator provenance inspected. Exempt from hand-written implementation review under the audit brief; regenerate from the owned interface source when that contract changes."
+
+[file.03]
+path = "sdk/tests/mocks/tendermint_tendermint_libs_log_DB.go"
+lines = 91
+verdict = "generated"
+note = "Generated Go MockGen test support; generator provenance inspected. Exempt from hand-written implementation review under the audit brief; regenerate from the owned interface source when that contract changes."
+
+[file.04]
+path = "sdk/tests/mocks/tendermint_tm_db_DB.go"
+lines = 207
+verdict = "generated"
+note = "Generated Go MockGen test support; generator provenance inspected. Exempt from hand-written implementation review under the audit brief; regenerate from the owned interface source when that contract changes."
+
+[file.05]
+path = "sdk/tests/mocks/types_handler.go"
+lines = 51
+verdict = "generated"
+note = "Generated Go MockGen test support; generator provenance inspected. Exempt from hand-written implementation review under the audit brief; regenerate from the owned interface source when that contract changes."
+
+[file.06]
+path = "sdk/tests/mocks/types_invariant.go"
+lines = 47
+verdict = "generated"
+note = "Generated Go MockGen test support; generator provenance inspected. Exempt from hand-written implementation review under the audit brief; regenerate from the owned interface source when that contract changes."
+
+[file.07]
+path = "sdk/tests/mocks/types_module_module.go"
+lines = 1530
+verdict = "generated"
+note = "Generated Go MockGen test support; generator provenance inspected. Exempt from hand-written implementation review under the audit brief; regenerate from the owned interface source when that contract changes."
+
+[file.08]
+path = "sdk/tests/mocks/types_router.go"
+lines = 114
+verdict = "generated"
+note = "Generated Go MockGen test support; generator provenance inspected. Exempt from hand-written implementation review under the audit brief; regenerate from the owned interface source when that contract changes."
+
+[file.09]
+path = "services/agent/crates/layerx-agent-api/src/write.rs"
+lines = 289
+verdict = "clean"
+note = "Full review of canonical byte wrappers, 65-byte signatures, preparation/disclosure, submission lifecycle and rung-bearing tracking/wait types; no independent disagreement found in this member."
+
+[file.10]
+path = "services/platform/hosted/ai-artifacts/Cargo.toml"
+lines = 28
+verdict = "clean"
+note = "Full manifest review of the isolated service workspace, direct ai-market evidence dependency, pinned cryptography/TLS/serialization dependencies and test dependencies; no independent disagreement found."
+
+[file.11]
+path = "services/platform/hosted/ai-artifacts/src/authority.rs"
+lines = 176
+verdict = "issues"
+note = "Full review of tenant token authentication, publisher generation/key admission, purpose/grant checks and configuration contracts; missing registry contract pages are recorded separately here."
+
+[file.12]
+path = "services/platform/hosted/ai-artifacts/src/crypto.rs"
+lines = 207
+verdict = "clean"
+note = "Full review of object/session key wrapping, authenticated frame encryption and decoding, stream length enforcement and key-provider handling; no independent disagreement found."
+
+[file.13]
+path = "services/platform/hosted/ai-artifacts/src/main.rs"
+lines = 1802
+verdict = "issues"
+note = "Full listener, request framing, authorization, upload/finalize, grants/revocation, retention, resolution, content, recovery and maintenance review; findings identify marker placement, live-state claims, corrupt chunks and listener resource bounds."
+
+[file.14]
+path = "services/platform/hosted/ai-artifacts/src/resolver.rs"
+lines = 165
+verdict = "clean"
+note = "Full review of HTTPS locator parsing, host admission, redirects and bounded network access/error mapping against artifact retrieval; no independent disagreement found."
+
+[file.15]
+path = "services/platform/hosted/ai-artifacts/src/retention.rs"
+lines = 1344
+verdict = "clean"
+note = "Full review of durable ledger/high-water-mark recovery, binding/terminal state, retention floors, holds, tombstone/reinstate, purge and projections; no independent disagreement found inside this member. Startup marker enforcement is assessed in main.rs."
+
+[file.16]
+path = "services/platform/hosted/ai-artifacts/src/store.rs"
+lines = 528
+verdict = "issues"
+note = "Full review of state persistence, request/delivery dispositions, reservations, staging chunks, content verification and replica paths; terminal staging physical reclamation is missing."
+
+[file.17]
+path = "services/platform/hosted/ai-artifacts/tests/artifact_recovery.rs"
+lines = 1705
+verdict = "clean"
+note = "Full service/reopen review of ledger rollback refusal, binding, holds, purge and retention recovery, including external marker fixture paths and internal-retention-marker refusal. Its committed-head helper includes block fields; the obsolete helper finding belongs to artifact_service.rs."
+
+[file.18]
+path = "services/platform/hosted/ai-artifacts/tests/artifact_service.rs"
+lines = 1716
+verdict = "issues"
+note = "Full review of service authentication, publication, grants, encryption, content, idempotency and recovery cases; the terminal helper still emits the obsolete head shape."
+
+[file.19]
+path = "services/platform/hosted/gateway/README.md"
+lines = 111
+verdict = "issues"
+note = "Full page review against root-path node RPC, gateway px_ ownership, retirement inventory and the named px_listAssets requirement; the main architecture and endpoint contract need rewrite."
+
+[file.20]
+path = "services/platform/hosted/identity/Cargo.toml"
+lines = 26
+verdict = "clean"
+note = "Full review of workspace runtime and TLS/crypto/serialization dependencies, binary entry and integration dependency; no independent disagreement found."
+
+[file.21]
+path = "services/platform/hosted/identity/deployment.yaml"
+lines = 68
+verdict = "issues"
+note = "Full PVC, Deployment, secrets, probes, ingress and egress review against code-read environment configuration; verification mail configuration and egress are not wired."
+
+[file.22]
+path = "services/platform/hosted/identity/env-init.sh"
+lines = 37
+verdict = "clean"
+note = "Full review of initialization inputs, required files, ownership and restrictive permissions against identity configuration; no independent disagreement found."
+
+[file.23]
+path = "services/platform/hosted/identity/src/lib.rs"
+lines = 3
+verdict = "clean"
+note = "Full review of the three exported mailer, seal and store modules against their callers; no independent disagreement found."
+
+[file.24]
+path = "services/platform/hosted/identity/src/mailer.rs"
+lines = 378
+verdict = "clean"
+note = "Full review of SMTP configuration, TLS trust/identity, command/reply bounds, queue delivery and refusal handling; code path is present, while deployment wiring is recorded on deployment.yaml."
+
+[file.25]
+path = "services/platform/hosted/identity/src/main.rs"
+lines = 1912
+verdict = "issues"
+note = "Full review of service-token roles, optional client TLS, bounded admission/framing, principals, sessions, introspection, signup, outbox and credit routes, health and startup; verification/session and outbox crash boundaries need recovery."
+
+[file.26]
+path = "services/platform/hosted/identity/src/seal.rs"
+lines = 206
+verdict = "clean"
+note = "Full review of protected store-key loading, secret buffers, authenticated session token encoding, constant-time checks and tests; no independent disagreement found."
+
+[file.27]
+path = "services/platform/hosted/identity/src/signup.rs"
+lines = 651
+verdict = "issues"
+note = "Full review of email normalization, disposable-domain handling, hourly/daily admission, token expiry and one-time starter credit/reissue/settlement. Hourly limits reset on restart; existing STARTER_CREDIT_AMOUNT remains a decimal base-unit string as required."
+
+[file.28]
+path = "services/platform/hosted/identity/src/store.rs"
+lines = 1123
+verdict = "issues"
+note = "Full review of snapshot restore, journal replay, principal/tenant invariants, sessions, publication keys, pending verification and credit state; compaction, subject replacement and abandoned pending-state retention require changes."
+
+[file.29]
+path = "services/platform/hosted/identity/tests/service.rs"
+lines = 1840
+verdict = "issues"
+note = "Full integration suite review including authenticated principal/session transport, restart, tenant isolation, publication-key consumers and capacity. Signup/mail/credit listener lifecycle has no integration coverage."
+
+[file.30]
+path = "tools/platform/emulator/Cargo.toml"
+lines = 31
+verdict = "issues"
+note = "Full review of the library target, build linkage and runtime dependencies; the direct layerx-wire dependency remains tied to the retired codec."
+
+[file.31]
+path = "tools/platform/emulator/core/emulator_core.c"
+lines = 1820
+verdict = "issues"
+note = "Full review of C bridge creation, authority, execution, program queries, state/head proofs and snapshot import/export; failure-path roots are copied before successful derivation."
+
+[file.32]
+path = "tools/platform/emulator/core/emulator_core.h"
+lines = 177
+verdict = "clean"
+note = "Full review of all FFI struct layouts, widths, pointer/length pairs and exported prototypes against their C definitions and retained Rust bindings; no independent layout disagreement found."
+
+[file.33]
+path = "tools/platform/emulator/src/main.rs"
+lines = 2618
+verdict = "issues"
+note = "Full review of FFI layouts, routes, state/receipt/evidence responses, configuration, snapshots and recovery. Retired-route registry promises and lack of fresh settlement receipt population are recorded."
+
+[file.34]
+path = "tools/platform/emulator/src/settlement.rs"
+lines = 315
+verdict = "issues"
+note = "Full review of exact request decoding, receipt/digest/idempotency validation, refusal names and outcome encoding against current buyer and seller middleware; the legacy settlement shape cannot round-trip portable receipt v2."
+
+[file.35]
+path = "tools/platform/emulator/tests/authority.rs"
+lines = 10
+verdict = "clean"
+note = "Full entry-point test review; it asserts the empty-command refusal and requires the real emulator library link. It is not treated as evidence for the retained payment/authority lifecycle."
+
+[file.36]
+path = "tools/platform/emulator/tests/conformance.sh"
+lines = 10
+verdict = "clean"
+note = "Full review of argument validation, required published candidate manifest and exec into the closed conformance harness; no independent shell or invocation disagreement found."
+
+[file.37]
+path = "tools/platform/emulator/tests/core_linkage.rs"
+lines = 221
+verdict = "issues"
+note = "Full review of core archive symbol checks and the negative prefunded head-read case; the required positive transfer/head verifier path is absent."
+
+[file.38]
+path = "tools/platform/emulator/tests/gateway.rs"
+lines = 367
+verdict = "issues"
+note = "Full review of real listener health, state, prefund, time, snapshot and retirement tests; current 404 behavior is correct, but retained lifecycle echo execution acceptance has no positive path."
+
+[file.39]
+path = "tools/platform/release/Cargo.toml"
+lines = 18
+verdict = "clean"
+note = "Full review of release tool workspace metadata and KVX/JSON/hash/HTTP/system-trust dependencies; no independent disagreement found."
+
+[file.40]
+path = "tools/platform/release/src/fetch.rs"
+lines = 214
+verdict = "issues"
+note = "Full review of HTTPS and simple-index resolution, system trust, size/deadline limits and tagged Git archive fetching; relative Git destinations and unbounded subprocess lifetime/storage require changes."
+
+[file.41]
+path = "tools/platform/release/src/main.rs"
+lines = 2420
+verdict = "clean"
+note = "Full review of release declarations, workflow wiring, source-bound manifest production, artifact/image digest verification, rollback identity and CLI options; relative Git archive failure is located in fetch.rs, not a separate source repair here."
+
+[file.42]
+path = "tools/platform/release/src/workflow.rs"
+lines = 571
+verdict = "clean"
+note = "Full review of workflow parsing, job/step handling, matrices, dependency extraction and scalar decoding used by release declaration checks; no independently demonstrated disagreement found."
+
+[file.43]
+path = "tools/platform/release/tests/manifest.rs"
+lines = 1075
+verdict = "issues"
+note = "Full review of manifest, source revision, rollback, registry locator and container digest refusal cases; the Go module fixture uses a historical producer location."
+
+[file.44]
+path = "tools/platform/release/tests/registries.rs"
+lines = 861
+verdict = "clean"
+note = "Full review of declared package registries, publication/gate/workflow checks and mutation refusals, including current Go module/tag consistency; no independent disagreement found."
+
+[finding.artifact-revocation-restore]
+file = "services/platform/hosted/ai-artifacts/src/main.rs"
+line = 1731
+class = "restart-recovery"
+severity = "high"
+observed = "Startup passes config.revocation_mark directly to Store::open, while only retention_mark is checked by outside(). With an external retention marker and an internal revocation marker, restoring an older data-directory backup restores both the revoked-grant state and its high-water mark; restore_ready then accepts the old grant or publisher generation."
+expected = "The revocation_mark contract in authority.rs:19 requires the live revocation high-water mark outside the restorable directory so a backup cannot restore revoked access. Retention and revocation have independent monotonic recovery barriers."
+proposal = "In ai-artifacts startup, require both live marker paths to resolve outside the restored data directory, including existing symlink aliases. Add service restart cases that revoke a grant and a publisher, restore old data, and prove refusal with independently retained markers."
+owner_domain = 8
+interface = "8.cfg-ai-artifacts-config-revocation-mark"
+
+[finding.artifact-staging-reclamation]
+file = "services/platform/hosted/ai-artifacts/src/store.rs"
+line = 284
+class = "runtime-risk"
+severity = "medium"
+observed = "expire_staging marks sessions Expired and releases their byte reservations without deleting uploaded chunk files. Quarantined and duplicate-root finalization also release reservations without reclaiming their staging bytes. Repeated abandoned uploads can fill the disk while reported capacity becomes available again."
+expected = "The artifact capacity and tenant quota represent durable storage consumption. Terminal staging data must be reclaimed with restart-safe accounting before the same physical capacity is sold again."
+proposal = "Add durable staging reclamation in ai-artifacts/store.rs and maintenance: retain a reclaiming disposition until chunk deletion is synced, recover it on reopen, and reconcile physical bytes with quotas. Exercise expiration, failed encrypted finalization and duplicate publication across restart."
+owner_domain = 8
+
+[finding.artifact-content-corruption]
+file = "services/platform/hosted/ai-artifacts/src/main.rs"
+line = 1310
+class = "runtime-risk"
+severity = "medium"
+observed = "The content route returns HTTP 200 for any stored chunk whose length equals expected_chunk_length. A same-length change after publication therefore remains served while metadata can continue to advertise verified integrity and availability; the quarantine branch detects missing or differently sized bytes only."
+expected = "Content supplied for a published root must remain bound to its verified content commitment, and damaged durable storage must produce an integrity refusal and quarantine rather than advertise healthy availability. A consumer verifier remains necessary."
+proposal = "In ai-artifacts content serving, authenticate the requested bytes against durable verified chunk commitments or revalidate the complete content root before serving. Add same-length corruption and reopen coverage, keeping the real consumer assembler verification intact."
+owner_domain = 8
+interface = "8.http-ai-artifacts-any-v1-content"
+
+[finding.artifact-finalize-live-state]
+file = "services/platform/hosted/ai-artifacts/src/main.rs"
+line = 707
+class = "runtime-risk"
+severity = "medium"
+observed = "For a new finalize request on a Published session, finalize returns receipt() before publisher admission or object lifecycle checks. The duplicate-root branch also treats every existing state except Publishing as the same publication. receipt() always reports AVAILABLE and VALID, including an object already tombstoned, purged or quarantined."
+expected = "A new publication request must distinguish the immutable original publication acknowledgement from current access and availability. Purged bytes and revoked publisher generations must not receive a fresh live-availability claim; exact request-id replay may retain its historical disposition."
+proposal = "Update ai-artifacts finalize and receipt construction to check current object and publisher lifecycle for new request identities, and explicitly label historical acknowledgements. Exercise new request ids after tombstone, purge, quarantine and publisher revocation without changing exact replay semantics."
+owner_domain = 8
+interface = "8.http-ai-artifacts-any-v1-finalize"
+
+[finding.artifact-listener-admission]
+file = "services/platform/hosted/ai-artifacts/src/main.rs"
+line = 1783
+class = "runtime-risk"
+severity = "medium"
+observed = "Every accepted TCP connection spawns a new operating-system thread. Per-operation read and write timeouts do not bound concurrent connections or the total request duration, and operations serialize on shared store and ledger locks. Slow clients can exhaust threads before tenant authorization."
+expected = "The hosted artifact listener must bound memory, threads and lock contention under unauthenticated or slow traffic, with a finite end-to-end request budget and a clear overload response."
+proposal = "Add bounded connection admission and a bounded worker pool in ai-artifacts/main.rs, release permits on every error path, and enforce a total request deadline. Cover saturated admission and slow partial requests while proving normal authenticated traffic still progresses."
+owner_domain = 8
+
+[finding.artifact-terminal-fixture-shape]
+file = "services/platform/hosted/ai-artifacts/tests/artifact_service.rs"
+line = 1156
+class = "test-gap"
+severity = "medium"
+observed = "observe_terminal sends checkpoint, execution_height and batch metadata but omits block_height, app_hash and store_proof_digest. StateHeadReq at main.rs:326 requires all three fields without defaults. The helper expects HTTP 200, although deserialization rejects this request before retention processing."
+expected = "Terminal retention tests must use the full committed-head shape accepted by the real producer-to-handler path, including the block commitment and store proof fields introduced by the merged network."
+proposal = "Replace the obsolete hand-built terminal observation with the committed ai-market state-head producer and send its complete request through the real service. Preserve the current success and refusal assertions and add a restart before retention consumption."
+owner_domain = 8
+interface = "8.http-ai-artifacts-any-v1-retention-terminal"
+
+[finding.identity-compaction-replay]
+file = "services/platform/hosted/identity/src/store.rs"
+line = 353
+class = "restart-recovery"
+severity = "high"
+observed = "Store::open writes the replayed snapshot before truncating journal.log. If a pending signup was in an earlier snapshot, its later Verify record can be the only signup-related journal record. A crash after the new snapshot is durable but before truncation leaves Verify to replay against a snapshot with no pending token; apply then fails with verification references no pending signup. Replayed Signup records can also count the same signup day twice."
+expected = "An interrupted snapshot and journal rollover must reopen to the same acknowledged identity state. Reapplying durable journal records must not block startup or inflate signup counts."
+proposal = "Give identity snapshots and journal records a durable generation or checkpoint offset committed atomically, or make every record replay idempotent against a durable applied identity. Add crash-boundary cases with Signup already snapshotted and Verify in the following journal, plus daily-count assertions."
+owner_domain = 8
+interface = "8.fmt-identity-journal-log"
+
+[finding.identity-signup-subject-replacement]
+file = "services/platform/hosted/identity/src/store.rs"
+line = 525
+class = "security"
+severity = "medium"
+observed = "verify_signup rejects a subject bound to another tenant but permits an already-existing subject in the same tenant. State::verify_signup builds a new Principal and insert_principal replaces signer keys, account and audiences. Desk::start checks email registration rather than an existing subject. A provisioning caller that reuses a subject can replace its existing authority through ordinary signup."
+expected = "Signup establishes a new identity binding; an existing subject must require the explicit authorized key-rotation or recovery lifecycle before its signer and account permissions can change. Provisioning authorization alone does not distinguish these operations."
+proposal = "In identity signup admission and verification, reject an existing subject or require an explicit authenticated recovery operation bound to the existing principal. Prove that a second email and signer cannot overwrite an existing same-tenant subject and that authorized rotation remains available."
+owner_domain = 8
+
+[finding.identity-verify-session-retry]
+file = "services/platform/hosted/identity/src/main.rs"
+line = 1117
+class = "restart-recovery"
+severity = "medium"
+observed = "The verify route durably consumes the pending token through signup::verify before calling issue_session separately. Entropy failure, a session journal failure or a lost response after verification leaves no retained verification result; retrying the same token returns verification_not_found instead of recovering the intended session."
+expected = "Completing email verification and obtaining its session must have an explicit recoverable retry result across a process restart or interrupted response, without reusing the token to create unlimited sessions."
+proposal = "Persist a bounded verification completion and session-result identity in the identity store and return that disposition for safe retries. Exercise failures between durable verification, session creation and response delivery using the real service and reopen the store."
+owner_domain = 8
+interface = "8.http-identity-post-v1-signup-verify"
+
+[finding.identity-outbox-durability]
+file = "services/platform/hosted/identity/src/main.rs"
+line = 1029
+class = "restart-recovery"
+severity = "medium"
+observed = "deliver_verification fsyncs a temporary mail file and renames it into the outbox without syncing the parent directory. The pending signup is already journaled. A power loss can remove the acknowledged outbox entry while leaving the pending signup durable, and the raw token is not recoverable from its stored digest."
+expected = "An acknowledged pending signup must retain a deliverable verification message across a storage crash, or expose a recoverable failure disposition that can safely issue a replacement message."
+proposal = "Make the identity verification outbox a durable transaction with pending signup state: sync directory publication, retain retryable delivery metadata and reconcile incomplete publications on restart. Cover crashes before and after rename and ensure no acknowledged signup silently loses its message."
+owner_domain = 8
+
+[finding.identity-smtp-deployment]
+file = "services/platform/hosted/identity/deployment.yaml"
+line = 23
+class = "config-drift"
+severity = "medium"
+observed = "The identity deployment sets neither LAYERX_IDENTITY_SMTP_URL nor LAYERX_IDENTITY_SMTP_FROM, so the mailer remains disabled while signup can queue a verification message and report pending. Its egress NetworkPolicy permits only DNS, preventing an external SMTP connection even if delivery environment variables are added."
+expected = "The deployed signup service needs an explicitly configured and reachable verification delivery path, with readiness or a declared operational disposition for delivery failures."
+proposal = "Wire SMTP credentials and sender through the identity deployment secret/config contract, allow narrowly scoped mail egress, and include delivery readiness or an explicitly operated outbox consumer. Validate signup-to-delivery behavior through the deployed configuration."
+owner_domain = 8
+interface = "8.env-identity-layerx-identity-smtp-url"
+
+[finding.identity-rate-window-restart]
+file = "services/platform/hosted/identity/src/signup.rs"
+line = 133
+class = "restart-recovery"
+severity = "medium"
+observed = "Desk::new initializes empty per-IP and per-email rate windows on every restart, while the daily signup count is durable. Restarting the identity service therefore resets the configured hourly abuse limits within the same hour."
+expected = "Configured signup rate limits must have a documented restart disposition and continue enforcing the active hourly window when the service restarts; the daily cap is a separate control."
+proposal = "Persist bounded hourly admission counters with the identity store or put them in the authoritative shared limiter used by provisioning. Test a refusal before restart and the same refusal after reopen until the actual window expires."
+owner_domain = 8
+
+[finding.identity-expired-signup-growth]
+file = "services/platform/hosted/identity/src/store.rs"
+line = 514
+class = "runtime-risk"
+severity = "medium"
+observed = "put_signup retains every pending token in State::signups and snapshots. Token expiry is checked during verification, but there is no expiry-removal lifecycle for abandoned signups. signup_days also retains every historical day. The daily admission cap limits the growth rate but not durable state size."
+expected = "Expired verification tokens and completed admission windows need a bounded retention policy so long-running identity service state and restart time remain bounded."
+proposal = "Add durable expiry reclamation for pending signups and obsolete rate-counter days in identity/store.rs, preserving verified email bindings and audit retention separately. Exercise many expired windows and reopen to prove bounded live state and refusal of expired tokens."
+owner_domain = 8
+
+[finding.identity-hourly-key-bound]
+file = "services/platform/hosted/identity/src/signup.rs"
+line = 125
+class = "runtime-risk"
+severity = "medium"
+observed = "prune only removes windows from earlier hours when the map reaches MAX_TRACKED_KEYS; it retains every current-hour entry and admits another key. Admission inserts the client IP before checking the email limit. Repeated provisioning requests for an already rate-limited email with different client_ip values can therefore grow the IP map beyond the named bound without increasing the durable daily signup count."
+expected = "Signup admission must bound tracked abuse-control state independently of successful signup count. Rejected requests must not turn the rate limiter into an unbounded memory consumer."
+proposal = "Enforce a strict active-key capacity in identity/signup.rs before allocating a new window and return an explicit overload disposition or use a bounded authoritative limiter. Cover more than MAX_TRACKED_KEYS distinct IPs for one rate-limited email and verify both memory-state bounds and continued limits across the hour boundary."
+owner_domain = 8
+
+[finding.identity-signup-service-coverage]
+file = "services/platform/hosted/identity/tests/service.rs"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "The service integration suite exercises principals, sessions, introspection, publication-key resolution and restart, but never drives signup, the verification outbox or SMTP, token verification to session, or starter-credit settlement through the listener. Module unit tests do not prove these exposed routes and their recovery boundaries."
+expected = "The signup and starter-credit product path must be covered from authenticated provisioning through durable identity state and the real transport, including restart and refusal behavior, as required by the brief path-proof rule."
+proposal = "Extend identity/tests/service.rs with real listener signup, delivered-token verification, session introspection and one-time starter-credit grant/settlement. Reopen between steps and assert duplicate, expired, wrong-subject and interrupted-delivery outcomes without replacing the producer or consumer with a double."
+owner_domain = 8
+
+[finding.emulator-retired-route-registry]
+file = "tools/platform/emulator/src/main.rs"
+line = 1539
+class = "retired-reference"
+severity = "medium"
+observed = "The current dispatcher intentionally returns 404 for activities, moves, move quotes and all program REST routes, and gateway.rs tests that retirement. Interface rows 8.http-emulator-post-v1-activities, 8.http-emulator-post-v1-moves, 8.http-emulator-post-v1-moves-quote and the programs deploy/call/simulate/upgrade rows still declare stable callable handlers from the older dispatcher."
+expected = "Requirement 8323.1 and the retired programs-ingress decision require these routes to remain absent. The registry and consumer guidance must describe that retirement rather than promise the pre-merge ingress."
+proposal = "Retire the obsolete emulator route rows and migrate their remaining callers and catalogue entries to the merged-node transaction path. Preserve the existing 404 checks and publish the supported emulator surface explicitly."
+owner_domain = 8
+interface = "8.http-emulator-post-v1-activities"
+
+[finding.emulator-settlement-v2-contract]
+file = "tools/platform/emulator/src/settlement.rs"
+line = 51
+class = "interface-mismatch"
+severity = "high"
+observed = "EvidenceDocument denies unknown fields and requires receipt plus verificationLevel sequencer-signed, then settled() emits receipt_base64 and authorized_batch. The current buyer emits format, rawTransaction, signedReceipt, receiptDigest, receiptKey and receipted/committed at middleware/buyer/src/index.ts:295; seller/src/index.ts:837 accepts exactly that v2 shape and expects a PortableReceiptV2 result. A verbatim current seller request is rejected and the legacy response cannot satisfy its result contract."
+expected = "The stable emulator POST /v1/settle contract claims to admit the seller settlement request verbatim. A declared interface must round-trip the same receipt format, digest encoding, verification rung and result through producer, HTTP and consumer. The retired authorized-batch model is not merged-network finality."
+proposal = "Have the platform owner decide and publish whether this legacy HTTP authority is retired or supported. If retained, implement the merged portable v2 receipt and block-commit contract end to end; otherwise retire its stable registry/example promise and use the current receipt authority. Prove the chosen path with actual buyer and seller producers, including restart."
+owner_domain = 8
+interface = "8.http-emulator-post-v1-settle"
+
+[finding.emulator-settlement-receipt-wiring]
+file = "tools/platform/emulator/src/main.rs"
+line = 527
+class = "wiring-gap"
+severity = "medium"
+observed = "settle only resolves receipts from emulator.receipts. Runtime initialization makes that map empty; receipt insertion is confined to snapshot decoding, and no registered fresh execution path populates it. Thus a newly booted emulator cannot settle a new payment even while its settlement route is advertised as usable."
+expected = "A supported emulator payment path must obtain newly produced receipt evidence from the same execution path its consumers use, or clearly declare that settlement is unavailable and historical imports are inspection only."
+proposal = "Connect supported payment emulation to the merged transaction and receipt producer with durable recovery, or remove the unsupported settlement promise from emulator discovery and examples. Test an actual new payment followed by settlement and reopen without reintroducing retired activity REST routes."
+owner_domain = 8
+interface = "8.http-emulator-post-v1-settle"
+
+[finding.emulator-error-path-root]
+file = "tools/platform/emulator/core/emulator_core.c"
+line = 1318
+class = "runtime-risk"
+severity = "medium"
+observed = "platform_emulator_execute declares roots without initialization. lxp_batch_roots_compute runs only while status is LXP_OK, but execution.activity_root is copied from roots.activity_merkle_root unconditionally after envelope or signature validation may have failed. Invalid requests therefore cause an indeterminate derived-root read on the error path."
+expected = "Rejected input must return its typed refusal before any derived execution fact is consumed. A failed decode or signature check must not use an uncomputed root."
+proposal = "Restructure emulator_core.c so failed validation returns before execution-root assembly, and consume computed roots only on the successful branch. Add malformed-envelope and invalid-signature cases through the supported C entry and assert stable refusal and unchanged state."
+owner_domain = 8
+
+[finding.emulator-retired-wire-dependency]
+file = "tools/platform/emulator/Cargo.toml"
+line = 21
+class = "retired-reference"
+severity = "medium"
+observed = "The emulator still directly depends on layerx-wire and its settlement implementation decodes legacy canonical protocol receipts. The retired wire-codec component names services/agent/crates/layerx-wire for deletion and replaces signed activity transport with EIP-1559 transactions."
+expected = "An emulator for the finished merged network must use the kept transaction and portable receipt interfaces; a dependency on a component slated for deletion cannot remain an undocumented runtime requirement."
+proposal = "Remove the retired wire dependency as the emulator settlement and evidence paths migrate or are retired. Keep the C host links needed by supported state/snapshot inspection, and qualify real merged transaction and receipt encoding instead of reviving the old activity transport."
+owner_domain = 8
+
+[finding.emulator-head-proof-coverage]
+file = "tools/platform/emulator/tests/core_linkage.rs"
+line = 188
+class = "test-gap"
+severity = "medium"
+observed = "The only head-read test prefunds two accounts and asserts a 503 principal_state_proof_unavailable response. It does not perform the transfer or verify a resulting head against the emulator public key, so it does not establish the positive behavior required by acceptance 8544.2."
+expected = "Requirement 8544.2 requires a prefunded transfer followed by successful verification of its emulator head proof. A negative no-batch test is useful but cannot establish that positive producer-to-verifier path."
+proposal = "Preserve the unavailable-head regression and add the positive committed-transfer proof path through the supported merged emulator interface and real verifier. If no such emulator capability remains after retirement, reconcile the requirement explicitly and retire the obsolete promise rather than weakening its test."
+owner_domain = 8
+
+[finding.emulator-program-path-coverage]
+file = "tools/platform/emulator/tests/gateway.rs"
+line = 328
+class = "test-gap"
+severity = "medium"
+observed = "The suite proves retired program REST routes return 404 and contains no lifecycle echo deploy/call/receipt success case. Requirement 8969.1 still promises that emulator lifecycle after native-feed removal, whereas 8323.1 explicitly removes the old HTTP writers."
+expected = "The current retirement requirement and retained program-emulation acceptance need a consistent supported producer-to-execution-to-receipt path. Returning 404 is correct for retired routes but does not demonstrate retained program execution."
+proposal = "Reconcile 8969.1 with the merged emulator surface and cover lifecycle echo through the supported node/program transaction path if retained. Keep the 8323.1 retirement assertions and record an explicit disposition if the old emulator program capability is intentionally removed."
+owner_domain = 8
+
+[finding.release-relative-git-fetch]
+file = "tools/platform/release/src/fetch.rs"
+line = 173
+class = "interface-mismatch"
+severity = "high"
+observed = "fetch_git_archive passes destination unchanged to git -C <destination>.checkout archive --output. For a relative --fetch directory, Git interprets the archive destination inside the checkout, not the caller directory; the nested output parent is absent or the archive lands in the wrong place. The release workflow at platform.yml:1545 invokes --fetch build/release/verification for the Swift git archive."
+expected = "The verify --fetch CLI must retrieve every published artifact under the supplied output directory and verify its bytes. Relative and absolute destinations must resolve to the same caller-selected location throughout clone, archive and verification."
+proposal = "Normalize the fetch output to an absolute caller-relative path before entering git -C, and use that same path for archive and verification. Add a real tagged Git producer and invoke the CLI with relative and absolute fetch directories, asserting the emitted bytes and manifest digest."
+owner_domain = 8
+interface = "8.cli-release-layerx-platform-release-verify-fetch"
+
+[finding.release-go-fixture-module]
+file = "tools/platform/release/tests/manifest.rs"
+line = 125
+class = "test-gap"
+severity = "medium"
+observed = "go_record constructs a proxy URL for github.com/Sidiora-Labs/Layer-X-Protocol/platform/sdk/go and fixtures verify synthetic bytes through --from. Requirement 18820.1, the current registry and workflow use github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go with sdk/platform/go/v<version> tags. The fixture therefore cannot prove the real Go publication locator."
+expected = "Release fixtures must use the same canonical module path and prefixed version tag as the Go module, registry publication and fetching consumer; accepting a third historical locator hides a distribution mismatch."
+proposal = "Derive the Go release fixture locator from the canonical module and registry declarations, retain digest/refusal checks, and prove that a produced module archive is fetched by the release verifier at the published locator and prefixed tag."
+owner_domain = 8
+
+[finding.release-git-fetch-timeout]
+file = "tools/platform/release/src/fetch.rs"
+line = 185
+class = "runtime-risk"
+severity = "medium"
+observed = "HTTP artifact fetching has a 300-second global timeout and byte bound, but Git clone/archive use Command::output with no deadline or output bound. A stalled remote Git transport can hang release verification indefinitely, and a tagged tree is not constrained by MAX_ARTIFACT_BYTES."
+expected = "All registry fetch schemes need bounded execution and storage consumption so release verification fails with a useful reason when a remote source stalls or exceeds supported size."
+proposal = "Apply an explicit total deadline, bounded subprocess output and archive/disk size limit to the Git fetch scheme in release/fetch.rs. Kill and reap timed-out processes, clean incomplete checkouts, and test the refusal through the real Git subprocess path."
+owner_domain = 8
+
+[finding.missing-platform-interface-contracts]
+file = "services/platform/hosted/ai-artifacts/src/authority.rs"
+line = 0
+class = "doc-drift"
+severity = "medium"
+observed = "The supplied interface registry points hosted artifact/identity interfaces at contracts/platform-hosted.md and emulator/release interfaces at contracts/platform-cli.md. Neither page exists in the audited tree, leaving declared config, route, file-format and CLI anchors unresolved."
+expected = "Published interface rows must resolve to an existing contract that defines the supported merged-network names, encodings, authorization, errors and recovery behavior for their consumers."
+proposal = "Have domain 8 publish the hosted and CLI interface contracts at the declared paths or update all registry anchors to maintained existing contracts. Include retirement dispositions and prove each documented shape against its real producer and consumer."
+owner_domain = 8
+
+[finding.doc-gateway]
+file = "services/platform/hosted/gateway/README.md"
+line = 23
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway README describes both execution domains, a unified POST /rpc plus /rpc/schema and /rpc/ws, lx_sendActivity forwarding and custody/anchor joins at 0x1013/0x1014. These are presented as the current public ingress rather than retired behavior."
+expected = "The audit brief defines one BFT network on chain 125 with the kernel inside paxd, root-path node RPC, gateway-owned px_ methods and finality at block commit. Operator instructions must describe that supported system."
+proposal = "Rewrite the gateway README around the node root RPC and separately owned hosted px_ OpenRPC contract. Replace retired kernel ingress, unified WebSocket routing and custody/anchor joins with the merged chain-only paths and block-commit evidence."
+owner_domain = 8
+
+[finding.doc-quickstart-site]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The site quickstart configures a /rpc gateway, separately trusted sequencer identity, old emulator payment ingress and later boundary/checkpoint evidence. Its introduction presents a completed developer path even though those instructions combine retired transports with current commands."
+expected = "The audit brief defines one BFT network on chain 125 with the kernel inside paxd, root-path node RPC, gateway-owned px_ methods and finality at block commit. Operator instructions must describe that supported system."
+proposal = "Rewrite the site quickstart as a runnable chain-125 flow using root node RPC, merged transaction signing, native funding and commit-based receipt verification. Keep explicit current command refusals and verify every shown transition against the implemented CLI and emulator surface."
+owner_domain = 8
+
+[finding.doc-payments-site]
+file = "docs/site/docs/overview/payments.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The payments site publishes https://api-mainnet-beta.paxeer.network/rpc as a router and a receipt policy with sequencer_id, batch bounds and checkpoint_context_digest. Later payment steps retain sequencer-signed evidence and inconsistent availability claims for command groups."
+expected = "The audit brief defines one BFT network on chain 125 with the kernel inside paxd, root-path node RPC, gateway-owned px_ methods and finality at block commit. Operator instructions must describe that supported system."
+proposal = "Update the payments site to root node RPC, chain-native balance funding, the current portable receipt format and actual receipted/committed verification. Reconcile every command example and availability statement with the supported CLI behavior."
+owner_domain = 8
+
+[finding.doc-agent-site]
+file = "docs/site/docs/agents/running.md"
+line = 62
+class = "doc-drift"
+severity = "medium"
+observed = "The agent site still requires a separately configured sequencer trust anchor and uses legacy verification-level and /rpc examples, while later MCP/web guidance already reads receipt keys at a height. The mixed policy gives integrators two incompatible trust and transport configurations."
+expected = "The audit brief defines one BFT network on chain 125 with the kernel inside paxd, root-path node RPC, gateway-owned px_ methods and finality at block commit. Operator instructions must describe that supported system."
+proposal = "Rewrite agent connection and verification examples around the merged node root RPC, governed receipt keys at the relevant height and the current rung fields. Preserve the updated MCP/web evidence rules and make the whole page use the same policy."
+owner_domain = 8
+
+[finding.doc-cli-site]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI site explicitly requires a /rpc suffix and separate sequencer trust-anchor configuration. It also says wallet/token groups are implemented before later claiming groups are unavailable, and describes the old receipt verification and emulator transport."
+expected = "The audit brief defines one BFT network on chain 125 with the kernel inside paxd, root-path node RPC, gateway-owned px_ methods and finality at block commit. Operator instructions must describe that supported system."
+proposal = "Rewrite CLI endpoint and profile instructions for the merged node and distinguish hosted gateway credentials where needed. Generate or review command tables from actual supported commands and align signing, receipt rung and refusal examples across the whole page."
+owner_domain = 8
+
+[finding.doc-protocol-site]
+file = "docs/site/docs/protocol/index.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The protocol site describes LayerX execution separately from Paxeer custody/settlement and periodic checkpoint or guarantor evidence. Its signed-activity, batch receipt and L0-L4 narrative does not describe execution inside the merged BFT node."
+expected = "The audit brief defines one BFT network on chain 125 with the kernel inside paxd, root-path node RPC, gateway-owned px_ methods and finality at block commit. Operator instructions must describe that supported system."
+proposal = "Rewrite the protocol overview around paxd block execution, EVM chain 125, current precompile and transaction entry points and block-commit finality. Replace the retired standalone sequencing and checkpoint narrative and reconcile linked commitment vocabulary."
+owner_domain = 8
+
+[finding.doc-readme-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The German README identifies paxd and layerxd as two running execution domains and its diagram connects the retired kernel daemon, relay and guarantor to custody and checkpoint settlement. The translated layout and trust-boundary explanation therefore describe the pre-merge product."
+expected = "The audit brief defines one BFT network on chain 125 with the kernel inside paxd, root-path node RPC, gateway-owned px_ methods and finality at block commit. Operator instructions must describe that supported system."
+proposal = "Update the German product description, repository layout and architecture diagram to one merged paxd network and current hosted services. Replace custody/anchor funding and settlement with native balances and block commits, and keep the translation aligned with the maintained network overview."
+owner_domain = 8
+
+[finding.doc-payments-wiki]
+file = "docs/wiki/PaymentsQuickstart.md"
+line = 78
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki payments path tells developers to fund through custody credit, run tests/bridge/custody_credit.py attest and sign-credit, and submit the resulting legacy activity. It also publishes /rpc and a sequencer/batch/checkpoint policy; the site copy has already replaced part of the funding section."
+expected = "The audit brief defines one BFT network on chain 125 with the kernel inside paxd, root-path node RPC, gateway-owned px_ methods and finality at block commit. Operator instructions must describe that supported system."
+proposal = "Replace the wiki funding section with native bank/sub-account funding and the supported merged transaction path. Synchronize site and wiki endpoint, portable receipt and commitment examples, removing executable instructions for retired custody-credit tooling."
+owner_domain = 8
+
+[finding.doc-agent-wiki]
+file = "docs/wiki/RunningAnAgent.md"
+line = 62
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki agent page retains the old independent sequencer anchor and legacy verification-level or /rpc examples alongside newer receipt-key-at-height guidance. A developer following the earlier sections builds a different trust policy from the merged evidence path described later."
+expected = "The audit brief defines one BFT network on chain 125 with the kernel inside paxd, root-path node RPC, gateway-owned px_ methods and finality at block commit. Operator instructions must describe that supported system."
+proposal = "Update the wiki agent configuration and examples together with the site page to root node RPC and governed receipt-key lookup at the receipt height. Preserve explicit security refusals and use the current achieved-rung and freshness fields consistently."
+owner_domain = 8
+
+[finding.doc-cli-wiki]
+file = "docs/wiki/Cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki CLI page mandates a /rpc URL, publishes separate sequencer trust-anchor profile inputs and mixes implemented wallet/token examples with later unavailable-command claims. The transport and verification guidance contradict the merged-network public surface."
+expected = "The audit brief defines one BFT network on chain 125 with the kernel inside paxd, root-path node RPC, gateway-owned px_ methods and finality at block commit. Operator instructions must describe that supported system."
+proposal = "Update the wiki CLI reference with the site version from the supported commands and merged endpoint policy. Show current transaction signing and receipt rungs, distinguish gateway credentials from node RPC, and reconcile command refusal and availability descriptions."
+owner_domain = 8
+
+[finding.doc-protocol-wiki]
+file = "docs/wiki/Protocol.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki protocol page retains separate kernel execution and Paxeer settlement, legacy activity sequence/idempotency rules, a layerx-receipt-proof-v1 authorized-batch model at line 119 and finality links through checkpoints and guarantors."
+expected = "The audit brief defines one BFT network on chain 125 with the kernel inside paxd, root-path node RPC, gateway-owned px_ methods and finality at block commit. Operator instructions must describe that supported system."
+proposal = "Rewrite the wiki protocol page for merged BFT execution and chain-native transaction nonce/replay rules. Replace the v1 batch verification and checkpoint settlement explanation with current portable receipt and committed-header evidence, and synchronize the site overview."
+owner_domain = 8
+
+[finding.doc-quickstart-wiki]
+file = "docs/wiki/Quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki quickstart publishes a /rpc-based path with a separately trusted sequencer, old emulator writes and boundary/checkpoint verification. It therefore promises a runnable sequence containing endpoints and trust configuration that the audit brief retires."
+expected = "The audit brief defines one BFT network on chain 125 with the kernel inside paxd, root-path node RPC, gateway-owned px_ methods and finality at block commit. Operator instructions must describe that supported system."
+proposal = "Publish a consistent wiki quickstart using the node root RPC, supported merged transaction entry points, native funding and commit verification. Keep it synchronized with the site quickstart and prove the displayed CLI and emulator path before presenting it as available."
+owner_domain = 8
+
+[finding.doc-network]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The network page calls Paxeer a settlement and custody layer beside LayerX, describes ordinary activity staying on a separate execution domain, and lists retired anchor/custody modules and periodic checkpoints. This conflicts with its own useful tenant namespace section and the merged-network design."
+expected = "The audit brief defines one BFT network on chain 125 with the kernel inside paxd, root-path node RPC, gateway-owned px_ methods and finality at block commit. Operator instructions must describe that supported system."
+proposal = "Rewrite the network architecture, layout and build ownership for one chain with its kernel in paxd. Preserve tenant domains as database namespaces, replace custody/checkpoint flows with native balances and block commits, and update the normative specification links."
+owner_domain = 8
+
+[doc.gateway]
+path = "services/platform/hosted/gateway/README.md"
+status = "misleading"
+notes = "Full 111-line page reviewed; lines 4-8, 23-30, 43-61 and 68-75 retain dual-domain routing, /rpc and custody/anchor joins. The px_listAssets field note at line 77 is consistent with the named schema requirement."
+
+[doc.quickstart-site]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Full page reviewed; /rpc at lines 20 and 169 onward, trust-anchor setup near 62 and 270, funding near 294 and old boundary/checkpoint flow near 592 require rewrite."
+
+[doc.payments-site]
+path = "docs/site/docs/overview/payments.md"
+status = "misleading"
+notes = "Full 262-line page reviewed; lines 18-36 publish a router /rpc and batch/checkpoint trust policy, with obsolete receipt verification terminology later in the payment flow."
+
+[doc.agent-site]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Full page reviewed; independent sequencer trust-anchor setup near lines 62-89, /rpc transport and legacy verification-level examples around 480-580 conflict with later updated receipt-key-at-height guidance."
+
+[doc.cli-site]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Full 403-line page reviewed; line 8 mandates /rpc, line 64 configures a separate sequencer anchor and later command-availability and transport descriptions conflict with current merged behavior."
+
+[doc.protocol-site]
+path = "docs/site/docs/protocol/index.md"
+status = "misleading"
+notes = "Full 132-line page reviewed; the opening architecture and receipt/finality sections retain separate execution, settlement, guarantor replay and checkpoint concepts."
+
+[doc.readme-de]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Full 301-line German page reviewed; lines 37-41, 80 and 125-239 describe two execution domains, layerxd, guarantors, custody credits and checkpoints in prose and the architecture diagram."
+
+[doc.payments-wiki]
+path = "docs/wiki/PaymentsQuickstart.md"
+status = "misleading"
+notes = "Full 289-line page reviewed; lines 22 and 34-36 retain router/batch policy and lines 78-109 actively instruct retired custody attestation and sign-credit."
+
+[doc.agent-wiki]
+path = "docs/wiki/RunningAnAgent.md"
+status = "stale"
+notes = "Full page reviewed against the site counterpart and complete differences; trust-anchor configuration near lines 62-89 and legacy verification/transport examples remain stale."
+
+[doc.cli-wiki]
+path = "docs/wiki/Cli.md"
+status = "misleading"
+notes = "Full 403-line page reviewed against the site counterpart; line 8 mandates /rpc and the command/profile tables preserve separate sequencer and obsolete availability guidance."
+
+[doc.protocol-wiki]
+path = "docs/wiki/Protocol.md"
+status = "misleading"
+notes = "Full 144-line page reviewed; opening architecture, activity-to-receipt steps at 103-119 and finality/guarantor links at 129-143 retain the old two-domain model."
+
+[doc.quickstart-wiki]
+path = "docs/wiki/Quickstart.md"
+status = "misleading"
+notes = "Full page reviewed against the site counterpart; /rpc examples, independent sequencer anchor, funding and boundary/checkpoint steps remain a pre-merge developer path."
+
+[doc.network]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Full 93-line page reviewed; lines 3-20, 38, 50 and 93 describe separate execution/custody/checkpoint architecture. Tenant virtual-chain namespace guidance at 24-30 remains useful."
+
+[doc.hosted-contract]
+path = "contracts/platform-hosted.md"
+status = "missing"
+notes = "Registry contract target is absent; hosted routes, configuration and durable formats need a maintained merged-network contract or corrected registry anchors. See finding missing-platform-interface-contracts."
+
+[doc.cli-contract]
+path = "contracts/platform-cli.md"
+status = "missing"
+notes = "Registry contract target is absent; emulator and release CLI contracts need maintained pages and explicit retirement dispositions. See finding missing-platform-interface-contracts."
