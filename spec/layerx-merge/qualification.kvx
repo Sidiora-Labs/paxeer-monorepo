@@ -19891,3 +19891,43 @@ symbol = "binaryen"
 observed = "Attempts 3 and 4 (386f6d53d, 399c35e72) fail the verify in the binaryen-sys 0.12.0 build script with CMake Error at CMakeLists.txt:1 (cmake_minimum_required): Compatibility with CMake < 3.5 has been removed, exit 101, with cmake present."
 assumption = "The test-only binaryen dependency of the vendored wasm-instrument crate is unbuildable on CMake 4 and is dropped by decision 2481; the next attempt rewrites the one test that used it on fixed wat texts."
 severity = "major"
+
+[finding.22.23.11.1]
+task = "22.23.11"
+file = "services/agent/crates/layerx-client/tests/sequencer.rs"
+symbol = "ExecutedReceipt"
+observed = "After adding payment_denom to ExecutedReceipt the untouched test target tests/sequencer.rs fails to compile (E0063 at line 140)."
+assumption = "Every initializer of a struct that gains a field must be updated in the same change; the file is now in scope."
+severity = "medium"
+
+[finding.22.97.2.1]
+task = "22.97.2"
+file = "tests/proof/lxp_proof_lxp_receipt_h.c"
+symbol = "idempotency_count"
+observed = "The proof test reads state.idempotency_count at lines 216, 228 and 237 but the receipt header state no longer has the field, so make test-proof-lxp_receipt_h does not compile on the main line."
+assumption = "A landed header change removed the counter without updating the proof; 22.97.2 repairs it."
+severity = "medium"
+
+[finding.22.7.3.7]
+task = "22.7.3"
+file = "rpc/ethclient_domain_test.go"
+symbol = "TestEthclientDomain"
+observed = "The block transaction order assertion at line 189 fails because the block carries the transactions in another order than they were sent."
+assumption = "Block assembly may reorder transactions by sender nonce and fee; the test should compare per-block sets unless the chain guarantees send order."
+severity = "low"
+
+[finding.22.95.11.1]
+task = "22.95.11"
+file = "services/human/crates/layerx-human-service/tests/custody.rs"
+symbol = "custody"
+observed = "On the main line the custody test does not compile against layerx-agentd (missing disclosure, disclosure_digest, from in the Prepared initializer at line 415; no authorization field on SigningPreparation at lines 423 and 483)."
+assumption = "The agent daemon's prepare types changed after the test was written; 22.95.11 brings the test to the current types."
+severity = "high"
+
+[finding.22.23.12.1]
+task = "22.23.12"
+file = "services/agent/sdk/typescript/test/gas-station.test.ts"
+symbol = "gas-station"
+observed = "The recorded RPC transcript expects eth_getCode and eth_call at latest (lines 807-836) while src/gas-station.ts sends pending (line 1124); npm test fails on the main line."
+assumption = "Two landed changes (9.33.11 and 21.156.1) disagree; the client's pending reads stand and the test follows."
+severity = "medium"

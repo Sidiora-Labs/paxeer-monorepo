@@ -14470,3 +14470,13 @@ fix = "Upgrade or drop the dependency that bundles the old project; CMAKE_POLICY
 title = "A test that starts a tool binary needs the binary in the qualification environment"
 symptom = "The TypeScript SDK gas-station test starts a local EVM through anvil; run directly as node dist/test/gas-station.test.js in an environment without Foundry it fails with local EVM exited before readiness after every other case passed."
 fix = "Install Foundry before running the compiled SDK tests, or set ANVIL_BIN to the binary; the failure is environmental, not a product defect."
+
+[gotcha.2930]
+title = "A dependent-crate check fails on a test package already broken on the main line"
+symptom = "A change to the agent daemon's tests built cleanly, but the dependent-crate check compiled the human service's custody test, which no longer matches the daemon's prepare types on the main line, and reported the task as failed."
+fix = "Make the task depend on the task that repairs the broken package, and record the break as a finding so nobody re-investigates it."
+
+[gotcha.2931]
+title = "A hand-built EIP-1559 call with a placeholder target is refused by the disclosure binder"
+symptom = "A test built an Eip1559Call with to = 0x1a repeated and a kernel authorization as data; bind_call in layerx-crypto's disclosure/call.rs refused it with MalformedPayload because the binder accepts only registered targets with canonical ABI payloads."
+fix = "Build test calls against a registered target with the ABI the binder decodes, and sign kernel authorizations through their own path instead of wrapping them in an EVM call."
