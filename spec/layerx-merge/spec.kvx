@@ -187688,7 +187688,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.18.1043.2]
 title = "Build the root module against the in-repo go-ethereum fork and run the deny-list batch parity tests from the root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
