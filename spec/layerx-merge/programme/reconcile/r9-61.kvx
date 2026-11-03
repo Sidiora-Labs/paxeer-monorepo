@@ -1,0 +1,489 @@
+[reconcile.r9-61]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r9-61.1]
+interface = "interface.9.err-class-idempotencyconflict"
+verdict = "served"
+path = "services/agent/schema/agent-api/errors.kvx"
+line = 10
+symbol = "IdempotencyConflict"
+evidence = "[type.ErrorClass] variants still contains the exact wire identifier IdempotencyConflict. The registered composite text ErrorClass IdempotencyConflict is not contiguous source text; the current variant list is at line 10, so retain the identifier itself."
+
+[row.r9-61.2]
+interface = "interface.9.err-class-internalfault"
+verdict = "served"
+path = "services/agent/schema/agent-api/errors.kvx"
+line = 10
+symbol = "InternalFault"
+evidence = "[type.ErrorClass] variants still contains the exact wire identifier InternalFault. The registered composite text ErrorClass InternalFault is not contiguous source text; the current variant list is at line 10, so retain the identifier itself."
+
+[row.r9-61.3]
+interface = "interface.9.err-class-policyrefusal"
+verdict = "served"
+path = "services/agent/schema/agent-api/errors.kvx"
+line = 10
+symbol = "PolicyRefusal"
+evidence = "[type.ErrorClass] variants still contains the exact wire identifier PolicyRefusal. The registered composite text ErrorClass PolicyRefusal is not contiguous source text; the current variant list is at line 10, so retain the identifier itself."
+
+[row.r9-61.4]
+interface = "interface.9.err-class-protocolincompatibility"
+verdict = "served"
+path = "services/agent/schema/agent-api/errors.kvx"
+line = 10
+symbol = "ProtocolIncompatibility"
+evidence = "[type.ErrorClass] variants still contains the exact wire identifier ProtocolIncompatibility. The registered composite text ErrorClass ProtocolIncompatibility is not contiguous source text; the current variant list is at line 10, so retain the identifier itself."
+
+[row.r9-61.5]
+interface = "interface.9.err-class-ratelimit"
+verdict = "served"
+path = "services/agent/schema/agent-api/errors.kvx"
+line = 10
+symbol = "RateLimit"
+evidence = "[type.ErrorClass] variants still contains the exact wire identifier RateLimit. The registered composite text ErrorClass RateLimit is not contiguous source text; the current variant list is at line 10, so retain the identifier itself."
+
+[row.r9-61.6]
+interface = "interface.9.err-class-transportfailure"
+verdict = "served"
+path = "services/agent/schema/agent-api/errors.kvx"
+line = 10
+symbol = "TransportFailure"
+evidence = "[type.ErrorClass] variants still contains the exact wire identifier TransportFailure. The registered composite text ErrorClass TransportFailure is not contiguous source text; the current variant list is at line 10, so retain the identifier itself."
+
+[row.r9-61.7]
+interface = "interface.9.err-class-unavailablecapability"
+verdict = "served"
+path = "services/agent/schema/agent-api/errors.kvx"
+line = 10
+symbol = "UnavailableCapability"
+evidence = "[type.ErrorClass] variants still contains the exact wire identifier UnavailableCapability. The registered composite text ErrorClass UnavailableCapability is not contiguous source text; the current variant list is at line 10, so retain the identifier itself."
+
+[row.r9-61.8]
+interface = "interface.9.err-class-verificationfailure"
+verdict = "served"
+path = "services/agent/schema/agent-api/errors.kvx"
+line = 10
+symbol = "VerificationFailure"
+evidence = "[type.ErrorClass] variants still contains the exact wire identifier VerificationFailure. The registered composite text ErrorClass VerificationFailure is not contiguous source text; the current variant list is at line 10, so retain the identifier itself."
+
+[row.r9-61.9]
+interface = "interface.9.http-rpc-approval-approve"
+verdict = "served"
+path = "services/agent/schema/agent-api/golden/approval.kvx"
+line = 54
+symbol = "approval.approve"
+evidence = "The golden [operation.approval.approve] still declares ApprovalApproveRequest requiring tenant, approval_id and idempotency_key -> ApprovalDecision with outcome and submission_ref. The registered POST /rpc operation name is retained; reconcile its previously unspecified request and response fields, not a route removal."
+
+[row.r9-61.10]
+interface = "interface.9.http-rpc-approval-reject"
+verdict = "served"
+path = "services/agent/schema/agent-api/golden/approval.kvx"
+line = 60
+symbol = "approval.reject"
+evidence = "The golden [operation.approval.reject] still declares ApprovalRejectRequest requiring tenant, approval_id, idempotency_key and reason -> ApprovalDecision with outcome. The registered POST /rpc operation name is retained; its signature must include the required rejection reason and decision shape."
+
+[row.r9-61.11]
+interface = "interface.9.proto-agent-api-identity-type-tenantreadinessrequest"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 15
+symbol = "TenantReadinessRequest"
+evidence = "[type.TenantReadinessRequest] remains declared with required = []; unknown_fields = refused. The registry line remains correct; its old composite signature was not a literal identifier."
+
+[row.r9-61.12]
+interface = "interface.9.http-rpc-agent-register"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 26
+symbol = "agent.register"
+evidence = "[operation.agent.register] now requires tenant, agent_did, authority_ref, client, policy_version, owner_address, binding_consent and fee_limit -> AuthorityResponse<Prepared>. Reconcile the bare POST /rpc signature to an owner-bound preparation with externally signed Ed25519 consent; it is not an executed registration response."
+
+[row.r9-61.13]
+interface = "interface.9.http-rpc-session-open"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 34
+symbol = "session.open"
+evidence = "[operation.session.open] declares SessionOpen requiring context, grant_id, registration_payload, expiry_sequence, purpose and fee_limit -> AuthorityResponse<Prepared>. The POST /rpc operation remains; the typed signature now describes preparation of grantSession using the provisioned session grant and address."
+
+[row.r9-61.14]
+interface = "interface.9.http-rpc-session-refresh"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 44
+symbol = "session.refresh"
+evidence = "[operation.session.refresh] declares SessionRefresh requiring session_id and context -> AuthorityResponse<SessionRecord>. The POST /rpc operation name is retained; the registry signature lacks these request fields and authority-wrapped response. Current declaration is at the relocated section header."
+
+[row.r9-61.15]
+interface = "interface.9.http-rpc-session-close"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 49
+symbol = "session.close"
+evidence = "[operation.session.close] declares SessionClose requiring session_id and context -> AuthorityResponse<SessionRecord>. The POST /rpc operation is retained; reconcile the signature to these explicit fields and authority-wrapped session record at the current header."
+
+[row.r9-61.16]
+interface = "interface.9.http-rpc-session-list"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 54
+symbol = "session.list"
+evidence = "[operation.session.list] declares SessionList requiring context -> AuthorityResponse<SessionRecords>. The POST /rpc operation is retained; the signature must name its context selector and authority-wrapped record collection rather than only the transport operation."
+
+[row.r9-61.17]
+interface = "interface.9.http-rpc-capability-create"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 70
+symbol = "capability.create"
+evidence = "[operation.capability.create] requires tenant, agent_did and dimensions -> AuthorityResponse<CapabilityRecord>; idempotency_key is required and owner_request is MutationEnvelope<CapabilityCreate>. The POST /rpc name remains; its signature now includes keyed replay identity and authority narrowing, with keyless creation refused."
+
+[row.r9-61.18]
+interface = "interface.9.http-rpc-capability-attenuate"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 81
+symbol = "capability.attenuate"
+evidence = "[operation.capability.attenuate] requires tenant, agent_did, parent_id and dimensions -> AuthorityResponse<CapabilityRecord>, using MutationEnvelope<CapabilityAttenuate> and a required idempotency_key. The POST /rpc name remains; reconcile to the owner-issued parent identifier and child dimensions that cannot widen it."
+
+[row.r9-61.19]
+interface = "interface.9.http-rpc-capability-list"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 90
+symbol = "capability.list"
+evidence = "[operation.capability.list] requires tenant and agent_did -> AuthorityResponse<CapabilityRecords>; idempotency_key is absent and authority is operation_permit. The POST /rpc name remains; the signature is an authenticated read, not a keyed mutation, and records include revoked and expired capabilities."
+
+[row.r9-61.20]
+interface = "interface.9.http-rpc-capability-revoke"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 96
+symbol = "capability.revoke"
+evidence = "[operation.capability.revoke] requires tenant, agent_did and capability_id -> AuthorityResponse<CapabilityRecord>, using MutationEnvelope<CapabilityRevoke> with required idempotency_key. The POST /rpc name remains; signature evidence now binds an owner-issued identifier and durable subtree revocation."
+
+[row.r9-61.21]
+interface = "interface.9.http-rpc-budget-create"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 136
+symbol = "budget.create"
+evidence = "[operation.budget.create] requires tenant, agent_did, asset, limit, enforcement and expiry -> AuthorityResponse<BudgetRecord>; optional authorization and purpose are explicit. The POST /rpc name remains; ProtocolBudget requires BudgetAuthorization, DaemonLimit refuses it, and optional purpose must match the signed commitment."
+
+[row.r9-61.22]
+interface = "interface.9.http-rpc-budget-fund"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 144
+symbol = "budget.fund"
+evidence = "[operation.budget.fund] requires tenant, agent_did, budget_id and amount -> AuthorityResponse<BudgetRecord>, with optional enforcement and authorization. The POST /rpc name remains; the typed signature requires authorization for a ProtocolBudget and refuses DaemonLimit funding; enforcement is only an assertion against authenticated state."
+
+[row.r9-61.23]
+interface = "interface.9.http-rpc-budget-list"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 151
+symbol = "budget.list"
+evidence = "[operation.budget.list] still specifies tenant and agent_did -> AuthorityResponse<BudgetRecords>. Its served_shape explicitly records that the adapter currently returns a bare budgets array of budget_id and agent_id and SDKs refuse it as a decode violation. Reconcile this documented schema/adapter mismatch; the bare POST /rpc signature hid the response discrepancy."
+
+[row.r9-61.24]
+interface = "interface.9.http-rpc-budget-reconciliation"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 156
+symbol = "budget.reconciliation"
+evidence = "[operation.budget.reconciliation] requires tenant, agent_did and budget_id -> AuthorityResponse<BudgetReconciliation>. The POST /rpc operation remains; reconcile its signature to the explicit budget selector and authority-wrapped reconciliation value at the current section header."
+
+[row.r9-61.25]
+interface = "interface.9.http-rpc-budget-revoke"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 160
+symbol = "budget.revoke"
+evidence = "[operation.budget.revoke] requires tenant, agent_did and budget_id -> AuthorityResponse<BudgetRecord>, with optional authorization. The POST /rpc name remains; signature detail now requires BudgetAuthorization when authenticated lookup selects ProtocolBudget and refuses it for DaemonLimit."
+
+[row.r9-61.26]
+interface = "interface.9.http-rpc-budget-state"
+verdict = "served"
+path = "services/agent/schema/agent-api/identity.kvx"
+line = 166
+symbol = "budget.state"
+evidence = "[operation.budget.state] requires tenant, agent_did and budget_id -> AuthorityResponse<BudgetState>. The POST /rpc name remains; response semantics now explicitly require null activity_id for this state read and terminal budget.not_found when authenticated lookup finds no budget."
+
+[row.r9-61.27]
+interface = "interface.9.proto-agent-api-identity-type-faucetgrant"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-sdk/src/rpc.rs"
+line = 266
+symbol = "FaucetGrant"
+evidence = "FaucetGrant is absent from identity.kvx but remains pub struct FaucetGrant in the SDK RPC client. It holds funding_id, transaction_id, amount and network; TryFrom<Value> requires funded=true, nonempty identifiers and a nonzero amount, preserving the registered grant validation outside the schema."
+
+[row.r9-61.28]
+interface = "interface.9.fmt-agent-api-schema-programs"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 2
+symbol = "programs"
+evidence = "The KVX module is still name = programs, contract_major = 1. Its source_of_truth now names layerxprograms 0x101D ABI calls, EIP-1559 transactions and submitted/receipted/committed rungs; lifecycle requests use NativeProgramDeployRequest, NativeProgramUpgradeRequest and NativeProgramWindDownRequest instead of legacy signed kernel activities."
+
+[row.r9-61.29]
+interface = "interface.9.proto-agent-api-programs-type-programlifecycleresponse"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 89
+symbol = "ProgramLifecycleResponse"
+evidence = "[type.ProgramLifecycleResponse] remains declared but variants is now [ProgramSubmission], replacing ProgramLifecycleResultEnvelope, ProgramLifecycleUnknown and ProgramLifecycleErrorEnvelope. Verification derives the achieved rung from retained EIP-1559 transaction progress."
+
+[row.r9-61.30]
+interface = "interface.9.proto-agent-api-programs-type-programlifecycleerrorenvelope"
+verdict = "retired"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 119
+symbol = "ProgramLifecycleErrorEnvelope"
+evidence = "ProgramLifecycleErrorEnvelope is absent from programs.kvx; ProgramLifecycleResponse now has only ProgramSubmission. Repository-wide exact-identifier search excluding spec and docs found no remaining files; there is no surviving error-envelope declaration to relocate."
+remaining_refs = 0
+remaining = []
+
+[row.r9-61.31]
+interface = "interface.9.http-rpc-program-deploy"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 181
+symbol = "program.deploy"
+evidence = "[operation.program.deploy] now declares POST /v1/programs/deploy, NativeProgramDeployRequest -> ProgramLifecycleResponse, content_type application/octet-stream and Idempotency-Key bound to the canonical transaction hash. This replaces the registered POST /rpc operation=program.deploy signature with the native signed EIP-1559 lifecycle route."
+
+[row.r9-61.32]
+interface = "interface.9.http-rpc-program-upgrade"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 193
+symbol = "program.upgrade"
+evidence = "[operation.program.upgrade] now declares POST /v1/programs/upgrade, NativeProgramUpgradeRequest -> ProgramLifecycleResponse, content_type application/octet-stream and Idempotency-Key equal to the transaction hash. Replace the old POST /rpc operation=program.upgrade signature with the native ABI transaction route."
+
+[row.r9-61.33]
+interface = "interface.9.http-rpc-program-wind-down"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 205
+symbol = "program.wind-down"
+evidence = "[operation.program.wind-down] now declares POST /v1/programs/wind-down, NativeProgramWindDownRequest -> ProgramLifecycleResponse, application/octet-stream and transaction-hash Idempotency-Key. Replace the registered POST /rpc signature; native wind-down encodes route, deprecate, tombstone or exit with their distinct selectors."
+
+[row.r9-61.34]
+interface = "interface.9.proto-agent-api-programs-type-programsource"
+verdict = "served_elsewhere"
+path = "services/agent/sdk/typescript/src/programs.ts"
+line = 64
+symbol = "ProgramSource"
+evidence = "ProgramSource is absent from programs.kvx but is an exported TypeScript SDK type. Its status discriminates unpublished, verified with source_digest/environment_digest/pipeline, or mismatch with expected_code_hash/reproduced_artifact_digest; this is the surviving source-provenance contract."
+
+[row.r9-61.35]
+interface = "interface.9.proto-agent-api-programs-type-programexecutionv4"
+verdict = "retired"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 289
+symbol = "ProgramExecutionV4"
+evidence = "ProgramExecutionV4 is absent from programs.kvx; the current schema defines ProgramSubmission and transaction rungs instead. Repository-wide exact-identifier search excluding spec and docs found two other files: a historical GOTCHA.kvx entry and a synthetic old-schema string in the generator drift test; neither implements this type."
+remaining_refs = 2
+remaining = ["GOTCHA.kvx:4370", "sdk/platform/generators/tests/drift.rs:130"]
+
+[row.r9-61.36]
+interface = "interface.9.proto-agent-api-programs-type-programexecutionv5"
+verdict = "retired"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 297
+symbol = "ProgramExecutionV5"
+evidence = "ProgramExecutionV5 is absent from programs.kvx; the current schema defines ProgramSubmission and transaction rungs instead. Repository-wide exact-identifier search excluding spec and docs found two other files: a historical GOTCHA.kvx entry and a synthetic old-schema string in the generator drift test; neither implements this type."
+remaining_refs = 2
+remaining = ["GOTCHA.kvx:11540", "sdk/platform/generators/tests/drift.rs:130"]
+
+[row.r9-61.37]
+interface = "interface.9.proto-agent-api-programs-type-programoutcome"
+verdict = "served_elsewhere"
+path = "services/agent/sdk/typescript/src/programs.ts"
+line = 67
+symbol = "ProgramOutcome"
+evidence = "ProgramOutcome is absent from programs.kvx but the exported TypeScript SDK union still declares the registered completed, legacy_completed and refused variants. It carries code/response, code/values or failure respectively; this preserves the matching contract rather than the unrelated receipt struct of the same name."
+
+[row.r9-61.38]
+interface = "interface.9.proto-agent-api-programs-type-programfailure"
+verdict = "served_elsewhere"
+path = "services/agent/sdk/typescript/src/programs.ts"
+line = 66
+symbol = "ProgramFailure"
+evidence = "ProgramFailure is absent from programs.kvx but remains an exported TypeScript SDK type with the registered unknown_program, reentrancy, depth_exceeded, fanout_exceeded, guest_refused, authority, resource, response and fault kinds plus optional code, limit and attempted."
+
+[row.r9-61.39]
+interface = "interface.9.http-rpc-program-discover"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 217
+symbol = "program.discover"
+evidence = "[operation.program.discover] now declares GET /v1/programs/registry/{program_id}, ProgramSelector -> VerifiedProgramDiscovery, scope program:read. Replace the old POST /rpc signature; the schema explicitly says the pending eth_call registry value has no receipt or commit proof and a null achieved rung."
+
+[row.r9-61.40]
+interface = "interface.9.http-rpc-program-interface"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 224
+symbol = "program.interface"
+evidence = "[operation.program.interface] now declares GET /v1/programs/registry/{program_id}/interface, ProgramSelector with program_id and requested_rung -> VerifiedProgramInterface. Replace the old POST /rpc signature; the pending eth_call interface has canonical bytes/digest binding but no achieved transaction rung."
+
+[row.r9-61.41]
+interface = "interface.9.http-rpc-program-simulate"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 232
+symbol = "program.simulate"
+evidence = "[operation.program.simulate] now declares POST /v1/programs/simulate, ProgramCallRequest with retained_legacy_call and native-v1 profiles -> ProgramSimulation. Replace the old POST /rpc signature; native_request is NativeProgramCallRequest and non_committing=true, with pending eth_call results carrying no transaction rung."
+
+[row.r9-61.42]
+interface = "interface.9.http-rpc-program-call"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 242
+symbol = "program.call"
+evidence = "[operation.program.call] now declares POST /v1/programs/call, ProgramCallRequest with retained_legacy_call and native-v1 profiles -> ProgramSubmission, requiring idempotency_key. Replace the old POST /rpc signature; NativeProgramCallRequest binds exact ABI calldata and resources to signed EIP-1559 bytes and the transaction hash."
+
+[row.r9-61.43]
+interface = "interface.9.http-rpc-program-receipt"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 253
+symbol = "program.receipt"
+evidence = "[operation.program.receipt] now declares GET /v1/programs/receipts/by-idempotency/{idempotency_key}, ProgramReceiptSelector requiring idempotency_key, expected_activity_id and requested_rung -> ProgramReceiptResponse. Replace the registered POST /rpc signature with transaction-hash lookup and ProgramSubmission response variants."
+
+[row.r9-61.44]
+interface = "interface.9.http-rpc-program-activity"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 261
+symbol = "program.activity"
+evidence = "[operation.program.activity] now declares GET /v1/programs/activities/{activity_id}, ProgramActivitySelector requiring activity_id and requested_rung -> ProgramSubmission. Replace the registered POST /rpc signature; activity_id is an EIP-1559 transaction hash and the response tracks submitted, receipted and committed progress."
+
+[row.r9-61.45]
+interface = "interface.9.fmt-agent-api-schema-read"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 2
+symbol = "read"
+evidence = "The KVX [module] still names read but contract_major = 2. The signature now uses transaction Rung values and block-height Freshness, ordered history cursor triples, receipt-proof-v2 portable evidence and fee estimates in ProjectionResult; ordinary reads have no achieved transaction rung."
+
+[row.r9-61.46]
+interface = "interface.9.proto-agent-api-read-type-verifiedread"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 6
+symbol = "VerifiedRead"
+evidence = "[type.VerifiedRead] retains required = [value,achieved_verification_level,freshness]. The field signature is unchanged, but achieved_verification_level now means Rung for transaction evidence and null for ordinary reads; value_constraint remains core_produced_only. Reconcile the meaning rather than claiming every read has transaction proof."
+
+[row.r9-61.47]
+interface = "interface.9.proto-agent-api-read-type-freshness"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 11
+symbol = "Freshness"
+evidence = "[type.Freshness] retains required = [chain_head,value_height,relative_to]. The signature now defines both heights as canonical decimal u64 block heights and relative_to as the serving block tag or height: pending is the open sequencer branch, latest or explicit height is committed state."
+
+[row.r9-61.48]
+interface = "interface.9.http-rpc-read-balance"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 17
+symbol = "read.balance"
+evidence = "[operation.read.balance] retains the POST /rpc operation name; request_required = [account,asset,requested_verification_level] -> VerifiedRead<BalanceValue> with account, asset, amount, canonical_state and height. Reconcile the explicit canonical decimal u64 height and ordinary-read null rung semantics in place of the bare route signature."
+
+[row.r9-61.49]
+interface = "interface.9.http-rpc-read-account"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 23
+symbol = "read.account"
+evidence = "[operation.read.account] retains the POST /rpc operation name; request_required = [account,requested_verification_level] -> VerifiedRead<AccountValue> with canonical and height. Reconcile the typed signature to canonical decimal u64 block height and ordinary-read null rung semantics rather than the bare route alone."
+
+[row.r9-61.50]
+interface = "interface.9.http-rpc-read-module-state"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 29
+symbol = "read.module_state"
+evidence = "[operation.read.module_state] retains the POST /rpc name; request_required = [module,key,requested_verification_level] -> VerifiedRead<ModuleStateValue> with canonical and height. Reconcile the typed signature to canonical decimal u64 block height and ordinary-read null rung semantics."
+
+[row.r9-61.51]
+interface = "interface.9.http-rpc-read-history"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 35
+symbol = "read.history"
+evidence = "[operation.read.history] retains the POST /rpc name; request_required = [range,cursor,page_limit,requested_verification_level] -> VerifiedRead<HistoryValue> with items, cursor and height. Cursor is now the ordered blockHeight/txIndex/logIndex triple of canonical decimal u64 strings; legacy cursors and page_limit above 65535 are refused, never clamped."
+
+[row.r9-61.52]
+interface = "interface.9.http-rpc-read-batch"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 56
+symbol = "read.batch"
+evidence = "[operation.read.batch] retains the POST /rpc name; request_required = [batch,requested_verification_level] -> VerifiedRead<BatchValue> with block and height. The signature now interprets batch as a block height served by eth_getBlockByNumber and height as canonical decimal u64."
+
+[row.r9-61.53]
+interface = "interface.9.http-rpc-read-checkpoint"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 63
+symbol = "read.checkpoint"
+evidence = "[operation.read.checkpoint] retains the POST /rpc name; request_required = [checkpoint,requested_verification_level] -> VerifiedRead<CheckpointValue> with commit, validatorSet and height. The signature now names a CometBFT commit at the requested height verified against that height's validator set, not a kernel checkpoint."
+
+[row.r9-61.54]
+interface = "interface.9.http-rpc-read-proof-bundle"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 70
+symbol = "read.proof_bundle"
+evidence = "[operation.read.proof_bundle] retains the POST /rpc name; ReadRequest<ProofBundleTarget> requires target and requested_verification_level -> VerifiedRead<ProofBundle>. The signature now returns exact transaction-bound receipt-proof-v2 fields, committed-only block/receipt inclusion/commit/validatorSet fields and optional accountProof, with tenant ownership and no rung downgrade."
+
+[row.r9-61.55]
+interface = "interface.9.proto-agent-api-read-type-proofbundle"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 95
+symbol = "ProofBundle"
+evidence = "[type.ProofBundle] keeps format = layerx-receipt-proof-v2. The expanded signature requires format, verificationLevel, rawTransaction, signedReceipt, receiptDigest and receiptKey; committed additionally requires blockHeader, receiptInclusion, commit and validatorSet, with optional accountProof. Consumers must independently verify signatures, transaction binding and committed inclusion."
+
+[row.r9-61.56]
+interface = "interface.9.http-rpc-availability-fetch"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 120
+symbol = "availability.fetch"
+evidence = "[operation.availability.fetch] retains the POST /rpc name; requires selector, requested_verification_level, maximum_bytes, maximum_chunks and deadline -> VerifiedRead<AvailabilityReport> with completion, classes, providers and height. Selector now means block height for eth_getBlockByNumber with full transactions; complete results name one provider and partial bytes are never merged."
+
+[row.r9-61.57]
+interface = "interface.9.http-rpc-export-offline"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 128
+symbol = "export.offline"
+evidence = "[operation.export.offline] retains the POST /rpc name; ReadRequest<FactRef[]> requires fact_set and requested_verification_level -> VerifiedRead<OfflineExport>. The signature now binds 1 through 16 unique facts in request order to committed portable v2 bundles at the reported height; no partial success or shortfall downgrade and a 1048576-byte JSON body bound."
+
+[row.r9-61.58]
+interface = "interface.9.http-rpc-project"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 147
+symbol = "project"
+evidence = "[operation.project] retains the POST /rpc name but now declares FeeProjectionRequest requiring protocol_activity_type, canonical_bytes, execution_units and storage_units -> ProjectionResult<FeeProjection>. VerifiedRead is forbidden, no transaction rung is claimed, and the earlier context/canonical_intent policy payload is refused as policy.legacy_project_payload."
+
+[row.r9-61.59]
+interface = "interface.9.proto-agent-api-read-type-feeprojection"
+verdict = "served"
+path = "services/agent/schema/agent-api/read.kvx"
+line = 191
+symbol = "FeeProjection"
+evidence = "[type.FeeProjection] keeps the registered eight required fields: request, parameter_version, fee, gas_units, denom, canonical_schedule, snapshot_height and snapshot_state_root. Signature semantics now tie snapshot_height to observed_freshness.chain_head/value_height and snapshot_state_root to provenance only; denom names the payer, or sponsor for sponsored estimates, and this is never an executed receipt."
+
+[row.r9-61.60]
+interface = "interface.9.fmt-agent-api-schema-stream"
+verdict = "served"
+path = "services/agent/schema/agent-api/stream.kvx"
+line = 2
+symbol = "stream"
+evidence = "The KVX [module] still names stream, contract_major = 1. Its signature now specifies MutationEnvelope<SubscriptionCreate> with required idempotency_key, owner-bound scope and durable replay identity, authenticated list/health reads, canonical decimal cursors and a backfill barrier before later delivery. Persisted definitions resume from the last acknowledged cursor after restart."
