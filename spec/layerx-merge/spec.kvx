@@ -193089,7 +193089,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.95.5]
 title = "Make the standby resolution and ledger replay tests pass on the landed replay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.95.2"]
