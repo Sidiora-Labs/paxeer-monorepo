@@ -7989,6 +7989,12 @@ value = "Since commit 867cb1560 (task 13.27.5) the programs runtime maps the ker
 basis = "22.9.18 attempt 11 (94cdc09ea): the native result records exit code 1, stderr terminal v5 fixture line 103 after four executions with receipts -736, -601, -736, -736; the fixture file is identical between the attempt's base and cd8fcfa86; ffi_call.rs changed the mapping in 867cb1560."
 affects = ["1.18.5", "22.9.18"]
 
+[decision.2480]
+title = "A deleted test target stays in the scope of the task that deletes it"
+value = "21.95.1 do_8 deletes the agent daemon test target services/agent/crates/layerx-agentd/tests/proof_native_reads.rs and adds services/agent/crates/layerx-mcp/tests/proof_native_reads.rs in its place. Decision 2411 renamed the scope entry to the new file, which left the deletion outside the scope, so the publication of attempt 11 (07e2996df, verify and done check passed) was refused for a change outside touches. Both paths are in the scope: the deletion counts as the change of the old path."
+basis = "21.95.1 attempt 11: build and verify exit 0, the done check accepts every scope entry, the publication records changed files outside touches and planned_paths naming the deleted daemon test."
+affects = ["21.95.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -137707,7 +137713,7 @@ do_3 = "The anchor carries no persistent state of its own: the test asserts inst
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-mcp/src/boundary.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/Cargo.lock", "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs", "services/agent/crates/layerx-mcp/Cargo.toml", "services/agent/crates/layerx-client/src/sequencer.rs"]
+touches = ["services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-mcp/src/boundary.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/Cargo.lock", "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs", "services/agent/crates/layerx-mcp/Cargo.toml", "services/agent/crates/layerx-client/src/sequencer.rs", "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
 tests = ["services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"]
 planned_paths = ["services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"]
 build_cmd = "make -f chain.mk install && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"

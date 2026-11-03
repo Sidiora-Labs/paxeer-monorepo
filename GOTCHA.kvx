@@ -14455,3 +14455,8 @@ fix = "Build fixture receipts from the fields the reader checks, and assert thos
 title = "A refusal tag renumbering left a native corpus fixture asserting the old tag"
 symptom = "The runtime began reporting a kernel refusal of a settlement leg under the kernel tag instead of the receipt-mismatch tag; the native corpus fixture kept asserting the old tag and the signed corpus was no longer emitted, so every consumer of the corpus failed its qualification."
 fix = "When a producer changes an encoded tag, run the native corpus producer and every fixture that asserts the tag in the same task."
+
+[gotcha.2927]
+title = "A scope rename stranded a publication that deleted the old path"
+symptom = "A task moved a test file to another crate; its scope was renamed to the new path only, so the publication that deleted the old file was refused for a change outside the scope although the verify and the done check had passed."
+fix = "When a task moves or deletes a file, keep the old path in the scope beside the new one; a deletion is a change of the old path."
