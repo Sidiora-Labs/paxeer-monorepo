@@ -44,7 +44,7 @@ follow_up = "closure"
 finding = "9.97.11.1"
 status = "open"
 evidence = "services/agent/sdk/python/layerx_sdk/web_search.py:913 still refuses metered sequencer receipts unless module_id is 1 and operation is 6, and services/agent/sdk/python/layerx_sdk/web_search.py:440 retains the module-1 balance checks, so the kernel discriminator removal still needs a programme-authored repair task."
-follow_up = "closure"
+follow_up = "9.97.16"
 
 [disposition.9.99.2.1]
 finding = "9.99.2.1"

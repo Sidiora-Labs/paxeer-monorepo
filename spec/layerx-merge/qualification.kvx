@@ -3678,14 +3678,6 @@ severity = "blocker"
 #   1.1.3 -> 1.39.3: kernel account rows checked against the Go codec account kinds
 #   10.0.2 -> 6.7.3: activation addresses without a custom precompile reported
 
-[finding.1.21.1]
-task = "1.21.1"
-file = "spec/layerx-merge/contracts/address-inventory.md:2431"
-symbol = "registry_retryable"
-observed = "At revision 4a9dbd740 the build `make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/` exited 2 (log /out/logs/build-1.log): services/agent/crates/layerx-types/build.rs rejected the regenerated address-table.md row `| LXP_ARBITER_REQUIRED | precompiles/common/lxp_errors.go:151 |` as lacking the five registry columns, so cargo build --locked --release -p layerx-programs-sandbox exited 101 and every cgo-linked Go build failed to find -llayerx_programs_sandbox."
-assumption = "The specification rebuild overwrote the machine-readable address table and error registry with a generated inventory; the table returns verbatim at contracts/address-table.md, the inventory lives at contracts/address-inventory.md, and builds proceed on the restored table."
-severity = "blocker"
-
 [finding.11.15.1]
 task = "11.15.1"
 file = "spec/layerx-merge/spec.kvx:146838"
@@ -19227,3 +19219,27 @@ symbol = "TestPublishedLedgerAndAuthABIFrozen"
 observed = "The frozen digests fail at HEAD since 21.11.1 and 21.21.1 changed the published ABI files; the attestor ledger copy is stale."
 assumption = "22.2.5 refreshes the copy and the digests from the published files (do item of attempt 6)."
 severity = "major"
+
+[finding.22.24.1.1]
+task = "22.24.1"
+file = "tools/deps/floors"
+symbol = "no patched release"
+observed = "Advised packages with no patched release at HEAD 408746879: bigint-buffer in apps/explorer/yarn.lock, deepmerge in apps/explorer/yarn.lock, deepmerge in apps/launchpad/pnpm-lock.yaml, deepmerge in apps/perps/package-lock.json, deepmerge in apps/perps/pnpm-lock.yaml, atty in contracts/bridge/solana/Cargo.lock, elliptic in contracts/launchpad/pnpm-lock.yaml, request in contracts/package-lock.json, web3-core-method in contracts/package-lock.json, web3-core-subscriptions in contracts/package-lock.json, github.com/pion/dtls/v2 in core/deps/geth/go.mod, github.com/pion/stun/v2 in core/deps/geth/go.mod, github.com/pion/dtls/v2 in go.mod, github.com/pion/stun/v2 in go.mod, org.springframework.boot:spring-boot-autoconfigure in sdk/integrations/spring/pom.xml, elliptic in sdk/js/package-lock.json, github.com/pion/dtls/v2 in sdk/launchpad/shared/go.mod, github.com/pion/stun/v2 in sdk/launchpad/shared/go.mod, deepmerge in services/explorer/backend/apps/block_scout_web/assets/package-lock.json, elliptic in services/explorer/backend/apps/block_scout_web/assets/package-lock.json, request in services/explorer/backend/apps/block_scout_web/assets/package-lock.json, github.com/pion/dtls/v2 in services/launchpad/api/go.mod, github.com/pion/stun/v2 in services/launchpad/api/go.mod, github.com/pion/dtls/v2 in services/launchpad/gateway/go.mod, github.com/pion/stun/v2 in services/launchpad/gateway/go.mod, github.com/pion/dtls/v2 in services/launchpad/metadata/go.mod, github.com/pion/stun/v2 in services/launchpad/metadata/go.mod, github.com/pion/dtls/v2 in services/launchpad/pnl-tracker/go.mod, github.com/pion/stun/v2 in services/launchpad/pnl-tracker/go.mod, github.com/pion/dtls/v2 in services/launchpad/trading-charts/go.mod, github.com/pion/stun/v2 in services/launchpad/trading-charts/go.mod, request in tests/integration/dapp_tests/package-lock.json, web3-core-method in tests/integration/dapp_tests/package-lock.json, web3-core-subscriptions in tests/integration/dapp_tests/package-lock.json, elliptic in tests/integration/rpc_tests/package-lock.json, atty in wasm-runtime/libwasmvm/Cargo.lock, wasmer in wasm-runtime/libwasmvm/Cargo.lock."
+assumption = "The floors files omit them; replacing or removing each is an owner decision per manifest."
+severity = "minor"
+
+[finding.22.0.1.1]
+task = "22.0.1"
+file = "spec/layerx-merge/dispositions"
+symbol = "follow_up"
+observed = "Attempt 2 shows the closure script failing on live inputs: follow-up tasks not done or not existing, the literal closure as follow_up in four dispositions, and a duplicate finding section."
+assumption = "Decision 2363 repairs the inputs and makes 22.0.1 require every follow-up task (do item of attempt 2)."
+severity = "major"
+
+[finding.18.1508.2.2]
+task = "18.1508.2"
+file = "sdk/launchpad/packages/sdk/package.json"
+symbol = "workspace protocol"
+observed = "Attempt 3 fails the build because npm cannot install a package whose dependency uses the workspace protocol."
+assumption = "The build uses the owning pnpm workspace (do item of attempt 3)."
+severity = "minor"
