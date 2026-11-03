@@ -17,7 +17,7 @@ serde_json.workspace = true
 sha2.workspace = true
 rustix = { workspace = true, features = ["fs"] }
 signal-hook = "=0.3.18"
-jsonwebtoken = { version = "=9.3.1", default-features = false }
+jsonwebtoken = { version = "=10.3.0", default-features = false, features = ["rust_crypto"] }
 ureq = { version = "=3.4.0", default-features = false, features = ["rustls-no-provider", "_ring"] }
 rustls-native-certs = "=0.8.4"
 

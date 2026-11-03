@@ -1,0 +1,7 @@
+[issue.1530]
+number = 1530
+title = "[Coherence] wasmtime stays on 34.x because the direct workspace dependency in tools/wasm-tools/Cargo.toml was not raised, which do_2 requires"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "not-relevant"
+evidence = "The general manifest-raise instruction at spec/layerx-merge/spec.kvx:130936 is superseded for these vendored dependencies by task 22.24.20.do_4 at spec/layerx-merge/spec.kvx:130955, which permits only updates within existing manifest requirements and assigns requirement changes upstream, explaining the unchanged Wasmtime requirement at tools/wasm-tools/Cargo.toml:141 and resolution 34.0.2 at tools/wasm-tools/Cargo.lock:2505, the libsecp256k1 pin at contracts/bridge/solana/Cargo.toml:24 and rand 0.7.3 at contracts/bridge/solana/Cargo.lock:3190, and their recorded blocking requirements and floors at tools/deps/floors/rust-vendored.json:65 and tools/deps/floors/rust-vendored.json:87."
+close_comment = "The current dependency policy for these vendored components permits updates within existing manifest requirements and assigns major-version requirement changes upstream. Wasmtime 34.0.2 and the bridge's libsecp256k1 0.6.0/rand 0.7.3 remain recorded below-floor findings; the requested manifest raises conflict with that policy."

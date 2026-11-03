@@ -223,7 +223,7 @@ func runVectors(repo string) error {
 		name  string
 		count int
 	}{
-		{"vector-v1-receipted-positive", 4},
+		{"vector-v1-receipted-positive", 5},
 		{"vector-v2-receipted-revert", 1},
 		{"vector-v3-receipt-refusals", 6},
 	} {

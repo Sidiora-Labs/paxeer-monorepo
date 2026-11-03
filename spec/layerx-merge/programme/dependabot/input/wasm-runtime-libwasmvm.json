@@ -1,0 +1,38 @@
+{
+ "slug": "wasm-runtime-libwasmvm",
+ "manifests": [
+  "wasm-runtime/libwasmvm/Cargo.lock"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-g98v-hv3f-hcfr",
+   "number": 1114,
+   "package": "atty",
+   "ecosystem": "rust",
+   "manifest": "wasm-runtime/libwasmvm/Cargo.lock",
+   "severity": "low",
+   "range": "<= 0.2.14",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-x4gp-pqpj-f43q",
+   "number": 1117,
+   "package": "curve25519-dalek",
+   "ecosystem": "rust",
+   "manifest": "wasm-runtime/libwasmvm/Cargo.lock",
+   "severity": "low",
+   "range": "< 4.1.3",
+   "patched": "4.1.3"
+  },
+  {
+   "ghsa": "GHSA-55f3-3qvg-8pv5",
+   "number": 1116,
+   "package": "wasmer",
+   "ecosystem": "rust",
+   "manifest": "wasm-runtime/libwasmvm/Cargo.lock",
+   "severity": "low",
+   "range": "<= 4.3.1",
+   "patched": null
+  }
+ ]
+}

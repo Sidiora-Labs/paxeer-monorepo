@@ -58,6 +58,7 @@ type ReceiptInput struct {
 	EVM               *evmtypes.Receipt
 	Operation         uint8
 	ReturnData        []byte
+	PaymentDenom      string
 	FeeDenom          string
 	FeeCharged        *big.Int
 	Sponsor           common.Address
@@ -227,7 +228,10 @@ func encodeReceipt(in *ReceiptInput, contextHash [32]byte) ([]byte, error) {
 		return nil, inputErr("%d logs exceed the u16 ordinal", len(in.EVM.Logs))
 	}
 	activityRoot := sha256.Sum256(in.ReturnData)
-	asset := sha256.Sum256([]byte(in.FeeDenom))
+	if len(in.PaymentDenom) == 0 || len(in.PaymentDenom) > maxFeeDenomBytes {
+		return nil, inputErr("payment denom is %d bytes, want 1..%d", len(in.PaymentDenom), maxFeeDenomBytes)
+	}
+	asset := sha256.Sum256([]byte(in.PaymentDenom))
 	var batchID [32]byte
 	binary.BigEndian.PutUint64(batchID[24:], uint64(a.Height))
 
@@ -343,7 +347,7 @@ func (r *Receipter) Accept(txBytes []byte) (*Accepted, []byte, error) {
 	if msg := r.host.GetEVMMsg(tx); msg != nil {
 		etx, _ = msg.AsTransaction()
 	}
-	in := &ReceiptInput{ModuleID: r.moduleID}
+	in := &ReceiptInput{ModuleID: r.moduleID, PaymentDenom: r.evm.GetBaseDenom(pre)}
 	if etx != nil {
 		err = r.beforeEVM(pre, etx, in)
 	} else {

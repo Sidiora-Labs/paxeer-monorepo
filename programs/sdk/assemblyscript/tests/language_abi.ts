@@ -2,8 +2,8 @@ import {
   AccountId, Amount, AssetId, ProgramId, OK, ERR_INVALID, ERR_BOUNDS,
   fromString, slice, reserveCallInput, acceptCallInput, callInputBytes, emitEvent,
   STORAGE_PRINCIPAL, writeScopedV2, publishResponseV2, publishRefusalV2,
-  V2_REFUSAL_SENTINEL, readOracleV3, readWebV4, callProgramResponseV2, fundProgram402V2,
-  decodeCallResponseV2, decodeScanPageV2, WebAnswerV4, OracleObservationV3,
+  V2_REFUSAL_SENTINEL, readOracleV3, callProgramResponseV2, fundProgram402V2,
+  decodeCallResponseV2, decodeScanPageV2, OracleObservationV3,
   hashV2, verifyEd25519V2, bigintMulV2, readContextV2, admitAbiUpgrade,
   capabilityEncodingVersion, abiManifest, abiManifestV2, abiManifestV3, abiManifestV4
 } from "../assembly/index";
@@ -27,12 +27,6 @@ function run(input: StaticArray<u8>): i32 {
     for (let i = 0; i < 32; i++) market[i] = 0x11;
     const observation = readOracleV3(market);
     return observation.ok() ? publish(observation.bytes) : observation.status;
-  }
-  if (operation == 2) {
-    const answer = readWebV4(<u64>0x0102030405060708);
-    if (!answer.ok()) return answer.status;
-    if (!answer.found) return ERR_INVALID;
-    return publish(answer.bytes);
   }
   if (operation == 3) {
     const status = publishRefusalV2(1, fromString("no"));
@@ -91,6 +85,6 @@ export function languageAbiBounds(): bool {
   if (!decodeScanPageV2(emptyPage, new StaticArray<u8>(0), 1, 5).ok()) return false;
   emptyPage[2] = 1;
   if (decodeScanPageV2(emptyPage, new StaticArray<u8>(0), 1, 5).ok()) return false;
-  if (WebAnswerV4.decode(new StaticArray<u8>(39)) !== null || OracleObservationV3.decode(new StaticArray<u8>(63)) !== null) return false;
+  if (OracleObservationV3.decode(new StaticArray<u8>(63)) !== null) return false;
   return abiManifest().length < abiManifestV2().length && abiManifestV2().length < abiManifestV3().length && abiManifestV3().length < abiManifestV4().length;
 }

@@ -1,4 +1,4 @@
-use layerx_client::lni::framing::{read_frame, write_frame};
+use layerx_client::frame::framing::{read_frame, write_frame};
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
 use layerx_types::clock::Deadline;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};

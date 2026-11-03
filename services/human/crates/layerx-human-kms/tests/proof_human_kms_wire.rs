@@ -37,10 +37,10 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use zeroize::Zeroizing;
 
 #[allow(dead_code)]
@@ -54,6 +54,9 @@ mod clock_server;
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 const PROVIDER: &str = "proof-kms";
 const WAIT: Duration = Duration::from_secs(10);
+const SIGNER_SEED: [u8; 32] = [0x11; 32];
+const SEAL_SECRET: [u8; 32] = [0x22; 32];
+static FIXTURE_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 fn checked<T, E: std::fmt::Debug>(result: std::result::Result<T, E>) -> Result<T> {
     result.map_err(|error| format!("{error:?}").into())
@@ -82,16 +85,16 @@ impl Drop for Host {
 impl Host {
     fn new() -> Result<Self> {
         let _ = rustls::crypto::ring::default_provider().install_default();
-        let mut random = [0; 16];
-        getrandom::fill(&mut random).map_err(|error| error.to_string())?;
-        let suffix: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
-        let root = Path::new("/tmp").join(format!("proof-human-kms-{suffix}"));
+        let root = Path::new("/tmp").join(format!(
+            "proof_human_kms_wire-{}-{}",
+            std::process::id(),
+            FIXTURE_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
         fs::create_dir(&root)?;
         fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
-        let mut signer = Zeroizing::new([0; 32]);
-        getrandom::fill(signer.as_mut()).map_err(|error| error.to_string())?;
+        let signer = Zeroizing::new(SIGNER_SEED);
         let signing_key = k256::ecdsa::SigningKey::from_slice(signer.as_ref())?;
         let point = signing_key.verifying_key().to_encoded_point(false);
         let wallet = Keccak256::digest(&point.as_bytes()[1..])[12..].try_into()?;
@@ -108,8 +111,7 @@ impl Host {
             wallet,
         };
         host.pki()?;
-        let mut seal = Zeroizing::new([0; 32]);
-        getrandom::fill(seal.as_mut()).map_err(|error| error.to_string())?;
+        let seal = Zeroizing::new(SEAL_SECRET);
         host.write("seal", seal.as_ref())?;
         host.write("chain.json", br#"{"chain_id":125}"#)?;
         let mut nodes = Vec::new();
@@ -344,7 +346,7 @@ impl Host {
         self.child = Some(command.spawn().map_err(|error| {
             format!("services/human/crates/layerx-human-kms/src/main.rs producer missing: {error}")
         })?);
-        let started = Instant::now();
+        let started = self.clock.sample(WAIT)?;
         while self.remote(self.address, "client")?.probe().is_err() {
             assert!(
                 self.child
@@ -356,7 +358,7 @@ impl Host {
                 fs::read_to_string(self.path("kms.log"))?
             );
             assert!(
-                started.elapsed() < WAIT,
+                self.clock.sample(WAIT)?.elapsed_since(started)? < WAIT,
                 "KMS producer startup timed out: {}",
                 fs::read_to_string(self.path("kms.log"))?
             );
@@ -534,7 +536,7 @@ fn bank_call(wallet: [u8; 20], recipient: [u8; 20], amount: [u8; 32]) -> Eip1559
 }
 
 #[test]
-fn proof_human_kms_wire_producers_transport_consumers_and_restart() -> Result {
+fn proof_human_kms_wire() -> Result {
     let mut host = Host::new()?;
     fs::set_permissions(
         host.path("client-key.der"),

@@ -414,8 +414,8 @@ func (a *SubscriptionAPI) notifyReceiptedLogs(ctx context.Context, notifier *rpc
 			logs, err := a.scopeLogs(ctx, []*FilterLog{&notice.log})
 			if err != nil {
 				wpMetrics.RecordSubscriptionError()
-				logger.Warn("Ending logs subscription after scope failure", "subscription", sub.ID, "err", err)
-				return
+				logger.Warn("Skipping receipted log after scope failure", "subscription", sub.ID, "height", notice.log.BlockNumber, "transaction", notice.log.TxHash, "err", err)
+				continue
 			}
 			if len(logs) == 0 {
 				continue
@@ -678,23 +678,27 @@ func encodeHead(height int64, timestamp time.Time, miner common.Address, roots h
 		return nil, err
 	}
 	result := map[string]interface{}{
-		"difficulty":       (*hexutil.Big)(utils.Big0), // inapplicable to Pax
-		"extraData":        hexutil.Bytes{},            // inapplicable to Pax
-		"gasLimit":         encodedGasLimit,
-		"gasUsed":          hexutil.Uint64(gasUsed),
-		"logsBloom":        bloom,
-		"miner":            miner,
-		"nonce":            ethtypes.BlockNonce{}, // inapplicable to Pax
-		"number":           (*hexutil.Big)(big.NewInt(height)),
-		"parentHash":       roots.parent,
-		"receiptsRoot":     roots.receipts,
-		"sha3Uncles":       ethtypes.EmptyUncleHash, // inapplicable to Pax
-		"stateRoot":        roots.state,
-		"timestamp":        hexutil.Uint64(timestamp.Unix()), //nolint:gosec
-		"transactionsRoot": roots.txs,
-		"mixHash":          common.Hash{}, // inapplicable to Pax
-		"hash":             roots.hash,
-		"baseFeePerGas":    (*hexutil.Big)(baseFee),
+		"difficulty":            (*hexutil.Big)(utils.Big0), // inapplicable to Pax
+		"extraData":             hexutil.Bytes{},            // inapplicable to Pax
+		"gasLimit":              encodedGasLimit,
+		"gasUsed":               hexutil.Uint64(gasUsed),
+		"logsBloom":             bloom,
+		"miner":                 miner,
+		"nonce":                 ethtypes.BlockNonce{}, // inapplicable to Pax
+		"number":                (*hexutil.Big)(big.NewInt(height)),
+		"parentHash":            roots.parent,
+		"receiptsRoot":          roots.receipts,
+		"sha3Uncles":            ethtypes.EmptyUncleHash, // inapplicable to Pax
+		"stateRoot":             roots.state,
+		"timestamp":             hexutil.Uint64(timestamp.Unix()), //nolint:gosec
+		"transactionsRoot":      roots.txs,
+		"mixHash":               common.Hash{}, // inapplicable to Pax
+		"hash":                  roots.hash,
+		"baseFeePerGas":         (*hexutil.Big)(baseFee),
+		"withdrawalsRoot":       ethtypes.EmptyWithdrawalsHash,
+		"blobGasUsed":           hexutil.Uint64(0),
+		"excessBlobGas":         hexutil.Uint64(0),
+		"parentBeaconBlockRoot": common.Hash{},
 	}
 	return result, nil
 }

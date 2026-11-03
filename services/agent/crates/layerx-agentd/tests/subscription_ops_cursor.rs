@@ -1,8 +1,10 @@
+#[path = "gaps.rs"]
+mod gap_integration;
+use gap_integration::{HistoryServer, SubscriptionServer};
+
 use std::fs;
-use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
 
 use layerx_agent_api::error::{ErrorClass, RequestId, Retriability};
 use layerx_agent_api::identity::{AgentDid, CapabilityId, ExplicitSet, TenantId as ApiTenantId};
@@ -16,13 +18,7 @@ use layerx_agentd::events::{EventAttributes, EventIngestor};
 use layerx_agentd::read::HistoryLimits;
 use layerx_agentd::session::{SessionCredential, SessionId};
 use layerx_agentd::store::{ObjectKind, Store, TenantId, TenantKey};
-use layerx_client::lni::schema::Version;
-use layerx_client::lni::transport::{ConnectionGate, Limits, Uds};
-use layerx_client::rpc::evidence::RootSelector;
-use layerx_client::rpc::history::{ReadContext, Requested};
-use layerx_client::rpc::Head;
-use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_types::verify::VerificationLevel;
+use layerx_client::subscription::{subscribe, SubscriptionTopic};
 use serde_json::{json, Value};
 
 static NEXT: AtomicU64 = AtomicU64::new(1);
@@ -102,58 +98,43 @@ impl Fixture {
         let durable = subscriptions.into_durable().expect("owned durable store");
         let tenant = TenantId::new("tenant-a").expect("tenant");
         let mut ingestor = EventIngestor::open(durable, tenant.clone(), 8, 0).expect("ingestor");
-        for cursor in positions {
-            ingestor
-                .ingest_log(&log(*cursor), attributes())
-                .expect("ingest Ethereum log");
-        }
-        let socket = self.root.join("history.sock");
-        let listener = UnixListener::bind(&socket).expect("history listener");
-        let mut transport = Uds::connect(
-            &socket,
-            &ConnectionGate::new(1),
-            Limits {
-                maximum_frame_bytes: 1_048_576,
-                maximum_connections: 1,
-                maximum_streams: 1,
-                maximum_queued_bytes: 1_048_576,
-                deadline: Duration::from_secs(2),
+        let wire_logs = positions.iter().map(|cursor| log(*cursor)).collect();
+        let logs_server = SubscriptionServer::new(json!(["logs", {"topics": []}]), wire_logs);
+        let mut logs = subscribe(
+            &logs_server.url,
+            &[],
+            SubscriptionTopic::Logs {
+                address: None,
+                topics: vec![],
             },
         )
-        .expect("real history transport");
-        let (_peer, _) = listener.accept().expect("history connection");
+        .expect("log subscription");
+        for _ in positions {
+            ingestor
+                .read_log(&mut logs, attributes())
+                .expect("ingest Ethereum log");
+        }
+        logs_server.finish();
+        let history = HistoryServer::new(vec![]);
+        let source = history.connect();
+        let heads_server =
+            SubscriptionServer::new(json!(["newHeads"]), vec![json!({"number":"0xe"})]);
+        let mut heads = subscribe(&heads_server.url, &[], SubscriptionTopic::NewHeads)
+            .expect("head subscription");
         ingestor
-            .new_head(
-                14,
-                &mut transport,
+            .read_head(
+                &mut heads,
+                &source,
                 HistoryLimits {
                     maximum_items: 8,
                     maximum_response_bytes: 1_048_576,
-                },
-                ReadContext {
-                    interface_version: Version::V1_0,
-                    correlation_id: 7,
-                    expected_protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
-                    expected_network_id: 77,
-                    requested: Requested::new(VerificationLevel::UNVERIFIED),
-                    head: Head {
-                        chain_sequence: 14,
-                        sealed_batch: 0,
-                        finalised_checkpoint: [0; 32],
-                    },
-                    sequencer_authorization: SequencerAuthorization::new(
-                        [1; 32],
-                        [2; 32],
-                        0,
-                        u64::MAX,
-                    ),
-                    handshake_sequencer_key: [2; 32],
-                    root_selector: RootSelector::Latest,
                 },
                 8,
                 attributes(),
             )
             .expect("flush logs from closed blocks");
+        heads_server.finish();
+        history.finish();
         assert_eq!(
             ingestor.watermark().last_position.map(|cursor| position(
                 cursor.block_height,

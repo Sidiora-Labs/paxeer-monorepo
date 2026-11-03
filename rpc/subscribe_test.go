@@ -23,15 +23,20 @@ import (
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	occutils "github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	gethrpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 )
@@ -98,6 +103,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 					}
 				}
 			}
+			assertNewHeadStateRootMatchesBlock(t, resultMap)
 			// Event validated successfully, no need to wait further
 			return
 		case <-timer.C:
@@ -117,7 +123,6 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 	defer func() { done <- struct{}{} }()
 
 	hash := common.HexToHash("0x4242424242424242424242424242424242424242424242424242424242424242").Bytes()
-	appHash := common.HexToHash("0x3131313131313131313131313131313131313131313131313131313131313131").Bytes()
 	parentHash := common.HexToHash("0x5252525252525252525252525252525252525252525252525252525252525252").Bytes()
 	dataHash := common.HexToHash("0x6363636363636363636363636363636363636363636363636363636363636363").Bytes()
 	resultsHash := common.HexToHash("0x7474747474747474747474747474747474747474747474747474747474747474").Bytes()
@@ -126,6 +131,10 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 	// The served receiptsRoot is the results root of block H, the value
 	// header H+1 commits as LastResultsHash, not header H's own field.
 	blockHeight := int64(MockHeight8)
+	block, err := (&MockClient{}).Block(context.Background(), &blockHeight)
+	require.NoError(t, err)
+	appHash := block.Block.AppHash
+	require.Len(t, appHash, common.HashLength)
 	blockResults, err := (&MockClient{}).BlockResults(context.Background(), &blockHeight)
 	require.NoError(t, err)
 	resultLeaves, err := abci.MarshalTxResults(blockResults.TxsResults)
@@ -160,6 +169,7 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 					LastBlockId:     tmproto.BlockID{Hash: parentHash},
 					DataHash:        dataHash,
 					LastResultsHash: resultsHash,
+					AppHash:         appHash,
 					ProposerAddress: proposer,
 				}, &abci.ResponseFinalizeBlock{
 					AppHash: appHash,
@@ -177,6 +187,7 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 			paramMap := resObj["params"].(map[string]interface{})
 			require.Equal(t, subscriptionId, paramMap["subscription"])
 			resultMap := paramMap["result"].(map[string]interface{})
+			assertNewHeadStateRootMatchesBlock(t, resultMap)
 			for _, k := range expectedKeys {
 				_, ok := resultMap[k]
 				require.Truef(t, ok, "missing key %q in header", k)
@@ -186,7 +197,6 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 			require.Equal(t, common.BytesToAddress(proposer).Hex(), resultMap["miner"])
 			require.Equal(t, common.BytesToHash(appHash).Hex(), resultMap["stateRoot"])
 			require.Equal(t, fmt.Sprintf("0x%x", ts.Unix()), resultMap["timestamp"])
-			require.Equal(t, fmt.Sprintf("0x%x", 21000+50000), resultMap["gasUsed"])
 			// gasLimit comes from the SDK ConsensusParams that the test
 			// runtime sets; just assert it's a non-zero hex string.
 			gasLimitStr, _ := resultMap["gasLimit"].(string)
@@ -194,12 +204,38 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 			require.NotEqual(t, "0x0", gasLimitStr)
 			require.Equal(t, common.BytesToHash(parentHash).Hex(), resultMap["parentHash"])
 			require.Equal(t, sameBlockRoot.Hex(), resultMap["receiptsRoot"])
-			require.Equal(t, common.BytesToHash(dataHash).Hex(), resultMap["transactionsRoot"])
 			return
 		case <-timer.C:
 			t.Fatal("No event received within 5 seconds")
 		}
 	}
+}
+
+func assertNewHeadStateRootMatchesBlock(t *testing.T, head map[string]interface{}) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	client, err := gethrpc.DialHTTP(fmt.Sprintf("http://%s:%d", TestAddr, TestPort))
+	require.NoError(t, err)
+	defer client.Close()
+	var block map[string]interface{}
+	require.NoError(t, client.CallContext(ctx, &block, "eth_getBlockByNumber", head["number"], false))
+	require.NotNil(t, block)
+	root, ok := head["stateRoot"].(string)
+	require.True(t, ok)
+	decoded, err := hexutil.Decode(root)
+	require.NoError(t, err)
+	require.Len(t, decoded, common.HashLength)
+	require.Equal(t, block["stateRoot"], root)
+	for _, key := range []string{"gasUsed", "logsBloom", "transactionsRoot"} {
+		require.Contains(t, block, key)
+		require.Contains(t, head, key)
+		require.Equal(t, block[key], head[key], "%s differs from block at %v", key, head["number"])
+	}
+	require.Equal(t, ethtypes.EmptyWithdrawalsHash.Hex(), head["withdrawalsRoot"])
+	require.Equal(t, "0x0", head["blobGasUsed"])
+	require.Equal(t, "0x0", head["excessBlobGas"])
+	require.Equal(t, common.Hash{}.Hex(), head["parentBeaconBlockRoot"])
 }
 
 func TestSubscribeEmptyLogs(t *testing.T) {
@@ -644,6 +680,127 @@ func TestSubscribeLogsFromReceipts(t *testing.T) {
 	require.Len(t, sealed.Txs, 4)
 	require.NoError(t, q.feed.Committed(open))
 	require.False(t, peek.writing(t, evmrpc.SleepInterval+time.Second))
+}
+
+func TestSubscribeScopedLogsSurviveSealToOpen(t *testing.T) {
+	for _, drainAt := range []string{"sealed", "committed", "reopened"} {
+		t.Run(drainAt, func(t *testing.T) {
+			sender := occutils.NewSigner()
+			q := newPendingFilterSequencer(t, sender)
+			state, write := sdk.NewContext(q.app.CommitMultiStore(), q.ctxProvider(evmrpc.LatestCtxHeight).BlockHeader(), false).CacheContext()
+			params := q.app.LayerXChainsKeeper.GetParams(state)
+			operator := common.HexToAddress("0x1234")
+			value := params.MinBond.Add(params.CreationFee)
+			coins := sdk.NewCoins(sdk.NewCoin(q.app.EvmKeeper.GetBaseDenom(state), value))
+			require.NoError(t, q.app.BankKeeper.MintCoins(state, "evm", coins))
+			require.NoError(t, q.app.BankKeeper.SendCoinsFromModuleToAccount(state, "evm", sdk.AccAddress(operator.Bytes()), coins))
+			domain, err := q.app.LayerXChainsKeeper.Create(state, operator, "seal-window", 4*pendingFilterDeployGas, params.MinByteAllowance,
+				0, value, q.app.EvmKeeper.GetNextBaseFeePerGas(state))
+			require.NoError(t, err)
+			require.Equal(t, uint32(1), domain.Id)
+			write()
+			initial, err := q.exec.Seal(q.committed + 1)
+			require.NoError(t, err)
+			q.committed++
+			require.Equal(t, q.committed, q.app.CommitMultiStore().Commit(true).Version)
+			require.NoError(t, q.feed.Committed(q.committed))
+			require.NoError(t, q.exec.Open(q.committed+1, initial.TimestampMs+1000))
+
+			pending, err := evmrpc.NewPendingOption(q.exec)
+			require.NoError(t, err)
+			cfg := evmrpcconfig.DefaultConfig
+			cfg.WSPort, cfg.IPRateLimitRPS = 0, 0
+			server, err := evmrpc.NewEVMWebSocketServer(cfg, &MockClient{latestOverride: q.committed}, &q.app.EvmKeeper,
+				q.app.BeginBlockKeepers, q.app.BaseApp, q.app.TracerAnteHandler, q.ctxProvider, q.txConfig, "", nil, nil, q.option, pending)
+			require.NoError(t, err)
+			t.Cleanup(server.Stop)
+			ws, peek := dialWSPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				r.URL.Path = "/chain/1"
+				server.(http.Handler).ServeHTTP(w, r)
+			}))
+			id := wsSubscribe(t, ws, "logs", map[string]any{})
+			receipt := func(nonce uint64) (common.Hash, *sequencer.Accepted) {
+				t.Helper()
+				chainID := chainstypes.ChainIDOf(domain.Id)
+				tx, err := ethtypes.SignNewTx(sender.EvmPrivateKey, ethtypes.LatestSignerForChainID(chainID), &ethtypes.DynamicFeeTx{
+					ChainID: chainID, Nonce: nonce, GasFeeCap: big.NewInt(pendingGasPriceWei), GasTipCap: big.NewInt(0),
+					Gas: subscribeTwoLogsGas, Data: subscribeTwoLogsInitCode,
+				})
+				require.NoError(t, err)
+				data, err := ethtx.NewTxDataFromTx(tx)
+				require.NoError(t, err)
+				msg, err := evmtypes.NewMsgEVMTransaction(data)
+				require.NoError(t, err)
+				builder := q.txConfig(0).NewTxBuilder()
+				require.NoError(t, builder.SetMsgs(msg))
+				builder.SetGasLimit(subscribeTwoLogsGas)
+				encoded, err := q.txConfig(0).TxEncoder()(builder.GetTx())
+				require.NoError(t, err)
+				return tx.Hash(), pendingFilterReceipt(t, q.app, q.exec, q.feed, encoded, tx.Hash())
+			}
+
+			height := q.committed + 1
+			hash, accepted := receipt(0)
+			require.Equal(t, height, accepted.Height)
+			pendingTx, found := q.exec.PendingTx(hash)
+			require.True(t, found)
+			require.Equal(t, height, pendingTx.Height)
+			require.True(t, peek.writing(t, 10*time.Second))
+			batch, err := q.exec.Seal(height)
+			require.NoError(t, err)
+			require.Len(t, batch.Txs, 1)
+			_, found = q.exec.PendingTx(hash)
+			require.False(t, found)
+			_, err = q.exec.Snapshot()
+			require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+			require.NotContains(t, q.app.LayerXChainsKeeper.DomainTxs(q.ctxProvider(evmrpc.LatestCtxHeight), domain.Id, uint64(height)), hash)
+			commit := func() {
+				batch.Store.Write()
+				q.committed = height
+				require.Equal(t, height, q.app.CommitMultiStore().Commit(true).Version)
+				require.NoError(t, q.feed.Committed(height))
+				require.Contains(t, q.app.LayerXChainsKeeper.DomainTxs(q.ctxProvider(evmrpc.LatestCtxHeight), domain.Id, uint64(height)), hash)
+			}
+			if drainAt != "sealed" {
+				commit()
+			}
+			if drainAt == "reopened" {
+				require.NoError(t, q.exec.Open(height+1, batch.TimestampMs+1000))
+			}
+			addr := crypto.CreateAddress(sender.EvmAddress, 0)
+			require.Equal(t, receiptedLogJSON(addr, 1, height, hash, accepted.TxIndex, 0, accepted.Seq), wsNotification(t, ws, id))
+			if drainAt == "sealed" {
+				require.False(t, peek.writing(t, 500*time.Millisecond))
+				commit()
+			} else {
+				require.Equal(t, receiptedLogJSON(addr, 2, height, hash, accepted.TxIndex, 1, accepted.Seq), wsNotification(t, ws, id))
+			}
+			if drainAt != "reopened" {
+				require.NoError(t, q.exec.Open(height+1, batch.TimestampMs+1000))
+			}
+			nextHash, next := receipt(1)
+			require.Equal(t, height+1, next.Height)
+			require.Equal(t, accepted.Seq+1, next.Seq)
+			nextAddr := crypto.CreateAddress(sender.EvmAddress, 1)
+			require.Equal(t, receiptedLogJSON(nextAddr, 1, next.Height, nextHash, next.TxIndex, 0, next.Seq), wsNotification(t, ws, id))
+			require.Equal(t, receiptedLogJSON(nextAddr, 2, next.Height, nextHash, next.TxIndex, 1, next.Seq), wsNotification(t, ws, id))
+			require.False(t, peek.writing(t, 500*time.Millisecond))
+
+			require.NoError(t, ws.WriteJSON(map[string]any{
+				"jsonrpc": "2.0", "id": 2, "method": "eth_unsubscribe", "params": []string{id},
+			}))
+			require.NoError(t, ws.SetReadDeadline(time.Now().Add(10*time.Second)))
+			var unsubscribed struct {
+				ID     int             `json:"id"`
+				Result bool            `json:"result"`
+				Error  json.RawMessage `json:"error"`
+			}
+			require.NoError(t, ws.ReadJSON(&unsubscribed))
+			require.Equal(t, 2, unsubscribed.ID)
+			require.Empty(t, unsubscribed.Error)
+			require.True(t, unsubscribed.Result)
+		})
+	}
 }
 
 func TestSubscribeNewPendingTransactions(t *testing.T) {

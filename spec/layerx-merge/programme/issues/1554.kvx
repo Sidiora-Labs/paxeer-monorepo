@@ -1,0 +1,7 @@
+[issue.1554]
+number = 1554
+title = "[Coherence] Task 22.23.8 now touches accepter_test.go but its capability block still lists the original five paths"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "spec-edit"
+evidence = "Task 22.23.8 is done at spec/layerx-merge/spec.kvx:191346 and declares 13 paths at spec/layerx-merge/spec.kvx:191358, but capability.22.23.8 still lists five at spec/layerx-merge/spec.kvx:37805, so the capability must declare the same 13 paths as the completed task, including node/sequencer/accepter_test.go:383 whose signed cumulative-gas comparison was implemented in commit 75256e3897053527589ab3fc26ee00cee9eec532."
+close_comment = "The payment-asset receipt change is implemented, including the cumulative-gas comparison across a seal. The remaining correction is to align capability.22.23.8 with all 13 paths in the completed task.22.23.8 scope, including accepter_test.go and the receipt-vector and fixture paths."

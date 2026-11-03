@@ -1903,16 +1903,32 @@ func (a *FilterAPI) scopeFilterLogs(ctx context.Context, logs []*FilterLog) ([]*
 	result := make([]*FilterLog, 0, len(logs))
 	byHeight := make(map[uint64]map[common.Hash]bool)
 	for _, log := range logs {
+		if log.BlockHash == (common.Hash{}) && a.logFetcher.watermarks != nil && a.logFetcher.watermarks.pending != nil {
+			if tx, ok := a.logFetcher.watermarks.pending.PendingTx(log.TxHash); ok {
+				if tx.Height < 1 || uint64(tx.Height) != log.BlockNumber {
+					return nil, fmt.Errorf("receipted log %s does not match transaction height %d", log.TxHash, tx.Height)
+				}
+				decoded, err := a.logFetcher.txConfigProvider(tx.Height).TxDecoder()(tx.TxBytes)
+				if err != nil {
+					return nil, fmt.Errorf("decode receipted log transaction %s: %w", log.TxHash, err)
+				}
+				msg := evmtypes.GetEVMTransactionMessage(decoded)
+				if msg == nil {
+					return nil, fmt.Errorf("receipted log transaction %s has no EVM message", log.TxHash)
+				}
+				etx, _ := msg.AsTransaction()
+				if etx == nil || etx.Hash() != log.TxHash {
+					return nil, fmt.Errorf("receipted log transaction %s has a mismatched EVM hash", log.TxHash)
+				}
+				if domainAllowsTransaction(ctx, a.domainIndex, etx) {
+					result = append(result, log)
+				}
+				continue
+			}
+		}
 		allowed, cached := byHeight[log.BlockNumber]
 		if !cached {
 			sdkctx := a.logFetcher.ctxProvider(LatestCtxHeight)
-			if log.BlockHash == (common.Hash{}) && a.logFetcher.watermarks != nil && a.logFetcher.watermarks.pending != nil {
-				snapshot, err := a.logFetcher.watermarks.pending.Snapshot()
-				if err != nil {
-					return nil, err
-				}
-				sdkctx = snapshot
-			}
 			allowed = domainHashSet(a.domainIndex, sdkctx, scope, log.BlockNumber)
 			byHeight[log.BlockNumber] = allowed
 		}

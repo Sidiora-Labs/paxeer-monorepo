@@ -15,6 +15,8 @@ AGENT_MANIFEST := services/agent/Cargo.toml
 AGENT_FUZZ_TOOLCHAIN ?= nightly-2025-11-10
 AGENT_BOUNDARY_HARNESS := $(abspath $(or $(CARGO_TARGET_DIR),services/agent/tests/boundary/target))/debug/agent-boundary-conformance
 AGENT_NODE_RPC_URL ?= http://127.0.0.1:8545
+AGENT_BOUNDARY_COMMAND ?= $(AGENT_CARGO) run --manifest-path services/agent/tests/boundary/Cargo.toml --locked --
+AGENT_BOUNDARY_MODE ?=
 HUMAN_CARGO ?= cargo
 HUMAN_API_GEN ?= $(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked --
 HUMAN_API_SCHEMA_DIR ?= services/human/schema/human-api
@@ -2003,9 +2005,17 @@ agent-test-proof-levels:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-proof --tests
 	$(AGENT_CARGO) check --manifest-path $(AGENT_MANIFEST) --locked -p layerx-proof --example offline_verify
 
+.PHONY: agent-boundary-check-report
+agent-boundary-check-report:
+	@$(AGENT_BOUNDARY_COMMAND) --check-report "$(or $(AGENT_BOUNDARY_MODE),default)"
+
 agent-test-boundary:
-	$(AGENT_CARGO) run --manifest-path services/agent/tests/boundary/Cargo.toml --locked -- \
-		"$(AGENT_NODE_RPC_URL)" $(CURDIR)
+	@set -eu; agent_boundary_report=$$(mktemp); \
+	trap 'rm -f -- "$$agent_boundary_report"' EXIT HUP INT TERM; \
+	LAYERX_QUALIFY_NODE_RPC_URL="$(AGENT_NODE_RPC_URL)" \
+		$(AGENT_BOUNDARY_COMMAND) $(if $(AGENT_BOUNDARY_MODE),$(AGENT_BOUNDARY_MODE),"$(AGENT_NODE_RPC_URL)" "$(CURDIR)") > "$$agent_boundary_report"; \
+	$(AGENT_BOUNDARY_COMMAND) --check-report "$(or $(AGENT_BOUNDARY_MODE),default)" < "$$agent_boundary_report"; \
+	cat "$$agent_boundary_report"
 
 agent-qualify-boundary:
 	$(AGENT_CARGO) build --manifest-path services/agent/tests/boundary/Cargo.toml --locked
