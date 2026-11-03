@@ -128852,7 +128852,7 @@ do_4 = "Attempt 1: the below-floor copies (rand, curve25519-dalek, idna, ed25519
 
 [task.22.24.19]
 title = "Close the open dependency advisories of the rust-services manifests (9 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1", "22.9.33"]
