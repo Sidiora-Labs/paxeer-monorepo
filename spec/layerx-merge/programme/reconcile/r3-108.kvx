@@ -1,0 +1,91 @@
+[reconcile.r3-108]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 11
+
+[row.r3-108.1]
+interface = "interface.3.ts-perps-core-perps-orderplan-clearedinputs"
+verdict = "served"
+path = "apps/perps/src/core/perps/orderPlan.ts"
+line = 341
+symbol = "ClearedInputs"
+evidence = "The exported type ClearedInputs = Pick< declaration starts at line 341 and selects the cleared OrderFormState inputs; line 354 is its use in SuccessReset."
+
+[row.r3-108.2]
+interface = "interface.3.ts-perps-core-perps-orderplan-orderconfirmation"
+verdict = "served"
+path = "apps/perps/src/core/perps/orderPlan.ts"
+line = 292
+symbol = "OrderConfirmation"
+evidence = "The exported OrderConfirmation interface is declared at line 292 with side, sizeUsd, acceptablePrice, fee, liquidation price and display fields; line 317 uses it as buildConfirmation's return type."
+
+[row.r3-108.3]
+interface = "interface.3.ts-perps-core-perps-orderplan-successreset"
+verdict = "served"
+path = "apps/perps/src/core/perps/orderPlan.ts"
+line = 353
+symbol = "SuccessReset"
+evidence = "The exported SuccessReset interface is declared at line 353 with ClearedInputs and draft order lines; line 359 is the return-type use in the distinct successReset function."
+
+[row.r3-108.4]
+interface = "interface.3.ts-perps-hooks-perps-usequoter-closepositionquote"
+verdict = "served"
+path = "apps/perps/src/hooks/perps/useQuoter.ts"
+line = 78
+symbol = "ClosePositionQuote"
+evidence = "The exported ClosePositionQuote interface is declared at line 78 with bigint exit price, PnL, fees, funding and payout fields; line 254 uses it as quoteClosePosition's return type."
+
+[row.r3-108.5]
+interface = "interface.3.ts-perps-hooks-perps-usequoter-quotermarketquote"
+verdict = "served"
+path = "apps/perps/src/hooks/perps/useQuoter.ts"
+line = 95
+symbol = "QuoterMarketQuote"
+evidence = "The exported QuoterMarketQuote interface extends MarketQuote at line 95 and adds lastSettledFundingRate1h: bigint | null; line 158 uses it as quoteMarket's return type."
+
+[row.r3-108.6]
+interface = "interface.3.ts-perps-hooks-perps-usesubgraph-market-info-query"
+verdict = "served"
+path = "apps/perps/src/hooks/perps/useSubgraph.ts"
+line = 228
+symbol = "MARKET_INFO_QUERY"
+evidence = "The export const MARKET_INFO_QUERY = GraphQL template declaration starts at line 228 and defines GetMarketInfo($marketId: Int!); line 121 is a document comparison using the constant."
+
+[row.r3-108.7]
+interface = "interface.3.ts-perps-hooks-perps-usesubgraph-subgraphquery"
+verdict = "served"
+path = "apps/perps/src/hooks/perps/useSubgraph.ts"
+line = 101
+symbol = "subgraphQuery"
+evidence = "The exported async subgraphQuery<T = unknown> declaration starts at line 101, after call sites at lines 84 and 93. Compared with the registered two-parameter signature, it now adds optional decode?: (data: unknown) => T after document and variables, retaining Promise<T> and applying the decoder to response data when provided."
+
+[row.r3-108.8]
+interface = "interface.3.ts-perps-widgets-spot-spotorderform-spotsellexceedsbalance"
+verdict = "served"
+path = "apps/perps/src/widgets/spot/SpotOrderForm.tsx"
+line = 215
+symbol = "spotSellExceedsBalance"
+evidence = "The exported spotSellExceedsBalance function declaration starts at line 215 with baseUnits: bigint, nullable holding containing raw and decimals, baseDecimals: number, and boolean return; line 581 calls it during sell validation."
+
+[row.r3-108.9]
+interface = "interface.3.go-perps-data-markets-feeconfig-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/markets/markets.go"
+line = 253
+symbol = "FeeConfig"
+evidence = "The declaration func FeeConfig(ctx context.Context, db *sql.DB, client *ethclient.Client) error is at line 253 and matches the registered signature; line 250 begins its documentation. The function reads current fees and writes them with the latest height."
+
+[row.r3-108.10]
+interface = "interface.3.go-perps-data-store-snapshotter-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/store/projections.go"
+line = 825
+symbol = "Snapshotter"
+evidence = "The registered type Snapshotter struct{} is declared at line 825; line 823 documents it and line 866 uses the type as the Snapshot method receiver. The type serves hourly market and protocol snapshots."
+
+[row.r3-108.11]
+interface = "interface.3.go-perps-data-loadtest-socketurl-j27"
+verdict = "served"
+path = "services/platform/perps-data/loadtest/load.go"
+line = 194
+symbol = "SocketURL"
+evidence = "The declaration func SocketURL(gateway string) (string, error) is at line 194 and matches the registered signature; line 192 begins its documentation. The function maps HTTP or WebSocket gateway schemes to a socket URL ending in /ws."

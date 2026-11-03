@@ -1,0 +1,48 @@
+[issue.1574]
+number = 1574
+title = "[P2] Update explorer receipt-vector counts for the Programs case"
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+verdict = "task"
+evidence = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs:139-144 and services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs:33-45 assert five accepted V1 and V2 cases, while the fixture services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json carries six."
+close_comment = "The explorer receipt-vector tests now derive the accepted case count from the fixture instead of a fixed five, so the Programs case added to the vectors is covered."
+
+[task.18.1574.1]
+title = "Issue #1574: Update the explorer receipt-vector counts for the Programs case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181574.1"]
+capabilities = []
+interfaces = []
+do_1 = "Decision 2490 (triage record spec/layerx-merge/programme/issues/1574.kvx, verdict task): both Elixir tests filter the fixture cases to V1 and V2 vectors and assert length(accepted) == 5 (sequencer_receipt_test.exs:139-144 and transaction_signature_controller_test.exs:33-45), while the fixture receipt_vectors.json now carries six such cases including the Programs case. Replace the fixed five in both tests with the count derived from the fixture (the number of cases whose vector is V1 or V2) and keep every per-case assertion so the Programs case is exercised like the others."
+do_2 = "The Elixir test suite needs a database, so the verify checks the two test files no longer assert a fixed five and that the fixture holds more than five accepted cases; run mix test for the two files where a database is available and record the result in the commit message."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs"]
+tests = []
+planned_paths = []
+build_cmd = "test -f services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json"
+verify_cmd = "python3 -c 'import json,re,sys; v=json.load(open(sys.argv[1])); n=sum(1 for c in v[chr(115)+chr(101)+chr(113)+chr(117)+chr(101)+chr(110)+chr(99)+chr(101)+chr(114)].values() if c.get(chr(118)+chr(101)+chr(99)+chr(116)+chr(111)+chr(114)) in (chr(86)+chr(49), chr(86)+chr(50))); bad=[p for p in sys.argv[2:] if str().join(map(chr,(108,101,110,103,116,104,40,97,99,99,101,112,116,101,100,41,32,61,61,32,53))) in open(p).read()]; print(n, bad); sys.exit(1 if bad or n == 5 else 0)' services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181574]
+title = "The explorer receipt-vector tests cover every accepted fixture case"
+ac_1 = "Given receipt_vectors.json with six V1 and V2 cases, when the two Elixir tests run, then every accepted case is decoded and verified and no test asserts a fixed count of five."
+
+[acceptance.18.1574.1]
+feature = "18"
+req = "181574.1"
+scenario = "Given the fixture gains a Programs case, when the receipt-vector tests run, then the new case is covered without editing a count."
+contract = "contracts/explorer.md#receipt-vectors"
+test = "the derived-count check of the two test files against the fixture (planned)"
+qualification = "UNRUN"

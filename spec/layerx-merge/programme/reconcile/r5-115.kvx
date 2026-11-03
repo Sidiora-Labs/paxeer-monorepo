@@ -1,0 +1,243 @@
+[reconcile.r5-115]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r5-115.1]
+interface = "interface.5.cli-layerxctl-read-state"
+verdict = "served"
+path = "cmd/layerxctl/src/main.rs"
+line = 411
+symbol = "read-state"
+evidence = "The run command dispatch arm is \"read-state\" => false; it selects read options. The usage text at line 18 is only a mention."
+
+[row.r5-115.2]
+interface = "interface.5.cfg-app-wasm-query-gas-limit"
+verdict = "served"
+path = "daemon/paxd/cmd/root.go"
+line = 498
+symbol = "query_gas_limit"
+evidence = "The [wasm] app.toml template declares query_gas_limit = {{ .WASM.QueryGasLimit }}. The former literal 300000 is now supplied by defaultNodeWasmQueryGasLimit in daemon/paxd/cmd/app_config.go:17,52; wasm.query_gas_limit at root.go:232 is a flag lookup, and evm_query_gas_limit at 525 is a different key."
+
+[row.r5-115.3]
+interface = "interface.5.go-node-ante-associate-address"
+verdict = "served"
+path = "node/ante/evm_checktx.go"
+line = 332
+symbol = "AssociateAddress"
+evidence = "The package function associates the EVM and Pax addresses and returns error. Signature unchanged: func AssociateAddress(ctx sdk.Context, ek *evmkeeper.Keeper, evmAddr common.Address, paxAddr sdk.AccAddress, paxPubkey cryptotypes.PubKey) error Registered line 242 has drifted."
+
+[row.r5-115.4]
+interface = "interface.5.go-node-ante-calculate-priority"
+verdict = "served"
+path = "node/ante/evm_checktx.go"
+line = 485
+symbol = "CalculatePriority"
+evidence = "The package function computes transaction priority and returns *big.Int. Signature unchanged: func CalculatePriority(ctx sdk.Context, txData ethtx.EthereumTxData, evmKeeper *evmkeeper.Keeper) *big.Int Registered line 372 has drifted."
+
+[row.r5-115.5]
+interface = "interface.5.go-node-ante-check-and-decode-signature"
+verdict = "served"
+path = "node/ante/evm_checktx.go"
+line = 298
+symbol = "CheckAndDecodeSignature"
+evidence = "The package function decodes the signature and returns the EVM address, Pax address, public key, signer version and error. Signature unchanged: func CheckAndDecodeSignature(ctx sdk.Context, txData ethtx.EthereumTxData, chainID *big.Int, isBlockTest bool) (common.Address, sdk.AccAddress, cryptotypes.PubKey, derived.SignerVersion, error) Registered line 208 has drifted."
+
+[row.r5-115.6]
+interface = "interface.5.go-node-ante-check-nonce"
+verdict = "served"
+path = "node/ante/evm_checktx.go"
+line = 438
+symbol = "CheckNonce"
+evidence = "The package function checks the Ethereum transaction nonce and returns sdk.Context and error. Signature unchanged: func CheckNonce(ctx sdk.Context, ek *evmkeeper.Keeper, etx *ethtypes.Transaction, evmAddr common.Address) (sdk.Context, error) Registered line 326 has drifted."
+
+[row.r5-115.7]
+interface = "interface.5.go-node-ante-decorate-context"
+verdict = "served"
+path = "node/ante/evm_checktx.go"
+line = 254
+symbol = "DecorateContext"
+evidence = "The package function decorates the transaction context and returns sdk.Context. Signature unchanged: func DecorateContext(ctx sdk.Context, ek *evmkeeper.Keeper, tx sdk.Tx, txData ethtx.EthereumTxData, etx *ethtypes.Transaction, sender common.Address, paxSender sdk.AccAddress) sdk.Context Registered line 164 has drifted."
+
+[row.r5-115.8]
+interface = "interface.5.go-node-ante-evm-check-and-charge-fees"
+verdict = "served"
+path = "node/ante/evm_checktx.go"
+line = 343
+symbol = "EvmCheckAndChargeFees"
+evidence = "The package function checks and charges EVM fees with signer version and statelessChecks, returning *state.DBImpl and error. Signature unchanged: func EvmCheckAndChargeFees(ctx sdk.Context, sender common.Address, ek *evmkeeper.Keeper, upgradeKeeper *upgradekeeper.Keeper, txData ethtx.EthereumTxData, etx *ethtypes.Transaction, msg *evmtypes.MsgEVMTransaction, version derived.SignerVersion, statelessChecks bool) (*state.DBImpl, error) Registered line 253 has drifted."
+
+[row.r5-115.9]
+interface = "interface.5.go-node-ante-handle-associate-tx"
+verdict = "served"
+path = "node/ante/evm_checktx.go"
+line = 274
+symbol = "HandleAssociateTx"
+evidence = "The package function handles *ethtx.AssociateTx with readOnly and returns sdk.Context and error. Signature unchanged: func HandleAssociateTx(ctx sdk.Context, ek *evmkeeper.Keeper, atx *ethtx.AssociateTx, readOnly bool) (sdk.Context, error) Registered line 184 has drifted."
+
+[row.r5-115.10]
+interface = "interface.5.go-node-ante-is-account-balance-positive"
+verdict = "served"
+path = "node/ante/evm_checktx.go"
+line = 454
+symbol = "IsAccountBalancePositive"
+evidence = "The package function checks Pax and EVM address balances and returns bool. Signature unchanged: func IsAccountBalancePositive(ctx sdk.Context, evmKeeper *evmkeeper.Keeper, paxAddr sdk.AccAddress, evmAddr common.Address) bool Registered line 342 has drifted."
+
+[row.r5-115.11]
+interface = "interface.5.go-node-app-app-codec"
+verdict = "served"
+path = "node/app.go"
+line = 3249
+symbol = "AppCodec"
+evidence = "The *App method returns codec.Codec; the preceding AppCodec comment is not its declaration. Signature unchanged: func (app *App) AppCodec() codec.Codec Registered line 2974 has drifted."
+
+[row.r5-115.12]
+interface = "interface.5.go-node-app-blacklisted-acc-addrs"
+verdict = "served"
+path = "node/app.go"
+line = 3873
+symbol = "BlacklistedAccAddrs"
+evidence = "The *App method returns map[string]bool; earlier bank keeper initialization occurrences call it. Signature unchanged: func (app *App) BlacklistedAccAddrs() map[string]bool Registered line 3483 has drifted."
+
+[row.r5-115.13]
+interface = "interface.5.go-node-app-cache-context"
+verdict = "served"
+path = "node/app.go"
+line = 2182
+symbol = "CacheContext"
+evidence = "The *App method returns sdk.Context and sdk.CacheMultiStore; the later app.CacheContext occurrence is a call. Signature unchanged: func (app *App) CacheContext(ctx sdk.Context) (sdk.Context, sdk.CacheMultiStore) Registered line 1965 has drifted."
+
+[row.r5-115.14]
+interface = "interface.5.go-node-app-clear-optimistic-processing-info"
+verdict = "served"
+path = "node/app.go"
+line = 1681
+symbol = "ClearOptimisticProcessingInfo"
+evidence = "The *App method clears optimistic processing information with no arguments or return values. Signature unchanged: func (app *App) ClearOptimisticProcessingInfo() Registered line 1527 has drifted."
+
+[row.r5-115.15]
+interface = "interface.5.go-node-app-close"
+verdict = "served"
+path = "node/app.go"
+line = 1441
+symbol = "Close"
+evidence = "The *App Close method returns error; BaseApp.Close and resource Close calls are not this declaration. Signature unchanged: func (app *App) Close() error Registered line 1321 has drifted."
+
+[row.r5-115.16]
+interface = "interface.5.go-node-app-decode-transactions-concurrently"
+verdict = "served"
+path = "node/app.go"
+line = 3079
+symbol = "DecodeTransactionsConcurrently"
+evidence = "The *App method decodes [][]byte transactions with sdk.Context and returns []sdk.Tx. Signature unchanged: func (app *App) DecodeTransactionsConcurrently(ctx sdk.Context, txs [][]byte) []sdk.Tx Registered line 2804 has drifted."
+
+[row.r5-115.17]
+interface = "interface.5.go-node-app-decode-tx-bytes-concurrently"
+verdict = "served"
+path = "node/app.go"
+line = 3005
+symbol = "DecodeTxBytesConcurrently"
+evidence = "The *App method decodes [][]byte transactions with context.Context and returns []sdk.Tx and error. Signature unchanged: func (app *App) DecodeTxBytesConcurrently(ctx context.Context, txs [][]byte) ([]sdk.Tx, error) Registered line 2730 has drifted."
+
+[row.r5-115.18]
+interface = "interface.5.go-node-app-deliver-tx-with-result"
+verdict = "served"
+path = "node/app.go"
+line = 1960
+symbol = "DeliverTxWithResult"
+evidence = "The *App method takes sdk.Context, raw []byte and typed sdk.Tx and returns *abci.ExecTxResult. Signature unchanged: func (app *App) DeliverTxWithResult(ctx sdk.Context, tx []byte, typedTx sdk.Tx) *abci.ExecTxResult Registered line 1743 has drifted."
+
+[row.r5-115.19]
+interface = "interface.5.go-node-app-execute-txs-concurrently"
+verdict = "served"
+path = "node/app.go"
+line = 2190
+symbol = "ExecuteTxsConcurrently"
+evidence = "The *App method takes raw and typed transactions plus firstTx, returning []*abci.ExecTxResult and sdk.Context. Signature unchanged: func (app *App) ExecuteTxsConcurrently(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) ([]*abci.ExecTxResult, sdk.Context) Registered line 1973 has drifted."
+
+[row.r5-115.20]
+interface = "interface.5.go-node-app-finalize-decoded-transactions-concurrently"
+verdict = "served"
+path = "node/app.go"
+line = 3055
+symbol = "FinalizeDecodedTransactionsConcurrently"
+evidence = "The *App method finalizes typed []sdk.Tx transactions with sdk.Context and no return values. Signature unchanged: func (app *App) FinalizeDecodedTransactionsConcurrently(ctx sdk.Context, typedTxs []sdk.Tx) Registered line 2780 has drifted."
+
+[row.r5-115.21]
+interface = "interface.5.go-node-app-get-base-app"
+verdict = "served"
+path = "node/app.go"
+line = 1632
+symbol = "GetBaseApp"
+evidence = "The *App method returns *baseapp.BaseApp via app.BaseApp; other GetBaseApp occurrences are calls. Signature unchanged: func (app *App) GetBaseApp() *baseapp.BaseApp { return app.BaseApp } Registered line 1496 has drifted."
+
+[row.r5-115.22]
+interface = "interface.5.go-node-app-get-deliver-tx-entry"
+verdict = "served"
+path = "node/app.go"
+line = 2206
+symbol = "GetDeliverTxEntry"
+evidence = "The *App method accepts txIndex, raw bytes and sdk.Tx and returns named res *sdk.DeliverTxEntry. Signature unchanged: func (app *App) GetDeliverTxEntry(ctx sdk.Context, txIndex int, bz []byte, tx sdk.Tx) (res *sdk.DeliverTxEntry) Registered line 1989 has drifted."
+
+[row.r5-115.23]
+interface = "interface.5.go-node-app-get-evm-msg"
+verdict = "served"
+path = "node/app.go"
+line = 2987
+symbol = "GetEVMMsg"
+evidence = "The *App method accepts sdk.Tx and returns named res *evmtypes.MsgEVMTransaction. Signature unchanged: func (app *App) GetEVMMsg(tx sdk.Tx) (res *evmtypes.MsgEVMTransaction) Registered line 2712 has drifted."
+
+[row.r5-115.24]
+interface = "interface.5.go-node-app-get-key"
+verdict = "served"
+path = "node/app.go"
+line = 3261
+symbol = "GetKey"
+evidence = "The *App method maps storeKey string to *sdk.KVStoreKey; the GetKey comment is not the declaration. Signature unchanged: func (app *App) GetKey(storeKey string) *sdk.KVStoreKey Registered line 2986 has drifted."
+
+[row.r5-115.25]
+interface = "interface.5.go-node-app-get-mem-key"
+verdict = "served"
+path = "node/app.go"
+line = 3275
+symbol = "GetMemKey"
+evidence = "The *App method maps storeKey string to *sdk.MemoryStoreKey; the GetMemKey comment is not the declaration. Signature unchanged: func (app *App) GetMemKey(storeKey string) *sdk.MemoryStoreKey Registered line 3000 has drifted."
+
+[row.r5-115.26]
+interface = "interface.5.go-node-app-get-optimistic-processing-info"
+verdict = "served"
+path = "node/app.go"
+line = 1675
+symbol = "GetOptimisticProcessingInfo"
+evidence = "The *App method returns OptimisticProcessingInfo; the later hash comparison calls it. Signature unchanged: func (app *App) GetOptimisticProcessingInfo() OptimisticProcessingInfo Registered line 1521 has drifted."
+
+[row.r5-115.27]
+interface = "interface.5.go-node-app-get-precompile-keepers"
+verdict = "served"
+path = "node/app.go"
+line = 3899
+symbol = "GetPrecompileKeepers"
+evidence = "The *App method returns putils.Keepers; custom precompile setup and the later keepers assignment call it. Signature unchanged: func (app *App) GetPrecompileKeepers() putils.Keepers Registered line 3492 has drifted."
+
+[row.r5-115.28]
+interface = "interface.5.go-node-app-get-state-store"
+verdict = "served"
+path = "node/app.go"
+line = 1635
+symbol = "GetStateStore"
+evidence = "The *App method returns paxdb.StateStore via app.stateStore; HTTP and WebSocket RPC setup occurrences call it. Signature unchanged: func (app *App) GetStateStore() paxdb.StateStore { return app.stateStore } Registered line 1499 has drifted."
+
+[row.r5-115.29]
+interface = "interface.5.go-node-app-get-subspace"
+verdict = "served"
+path = "node/app.go"
+line = 3282
+symbol = "GetSubspace"
+evidence = "The *App method maps moduleName string to paramstypes.Subspace; ParamsKeeper.GetSubspace in its body is another method. Signature unchanged: func (app *App) GetSubspace(moduleName string) paramstypes.Subspace Registered line 3007 has drifted."
+
+[row.r5-115.30]
+interface = "interface.5.go-node-app-get-t-key"
+verdict = "served"
+path = "node/app.go"
+line = 3268
+symbol = "GetTKey"
+evidence = "The *App method maps storeKey string to *sdk.TransientStoreKey; the GetTKey comment is not the declaration. Signature unchanged: func (app *App) GetTKey(storeKey string) *sdk.TransientStoreKey Registered line 2993 has drifted."
