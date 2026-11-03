@@ -29,6 +29,9 @@ func validEnv(t *testing.T) {
 
 func TestLoadValidWithDefaults(t *testing.T) {
 	validEnv(t)
+	for _, key := range []string{"CHAIN_ID", "LOG_LEVEL", "NODE_ENV", "PORT", "RPC_URL_FALLBACK"} {
+		t.Setenv(key, "")
+	}
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error: %v", err)
