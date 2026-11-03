@@ -1,0 +1,5 @@
+[disposition.3.54.7.1]
+finding = "3.54.7.1"
+status = "resolved"
+evidence = "Commit b1f0c1b59d0bef95c1f6c3b7b2b94bbad1abfc56 added the CollateralDeposited action mapping retained at services/platform/perps-data/internal/explorer/explorer.go:46 and deposit account and amount storage at services/platform/perps-data/internal/store/facts.go:700, with the seventh action documented at spec/release-v6-12-0/contracts/data-services.md:653 so txQuery can return the indexed deposit transaction for its history link."
+follow_up = "closure"
