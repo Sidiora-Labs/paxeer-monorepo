@@ -146827,7 +146827,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.7.5]
 title = "Make the receipt log subscription test complete its WebSocket handshake"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.7.3", "22.7.4"]
