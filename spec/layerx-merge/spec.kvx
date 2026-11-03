@@ -229829,7 +229829,7 @@ do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible)
 
 [task.22.98.105]
 title = "Reconcile interface registry rows: GOTCHA.kvx and docs/runbooks part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -229859,7 +229859,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.104]
 title = "Reconcile interface registry rows: tools/qualification part 6"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -229889,7 +229889,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.103]
 title = "Reconcile interface registry rows: tools/paxeer-x part 5"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230609,7 +230609,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.79]
 title = "Reconcile interface registry rows: services/wallet part 6"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230669,7 +230669,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.77]
 title = "Reconcile interface registry rows: sdk/wallet part 4"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230699,7 +230699,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.76]
 title = "Reconcile interface registry rows: sdk/wallet part 3"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230759,7 +230759,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.74]
 title = "Reconcile interface registry rows: apps/wallet part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230789,7 +230789,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.73]
 title = "Reconcile interface registry rows: services/interop part 4"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230819,7 +230819,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.72]
 title = "Reconcile interface registry rows: services/interop part 3"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230849,7 +230849,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.71]
 title = "Reconcile interface registry rows: services/interop part 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230879,7 +230879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.70]
 title = "Reconcile interface registry rows: services/interop part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230969,7 +230969,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.67]
 title = "Reconcile interface registry rows: services/human part 3"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230999,7 +230999,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.66]
 title = "Reconcile interface registry rows: services/human part 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -231029,7 +231029,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.65]
 title = "Reconcile interface registry rows: services/human part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -231089,7 +231089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.63]
 title = "Reconcile interface registry rows: services/agent part 14"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -231149,7 +231149,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.61]
 title = "Reconcile interface registry rows: services/agent part 12"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -231179,7 +231179,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.60]
 title = "Reconcile interface registry rows: services/agent part 11"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -231209,7 +231209,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.59]
 title = "Reconcile interface registry rows: services/agent part 10"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
