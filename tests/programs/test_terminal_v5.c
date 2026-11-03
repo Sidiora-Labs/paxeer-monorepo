@@ -100,8 +100,9 @@ static int v5_refusal_detail(const lxp_receipt *receipt, unsigned int variant)
         payload.length == offset + detail_length + 4U &&
         v5_u32(payload.bytes + offset + detail_length) == 0U);
     const uint8_t *detail = payload.bytes + offset;
+    /* Tag 7 denotes kernel refusal of the settlement leg. */
     if (variant == 4U) V5_CHECK(detail_length == sizeof(settlement) + 1U &&
-        memcmp(detail, settlement, sizeof(settlement)) == 0 && detail[sizeof(settlement)] == 9U);
+        memcmp(detail, settlement, sizeof(settlement)) == 0 && detail[sizeof(settlement)] == 7U);
     else V5_CHECK(variant == 5U && detail_length == sizeof(callback) + 5U &&
         memcmp(detail, callback, sizeof(callback)) == 0 && detail[sizeof(callback)] == 4U &&
         v5_u32(detail + sizeof(callback) + 1U) == (uint32_t)LXP_ERR_ARENA_EXHAUSTED);

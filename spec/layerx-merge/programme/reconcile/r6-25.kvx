@@ -1,0 +1,317 @@
+[reconcile.r6-25]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 39
+
+[row.r6-25.1]
+interface = "interface.6.cli-xweb-tx-set-params"
+verdict = "served"
+path = "modules/xweb/client/cli/tx.go"
+line = 146
+symbol = "set-params [fee] [max-payload-bytes] [max-callback-gas] [timeout-blocks] --kernel-network-id [id] --program-fee-denoms [denoms]"
+evidence = "The Use string now adds required --kernel-network-id and --program-fee-denoms flags to the four positional arguments. NewSetParamsCmd reads both flags and fills KernelNetworkId and ProgramFeeDenoms in MsgSetParams at lines 184-187."
+
+[row.r6-25.2]
+interface = "interface.6.go-xweb-keeper-initgenesis-j37"
+verdict = "served"
+path = "modules/xweb/keeper/genesis.go"
+line = 12
+symbol = "InitGenesis"
+evidence = "func (k Keeper) InitGenesis(ctx sdk.Context, genesis types.GenesisState) retains its signature; GenesisState now includes origin-2 records. It validates pending records, imports ProgramPending, ProgramAnswers and ProgramFeeDenoms, and restores both program counters at lines 39-49."
+
+[row.r6-25.3]
+interface = "interface.6.go-xweb-keeper-exportgenesis-j37"
+verdict = "served"
+path = "modules/xweb/keeper/genesis.go"
+line = 53
+symbol = "ExportGenesis"
+evidence = "func (k Keeper) ExportGenesis(ctx sdk.Context) types.GenesisState retains its signature; the returned GenesisState now exports ProgramPending, ProgramAnswers, ProgramFeeDenoms, ProgramPendingCount and ProgramCommittedCount at lines 61-65."
+
+[row.r6-25.4]
+interface = "interface.6.go-xweb-keeper-requestfromprogram-j37"
+verdict = "served"
+path = "modules/xweb/keeper/program.go"
+line = 193
+symbol = "RequestFromProgram"
+evidence = "func (k Keeper) RequestFromProgram(ctx sdk.Context, call *ProgramCall, topic, data []byte) error retains its signature. It now rejects an inactive ProgramOriginActive gate and persists the fee asset-to-denom mapping before storing the pending record and incrementing its counter."
+
+[row.r6-25.5]
+interface = "interface.6.go-xweb-keeper-fulfilprogram-j37"
+verdict = "served"
+path = "modules/xweb/keeper/program_fulfil.go"
+line = 116
+symbol = "FulfilProgram"
+evidence = "func (k Keeper) FulfilProgram(ctx sdk.Context, raw []byte) error retains its signature. It now checks ProgramOriginActive before decoding; splitProgramFee reads the persisted ProgramFeeDenom rather than probing balances, and cached writes update pending and committed counters atomically."
+
+[row.r6-25.6]
+interface = "interface.6.go-xweb-appmodulebasic-j37"
+verdict = "served"
+path = "modules/xweb/module.go"
+line = 33
+symbol = "AppModuleBasic"
+evidence = "type AppModuleBasic struct{} remains unchanged in shape. Its GetQueryCmd now returns cli.GetQueryCmd(), and RegisterGRPCGatewayRoutes registers the generated Query handler client instead of leaving the gateway empty."
+
+[row.r6-25.7]
+interface = "interface.6.go-xweb-appmodule-j37"
+verdict = "served"
+path = "modules/xweb/module.go"
+line = 82
+symbol = "AppModule"
+evidence = "type AppModule struct still embeds AppModuleBasic and holds keeper.Keeper. RegisterServices now registers both Msg and Query servers; RegisterInvariants now registers the program-counters route with keeper.ProgramCountersInvariant."
+
+[row.r6-25.8]
+interface = "interface.6.go-xweb-types-genesisstate-j37"
+verdict = "served"
+path = "modules/xweb/types/genesis.go"
+line = 36
+symbol = "GenesisState"
+evidence = "type GenesisState struct now adds ProgramPending []ProgramPendingEntry, ProgramAnswers []ProgramAnswerEntry, ProgramFeeDenoms []ProgramFeeDenomEntry and uint64 ProgramPendingCount and ProgramCommittedCount; the existing origin-1 fields remain."
+
+[row.r6-25.9]
+interface = "interface.6.gen-xweb-paused-j37"
+verdict = "served"
+path = "modules/xweb/types/genesis.go"
+line = 38
+symbol = "Paused"
+evidence = "GenesisState still declares Paused bool with JSON key paused; DefaultGenesis sets Paused: true at line 56."
+
+[row.r6-25.10]
+interface = "interface.6.gen-xweb-attestors-j37"
+verdict = "served"
+path = "modules/xweb/types/genesis.go"
+line = 39
+symbol = "Attestors"
+evidence = "GenesisState still declares Attestors AttestorSet with JSON key attestors; Validate invokes g.Attestors.Validate()."
+
+[row.r6-25.11]
+interface = "interface.6.gen-xweb-nonce-j37"
+verdict = "served"
+path = "modules/xweb/types/genesis.go"
+line = 40
+symbol = "Nonce"
+evidence = "GenesisState still declares Nonce uint64 with JSON key nonce, and validates request IDs against it."
+
+[row.r6-25.12]
+interface = "interface.6.gen-xweb-requests-j37"
+verdict = "served"
+path = "modules/xweb/types/genesis.go"
+line = 41
+symbol = "Requests"
+evidence = "GenesisState still declares Requests []Request with JSON key requests; program-origin entries are separate fields."
+
+[row.r6-25.13]
+interface = "interface.6.gen-xweb-results-j37"
+verdict = "served"
+path = "modules/xweb/types/genesis.go"
+line = 42
+symbol = "Results"
+evidence = "GenesisState still declares Results []Result with JSON key results; existing origin-1 results remain in the export."
+
+[row.r6-25.14]
+interface = "interface.6.go-xweb-types-kindfetch-j37"
+verdict = "served"
+path = "modules/xweb/types/state.go"
+line = 49
+symbol = "KindFetch"
+evidence = "The request-kind constant remains KindFetch uint8 = 1; KnownKind continues to accept it."
+
+[row.r6-25.15]
+interface = "interface.6.go-xweb-types-kindsearch-j37"
+verdict = "served"
+path = "modules/xweb/types/state.go"
+line = 50
+symbol = "KindSearch"
+evidence = "The request-kind constant remains KindSearch uint8 = 2; KnownKind continues to accept it."
+
+[row.r6-25.16]
+interface = "interface.6.go-xweb-types-kindapi-j37"
+verdict = "served"
+path = "modules/xweb/types/state.go"
+line = 51
+symbol = "KindApi"
+evidence = "The request-kind constant remains KindApi uint8 = 3; KnownKind continues to accept it."
+
+[row.r6-25.17]
+interface = "interface.6.gen-xweb-param-authority-j37"
+verdict = "served"
+path = "modules/xweb/types/state.go"
+line = 101
+symbol = "Authority"
+evidence = "Params still declares Authority string with JSON key authority; DefaultParams copies its authority argument into this field."
+
+[row.r6-25.18]
+interface = "interface.6.gen-xweb-param-fee-j37"
+verdict = "served"
+path = "modules/xweb/types/state.go"
+line = 102
+symbol = "Fee"
+evidence = "Params still declares Fee sdk.Int with JSON key fee; DefaultParams uses DefaultFee(), which returns sdk.NewInt(1_000_000)."
+
+[row.r6-25.19]
+interface = "interface.6.gen-xweb-param-max-payload-bytes-j37"
+verdict = "served"
+path = "modules/xweb/types/state.go"
+line = 103
+symbol = "MaxPayloadBytes"
+evidence = "Params still declares MaxPayloadBytes uint32 with JSON key max_payload_bytes; the default is 8192 and PayloadBytesLimit is 16384."
+
+[row.r6-25.20]
+interface = "interface.6.gen-xweb-param-max-callback-gas-j37"
+verdict = "served"
+path = "modules/xweb/types/state.go"
+line = 104
+symbol = "MaxCallbackGas"
+evidence = "Params still declares MaxCallbackGas uint64 with JSON key max_callback_gas; the default is 500_000 and CallbackGasLimit is 5_000_000."
+
+[row.r6-25.21]
+interface = "interface.6.gen-xweb-param-timeout-blocks-j37"
+verdict = "served"
+path = "modules/xweb/types/state.go"
+line = 105
+symbol = "TimeoutBlocks"
+evidence = "Params still declares TimeoutBlocks uint64 with JSON key timeout_blocks; DefaultTimeoutBlocks remains 3600."
+
+[row.r6-25.22]
+interface = "interface.6.gen-xweb-param-kernel-network-id-j37"
+verdict = "served"
+path = "modules/xweb/types/state.go"
+line = 106
+symbol = "KernelNetworkId"
+evidence = "Params still declares KernelNetworkId uint32 with JSON key kernel_network_id; Validate accepts an unset pair or calls ValidateProgramSettings."
+
+[row.r6-25.23]
+interface = "interface.6.gen-xweb-param-program-fee-denoms-j37"
+verdict = "served"
+path = "modules/xweb/types/state.go"
+line = 107
+symbol = "ProgramFeeDenoms"
+evidence = "Params still declares ProgramFeeDenoms []string with JSON key program_fee_denoms; the allowed program fee denoms remain the four mapped assets."
+
+[row.r6-25.24]
+interface = "interface.6.cfg-v6120-next-spot"
+verdict = "served"
+path = "node/app.go"
+line = 3933
+symbol = "NewServedSet"
+evidence = "The registered spot factory call changed from spotprecompile.NewPrecompileSet(keepers) to spotprecompile.NewServedSet(keepers). precompiles/spot/setup.go:9 returns map[common.Address]*Precompile, wrapping each raw rail; node/app.go:3942-3943 installs those served contracts into next."
+
+[row.r6-25.25]
+interface = "interface.6.cfg-giga-failfast"
+verdict = "served"
+path = "node/giga_v6120.go"
+line = 17
+symbol = "gigaV6120FailFast"
+evidence = "var gigaV6120FailFast = map[common.Address]vm.PrecompiledContract{} retains its type. Its initializer now copies AllCustomPrecompilesFailFastMerge instead of the late set, then adds the v6.12.0 pricefeed and five spot addresses as FailFastSingleton."
+
+[row.r6-25.26]
+interface = "interface.6.cfg-merge-upgrade-node"
+verdict = "served"
+path = "node/upgrades.go"
+line = 127
+symbol = "MergeUpgrade"
+evidence = "The declaration changed from const MergeUpgrade = \"v7.0\" to const MergeUpgrade = pcommon.MergeUpgrade. Node upgrade handlers and activation gates now use the common plan constant rather than an independent literal."
+
+[row.r6-25.27]
+interface = "interface.6.cfg-merge-gate"
+verdict = "served"
+path = "node/upgrades.go"
+line = 592
+symbol = "mergePrecompileGate"
+evidence = "func mergePrecompileGate() evmkeeper.CustomPrecompileActivation retains its signature. Its Modules map now gates addresses by required module names, including chains at 0x101E and the module dependencies of the eight agent-function addresses, with Upgrade: MergeUpgrade."
+
+[row.r6-25.28]
+interface = "interface.6.cfg-merge-upgrade-precompiles"
+verdict = "served"
+path = "precompiles/setup.go"
+line = 57
+symbol = "MergeUpgrade"
+evidence = "The declaration changed from const MergeUpgrade = \"v7.0\" to const MergeUpgrade = pcommon.MergeUpgrade. Merge precompile versions now share the same plan constant as node/upgrades.go and precompiles/common/precompiles.go."
+
+[row.r6-25.29]
+interface = "interface.6.go-pc-setup-getcustomprecompiles-j34"
+verdict = "served"
+path = "precompiles/setup.go"
+line = 275
+symbol = "GetCustomPrecompiles"
+evidence = "func GetCustomPrecompiles(latestUpgrade string, keepers utils.Keepers) map[ecommon.Address]utils.VersionedPrecompiles retains its public signature. It now wraps GetCustomPrecompilesE and panics on its error; the error-returning implementation validates merge constructors before returning the registry."
+
+[row.r6-25.30]
+interface = "interface.6.cfg-serve-merge"
+verdict = "served"
+path = "precompiles/setup.go"
+line = 325
+symbol = "for _, p := range merge {"
+evidence = "The loop still assigns custom[p.Address()] = utils.VersionedPrecompiles{latestUpgrade: p, MergeUpgrade: p}; it now lives in GetCustomPrecompilesE, whose newMergePrecompiles call returns an error on unavailable constructors instead of silently producing an incomplete set."
+
+[row.r6-25.31]
+interface = "interface.6.go-pc-setup-getprecompileinfo-j34"
+verdict = "served"
+path = "precompiles/setup.go"
+line = 528
+symbol = "GetPrecompileInfo"
+evidence = "func GetPrecompileInfo(name string) PrecompileInfo retains its signature. It now calls GetPrecompileInfoE(name), panics on the returned error and returns the validated info; lookup and ABI validation are handled by the error-returning function."
+
+[row.r6-25.32]
+interface = "interface.6.cfg-precompile-last-upgrade"
+verdict = "retired"
+path = "precompiles/setup.go"
+line = 401
+symbol = "PrecompileLastUpgrade"
+evidence = "PrecompileLastUpgrade is absent from precompiles/setup.go. A repository-wide search excluding spec and docs found one remaining file, precompiles/setup_retire_test.go, which asserts that setup.go declares no such identifier; no production references remain."
+remaining_refs = 1
+remaining = ["precompiles/setup_retire_test.go:17"]
+
+[row.r6-25.33]
+interface = "interface.6.pc-0x1001-err-lxp-asset-paused"
+verdict = "served"
+path = "precompiles/bank/bank.go"
+line = 194
+symbol = "AssetPausedCode"
+evidence = "The refusal code changed from the inline literal LXP_ASSET_PAUSED to ledgertypes.AssetPausedCode in assetPausedRefusal. modules/layerxledger/types/errors.go:11 defines that constant as the same wire literal; the refusal also retains err.Error() as its detail."
+
+[row.r6-25.34]
+interface = "interface.6.pc-0x1001-err-lxp-precompile-invalid-addr"
+verdict = "served"
+path = "precompiles/bank/bank.go"
+line = 210
+symbol = "LXP_PRECOMPILE_INVALID_ADDR"
+evidence = "invalidAddrRefusal still returns refusal{code: \"LXP_PRECOMPILE_INVALID_ADDR\", err: err}. It now accepts legacyErr ...error to preserve the supplied legacy error, otherwise constructing errors.New(\"invalid addr\"); the wire code is unchanged."
+
+[row.r6-25.35]
+interface = "interface.6.err-rev-lxp-asset-paused"
+verdict = "served"
+path = "precompiles/common/lxp_errors.go"
+line = 93
+symbol = "AssetPausedCode"
+evidence = "The registry entry now uses ledgertypes.AssetPausedCode rather than an inline LXP_ASSET_PAUSED literal, with message: \"asset paused\", kernel: true and value: -403 unchanged. The shared constant is declared in modules/layerxledger/types/errors.go:11."
+
+[row.r6-25.36]
+interface = "interface.6.err-rev-lxp-arbiter-required"
+verdict = "served"
+path = "precompiles/common/lxp_errors.go"
+line = 155
+symbol = "LXP_ARBITER_REQUIRED"
+evidence = "The LXP_ARBITER_REQUIRED entry retains message: \"arbiter required\" and now adds kernel: true, value: -737, making the service-dispute result a numeric kernel error."
+
+[row.r6-25.37]
+interface = "interface.6.err-rev-lxp-unauthorized-arbiter"
+verdict = "served"
+path = "precompiles/common/lxp_errors.go"
+line = 156
+symbol = "LXP_UNAUTHORIZED_ARBITER"
+evidence = "The LXP_UNAUTHORIZED_ARBITER entry retains message: \"unauthorized arbiter\" and now adds kernel: true, value: -738, making the service-dispute result a numeric kernel error."
+
+[row.r6-25.38]
+interface = "interface.6.err-rev-lxp-escrow-link-mismatch"
+verdict = "served"
+path = "precompiles/common/lxp_errors.go"
+line = 157
+symbol = "LXP_ESCROW_LINK_MISMATCH"
+evidence = "The LXP_ESCROW_LINK_MISMATCH entry retains message: \"escrow link mismatch\" and now adds kernel: true, value: -739, making the service-dispute result a numeric kernel error."
+
+[row.r6-25.39]
+interface = "interface.6.go-pc-common-dynamicgasprecompile-runandcalculategas-j34"
+verdict = "served"
+path = "precompiles/common/precompiles.go"
+line = 360
+symbol = "RunAndCalculateGas"
+evidence = "func (d DynamicGasPrecompile) RunAndCalculateGas retains all parameters and named returns (ret []byte, remainingGas uint64, err error). Its deferred error handler no longer prints failed calls to stdout; it records HandlePrecompileError, optionally produces gated revert data, and maps failures to vm.ErrExecutionReverted."

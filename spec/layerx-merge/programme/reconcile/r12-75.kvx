@@ -1,0 +1,27 @@
+[reconcile.r12-75]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 3
+
+[row.r12-75.1]
+interface = "interface.12.ts-app-use-module-send"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 174
+symbol = "useModuleSend"
+evidence = "export function useModuleSend remains in the registered file. The registry's abbreviated signature now resolves to (surfaceModule: SurfaceModule | null, provider: ModuleProvider | null, address: string | null, fee?: FeeSelection, approval?: (owner: string, tx: ModuleTransaction) => Promise<ModuleTransaction | undefined>): ModuleSend. Lines 203-233 consume sendModuleTransactionReceipted answers and decode surfaceReceipt; the sponsored hash path waits for a receipted sequencer answer instead of polling eth_getTransactionReceipt."
+
+[row.r12-75.2]
+interface = "interface.12.ts-app-fee-selection"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 249
+symbol = "FeeSelection"
+evidence = "export interface FeeSelection retains its registered declaration name; the current member signatures expose preferenceRung: SequencerRung | null and applyPreference: () => Promise<void>, alongside sponsored preparation, approval, recovery, settlement and submission operations. Lines 353-375 await sendModuleTransactionReceipted, retain the receipt rung, require confirmed status and await the fee-denom read before clearing updating."
+
+[row.r12-75.3]
+interface = "interface.12.ts-app-use-fee-selection"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 314
+symbol = "useFeeSelection"
+evidence = "export function useFeeSelection(provider: ModuleProvider | null, address: string | null): FeeSelection keeps the registered parameter and return signature, now split across lines 314-317. Its returned FeeSelection contract includes preferenceRung and sponsored transaction operations. The applyPreference callback awaits the signed sequencer receipt, checks confirmation and refreshes feeDenom before resetting updating; the old line 228 has drifted."
