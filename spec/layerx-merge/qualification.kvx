@@ -19763,3 +19763,91 @@ symbol = "EvmPrepared"
 observed = "9.35.17 added from, disclosure and disclosure_digest to EvmPrepared and removed authorization from SigningPreparation; session_keys.rs:263 and :269 still build the previous shapes, so the layerx-human-service test target fails to compile on main (21.45.1 attempt 13)."
 assumption = "The task's verify did not build the human service tests; task 22.95.11 migrates the test."
 severity = "major"
+
+[finding.22.96.5.1]
+task = "22.96.5"
+file = "apps/perps/pnpm-lock.yaml"
+symbol = "lock"
+observed = "The task's published commit deleted apps/perps/pnpm-lock.yaml (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.6.1]
+task = "22.96.6"
+file = "apps/wallet/pnpm-lock.yaml"
+symbol = "lock"
+observed = "The task's published commit deleted apps/wallet/pnpm-lock.yaml (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.7.1]
+task = "22.96.7"
+file = "contracts/bridge/solana/Cargo.lock"
+symbol = "lock"
+observed = "The task's published commit deleted contracts/bridge/solana/Cargo.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.24.17.1]
+task = "22.24.17"
+file = "services/launchpad/api/go.sum"
+symbol = "lock"
+observed = "The task's published commit deleted services/launchpad/api/go.sum (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.22.1]
+task = "22.96.22"
+file = "services/explorer/backend/apps/block_scout_web/assets/package-lock.json"
+symbol = "lock"
+observed = "The task's published commit deleted services/explorer/backend/apps/block_scout_web/assets/package-lock.json (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.23.1]
+task = "22.96.23"
+file = "services/explorer/backend/apps/explorer/package-lock.json"
+symbol = "lock"
+observed = "The task's published commit deleted services/explorer/backend/apps/explorer/package-lock.json (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.24.1]
+task = "22.96.24"
+file = "services/explorer/services/libs/blockscout-client/yarn.lock"
+symbol = "lock"
+observed = "The task's published commit deleted services/explorer/services/libs/blockscout-client/yarn.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.90.4.1]
+task = "22.90.4"
+file = "services/human/crates/layerx-intents/fuzz/Cargo.lock"
+symbol = "lock"
+observed = "The task's published commit deleted services/human/crates/layerx-intents/fuzz/Cargo.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.26.1]
+task = "22.96.26"
+file = "tests/integration/dapp_tests/package-lock.json"
+symbol = "lock"
+observed = "The task's published commit deleted tests/integration/dapp_tests/package-lock.json (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.28.1]
+task = "22.96.28"
+file = "tools/wasm-tools/Cargo.lock"
+symbol = "lock"
+observed = "The task's published commit deleted tools/wasm-tools/Cargo.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.29.1]
+task = "22.96.29"
+file = "wasm-runtime/libwasmvm/Cargo.lock"
+symbol = "lock"
+observed = "The task's published commit deleted wasm-runtime/libwasmvm/Cargo.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
