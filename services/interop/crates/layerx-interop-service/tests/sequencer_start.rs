@@ -205,13 +205,18 @@ fn service_starts_against_a_loopback_sequencer() -> TestResult {
     let sequencer = TcpListener::bind("127.0.0.1:0")?;
     sequencer.set_nonblocking(true)?;
     let endpoint = sequencer.local_addr()?;
-    let mut receipt_keys = fixture.receipt_keys.clone();
-    for key in receipt_keys.as_array_mut().ok_or("receipt keys")? {
-        for field in ["firstHeight", "lastHeight"] {
-            let height = key[field].as_u64().ok_or("receipt key height")?;
-            key[field] = json!(format!("{height:#x}"));
-        }
-    }
+    let receipt_keys = json!({"keys": fixture.receipt_keys});
+    let decoded = layerx_client::sequencer::decode_receipt_keys(&receipt_keys)
+        .map_err(|error| format!("fixture receipt keys: {error:?}"))?;
+    assert_eq!(decoded.len(), 1);
+    assert_eq!(decoded[0].key_id, [0x11; 32]);
+    assert_eq!(
+        decoded[0].public_key,
+        ed25519_dalek::SigningKey::from_bytes(&[7; 32])
+            .verifying_key()
+            .to_bytes()
+    );
+    assert_eq!((decoded[0].first_height, decoded[0].last_height), (1, 100));
     let rpc = thread::spawn(move || -> Result<(), String> {
         let deadline = Instant::now() + TIMEOUT;
         let mut stream = loop {

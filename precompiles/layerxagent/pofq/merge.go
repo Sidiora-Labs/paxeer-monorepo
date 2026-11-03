@@ -22,6 +22,9 @@ func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPr
 	if keepers == nil {
 		return nil, fmt.Errorf("%w: precompile keepers are unavailable", agentcommon.ErrNoContext)
 	}
+	if planName == "" {
+		return nil, fmt.Errorf("%w: no merge upgrade activation reader bound", agentcommon.ErrNotActive)
+	}
 	evmKeeper, ok := keepers.EVMK().(*evmkeeper.Keeper)
 	if !ok || evmKeeper == nil {
 		return nil, fmt.Errorf("%w: evm keeper is unavailable", agentcommon.ErrNoContext)

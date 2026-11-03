@@ -12,7 +12,7 @@ func TestLXPAgentRowsRegistered(t *testing.T) {
 		code    string
 		message string
 	}{
-		{code: "LXP_AGENT_NOT_ACTIVE", message: "merge-plan not active"},
+		{code: "LXP_AGENT_NOT_ACTIVE", message: "agent function not active"},
 		{code: "LXP_AGENT_SCHEDULER_CALLDATA_TOO_LARGE", message: "scheduler calldata too large"},
 	} {
 		t.Run(row.code, func(t *testing.T) {
