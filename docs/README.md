@@ -24,6 +24,7 @@ Paxeer X chain RPC references. The hosted documentation is
 | [wiki/Roadmap.md](wiki/Roadmap.md) | Beta surface expansion (in development, not shipped) |
 | [MONOREPO.md](MONOREPO.md) | Monorepo layout, build boundaries, and release tags |
 | [QUALIFICATION.md](QUALIFICATION.md) | Evidence levels layered by risk |
+| [Perps ABI change history](perps-abi-change-history.md) | Decision commit scope, the separate SDK implementation, and outstanding follow-up tasks |
 | [readme/](readme/) | Translations of the root README |
 | [runbooks/paxeer-x-fork.md](runbooks/paxeer-x-fork.md) | Validator runbook for the Paxeer X upgrade of the chain |
 | [paxeer-network.md](paxeer-network.md) | Paxeer X chain overview (EVM chain ID `125`) |

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import runpy
 from dataclasses import asdict, replace
 from hashlib import sha256
 from pathlib import Path
@@ -10,17 +11,19 @@ from typing import Awaitable, Callable
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from layerx_sdk.account_derivation import keccak256
 from layerx_sdk.px import PxReceiptKeyEntry
 from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt
 
+from layerx_fastapi import LayerXResource
 from layerx_fastapi.config import DeclaredConfig, read_declared_config
 from layerx_fastapi.protocol import (
     PAYMENT_RESPONSE_HEADER,
     MiddlewareError,
     MiddlewareErrorCode,
     PaymentPayload,
+    canonical_json,
     decode_settlement_header,
     encode_base64,
     encode_payment_payload_header,
@@ -266,6 +269,98 @@ def test_seller_refuses_a_settled_receipt_for_a_new_request(tmp_path: Path) -> N
         assert asyncio.run(active_seller.handle(config.principal, first_header, release)) == decision
         assert releases == [b"paid resource"]
     assert list(tmp_path.glob("*.json")) == [record]
+
+
+def test_example_repository_refuses_settled_receipt_reuse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw, signed, key, digest, config = _fixture()
+    resource_file = tmp_path / "resource.json"
+    resource_file.write_bytes(b'{"paid":true}')
+    directory = tmp_path / "fulfillments"
+    environment = {
+        "LAYERX_PRINCIPAL": config.principal,
+        "LAYERX_PROTECTED_PATH": config.protected_path,
+        "LAYERX_RESOURCE_URL": config.payment_required.resource.url,
+        "LAYERX_X402_SCHEME": config.requirements.scheme,
+        "LAYERX_X402_NETWORK": config.requirements.network,
+        "LAYERX_PRICE": config.requirements.amount,
+        "LAYERX_ASSET": config.requirements.asset,
+        "LAYERX_PAY_TO": config.requirements.pay_to,
+        "LAYERX_PAYMENT_TIMEOUT_SECONDS": str(config.requirements.max_timeout_seconds),
+        "LAYERX_RECEIPT_KEYS_JSON": json.dumps(
+            [
+                {
+                    "keyId": encode_base64(bytes.fromhex(key.key_id)),
+                    "publicKey": encode_base64(bytes.fromhex(key.public_key)),
+                    "firstHeight": key.first_height,
+                    "lastHeight": key.last_height,
+                }
+            ]
+        ),
+        "LAYERX_WEBHOOK_PATH": config.webhook.path,
+        "LAYERX_WEBHOOK_PUBLIC_KEYS_JSON": json.dumps(
+            {name: encode_base64(value) for name, value in config.webhook.public_keys.items()}
+        ),
+        "LAYERX_RESOURCE_FILE": str(resource_file),
+        "LAYERX_FULFILLMENT_DIR": str(directory),
+    }
+    for name, value in environment.items():
+        monkeypatch.setenv(name, value)
+    example = runpy.run_path(str(ROOT / "sdk/integrations/fastapi/examples/paid_api.py"))
+    repository_type = example["FileFulfillmentRepository"]
+    first = _payload(config, raw, signed, key, digest)
+    second = replace(first, resource=replace(config.payment_required.resource, description="second"))
+    first_header = encode_payment_payload_header(first)
+    second_header = encode_payment_payload_header(second)
+    original_digest = sha256(canonical_json(first.to_wire()).encode("utf-8")).hexdigest()
+    assert first_header != second_header
+    assert parse_layerx_evidence(first.payload) == parse_layerx_evidence(second.payload)
+    releases: list[LayerXResource] = []
+
+    async def release() -> LayerXResource:
+        resource = await example["mount"].runtime.resources.release(
+            Request({"type": "http", "method": "GET", "path": "/paid", "headers": []})
+        )
+        releases.append(resource)
+        return resource
+
+    seller = SellerMiddleware(
+        config.payment_required,
+        ReceiptPayloadAuthority(config.receipt_keys),
+        repository_type(directory),
+        LayerXSignatureVerifier(),
+    )
+    decision = asyncio.run(seller.handle(config.principal, first_header, release))
+    assert isinstance(decision, ReleasedDecision)
+    assert decision.resource == LayerXResource(
+        content_type="application/json", body=resource_file.read_bytes()
+    )
+    assert decision.verification.receipt_digest.hex() == digest
+    record = directory / (idempotency_key(config.principal, decision.verification) + ".json")
+    original_record = record.read_bytes()
+    assert json.loads(original_record)["requestDigest"] == original_digest
+
+    for active_seller in (
+        seller,
+        SellerMiddleware(
+            config.payment_required,
+            ReceiptPayloadAuthority(config.receipt_keys),
+            repository_type(directory),
+            LayerXSignatureVerifier(),
+        ),
+    ):
+        with pytest.raises(HTTPException) as raised:
+            asyncio.run(active_seller.handle(config.principal, second_header, release))
+        assert raised.value.status_code == 409
+        assert raised.value.detail == "settled_receipt_reuse"
+        assert releases == [decision.resource]
+        assert record.read_bytes() == original_record
+        assert asyncio.run(active_seller.handle(config.principal, first_header, release)) == decision
+        assert releases == [decision.resource]
+        assert list(directory.glob("*.json")) == [record]
+        assert record.read_bytes() == original_record
+        assert json.loads(record.read_bytes())["requestDigest"] == original_digest
 
 
 def test_verify_payment_receipt_refuses_unpinned_key(tmp_path: Path) -> None:
