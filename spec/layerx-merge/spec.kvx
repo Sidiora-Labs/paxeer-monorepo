@@ -118009,7 +118009,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.8.11]
 title = "Build the workspace SDK and buyer middleware before their dependents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188721,7 +188721,7 @@ do_12 = "Finding at the sixth attempt: precompiles/layerxpay/gas_test.go:41-64 e
 
 [task.22.2.5]
 title = "Align the capability replay order, the retired payer-grant reader and the lxphost authority payload version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.2.4", "22.2.6", "22.25.2", "22.25.4"]
