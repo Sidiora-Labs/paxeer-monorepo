@@ -1,0 +1,5 @@
+[disposition.11.23.3.2]
+finding = "11.23.3.2"
+status = "resolved"
+evidence = "Commit abcc685514175e82fc58decc24802e799f30e883, present on origin/main, changes LocalSigner::from_config at services/interop/crates/layerx-gas-station/src/signer.rs:56 to read the raw key from the variable named by relayer_key_env through Self::from_env, matching the documented deploy inputs."
+follow_up = "closure"

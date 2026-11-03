@@ -17,10 +17,11 @@ assumption = "The build environment lacks the Protocol Buffers compiler (protoc)
 
 [target.rust-build-explorer-verifier.2]
 target = "smart-contract-verifier-proto"
-result = "failed"
-exit_code = 101
-observed = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs:37 failed during protobuf generation with Could not find `protoc`."
-assumption = "The build environment lacks the Protocol Buffers compiler (protoc) required by the protobuf dependency's build script."
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+command = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml -p smart-contract-verifier-proto --all-targets"
+result = "passed"
+exit_code = 0
+observed = "The proto crate builds with protoc 28.3 and protoc-gen-openapiv2 available on PATH."
 
 [target.rust-build-explorer-verifier.3]
 target = "verification-common"
