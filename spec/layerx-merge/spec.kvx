@@ -130463,7 +130463,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.53]
 title = "Inventory every test run of the services/human/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191127,7 +191127,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.62]
 title = "Inventory every Go package under node/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
