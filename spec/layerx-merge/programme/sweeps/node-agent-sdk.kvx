@@ -1,5 +1,5 @@
 [sweep.node-agent-sdk]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "cd TARGET && npm ci && npm run build && npm test"
 targets_total = 1
 targets_passed = 0
@@ -10,5 +10,5 @@ targets_not_run = 0
 target = "services/agent/sdk/typescript"
 result = "failed"
 exit_code = 1
-observed = "Dependency installation and the TypeScript build passed, but npm test failed at services/agent/sdk/typescript/dist/test/program-lifecycle.test.js:133 (test/program-lifecycle.test.ts:120) with AssertionError [ERR_ASSERTION]: Missing expected exception."
-assumption = "The lifecycle test likely retains an outdated expectation that guest ABI 5 is rejected by decodeNativeProgramCallV1."
+observed = "Dependency installation and the TypeScript build passed, but npm test failed at services/agent/sdk/typescript/dist/test/program-executed-v3.test.js:4:28 with ENOENT while opening sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json."
+assumption = "The program-executed-v3 test likely retains a reference to a conformance fixture absent from this revision of the repository."

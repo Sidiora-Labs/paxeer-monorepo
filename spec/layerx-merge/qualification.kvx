@@ -19619,3 +19619,43 @@ symbol = "testTx"
 observed = "The thirty regression fixtures encode their block transactions with the upstream chain's type URLs, which no codec of the repository registers; whether a debug_traceTransaction case reaches the whole-block decode of Backend.BlockByNumber depends on the cases that ran before it, so eleven cases fail or pass with the order of the package."
 assumption = "Decision 2419: isolate the cases, then re-encode the fixtures if the decode is on every case's path."
 severity = "medium"
+
+[finding.1.18.2.1]
+task = "1.18.2"
+file = "tests/programs/test_language_abi.c"
+symbol = "language_inputs"
+observed = "1.18.2 deleted include/layerx/lx_web.h and asked domain 16 only for the three web test files; tests/programs/test_language_abi.c still includes the header and commits a web observation, so the programs language ABI fixture and the terminal v5 corpus that projects it have not compiled since 285bd6769."
+assumption = "Decision 2426: 22.1.12 retires the web case from the harness; the fixture was a consumer the deletion never listed."
+severity = "high"
+
+[finding.9.33.11.1]
+task = "9.33.11"
+file = "services/agent/sdk/typescript/test/gas-station.test.ts"
+symbol = "paymaster_nonce_stream"
+observed = "9.33.11 moved discoverSponsoredNonce to the pending block tag and left the gas-station test's paymaster_nonce_stream expectations at latest; the test starts a local EVM that no qualification environment carried, so the mismatch stayed hidden until 22.9.10 attempt 16."
+assumption = "Decision 2425: the test follows the contract and asserts pending."
+severity = "medium"
+
+[finding.22.23.8.2]
+task = "22.23.8"
+file = "services/interop/crates/layerx-bridge-relayer/src/receipt.rs"
+symbol = "SequencerReceipt"
+observed = "22.23.8 added paymentDenom to the sequencer receipt view and left the relayer decoder on feeDenom; the relayer's submitted-rung mutation test now fails because the new receipted field decodes on a submitted answer, and the asset check still derives from the fee denomination."
+assumption = "Decision 2428: 22.23.14 ports the relayer decoder and its tests."
+severity = "high"
+
+[finding.22.25.3.1]
+task = "22.25.3"
+file = "services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs"
+symbol = "the_shared_sequencer_receipt_vector_decodes_and_verifies"
+observed = "22.25.3 added the V1-layerxprograms-call case to the shared receipt vector and refreshed every copy, but the relayer's shared-vector test classifies cases by id and panics on the unclassified case."
+assumption = "Decision 2428: 22.23.14 classifies the case as accepting."
+severity = "medium"
+
+[finding.22.23.8.3]
+task = "22.23.8"
+file = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+symbol = "cases"
+observed = "The regenerated fixture carries twelve cases that all pay in the base denomination, so no recorded case has a paymentDenom distinct from feeDenom and no consumer can prove the fee-token asset path against producer bytes."
+assumption = "Decision 2430: consumers prove the check on derived views; a producer task records a fee-token case in a later batch."
+severity = "medium"

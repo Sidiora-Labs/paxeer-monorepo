@@ -1,10 +1,10 @@
 [sweep.go-launchpad-modules]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "cd TARGET && go vet ./... && go test -count=1 ./..."
 targets_total = 15
 targets_passed = 0
-targets_failed = 10
-targets_not_run = 5
+targets_failed = 13
+targets_not_run = 2
 target_time_limit_seconds = 180
 
 [target.go-launchpad-modules.1]
@@ -28,21 +28,24 @@ reason = "The command exceeded its 180-second share of the 30-minute task budget
 
 [target.go-launchpad-modules.4]
 target = "services/launchpad/indexer"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its 180-second share of the 30-minute task budget and was terminated before completion."
+result = "failed"
+exit_code = 1
+observed = "internal/app/render_test.go:57 (TestRenderedProductionDocumentsBoot) failed with runtimedocs: incomplete inputs."
+assumption = "The production runtime-document fixture appears to omit inputs required by the current renderer."
 
 [target.go-launchpad-modules.5]
 target = "services/launchpad/livestream"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its 180-second share of the 30-minute task budget and was terminated before completion."
+result = "failed"
+exit_code = 1
+observed = "internal/app/development_reads_test.go:191 (TestDevelopmentDirectoryReadsServeRealEmptyStore) failed because L40_TEST_APP_POSTGRES_DSN and L40_TEST_REDIS_URL are required."
+assumption = "The environment lacks the dedicated PostgreSQL database and Redis fixture configuration required by this test."
 
 [target.go-launchpad-modules.6]
 target = "services/launchpad/metadata"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its 180-second share of the 30-minute task budget and was terminated before completion."
+result = "failed"
+exit_code = 1
+observed = "internal/app/dev_connected_test.go:115 (TestDevelopmentCreationMediaFlow) failed because METADATA_TEST_DATABASE_URL is not set and integration tests require already running PostgreSQL, Redis and S3 services."
+assumption = "The environment lacks the PostgreSQL fixture configuration required to start the metadata integration flow."
 
 [target.go-launchpad-modules.7]
 target = "services/launchpad/notifications"
