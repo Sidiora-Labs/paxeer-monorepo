@@ -1,0 +1,1227 @@
+# Pre-upgrade audit of the frozen stats-workers package, decision 2515.
+
+[audit.22.30.40]
+task = "22.30.40"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 131
+findings = 32
+docs_reviewed = 3
+upgrade_ready = false
+blocking = ["public_search_source", "cross_wallet_unwired", "cross_token_unwired"]
+requirements = ["4301.1", "4302.1", "4303.1", "22998.1", "22076.1", "18946.1", "181528.1", "181182.1"]
+produces_reviewed = 94
+consumes_reviewed = 449
+note = "The frozen package members are the stats-workers slice despite the root-files task title. All 131 member files were read in full; no member is generated or vendored. Product behavior is assessed against the merged BFT chain 125, canonical source authority and the live producer/transport/consumer paths. Runtime/dependency qualification beyond the declared audit gate is not inferred from source review."
+
+[file.1]
+path = "services/launchpad/stats-workers/cmd/statsd/main.go"
+lines = 20
+verdict = "clean"
+note = "Process entry loads validated config and delegates startup, cancellation and shutdown to app.Main."
+
+[file.2]
+path = "services/launchpad/stats-workers/internal/analytics/phase2_capacity_test.go"
+lines = 2017
+verdict = "issues"
+note = "Capacity tape, authority bindings, resource evidence and recovery were read; the stats process pause overlaps the zero-failure HTTP SLO."
+
+[file.3]
+path = "services/launchpad/stats-workers/internal/analytics/phase2_integration_test.go"
+lines = 663
+verdict = "clean"
+note = "Real PostgreSQL, broker, identity, ledger and projector integration covers rollback, replacement, replay and expiry; it does not supply the missing production risk-input writer."
+
+[file.4]
+path = "services/launchpad/stats-workers/internal/analytics/phase4_bindings_test.go"
+lines = 30
+verdict = "clean"
+note = "The nonempty analytics candidate source list is resolved from the repository root and every named source is present."
+
+[file.5]
+path = "services/launchpad/stats-workers/internal/analytics/pressure.go"
+lines = 95
+verdict = "clean"
+note = "Pressure uses exact integer USDL notional, distinguishes count and notional shares and retains no-activity and wash quality flags."
+
+[file.6]
+path = "services/launchpad/stats-workers/internal/analytics/pressure_test.go"
+lines = 54
+verdict = "clean"
+note = "Boundary cases cover exact count-share thresholds, no activity, invalid quantities and sums larger than a single uint256."
+
+[file.7]
+path = "services/launchpad/stats-workers/internal/analytics/projector.go"
+lines = 333
+verdict = "issues"
+note = "Accounting publications, transactional analytics effects, expiry and risk loading were traced; the production risk-input table has no writer."
+
+[file.8]
+path = "services/launchpad/stats-workers/internal/analytics/projector_test.go"
+lines = 510
+verdict = "clean"
+note = "Transactional projection tests cover duplicate identity, conflicting facts, rollback and expiry with explicitly supplied risk inputs."
+
+[file.9]
+path = "services/launchpad/stats-workers/internal/analytics/reactions.go"
+lines = 277
+verdict = "clean"
+note = "Canonical reaction intents bind pool, wallet, nonce and expiry; durable vote replacement is transactional and advances immutable revisions."
+
+[file.10]
+path = "services/launchpad/stats-workers/internal/analytics/reactions_test.go"
+lines = 212
+verdict = "clean"
+note = "Real database reaction tests cover nonce conflicts, revision updates, cooldown and replacement rather than only tally helpers."
+
+[file.11]
+path = "services/launchpad/stats-workers/internal/analytics/reads.go"
+lines = 145
+verdict = "clean"
+note = "Durable reads validate pool, model and watermark, bound revision pagination and report missing dependencies explicitly."
+
+[file.12]
+path = "services/launchpad/stats-workers/internal/analytics/reads_test.go"
+lines = 125
+verdict = "clean"
+note = "Read tests cover snapshot shape, watermark propagation, missing snapshots and invalid revision cursors."
+
+[file.13]
+path = "services/launchpad/stats-workers/internal/analytics/snapshot.go"
+lines = 140
+verdict = "clean"
+note = "Snapshot persistence validates canonical watermarks and payloads, enforces monotonic immutable identities and writes the outbox transactionally."
+
+[file.14]
+path = "services/launchpad/stats-workers/internal/analytics/snapshot_test.go"
+lines = 113
+verdict = "clean"
+note = "Snapshot tests cover invalid identities, frozen wire shape, duplicate revisions and immutable payload disagreement."
+
+[file.15]
+path = "services/launchpad/stats-workers/internal/app/app.go"
+lines = 916
+verdict = "issues"
+note = "Production routes, NATS accounting/search jobs, SQL holder catchup, readiness and shutdown were traced; cross-token history remains registered without its writer."
+
+[file.16]
+path = "services/launchpad/stats-workers/internal/app/delivery_test.go"
+lines = 69
+verdict = "clean"
+note = "Runtime delivery-document tests bind the canonical market subject, consumer topology and server-owned delivery policy."
+
+[file.17]
+path = "services/launchpad/stats-workers/internal/app/dev_holders_test.go"
+lines = 171
+verdict = "clean"
+note = "Development holder integration uses webhook-fed balances, validates the frozen holder response and distinguishes the noncanonical coverage."
+
+[file.18]
+path = "services/launchpad/stats-workers/internal/config/config.go"
+lines = 508
+verdict = "issues"
+note = "Production config validates pinned documents, pool budgets, NATS credentials, identity TLS and worker bounds; two advertised holder settings have no live caller."
+
+[file.19]
+path = "services/launchpad/stats-workers/internal/config/config_test.go"
+lines = 151
+verdict = "clean"
+note = "Config tests cover production transport requirements, protected documents, phase-2 keys and worker bounds without treating dependency checks as optional."
+
+[file.20]
+path = "services/launchpad/stats-workers/internal/consumer/accounting.go"
+lines = 660
+verdict = "clean"
+note = "Accounting consumer verifies canonical source authority and partitions, commits facts/effects/outbox before acknowledgement and preserves ordered batch recovery."
+
+[file.21]
+path = "services/launchpad/stats-workers/internal/consumer/accounting_test.go"
+lines = 29
+verdict = "clean"
+note = "Accounting constructor tests reject missing source-verification dependencies instead of accepting an unverified consumer."
+
+[file.22]
+path = "services/launchpad/stats-workers/internal/consumer/canonical_legacy.go"
+lines = 262
+verdict = "clean"
+note = "Legacy bridge replays committed creations and swaps, validates raw Swap ABI words and applies duplicate-aware effects inside one transaction."
+
+[file.23]
+path = "services/launchpad/stats-workers/internal/consumer/canonical_legacy_test.go"
+lines = 466
+verdict = "clean"
+note = "Real chain-125 fixtures and registered SQL migrations are present; bridge tests cover bootstrap, duplicate catchup, raw-log disagreement and rollback."
+
+[file.24]
+path = "services/launchpad/stats-workers/internal/consumer/consumer.go"
+lines = 55
+verdict = "clean"
+note = "Pool-stat cache publication serializes committed rows and uses shared Redis channel names; cache failure is returned to its caller."
+
+[file.25]
+path = "services/launchpad/stats-workers/internal/consumer/consumer_test.go"
+lines = 59
+verdict = "clean"
+note = "Consumer helper tests cover nil rows, cache shape and bounded response encoding."
+
+[file.26]
+path = "services/launchpad/stats-workers/internal/consumer/holder.go"
+lines = 210
+verdict = "clean"
+note = "Holder tracker separates legacy swap-sender deltas from durable transfer delivery, with commit-before-ack and canonical transfer repository delegation."
+
+[file.27]
+path = "services/launchpad/stats-workers/internal/consumer/holder_test.go"
+lines = 508
+verdict = "clean"
+note = "Holder tests cover transfer authority, real delivery persistence, duplicate effects, rollback and acknowledgement boundaries; environment-bound runs require their services."
+
+[file.28]
+path = "services/launchpad/stats-workers/internal/consumer/market.go"
+lines = 78
+verdict = "clean"
+note = "Market creation initializes pool statistics and normalizes identifiers; canonical entry accepts the source creation time instead of the worker clock."
+
+[file.29]
+path = "services/launchpad/stats-workers/internal/consumer/market_test.go"
+lines = 78
+verdict = "clean"
+note = "Creation tests cover duplicate insert behavior, address normalization and canonical creation timestamps."
+
+[file.30]
+path = "services/launchpad/stats-workers/internal/consumer/multihop.go"
+lines = 71
+verdict = "issues"
+note = "Multihop rows preserve token amounts, intermediate USDL and per-leg fees; their writer is reached only by the development webhook."
+
+[file.31]
+path = "services/launchpad/stats-workers/internal/consumer/multihop_test.go"
+lines = 72
+verdict = "clean"
+note = "Multihop storage tests cover normalized identities, enrichment fields and duplicate tx/log insertion; they do not register production ingestion."
+
+[file.32]
+path = "services/launchpad/stats-workers/internal/consumer/publish_test.go"
+lines = 117
+verdict = "clean"
+note = "Redis publication tests subscribe to actual channels and inspect the post-commit pool, holder and pressure payloads."
+
+[file.33]
+path = "services/launchpad/stats-workers/internal/consumer/reported_block_hash_test.go"
+lines = 67
+verdict = "clean"
+note = "Reported-hash tests distinguish the public reported hash from the source receipt backend lookup and reject mismatched block identity."
+
+[file.34]
+path = "services/launchpad/stats-workers/internal/consumer/state.go"
+lines = 40
+verdict = "clean"
+note = "Development state updates compute market cap with integer arithmetic and update the existing pool row."
+
+[file.35]
+path = "services/launchpad/stats-workers/internal/consumer/state_test.go"
+lines = 62
+verdict = "clean"
+note = "State tests cover known and unknown pools and retain raw integer money fields."
+
+[file.36]
+path = "services/launchpad/stats-workers/internal/consumer/swap.go"
+lines = 137
+verdict = "issues"
+note = "Development ProcessEvent reapplies derived volume effects after a duplicate transaction; the canonical ProjectTx path correctly stops duplicates."
+
+[file.37]
+path = "services/launchpad/stats-workers/internal/consumer/swap_test.go"
+lines = 193
+verdict = "clean"
+note = "Swap tests cover buy/sell USDL legs, buckets, price changes and cache publication; production duplicate safety is separately covered by the canonical bridge tests."
+
+[file.38]
+path = "services/launchpad/stats-workers/internal/holdings/aggregate_store.go"
+lines = 215
+verdict = "clean"
+note = "Aggregate store updates holder counts, supply, creator and distribution bins in the same transaction and exposes coverage with its source position."
+
+[file.39]
+path = "services/launchpad/stats-workers/internal/holdings/checkpoint.go"
+lines = 50
+verdict = "clean"
+note = "Checkpoint encoding binds generation, token and ordered source position; malformed or inconsistent checkpoints fail closed."
+
+[file.40]
+path = "services/launchpad/stats-workers/internal/holdings/distribution.go"
+lines = 142
+verdict = "clean"
+note = "Distribution uses arbitrary-precision balances and exact supply fractions, deterministic ranks and explicit incomplete coverage."
+
+[file.41]
+path = "services/launchpad/stats-workers/internal/holdings/domain.go"
+lines = 207
+verdict = "clean"
+note = "Domain validation binds chain 125, transfer identity, positive amounts, ordered positions and the declared supply basis."
+
+[file.42]
+path = "services/launchpad/stats-workers/internal/holdings/holdings_test.go"
+lines = 380
+verdict = "clean"
+note = "Holdings tests cover integer precision, transfer ownership, distribution, pagination and invalid domain inputs against actual database state."
+
+[file.43]
+path = "services/launchpad/stats-workers/internal/holdings/ingestion.go"
+lines = 405
+verdict = "clean"
+note = "Canonical transfer ingestion proves indexed raw-log provenance and complete source coverage, applies ordered batches and persists checkpoints atomically."
+
+[file.44]
+path = "services/launchpad/stats-workers/internal/holdings/observability.go"
+lines = 56
+verdict = "clean"
+note = "OpenTelemetry transfer outcomes use the registered instrument name and bounded outcome labels without putting wallet addresses into metric labels."
+
+[file.45]
+path = "services/launchpad/stats-workers/internal/holdings/pagination.go"
+lines = 114
+verdict = "clean"
+note = "Cursor validation binds snapshot, token, ordering and expiry; canonical and URL-safe base64 checks reject malformed encodings."
+
+[file.46]
+path = "services/launchpad/stats-workers/internal/holdings/phase2_journey_test.go"
+lines = 388
+verdict = "clean"
+note = "Journey tests connect creation, source catchup, holder reads, transfer ownership and restart behavior through real repositories and HTTP."
+
+[file.47]
+path = "services/launchpad/stats-workers/internal/holdings/phase2_migration_test.go"
+lines = 32
+verdict = "clean"
+note = "Migration tests apply the registered holder migration and verify its schema rather than replacing the production migration with a fixture DDL."
+
+[file.48]
+path = "services/launchpad/stats-workers/internal/holdings/phase2_million_test.go"
+lines = 126
+verdict = "clean"
+note = "Million-holder qualification uses persisted PostgreSQL state and explicit performance evidence; it does not silently pass when its external inputs are absent."
+
+[file.49]
+path = "services/launchpad/stats-workers/internal/holdings/phase2_replay_test.go"
+lines = 257
+verdict = "clean"
+note = "Replay tests cover durable restart, duplicate transfers, conflict quarantine and cursor continuity across persisted generations."
+
+[file.50]
+path = "services/launchpad/stats-workers/internal/holdings/phase4_bindings_test.go"
+lines = 40
+verdict = "clean"
+note = "The required-source test resolves the Git repository root and checks each source is a regular file; all six source paths are present."
+
+[file.51]
+path = "services/launchpad/stats-workers/internal/holdings/phase4_measurement.go"
+lines = 1522
+verdict = "clean"
+note = "Measurement code binds source/artifact digests, topology, real service processes, transfer tape, budget and evidence; production claims require admitted canonical source evidence."
+
+[file.52]
+path = "services/launchpad/stats-workers/internal/holdings/phase4_measurement_test.go"
+lines = 126
+verdict = "clean"
+note = "Measurement plan tests reject missing source bindings, malformed resource identities and unsupported workload profiles."
+
+[file.53]
+path = "services/launchpad/stats-workers/internal/holdings/postgres.go"
+lines = 324
+verdict = "clean"
+note = "Repository schema, transfer identity, token coverage and generation storage use transaction-bound effects and explicit quarantine semantics."
+
+[file.54]
+path = "services/launchpad/stats-workers/internal/holdings/provenance.go"
+lines = 75
+verdict = "clean"
+note = "Provenance checks bind token, emitter, transaction/log position, block identity and canonical source evidence."
+
+[file.55]
+path = "services/launchpad/stats-workers/internal/holdings/provenance_test.go"
+lines = 97
+verdict = "clean"
+note = "Provenance tests reject unauthorized emitters, malformed raw logs and identity disagreement instead of accepting decoded fixtures alone."
+
+[file.56]
+path = "services/launchpad/stats-workers/internal/holdings/replay.go"
+lines = 269
+verdict = "clean"
+note = "Replay rebuilds generations from persisted source evidence, compares roots and switches the active generation with explicit recovery state."
+
+[file.57]
+path = "services/launchpad/stats-workers/internal/holdings/snapshot_store.go"
+lines = 235
+verdict = "clean"
+note = "Snapshot store persists immutable holder snapshots, expires retained snapshots and rechecks token/generation identity on reads."
+
+[file.58]
+path = "services/launchpad/stats-workers/internal/httpapi/cache_test.go"
+lines = 281
+verdict = "clean"
+note = "Cache tests exercise miss, hit, TTL and database-error behavior for legacy stats, platform, pressure and search responses."
+
+[file.59]
+path = "services/launchpad/stats-workers/internal/httpapi/cross_token_swaps.go"
+lines = 64
+verdict = "issues"
+note = "Cross-token routes read legacy rows and return pagination metadata, but the production writer is absent and requested page size is unbounded."
+
+[file.60]
+path = "services/launchpad/stats-workers/internal/httpapi/httpapi.go"
+lines = 47
+verdict = "clean"
+note = "HTTP helpers preserve raw string amounts and explicit boolean conversion; request-specific pagination bounds belong to the route findings."
+
+[file.61]
+path = "services/launchpad/stats-workers/internal/httpapi/httpapi_test.go"
+lines = 102
+verdict = "clean"
+note = "Helper tests cover empty and malformed integers, JSON string extraction and boolean coercion."
+
+[file.62]
+path = "services/launchpad/stats-workers/internal/httpapi/identity_mtls_test.go"
+lines = 281
+verdict = "clean"
+note = "Identity tests use real TLS certificates and the production mTLS authority transport for durable reactions and personalized search, including foreign peer refusal."
+
+[file.63]
+path = "services/launchpad/stats-workers/internal/httpapi/platform.go"
+lines = 71
+verdict = "clean"
+note = "Platform endpoint caches computed legacy metrics for 30 seconds and publishes the same JSON shape; calculation defects are owned by store/platform.go."
+
+[file.64]
+path = "services/launchpad/stats-workers/internal/httpapi/pool_analytics.go"
+lines = 271
+verdict = "issues"
+note = "Creator activity loads and serializes its entire transaction history; legacy ownership responses correctly label swap-sender coverage as incomplete."
+
+[file.65]
+path = "services/launchpad/stats-workers/internal/httpapi/pool_holders.go"
+lines = 504
+verdict = "issues"
+note = "Canonical transfer holders enforce frozen request/response contracts and coverage; legacy holder reads have unbounded materialization and page size."
+
+[file.66]
+path = "services/launchpad/stats-workers/internal/httpapi/pool_stats.go"
+lines = 105
+verdict = "clean"
+note = "Legacy pool and batch reads preserve money strings, normalize pool identities, bound batch cardinality and return named lookup errors."
+
+[file.67]
+path = "services/launchpad/stats-workers/internal/httpapi/pool_transactions.go"
+lines = 44
+verdict = "issues"
+note = "Transaction history lowercases the pool before lookup as required by 18946.1, but lacks a maximum page size."
+
+[file.68]
+path = "services/launchpad/stats-workers/internal/httpapi/pressure.go"
+lines = 152
+verdict = "clean"
+note = "Durable pressure/risk routes read persisted snapshots and bounded revision history; legacy pressure unit errors originate in store/platform.go."
+
+[file.69]
+path = "services/launchpad/stats-workers/internal/httpapi/publish_test.go"
+lines = 117
+verdict = "clean"
+note = "HTTP publication tests observe real Redis channels and check that reaction/platform/pressure notifications carry the returned aggregate shapes."
+
+[file.70]
+path = "services/launchpad/stats-workers/internal/httpapi/reactions.go"
+lines = 403
+verdict = "issues"
+note = "Durable v2 reactions use identity, operation binding and a PostgreSQL ledger; the still-live legacy endpoint accepts replayable arbitrary messages and non-atomic Redis effects."
+
+[file.71]
+path = "services/launchpad/stats-workers/internal/httpapi/reactions_test.go"
+lines = 280
+verdict = "issues"
+note = "Legacy reaction tests explicitly reuse one signature for different actions; v2 tests cover the durable operation contract and identity requirements."
+
+[file.72]
+path = "services/launchpad/stats-workers/internal/httpapi/reads_test.go"
+lines = 454
+verdict = "clean"
+note = "Read-route tests cover holder ranks, coverage labels, case-insensitive transaction history, analytics and cross-token response shapes using stored rows."
+
+[file.73]
+path = "services/launchpad/stats-workers/internal/httpapi/search.go"
+lines = 273
+verdict = "issues"
+note = "Frozen request rejection runs before storage; the valid public search route selects a v1 repository that production v2 consumers do not populate."
+
+[file.74]
+path = "services/launchpad/stats-workers/internal/httpapi/search_frozen_test.go"
+lines = 50
+verdict = "clean"
+note = "Malformed IF_SEARCH queries exercise the real handler with no database and assert frozen Error bodies before store access, satisfying the source-level intent of 4303.1."
+
+[file.75]
+path = "services/launchpad/stats-workers/internal/httpapi/webhook.go"
+lines = 179
+verdict = "issues"
+note = "Development webhook dispatch has unchecked body growth and acknowledges failed effects with HTTP 200; its swap effects are not replay-atomic."
+
+[file.76]
+path = "services/launchpad/stats-workers/internal/httpapi/webhook_test.go"
+lines = 189
+verdict = "clean"
+note = "Webhook tests cover real HMAC checks, dispatch families and processed/error counters, but accept the HTTP-200 failed-batch contract identified in the record."
+
+[file.77]
+path = "services/launchpad/stats-workers/internal/internaltest/containers.go"
+lines = 167
+verdict = "clean"
+note = "Test infrastructure starts actual PostgreSQL and Redis containers or isolated configured services, registers cleanup and reports unavailable prerequisites."
+
+[file.78]
+path = "services/launchpad/stats-workers/internal/migrate/migrate.go"
+lines = 42
+verdict = "clean"
+note = "Migration runner serializes goose global configuration, uses embedded production SQL and returns dialect/open/migration failures."
+
+[file.79]
+path = "services/launchpad/stats-workers/internal/projectionstats/authority.go"
+lines = 482
+verdict = "clean"
+note = "Source authority binds indexer publication identity, completeness, leases, receipt evidence and canonical fills; unavailable authority fails closed."
+
+[file.80]
+path = "services/launchpad/stats-workers/internal/projectionstats/authority_test.go"
+lines = 224
+verdict = "clean"
+note = "Authority tests read restored protocol v1 fixtures at sdk/launchpad/protocol/contracts/v1/chain and check canonical source disagreement and raw evidence."
+
+[file.81]
+path = "services/launchpad/stats-workers/internal/projectionstats/batch.go"
+lines = 241
+verdict = "clean"
+note = "Batch projection orders partition effects, records committed facts atomically and keeps conflicts distinct from retryable source unavailability."
+
+[file.82]
+path = "services/launchpad/stats-workers/internal/projectionstats/batch_test.go"
+lines = 63
+verdict = "clean"
+note = "Batch tests enforce size/order bounds and duplicate identities before any persistent effect."
+
+[file.83]
+path = "services/launchpad/stats-workers/internal/projectionstats/domain.go"
+lines = 232
+verdict = "clean"
+note = "Trade domain preserves decimal-string quantities, separate fee asset/decimals and committed positions; exact derivation and legacy-unavailable qualities remain distinct."
+
+[file.84]
+path = "services/launchpad/stats-workers/internal/projectionstats/domain_test.go"
+lines = 140
+verdict = "clean"
+note = "Trade validation tests cover input/fee accounting, uint256 boundaries, attribution and immutable projection identities."
+
+[file.85]
+path = "services/launchpad/stats-workers/internal/projectionstats/expiry.go"
+lines = 140
+verdict = "clean"
+note = "Expiry scheduler refreshes canonical windows from committed source coverage, binds declared windows and resumes pool traversal without relying on Redis authority."
+
+[file.86]
+path = "services/launchpad/stats-workers/internal/projectionstats/phase2_test.go"
+lines = 276
+verdict = "clean"
+note = "Phase-2 tests cover real delivery ordering, canonical aggregate semantics, cursor boundaries and restart; external source prerequisites are explicit."
+
+[file.87]
+path = "services/launchpad/stats-workers/internal/projectionstats/postgres.go"
+lines = 507
+verdict = "issues"
+note = "Repository commits canonical market publications and stream updates transactionally, but the stream sink is hardcoded to api_stream despite an exposed override."
+
+[file.88]
+path = "services/launchpad/stats-workers/internal/projectionstats/postgres_test.go"
+lines = 451
+verdict = "clean"
+note = "PostgreSQL tests cover atomic facts, revisions, duplicate handling, conflict freeze, fee assets and persistent readback through real SQL."
+
+[file.89]
+path = "services/launchpad/stats-workers/internal/projectionstats/public_http.go"
+lines = 117
+verdict = "clean"
+note = "Public v2 stats handlers parse bounded pool, trade and window inputs, propagate service refusal codes and preserve integer payloads."
+
+[file.90]
+path = "services/launchpad/stats-workers/internal/projectionstats/public_http_test.go"
+lines = 408
+verdict = "clean"
+note = "HTTP tests cover success and dependency refusal, frozen envelopes, typed trade fields, platform aggregates and invalid pagination."
+
+[file.91]
+path = "services/launchpad/stats-workers/internal/projectionstats/public_stats.go"
+lines = 1182
+verdict = "issues"
+note = "Public stats derive from committed fills, raw ABI evidence and transfer holdings; the all-history sync cap can permanently block the refresh sweep."
+
+[file.92]
+path = "services/launchpad/stats-workers/internal/projectionstats/public_stats_test.go"
+lines = 704
+verdict = "clean"
+note = "Real chain fixtures and registered migrations are present; public projection tests cover reserve resets, holder changes, stale/incomplete authority and stream deduplication."
+
+[file.93]
+path = "services/launchpad/stats-workers/internal/projectionstats/qualify_phase2.py"
+lines = 529
+verdict = "clean"
+note = "Qualification script binds fixture/source hashes, real PostgreSQL/RPC, crash/restart boundaries and private output evidence; it does not claim unrun capacity results."
+
+[file.94]
+path = "services/launchpad/stats-workers/internal/projectionstats/query.go"
+lines = 273
+verdict = "clean"
+note = "Query repository binds pool/side/version and watermark to cursors, aggregates USDL volume and groups raw fees by asset and disposition."
+
+[file.95]
+path = "services/launchpad/stats-workers/internal/projectionstats/reconciliation.go"
+lines = 95
+verdict = "clean"
+note = "Reconciliation compares persisted accounting facts and aggregates with explicit source and projection identities and returns discrepancies."
+
+[file.96]
+path = "services/launchpad/stats-workers/internal/projectionstats/reconciliation_test.go"
+lines = 107
+verdict = "clean"
+note = "Reconciliation tests exercise actual PostgreSQL divergence and deterministic evidence under the declared output path."
+
+[file.97]
+path = "services/launchpad/stats-workers/internal/projectionstats/service.go"
+lines = 421
+verdict = "clean"
+note = "Read service proves source coherence before returning trades/windows, persists window revisions and signs cursors with the configured key and lifetime."
+
+[file.98]
+path = "services/launchpad/stats-workers/internal/projectionstats/service_test.go"
+lines = 131
+verdict = "clean"
+note = "Service tests cover source gaps, frozen pools, watermark coherence, signed cursor tampering and expiry."
+
+[file.99]
+path = "services/launchpad/stats-workers/internal/projectionstats/snapshot.go"
+lines = 144
+verdict = "clean"
+note = "Snapshot persistence emits canonical immutable documents and durable publishing tracks confirmed transport acknowledgement and retries."
+
+[file.100]
+path = "services/launchpad/stats-workers/internal/risk/model-v1.json"
+lines = 1
+verdict = "clean"
+note = "The complete one-line risk model declares version, point thresholds, concentration units and quality rules consumed by the versioned implementation."
+
+[file.101]
+path = "services/launchpad/stats-workers/internal/risk/risk.go"
+lines = 104
+verdict = "clean"
+note = "Legacy risk calculation retains explicit factor codes and integer concentration thresholds; production missing-input wiring is separately recorded."
+
+[file.102]
+path = "services/launchpad/stats-workers/internal/risk/risk_test.go"
+lines = 216
+verdict = "clean"
+note = "Risk tests cover all score branches, age boundaries, concentration levels, factor ordering and invalid number handling."
+
+[file.103]
+path = "services/launchpad/stats-workers/internal/risk/versioned.go"
+lines = 168
+verdict = "clean"
+note = "Versioned risk model distinguishes complete and unavailable inputs, uses exact supply-based integer arithmetic and retains partial scores with quality flags."
+
+[file.104]
+path = "services/launchpad/stats-workers/internal/risk/versioned_test.go"
+lines = 91
+verdict = "clean"
+note = "Versioned model tests compare frozen model data with code and exercise missing supply, absent authority and threshold behavior."
+
+[file.105]
+path = "services/launchpad/stats-workers/internal/search/cache.go"
+lines = 427
+verdict = "clean"
+note = "Search cache bounds keys, admission and single-flight fills, revalidates authority and treats Redis as non-authoritative with explicit invalidation handling."
+
+[file.106]
+path = "services/launchpad/stats-workers/internal/search/cache_test.go"
+lines = 396
+verdict = "clean"
+note = "Cache tests cover real Redis caching, privacy/authority rechecks, fill admission, outage and concurrent requests without weakening source checks."
+
+[file.107]
+path = "services/launchpad/stats-workers/internal/search/capacity_test.go"
+lines = 1084
+verdict = "clean"
+note = "Search capacity qualification binds actual image, source, resource and workload identities, archives raw observations and refuses absent evidence inputs."
+
+[file.108]
+path = "services/launchpad/stats-workers/internal/search/filters.go"
+lines = 162
+verdict = "clean"
+note = "Expanded filters validate exact JSON shapes, integer quantities, canonical identities and personalized preference prerequisites before querying."
+
+[file.109]
+path = "services/launchpad/stats-workers/internal/search/generation.go"
+lines = 141
+verdict = "clean"
+note = "Generation rebuild reads source_documents_v2, validates exact row/digest equality and switches active_v2 transactionally while retaining previous generations."
+
+[file.110]
+path = "services/launchpad/stats-workers/internal/search/generation_test.go"
+lines = 234
+verdict = "clean"
+note = "Generation tests cover interruption, activation races, source watermark changes and tampered validation proofs."
+
+[file.111]
+path = "services/launchpad/stats-workers/internal/search/http_test.go"
+lines = 377
+verdict = "clean"
+note = "HTTP search tests apply present registered migrations and cover expanded multilingual/profile behavior, identity refusal and immutable response shapes."
+
+[file.112]
+path = "services/launchpad/stats-workers/internal/search/integrated.go"
+lines = 481
+verdict = "clean"
+note = "Expanded search reads v2 generations and current privacy authority in bounded snapshots; personalized filters bind the authenticated account."
+
+[file.113]
+path = "services/launchpad/stats-workers/internal/search/integrated_test.go"
+lines = 201
+verdict = "clean"
+note = "Integrated tests exercise v2 ordering, filter/normalization binding, privacy changes, cursor retention and unavailable dependencies."
+
+[file.114]
+path = "services/launchpad/stats-workers/internal/search/model.go"
+lines = 314
+verdict = "clean"
+note = "Canonical search model validates chain/address identity, Unicode normalization, display limits, query grammar and frozen public capability boundaries."
+
+[file.115]
+path = "services/launchpad/stats-workers/internal/search/postgres.go"
+lines = 86
+verdict = "clean"
+note = "Public repository reads v1 generation/documents/visibility; the missing production producer is recorded against the selecting HTTP handler."
+
+[file.116]
+path = "services/launchpad/stats-workers/internal/search/projection.go"
+lines = 486
+verdict = "clean"
+note = "Search projection validates delivery envelopes and producer revisions, atomically writes v2 source/documents/authority and emits invalidation outbox effects."
+
+[file.117]
+path = "services/launchpad/stats-workers/internal/search/projection_test.go"
+lines = 265
+verdict = "clean"
+note = "Projection tests use actual broker persistence and present source migrations to cover inbox/effect/outbox atomicity and canonical creation/profile input."
+
+[file.118]
+path = "services/launchpad/stats-workers/internal/search/quality-corpus.json"
+lines = 192
+verdict = "clean"
+note = "The complete quality corpus supplies multilingual text, address, profile, tombstone and preference cases with expected result identities."
+
+[file.119]
+path = "services/launchpad/stats-workers/internal/search/schema.sql"
+lines = 47
+verdict = "clean"
+note = "Schema defines both public v1 and expanded v2 tables with identity/quantity constraints; production only populates the v2 branch, as recorded for the route."
+
+[file.120]
+path = "services/launchpad/stats-workers/internal/search/search_test.go"
+lines = 273
+verdict = "issues"
+note = "Public search tests manually populate a v1 schema and therefore do not prove the production v2 source-to-public-route path."
+
+[file.121]
+path = "services/launchpad/stats-workers/internal/store/buckets.go"
+lines = 295
+verdict = "issues"
+note = "Legacy rolling windows are recomputed only when a swap calls them, leaving idle pools and platform sums stale."
+
+[file.122]
+path = "services/launchpad/stats-workers/internal/store/buckets_test.go"
+lines = 304
+verdict = "clean"
+note = "Bucket tests cover integer volume accumulation, cutoffs, snapshots, price changes and cleanup against real SQL; idle scheduling is absent from runtime wiring."
+
+[file.123]
+path = "services/launchpad/stats-workers/internal/store/holders.go"
+lines = 340
+verdict = "issues"
+note = "Holder ordering compares decimal balances as text in list/top concentration queries, producing incorrect ranks for differing digit lengths."
+
+[file.124]
+path = "services/launchpad/stats-workers/internal/store/holders_test.go"
+lines = 205
+verdict = "clean"
+note = "Holder tests use equal-width balance fixtures that agree with numeric order; they cover paging and calculation but do not establish the unequal-width ordering property."
+
+[file.125]
+path = "services/launchpad/stats-workers/internal/store/platform.go"
+lines = 190
+verdict = "issues"
+note = "Legacy platform fees combine unlike assets and legacy sell pressure takes the token input rather than the USDL output."
+
+[file.126]
+path = "services/launchpad/stats-workers/internal/store/platform_test.go"
+lines = 232
+verdict = "issues"
+note = "Platform tests explicitly assert the mixed-fee total and the sell-token notional, hiding the real canonical asset semantics."
+
+[file.127]
+path = "services/launchpad/stats-workers/internal/store/store.go"
+lines = 244
+verdict = "clean"
+note = "Pool store provides transaction-bound instances, advisory locks, raw integer statistics and immutable creation insert behavior."
+
+[file.128]
+path = "services/launchpad/stats-workers/internal/store/store_test.go"
+lines = 195
+verdict = "clean"
+note = "Store tests cover pool creation, duplicate identity, price/state changes and fixed-field SQL with actual PostgreSQL."
+
+[file.129]
+path = "services/launchpad/stats-workers/internal/store/transactions.go"
+lines = 185
+verdict = "clean"
+note = "Transaction store deduplicates tx/log identifiers, preserves amount strings and exposes filtered/paged pool and multihop rows."
+
+[file.130]
+path = "services/launchpad/stats-workers/internal/store/transactions_test.go"
+lines = 157
+verdict = "clean"
+note = "Transaction tests cover ordering, side filters, normalized source rows and duplicate insertion for ordinary and cross-token swaps."
+
+[file.131]
+path = "services/launchpad/stats-workers/migrations/migrations.go"
+lines = 11
+verdict = "clean"
+note = "Embedded migration filesystem exposes the service SQL files to goose; this Go wrapper is authored source and contains no generated payload."
+
+[finding.public_search_source]
+file = "services/launchpad/stats-workers/internal/httpapi/search.go"
+line = 31
+class = "interface-mismatch"
+severity = "high"
+observed = "RegisterSearch selects Store.Search for GET /v2/search. search/postgres.go:34,55 reads stats_search.generation, documents and visibility, whose only in-repo data writers are search_test.go fixtures. app.go:295-328 starts Projection consumers that instead update source_documents_v2, documents_v2 and authority_v2; readiness checks active_v2. A healthy populated production search projection therefore still gives DEPENDENCY_UNAVAILABLE on the public route used by core/api and the web search client."
+expected = "The declared public IF_SEARCH route must return canonical pool/token hits from the production indexer, metadata and visibility projection, with current moderation and coherent cursors; healthy expanded-search readiness must imply the public search source is readable."
+proposal = "In services/launchpad/stats-workers/internal/search/postgres.go and internal/httpapi/search.go, adapt the frozen public IF_SEARCH DTO to the authoritative v2 generation and authority tables. Retain all frozen query rejection, privacy rechecks and cursor bounds; prove canonical creation plus metadata/visibility delivery through core/api proxy to the actual web/SDK response parser, including restart."
+owner_domain = 4
+interface = "4.http-stats-workers-get-v2-search"
+
+[finding.cross_wallet_unwired]
+file = "services/launchpad/stats-workers/internal/app/app.go"
+line = 416
+class = "interface-mismatch"
+severity = "high"
+observed = "Production always registers GET /stats/cross-token-swaps/{wallet}, but MultihopConsumer is supplied only to RegisterWebhook inside NodeEnv != production at lines 433-445. The production CanonicalLegacyBridge replays creations and single-pool swaps only. InsertCrossTokenSwap has no other production caller, so committed multihop swaps do not reach wallet history or the legacy crossTokenSwaps24h total."
+expected = "The registered stable wallet-history interface must return committed token-for-token swaps with canonical wallet, leg amounts, pools, fees and tx/log identities, and recover those rows after a worker restart."
+proposal = "In services/launchpad/stats-workers/internal/app/app.go and internal/consumer, connect a source-verified durable multihop projection to the canonical indexer route facts. Commit its source checkpoint and cross_token_swaps row atomically, deduplicate redelivery and prove wallet history after catchup and restart; keep the production webhook disabled."
+owner_domain = 4
+interface = "4.http-stats-workers-get-stats-cross-token-swaps-wallet"
+
+[finding.cross_token_unwired]
+file = "services/launchpad/stats-workers/internal/consumer/multihop.go"
+line = 50
+class = "interface-mismatch"
+severity = "high"
+observed = "MultihopConsumer.ProcessEvent is the sole non-test InsertCrossTokenSwap caller and is dispatched only by the non-production webhook. The stable token history route queries that table by token_in/token_out in production, so a canonical token-for-token trade is absent from both participating tokens even while ordinary canonical fills advance."
+expected = "The token history registry row requires committed multihop rows with both token associations and the same intermediate USDL and per-leg fees as wallet history; ordinary pool fills alone do not establish a route identity."
+proposal = "Extend the canonical multihop ingestion proposed in services/launchpad/stats-workers/internal/consumer to preserve source-proven tokenIn/tokenOut, poolIn/poolOut and feeIn/feeOut. Exercise both token history queries with real indexer route evidence, duplicate delivery and a restart, without inventing routes by pairing unrelated fills."
+owner_domain = 4
+interface = "4.http-stats-workers-get-stats-cross-token-swaps-token-token-address"
+
+[finding.risk_inputs_unwired]
+file = "services/launchpad/stats-workers/internal/analytics/projector.go"
+line = 286
+class = "wiring-gap"
+severity = "medium"
+observed = "PostgresRiskInputs.LoadRiskInputs requires an analytics_risk_inputs row at the exact pool height/hash; absent rows return missing holder/trader inputs. PersistRiskInputsTx is declared at line 299 but has no caller anywhere in production code. app.go constructs this loader for the live projector, so production cannot populate the canonical concentration, creator, supply, age and holder inputs that tests supply directly."
+expected = "The durable risk route should report all source-proven risk inputs at a coherent committed position and explicitly mark only genuinely unavailable inputs, rather than remaining permanently partial because the input producer is disconnected."
+proposal = "In services/launchpad/stats-workers/internal/app/app.go, internal/analytics and internal/holdings, derive a position-bound risk-input snapshot from canonical creation, Transfer holdings and committed trader facts, persist it transactionally and schedule recomputation when its coverage advances. Test actual app wiring, late holder catchup and restart."
+owner_domain = 4
+interface = "4.http-stats-workers-get-v2-stats-pool-address-risk"
+
+[finding.legacy_reaction_signature]
+file = "services/launchpad/stats-workers/internal/httpapi/reactions.go"
+line = 148
+class = "security"
+severity = "medium"
+observed = "The production-registered legacy reactionsPost verifies only that wallet signed the caller-provided Message. Neither pool, reaction, HTTP action, environment, nonce nor expiry is compared with signed intent. An observed signature for any message can be reused after each cooldown to set or toggle that wallet vote on arbitrary pools, bypassing the operation binding enforced by the durable v2 route."
+expected = "A wallet signature must authorize the specific vote action, target pool, body and environment with expiry and durable replay protection; a cooldown is not evidence that the wallet authorized a different reaction."
+proposal = "In services/launchpad/stats-workers/internal/httpapi/reactions.go and internal/app/app.go, retire the legacy mutation through an explicit client migration or route it through the same signed operation, identity, policy and durable ledger as v2. Add negative cases that transplant a real signature across pool, reaction, method, expiry and nonce."
+owner_domain = 4
+interface = "4.http-stats-workers-post-stats-pool-address-reactions"
+
+[finding.legacy_reaction_state]
+file = "services/launchpad/stats-workers/internal/httpapi/reactions.go"
+line = 166
+class = "restart-recovery"
+severity = "medium"
+observed = "Legacy vote cooldown, previous vote, SRem, SAdd and uservote writes are independent Redis commands with ignored write errors. Concurrent requests can both pass the cooldown read, and a partial failure can leave a wallet in multiple reaction sets or lose its previous vote while a later count succeeds. This live mutation has no PostgreSQL vote ledger or source from which to rebuild its Redis-only authority."
+expected = "Acknowledged vote replacement must leave exactly one durable vote per wallet/pool, retain an idempotent operation result and survive partial failure and recovery without accepting an aggregate that disagrees with the vote."
+proposal = "Move the legacy compatibility behavior onto the PostgreSQL reaction authority and operation ledger in services/launchpad/stats-workers/internal/httpapi/reactions.go, with Redis restricted to admission/cache. Exercise simultaneous replacements and failures between durable commit and cache publication, then restart and compare vote and tally."
+owner_domain = 4
+interface = "4.http-stats-workers-post-stats-pool-address-reactions"
+
+[finding.holder_text_order]
+file = "services/launchpad/stats-workers/internal/store/holders.go"
+line = 119
+class = "runtime-risk"
+severity = "medium"
+observed = "RefreshPoolHolderStats, ListHolders and ListHoldersByBalance order the text balance column directly. Decimal strings such as 9 and 100 sort in the opposite numeric order, so legacy ranks, top10/top20/top50 concentration and the concentration-dependent risk score select the wrong holders. Equal-width fixtures do not expose this."
+expected = "Largest-holder ordering and concentration must compare raw integer token balances numerically, with a deterministic address tie-breaker across pages, while retaining decimal strings in JSON."
+proposal = "In services/launchpad/stats-workers/internal/store/holders.go, use an indexed exact numeric balance order for all three queries and a stable holder-address tie-breaker. Add real SQL cases with 9, 100, 1000, zero and equal balances and compare route ranks and concentration against the same canonical balances."
+owner_domain = 4
+interface = "4.http-stats-workers-get-stats-pool-address-holders"
+
+[finding.platform_fee_units]
+file = "services/launchpad/stats-workers/internal/store/platform.go"
+line = 59
+class = "runtime-risk"
+severity = "medium"
+observed = "PlatformMetrics sums pool_transactions.fee across buy and sell rows into one TotalFees24h string without an asset identifier or decimals. CanonicalLegacyBridge copies Swap feeRaw unchanged: buys pay a USDL fee while sells pay the pool token fee, potentially from different tokens. Adding those raw integers produces no meaningful platform fee amount."
+expected = "Platform fee totals must preserve the fee asset, decimals and disposition or use an explicitly proven quote conversion; raw token fees cannot be added to USDL6 fees. The canonical projection query already groups tradingFees by asset."
+proposal = "In services/launchpad/stats-workers/internal/store/platform.go and internal/httpapi/platform.go, expose asset-separated fee totals sourced from canonical accounting or define a versioned, qualified USDL conversion. Migrate consumers explicitly and cover a buy plus sells from tokens with different decimals using real canonical fills."
+owner_domain = 4
+interface = "4.http-stats-workers-get-stats-platform"
+
+[finding.pressure_sell_units]
+file = "services/launchpad/stats-workers/internal/store/platform.go"
+line = 127
+class = "runtime-risk"
+severity = "medium"
+observed = "PressureStats sums amount_in for both buy and sell volume. SwapConsumer and CanonicalLegacyBridge store buy amount_in as USDL and sell amount_in as pool tokens, while sell amount_out is USDL. The pressure route consequently compares raw token quantities with USDL quantities and reports an incorrect sellVolume1h."
+expected = "Buy and sell notional in the same pressure window must use the same settlement asset and raw units, consistently with canonical analytics BuyUSDLRaw and SellUSDLRaw."
+proposal = "In services/launchpad/stats-workers/internal/store/platform.go, derive sell notional from amount_out and buy notional from amount_in, or read canonical USDLAmountRaw for both sides. Add a sell fixture with deliberately different token input and USDL output and prove the HTTP payload and calculation agree."
+owner_domain = 4
+interface = "4.http-stats-workers-get-stats-pool-address-pressure"
+
+[finding.legacy_idle_windows]
+file = "services/launchpad/stats-workers/internal/store/buckets.go"
+line = 118
+class = "wiring-gap"
+severity = "medium"
+observed = "RecalculateRollingStats has only a swap-processing caller. The production legacy bridge recomputes a pool using each fill timestamp, while the periodic platform precompute merely sums persisted pool_stats values and stamps UpdatedAt with the current clock. No job expires legacy volume/count/price-window fields when trading stops, so old activity remains in 1h/24h responses indefinitely."
+expected = "A field advertised as rolling 1h or 24h must age out activity as committed time advances, including idle pools; a fresh platform cache timestamp must not present expired pool aggregates as current."
+proposal = "In services/launchpad/stats-workers/internal/app/app.go and internal/store/buckets.go, drive legacy compatibility reads from the canonical expiry projection or schedule bounded idle-window refreshes tied to a coherent clock/source watermark. Test a last swap followed by idle cutoff crossings and restart, including platform sums."
+owner_domain = 4
+interface = "4.http-stats-workers-get-stats-pool-address"
+
+[finding.webhook_duplicate_effects]
+file = "services/launchpad/stats-workers/internal/consumer/swap.go"
+line = 48
+class = "restart-recovery"
+severity = "medium"
+observed = "Development SwapConsumer.ProcessEvent calls project with stopOnDuplicate=false. RecordTransaction deduplicates txHash-logIndex, but repeated delivery still increments volume buckets and subsequently applies the separate holder delta. A retry after partial failure therefore changes balances/volume twice even though transaction history contains one row; ProjectTx already implements the safer canonical behavior."
+expected = "Every admitted source event should apply transaction, volume, price and holder effects exactly once, and a retry after interruption must finish or recognize the existing effect without multiplying derived balances."
+proposal = "In services/launchpad/stats-workers/internal/consumer/swap.go and internal/httpapi/webhook.go, use a single transaction-bound event inbox and apply the holder delta only when the swap effect was newly inserted. Prove redelivery and failure after each durable boundary through the actual development webhook and database."
+owner_domain = 4
+interface = "4.http-stats-workers-post-webhooks-events-j65"
+
+[finding.webhook_failed_ack]
+file = "services/launchpad/stats-workers/internal/httpapi/webhook.go"
+line = 84
+class = "restart-recovery"
+severity = "medium"
+observed = "webhookHandler logs failed event effects, continues the batch and always returns HTTP 200 with ok=true and an errors count. A transport that treats successful HTTP as acknowledgement can permanently drop the failed event; retrying the whole batch currently also repeats previously successful swap-derived effects."
+expected = "The webhook delivery contract must distinguish durable acceptance from failed application and provide a stable retry identity; a successful transport acknowledgement must not conceal an unapplied event."
+proposal = "In services/launchpad/stats-workers/internal/httpapi/webhook.go, acknowledge only durably persisted event intents or define explicit per-event retry acknowledgements consumed by the sender. Couple that protocol with transactional deduplication and verify a mixed success/failure batch across sender retry and process restart."
+owner_domain = 4
+interface = "4.http-stats-workers-post-webhooks-events-j65"
+
+[finding.webhook_body_bound]
+file = "services/launchpad/stats-workers/internal/httpapi/webhook.go"
+line = 165
+class = "security"
+severity = "medium"
+observed = "webhookAuth calls io.ReadAll on the complete request body before verifying even the HMAC headers, and webhookHandler reads it again. The development listener has no MaxBytesReader boundary here, so an unauthenticated request can allocate an arbitrary payload before rejection despite the global request-rate limit."
+expected = "Exposed webhook input must have a declared maximum wire size and bounded decoding before expensive allocation or authentication work; oversized bodies should receive an explicit refusal."
+proposal = "In services/launchpad/stats-workers/internal/httpapi/webhook.go, enforce a documented body-byte and event-count limit before ReadAll, reject absent authentication headers early and reuse the bounded authenticated bytes. Exercise oversized and streaming unsigned bodies through the registered handler without changing legitimate HMAC encoding."
+owner_domain = 4
+interface = "4.http-stats-workers-post-webhooks-events-j65"
+
+[finding.legacy_holder_page_bound]
+file = "services/launchpad/stats-workers/internal/httpapi/pool_holders.go"
+line = 64
+class = "runtime-risk"
+severity = "medium"
+observed = "holderList passes arbitrary parsed limit and offset integers into ListHolders with no maximum or nonnegative validation. A client can request an entire large holder set in one response, while negative values reach SQL and become server errors; the canonical transfer-holder endpoint already bounds its contract separately."
+expected = "Every public page must have a finite server-enforced cardinality, reject malformed/negative pagination before storage and keep response size independent of total holder count."
+proposal = "In services/launchpad/stats-workers/internal/httpapi/pool_holders.go, specify and enforce the legacy holder page maximum and nonnegative offset before querying; prefer a stable cursor for deep pages. Verify boundary requests against a large real holder table while preserving the canonical IF_HOLDERS route."
+owner_domain = 4
+interface = "4.http-stats-workers-get-stats-pool-address-holders"
+
+[finding.distribution_unbounded]
+file = "services/launchpad/stats-workers/internal/httpapi/pool_holders.go"
+line = 122
+class = "runtime-risk"
+severity = "medium"
+observed = "holderDistribution caps the returned wallet page at 500 but first loads every holder with ListHoldersByBalance and allocates a walletMap sized to the whole pool. The whales handler uses the same all-holder read. Each public request therefore consumes memory and database work proportional to total holders despite a small requested page."
+expected = "Distribution counts and concentration should come from bounded aggregate state, and wallet pages/whale results should have bounded database work and response allocation for million-holder pools."
+proposal = "In services/launchpad/stats-workers/internal/httpapi/pool_holders.go and internal/httpapi/pool_analytics.go, read persisted canonical distribution aggregates and page wallets in SQL with an indexed numeric order. Bound whale pagination separately and measure work for a small page over a million-holder source."
+owner_domain = 4
+interface = "4.http-stats-workers-get-stats-pool-address-holders-distribution"
+
+[finding.creator_history_unbounded]
+file = "services/launchpad/stats-workers/internal/httpapi/pool_analytics.go"
+line = 143
+class = "runtime-risk"
+severity = "medium"
+observed = "creatorActivity calls CreatorTransactions without pagination, loops over every row to compute totals and serializes the entire history. A long-lived active creator can force an arbitrarily large query result and response on each unauthenticated legacy read."
+expected = "Creator activity must provide a bounded history page and source-consistent aggregate buy/sell totals without materializing all historical trades in the request process."
+proposal = "In services/launchpad/stats-workers/internal/store/transactions.go and internal/httpapi/pool_analytics.go, compute the summary in SQL or a persisted projection and expose cursor-paged transactions with a fixed maximum. Verify ordering and summary accuracy across many pages and a concurrent canonical append."
+owner_domain = 4
+interface = "4.http-stats-workers-get-stats-pool-address-creator-activity"
+
+[finding.transaction_page_bound]
+file = "services/launchpad/stats-workers/internal/httpapi/pool_transactions.go"
+line = 25
+class = "runtime-risk"
+severity = "medium"
+observed = "poolTransactions correctly lowercases pool addresses but passes limit and offset directly from parseIntDefault to the database with no upper bound or negative-value validation. A caller can request all retained transactions in one allocation/response, and negative pagination becomes an internal SQL failure."
+expected = "Case-insensitive history must also have finite page and response bounds with invalid pagination refused before any store access, preserving newest-first deterministic ordering."
+proposal = "In services/launchpad/stats-workers/internal/httpapi/pool_transactions.go, enforce a declared maximum page size and nonnegative pagination, retaining the 18946.1 lowercase lookup. Add route cases for the maximum, oversized and negative requests using real stored history."
+owner_domain = 4
+interface = "4.http-stats-workers-get-stats-pool-address-transactions"
+
+[finding.cross_history_page_bound]
+file = "services/launchpad/stats-workers/internal/httpapi/cross_token_swaps.go"
+line = 27
+class = "runtime-risk"
+severity = "medium"
+observed = "Both crossSwapsByWallet and crossSwapsByToken pass client-provided limit/offset straight to their SQL history queries. No upper bound prevents reading all retained multihop rows and no nonnegative check distinguishes invalid requests from database failures."
+expected = "Wallet and token multihop history must have a bounded response page, consistent ordering and input refusal before database access, independent of how much canonical history is retained."
+proposal = "In services/launchpad/stats-workers/internal/httpapi/cross_token_swaps.go, share an explicitly bounded pagination parser for both routes and introduce stable cursors for deep history. Test oversized/negative requests and exact page boundaries after the canonical multihop producer is wired."
+owner_domain = 4
+interface = "4.http-stats-workers-get-stats-cross-token-swaps-wallet"
+
+[finding.stream_schema_split]
+file = "services/launchpad/stats-workers/internal/projectionstats/postgres.go"
+line = 367
+class = "config-drift"
+severity = "medium"
+observed = "RecordMarketPublicationTx always writes trade stream updates to api_stream, but app.go:333 passes configurable STATS_PUBLIC_STREAM_SCHEMA into PublicStatsProjector for market stats and price updates. Config.ValidateProductionWorkers accepts other valid schema names, allowing one market projection to split across two sinks or fail on a schema the operator did not select."
+expected = "All market trade, stats and price producers and their core-api consumers must agree on the stream schema; an exposed configuration setting must either govern every producer or reject unsupported values at startup."
+proposal = "In services/launchpad/stats-workers/internal/projectionstats/postgres.go, repository construction and internal/config/config.go, use one validated stream sink shared by trade and public-stats writers, or freeze api_stream and reject overrides. Prove a canonical fill and resulting stats frame land in the exact same configured sink."
+owner_domain = 4
+interface = "4.env-stats-workers-stats-public-stream-schema"
+
+[finding.sync_lifetime_cap]
+file = "services/launchpad/stats-workers/internal/projectionstats/public_stats.go"
+line = 432
+class = "runtime-risk"
+severity = "medium"
+observed = "syncEventsTx scans all PoolStateUpdated history at or below the anchor, oldest first, with LIMIT 257 and returns ErrUnavailable once 257 events exist. There is no lower time/checkpoint boundary. Such a pool never becomes readable by this projector again, and refreshPage aborts the page while RefreshOnce restarts from the beginning, starving later pools on every retry."
+expected = "A bounded public-stats projection must continue operating over an unbounded chain lifetime, using persisted reserve baselines and only the relevant window/history suffix; one pool must not permanently stop unrelated pools from refreshing."
+proposal = "In services/launchpad/stats-workers/internal/projectionstats/public_stats.go, checkpoint verified reserve/price baselines and query the last reset plus the required window changes instead of retaining an all-history cardinality cap. Persist sweep progress or isolate failed pools with explicit readiness, and prove more than 256 resets plus restart without raising or removing safety bounds."
+owner_domain = 4
+interface = "4.http-stats-workers-get-v2-stats-pool-address"
+
+[finding.unused_holder_refresh]
+file = "services/launchpad/stats-workers/internal/config/config.go"
+line = 81
+class = "config-drift"
+severity = "low"
+observed = "STATS_HOLDER_REFRESH_INTERVAL_MS is parsed and exposed by HolderRefreshInterval, but the method has no caller. The production holder catchup interval comes from d.Phase2.HolderIntervalMS, so changing the registered environment variable has no operational effect."
+expected = "An advertised holder refresh control should either govern the documented live worker or be explicitly retired with one authoritative replacement and validation source."
+proposal = "In services/launchpad/stats-workers/internal/config/config.go and its deployment/registry documentation, retire STATS_HOLDER_REFRESH_INTERVAL_MS in favor of the protected delivery-document holder interval, or connect it with explicit precedence and bounds. Document which setting controls recovery lag."
+owner_domain = 4
+interface = "4.env-stats-workers-stats-holder-refresh-interval-ms"
+
+[finding.unused_active_window]
+file = "services/launchpad/stats-workers/internal/config/config.go"
+line = 82
+class = "config-drift"
+severity = "low"
+observed = "STATS_ACTIVE_POOL_WINDOW_HOURS is parsed with default 24 but ActivePoolWindowHours has no reader in the worker. Operators cannot change active-pool selection or holder refresh coverage with this stable registered setting."
+expected = "Configuration exposed as an active-pool window must have a declared consumer and observable behavior, or be retired instead of silently accepting ineffective values."
+proposal = "In services/launchpad/stats-workers/internal/config/config.go and the service variable catalogue, remove or explicitly retire STATS_ACTIVE_POOL_WINDOW_HOURS if canonical catchup intentionally covers every pool; otherwise bind it to the actual bounded scheduling policy and prove its effect."
+owner_domain = 4
+interface = "4.env-stats-workers-stats-active-pool-window-hours"
+
+[finding.reaction_test_wrong_intent]
+file = "services/launchpad/stats-workers/internal/httpapi/reactions_test.go"
+line = 85
+class = "test-gap"
+severity = "medium"
+observed = "TestReactionsRoutes signs only vote on <pool>, then reuses that signature for bullish, hot and toggle requests at lines 89,101,112. Clearing the cooldown makes all succeed. The test asserts that a signature without action/nonce/expiry authorizes different mutations and therefore preserves the production replay defect."
+expected = "Reaction integration fixtures must contain the actual signed operation intent and reject any action or target not covered by that intent; valid cryptography alone is not action authorization."
+proposal = "In services/launchpad/stats-workers/internal/httpapi/reactions_test.go, sign a fresh canonical operation for each intended replacement and add transplant/replay refusals using actual signatures. Drive the production registered compatibility route and durable ledger rather than clearing admission state to authorize a changed action."
+owner_domain = 4
+interface = "4.http-stats-workers-post-stats-pool-address-reactions"
+
+[finding.fee_fixture_wrong_units]
+file = "services/launchpad/stats-workers/internal/store/platform_test.go"
+line = 79
+class = "test-gap"
+severity = "medium"
+observed = "TestPlatformMetrics seeds a buy fee of 5 and a sell fee of 3 and requires totalFees24h=8. The fixture omits fee asset/decimals, although the canonical producer charges buy fees in USDL and sell fees in the input token. This expected value endorses a sum of unlike raw quantities."
+expected = "A platform fee fixture must preserve canonical asset identities and decimals and assert separated totals or a qualified quote value; a fixture cannot establish a unitless cross-asset sum."
+proposal = "In services/launchpad/stats-workers/internal/store/platform_test.go, derive fee expectations from real canonical buy/sell fills for differently scaled assets and check the resulting HTTP contract. Preserve strict equality for each declared asset total and add rejection of incomplete conversion evidence."
+owner_domain = 4
+interface = "4.http-stats-workers-get-stats-platform"
+
+[finding.pressure_fixture_wrong_leg]
+file = "services/launchpad/stats-workers/internal/store/platform_test.go"
+line = 126
+class = "test-gap"
+severity = "medium"
+observed = "TestPressureStats seeds a sell amount_in of 10 through insertTxFull, which fixes amount_out to 0, and requires SellVolume1h=10 at line 140. Real canonical sell input is token units and its USDL output is the settlement notional, so this fixture asserts the wrong producer leg."
+expected = "Pressure test data must carry both real token input and USDL output with unequal values, and expected sell notional must use the settlement leg in the same units as buy notional."
+proposal = "In services/launchpad/stats-workers/internal/store/platform_test.go, seed full canonical buy/sell transactions with nonzero distinct token and USDL legs, then assert exact settlement volume through both Store.PressureStats and the registered pressure route."
+owner_domain = 4
+interface = "4.http-stats-workers-get-stats-pool-address-pressure"
+
+[finding.public_search_fixture_disconnect]
+file = "services/launchpad/stats-workers/internal/search/search_test.go"
+line = 112
+class = "test-gap"
+severity = "medium"
+observed = "Public search database tests insert generation/documents/visibility v1 rows directly, while integrated/projection tests and app startup exercise only v2 source and authority tables. No test feeds the production canonical search consumer and then queries the registered public /v2/search route, allowing the disconnected index to pass its isolated tests."
+expected = "The public search acceptance path must use the same canonical producer, durable transport, generation activation and current visibility authority as the running service, with its frozen DTO validated at the caller."
+proposal = "In services/launchpad/stats-workers/internal/search/search_test.go and internal/app integration tests, deliver real canonical creation, metadata and moderation events, activate the real generation and query /v2/search via core-api. Include restart, visibility withdrawal and cursor continuity without manually seeding a second schema."
+owner_domain = 4
+interface = "4.http-stats-workers-get-v2-search"
+
+[finding.capacity_pause_slo_conflict]
+file = "services/launchpad/stats-workers/internal/analytics/phase2_capacity_test.go"
+line = 1074
+class = "test-gap"
+severity = "medium"
+observed = "phase4PauseWorker sends SIGSTOP for 30 seconds to the sole pinned stats role 10 seconds into measurement. Concurrent phase4HTTP has a two-second timeout, includes every measured GET in its latency/failure totals and requires zero failures with p99 <=400ms. On the single-stats-process deployment serving that origin, suspending the whole daemon necessarily violates these gates instead of testing consumer-only backlog recovery."
+expected = "A recovery qualification must name the actual failed component and served topology and keep valid availability/latency assertions consistent with that fault; steady-state throughput evidence cannot assume a suspended origin keeps serving."
+proposal = "In services/launchpad/stats-workers/internal/analytics/phase2_capacity_test.go, bind the origin to verified serving processes and inject a consumer-only failure when reads must remain available, or qualify an explicitly redundant serving topology. Keep the existing read SLOs and require measured backlog catchup and durable-state equality after recovery."
+owner_domain = 4
+interface = "4.cli-stats-workers-statsd"
+
+[finding.service_retired_topology]
+file = "spec/layerx-merge/contracts/services.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The service catalogue still presents a separate sequencer with a synchronous standby and a private router, and line 45 advertises POST /rpc, /rpc/schema and /rpc/ws as the platform gateway surface. Its universal rule at line 28 also describes a pinned sequencer-key baseline. These are stated as current merged-service contracts."
+expected = "The audit brief defines one BFT paxd network, committed-block receipt finality, node JSON-RPC at the root path and hosted px_ gateway methods; there is no independent sequencer service or unified LayerX router endpoint."
+proposal = "Rewrite the topology and universal receipt rules in spec/layerx-merge/contracts/services.md from the current merged-network source, naming paxd commit verification and the real node-root and hosted gateway contracts. Keep historical topology explicitly historical and regenerate dependent architecture pages."
+owner_domain = 8
+
+[finding.launchpad_retired_cli]
+file = "spec/layerx-merge/contracts/launchpad.md"
+line = 233
+class = "doc-drift"
+severity = "medium"
+observed = "The launchpad module CLI table at lines 233-249 and its interface rule at line 256 prescribe layerxd query launchpad as the operator executable, including params, market and quote commands. The page directs operators toward the retired daemon even though it is the cited domain contract."
+expected = "Launchpad operator instructions must use the active paxd executable and served merged-chain query surface, preserving exact arguments and codes while distinguishing any unimplemented command from a running service."
+proposal = "Update the module-cli contract source behind spec/layerx-merge/contracts/launchpad.md to cite actual paxd query entry points and present planned commands accurately. Regenerate the page and cross-check command examples against the current node command registration."
+owner_domain = 4
+
+[finding.architecture_retired_cli]
+file = "spec/layerx-merge/docs/architecture/markets-and-launchpad.md"
+line = 10373
+class = "doc-drift"
+severity = "medium"
+observed = "The generated launchpad CLI architecture rows at lines 10373 onward publish layerxd query launchpad command signatures for the new operator queries. The document labels these as planned merged-spec surfaces rather than clearly retired executable examples."
+expected = "The architecture catalogue for the merged network must name paxd and its current command registration; planned launchpad queries must not prescribe the retired layerxd daemon."
+proposal = "Correct the CLI interface source rows that generate spec/layerx-merge/docs/architecture/markets-and-launchpad.md and regenerate this catalogue together with contracts/launchpad.md. Preserve query names/arguments and label implementation status using current source evidence."
+owner_domain = 4
+
+[finding.architecture_planned_binding]
+file = "spec/layerx-merge/docs/architecture/markets-and-launchpad.md"
+line = 20509
+class = "doc-drift"
+severity = "low"
+observed = "The stats-workers architecture row calls phase4RequiredSources a planned line-0 symbol with status new, while holdings/phase4_measurement.go:1023 declares the populated source list and phase4_bindings_test.go declares its repository-root check. The current interface registry marks the symbol served."
+expected = "The architecture catalogue should distinguish a present source binding from a future implementation and cite its actual declaration consistently with the reconciled registry."
+proposal = "Regenerate the source-binding row in spec/layerx-merge/docs/architecture/markets-and-launchpad.md from the current interface registry and declared source location, and keep any outstanding qualification status separate from whether the symbol exists."
+owner_domain = 4
+
+[finding.services_planned_tests]
+file = "spec/layerx-merge/contracts/services.md"
+line = 3495
+class = "doc-drift"
+severity = "low"
+observed = "The stats-workers acceptance table labels the required-source, candidate-source and frozen-search rejection test functions planned at lines 3495-3497. All three named functions and their real implementations already exist in package members."
+expected = "The service contract should describe these tests as present source assertions and separately state their qualification evidence; planned-file wording must not imply implemented tests are missing."
+proposal = "Regenerate the stats-workers acceptance section in spec/layerx-merge/contracts/services.md from current declarations, retaining criteria 4301.1, 4302.1 and 4303.1 and linking only actual qualification records for execution claims."
+owner_domain = 4
+
+[doc.1]
+path = "spec/layerx-merge/contracts/services.md"
+status = "misleading"
+notes = "Read the service rules/catalogue and stats-workers section 3453-3497 for this slice. Lines 28,39,45 retain the separate-sequencer/router topology; lines 3495-3497 call implemented tests planned. The stats route and key-variable catalogue otherwise identifies the current package interfaces."
+
+[doc.2]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "stale"
+notes = "Read the scope, launchpad source/event/ABI references relevant to canonical fills and the module CLI section 228-258. Off-chain statistics are delegated to services.md. Lines 233-249 and 256 still prescribe the retired layerxd executable; no claim is made that unrelated on-chain interface rows were re-audited."
+
+[doc.3]
+path = "spec/layerx-merge/docs/architecture/markets-and-launchpad.md"
+status = "stale"
+notes = "Read the merged venue/activation overview and the launchpad/stats-worker interface sections, including 10373-10389 and 20428-20548. The daemon signatures remain layerxd, and line 20509 still calls the present phase4RequiredSources binding planned. The slice route/env/error names otherwise match their declarations; unrelated market catalogues are outside this slice."
+
+[interface_review.public_routes]
+ids = ["4.http-stats-workers-any-metrics", "4.http-stats-workers-get-search", "4.http-stats-workers-get-stats-batch", "4.http-stats-workers-get-stats-cross-token-swaps-token-token-address", "4.http-stats-workers-get-stats-cross-token-swaps-wallet", "4.http-stats-workers-get-stats-platform", "4.http-stats-workers-get-stats-pool-address", "4.http-stats-workers-get-stats-pool-address-creator-activity", "4.http-stats-workers-get-stats-pool-address-holders", "4.http-stats-workers-get-stats-pool-address-holders-distribution", "4.http-stats-workers-get-stats-pool-address-pressure", "4.http-stats-workers-get-stats-pool-address-reactions", "4.http-stats-workers-get-stats-pool-address-risk", "4.http-stats-workers-get-stats-pool-address-transactions", "4.http-stats-workers-get-stats-pool-address-whales", "4.http-stats-workers-get-v1-pools-pool-address-holders-pool-holders", "4.http-stats-workers-get-v1-pools-pool-address-holders-pool-holders-2", "4.http-stats-workers-get-v2-search", "4.http-stats-workers-get-v2-search-expanded", "4.http-stats-workers-get-v2-stats-platform", "4.http-stats-workers-get-v2-stats-pool-address", "4.http-stats-workers-get-v2-stats-pool-address-analytics-revisions", "4.http-stats-workers-get-v2-stats-pool-address-pressure", "4.http-stats-workers-get-v2-stats-pool-address-reactions", "4.http-stats-workers-get-v2-stats-pool-address-risk", "4.http-stats-workers-get-v2-stats-pool-address-transactions", "4.http-stats-workers-post-stats-pool-address-reactions", "4.http-stats-workers-post-v2-stats-pool-address-reactions", "4.http-stats-workers-post-webhooks-events-j65"]
+agreement = "app.New registers legacy reads in every environment and canonical reads only in production; browser/core-api routes use the declared frozen envelopes, decimal-string amounts, lower-case identities and named refusal codes. Public search and both cross-token paths are disconnected as recorded. Other route-local runtime and mutation findings retain their registry IDs."
+transport_and_recovery = "HTTP/JSON; direct stats origin for IF_HOLDERS, core-api proxy for public IF_SEARCH, private mTLS identity checks for authenticated expanded search and v2 mutations."
+
+[interface_review.runtime_configuration]
+ids = ["4.env-stats-workers-bind-address", "4.env-stats-workers-cors-allowed-origins", "4.env-stats-workers-db-budget-document", "4.env-stats-workers-db-budget-file", "4.env-stats-workers-db-budget-sha256", "4.env-stats-workers-db-pool-id", "4.env-stats-workers-delivery-config-document", "4.env-stats-workers-delivery-config-file", "4.env-stats-workers-delivery-config-sha256", "4.env-stats-workers-expected-schema-document", "4.env-stats-workers-expected-schema-file", "4.env-stats-workers-expected-schema-sha256", "4.env-stats-workers-identity-assertion-signing-key", "4.env-stats-workers-identity-mtls-ca-file", "4.env-stats-workers-identity-mtls-ca-pem", "4.env-stats-workers-identity-mtls-client-cert-file", "4.env-stats-workers-identity-mtls-client-cert-pem", "4.env-stats-workers-identity-mtls-client-key-file", "4.env-stats-workers-identity-mtls-client-key-pem", "4.env-stats-workers-identity-mtls-peer-cert-sha256", "4.env-stats-workers-identity-service-url", "4.env-stats-workers-instance-id", "4.env-stats-workers-l14-phase4-approved-candidate", "4.env-stats-workers-l14-phase4-approved-interface", "4.env-stats-workers-l14-phase4-approved-topology", "4.env-stats-workers-l14-phase4-feed-admitted", "4.env-stats-workers-l14-phase4-nats-url", "4.env-stats-workers-l14-phase4-postgres-dsn", "4.env-stats-workers-metrics-environment", "4.env-stats-workers-nats-credentials", "4.env-stats-workers-nats-credentials-creds", "4.env-stats-workers-nats-password", "4.env-stats-workers-nats-url", "4.env-stats-workers-nats-username", "4.env-stats-workers-runtime-profile", "4.env-stats-workers-stats-active-pool-window-hours", "4.env-stats-workers-stats-audit-key", "4.env-stats-workers-stats-cursor-key", "4.env-stats-workers-stats-holder-refresh-interval-ms", "4.env-stats-workers-stats-legacy-bridge-batch", "4.env-stats-workers-stats-legacy-bridge-interval-ms", "4.env-stats-workers-stats-public-stats-batch", "4.env-stats-workers-stats-public-stats-interval-ms", "4.env-stats-workers-stats-public-stream-schema", "4.env-stats-workers-stats-test-postgres-dsn", "4.env-stats-workers-stats-test-redis-url", "4.env-stats-workers-webhook-hmac-secret", "4.env-stats-workers-zone"]
+agreement = "Config.Load, protected startup documents, Phase2Keys and IdentityClient consume the declared names and types. Railway stats variables supply chain 125, private TLS material and production pool/delivery documents. The holder knobs are unused and the stream-schema override is inconsistent as recorded. Test/measurement env names are confined to their declared harnesses."
+transport_and_recovery = "Environment strings and digest-bound JSON/files; NATS credentials and TLS material validated before starting workers."
+
+[interface_review.errors]
+ids = ["4.err-stats-workers-auth-expired-j11", "4.err-stats-workers-cursor-invalid-j11", "4.err-stats-workers-dependency-unavailable-j11", "4.err-stats-workers-feature-unavailable-j11", "4.err-stats-workers-field-invalid-j11", "4.err-stats-workers-field-unknown-j11", "4.err-stats-workers-internal-error-j11", "4.err-stats-workers-not-found-j11", "4.err-stats-workers-payload-too-large-j11", "4.err-stats-workers-precondition-failed-j11", "4.err-stats-workers-query-invalid-j11", "4.err-stats-workers-rate-limited-j11", "4.err-stats-workers-resnapshot-required-j11"]
+agreement = "Search and canonical-holder handlers produce the declared status/code combinations before store access where applicable, and v2 schema validation tests check the Error envelope. Dependency refusal remains explicit rather than returning a fabricated current zero."
+transport_and_recovery = "Frozen Error JSON, X-Schema-Version and request identity headers; core-api proxies public search and the SDK validates response/error bodies."
+
+[interface_review.entry_measurement_metrics]
+ids = ["4.cli-stats-workers-qualify-phase2", "4.cli-stats-workers-statsd", "4.go-stats-workers-phase4-required-sources-j29", "4.met-stats-workers-holdings-transfer-outcomes"]
+agreement = "statsd loads app lifecycle; qualify_phase2.py records canonical crash/replay evidence; phase4RequiredSources names existing regular files; holdings.transfer.outcomes uses the registered OpenTelemetry name. Qualification requires real external inputs; the analytics pause/SLO conflict is recorded separately."
+transport_and_recovery = "Process CLI, bound file/artifact inputs, telemetry exporter and lifecycle cancellation; persisted SQL projection/checkpoints are the restart authority."
+
+[interface_review.inventory_name_matches]
+ids = ["4.env-api-bind-address", "4.env-api-cors-allowed-origins", "4.env-api-db-budget-document", "4.env-api-db-budget-file", "4.env-api-db-budget-sha256", "4.env-api-db-pool-id", "4.env-api-expected-schema-document", "4.env-api-expected-schema-file", "4.env-api-expected-schema-sha256", "4.env-api-identity-service-token", "4.env-api-identity-service-url", "4.env-api-instance-id", "4.env-api-metrics-environment", "4.env-api-nats-credentials", "4.env-api-nats-url", "4.env-api-redis-url", "4.env-api-runtime-profile", "4.env-gateway-bind-address", "4.env-gateway-cors-allowed-origins", "4.env-gateway-db-budget-document", "4.env-gateway-db-budget-file", "4.env-gateway-db-budget-sha256", "4.env-gateway-db-pool-id", "4.env-gateway-expected-schema-document", "4.env-gateway-expected-schema-file", "4.env-gateway-expected-schema-sha256", "4.env-gateway-identity-service-token", "4.env-gateway-instance-id", "4.env-gateway-metrics-environment", "4.env-gateway-redis-url", "4.env-gateway-runtime-profile", "4.env-indexer-bind-address", "4.env-indexer-cors-allowed-origins", "4.env-indexer-db-budget-document", "4.env-indexer-db-budget-file", "4.env-indexer-db-budget-sha256", "4.env-indexer-db-pool-id", "4.env-indexer-delivery-config-document", "4.env-indexer-delivery-config-file", "4.env-indexer-delivery-config-sha256", "4.env-indexer-expected-schema-document", "4.env-indexer-expected-schema-file", "4.env-indexer-expected-schema-sha256", "4.env-indexer-instance-id", "4.env-indexer-metrics-environment", "4.env-indexer-nats-credentials", "4.env-indexer-nats-password", "4.env-indexer-nats-url", "4.env-indexer-nats-username", "4.env-indexer-runtime-profile", "4.env-indexer-webhook-hmac-secret", "4.env-livestream-bind-address", "4.env-livestream-cors-allowed-origins", "4.env-livestream-db-budget-document", "4.env-livestream-db-budget-file", "4.env-livestream-db-budget-sha256", "4.env-livestream-db-pool-id", "4.env-livestream-expected-schema-document", "4.env-livestream-expected-schema-file", "4.env-livestream-expected-schema-sha256", "4.env-livestream-identity-assertion-signing-key", "4.env-livestream-identity-mtls-ca-file", "4.env-livestream-identity-mtls-client-cert-file", "4.env-livestream-identity-mtls-client-key-file", "4.env-livestream-identity-mtls-peer-cert-sha256", "4.env-livestream-identity-service-token", "4.env-livestream-identity-service-url", "4.env-livestream-instance-id", "4.env-livestream-metrics-environment", "4.env-livestream-redis-url", "4.env-livestream-runtime-profile", "4.env-lp-tools-nats-password", "4.env-lp-tools-nats-url", "4.env-metadata-bind-address", "4.env-metadata-cors-allowed-origins", "4.env-metadata-db-budget-document", "4.env-metadata-db-budget-file", "4.env-metadata-db-budget-sha256", "4.env-metadata-db-pool-id", "4.env-metadata-expected-schema-document", "4.env-metadata-expected-schema-file", "4.env-metadata-expected-schema-sha256", "4.env-metadata-identity-service-token", "4.env-metadata-identity-service-url", "4.env-metadata-instance-id", "4.env-metadata-metrics-environment", "4.env-metadata-redis-url", "4.env-metadata-runtime-profile", "4.env-pnl-tracker-bind-address", "4.env-pnl-tracker-cors-allowed-origins", "4.env-pnl-tracker-db-budget-document", "4.env-pnl-tracker-db-budget-file", "4.env-pnl-tracker-db-budget-sha256", "4.env-pnl-tracker-db-pool-id", "4.env-pnl-tracker-delivery-config-document", "4.env-pnl-tracker-delivery-config-file", "4.env-pnl-tracker-delivery-config-sha256", "4.env-pnl-tracker-expected-schema-document", "4.env-pnl-tracker-expected-schema-file", "4.env-pnl-tracker-expected-schema-sha256", "4.env-pnl-tracker-identity-service-token", "4.env-pnl-tracker-identity-service-url", "4.env-pnl-tracker-instance-id", "4.env-pnl-tracker-metrics-environment", "4.env-pnl-tracker-nats-credentials", "4.env-pnl-tracker-nats-password", "4.env-pnl-tracker-nats-url", "4.env-pnl-tracker-nats-username", "4.env-pnl-tracker-runtime-profile", "4.env-pnl-tracker-webhook-hmac-secret", "4.env-ranking-algo-bind-address", "4.env-ranking-algo-cors-allowed-origins", "4.env-ranking-algo-db-budget-document", "4.env-ranking-algo-db-budget-file", "4.env-ranking-algo-db-budget-sha256", "4.env-ranking-algo-db-pool-id", "4.env-ranking-algo-expected-schema-document", "4.env-ranking-algo-expected-schema-file", "4.env-ranking-algo-expected-schema-sha256", "4.env-ranking-algo-instance-id", "4.env-ranking-algo-metrics-environment", "4.env-ranking-algo-runtime-profile", "4.env-sdk-shared-config-event-emitter-address", "4.env-sdk-shared-config-factory-address", "4.env-sdk-shared-config-fee-accumulator-address", "4.env-sdk-shared-config-fees-router-address", "4.env-sdk-shared-config-pool-beacon-address", "4.env-sdk-shared-config-pool-registry-address", "4.env-sdk-shared-config-protocol-config-address", "4.env-sdk-shared-config-quoter-address", "4.env-sdk-shared-config-redis-bull-url", "4.env-sdk-shared-config-redis-url", "4.env-sdk-shared-config-rpc-url-fallback", "4.env-sdk-shared-config-sidiora-nft-address", "4.env-social-bind-address", "4.env-social-cors-allowed-origins", "4.env-social-db-budget-document", "4.env-social-db-budget-file", "4.env-social-db-budget-sha256", "4.env-social-db-pool-id", "4.env-social-expected-schema-document", "4.env-social-expected-schema-file", "4.env-social-expected-schema-sha256", "4.env-social-identity-assertion-signing-key", "4.env-social-identity-mtls-ca-file", "4.env-social-identity-mtls-ca-pem", "4.env-social-identity-mtls-client-cert-file", "4.env-social-identity-mtls-client-cert-pem", "4.env-social-identity-mtls-client-key-file", "4.env-social-identity-mtls-client-key-pem", "4.env-social-identity-mtls-peer-cert-sha256", "4.env-social-identity-service-token", "4.env-social-identity-service-url", "4.env-social-instance-id", "4.env-social-metrics-environment", "4.env-social-redis-url", "4.env-social-runtime-profile", "4.env-trading-charts-bind-address", "4.env-trading-charts-cors-allowed-origins", "4.env-trading-charts-db-budget-document", "4.env-trading-charts-db-budget-file", "4.env-trading-charts-db-budget-sha256", "4.env-trading-charts-db-pool-id", "4.env-trading-charts-delivery-config-document", "4.env-trading-charts-delivery-config-file", "4.env-trading-charts-delivery-config-sha256", "4.env-trading-charts-expected-schema-document", "4.env-trading-charts-expected-schema-file", "4.env-trading-charts-expected-schema-sha256", "4.env-trading-charts-instance-id", "4.env-trading-charts-metrics-environment", "4.env-trading-charts-nats-credentials", "4.env-trading-charts-nats-password", "4.env-trading-charts-nats-url", "4.env-trading-charts-nats-username", "4.env-trading-charts-runtime-profile", "4.env-trading-charts-webhook-hmac-secret", "4.env-user-bind-address", "4.env-user-cors-allowed-origins", "4.env-user-db-budget-document", "4.env-user-db-budget-file", "4.env-user-db-budget-sha256", "4.env-user-db-pool-id", "4.env-user-expected-schema-document", "4.env-user-expected-schema-file", "4.env-user-expected-schema-sha256", "4.env-user-identity-service-token", "4.env-user-identity-service-url", "4.env-user-instance-id", "4.env-user-metrics-environment", "4.env-user-redis-url", "4.env-user-runtime-profile", "4.http-api-any-metrics", "4.http-api-get-status", "4.http-api-get-v2-search-dev-discovery", "4.http-api-get-v2-search-expanded", "4.http-api-get-v2-search-rest", "4.http-gateway-any-metrics"]
+agreement = "Other services declare the same generic environment fields and metrics/search route names. Those inventory caller matches do not make stats a consumer of another process environment or another metrics handler. The actual core-api public-search proxy forwards the frozen IF_SEARCH path to stats; development discovery is registered on the API development profile."
+transport_and_recovery = "Process-local environment and independent HTTP handlers; cross-service public search travels over the configured stats HTTP origin, not through shared environment state."
+
+[interface_review.accounting]
+ids = ["4.go-shared-accounting-asset", "4.go-shared-accounting-attribution", "4.go-shared-accounting-canonical-publication-v1", "4.go-shared-accounting-compare-source-position", "4.go-shared-accounting-decode-fill-v1", "4.go-shared-accounting-decode-publication-v1", "4.go-shared-accounting-evidence-ref", "4.go-shared-accounting-execution-policy", "4.go-shared-accounting-fill-digest", "4.go-shared-accounting-fill-version", "4.go-shared-accounting-market-subject", "4.go-shared-accounting-partition-position", "4.go-shared-accounting-publication-v1", "4.go-shared-accounting-source-fill-identity", "4.go-shared-accounting-sourcebootstrap-charts-evidence-checkpoint", "4.go-shared-accounting-sourcebootstrap-commit-containing", "4.go-shared-accounting-sourcebootstrap-first-market-position", "4.go-shared-accounting-sourcebootstrap-initial-previous-height", "4.go-shared-accounting-sourcebootstrap-market-publication", "4.go-shared-accounting-sourcebootstrap-stats-evidence", "4.go-shared-accounting-sourcebootstrap-stats-evidence-checkpoint", "4.go-shared-accounting-uint", "4.go-shared-accounting-validate-fill-v1", "4.go-shared-accounting-validate-partition-position", "4.go-shared-accounting-validate-publication-v1"]
+agreement = "The shared PublicationV1/FillV1/PartitionPosition types are imported directly. Strict decoders preserve version, chain 125, decimal uint256 strings, asset decimals, provenance hashes and ordered source positions. Accounting consumer checks envelope/payload identity against canonical indexer facts and commits source checkpoints/effects atomically."
+transport_and_recovery = "Indexer canonical facts and outbox -> NATS durable envelope -> source-verified accounting consumer -> PostgreSQL trade facts, partitions, analytics and stream outbox. Redelivery, conflicts and restart have real-source tests."
+
+[interface_review.authentication]
+ids = ["4.go-shared-auth-assertion-transport", "4.go-shared-auth-audit-sink-consume", "4.go-shared-auth-body-digest", "4.go-shared-auth-committed-proof-verifier-verify", "4.go-shared-auth-decode-identity-signing-key", "4.go-shared-auth-err-replay-mismatch", "4.go-shared-auth-httpidentity-authority-check-stream-session", "4.go-shared-auth-httpstream-authority-check-stream-session", "4.go-shared-auth-identity-assertion-header", "4.go-shared-auth-identity-authentication-request", "4.go-shared-auth-identity-authority-error", "4.go-shared-auth-identity-principal-stream-principal", "4.go-shared-auth-identity-principal-validate", "4.go-shared-auth-identity-signature-header", "4.go-shared-auth-ledger", "4.go-shared-auth-ledger-execute-validated", "4.go-shared-auth-mtlsidentity-authority-check-stream-session", "4.go-shared-auth-mtlsidentity-authority-probe", "4.go-shared-auth-mtlsidentity-client-config", "4.go-shared-auth-new-mtlsidentity-client", "4.go-shared-auth-new-reported-hash-backend", "4.go-shared-auth-normalize-wallet", "4.go-shared-auth-operation-envelope", "4.go-shared-auth-operation-envelope-statement", "4.go-shared-auth-operation-envelope-validate", "4.go-shared-auth-operation-request", "4.go-shared-auth-policy", "4.go-shared-auth-policy-registry", "4.go-shared-auth-policy-registry-authorize", "4.go-shared-auth-principal", "4.go-shared-auth-service-assertion-verifier-authenticate", "4.go-shared-auth-service-request-verifier", "4.go-shared-auth-service-request-verifier-authenticate", "4.go-shared-auth-sign-webhook", "4.go-shared-auth-signed-load-harness-run", "4.go-shared-auth-signed-load-plan-validate", "4.go-shared-auth-signed-load-result-write-json", "4.go-shared-auth-validate-identity-authentication-request", "4.go-shared-auth-verification-error", "4.go-shared-auth-verify-wallet-signature", "4.go-shared-auth-verify-webhook", "4.go-shared-auth-wallet-operation-verifier", "4.go-shared-auth-wallet-operation-verifier-verify", "4.http-gateway-post-internal-v2-identity-request-authenticate"]
+agreement = "Production v2 paths use the shared operation envelope, signed body digest, policy, durable ledger, committed-proof verifier and issuer stats mTLS identity client. Error identities distinguish expiry, dependency failure and replay mismatch. Legacy signature-only reactions and webhook acknowledgement defects are explicitly recorded."
+transport_and_recovery = "Browser credential -> forwarded headers -> private gateway identity request:authenticate over pinned mTLS; signed mutation -> PostgreSQL operation ledger and vote transaction. Ledger replay survives process restart."
+
+[interface_review.configuration_database]
+ids = ["4.go-shared-config-base-env", "4.go-shared-config-base-env-private-fixture-evidence", "4.go-shared-config-base-env-validate", "4.go-shared-db-bigint-add", "4.go-shared-db-bigint-max", "4.go-shared-db-bigint-min", "4.go-shared-db-bigint-mul-div", "4.go-shared-db-bigint-sub", "4.go-shared-db-compute-market-cap", "4.go-shared-db-new-pool", "4.go-shared-db-now-seconds", "4.go-shared-db-pool-options", "4.go-shared-db-pool-options-validate", "4.go-shared-db-production-check-readiness", "4.go-shared-db-production-connection-budget-budget-pool-options", "4.go-shared-db-production-connection-budget-validate", "4.go-shared-db-production-live-processes-validate", "4.go-shared-db-production-load-expected-schema", "4.go-shared-db-production-migration-manifest-validate", "4.go-shared-db-production-parse-connection-budget", "4.go-shared-db-production-role-manifest-validate", "4.go-shared-db-production-runtime-pools-close", "4.go-shared-db-total-supply-raw", "4.go-shared-db-transport-direct", "4.go-shared-db-wad"]
+agreement = "BaseEnv and pool-budget/schema types are shared directly; production validates chain/network, readonly schema readiness, direct runtime pools and protected document hashes. Integer helpers preserve raw quantities and the legacy total-supply basis is explicitly marked incomplete on ownership reads."
+transport_and_recovery = "Protected startup JSON and environment -> validated database pool/readiness -> parameterized PostgreSQL. Persistent source facts, transactions and checkpoints own recovery; source unavailability is returned explicitly."
+
+[interface_review.delivery]
+ids = ["4.go-shared-delivery-archive-load", "4.go-shared-delivery-authority", "4.go-shared-delivery-bootstrap-input", "4.go-shared-delivery-consume-hooks", "4.go-shared-delivery-consumer-key", "4.go-shared-delivery-decode", "4.go-shared-delivery-delivery", "4.go-shared-delivery-envelope", "4.go-shared-delivery-envelope-encode", "4.go-shared-delivery-envelope-validate", "4.go-shared-delivery-failure-class", "4.go-shared-delivery-guarded-position", "4.go-shared-delivery-identity-conflict", "4.go-shared-delivery-inner-schema", "4.go-shared-delivery-integrity-failure", "4.go-shared-delivery-max-envelope-bytes", "4.go-shared-delivery-natsdriver-consumer", "4.go-shared-delivery-natsdriver-consumer-config", "4.go-shared-delivery-natsdriver-consumer-config-broker-consumer-config", "4.go-shared-delivery-natsdriver-consumer-fetch", "4.go-shared-delivery-natsdriver-consumer-run", "4.go-shared-delivery-natsdriver-message", "4.go-shared-delivery-natsdriver-message-ack", "4.go-shared-delivery-natsdriver-message-broker-position", "4.go-shared-delivery-natsdriver-new-consumer", "4.go-shared-delivery-natsdriver-new-publisher", "4.go-shared-delivery-natsdriver-publisher", "4.go-shared-delivery-natsdriver-publisher-publish", "4.go-shared-delivery-new-partition-store", "4.go-shared-delivery-new-store", "4.go-shared-delivery-new-store-with-epoch-guard", "4.go-shared-delivery-ordered-batch-failure", "4.go-shared-delivery-ordered-batch-hooks", "4.go-shared-delivery-ordered-delivery", "4.go-shared-delivery-ordered-effect", "4.go-shared-delivery-partition-binding", "4.go-shared-delivery-partition-lease", "4.go-shared-delivery-partition-store", "4.go-shared-delivery-partition-store-acquire", "4.go-shared-delivery-partition-store-advance-tx", "4.go-shared-delivery-partition-store-append-tx", "4.go-shared-delivery-partition-store-bootstrap-tx", "4.go-shared-delivery-partition-store-check-and-lock-tx", "4.go-shared-delivery-policy", "4.go-shared-delivery-quarantine-input", "4.go-shared-delivery-relay", "4.go-shared-delivery-relay-run-once", "4.go-shared-delivery-replay-engine-start", "4.go-shared-delivery-replay-engine-status", "4.go-shared-delivery-schema-ddl", "4.go-shared-delivery-source-order", "4.go-shared-delivery-store", "4.go-shared-delivery-store-consume", "4.go-shared-delivery-store-consume-ordered", "4.go-shared-delivery-store-consume-ordered-batch", "4.go-shared-delivery-store-enqueue", "4.go-shared-delivery-store-quarantine-after-rollback", "4.go-shared-delivery-stream-outbox-relay-run-once", "4.go-shared-delivery-stream-source-proof", "4.go-shared-delivery-stream-update", "4.go-shared-delivery-stream-writer", "4.go-shared-delivery-stream-writer-append-tx", "4.go-shared-delivery-stream-writer-market-projection-head-tx", "4.go-shared-delivery-webhook-bridge-run-once"]
+agreement = "Shared delivery types preserve outer snake_case envelope fields and exact raw payload bytes/hashes; accounting payloads remain camelCase. Allowlisted subjects/types, chain 125, source ordering, epochs, leases and partition identities are checked. Consumer effects, inbox/checkpoint and outbox share transactions before broker ack."
+transport_and_recovery = "File-backed JetStream persistence -> NATS driver BrokerPosition -> durable ordered/batch store -> SQL effects and outbox -> publisher acknowledgement. Replay/archive and failure classes preserve frozen authority and quarantine on immutable disagreement."
+
+[interface_review.http_types]
+ids = ["4.go-shared-http-check", "4.go-shared-http-health-deps", "4.go-shared-http-new-router", "4.go-shared-http-rate-limit", "4.go-shared-http-rate-limit-options", "4.go-shared-http-server-options", "4.go-shared-interfaces-v1-validate-json", "4.go-shared-interfaces-v2-chain-position", "4.go-shared-interfaces-v2-positive-uint256", "4.go-shared-interfaces-v2-safe-integer", "4.go-shared-interfaces-v2-trade", "4.go-shared-interfaces-v2-uint256", "4.go-shared-interfaces-v2-watermark"]
+agreement = "Shared router, health and rate-limit options are passed with their declared Go types. Frozen v1/v2 validators and amount/position/watermark types match canonical JSON responses; public parser rejection is tested without a database. Legacy page and body bounds remain separate recorded issues."
+transport_and_recovery = "HTTP router -> bounded canonical parser -> typed service/query -> frozen JSON envelope; dependency health gates check schema, source, identity and projection readiness."
+
+[interface_review.redis_channels]
+ids = ["4.go-shared-constants-channel-holders-update", "4.go-shared-constants-channel-platform-update", "4.go-shared-constants-channel-pressure-update", "4.go-shared-constants-channel-reactions-update", "4.go-shared-constants-channel-stats-update", "4.go-shared-redis-new-bounded-client", "4.go-shared-redis-new-client", "4.go-shared-redis-policy-snapshot-validate", "4.go-shared-redis-publish-json"]
+agreement = "Declared channel constants are used for stats, holder, platform, pressure and reaction notification JSON, with tests reading real Redis subscriptions. Canonical state is PostgreSQL-backed and cache can be bypassed; Redis-only legacy reactions violate durable replacement as recorded."
+transport_and_recovery = "Shared Redis client and PublishJSON bytes -> matching channel subscribers; canonical SQL/source checkpoints rebuild read state after cache loss, while legacy reactions currently lack that rebuild source."
+
+[interface_review.process_observability]
+ids = ["4.go-shared-log-new", "4.go-shared-process-new-tracker", "4.go-shared-process-options", "4.go-shared-process-run", "4.go-shared-process-tracker", "4.go-shared-process-tracker-acquire", "4.go-shared-process-tracker-begin-drain", "4.go-shared-process-tracker-middleware", "4.go-shared-process-tracker-set-ready", "4.go-shared-queue-new-epoch-guard", "4.go-shared-secrets-new-checked", "4.go-shared-secrets-options", "4.go-shared-secrets-provider-type", "4.go-shared-telemetry-metrics", "4.go-shared-telemetry-metrics-record-read", "4.go-shared-telemetry-new", "4.go-shared-testpki-ed25519", "4.go-shared-testpki-foreign", "4.go-shared-testpki-new", "4.go-shared-testpki-pki-leaf", "4.go-shared-testpki-pki-roots", "4.go-shared-util-hash-to-int64"]
+agreement = "Directly imported process tracker and cancellation APIs govern readiness/drain, epoch guard fences stale workers, checked secrets bind refresh/readiness and telemetry records route outcomes. TLS tests use real generated certificates; lock hashing is deterministic and does not alter wire identities."
+transport_and_recovery = "Process lifecycle and checked provider -> app startup/readiness/jobs -> graceful drain and bounded close; durable SQL effects are resumed by the restarted consumer rather than in-memory state."
+
+[requirement_review.package]
+ids = ["4301.1", "4302.1", "4303.1", "22998.1", "22076.1", "18946.1", "181528.1", "181182.1"]
+source_agreement = "4301.1 and 4302.1 source arrays name existing files and their declared repository-root tests are present. 4303.1 rejects malformed frozen requests before database access. 18946.1 lowercases transaction pool addresses before lookup. 181182.1 authority tests use the restored sdk/launchpad/protocol/contracts/v1/chain fixtures."
+qualification_boundary = "22998.1, 22076.1 and 181528.1 require their own recorded command, dependency/advisory or fresh-cache module evidence; this source-only package contains no lockfile/manifests and does not establish those external gates. The declared audit-record gate validates this record, not a standalone module or production capacity claim."
