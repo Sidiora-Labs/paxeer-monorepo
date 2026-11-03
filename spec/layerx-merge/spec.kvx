@@ -147787,7 +147787,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.91.128]
 title = "Finish the launchpad modules inventory for the five modules that exceeded their share a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.2", "22.99.3", "22.99.4", "22.99.5", "22.99.6"]
