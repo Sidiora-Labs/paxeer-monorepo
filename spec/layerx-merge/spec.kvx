@@ -130336,7 +130336,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.161]
 title = "Refresh the interop and tools-platform workspace lockfiles for the manifest changes since 6378efda0"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
