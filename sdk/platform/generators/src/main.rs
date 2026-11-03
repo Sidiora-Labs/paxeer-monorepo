@@ -1489,59 +1489,20 @@ fn write_go(repo_root: &Path) -> Result<(), String> {
 }
 
 pub(crate) fn jvm_verification_status(repo_root: &Path) -> Result<String, String> {
-    let agent = schema_sections(&repo_root.join(SOURCES[0].1))?;
-    let encoded = agent
-        .get("record.VerificationStatus")
-        .and_then(|entries| entries.get("verification_status"))
-        .ok_or_else(|| "missing record.VerificationStatus.verification_status".to_owned())?;
-    let contract = encoded
-        .strip_prefix('"')
-        .and_then(|value| value.strip_suffix('"'))
-        .ok_or_else(|| "VerificationStatus contract must be quoted".to_owned())?
-        .replace(r#"\""#, "\"");
-    for shape in [
-        r#"{state:"achieved",rung:R}"#,
-        r#"{state:"unverified",requested:R,achieved:R,reason:ReasonCode}"#,
-        r#"{state:"pending",requested:R,achieved:R}"#,
-        r#"{state:"absent",requested:R}"#,
-        "submitted, receipted, committed",
-        "achieved strictly below requested",
-    ] {
-        if !contract.contains(shape) {
-            return Err(format!(
-                "unsupported VerificationStatus contract: missing {shape}"
-            ));
-        }
+    let output = Command::new("python3")
+        .arg(repo_root.join("sdk/platform/generators/generate_jvm.py"))
+        .arg("--verification-status")
+        .arg(repo_root)
+        .output()
+        .map_err(|error| format!("start Python VerificationStatus renderer: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "Python VerificationStatus renderer failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
     }
-    Ok(r#"        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-        public record VerificationStatus(String state, String rung, String requested, String achieved, String reason) implements SchemaTypes.GeneratedResponse {
-            @JsonCreator
-            public VerificationStatus {
-                Objects.requireNonNull(state, "state");
-                boolean valid = switch (state) {
-                    case "achieved" -> rung != null && requested == null && achieved == null && reason == null;
-                    case "unverified" -> rung == null && requested != null && achieved != null && reason != null && !reason.isEmpty();
-                    case "pending" -> rung == null && requested != null && achieved != null && reason == null;
-                    case "absent" -> rung == null && requested != null && achieved == null && reason == null;
-                    default -> false;
-                };
-                if (!valid) throw new IllegalArgumentException("invalid verification status shape");
-                if (rung != null) rank(rung);
-                if (requested != null) rank(requested);
-                if (achieved != null && rank(achieved) >= rank(requested)) {
-                    throw new IllegalArgumentException("verification.inconsistent");
-                }
-            }
-            private static int rank(String rung) {
-                return switch (rung) {
-                    case "submitted" -> 0;
-                    case "receipted" -> 1;
-                    case "committed" -> 2;
-                    default -> throw new IllegalArgumentException("unknown verification rung");
-                };
-            }
-        }
-"#.to_owned())
+    String::from_utf8(output.stdout)
+        .map_err(|error| format!("Python VerificationStatus renderer returned non-UTF-8: {error}"))
 }
 
 pub(crate) fn jvm_schema_with_verification_status(repo_root: &Path) -> Result<String, String> {
