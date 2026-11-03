@@ -1059,3 +1059,13 @@ fn pay2e_funded_sdk_send_and_mcp_grant_draw() {
         evidence_authority: pay2_evidence_authority(&cluster),
     });
 }
+
+#[test]
+fn pay2_did_is_not_an_evm_nonce_selector() {
+    let rpc = layerx_sdk::rpc::RpcClient::connect("http://127.0.0.1:1", None)
+        .required("PAY2 local RPC configuration");
+    assert!(matches!(
+        rpc.get_identity_sequence("did:layerx:treasury"),
+        Err(layerx_sdk::rpc::RpcError::InvalidRequest)
+    ));
+}
