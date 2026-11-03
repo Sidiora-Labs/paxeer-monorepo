@@ -124867,7 +124867,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1519.1]
 title = "Issue #1519: Restore the nine explorer tool lockfiles at their dependency floors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
