@@ -232424,7 +232424,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.163]
 title = "Reconcile drifted interface registry rows: services/agent part 7"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232454,7 +232454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.162]
 title = "Reconcile drifted interface registry rows: services/agent part 6"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232484,7 +232484,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.161]
 title = "Reconcile drifted interface registry rows: services/agent part 5"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232514,7 +232514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.160]
 title = "Reconcile drifted interface registry rows: services/agent part 4"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232544,7 +232544,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.159]
 title = "Reconcile drifted interface registry rows: services/agent part 3"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232574,7 +232574,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.158]
 title = "Reconcile drifted interface registry rows: services/agent part 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232604,7 +232604,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.157]
 title = "Reconcile drifted interface registry rows: services/agent part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232634,7 +232634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.156]
 title = "Reconcile drifted interface registry rows: tools/platform part 36"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232664,7 +232664,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.155]
 title = "Reconcile drifted interface registry rows: tools/platform part 35"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232694,7 +232694,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.154]
 title = "Reconcile drifted interface registry rows: services/platform and tools/platform part 34"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232724,7 +232724,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.153]
 title = "Reconcile drifted interface registry rows: services/platform part 33"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232784,7 +232784,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.151]
 title = "Reconcile drifted interface registry rows: services/platform part 31"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
