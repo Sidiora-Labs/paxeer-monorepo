@@ -129636,7 +129636,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.57]
 title = "Inventory every test run of the services/explorer/services/libs/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129822,7 +129822,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.51]
 title = "Inventory every test run of the programs/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129977,7 +129977,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.46]
 title = "Inventory every build target of the services/interop/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130039,7 +130039,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.44]
 title = "Inventory every build target of the services/agent/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190173,7 +190173,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.70]
 title = "Inventory every Go package under wasm-runtime/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -224179,7 +224179,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.82]
 title = "Inventory every pytest tree for collection errors again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -224210,7 +224210,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.81]
 title = "Inventory every tracked Python file for compilation again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
