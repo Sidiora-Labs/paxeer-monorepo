@@ -92,11 +92,26 @@ fn logs(case: &JsonValue) -> Vec<SequencerLog> {
 #[test]
 fn retained_positive_and_revert_receipts_verify_byte_exactly() {
     for (name, result_code, count) in [
-        ("vector-v1-receipted-positive.json", 0, 4),
+        ("vector-v1-receipted-positive.json", 0, 5),
         ("vector-v2-receipted-revert.json", 1, 1),
     ] {
         let document = load(name);
         assert_eq!(cases(&document).len(), count);
+        if result_code == 0 {
+            assert_eq!(
+                cases(&document)
+                    .iter()
+                    .map(|case| case.str_at("id").unwrap_or_else(|error| panic!("{error}")))
+                    .collect::<Vec<_>>(),
+                [
+                    "V1-pax-transfer",
+                    "V1-erc20-approve",
+                    "V1-layerxledger-pay-exact",
+                    "V1-layerxbridge-bridge-out",
+                    "V1-layerxprograms-call",
+                ]
+            );
+        }
         for case in cases(&document) {
             let canonical = bytes(case, "signedReceipt");
             let receipt = verified(case);

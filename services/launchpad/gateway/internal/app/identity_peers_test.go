@@ -462,7 +462,11 @@ func runService(t *testing.T, name, binary string, env []string, plainURL string
 		t.Fatal(err)
 	}
 	exited := make(chan error, 1)
-	go func() { exited <- cmd.Wait() }()
+	go func() {
+		exited <- cmd.Wait()
+		// Both readiness and cleanup may wait for the same process exit.
+		close(exited)
+	}()
 	t.Cleanup(func() {
 		cancel()
 		<-exited

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,7 +23,7 @@ func CanonicalTopics(topics []string) ([]string, error) {
 	out := append([]string(nil), topics...)
 	sort.Strings(out)
 	for i, topic := range out {
-		if topic == "" || len(topic) > 200 || (i > 0 && topic == out[i-1]) {
+		if topic == "" || len(topic) > 200 || strings.ContainsAny(topic, "*>") || (i > 0 && topic == out[i-1]) {
 			return nil, sharedauth.ErrScopeDenied
 		}
 		raw, err := json.Marshal(topic)

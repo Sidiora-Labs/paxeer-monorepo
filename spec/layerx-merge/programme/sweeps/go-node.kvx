@@ -1,20 +1,24 @@
 [sweep.go-node]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 14
 targets_passed = 12
-targets_failed = 0
-targets_not_run = 2
+targets_failed = 2
+targets_not_run = 0
 enumeration_command = "CGO_ENABLED=1 go list ./node/..."
 enumeration_exit_code = 0
 native_prerequisite_command = "CGO_ENABLED=1 make paxd-native-libs"
 native_prerequisite_exit_code = 0
+native_prerequisite_log = "/out/logs/native-libs.log"
 
 [target.go-node.1]
 target = "node"
-result = "not_run"
-exit_code = 124
-reason = "The per-target command exceeded its 480-second sweep allocation and was stopped to preserve the task time limit."
+result = "failed"
+exit_code = 1
+observed = "--- FAIL: TestPriceFeedLivePathAggregate (1.22s)"
+assumption = "The aggregate event reports required=1 where the test expects required=3, suggesting a quorum configuration or fixture mismatch; the suite also hits Go's ten-minute timeout in TestStandbyReplicatesRecorderGroupsThroughOpenAccount and needs a separate repair task."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+log = "/out/logs/resweep-node.log"
 
 [target.go-node.2]
 target = "node/ante"
@@ -53,9 +57,12 @@ exit_code = 0
 
 [target.go-node.9]
 target = "node/sequencer"
-result = "not_run"
-exit_code = 124
-reason = "The per-target command exceeded its 180-second sweep allocation and was stopped to preserve the task time limit."
+result = "failed"
+exit_code = 1
+observed = "--- FAIL: TestReceiptLatencyP99UnderBound (11.92s)"
+assumption = "Receipt and standby acknowledgement p99 upper bounds reach 100 ms against the receipt requirement below 50 ms, suggesting scheduling or I/O contention during the concurrent suites; configuration defaults and bounds, execution and replication assertions also fail and need a separate repair task."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+log = "/out/logs/resweep-node-sequencer.log"
 
 [target.go-node.10]
 target = "node/sequencer/wal"

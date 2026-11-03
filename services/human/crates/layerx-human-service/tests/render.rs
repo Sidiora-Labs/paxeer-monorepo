@@ -223,6 +223,7 @@ fn held_digest(prepared: &Prepared, marker: u8) -> [u8; 32] {
     };
     let registry = ApprovalRegistry::default();
     let context = ApprovalContext {
+        actor_address: [4; 20],
         tenant: TenantId::new("tenant-approval-render")
             .unwrap_or_else(|error| panic!("tenant: {error}")),
         agent: actor(),

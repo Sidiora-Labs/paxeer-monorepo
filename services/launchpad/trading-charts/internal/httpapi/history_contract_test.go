@@ -10,58 +10,27 @@ import (
 	"math"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/migrate"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Only checked-in public local fixture credentials; each test creates and drops
-// its own database under the assigned lane namespace. No shared schema writes.
 func historyPostgres(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("L11_POSTGRES_DSN")
-	if dsn == "" {
-		dsn = "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable"
-	}
+	dsn := internaltest.NewDatabase(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	admin, err := pgx.Connect(ctx, dsn)
+	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	name := "kd_a5099b09994e633500d81d10_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:16]
-	if _, err = admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
-		admin.Close(ctx)
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		if _, err := admin.Exec(ctx, "DROP DATABASE "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)"); err != nil {
-			t.Errorf("cleanup %s: %v", name, err)
-		}
-		admin.Close(ctx)
-	})
-	ownedURL, err := url.Parse(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ownedURL.Path = "/" + name
-	ownedDSN := ownedURL.String()
-	cfg, err := pgxpool.ParseConfig(ownedDSN)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.ConnConfig.Database = name
 	cfg.MaxConns = 2
-	if err := migrate.Up(ctx, ownedDSN); err != nil {
+	if err := migrate.Up(ctx, dsn); err != nil {
 		t.Fatal(err)
 	}
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
@@ -362,6 +331,9 @@ func TestHistoryCancelled5000BarQueryReleasesConnection(t *testing.T) {
 	}()
 	observed := false
 	for i := 0; i < 100; i++ {
+		if _, err = blocker.Exec(ctx, "SELECT pg_stat_clear_snapshot()"); err != nil {
+			t.Fatal(err)
+		}
 		if err = blocker.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND wait_event_type='Lock' AND query LIKE '%FROM candles.candles%LIMIT $5%')").Scan(&observed); err != nil {
 			t.Fatal(err)
 		}

@@ -1,0 +1,7 @@
+[repair.rust-test-platform.13]
+target = "layerx-platform-registry"
+command = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --no-fail-fast"
+revision = "c56bf8dab2a36860f56543433ebe85802b492d14"
+result = "repaired"
+change = "services/platform/hosted/registry/src/main.rs enables parent cgroup controllers for live delegation, and services/platform/hosted/registry/tests/journal.rs asserts immutable publication conflicts, explicit quarantine discard and idempotent recovery."
+producer_input_tests = []
