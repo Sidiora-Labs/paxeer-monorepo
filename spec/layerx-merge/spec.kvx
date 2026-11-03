@@ -117633,7 +117633,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.23.10]
 title = "Key the TypeScript seller fulfilment on the verified receipt so one receipt releases once"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -221188,7 +221188,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.23.9]
 title = "Key the Python seller fulfilment on the verified receipt so one receipt releases once"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
