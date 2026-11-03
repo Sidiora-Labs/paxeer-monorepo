@@ -524,7 +524,7 @@ impl CustodySigner {
         };
         let signer_public_key = signer.public_key();
         let signature = match signer
-            .sign_disclosed(request.canonical_bytes, request.disclosure, &self.registry)
+            .sign_call(request.canonical_bytes, request.disclosure)
             .await
         {
             Ok(signature) => signature,
@@ -590,7 +590,7 @@ impl CustodySigner {
         };
         let signer_public_key = signer.public_key();
         let signature = match signer
-            .sign_disclosed(request.canonical_bytes, request.disclosure, &self.registry)
+            .sign_call(request.canonical_bytes, request.disclosure)
             .await
         {
             Ok(signature) => signature,

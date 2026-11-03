@@ -537,6 +537,9 @@ impl ProtocolEvidence {
                     .get(2..34)
                     .and_then(|word| word.try_into().ok())
                     .ok_or(AgentFailure::Refused("invalid lifecycle budget id"))?,
+                Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreateNative {
+                    budget,
+                }) => budget.budget_id,
                 Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetFund {
                     ..
                 }) => [0; 32],
@@ -672,6 +675,42 @@ impl ProtocolEvidence {
                     layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
                 )
             }
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreateNative {
+                budget,
+            }) => {
+                let mut payload = Vec::with_capacity(251);
+                payload.extend_from_slice(&budget.encoding_version.to_be_bytes());
+                for value in [
+                    budget.budget_id,
+                    budget.budget_account,
+                    budget.asset,
+                    budget.purpose,
+                ] {
+                    payload.extend_from_slice(&value);
+                }
+                for value in [
+                    budget.per_period_limit,
+                    budget.carry_cap,
+                    budget.initial_amount,
+                ] {
+                    payload.extend_from_slice(&value.to_be_bytes());
+                }
+                for value in [
+                    budget.period_length_ms,
+                    budget.period_start_ms,
+                    budget.expiry_ms,
+                    budget.revocation_sequence,
+                ] {
+                    payload.extend_from_slice(&value.to_be_bytes());
+                }
+                payload.push(budget.rollover);
+                payload.extend_from_slice(&budget.source_account);
+                payload.extend_from_slice(&budget.source_sequence.to_be_bytes());
+                (
+                    payload,
+                    layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+                )
+            }
             Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetFund {
                 budget,
                 amount,
@@ -695,6 +734,12 @@ impl ProtocolEvidence {
                 ..
             }) => (
                 payload,
+                layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+            ),
+            Some(layerx_crypto::disclosure::call::ConstructMethod::AuthSession {
+                grant, ..
+            }) => (
+                grant.registration_payload,
                 layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
             ),
             Some(layerx_crypto::disclosure::call::ConstructMethod::ProgramCall { .. }) => {
