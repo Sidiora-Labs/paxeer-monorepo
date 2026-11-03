@@ -391,27 +391,27 @@
     "refusal": "invalid"
   },
   {
-    "pointer": "/gateway/sequencer_id",
+    "pointer": "/gateway/receipt_keys/0/key_id",
     "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-    "field": "gateway.sequencer_id",
+    "field": "gateway.receipt_keys[0].key_id",
     "refusal": "placeholder"
   },
   {
-    "pointer": "/gateway/sequencer_id",
+    "pointer": "/gateway/receipt_keys/0/key_id",
     "value": "REPLACE_WITH_SEQUENCER_ID",
-    "field": "gateway.sequencer_id",
+    "field": "gateway.receipt_keys[0].key_id",
     "refusal": "placeholder"
   },
   {
-    "pointer": "/gateway/sequencer_public_key",
+    "pointer": "/gateway/receipt_keys/0/public_key",
     "value": "0000000000000000000000000000000000000000000000000000000000000000",
-    "field": "gateway.sequencer_public_key",
+    "field": "gateway.receipt_keys[0].public_key",
     "refusal": "placeholder"
   },
   {
-    "pointer": "/gateway/sequencer_public_key",
+    "pointer": "/gateway/receipt_keys/0/public_key",
     "value": "0100000000000000000000000000000000000000000000000000000000000000",
-    "field": "gateway.sequencer_public_key",
+    "field": "gateway.receipt_keys[0].public_key",
     "refusal": "invalid"
   },
   {
