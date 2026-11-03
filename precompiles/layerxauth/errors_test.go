@@ -101,6 +101,9 @@ func TestAuthRevertReasons(t *testing.T) {
 	})
 
 	t.Run("kernelRegistry", func(t *testing.T) {
+		// The retired DA result remains declared in the header, but has no kernel
+		// emitter. Task 22.2.6 keeps DA missing as a named service refusal.
+		require.Equal(t, "LXP_UNKNOWN", layerxauth.KernelCodeText(lxphost.Code(-804)))
 		header, err := os.ReadFile("../../include/layerx/lxp_result.h")
 		require.NoError(t, err)
 		declarations := regexp.MustCompile(`(?m)^\s*X\(\s*(LXP_[A-Z0-9_]+)\s*,\s*(-?\d+)\s*\)`).FindAllSubmatch(header, -1)
@@ -110,6 +113,9 @@ func TestAuthRevertReasons(t *testing.T) {
 			require.NoError(t, err)
 			code := lxphost.Code(numeric)
 			name := strings.Replace(string(declaration[1]), "LXP_ERR_", "LXP_", 1)
+			if name == "LXP_DA_MISSING" {
+				name = "LXP_UNKNOWN"
+			}
 			t.Run(name, func(t *testing.T) {
 				if numeric <= -1000 {
 					require.Empty(t, layerxauth.KernelCodeText(code))

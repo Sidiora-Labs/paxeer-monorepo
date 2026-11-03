@@ -769,25 +769,29 @@ func EncodeTmBlock(
 		return nil, fmt.Errorf("block %d: %w", block.Block.Height, err)
 	}
 	result := map[string]interface{}{
-		"number":           (*hexutil.Big)(number),
-		"hash":             blockhash,
-		"parentHash":       lastHash,
-		"nonce":            ethtypes.BlockNonce{},   // inapplicable to Pax
-		"mixHash":          common.Hash{},           // inapplicable to Pax
-		"sha3Uncles":       ethtypes.EmptyUncleHash, // inapplicable to Pax
-		"logsBloom":        ethtypes.BytesToBloom(blockBloom),
-		"stateRoot":        appHash,
-		"miner":            miner,
-		"difficulty":       (*hexutil.Big)(big.NewInt(0)), // inapplicable to Pax
-		"extraData":        hexutil.Bytes{},               // inapplicable to Pax
-		"gasLimit":         gasLimit,
-		"gasUsed":          hexutil.Uint64(blockGasUsed),
-		"timestamp":        hexutil.Uint64(block.Block.Time.Unix()), //nolint:gosec
-		"transactionsRoot": txHash,
-		"size":             hexutil.Uint64(block.Block.Size()), //nolint:gosec
-		"uncles":           []common.Hash{},                    // inapplicable to Pax
-		"transactions":     transactions,
-		"baseFeePerGas":    (*hexutil.Big)(baseFeePerGas),
+		"number":                (*hexutil.Big)(number),
+		"hash":                  blockhash,
+		"parentHash":            lastHash,
+		"nonce":                 ethtypes.BlockNonce{},   // inapplicable to Pax
+		"mixHash":               common.Hash{},           // inapplicable to Pax
+		"sha3Uncles":            ethtypes.EmptyUncleHash, // inapplicable to Pax
+		"logsBloom":             ethtypes.BytesToBloom(blockBloom),
+		"stateRoot":             appHash,
+		"miner":                 miner,
+		"difficulty":            (*hexutil.Big)(big.NewInt(0)), // inapplicable to Pax
+		"extraData":             hexutil.Bytes{},               // inapplicable to Pax
+		"gasLimit":              gasLimit,
+		"gasUsed":               hexutil.Uint64(blockGasUsed),
+		"timestamp":             hexutil.Uint64(block.Block.Time.Unix()), //nolint:gosec
+		"transactionsRoot":      txHash,
+		"size":                  hexutil.Uint64(block.Block.Size()), //nolint:gosec
+		"uncles":                []common.Hash{},                    // inapplicable to Pax
+		"transactions":          transactions,
+		"baseFeePerGas":         (*hexutil.Big)(baseFeePerGas),
+		"withdrawalsRoot":       ethtypes.EmptyWithdrawalsHash,
+		"blobGasUsed":           hexutil.Uint64(0),
+		"excessBlobGas":         hexutil.Uint64(0),
+		"parentBeaconBlockRoot": common.Hash{},
 	}
 	if fullTx {
 		result["totalDifficulty"] = (*hexutil.Big)(big.NewInt(0)) // inapplicable to Pax

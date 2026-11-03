@@ -13,6 +13,7 @@ use layerx_proof::settlement::{
 };
 use layerx_types::settlement::{
     DeclaredCheckpointSettlement, SettlementError, CHECKPOINT_SETTLEMENT_PATH,
+    CHECKPOINT_SETTLEMENT_SCHEMA,
 };
 use layerx_types::vectors::checkpoint::{
     load_checkpoint_vectors, CheckpointOutcome, CheckpointRejection, CheckpointVector,
@@ -399,8 +400,9 @@ fn embedded_settlement_is_the_declared_document() {
     let on_disk = fs::read_to_string(repository_root().join(CHECKPOINT_SETTLEMENT_PATH))
         .unwrap_or_else(|error| panic!("declared settlement unreadable: {error}"));
     assert_eq!(on_disk, DECLARED_CHECKPOINT_SETTLEMENT);
-    let parsed = DeclaredCheckpointSettlement::parse(&on_disk)
-        .unwrap_or_else(|error| panic!("declared settlement invalid: {error}"));
+    let parsed = DeclaredCheckpointSettlement::parse(&on_disk).unwrap_or_else(|error| {
+        panic!("{CHECKPOINT_SETTLEMENT_PATH} must satisfy {CHECKPOINT_SETTLEMENT_SCHEMA}: {error}")
+    });
     let embedded =
         declared().unwrap_or_else(|error| panic!("embedded settlement invalid: {error}"));
     assert_eq!(*embedded, parsed);
