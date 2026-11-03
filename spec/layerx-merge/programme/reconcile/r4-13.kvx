@@ -1,0 +1,259 @@
+[reconcile.r4-13]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 32
+
+[row.r4-13.1]
+interface = "interface.4.ts-mobile-market-session-j30"
+verdict = "served"
+path = "apps/launchpad/mobile/src/runtime/market-session.ts"
+line = 11
+symbol = "MarketSession"
+evidence = "export class MarketSession remains the declaration, now at line 11 rather than 4. Its constructor takes services: Pick<MobileServices, 'sdk' | 'config'> and snapshot, event and state callbacks; it uses SnapshotStreamV2 with the canonical application origin. The class export signature is unchanged."
+
+[row.r4-13.2]
+interface = "interface.4.ts-mobile-create-native-quote-transaction-builder-j30"
+verdict = "served"
+path = "apps/launchpad/mobile/src/runtime/quote-transaction.ts"
+line = 130
+symbol = "createNativeQuoteTransactionBuilder"
+evidence = "export function createNativeQuoteTransactionBuilder(services: MobileServices) expands the registry's (...) signature and moves from line 27 to 130. It returns an async (input: Quote, account: string, signal: AbortSignal): Promise<TransactionRequest> builder that verifies native authority, allowance and the Router call."
+
+[row.r4-13.3]
+interface = "interface.4.ts-mobile-native-approval-controller-j30"
+verdict = "served"
+path = "apps/launchpad/mobile/src/runtime/quote-transaction.ts"
+line = 360
+symbol = "NativeApprovalController"
+evidence = "export class NativeApprovalController retains its class export signature but moves from line 44 to 360. The constructor takes MobileServices, SessionController, PendingOperations, WalletExecutionProvider, changed: () => void and canUnlock: () => boolean; approval state is persisted and fenced to the current identity."
+
+[row.r4-13.4]
+interface = "interface.4.ts-mobile-mobile-services-j30"
+verdict = "served"
+path = "apps/launchpad/mobile/src/runtime/service-client.ts"
+line = 165
+symbol = "MobileServices"
+evidence = "export class MobileServices retains its class export signature, now at line 165 rather than 20. Its constructor accepts readonly config: PublicConfiguration and optional _token?: () => string | undefined; SdkClient now uses cookie sessions, canonical application origin and a CSRF token callback with protectedCookieFetch."
+
+[row.r4-13.5]
+interface = "interface.4.env-web-web-api-upstream-j30"
+verdict = "served_elsewhere"
+path = "apps/launchpad/web/src/core/next-build-config.ts"
+line = 61
+symbol = "WEB_API_UPSTREAM"
+evidence = "The direct process.env.WEB_API_UPSTREAM read left next.config.ts. backendRewrites(env: Readonly<Record<string, string | undefined>>) now reads env.WEB_API_UPSTREAM for REST authority, preflight and snapshot destinations; next.config.ts:43 passes process.env to that helper."
+
+[row.r4-13.6]
+interface = "interface.4.env-web-web-gateway-upstream-j30"
+verdict = "served_elsewhere"
+path = "apps/launchpad/web/src/core/next-build-config.ts"
+line = 60
+symbol = "WEB_GATEWAY_UPSTREAM"
+evidence = "The direct process.env.WEB_GATEWAY_UPSTREAM read moved into backendRewrites as env.WEB_GATEWAY_UPSTREAM. The helper supplies auth, stream-ticket and control destinations and is called with process.env by next.config.ts:43."
+
+[row.r4-13.7]
+interface = "interface.4.env-web-web-sockets-upstream-j30"
+verdict = "served_elsewhere"
+path = "apps/launchpad/web/src/core/next-build-config.ts"
+line = 62
+symbol = "WEB_SOCKETS_UPSTREAM"
+evidence = "backendRewrites now reads env.WEB_SOCKETS_UPSTREAM in the extracted configuration helper rather than process.env.WEB_SOCKETS_UPSTREAM in next.config.ts. It supplies /v2/stream and /v2/stream/sse destinations; next.config.ts passes process.env."
+
+[row.r4-13.8]
+interface = "interface.4.env-web-web-charts-upstream-j30"
+verdict = "served_elsewhere"
+path = "apps/launchpad/web/src/core/next-build-config.ts"
+line = 63
+symbol = "WEB_CHARTS_UPSTREAM"
+evidence = "backendRewrites reads env.WEB_CHARTS_UPSTREAM in the extracted helper called with process.env by next.config.ts. The charts value supplies /v2/udf/config, symbols, history and time destinations; the registered direct process.env read is no longer in next.config.ts."
+
+[row.r4-13.9]
+interface = "interface.4.cfg-web-next-rewrites-j30"
+verdict = "served"
+path = "apps/launchpad/web/next.config.ts"
+line = 43
+symbol = "rewrites"
+evidence = "rewrites: () => backendRewrites(process.env) replaces the inline configuration at registered line 108 and preserves the Promise<{beforeFiles, afterFiles, fallback}> shape. The extracted async helper validates production upstreams and constructs auth, control, REST, stream and chart rewrites."
+
+[row.r4-13.10]
+interface = "interface.4.cfg-web-next-allowed-dev-origins-j30"
+verdict = "served"
+path = "apps/launchpad/web/next.config.ts"
+line = 46
+symbol = "allowedDevOrigins"
+evidence = "allowedDevOrigins: allowedDevOrigins(process.env) is now at line 46 rather than 113. The configured value remains string[]; the imported helper starts with localhost and 127.0.0.1 and validates comma-separated NEXT_DEV_ALLOWED_ORIGINS hostnames before adding them."
+
+[row.r4-13.11]
+interface = "interface.4.cfg-web-next-transpile-packages-j30"
+verdict = "served"
+path = "apps/launchpad/web/next.config.ts"
+line = 99
+symbol = "transpilePackages"
+evidence = "transpilePackages: [...TRANSPILE_PACKAGES] now declares the string[] configuration at line 99 rather than 166. The inline list is supplied by the frozen tuple exported from src/core/next-build-config.ts, containing candles-sdk, indexer-sdk, metadata-sdk, ranking-algo-sdk, stats-sdk, users-sdk and sidiora-launchpad-v3."
+
+[row.r4-13.12]
+interface = "interface.4.env-web-next-public-private-qualification-authority-profile-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/app/layout.tsx"
+line = 34
+symbol = "NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE"
+evidence = "const NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE = process.env.NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE now reads the unchanged environment variable inside RootLayout at line 34 rather than 14. It supplies privateFixtureProfileInput, selects fixture cookie storage and is passed to AppProviders."
+
+[row.r4-13.13]
+interface = "interface.4.fmt-web-abi-feesrouter-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/core/network/abis/FeesRouter.json"
+line = 413
+symbol = "claimFees"
+evidence = "FeesRouter.json remains an ABI JSON array, so the registered format signature is unchanged. The concrete literal declaration is name: claimFees at line 413: claimFees(uint256 nftId) returns (uint256 amount), nonpayable. The array also declares claimAirdropEpoch(uint256 nftId,uint256 epoch) and role and upgrade interfaces."
+
+[row.r4-13.14]
+interface = "interface.4.fmt-web-abi-quoter-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/core/network/abis/Quoter.json"
+line = 510
+symbol = "quoteExactInput"
+evidence = "Quoter.json remains an ABI JSON array; the registered format signature is unchanged. Its name: quoteExactInput literal at line 510 declares (address pool,uint256 amountIn,bool isBuy), view, returning a QuoteResult tuple of uint256 amountOut, feeAmount and priceImpactBps. OpticalQuoteUnsupported and UnexecutableQuote errors are present."
+
+[row.r4-13.15]
+interface = "interface.4.fmt-web-abi-router-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/core/network/abis/Router.json"
+line = 412
+symbol = "buy"
+evidence = "Router.json remains an ABI JSON array, retaining the registered format signature. Its name: buy literal at line 412 declares buy(address pool,uint256 usdlAmountIn,uint256 minTokensOut,uint256 deadline) returns (uint256 amountOut), nonpayable. The same array carries sell, permit, market-creation and multicall interfaces."
+
+[row.r4-13.16]
+interface = "interface.4.ts-web-core-deployment-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/core/network/deployment.ts"
+line = 3
+symbol = "CORE_DEPLOYMENT"
+evidence = "export const CORE_DEPLOYMENT = Object.freeze({ ... } as const) remains at line 3; the export signature is unchanged. The generated chain-125 record includes finalized recordedStatus, manifestSha256, roleIdentity entries for native surfaces and proxies, USDL decimals 6 and creationFeeRaw 1000000."
+
+[row.r4-13.17]
+interface = "interface.4.ts-web-deployment-o-p-t-i-o-n-a-l-c-o-n-t-r-a-c-t-c-a-p-a-b-i-l-i-t-i-e-s-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/core/network/deployment.ts"
+line = 77
+symbol = "OPTIONAL_CONTRACT_CAPABILITIES"
+evidence = "export const OPTIONAL_CONTRACT_CAPABILITIES = Object.freeze({ metaAg: false, pecorOrders: false } as const) exists at line 77 rather than registered line 25. OptionalContractCapability is derived from its keys at line 80."
+
+[row.r4-13.18]
+interface = "interface.4.ts-web-deployment-is-active-approval-spender-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/core/network/deployment.ts"
+line = 82
+symbol = "isActiveApprovalSpender"
+evidence = "export function isActiveApprovalSpender(spender: string): boolean exists at line 82 rather than 28. It validates an address-shaped string and compares it case-insensitively with CORE_DEPLOYMENT.router."
+
+[row.r4-13.19]
+interface = "interface.4.ts-web-deployment-assert-active-approval-spender-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/core/network/deployment.ts"
+line = 86
+symbol = "assertActiveApprovalSpender"
+evidence = "export function assertActiveApprovalSpender(spender: string): void exists at line 86 rather than 32. It delegates to isActiveApprovalSpender and throws when the spender is not the admitted Router."
+
+[row.r4-13.20]
+interface = "interface.4.ts-web-deployment-assert-optional-contract-capability-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/core/network/deployment.ts"
+line = 90
+symbol = "assertOptionalContractCapability"
+evidence = "export function assertOptionalContractCapability(capability: OptionalContractCapability): never exists at line 90 rather than 36. It throws an unavailable error for the optional contract capability."
+
+[row.r4-13.21]
+interface = "interface.4.ts-web-parse-private-fixture-authority-profile-v1-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/core/runtime-authority.ts"
+line = 79
+symbol = "parsePrivateFixtureAuthorityProfileV1"
+evidence = "export function parsePrivateFixtureAuthorityProfileV1(input: unknown): PrivateFixtureAuthorityProfileV1 remains at line 79. The registry's untyped (input) abbreviation is resolved to unknown input and the explicit profile return type; the parser rejects production fixture input and validates bounded JSON, digests, roles and code identities."
+
+[row.r4-13.22]
+interface = "interface.4.env-web-l25-vitest-cache-dir-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/core/wallet-sdk/vitest.l25.config.ts"
+line = 8
+symbol = "L25_VITEST_CACHE_DIR"
+evidence = "process.env.L25_VITEST_CACHE_DIR retains its environment-read signature, now at line 8 rather than 6. cacheDir uses that value or resolve(process.cwd(), 'node_modules/.vite/l25'); mergeConfig retains the baseline and sets maxWorkers to 1."
+
+[row.r4-13.23]
+interface = "interface.4.cfg-web-community-lane-include-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/widgets/community-interactions/vitest.config.mts"
+line = 10
+symbol = "include"
+evidence = "test.include retains its string[] configuration signature at line 10: include: ['src/widgets/community-interactions/*.test.tsx']. The surrounding test object selects jsdom and fileParallelism: false; the registry path and line still match."
+
+[row.r4-13.24]
+interface = "interface.4.env-web-l28-private-cache-directory-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/widgets/meta-ag/vitest.l28.config.ts"
+line = 8
+symbol = "L28_PRIVATE_CACHE_DIRECTORY"
+evidence = "process.env.L28_PRIVATE_CACHE_DIRECTORY retains its environment-read signature, now at line 8 rather than 5. The cacheDir expression otherwise resolves ../../../node_modules/.vite/l28 from import.meta.url, while mergeConfig retains the base and maxWorkers: 1."
+
+[row.r4-13.25]
+interface = "interface.4.ts-web-optical-rejection-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts"
+line = 13
+symbol = "OpticalRejection"
+evidence = "export class OpticalRejection extends Error remains at line 13 with the same class export signature. Its constructor(readonly reason: string, readonly retryEligibility: string) sets the message and Error name; opticalRejection converts decoded optical errors into this type."
+
+[row.r4-13.26]
+interface = "interface.4.ts-web-production-trade-deployment-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts"
+line = 28
+symbol = "productionTradeDeployment"
+evidence = "export const productionTradeDeployment: TradeDeployment = { ... } retains its typed export signature, now at line 28 rather than 29. It maps CORE_DEPLOYMENT addresses and manifestSha256 and builds pins from CORE_TRADE_EXECUTION_ROLES, including implementation identity only where present."
+
+[row.r4-13.27]
+interface = "interface.4.ts-web-chain-trade-provider-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts"
+line = 49
+symbol = "ChainTradeProvider"
+evidence = "export class ChainTradeProvider retains its class export signature, now at line 49 rather than 51. Its constructor takes PublicClient, optional WalletClient, TradeDeployment defaulting to productionTradeDeployment and optional WalletSessionController; required execution addresses must have code pins."
+
+[row.r4-13.28]
+interface = "interface.4.env-web-l26-cache-dir-j30"
+verdict = "served"
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/vitest.phase2.config.ts"
+line = 8
+symbol = "L26_CACHE_DIR"
+evidence = "process.env.L26_CACHE_DIR retains its environment-read signature, now at line 8 rather than 4. cacheDir otherwise resolves node_modules/.vite/l26; mergeConfig keeps the baseline, disables file parallelism, limits workers to one and declares focused transaction suites."
+
+[row.r4-13.29]
+interface = "interface.4.cfg-web-vitest-test-env-j30"
+verdict = "served"
+path = "apps/launchpad/web/vitest.config.ts"
+line = 15
+symbol = "env"
+evidence = "test.env retains its Record<string,string> configuration signature, with env: { now at line 15 rather than 16. It declares NEXT_PUBLIC_DATA_API_URL, NEXT_PUBLIC_GATEWAY_URL, NEXT_PUBLIC_METADATA_API_URL and NEXT_PUBLIC_PNL_API_URL using loopback origins for suites."
+
+[row.r4-13.30]
+interface = "interface.4.cli-lp-contracts-script-lib-production-health"
+verdict = "served"
+path = "contracts/launchpad/scripts/lib/production-health.js"
+line = 358
+symbol = "require.main === module"
+evidence = "The node lib/production-health.js CLI remains served by if (require.main === module), which delegates to ../production-health.main(). Its command signature is unchanged. override.J28.19's decision.411 concern is addressed at lines 129-132: native surfaces report identity ok and MsgUpdateParams administration before proxy-slot checks."
+
+[row.r4-13.31]
+interface = "interface.4.cli-lp-contracts-script-lib-upgrade-preflight"
+verdict = "served"
+path = "contracts/launchpad/scripts/lib/upgrade-preflight.js"
+line = 199
+symbol = "require.main === module"
+evidence = "The node lib/upgrade-preflight.js command remains served by if (require.main === module) and main(requiredContracts = process.argv.slice(2)); explicit target arguments and RPC_URL are required. override.J28.20's decision.411 concern is addressed by assertNotNativeSurface(provider, proxy, item.proxyKey) at line 47 before any EIP-1967 storage read."
+
+[row.r4-13.32]
+interface = "interface.4.cli-lp-contracts-script-set-creation-fee"
+verdict = "served"
+path = "contracts/launchpad/scripts/set-creation-fee.js"
+line = 39
+symbol = "main"
+evidence = "async function main() still serves hardhat run scripts/set-creation-fee.js through the require.main guard at line 115; the CLI signature is unchanged. override.J28.21's decision.411 concern is addressed by planCreationFee: native surfaces require params and authority, print a MsgUpdateParams creation_fee proposal and return before the contract setCreationFee transaction path."
