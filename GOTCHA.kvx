@@ -14125,3 +14125,8 @@ fix = "Set the profile key (line 4) to the all-SDK profile for any task whose ve
 title = "An all-targets Rust build of the agent daemon workspace plus the human workspace exhausts the qualification environment storage"
 symptom = "22.9.33 built -p layerx-agentd -p layerx-agentd-host --all-targets and the human workspace tests, then the dependent-crate check failed to write rmeta with no space left on device (attempts 3, 5, 6)."
 fix = "Write build_cmd as the declared targets only: cargo test --no-run per test target and cargo build per binary (decision 2374); never --all-targets on the agent daemon workspace."
+
+[gotcha.2861]
+title = "mvn -o fails on an environment that has not cached the pom's plugins"
+symptom = "18.1503.1's verify ran mvn -q -o compile and Maven could not resolve maven-source-plugin 3.3.1 in offline mode although the compile itself needs nothing beyond the JDK."
+fix = "Write Maven verify steps without -o like every other JVM verify of the feature (decision 2375)."
