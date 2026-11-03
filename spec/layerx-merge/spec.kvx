@@ -196252,7 +196252,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.97.2]
 title = "Drop the retired idempotency counter from the global sequence codec test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -215751,7 +215751,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.97.6]
 title = "Record the Solidity-backed kernel make targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["6.97.4"]
@@ -232304,7 +232304,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.167]
 title = "Reconcile drifted interface registry rows: services/human part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232334,7 +232334,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.166]
 title = "Reconcile drifted interface registry rows: services/agent part 10"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232364,7 +232364,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.165]
 title = "Reconcile drifted interface registry rows: services/agent part 9"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232394,7 +232394,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.164]
 title = "Reconcile drifted interface registry rows: services/agent part 8"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
