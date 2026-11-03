@@ -1,0 +1,48 @@
+[issue.1561]
+number = 1561
+title = "[P2] Generate the codec replay corpus before running agent vector tests"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "services/agent/crates/layerx-types/src/vectors.rs:141 requires the untracked tests/vectors/codec/replay_corpus.lxb introduced as a generated input by commit 9b9f71f043fd795a16f6d408368c9103d1e64c59, but Makefile:1970-1971 invokes Cargo without tests/vectors/codec/generate.py:15-36, so services/agent/crates/layerx-types/tests/vectors.rs:12-25 and :37-40 fail at fixture setup before conformance assertions."
+close_comment = "The vector-test target requires a generated replay corpus that is absent from the tracked inputs. A follow-up task will prepare that corpus before the tests and prove clean-checkout conformance while preserving retired-activity exclusion and rejection checks."
+
+[task.18.1561.1]
+title = "Issue #1561: Prepare the codec replay corpus before agent vector tests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181561.1"]
+capabilities = []
+interfaces = []
+do_1 = "Make agent-test-vectors at Makefile:1970-1971 depend on successful execution of tests/vectors/codec/generate.py:15-36 before its existing clock-wrapped Cargo command; declare the preparation target phony so an existing output cannot hide generator failures or stale kernel declarations, propagate generator failures, and preserve the generator's retired budget-pull exclusion at tests/vectors/codec/generate.py:28-35."
+do_2 = "Add tests/ci/test_agent_codec_corpus.py::test_agent_vectors_prepare_codec_corpus_from_clean_checkout using an isolated snapshot of tracked repository inputs with no codec replay corpus; invoke the real make agent-test-vectors target without replacing Cargo, the clock wrapper or the generator, require all three existing vector tests at services/agent/crates/layerx-types/tests/vectors.rs:37-100 to execute and pass, and assert the resulting corpus exists and is byte-identical after regeneration. Run the existing focused layerx-wire library test replay_registry_tests::replay_registry_tracks_kernel_budget_and_stream_declarations through tools/runtime/run-with-clock.sh against the same generated corpus to retain the exclusion assertion at services/agent/crates/layerx-wire/src/activity.rs:444-446; preserve every existing rejection assertion."
+symbols = ["test_agent_vectors_prepare_codec_corpus_from_clean_checkout"]
+touches = ["Makefile", "tests/ci/test_agent_codec_corpus.py"]
+tests = ["tests/ci/test_agent_codec_corpus.py::test_agent_vectors_prepare_codec_corpus_from_clean_checkout"]
+planned_paths = ["tests/ci/test_agent_codec_corpus.py"]
+build_cmd = "python3 -m py_compile tests/ci/test_agent_codec_corpus.py"
+verify_cmd = "python3 -m pytest tests/ci/test_agent_codec_corpus.py::test_agent_vectors_prepare_codec_corpus_from_clean_checkout -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181561]
+title = "Agent vector tests prepare their replay corpus from tracked inputs"
+ac_1 = "Given tracked inputs without tests/vectors/codec/replay_corpus.lxb, make agent-test-vectors at Makefile:1970-1971 generates deterministic corpus bytes before Cargo and passes the complete conformance, unsupported-version and unknown-class tests at services/agent/crates/layerx-types/tests/vectors.rs:37-100; generation errors fail the target, and retired budget pull remains excluded as required by tests/vectors/codec/generate.py:28-35 and services/agent/crates/layerx-wire/src/activity.rs:444-446."
+
+[acceptance.18.1561.1]
+feature = "18"
+req = "181561.1"
+scenario = "Given a clean checkout without the generated codec replay corpus, when the supported agent vector-test target runs, then it prepares deterministic corpus bytes before the tests, all conformance and rejection assertions pass, and the retired budget-pull activity remains excluded."
+contract = "contracts/operations.md#makefile-targets"
+test = "tests/ci/test_agent_codec_corpus.py::test_agent_vectors_prepare_codec_corpus_from_clean_checkout (planned)"
+qualification = "UNRUN"

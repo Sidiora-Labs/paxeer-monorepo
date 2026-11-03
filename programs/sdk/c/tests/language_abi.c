@@ -52,15 +52,6 @@ int32_t layerx_call(int32_t pointer, int32_t input_length)
         lxp_program_copy(record + 32U, observation.source_set_digest.bytes, 32U);
         return publish(7, record, sizeof(record));
     }
-    case 2U: {
-        uint8_t record[LXP_PROGRAM_WEB_RECORD_BYTES];
-        lxp_program_web_answer answer;
-        bool found;
-        status = lxp_program_web_read(UINT64_C(0x0102030405060708), record, sizeof(record), &answer, &found);
-        if (status != LXP_PROGRAM_OK) return lxp_program_status_abi(status);
-        if (!found) return LXP_PROGRAM_ERR_EVIDENCE;
-        return publish(7, record, LXP_PROGRAM_WEB_HEADER_BYTES + answer.response_length);
-    }
     case 3U: {
         static const uint8_t reason[] = {'n', 'o'};
         status = lxp_program_refusal_write(LXP_PROGRAM_REFUSAL_REJECTED, reason, sizeof(reason));

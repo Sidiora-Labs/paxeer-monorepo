@@ -478,6 +478,16 @@
       }
     },
     {
+      "event": "XWebProgramRequested",
+      "fields": {
+        "programId": "0xb7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7",
+        "requestId": "18446744073629551375",
+        "origin": "2",
+        "input": "0x0001027f80ff",
+        "deadline": "18446744073628551372"
+      }
+    },
+    {
       "event": "XWebFulfilled",
       "fields": {
         "requestId": "18446744073623551357",

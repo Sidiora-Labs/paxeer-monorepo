@@ -1,0 +1,78 @@
+{
+ "slug": "services-explorer-blockscout-client",
+ "manifests": [
+  "services/explorer/services/libs/blockscout-client/yarn.lock"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-8r9p-f939-6h3c",
+   "number": 4672,
+   "package": "follow-redirects",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/services/libs/blockscout-client/yarn.lock",
+   "severity": "high",
+   "range": ">= 1.16.0, < 1.16.1",
+   "patched": "1.16.1"
+  },
+  {
+   "ghsa": "GHSA-q3jh-wrc6-jgq8",
+   "number": 4673,
+   "package": "follow-redirects",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/services/libs/blockscout-client/yarn.lock",
+   "severity": "high",
+   "range": ">= 1.16.0, < 1.16.1",
+   "patched": "1.16.1"
+  },
+  {
+   "ghsa": "GHSA-mrwp-f3q8-3g9p",
+   "number": 4674,
+   "package": "follow-redirects",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/services/libs/blockscout-client/yarn.lock",
+   "severity": "high",
+   "range": ">= 1.16.0, <= 1.16.1",
+   "patched": "1.16.2"
+  },
+  {
+   "ghsa": "GHSA-g3hv-75wg-m249",
+   "number": 4603,
+   "package": "minimatch",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/services/libs/blockscout-client/yarn.lock",
+   "severity": "medium",
+   "range": "< 11.0.1",
+   "patched": "11.0.1"
+  },
+  {
+   "ghsa": "GHSA-28wg-ghj8-5hjv",
+   "number": 3697,
+   "package": "nanoid",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/services/libs/blockscout-client/yarn.lock",
+   "severity": "high",
+   "range": "< 3.3.16",
+   "patched": "3.3.16"
+  },
+  {
+   "ghsa": "GHSA-2v37-7h3g-55p8",
+   "number": 3698,
+   "package": "nanoid",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/services/libs/blockscout-client/yarn.lock",
+   "severity": "high",
+   "range": "< 3.3.18",
+   "patched": "3.3.18"
+  },
+  {
+   "ghsa": "GHSA-xwg4-73v4-xw9w",
+   "number": 3699,
+   "package": "nanoid",
+   "ecosystem": "npm",
+   "manifest": "services/explorer/services/libs/blockscout-client/yarn.lock",
+   "severity": "high",
+   "range": "< 3.3.12",
+   "patched": "3.3.12"
+  }
+ ]
+}

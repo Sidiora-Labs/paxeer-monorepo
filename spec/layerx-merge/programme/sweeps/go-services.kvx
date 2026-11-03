@@ -1,5 +1,5 @@
 [sweep.go-services]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 40
 targets_passed = 19
@@ -35,7 +35,7 @@ exit_code = 0
 target = "services/platform/perps-data"
 result = "failed"
 exit_code = 1
-observed = "services/platform/perps-data/e2e_test.go:122 (TestEndToEndChainMarkets) failed: TestEndToEndChainMarkets requires PERPS_DATA_TEST_DATABASE_URL, PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET to all be set."
+observed = "services/platform/perps-data/e2e_test.go:123 (TestEndToEndChainMarkets) failed: TestEndToEndChainMarkets requires PERPS_DATA_TEST_DATABASE_URL, PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET to all be set."
 assumption = "This is an environmental failure because PostgreSQL, EVM RPC and Comet endpoints are not configured through PERPS_DATA_TEST_DATABASE_URL, PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET."
 
 [target.go-services.7]
@@ -72,8 +72,8 @@ exit_code = 0
 target = "services/platform/perps-data/deploy"
 result = "failed"
 exit_code = 1
-observed = "services/platform/perps-data/deploy/services_test.go:474 (TestServices) failed: checkVariablesDeclared: perps-gateway declares PERPS_TRUSTED_PROXY_CIDRS, which config.Load does not read."
-assumption = "The existing deployment variable declarations appear to be out of sync with the variables consumed by config.Load."
+observed = "services/platform/perps-data/deploy/dockerfile_test.go:313 (TestDockerfileContext) failed: package dir core/deps/geth/common/hexutil is excluded from the build context."
+assumption = "The existing Docker build-context rules appear to exclude the in-repository geth replacement required by the service image."
 
 [target.go-services.14]
 target = "services/platform/perps-data/internal/auth"
@@ -195,7 +195,7 @@ assumption = "The environment lacks the PostgreSQL test configuration and the in
 target = "services/platform/perps-data/internal/replay"
 result = "failed"
 exit_code = 1
-observed = "services/platform/perps-data/internal/replay/replay_test.go:278 (TestReplaySnapshotScoped) failed: TestReplay requires PERPS_DATA_TEST_DATABASE_URL."
+observed = "services/platform/perps-data/internal/replay/replay_test.go:310 (TestReplayRenewsLeaseWithinBatch) failed: TestReplay requires PERPS_DATA_TEST_DATABASE_URL."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
 [target.go-services.33]
