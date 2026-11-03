@@ -7341,6 +7341,12 @@ value = "The replace of 66d80726c changed the selected versions of several modul
 basis = "22.25.2 attempt 1 ran go mod download for every reported module and go vet still reported that go.mod needs updates; 7.10.6 attempt 2, 1.38.2 attempt 4, 22.25.1 attempt 1 and 22.6.4 attempt 12 failed on the same gap, and 22.6.4 edited go.mod outside its scope to pass its build."
 affects = ["22.25.4", "22.6.4", "22.25.2"]
 
+[decision.2372]
+title = "A floors file carries one floor per package and the floor of a package patched on two major lines is the lowest patched release"
+value = "The floor checker applies a single minimum to every resolved copy of a package in a manifest; where a package has a patched release on each of two major lines (fast-uri 3.1.9 and 4.2.3) the floor is the lowest patched release, since the higher line's copy is above it and the lower line cannot be raised across a major by its consumer. fast-uri is floored at 3.1.9 in every floors file, including tools/deps/floors/wallet-services.json where ajv 8 pins the 3.x line."
+basis = "22.24.12 attempt 2 floored fast-uri at 4.2.3 as its do_1 stated and the checker refused the 3.1.9 copy that ajv 8.20.0 resolves; eighteen other floors tasks already state 3.1.9."
+affects = ["22.24.12"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -117378,6 +117384,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1: below-floor copies remain in services/wallet/pnpm-lock.yaml (@vitest/mocker, fast-uri, postcss, tinypool, vitest) and in the demo package manifest. Raise them to the floors, including the vitest major; if the wallet test suites do not run under the raised vitest, record a finding naming the package and the failing suite and keep the raise out of the lock for that package only, naming it in the commit message."
+do_5 = "Decision 2372, attempt 2: do_1 stated fast-uri>=4.2.3, which is the 4.x patched release; the lock resolves fast-uri 3.1.9 for ajv 8.20.0 and the checker applies one floor to every copy, so the floor refused the patched 3.x copy. The floor of fast-uri in tools/deps/floors/wallet-services.json is 3.1.9, the same as every other floors file; the 4.2.3 copy satisfies it and no consumer is moved across a major. Every other floor of do_1 stands. Rerun the task's verify afterwards."
 
 [task.22.24.11]
 title = "Close the open dependency advisories of the wallet-app manifests (21 floors)"

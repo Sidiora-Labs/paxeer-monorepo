@@ -14110,3 +14110,8 @@ fix = "Exempt retired transport sections in the drift test (decision 2370); neve
 title = "A replace onto an in-repo module needs go.mod's indirect requirements updated as well as go.sum"
 symptom = "After 66d80726c, go mod download alone left go vet reporting that go.mod needs updates: the graph selects newer golang.org/x modules than the indirect requirement lines record, and -mod=readonly refuses the build."
 fix = "Run go mod tidy with the pinned toolchain in the task that lands the replace and commit go.mod and go.sum together (decision 2371); every other Go task keeps go.mod and go.sum out of its edits."
+
+[gotcha.2858]
+title = "A single-minimum floor checker cannot express per-major floors"
+symptom = "tools/deps/lockfloor.py compares every resolved copy against one floor per package; a floor taken from the higher major's patched release fails the lower major's patched copy that a consumer pins (ajv 8 and fast-uri 3.1.9)."
+fix = "Floor the package at the lowest patched release across its major lines (decision 2372) and state in the task text which consumer pins the lower line."
