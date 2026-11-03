@@ -20523,3 +20523,19 @@ symbol = "readyz_reports_the_consensus_endpoint"
 observed = "Attempt 6: the readiness logic passes; readyz_reports_the_consensus_endpoint fails at chain_reads.rs:64 on a fixed temporary directory that already exists when the tests run in parallel."
 assumption = "The fixture takes a unique temporary directory; continue from attempt 6."
 severity = "low"
+
+[finding.22.99.92.3]
+task = "22.99.92"
+file = "services/platform/hosted/node/bootstrap.sh"
+symbol = "GENESIS_MODULES"
+observed = "Attempt 3: 102 kernel guards pass; the two public-bootstrap genesis runs fail because bootstrap.sh:334 requires seven configured modules while genesis-modules.conf has listed six since the registry reconciliation of 22.1.9; the locked agent build also fails on the stale lock."
+assumption = "The bootstrap count follows the reconciled registry (six); the task requires 22.99.158 for the lock."
+severity = "medium"
+
+[finding.22.9.31.3]
+task = "22.9.31"
+file = "services/agent/Cargo.lock"
+symbol = "layerx-agentd"
+observed = "Attempt 5: the webhook fixture repairs compiled nothing because the locked build stopped on the stale services/agent lock (gotcha 2954); verification did not run."
+assumption = "Requires 22.99.158; the attempt-5 tree is requalified after it."
+severity = "low"
