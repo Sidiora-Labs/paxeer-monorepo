@@ -1,24 +1,22 @@
 [sweep.rust-test-platform]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "cargo test --locked --manifest-path services/platform/Cargo.toml -p TARGET --no-fail-fast"
 targets_total = 22
-targets_passed = 13
-targets_failed = 9
-targets_not_run = 0
+targets_passed = 14
+targets_failed = 6
+targets_not_run = 2
 
 [target.rust-test-platform.1]
 target = "layerx-ramp-toolkit"
 result = "failed"
 exit_code = 101
-observed = "services/platform/ramps/toolkit/tests/contracts.rs:461:32 panicked in mismatched_pending_append_prefix_preserves_history_and_refuses_recovery because protected real recovery contract configuration is required."
-assumption = "The sandbox lacks the protected recovery contract configuration required by these integration tests, an environmental prerequisite."
+observed = "services/platform/ramps/toolkit/tests/contracts.rs:461:32 failed failed_callback_apply_retains_no_event_and_retry_is_idempotent because protected real recovery contract configuration is required."
+assumption = "The sandbox lacks the protected real recovery contract configuration required by these integration tests, an environmental prerequisite."
 
 [target.rust-test-platform.2]
 target = "layerx-reference-ramp"
-result = "failed"
-exit_code = 101
-observed = "services/platform/ramps/reference/tests/work_routes.rs:344:5 failed work_route_refuses_native_payload_field because the response was HTTP 404 with order_not_found instead of the expected HTTP 503."
-assumption = "Order lookup likely runs before native payload refusal, so route behavior and the test expectation disagree at this revision."
+result = "passed"
+exit_code = 0
 
 [target.rust-test-platform.3]
 target = "layerx-platform-faucet"
@@ -30,7 +28,7 @@ target = "layerx-platform-core"
 result = "failed"
 exit_code = 101
 observed = "services/platform/hosted/core/tests/chain_fund.rs:733:14 failed readyz_reports_the_funding_chain_and_sender because Anvil could not be found."
-assumption = "The sandbox lacks the Anvil executable required by the real funding chain tests, an environmental prerequisite."
+assumption = "The sandbox lacks the Anvil executable and the required LAYERX_CORE_SEQUENCER_ENDPOINT configuration, both environmental prerequisites for the chain-funding tests."
 
 [target.rust-test-platform.5]
 target = "layerx-platform-internal"
@@ -39,10 +37,8 @@ exit_code = 0
 
 [target.rust-test-platform.6]
 target = "layerx-platform-authority"
-result = "failed"
-exit_code = 101
-observed = "services/platform/hosted/authority/tests/support/native_module_outcomes.rs:130:36 failed native_module_outcomes::original_native_module_successes_refusals_and_handover_verify_with_maintenance with generic operation zero must remain refused."
-assumption = "The native module operation-zero refusal behavior likely differs from the retained integration test expectation at this revision."
+result = "passed"
+exit_code = 0
 
 [target.rust-test-platform.7]
 target = "layerx-runtime-clock"
@@ -56,8 +52,9 @@ exit_code = 0
 
 [target.rust-test-platform.9]
 target = "layerx-platform-identity"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = 124
+reason = "The command was terminated after its 180-second allocation under the 30-minute task limit while session_capacity_excludes_expired_after_restart remained unfinished; a complete package result is unavailable."
 
 [target.rust-test-platform.10]
 target = "layerx-platform-paxeer-boundary"
@@ -70,15 +67,14 @@ assumption = "The sandbox lacks the Python cryptography dependency and the paxd 
 target = "layerx-platform-gateway"
 result = "failed"
 exit_code = 101
-observed = "services/platform/hosted/gateway/src/main.rs:6723:68 failed authority_lni_compatibility_tests::authenticated_lni_preserves_the_strict_four_field_contract with actual case: NotPresent."
-assumption = "The PAXEER_X_AUTHORITY_CONTRACT_CASE environment variable is unset, so the required real authority contract fixture is unavailable in this environment."
+observed = "services/platform/hosted/gateway/src/main.rs:5061:58 failed authority_readiness_contract_tests::authority_readiness_contract with real authority case required: NotPresent."
+assumption = "The real authority contract case environment configuration is unset, so this test lacks its required environmental input."
 
 [target.rust-test-platform.12]
 target = "layerx-indexer"
-result = "failed"
-exit_code = 101
-observed = "services/platform/hosted/indexer/tests/history_position.rs:800:13 failed proof_layerxpay_0x101b because producer bytes on stdin were absent and JSON parsing reached EOF at line 1 column 0."
-assumption = "The plain cargo invocation supplies no Go-produced receipt document on stdin, an environmental input prerequisite for this proof test."
+result = "not_run"
+exit_code = 124
+reason = "The command was terminated after its 180-second allocation under the 30-minute task limit while proof_layerxauth_0x101c_receipts remained unfinished; proof_layerxledger_0x101a and proof_layerxpay_0x101b had reported failures before termination."
 
 [target.rust-test-platform.13]
 target = "layerx-platform-registry"
@@ -96,8 +92,8 @@ exit_code = 0
 target = "layerx-paxai-worker"
 result = "failed"
 exit_code = 101
-observed = "services/platform/hosted/paxai-worker/tests/transport_identity.rs:2523:5 failed worker_binary_refuses_an_unpinned_leaf because startup reported configuration is not valid instead of leaf certificate is not pinned by the signed metadata."
-assumption = "The worker test configuration likely fails validation before certificate pinning, so the fixture or validation order no longer matches the retained expectation."
+observed = "a05_real_runner_executes_once_across_replicas failed with unexpected real model runner executable: PAXAI_RUNNER is not provisioned."
+assumption = "The sandbox lacks the provisioned real model runner selected by PAXAI_RUNNER, an environmental prerequisite."
 
 [target.rust-test-platform.16]
 target = "layerx-platform-dashboard"
