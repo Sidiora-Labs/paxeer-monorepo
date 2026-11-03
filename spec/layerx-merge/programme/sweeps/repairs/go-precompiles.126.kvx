@@ -1,0 +1,8 @@
+[repair.go-precompiles.126]
+target = "precompiles/layerxprograms"
+command = "CGO_ENABLED=1 go vet ./precompiles/layerxprograms/ && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/"
+revision = "471d207b0eef6bcf4f9c1dc6a9c5f2b602d0f89b"
+result = "repaired"
+change = "precompiles/layerxprograms/layerxprograms.go aligns HostKeepers with XWebK, submit.go and xweb.go retain each executor's keeper, activation_test.go compares exported precompile fields, method_simulate.go names kernel admission errors, fuzz_test.go checks view refusals under decision 1330 and LXP_UNKNOWN_FIELD for absent retirement control, submit_test.go asserts the owner authority required by decision 1329, and proof_layerxprograms_0x101d_test.go checks decoded ABI arguments."
+producer_input_tests = ["TestProofLayerxprograms0x101d requires the Python cryptography package imported by tests/agent/sdk/python/test_evm_transaction.py and the locked TypeScript SDK dependencies, including typescript, imported by services/agent/sdk/typescript/test/ai-market.test.ts."]
+passing_tests = ["FuzzProgramsDecodeArgs"]

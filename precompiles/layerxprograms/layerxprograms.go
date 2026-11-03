@@ -20,17 +20,8 @@ const PrecompileName = "layerxprograms"
 type HostKeepers interface {
 	utils.Keepers
 	LayerXHost() *lxphost.Host
-	XWebKeeper() *xwebkeeper.Keeper
+	XWebK() *xwebkeeper.Keeper
 }
-
-type hostKeepersAdapter struct {
-	utils.Keepers
-	host *lxphost.Host
-	xweb *xwebkeeper.Keeper
-}
-
-func (k hostKeepersAdapter) LayerXHost() *lxphost.Host      { return k.host }
-func (k hostKeepersAdapter) XWebKeeper() *xwebkeeper.Keeper { return k.xweb }
 
 func NewPrecompile(host *lxphost.Host, evm EVMKeeper, upgrade UpgradeKeeper, planName string) (*pcommon.Precompile, error) {
 	if host == nil || evm == nil || upgrade == nil || planName == "" {
@@ -48,15 +39,6 @@ func NewPrecompile(host *lxphost.Host, evm EVMKeeper, upgrade UpgradeKeeper, pla
 
 func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPrecompile, error) {
 	wired, ok := keepers.(HostKeepers)
-	if !ok {
-		if legacy, present := keepers.(interface {
-			utils.Keepers
-			LayerXHost() *lxphost.Host
-			XWebK() *xwebkeeper.Keeper
-		}); present {
-			wired, ok = hostKeepersAdapter{Keepers: keepers, host: legacy.LayerXHost(), xweb: legacy.XWebK()}, true
-		}
-	}
 	if !ok || keepers == nil {
 		return nil, fmt.Errorf("LXP_PRECOMPILE_NO_CONTEXT: LayerX host keepers are unavailable")
 	}
@@ -68,7 +50,7 @@ func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPr
 	if upgrade == nil {
 		return nil, fmt.Errorf("LXP_PRECOMPILE_NO_CONTEXT: merge activation reader is unavailable")
 	}
-	if wired.XWebKeeper() == nil {
+	if wired.XWebK() == nil {
 		return nil, fmt.Errorf("LXP_PRECOMPILE_NO_CONTEXT: xweb keeper is unavailable")
 	}
 	p, err := NewPrecompile(wired.LayerXHost(), evm, upgrade, planName)
@@ -83,7 +65,7 @@ func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPr
 			executor.assets = assets
 		}
 	}
-	configureXWeb(executor, wired.XWebKeeper())
+	configureXWeb(executor, wired.XWebK())
 	return pcommon.NewPrecompile(programsABI, executor, p.Address(), PrecompileName).
 		WithLXPReasons().WithGasTable(gasTable), nil
 }
