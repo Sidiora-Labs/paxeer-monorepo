@@ -1,9 +1,11 @@
+#[path = "gaps.rs"]
+mod gap_integration;
+use gap_integration::{HistoryServer, SubscriptionServer};
+
 use std::collections::BTreeSet;
 use std::fs;
-use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
 
 use layerx_agent_api::identity::{
     ActivityType, AgentDid, Asset, CapabilityId as ApiCapabilityId, Counterparty, ExplicitSet,
@@ -22,23 +24,18 @@ use layerx_agentd::audit::{
     export, Coverage, Decision, EventClass, EvidenceStore, Log, PayloadEvidence, Query,
 };
 use layerx_agentd::events::gap::{
-    admit, apply_backfill, detect, BackfillReport, BackfillResolution, RecoveredEvent,
+    admit, apply_backfill, attempt_backfill, detect, BackfillResolution,
 };
 use layerx_agentd::events::subscription::Store as SubscriptionStore;
 use layerx_agentd::events::{
-    backfill, deliver, ingest, CoreEvent, DeliveryEngine, DeliveryError, DeliveryItem,
-    EventAttributes, EventIngestor, RetryPolicy,
+    backfill, deliver, DeliveryEngine, DeliveryError, DeliveryItem, EventAttributes, EventIngestor,
+    RetryPolicy,
 };
 use layerx_agentd::read::HistoryLimits;
 use layerx_agentd::session::SessionId;
 use layerx_agentd::store::{Store, TenantId};
 use layerx_agentd::tenant::{Config, RedactionPolicy, Retention};
-use layerx_client::lni::schema::Version;
-use layerx_client::lni::transport::{ConnectionGate, Limits, Uds};
-use layerx_client::rpc::evidence::RootSelector;
-use layerx_client::rpc::history::{ReadContext, Requested};
-use layerx_client::rpc::Head;
-use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_client::subscription::{subscribe, SubscriptionTopic};
 use layerx_types::ids::Did;
 use layerx_types::result::ResultCode;
 use layerx_types::verify::VerificationLevel;
@@ -187,64 +184,41 @@ fn subscriptions_restored_after_gap(durable: Store) -> (SubscriptionStore, Vec<u
         counterparty: "human-approval".to_owned(),
         result_code: 0,
     };
-    let mut recovered = CoreEvent::from_log_bytes(recovered_bytes.clone(), attributes.clone())
-        .unwrap_or_else(|error| panic!("recovered log: {error}"));
-    recovered.global_sequence = 1;
-    let mut ingestor = EventIngestor::open(durable, tenant(), 16, 1)
-        .unwrap_or_else(|error| panic!("recovery ingestor: {error}"));
-    ingest(&mut ingestor, recovered)
-        .unwrap_or_else(|error| panic!("persist recovered log: {error}"));
-    let transport_root = directory();
-    fs::create_dir_all(&transport_root).unwrap_or_else(|error| panic!("transport root: {error}"));
-    let socket = transport_root.join("history.sock");
-    let listener =
-        UnixListener::bind(&socket).unwrap_or_else(|error| panic!("history listener: {error}"));
-    let mut transport = Uds::connect(
-        &socket,
-        &ConnectionGate::new(1),
-        Limits {
-            maximum_frame_bytes: 1_048_576,
-            maximum_connections: 1,
-            maximum_streams: 2,
-            maximum_queued_bytes: 1_048_576,
-            deadline: Duration::from_secs(2),
+    let wire_log = serde_json::from_slice(&recovered_bytes).unwrap();
+    let logs_server = SubscriptionServer::new(json!(["logs", {"topics": []}]), vec![wire_log]);
+    let mut logs = subscribe(
+        &logs_server.url,
+        &[],
+        SubscriptionTopic::Logs {
+            address: None,
+            topics: vec![],
         },
     )
-    .unwrap_or_else(|error| panic!("history transport: {error:?}"));
-    let (_peer, _) = listener
-        .accept()
-        .unwrap_or_else(|error| panic!("history connection: {error}"));
+    .unwrap();
+    let mut ingestor = EventIngestor::open(durable, tenant(), 16, 1)
+        .unwrap_or_else(|error| panic!("recovery ingestor: {error}"));
+    ingestor.read_log(&mut logs, attributes.clone()).unwrap();
+    logs_server.finish();
+    let history = HistoryServer::new(vec![(
+        1,
+        json!([serde_json::from_slice::<serde_json::Value>(&recovered_bytes).unwrap()]),
+    )]);
+    let source = history.connect();
+    let heads_server = SubscriptionServer::new(json!(["newHeads"]), vec![json!({"number":"0x2"})]);
+    let mut heads = subscribe(&heads_server.url, &[], SubscriptionTopic::NewHeads).unwrap();
     ingestor
-        .new_head(
-            2,
-            &mut transport,
+        .read_head(
+            &mut heads,
+            &source,
             HistoryLimits {
                 maximum_items: 2,
                 maximum_response_bytes: 1_048_576,
-            },
-            ReadContext {
-                interface_version: Version::V1_0,
-                correlation_id: 77,
-                expected_protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
-                expected_network_id: 77,
-                requested: Requested::new(VerificationLevel::UNVERIFIED),
-                head: Head {
-                    chain_sequence: 2,
-                    sealed_batch: 0,
-                    finalised_checkpoint: [0; 32],
-                },
-                sequencer_authorization: SequencerAuthorization::new([1; 32], [2; 32], 0, u64::MAX),
-                handshake_sequencer_key: [2; 32],
-                root_selector: RootSelector::Latest,
             },
             2,
             attributes,
         )
         .unwrap_or_else(|error| panic!("close recovered block: {error}"));
-    drop(transport);
-    drop(listener);
-    fs::remove_dir_all(transport_root)
-        .unwrap_or_else(|error| panic!("remove transport root: {error}"));
+    heads_server.finish();
     let mut subscriptions = SubscriptionStore::open(ingestor.into_store(), tenant())
         .unwrap_or_else(|error| panic!("subscriptions: {error}"));
     subscriptions
@@ -267,18 +241,16 @@ fn subscriptions_restored_after_gap(durable: Store) -> (SubscriptionStore, Vec<u
         .unwrap_or_else(|error| panic!("detect gap: {error}"))
         .unwrap_or_else(|| panic!("gap missing"));
     assert!(admit(&subscriptions, &target()).is_err());
-    let report = BackfillReport::Recovered {
+    let report = attempt_backfill(
+        &source,
         gap,
-        events: vec![RecoveredEvent {
-            global_sequence: 1,
-            canonical_bytes: recovered_bytes.clone(),
-            position: layerx_agentd::read::Cursor {
-                block_height: 1,
-                tx_index: 0,
-                log_index: 0,
-            },
-        }],
-    };
+        HistoryLimits {
+            maximum_items: 2,
+            maximum_response_bytes: 1_048_576,
+        },
+        2,
+    );
+    history.finish();
     assert!(matches!(
         apply_backfill(&mut subscriptions, &target(), gap, &report),
         Ok(BackfillResolution::Restored)
