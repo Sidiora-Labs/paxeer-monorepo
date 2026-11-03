@@ -123501,7 +123501,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.41]
 title = "Close the 2 dependency alerts of apps-perps-2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136550,7 +136550,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.70]
 title = "Repair the inventory sweep target layerx-platform-core"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136970,7 +136970,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.56]
 title = "Repair the inventory sweep target layerx-intents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137030,7 +137030,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.54]
 title = "Repair the inventory sweep target layerx-human-security-provider"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199495,7 +199495,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.34]
 title = "Repair the inventory sweep target tools/qualification/localnode"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199705,7 +199705,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.23]
 title = "Repair the inventory sweep target precompiles/layerxagent/scheduler"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199765,7 +199765,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.21]
 title = "Repair the inventory sweep target precompiles/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199885,7 +199885,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.17]
 title = "Repair the inventory sweep target modules/tokenfactory/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200118,7 +200118,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.95.8]
 title = "Retire the upstream regression corpus of the rpc test package"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.7.3"]
