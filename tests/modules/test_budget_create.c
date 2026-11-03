@@ -700,19 +700,39 @@ static int dispatch_path(void)
     CHECK(read_record(budget_id, &record) == 0);
     CHECK(record.spent_this_period.lo == 120U);
 
-    /* The registered delegate spends on its own account sequence. */
+    /* Delegate registration alone does not grant a spending capability. */
     (void)memcpy(scratch, spend, sizeof(spend));
     put_u128(scratch + 66U, 0U, 80U);
     call.did = delegate_did;
     call.seed = delegate_seed;
     call.payload = scratch;
     call.sequence = 0U;
+    CHECK(lxp_state_root(&env.kernel, before) == LXP_OK);
+    CHECK(submit(&call, &effects, &result) == 0);
+    CHECK(result == LXP_ERR_UNAUTHORIZED_DELEGATE);
+    CHECK(effects.count == 0U);
+    CHECK(env.owner->balance.lo == 600U);
+    CHECK(env.budget_account->balance.lo == 280U);
+    CHECK(env.recipient->balance.lo == 120U);
+    CHECK(env.delegate->next_sequence == 0U);
+    CHECK(env.owner->next_sequence == 3U);
+    CHECK(read_record(budget_id, &record) == 0);
+    CHECK(record.spent_this_period.lo == 120U);
+    CHECK(lxp_state_root(&env.kernel, after) == LXP_OK);
+    CHECK(memcmp(before, after, 32U) == 0);
+
+    /* The owner can spend the same amount against the allowance. */
+    call.did = owner_did;
+    call.seed = owner_seed;
+    call.sequence = 3U;
     CHECK(submit(&call, &effects, &result) == 0);
     CHECK(result == LXP_OK);
     CHECK(env.budget_account->balance.lo == 200U);
     CHECK(env.recipient->balance.lo == 200U);
-    CHECK(env.delegate->next_sequence == 1U);
-    CHECK(env.owner->next_sequence == 3U);
+    CHECK(env.delegate->next_sequence == 0U);
+    CHECK(env.owner->next_sequence == 4U);
+    put_u128(expected + 64U, 0U, 80U);
+    CHECK(expect_event(&effects, 6U, expected, 80U) == 0);
     CHECK(read_record(budget_id, &record) == 0);
     CHECK(record.spent_this_period.lo == 200U);
 
@@ -720,14 +740,14 @@ static int dispatch_path(void)
      * allowance, bounded by the carry cap. */
     call.did = owner_did;
     call.seed = owner_seed;
-    call.sequence = 3U;
+    call.sequence = 4U;
     call.timestamp = 1500U;
     put_u128(scratch + 66U, 0U, 50U);
     CHECK(submit(&call, &effects, &result) == 0);
     CHECK(result == LXP_OK);
     CHECK(env.budget_account->balance.lo == 150U);
     CHECK(env.recipient->balance.lo == 250U);
-    CHECK(env.owner->next_sequence == 4U);
+    CHECK(env.owner->next_sequence == 5U);
     CHECK(read_record(budget_id, &record) == 0);
     CHECK(record.period_start == 1000U);
     CHECK(record.carried.lo == 50U);
@@ -735,7 +755,7 @@ static int dispatch_path(void)
     CHECK(record.spent_this_period.lo == 50U);
 
     /* Allowance and funding refusals are distinct and non-destructive. */
-    call.sequence = 4U;
+    call.sequence = 5U;
     put_u128(scratch + 66U, 0U, 600U);
     CHECK(submit(&call, &effects, &result) == 0);
     CHECK(result == LXP_ERR_BUDGET_ALLOWANCE_EXCEEDED);
@@ -767,7 +787,7 @@ static int dispatch_path(void)
     call.payload_length = sizeof(spend);
     call.did = delegate_did;
     call.seed = delegate_seed;
-    call.sequence = 1U;
+    call.sequence = 0U;
     CHECK(submit(&call, &effects, &result) == 0);
     CHECK(result == LXP_ERR_UNAUTHORIZED_DELEGATE);
     CHECK(env.budget_account->balance.lo == 150U);
@@ -776,7 +796,7 @@ static int dispatch_path(void)
      * remaining balance back to the owner. */
     call.did = owner_did;
     call.seed = owner_seed;
-    call.sequence = 4U;
+    call.sequence = 5U;
     call.activity_type = LX_BUDGET_CLOSE;
     (void)memcpy(scratch, close, sizeof(close));
     put_u64(scratch + 34U, 1U);
@@ -790,7 +810,7 @@ static int dispatch_path(void)
     CHECK(result == LXP_OK);
     CHECK(env.budget_account->balance.lo == 0U);
     CHECK(env.owner->balance.lo == 750U);
-    CHECK(env.owner->next_sequence == 5U);
+    CHECK(env.owner->next_sequence == 6U);
     (void)memcpy(expected, budget_id, 32U);
     put_u128(expected + 32U, 0U, 150U);
     put_u64(expected + 48U, 2U);
@@ -799,7 +819,7 @@ static int dispatch_path(void)
     CHECK(record.closed && record.revocation_sequence == 2U);
 
     /* A closed budget refuses every further ordinal. */
-    call.sequence = 5U;
+    call.sequence = 6U;
     CHECK(submit(&call, &effects, &result) == 0);
     CHECK(result == LXP_ERR_UNKNOWN_FIELD);
     call.activity_type = LX_BUDGET_FUND;

@@ -19755,3 +19755,131 @@ symbol = "overrides"
 observed = "The override @opentelemetry/core@<2.8.0 -> 2.8.0 rewrites the ^1.30.1 core dependency of @opentelemetry/sdk-trace-base 1.30.1 (pnpm-lock.yaml:8101-8104); sdk-trace-base 1.x reads TracesSamplerValues from core, removed in 2.x, so loading the production Next config fails with Cannot read properties of undefined (reading AlwaysOn) (18.1521.1 attempt 1)."
 assumption = "The task verified the floors and the frozen install only; decision 2464 narrows the override through 18.1521.1."
 severity = "major"
+
+[finding.9.35.17.2]
+task = "9.35.17"
+file = "services/human/crates/layerx-human-service/tests/session_keys.rs"
+symbol = "EvmPrepared"
+observed = "9.35.17 added from, disclosure and disclosure_digest to EvmPrepared and removed authorization from SigningPreparation; session_keys.rs:263 and :269 still build the previous shapes, so the layerx-human-service test target fails to compile on main (21.45.1 attempt 13)."
+assumption = "The task's verify did not build the human service tests; task 22.95.11 migrates the test."
+severity = "major"
+
+[finding.22.96.5.1]
+task = "22.96.5"
+file = "apps/perps/pnpm-lock.yaml"
+symbol = "lock"
+observed = "The task's published commit deleted apps/perps/pnpm-lock.yaml (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.6.1]
+task = "22.96.6"
+file = "apps/wallet/pnpm-lock.yaml"
+symbol = "lock"
+observed = "The task's published commit deleted apps/wallet/pnpm-lock.yaml (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.7.1]
+task = "22.96.7"
+file = "contracts/bridge/solana/Cargo.lock"
+symbol = "lock"
+observed = "The task's published commit deleted contracts/bridge/solana/Cargo.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.24.17.1]
+task = "22.24.17"
+file = "services/launchpad/api/go.sum"
+symbol = "lock"
+observed = "The task's published commit deleted services/launchpad/api/go.sum (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.22.1]
+task = "22.96.22"
+file = "services/explorer/backend/apps/block_scout_web/assets/package-lock.json"
+symbol = "lock"
+observed = "The task's published commit deleted services/explorer/backend/apps/block_scout_web/assets/package-lock.json (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.23.1]
+task = "22.96.23"
+file = "services/explorer/backend/apps/explorer/package-lock.json"
+symbol = "lock"
+observed = "The task's published commit deleted services/explorer/backend/apps/explorer/package-lock.json (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.24.1]
+task = "22.96.24"
+file = "services/explorer/services/libs/blockscout-client/yarn.lock"
+symbol = "lock"
+observed = "The task's published commit deleted services/explorer/services/libs/blockscout-client/yarn.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.90.4.1]
+task = "22.90.4"
+file = "services/human/crates/layerx-intents/fuzz/Cargo.lock"
+symbol = "lock"
+observed = "The task's published commit deleted services/human/crates/layerx-intents/fuzz/Cargo.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.26.1]
+task = "22.96.26"
+file = "tests/integration/dapp_tests/package-lock.json"
+symbol = "lock"
+observed = "The task's published commit deleted tests/integration/dapp_tests/package-lock.json (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.28.1]
+task = "22.96.28"
+file = "tools/wasm-tools/Cargo.lock"
+symbol = "lock"
+observed = "The task's published commit deleted tools/wasm-tools/Cargo.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.29.1]
+task = "22.96.29"
+file = "wasm-runtime/libwasmvm/Cargo.lock"
+symbol = "lock"
+observed = "The task's published commit deleted wasm-runtime/libwasmvm/Cargo.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.9.10.9]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+symbol = "WebSearchExactPayment"
+observed = "Attempt 21 (f3642b83b) failed its build: services/agent/sdk/typescript/test/web-search-sequencer.test.ts line 167 returns receipt and rawTransaction where the ported WebSearchExactPayment of src/web-search.ts:57-62 requires receipt, txHash and idempotencyKey (error TS2322); the file was outside the task's scope."
+assumption = "The test is in scope from decision 2474 and the next attempt migrates it to the new payment shape without changing the source."
+severity = "major"
+
+[finding.18.1528.1.1]
+task = "18.1528.1"
+file = "services/launchpad/livestream/go.mod"
+symbol = "go.mod"
+observed = "Attempt 4 (e64678677) regenerated the eighteen checksum files, but test_go_checksums_support_readonly_resolution fails: in services/launchpad/livestream the command go list -mod=readonly -deps -test ./... exits 1 because go.mod needs updates that only go mod tidy writes."
+assumption = "The module manifests are in scope from decision 2475 and the next attempt tidies each failing module with the workspace disabled."
+severity = "major"
+
+[finding.22.24.26.1]
+task = "22.24.26"
+file = "apps/wallet/src/surfaces/test/chain.tsx"
+symbol = "chain"
+observed = "Attempt 6 (c3793a9a1) fails three ExchangeView.test.tsx tests with condition not reached: receipt; the fixture chain returns receipts without nonce and logs without logIndex, and services/agent/sdk/typescript/src/ai_market.ts:3628 refuses a log without logIndex."
+assumption = "The fixture chain is in scope from decision 2476 and carries the fields the SDK readers check."
+severity = "major"
+
+[finding.22.9.18.4]
+task = "22.9.18"
+file = "tests/programs/test_terminal_v5.c:103"
+symbol = "v5_refusal_detail"
+observed = "Attempt 11 (94cdc09ea) passes its schema and freshness tests and fails the corpus step: the native producer exits 1 after writing two cases, its stderr reads terminal v5 fixture line 103, because the settlement-failure detail now carries transfer error tag 7 (TransferLawError::Kernel since 867cb1560) where the fixture expects 9; the fixture is unchanged since cd8fcfa86, when it last passed."
+assumption = "Task 1.18.5 aligns the fixture; 22.9.18 requires it and is re-qualified on the current tree once it is on main."
+severity = "blocker"

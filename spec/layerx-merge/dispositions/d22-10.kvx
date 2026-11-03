@@ -1,0 +1,53 @@
+[disposition.22.13.9.1]
+finding = "22.13.9.1"
+status = "resolved"
+evidence = "Landed commit adaf865793578eb59662190fffe1f4bcc4bcb2e7 replaces unsupported typed-select vectors, enables reference types, retains terminal trap and resource evidence, rebuilds canonical lease accounting, corrects monetary authority fixtures and asserts the documented module-start refusal, while the task's verify_cmd in spec/layerx-merge/spec.kvx separates the named producer-input tests under decision 2325."
+follow_up = "closure"
+
+[disposition.22.9.17.1]
+finding = "22.9.17.1"
+status = "resolved"
+evidence = "Landed commit 9b9f71f043fd795a16f6d408368c9103d1e64c59 adds the required settlement schema, derives both replay registries from published corpus activity types and accepts system:paxeer-reserve, while services/agent/crates/layerx-proof/tests/terminal_v4.rs:100 reads retained receipt fixtures and the task's verify_cmd separates the four genuine-native-terminal producer-input cases."
+follow_up = "closure"
+
+[disposition.22.11.7.1]
+finding = "22.11.7.1"
+status = "resolved"
+evidence = "Landed commit 7d816c4c0f81c6b2f13a30e08a162ac49c7e4de8 supplies restart-phase provider responses, refuses receipt rollback and premature inclusion, and fixes the loopback producer at services/interop/crates/layerx-interop-service/tests/sequencer_start.rs:208 to return the decoded keys object with numeric heights, while the task's verify_cmd separates the capture-manifest producer input and b333bce4cf409f360f0e236826d6ad24a3258d79 adds the missing node producer."
+follow_up = "closure"
+
+[disposition.22.11.7.2]
+finding = "22.11.7.2"
+status = "resolved"
+evidence = "Landed commit b333bce4cf409f360f0e236826d6ad24a3258d79 registers the px service at rpc/server.go:325 and implements GetReceiptKeys at rpc/sequencer_receipt.go:362 using the sequencer keeper's governed pins with a keys array, camelCase key fields and numeric heights, including forwarding to the configured sequencer."
+follow_up = "closure"
+
+[disposition.22.16.9.1]
+finding = "22.16.9.1"
+status = "resolved"
+evidence = "Landed commit 81e65aadc0b64b75ece6204f857868593987728f fixes tools/platform/cli/tests/emulator.rs:472 to resolve services/platform/docs/content/install.md and updates the daemon-bound tests to use core_height and native capability records with an explicit retired-binding refusal case, while task 22.16.11's verify_cmd separates the real TLS boundary producer input."
+follow_up = "closure"
+
+[disposition.22.12.7.2]
+finding = "22.12.7.2"
+status = "resolved"
+evidence = "Landed commit 301b1ed04465a6abb0eff51899b3fa6d6d8338b8 regenerates the operator-verification golden with ceremony_id and expected_epoch and asserts their round trip at services/wallet/attestor/internal/server/server_test.go:226, while 0a40035f0 restores the agent API contract needed by TestProofS28WalletAttestorsTss and task 22.12.7's verify_cmd separates the two prebuilt custody-consumer cases."
+follow_up = "closure"
+
+[disposition.22.6.4.4]
+finding = "22.6.4.4"
+status = "resolved"
+evidence = "Landed commit 054988c9f53ec52ac1f21d54dfcdb58d6e0f9ffa makes precompiles/setup_test.go:217 require all 13 entries including layerxchains at 0x101E, derives missing-constructor expectations from that table, asserts the unknown-name refusal before keeper initialization and accepts Object.freeze in both gateway parity readers."
+follow_up = "closure"
+
+[disposition.22.13.6.7]
+finding = "22.13.6.7"
+status = "resolved"
+evidence = "Landed commit fb067a262af3a0f4e9b52cdf6cd87b178fcb1193 replaces the obsolete eleven-activity expectation with the eight retained Asset activities at tests/test_genesis_manifest.c:196 and explicitly requires unknown-activity refusals for receive and the two retired grant activities, matching src/modules/asset/lx_asset_registry.c:11."
+follow_up = "closure"
+
+[disposition.22.4.5.4]
+finding = "22.4.5.4"
+status = "resolved"
+evidence = "Landed commit 84ed832c374956a3c10b8fe5ce840e7203f3a0e3 removes exactly the 13 unsupported addresses added by 2da692750 from the token entry at modules/launchpad/keeper/testdata/v6120/holders.json:1026, leaving 272 holders matching golden.json's supply record while retaining the holder-count assertions in migrate_v6120_test.go."
+follow_up = "closure"
