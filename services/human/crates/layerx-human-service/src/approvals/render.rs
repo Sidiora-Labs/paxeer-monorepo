@@ -2,6 +2,7 @@
 
 use std::fmt::{Display, Formatter, Write as _};
 
+use layerx_crypto::disclosure::call::ConstructMethod;
 use layerx_crypto::disclosure::{
     AmountRole, CounterpartyRole, DisclosedEvmPayoutBinding, Disclosure, DisclosureError,
 };
@@ -149,10 +150,13 @@ impl DisclosureRenderer {
             }));
         };
 
-        let canonical = disclosure
-            .reencode()
-            .map_err(DisclosureRenderError::DefectiveDisclosure)?;
-        let observed_digest: [u8; 32] = Sha256::digest(&canonical).into();
+        let observed_digest: [u8; 32] = match disclosure.reencode() {
+            Ok(canonical) => Sha256::digest(&canonical).into(),
+            Err(DisclosureError::FieldMismatch("source")) => disclosure
+                .audit_digest()
+                .map_err(DisclosureRenderError::DefectiveDisclosure)?,
+            Err(error) => return Err(DisclosureRenderError::DefectiveDisclosure(error)),
+        };
         if observed_digest != held_digest {
             return Err(DisclosureRenderError::DigestMismatch);
         }
@@ -179,17 +183,37 @@ fn facts(
 ) -> Result<RenderedApprovalFacts, DisclosureRenderError> {
     match class {
         ApprovalActivityClass::MoveMoney | ApprovalActivityClass::AddMoney => {
-            let [payer, recipient] = disclosure.counterparties.as_slice() else {
-                return Err(DisclosureRenderError::MalformedFacts);
+            let recipient = match disclosure
+                .construct_method()
+                .map_err(DisclosureRenderError::DefectiveDisclosure)?
+            {
+                Some(ConstructMethod::PointerTransfer { .. })
+                    if class == ApprovalActivityClass::MoveMoney =>
+                {
+                    let [recipient] = disclosure.counterparties.as_slice() else {
+                        return Err(DisclosureRenderError::MalformedFacts);
+                    };
+                    if recipient.role != CounterpartyRole::Recipient {
+                        return Err(DisclosureRenderError::MalformedFacts);
+                    }
+                    recipient
+                }
+                _ => {
+                    let [payer, recipient] = disclosure.counterparties.as_slice() else {
+                        return Err(DisclosureRenderError::MalformedFacts);
+                    };
+                    if payer.role != CounterpartyRole::Payer
+                        || recipient.role != CounterpartyRole::Recipient
+                    {
+                        return Err(DisclosureRenderError::MalformedFacts);
+                    }
+                    recipient
+                }
             };
             let [amount] = disclosure.amounts.as_slice() else {
                 return Err(DisclosureRenderError::MalformedFacts);
             };
-            if payer.role != CounterpartyRole::Payer
-                || recipient.role != CounterpartyRole::Recipient
-                || amount.role != AmountRole::Transfer
-                || amount.value == 0
-            {
+            if amount.role != AmountRole::Transfer || amount.value == 0 {
                 return Err(DisclosureRenderError::MalformedFacts);
             }
             Ok(RenderedApprovalFacts {

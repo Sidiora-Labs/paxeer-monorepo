@@ -1,6 +1,7 @@
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
 use layerx_agent_api::prepare::{IdempotencyRef, PayloadBytes, PrepareRequest, TimestampBound};
 use layerx_client::rpc::evidence::checkpoint;
+use layerx_client::runtime_clock::RuntimeClock;
 use layerx_client::sequencer::SequencerEndpoint;
 use layerx_human_service::custody::{
     CustodySigner, KeyId, Keystore, NativeConsent, NativeConsentRequest, Operation,
@@ -19,6 +20,7 @@ use layerx_human_service::trace::TraceId;
 use layerx_intents::{Intent, IntentKind, LxpSend};
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
+use layerx_types::clock::{Clock, Deadline};
 use layerx_types::ids::{AssetId, Did, IdempotencyKey};
 use layerx_types::intent::{
     AuthorizationSignature, ContextHash, NetworkId, ProtocolVersion, PublicKey, SendAuthorization,
@@ -93,11 +95,13 @@ fn limits() -> Limits {
 }
 
 fn clock(fixture: &Value) -> (u64, u64) {
-    let mut agent = runtime(
+    let runtime_clock = checked(RuntimeClock::from_environment());
+    let mut agent = runtime_with_clock(
         fixture,
         text(fixture, "principal"),
         text(fixture, "owner"),
         text(fixture, "account"),
+        runtime_clock.clone(),
     );
     let head = checked(agent.head());
     let listener = checked(TcpListener::bind("127.0.0.1:0"));
@@ -109,13 +113,16 @@ fn clock(fixture: &Value) -> (u64, u64) {
     let upstream = text(fixture, "rpc_url").to_owned();
     let height = head.chain_sequence;
     let server = std::thread::spawn(move || {
-        let deadline = std::time::Instant::now() + Duration::from_secs(8);
+        let mut deadline = checked(Deadline::start(
+            runtime_clock.as_ref(),
+            Duration::from_secs(8),
+        ));
         let stream = loop {
             match listener.accept() {
                 Ok((stream, _)) => break stream,
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                     assert!(
-                        std::time::Instant::now() < deadline,
+                        !checked(deadline.remaining(runtime_clock.as_ref())).is_zero(),
                         "missing sequencer head read"
                     );
                     std::thread::sleep(Duration::from_millis(1));
@@ -198,10 +205,21 @@ fn store(fixture: &Value) -> PrincipalStore {
 }
 
 fn runtime(fixture: &Value, principal: &str, owner: &str, account: &str) -> AgentRuntime {
+    let clock = checked(RuntimeClock::from_environment());
+    runtime_with_clock(fixture, principal, owner, account, clock)
+}
+fn runtime_with_clock(
+    fixture: &Value,
+    principal: &str,
+    owner: &str,
+    account: &str,
+    clock: Arc<dyn Clock>,
+) -> AgentRuntime {
     checked(
-        checked(AgentRuntime::connect(
+        checked(AgentRuntime::connect_with_clock(
             text(fixture, "agent_socket"),
             limits(),
+            clock,
         ))
         .for_subject(
             &checked(PrincipalId::new(principal)),

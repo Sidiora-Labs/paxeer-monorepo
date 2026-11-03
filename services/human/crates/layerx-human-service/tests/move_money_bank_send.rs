@@ -1,20 +1,23 @@
+use layerx_client::runtime_clock::RuntimeClock;
+use layerx_types::clock::{Clock, Deadline};
 use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};
 use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use base64::Engine as _;
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
 use layerx_client::rpc::receipt::{
-    AuthenticatedReceipt, Lookup, LookupContext, lookup_authenticated,
+    lookup_authenticated, AuthenticatedReceipt, Lookup, LookupContext,
 };
 use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint, SequencerError};
 use layerx_crypto::disclosure::call::ledger_selector;
 use layerx_crypto::evm_transaction::{
-    Eip1559Call, decode_signed, recover_sender, transaction_hash,
+    decode_signed, recover_sender, transaction_hash, Eip1559Call,
 };
 use layerx_human_service::custody::{KeyId, Operation};
 use layerx_human_service::journeys::{
@@ -161,37 +164,29 @@ fn move_plan_is_one_bank_transfer_per_leg() {
     );
     std::fs::remove_dir_all(root).expect("remove plan directory");
 
-    assert!(
-        plan(
-            requests.clone(),
-            vec![execution(1, 7, 1_000_000), execution(2, 9, 1_000_000)]
-        )
-        .is_err()
-    );
-    assert!(
-        plan(
-            vec![request(u64::MAX, 0x22, 90), request(0, 0x55, 40)],
-            vec![
-                execution(1, u64::MAX, 1_000_000),
-                execution(2, 0, 1_000_000)
-            ]
-        )
-        .is_err()
-    );
-    assert!(
-        plan(
-            requests.clone(),
-            vec![execution(1, 7, 999_999), execution(2, 8, 1_000_000)]
-        )
-        .is_err()
-    );
-    assert!(
-        plan(
-            requests,
-            vec![execution(1, 7, 1_000_000), execution(1, 8, 1_000_000)]
-        )
-        .is_err()
-    );
+    assert!(plan(
+        requests.clone(),
+        vec![execution(1, 7, 1_000_000), execution(2, 9, 1_000_000)]
+    )
+    .is_err());
+    assert!(plan(
+        vec![request(u64::MAX, 0x22, 90), request(0, 0x55, 40)],
+        vec![
+            execution(1, u64::MAX, 1_000_000),
+            execution(2, 0, 1_000_000)
+        ]
+    )
+    .is_err());
+    assert!(plan(
+        requests.clone(),
+        vec![execution(1, 7, 999_999), execution(2, 8, 1_000_000)]
+    )
+    .is_err());
+    assert!(plan(
+        requests,
+        vec![execution(1, 7, 1_000_000), execution(1, 8, 1_000_000)]
+    )
+    .is_err());
 }
 
 fn unhex(text: &str) -> Vec<u8> {
@@ -206,6 +201,7 @@ fn unhex(text: &str) -> Vec<u8> {
 }
 
 struct BankNode {
+    clock: Arc<RuntimeClock>,
     script: PathBuf,
     home: PathBuf,
     endpoint: SequencerEndpoint,
@@ -253,6 +249,7 @@ impl BankNode {
             .map(|line| line.split_once('=').expect("node environment entry"))
             .collect();
         let node = Self {
+            clock: RuntimeClock::from_environment().expect("bank node clock"),
             script,
             home: PathBuf::from(fields["LOCAL_NODE_HOME"]),
             endpoint: SequencerEndpoint::new(fields["LOCAL_NODE_SEQUENCER_RPC"], &[])
@@ -297,7 +294,8 @@ impl BankNode {
         keys: &[ReceiptKeyEntry],
         rung: Rung,
     ) -> AuthenticatedReceipt {
-        let deadline = Instant::now() + Duration::from_secs(60);
+        let mut deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(60))
+            .expect("receipt deadline");
         loop {
             match lookup_authenticated(&self.endpoint, hash, LookupContext { receipt_keys: keys })
                 .expect("authenticate real sequencer receipt")
@@ -306,7 +304,10 @@ impl BankNode {
                 Lookup::Absent | Lookup::Submitted { .. } | Lookup::Verified(_) => {}
             }
             assert!(
-                Instant::now() < deadline,
+                !deadline
+                    .remaining(self.clock.as_ref())
+                    .expect("receipt clock")
+                    .is_zero(),
                 "transaction did not reach {rung:?}; evidence: {}",
                 self.home.display()
             );
@@ -329,8 +330,8 @@ impl Drop for BankNode {
     }
 }
 
-fn pending<T>(mut operation: impl FnMut() -> Result<T, SequencerError>) -> T {
-    let deadline = Instant::now() + Duration::from_secs(20);
+fn pending<T>(clock: &dyn Clock, mut operation: impl FnMut() -> Result<T, SequencerError>) -> T {
+    let mut deadline = Deadline::start(clock, Duration::from_secs(20)).expect("pending deadline");
     loop {
         match operation() {
             Ok(value) => return value,
@@ -338,7 +339,10 @@ fn pending<T>(mut operation: impl FnMut() -> Result<T, SequencerError>) -> T {
                 if refusal.message == "pending block unavailable: sequencer: no block is open"
                     || refusal.message == "sequencer: no block is open" =>
             {
-                assert!(Instant::now() < deadline, "sequencer did not open a block");
+                assert!(
+                    !deadline.remaining(clock).expect("pending clock").is_zero(),
+                    "sequencer did not open a block"
+                );
                 thread::sleep(Duration::from_millis(10));
             }
             Err(error) => panic!("real sequencer refused bank operation: {error:?}"),
@@ -386,7 +390,9 @@ fn native_pointer(node: &BankNode, sender: [u8; 20], keys: &[ReceiptKeyEntry]) -
     let mut denom = [0; 32];
     denom[..4].copy_from_slice(b"uhpx");
     data.extend(denom);
-    let mut result = pending(|| node.endpoint.call_pending(&view, &data));
+    let mut result = pending(node.clock.as_ref(), || {
+        node.endpoint.call_pending(&view, &data)
+    });
     assert_eq!(result.len(), 96, "native pointer view ABI");
     if result[64..] == [0; 32] {
         let mut registry = [0; 20];
@@ -395,7 +401,7 @@ fn native_pointer(node: &BankNode, sender: [u8; 20], keys: &[ReceiptKeyEntry]) -
         registration_data[..4].copy_from_slice(&ledger_selector("addNativePointer(string)"));
         let call = Eip1559Call {
             chain_id: 125,
-            nonce: pending(|| node.endpoint.pending_nonce(&sender)),
+            nonce: pending(node.clock.as_ref(), || node.endpoint.pending_nonce(&sender)),
             max_priority_fee_per_gas: 1,
             max_fee_per_gas: 1_000_000_000_000,
             gas_limit: 5_000_000,
@@ -406,7 +412,12 @@ fn native_pointer(node: &BankNode, sender: [u8; 20], keys: &[ReceiptKeyEntry]) -
             .sign(&node.secret)
             .expect("sign native pointer registration");
         let hash = transaction_hash(&raw);
-        assert_eq!(pending(|| node.endpoint.send_raw_transaction(&raw)), hash);
+        assert_eq!(
+            pending(node.clock.as_ref(), || node
+                .endpoint
+                .send_raw_transaction(&raw)),
+            hash
+        );
         let receipt = node.receipt(hash, keys, Rung::Receipted);
         assert!(
             receipt.execution().success,
@@ -414,7 +425,9 @@ fn native_pointer(node: &BankNode, sender: [u8; 20], keys: &[ReceiptKeyEntry]) -
             String::from_utf8_lossy(&receipt.execution().return_data),
             node.home.display()
         );
-        result = pending(|| node.endpoint.call_pending(&view, &data));
+        result = pending(node.clock.as_ref(), || {
+            node.endpoint.call_pending(&view, &data)
+        });
     }
     assert_eq!(result.len(), 96, "registered native pointer view ABI");
     assert_eq!(&result[..12], &[0; 12]);
@@ -440,7 +453,7 @@ fn move_leg_completes_from_its_receipt() {
     let keys = node.receipt_keys();
     assert!(!keys.is_empty());
     let pointer = native_pointer(&node, sender, &keys);
-    let nonce = pending(|| node.endpoint.pending_nonce(&sender));
+    let nonce = pending(node.clock.as_ref(), || node.endpoint.pending_nonce(&sender));
     let ceiling = 1_000_000_000_000_000_000;
     let requests = vec![
         live_request(nonce, 0x22, 90, sender, pointer),
@@ -462,14 +475,21 @@ fn move_leg_completes_from_its_receipt() {
     let mut receipts = Vec::new();
     let mut before = Vec::new();
     for recipient in [[0x22; 20], [0x55; 20]] {
-        before.push(pending(|| node.endpoint.balance(&recipient)));
+        before.push(pending(node.clock.as_ref(), || {
+            node.endpoint.balance(&recipient)
+        }));
     }
     for index in 0..2 {
         let raw = movement.bank_transfers()[index]
             .sign(&node.secret)
             .expect("sign planned bank transfer");
         let hash = transaction_hash(&raw);
-        assert_eq!(pending(|| node.endpoint.send_raw_transaction(&raw)), hash);
+        assert_eq!(
+            pending(node.clock.as_ref(), || node
+                .endpoint
+                .send_raw_transaction(&raw)),
+            hash
+        );
         let receipted = node.receipt(hash, &keys, Rung::Receipted);
         assert_eq!(receipted.rung(), Rung::Receipted);
         assert!(
@@ -482,16 +502,12 @@ fn move_leg_completes_from_its_receipt() {
         assert!(!leg.complete());
         assert!(!leg.finalised());
         assert!(leg.complete_from_receipt([0x99; 32], &receipted).is_err());
-        assert!(
-            execution(20, nonce + index as u64 + 1, ceiling)
-                .complete_from_receipt(hash, &receipted)
-                .is_err()
-        );
-        assert!(
-            execution(20, nonce + index as u64, 0)
-                .complete_from_receipt(hash, &receipted)
-                .is_err()
-        );
+        assert!(execution(20, nonce + index as u64 + 1, ceiling)
+            .complete_from_receipt(hash, &receipted)
+            .is_err());
+        assert!(execution(20, nonce + index as u64, 0)
+            .complete_from_receipt(hash, &receipted)
+            .is_err());
         leg.complete_from_receipt(hash, &receipted)
             .expect("receipt completes leg");
         assert!(leg.complete());
@@ -511,11 +527,9 @@ fn move_leg_completes_from_its_receipt() {
         assert!(unrelated.complete_bank_leg(0, &raw, &receipted).is_err());
         assert!(!unrelated.executions()[0].complete());
         assert!(!unrelated.finalised());
-        assert!(
-            movement
-                .complete_bank_leg(1 - index, &raw, &receipted)
-                .is_err()
-        );
+        assert!(movement
+            .complete_bank_leg(1 - index, &raw, &receipted)
+            .is_err());
         movement
             .complete_bank_leg(index, &raw, &receipted)
             .expect("matching receipt completes planned leg");
@@ -565,15 +579,13 @@ fn move_leg_completes_from_its_receipt() {
         assert!(recovered.executions()[index].complete());
         assert!(recovered.executions()[index].finalised());
         assert_eq!(recovered.executions()[index].rung(), Rung::Committed);
-        assert!(
-            recovered
-                .complete_bank_leg(index, &raw, &receipts[index])
-                .is_err()
-        );
+        assert!(recovered
+            .complete_bank_leg(index, &raw, &receipts[index])
+            .is_err());
         assert!(recovered.executions()[index].finalised());
         assert_eq!(recovered.finalised(), index == 1);
         let recipient = [if index == 0 { 0x22 } else { 0x55 }; 20];
-        let after = pending(|| node.endpoint.balance(&recipient));
+        let after = pending(node.clock.as_ref(), || node.endpoint.balance(&recipient));
         let before =
             u128::from_be_bytes(before[index][16..].try_into().expect("recipient balance"));
         assert_eq!(
@@ -594,13 +606,16 @@ fn move_leg_completes_from_its_receipt() {
         .sign(&node.secret)
         .expect("sign reverting bank call");
     let hash = transaction_hash(&raw);
-    assert_eq!(pending(|| node.endpoint.send_raw_transaction(&raw)), hash);
+    assert_eq!(
+        pending(node.clock.as_ref(), || node
+            .endpoint
+            .send_raw_transaction(&raw)),
+        hash
+    );
     let reverted = node.receipt(hash, &keys, Rung::Receipted);
     assert!(!reverted.execution().success);
-    assert!(
-        execution(4, reverted.execution().nonce, ceiling)
-            .complete_from_receipt(reverted.activity_id(), &reverted)
-            .is_err()
-    );
+    assert!(execution(4, reverted.execution().nonce, ceiling)
+        .complete_from_receipt(reverted.activity_id(), &reverted)
+        .is_err());
     fs::remove_dir_all(root).expect("remove recovery directory");
 }

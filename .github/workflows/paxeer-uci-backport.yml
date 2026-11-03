@@ -77,12 +77,13 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
-  issues: read
-  pull-requests: write
+  contents: read
 
 jobs:
   scope:
+    permissions:
+      contents: read
+      pull-requests: read
     name: Confirm Paxeer scope
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
     outputs:
@@ -114,6 +115,10 @@ jobs:
             );
             core.setOutput('paxeer', String(inScope));
   backport:
+    permissions:
+      contents: write
+      issues: read
+      pull-requests: write
     name: Backport
     needs: scope
     if: needs.scope.outputs.paxeer == 'true'

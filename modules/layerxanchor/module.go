@@ -46,6 +46,11 @@ func (AppModuleBasic) DefaultGenesis(_ codec.JSONCodec) json.RawMessage {
 }
 
 func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConfig, bz json.RawMessage) error {
+	// node/app.go retains only the basic-manager registration for anchor, so
+	// module-manager exports omit its genesis state.
+	if len(bz) == 0 {
+		return nil
+	}
 	var genesis types.GenesisState
 	if err := json.Unmarshal(bz, &genesis); err != nil {
 		return fmt.Errorf("failed to unmarshal %s genesis state: %w", types.ModuleName, err)

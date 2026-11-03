@@ -467,6 +467,8 @@ func (h *HTTPServer) newDomainWSHandler(srv *rpc.Server, config WsConfig, apis [
 				api.Service = &domainInfoAPI{InfoAPI: service, scope: scope}
 			case *domainNetAPI:
 				api.Service = &domainNetAPI{NetAPI: service.NetAPI, scope: &scope}
+			case *SubscriptionAPI:
+				api.Service = &domainSubscriptionAPI{SubscriptionAPI: service, scope: scope}
 			}
 			scopedAPIs[idx] = api
 		}

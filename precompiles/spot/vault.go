@@ -61,6 +61,9 @@ func (e *vaultExecutor) RequiredGas(input []byte, method *abi.Method) uint64 {
 
 func (e *vaultExecutor) Execute(ctx sdk.Context, method *abi.Method, caller common.Address, _ common.Address,
 	args []interface{}, value *big.Int, _ bool, evm *vm.EVM, _ *tracing.Hooks) ([]byte, error) {
+	if ctx.EVMPrecompileCalledFromDelegateCall() {
+		return nil, errors.New("spot: cannot delegatecall vault")
+	}
 	if method.Type == abi.Receive {
 		return nil, types.ErrWethOnly
 	}

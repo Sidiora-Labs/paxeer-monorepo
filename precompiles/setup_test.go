@@ -191,6 +191,7 @@ func MergeAddressTable() []precompiles.MergeAddress {
 		{Address: common.HexToAddress("0x000000000000000000000000000000000000101B"), Name: "layerxpay"},
 		{Address: common.HexToAddress("0x000000000000000000000000000000000000101C"), Name: "layerxauth"},
 		{Address: common.HexToAddress("0x000000000000000000000000000000000000101D"), Name: "layerxprograms"},
+		{Address: common.HexToAddress("0x000000000000000000000000000000000000101E"), Name: "layerxchains"},
 		{Address: common.HexToAddress("0x0000000000000000000000000000000000000901"), Name: "orob"},
 		{Address: common.HexToAddress("0x0000000000000000000000000000000000000902"), Name: "clearing"},
 		{Address: common.HexToAddress("0x0000000000000000000000000000000000000903"), Name: "oracle aggregator"},
@@ -204,7 +205,7 @@ func MergeAddressTable() []precompiles.MergeAddress {
 
 func TestMergeAddressTable(t *testing.T) {
 	expected := MergeAddressTable()
-	require.Len(t, precompiles.MergeAddressTable, 12)
+	require.Len(t, precompiles.MergeAddressTable, 13)
 	require.Equal(t, expected, precompiles.MergeAddressTable)
 	require.Equal(t, app.MergeUpgrade, precompiles.MergeUpgrade)
 
@@ -218,7 +219,7 @@ func TestMergeAddressTable(t *testing.T) {
 	for i, key := range []string{"orob", "clearing", "oracle", "pofq", "scheduler", "streams", "teeAttestor", "eip712"} {
 		route, found := routes[key]
 		require.True(t, found, key)
-		require.Equal(t, expected[4+i].Address, common.HexToAddress(route), key)
+		require.Equal(t, expected[5+i].Address, common.HexToAddress(route), key)
 	}
 
 	// The registry refuses an address outside the table, a nil constructor and
@@ -230,22 +231,22 @@ func TestMergeAddressTable(t *testing.T) {
 	require.EqualError(t, precompiles.RegisterMergeConstructor(outside, func(utils.Keepers, string) (precompiles.IPrecompile, error) {
 		return orob.NewPrecompile(upgradeKeeper, precompiles.MergeUpgrade, 64)
 	}), "merge constructor for "+outside.Hex()+" outside the merge address table")
-	require.EqualError(t, precompiles.RegisterMergeConstructor(expected[4].Address, nil),
-		"nil merge constructor for "+expected[4].Address.Hex())
+	require.EqualError(t, precompiles.RegisterMergeConstructor(expected[5].Address, nil),
+		"nil merge constructor for "+expected[5].Address.Hex())
 
 	// Register the agent functions whose packages are in the tree, unless
 	// their packages registered them already.
 	constructors := map[common.Address]precompiles.MergeConstructor{
-		expected[4].Address: func(_ utils.Keepers, plan string) (precompiles.IPrecompile, error) {
+		expected[5].Address: func(_ utils.Keepers, plan string) (precompiles.IPrecompile, error) {
 			return orob.NewPrecompile(upgradeKeeper, plan, 64)
 		},
-		expected[5].Address: func(_ utils.Keepers, plan string) (precompiles.IPrecompile, error) {
+		expected[6].Address: func(_ utils.Keepers, plan string) (precompiles.IPrecompile, error) {
 			return clearing.NewPrecompile(upgradeKeeper, plan, 64)
 		},
-		expected[7].Address: func(_ utils.Keepers, plan string) (precompiles.IPrecompile, error) {
+		expected[8].Address: func(_ utils.Keepers, plan string) (precompiles.IPrecompile, error) {
 			return pofq.NewPrecompile(upgradeKeeper, plan, 64)
 		},
-		expected[11].Address: func(_ utils.Keepers, plan string) (precompiles.IPrecompile, error) {
+		expected[12].Address: func(_ utils.Keepers, plan string) (precompiles.IPrecompile, error) {
 			return eip712.NewPrecompile(upgradeKeeper, plan, 64, 64)
 		},
 	}
@@ -256,8 +257,8 @@ func TestMergeAddressTable(t *testing.T) {
 		}
 		require.NoError(t, precompiles.RegisterMergeConstructor(addr, constructor))
 	}
-	require.EqualError(t, precompiles.RegisterMergeConstructor(expected[4].Address, constructors[expected[4].Address]),
-		"merge constructor for "+expected[4].Address.Hex()+" already registered")
+	require.EqualError(t, precompiles.RegisterMergeConstructor(expected[5].Address, constructors[expected[5].Address]),
+		"merge constructor for "+expected[5].Address.Hex()+" already registered")
 
 	// Every address with a registered constructor carries its precompile at
 	// the latest upgrade and at the merge plan; no other merge address is in
@@ -295,8 +296,9 @@ func TestMergeAddressTable(t *testing.T) {
 		expected[1].Address: {"layerxpay"},
 		expected[2].Address: {"layerxauth"},
 		expected[3].Address: {"layerxprograms"},
+		expected[4].Address: {"layerxchains"},
 	}
-	for _, entry := range expected[4:] {
+	for _, entry := range expected[5:] {
 		modules[entry.Address] = []string{"layerxagent"}
 	}
 	k := &testApp.EvmKeeper

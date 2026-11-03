@@ -16,7 +16,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use layerx_client::runtime_clock::RuntimeClock;
@@ -26,7 +26,7 @@ use layerx_human_service::server::production_components::{
 use layerx_human_service::server::schema::ApiSchema;
 use layerx_human_service::server::{ProductionComponents, ProductionComponentsConfig};
 use layerx_human_service::store::TenancyMap;
-use layerx_types::clock::Clock as _;
+use layerx_types::clock::{Clock as _, Deadline};
 use layerx_types::payload::{ActivityType, ModuleId};
 use native_tls::{Identity, TlsAcceptor};
 use serde_json::{json, Value};
@@ -284,7 +284,8 @@ impl Environment {
         );
         process.1.push(node);
         process.2 = Some(authority);
-        let deadline = Instant::now() + Duration::from_secs(15);
+        let clock = RuntimeClock::from_environment()?;
+        let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(15))?;
         loop {
             if let Some(status) = process.0.try_wait()? {
                 return Err(format!(
@@ -298,7 +299,7 @@ impl Environment {
                 drop(connection);
                 return Ok(process);
             }
-            if Instant::now() >= deadline {
+            if deadline.remaining(clock.as_ref())?.is_zero() {
                 return Err(format!(
                     "real agent daemon did not bind: {}",
                     fs::read_to_string(&stderr)?
@@ -801,7 +802,8 @@ fn wait_for_process(
     diagnostics: &str,
     ready: impl Fn() -> bool,
 ) -> TestResult {
-    let deadline = Instant::now() + Duration::from_secs(30);
+    let clock = RuntimeClock::from_environment()?;
+    let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(30))?;
     loop {
         if let Some(status) = process.0.try_wait()? {
             return Err(format!(
@@ -813,7 +815,7 @@ fn wait_for_process(
         if ready() {
             return Ok(());
         }
-        if Instant::now() >= deadline {
+        if deadline.remaining(clock.as_ref())?.is_zero() {
             return Err(format!(
                 "real node startup timed out: {}",
                 fs::read_to_string(stderr)?
@@ -1138,7 +1140,8 @@ fn components_binary_starts_without_recipient_environment() -> TestResult {
             .stderr(fs::File::create(&stderr)?)
             .spawn()?,
     );
-    let deadline = Instant::now() + Duration::from_secs(15);
+    let clock = RuntimeClock::from_environment()?;
+    let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(15))?;
     loop {
         if let Some(status) = process.0.try_wait()? {
             return Err(format!(
@@ -1152,7 +1155,7 @@ fn components_binary_starts_without_recipient_environment() -> TestResult {
             drop(connection);
             break;
         }
-        if Instant::now() >= deadline {
+        if deadline.remaining(clock.as_ref())?.is_zero() {
             return Err(
                 format!("components did not bind: {}", fs::read_to_string(&stderr)?).into(),
             );

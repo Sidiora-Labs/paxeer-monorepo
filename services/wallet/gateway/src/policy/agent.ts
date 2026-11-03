@@ -1,7 +1,7 @@
 import { env } from '../env.js';
 import {
   countAgentSignaturesLastMinute,
-  reserveBudget,
+  reserveBudget as reserveAgentBudget,
   sumAgentDailyValue,
   type AgentPolicyRow,
   type AgentPolicyRuleRow,
@@ -12,7 +12,10 @@ export const ERC20_APPROVE_SELECTOR = '0x095ea7b3';
 export const ERC20_TRANSFER_SELECTOR = '0xa9059cbb';
 export const ERC20_TRANSFER_FROM_SELECTOR = '0x23b872dd';
 
-export function decodeAddressArg(data: string, argIndex: number): string | null {
+export function decodeAddressArg(
+  data: string,
+  argIndex: number,
+): string | null {
   const start = 2 + 8 + 64 * argIndex;
   const end = start + 64;
   if (data.length < end) return null;
@@ -40,17 +43,29 @@ export function decodeMoverCounterparty(
     case '0x3177029f':
     case '0xcae9ca51':
     case '0xa22cb465':
-      return { counterparty: decodeAddressArg(data, 0), isApprove: true, known: true };
+      return {
+        counterparty: decodeAddressArg(data, 0),
+        isApprove: true,
+        known: true,
+      };
     case ERC20_TRANSFER_SELECTOR:
     case '0x1296ee62':
     case '0x4000aea0':
-      return { counterparty: decodeAddressArg(data, 0), isApprove: false, known: true };
+      return {
+        counterparty: decodeAddressArg(data, 0),
+        isApprove: false,
+        known: true,
+      };
     case ERC20_TRANSFER_FROM_SELECTOR:
     case '0x42842e0e':
     case '0xb88d4fde':
     case '0xf242432a':
     case '0x2eb2c2d6':
-      return { counterparty: decodeAddressArg(data, 1), isApprove: false, known: true };
+      return {
+        counterparty: decodeAddressArg(data, 1),
+        isApprove: false,
+        known: true,
+      };
     case '0xac9650d8':
     case '0x5ae401dc':
       return { counterparty: null, isApprove: false, known: true };
@@ -77,9 +92,9 @@ export function decodeMoverCounterparty(
  *   6. Native transfer   → NATIVE_TRANSFER_BLOCKED (unless allow_native_transfer)
  *   7. Approve cap       → APPROVE_CAP
  *   8. Per-rule cap      → TOKEN_VALUE_CAP (allow-token rule's max_value_wei)
- *   9. Value caps        → TX_VALUE_CAP / DAILY_VALUE_CAP (budgets are the
+ *   9. Rate limit        → RATE_LIMIT
+ *  10. Value caps        → TX_VALUE_CAP / DAILY_VALUE_CAP (budgets are the
  *                          escape hatch above these for native value)
- *  10. Rate limit        → RATE_LIMIT
  */
 
 export type AgentDenyCode =
@@ -103,7 +118,12 @@ export type AgentDenyCode =
 
 export type AgentDecision =
   | { allow: true; reservedBudgetId: string | null; reservedValueWei: bigint }
-  | { allow: false; code: AgentDenyCode; message: string; detail?: Record<string, unknown> };
+  | {
+      allow: false;
+      code: AgentDenyCode;
+      message: string;
+      detail?: Record<string, unknown>;
+    };
 
 export interface AgentTxIntent {
   kind: 'transaction' | 'message' | 'typed_data';
@@ -137,8 +157,10 @@ export function effectivePolicy(p: AgentPolicyRow | null): EffectivePolicy {
   return {
     mode: p?.mode ?? env.AGENT_DEFAULT_MODE,
     maxTxValueWei: p?.max_tx_value_wei ?? env.AGENT_DEFAULT_MAX_TX_VALUE_WEI,
-    maxDailyValueWei: p?.max_daily_value_wei ?? env.AGENT_DEFAULT_MAX_DAILY_VALUE_WEI,
-    rateLimitPerMin: p?.rate_limit_per_min ?? env.AGENT_DEFAULT_RATE_LIMIT_PER_MINUTE,
+    maxDailyValueWei:
+      p?.max_daily_value_wei ?? env.AGENT_DEFAULT_MAX_DAILY_VALUE_WEI,
+    rateLimitPerMin:
+      p?.rate_limit_per_min ?? env.AGENT_DEFAULT_RATE_LIMIT_PER_MINUTE,
     maxApproveWei: p?.max_approve_wei ?? env.AGENT_DEFAULT_MAX_APPROVE_WEI,
     allowNativeTransfer: p?.allow_native_transfer ?? false,
     withdrawalAllowlistOnly: p?.withdrawal_allowlist_only ?? true,
@@ -189,7 +211,11 @@ function indexRules(rules: AgentPolicyRuleRow[]): RuleIndex {
   return idx;
 }
 
-function deny(code: AgentDenyCode, message: string, detail?: Record<string, unknown>): AgentDecision {
+function deny(
+  code: AgentDenyCode,
+  message: string,
+  detail?: Record<string, unknown>,
+): AgentDecision {
   return { allow: false, code, message, detail };
 }
 
@@ -197,7 +223,15 @@ function deny(code: AgentDenyCode, message: string, detail?: Record<string, unkn
 function dailyWindowStartIso(hour: number): string {
   const now = new Date();
   const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour, 0, 0, 0),
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      hour,
+      0,
+      0,
+      0,
+    ),
   );
   if (start.getTime() > now.getTime()) start.setUTCDate(start.getUTCDate() - 1);
   return start.toISOString();
@@ -208,7 +242,7 @@ export interface EvaluateAgentInput {
   policy: AgentPolicyRow | null;
   rules: AgentPolicyRuleRow[];
   intent: AgentTxIntent;
-  reserveBudget?: typeof reserveBudget;
+  reserveBudget?: typeof reserveAgentBudget;
 }
 
 /**
@@ -216,18 +250,26 @@ export interface EvaluateAgentInput {
  * exceeded the normal caps, `reservedBudgetId` carries the budget that was
  * atomically charged — the route MUST release it if the send fails.
  */
-export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDecision> {
+export async function evaluateAgent(
+  input: EvaluateAgentInput,
+): Promise<AgentDecision> {
   const { principal, intent } = input;
   const eff = effectivePolicy(input.policy);
 
   // 0. Freeze — the instant kill switch.
   if (principal.is_frozen) {
-    return deny('AGENT_FROZEN', 'agent is frozen by its owner; no actions permitted');
+    return deny(
+      'AGENT_FROZEN',
+      'agent is frozen by its owner; no actions permitted',
+    );
   }
 
   // 1. Mode — read_only forbids all signing (tx, message, typed-data).
   if (eff.mode === 'read_only') {
-    return deny('MODE_READ_ONLY', 'agent policy mode is read_only; signing is disabled');
+    return deny(
+      'MODE_READ_ONLY',
+      'agent policy mode is read_only; signing is disabled',
+    );
   }
 
   // Messages / typed-data carry no destination or transferable value at this
@@ -263,11 +305,15 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
       const windowStart = dailyWindowStartIso(eff.dailyResetUtcHour);
       const dailySpent = await sumAgentDailyValue(principal.did, windowStart);
       if (dailySpent + value > eff.maxDailyValueWei) {
-        return deny('DAILY_VALUE_CAP', 'daily value cap exceeded by this deployment', {
-          used: dailySpent.toString(),
-          request: value.toString(),
-          cap: eff.maxDailyValueWei.toString(),
-        });
+        return deny(
+          'DAILY_VALUE_CAP',
+          'daily value cap exceeded by this deployment',
+          {
+            used: dailySpent.toString(),
+            request: value.toString(),
+            cap: eff.maxDailyValueWei.toString(),
+          },
+        );
       }
     }
     const limited = await rateLimited(principal.did, eff.rateLimitPerMin);
@@ -286,7 +332,10 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
 
   if (!isEmptyData) {
     if (data.length < 10) {
-      return deny('INVALID_TX_SHAPE', 'tx.data must be empty or contain a 4-byte selector');
+      return deny(
+        'INVALID_TX_SHAPE',
+        'tx.data must be empty or contain a 4-byte selector',
+      );
     }
     selector = data.slice(0, 10);
     mover = decodeMoverCounterparty(selector, data);
@@ -315,26 +364,44 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
 
   // 3. Denylist — deny always beats allow.
   if (idx.denyContracts.has(to)) {
-    return deny('CONTRACT_DENYLISTED', 'target contract is on the deny list', { contract: to });
+    return deny('CONTRACT_DENYLISTED', 'target contract is on the deny list', {
+      contract: to,
+    });
   }
   if (selector && idx.denySelectors.has(selector)) {
-    return deny('SELECTOR_DENYLISTED', 'method selector is on the deny list', { selector });
+    return deny('SELECTOR_DENYLISTED', 'method selector is on the deny list', {
+      selector,
+    });
   }
   if (tokenContract && idx.denyTokens.has(tokenContract)) {
-    return deny('TOKEN_DENYLISTED', 'token is on the deny list', { token: tokenContract });
+    return deny('TOKEN_DENYLISTED', 'token is on the deny list', {
+      token: tokenContract,
+    });
   }
   if (tokenRecipient && idx.denyAddresses.has(tokenRecipient)) {
-    return deny('ADDRESS_DENYLISTED', 'counterparty address is on the deny list', {
-      address: tokenRecipient,
-    });
+    return deny(
+      'ADDRESS_DENYLISTED',
+      'counterparty address is on the deny list',
+      {
+        address: tokenRecipient,
+      },
+    );
   }
 
   // 4. Allowlist — in trade_only, when explicit allow-contract rules exist, the
   //    target MUST be allowlisted. `full` mode skips the allowlist requirement.
-  if (eff.mode === 'trade_only' && idx.hasAllowContracts && !idx.allowContracts.has(to)) {
-    return deny('CONTRACT_NOT_ALLOWLISTED', 'target contract is not on the trade allowlist', {
-      contract: to,
-    });
+  if (
+    eff.mode === 'trade_only' &&
+    idx.hasAllowContracts &&
+    !idx.allowContracts.has(to)
+  ) {
+    return deny(
+      'CONTRACT_NOT_ALLOWLISTED',
+      'target contract is not on the trade allowlist',
+      {
+        contract: to,
+      },
+    );
   }
 
   // 5. Withdrawal allowlist — any recipient that can RECEIVE funds (native
@@ -342,15 +409,22 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
   //    on the allowlist when withdrawal_allowlist_only is set.
   if (eff.withdrawalAllowlistOnly) {
     if (mover?.known && mover.counterparty === null) {
-      return deny('COUNTERPARTY_UNDECODED', 'known asset-moving call has no decodable counterparty', {
-        selector,
-      });
+      return deny(
+        'COUNTERPARTY_UNDECODED',
+        'known asset-moving call has no decodable counterparty',
+        {
+          selector,
+        },
+      );
     }
     const recipientNeedingAllow: string | null =
       value > 0n && isEmptyData
         ? to // bare native transfer → funds go to `to`
-        : tokenRecipient ?? null; // token recipient / spender / operator
-    if (recipientNeedingAllow && !idx.withdrawalAllowlist.has(recipientNeedingAllow)) {
+        : (tokenRecipient ?? null); // token recipient / spender / operator
+    if (
+      recipientNeedingAllow &&
+      !idx.withdrawalAllowlist.has(recipientNeedingAllow)
+    ) {
       return deny(
         'WITHDRAWAL_NOT_ALLOWLISTED',
         'recipient/spender is not on the withdrawal allowlist',
@@ -361,17 +435,24 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
 
   // 6. Native transfer switch — a bare PAX transfer is a withdrawal vector.
   if (value > 0n && isEmptyData && !eff.allowNativeTransfer) {
-    return deny('NATIVE_TRANSFER_BLOCKED', 'native PAX transfers are disabled for this agent');
+    return deny(
+      'NATIVE_TRANSFER_BLOCKED',
+      'native PAX transfers are disabled for this agent',
+    );
   }
 
   // 7. Approve cap.
   if (isApprove) {
     const approveAmount = tokenAmount ?? decodeApproveAmount(data);
     if (approveAmount !== null && approveAmount > eff.maxApproveWei) {
-      return deny('APPROVE_CAP', 'approve amount exceeds the per-agent approval cap', {
-        amount: approveAmount.toString(),
-        cap: eff.maxApproveWei.toString(),
-      });
+      return deny(
+        'APPROVE_CAP',
+        'approve amount exceeds the per-agent approval cap',
+        {
+          amount: approveAmount.toString(),
+          cap: eff.maxApproveWei.toString(),
+        },
+      );
     }
   }
 
@@ -382,23 +463,41 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
       cap !== null &&
       cap !== undefined &&
       tokenAmount === null &&
-      (selector === ERC20_TRANSFER_SELECTOR || selector === ERC20_TRANSFER_FROM_SELECTOR)
+      (selector === ERC20_TRANSFER_SELECTOR ||
+        selector === ERC20_TRANSFER_FROM_SELECTOR)
     ) {
-      return deny('INVALID_TX_SHAPE', 'token transfer has no decodable amount', {
-        token: tokenContract,
-        selector,
-      });
+      return deny(
+        'INVALID_TX_SHAPE',
+        'token transfer has no decodable amount',
+        {
+          token: tokenContract,
+          selector,
+        },
+      );
     }
-    if (cap !== null && cap !== undefined && tokenAmount !== null && tokenAmount > cap) {
-      return deny('TOKEN_VALUE_CAP', 'token amount exceeds the per-tx cap for this token', {
-        token: tokenContract,
-        amount: tokenAmount.toString(),
-        cap: cap.toString(),
-      });
+    if (
+      cap !== null &&
+      cap !== undefined &&
+      tokenAmount !== null &&
+      tokenAmount > cap
+    ) {
+      return deny(
+        'TOKEN_VALUE_CAP',
+        'token amount exceeds the per-tx cap for this token',
+        {
+          token: tokenContract,
+          amount: tokenAmount.toString(),
+          cap: cap.toString(),
+        },
+      );
     }
   }
 
-  // 9. Native value caps. Budgets are the escape hatch ABOVE the normal caps.
+  // 9. Rate limit, before any budget reservation.
+  const limited = await rateLimited(principal.did, eff.rateLimitPerMin);
+  if (limited) return limited;
+
+  // 10. Native value caps. Budgets are the escape hatch ABOVE the normal caps.
   let reservedBudgetId: string | null = null;
   if (value > 0n) {
     const withinPerTx = value <= eff.maxTxValueWei;
@@ -408,7 +507,8 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
 
     if (!withinPerTx || !withinDaily) {
       // Try to draw the overage from an owner-granted budget covering `to`.
-      reservedBudgetId = await (input.reserveBudget ?? reserveBudget)({
+      const reserveBudget = input.reserveBudget ?? reserveAgentBudget;
+      reservedBudgetId = await reserveBudget({
         did: principal.did,
         targetContract: to,
         token: null,
@@ -416,23 +516,27 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
       });
       if (!reservedBudgetId) {
         if (!withinPerTx) {
-          return deny('TX_VALUE_CAP', 'tx value exceeds the per-tx cap and no budget covers it', {
-            value: value.toString(),
-            cap: eff.maxTxValueWei.toString(),
-          });
+          return deny(
+            'TX_VALUE_CAP',
+            'tx value exceeds the per-tx cap and no budget covers it',
+            {
+              value: value.toString(),
+              cap: eff.maxTxValueWei.toString(),
+            },
+          );
         }
-        return deny('DAILY_VALUE_CAP', 'daily value cap exceeded and no budget covers it', {
-          used: dailySpent.toString(),
-          request: value.toString(),
-          cap: eff.maxDailyValueWei.toString(),
-        });
+        return deny(
+          'DAILY_VALUE_CAP',
+          'daily value cap exceeded and no budget covers it',
+          {
+            used: dailySpent.toString(),
+            request: value.toString(),
+            cap: eff.maxDailyValueWei.toString(),
+          },
+        );
       }
     }
   }
-
-  // 10. Rate limit (fail-open on DB hiccup; the caps above are the hard guard).
-  const limited = await rateLimited(principal.did, eff.rateLimitPerMin);
-  if (limited) return limited;
 
   return { allow: true, reservedBudgetId, reservedValueWei: value };
 }
@@ -442,7 +546,10 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
  * budget. Fails open on a transient DB error (the value caps are the hard
  * guard). Returns null when within the limit.
  */
-async function rateLimited(did: string, perMin: number): Promise<AgentDecision | null> {
+async function rateLimited(
+  did: string,
+  perMin: number,
+): Promise<AgentDecision | null> {
   try {
     const recent = await countAgentSignaturesLastMinute(did);
     if (recent >= perMin) {

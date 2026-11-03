@@ -5,7 +5,7 @@ use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use layerx_agent_api::subscription::{Cursor, EventDelivery, EventIdentity, ReceiptReference};
 use layerx_agent_api::track::ReceiptRef;
@@ -21,36 +21,8 @@ use layerx_human_service::server::{
 };
 use layerx_human_service::store::PrincipalStore;
 use layerx_human_test_support as support;
-use layerx_types::clock::{Clock, ClockError, ClockReading};
+use layerx_types::clock::Clock;
 use layerx_types::rung::Rung;
-
-struct SystemClock {
-    origin: Instant,
-    generation: [u8; 16],
-}
-
-impl Clock for SystemClock {
-    fn sample(&self, budget: Duration) -> Result<ClockReading, ClockError> {
-        if budget.is_zero() {
-            return Err(ClockError::Unavailable);
-        }
-        Ok(ClockReading {
-            generation: self.generation,
-            unix_milliseconds: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_err(|_| ClockError::Regression)?
-                .as_millis()
-                .try_into()
-                .map_err(|_| ClockError::Overflow)?,
-            monotonic_nanoseconds: self
-                .origin
-                .elapsed()
-                .as_nanos()
-                .try_into()
-                .map_err(|_| ClockError::Overflow)?,
-        })
-    }
-}
 
 struct Server {
     root: PathBuf,
@@ -77,13 +49,12 @@ impl Server {
             &tenancy,
             support::retention_uniform(86_400),
         );
-        let mut generation = [0; 16];
-        getrandom::fill(&mut generation).expect("clock generation");
+        let clock = Arc::new(support::StepClock::new(1_700_000_000_000));
+        let generation = clock
+            .sample(Duration::from_secs(1))
+            .expect("clock generation")
+            .generation;
         assert_ne!(generation, [0; 16]);
-        let clock = Arc::new(SystemClock {
-            origin: Instant::now(),
-            generation,
-        });
         let passkeys = Passkeys::new(AuthConfig {
             rp_id: "wallet.example".to_owned(),
             rp_name: "LayerX".to_owned(),

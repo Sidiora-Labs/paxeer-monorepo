@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
@@ -29,7 +30,7 @@ func init() {
 }
 
 func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPrecompile, error) {
-	if keepers == nil {
+	if keepers == nil || (reflect.ValueOf(keepers).Kind() == reflect.Ptr && reflect.ValueOf(keepers).IsNil()) {
 		return nil, fmt.Errorf("%w: precompile keepers are unavailable", agentcommon.ErrNoContext)
 	}
 	wired, ok := keepers.(LayerXAgentKeepers)

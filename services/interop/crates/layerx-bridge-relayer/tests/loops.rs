@@ -822,6 +822,13 @@ fn a_receipt_with_status_zero_reverts_the_paxeer_submission() {
         ("consumed", "sequencer-consumed"),
     ] {
         let (recording, _signer, instance, mut relayer, item) = sequencer_submission(name);
+        let tx_hash = hash(&recording.sent()[0].1);
+        let pending = relayer.journal().state().items[&item]
+            .pending()
+            .expect("the sent transaction is pending before its receipt");
+        assert_eq!(pending.tx_hash, tx_hash);
+        assert_eq!(pending.raw, recording.sent()[0].1);
+        assert_eq!(pending.status, SubmissionStatus::Pending);
         let before = support::journal_entries(&instance.journal);
         let calls_before = recording.count("paxeer", "eth_call");
         recording.set_phase(phase);
@@ -829,16 +836,10 @@ fn a_receipt_with_status_zero_reverts_the_paxeer_submission() {
             .inbound_step(0)
             .unwrap_or_else(|error| panic!("{phase}: {error}"));
         let entries = support::journal_entries(&instance.journal);
-        assert_eq!(entries.len(), before.len() + 2);
-        assert!(matches!(
-            entries[before.len()],
-            Entry::Receipted {
-                sequence: 5,
-                height: 1002,
-                ..
-            }
-        ));
-        let tx_hash = hash(&recording.sent()[0].1);
+        assert_eq!(entries.len(), before.len() + 1);
+        assert!(!entries
+            .iter()
+            .any(|entry| matches!(entry, Entry::Receipted { .. })));
         if phase == "reverted" {
             assert_eq!(report.waiting, 1);
             assert_eq!(report.completed, 0);

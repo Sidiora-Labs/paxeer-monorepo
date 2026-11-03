@@ -145,10 +145,10 @@ pub fn decode(event: &DecodedEvent, height: u64, _tx_hash: &str) -> Option<Chain
         "ChainStatusChanged" => ChainRow::Status {
             id,
             status: match text("status")? {
-                "0" => "active",
-                "1" => "paused",
-                "2" => "governance_paused",
-                "3" => "retired",
+                "1" => "active",
+                "2" => "paused",
+                "3" => "governance_paused",
+                "4" => "retired",
                 _ => return None,
             }
             .to_owned(),

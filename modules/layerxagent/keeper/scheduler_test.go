@@ -463,3 +463,24 @@ func TestEndBlockRevertedJobLeavesCoinbaseEmpty(t *testing.T) {
 	require.LessOrEqual(t, gas.Uint64(), gasLimit)
 	require.Zero(t, h.balance(end, h.keeper.ModuleAddress()).Sign())
 }
+
+func TestSchedulerReadsMergeActivationOnEveryEndBlock(t *testing.T) {
+	h := newHarness(t)
+	target := h.deploy([]byte{byte(vm.STOP)})
+	id := h.schedule(target, dueAt)
+	end := h.ctx.WithBlockHeight(int64(dueAt)).WithEventManager(sdk.NewEventManager())
+	upgrade := testkeeper.EVMTestApp.EvmKeeper.UpgradeKeeper()
+	// Moving the persisted plan above this block must withhold execution even
+	// though this same keeper previously scheduled the job under an active plan.
+	upgrade.SetDone(end.WithBlockHeight(int64(dueAt)+1), precompiles.MergeUpgrade)
+	require.NoError(t, h.keeper.EndBlocker(end))
+	require.Empty(t, executedEvents(t, end))
+	_, found := h.keeper.GetJob(end, id)
+	require.True(t, found)
+	upgrade.SetDone(end, precompiles.MergeUpgrade)
+	require.NoError(t, h.keeper.EndBlocker(end))
+	require.Len(t, executedEvents(t, end), 1)
+	require.Equal(t, id, executedEvents(t, end)[0].JobId)
+	_, found = h.keeper.GetJob(end, id)
+	require.False(t, found)
+}
