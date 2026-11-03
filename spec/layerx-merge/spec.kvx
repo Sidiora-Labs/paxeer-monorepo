@@ -130481,6 +130481,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Decision 2458 (attempts 1 and 2, continue): the build failed with ERR_PNPM_OTHER_PM_EXPECTED because services/agent/sdk/typescript pins npm; the build and verify now use npm ci and npm run build and the verify runs the built ai-market test with node --test after the Go vector test. Keep the Go vector test and the TypeScript test both green."
 do_6 = "Attempt 6 (continue after 22.99.160): the rpc test binary links the native libraries, so the build now runs make paxd-native-libs first; the verify failure was environmental. Continue the attempt-6 tree and rerun the gates."
+do_7 = "Attempt 7 (continue): keep the account-registration repair of attempt 7. The AI market CREATE fixture of the rpc test (the create record and the 307-byte policy assembled at sequencer_receipt_vectors_test.go:688-700, packed as envelope(0x0101, 1, create)) follows the create record layout the guest decodes after task 13.99.1 (051e6c3e0): take the field order, widths and the nonzero big-endian version fields from the create decoder in programs/crates/layerx-programs-ai-market/src (state.rs, types.rs and the version reader of reputation_codec.rs) and from the crate's own create vectors or tests, so that the CREATE executes (created[0] == 0) and the transfer-authority receipt is produced for the SDK decoder test; the guest and the kernel are not changed. Name the layout source in the test comment."
 
 [task.18.1561.1]
 title = "Issue #1561: Prepare the codec replay corpus before agent vector tests"
@@ -138422,11 +138423,11 @@ do_2 = "proof_layerxledger_0x101a fails; it is the indexer's proof of the ledger
 do_3 = "If the defect lies in a file outside the task's paths, stop and report the exact path and the failing output instead of editing it. If the recorded failure no longer reproduces on the current main line, no product change is made and the repair record says so."
 do_4 = "Write spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.12.kvx, each with one block ([repair.rust-test-platform.12]) holding target (the recorded target), command (the recorded command as run), revision (the 40-hex commit of main the verify passed at), result (repaired or already-passing), change (one sentence naming the files changed, or none) and producer_input_tests (the tests that need an input the qualification environment lacks, each with the input it needs, or an empty list). Product facts only; no names of people, nothing about how or where work is executed. The sweep record itself is left unchanged; a later inventory pass re-records it."
 symbols = []
-touches = ["services/platform/hosted/indexer", "spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.12.kvx"]
+touches = ["services/platform/hosted/indexer", "spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.12.kvx", "tests/vectors/names/indexer_api_v1.json"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.12.kvx", "services/platform/Cargo.lock"]
 build_cmd = "make -s paxd-native-libs && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests"
-verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.12.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --no-fail-fast"
+verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.12.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --no-fail-fast -- --skip proof_layerxledger_0x101a --skip proof_layerxpay_0x101b"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-platform"
@@ -138441,6 +138442,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "Decision 2511: the workspace lock services/platform/Cargo.lock is a planned path of this task; any manifest change refreshes it in the same commit, limited to the touched package, and the build stays under --locked."
 do_6 = "Attempt 1 (requalify, gotcha 2955): the three proof tests spawn the Go proof producers, which link against the kernel native libraries; the build now runs make -s paxd-native-libs first in the mixed environment profile. Requalify the attempt-1 tree unchanged; if a proof test still fails, print the producer's stderr and report it."
 do_7 = "Attempt 3 (requalify after 22.99.160): the build failed only on the stale programs lock (gotcha 2957). Requalify the attempt-3 tree once 22.99.160 is on main."
+do_8 = "Attempt 4 (continue): the attempt record alone is not a repair; the task closes when the three failing test targets pass. (1) tests/vectors/names/indexer_api_v1.json is in the paths: the third 08:00:01 event of alice.pax (the registry NewOwner emitted by the registration) carries action transfer, as names.rs classifies it since issue #1394; the DESC and ASC answers and the filtered answers follow from it and no other vector field changes. (2) The a11 cases of ai_reputation_finality.rs are refused with CAPACITY (0x0016) at the first certified section: read the retention capacity the projection applies and size the fixture sections (records(32), ring 1..=32) to it, or, if the projection refuses a section it must retain, repair the capacity rule inside services/platform/hosted/indexer and report a rule living in programs/crates with file and line. (3) proof_layerxledger_0x101a and proof_layerxpay_0x101b consume a producer document on stdin from their declared gates; the verify now skips them by name and the record lists them under producer_input_tests."
 
 [task.22.99.154]
 title = "Repair the inventory sweep target layerx-bridge-relayer"
@@ -138845,7 +138847,7 @@ title = "Repair the inventory sweep target layerx-programs-runtime"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.99.160"]
+requires = ["22.99.160", "22.99.159"]
 reqs = ["22998.1"]
 capabilities = ["22.99.76"]
 interfaces = []
@@ -138871,6 +138873,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2496 (continue): the tests actual_ are qualified by their producer inputs and are excluded by name from the verify; list each in the repair record as producer_input_tests with the input it needs. Every other failure the recorded command exposes is a defect to repair inside the task's paths; none may be excluded."
 do_5 = "Attempt 2 (continue): execute::market_tests::compiled_market_dispute_refuses_forged_wrong_replayed_unauthorized_and_premature_moves refuses operation 10 at index 6 (market_tests.rs:642) although the test expects that authorized dispute move to be accepted. Compare the move with the dispute contract documented in the module (which moves are authorized after the dispute window, by whom and against which record), then repair the runtime check that refuses it; change the test only when the contract shows the move is not authorized, and say so in the repair record."
+do_6 = "Attempt 3 (continue): the dependent-crate check failed only because services/tests/fixtures/authority/provider-subject/consent.activity was missing from the tree (the layerx-agentd human_runtime subject tests read it); task 22.99.159 restored the fixture and this task now requires it. Keep the attempt-3 repair of market_tests.rs, tests/interpreter_program.rs and tests/support/compiled_guest.rs unchanged and rerun the gates."
 
 [task.22.99.75]
 title = "Repair the inventory sweep target layerx-programs-registry"
@@ -139419,7 +139422,7 @@ do_1 = "Decision 2492: the inventory sweep rust-test-human (spec/layerx-merge/pr
 do_2 = "If the defect lies in a file outside the task's paths, stop and report the exact path and the failing output instead of editing it. If the recorded failure no longer reproduces on the current main line, no product change is made and the repair record says so."
 do_3 = "Write spec/layerx-merge/programme/sweeps/repairs/rust-test-human.6.kvx with one block [repair.rust-test-human.6] holding target (the recorded target), command (the recorded command as run), revision (the 40-hex commit of main the verify passed at), result (repaired or already-passing) and change (one sentence naming the files changed, or none). Product facts only; no names of people, nothing about how or where work is executed. The sweep record itself is left unchanged; a later inventory pass re-records it."
 symbols = []
-touches = ["services/human/crates/layerx-human-identity-provider", "spec/layerx-merge/programme/sweeps/repairs/rust-test-human.6.kvx"]
+touches = ["services/human/crates/layerx-human-identity-provider", "spec/layerx-merge/programme/sweeps/repairs/rust-test-human.6.kvx", "services/platform/hosted/human/provision.py", "services/platform/hosted/human/beta-purpose-catalog.json", "services/platform/hosted/human/test_provision.py"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/rust-test-human.6.kvx"]
 build_cmd = "(python3 -c 'import yaml' || python3 -m pip install -q --break-system-packages pyyaml) && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider --tests"
@@ -139438,6 +139441,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Decision 2496 (continue): the tests assertion_capability_reaches_existing_attestor_admission are qualified by their producer inputs and are excluded by name from the verify; list each in the repair record as producer_input_tests with the input it needs. Every other failure the recorded command exposes is a defect to repair inside the task's paths; none may be excluded."
 do_5 = "Attempt 2 (continue): the build now installs pyyaml for services/platform/hosted/human/test_provision.py, so generated_catalog_loads_through_the_service_reader runs against the real generator. provision_resolve_device_and_restart_replay fails with InvalidData state already locked: the restarted provider reopens the state store while the lock of the instance it replaces is still held. Release the state lock when a provider instance shuts down (and on drop), and make the restart path in the crate reopen through that released lock; the test keeps asserting that the replayed resolution matches the pre-restart one. Report the repaired test in the repair record."
 do_6 = "Attempt 4 (continue after 22.99.160): the build failed only on the stale services/human lock (gotcha 2957). Continue the attempt-4 tree and rerun the gates."
+do_7 = "Attempt 5 (continue): services/platform/hosted/human/provision.py, beta-purpose-catalog.json and test_provision.py are in the paths. The template carries, per preset, call_selectors: the 4-byte function selectors (0x-prefixed hex) the agent may call for the beta-protocol purpose, taken from the ABI of the contract the purpose addresses; provision.py validates them (non-empty, unique, 4 bytes each) and writes call_selectors in place of activity_types, keeping counterparties, assets and budget_asset as today, so that PurposePresetCatalog::from_json in services/human/crates/layerx-human-service/src/agents/create.rs (deny_unknown_fields, lines 214-330) accepts the generated catalog and generated_catalog_loads_through_the_service_reader passes. Keep the attempt-3 and attempt-4 repairs (attestor assertion skip, state lock release on shutdown) unchanged."
 
 [task.22.99.57]
 title = "Repair the inventory sweep target layerx-network-gateway"
@@ -203396,7 +203400,7 @@ symbols = []
 touches = ["node/sequencer", "spec/layerx-merge/programme/sweeps/repairs/go-node.9.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/go-node.9.kvx"]
-build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./node/sequencer/"
+build_cmd = "go generate ./engine/executor/lib && make -s paxd-native-libs && CGO_ENABLED=1 go vet ./node/sequencer/"
 verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/go-node.9.kvx && CGO_ENABLED=1 go test -count=1 -timeout 35m -skip TestReceiptLatencyP99UnderBound ./node/sequencer/"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
@@ -203409,6 +203413,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 1 (continue): the build now runs go generate ./engine/executor/lib first (the evmone library the Giga seal test loads is untracked and produced only by that step, as task 5.16.4 did). Repair the whole package; nothing in it is out of scope. (1) node/sequencer/limits.go: a chain id that DomainAllowance reports unknown (neither the configured root chain nor a virtual domain) is refused with ErrNotAdmitted wrapping sdkerrors.ErrInvalidChainID, the class the ante handler returns, while a known inactive domain keeps ErrDomainNotActive; the wrong-chain cases of TestExecutorAdmissionIsAnteChain and TestNonceAdmissionReleasesHeldNonceInOrder then pass unchanged. (2) newAllowanceHarness (limits_test.go:62-70) registers its domains through LayerXChainsKeeper.InitGenesis exactly as the DomainAllowance test at limits_test.go:150-161 does, so the chains keeper that modules/evm/keeper/msg_server.go:250-254 consults knows them; the in-memory host override is dropped or kept consistent with the keeper. (3) The microbatch tests compare the sequenced fields of Accepted (seq, previous hash, results) rather than the embedded context, which now carries the admission usage. (4) proof_sequencer_executor_test.go:255 and :393 assert the consumer proof that 22.95.2 and 22.95.13 landed: the receipt of a send committed before the restart is served after Node.Start and the RPC consumer reads it. (5) For TestConsensusSourceBelowActivation, the REJECT answers of resolutionProposal (limits_test.go:429, resolution_test.go:190 and :399), the seal_batch_test.go assertions at :119, :184 and :255, the standby cases at standby_role_test.go:786 and :865 and standby_wal_sync_hook_test.go:42, read the first assertion and the rejection reason the application logs and repair the harness or the product inside node/sequencer; a fix that lies in node/app.go or modules/layerxchains is reported in the record with file and line instead of being made. The record lists every repaired test with its cause."
 
 [task.22.99.143]
 title = "Repair the inventory sweep target node"
