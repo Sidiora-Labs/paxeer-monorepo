@@ -224856,7 +224856,7 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 
 [task.22.94.18]
 title = "Disposition of qualification findings 22.90.9.3 to 22.7.3.4 (domain 22, part 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -224888,7 +224888,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.94.17]
 title = "Disposition of qualification findings 22.6.4.7 to 22.9.28.2 (domain 22, part 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -224920,7 +224920,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.94.16]
 title = "Disposition of qualification findings 21.45.1.4 to 21.95.1.5 (domain 21, part 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -224952,7 +224952,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.94.15]
 title = "Disposition of qualification findings 20.2.2.2 to 20.2.2.2 (domain 20, part 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -224984,7 +224984,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.94.14]
 title = "Disposition of qualification findings 18.1508.2.1 to 18.1043.1.2 (domain 18, part 15)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225016,7 +225016,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.94.13]
 title = "Disposition of qualification findings 17.5.2.8 to 17.5.1.13 (domain 17, part 5)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225048,7 +225048,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.94.12]
 title = "Disposition of qualification findings 17.5.1.6 to 17.5.1.8 (domain 17, part 4)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225080,7 +225080,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.94.11]
 title = "Disposition of qualification findings 17.5.2 to 17.5.3.1 (domain 17, part 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225112,7 +225112,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.94.10]
 title = "Disposition of qualification findings 16.97.6.1 to 16.2.2.1 (domain 16, part 5)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225400,7 +225400,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.94.1]
 title = "Disposition of qualification findings 1.0.1 to 1.18.2.1 (domain 1, part 4)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225432,7 +225432,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.51]
 title = "Triage issue #1562: Decode transfer-authority terminal wrappers in the AI market receipt reader"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225463,7 +225463,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.50]
 title = "Triage issue #1561: Generate the codec replay corpus before running agent vector tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225494,7 +225494,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.49]
 title = "Triage issue #1560 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225525,7 +225525,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.48]
 title = "Triage issue #1559 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225556,7 +225556,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.47]
 title = "Triage issue #1558 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226703,7 +226703,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.10]
 title = "Triage issue #1521 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226796,7 +226796,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.7]
 title = "Triage issue #1518 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -226889,7 +226889,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.4]
 title = "Triage issue #1515: Keep persisted chain submissions outside editable-draft expiry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
