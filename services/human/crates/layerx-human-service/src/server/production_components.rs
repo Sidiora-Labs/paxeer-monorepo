@@ -8749,6 +8749,53 @@ impl ProductionComponents {
     }
 }
 
+// node/app.go's EVMReceiptModuleID is the first id after the eleven reserved
+// kernel modules. EVM receipts describe the execution domain, not the call's
+// disclosed kernel activity module.
+const EVM_RECEIPT_MODULE_ID: u16 = 12;
+
+fn verify_move_evm_outcome(
+    evidence: &crate::agents::ProtocolEvidence,
+    expected: layerx_types::payload::ActivityType,
+) -> Result<layerx_wire::receipt::Receipt, ApiFailure> {
+    let bound = evidence
+        .bound_activity(expected)
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    if evidence.rung != Rung::Committed {
+        return Err(ApiFailure::upstream_degraded());
+    }
+    let receipt = layerx_wire::receipt::decode(&evidence.receipt_bytes)
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let canonical =
+        layerx_wire::receipt::encode(&receipt).map_err(|_| ApiFailure::upstream_degraded())?;
+    let hash: [u8; 32] = Sha256::digest(&canonical).into();
+    let protocol = receipt
+        .protocol()
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    let height = protocol.batch_id();
+    if canonical != evidence.receipt_bytes
+        || evidence.tx_hash == [0; 32]
+        || protocol.activity_id() != evidence.tx_hash
+        || protocol.protocol_version() != layerx_wire::limits::PROTOCOL_VERSION
+        || protocol.module_id() != EVM_RECEIPT_MODULE_ID
+        || protocol.module_version() != 1
+        || protocol.timestamp() == 0
+        || protocol.fee_charged() > bound.disclosure.fee_limit
+        || (protocol.result_code() == 0
+            && !(bound.disclosure.expiry.not_before..=bound.disclosure.expiry.not_after)
+                .contains(&protocol.timestamp()))
+        || evidence.receipt_hash != hash
+        || evidence.block_height == 0
+        || protocol.global_sequence() == 0
+        || protocol.sequencer_signature().is_none()
+        || height[..24] != [0; 24]
+        || height[24..] != evidence.block_height.to_be_bytes()
+    {
+        return Err(ApiFailure::upstream_degraded());
+    }
+    Ok(receipt)
+}
+
 impl ProductionComponents {
     fn advance_evm_intent(
         &self,
@@ -8772,10 +8819,12 @@ impl ProductionComponents {
         let mut agent = self.principal_agent(scope)?;
         let mut complete = true;
         let mut refused = false;
-        for leg in record["legs"]
-            .as_array_mut()
+        let leg_count = record["legs"]
+            .as_array()
             .ok_or_else(ApiFailure::unavailable)?
-        {
+            .len();
+        for index in 0..leg_count {
+            let leg = &mut record["legs"][index];
             if leg["verified"] == true {
                 continue;
             }
@@ -8783,30 +8832,63 @@ impl ProductionComponents {
                 .map_err(|_| ApiFailure::unavailable())?;
             let hash = transaction_hash(&raw);
             if leg["submitted"] != true {
-                if node
-                    .send_raw_transaction(&raw)
-                    .map_err(|_| ApiFailure::upstream_degraded())?
-                    != hash
-                {
-                    return Err(ApiFailure::upstream_degraded());
+                let retained_hash = leg["tx_hash"] == format!("0x{}", hex_bytes(&hash));
+                match node.send_raw_transaction(&raw) {
+                    Ok(accepted) if accepted == hash => {}
+                    Err(layerx_agentd::node_rpc::NodeRpcError::Sequencer(
+                        layerx_client::sequencer::SequencerError::Rpc(refusal),
+                    )) if retained_hash
+                        && refusal.code == -32000
+                        && refusal
+                            .message
+                            .starts_with("same nonce already receipted or held:") => {}
+                    _ => return Err(ApiFailure::upstream_degraded()),
                 }
+                let nonce = match leg.get("nonce") {
+                    Some(nonce) => nonce.as_u64().ok_or_else(ApiFailure::unavailable)?,
+                    None => {
+                        decode_signed(&raw)
+                            .map_err(|_| ApiFailure::unavailable())?
+                            .0
+                            .nonce
+                    }
+                };
                 leg["submitted"] = json!(true);
+                leg["tx_hash"] = json!(format!("0x{}", hex_bytes(&hash)));
+                leg["nonce"] = json!(nonce);
+                record["state"] = json!("still-checking");
+                record["state_copy_key"] = json!("journey.state.still-checking");
+                record["updated_at"] = json!(crate::time::rfc3339(now));
+                scope
+                    .put(
+                        Table::Journeys,
+                        key.clone(),
+                        now,
+                        serde_json::to_vec(&record).map_err(|_| ApiFailure::unavailable())?,
+                    )
+                    .map_err(|_| ApiFailure::unavailable())?;
             }
+            let leg = &mut record["legs"][index];
             let (call, signature) = layerx_crypto::evm_transaction::decode_signed(&raw)
                 .map_err(|_| ApiFailure::unavailable())?;
+            if leg
+                .get("nonce")
+                .is_some_and(|nonce| nonce.as_u64() != Some(call.nonce))
+            {
+                return Err(ApiFailure::upstream_degraded());
+            }
+            leg["nonce"] = json!(call.nonce);
             let wallet = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
                 .map_err(|_| ApiFailure::unavailable())?;
             let disclosure = bind_call(&call, wallet).map_err(|_| ApiFailure::unavailable())?;
-            let material = match agent
-                .receipt_by_idempotency_key(disclosure.idempotency_key, hash)
-                .map_err(agent_failure)?
+            let material = match agent.receipt_by_idempotency_key(disclosure.idempotency_key, hash)
             {
-                crate::journeys::ReceiptLookup::Found(material)
+                Ok(crate::journeys::ReceiptLookup::Found(material))
                     if material.rung == Rung::Committed =>
                 {
                     material
                 }
-                crate::journeys::ReceiptLookup::Submitted { tx_hash, nonce } => {
+                Ok(crate::journeys::ReceiptLookup::Submitted { tx_hash, nonce }) => {
                     if tx_hash != hash || nonce != call.nonce {
                         return Err(ApiFailure::upstream_degraded());
                     }
@@ -8814,9 +8896,13 @@ impl ProductionComponents {
                     complete = false;
                     break;
                 }
-                _ => {
+                Ok(_) | Err(crate::journeys::AgentBoundaryError::Unavailable) => {
                     complete = false;
                     break;
+                }
+                Err(error) => {
+                    eprintln!("intent EVM receipt lookup failed: {error:?}");
+                    return Err(agent_failure(error));
                 }
             };
             let mut owner = [0; 32];
@@ -8824,9 +8910,7 @@ impl ProductionComponents {
             let evidence =
                 ProductionAgentCreation::protocol_evidence(raw, owner, agent.registry(), material)
                     .map_err(|_| ApiFailure::upstream_degraded())?;
-            let receipt = evidence
-                .verify_outcome(disclosure.activity_type)
-                .map_err(|_| ApiFailure::upstream_degraded())?;
+            let receipt = verify_move_evm_outcome(&evidence, disclosure.activity_type)?;
             if receipt
                 .protocol()
                 .ok_or_else(ApiFailure::upstream_degraded)?

@@ -1,0 +1,215 @@
+[alert.GHSA-5h3x-9wvq-w4m2]
+package = "@openzeppelin/contracts"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "4.8.3"
+version_after = "4.9.6"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-wprv-93r4-jj2p]
+package = "@openzeppelin/contracts"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "4.8.3"
+version_after = "4.9.6"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-g4vp-m682-qqmp]
+package = "@openzeppelin/contracts"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "4.8.3"
+version_after = "4.9.6"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-9vx6-7xxf-x967]
+package = "@openzeppelin/contracts"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "4.8.3"
+version_after = "4.9.6"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-848j-6mx2-7j84]
+package = "elliptic"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "no-fix"
+version_before = "6.6.1"
+version_after = "6.6.1"
+pinned_by = "ethers@5.7.2 > @ethersproject/signing-key@5.7.0 > elliptic@6.6.1"
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-8r9p-f939-6h3c]
+package = "follow-redirects"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "1.16.0"
+version_after = "1.16.2"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-q3jh-wrc6-jgq8]
+package = "follow-redirects"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "1.16.0"
+version_after = "1.16.2"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-mrwp-f3q8-3g9p]
+package = "follow-redirects"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "1.16.0"
+version_after = "1.16.2"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-g3hv-75wg-m249]
+package = "minimatch"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "5.1.8"
+version_after = "11.0.1"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-p8p7-x288-28g6]
+package = "request"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "no-fix"
+version_before = "2.88.2"
+version_after = "2.88.2"
+pinned_by = "@nomiclabs/hardhat-waffle@2.0.6 > ethereum-waffle@4.0.10 > @ethereum-waffle/compiler@4.0.3 > @resolver-engine/imports@0.3.3 > @resolver-engine/core@0.3.3 > request@2.88.2"
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-qffp-2rhf-9h96]
+package = "tar"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "7.5.8"
+version_after = "7.5.21"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-9ppj-qmqm-q256]
+package = "tar"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "7.5.8"
+version_after = "7.5.21"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-vmf3-w455-68vh]
+package = "tar"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "7.5.8"
+version_after = "7.5.21"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-gvwx-54wh-qm9j]
+package = "tar"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "7.5.8"
+version_after = "7.5.21"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-8x88-c5mf-7j5w]
+package = "tar"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "7.5.8"
+version_after = "7.5.21"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-23hp-3jrh-7fpw]
+package = "tar"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "7.5.8"
+version_after = "7.5.21"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-w8wr-v893-vjvp]
+package = "tar"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "7.5.8"
+version_after = "7.5.21"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-r292-9mhp-454m]
+package = "tar"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "7.5.8"
+version_after = "7.5.21"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-7c78-jf6q-g5cm]
+package = "tmp"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "0.2.6"
+version_after = "0.2.7"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-2j4c-9qqq-896r]
+package = "web3-core-method"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "no-fix"
+version_before = "1.10.0, 1.10.4"
+version_after = "1.10.0, 1.10.4"
+pinned_by = "@openzeppelin/test-helpers@0.5.16 > @truffle/contract@4.6.31 > web3@1.10.0 > web3-core@1.10.0 > web3-core-method@1.10.0; @openzeppelin/test-helpers@0.5.16 > web3@1.10.4 > web3-core@1.10.4 > web3-core-method@1.10.4; web3@4.0.0 removes web3-core-method"
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-hhf6-3xpg-pggx]
+package = "web3-core-subscriptions"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "no-fix"
+version_before = "1.10.0, 1.10.4"
+version_after = "1.10.0, 1.10.4"
+pinned_by = "@openzeppelin/test-helpers@0.5.16 > @truffle/contract@4.6.31 > web3@1.10.0 > web3-eth@1.10.0 > web3-core-subscriptions@1.10.0; @openzeppelin/test-helpers@0.5.16 > web3@1.10.4 > web3-eth@1.10.4 > web3-core-subscriptions@1.10.4; web3@4.0.0 removes web3-core-subscriptions"
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-3h5v-q93c-6h6q]
+package = "ws"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "8.2.3, 8.13.0"
+version_after = "8.21.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-58qx-3vcg-4xpx]
+package = "ws"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "8.2.3, 8.13.0"
+version_after = "8.21.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-96hv-2xvq-fx4p]
+package = "ws"
+manifest = "tests/integration/dapp_tests/package-lock.json"
+verdict = "upgraded"
+version_before = "8.2.3, 8.13.0"
+version_after = "8.21.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"

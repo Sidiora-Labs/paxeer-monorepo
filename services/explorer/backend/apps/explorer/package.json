@@ -16,6 +16,7 @@
     "solc": "0.8.37"
   },
   "overrides": {
-    "follow-redirects@<1.16.0": "1.16.0"
+    "follow-redirects@<1.16.2": "1.16.2",
+    "tmp@<0.2.7": "0.2.7"
   }
 }
