@@ -137301,7 +137301,7 @@ do_4 = "Decision 2496 (continue): the tests authenticated_retry_real_https_retai
 
 [task.22.99.62]
 title = "Repair the inventory sweep target layerx-committed-proof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200141,7 +200141,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.96]
 title = "Repair the kernel make target test-contracts of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.95"]
