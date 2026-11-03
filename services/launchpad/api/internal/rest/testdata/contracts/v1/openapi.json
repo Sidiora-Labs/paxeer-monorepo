@@ -1,0 +1,9 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Launchpad REST route inventory",
+    "version": "v1",
+    "description": "Re-derived from RegisterProductionReads and RegisterAccountingV2WithAdmission at 38edc5ae15e259a556374378dfbb0bf3d3d4674a. No v1 operations are registered."
+  },
+  "paths": {}
+}

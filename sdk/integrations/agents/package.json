@@ -58,13 +58,13 @@
     "@a2a-js/sdk": "1.0.1",
     "@anthropic-ai/sdk": "0.120.0",
     "@langchain/core": "1.2.4",
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/sdk": "1.32.0",
     "@sidiora/layerx-agent-middleware": "0.1.0",
     "@sidiora/layerx-sdk": "0.1.0",
     "@sidiora/layerx-seller-middleware": "0.1.0",
     "ai": "7.0.77",
     "openai": "7.5.0",
-    "zod": "4.4.3"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@types/json-schema": "7.0.15",

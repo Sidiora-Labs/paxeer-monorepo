@@ -28,6 +28,9 @@ concurrency:
   group: ghcr-integration-test-cleanup
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   cleanup:
     name: Prune old integration test images

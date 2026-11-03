@@ -49,7 +49,8 @@ type SendConfig struct {
 	keyringEnabled bool
 	syncTimeout    time.Duration
 	// Sequencer, set only on the sequencer, receives every raw transaction in place of the mempool.
-	Sequencer SequencerAccepter
+	Sequencer       SequencerAccepter
+	SequencerSource SequencerReceiptSource
 	// SequencerURL, set on every other node, is the EVM RPC endpoint raw transactions are forwarded to.
 	SequencerURL *url.URL
 	// pendingTxs, created by NewSendAPI when Sequencer is set, feeds eth_subscribe
@@ -197,6 +198,15 @@ func (s *SendAPI) SendRawTransaction(ctx context.Context, input hexutil.Bytes) (
 	}
 	hash = tx.Hash()
 	if s.sendConfig.Sequencer != nil {
+		if s.sendConfig.SequencerSource != nil {
+			send, lookupErr := s.sendConfig.SequencerSource.SequencerSend(hash)
+			if lookupErr != nil {
+				return hash, lookupErr
+			}
+			if send != nil {
+				return hash, nil
+			}
+		}
 		return hash, s.acceptOnSequencer(ctx, tx)
 	}
 	if s.sendConfig.SequencerURL != nil {

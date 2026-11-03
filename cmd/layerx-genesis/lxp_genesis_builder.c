@@ -306,13 +306,6 @@ lxp_result lxp_genesis_build_snapshot_migration(
     if (status == LXP_OK &&
         genesis->protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT)
         status = lxp_kernel_register_module(kernel, lx_asset_module_iface());
-    if (status == LXP_OK) {
-        lxp_bridge_profile bridge;
-        bool present = false;
-        status = lxp_bridge_genesis_profile(genesis, &bridge, &present);
-        if (status == LXP_OK && present)
-            status = LXP_ERR_NON_CANONICAL;
-    }
     if (status == LXP_OK)
         status = lxp_snapshot_load_retired_issuance(
             source_snapshot, source_snapshot_length, source_manifest, kernel,

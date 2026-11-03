@@ -8,7 +8,7 @@ mod balances;
 mod checkpoint_impl;
 pub mod committed;
 #[path = "history.rs"]
-mod historical;
+mod history_impl;
 mod native;
 pub use committed::{CommittedCaps, CommittedReadError, CommittedReads};
 #[path = "program_balances.rs"]
@@ -56,4 +56,4 @@ pub fn checkpoint(
         validators,
     )
 }
-pub use historical::{history, Cursor, HistoryLimits, HistoryPage, HistoryReadError};
+pub use history_impl::{history, Cursor, HistoryLimits, HistoryPage, HistoryReadError};

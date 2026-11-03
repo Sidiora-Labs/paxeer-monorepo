@@ -26,6 +26,9 @@ import (
 // SequencerReceiptMethod is the JSON-RPC name of SequencerReceiptAPI.SequencerReceipt.
 const SequencerReceiptMethod = "pax_sequencerReceipt"
 
+// ReceiptKeysMethod is the JSON-RPC name of the node's pinned receipt key list.
+const ReceiptKeysMethod = "px_getReceiptKeys"
+
 // Rung is how far a sent transaction has progressed.
 type Rung string
 
@@ -162,8 +165,8 @@ type SequencerReceiptResult struct {
 // returnData, each log's data and vmError hash to the digests the bytes carry. It verifies the
 // signature under SigningKey; callers authenticate the key by supplying their pinned ReceiptKeys.
 // Without pins, Verify checks consistency only, not the signer's authority.
-// The gateway px_getReceiptKeys result supplies the governed keyId/publicKey
-// height ranges; the signingKey carried beside a receipt is never a trust pin.
+// The node produces px_getReceiptKeys and the gateway relays its governed
+// keyId/publicKey height ranges; signingKey beside a receipt is never a trust pin.
 func (r *SequencerReceiptResult) Verify(pins ...seqkeeper.ReceiptKeys) error {
 	switch r.Rung {
 	case RungSubmitted:
@@ -321,6 +324,58 @@ func (a *SequencerReceiptAPI) receiptKeys() (seqkeeper.ReceiptKeys, error) {
 		}
 	}
 	return keys, nil
+}
+
+// ReceiptKey is one pinned key in the px_getReceiptKeys wire format.
+type ReceiptKey struct {
+	KeyID       common.Hash   `json:"keyId"`
+	PublicKey   hexutil.Bytes `json:"publicKey"`
+	FirstHeight uint64        `json:"firstHeight"`
+	LastHeight  uint64        `json:"lastHeight"`
+}
+
+// ReceiptKeysResult carries the node's governed receipt keys, including an empty list.
+type ReceiptKeysResult struct {
+	Keys []ReceiptKey `json:"keys"`
+}
+
+type receiptKeysAPI struct {
+	receipts *SequencerReceiptAPI
+}
+
+// GetReceiptKeys serves the same latest-height pins used to authenticate receipts.
+func (a *receiptKeysAPI) GetReceiptKeys(ctx context.Context) (result *ReceiptKeysResult, returnErr error) {
+	startTime := time.Now()
+	defer func() {
+		recordMetricsWithError(ctx, ReceiptKeysMethod, a.receipts.connectionType, startTime, returnErr, recover())
+	}()
+	if a.receipts.option.Source == nil {
+		if a.receipts.option.ForwardURL == nil {
+			return nil, errSequencerReceiptNotServed{}
+		}
+		recordRedirectedRequest(ctx, ReceiptKeysMethod, string(a.receipts.connectionType))
+		c, err := rpc.DialContext(ctx, a.receipts.option.ForwardURL.String())
+		if err != nil {
+			return nil, fmt.Errorf("rpc.DialContext(%q): %w", a.receipts.option.ForwardURL.String(), err)
+		}
+		defer c.Close()
+		if err := c.CallContext(ctx, &result, ReceiptKeysMethod); err != nil {
+			return nil, err
+		}
+		return result, nil
+	}
+	keys, err := a.receipts.receiptKeys()
+	if err != nil {
+		return nil, err
+	}
+	result = &ReceiptKeysResult{Keys: make([]ReceiptKey, len(keys))}
+	for i, key := range keys {
+		result.Keys[i] = ReceiptKey{
+			KeyID: common.BytesToHash(key.KeyId), PublicKey: bytes.Clone(key.PublicKey),
+			FirstHeight: key.FirstHeight, LastHeight: key.LastHeight,
+		}
+	}
+	return result, nil
 }
 
 // forward asks the sequencer and returns its answer once the answer's JSON matches its bytes.

@@ -30,7 +30,7 @@ jobs:
       PAXEER_X_CANDIDATE_JSON: ${{ secrets.PAXEER_X_CANDIDATE_JSON }}
       PAXEER_X_CONTRACT_JSON: ${{ secrets.PAXEER_X_CONTRACT_JSON }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -54,7 +54,7 @@ jobs:
       PAXEER_X_CONTRACT_JSON: ${{ secrets.PAXEER_X_CONTRACT_JSON }}
       PAXEER_X_CELL: ${{ matrix.id }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
