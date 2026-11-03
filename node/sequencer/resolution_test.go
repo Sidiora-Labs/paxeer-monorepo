@@ -70,12 +70,17 @@ func resolutionTxRoot(ids [][32]byte) [32]byte {
 // processing an accepted proposal starts.
 func resolutionProposal(t *testing.T, a *app.App, height int64, at time.Time, txs [][]byte) abci.ResponseProcessProposal_ProposalStatus {
 	t.Helper()
+	return resolutionProposalFrom(t, a, height, at, txs, nil)
+}
+
+func resolutionProposalFrom(t *testing.T, a *app.App, height int64, at time.Time, txs [][]byte, proposer []byte) abci.ResponseProcessProposal_ProposalStatus {
+	t.Helper()
 	a.ClearOptimisticProcessingInfo()
 	hash := sha256.Sum256(bytes.Join(append([][]byte{[]byte(strconv.FormatInt(height, 10))}, txs...), []byte{0}))
 	resp, err := a.ProcessProposal(context.Background(), &abci.RequestProcessProposal{
 		Txs:    txs,
 		Hash:   hash[:],
-		Header: &tmproto.Header{ChainID: testChainID, Height: height, Time: at},
+		Header: &tmproto.Header{ChainID: testChainID, Height: height, Time: at, ProposerAddress: proposer},
 	})
 	require.NoError(t, err)
 	if info := a.GetOptimisticProcessingInfo(); info.Completion != nil {
@@ -326,9 +331,28 @@ func TestResolutionStandbyReplay(t *testing.T) {
 
 	// A validator replica at the same committed state accepts the standby's proposal.
 	_, batchTx := resolutionBatch(t, batch, resolutionTxRoot(ids))
-	validator := newReceiptHarness(t, 0, resolutionMerged, sender)
-	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, resolutionProposal(t, validator.app, openHeight,
-		time.UnixMilli(batch.TimestampMs).UTC(), append([][]byte{batchTx}, batch.Txs...)))
+	primaryPub, err := p.pv.GetPubKey(context.Background())
+	require.NoError(t, err)
+	standbyPub, err := sb.s.ConsensusKey().GetPubKey(context.Background())
+	require.NoError(t, err)
+	validator := newReceiptHarness(t, 0, func(ctx sdk.Context, a *app.App) {
+		resolutionMerged(ctx, a)
+		require.NoError(t, a.SequencerKeeper.InitGenesis(ctx, seqtypes.GenesisState{
+			Leaders: [][32]byte{[32]byte(primaryPub.Bytes()), [32]byte(standbyPub.Bytes())},
+			ReceiptKeys: []seqtypes.ReceiptKey{{
+				KeyId: testKeyID, PublicKey: publicOf(testKeySeed), FirstHeight: 1, LastHeight: 1000,
+			}},
+			LastSeq: startSeq, LastSeqHash: startSeqHash,
+		}))
+	}, sender)
+	lastSeq, err := validator.app.SequencerKeeper.LastSeq(validator.committedCtx())
+	require.NoError(t, err)
+	require.Equal(t, startSeq, lastSeq)
+	lastSeqHash, err := validator.app.SequencerKeeper.LastSeqHash(validator.committedCtx())
+	require.NoError(t, err)
+	require.Equal(t, startSeqHash, lastSeqHash)
+	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, resolutionProposalFrom(t, validator.app, openHeight,
+		time.UnixMilli(batch.TimestampMs).UTC(), append([][]byte{batchTx}, batch.Txs...), standbyPub.Address()))
 }
 
 func TestResolutionActivationHeight(t *testing.T) {
