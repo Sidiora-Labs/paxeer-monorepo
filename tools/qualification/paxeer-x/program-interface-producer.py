@@ -143,12 +143,11 @@ def build(output):
     environment['CARGO_BUILD_JOBS'] = str(jobs)
     cargo = ['cargo', '+1.91.1']
     library = native_dir / 'liblayerx.a'
-    header = native_dir / 'generated/lxp_checkpoint_settlement.h'
     staticlib = cargo_dir / 'debug/liblayerx_programs_sandbox.a'
     commands = [
         ['make', '--no-print-directory', '-j' + str(jobs),
          'BUILD_DIR=' + str(native_dir), 'LXP_REVISION=' + source['revision'],
-         str(library), str(header)],
+         str(library)],
         cargo + ['build', '--locked', '--manifest-path', str(ROOT / 'programs/Cargo.toml'),
                  '-p', 'layerx-programs-sandbox', '--features', 'host-ffi'],
         cargo + ['test', '--locked', '--manifest-path', str(ROOT / 'programs/Cargo.toml'),
@@ -180,7 +179,7 @@ def build(output):
     require(identity() == source, 'source changed during build')
     record['artifacts'] = {
         'native-library': artifact(library),
-        'sandbox-staticlib': artifact(staticlib), 'generated-header': artifact(header),
+        'sandbox-staticlib': artifact(staticlib),
         'protocol-tests': artifact(directory / 'interface_protocol'),
         'legacy-tests': artifact(directory / 'layerx_programs'),
     }
