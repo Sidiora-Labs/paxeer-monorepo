@@ -128942,7 +128942,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.13.12]
 title = "Record the stack-overflow trap as a terminal step in the vendored engine"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189010,7 +189010,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.11.8]
 title = "Repair the auth keeper, ledger precompile, host module and auth precompile tests that fail whole-package on main"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.2.5", "22.25.4"]
