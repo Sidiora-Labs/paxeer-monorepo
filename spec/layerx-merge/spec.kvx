@@ -136786,7 +136786,7 @@ do_5 = "Attempt 1 (continue): besides the excluded TLS identity test the release
 
 [task.22.99.78]
 title = "Repair the inventory sweep target layerx-programs-arbiter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136939,7 +136939,7 @@ do_4 = "Decision 2496 (continue): the tests canonical_fixture_generates_digest_b
 
 [task.22.99.73]
 title = "Repair the inventory sweep target layerx-platform-registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137002,7 +137002,7 @@ do_5 = "Attempt 1 (continue): besides the three excluded tests the recorded comm
 
 [task.22.99.71]
 title = "Repair the inventory sweep target layerx-platform-paxeer-boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137063,7 +137063,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.69]
 title = "Repair the inventory sweep target layerx-ramp-toolkit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137250,7 +137250,7 @@ do_4 = "Attempt 1 (continue): the relay tests fail with a malformed receipt beca
 
 [task.22.99.63]
 title = "Repair the inventory sweep target layerx-gas-station"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -145990,7 +145990,7 @@ do_4 = "Decision 2496 (continue): the module's tests are bound to inputs the qua
 
 [task.22.99.29]
 title = "Repair the inventory sweep target sdk/launchpad/protocol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200863,7 +200863,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.19]
 title = "Repair the inventory sweep target modules/layerxexchange/types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
