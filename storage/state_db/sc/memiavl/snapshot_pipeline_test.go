@@ -3,6 +3,9 @@ package memiavl
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -204,10 +207,13 @@ func TestSnapshotWriterErrorHandling(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// Test with invalid directory to trigger write errors
-	snapshotDir := "/invalid/path/that/does/not/exist"
+	parentFile := filepath.Join(t.TempDir(), "not-a-directory")
+	require.NoError(t, os.WriteFile(parentFile, []byte("snapshot parent"), 0o600))
+
+	snapshotDir := filepath.Join(parentFile, "snapshot")
 	err := tree.WriteSnapshot(context.Background(), snapshotDir)
 	require.Error(t, err)
+	require.ErrorIs(t, err, syscall.ENOTDIR)
 }
 
 // TestEmptySnapshotWrite tests writing an empty snapshot

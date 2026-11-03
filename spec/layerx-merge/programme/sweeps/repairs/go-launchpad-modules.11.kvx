@@ -1,0 +1,6 @@
+[repair.go-launchpad-modules.11]
+target = "services/launchpad/security"
+command = "cd services/launchpad/security && go vet ./... && go test -count=1 ./..."
+revision = "310530e95a59ace7aed9169b80b88eab6869a841"
+result = "repaired"
+change = "policy/fixtures_test.go, policy/operator_test.go and policy/policy_test.go provide isolated real PostgreSQL and Redis fixtures instead of requiring prestarted services on fixed ports."

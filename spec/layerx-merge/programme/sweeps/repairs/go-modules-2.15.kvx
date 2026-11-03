@@ -1,0 +1,6 @@
+[repair.go-modules-2.15]
+target = "modules/tokenfactory/keeper"
+command = "CGO_ENABLED=1 go vet ./modules/tokenfactory/keeper/ && CGO_ENABLED=1 go test -count=1 ./modules/tokenfactory/keeper/"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "modules/tokenfactory/keeper/proof_issuer_did_test.go retains the suite without copying its mutex, denom_pause_test.go asserts the missing-denom refusal of decision.633, and issuer_pause_test.go pauses before issuer binding under decisions 623 and 633."
