@@ -119774,7 +119774,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.95.6]
 title = "Type the launchpad web test configs and search shell against the raised floors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132037,7 +132037,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.95.4]
 title = "Read the gas station relayer key from the variable the config names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132067,7 +132067,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1556.1]
 title = "Issue #1556: Ingest receipted logs and reconcile their committed copies"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
