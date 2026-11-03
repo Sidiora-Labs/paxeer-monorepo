@@ -15,6 +15,7 @@ import (
 
 func TestPermissionlessCustodyMsgsAreRefusedFromTheMergePlanHeight(t *testing.T) {
 	e := newEnv(t, 0)
+	e.ctx, _ = e.ctx.CacheContext()
 	server := keeper.NewMsgServerImpl(e.k)
 	const planHeight int64 = 20
 	testkeeper.EVMTestApp.UpgradeKeeper.SetDone(e.ctx.WithBlockHeight(planHeight), types.MergePlanUpgrade)
@@ -25,28 +26,28 @@ func TestPermissionlessCustodyMsgsAreRefusedFromTheMergePlanHeight(t *testing.T)
 		before error
 		run    func(context.Context) (any, error)
 	}{
-		{"RequestWithdrawal", types.ErrInvalidProof, func(ctx context.Context) (any, error) {
+		{"RequestWithdrawal", types.ErrModuleRetired, func(ctx context.Context) (any, error) {
 			return server.RequestWithdrawal(ctx, &types.MsgRequestWithdrawal{
 				Sender: e.payerAcc.String(), Receipt: []byte{0xff}, Proof: []byte{0xff},
 				Header: []byte{0xff}, HeaderSignature: make([]byte, 64),
 			})
 		}},
-		{"FinaliseWithdrawal", types.ErrInvalidProof, func(ctx context.Context) (any, error) {
+		{"FinaliseWithdrawal", types.ErrModuleRetired, func(ctx context.Context) (any, error) {
 			return server.FinaliseWithdrawal(ctx, &types.MsgFinaliseWithdrawal{
 				Sender: e.payerAcc.String(), Receipt: []byte{0xff}, Proof: []byte{0xff},
 				Header: []byte{0xff}, HeaderSignature: make([]byte, 64),
 			})
 		}},
-		{"RequestForcedExit", types.ErrInvalidHex, func(ctx context.Context) (any, error) {
+		{"RequestForcedExit", types.ErrModuleRetired, func(ctx context.Context) (any, error) {
 			return server.RequestForcedExit(ctx, &types.MsgRequestForcedExit{
-				Sender: e.payerAcc.String(), Witness: []byte{0xff}, Account: "invalid",
-				AssetId: "invalid", Recipient: "invalid", RecipientSignature: []byte{0xff},
+				Sender: e.payerAcc.String(), Witness: []byte{0xff}, Account: e.exit.Fields["account"],
+				AssetId: e.exit.Fields["asset"], Recipient: types.Address(e.exitEvidence(0).Recipient), RecipientSignature: []byte{0xff},
 			})
 		}},
-		{"ExecuteForcedExit", types.ErrInvalidHex, func(ctx context.Context) (any, error) {
+		{"ExecuteForcedExit", types.ErrModuleRetired, func(ctx context.Context) (any, error) {
 			return server.ExecuteForcedExit(ctx, &types.MsgExecuteForcedExit{
-				Sender: e.payerAcc.String(), Witness: []byte{0xff}, Account: "invalid",
-				AssetId: "invalid", Recipient: "invalid", RecipientSignature: []byte{0xff},
+				Sender: e.payerAcc.String(), Witness: []byte{0xff}, Account: e.exit.Fields["account"],
+				AssetId: e.exit.Fields["asset"], Recipient: types.Address(e.exitEvidence(0).Recipient), RecipientSignature: []byte{0xff},
 			})
 		}},
 	} {
@@ -69,6 +70,7 @@ func TestPermissionlessCustodyMsgsAreRefusedFromTheMergePlanHeight(t *testing.T)
 
 func TestGovernanceCustodyMsgsAreRefusedFromTheMergePlanHeight(t *testing.T) {
 	e := newEnv(t, 0)
+	e.ctx, _ = e.ctx.CacheContext()
 	server := keeper.NewMsgServerImpl(e.k)
 	signer := e.payerAcc.String()
 	require.NotEqual(t, e.k.Authority(e.ctx), signer)

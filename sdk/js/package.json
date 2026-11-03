@@ -59,5 +59,8 @@
 			"require": "./dist/cjs/encoding/index.js",
 			"types": "./dist/types/encoding/index.d.ts"
 		}
+	},
+	"overrides": {
+		"protobufjs": "^7.6.3"
 	}
 }

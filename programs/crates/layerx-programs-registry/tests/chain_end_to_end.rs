@@ -17,7 +17,7 @@ use layerx_programs::{
     interface_state_key, interface_state_value, DeploymentProof, InterfaceEntryPoint,
     ProgramHeadKind, ProgramId, ProgramInterface, ProgramLifecycle, ProgramLifecycleProof,
     ProgramStateBundle, ProgramStateProof, ProtocolDeploymentVerifier, ProtocolEvidenceError,
-    Registry, RegistryError, UpgradePolicy, ValueSchema, ValueType,
+    Registry, RegistryError, UpgradePolicy, ValueSchema, ValueType, VerifiedDeploymentEvidence,
 };
 use sha2::{Digest, Sha256};
 
@@ -74,8 +74,31 @@ fn deployment_fixture() -> (
     ProgramInterface,
 ) {
     let program = ProgramId::new([0x31; 32]).expect("program identifier");
-    let interface = ProgramInterface::bind(
+    deployment_fixture_at(
+        program,
+        1,
+        UpgradePolicy::Immutable,
         WASM,
+        "paxeer-program-end-to-end",
+        chain::STATE_HEIGHT + 1,
+    )
+}
+
+fn deployment_fixture_at(
+    program: ProgramId,
+    version: u32,
+    policy: UpgradePolicy,
+    code: &[u8],
+    chain_id: &str,
+    height: i64,
+) -> (
+    ChainFixture,
+    DeploymentProof,
+    ProgramStateBundle,
+    ProgramInterface,
+) {
+    let interface = ProgramInterface::bind(
+        code,
         1,
         vec![InterfaceEntryPoint {
             name: "call".to_owned(),
@@ -91,21 +114,27 @@ fn deployment_fixture() -> (
     let program_key = state_key(b"program\0", program);
     let interface_key = chain_evidence::programs_state_key(&interface_state_key(program));
     let mut record = vec![0; 33];
+    if let UpgradePolicy::Authority(authority) = policy {
+        record[0] = 1;
+        record[1..33].copy_from_slice(&authority);
+    }
     record.extend_from_slice(&interface.code_hash());
     record.extend_from_slice(&interface.abi_version().to_be_bytes());
-    record.extend_from_slice(&1_u32.to_be_bytes());
+    record.extend_from_slice(&version.to_be_bytes());
     let mut fixture = ChainFixture::new(
-        "paxeer-program-end-to-end",
+        chain_id,
         &SEEDS,
         vec![
             (program_key.clone(), record.clone()),
             (
                 interface_key.clone(),
-                interface_state_value(program, 1, &interface).expect("interface state value"),
+                interface_state_value(program, version, &interface).expect("interface state value"),
             ),
         ],
     )
     .expect("signed chain fixture with IAVL and multistore proofs");
+    fixture.header.time.seconds += height - fixture.header.height;
+    fixture.header.height = height;
     let transaction = b"chain program deployment".to_vec();
     let transaction_hash: [u8; 32] = Sha256::digest(&transaction).into();
     let transaction_root = hash_from_byte_slices(&[&transaction_hash]);
@@ -150,7 +179,7 @@ fn deployment_fixture() -> (
         },
         deployment: ChainDeploymentProof {
             program_state: state.clone(),
-            code: WASM.to_vec(),
+            code: code.to_vec(),
             interface: Some(interface.canonical_encoding().to_vec()),
         },
     };
@@ -162,6 +191,124 @@ fn deployment_fixture() -> (
         wind_down: Some(wind_down),
     };
     (fixture, proof, bundle, interface)
+}
+
+fn upgrade_evidence(
+    program: ProgramId,
+    version: u32,
+    code: &[u8],
+    chain_id: &str,
+    height: i64,
+) -> VerifiedDeploymentEvidence {
+    let (fixture, proof, bundle, interface) = deployment_fixture_at(
+        program,
+        version,
+        UpgradePolicy::Authority([0x41; 32]),
+        code,
+        chain_id,
+        height,
+    );
+    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
+        &fixture.verifier.chain_id,
+        fixture.verifier.validators.validators().to_vec(),
+        MAX_AGE_MS,
+    )
+    .expect("protocol verifier anchored to chain validators");
+    let header = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .expect("authenticated deployment header");
+    let now = u64::try_from(header.time_ms()).expect("header time");
+    let head = verifier
+        .verify_current_chain_head(
+            ProgramHeadKind::Ordinary,
+            &proof.state.commitment,
+            &proof.state.transaction,
+            &proof.state.transaction_proof,
+            now,
+        )
+        .expect("authenticated transaction inclusion");
+    let encoded = bundle
+        .canonical_encoding()
+        .expect("encode deployment bundle");
+    let decoded = ProgramStateBundle::decode(&encoded).expect("decode deployment bundle");
+    let verified = verifier
+        .verify_current_program_bundle(&decoded, &head, program, now)
+        .expect("authenticate program bundle");
+    let evidence = verifier
+        .verify_deployment(&proof, now)
+        .expect("authenticate deployment evidence");
+    assert_eq!(evidence.program(), verified.program_head().program());
+    assert_eq!(evidence.version(), version);
+    assert_eq!(evidence.code_hash(), interface.code_hash());
+    assert_eq!(evidence.state_root(), verified.program_head().state_root());
+    assert_eq!(evidence.record().old_code_hash, None);
+    evidence
+}
+
+#[test]
+fn chain_bundle_appends_a_verified_upgrade() {
+    let program = ProgramId::new([0x31; 32]).expect("program identifier");
+    let chain_id = "paxeer-program-end-to-end";
+    let height = chain::STATE_HEIGHT + 1;
+    let mut upgraded_code = WASM.to_vec();
+    let constant = upgraded_code.len() - 2;
+    upgraded_code[constant] = 1;
+    let predecessor = upgrade_evidence(program, 1, WASM, chain_id, height);
+    let upgrade = upgrade_evidence(program, 2, &upgraded_code, chain_id, height + 1);
+    assert_ne!(predecessor.code_hash(), upgrade.code_hash());
+    let mut registry = Registry::new();
+    registry
+        .record_verified_deployment(&predecessor)
+        .expect("record authenticated version one");
+    assert_eq!(registry.latest_version(program), Ok(1));
+    assert_eq!(
+        registry.record_verified_deployment(&upgrade),
+        Err(RegistryError::VersionHistoryMismatch)
+    );
+    let wrong_hash = upgrade_evidence(program, 1, &upgraded_code, chain_id, height);
+    let other_program = upgrade_evidence(
+        ProgramId::new([0x32; 32]).expect("different program identifier"),
+        1,
+        WASM,
+        chain_id,
+        height,
+    );
+    let later_predecessor = upgrade_evidence(program, 1, WASM, chain_id, height + 2);
+    let same_height = upgrade_evidence(program, 1, WASM, chain_id, height + 1);
+    let other_chain = upgrade_evidence(program, 1, WASM, "another-chain", height);
+    for invalid in [
+        wrong_hash,
+        other_program,
+        later_predecessor,
+        same_height,
+        other_chain,
+    ] {
+        assert_eq!(
+            registry.record_verified_upgrade(&invalid, &upgrade),
+            Err(RegistryError::VersionHistoryMismatch)
+        );
+        assert_eq!(registry.latest_version(program), Ok(1));
+    }
+    let skipped_version = upgrade_evidence(program, 3, &upgraded_code, chain_id, height + 1);
+    assert_eq!(
+        registry.record_verified_upgrade(&predecessor, &skipped_version),
+        Err(RegistryError::VersionHistoryMismatch)
+    );
+    assert_eq!(registry.latest_version(program), Ok(1));
+    registry
+        .record_verified_upgrade(&predecessor, &upgrade)
+        .expect("append authenticated version two using its authenticated predecessor");
+    assert_eq!(registry.latest_version(program), Ok(2));
+    let resolved = registry
+        .resolve_deployment(upgrade.clone())
+        .expect("resolve upgraded deployment");
+    assert_eq!(resolved.code_hash(), upgrade.code_hash());
+    assert_eq!(
+        registry.record_verified_upgrade(&predecessor, &upgrade),
+        Err(RegistryError::VersionHistoryMismatch)
+    );
+    assert_eq!(registry.latest_version(program), Ok(2));
 }
 
 #[test]

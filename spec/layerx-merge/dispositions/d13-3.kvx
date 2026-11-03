@@ -1,0 +1,126 @@
+[disposition.13.27.1.7]
+finding = "13.27.1.7"
+status = "resolved"
+evidence = "be6b54656 deploys a guest with ABI 3 and encodes the inner sandbox call with ABI 3 at precompiles/layerxprograms/method_sandbox_execute_test.go:202 and precompiles/layerxprograms/method_sandbox_execute_test.go:222, satisfying the runtime sandbox ABI gate."
+
+[disposition.13.27.1.8]
+finding = "13.27.1.8"
+status = "resolved"
+evidence = "be6b54656 replaces the refused ABI-2 fixture with an opted-in ABI-3 program and checks the funded escrow and program-account binding at precompiles/layerxprograms/method_sandbox_execute_test.go:260, while 7331258b0 adds transfer-source refusal diagnostics to src/modules/programs/call.c:2318."
+
+[disposition.13.27.1.9]
+finding = "13.27.1.9"
+status = "resolved"
+evidence = "precompiles/layerxprograms/method_sandbox_execute_test.go:195 encodes interface ABI 3 and the deployed-program assertion at precompiles/layerxprograms/method_sandbox_execute_test.go:209 checks that it matches the ABI-3 deploy and call introduced by be6b54656."
+
+[disposition.13.27.1.10]
+finding = "13.27.1.10"
+status = "resolved"
+evidence = "precompiles/layerxprograms/method_sandbox_execute_test.go:46 seeds the program-owner and profile-2 records before registerAccount, and precompiles/layerxprograms/method_sandbox_execute_test.go:51 asserts successful registration in be6b54656."
+
+[disposition.13.27.1.11]
+finding = "13.27.1.11"
+status = "resolved"
+evidence = "precompiles/layerxprograms/method_sandbox_execute_test.go:292 unpacks the ordinary call response and checks status 0 and kind 1 without requiring empty response bytes, as landed in be6b54656."
+
+[disposition.13.27.1.12]
+finding = "13.27.1.12"
+status = "resolved"
+evidence = "867cb1560 changes src/modules/programs/sandbox.c:125 to preserve registered nonfatal host refusal codes and programs/crates/layerx-programs-runtime/src/ffi_call.rs:2900 to return the admission status instead of collapsing every refusal to NON_CANONICAL."
+
+[disposition.13.27.1.13]
+finding = "13.27.1.13"
+status = "resolved"
+evidence = "867cb1560 removes the refusal-code collapse at src/modules/programs/sandbox.c:127, and be6b54656 lands the funded ABI-3 sandbox execution with successful terminal and usage-receipt assertions at precompiles/layerxprograms/method_sandbox_execute_test.go:303."
+
+[disposition.13.27.1.14]
+finding = "13.27.1.14"
+status = "open"
+evidence = "src/protocol/lxp_kernel.c:488 still binds Programs ledger admission only for CALL and WIND_DOWN, src/protocol/lxp_module_ctx.c:1709 leaves sandbox execution on the legacy global sequence, and precompiles/layerxprograms/method_sandbox_execute_test.go:155 still compensates by seeding the payer to ReadLastSequence plus one."
+follow_up = "22.13.5"
+
+[disposition.13.27.1.15]
+finding = "13.27.1.15"
+status = "resolved"
+evidence = "28118b910 changes src/modules/programs/call.c:1413 and src/modules/programs/call.c:1630 to accept published sandbox usage as terminal occupancy evidence instead of requiring the ordinary occupancy bridge that sandbox execution does not construct."
+
+[disposition.13.27.1.16]
+finding = "13.27.1.16"
+status = "resolved"
+evidence = "7331258b0 moves usage-receipt emission into publication before terminal completion, fixes staged-state cleanup, and adds the actual SUCCESS execution path at tests/codec/lxp_test_sandbox_lifecycle.c:703, with the remaining kernel receipt projection repaired by 484ecd30d."
+
+[disposition.13.27.1.17]
+finding = "13.27.1.17"
+status = "resolved"
+evidence = "484ecd30d changes src/protocol/lxp_kernel.c:2395 to accept a Programs monetary transfer whose root matches the recorded occupancy outcome and copy that root into the receipt while retaining the invariant refusal for unmatched transfers."
+
+[disposition.13.27.2]
+finding = "13.27.2"
+status = "resolved"
+evidence = "86bfb85ae uses the complete pcommon.LXPRevert encoding for write-under-staticcall assertions at precompiles/layerxprograms/method_sandbox_fund_test.go:158 instead of comparing the returned reason with a bare code."
+
+[disposition.13.27.4]
+finding = "13.27.4"
+status = "open"
+evidence = "src/protocol/lxp_genesis.c:55 still selects programs_module_registration_v4, whose src/modules/programs/registration.c:46 activity list omits storage retirement even though the separate storage-retirement variant at src/modules/programs/registration.c:311 includes it."
+follow_up = "22.13.6"
+
+[disposition.13.27.5.1]
+finding = "13.27.5.1"
+status = "resolved"
+evidence = "db2f3d738 ports the verified-step fixture and authority call sites to ChainCommitProof, visible at programs/crates/layerx-programs-arbiter/tests/verified_step.rs:484 and programs/crates/layerx-programs-arbiter/tests/verified_step.rs:534, and 65d4c02a5 subsequently ports their admission evidence."
+
+[disposition.13.27.8.1]
+finding = "13.27.8.1"
+status = "resolved"
+evidence = "484ecd30d identifies and repairs the unreceipted monetary-transfer invariant at src/protocol/lxp_kernel.c:2395 and lands tests/codec/lxp_test_sandbox_receipt.c:316 to exercise the escrow charge through kernel receipt projection."
+
+[disposition.13.28.2]
+finding = "13.28.2"
+status = "resolved"
+evidence = "cac886498 registers getProgramAccount with getProgramAccountHandler from the account method init function at precompiles/layerxprograms/method_account.go:11, making the view reachable through the dispatcher."
+
+[disposition.13.28.4.2]
+finding = "13.28.4.2"
+status = "resolved"
+evidence = "94fad9c17 adds ReadFeeScheduleAt at modules/lxphost/read.go:884 and ReadMeteringScheduleAt at modules/lxphost/read.go:897, reading versioned progfee and progmet history keys rather than only active rows."
+
+[disposition.13.28.7.2]
+finding = "13.28.7.2"
+status = "resolved"
+evidence = "33f7a7d57 corrects both closed-host view assertions to lxphost.Code(-3) at precompiles/layerxprograms/view_sandbox_test.go:112 and precompiles/layerxprograms/view_sandbox_test.go:164 instead of expecting the unrelated length-limit code."
+
+[disposition.13.29.2]
+finding = "13.29.2"
+status = "resolved"
+evidence = "9a7022b28 changes ObservedSnapshot::finalize to use CommitFinality and constructs FinalityEvidence with block_height, block_hash, app_hash and store_proof_digest at services/agent/crates/layerx-client/src/ai_market.rs:270, removing the stale checkpoint and settlement fields."
+
+[disposition.13.30.3]
+finding = "13.30.3"
+status = "resolved"
+evidence = "aaacf6f8a replaces the proposed idempotent-receipt proof with the committed sequencer receipt-key vector at programs/tests/vectors/ics23-receipt-keys-app-hash.json:6 and verifies its key-03 proof at programs/crates/layerx-programs-arbiter/src/authority.rs:29 instead of relying on the module-only IAVL vector."
+
+[disposition.13.30.3.1]
+finding = "13.30.3.1"
+status = "resolved"
+evidence = "aaacf6f8a retains the batch header and admission alongside ChainCommitProof in derive, now at programs/crates/layerx-programs-arbiter/src/authority.rs:102, and the gate at programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:67 uses a committed vector while native replay remains a separate corpus-dependent release test."
+
+[disposition.13.30.3.2]
+finding = "13.30.3.2"
+status = "resolved"
+evidence = "programs/crates/layerx-programs-arbiter/src/authority.rs:30 requires the sequencer receipt-key list at key 03 rather than deleted idempotency rows, and programs/crates/layerx-programs-arbiter/src/authority.rs:102 retains admission and batch-header inputs following aaacf6f8a and 65d4c02a5."
+
+[disposition.13.30.3.3]
+finding = "13.30.3.3"
+status = "resolved"
+evidence = "aaacf6f8a preserves VerifiedBatchHeader in derive and ports the step and market callers to ChainCommitProof, while programs/crates/layerx-programs-arbiter/src/authority.rs:130 still obtains batch epoch and number from header.header() rather than nonexistent admission accessors."
+
+[disposition.13.30.3.4]
+finding = "13.30.3.4"
+status = "resolved"
+evidence = "aaacf6f8a replaces the two gate tests with committed receipt-key proof checks, now loading the in-tree vector at programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:45 and invoking it directly at lines 68 and 122 without the native Fixture loader."
+
+[disposition.13.30.3.5]
+finding = "13.30.3.5"
+status = "resolved"
+evidence = "db2f3d738 ports the nine stale verified-step authority and replay calls to ChainCommitProof, with the current typed commit arguments visible at programs/crates/layerx-programs-arbiter/tests/verified_step.rs:488 and programs/crates/layerx-programs-arbiter/tests/verified_step.rs:538 after the admission port in 65d4c02a5."

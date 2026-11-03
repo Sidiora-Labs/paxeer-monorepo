@@ -54,6 +54,13 @@ public final class ReceiptGateTest {
         }
         assertEquals("receipted", verified.level());
         assertEquals(HexFormat.of().formatHex(bytes(vector, "receiptDigest")), verified.receiptDigest());
+        byte[] exposedTransaction = evidence.rawTransaction();
+        exposedTransaction[0] ^= 1;
+        byte[] exposedReceipt = evidence.signedReceipt();
+        exposedReceipt[0] ^= 1;
+        assertArrayEquals(bytes(vector, "rawTransaction"), evidence.rawTransaction());
+        assertArrayEquals(bytes(vector, "signedReceipt"), evidence.signedReceipt());
+        assertInstanceOf(ReceiptGate.Verified.class, gate.verify(evidence, expectation()));
 
         byte[] tamperedReceipt = evidence.signedReceipt();
         tamperedReceipt[tamperedReceipt.length - 1] ^= 1;

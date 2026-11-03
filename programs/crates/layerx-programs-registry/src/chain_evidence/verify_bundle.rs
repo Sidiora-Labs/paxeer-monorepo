@@ -1,6 +1,6 @@
 use crate::protocol_evidence::{ProgramBundleError, ProtocolEvidenceError};
 use crate::{
-    chain_evidence::programs_state_key,
+    chain_evidence::{programs_state_key, HOST_STORE_NAME},
     chain_proof::{
         decode::{decode_commitment_proof, CommitmentProof, ProofOp, MAX_FIELD_BYTES},
         header::ChainHeader,
@@ -172,7 +172,7 @@ pub(crate) fn program_bundle_at(
     let chain = verifier
         .verify_head(&header, &commit)
         .map_err(|_| ProgramBundleError::Evidence(ProtocolEvidenceError::StateRoot))?;
-    if commitment.store_name != "layerx" {
+    if commitment.store_name != HOST_STORE_NAME {
         return Err(ProgramBundleError::Evidence(
             ProtocolEvidenceError::StateProof,
         ));

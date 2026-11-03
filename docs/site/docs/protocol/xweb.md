@@ -2,7 +2,7 @@
 
 Web data for agents, contracts and programs on Paxeer X Network. One sidecar on every node, one content digest, and three ways to reach it.
 
-Every node of Paxeer X Network can run a sidecar, `x-websearch`, that crawls its operator's seed list into its own index and serves web search and page fetch. No third-party search vendor and no API key sit anywhere in the path. Agents pay the sidecar per request over 402LXP; contracts reach the same data through the xweb precompile; kernel programs read it through the `web_read` host import. This page is the read of how each of those works. [Unified network](../overview/unified-network.md) describes how the chain and the LayerX kernel domain sit behind one interface.
+Every node of Paxeer X Network can run a sidecar, `x-websearch`, that crawls its operator's seed list into its own index and serves web search and page fetch. No third-party search vendor and no API key sit anywhere in the path. Agents pay the sidecar per request over 402LXP; contracts reach the same data through the xweb precompile. Program web_read is retired: the host import answers `LXP_ERR_MODULE_DISABLED`, so a program reading it reverts `LXP_NON_CANONICAL` for every input. Committed program answers are read through the xweb module query and keeper. This page is the read of how each of those works. [Unified network](../overview/unified-network.md) describes how the chain and the LayerX kernel domain sit behind one interface.
 
 ---
 
@@ -16,7 +16,7 @@ Every node of Paxeer X Network can run a sidecar, `x-websearch`, that crawls its
 | Price | an operator-set amount per asset per request, one tenth of a US cent at the time the operator configures it |
 | Precompile | `0x0000000000000000000000000000000000001019` |
 | Module | `x/xweb`, holding the requests, the results, the attestor set and the parameters |
-| Program import | `web_read(i32,i32,i32,i32)->i32` in the `layerx_v4` group |
+| Program import | retired: `web_read(i32,i32,i32,i32)->i32` in the `layerx_v4` group; answers `LXP_ERR_MODULE_DISABLED` |
 | Stored response | at most 4096 bytes, with the 32-byte content digest and the full length |
 
 ### The sidecar
@@ -164,15 +164,15 @@ Every integer is big-endian. Each signature is 65 bytes, `r` then `s` then `v`, 
 
 ## The kernel path
 
-Kernel programs read web data through the `web_read` host import, fed by a web observation activity. Program execution never dials out.
+Program web_read is retired: the host import answers `LXP_ERR_MODULE_DISABLED`, so a program reading it reverts `LXP_NON_CANONICAL` for every input. Committed answers from web observation activities are read through the xweb module query and keeper. Program execution never dials out.
 
 - **A program asks.** It emits a web request record through `event_emit` - the topic `PAXEERX_WEB_REQUEST_V1` followed by the request id, the kind and the payload - and pays the web fee account with `transfer_402` in the same call. The call bridge records the pending request only when both succeed.
 - **Attestors answer.** Attestor sidecars watch program web requests through the gateway, fetch independently, sign the origin-2 digest, exchange signatures and post the web observation activity once the threshold is reached.
 - **The kernel checks the answer.** Intake rebuilds the preimage from the observation, recovers each signer with `lxp_secp256k1_recover_address`, requires strictly ascending registered signers at the kernel web attestor threshold, and requires a pending request with the same program id, request id, kind and payload hash. The response is bounded at 4096 bytes and a request is answered once.
 - **The answer is committed.** The sequencer folds committed observations into a web root in the batch header, the way oracle observations are folded, so a replay reproduces them.
-- **The program reads it.** `web_read` takes a request id and an output buffer and returns the committed record: the 32-byte content digest, the full length and the returned length, then the response. A request with no committed answer, or one owned by another program, reads as absent.
+- **Program web_read is retired.** The host import answers `LXP_ERR_MODULE_DISABLED`, so the web-reader example's read entrypoint reverts `LXP_NON_CANONICAL` for every request id, digest, full length and response. Committed answers are read through the xweb module query and keeper's `GetProgramResult` (`modules/xweb/keeper/program_result.go:16`), per decision.1977.
 
-`web_read(i32,i32,i32,i32)->i32` is appended to the ABI as the new `layerx_v4` group, beside `oracle_read`; the frozen `layerx_v1` to `layerx_v3` groups do not change. In the Rust programs SDK, `web::read` returns `None` for an absent answer and `Answer::is_truncated` says whether the stored response is a prefix of a longer text. [Programs](../programs/index.md) describes the runtime around it.
+`web_read(i32,i32,i32,i32)->i32` remains in the ABI's `layerx_v4` group, beside `oracle_read`, but the import is retired; the frozen `layerx_v1` to `layerx_v3` groups do not change. The Rust programs SDK's `web::read` cannot read committed answers through this retired import. The web-reader example retains its read entrypoint only to keep its calldata layout frozen. [Programs](../programs/index.md) describes the runtime around it.
 
 ---
 

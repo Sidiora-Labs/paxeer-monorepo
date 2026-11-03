@@ -10,6 +10,7 @@ import (
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/testvectors"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	anchorkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/keeper"
 	anchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
@@ -29,9 +30,18 @@ func depositRootRegistration(checkpointID, stateRoot, depositRoot, custodyRefere
 	return binary.BigEndian.AppendUint16(out, protocol)
 }
 
-// TestDepositRootRegistration finalizes a checkpoint on the anchor keeper and
+// TestDepositRootRegistration imports a final checkpoint into the anchor keeper and
 // registers its deposit root the way the settlement service does.
 func TestDepositRootRegistration(t *testing.T) {
+	testDepositRootRegistration(t, false)
+}
+
+func TestDepositRootRegistrationByAnySender(t *testing.T) {
+	testDepositRootRegistration(t, true)
+}
+
+func testDepositRootRegistration(t *testing.T, registerByAnotherSender bool) {
+	t.Helper()
 	app := testkeeper.EVMTestApp
 	ctx, _ := app.NewContext(false, tmtypes.Header{}).WithBlockHeight(7).WithBlockTime(genesisTime).CacheContext()
 	fixture, err := testvectors.Load()
@@ -91,9 +101,49 @@ func TestDepositRootRegistration(t *testing.T) {
 
 	var headerSignature [64]byte
 	copy(headerSignature[:], vectorBytes(t, vector, "header_signature"))
-	checkpoint, err := anchor.SubmitCheckpoint(ctx, operator, headerBytes, headerSignature, certificate)
-	require.NoError(t, err)
+	authorization, found := anchor.SequencerAuthorizationForBatch(ctx, header.BatchNumber)
+	require.True(t, found)
+	require.NoError(t, verify.Ed25519Digest(authorization.PublicKey, headerSignature, codec.BatchHeaderDigest(headerBytes)))
+	guarantors := []anchortypes.Hash32{anchortypes.Hash32(guarantorID)}
+	_, err = anchor.SubmitCheckpoint(ctx, operator, headerBytes, headerSignature, certificate)
+	require.ErrorIs(t, err, anchortypes.ErrModuleRetired)
+
+	// Submission is retired; import the checkpoint through genesis
+	// before and after finality to exercise custody's finality requirement.
+	restored := anchor.ExportGenesis(ctx)
+	restored.Checkpoints = []anchortypes.Checkpoint{{
+		BatchNumber: header.BatchNumber, CheckpointID: anchortypes.Hash32(checkpointID),
+		HeaderDigest: anchortypes.Hash32(codec.BatchHeaderDigest(headerBytes)), ProtocolVersion: header.ProtocolVersion,
+		NetworkID: header.NetworkID, Epoch: header.Epoch, FirstSequence: header.FirstSequence,
+		LastSequence: header.LastSequence, PreviousStateRoot: anchortypes.Hash32(header.PreviousStateRoot),
+		StateRoot: anchortypes.Hash32(header.ResultingStateRoot), ReceiptRoot: anchortypes.Hash32(header.ReceiptMerkleRoot),
+		DataAvailabilityRoot: anchortypes.Hash32(header.DataAvailabilityRoot), SequencerID: anchortypes.Hash32(header.SequencerID),
+		TimestampMs: header.TimestampMs, Status: anchortypes.CheckpointSubmitted,
+		DeclaredThreshold: 1, Guarantors: guarantors,
+		AvailabilityMask: codec.AvailabilityAll, Submitter: operator.String(),
+		SubmittedHeight: ctx.BlockHeight(), SubmittedTime: ctx.BlockTime().Unix(),
+	}}
+	require.NoError(t, restored.Validate())
+	anchor.InitGenesis(ctx, *restored)
+	_, err = k.RegisterDepositRoot(ctx, operator, registration, signature, ordering)
+	require.ErrorIs(t, err, types.ErrInvalidDepositRoot)
+	checkpoint := restored.Checkpoints[0]
+	checkpoint.Status = anchortypes.CheckpointFinal
+	checkpoint.FinalizedHeight = ctx.BlockHeight()
+	checkpoint.FinalizedTime = ctx.BlockTime().Unix()
+	restored.Checkpoints = []anchortypes.Checkpoint{checkpoint}
+	restored.HasLatestFinalized = true
+	restored.LatestFinalized = header.BatchNumber
+	require.NoError(t, restored.Validate())
+	anchor.InitGenesis(ctx, *restored)
+	checkpoint, found = anchor.GetCheckpoint(ctx, header.BatchNumber)
+	require.True(t, found)
 	require.Equal(t, anchortypes.CheckpointFinal, checkpoint.Status)
+	require.Equal(t, checkpointID, [32]byte(checkpoint.CheckpointID))
+	require.Equal(t, int(genesis.Params.Threshold), len(checkpoint.Guarantors))
+	require.Equal(t, uint8(1), checkpoint.DeclaredThreshold)
+	require.Equal(t, guarantors, checkpoint.Guarantors)
+	require.Equal(t, operator.String(), checkpoint.Submitter)
 
 	// No authority is configured.
 	_, err = k.RegisterDepositRoot(ctx, operator, registration, signature, ordering)
@@ -101,13 +151,16 @@ func TestDepositRootRegistration(t *testing.T) {
 	params.DepositRootAuthority = hex.EncodeToString(public)
 	require.NoError(t, k.SetParams(ctx, params))
 
-	_, err = k.RegisterDepositRoot(ctx, authority, registration, signature, ordering)
-	require.ErrorIs(t, err, types.ErrDepositRootProposer)
+	sender := operator
+	if registerByAnotherSender {
+		sender, _ = testkeeper.MockAddressPair()
+		require.False(t, sender.Equals(operator))
+	}
 
 	refused := func(mutate func(registration, signature []byte) ([]byte, []byte), leaves [][32]byte) {
 		t.Helper()
 		changed, signed := mutate(append([]byte(nil), registration...), append([]byte(nil), signature...))
-		_, err := k.RegisterDepositRoot(ctx, operator, changed, signed, leaves)
+		_, err := k.RegisterDepositRoot(ctx, sender, changed, signed, leaves)
 		require.ErrorIs(t, err, types.ErrInvalidDepositRoot)
 	}
 	resign := func(changed []byte) ([]byte, []byte) { return changed, ed25519.Sign(private, changed) }
@@ -121,10 +174,10 @@ func TestDepositRootRegistration(t *testing.T) {
 	refused(func(r, s []byte) ([]byte, []byte) { r[25+131] ^= 1; return resign(r) }, ordering)
 	refused(func(r, s []byte) ([]byte, []byte) { r[25+133] ^= 1; return resign(r) }, ordering)
 	refused(func(r, s []byte) ([]byte, []byte) { return resign(append(r, 0)) }, ordering)
-	_, found := k.GetDepositRoot(ctx, checkpointID)
+	_, found = k.GetDepositRoot(ctx, checkpointID)
 	require.False(t, found)
 
-	recorded, err := k.RegisterDepositRoot(ctx, operator, registration, signature, ordering)
+	recorded, err := k.RegisterDepositRoot(ctx, sender, registration, signature, ordering)
 	require.NoError(t, err)
 	kind := func(name string) abi.Type {
 		out, err := abi.NewType(name, "", nil)
@@ -140,7 +193,7 @@ func TestDepositRootRegistration(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, recorded, stored)
 
-	_, err = k.RegisterDepositRoot(ctx, operator, registration, signature, ordering)
+	_, err = k.RegisterDepositRoot(ctx, sender, registration, signature, ordering)
 	require.ErrorIs(t, err, types.ErrDepositRootExists)
 
 	exported := k.ExportGenesis(ctx)

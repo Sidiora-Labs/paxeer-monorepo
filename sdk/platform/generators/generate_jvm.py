@@ -72,11 +72,6 @@ def agent_plane(repo: Path) -> Plane:
 
 def human_plane(repo: Path) -> Plane:
     plane = Plane("Human", sections(repo / "services/human/schema/human-api"))
-    plane.models["ErrorCode"] = {
-        **plane.models["ErrorCode"],
-        "retired_variants": string_list(plane.models["ErrorCode"].get("retired_variants"))
-            + ["operation-retired"],
-    }
     plane.models["NotificationClass"] = {
         **plane.models["NotificationClass"],
         "retired_variants": string_list(plane.models["NotificationClass"].get("retired_variants"))

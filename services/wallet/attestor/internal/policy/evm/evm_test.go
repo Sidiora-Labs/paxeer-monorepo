@@ -352,6 +352,8 @@ func TestDecodeCalldataForLayerxauthWrites(t *testing.T) {
 	if got, ok := PrecompileAddress("layerxauth"); !ok || got != address || !IsPrecompile(address) {
 		t.Fatalf("layerxauth address %s registered=%v", got, ok)
 	}
+	payload := bytes.Repeat([]byte{0x04, 0x00, 0xff}, 23)
+	idempotencyKey := [32]byte{0x05, 0x00, 0xfe, 31: 0xff}
 	grant := bytes.Repeat([]byte{0x02, 0x00, 0xfe}, 23)
 	expirySequence := uint64(1)<<63 + 42
 	actionKey := [32]byte{0x03}
@@ -360,6 +362,11 @@ func TestDecodeCalldataForLayerxauthWrites(t *testing.T) {
 		args []any
 		want map[string]any
 	}{
+		{
+			sig:  "recordLifecycle(bytes,bytes32)",
+			args: []any{payload, idempotencyKey},
+			want: map[string]any{"payload": payload, "idempotencyKey": idempotencyKey},
+		},
 		{
 			sig:  "grantSession(bytes,uint64,bytes32)",
 			args: []any{grant, expirySequence, actionKey},
@@ -377,6 +384,11 @@ func TestDecodeCalldataForLayerxauthWrites(t *testing.T) {
 			assertDecodedArgs(t, call.Args, tc.want)
 		})
 	}
+	t.Run("unknown selector", func(t *testing.T) {
+		if _, err := DecodeCalldata(address, []byte{0xde, 0xad, 0xbe, 0xef}); !errors.Is(err, ErrUnknownMethod) {
+			t.Fatalf("unknown layerxauth selector: got %v, want ErrUnknownMethod", err)
+		}
+	})
 }
 
 func TestDecodeCalldataForLayerxpayWrites(t *testing.T) {

@@ -11,7 +11,7 @@ on:
         required: true
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.inputs.tag || github.ref_name }}
@@ -19,6 +19,8 @@ concurrency:
 
 jobs:
   releaser:
+    permissions:
+      contents: write
     name: Build and publish Paxeer release
     runs-on: ubuntu-latest
     env:

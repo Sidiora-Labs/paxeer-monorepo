@@ -1,6 +1,6 @@
-import type { AuthorizedReceiptBatch } from "@sidiora/layerx-sdk";
+import type { SequencerReceiptKey } from "@sidiora/layerx-sdk";
+import type { ReceiptKeyEntry } from "./receipts.js";
 import type {
-  AuthorizedBatchResolver,
   FulfillmentRepository,
   StoredFulfillment,
   WebhookClaimResult,
@@ -8,12 +8,20 @@ import type {
   WebhookDeliveryStore,
 } from "@sidiora/layerx-seller-middleware";
 
-/** Resolves every receipt to a single fixed authorised batch, as a real relay would after fetching it. */
-export class FixedBatchResolver implements AuthorizedBatchResolver {
-  public constructor(private readonly batch: AuthorizedReceiptBatch) {}
+export class FixedReceiptKeys {
+  readonly #keys: readonly SequencerReceiptKey[];
 
-  public async resolve(): Promise<AuthorizedReceiptBatch> {
-    return this.batch;
+  public constructor(entries: readonly ReceiptKeyEntry[]) {
+    this.#keys = entries.map((entry) => ({
+      keyId: entry.keyId.slice(),
+      publicKey: entry.publicKey.slice(),
+      first_height: entry.firstHeight,
+      last_height: entry.lastHeight,
+    }));
+  }
+
+  public async resolve(): Promise<readonly SequencerReceiptKey[]> {
+    return this.#keys.map((key) => ({ ...key, keyId: key.keyId.slice(), publicKey: key.publicKey.slice() }));
   }
 }
 
@@ -27,6 +35,10 @@ export class InMemoryFulfillmentRepository<T> implements FulfillmentRepository<T
   readonly #records = new Map<string, StoredFulfillment<T>>();
 
   public releaseCount = 0;
+
+  public async get(idempotencyKey: string): Promise<StoredFulfillment<T> | undefined> {
+    return this.#records.get(idempotencyKey);
+  }
 
   public async fulfill(
     proposed: Omit<StoredFulfillment<T>, "resource">,

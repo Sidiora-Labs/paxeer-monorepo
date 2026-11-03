@@ -1,0 +1,125 @@
+[disposition.18.1188.2.2]
+finding = "18.1188.2.2"
+status = "resolved"
+evidence = "43f4e67ab ports the archive fixture to disclosed EIP-1559 calls, and services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1582 now passes the unsigned transaction and its bound disclosure to custody while the defund preparation supplies the matching budget context."
+
+[disposition.18.1193.1.1]
+finding = "18.1193.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:222449 now uses single-quoted fixed-string grep arguments for the human_frame glob and glob call without the escaped double quotes that caused the shell syntax error."
+
+[disposition.18.1195.1.1]
+finding = "18.1195.1.1"
+status = "resolved"
+evidence = "b7220cd6e replaces the retired revocation variant, and services/human/crates/layerx-human-service/tests/archive.rs:288 now names InvalidationReason::GrantRevokedOnChain."
+
+[disposition.18.1195.1.2]
+finding = "18.1195.1.2"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/tests/journey_faults.rs:55 contains the sole Rung import in that module, with the earlier grouped intent import no longer importing Rung."
+
+[disposition.18.1196.1.1]
+finding = "18.1196.1.1"
+status = "resolved"
+evidence = "b7220cd6e ports the control fixture, and services/human/crates/layerx-human-service/tests/agent_controls.rs:318 now uses InvalidationReason::GrantRevokedOnChain."
+
+[disposition.18.1200.1.1]
+finding = "18.1200.1.1"
+status = "resolved"
+evidence = "b7220cd6e replaces all five SessionKeyRevoked references in services/agent/crates/layerx-agentd/tests/revocation.rs and the tenant resolver reference, which now reads GrantRevokedOnChain at services/agent/crates/layerx-agentd/tests/tenant_resolve.rs:86."
+
+[disposition.18.1200.1.2]
+finding = "18.1200.1.2"
+status = "open"
+evidence = "services/agent/crates/layerx-agentd/src/human_runtime.rs:2198 still restores indexed submissions by the kernel idempotency key although src/outbox/mod.rs:179 stores transaction hashes, and src/protocol_evidence_native_tests.rs:214 still feeds a kernel-ID receipt into the hash-keyed outbox whose src/outbox/mod.rs:462 refuses the mismatch; the wait refusal decoder is corrected at src/agent_rpc_adapters.rs:699 and the TLS cases still require the external binary at services/platform/tests/support/tls_boundary.rs:188."
+follow_up = "22.9.13"
+
+[disposition.18.1200.1.3]
+finding = "18.1200.1.3"
+status = "resolved"
+evidence = "b9fd53afe updates the publication and unsupported-version test, and services/agent/COMPATIBILITY.md:10 now publishes contract 2 matching services/agent/crates/layerx-agentd/src/compat.rs:4."
+
+[disposition.18.1200.1.4]
+finding = "18.1200.1.4"
+status = "environment"
+evidence = "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1233 explicitly requires the isolated chain ID and RPC environment that attempt 7 lacked, while the operator case now uses pinned evidence at services/agent/crates/layerx-agentd/tests/operator.rs:126."
+
+[disposition.18.1200.1.5]
+finding = "18.1200.1.5"
+status = "resolved"
+evidence = "7ae097618 fixes repository_root to use ancestors().nth(4), retained at services/agent/crates/layerx-agentd/tests/support/real_authority.rs:73 with a regression test checking migrations and the agent workspace."
+
+[disposition.18.1200.1.6]
+finding = "18.1200.1.6"
+status = "superseded"
+evidence = "d82f775af retires cmd/layerxd/lxp_daemon_finality_authority.c and lxp_finality_authority_bind, removing the daemon surface whose anchor reads refused startup."
+
+[disposition.18.1200.1.7]
+finding = "18.1200.1.7"
+status = "superseded"
+evidence = "05b1f8e8e deletes cmd/layerxd/lxp_daemon_protocol.c and lxp_daemon_protocol_owner_attach with the retired layerxd process, so its missing state-feed observer binding is no longer a repository execution path."
+
+[disposition.18.1200.1.8]
+finding = "18.1200.1.8"
+status = "superseded"
+evidence = "05b1f8e8e deletes cmd/layerxd/lxp_daemon_process.c and the layerxd binary, retiring the apply_canonical_batch and receipt-publication path on which the old real-authority LNI helper stalled."
+
+[disposition.18.1200.1.9]
+finding = "18.1200.1.9"
+status = "resolved"
+evidence = "b9fd53afe ports the operator reply assertions, and services/agent/crates/layerx-agentd/tests/operator_route.rs:62 now expects 74 bytes and checks the activity ID, transaction hash, state and sequence at their current offsets."
+
+[disposition.18.1200.1.10]
+finding = "18.1200.1.10"
+status = "resolved"
+evidence = "services/agent/crates/layerx-agentd/tests/recovery.rs:56 now drives Executed through record_execution with verified evidence and block position (9, 0), supplying the location absent from the old transition helper."
+
+[disposition.18.1200.1.11]
+finding = "18.1200.1.11"
+status = "resolved"
+evidence = "b9fd53afe replaces the stale support receipt builder, and services/agent/crates/layerx-agentd/tests/support/mod.rs:833 now encodes the execution summary, logs, transaction identity and signature that match the sequencer response built at line 930."
+
+[disposition.18.1200.1.12]
+finding = "18.1200.1.12"
+status = "resolved"
+evidence = "services/agent/crates/layerx-agentd/tests/recovery.rs:121 now asserts queued_without_authority contains the unauthorised enqueue and immediately asserts queued_for_transmission is empty."
+
+[disposition.18.1200.1.13]
+finding = "18.1200.1.13"
+status = "resolved"
+evidence = "b9fd53afe aligns the support receipt and recovery RPC script with authenticated lookup, while services/agent/crates/layerx-client/src/rpc/receipt.rs:204 retains signature and execution verification before transaction_receipt rather than bypassing those checks."
+
+[disposition.18.1200.1.14]
+finding = "18.1200.1.14"
+status = "resolved"
+evidence = "b9fd53afe switches the operator reconciliation case to support::pinned_evidence_verifier at services/agent/crates/layerx-agentd/tests/operator.rs:126, removing its dependency on the unbuilt retired layerxd fixture."
+
+[disposition.18.1204.1.1]
+finding = "18.1204.1.1"
+status = "resolved"
+evidence = "64c4d6a23 ports creation evidence and the fixture to EIP-1559 transactions, and services/human/crates/layerx-human-service/src/server/agent_creation.rs:621 now uses SignedCreationTransaction::decode consistently with ProtocolEvidence::bound_activity."
+
+[disposition.18.1204.1.2]
+finding = "18.1204.1.2"
+status = "resolved"
+evidence = "64c4d6a23 changes the rung fixture to canonical_owner::sign_transaction, retained at services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs:258 for the finalization_evidence_reports_the_runtime_rung case."
+
+[disposition.18.1204.2.1]
+finding = "18.1204.2.1"
+status = "resolved"
+evidence = "64c4d6a23 adds budgetCreate disclosure, and services/agent/crates/layerx-crypto/src/disclosure/call.rs:384 now admits its 384-byte ABI arguments and maps PayBudgetCreate to Budget activity 1."
+
+[disposition.18.1204.2.2]
+finding = "18.1204.2.2"
+status = "resolved"
+evidence = "64c4d6a23 replaces the Ed25519 descriptor comparison, and services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:337 now compares the recovered sender with CustodySigner::evm_wallet and carries the padded sender into protocol evidence."
+
+[disposition.18.1204.2.3]
+finding = "18.1204.2.3"
+status = "resolved"
+evidence = "c9ae77caf deletes LNI_V1_SOURCE and its include_str of the removed schema, leaving services/agent/crates/layerx-client/src/lni/schema.rs:3 to begin with the Version declaration documentation."
+
+[disposition.18.1206.1.1]
+finding = "18.1206.1.1"
+status = "resolved"
+evidence = "b7220cd6e ports the actual tenant resolver test at services/agent/crates/layerx-agentd/tests/tenant_resolve.rs:86 to GrantRevokedOnChain; the finding records that test path under src/human_runtime, where no tenant_resolve.rs exists on main."

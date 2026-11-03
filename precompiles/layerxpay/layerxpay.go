@@ -25,8 +25,12 @@ import (
 )
 
 const (
-	PayAddress     = "0x000000000000000000000000000000000000101B"
-	PrecompileName = "layerxpay"
+	PayAddress         = "0x000000000000000000000000000000000000101B"
+	PrecompileName     = "layerxpay"
+	budgetPull         = "budgetPull"
+	serviceDisputeOpen = "serviceDisputeOpen"
+	BudgetCreated      = "BudgetCreated"
+	BudgetRevoked      = "BudgetRevoked"
 )
 
 //go:embed abi.json
@@ -94,6 +98,9 @@ func (p *Precompile) RunAndCalculateGas(evm *vm.EVM, caller, callingContract com
 			ret, remainingGas, err = nil, 0, vm.ErrOutOfGas
 		}
 		pcommon.HandlePrecompileError(err, evm, operation)
+		if errors.Is(err, vm.ErrExecutionReverted) && bytes.Equal(ret, pcommon.RetiredRevert(PrecompileName)) {
+			return
+		}
 		if err != nil && !errors.Is(err, vm.ErrOutOfGas) {
 			ret, err = pcommon.LXPReason(err), vm.ErrExecutionReverted
 		}
@@ -109,6 +116,10 @@ func (p *Precompile) RunAndCalculateGas(evm *vm.EVM, caller, callingContract com
 	charge := methodGas[method.Name].Gas(input[4:])
 	if suppliedGas < charge {
 		return nil, 0, vm.ErrOutOfGas
+	}
+	canonical, packErr := method.Inputs.Pack(args...)
+	if packErr != nil || !bytes.Equal(canonical, input[4:]) {
+		return nil, suppliedGas - charge, fmt.Errorf("LXP_NON_CANONICAL: %s calldata", method.Name)
 	}
 	limit := p.evm.GetCosmosGasLimitFromEVMGas(ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx)), suppliedGas-charge)
 	if limit == 0 {
@@ -162,6 +173,9 @@ func (p *Executor) Execute(ctx sdk.Context, method *abi.Method, caller common.Ad
 		return nil, fmt.Errorf("LXP_PRECOMPILE_UNKNOWN_METHOD: %w", err)
 	}
 	method = canonical
+	if method.Name == budgetPull {
+		return pcommon.RetiredRevert(PrecompileName), vm.ErrExecutionReverted
+	}
 	if readOnly && !method.IsConstant() {
 		return nil, fmt.Errorf("LXP_UNAUTHORIZED_DEBIT: layerxpay write under staticcall")
 	}
@@ -209,7 +223,7 @@ func (p *Executor) Execute(ctx sdk.Context, method *abi.Method, caller common.Ad
 		output, err = p.escrowHandlers(ctx, method, caller, args, key, evm)
 	case "streamOpen", "streamTopUp", "streamMeter", "streamSettle", "streamPause", "streamResume", "streamClose":
 		output, err = p.streamHandlers(ctx, method, caller, args, key, evm)
-	case "serviceOfferPublish", "serviceOfferWithdraw", "serviceAgreementPropose", "serviceAgreementAccept", "serviceCommitTask", "serviceCommitAbandon", "serviceToolExecAttest", "serviceProgressReport", "serviceDeliver", "serviceAccept", "serviceReject", "serviceDisputeOpen", "serviceDisputeResolve":
+	case "serviceOfferPublish", "serviceOfferWithdraw", "serviceAgreementPropose", "serviceAgreementAccept", "serviceCommitTask", "serviceCommitAbandon", "serviceToolExecAttest", "serviceProgressReport", "serviceDeliver", "serviceAccept", "serviceReject", serviceDisputeOpen, "serviceDisputeResolve":
 		output, err = p.serviceHandlers(ctx, method, caller, args, key, evm)
 	default:
 		var payload []byte

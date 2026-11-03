@@ -252,11 +252,20 @@ export function useReleaseAttestation(transfer: BridgeTransfer | undefined, sett
   });
 }
 
-export function useRecipientRecord(destination: string) {
-  const programId = bridgeConfig.solanaProgramId;
-  const rpcUrl = bridgeConfig.foreignRpcUrls.solana;
-  const handle = solanaRecipientHandle(destination);
-  const request = programId ? recipientRecordRequest(programId, destination) : undefined;
+export type RecipientRecordConfig = {
+  programId: string | undefined;
+  rpcUrl: string | undefined;
+};
+
+export function useRecipientRecord(
+  destination: string | undefined,
+  { programId, rpcUrl }: RecipientRecordConfig = {
+    programId: bridgeConfig.solanaProgramId,
+    rpcUrl: bridgeConfig.foreignRpcUrls.solana,
+  },
+) {
+  const handle = destination === undefined ? undefined : solanaRecipientHandle(destination);
+  const request = programId && destination !== undefined ? recipientRecordRequest(programId, destination) : undefined;
   return useQuery({
     queryKey: [ 'solana-recipient-record', rpcUrl, programId, handle ],
     enabled: rpcUrl !== undefined && programId !== undefined && request !== undefined,

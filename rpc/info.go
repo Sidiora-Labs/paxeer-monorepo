@@ -68,7 +68,36 @@ func (i *InfoAPI) BlockNumber(ctx context.Context) (result hexutil.Uint64, retur
 func (i *InfoAPI) ChainId(ctx context.Context) *hexutil.Big {
 	startTime := time.Now()
 	defer recordMetrics(ctx, "eth_chainId", i.connectionType, startTime)
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		return (*hexutil.Big)(scope.ChainID)
+	}
 	return (*hexutil.Big)(i.keeper.ChainID(i.ctxProvider(LatestCtxHeight)))
+}
+
+type domainInfoAPI struct {
+	*InfoAPI
+	scope DomainScope
+}
+
+func (i *domainInfoAPI) ChainId(ctx context.Context) *hexutil.Big {
+	return i.InfoAPI.ChainId(WithDomainScope(ctx, i.scope))
+}
+
+type domainNetAPI struct {
+	*NetAPI
+	scope *DomainScope
+}
+
+func (i *domainNetAPI) Version(ctx context.Context) string {
+	if i.scope != nil {
+		ctx = WithDomainScope(ctx, *i.scope)
+	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		startTime := time.Now()
+		defer recordMetrics(ctx, "net_version", i.connectionType, startTime)
+		return scope.ChainID.String()
+	}
+	return i.NetAPI.Version(ctx)
 }
 
 func (i *InfoAPI) Coinbase(ctx context.Context) (addr common.Address, err error) {
@@ -379,8 +408,8 @@ type PendingBaseFee interface {
 }
 
 // pendingBaseFee returns the base fee of the open block and its height on the
-// sequencer and standby. It returns a nil fee on every other node, which reports
-// committed values.
+// sequencer and standby. It returns a nil fee while no block is open and on every
+// other node, which reports committed values.
 func (i *InfoAPI) pendingBaseFee() (*big.Int, int64, error) {
 	if i.watermarks == nil || i.watermarks.pending == nil {
 		return nil, 0, nil
@@ -391,10 +420,16 @@ func (i *InfoAPI) pendingBaseFee() (*big.Int, int64, error) {
 	}
 	height, err := i.watermarks.resolvePending()
 	if err != nil {
+		if errors.Is(err, ErrLayerNotOpen) {
+			return nil, 0, nil
+		}
 		return nil, 0, err
 	}
 	baseFee, err := source.BaseFeePerGas()
 	if err != nil {
+		if errors.Is(err, ErrLayerNotOpen) {
+			return nil, 0, nil
+		}
 		return nil, 0, fmt.Errorf("pending base fee unavailable: %w", err)
 	}
 	return baseFee.TruncateInt().BigInt(), height, nil

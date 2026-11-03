@@ -243,6 +243,10 @@ func (m *microBatch) execute(txs [][]byte) []microOutcome {
 			for j := 0; j < limit; j++ {
 				out[queue[j].pos].acc = s.microRecord(queue[j], results[j])
 			}
+			ctx := s.receiptContextLocked()
+			for j := 0; j < limit; j++ {
+				out[queue[j].pos].acc.ReceiptContext = ctx
+			}
 			queue, limit = queue[limit:], 0
 		case 0:
 			out[queue[0].pos].err = sdkerrors.ABCIError(results[0].Codespace, results[0].Code, results[0].Log)

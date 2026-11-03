@@ -1,32 +1,10 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { secp256k1 } from "@noble/curves/secp256k1.js";
-import { keccak_256 } from "@noble/hashes/sha3.js";
-import {
-  VerifiedWebhookConsumer,
-  rpcCheckpointEvidence,
-} from "@sidiora/layerx-seller-middleware";
+import { VerifiedWebhookConsumer } from "@sidiora/layerx-seller-middleware";
+import { committedFixture } from "../../conformance/pay6/committed-fixture.mjs";
 import { MerchantError, MerchantSettlementWebhooks } from "../dist/index.js";
 
-const bytes = (hex) => Uint8Array.from(Buffer.from(hex, "hex"));
 const toHex = (value) => Buffer.from(value).toString("hex");
-const readJson = async (path) => JSON.parse(await readFile(new URL(path, import.meta.url), "utf8"));
-const fixture = await readJson("../../../../../sdk/platform/conformance/fixtures/receipt-positive-v2.json");
-const batch = await readJson("../../conformance/pay6/batch.json");
-const checkpoint = await readJson("../../conformance/pay6/checkpoint.json");
-const canonicalReceipt = bytes(fixture.canonical_receipt_hex);
-const authorized = fixture.authorized_batch;
-const receiptEvidence = {
-  canonicalReceipt,
-  authorizedBatch: {
-    batchId: bytes(authorized.batch_id_hex),
-    asset: bytes(authorized.asset_hex),
-    previousStateRoot: bytes(authorized.previous_state_root_hex),
-    resultingStateRoot: bytes(authorized.resulting_state_root_hex),
-    sequencerPublicKey: bytes(authorized.sequencer_public_key_hex),
-  },
-};
 
 class OrderLedger {
   #orders = new Map();
@@ -113,55 +91,20 @@ class DeliveryLedger {
   }
 }
 
-async function committedEvidence() {
-  const operator = checkpoint.operator;
-  return rpcCheckpointEvidence(checkpoint, {
-    networkId: 7,
-    canonicalHeader: bytes(batch.header),
-    headerSignature: bytes(batch.signature),
-    authorization: {
-      sequencerId: bytes(batch.sequencer_id),
-      publicKey: receiptEvidence.authorizedBatch.sequencerPublicKey,
-      firstBatchNumber: 1n,
-      lastBatchNumber: 1n,
-    },
-    proof: { leafIndex: 0, leafCount: 1, siblings: [] },
-  }, {
-    canonicalContext: bytes(operator.context),
-    requiredGuarantors: operator.required_guarantors,
-    verification: {
-      bondedSet: [{ guarantorId: bytes(operator.guarantor_id), publicKey: bytes(operator.public_key), bonded: true }],
-      registeredCheckpointId: bytes(checkpoint.checkpoint_evidence.checkpoint_id),
-      expectedPaxeerChainId: BigInt(operator.chain_id),
-      expectedSettlementContract: bytes(operator.contract),
-      registeredSettlementReference: bytes(operator.reference),
-      availabilityObtained: true,
-    },
-    signatures: {
-      async verifyRecoverableSecp256k1(publicKey, signature, signatureV, signer, digest) {
-        const recovered = secp256k1.Signature.fromBytes(signature)
-          .addRecoveryBit(signatureV - 27).recoverPublicKey(digest);
-        return secp256k1.verify(signature, digest, publicKey, { prehash: false })
-          && toHex(recovered.toBytes(true)) === toHex(publicKey)
-          && toHex(keccak_256(recovered.toBytes(false).subarray(1)).slice(-20)) === toHex(signer);
-      },
-    },
-  });
+async function committedEvidence(context) {
+  return committedFixture(context);
 }
 
-async function webhookContext(commitment) {
+async function webhookContext(commitment, context) {
+  const { evidence, receipt, pins, requirements: fixtureRequirements } = await committedEvidence(context);
+  const proof = { ...receipt, verificationLevel: commitment };
   const key = await globalThis.crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
   const publicKey = new Uint8Array(await globalThis.crypto.subtle.exportKey("raw", key.publicKey));
   const orders = new OrderLedger();
   const deliveries = new DeliveryLedger();
   const requirements = {
-    scheme: "exact",
-    network: "eip155:7",
-    amount: fixture.expected.amount,
-    asset: authorized.asset_hex,
-    payTo: fixture.expected.to_hex,
-    maxTimeoutSeconds: 120,
-    extra: { layerx: { commitment } },
+    ...fixtureRequirements,
+    extra: { layerx: { ...fixtureRequirements.extra.layerx, commitment } },
   };
   const quote = {
     lines: [{ sku: "report", quantity: 1, title: "Market report", unitAmount: requirements.amount, lineAmount: requirements.amount }],
@@ -182,13 +125,14 @@ async function webhookContext(commitment) {
     "SHA-256", new TextEncoder().encode(JSON.stringify(quote)),
   )));
   const order = await orders.open({ checkoutKey: "report", requestDigest, quote });
-  const leaf = Buffer.concat([Buffer.from("LXP/v1/merkle-leaf\0"), canonicalReceipt]);
-  const receiptDigest = toHex(new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", leaf)));
-  const receipts = new Map([["receipt:report", receiptEvidence]]);
-  const proofs = new Map([[toHex(canonicalReceipt), await committedEvidence()]]);
+  const receiptDigest = receipt.receiptDigest.slice(2);
+  const txHash = receipt.txHash;
+  const receipts = new Map([["receipt:report", proof]]);
+  const proofs = new Map([[txHash, evidence]]);
   const webhooks = new MerchantSettlementWebhooks({
     verifier: new VerifiedWebhookConsumer({ publicKeys: { merchant: publicKey }, deliveries }),
     orders,
+    receiptKeys: pins,
     receipts: {
       async resolve(receiptRef) {
         const evidence = receipts.get(receiptRef);
@@ -197,15 +141,14 @@ async function webhookContext(commitment) {
       },
     },
     commitments: {
-      async resolve(receipt, network, rung) {
+      async resolve(transactionHash, network) {
         assert.equal(network, requirements.network);
-        assert.equal(rung, "committed");
-        const evidence = proofs.get(toHex(receipt));
+        assert.equal(proof.verificationLevel, "committed");
+        const evidence = proofs.get(transactionHash);
         if (evidence === undefined) throw new Error("commitment-missing");
         return evidence;
       },
     },
-    protocolVersion: 2,
   });
   async function delivery(verification) {
     const body = new TextEncoder().encode(JSON.stringify({
@@ -213,7 +156,7 @@ async function webhookContext(commitment) {
       request_digest: order.requestDigest,
       receipt_digest: receiptDigest,
       receipt_ref: "receipt:report",
-      transaction: `0x${receiptDigest}`,
+      transaction: txHash,
       verification,
     }));
     const id = `delivery-${verification}`;
@@ -223,31 +166,31 @@ async function webhookContext(commitment) {
     ));
     return { body, headers: { id, timestamp, keyId: "merchant", signature: `v1=${Buffer.from(signature).toString("base64")}` } };
   }
-  return { webhooks, orders, order, receiptDigest, delivery };
+  return { webhooks, orders, order, receiptDigest, txHash, delivery };
 }
 
-async function settlementWebhookAcceptsRungNames() {
+async function settlementWebhookAcceptsRungNames(testContext) {
   for (const commitment of ["receipted", "committed"]) {
     for (const verification of commitment === "committed" ? ["receipted", "committed"] : ["receipted"]) {
-      const context = await webhookContext(commitment);
+      const context = await webhookContext(commitment, testContext);
       const { body, headers } = await context.delivery(verification);
       assert.equal(await context.webhooks.consume(body, headers), "processed");
       const paid = await context.orders.get(context.order.orderId);
       assert.equal(paid.state, "paid-verified");
       assert.equal(paid.receiptDigest, context.receiptDigest);
-      assert.equal(paid.transaction, `0x${context.receiptDigest}`);
+      assert.equal(paid.transaction, context.txHash);
       assert.equal(await context.webhooks.consume(body, headers), "duplicate");
     }
   }
-  const context = await webhookContext("receipted");
+  const context = await webhookContext("receipted", testContext);
   const { body, headers } = await context.delivery("committed");
   await assert.rejects(context.webhooks.consume(body, headers),
     (error) => error instanceof MerchantError && error.code === "invalid-webhook");
   assert.equal((await context.orders.get(context.order.orderId)).state, "awaiting-payment");
 }
 
-async function settlementWebhookRefusesKernelLevels() {
-  const context = await webhookContext("committed");
+async function settlementWebhookRefusesKernelLevels(testContext) {
+  const context = await webhookContext("committed", testContext);
   for (const verification of ["sequencer-signed", "batch-included", "state-proven", "checkpoint-finalised", "settlement-anchored"]) {
     const { body, headers } = await context.delivery(verification);
     await assert.rejects(context.webhooks.consume(body, headers),

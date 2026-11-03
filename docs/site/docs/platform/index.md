@@ -23,7 +23,6 @@ This section covers hosted developer surfaces that exist in
 | Hosted identity | [Identity](identity.md) |
 | Public payment transcript | [Public API](public-api.md) |
 | Developer CLI | [CLI](cli.md) |
-| Public relay / archive nodes | [Relay and archive](relay-archive.md) |
 
 The public origin named in the wiki is the router,
 `https://api-mainnet-beta.paxeer.network/rpc`; accounts are funded

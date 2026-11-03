@@ -18,12 +18,14 @@ public final class NativeProgramLifecycleRequest {
         require(operation != null && signedActivity != null);
         this.operation = NativeProgramLifecycle.decode(operation.ordinal(), operation.encode());
         this.signed = signedActivity.clone();
-        byte[] data;
-        try { data = ProgramsClient.Programs.transactionData(signed); }
-        catch (PlatformSdkException error) { throw new IllegalArgumentException("invalid signed program transaction", error); }
-        java.math.BigInteger fee = operation instanceof NativeProgramUpgrade
-            ? ProgramsClient.Programs.number(data, 4 + 8 * 32, 128) : java.math.BigInteger.ZERO;
-        require(Arrays.equals(calldata(operation, fee), data));
+        try {
+            byte[] data = ProgramsClient.Programs.transactionData(signed);
+            java.math.BigInteger fee = operation instanceof NativeProgramUpgrade
+                ? ProgramsClient.Programs.number(data, 4 + 8 * 32, 128) : java.math.BigInteger.ZERO;
+            require(Arrays.equals(calldata(operation, fee), data));
+        } catch (PlatformSdkException error) {
+            throw new IllegalArgumentException("invalid signed program transaction", error);
+        }
         idempotencyKey = key;
         transactionHash = ProgramsClient.Programs.transactionHash(signed);
     }

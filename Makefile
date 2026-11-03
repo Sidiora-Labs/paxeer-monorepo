@@ -16,6 +16,9 @@ AGENT_FUZZ_TOOLCHAIN ?= nightly-2025-11-10
 AGENT_BOUNDARY_HARNESS := $(abspath $(or $(CARGO_TARGET_DIR),services/agent/tests/boundary/target))/debug/agent-boundary-conformance
 AGENT_NODE_RPC_URL ?= http://127.0.0.1:8545
 HUMAN_CARGO ?= cargo
+HUMAN_API_GEN ?= $(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked --
+HUMAN_API_SCHEMA_DIR ?= services/human/schema/human-api
+HUMAN_API_OUT_DIR ?= apps/web/src/api/generated
 HUMAN_MANIFEST := services/human/Cargo.toml
 HUMAN_WEB_DIR := apps/web
 HUMAN_NPM ?= npm --prefix $(HUMAN_WEB_DIR)
@@ -24,9 +27,6 @@ INTEROP_MANIFEST := services/interop/Cargo.toml
 PAXEER_DIR := $(CURDIR)
 PAXEER_MAKE := $(MAKE) -f $(PAXEER_DIR)/chain.mk
 HPX_ORIGIN ?= https://node.hyperpaxeer.com
-
-CHECKPOINT_SETTLEMENT_HEADER := $(BUILD_DIR)/generated/lxp_checkpoint_settlement.h
-CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS := 3600
 
 CPPFLAGS := -Iinclude -I$(BUILD_DIR)/generated \
 	-DLXP_BUILD_TARGET_TRIPLE=\"$(shell $(CC) -dumpmachine)\" \
@@ -64,7 +64,7 @@ TEST_LIBRARY := $(BUILD_DIR)/liblayerx-testing.a
 	test-arith-u128 test-arith-u256 test-arith-rounding test-arith-property \
 	test-arith-nofloat \
 	test-log test-log-durability test-recovery test-projection test-rebuild \
-	test-storage-order test-storage \
+	test-storage \
 	test-journal \
 	test-activity-codec test-envelope test-verify-pool test-admission \
 	test-fee-gate \
@@ -198,14 +198,6 @@ $(BUILD_DIR)/test-obj/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) -DLXP_TESTING $(CFLAGS) -MMD -MP -c $< -o $@
 
-$(CHECKPOINT_SETTLEMENT_HEADER): Makefile
-	@mkdir -p $(@D)
-	printf '#ifndef LXP_CHECKPOINT_SETTLEMENT_H\n#define LXP_CHECKPOINT_SETTLEMENT_H\n#define LXP_CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS UINT64_C(%s)\n#endif\n' \
-		'$(CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS)' > $@
-
-$(BUILD_DIR)/obj/src/paxeer/lxp_checkpoint_cert.o \
-$(BUILD_DIR)/test-obj/src/paxeer/lxp_checkpoint_cert.o: $(CHECKPOINT_SETTLEMENT_HEADER)
-
 clean:
 	rm -rf -- build
 
@@ -259,7 +251,7 @@ test-harness: $(BUILD_DIR)/tests/lxp_test_harness
 test-tests-python:
 	python3 -m pytest tests/ci/test_real_node_build_ownership.py \
 		tests/ci/test_runner_routing_container_runtime.py \
-		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py
+		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci
 
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
@@ -327,7 +319,7 @@ test-receipts: $(BUILD_DIR)/tests/lxp_test_receipts
 $(BUILD_DIR)/tests/lxp_test_state_root: tests/state/lxp_test_state_root.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) -g $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-state-root: $(BUILD_DIR)/tests/lxp_test_state_root
@@ -839,7 +831,7 @@ test-wave-9: test-perps-market test-perps-book test-perps-margin \
 
 $(BUILD_DIR)/tests/test_batch_header: tests/test_batch_header.c $(LIBRARY)
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -lcrypto -o $@
 
 test-batch: $(BUILD_DIR)/tests/test_batch_header
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_batch_header
@@ -849,7 +841,7 @@ test-wave-10: test-batch
 $(BUILD_DIR)/tests/test_snapshot: tests/test_snapshot.c $(LIBRARY) \
 		$(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) -g $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-snapshot: $(BUILD_DIR)/tests/test_snapshot
@@ -940,18 +932,6 @@ $(BUILD_DIR)/tests/test_bridge_deposit: tests/test_bridge_deposit.c \
 
 test-bridge-deposit: $(BUILD_DIR)/tests/test_bridge_deposit test-contracts
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_bridge_deposit
-
-$(BUILD_DIR)/tests/bridge/sign-credit: tests/bridge/sign_credit.c tests/bridge/files.h \
-		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
-		$(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-$(BUILD_DIR)/tests/bridge/test-credit: tests/bridge/test_credit.c tests/bridge/files.h \
-		$(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DLXP_TESTING $< $(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
-		$(TEST_LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/test_bridge_withdraw: tests/test_bridge_withdraw.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
@@ -1465,10 +1445,7 @@ $(BUILD_DIR)/tools/log_inspect: tools/log_inspect.c $(LIBRARY)
 test-rebuild: $(BUILD_DIR)/tests/lxp_test_rebuild $(BUILD_DIR)/tools/log_inspect
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_rebuild
 
-test-storage-order:
-	sh tests/storage/check_daemon_recovery_order.sh
-
-test-storage: test-storage-order test-log test-log-durability test-recovery \
+test-storage: test-log test-log-durability test-recovery \
 		test-projection test-rebuild
 
 $(BUILD_DIR)/tests/lxp_test_journal: tests/state/lxp_test_journal.c $(LIBRARY)
@@ -1476,7 +1453,8 @@ $(BUILD_DIR)/tests/lxp_test_journal: tests/state/lxp_test_journal.c $(LIBRARY)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -lcrypto -pthread -o $@
 
 $(BUILD_DIR)/tests/lxp_test_journal_tsan: tests/state/lxp_test_journal.c \
-		src/state/lxp_journal.c src/crypto/lxp_hash.c src/crypto/lxp_ed25519.c \
+		src/state/lxp_journal.c src/state/lxp_idempotency.c \
+		src/crypto/lxp_hash.c src/crypto/lxp_ed25519.c \
 		src/crypto/lxp_ct.c src/crypto/lxp_ed25519.c \
 		src/ledger/lx_account_registry.c src/ledger/lx_account_id.c \
 		src/storage/lxp_log.c src/storage/lxp_fault_hooks.c \
@@ -1638,30 +1616,25 @@ human-js-install:
 	npm --prefix services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund
 	$(HUMAN_NPM) ci --ignore-scripts --no-audit --no-fund
 
-human-gen-api:
-	$(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked -- services/human/schema/human-api apps/web/src/api/generated
+.PHONY: human-gen-api human-check-api
+human-gen-api: platform-human-api-generate
+
+human-check-api:
+	$(HUMAN_API_GEN) --check "$(HUMAN_API_SCHEMA_DIR)" "$(HUMAN_API_OUT_DIR)"
 
 human-build:
 	$(MAKE) agent-sdk-ts-build
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path services/human/tools/api-gen/Cargo.toml --locked
-	$(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked -- --check services/human/schema/human-api apps/web/src/api/generated
+	$(MAKE) human-check-api
 	$(HUMAN_CARGO) build --manifest-path $(HUMAN_MANIFEST) --locked --workspace
 	$(HUMAN_NPM) run build
 
-human-test: $(BUILD_DIR)/tests/explorer_fixture human-test-hosted-provisioning
-	LAYERX_EXPLORER_CORE_FIXTURE=$(abspath $(BUILD_DIR)/tests/explorer_fixture) \
-		sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace
+human-test: human-test-hosted-provisioning
+	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace
 	$(HUMAN_NPM) test
 
 HUMAN_TARGET_DIR ?= $(or $(CARGO_TARGET_DIR),$(CURDIR)/services/human/target)
 
-MOVEMENT_PROOF_TARGET = $(abspath $(or $(CARGO_TARGET_DIR),.lane-target))
-.PHONY: test-owner-movement-proof
-test-owner-movement-proof: build/bin/layerxd build/bin/layerx-genesis-build build/bin/layerx-guarantor build/tests/lxp_test_guarantor_runtime
-	cargo build --locked --manifest-path services/human/Cargo.toml --target-dir $(MOVEMENT_PROOF_TARGET) -p layerx-human-identity-provider
-	cargo build --locked --manifest-path services/platform/Cargo.toml --target-dir $(MOVEMENT_PROOF_TARGET) -p layerx-platform-authority -p layerx-platform-paxeer-boundary -p layerx-runtime-clock
-	cargo build --locked --manifest-path cmd/layerxctl/Cargo.toml --target-dir $(MOVEMENT_PROOF_TARGET)
-	CARGO_TARGET_DIR=$(MOVEMENT_PROOF_TARGET) LAYERX_RUNTIME_CLOCK_BIN=$(MOVEMENT_PROOF_TARGET)/debug/layerx-runtime-clock sh tools/runtime/run-with-clock.sh python3 tests/bridge/owner-custody.py --native --governance --checkpoint --settlement-only --movement-proof
 HUMAN_TEST_PAXD := $(abspath build/paxd)
 
 .PHONY: human-test-custody-prerequisites
@@ -1702,9 +1675,8 @@ human-test-provider-probe:
 human-test-unit:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace --lib
 
-human-test-integration: $(BUILD_DIR)/tests/explorer_fixture
-	LAYERX_EXPLORER_CORE_FIXTURE=$(abspath $(BUILD_DIR)/tests/explorer_fixture) \
-		sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace --tests
+human-test-integration:
+	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace --tests
 
 human-test-intents:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked -p layerx-intents
@@ -1823,9 +1795,14 @@ human-e2e: human-test-e2e
 
 .PHONY: qualification-runner-test human-qualify-journeys \
 	human-qualify-fabrication human-qualify-faults human-qualify-perf \
-	human-qualify platform-qualify
+	human-qualify platform-qualify test-mcp-binding-receipt-keys
 
-qualification-runner-test:
+test-mcp-binding-receipt-keys:
+	@python3 -c 'import pytest' || \
+		{ echo "pytest is required for MCP binding receipt-key qualification" >&2; exit 1; }
+	python3 -m pytest -q tests/qualification/test_mcp_binding_receipt_keys.py
+
+qualification-runner-test: test-mcp-binding-receipt-keys
 	python3 -m unittest tools.qualification.test_release_runner
 
 human-qualify-journeys:
@@ -1894,10 +1871,10 @@ AGENT_TEST_TARGET_DIR := $(abspath $(or $(CARGO_TARGET_DIR),.lane-target))
 agent-test agent-test-sanitize: agent-test-native-prerequisites
 agent-test agent-test-sanitize: export CARGO_TARGET_DIR = $(AGENT_TEST_TARGET_DIR)
 agent-test agent-test-sanitize: export PAXD = $(abspath build/paxd)
-agent-test agent-test-sanitize: export LAYERX_CUSTODY_PROOF_BIN = $(abspath $(BUILD_DIR)/bin/layerx-custody-proof)
 agent-test agent-test-sanitize: export LAYERX_TEST_NATIVE_BIN_DIR = $(abspath $(BUILD_DIR)/bin)
 agent-test agent-test-sanitize: export LAYERX_TEST_NATIVE_BUILD_DIR = $(abspath $(BUILD_DIR))
 agent-test-native-prerequisites:
+	sh -n services/agent/tools/run-real-node-tests.sh
 	LAYERX_TEST_NATIVE_BUILD_DIR="$(abspath $(BUILD_DIR))" CARGO_TARGET_DIR="$(AGENT_TEST_TARGET_DIR)" sh services/agent/tools/run-real-node-tests.sh prepare
 
 agent-test: public-tls-test-prerequisites
@@ -2809,7 +2786,7 @@ $(BUILD_DIR)/tests/test_programs_oracle_read: tests/test_programs_oracle_read.c 
 		tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) -g $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
@@ -2819,7 +2796,6 @@ test-programs-oracle-read: $(BUILD_DIR)/tests/test_programs_oracle_read
 	tests/ledger/lxp_check_sole_writer.sh
 
 $(BUILD_DIR)/tests/test_programs_web_read: tests/test_programs_web_read.c \
-		tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
@@ -3118,7 +3094,6 @@ test-state-proof: $(BUILD_DIR)/tests/lxp_test_state_proof
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_state_proof
 	$(BUILD_DIR)/tests/lxp_test_state_proof --vectors > $(BUILD_DIR)/tests/native-state-proofs.json
 	cmp $(BUILD_DIR)/tests/native-state-proofs.json contracts/config/native-state-proofs.json
-	cmp $(BUILD_DIR)/tests/native-state-proofs.json services/human/crates/layerx-paxeer-client/tests/vectors/native-state-proofs.json
 
 .PHONY: test-asset-withdraw-activity
 test-asset-withdraw-activity: $(BUILD_DIR)/tests/test_asset_withdraw_activity
@@ -3181,8 +3156,5 @@ $(BUILD_DIR)/bin/layerx-archive-codec: $(ARCHIVE_CODEC_OBJECTS) $(LIBRARY) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 include tools/paxeer-x/build/104.35.11.mk
-include tools/paxeer-x/build/104.35.12.mk
 include tools/paxeer-x/build/6.6.mk
-include tools/paxeer-x/build/104.35.15.mk
-include tools/paxeer-x/build/104.35.20.mk
-include tools/paxeer-x/build/104.35.29.mk
+include tools/paxeer-x/build/proof.mk

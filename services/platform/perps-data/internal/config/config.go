@@ -21,6 +21,9 @@ import (
 // Service names one perps data binary.
 type Service string
 
+// Prefix is the standard network prefix used by the trusted proxy contract.
+type Prefix = netip.Prefix
+
 const (
 	Indexer  Service = "indexer"
 	Gateway  Service = "gateway"
@@ -31,18 +34,19 @@ const (
 )
 
 const (
-	envChainID       = "PERPS_CHAIN_ID"
-	envRPCURLs       = "PERPS_RPC_URLS"
-	envCometURLs     = "PERPS_COMET_URLS"
-	envDatabaseURL   = "DATABASE_URL"
-	envNATSURL       = "NATS_URL"
-	envPort          = "PORT"
-	envAuthSecret    = "PERPS_AUTH_SECRET"
-	envExplorerTx    = "PERPS_EXPLORER_TX_BASE"
-	envGatewayURL    = "PERPS_GATEWAY_URL"
-	envStartHeight   = "PERPS_START_HEIGHT"
-	minAuthSecretLen = 32
-	redacted         = "redacted"
+	envChainID        = "PERPS_CHAIN_ID"
+	envRPCURLs        = "PERPS_RPC_URLS"
+	envCometURLs      = "PERPS_COMET_URLS"
+	envDatabaseURL    = "DATABASE_URL"
+	envNATSURL        = "NATS_URL"
+	envPort           = "PORT"
+	envAuthSecret     = "PERPS_AUTH_SECRET"
+	envExplorerTx     = "PERPS_EXPLORER_TX_BASE"
+	envGatewayURL     = "PERPS_GATEWAY_URL"
+	envStartHeight    = "PERPS_START_HEIGHT"
+	envTrustedProxies = "PERPS_TRUSTED_PROXY_CIDRS"
+	minAuthSecretLen  = 32
+	redacted          = "redacted"
 )
 
 type uses struct {
@@ -73,7 +77,17 @@ type Config struct {
 	ExplorerTxBase string
 	GatewayURL     string
 	StartHeight    int64
-	TrustedProxies []netip.Prefix
+	TrustedProxies []Prefix
+}
+
+// Load is the command startup boundary. It reads fresh configuration on every
+// call and identifies the service whose configuration was refused.
+func (s Service) Load() (*Config, error) {
+	cfg, err := Load(s)
+	if err != nil {
+		return nil, fmt.Errorf("%s config: %w", s, err)
+	}
+	return cfg, nil
 }
 
 // Load reads the variables the named service uses and returns the validated
@@ -136,7 +150,7 @@ func Load(service Service) (*Config, error) {
 		cfg.StartHeight = n
 	}
 	if u.trustedProxies {
-		trusted, err := ratelimit.ParseTrustedProxies(os.Getenv(ratelimit.EnvTrustedProxies))
+		trusted, err := ratelimit.ParseTrustedProxies(os.Getenv(envTrustedProxies))
 		if err != nil {
 			return nil, err
 		}
@@ -211,7 +225,7 @@ func (c Config) String() string {
 		envExplorerTx, c.ExplorerTxBase,
 		envGatewayURL, c.GatewayURL,
 		envStartHeight, c.StartHeight,
-		ratelimit.EnvTrustedProxies, c.TrustedProxies,
+		envTrustedProxies, c.TrustedProxies,
 	)
 }
 

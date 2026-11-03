@@ -6,6 +6,8 @@ use crate::ProofError;
 
 /// Hash ordered items as `HashFromByteSlices` does, including SHA-256 of the
 /// empty byte string for an empty tree.
+/// For a consensus block's data hash, each item is the SHA-256 transaction
+/// digest, not the raw transaction; inclusion verification takes that same item.
 #[must_use]
 pub fn root(items: &[&[u8]]) -> [u8; 32] {
     match items.len() {

@@ -72,7 +72,8 @@ type roleHandler func(p PrecompileExecutor, c *call) ([]byte, error)
 // handler from an init function.
 var roleHandlers = map[string]roleHandler{types.RolePool: servePool}
 
-// servePool hands a SidioraPool surface call to poolHandler and continues the
+// servePool consumes the concrete keeper through the compile-checked PoolKeeper
+// surface. It hands a SidioraPool call to poolHandler and continues the
 // run on the context it returns.
 func servePool(p PrecompileExecutor, c *call) ([]byte, error) {
 	if c.market == nil {

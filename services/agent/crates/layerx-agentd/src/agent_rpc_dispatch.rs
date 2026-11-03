@@ -922,6 +922,17 @@ fn decode_receipt_lookup(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>
             out.insert("receipt".into(), receipt);
             Some((Value::Object(out), achieved))
         }
+        2 => {
+            let tx_hash = reader.fixed::<32>()?;
+            let nonce = reader.u64()?;
+            Some((
+                serde_json::json!({
+                    "found": false,
+                    "submitted": {"tx_hash": format!("0x{}", lower_hex(&tx_hash)), "nonce": dec(nonce)},
+                }),
+                Some(Rung::Submitted),
+            ))
+        }
         _ => None,
     }
 }
@@ -1326,6 +1337,18 @@ struct ActivityLookupRequest {
     agent: Option<String>,
     idempotency_key: String,
     expected_activity_id: String,
+    requested_rung: String,
+}
+
+impl ActivityLookupRequest {
+    fn requested_level(&self, id: RequestId) -> Result<Rung, Rejection> {
+        match self.requested_rung.as_str() {
+            "submitted" => Ok(Rung::Submitted),
+            "receipted" => Ok(Rung::Receipted),
+            "committed" => Ok(Rung::Committed),
+            _ => Err(malformed(id)),
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize)]
@@ -1528,11 +1551,11 @@ pub(crate) fn canonical_request_bytes(
                 named(operation, &decode::<ApprovalGetRequest>(request, id)?, id)?
             }
         }
-        Operation::ProgramReceipt => named(
-            operation,
-            &decode::<ActivityLookupRequest>(request, id)?,
-            id,
-        )?,
+        Operation::ProgramReceipt => {
+            let request: ActivityLookupRequest = decode(request, id)?;
+            request.requested_level(id)?;
+            named(operation, &request, id)?
+        }
         Operation::ApprovalApprove | Operation::ApprovalReject => {
             if native_variant(request, id)? {
                 wire_bytes::<NativeApprovalDecisionV1Wire, _>(
@@ -1864,17 +1887,9 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             }
             Ok(approval)
         }
-        Operation::ProgramReceipt => {
-            let request: ActivityLookupRequest = decode(request, id)?;
-            let _ = (request.tenant, request.agent);
-            let key = hex32(&request.idempotency_key, id)?;
-            let activity = hex32(&request.expected_activity_id, id)?;
-            dispatched(
-                id,
-                owner.receipt_by_idempotency_key(peer, key, activity),
-                decode_receipt_lookup,
-            )
-        }
+        Operation::ProgramReceipt => dispatch_program_receipt(request, id, |key, activity| {
+            owner.receipt_by_idempotency_key(peer, key, activity)
+        }),
         Operation::ApprovalApprove => adapters::approval_approve(shared, context, request, ctx),
         Operation::ApprovalReject => adapters::approval_reject(shared, context, request, ctx),
         Operation::Prepare => {
@@ -2083,6 +2098,176 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             "mcp.operation_refused",
         )),
     }
+}
+
+fn dispatch_program_receipt(
+    request: &Map<String, Value>,
+    id: RequestId,
+    lookup: impl FnOnce([u8; 32], [u8; 32]) -> Result<HumanResponse, HumanOperationError>,
+) -> Result<Dispatched, Rejection> {
+    let request: ActivityLookupRequest = decode(request, id)?;
+    let requested = request.requested_level(id)?;
+    let key = hex32(&request.idempotency_key, id)?;
+    let activity = hex32(&request.expected_activity_id, id)?;
+    let mut receipt = dispatched(id, lookup(key, activity), decode_receipt_lookup)?;
+    if receipt.value.get("found") == Some(&Value::Bool(true)) {
+        if let Some(VerificationStatus::Achieved(achieved)) = receipt.verification {
+            if achieved < requested {
+                receipt.verification = Some(VerificationStatus::Below {
+                    requested,
+                    achieved,
+                    reason: layerx_agent_api::error::ReasonCode::new("requested_rung_not_achieved")
+                        .map_err(|_| malformed(id))?,
+                });
+            }
+        }
+    }
+    Ok(receipt)
+}
+
+#[cfg(test)]
+mod verification_receipt_lookup_tests {
+    use super::*;
+    use layerx_client::rpc::receipt::Lookup;
+
+    fn answer_not_ready_lookup(lookup: &Lookup, submitted: bool) {
+        let id = RequestId(1430);
+        for (name, requested) in [
+            ("submitted", Rung::Submitted),
+            ("receipted", Rung::Receipted),
+            ("committed", Rung::Committed),
+        ] {
+            let request = serde_json::json!({
+                "idempotency_key": "ab".repeat(32),
+                "expected_activity_id": "cd".repeat(32),
+                "requested_rung": name,
+            });
+            let answer = dispatch_program_receipt(
+                request.as_object().expect("request is an object"),
+                id,
+                |key, activity| {
+                    assert_eq!(key, [0xab; 32]);
+                    assert_eq!(activity, [0xcd; 32]);
+                    let bytes = crate::human_runtime::receipt_lookup_not_ready_bytes(lookup)
+                        .expect("real owner encodes a not-ready lookup");
+                    Ok(HumanResponse::new(bytes).expect("owner response is bounded"))
+                },
+            )
+            .expect("ProgramReceipt dispatch accepts the owner lookup");
+            if submitted {
+                assert!(matches!(
+                    answer.verification,
+                    Some(VerificationStatus::Achieved(Rung::Submitted))
+                ));
+            } else {
+                assert!(answer.verification.is_none());
+            }
+            let response = crate::agent_rpc::success_body(id, &answer, Some(Some(requested)))
+                .expect("not-ready lookup is rendered without a verification failure");
+            assert_eq!(response.status, 200);
+            let body: Value = serde_json::from_slice(&response.body).expect("JSON response");
+            let (value, verification) = if submitted {
+                (
+                    serde_json::json!({
+                        "found": false,
+                        "submitted": {
+                            "tx_hash": format!("0x{}", "ab".repeat(32)),
+                            "nonce": "72623859790382856",
+                        },
+                    }),
+                    if requested == Rung::Submitted {
+                        serde_json::json!({"state": "achieved", "rung": "submitted"})
+                    } else {
+                        serde_json::json!({
+                            "state": "pending", "requested": name, "achieved": "submitted",
+                        })
+                    },
+                )
+            } else {
+                (
+                    serde_json::json!({"found": false}),
+                    serde_json::json!({"state": "absent", "requested": name}),
+                )
+            };
+            assert_eq!(
+                body,
+                serde_json::json!({
+                    "request_id": "1430", "value": value, "verification_status": verification,
+                })
+            );
+            assert!(body["verification_status"].get("reason").is_none());
+            assert!(body.get("error").is_none());
+            assert!(!String::from_utf8(response.body)
+                .expect("JSON is UTF-8")
+                .contains("verification.inconsistent"));
+        }
+    }
+
+    #[test]
+    fn program_receipt_answers_a_submitted_lookup_as_not_ready() {
+        answer_not_ready_lookup(
+            &Lookup::Submitted {
+                tx_hash: [0xab; 32],
+                nonce: 0x0102_0304_0506_0708,
+            },
+            true,
+        );
+    }
+
+    #[test]
+    fn program_receipt_answers_an_absent_lookup_without_submission_evidence() {
+        answer_not_ready_lookup(&Lookup::Absent, false);
+    }
+}
+
+#[test]
+fn program_receipt_request_requires_an_advertised_rung() {
+    let id = RequestId(13);
+    let mut request = Map::new();
+    request.insert("idempotency_key".into(), Value::String("ab".repeat(32)));
+    request.insert(
+        "expected_activity_id".into(),
+        Value::String("cd".repeat(32)),
+    );
+
+    for (name, level) in [
+        ("submitted", Rung::Submitted),
+        ("receipted", Rung::Receipted),
+        ("committed", Rung::Committed),
+    ] {
+        request.insert("requested_rung".into(), Value::String(name.into()));
+        let original = request.clone();
+        let bytes = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
+            .expect("an advertised rung is accepted")
+            .expect("program.receipt has canonical request bytes");
+        let prefix = b"program.receipt\0";
+        assert!(bytes.starts_with(prefix));
+        let canonical: Value = serde_json::from_slice(&bytes[prefix.len()..])
+            .expect("canonical request contains JSON");
+        assert_eq!(canonical, Value::Object(original.clone()));
+        assert_eq!(request, original);
+        let typed: ActivityLookupRequest = decode(&request, id).expect("selector decodes");
+        assert_eq!(typed.requested_level(id).expect("rung decodes"), level);
+    }
+
+    request.remove("requested_rung");
+    let missing = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
+        .expect_err("requested_rung is required");
+    assert_eq!(missing.class, ErrorClass::ProtocolIncompatibility);
+    assert_eq!(missing.reason, "envelope.malformed");
+
+    request.insert("requested_rung".into(), Value::String("pending".into()));
+    let pending = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
+        .expect_err("pending is not an advertised rung");
+    assert_eq!(pending.class, ErrorClass::ProtocolIncompatibility);
+    assert_eq!(pending.reason, "envelope.malformed");
+
+    request.insert("requested_rung".into(), Value::String("submitted".into()));
+    request.insert("extra".into(), Value::Bool(true));
+    let extra = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
+        .expect_err("unknown selector fields are refused");
+    assert_eq!(extra.class, ErrorClass::ProtocolIncompatibility);
+    assert_eq!(extra.reason, "envelope.unknown_field");
 }
 
 #[test]

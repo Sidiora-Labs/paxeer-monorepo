@@ -217,8 +217,7 @@ impl ProductionComponents {
             .map_err(|_| ApiFailure::upstream_degraded())?;
         let mut agent = self.principal_agent(&scope)?;
         self.native_onboarding_sponsor(&scope, &mut agent)?;
-        let key = self
-            .custody
+        self.custody
             .describe_key(principal, &primary_key()?)
             .map_err(|_| ApiFailure::upstream_degraded())?;
         let registry = agent.registry().clone();
@@ -239,32 +238,32 @@ impl ProductionComponents {
                 .ok_or_else(ApiFailure::upstream_degraded)?
                 .bytes()
                 .to_vec();
-            let activity = layerx_intents::owner_activity::verify(&signed, &registry)
+            let (call, authority) = verify_owner_activity(&signed)?;
+            let sender = authority[12..]
+                .try_into()
                 .map_err(|_| ApiFailure::upstream_degraded())?;
-            let activity_id = layerx_intents::canonical::activity_id(&activity)
-                .map_err(|_| ApiFailure::upstream_degraded())?;
+            let disclosure =
+                bind_call(&call, sender).map_err(|_| ApiFailure::upstream_degraded())?;
+            let activity_id = transaction_hash(&signed);
             let material = match agent
-                .evidence(activity.idempotency_key(), activity_id)
+                .evidence(disclosure.idempotency_key, activity_id)
                 .map_err(agent_failure)?
             {
                 crate::journeys::ReceiptLookup::Found(value) => value,
-                crate::journeys::ReceiptLookup::Absent => {
+                crate::journeys::ReceiptLookup::Absent
+                | crate::journeys::ReceiptLookup::Submitted { .. } => {
                     return Err(ApiFailure::upstream_degraded())
                 }
             };
-            if activity.network_id() != self.network_id {
+            if call.chain_id != u64::from(self.network_id) {
                 return Err(ApiFailure::forbidden());
             }
-            if activity.actor_did() != self.agent_actor.as_str().as_bytes() {
+            if disclosure.actor != self.agent_actor.as_str().as_bytes() {
                 return Err(ApiFailure::upstream_degraded());
             }
-            let evidence = ProductionAgentCreation::protocol_evidence(
-                signed,
-                key.public_key,
-                &registry,
-                material,
-            )
-            .map_err(|_| ApiFailure::upstream_degraded())?;
+            let evidence =
+                ProductionAgentCreation::protocol_evidence(signed, authority, &registry, material)
+                    .map_err(|_| ApiFailure::upstream_degraded())?;
             journey
                 .accept_bootstrap_owner(&mut scope, stage, &evidence, &registry, trace, observed_at)
                 .map_err(|_| ApiFailure::upstream_degraded())?;

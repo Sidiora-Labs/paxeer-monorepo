@@ -13,6 +13,11 @@ func (k *Keeper) RevokeGrant(ctx sdk.Context, actor Actor, grantID [32]byte, rea
 	if err := k.checkPause(ctx, "revokeGrant"); err != nil {
 		return Result{}, err
 	}
+	replayKey := append([]byte{0x04}, grantID[:]...)
+	replayKey = append(replayKey, idempotencyKey[:]...)
+	if k.store(ctx).Has(replayKey) {
+		return Result{}, types.ErrIdempotentReplay
+	}
 	if !actor.Authority.Bound {
 		return Result{}, types.ErrAuthScope
 	}
@@ -38,9 +43,7 @@ func (k *Keeper) RevokeGrant(ctx sdk.Context, actor Actor, grantID [32]byte, rea
 	}
 	for _, event := range events {
 		if event.Name == "GrantRevoked" && event.GrantID == grantID {
-			if err := k.DeleteGrant(branch, event.GrantID); err != nil {
-				return result, err
-			}
+			k.store(branch).Set(replayKey, []byte{1})
 			write()
 			ctx.EventManager().EmitEvents(branch.EventManager().Events())
 			return result, nil

@@ -1,6 +1,8 @@
 package layerxanchor_test
 
 import (
+	"bytes"
+	"crypto/ed25519"
 	"fmt"
 	"math/big"
 	"testing"
@@ -16,32 +18,31 @@ import (
 )
 
 func anchorRetirementWrites(h *harness) map[string][]interface{} {
-	context := h.fixture["context"][0]
-	id, err := context.Array32("sequencer_id")
-	require.NoError(h.t, err)
-	key, err := context.Array32("sequencer_public_key")
-	require.NoError(h.t, err)
+	key := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x51}, ed25519.SeedSize))
+	id := [32]byte{1}
+	var publicKey [32]byte
+	copy(publicKey[:], key.Public().(ed25519.PublicKey))
 	return map[string][]interface{}{
-		layerxanchor.SubmitCheckpointMethod:          h.checkpointArgs("batch_1_quorum"),
-		layerxanchor.SubmitAvailabilityMethod:        {h.attestation("batch_1_attestation_1")},
+		layerxanchor.SubmitCheckpointMethod:          {[]byte{1}, bytes.Repeat([]byte{2}, ed25519.SignatureSize), []byte{3}},
+		layerxanchor.SubmitAvailabilityMethod:        {[]byte{4}},
 		layerxanchor.FinalizeMethod:                  {uint64(1)},
 		layerxanchor.RegisterGuarantorMethod:         {h.ids[0], h.signers[0]},
 		layerxanchor.IncreaseBondMethod:              {h.ids[0]},
 		layerxanchor.BeginUnbondMethod:               {h.ids[0], big.NewInt(bond / 2)},
 		layerxanchor.CompleteUnbondMethod:            {h.ids[0]},
-		layerxanchor.SubmitEquivocationMethod:        {h.attestation("batch_1_attestation_0"), h.attestation("batch_1_conflicting_attestation_0")},
+		layerxanchor.SubmitEquivocationMethod:        {[]byte{5}, []byte{6}},
 		layerxanchor.OpenChallengeMethod:             {uint64(1), anchortypes.ChallengeFraud, [32]byte{1}},
 		layerxanchor.ResolveChallengeMethod:          {uint64(1), false},
 		layerxanchor.ActivateGuarantorMethod:         {h.ids[0]},
-		layerxanchor.SetSequencerAuthorizationMethod: {id, key, uint64(1), uint64(8)},
+		layerxanchor.SetSequencerAuthorizationMethod: {id, publicKey, uint64(1), uint64(8)},
 	}
 }
 
 func TestRetiredWritesRevertAfterMerge(t *testing.T) {
 	h := newHarness(t, nil)
 	h.bootstrap()
-	_, err := h.submit("batch_1_quorum")
-	require.NoError(t, err)
+	checkpoint := importRetirementCheckpoint(h, anchortypes.CheckpointFinal)
+	var err error
 	const mergeHeight = int64(20)
 	h.app.UpgradeKeeper.SetDone(h.ctx().WithBlockHeight(mergeHeight), pcommon.MergeUpgrade)
 	require.Equal(t, mergeHeight, h.app.UpgradeKeeper.GetDoneHeight(h.ctx(), pcommon.MergeUpgrade))
@@ -55,7 +56,7 @@ func TestRetiredWritesRevertAfterMerge(t *testing.T) {
 		layerxanchor.GuarantorMethod:            {h.ids[0]},
 		layerxanchor.ThresholdMethod:            {},
 		layerxanchor.StatusOfMethod:             {uint64(1)},
-		layerxanchor.CheckpointBatchMethod:      {h.vectorIDForRetirement()},
+		layerxanchor.CheckpointBatchMethod:      {[32]byte(checkpoint.CheckpointID)},
 		layerxanchor.CheckpointGuarantorsMethod: {uint64(1)},
 	}
 	before := make(map[string][]byte)
@@ -88,11 +89,32 @@ func TestRetiredWritesRevertAfterMerge(t *testing.T) {
 	}
 }
 
-func (h *harness) vectorIDForRetirement() [32]byte {
+func importRetirementCheckpoint(h *harness, status uint8) anchortypes.Checkpoint {
 	h.t.Helper()
-	id, err := h.vector("checkpoints", "batch_1_quorum").Array32("checkpoint_id")
-	require.NoError(h.t, err)
-	return id
+	guarantors := make([]anchortypes.Hash32, len(h.ids))
+	for i, id := range h.ids {
+		guarantors[i] = id
+	}
+	checkpoint := anchortypes.Checkpoint{
+		BatchNumber: 1, CheckpointID: anchortypes.Hash32{1}, HeaderDigest: anchortypes.Hash32{4},
+		ProtocolVersion: 1, NetworkID: 125, Epoch: 1, FirstSequence: 1, LastSequence: 2,
+		PreviousStateRoot: anchortypes.Hash32{5}, StateRoot: anchortypes.Hash32{2}, ReceiptRoot: anchortypes.Hash32{3},
+		DataAvailabilityRoot: anchortypes.Hash32{6}, SequencerID: anchortypes.Hash32{1},
+		TimestampMs: uint64(h.ctx().BlockTime().UnixMilli()),
+		Status:      status, DeclaredThreshold: 2, Guarantors: guarantors,
+		Submitter: h.reporter.account.String(), SubmittedHeight: h.ctx().BlockHeight(), SubmittedTime: h.ctx().BlockTime().Unix(),
+	}
+	genesis := h.anchor.ExportGenesis(h.ctx())
+	require.Empty(h.t, genesis.Checkpoints)
+	if status == anchortypes.CheckpointFinal {
+		checkpoint.FinalizedHeight, checkpoint.FinalizedTime = h.ctx().BlockHeight(), h.ctx().BlockTime().Unix()
+		genesis.HasLatestFinalized, genesis.LatestFinalized = true, checkpoint.BatchNumber
+	}
+	genesis.Checkpoints = []anchortypes.Checkpoint{checkpoint}
+	require.NoError(h.t, genesis.Validate())
+	h.anchor.InitGenesis(h.ctx(), *genesis)
+	h.invariant()
+	return checkpoint
 }
 
 func TestWritesServedBeforeMerge(t *testing.T) {
@@ -135,15 +157,50 @@ func TestWritesServedBeforeMerge(t *testing.T) {
 		compare(layerxanchor.RegisterGuarantorMethod, operator, bond, []interface{}{baseline.ids[i], baseline.signers[i]}, 0)
 		compare(layerxanchor.ActivateGuarantorMethod, func(h *harness) party { return h.authority }, 0, []interface{}{baseline.ids[i]}, 0)
 	}
+	compareRetired := func(name string, args []interface{}, signatures uint64) {
+		t.Helper()
+		var expected []byte
+		var expectedGas uint64
+		for index, h := range []*harness{baseline, planned} {
+			meter := sdk.NewInfiniteGasMeter(1, 1)
+			h.stateDB.WithCtx(h.ctx().WithGasMeter(meter))
+			input := h.input(name, args...)
+			wantGas := layerxanchor.WriteBaseGas
+			if name == layerxanchor.SubmitAvailabilityMethod {
+				wantGas = layerxanchor.Gas(false, uint64(len(input)-4), signatures, 0)
+			}
+			require.Equal(t, wantGas, h.precompile.RequiredGas(input))
+			before, events, logs := h.anchor.ExportGenesis(h.ctx()), h.ctx().EventManager().Events(), h.stateDB.GetAllLogs()
+			raw, err := h.precompile.Run(h.evm, h.reporter.address, h.reporter.address, input, nil, false, false, nil)
+			require.ErrorIs(t, err, vm.ErrExecutionReverted)
+			reason, err := abi.UnpackRevert(raw)
+			require.NoError(t, err)
+			require.Contains(t, reason, anchortypes.ErrModuleRetired.Error())
+			require.Equal(t, before, h.anchor.ExportGenesis(h.ctx()))
+			require.Equal(t, events, h.ctx().EventManager().Events())
+			require.Equal(t, logs, h.stateDB.GetAllLogs())
+			gas := meter.GasConsumed()
+			if index == 0 {
+				expected, expectedGas = raw, gas
+			} else {
+				require.Equal(t, expected, raw, name)
+				require.Equal(t, expectedGas, gas, name)
+			}
+		}
+		seen[name] = true
+	}
 	calls := anchorRetirementWrites(baseline)
 	authority := func(h *harness) party { return h.authority }
 	reporter := func(h *harness) party { return h.reporter }
 	operator := func(h *harness) party { return h.operators[1] }
 	compare(layerxanchor.SetSequencerAuthorizationMethod, authority, 0, calls[layerxanchor.SetSequencerAuthorizationMethod], 0)
 	compare(layerxanchor.IncreaseBondMethod, func(h *harness) party { return h.operators[2] }, bond, []interface{}{baseline.ids[2]}, 0)
-	compare(layerxanchor.SubmitCheckpointMethod, reporter, 0, baseline.checkpointArgs("batch_1_below_threshold"), 2)
-	compare(layerxanchor.SubmitAvailabilityMethod, reporter, 0, calls[layerxanchor.SubmitAvailabilityMethod], 1)
-	compare(layerxanchor.SubmitCheckpointMethod, reporter, 0, calls[layerxanchor.SubmitCheckpointMethod], 4)
+	compareRetired(layerxanchor.SubmitCheckpointMethod, []interface{}{[]byte{0xff}, make([]byte, ed25519.SignatureSize), []byte{0xff}}, 0)
+	compareRetired(layerxanchor.SubmitAvailabilityMethod, calls[layerxanchor.SubmitAvailabilityMethod], 1)
+	compareRetired(layerxanchor.SubmitCheckpointMethod, calls[layerxanchor.SubmitCheckpointMethod], 0)
+	for _, h := range []*harness{baseline, planned} {
+		importRetirementCheckpoint(h, anchortypes.CheckpointSubmitted)
+	}
 	challenge := compare(layerxanchor.OpenChallengeMethod, operator, 1_000_000, calls[layerxanchor.OpenChallengeMethod], 0)
 	compare(layerxanchor.ResolveChallengeMethod, authority, 0, []interface{}{challenge[0], false}, 0)
 	for _, h := range []*harness{baseline, planned} {
@@ -155,7 +212,7 @@ func TestWritesServedBeforeMerge(t *testing.T) {
 		h.stateDB.WithCtx(h.ctx().WithBlockTime(h.ctx().BlockTime().Add(time.Duration(unbondingDelay) * time.Second)))
 	}
 	compare(layerxanchor.CompleteUnbondMethod, operator, 0, []interface{}{baseline.ids[1]}, 0)
-	compare(layerxanchor.SubmitEquivocationMethod, reporter, 0, calls[layerxanchor.SubmitEquivocationMethod], 2)
+	compareRetired(layerxanchor.SubmitEquivocationMethod, calls[layerxanchor.SubmitEquivocationMethod], 0)
 	require.Len(t, seen, 12)
 	baseline.invariant()
 	planned.invariant()
@@ -167,8 +224,7 @@ func TestRetiredPayableWriteKeepsValue(t *testing.T) {
 			h := newHarness(t, func(p *anchortypes.Params) { p.ChallengeWindowSeconds = 50 })
 			if name != layerxanchor.RegisterGuarantorMethod {
 				h.bootstrap()
-				_, err := h.submit("batch_1_quorum")
-				require.NoError(t, err)
+				importRetirementCheckpoint(h, anchortypes.CheckpointFinal)
 			}
 			h.app.UpgradeKeeper.SetDone(h.ctx(), pcommon.MergeUpgrade)
 			caller := h.operators[0]

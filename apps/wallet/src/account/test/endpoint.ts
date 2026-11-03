@@ -82,7 +82,7 @@ function mergedRecordings(): Exchange[] {
       request: { method: 'px_listAssets', params: [] },
       response: {
         result: {
-          height: '1000',
+          height: 1000,
           assets: [
             {
               asset_id: 'aa'.repeat(32),

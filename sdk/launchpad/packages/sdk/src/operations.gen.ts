@@ -1,4 +1,12 @@
 import type { ContractTypes as V2ContractTypes } from '@kindle/sdk-v2/types';
+/** Stable operation identifiers for consumers of the generated definitions. */
+export const IF_ALERT_CREATE = "IF_ALERT_CREATE" as const;
+export const IF_ALERT_DELETE = "IF_ALERT_DELETE" as const;
+export const IF_CUP_CURRENT = "IF_CUP_CURRENT" as const;
+export const IF_CUP_GET = "IF_CUP_GET" as const;
+export const IF_CUP_RESULTS = "IF_CUP_RESULTS" as const;
+export const IF_CUP_STANDINGS = "IF_CUP_STANDINGS" as const;
+export const IF_ORDER_CANCEL = "IF_ORDER_CANCEL" as const;
 export interface OperationTypes {
 "IF_CONNECTED_DEVICES":{input:{};response:V2ContractTypes["ConnectedDevicesResponse"]};
 "IF_CONNECTED_ACCOUNT_ASSET_GET":{input:{path:{"wallet":string;"assetId":string}};response:V2ContractTypes["ConnectedAccountAsset"]};
@@ -159,7 +167,7 @@ export interface OperationTypes {
 "IF_STREAM_OPERATION_GET":{input:{path:{"operationId":string}};response:V2ContractTypes["StreamOperationGetResponse"]};
 "IF_STREAM_INGEST_CREDENTIAL":{input:{path:{"streamId":string}};response:V2ContractTypes["StreamIngestCredentialResponse"]};
 "IF_STREAM_HEARTBEAT":{input:{path:{"streamId":string};body:V2ContractTypes["StreamHeartbeatBody"]};response:V2ContractTypes["StreamHeartbeatResponse"]};
-"IF_STREAM_END":{input:{path:{"streamId":string}};response:V2ContractTypes["StreamEndResponse"]};
+"IF_STREAM_END":{input:{path:{"streamId":string};body:V2ContractTypes["StreamStartBody"]};response:V2ContractTypes["StreamEndResponse"]};
 "IF_STREAM_START":{input:{path:{"streamId":string};body:V2ContractTypes["StreamStartBody"]};response:V2ContractTypes["StreamStartResponse"]};
 "IF_CONNECTED_TOKEN_ASSET_GET":{input:{path:{"tokenAddress":string;"assetId":string}};response:V2ContractTypes["ConnectedAssetResponse"]};
 "IF_CONNECTED_TOKEN_ASSET_PUT":{input:{path:{"tokenAddress":string;"assetId":string};body:Blob};response:V2ContractTypes["ConnectedAssetResponse"]};
@@ -5799,7 +5807,7 @@ export const operationDefinitions = {
     "authenticated": true,
     "binaryBody": false,
     "binaryResponse": false,
-    "body": null,
+    "body": "StreamStartBody",
     "cookieSession": false,
     "emptyResponse": false,
     "idempotencyKey": true,

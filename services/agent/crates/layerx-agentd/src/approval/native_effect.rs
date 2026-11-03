@@ -199,7 +199,9 @@ impl NativeEffectApprovalCarrier {
         clock: &dyn layerx_types::clock::Clock,
         policy: &NativeEffectPolicy,
         reservation: &ProgramBudgetReservation,
-        fee: &layerx_client::payments::CommittedSnapshot<layerx_client::payments::NativeFeePolicy>,
+        fee: &layerx_client::rpc::payments::CommittedSnapshot<
+            layerx_client::rpc::payments::NativeFeePolicy,
+        >,
         profile: crate::capability::NativeAdmissionProfile,
     ) -> Result<Self, NativeEffectError> {
         crate::prepare::verify_disclosure_binding(prepared)
@@ -313,14 +315,18 @@ impl NativeEffectApprovalCarrier {
             None => layerx_crypto::disclosure::bind(&self.canonical_bytes, &registry),
         }
         .map_err(|_| NativeEffectError::Corrupt)?;
+        disclosure
+            .validate_canonical(&self.canonical_bytes)
+            .map_err(|error| match error {
+                layerx_crypto::disclosure::DisclosureError::FieldMismatch("canonical_bytes") => {
+                    NativeEffectError::Binding
+                }
+                _ => NativeEffectError::Corrupt,
+            })?;
         if disclosure
-            .reencode()
+            .audit_digest()
             .map_err(|_| NativeEffectError::Corrupt)?
-            != self.canonical_bytes
-            || disclosure
-                .audit_digest()
-                .map_err(|_| NativeEffectError::Corrupt)?
-                != self.disclosure_digest
+            != self.disclosure_digest
             || disclosure.actor != self.actor
         {
             return Err(NativeEffectError::Binding);

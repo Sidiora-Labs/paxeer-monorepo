@@ -9,7 +9,6 @@
 #include "layerx/lx_service.h"
 #include "layerx/lx_spot.h"
 #include "layerx/lx_stream.h"
-#include "layerx/lxp_bridge_credit.h"
 
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_authority.h"
@@ -49,7 +48,10 @@ _Static_assert(sizeof(module_enable_prefix) ==
 /* The single genesis module registration table.  Every genesis consumer - the
  * protocol state root, the genesis builder, the daemon, the guarantor runtime
  * and the module registry - registers exactly these modules in this order, so
- * adding a module is one row here. */
+ * adding a module is one row here. Activity lists come from each module's
+ * interface: the asset interface includes its eight live activities and
+ * excludes the retired receive/grant ordinals (6, 7 and 8). Genesis must not
+ * reconstruct a contiguous ordinal range from the asset constants. */
 static const lxp_genesis_module_entry module_table[] = {
     {LXP_MODULE_PROGRAMS, LXP_GENESIS_MODULE_GATE_ALWAYS, true,
      programs_module_registration_v4},
@@ -171,6 +173,26 @@ static lxp_result module_enable_flag(const lxp_genesis_manifest *manifest,
     return LXP_OK;
 }
 
+static lxp_result programs_storage_retirement_flag(
+    const lxp_genesis_manifest *manifest, bool *enabled)
+{
+    static const uint8_t key[32] = LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER;
+    bool present = false;
+    *enabled = false;
+    for (size_t index = 0U; index < manifest->parameter_count; ++index) {
+        const lxp_genesis_parameter *parameter = &manifest->parameters[index];
+        if (memcmp(parameter->key, key, 32U) != 0) continue;
+        if (parameter->module_id != LXP_MODULE_GOVERNANCE)
+            return LXP_ERR_NON_CANONICAL;
+        if (present) return LXP_ERR_SEQUENCE_REUSED;
+        if (!lxp_ct_is_zero(parameter->value, 31U) || parameter->value[31] > 1U)
+            return LXP_ERR_NON_CANONICAL;
+        present = true;
+        *enabled = parameter->value[31] == 1U;
+    }
+    return LXP_OK;
+}
+
 static lxp_result module_enable_flags_known(
     const lxp_genesis_manifest *manifest)
 {
@@ -179,7 +201,9 @@ static lxp_result module_enable_flags_known(
     for (index = 0U; index < manifest->parameter_count; ++index) {
         const lxp_genesis_parameter *parameter = &manifest->parameters[index];
         size_t entry;
-        bool known = false;
+        static const uint8_t retirement_key[32] =
+            LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER;
+        bool known = memcmp(parameter->key, retirement_key, 32U) == 0;
         if (parameter->module_id != LXP_MODULE_GOVERNANCE ||
             memcmp(parameter->key, module_enable_prefix,
                    LXP_GENESIS_MODULE_ENABLE_PREFIX_BYTES) != 0)
@@ -302,6 +326,7 @@ static lxp_result genesis_governance_authority(
 lxp_result lxp_genesis_module_plan_resolve(
     const lxp_genesis_manifest *manifest, lxp_genesis_module_plan *plan)
 {
+    bool storage_retirement = false;
     bool oracle_transport = false;
     bool order_tif = false;
     bool perps_selected = false;
@@ -321,6 +346,8 @@ lxp_result lxp_genesis_module_plan_resolve(
             return LXP_ERR_UNKNOWN_MODULE;
     status = module_table_validate();
     if (status == LXP_OK) status = module_enable_flags_known(manifest);
+    if (status == LXP_OK)
+        status = programs_storage_retirement_flag(manifest, &storage_retirement);
     if (status == LXP_OK) status = perps_oracle_transport(manifest, &oracle_transport);
     if (status == LXP_OK) status = perps_order_tif(manifest, &order_tif);
     if (status == LXP_OK && order_tif && !oracle_transport) status = LXP_ERR_VERSION_UNSUPPORTED;
@@ -355,6 +382,8 @@ lxp_result lxp_genesis_module_plan_resolve(
             return LXP_ERR_UNKNOWN_MODULE;
         }
         if (selected) {
+            if (entry->module_id == LXP_MODULE_PROGRAMS && storage_retirement)
+                iface = programs_module_registration_v4_storage_retirement();
             if (entry->module_id == LXP_MODULE_PERPS) {
                 perps_selected = true;
                 if (oracle_transport) iface = lx_perps_oracle_transport_module_iface();
@@ -479,92 +508,8 @@ lxp_result lxp_genesis_custody_asset_id(size_t index, uint8_t asset_id[32])
                            strlen(custody_asset_ids[index]), asset_id);
 }
 
-static lxp_result registry_profiles(const lxp_genesis_manifest *manifest,
-                                    lxp_bridge_profile profiles[4], bool *present)
-{
-    size_t count = 0U;
-    *present = false;
-    for (size_t i = 0U; i < LXP_GENESIS_CUSTODY_ASSET_COUNT; ++i) {
-        uint8_t asset_id[32];
-        bool found = false;
-        lxp_result status = lxp_genesis_custody_asset_id(i, asset_id);
-        if (status == LXP_OK)
-            status = lxp_bridge_registry_profile(manifest, asset_id, &profiles[i], &found);
-        if (status != LXP_OK) return status;
-        if (found) ++count;
-    }
-    if (count != 0U && count != LXP_GENESIS_CUSTODY_ASSET_COUNT)
-        return LXP_ERR_UNKNOWN_FIELD;
-    *present = count == LXP_GENESIS_CUSTODY_ASSET_COUNT;
-    return LXP_OK;
-}
-
-static lxp_result validate_registry_accounts(const lxp_genesis_manifest *manifest,
-                                             const lxp_bridge_profile profiles[4])
-{
-    static const char *const symbols[] = {"PAX", "SID", "USDC", "USDL"};
-    bool reserves[4] = {false, false, false, false};
-    lxp_genesis_manifest *legacy = (lxp_genesis_manifest *)malloc(sizeof(*legacy));
-    lxp_result status = LXP_OK;
-    if (legacy == NULL) return LXP_ERR_IO;
-    *legacy = *manifest;
-    legacy->account_count = 0U;
-    for (size_t i = 0U; status == LXP_OK && i < manifest->account_count; ++i) {
-        const lxp_genesis_account *account = &manifest->accounts[i];
-        bool registry_reserve = false;
-        int order = i == 0U ? -1 : memcmp(manifest->accounts[i - 1U].asset_id, account->asset_id, 32U);
-        if (i != 0U && order == 0)
-            order = memcmp(manifest->accounts[i - 1U].account_id, account->account_id, 32U);
-        if (order >= 0) { status = LXP_ERR_UNSORTED_SEQUENCE; break; }
-        for (size_t j = 0U; j < 4U; ++j) {
-            if (memcmp(account->account_id, profiles[j].bytes + 129U, 32U) != 0) continue;
-            if (reserves[j] || account->subaccount_kind != LX_ACCOUNT_SYSTEM_PAXEER_RESERVE ||
-                memcmp(account->asset_id, profiles[j].bytes + 97U, 32U) != 0 ||
-                !lxp_u128_is_zero(account->balance) || account->locked ||
-                !lxp_ct_is_zero(account->parent_account_id, 32U)) {
-                status = LXP_ERR_NON_CANONICAL; break;
-            }
-            reserves[j] = true;
-            registry_reserve = true;
-            break;
-        }
-        if (status == LXP_OK && !registry_reserve) {
-            if (memcmp(account->asset_id, profiles[0].bytes + 97U, 32U) != 0)
-                status = LXP_ERR_ASSET_MISMATCH;
-            else legacy->accounts[legacy->account_count++] = *account;
-        }
-    }
-    if (status == LXP_OK) status = validate_legacy_accounts(legacy);
-    for (size_t j = 0U; status == LXP_OK && j < 4U; ++j) {
-        size_t matches = 0U;
-        if (!reserves[j]) { status = LXP_ERR_UNKNOWN_FIELD; break; }
-        for (size_t i = 0U; i < manifest->module_value_count; ++i) {
-            const lxp_genesis_module_value *value = &manifest->module_values[i];
-            lx_asset_record record;
-            if (value->module_id != LXP_MODULE_ASSET ||
-                memcmp(value->key, profiles[j].bytes + 97U, 32U) != 0) continue;
-            ++matches;
-            if (lx_asset_record_decode(value->value, value->value_length, &record) != LXP_OK ||
-                memcmp(record.asset_id, value->key, 32U) != 0 || record.paused ||
-                record.issuer_kind != 2U || record.custody_kind != LX_ASSET_CUSTODY_PAXEER ||
-                record.symbol_length != strlen(symbols[j]) ||
-                memcmp(record.symbol, symbols[j], strlen(symbols[j])) != 0 ||
-                record.name_length == 0U || lxp_ct_is_zero(record.issuer_did32, 32U) ||
-                lxp_ct_is_zero(record.salt, 32U) || record.custody_reference_length == 0U ||
-                lxp_ct_is_zero(record.custody_reference, record.custody_reference_length) ||
-                !lxp_u128_is_zero(record.total_units)) status = LXP_ERR_NON_CANONICAL;
-        }
-        if (status == LXP_OK && matches != 1U) status = LXP_ERR_UNKNOWN_FIELD;
-    }
-    lxp_secure_zero(legacy, sizeof(*legacy));
-    free(legacy);
-    return status;
-}
-
 static lxp_result validate(const lxp_genesis_manifest *manifest)
 {
-    lxp_bridge_profile bridge;
-    bool bridge_present;
     size_t i;
     lxp_governance_authority authority;
     lxp_result authority_status;
@@ -610,19 +555,8 @@ static lxp_result validate(const lxp_genesis_manifest *manifest)
                 manifest->guarantors[i].guarantor_id, 32U) >= 0))
             return LXP_ERR_UNSORTED_SEQUENCE;
     }
-    lxp_bridge_profile profiles[4];
-    bool registry_present = false;
-    lxp_result registry_status = registry_profiles(manifest, profiles, &registry_present);
-    if (registry_status != LXP_OK) return registry_status;
-    registry_status = registry_present ? validate_registry_accounts(manifest, profiles) :
-                                       validate_legacy_accounts(manifest);
-    if (registry_status != LXP_OK) return registry_status;
-    if (lxp_bridge_genesis_profile(manifest, &bridge, &bridge_present) != LXP_OK ||
-        (registry_present && !bridge_present) ||
-        (bridge_present && memcmp(bridge.bytes + 97U,
-                                  registry_present ? profiles[0].bytes + 97U :
-                                                     manifest->accounts[0].asset_id, 32U) != 0))
-        return LXP_ERR_NON_CANONICAL;
+    lxp_result account_status = validate_legacy_accounts(manifest);
+    if (account_status != LXP_OK) return account_status;
     for (i = 0U; i < manifest->module_value_count; ++i) {
         if (manifest->module_values[i].module_id == 0U ||
             manifest->module_values[i].module_id > LXP_MODULE_RESERVED_COUNT ||
@@ -946,14 +880,7 @@ static lxp_result materialize_account(const lxp_genesis_account *source,
 {
     const char *name = source == NULL ? NULL :
         fresh_system_name(source->subaccount_kind);
-    uint8_t reserve_name[LX_ACCOUNT_NAME_MAX];
-    size_t reserve_length = 0U;
-    uint8_t reserve_id[32];
-    if (source != NULL && source->subaccount_kind == LX_ACCOUNT_SYSTEM_PAXEER_RESERVE &&
-        lxp_bridge_reserve_name(source->asset_id, reserve_name, sizeof(reserve_name), &reserve_length) == LXP_OK &&
-        lx_account_id_from_string(reserve_name, reserve_length, reserve_id) == LXP_OK &&
-        memcmp(reserve_id, source->account_id, 32U) == 0) name = (const char *)reserve_name;
-    size_t length = name == (const char *)reserve_name ? reserve_length : (name == NULL ? 0U : strlen(name));
+    size_t length = name == NULL ? 0U : strlen(name);
     if (source == NULL || target == NULL || name == NULL ||
         length > LX_ACCOUNT_NAME_MAX)
         return LXP_ERR_NON_CANONICAL;
@@ -1016,16 +943,12 @@ lxp_result lxp_genesis_parameter_version(
 lxp_result lxp_genesis_materialize(const lxp_genesis_manifest *manifest,
                                    lxp_arena *arena, lxp_kernel *kernel)
 {
-    lxp_bridge_profile bridge;
-    bool bridge_present = false;
     lxp_genesis_module_plan plan;
     lx_account_registry *accounts;
     uint8_t commitment[32];
     uint32_t parameter_version;
     size_t index;
     lxp_result status = validate(manifest);
-    if (status == LXP_OK)
-        status = lxp_bridge_genesis_profile(manifest, &bridge, &bridge_present);
     if (status == LXP_OK)
         status = lxp_genesis_module_plan_resolve(manifest, &plan);
     if (status != LXP_OK || arena == NULL || kernel == NULL ||
@@ -1067,19 +990,6 @@ lxp_result lxp_genesis_materialize(const lxp_genesis_manifest *manifest,
          index < manifest->module_value_count; ++index)
         status = module_value_materialize(&manifest->module_values[index],
                                           kernel);
-    if (status == LXP_OK && bridge_present) {
-        lxp_bridge_profile profiles[4];
-        bool registry_present = false;
-        status = registry_profiles(manifest, profiles, &registry_present);
-        for (size_t i = 0U; status == LXP_OK && i < (registry_present ? 4U : 1U); ++i) {
-            uint8_t supply_key[47] = "custody-issued:";
-            const uint8_t zero[16] = {0};
-            const lxp_bridge_profile *profile = registry_present ? &profiles[i] : &bridge;
-            (void)memcpy(supply_key + 15U, profile->bytes + 97U, 32U);
-            status = kernel_insert(kernel, LXP_MODULE_BRIDGE, supply_key,
-                                   sizeof(supply_key), zero, sizeof(zero));
-        }
-    }
     if (status == LXP_OK)
         status = lxp_genesis_manifest_commitment(manifest, arena, commitment);
     if (status == LXP_OK)

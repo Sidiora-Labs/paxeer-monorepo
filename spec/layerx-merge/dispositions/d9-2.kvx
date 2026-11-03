@@ -1,0 +1,125 @@
+[disposition.9.2.2.2]
+finding = "9.2.2.2"
+status = "resolved"
+evidence = "Commits 4a56c7008 and 7f76ae62b ported the agentd callers to verify_kernel_before_submit and the custody caller to SigningPreparation with a decoded 65-byte EVM signature, as retained at services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs:126, services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:203 and services/human/crates/layerx-human-service/tests/custody.rs:466."
+
+[disposition.9.2.4.1]
+finding = "9.2.4.1"
+status = "resolved"
+evidence = "Commit edf5727c3 explicitly maps OwnerRotation::Unsupported to HumanOperationError::Refused before applying the question-mark operator at services/agent/crates/layerx-agentd/src/session_control.rs:688."
+
+[disposition.9.3.1]
+finding = "9.3.1"
+status = "resolved"
+evidence = "Commit 06862bc6c migrated the stale human-runtime state references and maps WriteStage::Acknowledged to SubmissionState::Submitted at services/agent/crates/layerx-agentd/src/shutdown.rs:42, while consumed nonces now produce Failed at services/agent/crates/layerx-agentd/src/outbox/mod.rs:417."
+
+[disposition.9.3.1.1]
+finding = "9.3.1.1"
+status = "resolved"
+evidence = "Commit 06862bc6c made committed_is_reached_only_from_executed use EvidenceAuthority::pinned_to_handshake at services/agent/crates/layerx-agentd/tests/outbox_tx_hash.rs:155, so the task test no longer invokes the fixture that requires layerxd and layerx-genesis-build."
+
+[disposition.9.3.1.2]
+finding = "9.3.1.2"
+status = "resolved"
+evidence = "Commit adb2e7429 removed the deleted boot::handshake_gate import and split the support into a direct LNI handshake and node readiness gate, retained at services/agent/crates/layerx-agentd/tests/support/real_authority.rs:5, services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1405 and services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1463."
+
+[disposition.9.3.1.3]
+finding = "9.3.1.3"
+status = "open"
+evidence = "The shared release harness still requires LAYERX_TEST_PAXEER_CHAIN_ID at services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1441, but services/agent/tools/run-real-node-tests.sh:48 invokes the generic make target without provisioning the chain variables that tools/qualification/paxeer-x/caps-codecs.py:74 supplies."
+follow_up = "22.9.8"
+
+[disposition.9.3.1.4]
+finding = "9.3.1.4"
+status = "resolved"
+evidence = "Commit 4a56c7008 ported both stale enqueue callers to enqueue_with_origin and its returned transaction hash, retained at services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs:147 and services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:218."
+
+[disposition.9.3.2]
+finding = "9.3.2"
+status = "resolved"
+evidence = "services/agent/crates/layerx-agent-api/src/error.rs:116 defines ApiError::idempotent_replay(RequestId) with result code -302 and reason idempotent_replay, satisfying the call at services/agent/crates/layerx-agentd/src/idempotency.rs:213."
+
+[disposition.9.3.3.1]
+finding = "9.3.3.1"
+status = "resolved"
+evidence = "Commit f2560cd87 made the named task tests serve signed receipts and pending-nonce responses on loopback at services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs:316 and services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs:340, retaining the external fixture only in the separate release test at services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs:365."
+
+[disposition.9.4.1]
+finding = "9.4.1"
+status = "resolved"
+evidence = "services/agent/crates/layerx-agentd/src/admin.rs:580 calls wait_for_rung, and services/agent/crates/layerx-agentd/src/human_runtime.rs:12449 and services/agent/crates/layerx-agentd/src/human_runtime.rs:13439 call augment_verified with a verified receipt and optional block rather than the removed proof-bundle/checkpoint argument pair."
+
+[disposition.9.5.1]
+finding = "9.5.1"
+status = "superseded"
+evidence = "Commit f0aa4ee07 deleted services/interop/crates/layerx-mirror/src/node.rs with the retired LNI mirror source, and services/interop/crates/layerx-mirror/src/publisher.rs:643 now declares MirrorFreshness with committed coordinates instead of constructing the removed agent-api Freshness shape."
+
+[disposition.9.5.2]
+finding = "9.5.2"
+status = "superseded"
+evidence = "Commit f0aa4ee07 removed the legacy mirror node module, while services/interop/crates/layerx-mirror/src/committed.rs:49 supplies CommittedBlockSource and services/interop/crates/layerx-mirror/src/publisher.rs:643 uses MirrorFreshness without RelativeTo::Checkpoint or the old CheckpointValue constructor."
+
+[disposition.9.5.3]
+finding = "9.5.3"
+status = "resolved"
+evidence = "Commit e841fd694 added SequencerBlock.receipts_root and block_number with receiptsRoot decoding, retained at services/agent/crates/layerx-client/src/sequencer.rs:205, services/agent/crates/layerx-client/src/sequencer.rs:524 and services/agent/crates/layerx-client/src/sequencer.rs:1058, and services/agent/crates/layerx-agentd/src/read/mod.rs:22 exports AvailabilityReadError instead of the deleted availability types."
+
+[disposition.9.5.3.1]
+finding = "9.5.3.1"
+status = "resolved"
+evidence = "Commit f40f12cf7 replaced all six scalar Cursor constructors in services/agent/crates/layerx-agent-api/tests/stream.rs with block_height, tx_index and log_index struct literals, beginning at services/agent/crates/layerx-agent-api/tests/stream.rs:43."
+
+[disposition.9.5.3.2]
+finding = "9.5.3.2"
+status = "resolved"
+evidence = "Commit 042dc5bcf supplied receipts_root in both previously incomplete SequencerBlock literals, retained at services/agent/crates/layerx-client/tests/batch_rpc.rs:134 and services/agent/crates/layerx-client/tests/evidence_rpc.rs:133."
+
+[disposition.9.5.7.1]
+finding = "9.5.7.1"
+status = "resolved"
+evidence = "Commit 40ee059e4 made native_receipt_route_serves_a_signed_receipt start its own JSON-RPC listener with serve(receipt_exchanges()) at services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs:301, removing the missing external URL and receipt-hash prerequisites."
+
+[disposition.9.5.9.1]
+finding = "9.5.9.1"
+status = "resolved"
+evidence = "Commit 042dc5bcf added receiptsRoot to the sequencer response fixture and receipts_root to the third SequencerBlock literal, retained at services/agent/crates/layerx-client/tests/sequencer.rs:850."
+
+[disposition.9.5.10.1]
+finding = "9.5.10.1"
+status = "resolved"
+evidence = "Commit 37888aa9c ported the host payer away from current_height, prepare_budget and the one-argument prepare_draw, with the signed ledger grant path retained at services/agent/crates/layerx-agentd-host/src/payer.rs:341 and the CommittedProgramBalanceFreshness re-export present at services/agent/crates/layerx-agentd/src/read/mod.rs:30."
+
+[disposition.9.6.2]
+finding = "9.6.2"
+status = "resolved"
+evidence = "Commit 64ab4a5c3 supplied tx_hash, nonce and rung as None on the policy-decision Entry literal at services/agent/crates/layerx-agentd/src/approval/events.rs:113."
+
+[disposition.9.7.2.1]
+finding = "9.7.2.1"
+status = "resolved"
+evidence = "Commit ed1b9b302 replaced CapabilityGrantRevoked with InvalidationReason::GrantRevokedOnChain in the MCP scope test at services/agent/crates/layerx-mcp/tests/scope.rs:525."
+
+[disposition.9.7.3.1]
+finding = "9.7.3.1"
+status = "resolved"
+evidence = "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs:829 now expects account_binding::ADDR_PRECOMPILE, defined as 0x1004 at services/agent/crates/layerx-client/src/account_binding.rs:15, and services/agent/crates/layerx-agentd/src/tenant.rs:120 classifies AgentRegister and SessionOpen as Prepare as introduced by d796727bb."
+
+[disposition.9.10.2.1]
+finding = "9.10.2.1"
+status = "resolved"
+evidence = "Commit 1d0cc3720 replaced the ambiguous wind-down selector with selector_route, selector_deprecate, selector_tombstone and selector_exit on NativeProgramWindDownRequest at services/agent/schema/agent-api/programs.kvx:43."
+
+[disposition.9.11.1]
+finding = "9.11.1"
+status = "resolved"
+evidence = "Commit 051d11e3a ported the API cursor and its delivery, gap, outbound and RPC users to block-position triples, retained in services/agent/crates/layerx-agent-api/src/stream.rs:120, services/agent/crates/layerx-agentd/src/events/subscription.rs:99 and services/agent/crates/layerx-agentd/src/events/deliver.rs:243."
+
+[disposition.9.12.2]
+finding = "9.12.2"
+status = "resolved"
+evidence = "Commit 70ce262d3 made the readiness tests construct loopback NodeRpcConfig values using empty_node_config at services/agent/crates/layerx-agentd/tests/handshake_gate.rs:89 and services/agent/crates/layerx-agentd/tests/readiness_node_rpc.rs:15, so daemon_is_not_ready_without_receipt_keys no longer reads a missing external node URL."
+
+[disposition.9.12.3]
+finding = "9.12.3"
+status = "resolved"
+evidence = "Commit 5609ec802 ported the verifier to config.receipt_key_source and PROTOCOL_VERSION at services/agent/crates/layerx-agentd/src/protocol_evidence.rs:175 and services/agent/crates/layerx-agentd/src/protocol_evidence.rs:260, while services/agent/crates/layerx-agentd/src/boot.rs:77 uses the node readiness interface without the removed StartupConfig fields."

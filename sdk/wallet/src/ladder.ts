@@ -17,7 +17,11 @@ export interface LadderStep {
   state: string;
 }
 
-export const LADDER_RUNGS: readonly LadderRung[] = ['submitted', 'receipted', 'committed'];
+export const LADDER_RUNGS: readonly LadderRung[] = Object.freeze([
+  'submitted',
+  'receipted',
+  'committed',
+]);
 
 const EXPLORER_TABLE: Readonly<Record<SequencerRung, LadderRung | null>> = Object.freeze({
   submitted: 'submitted',
@@ -63,11 +67,13 @@ export const statusLadder: Readonly<{
   tables: Object.freeze({ explorer: EXPLORER_TABLE, journey: JOURNEY_TABLE }),
   fromSequencerReceipt(answer: SequencerReceiptAnswer): readonly LadderStep[] {
     const highestRung = answer.status === '0x0' ? 'submitted' : answer.rung;
-    return LADDER_RUNGS.slice(0, rank(highestRung) + 1).map((rung): LadderStep => ({
-      rung,
-      source: 'receipt',
-      state: answer.rung,
-    }));
+    return LADDER_RUNGS.slice(0, rank(highestRung) + 1).map(
+      (rung): LadderStep => ({
+        rung,
+        source: 'receipt',
+        state: answer.rung,
+      })
+    );
   },
   fromExplorer(status: ExplorerTransactionStatus | SequencerRung): LadderStep {
     return lookup(EXPLORER_TABLE, 'explorer', typeof status === 'string' ? status : status.rung);
@@ -131,7 +137,12 @@ export async function readExplorerStatus(
 }
 
 export type TransferTruth =
-  'submitted' | 'pending' | 'unknown' | 'replaced' | 'reverted' | 'included';
+  | 'submitted'
+  | 'pending'
+  | 'unknown'
+  | 'replaced'
+  | 'reverted'
+  | 'included';
 
 export interface TransferIntent {
   sender: string;
@@ -422,15 +433,16 @@ export async function observeTransfer(
         warning = error instanceof Error ? error.message : 'Explorer evidence unavailable';
       }
     }
-    if (
-      sequencer !== null &&
-      (sequencer.rung !== 'committed' ||
-        steps.some((step) => step.source === 'explorer' && step.rung === 'committed'))
-    ) {
+    if (sequencer !== null) {
+      const rung =
+        sequencer.rung !== 'committed' ||
+        steps.some((step) => step.source === 'explorer' && step.rung === 'committed')
+          ? sequencer.rung
+          : 'receipted';
       steps.unshift({
-        rung: sequencer.rung,
+        rung,
         source: 'receipt',
-        state: `${sequencer.rung}:${blockHash}`,
+        state: `${rung}:${blockHash}`,
       });
     }
     return {

@@ -1,0 +1,124 @@
+[disposition.8.0.4.1]
+finding = "8.0.4.1"
+status = "resolved"
+evidence = "Commit c17c00329 removed unconfigured kernel backends from readiness and stopped gating chain-only completeness on product routes, as services/platform/hosted/gateway/src/main.rs:3725 shows."
+
+[disposition.8.1.1]
+finding = "8.1.1"
+status = "environment"
+evidence = "services/platform/hosted/gateway/tests/degraded.rs:103 starts an external redis-server executable before the gateway, so the recorded missing binary was a qualification-environment prerequisite rather than a receipt-key implementation defect."
+
+[disposition.8.1.1.1]
+finding = "8.1.1.1"
+status = "resolved"
+evidence = "Commit c0b6a66b0 ported indexer market and reputation proofs to block_height, block_hash, app_hash and store_proof_digest, with the current FinalityEvidence construction at services/platform/hosted/indexer/src/ai_market.rs:883 using those fields."
+
+[disposition.8.1.4]
+finding = "8.1.4"
+status = "resolved"
+evidence = "Commit 6dad93a33 corrected the fixture chain ID to 0x7d and flushed its TLS response with close_notify, while services/platform/hosted/gateway/tests/paxeer_failover.rs:461 retains byte-for-byte receipt relay assertions and a positive upstream request count."
+
+[disposition.8.1.4.1]
+finding = "8.1.4.1"
+status = "resolved"
+evidence = "Commits 9a7022b28 and 6dad93a33 ported the client FinalityEvidence construction to block-commit fields and repaired the relay fixture respectively, as services/agent/crates/layerx-client/src/ai_market.rs:270 and services/platform/hosted/gateway/tests/paxeer_failover.rs:461 show."
+
+[disposition.8.1.5]
+finding = "8.1.5"
+status = "resolved"
+evidence = "Commit c0b6a66b0 ported indexer ReadProof and FinalityEvidence construction and the gateway binding serializer to v2 fields, retained at services/platform/hosted/indexer/src/ai_market.rs:407, services/platform/hosted/indexer/src/ai_reputation.rs:428 and services/platform/hosted/gateway/src/ai_views.rs:235."
+
+[disposition.8.1.5.1]
+finding = "8.1.5.1"
+status = "resolved"
+evidence = "Commit c0b6a66b0 replaced the three obsolete webhook binding.checkpoint accesses with store_proof_digest, which services/platform/hosted/webhooks/src/ai_market.rs:924, services/platform/hosted/webhooks/src/ai_market.rs:944 and services/platform/hosted/webhooks/src/ai_market.rs:1067 still use."
+
+[disposition.8.1.5.2]
+finding = "8.1.5.2"
+status = "resolved"
+evidence = "Commit c0b6a66b0 replaced settlement-document certificate verification with pinned-validator block-commit verification in projector admission and promotion, as services/platform/hosted/indexer/src/ai_reputation.rs:373, services/platform/hosted/indexer/src/ai_reputation.rs:408 and services/platform/hosted/indexer/src/ai_market.rs:1457 show."
+
+[disposition.8.1.6]
+finding = "8.1.6"
+status = "resolved"
+evidence = "Commits c0b6a66b0 and 60ba879e7 ported webhook bindings and delivery fixtures to v2 and replaced the retired certificate verifier with verify_block_commit, whose binding checks remain at services/platform/hosted/webhooks/src/ai_market.rs:900."
+
+[disposition.8.4.4.1]
+finding = "8.4.4.1"
+status = "resolved"
+evidence = "The landed 5e4a8feff retains SELECTOR_GET_ASSET at services/platform/hosted/gateway/src/evm.rs:49, and custody_asset still uses that declared selector for the ledger read at services/platform/hosted/gateway/src/paxeer.rs:696."
+
+[disposition.8.4.4.2]
+finding = "8.4.4.2"
+status = "resolved"
+evidence = "Commit 266364186 refreshed the platform lockfile after the registry manifest dropped layerx-programs-protocol-adapter, and the current registry dependency list at services/platform/Cargo.lock:1546 omits that retired dependency."
+
+[disposition.8.4.4.3]
+finding = "8.4.4.3"
+status = "resolved"
+evidence = "Commit 4302f6a88 removed the stale evm::CUSTODY_PRECOMPILE assertion from asset_chain_answer in services/platform/hosted/gateway/tests/one_source_reads.rs while preserving its ledger-precompile and block-height checks."
+
+[disposition.8.5.1]
+finding = "8.5.1"
+status = "resolved"
+evidence = "Commit 82845dfb4 removed px_getBalances from kernel_backend and replaced the degraded refusal assertion with the chain balance result, retained at services/platform/hosted/gateway/src/rpc.rs:24 and services/platform/hosted/gateway/tests/degraded.rs:594."
+
+[disposition.8.5.2.1]
+finding = "8.5.2.1"
+status = "resolved"
+evidence = "Commit cd712b309 completed the domain-6 activation and registration gate, recorded done at spec/layerx-merge/spec.kvx:140511, so the retained 6.0.3 sequencing requirement of the now-completed 8.5.2 is no longer unmet."
+
+[disposition.8.5.2.2]
+finding = "8.5.2.2"
+status = "resolved"
+evidence = "Commit f7e693b7a ported registry node_state to VerifiedChainHead and chain commitment evidence, replacing ProtocolHeadMaintenanceProof and from_protected_history uses, with the current imports at services/platform/hosted/registry/src/node_state.rs:4 showing the replacement types."
+
+[disposition.8.5.2.4]
+finding = "8.5.2.4"
+status = "resolved"
+evidence = "Commit 3bef0b5e5 removed px_listAssets from the public-core kernel routing arm, and services/platform/hosted/gateway/src/rpc.rs:24 now gates only px_requestFunds on a kernel backend."
+
+[disposition.8.5.3.1]
+finding = "8.5.3.1"
+status = "resolved"
+evidence = "The task symbol list at spec/layerx-merge/spec.kvx:152840 names only get_network and px_get_network_reports_the_consensus_head, matching the surviving implementation after commit 1348dcd2f removed anchor_head."
+
+[disposition.8.5.3.2]
+finding = "8.5.3.2"
+status = "resolved"
+evidence = "Commit 2a6feafe6 replaced all four obsolete network.kernel assertions with consensus-unavailable and Paxeer chain assertions, retained at services/platform/hosted/gateway/tests/degraded.rs:610, services/platform/hosted/gateway/tests/degraded.rs:652, services/platform/hosted/gateway/tests/degraded.rs:792 and services/platform/hosted/gateway/tests/degraded.rs:912."
+
+[disposition.8.7.2]
+finding = "8.7.2"
+status = "resolved"
+evidence = "Commit eda636aa0 removed the deleted explorer types and assertions from browser_profiles.rs, while spec/layerx-merge/spec.kvx:152968 lists only explorer_program_paths_are_not_proxied as the task symbol."
+
+[disposition.8.7.4.1]
+finding = "8.7.4.1"
+status = "resolved"
+evidence = "Commit 1411a12a6 implemented the owner-approved script-corpus scan at services/platform/hosted/gateway/tests/test_retired_activity_scripts.py:24, which scans shell, JavaScript and JSON files outside local and therefore excludes Rust refusal tests."
+
+[disposition.8.8.1]
+finding = "8.8.1"
+status = "resolved"
+evidence = "Commit 6b9420582 ported the agent-boundary dependency layerx-agentd adapters, runtime, exports and proof reads to the reshaped API, with current Rung and Freshness imports at services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:22 and the proof reader using Rung at services/agent/crates/layerx-agentd/src/read/proof_bundle.rs:35."
+
+[disposition.8.11.1]
+finding = "8.11.1"
+status = "resolved"
+evidence = "Commits 1866e77a1 and 6b9420582 ported the SDK and daemon read types, and services/agent/crates/layerx-sdk/src/agent_envelope.rs:1443 now constructs ReadRequest with requested_rung instead of the removed requested_verification_level field."
+
+[disposition.8.11.2.1]
+finding = "8.11.2.1"
+status = "resolved"
+evidence = "Commit 354282d35 added validated pinned-key history construction and ChainReceipts::pinned_keys, while the current services/platform/hosted/authority/src/trust.rs:31 snapshot reads that accessor and services/platform/hosted/authority/src/trust.rs:47 validates the pinned authorization list directly."
+
+[disposition.8.11.2.2]
+finding = "8.11.2.2"
+status = "resolved"
+evidence = "Commit f40f12cf7 replaced all six tuple Cursor constructions with block_height, tx_index and log_index struct literals, as services/agent/crates/layerx-agent-api/tests/stream.rs:43 and its remaining cursor fixtures show."
+
+[disposition.8.11.3.1]
+finding = "8.11.3.1"
+status = "resolved"
+evidence = "Commit 622f52719 retained the still-used socket fields during receipt migration, then dc9afac57 ported budget sessions and fee6cbfed ported checkpoints before deleting the fields, leaving services/platform/hosted/authority/src/human/budget_state.rs:80 and services/platform/hosted/authority/src/main.rs:677 reading through chain_rpc_url."

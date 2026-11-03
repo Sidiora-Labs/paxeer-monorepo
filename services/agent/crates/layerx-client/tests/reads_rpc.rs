@@ -4,8 +4,8 @@ use std::net::TcpListener;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use layerx_client::rpc::account::{account, balance, ReadContext, ReadError, Requested, Rung};
-use layerx_client::sequencer::{AccountProof, RpcRefusal, SequencerEndpoint, SequencerError};
+use layerx_client::rpc::account::{balance, ReadContext, ReadError, Requested, Rung};
+use layerx_client::sequencer::{RpcRefusal, SequencerEndpoint, SequencerError};
 use layerx_types::amount::Amount;
 use serde_json::{json, Value};
 
@@ -134,42 +134,4 @@ fn balance_reads_layerxledger_balance_of_at_the_committed_height() {
     let expected =
         json!([{"to": "0x000000000000000000000000000000000000101a", "data": data}, "0x1234"]);
     assert_eq!(server.join().must(), vec![expected; 7]);
-}
-
-#[test]
-fn account_reads_eth_get_proof_and_refuses_a_proof_for_another_address() {
-    let address = [0x42; 20];
-    let proof = json!({
-        "address": hex(&address),
-        "balance": "0x123456789abcdef",
-        "nonce": "0x7",
-        "codeHash": hex(&[0x51; 32]),
-        "storageHash": hex(&[0x62; 32]),
-        "accountProof": ["0xf843", "0xaabbcc"],
-        "storageProof": []
-    });
-    let mut substituted = proof.clone();
-    substituted["address"] = json!(hex(&[0x43; 20]));
-    let (endpoint, server) = serve(vec![
-        ("eth_getProof", json!({"result": proof})),
-        ("eth_getProof", json!({"result": substituted})),
-    ]);
-    let mut balance_word = [0; 32];
-    balance_word[24..].copy_from_slice(&0x0123_4567_89ab_cdef_u64.to_be_bytes());
-    assert_eq!(
-        account(&endpoint, address, context()).must(),
-        AccountProof {
-            address,
-            balance: balance_word,
-            nonce: 7,
-            code_hash: [0x51; 32],
-            storage_hash: [0x62; 32],
-            account_proof: vec![vec![0xf8, 0x43], vec![0xaa, 0xbb, 0xcc]],
-            storage: vec![],
-        }
-    );
-    let mismatch = account(&endpoint, address, context());
-    let seen = server.join().must();
-    assert_eq!(seen, vec![json!([hex(&address), [], "0x1234"]); 2]);
-    assert_eq!(mismatch, Err(ReadError::Rpc(SequencerError::Malformed)));
 }

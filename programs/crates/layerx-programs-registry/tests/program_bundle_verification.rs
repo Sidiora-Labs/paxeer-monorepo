@@ -2,7 +2,7 @@ pub mod support;
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_programs::{
-    chain_evidence::{programs_state_key, protocol_head::ChainProtocolHeadProof},
+    chain_evidence::{programs_state_key, protocol_head::ChainProtocolHeadProof, HOST_STORE_NAME},
     chain_proof::{
         decode::decode_commitment_proof, header::ChainHeader, validators::TrustedValidator,
         vote::vote_sign_bytes,
@@ -35,13 +35,7 @@ fn verifier(fixture: &ProtocolFixture) -> ProtocolDeploymentVerifier {
 }
 
 fn ordinary_bundle(fixture: &ProtocolFixture) -> ProgramStateBundle {
-    ProgramStateBundle {
-        commitment: fixture.proof.state.commitment.clone(),
-        program: program(),
-        program_record_ops: fixture.proof.state.state.ops.clone(),
-        interface_ops: fixture.interface_witness.proof.clone(),
-        wind_down: Some(fixture.proof.state.wind_down.clone()),
-    }
+    fixture.program_bundle()
 }
 
 fn chain_head(
@@ -198,9 +192,14 @@ fn ordinary_bundle_verifies_only_against_its_independent_chain_head() {
         .expect("version two bundle");
     assert_eq!(&encoded[..5], b"LXPB\x02");
     let decoded = ProgramStateBundle::decode(&encoded).expect("decoded version two bundle");
+    assert_eq!(decoded, ordinary_bundle(&fixture));
     let verified = verifier
-        .verify_current_program_bundle(&decoded, &chain, program(), NOW)
+        .verify_current_program_bundle_bytes(&encoded, &chain, program(), NOW)
         .expect("bound program bundle");
+    assert_eq!(
+        verified.verify_discovery(program(), NOW, STALENESS_MS),
+        Ok(())
+    );
     let head = verified.program_head();
     assert_eq!(verified.chain_head(), &chain);
     assert_eq!(head.program(), program());
@@ -498,7 +497,7 @@ fn native_maintenance_head_is_typed_tagged_and_equal_to_the_protocol_api() {
             ops: &state.commitment.proof_ops,
             kernel_key,
             value: state.commitment.value.as_ref().expect("program record"),
-            store_name: "layerx",
+            store_name: HOST_STORE_NAME,
             verifier: &fixture.chain.verifier,
             header: &fixture.chain.header,
             commit: &fixture.chain.commit,

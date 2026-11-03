@@ -5,7 +5,6 @@
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_hash.h"
 #include "layerx/lxp_identity.h"
-#include "layerx/lxp_bridge_credit.h"
 #include "layerx/programs.h"
 #include "layerx/lxp_module_ctx.h"
 
@@ -86,14 +85,14 @@ static lxp_result asset_staged_record(const lxp_module_ctx *ctx,
         if (ctx->staged[i].key_length == sizeof(key) &&
             memcmp(ctx->staged[i].key, key, sizeof(key)) == 0 &&
             !ctx->staged[i].deleted)
-            return lx_asset_record_decode(ctx->staged[i].value,
-                ctx->staged[i].value_length, record);
+            return lx_asset_record_decode_for_id(ctx->staged[i].value,
+                ctx->staged[i].value_length, id, record);
     for (size_t i = 0U; i < ctx->kernel->module_kv_count; ++i)
         if (ctx->kernel->module_kv[i].module_id == LXP_MODULE_ASSET &&
             ctx->kernel->module_kv[i].key_length == sizeof(key) &&
             memcmp(ctx->kernel->module_kv[i].key, key, sizeof(key)) == 0)
-            return lx_asset_record_decode(ctx->kernel->module_kv[i].value,
-                ctx->kernel->module_kv[i].value_length, record);
+            return lx_asset_record_decode_for_id(ctx->kernel->module_kv[i].value,
+                ctx->kernel->module_kv[i].value_length, id, record);
     const lx_asset_runtime *runtime = ctx->kernel->module_runtime[LXP_MODULE_ASSET];
     if (runtime != NULL && runtime->asset_count <= LX_ASSET_REGISTRY_CAPACITY)
         for (size_t i = 0U; i < runtime->asset_count; ++i)
@@ -1153,60 +1152,6 @@ lxp_result lxp_module_ctx_commit(lxp_module_ctx *ctx)
     return LXP_OK;
 }
 
-static lxp_result capacity_grants_hold(const lxp_module_ctx *ctx,
-                                       size_t kv_additions,
-                                       size_t blob_additions,
-                                       size_t blob_bytes)
-{
-    const lxp_capacity_ledger *ledger = ctx->kernel->capacity;
-    const uint64_t limit[3] = {LXP_KERNEL_MAX_BLOBS,
-                               LXP_KERNEL_MAX_BLOB_TOTAL_BYTES,
-                               LXP_KERNEL_MAX_MODULE_KV};
-    uint64_t committed[3];
-    uint64_t additions[3];
-    uint64_t floor[3];
-    uint64_t obligations[3] = {0U, 0U, 0U};
-    uint64_t work[3] = {0U, 0U, 0U};
-    uint64_t next_sequence;
-    size_t index;
-    size_t axis;
-    if (ledger == NULL || ledger->profile.version == 0U) return LXP_OK;
-    if (ctx->kernel->state == NULL || ledger->count > LXP_CAPACITY_MAX_RESERVATIONS)
-        return LXP_ERR_NON_CANONICAL;
-    next_sequence = ctx->kernel->state->next_sequence;
-    committed[0] = ctx->kernel->blob_count;
-    committed[1] = ctx->kernel->blob_total_bytes;
-    committed[2] = ctx->kernel->module_kv_count;
-    additions[0] = blob_additions;
-    additions[1] = blob_bytes;
-    additions[2] = kv_additions;
-    floor[0] = ledger->profile.floor.blobs;
-    floor[1] = ledger->profile.floor.bytes;
-    floor[2] = ledger->profile.floor.kv;
-    for (index = 0U; index < ledger->count; ++index) {
-        const lxp_capacity_reservation *entry = &ledger->entries[index];
-        uint64_t *sum;
-        if (entry->state != LXP_CAPACITY_RESERVED ||
-            (entry->kind != LXP_CAPACITY_OBLIGATION &&
-             entry->expires_sequence <= next_sequence) ||
-            memcmp(entry->activity_id, ctx->activity_id, 32U) == 0)
-            continue;
-        sum = entry->kind == LXP_CAPACITY_OBLIGATION ? obligations : work;
-        sum[0] += entry->demand.blobs;
-        sum[1] += entry->demand.bytes;
-        sum[2] += entry->demand.kv;
-    }
-    for (axis = 0U; axis < 3U; ++axis) {
-        uint64_t reserve = floor[axis] > obligations[axis] ? floor[axis] :
-            obligations[axis];
-        if (additions[axis] == 0U || work[axis] == 0U) continue;
-        if (committed[axis] + additions[axis] + reserve + work[axis] >
-            limit[axis])
-            return LXP_ERR_ARENA_EXHAUSTED;
-    }
-    return LXP_OK;
-}
-
 lxp_result lxp_module_ctx_prepare_commit(lxp_module_ctx *ctx)
 {
     size_t additions = 0U;
@@ -1245,10 +1190,6 @@ lxp_result lxp_module_ctx_prepare_commit(lxp_module_ctx *ctx)
         status = account_registry_preview(ctx, account_preview);
         if (status == LXP_OK)
             status = lx_account_registry_root(account_preview, account_root);
-#ifdef LXP_TESTING
-        if (status == LXP_OK && ctx->module_id == LXP_MODULE_BRIDGE &&
-            ctx->bridge_credit_fail_stage == 4U) status = LXP_ERR_IO;
-#endif
         lx_account_registry_release(account_preview);
         free(account_preview);
         if (status != LXP_OK) return status;
@@ -1269,8 +1210,6 @@ lxp_result lxp_module_ctx_prepare_commit(lxp_module_ctx *ctx)
         blob_bytes > LXP_KERNEL_MAX_BLOB_TOTAL_BYTES -
                          ctx->kernel->blob_total_bytes)
         return LXP_ERR_ARENA_EXHAUSTED;
-    status = capacity_grants_hold(ctx, additions, blob_additions, blob_bytes);
-    if (status != LXP_OK) return status;
     ctx->commit_prepared = true;
     return LXP_OK;
 }
@@ -1706,10 +1645,9 @@ lxp_result lxp_ctx_ledger_execution_sequence(
         registration->abi_version != LX_PROGRAMS_GUEST_ABI_V5_VERSION)
         return LXP_OK;
     facts = &ctx->ledger_admission;
-    if (facts->activity_type == LX_PROGRAMS_SANDBOX)
-        return LXP_OK;
     if (facts->activity_type != LX_PROGRAMS_CALL &&
-        facts->activity_type != LX_PROGRAMS_WIND_DOWN)
+        facts->activity_type != LX_PROGRAMS_WIND_DOWN &&
+        facts->activity_type != LX_PROGRAMS_SANDBOX)
         return LXP_ERR_CONTEXT_MISMATCH;
     if (!facts->bound ||
         memcmp(facts->activity_binding, ctx->activity_id, 32U) != 0 ||
@@ -2237,279 +2175,6 @@ lxp_result lxp_ctx_emit_monetary_transfer_set(lxp_module_ctx *ctx,
     }
     ++ctx->next_effect_ordinal;
     return LXP_OK;
-}
-
-lxp_result lxp_ctx_bridge_credit(lxp_module_ctx *ctx,
-                                 const lxp_activity *activity,
-                                 const lxp_authority_resolved *authority,
-                                 const lxp_bridge_credit *credit)
-{
-    lxp_bridge_profile profile;
-    lxp_bridge_light_trust trusted;
-    lxp_bridge_light_trust advanced;
-    uint8_t trust_bytes[LXP_BRIDGE_LIGHT_TRUST_BYTES];
-    const uint8_t *stored;
-    size_t stored_length;
-    uint8_t nullifier[32];
-    uint8_t replay_key[50] = "deposit-nullifier:";
-    uint8_t supply_key[47] = "custody-issued:";
-    uint8_t supply_bytes[16];
-    uint8_t event[208];
-    uint8_t balances[112];
-    uint8_t name[LX_ACCOUNT_NAME_MAX];
-    uint8_t beneficiary[32];
-    size_t name_length;
-    lxp_u128 amount;
-    lxp_u128 issued = {0U, 0U};
-    lxp_u128 total = {0U, 0U};
-    lxp_u128 next_issued;
-    lxp_u128 next_reserve;
-    lxp_u128 recipient_before;
-    lx_account *reserve;
-    lx_account *recipient = NULL;
-    lxp_transfer_asset_state asset;
-    lxp_transfer_source_authority source;
-    const lx_asset_runtime *runtime;
-    const lxp_transfer_asset_state *registered_asset = NULL;
-    lxp_transfer_set transfer;
-    lxp_receipt receipt;
-    lxp_result status;
-    if (ctx == NULL || activity == NULL || authority == NULL || credit == NULL ||
-        !ctx->mutable || ctx->module_id != LXP_MODULE_BRIDGE ||
-        ctx->protocol_version != 3U || ctx->kernel == NULL ||
-        ctx->kernel->state == NULL || ctx->kernel->state->accounts == NULL ||
-        ctx->kernel->state->accounts->count > LX_ACCOUNT_REGISTRY_CAPACITY ||
-        !ctx->kernel->state->account_root_required ||
-        ctx->kernel->journal == NULL || !ctx->kernel->journal->open ||
-        ctx->kernel->journal->store != ctx->kernel->state ||
-        ctx->kernel->journal->global_sequence != ctx->global_sequence ||
-        ctx->staged_account_count != 0U || ctx->staged_count != 0U ||
-        ctx->transfer_snapshot_count != 0U || ctx->ledger_receipt_present ||
-        ctx->transfer_applied || ctx->effects == NULL || ctx->effects->count != 0U ||
-        ctx->next_effect_ordinal != 0U ||
-        activity->activity_type != LXP_BRIDGE_CREDIT ||
-        activity->payload.bytes == NULL ||
-        !lxp_bridge_credit_matches(credit, activity->payload.bytes, activity->payload.length) ||
-        activity->authority.length != 32U || activity->actor_did.bytes == NULL ||
-        activity->actor_did.length == 0U ||
-        activity->actor_did.length > sizeof(name) - 11U ||
-        authority->kind != LXP_AUTHORITY_OWNER ||
-        lxp_ct_memcmp(authority->verified_key, activity->authority.bytes, 32U) != 0 ||
-        lxp_ct_memcmp(authority->verified_key, credit->bytes + 139U, 32U) != 0)
-        return LXP_ERR_UNAUTHORIZED_DEBIT;
-    status = lxp_activity_verify_payload_hash(activity);
-    if (status == LXP_OK) status = lxp_activity_verify_signature(activity);
-    if (status != LXP_OK) return status;
-    runtime = (const lx_asset_runtime *)ctx->kernel->module_runtime[LXP_MODULE_ASSET];
-    if (runtime == NULL || runtime->accounts != ctx->kernel->state->accounts ||
-        runtime->transfer_assets == NULL || runtime->transfer_asset_count > LX_ASSET_REGISTRY_CAPACITY ||
-        runtime->network_id != activity->network_id || runtime->protocol_version != 3U)
-        return LXP_ERR_ASSET_MISMATCH;
-    for (size_t index = 0U; index < runtime->transfer_asset_count; ++index)
-        if (memcmp(runtime->transfer_assets[index].asset_id, credit->bytes + 75U, 32U) == 0) {
-            if (registered_asset != NULL) return LXP_ERR_ASSET_MISMATCH;
-            registered_asset = &runtime->transfer_assets[index];
-        }
-    if (registered_asset == NULL || !registered_asset->registered) return LXP_ERR_ASSET_MISMATCH;
-    if (registered_asset->paused) return LXP_ERR_ASSET_PAUSED;
-    status = lxp_bridge_profile_load_asset(ctx, credit->bytes + 75U, &profile);
-    if (status != LXP_OK) return LXP_ERR_DEPOSIT_PROOF_NOT_FINAL;
-    status = lxp_bridge_light_trust_load_asset(ctx, &profile, &trusted);
-    if (status != LXP_OK) return LXP_ERR_DEPOSIT_PROOF_NOT_FINAL;
-    status = lxp_bridge_credit_verify_asset(&profile, credit, activity->network_id,
-                                      activity->protocol_version, &trusted,
-                                      lxp_ctx_batch_timestamp_ms(ctx), nullifier, &advanced);
-    if (status != LXP_OK) return status;
-    if (advanced.height < trusted.height ||
-        (advanced.height == trusted.height &&
-         (advanced.time_seconds != trusted.time_seconds ||
-          advanced.time_nanos != trusted.time_nanos ||
-          lxp_ct_memcmp(advanced.header_hash, trusted.header_hash, 32U) != 0 ||
-          lxp_ct_memcmp(advanced.next_validators_hash,
-                        trusted.next_validators_hash, 32U) != 0)))
-        return LXP_ERR_DEPOSIT_PROOF_NOT_FINAL;
-    if (lxp_ct_memcmp(nullifier, activity->idempotency_key, 32U) != 0)
-        return LXP_ERR_CONTEXT_MISMATCH;
-    (void)memcpy(replay_key + 18U, nullifier, 32U);
-    status = lxp_ctx_kv_get(ctx, replay_key, sizeof(replay_key), &stored, &stored_length);
-    if (status == LXP_OK) return LXP_ERR_DEPOSIT_ALREADY_CREDITED;
-    if (status != LXP_ERR_UNKNOWN_FIELD) return status;
-    bool asset_profile = memcmp(profile.bytes, "LXBC4", 5U) == 0;
-    status = lxp_bridge_profile_beneficiary(&profile, activity->actor_did.bytes,
-                                           activity->actor_did.length, name, sizeof(name),
-                                           &name_length, beneficiary);
-    if (status != LXP_OK) return status;
-    uint8_t owner_principal[32];
-    if (asset_profile) {
-        uint8_t owner_name[LX_ACCOUNT_NAME_MAX];
-        size_t owner_length = 6U + activity->actor_did.length;
-        (void)memcpy(owner_name, "agent:", 6U);
-        (void)memcpy(owner_name + 6U, activity->actor_did.bytes, activity->actor_did.length);
-        (void)memcpy(owner_name + owner_length, ":main", 5U);
-        owner_length += 5U;
-        status = lx_account_id_from_string(owner_name, owner_length, owner_principal);
-        if (status != LXP_OK) return status;
-    }
-    if (lxp_ct_memcmp(beneficiary, credit->bytes + 107U, 32U) != 0 ||
-        (asset_profile ? lxp_ct_memcmp(owner_principal, authority->principal, 32U) != 0 :
-                         lxp_ct_memcmp(beneficiary, authority->principal, 32U) != 0))
-        return LXP_ERR_ACCOUNT_ID_MISMATCH;
-    status = lxp_u128_from_be(credit->bytes + 191U, &amount);
-    if (status != LXP_OK) return status;
-    (void)memcpy(supply_key + 15U, profile.bytes + 97U, 32U);
-    status = lxp_ctx_kv_get(ctx, supply_key, sizeof(supply_key), &stored, &stored_length);
-    if (status == LXP_OK) {
-        if (stored_length != 16U) return LXP_FATAL_SUPPLY_MISMATCH;
-        status = lxp_u128_from_be(stored, &issued);
-    }
-    if (status != LXP_OK) return status;
-    for (size_t index = 0U; index < ctx->kernel->state->accounts->count; ++index) {
-        const lx_account *account = &ctx->kernel->state->accounts->accounts[index];
-        if (account->has_asset && memcmp(account->asset_id, profile.bytes + 97U, 32U) == 0 &&
-            lxp_u128_add(total, account->balance, &total) != LXP_OK)
-            return LXP_FATAL_SUPPLY_MISMATCH;
-    }
-    if (lxp_u128_cmp(total, issued) != 0) return LXP_FATAL_SUPPLY_MISMATCH;
-    status = lxp_u128_add(issued, amount, &next_issued);
-    if (status == LXP_OK)
-        status = lxp_ctx_account_find(ctx, profile.bytes + 129U, &reserve);
-    if (status != LXP_OK) return status;
-    if (reserve->kind != LX_ACCOUNT_SYSTEM_PAXEER_RESERVE || reserve->frozen ||
-        !reserve->has_asset || memcmp(reserve->asset_id, profile.bytes + 97U, 32U) != 0 ||
-        reserve->next_sequence == UINT64_MAX)
-        return LXP_ERR_UNAUTHORIZED_DEBIT;
-    status = lxp_u128_add(reserve->balance, amount, &next_reserve);
-    if (status != LXP_OK) return status;
-    status = lxp_ctx_account_find(ctx, beneficiary, &recipient);
-    if (status == LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE) {
-        lx_account_registration *registration = &ctx->staged_accounts[0];
-        if (!lxp_bridge_credit_owner_bound(activity->actor_did.bytes,
-                                           activity->actor_did.length,
-                                           authority->verified_key))
-            return LXP_ERR_ACCOUNT_ID_MISMATCH;
-        (void)memset(registration, 0, sizeof(*registration));
-        registration->expected_count = ctx->kernel->state->accounts->count;
-        recipient = &registration->account;
-        (void)memcpy(recipient->id, beneficiary, 32U);
-        (void)memcpy(recipient->name, name, name_length);
-        recipient->name_length = (uint16_t)name_length;
-        recipient->kind = asset_profile ? LX_ACCOUNT_AGENT_ASSET : LX_ACCOUNT_AGENT_MAIN;
-        recipient->has_asset = true;
-        (void)memcpy(recipient->asset_id, profile.bytes + 97U, 32U);
-        recipient->has_authority_key = true;
-        (void)memcpy(recipient->authority_key, authority->verified_key, 32U);
-        recipient->created_at_sequence = ctx->global_sequence;
-        ctx->staged_account_count = 1U;
-        status = lxp_state_journal_require_account_root(ctx->kernel->journal);
-    }
-    if (status == LXP_OK &&
-        ((asset_profile ? recipient->kind != LX_ACCOUNT_AGENT_ASSET :
-                          recipient->kind != LX_ACCOUNT_AGENT_MAIN) || recipient->frozen ||
-         !recipient->has_asset || memcmp(recipient->asset_id, profile.bytes + 97U, 32U) != 0 ||
-         !recipient->has_authority_key ||
-         memcmp(recipient->authority_key, authority->verified_key, 32U) != 0))
-        status = LXP_ERR_UNAUTHORIZED_DEBIT;
-    if (status == LXP_OK) status = lxp_u128_to_be(next_issued, supply_bytes);
-    if (status == LXP_OK)
-        status = lxp_ctx_kv_put(ctx, supply_key, sizeof(supply_key), supply_bytes, 16U);
-    if (status == LXP_OK)
-        status = lxp_ctx_kv_put(ctx, replay_key, sizeof(replay_key), credit->bytes,
-                                sizeof(credit->bytes));
-    if (status == LXP_OK && advanced.height != trusted.height) {
-        status = lxp_bridge_light_trust_encode(&advanced, trust_bytes);
-        uint8_t trust_key[32];
-        if (status == LXP_OK) status = lxp_bridge_light_trust_key_asset(&profile, trust_key);
-        if (status == LXP_OK)
-            status = lxp_ctx_kv_put(ctx, trust_key, 32U, trust_bytes, sizeof(trust_bytes));
-    }
-#ifdef LXP_TESTING
-    if (status == LXP_OK && ctx->bridge_credit_fail_stage == 1U) status = LXP_ERR_IO;
-#endif
-    if (status != LXP_OK) {
-        lxp_module_ctx_rollback(ctx);
-        return status;
-    }
-    ctx->transfer_snapshots[0].account = reserve;
-    ctx->transfer_snapshots[0].balance = reserve->balance;
-    ctx->transfer_snapshots[0].has_asset = reserve->has_asset;
-    ctx->transfer_snapshots[0].next_sequence = reserve->next_sequence;
-    (void)memcpy(ctx->transfer_snapshots[0].asset_id, reserve->asset_id, 32U);
-    ctx->transfer_snapshot_count = 1U;
-    status = lxp_ledger_apply_bridge_credit(reserve, profile.bytes + 97U, amount);
-    if (status != LXP_OK) {
-        lxp_module_ctx_rollback(ctx);
-        return status;
-    }
-#ifdef LXP_TESTING
-    if (ctx->bridge_credit_fail_stage == 2U) {
-        lxp_module_ctx_rollback(ctx);
-        return LXP_ERR_IO;
-    }
-#endif
-    asset = *registered_asset;
-    (void)memset(&transfer, 0, sizeof(transfer));
-    transfer.leg_count = 1U;
-    transfer.legs[0].from = reserve;
-    transfer.legs[0].to = recipient;
-    transfer.legs[0].amount = amount;
-    transfer.legs[0].reason = LXP_REASON_DEPOSIT;
-    (void)memcpy(transfer.legs[0].asset_id, asset.asset_id, 32U);
-    transfer.context.assets = &asset;
-    transfer.context.asset_count = 1U;
-    transfer.context.protocol_system_capability = true;
-    transfer.context.debit_authority_kind = LXP_AUTH_PROTOCOL_MODULE;
-    (void)memset(&source, 0, sizeof(source));
-    (void)memcpy(source.authorized_from, reserve->id, 32U);
-    source.debit_authority_kind = LXP_AUTH_PROTOCOL_MODULE;
-    source.protocol_system_capability = true;
-    transfer.context.source_authorities = &source;
-    transfer.context.source_authority_count = 1U;
-    recipient_before = recipient->balance;
-    (void)memset(&receipt, 0, sizeof(receipt));
-    status = lxp_ctx_emit_monetary_transfer_set(ctx, &transfer, &receipt);
-    if (status == LXP_OK) {
-        (void)memcpy(event, credit->bytes + 43U, 96U);
-        (void)memcpy(event + 96U, credit->bytes + 191U, 16U);
-        (void)memcpy(event + 112U, credit->bytes + 5U, 32U);
-        status = lxp_hash_sha256(credit->bytes, sizeof(credit->bytes), event + 144U);
-        if (status == LXP_OK) status = lxp_u128_to_be(issued, event + 176U);
-        if (status == LXP_OK) status = lxp_u128_to_be(next_issued, event + 192U);
-    }
-    if (status == LXP_OK)
-        status = lxp_ctx_emit_event(ctx, 1U, event, sizeof(event));
-    if (status == LXP_OK) {
-        (void)memcpy(balances, reserve->id, 32U);
-        status = lxp_u128_to_be(ctx->transfer_snapshots[0].balance, balances + 32U);
-        if (status == LXP_OK) status = lxp_u128_to_be(reserve->balance, balances + 48U);
-        if (status == LXP_OK) status = lxp_u128_to_be(recipient_before, balances + 64U);
-        if (status == LXP_OK) status = lxp_u128_to_be(recipient->balance, balances + 80U);
-        for (size_t index = 0U; index < 8U; ++index) {
-            balances[96U + index] = (uint8_t)(ctx->transfer_snapshots[0].next_sequence >> (56U - index * 8U));
-            balances[104U + index] = (uint8_t)(reserve->next_sequence >> (56U - index * 8U));
-        }
-        if (status == LXP_OK)
-            status = lxp_ctx_emit_event(ctx, 2U, balances, sizeof(balances));
-    }
-    if (status == LXP_OK) {
-        total = (lxp_u128){0U, 0U};
-        for (size_t index = 0U; index < ctx->kernel->state->accounts->count; ++index) {
-            const lx_account *account = &ctx->kernel->state->accounts->accounts[index];
-            if (account->has_asset && memcmp(account->asset_id, asset.asset_id, 32U) == 0 &&
-                lxp_u128_add(total, account->balance, &total) != LXP_OK) {
-                status = LXP_FATAL_SUPPLY_MISMATCH;
-                break;
-            }
-        }
-        if (status == LXP_OK && ctx->staged_account_count != 0U)
-            status = lxp_u128_add(total, recipient->balance, &total);
-        if (status == LXP_OK && lxp_u128_cmp(total, next_issued) != 0)
-            status = LXP_FATAL_SUPPLY_MISMATCH;
-    }
-#ifdef LXP_TESTING
-    if (status == LXP_OK && ctx->bridge_credit_fail_stage == 3U) status = LXP_ERR_IO;
-#endif
-    if (status != LXP_OK) lxp_module_ctx_rollback(ctx);
-    return status;
 }
 
 lxp_result lxp_ctx_bind_ledger_receipt(

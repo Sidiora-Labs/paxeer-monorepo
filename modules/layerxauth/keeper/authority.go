@@ -14,6 +14,9 @@ type Actor struct {
 	Authority lxphost.KernelAuthority
 }
 
+// Actor resolves the caller's persisted EVM DID binding into kernel authority.
+// It reads the binding on every call so an unbound caller, including one whose
+// binding was removed after an earlier resolution, receives ErrAuthScope.
 func (k *Keeper) Actor(ctx sdk.Context, caller common.Address) (Actor, error) {
 	key, bound := k.evmKeeper.GetLayerXDid(ctx, caller)
 	if !bound {

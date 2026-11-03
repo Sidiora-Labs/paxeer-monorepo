@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
@@ -141,17 +140,21 @@ func (k Keeper) clearAvailability(ctx sdk.Context, batchNumber uint64) {
 	}
 }
 
+// availabilityClassCount is the number of availability classes carried by an
+// attestation's ClassMask, formerly the codec's AvailabilityClassCount.
+const availabilityClassCount = 5
+
 // availabilityMask is the set of the five classes that at least the threshold
 // of bonded active guarantors attested to possess.
 func (k Keeper) availabilityMask(ctx sdk.Context, batchNumber uint64, params types.Params) uint8 {
-	var counts [codec.AvailabilityClassCount]uint32
+	var counts [availabilityClassCount]uint32
 	k.iterate(ctx, types.AvailabilityBatchPrefix(batchNumber), func(value []byte) bool {
 		var attestation types.AvailabilityAttestation
 		if err := json.Unmarshal(value, &attestation); err != nil {
 			panic(err)
 		}
 		if guarantor, ok := k.GetGuarantor(ctx, attestation.GuarantorID); ok && eligible(guarantor, params) {
-			for class := 0; class < codec.AvailabilityClassCount; class++ {
+			for class := 0; class < availabilityClassCount; class++ {
 				if attestation.ClassMask&(1<<class) != 0 {
 					counts[class]++
 				}

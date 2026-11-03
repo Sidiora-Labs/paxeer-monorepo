@@ -15,6 +15,17 @@ _MAX_EFFECT_BODY = 256
 _MAX_U128 = 0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF
 
 
+def _ed25519():
+    try:
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    except ImportError as error:
+        raise ImportError(
+            "sequencer receipt verification needs the 'cryptography' package: pip install 'layerx-sdk[derivation]'"
+        ) from error
+    return InvalidSignature, Ed25519PublicKey
+
+
 class ReceiptVerificationError(PlatformSdkError):
     __slots__ = ("check",)
 
@@ -218,7 +229,7 @@ class SequencerReceiptVerification(ReceiptVerification):
 
 def _decode_sequencer_receipt(canonical_receipt: bytes) -> tuple[_SequencerReceipt, bytes]:
     if not canonical_receipt or len(canonical_receipt) > _MAX_MESSAGE_BYTES:
-        _receipt_failure(ReceiptFailureCode.RECEIPT_SHAPE)
+        _receipt_failure(ReceiptFailureCode.DECODE)
     decoder = _Decoder(canonical_receipt)
     envelope_version = decoder.u16()
     structure_tag = decoder.u16()
@@ -226,7 +237,7 @@ def _decode_sequencer_receipt(canonical_receipt: bytes) -> tuple[_SequencerRecei
         _receipt_failure(ReceiptFailureCode.DECODE)
     protocol_version = decoder.u16()
     if protocol_version != envelope_version:
-        _receipt_failure(ReceiptFailureCode.PROTOCOL_VERSION)
+        _receipt_failure(ReceiptFailureCode.DECODE)
     activity_id = decoder.bounded(32)
     global_sequence = decoder.u64()
     previous_state_root = decoder.bounded(32)
@@ -291,20 +302,20 @@ def _decode_sequencer_receipt(canonical_receipt: bytes) -> tuple[_SequencerRecei
             _receipt_failure(ReceiptFailureCode.DECODE)
         total_units = (before, after)
     if global_sequence == 0:
-        _receipt_failure(ReceiptFailureCode.GLOBAL_SEQUENCE)
+        _receipt_failure(ReceiptFailureCode.DECODE)
     if module_id == 0:
-        _receipt_failure(ReceiptFailureCode.MODULE_ID)
+        _receipt_failure(ReceiptFailureCode.DECODE)
     if module_version == 0:
-        _receipt_failure(ReceiptFailureCode.MODULE_VERSION)
+        _receipt_failure(ReceiptFailureCode.DECODE)
     if timestamp == 0:
-        _receipt_failure(ReceiptFailureCode.TIMESTAMP)
+        _receipt_failure(ReceiptFailureCode.DECODE)
     if not any(activity_id):
         _receipt_failure(ReceiptFailureCode.ACTIVITY_ID)
     if not any(resulting_state_root):
-        _receipt_failure(ReceiptFailureCode.RESULTING_STATE_ROOT)
+        _receipt_failure(ReceiptFailureCode.DECODE)
     signature_flag_offset = decoder.position()
     if decoder.u8() != 1:
-        _receipt_failure(ReceiptFailureCode.MISSING_SIGNATURE)
+        _receipt_failure(ReceiptFailureCode.DECODE)
     sequencer_signature = decoder.bounded(64)
     decoder.finish()
     return (
@@ -348,8 +359,7 @@ def verify_sequencer_receipt(
     raw_transaction: bytes,
     receipt_keys: tuple[ReceiptKey, ...] | list[ReceiptKey],
 ) -> SequencerReceiptVerification:
-    from cryptography.exceptions import InvalidSignature
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    InvalidSignature, Ed25519PublicKey = _ed25519()
 
     canonical_bytes = bytes(signed_receipt)
     transaction_hash = keccak256(bytes(raw_transaction))

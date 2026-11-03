@@ -4,6 +4,7 @@ use std::path::Path;
 use layerx_client::ai_market::{decode_snapshot_binding, AiClientError};
 use layerx_programs_ai_market::errors::{BAD_VERSION, NON_CANONICAL};
 use layerx_programs_ai_market::queries::{QueryError, BINDING_MAX_BYTES};
+use layerx_programs_ai_market::types::Presence;
 
 #[test]
 fn snapshot_binding_v2_decodes_vector() {
@@ -37,6 +38,14 @@ fn snapshot_binding_v2_decodes_vector() {
     assert_eq!(&bytes[..2], &[0, 1]);
     let binding = decode_snapshot_binding(&bytes)
         .unwrap_or_else(|error| panic!("shared v2 binding refused: {error:?}"));
+    let mut roundtrip = [0; BINDING_MAX_BYTES];
+    let length = binding
+        .encode(&mut roundtrip)
+        .unwrap_or_else(|error| panic!("snapshot binding encoding refused: {error:?}"));
+    assert_eq!(&roundtrip[..length], bytes);
+    let rebound = decode_snapshot_binding(&roundtrip[..length])
+        .unwrap_or_else(|error| panic!("snapshot binding roundtrip refused: {error:?}"));
+    assert_eq!(rebound.snapshot_id(), binding.snapshot_id());
     assert_eq!(binding.block_height, 0x5152_5354_5556_5758);
     assert_eq!(binding.block_hash.as_bytes(), &[0xb2; 32]);
     assert_eq!(binding.app_hash.as_bytes(), &[0xc2; 32]);
@@ -88,4 +97,44 @@ fn snapshot_binding_v2_decodes_vector() {
     let rank_offset = invalid_rank.len() - 17;
     invalid_rank[rank_offset] = 5;
     assert_eq!(decode_snapshot_binding(&invalid_rank), Err(noncanonical));
+}
+
+#[test]
+fn snapshot_binding_v2_decodes_absent_optional_fields() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../../programs/tests/vectors/snapshot-binding-v2.hex");
+    let vector = fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("cannot read shared vector {}: {error}", path.display()));
+    let hex = vector.trim_end_matches('\n');
+    assert_eq!(hex.len(), BINDING_MAX_BYTES * 2);
+    let bytes: Vec<u8> = (0..hex.len())
+        .step_by(2)
+        .map(|offset| {
+            u8::from_str_radix(&hex[offset..offset + 2], 16)
+                .unwrap_or_else(|error| panic!("invalid shared vector hex: {error}"))
+        })
+        .collect();
+    let original = decode_snapshot_binding(&bytes)
+        .unwrap_or_else(|error| panic!("shared v2 binding refused: {error:?}"));
+    let noncanonical = AiClientError::Query(QueryError::Application(NON_CANONICAL));
+
+    for (epoch, roster, expected_len) in [
+        (Presence::Absent, original.roster, 413),
+        (original.epoch, Presence::Absent, 389),
+        (Presence::Absent, Presence::Absent, 381),
+    ] {
+        let mut binding = original;
+        binding.epoch = epoch;
+        binding.roster = roster;
+        let mut encoded = [0u8; BINDING_MAX_BYTES];
+        let n = binding
+            .encode(&mut encoded)
+            .unwrap_or_else(|error| panic!("binding encoding refused: {error:?}"));
+        assert_eq!(n, expected_len);
+        assert_eq!(decode_snapshot_binding(&encoded[..n]), Ok(binding));
+        assert_eq!(
+            decode_snapshot_binding(&encoded[..n + 1]),
+            Err(noncanonical.clone())
+        );
+    }
 }

@@ -203,7 +203,22 @@ func activeAt(store sdk.KVStore, prefix []byte, position uint64) (uint64, error)
 	if value == nil {
 		return 0, fmt.Errorf("spot: missing active index position %d", position)
 	}
-	return activePosition(key, value)
+	id, err := activePosition(key, value)
+	if err != nil {
+		return 0, err
+	}
+	if id == 0 {
+		return 0, fmt.Errorf("spot: active index contains zero order id")
+	}
+	forwardKey := recordKey(prefix, orderIDBytes(id))
+	forward, err := activePosition(forwardKey, store.Get(forwardKey))
+	if err != nil {
+		return 0, err
+	}
+	if forward != position {
+		return 0, fmt.Errorf("spot: corrupt active index entry %x", forwardKey)
+	}
+	return id, nil
 }
 
 // activeOrdered is the active order ids of prefix ordered by stored position.

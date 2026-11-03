@@ -9,6 +9,9 @@ concurrency:
   group: nightly-ecr
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   publish:
     name: Publish nightly containers

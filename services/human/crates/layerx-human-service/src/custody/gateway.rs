@@ -8,9 +8,10 @@ use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Wake, Waker};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crate::frame::{read_frame, write_frame, ConnectionGate, ConnectionPermit};
+use layerx_types::clock::{Clock, ClockReading, Deadline};
 use layerx_types::payload::ModuleRegistry;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::server::WebPkiClientVerifier;
@@ -105,6 +106,47 @@ pub struct GatewayTls {
 }
 
 impl GatewayTls {
+    /// Reads bounded gateway startup material from an absolute, owner-held
+    /// regular file without following links.
+    ///
+    /// # Errors
+    /// Refuses invalid ownership, permissions, links, empty or oversized files.
+    pub fn read_material(
+        path: &std::path::Path,
+        secret: bool,
+    ) -> Result<Zeroizing<Vec<u8>>, &'static str> {
+        use rustix::fs::{Mode, OFlags};
+        use std::fs::File;
+        use std::os::unix::fs::MetadataExt;
+
+        if !path.is_absolute() {
+            return Err("must be absolute");
+        }
+        let descriptor = rustix::fs::open(
+            path,
+            OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .map_err(|_| "cannot be opened")?;
+        let mut file = File::from(descriptor);
+        let metadata = file.metadata().map_err(|_| "has no metadata")?;
+        if !metadata.is_file()
+            || metadata.uid() != rustix::process::geteuid().as_raw()
+            || metadata.mode() & (if secret { 0o077 } else { 0o022 }) != 0
+        {
+            return Err("ownership or permissions were refused");
+        }
+        let mut bytes = Zeroizing::new(Vec::new());
+        Read::by_ref(&mut file)
+            .take(u64::try_from(CERTIFICATE_LIMIT).map_err(|_| "bound is invalid")? + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| "is unreadable")?;
+        if bytes.is_empty() || bytes.len() > CERTIFICATE_LIMIT {
+            return Err("size was refused");
+        }
+        Ok(bytes)
+    }
+
     /// Builds a server configuration that always demands a client certificate
     /// chaining to `client_ca` and pins the exact client leaf certificate.
     ///
@@ -179,19 +221,20 @@ pub struct LxkpGateway {
     registry: ModuleRegistry,
     limits: GatewayLimits,
     gate: ConnectionGate,
-    window: Mutex<(Instant, u32)>,
+    clock: Arc<dyn Clock>,
+    window: Mutex<(ClockReading, u32)>,
 }
 
 struct GatewayRequestReader<'a> {
     gateway: &'a LxkpGateway,
     stream: &'a mut StreamOwned<ServerConnection, TcpStream>,
-    started: Instant,
+    deadline: Deadline,
     failure: Option<KmsError>,
 }
 
 impl Read for GatewayRequestReader<'_> {
     fn read(&mut self, output: &mut [u8]) -> std::io::Result<usize> {
-        if let Err(error) = self.gateway.bound(&self.stream.sock, self.started) {
+        if let Err(error) = self.gateway.bound(&self.stream.sock, &mut self.deadline) {
             self.failure = Some(error);
             return Err(std::io::Error::other("gateway request read refused"));
         }
@@ -231,6 +274,7 @@ impl LxkpGateway {
         provider: Arc<dyn KmsProvider>,
         tls: GatewayTls,
         policy: GatewayPolicy,
+        clock: Arc<dyn Clock>,
     ) -> Result<Self, CustodyError> {
         if provider.deployment() != ProviderDeployment::Production {
             return Err(CustodyError::DevelopmentProviderInProduction);
@@ -249,6 +293,12 @@ impl LxkpGateway {
         }
         let limits = policy.limits.validate()?;
         provider.probe().map_err(CustodyError::Kms)?;
+        let started = clock
+            .sample(limits.deadline)
+            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))?;
+        started
+            .elapsed_since(started)
+            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))?;
         Ok(Self {
             provider,
             tls,
@@ -257,7 +307,8 @@ impl LxkpGateway {
             registry: policy.registry,
             limits,
             gate: ConnectionGate::new(limits.maximum_connections),
-            window: Mutex::new((Instant::now(), 0)),
+            clock,
+            window: Mutex::new((started, 0)),
         })
     }
 
@@ -298,12 +349,23 @@ impl LxkpGateway {
         Err(CustodyError::Kms(KmsError::Unavailable))
     }
 
+    /// Serves one connection using the same admission, authentication,
+    /// framing and dispatch path as `serve`.
+    ///
+    /// # Errors
+    /// Returns authentication, deadline, framing or provider failures.
+    pub fn serve_connection(&self, tcp: TcpStream) -> Result<(), KmsError> {
+        let _permit = self.gate.acquire().map_err(|_| KmsError::Unavailable)?;
+        self.exchange(tcp)
+    }
+
     fn exchange(&self, mut tcp: TcpStream) -> Result<(), KmsError> {
-        let started = Instant::now();
+        let mut deadline = Deadline::start(self.clock.as_ref(), self.limits.deadline)
+            .map_err(|_| KmsError::Unavailable)?;
         let mut server = ServerConnection::new(Arc::clone(&self.tls.config))
             .map_err(|_| KmsError::Unavailable)?;
         while server.is_handshaking() {
-            self.bound(&tcp, started)?;
+            self.bound(&tcp, &mut deadline)?;
             server
                 .complete_io(&mut tcp)
                 .map_err(|_| KmsError::Authentication)?;
@@ -317,7 +379,7 @@ impl LxkpGateway {
             return Err(KmsError::Authentication);
         }
         let mut stream = StreamOwned::new(server, tcp);
-        let frame = self.read_request(&mut stream, started)?;
+        let frame = self.read_request(&mut stream, deadline)?;
         let Some(response) = self.respond(&frame) else {
             return Err(KmsError::Refused);
         };
@@ -332,13 +394,13 @@ impl LxkpGateway {
         stream.flush().map_err(|_| KmsError::Unavailable)
     }
 
-    fn bound(&self, tcp: &TcpStream, started: Instant) -> Result<(), KmsError> {
-        let remaining = self
-            .limits
-            .deadline
-            .checked_sub(started.elapsed())
-            .filter(|remaining| !remaining.is_zero())
-            .ok_or(KmsError::Timeout)?;
+    fn bound(&self, tcp: &TcpStream, deadline: &mut Deadline) -> Result<(), KmsError> {
+        let remaining = deadline
+            .remaining(self.clock.as_ref())
+            .map_err(|_| KmsError::Unavailable)?;
+        if remaining.is_zero() {
+            return Err(KmsError::Timeout);
+        }
         tcp.set_read_timeout(Some(remaining))
             .and_then(|()| tcp.set_write_timeout(Some(remaining)))
             .map_err(|_| KmsError::Unavailable)
@@ -347,12 +409,12 @@ impl LxkpGateway {
     fn read_request(
         &self,
         stream: &mut StreamOwned<ServerConnection, TcpStream>,
-        started: Instant,
+        deadline: Deadline,
     ) -> Result<Zeroizing<Vec<u8>>, KmsError> {
         let mut reader = GatewayRequestReader {
             gateway: self,
             stream,
-            started,
+            deadline,
             failure: None,
         };
         let frame = read_frame(&mut reader, self.limits.maximum_frame_bytes)
@@ -368,8 +430,13 @@ impl LxkpGateway {
         let Ok(mut window) = self.window.lock() else {
             return false;
         };
-        let now = Instant::now();
-        if now.duration_since(window.0) >= self.limits.operation_window {
+        let Ok(now) = self.clock.sample(self.limits.deadline) else {
+            return false;
+        };
+        let Ok(elapsed) = now.elapsed_since(window.0) else {
+            return false;
+        };
+        if elapsed >= self.limits.operation_window {
             *window = (now, 0);
         }
         if window.1 >= self.limits.maximum_operations {
@@ -493,6 +560,7 @@ impl LxkpGateway {
                 ),
             ),
             self.limits.deadline,
+            self.clock.as_ref(),
         )?
         .map_err(custody_refusal)?;
         super::provider::verify_call_signature(&call, request.from, &signature)
@@ -687,8 +755,12 @@ impl Wake for ThreadWaker {
 }
 
 /// Drives one provider future on the connection worker within `deadline`.
-fn block_on<F: Future>(future: F, deadline: Duration) -> Result<F::Output, KmsError> {
-    let started = Instant::now();
+fn block_on<F: Future>(
+    future: F,
+    duration: Duration,
+    clock: &dyn Clock,
+) -> Result<F::Output, KmsError> {
+    let mut deadline = Deadline::start(clock, duration).map_err(|_| KmsError::Unavailable)?;
     let mut future = std::pin::pin!(future);
     let waker = Waker::from(Arc::new(ThreadWaker(std::thread::current())));
     let mut context = Context::from_waker(&waker);
@@ -697,9 +769,11 @@ fn block_on<F: Future>(future: F, deadline: Duration) -> Result<F::Output, KmsEr
             return Ok(output);
         }
         let remaining = deadline
-            .checked_sub(started.elapsed())
-            .filter(|remaining| !remaining.is_zero())
-            .ok_or(KmsError::Timeout)?;
+            .remaining(clock)
+            .map_err(|_| KmsError::Unavailable)?;
+        if remaining.is_zero() {
+            return Err(KmsError::Timeout);
+        }
         std::thread::park_timeout(remaining);
     }
 }

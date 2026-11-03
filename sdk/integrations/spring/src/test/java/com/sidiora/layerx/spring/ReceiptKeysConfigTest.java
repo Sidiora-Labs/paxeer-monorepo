@@ -4,6 +4,11 @@ import com.sidiora.layerx.sdk.verify.LocalVerifier.ReceiptKeys;
 import java.lang.reflect.Field;
 import java.math.BigInteger;
 import java.nio.file.Path;
+import java.nio.file.Files;
+import java.nio.file.attribute.PosixFilePermissions;
+import org.junit.jupiter.api.extension.AnnotatedElementContext;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.io.TempDirFactory;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HexFormat;
@@ -22,8 +27,18 @@ public final class ReceiptKeysConfigTest {
     private static final String NEXT_PUBLIC_KEY = "0x" + "44".repeat(32);
     private static final String MAX_HEIGHT = "18446744073709551615";
 
-    @TempDir
+    @TempDir(factory = OwnerStorage.class)
     Path storageDirectory;
+
+    public static final class OwnerStorage implements TempDirFactory {
+        @Override
+        public Path createTempDirectory(AnnotatedElementContext element, ExtensionContext context)
+                throws java.io.IOException {
+            Path base = Files.createDirectories(Path.of("target").toAbsolutePath());
+            return Files.createTempDirectory(base, "receipt-storage-",
+                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
+        }
+    }
 
     private StandardEnvironment environment() {
         StandardEnvironment environment = new StandardEnvironment();

@@ -7,11 +7,13 @@ import re
 import shutil
 import signal
 import socket
+import ssl
 import stat
 import subprocess
 import sys
 import tempfile
 import time
+import urllib.request
 
 ROOT = Path(__file__).resolve().parents[3]
 CASES = (
@@ -34,8 +36,13 @@ LISTENER_ENV = ('LAYERX_AGENT_MCP_LISTENER_SOCKET', 'LAYERX_AGENT_MCP_LISTENER_O
                 'LAYERX_AGENT_MCP_LISTENER_OWNER_GID', 'LAYERX_AGENT_MCP_LISTENER_MODE',
                 'LAYERX_AGENT_MCP_LISTENER_ADMITTED_UIDS')
 WEB_ENV = ('LAYERX_AGENT_MCP_WEB_ENDPOINT', 'LAYERX_AGENT_MCP_WEB_NETWORK',
-           'LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY', 'LAYERX_AGENT_MCP_WEB_TIMEOUT_MS',
+           'LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX', 'LAYERX_AGENT_MCP_WEB_TIMEOUT_MS',
            'LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS', 'LAYERX_AGENT_MCP_WEB_APPROVAL_THRESHOLD')
+RETIRED_ENV = ('LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY',
+               'LAYERX_AGENT_MCP_CORE_SEQUENCE', 'LAYERX_AGENT_MCP_EXPIRY_SEQUENCE')
+AGENTD_ENV = ('LAYERX_AGENT_HUMAN_NETWORK_ID', 'LAYERX_AGENT_HUMAN_PROTOCOL_VERSION',
+              'LAYERX_AGENT_NODE_RPC_URL', 'LAYERX_AGENT_NODE_CHAIN_ID',
+              'LAYERX_AGENT_MCP_CORE_HEIGHT', 'LAYERX_AGENT_MCP_EXPIRY_HEIGHT')
 SECRET_ENV = ('LAYERX_AGENT_PROGRAM_BEARER_TOKEN', 'LAYERX_AGENT_NODE_BEARER_TOKEN',
               'LAYERX_AGENT_AUTHORITY_BEARER_TOKEN', 'LAYERX_AGENT_HUMAN_AUTHORITY_BEARER')
 SOCKET_MODE = '0660'
@@ -122,14 +129,68 @@ def daemon_environment(path):
                 f'daemon environment line {number} is not KEY=VALUE')
         require(key not in values, f'daemon environment repeats {key}')
         values[key] = value
+    for key in RETIRED_ENV:
+        require(key not in values, f'{key} is retired')
     for key in ('LAYERX_AGENT_HUMAN_STORE', 'LAYERX_AGENT_HUMAN_SOCKET', 'LAYERX_AGENT_MCP_MODE',
                 'LAYERX_AGENT_MCP_SESSION_ID', 'LAYERX_AGENT_MCP_CAPABILITY_ID',
-                'LAYERX_AGENT_MCP_SCOPES', 'LAYERX_AGENT_PROGRAM_LISTEN') + WEB_ENV:
+                'LAYERX_AGENT_MCP_SCOPES', 'LAYERX_AGENT_PROGRAM_LISTEN') + AGENTD_ENV + WEB_ENV:
         require(values.get(key), f'provisioned daemon environment lacks {key}')
     require(values['LAYERX_AGENT_MCP_MODE'] == 'full', 'the qualification boots full mode')
     for key in LISTENER_ENV + ('LAYERX_AGENT_MCP_BINDING_ROOT', 'LAYERX_AGENT_MCP_AUDIT_ROOT'):
         require(key not in values, f'{key} is owned by the harness, remove it from the file')
     return values
+
+
+def binding_environment(daemon, state, admitted, group, web_scopes,
+                        listener=True, web=False, overrides=None):
+    """Build the exact child environment used by Gate.boot."""
+    values = {key: value for key, value in daemon.items() if key not in WEB_ENV}
+    values.update({'LAYERX_AGENT_HUMAN_STORE': str(state['store']),
+                   'LAYERX_AGENT_HUMAN_SOCKET': str(state['human_socket']),
+                   'LAYERX_AGENT_MCP_BINDING_ROOT': str(state['root']),
+                   'LAYERX_AGENT_MCP_AUDIT_ROOT': str(state['audit'])})
+    state['audit'].mkdir(mode=0o700, exist_ok=True)
+    if listener:
+        values.update({'LAYERX_AGENT_MCP_LISTENER_SOCKET': str(state['socket']),
+                       'LAYERX_AGENT_MCP_LISTENER_OWNER_UID': str(os.geteuid()),
+                       'LAYERX_AGENT_MCP_LISTENER_OWNER_GID': str(group),
+                       'LAYERX_AGENT_MCP_LISTENER_MODE': SOCKET_MODE,
+                       'LAYERX_AGENT_MCP_LISTENER_ADMITTED_UIDS': str(admitted)})
+    if web:
+        values.update({key: daemon[key] for key in WEB_ENV})
+        values['LAYERX_AGENT_MCP_SCOPES'] = web_scopes
+    values.update(overrides or {})
+    base = {key: os.environ[key] for key in ('PATH', 'LANG', 'TZ') if key in os.environ}
+    return dict(base, **{key: value for key, value in values.items() if value is not None})
+
+
+def web_receipt_public_key(daemon):
+    context = ssl.create_default_context()
+    if daemon['LAYERX_AGENT_NODE_ENDPOINT'].startswith('https://'):
+        certificate = Path(daemon['LAYERX_AGENT_AUTHORITY_CA_DER']).read_bytes()
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.load_verify_locations(cadata=ssl.DER_cert_to_PEM_cert(certificate))
+    request = urllib.request.Request(
+        daemon['LAYERX_AGENT_NODE_ENDPOINT'],
+        data=json.dumps({'jsonrpc': '2.0', 'id': 1,
+                         'method': 'px_getReceiptKeys', 'params': []}).encode(),
+        headers={'Content-Type': 'application/json', 'Accept': 'application/json'})
+    with urllib.request.urlopen(request, context=context, timeout=30) as response:
+        payload = json.load(response)
+    require(set(payload) == {'jsonrpc', 'id', 'result'}
+            and payload['jsonrpc'] == '2.0' and payload['id'] == 1,
+            'receipt key RPC response is malformed')
+    result = payload['result']
+    require(isinstance(result, dict) and set(result) == {'keys'},
+            'receipt key RPC response is malformed')
+    keys = result['keys']
+    index = int(daemon['LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX'])
+    require(isinstance(keys, list) and 0 <= index < len(keys),
+            'receipt key index has no px_getReceiptKeys entry')
+    key = keys[index]['publicKey']
+    require(isinstance(key, str) and re.fullmatch(r'0x[0-9a-fA-F]{64}', key),
+            'receipt public key is malformed')
+    return key[2:].lower()
 
 
 class Gate:
@@ -206,24 +267,8 @@ class Gate:
                 'socket': socket_dir / 'mcp.sock'}
 
     def daemon_env(self, state, listener=True, web=False, overrides=None):
-        values = {key: value for key, value in self.daemon.items() if key not in WEB_ENV}
-        values.update({'LAYERX_AGENT_HUMAN_STORE': str(state['store']),
-                       'LAYERX_AGENT_HUMAN_SOCKET': str(state['human_socket']),
-                       'LAYERX_AGENT_MCP_BINDING_ROOT': str(state['root']),
-                       'LAYERX_AGENT_MCP_AUDIT_ROOT': str(state['audit'])})
-        state['audit'].mkdir(mode=0o700, exist_ok=True)
-        if listener:
-            values.update({'LAYERX_AGENT_MCP_LISTENER_SOCKET': str(state['socket']),
-                           'LAYERX_AGENT_MCP_LISTENER_OWNER_UID': str(os.geteuid()),
-                           'LAYERX_AGENT_MCP_LISTENER_OWNER_GID': str(self.group),
-                           'LAYERX_AGENT_MCP_LISTENER_MODE': SOCKET_MODE,
-                           'LAYERX_AGENT_MCP_LISTENER_ADMITTED_UIDS': str(self.admitted)})
-        if web:
-            values.update({key: self.daemon[key] for key in WEB_ENV})
-            values['LAYERX_AGENT_MCP_SCOPES'] = self.web_scopes
-        values.update(overrides or {})
-        base = {key: os.environ[key] for key in ('PATH', 'LANG', 'TZ') if key in os.environ}
-        return dict(base, **{key: value for key, value in values.items() if value is not None})
+        return binding_environment(self.daemon, state, self.admitted, self.group,
+                                   self.web_scopes, listener, web, overrides)
 
     def spawn(self, command, label, environment):
         log = self.log(label)
@@ -666,7 +711,7 @@ class Gate:
                 'endpoint': self.daemon['LAYERX_AGENT_MCP_WEB_ENDPOINT'],
                 'network': self.daemon['LAYERX_AGENT_MCP_WEB_NETWORK'],
                 'sequencer_public_key':
-                    self.daemon['LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY'].lower(),
+                    web_receipt_public_key(self.daemon),
                 'timeout_ms': int(self.daemon['LAYERX_AGENT_MCP_WEB_TIMEOUT_MS']),
                 'pending_attempts': int(self.daemon['LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS']),
                 'approval_threshold': self.daemon['LAYERX_AGENT_MCP_WEB_APPROVAL_THRESHOLD'],

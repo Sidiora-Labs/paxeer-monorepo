@@ -6,9 +6,7 @@ use std::time::Duration;
 
 use layerx_agent_api::export::{FactRef, OfflineExport};
 use layerx_agent_api::prepare::CanonicalBytes;
-use layerx_agent_api::proof::ProofBundle;
 use layerx_agent_api::read::{Freshness, RelativeTo, VerifiedRead};
-use layerx_client::evidence::EvidenceError;
 use layerx_client::sequencer::ReceiptKeyEntry;
 pub type SequencerError = layerx_client::sequencer::SequencerError;
 use layerx_crypto::evm_transaction::transaction_hash;
@@ -24,7 +22,6 @@ use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::hash::receipt_digest;
 use layerx_wire::receipt::encode_unsigned;
-use serde_json::{json, Value};
 
 use crate::protocol_evidence::{EvidenceAuthority, ReceiptEvidenceError};
 use crate::read::{
@@ -34,6 +31,11 @@ use crate::read::{
 use crate::store::{ObjectKind, Store, TenantId, TenantKey};
 
 pub const MAX_EXPORT_BYTES: usize = crate::agent_rpc::MAX_BODY_BYTES;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ExportTrustError {
+    InvalidEntry,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExportTrustSource {
@@ -45,7 +47,7 @@ impl ExportTrustSource {
     pub fn new(
         receipt_keys: Vec<ReceiptKeyEntry>,
         validator_set: Vec<CommitValidator>,
-    ) -> Result<Self, OfflineTrustError> {
+    ) -> Result<Self, ExportTrustError> {
         let mut keys = BTreeSet::new();
         let mut validators = BTreeSet::new();
         if receipt_keys.is_empty()
@@ -62,7 +64,7 @@ impl ExportTrustSource {
                     || !validators.insert(validator.address)
             })
         {
-            return Err(OfflineTrustError::NetworkId);
+            return Err(ExportTrustError::InvalidEntry);
         }
         Ok(Self {
             receipt_keys,
@@ -97,7 +99,6 @@ pub struct ExportOwnerContext<'a> {
 pub struct VerificationReport {
     pub verified_receipts: usize,
     pub verified_inclusions: usize,
-    pub verified_checkpoints: usize,
     pub height: u64,
     pub block_hash: [u8; 32],
     pub achieved_rung: Rung,
@@ -130,10 +131,6 @@ pub enum ExportProduceError {
     },
     Store,
     Correlation,
-    Evidence {
-        fact: usize,
-        error: EvidenceError,
-    },
     ReceiptEvidence {
         fact: usize,
         error: ReceiptEvidenceError,
@@ -311,9 +308,6 @@ pub fn verify(
                     header.app_hash,
                 )?;
             }
-            FactSelector::Checkpoint { batch_number, .. } if *batch_number != artifact.height => {
-                return Err(refusal())
-            }
             _ if bundle.account_proof.is_some() => return Err(refusal()),
             _ => {}
         }
@@ -321,7 +315,6 @@ pub fn verify(
     Ok(VerificationReport {
         verified_receipts: selectors.len(),
         verified_inclusions: selectors.len(),
-        verified_checkpoints: 1,
         height: artifact.height,
         block_hash: block.ok_or(ExportProduceError::Contract)?,
         achieved_rung: Rung::Committed,
@@ -473,154 +466,17 @@ fn bundle_key(tenant: TenantId, selector: &FactSelector) -> Result<TenantKey, Ex
 }
 
 pub fn serialize_export(artifact: &OfflineExport) -> Result<Vec<u8>, ExportProduceError> {
-    let hex = |bytes: &[u8]| format!("0x{}", layerx_programs::hex::encode(bytes));
-    let bundles: Vec<_> = artifact.bundles.iter().map(|bundle| {
-        let mut value = json!({"format":bundle.format, "verificationLevel":bundle.verification_level.name(),
-            "rawTransaction":hex(bundle.raw_transaction.as_bytes()), "signedReceipt":hex(bundle.signed_receipt.as_bytes()),
-            "receiptDigest":hex(&bundle.receipt_digest), "receiptKey":{"keyId":hex(&bundle.receipt_key.key_id), "publicKey":hex(&bundle.receipt_key.public_key),
-                "firstHeight":bundle.receipt_key.first_height.to_string(), "lastHeight":bundle.receipt_key.last_height.to_string()}});
-        for (name, bytes) in [("blockHeader", &bundle.block_header), ("receiptInclusion", &bundle.receipt_inclusion), ("commit", &bundle.commit), ("validatorSet", &bundle.validator_set), ("accountProof", &bundle.account_proof)] {
-            if let Some(bytes) = bytes { value[name] = Value::String(hex(bytes.as_bytes())); }
-        }
-        value
-    }).collect();
-    let value = json!({"facts": artifact.facts.iter().map(FactRef::as_str).collect::<Vec<_>>(), "bundles":bundles, "height":artifact.height.to_string()});
-    let bytes = serde_json::to_vec(&value).map_err(|_| ExportProduceError::Contract)?;
-    require_frame_within_bound(bytes.len())?;
-    Ok(bytes)
+    let text = artifact
+        .encode_json()
+        .map_err(|_| ExportProduceError::Contract)?;
+    require_frame_within_bound(text.len())?;
+    Ok(text.into_bytes())
 }
 
 pub fn deserialize_export(bytes: &[u8]) -> Result<OfflineExport, ExportProduceError> {
     require_frame_within_bound(bytes.len())?;
-    let value: Value = serde_json::from_slice(bytes).map_err(|_| ExportProduceError::Contract)?;
-    // The SDK decoder enforces the major-two field set. Keep the durable codec equally strict.
-    let object = value.as_object().ok_or(ExportProduceError::Contract)?;
-    if object.len() != 3
-        || !["facts", "bundles", "height"]
-            .iter()
-            .all(|key| object.contains_key(*key))
-    {
-        return Err(ExportProduceError::Contract);
-    }
-    let facts = value["facts"]
-        .as_array()
-        .ok_or(ExportProduceError::Contract)?
-        .iter()
-        .map(|value| {
-            FactRef::new(value.as_str().ok_or(ExportProduceError::Contract)?)
-                .map_err(|_| ExportProduceError::Contract)
-        })
-        .collect::<Result<_, _>>()?;
-    let mut bundles = Vec::new();
-    for value in value["bundles"]
-        .as_array()
-        .ok_or(ExportProduceError::Contract)?
-    {
-        let object = value.as_object().ok_or(ExportProduceError::Contract)?;
-        let names = [
-            "format",
-            "verificationLevel",
-            "rawTransaction",
-            "signedReceipt",
-            "receiptDigest",
-            "receiptKey",
-            "blockHeader",
-            "receiptInclusion",
-            "commit",
-            "validatorSet",
-        ];
-        if object.len() != names.len() + usize::from(object.contains_key("accountProof"))
-            || names.iter().any(|key| !object.contains_key(*key))
-        {
-            return Err(ExportProduceError::Contract);
-        }
-        let key = &value["receiptKey"];
-        let fields = key.as_object().ok_or(ExportProduceError::Contract)?;
-        if fields.len() != 4
-            || ["keyId", "publicKey", "firstHeight", "lastHeight"]
-                .iter()
-                .any(|name| !fields.contains_key(*name))
-        {
-            return Err(ExportProduceError::Contract);
-        }
-        let optional = |name: &str| object.get(name).map(json_bytes).transpose();
-        bundles.push(ProofBundle {
-            format: value["format"]
-                .as_str()
-                .ok_or(ExportProduceError::Contract)?
-                .to_owned(),
-            verification_level: Rung::from_name(
-                value["verificationLevel"]
-                    .as_str()
-                    .ok_or(ExportProduceError::Contract)?,
-            )
-            .ok_or(ExportProduceError::Contract)?,
-            raw_transaction: json_bytes(&value["rawTransaction"])?,
-            signed_receipt: json_bytes(&value["signedReceipt"])?,
-            receipt_digest: json_array(&value["receiptDigest"])?,
-            receipt_key: ReceiptKeyEntry {
-                key_id: json_array(&key["keyId"])?,
-                public_key: json_array(&key["publicKey"])?,
-                first_height: decimal(&key["firstHeight"])?,
-                last_height: decimal(&key["lastHeight"])?,
-            },
-            block_header: optional("blockHeader")?,
-            receipt_inclusion: optional("receiptInclusion")?,
-            commit: optional("commit")?,
-            validator_set: optional("validatorSet")?,
-            account_proof: optional("accountProof")?,
-        });
-    }
-    let artifact = OfflineExport {
-        facts,
-        bundles,
-        height: decimal(&value["height"])?,
-    };
-    artifact
-        .validate()
-        .map_err(|_| ExportProduceError::Contract)
-}
-fn decimal(value: &Value) -> Result<u64, ExportProduceError> {
-    let text = value.as_str().ok_or(ExportProduceError::Contract)?;
-    let number: u64 = text.parse().map_err(|_| ExportProduceError::Contract)?;
-    if number.to_string() != text {
-        return Err(ExportProduceError::Contract);
-    }
-    Ok(number)
-}
-fn json_bytes(value: &Value) -> Result<CanonicalBytes, ExportProduceError> {
-    let text = value
-        .as_str()
-        .and_then(|text| text.strip_prefix("0x"))
-        .ok_or(ExportProduceError::Contract)?;
-    if text.len() % 2 != 0
-        || !text
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-    {
-        return Err(ExportProduceError::Contract);
-    }
-    let bytes = text
-        .as_bytes()
-        .chunks_exact(2)
-        .map(|pair| {
-            let digit = |byte| {
-                if byte <= b'9' {
-                    byte - b'0'
-                } else {
-                    byte - b'a' + 10
-                }
-            };
-            digit(pair[0]) * 16 + digit(pair[1])
-        })
-        .collect();
-    CanonicalBytes::new(bytes).map_err(|_| ExportProduceError::Contract)
-}
-fn json_array<const N: usize>(value: &Value) -> Result<[u8; N], ExportProduceError> {
-    json_bytes(value)?
-        .as_bytes()
-        .try_into()
-        .map_err(|_| ExportProduceError::Contract)
+    let text = std::str::from_utf8(bytes).map_err(|_| ExportProduceError::Contract)?;
+    OfflineExport::decode_json(text).map_err(|_| ExportProduceError::Contract)
 }
 
 fn u64_word(value: u64) -> [u8; 32] {

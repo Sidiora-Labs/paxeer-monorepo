@@ -1,6 +1,16 @@
 [
   {
     "type": "function",
+    "name": "recordLifecycle",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {"name": "payload", "type": "bytes", "internalType": "bytes"},
+      {"name": "idempotencyKey", "type": "bytes32", "internalType": "bytes32"}
+    ],
+    "outputs": [{"name": "globalSequence", "type": "uint64", "internalType": "uint64"}]
+  },
+  {
+    "type": "function",
     "name": "grantSession",
     "stateMutability": "nonpayable",
     "inputs": [
@@ -119,10 +129,30 @@
     "name": "GrantBody",
     "anonymous": false,
     "inputs": [
-      {"name": "grantId", "type": "bytes32", "internalType": "bytes32", "indexed": true},
-      {"name": "sub", "type": "uint8", "internalType": "uint8", "indexed": false},
-      {"name": "chunk", "type": "uint8", "internalType": "uint8", "indexed": false},
-      {"name": "body", "type": "bytes", "internalType": "bytes", "indexed": false}
+      {
+        "name": "grantId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "sub",
+        "type": "uint8",
+        "internalType": "uint8",
+        "indexed": false
+      },
+      {
+        "name": "chunk",
+        "type": "uint8",
+        "internalType": "uint8",
+        "indexed": false
+      },
+      {
+        "name": "body",
+        "type": "bytes",
+        "internalType": "bytes",
+        "indexed": false
+      }
     ]
   },
   {
@@ -136,8 +166,18 @@
     "name": "GrantRevoked",
     "anonymous": false,
     "inputs": [
-      {"name": "grantId", "type": "bytes32", "internalType": "bytes32", "indexed": true},
-      {"name": "record", "type": "bytes", "internalType": "bytes", "indexed": false}
+      {
+        "name": "grantId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "record",
+        "type": "bytes",
+        "internalType": "bytes",
+        "indexed": false
+      }
     ]
   },
   {

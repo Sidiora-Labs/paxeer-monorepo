@@ -1,0 +1,125 @@
+[disposition.4.4.1]
+finding = "4.4.1"
+status = "resolved"
+evidence = "Commit 2fcc434f4 removed the Params forwarder from grpc_query.go and updated both registration tests, leaving the keeper-backed handler at modules/launchpad/keeper/grpc_query_params.go:9 as the sole Params implementation."
+
+[disposition.4.4.2]
+finding = "4.4.2"
+status = "resolved"
+evidence = "Commit 5041572c6 removed the Market forwarder and its Unimplemented expectations, and modules/launchpad/keeper/grpc_query_market.go:11 now serves the market or returns ErrUnknownMarket."
+
+[disposition.4.4.3]
+finding = "4.4.3"
+status = "resolved"
+evidence = "Commit a3997f7c9 removed the MarketByAddress forwarder and updated both registration tests, leaving modules/launchpad/keeper/grpc_query_market_by_address.go:11 as its sole handler."
+
+[disposition.4.4.3.1]
+finding = "4.4.3.1"
+status = "resolved"
+evidence = "Commit a3997f7c9 added marketByAddressError at modules/launchpad/keeper/grpc_query_market_by_address.go:40, which matches the registered address and configuration roots with errors.Is and returns sdkerrors.Wrap so ABCIInfo preserves their codespaces."
+
+[disposition.4.4.4]
+finding = "4.4.4"
+status = "resolved"
+evidence = "Commit 63495dc4c removed the Markets forwarder and updated its registration expectations, while modules/launchpad/keeper/grpc_query_markets.go:10 serves validated pagination and keeper market data."
+
+[disposition.4.4.5]
+finding = "4.4.5"
+status = "resolved"
+evidence = "Commit 3855070fb removed the MarketsByCreator forwarder and its Unimplemented expectations, leaving the address-validating keeper handler at modules/launchpad/keeper/grpc_query_markets_by_creator.go:11."
+
+[disposition.4.4.6.1]
+finding = "4.4.6.1"
+status = "resolved"
+evidence = "Commit cae1a2933 replaced the unknown-market fmt.Errorf wrapper with sdkerrors.Wrap, which remains at modules/launchpad/keeper/price_history.go:15 and preserves the launchpad codespace and code through PriceHistory."
+
+[disposition.4.4.7]
+finding = "4.4.7"
+status = "resolved"
+evidence = "The Querier declaration and queryContext helper at modules/launchpad/keeper/grpc_query.go:14 contain no forwarding methods, and modules/launchpad/keeper/grpc_query_test.go:353 explicitly handles Quote through FeeAccounting as served queries or their typed refusals instead of Unimplemented."
+
+[disposition.4.4.8]
+finding = "4.4.8"
+status = "resolved"
+evidence = "Commit 526e27e77 changed QueryTreasuryResponse balance and held to plain strings at api/launchpad/query.proto:350 and regenerated the Go response, with modules/launchpad/keeper/grpc_query_treasury.go:26 filling decimal strings instead of top-level customtype Int values."
+
+[disposition.4.4.11.1]
+finding = "4.4.11.1"
+status = "resolved"
+evidence = "Commit a6ad6456f introduced feeRightQueryError at modules/launchpad/keeper/grpc_query_fee_right.go:15 with original text, Unwrap and registered-root Cause, while modules/launchpad/keeper/grpc_query.go:53 now maps malformed collection addresses to InvalidArgument under the later REST ruling."
+
+[disposition.4.4.17]
+finding = "4.4.17"
+status = "resolved"
+evidence = "Commit 6b1f13b47 removed the final PoolMetadata forwarder from grpc_query.go and updated the registration tests, leaving the keeper-backed handler at modules/launchpad/keeper/grpc_query_pool_metadata.go:9."
+
+[disposition.4.5.3]
+finding = "4.5.3"
+status = "resolved"
+evidence = "Commit f7289ba01 made gRPCErrorToSDKError preserve errors with registered codespaces at sdk/baseapp/abci.go:626, and modules/launchpad/client/cli/query_market_test.go:106 asserts launchpad code 12 for both Market and MarketByAddress."
+
+[disposition.4.5.4]
+finding = "4.5.4"
+status = "resolved"
+evidence = "Commit f7289ba01 preserves registered module errors at sdk/baseapp/abci.go:627, and modules/launchpad/client/cli/query_markets_test.go:197 asserts launchpad ErrInvalidRange code 30 rather than the generic code 18."
+
+[disposition.4.5.5]
+finding = "4.5.5"
+status = "resolved"
+evidence = "Commit f7289ba01 added the registered-codespace early return at sdk/baseapp/abci.go:627, so the price-history and quote command errors are no longer generically replaced by ErrInvalidRequest."
+
+[disposition.4.5.5.1]
+finding = "4.5.5.1"
+status = "resolved"
+evidence = "Commit c0121992c replaced mustMarket's fmt.Errorf wrapper with unknownMarketError at modules/launchpad/keeper/keeper.go:152, whose Cause returns ErrUnknownMarket and whose Error preserves the denomination suffix."
+
+[disposition.4.10.3]
+finding = "4.10.3"
+status = "resolved"
+evidence = "Commit 5e75f35fc placed the ABCI code-12 assertion at modules/launchpad/client/rest/grpc_query_market_test.go:154 and compares the REST body with the matching gRPC status at line 168 instead of treating ABCI code 12 as a gRPC code."
+
+[disposition.4.10.3.1]
+finding = "4.10.3.1"
+status = "resolved"
+evidence = "At modules/launchpad/client/rest/grpc_query_market_test.go:168 the REST code equals status.Convert(err).Code(), while the separate ABCI response is checked for code 12 at line 154, as landed in commit 5e75f35fc."
+
+[disposition.4.10.5]
+finding = "4.10.5"
+status = "resolved"
+evidence = "Commit 6aeef2232 added shared malformed-address validation at modules/launchpad/keeper/grpc_query.go:43 that returns InvalidArgument for AirdropClaimed, HasRole and FeeRight, and modules/launchpad/client/rest/grpc_query_registry_test.go:226 asserts HTTP 400."
+
+[disposition.4.10.5.2]
+finding = "4.10.5.2"
+status = "resolved"
+evidence = "Commit 6aeef2232 aligned malformed-address handling with InvalidArgument and updated the CLI expectations at modules/launchpad/client/cli/query_airdrop_test.go:183 and modules/launchpad/client/cli/query_surface_test.go:173 to match the REST 400 ruling."
+
+[disposition.4.21.2]
+finding = "4.21.2"
+status = "resolved"
+evidence = "At spec/layerx-merge/spec.kvx:119925 task 4.21.2 lists only test_fmt_target_does_not_mask_goimports_failure as a graph symbol, while the fmt target remains implemented at services/launchpad/Makefile:56 and covered by that declared test."
+
+[disposition.4.21.3]
+finding = "4.21.3"
+status = "resolved"
+evidence = "At spec/layerx-merge/spec.kvx:119955 task 4.21.3 lists only its two declared pytest functions as symbols, leaving the test-module target at services/launchpad/Makefile:70 covered by touches rather than requiring a Makefile graph declaration."
+
+[disposition.4.22.1]
+finding = "4.22.1"
+status = "environment"
+evidence = "The fixture at services/launchpad/gateway/internal/auth/identity_measurement_test.go:26 requires an admitted PostgreSQL DSN and fixtureIdentity checks a real database at identity_test.go:57, while services/launchpad/gateway/internal/auth/identity_http_test.go:267 requires a real nats-server binary, so the recorded failures concern missing qualification services."
+
+[disposition.4.22.1.1]
+finding = "4.22.1.1"
+status = "open"
+evidence = "Commit fe3e9e1ec repaired fixtureIdentity at services/launchpad/gateway/internal/auth/identity_test.go:82, but the additional missing handoff SQL consumers noted in this finding remain at services/launchpad/social/internal/interactions/store_test.go:78 and services/launchpad/social/internal/voice/control_test.go:77, which still read absent L37 and L38 schema-proposal.sql files."
+follow_up = "22.4.3"
+
+[disposition.4.22.3]
+finding = "4.22.3"
+status = "environment"
+evidence = "At services/launchpad/gateway/internal/internaltest/containers.go:63 NewMinIO requires an external MinIO endpoint and credentials, and services/launchpad/gateway/internal/app/dev_identity_test.go:136 calls it while booting the real gateway harness, so the recorded missing-variable failure belongs to the qualification environment."
+
+[disposition.4.22.3.2]
+finding = "4.22.3.2"
+status = "environment"
+evidence = "At services/launchpad/gateway/internal/app/retired_routes_test.go:15 the retired-route test still boots the development gateway through bootDevIdentity, whose MinIO dependency at services/launchpad/gateway/internal/app/dev_identity_test.go:136 requires a provisioned external service rather than a repository repair."

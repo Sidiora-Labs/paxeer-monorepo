@@ -4,6 +4,9 @@ use common::{envelope, error_envelope, Cli, Emulator};
 
 #[test]
 fn real_wallet_creation_listing_and_balance() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let emulator = Emulator::start();
     assert!(cli.bind_emulator(emulator.endpoint()).status.success());
@@ -61,6 +64,9 @@ fn real_wallet_creation_listing_and_balance() {
 
 #[test]
 fn wallet_import_uses_real_credential_storage() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let result = cli.run_with_stdin(
         &[
@@ -86,6 +92,9 @@ fn wallet_import_uses_real_credential_storage() {
 
 #[test]
 fn unavailable_rpc_asset_methods_fail_closed() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let output = cli.run(&["--json", "--rpc", "http://127.0.0.1:1/rpc", "token", "list"]);
     assert!(!output.status.success());
@@ -97,6 +106,9 @@ fn unavailable_rpc_asset_methods_fail_closed() {
 
 #[test]
 fn unpublished_registration_and_history_preserve_local_keys() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let before = cli.run(&["--json", "wallet", "list"]);
     assert!(before.status.success());
@@ -130,4 +142,30 @@ fn unpublished_registration_and_history_preserve_local_keys() {
     let after = cli.run(&["--json", "wallet", "list"]);
     assert!(after.status.success());
     assert_eq!(envelope(&before)["data"], envelope(&after)["data"]);
+}
+
+#[test]
+fn malformed_balance_asset_is_refused_before_rpc() {
+    if !common::credential_environment() {
+        return;
+    }
+    let cli = Cli::new();
+    let output = cli.run(&[
+        "--json",
+        "--rpc",
+        "http://127.0.0.1:1/rpc",
+        "wallet",
+        "balance",
+        "--did",
+        "did:layerx:alice",
+        "--asset",
+        "bad-asset",
+    ]);
+    assert!(!output.status.success());
+    let detail = error_envelope(&output)["error"]["detail"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(detail.contains("asset"), "{detail}");
+    assert!(!detail.contains("connect"), "{detail}");
 }

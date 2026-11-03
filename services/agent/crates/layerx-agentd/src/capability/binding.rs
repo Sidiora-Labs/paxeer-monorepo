@@ -187,6 +187,7 @@ pub fn bind_purpose(
     asserted: &str,
     disclosure: &Disclosure,
 ) -> Result<PurposeBinding, BindingError> {
+    disclosure.validate().map_err(|_| BindingError::Corrupt)?;
     purpose_from_commitment(asserted, purpose_commitment(disclosure))
 }
 
@@ -218,6 +219,7 @@ pub fn bind_purpose_from_set(
     purposes: &ExplicitSet<Purpose>,
     disclosure: &Disclosure,
 ) -> Result<PurposeBinding, BindingError> {
+    disclosure.validate().map_err(|_| BindingError::Corrupt)?;
     purpose_from_set(purposes.values(), purpose_commitment(disclosure))
 }
 
@@ -2564,8 +2566,8 @@ pub struct NativeEffectFeeV1 {
 
 pub fn native_effect_fee(
     prepared: &crate::prepare::Prepared,
-    fee_policy: &layerx_client::payments::CommittedSnapshot<
-        layerx_client::payments::NativeFeePolicy,
+    fee_policy: &layerx_client::rpc::payments::CommittedSnapshot<
+        layerx_client::rpc::payments::NativeFeePolicy,
     >,
     current_head: u64,
 ) -> Result<Option<NativeEffectFeeV1>, BindingError> {
@@ -2603,8 +2605,8 @@ pub fn inspect_native_effect_capability(
     binding: NativePreparationBindingV1,
     prepared: &crate::prepare::Prepared,
     now_ms: u64,
-    fee_policy: &layerx_client::payments::CommittedSnapshot<
-        layerx_client::payments::NativeFeePolicy,
+    fee_policy: &layerx_client::rpc::payments::CommittedSnapshot<
+        layerx_client::rpc::payments::NativeFeePolicy,
     >,
     current_head: u64,
     profile: super::NativeAdmissionProfile,
@@ -3647,8 +3649,8 @@ pub fn inspect_native_send_capability(
     purpose: &VerifiedNativeSendPurposeV1,
     prepared: &crate::prepare::Prepared,
     now_ms: u64,
-    fee_policy: &layerx_client::payments::CommittedSnapshot<
-        layerx_client::payments::NativeFeePolicy,
+    fee_policy: &layerx_client::rpc::payments::CommittedSnapshot<
+        layerx_client::rpc::payments::NativeFeePolicy,
     >,
     current_head: u64,
 ) -> Result<NativeCapabilityConstraintsV1, BindingError> {

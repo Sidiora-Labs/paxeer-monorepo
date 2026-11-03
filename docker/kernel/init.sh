@@ -1,4 +1,7 @@
 #!/bin/bash
+# /readyz belongs to each serving process: the mirror publisher checks its own
+# publication state; the reference ramp reports only its local journal. Kernel
+# service startup here does not use ramp readiness as evidence of chain readiness.
 # Root init of the kernel box (docker/kernel/layerx-kernel.service), the node pod
 # of services/platform/hosted/node/deployment.yaml in one container. It replays the pod's
 # init containers on the volume, mounts the pod's memory volumes, and runs each
@@ -1795,50 +1798,33 @@ human_security_prepare() {
 	human_project human-security 4020 "$human_state/trust-history:trust-history"
 }
 
-# The one Human KMS execution service movement reaches: the listener and
-# provider reference the KMS launch below serves, and the server name its
-# human-kms certificate carries.
+human_kms_chain_snapshot() {
+    python3 - "$1" "$2" <<'PY_KMS_CHAIN'
+import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+
+target, chain = Path(sys.argv[1]), int(sys.argv[2])
+if chain != 125 or not target.is_absolute() or target.is_symlink():
+    raise SystemExit('KMS chain snapshot refused')
+fd, pending = tempfile.mkstemp(prefix='.chain-', dir=target.parent)
+try:
+    with os.fdopen(fd, 'w') as stream:
+        json.dump({'chain_id': chain}, stream)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(pending, target)
+finally:
+    if os.path.exists(pending):
+        os.unlink(pending)
+PY_KMS_CHAIN
+}
+
 human_kms_listen=127.0.0.1:9450
 human_kms_server_name=layerx-human-kms
 human_kms_provider=layerx-human-kms
-
-# human_movement_state: the movement journal root under the role's retained
-# state, created owner-only once and refused when anything else holds it.
-human_movement_state() {
-	local root=$human_state/movement/movement
-	if [ -e "$root" ] || [ -L "$root" ]; then
-		[ ! -L "$root" ] && [ -d "$root" ] && [ "$(stat -c '%u:%g:%a' "$root")" = 4020:4020:700 ]
-	else
-		install -d -o 4020 -g 4020 -m 0700 "$root"
-	fi
-}
-
-# human_movement_kms_binding: movement's executor configuration names exactly
-# the KMS service above, and the identity it presents is the restricted
-# executor the KMS pins; anything else keeps movement waiting.
-human_movement_kms_binding() {
-	local config=$human_out/movement-config/LAYERX_HUMAN_MOVEMENT_PROVIDER_ pair
-	for pair in "KMS_ENDPOINT=$human_kms_listen" "KMS_SERVER_NAME=$human_kms_server_name" \
-		"KMS_PROVIDER_REFERENCE=$human_kms_provider" \
-		"KMS_CA_DER=/run/human-private/movement/ca.der" \
-		"KMS_CLIENT_CERT_DER=/run/human-private/movement/kms-executor.der" \
-		"KMS_CLIENT_KEY_DER=/run/human-private/movement/kms-executor-key.der"; do
-		[ -f "$config${pair%%=*}" ] && [ ! -L "$config${pair%%=*}" ] &&
-			[ "$(cat "$config${pair%%=*}")" = "${pair#*=}" ] || return 1
-	done
-	cmp -s "$tls/human-kms-executor/cert.der" "$human_kms_out/kms-executor.der" &&
-		cmp -s "$tls/human-kms-executor/ca.der" "$human_kms_out/ca.der" &&
-		! cmp -s "$tls/human-kms-executor/cert.der" "$human_kms_out/kms-client.der"
-}
-
-human_movement_prepare() {
-	cmp -s "$human_paxeer_ca" "$tls/human-kms/ca.der" || return 1
-	human_movement_state || return 1
-	human_project human-movement 4020 "$human_out/movement-config:env" "$human_paxeer_ca:ca.der" \
-		"$tls/human-kms-executor/cert.der:kms-executor.der" "$tls/human-kms-executor/key.der:kms-executor-key.der" \
-		"$human_out/movement/custody.profile:custody.profile" || return 1
-	human_movement_kms_binding
-}
 
 human_kms_source=${LAYERX_HUMAN_KMS_REGISTRY_SOURCE:-$keys/human-kms/module-registry.json}
 human_kms_out=$human_state/kms-prerequisite/material
@@ -1856,9 +1842,11 @@ human_kms_prepare() {
 		"$human_kms_source" "$tls" "$human_kms_out" "$LAYERX_NODE_NETWORK_ID" \
 		"$(cat "$genesis/asset-id")" "$human_state/kms"; } 7>"$human_state/kms-prerequisite.lock" || return 1
 	install -d -o 4026 -g 4020 -m 0500 "$directory"
-	for name in kms-server.der kms-server-key.der kms-client.der kms-executor.der ca.der kms-seal registry.json; do
+	for name in kms-server.der kms-server-key.der kms-client.der kms-executor.der ca.der kms-seal; do
 		install -o 0 -g 4020 -m 0440 "$human_kms_out/$name" "$directory/$name" || return 1
 	done
+	human_kms_chain_snapshot "$directory/registry.json" "$LAYERX_NODE_NETWORK_ID" || return 1
+	chown 0:4020 "$directory/registry.json" && chmod 0440 "$directory/registry.json" || return 1
 }
 
 # The owner's session operator secret, made once on the volume like the
@@ -1942,17 +1930,6 @@ human_root=$human_state/security service human-security 4020 "$(human_security_w
 	LAYERX_HUMAN_SECURITY_PROVIDER_TRUST_HISTORY=/run/human-private/security/trust-history \
 	LAYERX_HUMAN_SECURITY_PROVIDER_DEADLINE_SECONDS=5 \
 	/usr/local/bin/human-entrypoint security
-
-human_root=$human_state/movement service human-movement 4020 \
-	"$genesis_files $human_policy $human_paxeer_ca $tls/human-kms/cert.der $tls/human-kms-executor/cert.der $tls/human-kms-executor/key.der $tls/human-kms-executor/ca.der $human_kms_out/kms-seal $human_kms_out/registry.json $human_kms_out/kms-executor.der $human_kms_out/kms-client.der" \
-	human_movement_prepare - -- \
-	/bin/sh -ec "$human_env" sh env \
-	LAYERX_HUMAN_MOVEMENT_PROVIDER_SOCKET="$run/human/movement.sock" \
-	LAYERX_HUMAN_MOVEMENT_PROVIDER_STATE_ROOT=/var/lib/layerx/human/movement \
-	LAYERX_HUMAN_MOVEMENT_PROVIDER_ALLOWED_UID=4020 \
-	LAYERX_HUMAN_MOVEMENT_PROVIDER_PAXEER_RPC_URLS="$human_paxeer_urls" \
-	LAYERX_HUMAN_MOVEMENT_PROVIDER_PAXEER_MINIMUM_AGREEMENT=2 \
-	/usr/local/bin/human-entrypoint movement
 
 human_root=$human_state/agent service human-owner 4021 \
 	"$genesis_files $human_policy $tls/receipt-authority/ca.der $keys/human-authority/authority-token $human_state/trust-history $tls/agentd-rpc/cert.pem $tls/agentd-rpc/key.pem $tls/agentd-rpc/ca.pem" \

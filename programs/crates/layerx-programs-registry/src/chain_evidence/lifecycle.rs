@@ -1,4 +1,4 @@
-use crate::chain_evidence::programs_state_key;
+use crate::chain_evidence::{programs_state_key, HOST_STORE_NAME};
 use crate::chain_proof::{
     decode::ProofOp,
     state::{verify_absent, verify_state},
@@ -27,11 +27,11 @@ impl ChainLifecycleProof {
         record_key.extend_from_slice(&self.program.bytes());
         let key = programs_state_key(&record_key);
         let Some(value) = &self.record else {
-            verify_absent(next, "layerx", &key, &self.record_ops)
+            verify_absent(next, HOST_STORE_NAME, &key, &self.record_ops)
                 .map_err(|_| ProtocolEvidenceError::StateProof)?;
             return Err(ProtocolEvidenceError::LifecycleProof);
         };
-        verify_state(next, "layerx", &key, value, &self.record_ops)
+        verify_state(next, HOST_STORE_NAME, &key, value, &self.record_ops)
             .map_err(|_| ProtocolEvidenceError::StateProof)?;
         let record = decode_program_record(&StateLeafWitness {
             key: record_key,
@@ -47,12 +47,12 @@ impl ChainLifecycleProof {
         let key = programs_state_key(&status_key);
         match &self.status {
             None => {
-                verify_absent(next, "layerx", &key, &self.status_ops)
+                verify_absent(next, HOST_STORE_NAME, &key, &self.status_ops)
                     .map_err(|_| ProtocolEvidenceError::StateProof)?;
                 Ok(ProgramLifecycle::Active)
             }
             Some(value) => {
-                verify_state(next, "layerx", &key, value, &self.status_ops)
+                verify_state(next, HOST_STORE_NAME, &key, value, &self.status_ops)
                     .map_err(|_| ProtocolEvidenceError::StateProof)?;
                 if value.len() != 54
                     || value[0] != 1

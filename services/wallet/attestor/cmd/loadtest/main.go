@@ -453,6 +453,9 @@ func (lt *loadTester) generate(ctx context.Context, curve, account string) (serv
 		if err := json.Unmarshal(r.body, &kr); err != nil {
 			return server.KeyResponse{}, took, fmt.Errorf("generate %s on %s: %v", curve, lt.cfg.endpoints[i].ID, err)
 		}
+		if kr.NodeID != lt.cfg.endpoints[i].ID || kr.KeyID != keyID || kr.Curve != curve || kr.AuditSequence == 0 {
+			return server.KeyResponse{}, took, fmt.Errorf("generate %s: response identity or audit evidence differs on %s", curve, lt.cfg.endpoints[i].ID)
+		}
 		if i == 0 {
 			first = kr
 		} else if kr.PublicKey != first.PublicKey {

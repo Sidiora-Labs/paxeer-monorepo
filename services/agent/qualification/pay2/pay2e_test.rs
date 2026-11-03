@@ -297,30 +297,15 @@ fn pay2_run<F: std::future::Future>(future: F) -> F::Output {
 
 fn pay2_readiness_gate(
     cluster: &Cluster,
-    batch: u64,
+    node: &layerx_agentd::node_rpc::NodeRpc,
+    config: &layerx_agentd::node_rpc::NodeRpcConfig,
+    height: u64,
     source: PathBuf,
 ) -> layerx_agentd::boot::Gate {
-    use std::io::{BufRead, BufReader};
-
-    let mut environment = BTreeMap::new();
-    finality_environment(&mut environment);
-    let chain_id = environment["LAYERX_NODE_PAXEER_CHAIN_ID"]
-        .parse::<u64>()
-        .required("PAY2 Paxeer chain id");
-    assert_ne!(chain_id, 0);
-    let listener = TcpListener::bind("127.0.0.1:0").required("PAY2 readiness listener");
-    let config = layerx_agentd::node_rpc::NodeRpcConfig {
-        url: format!(
-            "http://{}/",
-            listener.local_addr().required("PAY2 readiness address")
-        ),
-        chain_id,
-        deadline: Duration::from_secs(2),
-    };
     let startup = layerx_agentd::config::StartupConfig {
         network_id: NETWORK_ID,
         node_endpoint: config.url.clone(),
-        expected_chain_id: chain_id,
+        expected_chain_id: config.chain_id,
         tenants: BTreeSet::new(),
         policy_sources: BTreeMap::new(),
         signer_configurations: BTreeMap::new(),
@@ -328,88 +313,14 @@ fn pay2_readiness_gate(
         receipt_key_source: layerx_agentd::config::ReceiptKeySource::PinnedFile(source),
     };
     let mut gate = layerx_agentd::boot::Gate::new(&startup).required("PAY2 evidence gate");
-    listener
-        .set_nonblocking(true)
-        .required("PAY2 readiness nonblocking listener");
-    let keys = serde_json::json!([{
-        "keyId": format!("0x{}", hex_encode(&cluster.sequencer_id)),
-        "publicKey": format!("0x{}", hex_encode(&cluster.sequencer_key)),
-        "firstHeight": "0x1",
-        "lastHeight": format!("0x{:x}", u64::MAX),
-    }]);
-    let server = thread::spawn(move || {
-        for (method, result) in [
-            ("eth_chainId", serde_json::json!(format!("0x{chain_id:x}"))),
-            ("px_getReceiptKeys", keys),
-        ] {
-            let expires = Instant::now() + Duration::from_secs(5);
-            let stream = loop {
-                match listener.accept() {
-                    Ok((stream, _)) => break stream,
-                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        assert!(Instant::now() < expires, "missing PAY2 {method} request");
-                        thread::sleep(Duration::from_millis(1));
-                    }
-                    Err(error) => panic!("PAY2 readiness accept: {error}"),
-                }
-            };
-            stream
-                .set_read_timeout(Some(Duration::from_secs(2)))
-                .required("PAY2 readiness read timeout");
-            stream
-                .set_write_timeout(Some(Duration::from_secs(2)))
-                .required("PAY2 readiness write timeout");
-            let mut reader = BufReader::new(stream);
-            let mut length = None;
-            loop {
-                let mut line = String::new();
-                assert_ne!(
-                    reader
-                        .read_line(&mut line)
-                        .required("PAY2 readiness header"),
-                    0
-                );
-                if line == "\r\n" {
-                    break;
-                }
-                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                    length = Some(
-                        value
-                            .trim()
-                            .parse::<usize>()
-                            .required("PAY2 readiness content length"),
-                    );
-                }
-            }
-            let length = length.required("PAY2 readiness content length required");
-            assert!(length <= 64 * 1024);
-            let mut body = vec![0; length];
-            reader
-                .read_exact(&mut body)
-                .required("PAY2 readiness request body");
-            let request: serde_json::Value =
-                serde_json::from_slice(&body).required("PAY2 readiness request JSON");
-            assert_eq!(request["jsonrpc"], "2.0");
-            assert_eq!(request["method"], method);
-            assert_eq!(request["params"], serde_json::json!([]));
-            let answer =
-                serde_json::json!({"jsonrpc": "2.0", "id": request["id"], "result": result})
-                    .to_string();
-            let mut stream = reader.into_inner();
-            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()).required("PAY2 readiness response");
-            stream.flush().required("PAY2 readiness flush");
-        }
-    });
-    let node = layerx_agentd::node_rpc::NodeRpc::connect(&config).required("PAY2 readiness node");
-    let status = gate.readiness_gate(&node).required("PAY2 node readiness");
-    assert_eq!(status.chain_id, chain_id);
+    let status = gate.readiness_gate(node).required("PAY2 node readiness");
+    assert_eq!(status.chain_id, u64::from(NETWORK_ID));
     assert!(status.receipt_keys.iter().any(|key| {
         key.key_id == cluster.sequencer_id
             && key.public_key == cluster.sequencer_key
-            && key.first_height <= batch
-            && batch <= key.last_height
+            && key.first_height <= height
+            && height <= key.last_height
     }));
-    server.join().required("PAY2 readiness server");
     assert_eq!(gate.guard_write(|| ()), Ok(()));
     assert!(gate.evidence_authority().is_ok());
     gate
@@ -430,26 +341,23 @@ fn pay2_evidence_authority(
         .as_bytes(),
         0o600,
     );
-    let connection_gate = ConnectionGate::new(1);
-    let mut transport = Uds::connect(&cluster.lni_socket, &connection_gate, lni_limits())
-        .required("PAY2 evidence handshake transport");
-    let handshake =
-        perform(&mut transport, &handshake_config(), None).required("PAY2 evidence handshake");
-    let status = handshake.node();
-    assert_eq!(status.protocol_version, PROTOCOL_VERSION);
-    assert_eq!(status.network_id, NETWORK_ID);
-    assert_eq!(status.authorised_sequencer_key, cluster.sequencer_key);
-    assert_eq!(
-        status.role,
-        layerx_client::lni::handshake::NodeRole::Sequencer
-    );
-    assert!(handshake
-        .capabilities()
-        .contains(layerx_client::lni::schema::Capability::Submit));
-    assert!(handshake
-        .capabilities()
-        .contains(layerx_client::lni::schema::Capability::AuthenticatedDurableSubmit));
-    let gate = pay2_readiness_gate(cluster, status.latest_sealed_batch, source);
+    let mut environment = BTreeMap::new();
+    finality_environment(&mut environment);
+    let chain_id = environment["LAYERX_NODE_PAXEER_CHAIN_ID"]
+        .parse::<u64>()
+        .required("PAY2 Paxeer chain id");
+    assert_ne!(chain_id, 0);
+    assert_eq!(chain_id, u64::from(NETWORK_ID));
+    let config = layerx_agentd::node_rpc::NodeRpcConfig {
+        url: environment["LAYERX_NODE_PAXEER_RPC_URL"].clone(),
+        chain_id,
+        deadline: Duration::from_secs(2),
+    };
+    let node = layerx_agentd::node_rpc::NodeRpc::connect(&config).required("PAY2 readiness node");
+    assert_eq!(node.chain_id(), u64::from(NETWORK_ID));
+    let height = node.block_number().required("PAY2 node block number");
+    assert_ne!(height, 0);
+    let gate = pay2_readiness_gate(cluster, &node, &config, height, source);
     gate.evidence_authority()
         .required("PAY2 evidence authority")
         .clone()
@@ -583,6 +491,8 @@ impl Pay2FundedRun<'_> {
             .get_identity_sequence(&self.cluster.treasury_did)
             .required("PAY2 Send identity sequence")
             .next_sequence;
+        let send_payload =
+            pay2_run(send.sign(self.payer_wallet.signer)).required("PAY2 signed Send payload");
         let executed =
             pay2_run(self.payer_wallet.send_debit(&send, &options)).required("PAY2 executed Send");
         let protocol = executed
@@ -590,16 +500,40 @@ impl Pay2FundedRun<'_> {
             .protocol()
             .required("PAY2 executed Send receipt");
         assert_eq!(protocol.result_code(), 0);
-        let (registry, _) = layerx_platform_core::asset_registry().required("PAY2 Asset registry");
-        let activity = layerx_wire::activity::decode_signed(
+        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(
             executed
                 .canonical_activity()
-                .required("PAY2 signed Send activity"),
-            &registry,
+                .required("PAY2 signed Send transaction"),
         )
-        .required("PAY2 canonical Send");
-        assert_eq!(activity.account_sequence(), identity_sequence);
-        assert_ne!(activity.account_sequence(), source_sequence);
+        .required("PAY2 canonical Send transaction");
+        let treasury = self
+            .payer_wallet
+            .signer
+            .evm_address()
+            .required("PAY2 treasury EVM address");
+        assert_eq!(
+            layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                .required("PAY2 Send transaction sender"),
+            treasury
+        );
+        let mut ledger = [0; 20];
+        ledger[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
+        assert_eq!(call.to, ledger);
+        let expected = layerx_crypto::send::ledger_payment_call(
+            &send_payload,
+            &layerx_crypto::send::CallOptions {
+                from: treasury,
+                chain_id: call.chain_id,
+                nonce: call.nonce,
+                max_priority_fee_per_gas: call.max_priority_fee_per_gas,
+                max_fee_per_gas: call.max_fee_per_gas,
+                gas_limit: call.gas_limit,
+            },
+        )
+        .required("PAY2 ledger Send call");
+        assert_eq!(call.data, expected.call.data);
+        assert_eq!(call.nonce, identity_sequence);
+        assert_ne!(call.nonce, source_sequence);
         let batched = self
             .payer_wallet
             .wait_for(

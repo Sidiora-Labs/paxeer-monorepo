@@ -2,8 +2,14 @@ use super::*;
 use crate::payments::Registration;
 use sha3::{Digest as _, Keccak256};
 
+pub use super::program::{decode_program_call, encode_program_call};
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ConstructMethod {
+    ProgramCall {
+        call: Box<DisclosedProgramCall>,
+        fee_limit: u128,
+    },
     LedgerOpenAccount {
         asset: [u8; 32],
     },
@@ -54,6 +60,11 @@ pub enum ConstructMethod {
         payload: Vec<u8>,
         idempotency_key: [u8; 32],
     },
+    PointerTransfer {
+        pointer: [u8; 20],
+        to: [u8; 20],
+        amount: [u8; 32],
+    },
     BankSend {
         from: [u8; 20],
         to: [u8; 20],
@@ -62,14 +73,14 @@ pub enum ConstructMethod {
     },
 }
 
-fn word(args: &[u8], index: usize) -> Result<[u8; 32], DisclosureError> {
+pub(super) fn word(args: &[u8], index: usize) -> Result<[u8; 32], DisclosureError> {
     args.get(index * 32..(index + 1) * 32)
         .ok_or(DisclosureError::MalformedPayload)?
         .try_into()
         .map_err(|_| DisclosureError::MalformedPayload)
 }
 
-fn uint<const N: usize>(word: [u8; 32]) -> Result<[u8; N], DisclosureError> {
+pub(super) fn uint<const N: usize>(word: [u8; 32]) -> Result<[u8; N], DisclosureError> {
     if word[..32 - N].iter().any(|byte| *byte != 0) {
         return Err(DisclosureError::MalformedPayload);
     }
@@ -107,7 +118,11 @@ fn dynamic(args: &[u8], head_words: usize, index: usize) -> Result<&[u8], Disclo
         .ok_or(DisclosureError::MalformedPayload)
 }
 
-fn tail<'a>(args: &'a [u8], index: usize, cursor: &mut usize) -> Result<&'a [u8], DisclosureError> {
+pub(super) fn tail<'a>(
+    args: &'a [u8],
+    index: usize,
+    cursor: &mut usize,
+) -> Result<&'a [u8], DisclosureError> {
     let offset = usize::from_be_bytes(uint(word(args, index)?)?);
     if offset != *cursor {
         return Err(DisclosureError::MalformedPayload);
@@ -141,13 +156,13 @@ pub fn ledger_selector(signature: &str) -> [u8; 4] {
     [hash[0], hash[1], hash[2], hash[3]]
 }
 
-fn abi_word(value: u128) -> [u8; 32] {
+pub(super) fn abi_word(value: u128) -> [u8; 32] {
     let mut word = [0; 32];
     word[16..].copy_from_slice(&value.to_be_bytes());
     word
 }
 
-fn abi_tail(value: &[u8]) -> Vec<u8> {
+pub(super) fn abi_tail(value: &[u8]) -> Vec<u8> {
     let mut out = abi_word(value.len() as u128).to_vec();
     out.extend_from_slice(value);
     out.resize(out.len().div_ceil(32) * 32, 0);
@@ -246,6 +261,13 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
         .try_into()
         .map_err(|_| DisclosureError::MalformedPayload)?;
     let args = &call.data[4..];
+    if target(&call.to, [0x10, 0x1d]) {
+        let (call, fee_limit) = decode_program_call(&call.data)?;
+        return Ok(ConstructMethod::ProgramCall {
+            call: Box::new(call),
+            fee_limit,
+        });
+    }
     if target(&call.to, [0x10, 0x1a]) {
         return match selector {
             value if value == ledger_selector("openAccount(bytes32)") && args.len() == 32 => {
@@ -362,18 +384,42 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
                         "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
                     ) && args.len() == 384 =>
             {
+                let budget_id = word(args, 0)?;
+                let budget_account = word(args, 1)?;
+                let asset = word(args, 2)?;
+                let purpose = word(args, 3)?;
+                let per_period_limit = u128::from_be_bytes(uint(word(args, 4)?)?);
+                let carry_cap = u128::from_be_bytes(uint(word(args, 5)?)?);
+                let initial_amount = u128::from_be_bytes(uint(word(args, 6)?)?);
+                let period_length_ms = u64::from_be_bytes(uint(word(args, 7)?)?);
+                let period_start_ms = u64::from_be_bytes(uint(word(args, 8)?)?);
+                let expiry_ms = u64::from_be_bytes(uint(word(args, 9)?)?);
+                let revocation_sequence = u64::from_be_bytes(uint(word(args, 10)?)?);
+                let rollover = u8::from_be_bytes(uint(word(args, 11)?)?);
+                native::budget_create_terms(
+                    &budget_id,
+                    &budget_account,
+                    &asset,
+                    per_period_limit,
+                    carry_cap,
+                    initial_amount,
+                    period_length_ms,
+                    period_start_ms,
+                    expiry_ms,
+                    rollover,
+                )?;
                 let mut payload = Vec::with_capacity(211);
                 payload.extend_from_slice(&1_u16.to_be_bytes());
-                for index in 0..4 {
-                    payload.extend_from_slice(&word(args, index)?);
+                for value in [budget_id, budget_account, asset, purpose] {
+                    payload.extend_from_slice(&value);
                 }
-                for index in 4..7 {
-                    payload.extend_from_slice(&uint::<16>(word(args, index)?)?);
+                for value in [per_period_limit, carry_cap, initial_amount] {
+                    payload.extend_from_slice(&value.to_be_bytes());
                 }
-                for index in 7..11 {
-                    payload.extend_from_slice(&uint::<8>(word(args, index)?)?);
+                for value in [period_length_ms, period_start_ms, expiry_ms, revocation_sequence] {
+                    payload.extend_from_slice(&value.to_be_bytes());
                 }
-                payload.extend_from_slice(&uint::<1>(word(args, 11)?)?);
+                payload.push(rollover);
                 Ok(ConstructMethod::PayBudgetCreate { payload })
             }
             value
@@ -434,6 +480,16 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
             amount: word(args, 3)?,
         });
     }
+    if !(call.to[..18] == [0; 18] && call.to[18] == 0x10)
+        && selector == ledger_selector("transfer(address,uint256)")
+        && args.len() == 64
+    {
+        return Ok(ConstructMethod::PointerTransfer {
+            pointer: call.to,
+            to: uint(word(args, 0)?)?,
+            amount: word(args, 1)?,
+        });
+    }
     Err(DisclosureError::MalformedPayload)
 }
 
@@ -443,11 +499,14 @@ pub(super) fn fields(
 ) -> Result<DisclosureFields, DisclosureError> {
     let method = decode_method(call)?;
     let ordinal = match &method {
+        ConstructMethod::ProgramCall { .. } => 3,
         ConstructMethod::LedgerOpenAccount { .. } => 4,
         ConstructMethod::LedgerRegister { .. } | ConstructMethod::PayBudgetCreate { .. } => 1,
         ConstructMethod::LedgerMint { .. } => 10,
         ConstructMethod::LedgerBurn { .. } => 11,
-        ConstructMethod::LedgerSend { .. } | ConstructMethod::BankSend { .. } => 5,
+        ConstructMethod::LedgerSend { .. }
+        | ConstructMethod::BankSend { .. }
+        | ConstructMethod::PointerTransfer { .. } => 5,
         ConstructMethod::LedgerIssueGrant { .. } => 7,
         ConstructMethod::LedgerDraw { .. } => 6,
         ConstructMethod::LedgerRevokeGrant { .. } => 8,
@@ -464,6 +523,8 @@ pub(super) fn fields(
         ModuleId::Budget
     } else if matches!(&method, ConstructMethod::AuthLifecycle { .. }) {
         ModuleId::Governance
+    } else if matches!(&method, ConstructMethod::ProgramCall { .. }) {
+        ModuleId::Programs
     } else {
         ModuleId::Asset
     };
@@ -493,6 +554,13 @@ pub(super) fn fields(
         native_operation: None,
     };
     match method {
+        ConstructMethod::ProgramCall { call, .. } => {
+            if let Some((idempotency_key, expiry)) = program::paxai_envelope_terms(&call)? {
+                fields.idempotency_key = idempotency_key;
+                fields.expiry = expiry;
+            }
+            fields.native_operation = Some(DisclosedNativeOperation::ProgramCall(call));
+        }
         ConstructMethod::LedgerOpenAccount { asset } => {
             fields.asset = asset;
             fields.payment = Some(Payment::OpenAccount { asset });
@@ -599,6 +667,20 @@ pub(super) fn fields(
         } => {
             fields.idempotency_key = idempotency_key;
         }
+        ConstructMethod::PointerTransfer { to, amount, .. } => {
+            let mut recipient = [0; 32];
+            recipient[12..].copy_from_slice(&to);
+            disclose_party(
+                &mut fields.counterparties,
+                CounterpartyRole::Recipient,
+                recipient,
+            );
+            disclose_amount(
+                &mut fields.amounts,
+                AmountRole::Transfer,
+                u128::from_be_bytes(uint(amount)?),
+            );
+        }
         ConstructMethod::BankSend { from, to, .. } => {
             // Bank denominations and uint256 amounts are exposed by construct_method;
             // they are not protocol asset ids or uint128 ledger amounts.
@@ -633,6 +715,8 @@ pub(super) fn payload_sequence(call: &Eip1559Call) -> Result<Option<u64>, Disclo
 /// # Errors
 /// Refuses unknown targets or selectors, noncanonical ABI, invalid payloads,
 /// trailing data, and a maximum transaction fee that overflows uint128.
+/// The sender is part of the disclosure, although EIP-1559 encodes it only through
+/// signature recovery. Signing must therefore also bind the selected key to it.
 pub fn bind_call(call: &Eip1559Call, from: [u8; 20]) -> Result<Disclosure, DisclosureError> {
     let fields = fields(call, from)?;
     Ok(Disclosure {
@@ -657,4 +741,109 @@ pub fn bind_call(call: &Eip1559Call, from: [u8; 20]) -> Result<Disclosure, Discl
         budget_context: None,
         call_sender: Some(from),
     })
+}
+
+/// Validates a consumer's retained disclosure against the exact prepared call.
+///
+/// # Errors
+/// Refuses unsupported or malformed calls and any changed disclosure or sender.
+pub fn validate_call(
+    call: &Eip1559Call,
+    disclosure: &Disclosure,
+    from: [u8; 20],
+) -> Result<(), DisclosureError> {
+    if &bind_call(call, from)? != disclosure {
+        return Err(DisclosureError::FieldMismatch("call"));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pointer_transfer_disclosure_names_the_recipient_and_amount() {
+        let pointer = [3; 20];
+        let from = [4; 20];
+        let to = [5; 20];
+        let mut recipient = [0; 32];
+        recipient[12..].copy_from_slice(&to);
+        for amount in [1, 50, u128::MAX] {
+            let call = Eip1559Call {
+                chain_id: 125,
+                nonce: 42,
+                max_priority_fee_per_gas: 2,
+                max_fee_per_gas: 30,
+                gas_limit: 100_000,
+                to: pointer,
+                data: [
+                    ledger_selector("transfer(address,uint256)").to_vec(),
+                    recipient.to_vec(),
+                    abi_word(amount).to_vec(),
+                ]
+                .concat(),
+            };
+            let disclosure = bind_call(&call, from).expect("pointer transfer disclosure");
+            assert_eq!(
+                disclosure.construct_method().expect("pointer ABI"),
+                Some(ConstructMethod::PointerTransfer {
+                    pointer,
+                    to,
+                    amount: abi_word(amount),
+                })
+            );
+            assert_eq!(disclosure.actor, from);
+            assert_eq!(disclosure.authority, from);
+            assert_eq!(
+                disclosure.activity_type,
+                ActivityType::new(ModuleId::Asset, 5).expect("asset send")
+            );
+            assert_eq!(
+                disclosure.counterparties,
+                vec![Counterparty {
+                    role: CounterpartyRole::Recipient,
+                    account: recipient,
+                }]
+            );
+            assert_eq!(
+                disclosure.amounts,
+                vec![DisclosedAmount {
+                    role: AmountRole::Transfer,
+                    value: amount,
+                }]
+            );
+            assert_eq!(
+                disclosure.signing_digest().expect("digest"),
+                call.signing_hash()
+            );
+            for suffix in 0x1000_u16..=0x10ff {
+                let mut precompile = call.clone();
+                precompile.to = [0; 20];
+                precompile.to[18..].copy_from_slice(&suffix.to_be_bytes());
+                assert!(bind_call(&precompile, from).is_err());
+            }
+            for suffix in [0x0fff_u16, 0x1100] {
+                let mut boundary = call.clone();
+                boundary.to = [0; 20];
+                boundary.to[18..].copy_from_slice(&suffix.to_be_bytes());
+                assert!(bind_call(&boundary, from).is_ok());
+            }
+            let mut malformed = call.clone();
+            malformed.data[4] = 1;
+            assert!(bind_call(&malformed, from).is_err());
+            let mut trailing = call.clone();
+            trailing.data.push(0);
+            assert!(bind_call(&trailing, from).is_err());
+            let mut truncated = call.clone();
+            truncated.data.pop();
+            assert!(bind_call(&truncated, from).is_err());
+            let mut wrong_selector = call.clone();
+            wrong_selector.data[0] ^= 1;
+            assert!(bind_call(&wrong_selector, from).is_err());
+            let mut oversized = call;
+            oversized.data[36] = 1;
+            assert!(bind_call(&oversized, from).is_err());
+        }
+    }
 }

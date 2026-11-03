@@ -177,9 +177,9 @@ func TestAggregateQuorum(t *testing.T) {
 	env.k.Aggregate(twoCtx)
 	_, found := storedAggregate(t, env, twoCtx, 0)
 	require.False(t, found)
-	require.Equal(t, [][]sdk.Attribute{skipped("0", "2", "3")}, marketEvents(twoCtx, types.EventTypeAggregateSkipped, "0"))
+	require.Equal(t, [][]sdk.Attribute{skipped("0", "2", "1")}, marketEvents(twoCtx, types.EventTypeAggregateSkipped, "0"))
 	require.Empty(t, marketEvents(twoCtx, types.EventTypeAggregate, "0"))
-	require.Equal(t, [][]sdk.Attribute{skipped("5", "0", "3")}, marketEvents(twoCtx, types.EventTypeAggregateSkipped, "5"))
+	require.Equal(t, [][]sdk.Attribute{skipped("5", "0", "1")}, marketEvents(twoCtx, types.EventTypeAggregateSkipped, "5"))
 	require.Empty(t, marketEvents(twoCtx, types.EventTypeAggregateSkipped, "17"))
 	require.Len(t, twoCtx.EventManager().Events(), 17)
 
@@ -196,7 +196,7 @@ func TestAggregateQuorum(t *testing.T) {
 	require.Empty(t, marketEvents(threeCtx, types.EventTypeAggregateSkipped, "0"))
 	events := marketEvents(threeCtx, types.EventTypeAggregate, "0")
 	require.Len(t, events, 1)
-	require.Equal(t, sdk.NewAttribute(types.AttributeRequired, "3"), events[0][6])
+	require.Equal(t, sdk.NewAttribute(types.AttributeRequired, "1"), events[0][6])
 
 	params.MinSources = 4
 	minCtx, _ := env.ctx.CacheContext()
@@ -209,6 +209,95 @@ func TestAggregateQuorum(t *testing.T) {
 	_, found = storedAggregate(t, env, minCtx, 0)
 	require.False(t, found)
 	require.Equal(t, [][]sdk.Attribute{skipped("0", "3", "4")}, marketEvents(minCtx, types.EventTypeAggregateSkipped, "0"))
+}
+
+func TestAggregateQuorumByPower(t *testing.T) {
+	params := aggregateParams(2, types.BpsDenominator)
+	env := newAggregateEnv(t, 3, 200, params)
+	highPower := env.operators[2]
+	bond := sdk.NewCoin(env.app.StakingKeeper.BondDenom(env.ctx),
+		env.app.StakingKeeper.TokensFromConsensusPower(env.ctx, 97))
+	require.NoError(t, env.app.BankKeeper.MintCoins(env.ctx, minttypes.ModuleName, sdk.NewCoins(bond)))
+	require.NoError(t, env.app.BankKeeper.SendCoinsFromModuleToAccount(env.ctx, minttypes.ModuleName,
+		sdk.AccAddress(highPower), sdk.NewCoins(bond)))
+	_, err := stakingkeeper.NewMsgServerImpl(env.app.StakingKeeper).Delegate(sdk.WrapSDKContext(env.ctx),
+		stakingtypes.NewMsgDelegate(sdk.AccAddress(highPower), highPower, bond))
+	require.NoError(t, err)
+	_, err = env.app.StakingKeeper.ApplyAndReturnValidatorSetUpdates(env.ctx)
+	require.NoError(t, err)
+	for i, power := range []int64{1, 1, 98} {
+		validator, found := env.app.StakingKeeper.GetValidator(env.ctx, env.operators[i])
+		require.True(t, found)
+		require.True(t, validator.IsBonded())
+		require.Equal(t, power, validator.GetConsensusPower(env.app.StakingKeeper.PowerReduction(env.ctx)))
+	}
+
+	ts := uint64(aggregateNowMs - 500)
+	for _, tc := range []struct {
+		name        string
+		reporters   []int
+		prices      []int64
+		staleHigh   bool
+		divergence  uint32
+		wantPrice   string
+		wantSources string
+	}{
+		{name: "low power majority", reporters: []int{0, 1}, prices: []int64{100, 300}, wantSources: "2"},
+		{name: "minimum source count", reporters: []int{2}, prices: []int64{300}, wantSources: "1"},
+		{name: "high power and one low power", reporters: []int{0, 2}, prices: []int64{100, 300}, wantPrice: "200"},
+		{name: "median of all reporters", reporters: []int{0, 1, 2}, prices: []int64{100, 300, 500}, wantPrice: "300"},
+		{name: "stale high power", reporters: []int{0, 1, 2}, prices: []int64{100, 300, 500}, staleHigh: true, wantSources: "2"},
+		{name: "divergent high power", reporters: []int{0, 1, 2}, prices: []int64{10000, 10000, 20000}, divergence: 50, wantSources: "2"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, _ := env.ctx.CacheContext()
+			ctx = ctx.WithEventManager(sdk.NewEventManager())
+			if tc.divergence != 0 {
+				filteredParams := params
+				filteredParams.MaxDivergenceBps = tc.divergence
+				env.k.Set(ctx, types.ParamsKey, filteredParams)
+			}
+			for i, reporter := range tc.reporters {
+				sourceTime := ts
+				if tc.staleHigh && reporter == 2 {
+					sourceTime = uint64(aggregateNowMs) - params.StalenessWindowMs - 1
+				}
+				price := sdk.NewInt(tc.prices[i])
+				observe(env, ctx, 0, env.operators[reporter], price, price, sourceTime)
+			}
+			env.k.Aggregate(ctx)
+			aggregate, found := storedAggregate(t, env, ctx, 0)
+			if tc.wantPrice == "" {
+				require.False(t, found)
+				require.Empty(t, marketEvents(ctx, types.EventTypeAggregate, "0"))
+				require.Equal(t, [][]sdk.Attribute{skipped("0", tc.wantSources, "2")}, marketEvents(ctx, types.EventTypeAggregateSkipped, "0"))
+				return
+			}
+			require.True(t, found)
+			require.Equal(t, tc.wantPrice, aggregate.IndexPrice.String())
+			require.Equal(t, tc.wantPrice, aggregate.MarkPrice.String())
+			require.Equal(t, uint32(len(tc.reporters)), aggregate.Sources)
+			require.Equal(t, ts, aggregate.TimestampMs)
+			require.Empty(t, marketEvents(ctx, types.EventTypeAggregateSkipped, "0"))
+			require.Len(t, marketEvents(ctx, types.EventTypeAggregate, "0"), 1)
+		})
+	}
+
+	t.Run("strictly more than two thirds", func(t *testing.T) {
+		equal := newAggregateEnv(t, 3, 200, aggregateParams(1, types.BpsDenominator))
+		for _, operator := range equal.operators[:2] {
+			observe(equal, equal.ctx, 0, operator, sdk.NewInt(100), sdk.NewInt(100), ts)
+		}
+		equal.k.Aggregate(equal.ctx)
+		_, found := storedAggregate(t, equal, equal.ctx, 0)
+		require.False(t, found)
+		observe(equal, equal.ctx, 0, equal.operators[2], sdk.NewInt(200), sdk.NewInt(200), ts)
+		equal.k.Aggregate(equal.ctx)
+		aggregate, found := storedAggregate(t, equal, equal.ctx, 0)
+		require.True(t, found)
+		require.Equal(t, "100", aggregate.IndexPrice.String())
+		require.Equal(t, uint32(3), aggregate.Sources)
+	})
 }
 
 func TestAggregateMedianOddEven(t *testing.T) {
@@ -259,7 +348,7 @@ func TestAggregateDivergenceFilter(t *testing.T) {
 	env.k.Aggregate(skipCtx)
 	_, found = storedAggregate(t, env, skipCtx, 0)
 	require.False(t, found)
-	require.Equal(t, [][]sdk.Attribute{skipped("0", "2", "3")}, marketEvents(skipCtx, types.EventTypeAggregateSkipped, "0"))
+	require.Equal(t, [][]sdk.Attribute{skipped("0", "2", "1")}, marketEvents(skipCtx, types.EventTypeAggregateSkipped, "0"))
 }
 
 func TestAggregateRecord(t *testing.T) {
@@ -283,7 +372,7 @@ func TestAggregateRecord(t *testing.T) {
 		sdk.NewAttribute(types.AttributeBasis, "2000000000000000000"),
 		sdk.NewAttribute(types.AttributeTimestampMs, "1700000001000"),
 		sdk.NewAttribute(types.AttributeSources, "3"),
-		sdk.NewAttribute(types.AttributeRequired, "3"),
+		sdk.NewAttribute(types.AttributeRequired, "1"),
 		sdk.NewAttribute(types.AttributeHeight, "210"),
 	}}, marketEvents(env.ctx, types.EventTypeAggregate, "0"))
 }
@@ -354,7 +443,7 @@ func TestAggregateEventShape(t *testing.T) {
 		sdk.NewAttribute(types.AttributeBasis, "-2000000000000000000"),
 		sdk.NewAttribute(types.AttributeTimestampMs, "1700000001000"),
 		sdk.NewAttribute(types.AttributeSources, "3"),
-		sdk.NewAttribute(types.AttributeRequired, "3"),
+		sdk.NewAttribute(types.AttributeRequired, "1"),
 		sdk.NewAttribute(types.AttributeHeight, "210"),
 	}}, marketEvents(env.ctx, types.EventTypeAggregate, "0"))
 	require.Equal(t,

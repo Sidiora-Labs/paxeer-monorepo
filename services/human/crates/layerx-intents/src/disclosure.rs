@@ -96,17 +96,8 @@ impl DisclosureCheck {
         intent: &Intent,
         compiled: &CompiledIntent,
     ) -> Result<Self, DisclosureCheckError> {
-        if matches!(intent.kind(), IntentKind::BridgeWithdrawRequest(_))
-            && intent.version() != crate::IntentVersion::V2
-        {
-            return Err(DisclosureCheckError::FieldMismatch(
-                DisclosureField::Version,
-            ));
-        }
-        if (matches!(
-            intent.kind(),
-            IntentKind::NativeCustodyCredit(_) | IntentKind::NativeReceive(_)
-        ) || intent.kind().perps_payload().is_some())
+        if (matches!(intent.kind(), IntentKind::NativeReceive(_))
+            || intent.kind().perps_payload().is_some())
             && intent.version() != crate::IntentVersion::V1
         {
             return Err(DisclosureCheckError::FieldMismatch(
@@ -198,20 +189,6 @@ impl DisclosureCheck {
                 }
                 round_trip.fixed(&value.recovery_root.bytes(), DisclosureField::RecoveryRoot)?;
                 round_trip.u16(value.threshold.value(), DisclosureField::Threshold)?;
-            }
-            IntentKind::EvmPayoutBinding(value) => {
-                round_trip.header(0x7104, 4)?;
-                round_trip.did(&value.did, DisclosureField::Did)?;
-                round_trip.u32(value.network.value(), DisclosureField::Network)?;
-                round_trip.fixed(
-                    &value.payout_address.bytes(),
-                    DisclosureField::PayoutAddress,
-                )?;
-                round_trip.bytes(
-                    value.ownership_signature.as_bytes(),
-                    128,
-                    DisclosureField::OwnershipSignature,
-                )?;
             }
             IntentKind::AuthorityGrant(value) => {
                 let body = value.encode().map_err(|_| {
@@ -365,46 +342,6 @@ impl DisclosureCheck {
                 round_trip.fixed(&value.budget_id.bytes(), DisclosureField::Budget)?;
                 round_trip.u128(value.amount.value(), DisclosureField::Amount)?;
             }
-            IntentKind::BridgeDepositCredit(value) => {
-                round_trip.header(0x4801, 7)?;
-                round_trip.fixed(&value.deposit_proof.bytes(), DisclosureField::DepositProof)?;
-                round_trip.fixed(&value.checkpoint.bytes(), DisclosureField::Checkpoint)?;
-                round_trip.account(&value.reserve, DisclosureField::From)?;
-                round_trip.account(&value.recipient, DisclosureField::Recipient)?;
-                round_trip.fixed(&value.asset.bytes(), DisclosureField::Asset)?;
-                round_trip.u128(value.amount.value(), DisclosureField::Amount)?;
-                round_trip.fixed(
-                    &value.idempotency_key.bytes(),
-                    DisclosureField::IdempotencyKey,
-                )?;
-            }
-            IntentKind::NativeCustodyCredit(value) => {
-                round_trip.fixed(&value.payload()[..43], DisclosureField::Header)?;
-                round_trip.fixed(&value.deposit_id(), DisclosureField::DepositProof)?;
-                round_trip.fixed(&value.asset().bytes(), DisclosureField::Asset)?;
-                let beneficiary =
-                    hash::account_id_for_protocol(value.recipient(), 3).map_err(|error| {
-                        DisclosureCheckError::Wire {
-                            field: DisclosureField::Recipient,
-                            error,
-                        }
-                    })?;
-                round_trip.fixed(&beneficiary, DisclosureField::Recipient)?;
-                round_trip.fixed(&value.payload()[139..171], DisclosureField::PrimaryKey)?;
-                round_trip.fixed(&value.payload()[171..191], DisclosureField::From)?;
-                round_trip.u128(value.amount().value(), DisclosureField::Amount)?;
-                round_trip.fixed(&value.payload()[207..], DisclosureField::DepositProof)?;
-            }
-            IntentKind::BridgeWithdrawRequest(value) => {
-                round_trip.fixed(&value.asset.bytes(), DisclosureField::Asset)?;
-                round_trip.u128(value.amount.value(), DisclosureField::Amount)?;
-                round_trip.fixed(
-                    &value.payout_address.bytes(),
-                    DisclosureField::PayoutAddress,
-                )?;
-                round_trip.fixed(&value.request_anchor.bytes(), DisclosureField::Checkpoint)?;
-                round_trip.u64(value.fee_limit, DisclosureField::FeeLimit)?;
-            }
             IntentKind::Perps(expected) => perps_round_trip(&mut round_trip, expected, compiled)?,
         }
 
@@ -456,9 +393,6 @@ impl DisclosureCheck {
                 disclosure.canonical_payload() == receive.payload(),
                 DisclosureField::PayloadBytes,
             );
-        }
-        if let IntentKind::NativeCustodyCredit(credit) = intent.kind() {
-            return verify_native_agent(credit, disclosure);
         }
         let IntentKind::LxpSend(send) = intent.kind() else {
             return Err(DisclosureCheckError::UnsupportedAgentDisclosure);
@@ -683,7 +617,6 @@ fn expected_activity_type(intent: &Intent) -> Result<ActivityType, DisclosureChe
         IntentKind::DidRegistration(_) => (ModuleId::Governance, 1),
         IntentKind::KeyRotation(_) => (ModuleId::Governance, 2),
         IntentKind::RecoveryRegistration(_) => (ModuleId::Governance, 3),
-        IntentKind::EvmPayoutBinding(_) => (ModuleId::Governance, 4),
         IntentKind::AuthorityGrant(_) => (ModuleId::Governance, 8),
         IntentKind::SessionGrant(_) => (ModuleId::Governance, 5),
         IntentKind::SessionRevoke(_) => (ModuleId::Governance, 6),
@@ -694,10 +627,6 @@ fn expected_activity_type(intent: &Intent) -> Result<ActivityType, DisclosureChe
         IntentKind::BudgetCreate(_) | IntentKind::NativeBudgetCreate(_) => (ModuleId::Budget, 1),
         IntentKind::BudgetFund(_) => (ModuleId::Budget, 2),
         IntentKind::BudgetDefund(_) => (ModuleId::Budget, 8),
-        IntentKind::BridgeDepositCredit(_) | IntentKind::NativeCustodyCredit(_) => {
-            (ModuleId::Bridge, 1)
-        }
-        IntentKind::BridgeWithdrawRequest(_) => (ModuleId::Asset, 9),
         IntentKind::Perps(payload) => (ModuleId::Perps, payload.ordinal()),
     };
     ActivityType::new(module, ordinal).map_err(|error| DisclosureCheckError::Payload {
@@ -726,58 +655,6 @@ fn require(condition: bool, field: DisclosureField) -> Result<(), DisclosureChec
     } else {
         Err(DisclosureCheckError::FieldMismatch(field))
     }
-}
-
-fn verify_native_agent(
-    credit: &crate::NativeCustodyCredit,
-    disclosure: &Disclosure,
-) -> Result<(), DisclosureCheckError> {
-    disclosure
-        .reencode()
-        .map_err(|_| DisclosureCheckError::FieldMismatch(DisclosureField::PayloadBytes))?;
-    require(
-        disclosure.activity_type.module() == ModuleId::Bridge
-            && disclosure.activity_type.ordinal() == 1,
-        DisclosureField::ActivityType,
-    )?;
-    require(
-        disclosure.canonical_payload() == credit.payload(),
-        DisclosureField::PayloadBytes,
-    )?;
-    let payer = hash::account_id_for_protocol(credit.reserve(), 3).map_err(|error| {
-        DisclosureCheckError::Wire {
-            field: DisclosureField::From,
-            error,
-        }
-    })?;
-    let recipient = hash::account_id_for_protocol(credit.recipient(), 3).map_err(|error| {
-        DisclosureCheckError::Wire {
-            field: DisclosureField::Recipient,
-            error,
-        }
-    })?;
-    require(
-        disclosure.counterparties.len() == 2
-            && disclosure.counterparties[0].role == CounterpartyRole::Payer
-            && disclosure.counterparties[0].account == payer
-            && disclosure.counterparties[1].role == CounterpartyRole::Recipient
-            && disclosure.counterparties[1].account == recipient,
-        DisclosureField::Recipient,
-    )?;
-    require(
-        disclosure.asset == credit.asset().bytes(),
-        DisclosureField::Asset,
-    )?;
-    require(
-        disclosure.amounts.len() == 1
-            && disclosure.amounts[0].role == AmountRole::Transfer
-            && disclosure.amounts[0].value == credit.amount().value(),
-        DisclosureField::Amount,
-    )?;
-    require(
-        disclosure.idempotency_key == credit.nullifier(),
-        DisclosureField::IdempotencyKey,
-    )
 }
 
 fn budget_milliseconds(seconds: u64, field: DisclosureField) -> Result<u64, DisclosureCheckError> {

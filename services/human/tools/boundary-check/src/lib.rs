@@ -144,10 +144,16 @@ fn source_violation(body: &str) -> Option<&'static str> {
     if body.contains("#[repr(C)]") || body.contains("#[repr(C,") {
         return Some("mirrored-c-layout");
     }
-    if PRIVATE_NODE_PATHS
-        .iter()
-        .any(|private| body.contains(private))
-    {
+    let is_identifier = |character: char| character.is_ascii_alphanumeric() || character == '_';
+    if PRIVATE_NODE_PATHS.iter().any(|private| {
+        body.match_indices(*private).any(|(start, matched)| {
+            !body[..start].chars().next_back().is_some_and(is_identifier)
+                && !body[start + matched.len()..]
+                    .chars()
+                    .next()
+                    .is_some_and(is_identifier)
+        })
+    }) {
         return Some("node-private-path");
     }
     if AMBIENT_NONDETERMINISM

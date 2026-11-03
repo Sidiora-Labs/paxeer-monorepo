@@ -73,6 +73,7 @@ for name in "${IMAGE_NAMES[@]}"; do
     esac
     resolved=$(realpath -m -- "$REPO_ROOT/$dockerfile")
     [[ $resolved == "$REPO_ROOT"/* ]] || fail "$name: Dockerfile path $dockerfile escapes the repository"
+    [ -f "$resolved" ] || fail "$name: Dockerfile path $dockerfile is not a file"
     table_paths[$dockerfile]=1
 done
 
@@ -84,7 +85,7 @@ while IFS= read -r -d '' dockerfile; do
     dockerfile=${dockerfile#./}
     [ -n "${table_paths[$dockerfile]+present}" ] || fail "no beta-images.sh row for $dockerfile"
 done < <(find services/wallet services/interop -name Dockerfile -not -path '*/node_modules/*' -print0 2>/dev/null)
-for dockerfile in docker/intent-ingester/Dockerfile docker/redis/Dockerfile; do
+for dockerfile in docker/redis/Dockerfile; do
     [ -n "${table_paths[$dockerfile]+present}" ] || fail "no beta-images.sh row for $dockerfile"
 done
 

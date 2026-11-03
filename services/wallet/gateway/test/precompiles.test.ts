@@ -5,7 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it, test, vi } from 'vitest';
 import { createPublicClient, http, toFunctionSelector, toFunctionSignature, type Abi } from 'viem';
 import {
+  AttestationVerified,
+  decodeTeeAttestationResult,
   EIP712_ABI,
+  decodeEip712Result,
   PRECOMPILE_ADDRESSES,
   PrecompileNotServedError,
   SCHEDULER_ABI,
@@ -780,3 +783,33 @@ test(
   chainProbeTests['probes the chain before serving a linked agent precompile'],
   chainProbeTests['probes the chain before serving a linked agent precompile'],
 );
+
+function eip712RefusesMalformedReturnWords() {
+  for (const method of ['hashTypedData', 'domainSeparator', 'recoverTypedSigner'] as const) {
+    for (const data of [undefined, '0x', '0x01', `0x${'00'.repeat(31)}`, `0x${'00'.repeat(33)}`] as const) {
+      expect(() => decodeEip712Result(method, data)).toThrow('expected one ABI word');
+    }
+  }
+  expect(() => decodeEip712Result('recoverTypedSigner', `0x01${'00'.repeat(31)}`)).toThrow(
+    'nonzero address padding',
+  );
+}
+
+test(eip712RefusesMalformedReturnWords, eip712RefusesMalformedReturnWords);
+
+function teeAttestorFrozenEventParity() {
+  const source = readRepositoryFile('precompiles/layerxagent/teeattestor/teeattestor.go');
+  const match = source.match(/const abiJSON = `([\s\S]*?)`/);
+  expect(match).not.toBeNull();
+  const nativeAbi = JSON.parse(match![1]!) as Abi;
+  expect(TEE_ATTESTOR_ABI).toEqual(nativeAbi);
+  expect(AttestationVerified.inputs.filter((input) => input.indexed).map((input) => input.name)).toEqual(['family', 'mrtd']);
+}
+
+function teeAttestorRejectsMalformedResults() {
+  expect(() => decodeTeeAttestationResult('0x', 0)).toThrow();
+  expect(() => decodeTeeAttestationResult('0x01', 0)).toThrow();
+}
+
+test(teeAttestorFrozenEventParity, teeAttestorFrozenEventParity);
+test(teeAttestorRejectsMalformedResults, teeAttestorRejectsMalformedResults);

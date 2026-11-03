@@ -2,6 +2,7 @@ package rpctest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -13,8 +14,7 @@ import (
 	tmnet "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/net"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/service"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/node"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
-	rpcclient "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/jsonrpc/client"
+	rpchttp "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/http"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"go.opentelemetry.io/otel/sdk/trace"
 )
@@ -23,24 +23,32 @@ import (
 // control.
 type Options struct {
 	suppressStdout bool
+	preserveRoot   bool
 }
 
-// waitForRPC connects to the RPC service and blocks until a /status call succeeds.
-func waitForRPC(ctx context.Context, conf *config.Config) {
-	laddr := conf.RPC.ListenAddress
-	client, err := rpcclient.New(laddr)
+// WaitForRPC connects to the RPC service and waits for a decoded status result.
+// Cancellation bounds both requests and the delay between connection attempts.
+func WaitForRPC(ctx context.Context, conf *config.Config) error {
+	client, err := rpchttp.New(conf.RPC.ListenAddress)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	result := new(coretypes.ResultStatus)
 	for {
-		err := client.Call(ctx, "status", map[string]any{}, result)
-		if err == nil {
-			return
+		if err := ctx.Err(); err != nil {
+			return err
 		}
-
-		fmt.Println("error", err)
-		time.Sleep(time.Millisecond)
+		if _, err := client.Status(ctx); err == nil {
+			return nil
+		} else if errors.Is(err, rpchttp.ErrInvalidStatusResponse) {
+			return err
+		}
+		timer := time.NewTimer(time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
 	}
 }
 
@@ -115,7 +123,11 @@ func StartTendermint(
 		return nil, func(_ context.Context) error { cancel(); return nil }, err
 	}
 
-	waitForRPC(ctx, conf)
+	if err := WaitForRPC(ctx, conf); err != nil {
+		cancel()
+		tmNode.Wait()
+		return nil, func(_ context.Context) error { return nil }, err
+	}
 
 	if !nodeOpts.suppressStdout {
 		fmt.Println("Tendermint running!")
@@ -124,7 +136,9 @@ func StartTendermint(
 	return tmNode, func(ctx context.Context) error {
 		cancel()
 		tmNode.Wait()
-		_ = os.RemoveAll(conf.RootDir)
+		if !nodeOpts.preserveRoot {
+			return os.RemoveAll(conf.RootDir)
+		}
 		return nil
 	}, nil
 }
@@ -133,4 +147,10 @@ func StartTendermint(
 // node doesn't log anything to stdout.
 func SuppressStdout(o *Options) {
 	o.suppressStdout = true
+}
+
+// PreserveRoot keeps node data after shutdown for tests that reopen the node.
+// The caller owns removal of the preserved directory.
+func PreserveRoot(o *Options) {
+	o.preserveRoot = true
 }

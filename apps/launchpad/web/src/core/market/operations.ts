@@ -6,7 +6,7 @@ import { GatewayClientContext, browserGatewayClient, browserGatewaySessionClient
 
 const bound = new WeakMap<SdkClient, Operations>();
 
-/** One Operations instance per SdkClient so public snapshot deduplication is shared. */
+/** One Operations instance per SdkClient; only in-flight public reads are shared, never completed results. */
 export function operationsFor(client: SdkClient): Operations {
   let operations = bound.get(client);
   if (!operations) { operations = new Operations(client); bound.set(client, operations); }

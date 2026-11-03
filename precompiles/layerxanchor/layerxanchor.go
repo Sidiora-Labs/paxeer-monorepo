@@ -121,9 +121,7 @@ func NewPrecompile(keepers utils.Keepers) (*pcommon.Precompile, error) {
 		bankKeeper: keepers.BankK(),
 		evmKeeper:  keepers.EVMK(),
 	}
-	return pcommon.NewPrecompile(newAbi, p, p.address, PrecompileName).WithRevertReasons().WithRetirement(StoreDeleteUpgrade,
-		LatestFinalizedMethod, CheckpointMethod, FinalizedStateRootMethod, FinalizedReceiptRootMethod,
-		GuarantorMethod, ThresholdMethod, StatusOfMethod, CheckpointBatchMethod, CheckpointGuarantorsMethod), nil
+	return pcommon.NewPrecompile(newAbi, p, p.address, PrecompileName).WithRevertReasons().WithRetirement(StoreDeleteUpgrade), nil
 }
 
 func (p PrecompileExecutor) EVMKeeper() utils.EVMKeeper { return p.evmKeeper }

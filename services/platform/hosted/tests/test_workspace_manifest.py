@@ -44,6 +44,35 @@ def test_paxeer_verifier_is_not_a_platform_dependency():
     )
 
 
+def test_indexer_does_not_depend_on_layerx_proof():
+    workspace = Path(__file__).resolve().parents[2]
+    manifest_path = workspace / "hosted" / "indexer" / "Cargo.toml"
+    with manifest_path.open("rb") as manifest:
+        contents = tomllib.load(manifest)
+    for table in (contents, *contents.get("target", {}).values()):
+        for kind in ("dependencies", "dev-dependencies", "build-dependencies"):
+            for name, dependency in table.get(kind, {}).items():
+                package = (
+                    dependency.get("package", name)
+                    if isinstance(dependency, dict)
+                    else name
+                )
+                assert "layerx-proof" not in (name, package), (
+                    "Indexer manifest must not depend on layerx-proof"
+                )
+    with (workspace / "Cargo.lock").open("rb") as lockfile:
+        packages = {
+            package["name"]: package for package in tomllib.load(lockfile)["package"]
+        }
+    assert all(
+        dependency.split()[0] != "layerx-proof"
+        for dependency in packages["layerx-indexer"]["dependencies"]
+    ), "Indexer lock entry must not depend on layerx-proof"
+    assert "layerx-proof" in packages, (
+        "The proof package must remain for crates that still depend on it"
+    )
+
+
 def test_retired_kernel_crates_are_not_dependencies():
     workspace = Path(__file__).resolve().parents[2]
     retired = {

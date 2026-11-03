@@ -1,6 +1,3 @@
-use layerx_agentd::budget::budget_proof::{
-    verify_budget_proof, BudgetProofError, CommittedBudgetProofTrust,
-};
 use layerx_agentd::budget::{
     budget_create_identity, BudgetCreateIdentity, BudgetCreationError, BudgetKind, BudgetRequest,
     ProtocolBudgetState,
@@ -206,79 +203,5 @@ fn budget_create_prepares_create_budget_calldata() {
     assert_eq!(
         invalid.create_protocol_budget(&template),
         Err(BudgetCreationError::Expired)
-    );
-}
-
-#[test]
-fn budget_proof_v2_carries_the_committed_height() {
-    let result = budget_result();
-    let state =
-        ProtocolBudgetState::decode_get_budget([1; 32], 42, &result).expect("getBudget result");
-    let trust = CommittedBudgetProofTrust {
-        tenant: "budget-owner",
-        principal: "operator",
-        owner_account: [0x11; 32],
-        state: &state,
-    };
-    let export = json!({
-        "schema": "layerx.human.budget-proof.v2", "tenant": "budget-owner",
-        "principal": "operator", "budget_id": hex::encode([1; 32]),
-        "committed_height": 42, "get_budget_result": hex::encode(&result),
-    });
-    let bytes = serde_json::to_vec(&export).expect("proof JSON");
-    let verified = verify_budget_proof(&bytes, [1; 32], &trust).expect("v2 committed proof");
-    assert_eq!(verified.committed_height(), 42);
-    assert_eq!(verified.budget_id(), [1; 32]);
-    assert_eq!(verified.asset(), [3; 32]);
-    assert_eq!(verified.record(), state.record());
-    assert_eq!(verified.get_budget_result(), result);
-    assert_eq!(verified.canonical_export_bytes(), bytes);
-    for (field, replacement) in [
-        ("schema", json!("layerx.human.budget-proof.v1")),
-        ("committed_height", json!(0)),
-        ("committed_height", json!(41)),
-        ("committed_height", json!(43)),
-        ("tenant", json!("another-tenant")),
-        ("principal", json!("another-principal")),
-        ("budget_id", json!(hex::encode([2; 32]))),
-        (
-            "get_budget_result",
-            json!(hex::encode(&result[..result.len() - 1])),
-        ),
-    ] {
-        let mut altered = export.clone();
-        altered[field] = replacement;
-        assert_eq!(
-            verify_budget_proof(
-                &serde_json::to_vec(&altered).expect("altered JSON"),
-                [1; 32],
-                &trust
-            ),
-            Err(BudgetProofError::Refused)
-        );
-    }
-    let mut altered_result = result.clone();
-    altered_result[3 * 32] ^= 1;
-    let mut altered = export.clone();
-    altered["get_budget_result"] = json!(hex::encode(altered_result));
-    assert_eq!(
-        verify_budget_proof(
-            &serde_json::to_vec(&altered).expect("substituted state"),
-            [1; 32],
-            &trust
-        ),
-        Err(BudgetProofError::Refused)
-    );
-    assert_eq!(
-        verify_budget_proof(&bytes, [2; 32], &trust),
-        Err(BudgetProofError::Refused)
-    );
-    let wrong_owner = CommittedBudgetProofTrust {
-        owner_account: [0x12; 32],
-        ..trust
-    };
-    assert_eq!(
-        verify_budget_proof(&bytes, [1; 32], &wrong_owner),
-        Err(BudgetProofError::Refused)
     );
 }

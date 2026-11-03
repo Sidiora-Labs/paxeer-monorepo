@@ -3,6 +3,7 @@ package sequencer
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"sync"
@@ -12,7 +13,10 @@ import (
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
+	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
+	"github.com/paxeer-network/paxlog"
 )
 
 // ErrNotSequenced refuses a seal of a block that is not sequenced.
@@ -28,6 +32,7 @@ type ConsensusSource struct {
 	exec     Executor
 	key      *ReceiptKey
 	repl     *Replicator
+	accept   func([]byte) (evmrpc.AcceptedSend, error)
 	mu       sync.Mutex
 	pending  *Batch
 	prepared *SealedLayer
@@ -76,6 +81,54 @@ func NewPromotedConsensusSource(a *app.App, host Host, opts Options, lastSeq uin
 // the next block executes on.
 func (s *ConsensusSource) Sequenced(height int64) bool {
 	return s.app.Sequenced(s.app.GetCheckCtx(), height)
+}
+
+// SetAccepter installs the leader's execution, replication and receipt path.
+func (s *ConsensusSource) SetAccepter(a *Accepter) {
+	if a == nil {
+		panic("sequencer: consensus source needs an accepter")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.accept = a.Accept
+}
+
+// Admit accepts mempool transactions in order, continuing past individual refusals.
+func (s *ConsensusSource) Admit(_ context.Context, height int64, txs tmtypes.Txs) (admitted int, err error) {
+	s.mu.Lock()
+	closed := (s.pending != nil && s.pending.Height == height) || (s.sealed != nil && s.sealed.Height == height)
+	accept := s.accept
+	s.mu.Unlock()
+	if closed {
+		return 0, nil
+	}
+	if accept == nil {
+		return 0, fmt.Errorf("%w: consensus source has no accepter", ErrReplicationHalted)
+	}
+	log := paxlog.NewLogger("sequencer", "consensus-source")
+	for _, tx := range txs {
+		if _, err := accept(tx); err != nil {
+			if errors.Is(err, ErrLayerNotOpen) || errors.Is(err, ErrLeaseFenced) || errors.Is(err, ErrReplicationHalted) {
+				return admitted, err
+			}
+			codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+			log.Info("refused consensus mempool transaction", "height", height, "hash", fmt.Sprintf("%X", sha256.Sum256(tx)), "codespace", codespace, "code", code, "error", err.Error())
+			continue
+		}
+		admitted++
+	}
+	return admitted, nil
+}
+
+// Admit cannot execute on a standby; only an already sealed replicated height
+// is available to a proposal retry.
+func (s *standbyRoleSource) Admit(_ context.Context, height int64, _ tmtypes.Txs) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.sealed != nil && s.sealed.Height == height {
+		return 0, nil
+	}
+	return 0, ErrLayerNotOpen
 }
 
 // Sealed returns L_N of the last Seal, or nil before the first.

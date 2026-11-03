@@ -617,8 +617,16 @@ impl Drop for ConnectionPermit {
     }
 }
 
+fn listen_and_report(address: SocketAddr, report: &mut impl Write) -> Result<TcpListener, String> {
+    let listener = TcpListener::bind(address).map_err(|error| error.to_string())?;
+    let bound = listener.local_addr().map_err(|error| error.to_string())?;
+    writeln!(report, "{bound}").map_err(|error| error.to_string())?;
+    report.flush().map_err(|error| error.to_string())?;
+    Ok(listener)
+}
+
 fn paxeer_boundary(config: Config) -> Result<(), String> {
-    let listener = TcpListener::bind(config.listen).map_err(|error| error.to_string())?;
+    let listener = listen_and_report(config.listen, &mut std::io::stdout().lock())?;
     let config = Arc::new(config);
     eprintln!(
         "layerx-paxeer-boundary listening with TLS for chain {}",
@@ -653,7 +661,33 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_chunks, method_allowed, read_http_message};
+    use super::{decode_chunks, listen_and_report, method_allowed, read_http_message};
+    use std::net::{SocketAddr, TcpListener, TcpStream};
+
+    #[test]
+    fn listen_tls_port_zero_reports_bound_address() {
+        let mut report = Vec::new();
+        let listener = listen_and_report(
+            "127.0.0.1:0".parse().expect("loopback address"),
+            &mut report,
+        )
+        .expect("bind and report listener");
+        let report = String::from_utf8(report).expect("address is UTF-8");
+        assert_eq!(report.lines().count(), 1);
+        assert!(report.ends_with('\n'));
+        let address: SocketAddr = report.trim_end().parse().expect("reported socket address");
+        assert!(address.ip().is_loopback());
+        assert_ne!(address.port(), 0);
+        assert_eq!(address, listener.local_addr().expect("bound address"));
+        assert!(
+            TcpListener::bind(address).is_err(),
+            "listener retains its port"
+        );
+        let client = TcpStream::connect(address).expect("connect to reported address");
+        let (accepted, peer) = listener.accept().expect("accept on retained listener");
+        assert_eq!(peer, client.local_addr().expect("client address"));
+        assert_eq!(accepted.local_addr().expect("accepted address"), address);
+    }
 
     #[test]
     fn sequencer_receipt_method_is_allowed() {

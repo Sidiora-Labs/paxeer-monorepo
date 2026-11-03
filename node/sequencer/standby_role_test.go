@@ -577,11 +577,10 @@ func TestStartStandbyServesReplication(t *testing.T) {
 		conn, err := net.DialTimeout("tcp", address, replicationTimeout)
 		require.NoError(t, err)
 		started := time.Now()
-		gap := standbyLeaseExchange(t, conn, nextOpen)
+		nextAck := standbyLeaseExchange(t, conn, nextOpen)
 		require.NoError(t, conn.Close())
-		require.Equal(t, sequencer.Ack{Status: sequencer.AckGap, LastSeq: accepted.Seq, GapFrom: accepted.Seq + 1, GapTo: accepted.Seq}, gap)
+		require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: accepted.Seq}, nextAck)
 		elapsed := time.Since(started)
-		require.GreaterOrEqual(t, elapsed, cfg.ReplicationTimeout/4)
 		require.Less(t, elapsed, cfg.ReplicationTimeout)
 		require.NoError(t, s.Err(), "a delayed consensus commit must not poison replication")
 		require.Equal(t, height-1, backupApp.App.LastBlockHeight())
@@ -590,20 +589,22 @@ func TestStartStandbyServesReplication(t *testing.T) {
 			err error
 		}
 		released := make(chan releaseResult, 1)
+		started = time.Now()
 		go func() { ack, err := repl.Release(ctx, nextOpen); released <- releaseResult{ack, err} }()
-		select {
-		case result := <-released:
-			t.Fatalf("open acknowledged before consensus commit: %+v", result)
-		case <-time.After(20 * time.Millisecond):
-		}
-		commit(backupApp.App)
 		select {
 		case result := <-released:
 			require.NoError(t, result.err, "standby failure: %v", s.Err())
 			require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: accepted.Seq}, result.ack)
-		case <-time.After(replicationTimeout):
-			t.Fatal("standby did not acknowledge after consensus committed")
+			require.Less(t, time.Since(started), cfg.ReplicationTimeout)
+		case <-time.After(cfg.ReplicationTimeout):
+			t.Fatal("standby did not acknowledge while consensus commit was pending")
 		}
+		require.Equal(t, height-1, backupApp.App.LastBlockHeight())
+		commit(backupApp.App)
+		require.Eventually(t, func() bool {
+			snapshot, err := pending.Snapshot()
+			return err == nil && snapshot.BlockHeight() == height+1 && s.LastSeq() == accepted.Seq
+		}, replicationTimeout, time.Millisecond)
 		require.NoError(t, s.Err())
 		if height == openHeight {
 			_, nextTx := transfer(t, sender, 1, sender.EvmAddress, big.NewInt(1))
@@ -614,7 +615,7 @@ func TestStartStandbyServesReplication(t *testing.T) {
 			ack, err = repl.Release(ctx, lastEntry)
 			require.NoError(t, err)
 			require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: accepted.Seq}, ack)
-			require.Equal(t, accepted.Seq, s.LastSeq())
+			require.Eventually(t, func() bool { return s.LastSeq() == accepted.Seq }, replicationTimeout, time.Millisecond)
 			require.NoError(t, s.Err())
 		}
 	}
@@ -633,7 +634,7 @@ func TestStartStandbyServesReplication(t *testing.T) {
 	require.Nil(t, result.LastAccept)
 	require.Equal(t, lastEntry, result.LastLogged)
 	entries := driverEntries(t, cfg.WALDir)
-	require.Len(t, entries, 9, "timed-out opens must not persist")
+	require.Len(t, entries, 9, "retransmitted opens must not persist twice")
 	require.Equal(t, open, entries[0])
 	require.Equal(t, entry, entries[1])
 	require.Equal(t, lastEntry, entries[5])

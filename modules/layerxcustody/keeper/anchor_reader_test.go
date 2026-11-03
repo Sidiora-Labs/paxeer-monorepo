@@ -65,10 +65,9 @@ func guarantorCertificate(t *testing.T, headerBytes []byte, guarantorID [32]byte
 	return certificate, signer
 }
 
-// TestWithdrawalReadsAnchorFinalizedCheckpoint wires custody to the anchor
-// keeper exactly as the app does and proves the withdrawal roots come from a
-// checkpoint the anchor finalized on a sequencer-signed header and a bonded
-// guarantor's certificate, not from custody's authority-registered checkpoints.
+// TestWithdrawalReadsAnchorFinalizedCheckpoint proves custody's anchor reader
+// reads a checkpoint imported as final from a sequencer-signed header and a
+// bonded guarantor's certificate while the withdrawal path remains retired.
 func TestWithdrawalReadsAnchorFinalizedCheckpoint(t *testing.T) {
 	app := testkeeper.EVMTestApp
 	ctx, _ := app.NewContext(false, tmtypes.Header{}).WithBlockHeight(7).WithBlockTime(genesisTime).CacheContext()
@@ -113,11 +112,11 @@ func TestWithdrawalReadsAnchorFinalizedCheckpoint(t *testing.T) {
 		PublicKey: anchortypes.Hash32(vectorArray(t, e.withdrawal, "public_key")), FirstBatchNumber: batch, LastBatchNumber: batch}}
 	anchor.InitGenesis(ctx, *genesis)
 
-	// A custody-registered checkpoint with the right roots is not trusted once
-	// the anchor reader is set: nothing is finalized on the anchor yet.
+	// A custody-registered checkpoint does not enable the retired withdrawal
+	// path, even before a final checkpoint is imported on the anchor.
 	require.NoError(t, e.k.RegisterCheckpoint(ctx, batch, header.ResultingStateRoot, header.ReceiptMerkleRoot))
 	_, _, err = e.k.VerifyWithdrawal(ctx, e.evidence())
-	require.ErrorIs(t, err, types.ErrNotFinalized)
+	require.ErrorIs(t, err, types.ErrModuleRetired)
 
 	guarantorID := [32]byte{0x61}
 	certificate, signer := guarantorCertificate(t, headerBytes, guarantorID, [20]byte(genesis.Params.SettlementContract))
@@ -131,8 +130,30 @@ func TestWithdrawalReadsAnchorFinalizedCheckpoint(t *testing.T) {
 
 	var headerSignature [64]byte
 	copy(headerSignature[:], vectorBytes(t, e.withdrawal, "header_signature"))
-	checkpoint, err := anchor.SubmitCheckpoint(ctx, operator, headerBytes, headerSignature, certificate)
-	require.NoError(t, err)
+	_, err = anchor.SubmitCheckpoint(ctx, operator, headerBytes, headerSignature, certificate)
+	require.ErrorIs(t, err, anchortypes.ErrModuleRetired)
+
+	guarantors := []anchortypes.Hash32{anchortypes.Hash32(guarantorID)}
+	genesis = anchor.ExportGenesis(ctx)
+	genesis.Checkpoints = []anchortypes.Checkpoint{{
+		BatchNumber: header.BatchNumber, CheckpointID: anchortypes.Hash32(codec.CheckpointHash(headerBytes, nil)),
+		HeaderDigest: anchortypes.Hash32(codec.BatchHeaderDigest(headerBytes)), ProtocolVersion: header.ProtocolVersion,
+		NetworkID: header.NetworkID, Epoch: header.Epoch, FirstSequence: header.FirstSequence,
+		LastSequence: header.LastSequence, PreviousStateRoot: anchortypes.Hash32(header.PreviousStateRoot),
+		StateRoot: anchortypes.Hash32(header.ResultingStateRoot), ReceiptRoot: anchortypes.Hash32(header.ReceiptMerkleRoot),
+		DataAvailabilityRoot: anchortypes.Hash32(header.DataAvailabilityRoot), SequencerID: anchortypes.Hash32(header.SequencerID),
+		TimestampMs: header.TimestampMs, Status: anchortypes.CheckpointFinal,
+		DeclaredThreshold: 1, Guarantors: guarantors,
+		AvailabilityMask: codec.AvailabilityAll, Submitter: operator.String(),
+		SubmittedHeight: ctx.BlockHeight(), SubmittedTime: ctx.BlockTime().Unix(),
+		FinalizedHeight: ctx.BlockHeight(), FinalizedTime: ctx.BlockTime().Unix(),
+	}}
+	genesis.HasLatestFinalized = true
+	genesis.LatestFinalized = header.BatchNumber
+	require.NoError(t, genesis.Validate())
+	anchor.InitGenesis(ctx, *genesis)
+	checkpoint, imported := anchor.GetCheckpoint(ctx, header.BatchNumber)
+	require.True(t, imported)
 	require.Equal(t, anchortypes.CheckpointFinal, checkpoint.Status)
 
 	stateRoot, ok := e.k.Anchor().FinalizedStateRoot(ctx, batch)
@@ -143,21 +164,18 @@ func TestWithdrawalReadsAnchorFinalizedCheckpoint(t *testing.T) {
 	require.Equal(t, batch, latest)
 	require.Equal(t, genesisTime.Unix(), finalizedAt)
 
-	effect, verified, err := e.k.VerifyWithdrawal(ctx, e.evidence())
-	require.NoError(t, err)
-	require.Equal(t, batch, verified.BatchNumber)
-	require.Equal(t, vectorArray(t, e.withdrawal, "nullifier"), effect.Nullifier)
-	result, err := e.k.FinaliseWithdrawal(ctx, e.evidence())
-	require.NoError(t, err)
-	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_PAID, result.Claim.Status)
+	_, _, err = e.k.VerifyWithdrawal(ctx, e.evidence())
+	require.ErrorIs(t, err, types.ErrModuleRetired)
+	_, err = e.k.FinaliseWithdrawal(ctx, e.evidence())
+	require.ErrorIs(t, err, types.ErrModuleRetired)
 	e.solvent()
 
 	// A second sequencer authorised for the same batch makes the batch-only
-	// lookup ambiguous; custody refuses instead of picking one.
+	// lookup ambiguous; the withdrawal path still refuses with retirement.
 	ambiguous, _ := ctx.CacheContext()
 	require.NoError(t, anchor.SetSequencerAuthorization(ambiguous, authority, anchortypes.SequencerAuthorization{
 		SequencerID: anchortypes.Hash32{0x77}, PublicKey: anchortypes.Hash32(vectorArray(t, e.withdrawal, "public_key")),
 		FirstBatchNumber: batch, LastBatchNumber: batch}))
 	_, _, err = e.k.VerifyWithdrawal(ambiguous, e.evidence())
-	require.ErrorIs(t, err, types.ErrNotAuthorized)
+	require.ErrorIs(t, err, types.ErrModuleRetired)
 }

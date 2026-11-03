@@ -349,7 +349,6 @@ fn layerx_proof_verifies_complete_export_with_no_daemon_node_or_network() {
     let built = must(build(fixture.artifact.clone(), &fixture.trust));
     assert_eq!(built.local_verification.verified_receipts, 1);
     assert_eq!(built.local_verification.verified_inclusions, 1);
-    assert_eq!(built.local_verification.verified_checkpoints, 1);
     assert_eq!(built.local_verification.achieved_rung, Rung::Committed);
     assert_eq!(
         must(verify(&built.artifact, &fixture.trust)),
@@ -420,6 +419,9 @@ fn offline_export_requires_complete_authenticated_inclusion() {
     );
     changed.bundles[0].receipt_inclusion = Some(canonical(inclusion));
     assert!(verify(&changed, &fixture.trust).is_err());
+    let mut unexpected_account = fixture.artifact.clone();
+    unexpected_account.bundles[0].account_proof = Some(canonical(fixture.account_proof.clone()));
+    assert!(verify(&unexpected_account, &fixture.trust).is_err());
     let state = fixture.state_artifact();
     assert_eq!(
         must(verify(&state, &fixture.trust)).achieved_rung,

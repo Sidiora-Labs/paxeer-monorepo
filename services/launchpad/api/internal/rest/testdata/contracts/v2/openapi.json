@@ -1,0 +1,4236 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Launchpad REST route inventory",
+    "version": "v2",
+    "description": "Re-derived from RegisterProductionReads and RegisterAccountingV2WithAdmission at 38edc5ae15e259a556374378dfbb0bf3d3d4674a. No v1 operations are registered."
+  },
+  "paths": {
+    "/v2/holder-rewards/pools": {
+      "get": {
+        "operationId": "IF_HOLDER_REWARDS_POOLS",
+        "x-authorization": "public",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "enum": [
+                "rewards",
+                "mcap",
+                "holders",
+                "age"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HolderRewardsPoolsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/holder-rewards/stats": {
+      "get": {
+        "operationId": "IF_HOLDER_REWARDS_STATS",
+        "x-authorization": "public",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HolderRewardsStatsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/leaderboards/{category}": {
+      "get": {
+        "operationId": "IF_LEADERBOARDS",
+        "x-authorization": "public",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category",
+            "required": true,
+            "schema": {
+              "enum": [
+                "creator",
+                "trader",
+                "volume"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "window",
+            "required": true,
+            "schema": {
+              "enum": [
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/platform/metrics": {
+      "get": {
+        "operationId": "IF_PLATFORM",
+        "x-authorization": "public",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "window",
+            "required": true,
+            "schema": {
+              "enum": [
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pools": {
+      "get": {
+        "operationId": "IF_POOL_LIST",
+        "x-authorization": "public",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "sort",
+            "required": true,
+            "schema": {
+              "enum": [
+                "new",
+                "volume",
+                "trending"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoolListResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pools/{poolAddress}": {
+      "get": {
+        "operationId": "IF_POOL_DETAIL",
+        "x-authorization": "public",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "poolAddress",
+            "required": true,
+            "schema": {
+              "pattern": "^0x[0-9a-fA-F]{40}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoolDetailResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pools/{poolAddress}/candles": {
+      "get": {
+        "operationId": "IF_CANDLES",
+        "x-authorization": "public",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "interval",
+            "required": true,
+            "schema": {
+              "enum": [
+                "1m",
+                "5m",
+                "15m",
+                "1h",
+                "4h",
+                "1d",
+                "1w"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 2000,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "poolAddress",
+            "required": true,
+            "schema": {
+              "pattern": "^0x[0-9a-fA-F]{40}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandlesResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pools/{poolAddress}/holders": {
+      "get": {
+        "operationId": "IF_HOLDERS",
+        "x-authorization": "public",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "poolAddress",
+            "required": true,
+            "schema": {
+              "pattern": "^0x[0-9a-fA-F]{40}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HoldersResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pools/{poolAddress}/stats": {
+      "get": {
+        "operationId": "IF_STATS",
+        "x-authorization": "public",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "poolAddress",
+            "required": true,
+            "schema": {
+              "pattern": "^0x[0-9a-fA-F]{40}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pools/{poolAddress}/trades": {
+      "get": {
+        "operationId": "IF_TRADES",
+        "x-authorization": "public",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "poolAddress",
+            "required": true,
+            "schema": {
+              "pattern": "^0x[0-9a-fA-F]{40}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "side",
+            "required": false,
+            "schema": {
+              "enum": [
+                "buy",
+                "sell"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradesResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/rankings/{category}": {
+      "get": {
+        "operationId": "IF_RANKINGS",
+        "x-authorization": "public",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category",
+            "required": true,
+            "schema": {
+              "enum": [
+                "trending",
+                "breakout",
+                "volume",
+                "gainers",
+                "losers",
+                "movers",
+                "unusual",
+                "new"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RankingsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/snapshots": {
+      "get": {
+        "operationId": "IF_TOPIC_SNAPSHOT_READ",
+        "x-authorization": "public; private topics require a bound stream ticket",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "topics",
+            "required": true,
+            "schema": {
+              "items": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 20,
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "style": "form"
+          },
+          {
+            "in": "query",
+            "name": "normalizedFilters",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/InputTopicFilters"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/OpaqueResumeCursor"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicSnapshotReadResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pools/stats:batch": {
+      "post": {
+        "operationId": "IF_STATS_BATCH",
+        "x-authorization": "public",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsBatchResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatsBatchBody"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AggregateUInt": {
+        "maxLength": 156,
+        "pattern": "^(0|[1-9][0-9]{0,155})$",
+        "type": "string"
+      },
+      "AssetRef": {
+        "additionalProperties": true,
+        "description": "Proposed AssetRef",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "pattern": "^0x[0-9a-fA-F]{40}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "chainId": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currencyCode": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "decimals": {
+            "anyOf": [
+              {
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "enum": [
+              "native",
+              "erc20",
+              "fiat_display"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "chainId",
+          "address",
+          "currencyCode",
+          "decimals"
+        ],
+        "type": "object"
+      },
+      "Bounty": {
+        "additionalProperties": true,
+        "description": "Opening requires verified funding/escrow capability and policy; absent settlement support blocks publication instead of simulating payment.",
+        "properties": {
+          "assetAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "bountyId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "budgetRaw": {
+            "$ref": "#/components/schemas/PositiveUInt256"
+          },
+          "coverAssetId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "creatorWallet": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "deadlineAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 10000,
+            "type": "string"
+          },
+          "likesCount": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "poolAddress": {
+            "anyOf": [
+              {
+                "pattern": "^0x[0-9a-fA-F]{40}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rewardUsdlRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "state": {
+            "enum": [
+              "draft",
+              "funding",
+              "open",
+              "reviewing",
+              "paid",
+              "cancelled",
+              "expired"
+            ],
+            "type": "string"
+          },
+          "submissionsCount": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 120,
+            "type": "string"
+          },
+          "winnersCount": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bountyId",
+          "creatorWallet",
+          "poolAddress",
+          "title",
+          "description",
+          "assetAddress",
+          "budgetRaw",
+          "state"
+        ],
+        "type": "object"
+      },
+      "Candle": {
+        "additionalProperties": true,
+        "description": "UTC half-open buckets; week Monday00:00. Missing buckets omitted by default. Optional display carry bars are separate labelled adapter data with zero contribution and cannot enter volume,ranking or canonical storage.",
+        "properties": {
+          "buyVolumeUsdlRaw": {
+            "$ref": "#/components/schemas/AggregateUInt"
+          },
+          "close": {
+            "$ref": "#/components/schemas/Price"
+          },
+          "coverage": {
+            "enum": [
+              "complete",
+              "partial"
+            ],
+            "type": "string"
+          },
+          "firstPosition": {
+            "$ref": "#/components/schemas/ChainPosition"
+          },
+          "high": {
+            "$ref": "#/components/schemas/Price"
+          },
+          "interval": {
+            "enum": [
+              "1m",
+              "5m",
+              "15m",
+              "1h",
+              "4h",
+              "1d",
+              "1w"
+            ],
+            "type": "string"
+          },
+          "largeTradeCount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "largeTradePolicyId": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "largeTradeThresholdUsdlRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastPosition": {
+            "$ref": "#/components/schemas/ChainPosition"
+          },
+          "low": {
+            "$ref": "#/components/schemas/Price"
+          },
+          "open": {
+            "$ref": "#/components/schemas/Price"
+          },
+          "poolAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/PositiveUInt256"
+          },
+          "sellVolumeUsdlRaw": {
+            "$ref": "#/components/schemas/AggregateUInt"
+          },
+          "seriesModelVersion": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "snapshotId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "start": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "synthetic": {
+            "const": false,
+            "type": "boolean"
+          },
+          "trades": {
+            "$ref": "#/components/schemas/PositiveUInt256"
+          },
+          "uniqueTraderCount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "volumeTokenRaw": {
+            "$ref": "#/components/schemas/AggregateUInt"
+          },
+          "volumeUsdlRaw": {
+            "$ref": "#/components/schemas/AggregateUInt"
+          }
+        },
+        "required": [
+          "poolAddress",
+          "interval",
+          "start",
+          "open",
+          "high",
+          "low",
+          "close",
+          "volumeUsdlRaw",
+          "volumeTokenRaw",
+          "buyVolumeUsdlRaw",
+          "sellVolumeUsdlRaw",
+          "trades",
+          "revision",
+          "synthetic",
+          "coverage",
+          "firstPosition",
+          "lastPosition",
+          "seriesModelVersion",
+          "snapshotId",
+          "uniqueTraderCount",
+          "largeTradeCount",
+          "largeTradePolicyId",
+          "largeTradeThresholdUsdlRaw"
+        ],
+        "type": "object"
+      },
+      "CandlesData": {
+        "additionalProperties": true,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Candle"
+            },
+            "maxItems": 2000,
+            "minItems": 0,
+            "type": "array"
+          },
+          "seriesModelVersion": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "snapshotId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "snapshotId",
+          "seriesModelVersion"
+        ],
+        "type": "object"
+      },
+      "CandlesResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CandlesData"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "nextCursor": {
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "complete",
+              "partial",
+              "stale",
+              "quarantined"
+            ],
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositiveUInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "watermark",
+          "revision",
+          "quality",
+          "nextCursor",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "ChainPosition": {
+        "additionalProperties": true,
+        "description": "All integer comparisons use numeric ordering, including heights beyond JavaScript safe integer range.",
+        "properties": {
+          "blockHash": {
+            "pattern": "^0x[0-9a-fA-F]{64}$",
+            "type": "string"
+          },
+          "chainId": {
+            "const": "125",
+            "type": "string"
+          },
+          "height": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "logIndex": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "transactionHash": {
+            "pattern": "^0x[0-9a-fA-F]{64}$",
+            "type": "string"
+          },
+          "transactionIndex": {
+            "$ref": "#/components/schemas/UInt256"
+          }
+        },
+        "required": [
+          "height",
+          "transactionIndex",
+          "logIndex",
+          "transactionHash",
+          "blockHash",
+          "chainId"
+        ],
+        "type": "object"
+      },
+      "Error": {
+        "additionalProperties": true,
+        "description": "Authentication errors do not distinguish existing wallet; field errors use JSON pointer and stable rule code.",
+        "properties": {
+          "code": {
+            "maxLength": 64,
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "type": "string"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetails"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fieldErrors": {
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "maxItems": 32,
+            "minItems": 0,
+            "type": "array"
+          },
+          "message": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "retryAfterMs": {
+            "anyOf": [
+              {
+                "maximum": 60000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retryable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "requestId",
+          "retryable",
+          "retryAfterMs",
+          "fieldErrors",
+          "details"
+        ],
+        "type": "object"
+      },
+      "ErrorDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "dependency": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "latestWatermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minimumVersion": {
+            "maxLength": 32,
+            "type": "string"
+          },
+          "resource": {
+            "maxLength": 160,
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "FieldError": {
+        "additionalProperties": false,
+        "properties": {
+          "pointer": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "rule": {
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "pointer",
+          "rule"
+        ],
+        "type": "object"
+      },
+      "HolderEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "balanceRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "share": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Ratio"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tokenAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "wallet": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet",
+          "tokenAddress",
+          "balanceRaw",
+          "share"
+        ],
+        "type": "object"
+      },
+      "HolderRewardPool": {
+        "additionalProperties": true,
+        "description": "Holder reward aggregates are computed from committed chain events under the response Watermark; a pool without settled distributions reports zero with complete quality only when transfer coverage is complete, otherwise partial.",
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "distributedRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "holdersPaid": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "poolAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "strategyActive": {
+            "type": "boolean"
+          },
+          "tokenAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "poolAddress",
+          "tokenAddress",
+          "distributedRaw",
+          "holdersPaid",
+          "strategyActive",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "HolderRewardsPoolsData": {
+        "additionalProperties": true,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HolderRewardPool"
+            },
+            "maxItems": 100,
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "HolderRewardsPoolsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/HolderRewardsPoolsData"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "nextCursor": {
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "complete",
+              "partial",
+              "stale",
+              "quarantined"
+            ],
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositiveUInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "watermark",
+          "revision",
+          "quality",
+          "nextCursor",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "HolderRewardsStatsData": {
+        "additionalProperties": true,
+        "properties": {
+          "cumulativeDistributedRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "walletsRewarded": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "cumulativeDistributedRaw",
+          "walletsRewarded",
+          "watermark",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "HolderRewardsStatsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/HolderRewardsStatsData"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "nextCursor": {
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "complete",
+              "partial",
+              "stale",
+              "quarantined"
+            ],
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositiveUInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "watermark",
+          "revision",
+          "quality",
+          "nextCursor",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "HoldersData": {
+        "additionalProperties": true,
+        "properties": {
+          "coverage": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "excludedProtocolAddresses": {
+            "items": {
+              "pattern": "^0x[0-9a-fA-F]{40}$",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 0,
+            "type": "array"
+          },
+          "exclusionPolicyVersion": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "fromPosition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChainPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HolderEntry"
+            },
+            "maxItems": 100,
+            "minItems": 0,
+            "type": "array"
+          },
+          "toPosition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChainPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "coverage",
+          "fromPosition",
+          "toPosition",
+          "exclusionPolicyVersion",
+          "excludedProtocolAddresses"
+        ],
+        "type": "object"
+      },
+      "HoldersResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/HoldersData"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "nextCursor": {
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "complete",
+              "partial",
+              "stale",
+              "quarantined"
+            ],
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositiveUInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "watermark",
+          "revision",
+          "quality",
+          "nextCursor",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "InputTopicFilters": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "enum": [
+              "trending",
+              "breakout",
+              "volume",
+              "gainers",
+              "losers",
+              "movers",
+              "unusual",
+              "new"
+            ],
+            "type": "string"
+          },
+          "interval": {
+            "enum": [
+              "1m",
+              "5m",
+              "15m",
+              "1h",
+              "4h",
+              "1d",
+              "1w"
+            ],
+            "type": "string"
+          },
+          "poolAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "unreadOnly": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "Leaderboard": {
+        "additionalProperties": true,
+        "description": "PnL rankings excluded where incomplete basis; wash/risk exclusions versioned and explained",
+        "properties": {
+          "category": {
+            "enum": [
+              "creator",
+              "trader",
+              "volume"
+            ],
+            "type": "string"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardEntry"
+            },
+            "maxItems": 100,
+            "minItems": 0,
+            "type": "array"
+          },
+          "methodologyVersion": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "snapshotId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "watermark": {
+            "$ref": "#/components/schemas/Watermark"
+          },
+          "window": {
+            "enum": [
+              "24h",
+              "7d",
+              "30d"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshotId",
+          "category",
+          "methodologyVersion",
+          "window",
+          "entries",
+          "watermark"
+        ],
+        "type": "object"
+      },
+      "LeaderboardEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "metricRaw": {
+            "$ref": "#/components/schemas/AggregateUInt"
+          },
+          "metricSigned": {
+            "maxLength": 512,
+            "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+            "type": "string"
+          },
+          "quality": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "rank": {
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "wallet": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rank",
+          "wallet",
+          "metricRaw",
+          "quality"
+        ],
+        "type": "object"
+      },
+      "LeaderboardsData": {
+        "additionalProperties": true,
+        "properties": {
+          "snapshot": {
+            "$ref": "#/components/schemas/Leaderboard"
+          }
+        },
+        "required": [
+          "snapshot"
+        ],
+        "type": "object"
+      },
+      "LeaderboardsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/LeaderboardsData"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "nextCursor": {
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "complete",
+              "partial",
+              "stale",
+              "quarantined"
+            ],
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositiveUInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "watermark",
+          "revision",
+          "quality",
+          "nextCursor",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "Message": {
+        "additionalProperties": true,
+        "description": "Deleted text hidden in public projection; audit retention restricted; sends require membership and ban checks in same authorized transaction.",
+        "properties": {
+          "authorWallet": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "body": {
+            "maxLength": 2000,
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "deletedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "editedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "messageId": {
+            "format": "uuid",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+            "type": "string"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "roomId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "messageId",
+          "roomId",
+          "authorWallet",
+          "body",
+          "createdAt",
+          "editedAt",
+          "deletedAt",
+          "revision"
+        ],
+        "type": "object"
+      },
+      "Notification": {
+        "additionalProperties": true,
+        "description": "Public payload contains entity link and bounded text; no private message body in push/email by default.",
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "deliveryState": {
+            "enum": [
+              "pending",
+              "sent",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "entityId": {
+            "maxLength": 160,
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "trade_fill",
+              "price_alert",
+              "mention",
+              "reward",
+              "moderation"
+            ],
+            "type": "string"
+          },
+          "notificationId": {
+            "format": "uuid",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+            "type": "string"
+          },
+          "readAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "wallet": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notificationId",
+          "wallet",
+          "kind",
+          "entityId",
+          "createdAt",
+          "readAt",
+          "deliveryState"
+        ],
+        "type": "object"
+      },
+      "OpaqueResumeCursor": {
+        "maxLength": 2048,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_.-]+$",
+        "type": "string"
+      },
+      "Order": {
+        "additionalProperties": true,
+        "description": "Supported kinds are capability-gated by verified deployed contract selectors; absent support returns501 instead of synthetic accepted order.",
+        "properties": {
+          "chainOrderId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inputRaw": {
+            "$ref": "#/components/schemas/PositiveUInt256"
+          },
+          "kind": {
+            "enum": [
+              "limit",
+              "stop",
+              "scheduled"
+            ],
+            "type": "string"
+          },
+          "orderId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "poolAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "submitted",
+              "active",
+              "filled",
+              "cancelled",
+              "failed",
+              "expired"
+            ],
+            "type": "string"
+          },
+          "triggerPrice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Price"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "wallet": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "orderId",
+          "wallet",
+          "chainOrderId",
+          "kind",
+          "poolAddress",
+          "inputRaw",
+          "triggerPrice",
+          "status"
+        ],
+        "type": "object"
+      },
+      "PlatformData": {
+        "additionalProperties": true,
+        "properties": {
+          "activeWallets": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "newPools": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "pools": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "totalMarketCapUsdlRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "trades": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "volumeUsdlRaw": {
+            "$ref": "#/components/schemas/AggregateUInt"
+          }
+        },
+        "required": [
+          "volumeUsdlRaw",
+          "pools",
+          "activeWallets"
+        ],
+        "type": "object"
+      },
+      "PlatformResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PlatformData"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "nextCursor": {
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "complete",
+              "partial",
+              "stale",
+              "quarantined"
+            ],
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositiveUInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "watermark",
+          "revision",
+          "quality",
+          "nextCursor",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "Pool": {
+        "additionalProperties": true,
+        "description": "effectivePricingUsdlReserveRaw=virtualUsdlReserveRaw+realUsdlBalanceRaw. Virtual reserve participates only in pricing and is not withdrawable funds. Current quote asset is verified deployed USDL6. Creation protocol fee1000000rawUSDL excludes PAX gas.",
+        "properties": {
+          "chainId": {
+            "const": "125",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "createdPosition": {
+            "$ref": "#/components/schemas/ChainPosition"
+          },
+          "creator": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "effectivePricingUsdlReserveRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "feeBps": {
+            "maximum": 10000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "poolAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "quoteAssetAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "quoteAssetDecimals": {
+            "const": 6,
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "realUsdlBalanceRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "tokenAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "tokenReserveRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "virtualUsdlReserveRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          }
+        },
+        "required": [
+          "chainId",
+          "poolAddress",
+          "tokenAddress",
+          "creator",
+          "virtualUsdlReserveRaw",
+          "realUsdlBalanceRaw",
+          "effectivePricingUsdlReserveRaw",
+          "tokenReserveRaw",
+          "quoteAssetAddress",
+          "quoteAssetDecimals",
+          "feeBps",
+          "createdPosition"
+        ],
+        "type": "object"
+      },
+      "PoolDetailData": {
+        "additionalProperties": true,
+        "properties": {
+          "pool": {
+            "$ref": "#/components/schemas/Pool"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/PoolStats"
+          },
+          "token": {
+            "$ref": "#/components/schemas/Token"
+          }
+        },
+        "required": [
+          "pool",
+          "token",
+          "stats"
+        ],
+        "type": "object"
+      },
+      "PoolDetailResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PoolDetailData"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "nextCursor": {
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "complete",
+              "partial",
+              "stale",
+              "quarantined"
+            ],
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositiveUInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "watermark",
+          "revision",
+          "quality",
+          "nextCursor",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "PoolListData": {
+        "additionalProperties": true,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Pool"
+            },
+            "maxItems": 100,
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "PoolListResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PoolListData"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "nextCursor": {
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "complete",
+              "partial",
+              "stale",
+              "quarantined"
+            ],
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositiveUInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "watermark",
+          "revision",
+          "quality",
+          "nextCursor",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "PoolStats": {
+        "additionalProperties": true,
+        "description": "realUsdlBalanceRaw is booked real USDL backing, not virtual reserve or guaranteed per-wallet entitlement. Optional indicative TVL excludes virtual USDL and declares token mark. Rolling window end is source watermark chainSecond+1 with events constrained<=sourceUpperPosition; [end-window,end) event-time membership. Interface 2.2.0 additive fields (optional on the wire so frames committed before 2.2.0 stay valid; the producer always emits them): priceChangeBps5m/1h/6h with changeBaselineQuality5m/1h/6h use the priceChangeBps24h/changeBaselineQuality rule over [windowEnd-300s|3600s|21600s, windowEnd) at the same anchor. spotPriceWad is the pool getPrice() at the latest canonical price event (EventEmitter Swap or PoolStateUpdated) at or below sourceUpperPosition: floor(effectiveUsdlReserveRaw*10^18/tokenReserveRaw) with effectiveUsdlReserveRaw=virtualUsdlReserve+realUsdlBalance, both raw integers; null when no price event exists. spotPriceUsdlRaw is the price of one whole token (10^tokenDecimals raw) in USDL raw units (USDL has 6 decimals): floor(spotPriceWad*10^tokenDecimals/10^18), which equals floor(effectiveUsdlReserveRaw*10^tokenDecimals/tokenReserveRaw) exactly; null when spotPriceWad is null or tokenDecimals>18. uniqueTraders24h counts distinct committed fill actors and txCount24h counts committed fills (buys24h+sells24h) in [windowStart,windowEnd). totalSupplyRaw is the Transfer-authoritative indexed supply at sourceUpperPosition (complete holdings coverage only, else null); circulatingSupplyRaw=totalSupplyRaw minus the pool contract own token balance under circulationModel supply_minus_pool_reserve_v1. top10HolderShareBps and creatorHoldingShareBps are floor(10000*balance/circulatingSupplyRaw) at sourceUpperPosition over non-pool holders; the creator is the canonical pool creation creator; null when circulating supply is zero or unknown.",
+        "properties": {
+          "buys24h": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "changeBaselineQuality": {
+            "enum": [
+              "complete",
+              "insufficient_history",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "changeBaselineQuality1h": {
+            "enum": [
+              "complete",
+              "insufficient_history",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "changeBaselineQuality5m": {
+            "enum": [
+              "complete",
+              "insufficient_history",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "changeBaselineQuality6h": {
+            "enum": [
+              "complete",
+              "insufficient_history",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "circulatingMarketCapUsdlRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AggregateUInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "circulatingSupplyRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "circulationModel": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "creatorHoldingShareBps": {
+            "anyOf": [
+              {
+                "maximum": 10000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "holderCount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "indicativeTvlUsdlRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AggregateUInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "poolAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "priceChangeBps1h": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedAggregateInteger"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priceChangeBps24h": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedAggregateInteger"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priceChangeBps5m": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedAggregateInteger"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priceChangeBps6h": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedAggregateInteger"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "realUsdlBalanceRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "sells24h": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "sourceUpperPosition": {
+            "$ref": "#/components/schemas/ChainPosition"
+          },
+          "spotPriceUsdlRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spotPriceWad": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supplyValuationQuality": {
+            "enum": [
+              "verified",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "top10HolderShareBps": {
+            "anyOf": [
+              {
+                "maximum": 10000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "totalSupplyRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "totalSupplyValuationUsdlRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AggregateUInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "txCount24h": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "uniqueTraders24h": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "valuationChangeUsdlRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedAggregateInteger"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "valuationMethod": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "volume24hRaw": {
+            "$ref": "#/components/schemas/AggregateUInt"
+          },
+          "watermark": {
+            "$ref": "#/components/schemas/Watermark"
+          },
+          "windowEnd": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "windowStart": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "poolAddress",
+          "volume24hRaw",
+          "buys24h",
+          "sells24h",
+          "holderCount",
+          "realUsdlBalanceRaw",
+          "indicativeTvlUsdlRaw",
+          "valuationMethod",
+          "windowStart",
+          "windowEnd",
+          "sourceUpperPosition",
+          "watermark",
+          "totalSupplyValuationUsdlRaw",
+          "circulatingMarketCapUsdlRaw",
+          "supplyValuationQuality",
+          "priceChangeBps24h",
+          "valuationChangeUsdlRaw",
+          "changeBaselineQuality"
+        ],
+        "type": "object"
+      },
+      "PortfolioPosition": {
+        "additionalProperties": true,
+        "description": "Apply req.D06_001,D06_002,D06_005 proportional_floor_v1 exactly. For total T=K+U and disposal q, k=floor(q*K/T),u=q-k,pK=floor(P*k/q),pU=P-pK,c=floor(C*k/K) when K>0; c=C when k=K. Remaining K-k,U-u,C-c; known realized increases pK-c. Unknown proceeds never imply zero-cost gain. Outgoing transfer invents no sale proceeds. Verified linked-wallet basis carry requires explicit policy/consent.",
+        "properties": {
+          "balanceRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "basisCoverage": {
+            "$ref": "#/components/schemas/Ratio"
+          },
+          "basisQuality": {
+            "enum": [
+              "complete",
+              "partial",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "chainId": {
+            "const": "125",
+            "type": "string"
+          },
+          "knownQuantityRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "knownRealizedSubtotalUsdlRaw": {
+            "$ref": "#/components/schemas/SignedAggregateInteger"
+          },
+          "knownRemainingCostUsdlRaw": {
+            "$ref": "#/components/schemas/AggregateUInt"
+          },
+          "markPrice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Price"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "positionId": {
+            "maxLength": 160,
+            "type": "string"
+          },
+          "pricingQuality": {
+            "enum": [
+              "priced",
+              "stale",
+              "unpriced"
+            ],
+            "type": "string"
+          },
+          "realizedBasisQuality": {
+            "enum": [
+              "complete",
+              "partial",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "realizedPnlRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedAggregateInteger"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remainingCostUsdlRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AggregateUInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sourceWatermark": {
+            "$ref": "#/components/schemas/Watermark"
+          },
+          "tokenAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "unknownQuantityRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "unrealizedPnlRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedAggregateInteger"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "wallet": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "positionId",
+          "chainId",
+          "wallet",
+          "tokenAddress",
+          "balanceRaw",
+          "knownQuantityRaw",
+          "unknownQuantityRaw",
+          "knownRemainingCostUsdlRaw",
+          "basisCoverage",
+          "remainingCostUsdlRaw",
+          "realizedPnlRaw",
+          "knownRealizedSubtotalUsdlRaw",
+          "unrealizedPnlRaw",
+          "basisQuality",
+          "realizedBasisQuality",
+          "pricingQuality",
+          "markPrice",
+          "sourceWatermark"
+        ],
+        "type": "object"
+      },
+      "PortfolioSummary": {
+        "additionalProperties": true,
+        "description": "pricedSubtotal sums only known marked positions and is explicitly partial if anyunpriced. completeValue isnull until all valuations known. Summary covers allpositions,not currentpage. Unknown profitability remainsnull; PAX gas never subtracted asUSDL without conversion provenance.",
+        "properties": {
+          "basisQuality": {
+            "enum": [
+              "complete",
+              "partial",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "completeValueUsdlRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AggregateUInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "knownRealizedSubtotalUsdlRaw": {
+            "$ref": "#/components/schemas/SignedAggregateInteger"
+          },
+          "positionCount": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "pricedSubtotalUsdlRaw": {
+            "$ref": "#/components/schemas/AggregateUInt"
+          },
+          "pricingQuality": {
+            "enum": [
+              "complete",
+              "partial",
+              "unpriced"
+            ],
+            "type": "string"
+          },
+          "realizedPnlRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedAggregateInteger"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "snapshotId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "unpricedAssetCount": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "wallet": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "watermark": {
+            "$ref": "#/components/schemas/Watermark"
+          }
+        },
+        "required": [
+          "wallet",
+          "pricedSubtotalUsdlRaw",
+          "completeValueUsdlRaw",
+          "realizedPnlRaw",
+          "knownRealizedSubtotalUsdlRaw",
+          "basisQuality",
+          "pricingQuality",
+          "unpricedAssetCount",
+          "positionCount",
+          "snapshotId",
+          "watermark"
+        ],
+        "type": "object"
+      },
+      "PortfolioUpdate": {
+        "additionalProperties": true,
+        "description": "Each change is upsert with typed PortfolioPosition or remove withpositionId+revision. Changes and summary are one committed checkpoint. Larger rebuild sends resnapshot_required rather than partial coherent-state claim.",
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/PositionChange"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          },
+          "completeBatch": {
+            "const": true,
+            "type": "boolean"
+          },
+          "snapshotId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/PortfolioSummary"
+          },
+          "summaryRevision": {
+            "$ref": "#/components/schemas/PositiveUInt256"
+          }
+        },
+        "required": [
+          "snapshotId",
+          "summaryRevision",
+          "changes",
+          "summary",
+          "completeBatch"
+        ],
+        "type": "object"
+      },
+      "PositionChange": {
+        "additionalProperties": false,
+        "properties": {
+          "operation": {
+            "enum": [
+              "upsert",
+              "delete"
+            ],
+            "type": "string"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PortfolioPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "positionId": {
+            "maxLength": 160,
+            "type": "string"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/PositiveUInt256"
+          }
+        },
+        "required": [
+          "operation",
+          "positionId",
+          "revision",
+          "position"
+        ],
+        "type": "object"
+      },
+      "PositivePriceComponent": {
+        "maxLength": 512,
+        "pattern": "^[1-9][0-9]{0,511}$",
+        "type": "string"
+      },
+      "PositiveUInt256": {
+        "maxLength": 78,
+        "pattern": "^(?:[1-9][0-9]{0,76}|10[0-9]{76}|11[0-4][0-9]{75}|115[0-6][0-9]{74}|1157[0-8][0-9]{73}|11579[0-1][0-9]{72}|1157920[0-7][0-9]{70}|11579208[0-8][0-9]{69}|115792089[0-1][0-9]{68}|1157920892[0-2][0-9]{67}|11579208923[0-6][0-9]{66}|115792089237[0-2][0-9]{65}|11579208923730[0-9]{64}|11579208923731[0-5][0-9]{63}|1157920892373160[0-9]{62}|1157920892373161[0-8][0-9]{61}|11579208923731619[0-4][0-9]{60}|115792089237316195[0-3][0-9]{59}|1157920892373161954[0-1][0-9]{58}|11579208923731619542[0-2][0-9]{57}|115792089237316195423[0-4][0-9]{56}|1157920892373161954235[0-6][0-9]{55}|115792089237316195423570[0-8][0-9]{53}|1157920892373161954235709[0-7][0-9]{52}|11579208923731619542357098[0-4][0-9]{51}|11579208923731619542357098500[0-7][0-9]{48}|115792089237316195423570985008[0-5][0-9]{47}|1157920892373161954235709850086[0-7][0-9]{46}|11579208923731619542357098500868[0-6][0-9]{45}|115792089237316195423570985008687[0-8][0-9]{44}|11579208923731619542357098500868790[0-6][0-9]{42}|115792089237316195423570985008687907[0-7][0-9]{41}|1157920892373161954235709850086879078[0-4][0-9]{40}|11579208923731619542357098500868790785[0-2][0-9]{39}|115792089237316195423570985008687907853[0-1][0-9]{38}|1157920892373161954235709850086879078532[0-5][0-9]{37}|11579208923731619542357098500868790785326[0-8][0-9]{36}|115792089237316195423570985008687907853269[0-8][0-9]{35}|1157920892373161954235709850086879078532699[0-7][0-9]{34}|11579208923731619542357098500868790785326998[0-3][0-9]{33}|115792089237316195423570985008687907853269984[0-5][0-9]{32}|1157920892373161954235709850086879078532699846[0-5][0-9]{31}|11579208923731619542357098500868790785326998466[0-4][0-9]{30}|115792089237316195423570985008687907853269984665[0-5][0-9]{29}|1157920892373161954235709850086879078532699846656[0-3][0-9]{28}|115792089237316195423570985008687907853269984665640[0-4][0-9]{26}|1157920892373161954235709850086879078532699846656405[0-5][0-9]{25}|11579208923731619542357098500868790785326998466564056[0-3][0-9]{24}|1157920892373161954235709850086879078532699846656405640[0-2][0-9]{22}|11579208923731619542357098500868790785326998466564056403[0-8][0-9]{21}|115792089237316195423570985008687907853269984665640564039[0-3][0-9]{20}|1157920892373161954235709850086879078532699846656405640394[0-4][0-9]{19}|11579208923731619542357098500868790785326998466564056403945[0-6][0-9]{18}|115792089237316195423570985008687907853269984665640564039457[0-4][0-9]{17}|1157920892373161954235709850086879078532699846656405640394575[0-7][0-9]{16}|11579208923731619542357098500868790785326998466564056403945758[0-3][0-9]{15}|11579208923731619542357098500868790785326998466564056403945758400[0-6][0-9]{12}|115792089237316195423570985008687907853269984665640564039457584007[0-8][0-9]{11}|11579208923731619542357098500868790785326998466564056403945758400790[0-9]{10}|11579208923731619542357098500868790785326998466564056403945758400791[0-2][0-9]{9}|1157920892373161954235709850086879078532699846656405640394575840079130[0-9]{8}|1157920892373161954235709850086879078532699846656405640394575840079131[0-1][0-9]{7}|11579208923731619542357098500868790785326998466564056403945758400791312[0-8][0-9]{6}|115792089237316195423570985008687907853269984665640564039457584007913129[0-5][0-9]{5}|1157920892373161954235709850086879078532699846656405640394575840079131296[0-2][0-9]{4}|11579208923731619542357098500868790785326998466564056403945758400791312963[0-8][0-9]{3}|115792089237316195423570985008687907853269984665640564039457584007913129639[0-8][0-9]{2}|1157920892373161954235709850086879078532699846656405640394575840079131296399[0-2][0-9]{1}|11579208923731619542357098500868790785326998466564056403945758400791312963993[0-4]|115792089237316195423570985008687907853269984665640564039457584007913129639935)$",
+        "type": "string"
+      },
+      "Price": {
+        "additionalProperties": true,
+        "description": "Gross execution uses actual paid input/output; post-swap spot uses pinned effective reserves and is not executable liquidation proceeds; external display never gates core launch/trade.",
+        "properties": {
+          "baseAsset": {
+            "$ref": "#/components/schemas/AssetRef"
+          },
+          "denominator": {
+            "$ref": "#/components/schemas/PositivePriceComponent"
+          },
+          "numerator": {
+            "$ref": "#/components/schemas/PriceComponent"
+          },
+          "quoteAsset": {
+            "$ref": "#/components/schemas/AssetRef"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PriceSource"
+          }
+        },
+        "required": [
+          "numerator",
+          "denominator",
+          "baseAsset",
+          "quoteAsset",
+          "source"
+        ],
+        "type": "object"
+      },
+      "PriceComponent": {
+        "maxLength": 512,
+        "pattern": "^(0|[1-9][0-9]{0,511})$",
+        "type": "string"
+      },
+      "PriceSource": {
+        "additionalProperties": true,
+        "description": "Proposed PriceSource",
+        "properties": {
+          "amountBasis": {
+            "enum": [
+              "paid_input",
+              "effective_reserves",
+              "provider_display"
+            ],
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "gross_execution",
+              "post_swap_spot",
+              "external_display"
+            ],
+            "type": "string"
+          },
+          "observedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChainPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "providerId": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sourceEventId": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sourceReference": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "amountBasis",
+          "sourceEventId",
+          "position",
+          "providerId",
+          "observedAt",
+          "sourceReference"
+        ],
+        "type": "object"
+      },
+      "RankingEntry": {
+        "additionalProperties": true,
+        "description": "Canonical decimal score finite with model-versioned precision and feature window; deterministic normalized pool-address tie-break. Sponsored placement separate from organic score.",
+        "properties": {
+          "category": {
+            "enum": [
+              "trending",
+              "breakout",
+              "volume",
+              "gainers",
+              "losers",
+              "movers",
+              "unusual",
+              "new"
+            ],
+            "type": "string"
+          },
+          "computedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "modelVersion": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "poolAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "rank": {
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "score": {
+            "maxLength": 512,
+            "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "poolAddress",
+          "category",
+          "rank",
+          "score",
+          "modelVersion",
+          "computedAt"
+        ],
+        "type": "object"
+      },
+      "RankingSnapshot": {
+        "additionalProperties": true,
+        "description": "Realtime replaces bounded top100view from one immutable ranking snapshot. REST pages same immutable full snapshot; totalEligible/truncated disclose remainder. Every entry model/category equals snapshot. Gainers/losers are signed-return models,not aliases ofmovers.",
+        "properties": {
+          "category": {
+            "enum": [
+              "trending",
+              "breakout",
+              "volume",
+              "gainers",
+              "losers",
+              "movers",
+              "unusual",
+              "new"
+            ],
+            "type": "string"
+          },
+          "computedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RankingEntry"
+            },
+            "maxItems": 100,
+            "minItems": 0,
+            "type": "array"
+          },
+          "modelVersion": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "replace": {
+            "const": true,
+            "type": "boolean"
+          },
+          "snapshotId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "totalEligible": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "watermark": {
+            "$ref": "#/components/schemas/Watermark"
+          }
+        },
+        "required": [
+          "snapshotId",
+          "category",
+          "modelVersion",
+          "computedAt",
+          "watermark",
+          "items",
+          "totalEligible",
+          "truncated",
+          "replace"
+        ],
+        "type": "object"
+      },
+      "RankingsData": {
+        "additionalProperties": true,
+        "properties": {
+          "snapshot": {
+            "$ref": "#/components/schemas/RankingSnapshot"
+          }
+        },
+        "required": [
+          "snapshot"
+        ],
+        "type": "object"
+      },
+      "RankingsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RankingsData"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "nextCursor": {
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "complete",
+              "partial",
+              "stale",
+              "quarantined"
+            ],
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositiveUInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "watermark",
+          "revision",
+          "quality",
+          "nextCursor",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "Ratio": {
+        "additionalProperties": true,
+        "description": "Proposed Ratio",
+        "properties": {
+          "denominator": {
+            "$ref": "#/components/schemas/PositivePriceComponent"
+          },
+          "numerator": {
+            "$ref": "#/components/schemas/PriceComponent"
+          }
+        },
+        "required": [
+          "numerator",
+          "denominator"
+        ],
+        "type": "object"
+      },
+      "Reward": {
+        "additionalProperties": true,
+        "description": "Claimability derives verified contract state or funded authorized program ledger; display cannot invent balances or settlement.",
+        "properties": {
+          "assetAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "claimableRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "claimedRaw": {
+            "$ref": "#/components/schemas/AggregateUInt"
+          },
+          "earnedRaw": {
+            "$ref": "#/components/schemas/AggregateUInt"
+          },
+          "programId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "rewardId": {
+            "maxLength": 160,
+            "type": "string"
+          },
+          "sourcePosition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChainPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "wallet": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rewardId",
+          "wallet",
+          "programId",
+          "assetAddress",
+          "earnedRaw",
+          "claimableRaw",
+          "claimedRaw",
+          "sourcePosition"
+        ],
+        "type": "object"
+      },
+      "SignedAggregateInteger": {
+        "maxLength": 157,
+        "pattern": "^(0|-?[1-9][0-9]{0,155})$",
+        "type": "string"
+      },
+      "StatsBatchBody": {
+        "additionalProperties": false,
+        "properties": {
+          "poolAddresses": {
+            "items": {
+              "pattern": "^0x[0-9a-fA-F]{40}$",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "poolAddresses"
+        ],
+        "type": "object"
+      },
+      "StatsBatchData": {
+        "additionalProperties": true,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PoolStats"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "missing": {
+            "items": {
+              "pattern": "^0x[0-9a-fA-F]{40}$",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "missing"
+        ],
+        "type": "object"
+      },
+      "StatsBatchResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StatsBatchData"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "nextCursor": {
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "complete",
+              "partial",
+              "stale",
+              "quarantined"
+            ],
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositiveUInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "watermark",
+          "revision",
+          "quality",
+          "nextCursor",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "StatsData": {
+        "additionalProperties": true,
+        "properties": {
+          "stats": {
+            "$ref": "#/components/schemas/PoolStats"
+          }
+        },
+        "required": [
+          "stats"
+        ],
+        "type": "object"
+      },
+      "StatsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StatsData"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "nextCursor": {
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "complete",
+              "partial",
+              "stale",
+              "quarantined"
+            ],
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositiveUInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "watermark",
+          "revision",
+          "quality",
+          "nextCursor",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "Stream": {
+        "additionalProperties": true,
+        "description": "Public shape never includes ingest key; live status comes from authenticated provider evidence; viewer count distinct TTL heartbeats.",
+        "properties": {
+          "creatorWallet": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "playbackUrl": {
+            "anyOf": [
+              {
+                "format": "uri",
+                "maxLength": 2048,
+                "pattern": "^https://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::[0-9]{1,5})?(?:[/?#][^\\s]*)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "poolAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "created",
+              "starting",
+              "live",
+              "ending",
+              "ended",
+              "failed",
+              "suspended"
+            ],
+            "type": "string"
+          },
+          "streamId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "thumbnailUrl": {
+            "format": "uri",
+            "maxLength": 2048,
+            "pattern": "^https://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::[0-9]{1,5})?(?:[/?#][^\\s]*)?$",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 120,
+            "type": "string"
+          },
+          "viewerCount": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "viewerQuality": {
+            "enum": [
+              "verified",
+              "unavailable",
+              "stale"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "streamId",
+          "poolAddress",
+          "creatorWallet",
+          "title",
+          "status",
+          "playbackUrl",
+          "viewerCount",
+          "viewerQuality"
+        ],
+        "type": "object"
+      },
+      "Token": {
+        "additionalProperties": true,
+        "description": "Unavailable decimals/supply staynull with independent quality. Token identity remains readable but human normalization/valuation requiring unknown metadata unavailable. No assumed one-billion supply or default18decimals.",
+        "properties": {
+          "address": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "decimals": {
+            "anyOf": [
+              {
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "decimalsQuality": {
+            "enum": [
+              "verified",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "logoAssetId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metadataRevision": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "name": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "sourcePosition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChainPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supplyQuality": {
+            "enum": [
+              "verified",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "symbol": {
+            "maxLength": 16,
+            "type": "string"
+          },
+          "totalSupplyRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "address",
+          "name",
+          "symbol",
+          "decimals",
+          "totalSupplyRaw",
+          "decimalsQuality",
+          "supplyQuality",
+          "sourcePosition",
+          "metadataRevision",
+          "logoAssetId"
+        ],
+        "type": "object"
+      },
+      "TopicSnapshot": {
+        "additionalProperties": true,
+        "description": "Proposed TopicSnapshot",
+        "properties": {
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "resumeCursor": {
+            "$ref": "#/components/schemas/OpaqueResumeCursor"
+          },
+          "snapshotId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/TopicSnapshotEntry"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "snapshotId",
+          "topics",
+          "resumeCursor",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "TopicSnapshotEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "payload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Bounty"
+              },
+              {
+                "$ref": "#/components/schemas/Candle"
+              },
+              {
+                "$ref": "#/components/schemas/Price"
+              },
+              {
+                "$ref": "#/components/schemas/Trade"
+              },
+              {
+                "$ref": "#/components/schemas/Message"
+              },
+              {
+                "$ref": "#/components/schemas/Notification"
+              },
+              {
+                "$ref": "#/components/schemas/Order"
+              },
+              {
+                "$ref": "#/components/schemas/PortfolioUpdate"
+              },
+              {
+                "$ref": "#/components/schemas/RankingSnapshot"
+              },
+              {
+                "$ref": "#/components/schemas/Reward"
+              },
+              {
+                "$ref": "#/components/schemas/PoolStats"
+              },
+              {
+                "$ref": "#/components/schemas/Stream"
+              }
+            ]
+          },
+          "revision": {
+            "$ref": "#/components/schemas/PositiveUInt256"
+          },
+          "sequence": {
+            "$ref": "#/components/schemas/UInt63"
+          },
+          "topic": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "topic",
+          "sequence",
+          "revision",
+          "watermark",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "TopicSnapshotReadData": {
+        "additionalProperties": true,
+        "properties": {
+          "snapshot": {
+            "$ref": "#/components/schemas/TopicSnapshot"
+          }
+        },
+        "required": [
+          "snapshot"
+        ],
+        "type": "object"
+      },
+      "TopicSnapshotReadResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TopicSnapshotReadData"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "nextCursor": {
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "complete",
+              "partial",
+              "stale",
+              "quarantined"
+            ],
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositiveUInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "watermark",
+          "revision",
+          "quality",
+          "nextCursor",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "Trade": {
+        "additionalProperties": true,
+        "description": "Preserve exact paid versus optical-priced input and input-asset fee disposition. Current qualified Swap paidInput and fee are nonnull; pricedInput nullable only explicitly unavailable receipt/ABI proof; never derive pricedInput by dividing rounded fee bybps.",
+        "properties": {
+          "ammInputAfterFeeRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "codeEpoch": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "emittingContract": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "eventId": {
+            "maxLength": 160,
+            "type": "string"
+          },
+          "feeAssetAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "feeAssetDecimals": {
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "feeDisposition": {
+            "enum": [
+              "distributed_usdl",
+              "retained_token_reserve"
+            ],
+            "type": "string"
+          },
+          "feeRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "inputDerivationQuality": {
+            "enum": [
+              "exact",
+              "legacy_unavailable",
+              "receipt_incomplete",
+              "abi_unqualified"
+            ],
+            "type": "string"
+          },
+          "paidInputRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "poolAddress": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "position": {
+            "$ref": "#/components/schemas/ChainPosition"
+          },
+          "pricedInputRaw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recipient": {
+            "anyOf": [
+              {
+                "pattern": "^0x[0-9a-fA-F]{40}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recipientAttribution": {
+            "enum": [
+              "exact_receipt",
+              "qualified_calldata",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "recipientEvidenceRefs": {
+            "items": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 8,
+            "minItems": 0,
+            "type": "array"
+          },
+          "sender": {
+            "pattern": "^0x[0-9a-fA-F]{40}$",
+            "type": "string"
+          },
+          "side": {
+            "enum": [
+              "buy",
+              "sell"
+            ],
+            "type": "string"
+          },
+          "tokenAmountRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "usdlAmountRaw": {
+            "$ref": "#/components/schemas/UInt256"
+          }
+        },
+        "required": [
+          "eventId",
+          "poolAddress",
+          "sender",
+          "recipient",
+          "side",
+          "tokenAmountRaw",
+          "usdlAmountRaw",
+          "position",
+          "feeRaw",
+          "feeAssetAddress",
+          "feeAssetDecimals",
+          "feeDisposition",
+          "paidInputRaw",
+          "pricedInputRaw",
+          "ammInputAfterFeeRaw",
+          "inputDerivationQuality",
+          "recipientAttribution",
+          "recipientEvidenceRefs",
+          "emittingContract",
+          "codeEpoch"
+        ],
+        "type": "object"
+      },
+      "TradesData": {
+        "additionalProperties": true,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Trade"
+            },
+            "maxItems": 100,
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "TradesResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TradesData"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "nextCursor": {
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "complete",
+              "partial",
+              "stale",
+              "quarantined"
+            ],
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositiveUInt256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watermark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Watermark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "watermark",
+          "revision",
+          "quality",
+          "nextCursor",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "UInt256": {
+        "maxLength": 78,
+        "pattern": "^(?:0|[1-9][0-9]{0,76}|10[0-9]{76}|11[0-4][0-9]{75}|115[0-6][0-9]{74}|1157[0-8][0-9]{73}|11579[0-1][0-9]{72}|1157920[0-7][0-9]{70}|11579208[0-8][0-9]{69}|115792089[0-1][0-9]{68}|1157920892[0-2][0-9]{67}|11579208923[0-6][0-9]{66}|115792089237[0-2][0-9]{65}|11579208923730[0-9]{64}|11579208923731[0-5][0-9]{63}|1157920892373160[0-9]{62}|1157920892373161[0-8][0-9]{61}|11579208923731619[0-4][0-9]{60}|115792089237316195[0-3][0-9]{59}|1157920892373161954[0-1][0-9]{58}|11579208923731619542[0-2][0-9]{57}|115792089237316195423[0-4][0-9]{56}|1157920892373161954235[0-6][0-9]{55}|115792089237316195423570[0-8][0-9]{53}|1157920892373161954235709[0-7][0-9]{52}|11579208923731619542357098[0-4][0-9]{51}|11579208923731619542357098500[0-7][0-9]{48}|115792089237316195423570985008[0-5][0-9]{47}|1157920892373161954235709850086[0-7][0-9]{46}|11579208923731619542357098500868[0-6][0-9]{45}|115792089237316195423570985008687[0-8][0-9]{44}|11579208923731619542357098500868790[0-6][0-9]{42}|115792089237316195423570985008687907[0-7][0-9]{41}|1157920892373161954235709850086879078[0-4][0-9]{40}|11579208923731619542357098500868790785[0-2][0-9]{39}|115792089237316195423570985008687907853[0-1][0-9]{38}|1157920892373161954235709850086879078532[0-5][0-9]{37}|11579208923731619542357098500868790785326[0-8][0-9]{36}|115792089237316195423570985008687907853269[0-8][0-9]{35}|1157920892373161954235709850086879078532699[0-7][0-9]{34}|11579208923731619542357098500868790785326998[0-3][0-9]{33}|115792089237316195423570985008687907853269984[0-5][0-9]{32}|1157920892373161954235709850086879078532699846[0-5][0-9]{31}|11579208923731619542357098500868790785326998466[0-4][0-9]{30}|115792089237316195423570985008687907853269984665[0-5][0-9]{29}|1157920892373161954235709850086879078532699846656[0-3][0-9]{28}|115792089237316195423570985008687907853269984665640[0-4][0-9]{26}|1157920892373161954235709850086879078532699846656405[0-5][0-9]{25}|11579208923731619542357098500868790785326998466564056[0-3][0-9]{24}|1157920892373161954235709850086879078532699846656405640[0-2][0-9]{22}|11579208923731619542357098500868790785326998466564056403[0-8][0-9]{21}|115792089237316195423570985008687907853269984665640564039[0-3][0-9]{20}|1157920892373161954235709850086879078532699846656405640394[0-4][0-9]{19}|11579208923731619542357098500868790785326998466564056403945[0-6][0-9]{18}|115792089237316195423570985008687907853269984665640564039457[0-4][0-9]{17}|1157920892373161954235709850086879078532699846656405640394575[0-7][0-9]{16}|11579208923731619542357098500868790785326998466564056403945758[0-3][0-9]{15}|11579208923731619542357098500868790785326998466564056403945758400[0-6][0-9]{12}|115792089237316195423570985008687907853269984665640564039457584007[0-8][0-9]{11}|11579208923731619542357098500868790785326998466564056403945758400790[0-9]{10}|11579208923731619542357098500868790785326998466564056403945758400791[0-2][0-9]{9}|1157920892373161954235709850086879078532699846656405640394575840079130[0-9]{8}|1157920892373161954235709850086879078532699846656405640394575840079131[0-1][0-9]{7}|11579208923731619542357098500868790785326998466564056403945758400791312[0-8][0-9]{6}|115792089237316195423570985008687907853269984665640564039457584007913129[0-5][0-9]{5}|1157920892373161954235709850086879078532699846656405640394575840079131296[0-2][0-9]{4}|11579208923731619542357098500868790785326998466564056403945758400791312963[0-8][0-9]{3}|115792089237316195423570985008687907853269984665640564039457584007913129639[0-8][0-9]{2}|1157920892373161954235709850086879078532699846656405640394575840079131296399[0-2][0-9]{1}|11579208923731619542357098500868790785326998466564056403945758400791312963993[0-4]|115792089237316195423570985008687907853269984665640564039457584007913129639935)$",
+        "type": "string"
+      },
+      "UInt63": {
+        "maxLength": 19,
+        "pattern": "^(?:0|[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$",
+        "type": "string"
+      },
+      "Watermark": {
+        "additionalProperties": true,
+        "description": "Clients compare chain position before revision; quarantined responses retain last healthy height.",
+        "properties": {
+          "blockHash": {
+            "pattern": "^0x[0-9a-fA-F]{64}$",
+            "type": "string"
+          },
+          "chainId": {
+            "const": "125",
+            "type": "string"
+          },
+          "height": {
+            "$ref": "#/components/schemas/UInt256"
+          },
+          "integrity": {
+            "enum": [
+              "healthy",
+              "quarantined"
+            ],
+            "type": "string"
+          },
+          "observedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$",
+            "type": "string"
+          },
+          "projectionRevision": {
+            "$ref": "#/components/schemas/PositiveUInt256"
+          }
+        },
+        "required": [
+          "chainId",
+          "height",
+          "blockHash",
+          "projectionRevision",
+          "observedAt",
+          "integrity"
+        ],
+        "type": "object"
+      }
+    }
+  }
+}

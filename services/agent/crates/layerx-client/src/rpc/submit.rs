@@ -3,7 +3,9 @@
 use layerx_types::result::ResultCode;
 use layerx_types::rung::Rung;
 
-use crate::sequencer::{RpcRefusal, SequencerEndpoint, SequencerError};
+use crate::sequencer::{RpcRefusal, SequencerError};
+
+pub type SequencerEndpoint = crate::sequencer::SequencerEndpoint;
 
 pub type KnownResult = layerx_types::result::KnownResult;
 

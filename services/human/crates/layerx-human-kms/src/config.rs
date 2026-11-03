@@ -13,6 +13,7 @@ use std::time::Duration;
 use zeroize::Zeroizing;
 
 const LAYERX_HUMAN_KMS_REGISTRY_FILE: &str = "LAYERX_HUMAN_KMS_REGISTRY_FILE";
+const LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER: &str = "LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER";
 
 pub(crate) struct Config {
     pub listen: SocketAddr,
@@ -117,12 +118,17 @@ impl Config {
         }
         let client_pin: [u8; 32] = Sha256::digest(&*read("CLIENT_CERT_DER", 65536, false)?).into();
         let attestor_evm_client_certificate =
-            std::env::var_os("LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER")
+            std::env::var_os(LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER)
                 .map(|path| {
                     protected(Path::new(&path), 65536, false)
                         .map(|bytes| CertificateDer::from(bytes.to_vec()))
                 })
                 .transpose()?;
+        if let Some(certificate) = &attestor_evm_client_certificate {
+            RootCertStore::empty()
+                .add(certificate.clone())
+                .map_err(|_| "attestor signer certificate invalid")?;
+        }
         if attestor_evm_client_certificate
             .as_ref()
             .is_some_and(|certificate| {

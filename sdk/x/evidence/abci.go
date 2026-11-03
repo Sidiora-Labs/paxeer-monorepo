@@ -4,7 +4,6 @@ import (
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/evidence/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/evidence/types"
@@ -19,8 +18,6 @@ func BeginBlocker(ctx sdk.Context, byzantineValidators []abci.Misbehavior, k kee
 	beginBlockerStart := time.Now()
 	defer func() {
 		evidenceMetrics.beginBlockerDuration.Record(ctx.Context(), time.Since(beginBlockerStart).Seconds())
-		// TODO(PLT-414): remove once evidence_begin_blocker_duration verified
-		telemetry.ModuleMeasureSince(types.ModuleName, beginBlockerStart, telemetry.MetricKeyBeginBlocker)
 	}()
 
 	for _, tmEvidence := range byzantineValidators {

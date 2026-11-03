@@ -289,7 +289,8 @@ fn estimate_fee_multiplies_gas_by_gas_price() -> Result<(), Box<dyn std::error::
 }
 
 #[test]
-fn estimate_fee_refuses_kernel_activity_hex() -> Result<(), Box<dyn std::error::Error>> {
+fn estimate_fee_accepts_unsigned_payment_call_and_refuses_kernel_activity_hex(
+) -> Result<(), Box<dyn std::error::Error>> {
     let payment = layerx_crypto::payments::Payment::OpenAccount { asset: [1; 32] };
     let facts = SigningFacts {
         actor: "did:layerx:alice",
@@ -322,63 +323,51 @@ fn estimate_fee_refuses_kernel_activity_hex() -> Result<(), Box<dyn std::error::
     assert_eq!(disclosure.payment, Some(payment.clone()));
     assert_eq!(disclosure.fee_limit, facts.fee_limit);
 
-    use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
-    use layerx_types::amount::Amount;
-    use layerx_types::ids::{Did, IdempotencyKey};
-    use layerx_types::payload::{
-        ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload,
-    };
-    use sha2::Digest as _;
-    let kind = ActivityType::new(ModuleId::Asset, 4).map_err(|e| format!("{e:?}"))?;
-    let registry = ModuleRegistry::new(&[
-        ModuleRegistration::new(ModuleId::Asset, &[kind]).map_err(|e| format!("{e:?}"))?
-    ])
-    .map_err(|e| format!("{e:?}"))?;
-    let payload = payment
-        .encode(facts.actor.as_bytes())
-        .map_err(|e| format!("{e:?}"))?;
-    let mut hash = sha2::Sha256::new();
-    hash.update(layerx_wire::hash::Domain::PayloadHash.tag());
-    hash.update(&payload);
-    let mut builder = EnvelopeBuilder::new();
-    builder.protocol_version(3).map_err(|e| format!("{e:?}"))?;
-    builder
-        .network_id(facts.network_id)
-        .map_err(|e| format!("{e:?}"))?;
-    builder.activity_type(kind).map_err(|e| format!("{e:?}"))?;
-    builder
-        .actor_did(Did::new(facts.actor.as_bytes()).map_err(|e| format!("{e:?}"))?)
-        .map_err(|e| format!("{e:?}"))?;
-    builder
-        .authority(Authority::owner(&facts.public_key).map_err(|e| format!("{e:?}"))?)
-        .map_err(|e| format!("{e:?}"))?;
-    builder
-        .account_sequence(facts.identity_next_sequence)
-        .map_err(|e| format!("{e:?}"))?;
-    builder
-        .timestamp_bound(
-            TimestampBound::new(facts.not_before_ms, facts.expires_at_ms)
-                .map_err(|e| format!("{e:?}"))?,
-        )
-        .map_err(|e| format!("{e:?}"))?;
-    builder
-        .idempotency_key(IdempotencyKey::new(facts.idempotency_key))
-        .map_err(|e| format!("{e:?}"))?;
-    builder
-        .fee_limit(Amount::from_u128(facts.fee_limit))
-        .map_err(|e| format!("{e:?}"))?;
-    builder
-        .payload_hash(hash.finalize().into())
-        .map_err(|e| format!("{e:?}"))?;
-    builder
-        .payload(Payload::new(&registry, kind, &payload).map_err(|e| format!("{e:?}"))?)
-        .map_err(|e| format!("{e:?}"))?;
-    let kernel = layerx_wire::activity::encode_unsigned_envelope(
-        &builder.build().map_err(|e| format!("{e:?}"))?,
-    )?
-    .iter()
-    .map(|byte| format!("{byte:02x}"))
-    .collect::<String>();
+    let unsigned = prepared
+        .call()
+        .encode_unsigned()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    let (output, requests) = quote(&unsigned, vec![result("0x32"), result("0x2")])?;
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let output: Value = serde_json::from_slice(&output.stdout)?;
+    assert_eq!(output["ok"], true);
+    assert_eq!(output["kind"], "wallet.fee");
+    assert_eq!(
+        output["data"],
+        json!({"gas":"50", "gas_price":"2", "fee":"100"})
+    );
+    let data = prepared
+        .call()
+        .data
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    assert_eq!(
+        requests,
+        vec![
+            json!({"jsonrpc":"2.0", "id":1, "method":"eth_estimateGas", "params":[{
+            "type":"0x2", "chainId":"0x7d", "nonce":"0x0",
+            "maxPriorityFeePerGas":"0x1", "maxFeePerGas":"0x2", "gas":"0x32",
+            "to":"0x000000000000000000000000000000000000101a", "value":"0x0",
+            "data":format!("0x{data}"), "accessList":[],
+            "from":"0x1111111111111111111111111111111111111111",
+        }, "pending"]}),
+            json!({"jsonrpc":"2.0", "id":1, "method":"eth_gasPrice", "params":[]}),
+        ]
+    );
+    let kernel_fixture: Value = serde_json::from_str(include_str!(
+        "../../../../sdk/platform/conformance/fixtures/native-program-deploy-v3.json"
+    ))?;
+    let kernel = kernel_fixture["signed_activity_hex"]
+        .as_str()
+        .ok_or("missing kernel fixture")?
+        .to_owned();
     let signed = layerx_crypto::evm_transaction::Eip1559Call {
         chain_id: 125,
         nonce: 7,

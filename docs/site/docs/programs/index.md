@@ -10,8 +10,9 @@ runtime is `programs/crates/layerx-programs-runtime/`. Receipt-bound registry
 reads live in `programs/crates/layerx-programs-registry/`. Bounded leases live
 in `programs/crates/layerx-programs-sandbox/`; see [Sandbox](sandbox.md). Guest
 SDKs live under `programs/sdk/`. `sdk/platform/` holds client SDKs (dotnet, go, jvm,
-swift, conformance, generators). CALL receipt terminal verification for
-those clients is on [SdkTerminalVerification](../agents/sdk-verification.md).
+swift, conformance, generators). For signed receipts returned by
+`pax_sequencerReceipt`, see
+[SDK sequencer receipt verification](../agents/sdk-verification.md).
 
 This page is a read of those sources. Where they disagree, both sides are
 cited. LXT-20 request codecs and the payments-merchant example are not in this

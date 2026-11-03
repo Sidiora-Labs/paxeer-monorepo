@@ -12,8 +12,8 @@ const LOCK_PATH: &str = "sdk/platform/pipeline.kvx";
 const RUST_OPERATION_GENERATED_PATH: &str =
     "services/agent/crates/layerx-agent-api/src/operation_generated.rs";
 const GO_GENERATED_PATH: &str = "sdk/platform/go/generated.go";
-const JVM_GENERATED_PATH: &str =
-    "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java";
+const JVM_SCHEMA_PATH: &str =
+    "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java";
 const JVM_CONFORMANCE_PATH: &str = "sdk/platform/conformance/jvm.kvx";
 const RECEIPT_CONTRACT_PATH: &str = "sdk/platform/generators/receipt.kvx";
 const RUST_RECEIPT_GENERATED_PATH: &str =
@@ -1488,150 +1488,96 @@ fn write_go(repo_root: &Path) -> Result<(), String> {
         .map_err(|error| format!("write {}: {error}", path.display()))
 }
 
-fn render_jvm_set(output: &mut String, name: &str, values: &[String]) -> Result<(), String> {
-    writeln!(output, "    static final Set<String> {name} = Set.of(")
-        .map_err(|error| error.to_string())?;
-    for (index, value) in values.iter().enumerate() {
-        writeln!(
-            output,
-            "        {}{}",
-            quoted(value),
-            if index + 1 == values.len() { ");" } else { "," }
-        )
-        .map_err(|error| error.to_string())?;
-    }
-    Ok(())
-}
-
-fn generate_jvm_contract(repo_root: &Path) -> Result<String, String> {
+pub(crate) fn jvm_verification_status(repo_root: &Path) -> Result<String, String> {
     let agent = schema_sections(&repo_root.join(SOURCES[0].1))?;
-    let human = schema_sections(&repo_root.join(SOURCES[1].1))?;
-    let operations = |sections: &Sections| {
-        sections
-            .iter()
-            .filter(|(_, entries)| {
-                !entries
-                    .get("retired")
-                    .is_some_and(|value| value == "\"true\"")
-            })
-            .filter_map(|(section, _)| section.strip_prefix("operation.").map(str::to_owned))
-            .collect::<Vec<_>>()
+    let encoded = agent
+        .get("record.VerificationStatus")
+        .and_then(|entries| entries.get("verification_status"))
+        .ok_or_else(|| "missing record.VerificationStatus.verification_status".to_owned())?;
+    let contract = encoded
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+        .ok_or_else(|| "VerificationStatus contract must be quoted".to_owned())?
+        .replace(r#"\""#, "\"");
+    for shape in [
+        r#"{state:"achieved",rung:R}"#,
+        r#"{state:"unverified",requested:R,achieved:R,reason:ReasonCode}"#,
+        r#"{state:"pending",requested:R,achieved:R}"#,
+        r#"{state:"absent",requested:R}"#,
+        "submitted, receipted, committed",
+        "achieved strictly below requested",
+    ] {
+        if !contract.contains(shape) {
+            return Err(format!(
+                "unsupported VerificationStatus contract: missing {shape}"
+            ));
+        }
+    }
+    Ok(r#"        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        public record VerificationStatus(String state, String rung, String requested, String achieved, String reason) implements SchemaTypes.GeneratedResponse {
+            @JsonCreator
+            public VerificationStatus {
+                Objects.requireNonNull(state, "state");
+                boolean valid = switch (state) {
+                    case "achieved" -> rung != null && requested == null && achieved == null && reason == null;
+                    case "unverified" -> rung == null && requested != null && achieved != null && reason != null && !reason.isEmpty();
+                    case "pending" -> rung == null && requested != null && achieved != null && reason == null;
+                    case "absent" -> rung == null && requested != null && achieved == null && reason == null;
+                    default -> false;
+                };
+                if (!valid) throw new IllegalArgumentException("invalid verification status shape");
+                if (rung != null) rank(rung);
+                if (requested != null) rank(requested);
+                if (achieved != null && rank(achieved) >= rank(requested)) {
+                    throw new IllegalArgumentException("verification.inconsistent");
+                }
+            }
+            private static int rank(String rung) {
+                return switch (rung) {
+                    case "submitted" -> 0;
+                    case "receipted" -> 1;
+                    case "committed" -> 2;
+                    default -> throw new IllegalArgumentException("unknown verification rung");
+                };
+            }
+        }
+"#.to_owned())
+}
+
+pub(crate) fn jvm_schema_with_verification_status(repo_root: &Path) -> Result<String, String> {
+    let path = repo_root.join(JVM_SCHEMA_PATH);
+    let source =
+        fs::read_to_string(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
+    let declaration = jvm_verification_status(repo_root)?;
+    let boundary = "    }\n    public static final class HumanModels {";
+    let (agent, rest) = source
+        .split_once(boundary)
+        .ok_or_else(|| "generated JVM schema has no AgentModels boundary".to_owned())?;
+    let marker = "        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)\n        public record VerificationStatus(";
+    let (agent, following) = if let Some((before, existing)) = agent.split_once(marker) {
+        let (_, following) = existing
+            .split_once("\n        }\n")
+            .ok_or_else(|| "generated JVM VerificationStatus has no closing boundary".to_owned())?;
+        (before, following)
+    } else {
+        (agent, "")
     };
-    let agent_operations = operations(&agent);
-    let human_operations = operations(&human);
-    if agent_operations.is_empty() || human_operations.is_empty() {
-        return Err("JVM SDK generation found an empty operation catalogue".to_owned());
-    }
-    let mut agent_mutations = agent
-        .keys()
-        .filter_map(|section| section.strip_prefix("mutation.").map(str::to_owned))
-        .collect::<BTreeSet<_>>();
-    for operation in &agent_operations {
-        if agent
-            .get(&format!("operation.{operation}"))
-            .and_then(|entries| entries.get("required"))
-            .is_some_and(|value| value.contains("idempotency_key"))
-        {
-            agent_mutations.insert(operation.clone());
-        }
-    }
-    let mut output = String::from(
-        "// Code generated from the LayerX Agent API and Human API schemas. DO NOT EDIT.\n\npackage com.sidiora.layerx.sdk;\n\nimport java.util.List;\nimport java.util.Map;\nimport java.util.Set;\n\nfinal class GeneratedContract {\n    private GeneratedContract() {}\n",
-    );
-    render_jvm_set(&mut output, "AGENT_OPERATIONS", &agent_operations)?;
-    render_jvm_set(
-        &mut output,
-        "AGENT_IDEMPOTENT",
-        &agent_mutations.into_iter().collect::<Vec<_>>(),
-    )?;
-    render_jvm_set(
-        &mut output,
-        "AGENT_ERROR_CLASSES",
-        &variants(&agent, "type.ErrorClass")?,
-    )?;
-    render_jvm_set(
-        &mut output,
-        "AGENT_RETRIABILITY",
-        &variants(&agent, "type.Retriability")?,
-    )?;
-    render_jvm_set(
-        &mut output,
-        "HUMAN_ERROR_CODES",
-        &variants(&human, "type.ErrorCode")?,
-    )?;
-    render_jvm_set(
-        &mut output,
-        "HUMAN_RETRIABILITY",
-        &variants(&human, "type.Retriability")?,
-    )?;
-    writeln!(
-        output,
-        "    static final Map<String, OperationCatalog.Route> HUMAN_ROUTES = Map.ofEntries("
-    )
-    .map_err(|error| error.to_string())?;
-    for (index, operation) in human_operations.iter().enumerate() {
-        let entries = human
-            .get(&format!("operation.{operation}"))
-            .ok_or_else(|| format!("missing operation.{operation}"))?;
-        let field = |name: &str| -> Result<String, String> {
-            entries
-                .get(name)
-                .ok_or_else(|| format!("missing operation.{operation}.{name}"))
-                .and_then(|value| layerx_platform_kvx::unquote(value))
-        };
-        let path = field("path")?;
-        let mut path_parameters = Vec::new();
-        let mut rest = path.as_str();
-        while let Some(open) = rest.find('{') {
-            let after = &rest[open + 1..];
-            let close = after
-                .find('}')
-                .ok_or_else(|| format!("unclosed path parameter in operation.{operation}.path"))?;
-            path_parameters.push(after[..close].to_owned());
-            rest = &after[close + 1..];
-        }
-        let params = path_parameters
-            .iter()
-            .map(|value| quoted(value))
-            .collect::<Vec<_>>()
-            .join(", ");
-        let idempotency = entries
-            .get("idempotency")
-            .is_some_and(|value| value == "true");
-        let bodyless = field("request")? == "Empty";
-        writeln!(
-            output,
-            "        Map.entry({}, new OperationCatalog.Route({}, {}, List.of({params}), {idempotency}, {bodyless})){}",
-            quoted(operation), quoted(&field("method")?), quoted(&path),
-            if index + 1 == human_operations.len() { ");" } else { "," },
-        )
-        .map_err(|error| error.to_string())?;
-    }
-    output.push_str("}\n");
-    Ok(output)
+    Ok(format!("{agent}{declaration}{following}{boundary}{rest}"))
 }
 
-fn check_jvm_contract(repo_root: &Path) -> Result<(), String> {
-    let path = repo_root.join(JVM_GENERATED_PATH);
-    let actual = fs::read_to_string(&path)
-        .map_err(|error| format!("generated JVM file missing {}: {error}", path.display()))?;
-    if actual != generate_jvm_contract(repo_root)? {
-        return Err(format!(
-            "generated JVM file {} is stale or hand-edited; run make platform-sdk-generate",
-            path.display()
-        ));
+fn jvm_verification_status_contract(repo_root: &Path, write: bool) -> Result<(), String> {
+    let expected = jvm_schema_with_verification_status(repo_root)?;
+    let path = repo_root.join(JVM_SCHEMA_PATH);
+    if write {
+        fs::write(&path, expected).map_err(|error| format!("write {}: {error}", path.display()))
+    } else {
+        let actual = fs::read_to_string(&path)
+            .map_err(|error| format!("read {}: {error}", path.display()))?;
+        if actual != expected {
+            return Err("generated JVM VerificationStatus is stale or hand-edited; run make platform-sdk-generate".to_owned());
+        }
+        Ok(())
     }
-    Ok(())
-}
-
-fn write_jvm_contract(repo_root: &Path) -> Result<(), String> {
-    let path = repo_root.join(JVM_GENERATED_PATH);
-    let parent = path
-        .parent()
-        .ok_or_else(|| format!("generated path has no parent: {}", path.display()))?;
-    fs::create_dir_all(parent).map_err(|error| format!("create {}: {error}", parent.display()))?;
-    fs::write(&path, generate_jvm_contract(repo_root)?)
-        .map_err(|error| format!("write {}: {error}", path.display()))
 }
 
 fn generate_jvm_conformance(repo_root: &Path) -> Result<String, String> {
@@ -1670,9 +1616,6 @@ stream = \"atomic cursor chain with duplicate rejection\"\n\
 [verification]\n\
 receipt = \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceipt\"\n\
 receipt_outcome = \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceiptOutcome\"\n\
-batch_inclusion = \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyBatchInclusion\"\n\
-checkpoint = \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyCheckpoint\"\n\
-receipt_in_batch = \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceiptInBatch\"\n\
 merkle = \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyMerkleInclusion\"\n\
 \n\
 [golden]\n\
@@ -2052,8 +1995,8 @@ pub fn check(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
     drift_gate(&committed, &live)?;
     check_rust_operation_catalog(repo_root)?;
     check_go(repo_root)?;
-    check_jvm_contract(repo_root)?;
     check_jvm_conformance(repo_root)?;
+    jvm_verification_status_contract(repo_root, false)?;
     check_receipt_contracts(repo_root)
 }
 
@@ -2067,8 +2010,8 @@ pub fn check(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
 pub fn write_lock(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
     write_rust_operation_catalog(repo_root)?;
     write_go(repo_root)?;
-    write_jvm_contract(repo_root)?;
     write_jvm_conformance(repo_root)?;
+    jvm_verification_status_contract(repo_root, true)?;
     write_receipt_contracts(repo_root)?;
     replace_lock(lock_path, &classified_lock(repo_root, lock_path)?)
 }
@@ -2393,8 +2336,14 @@ fn run() -> Result<(), String> {
             }
             write_rust_operation_catalog(&repo_root)
         }
-        "--write-program-contracts" => programs_contracts(&repo_root, true),
-        "--check-program-contracts" => programs_contracts(&repo_root, false),
+        "--write-program-contracts" | "--check-program-contracts" => {
+            if arguments.len() > 3 {
+                return Err(format!(
+                    "usage: layerx-platform-sdkgen {mode} [repo-root] [lock-path]"
+                ));
+            }
+            programs_contracts(&repo_root, mode == "--write-program-contracts")
+        }
         "--write" => write_lock(&repo_root, &lock_path),
         "--check" => check(&repo_root, &lock_path),
         "--check-paxai" => {
@@ -2404,7 +2353,7 @@ fn run() -> Result<(), String> {
             check_paxai_contract(&repo_root)
         }
         _ => Err(
-            "usage: layerx-platform-sdkgen [--write|--check|--check-paxai] [repo-root] [lock-path]"
+            "usage: layerx-platform-sdkgen [--write|--check|--check-paxai|--write-program-contracts|--check-program-contracts] [repo-root] [lock-path]"
                 .to_owned(),
         ),
     }
@@ -2414,5 +2363,22 @@ fn main() {
     if let Err(error) = run() {
         eprintln!("platform-sdkgen: {error}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn jvm_conformance_omits_retired_verification_entries() -> Result<(), String> {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+        let text = generate_jvm_conformance(&repo_root)?;
+
+        assert!(text.contains("[verification]"));
+        for key in ["batch_inclusion", "checkpoint", "receipt_in_batch"] {
+            assert!(!text.contains(key), "retired verification key: {key}");
+        }
+        Ok(())
     }
 }

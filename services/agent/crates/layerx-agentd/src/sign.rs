@@ -331,6 +331,8 @@ pub async fn self_sign(
 /// # Errors
 ///
 /// Refuses invalid signatures and signatures recovering to a different prepared actor.
+/// The authorization's typed envelope, cached preimage, canonical bytes and disclosure
+/// must still agree before accepting a signature from the external custodian.
 pub fn attach_external_signature(
     prepared: &SigningPreparation,
     signature: [u8; 65],
@@ -355,6 +357,10 @@ pub fn verify_before_submit(
     verification::verify_exact(signed_canonical_bytes, prepared, signer_address, registry)
 }
 
+/// Attaches an owner signature to the exact kernel preparation retained by Human.
+///
+/// # Errors
+/// Refuses inconsistent typed/canonical preparation state and malformed signatures.
 pub fn attach_kernel_signature(
     prepared: &Prepared,
     signature: [u8; 64],

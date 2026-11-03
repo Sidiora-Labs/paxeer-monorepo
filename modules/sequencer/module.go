@@ -56,7 +56,7 @@ func decodeGenesis(bz json.RawMessage) (keeper.ReceiptKeys, *types.GenesisState,
 	}
 	if len(genesis.Leaders) == 0 {
 		if genesis.ActivationHeight != 0 {
-			return nil, nil, types.ErrInvalidGenesis.Wrapf("activation height %d with no leader list", genesis.ActivationHeight)
+			return nil, nil, types.ErrInvalidGenesis.Wrapf("activation height %d carries no leader list", genesis.ActivationHeight)
 		}
 		if genesis.LastSeq != 0 || len(genesis.LastSeqHash) != 0 {
 			return nil, nil, types.ErrInvalidGenesis.Wrapf("lastSeq %d or lastSeqHash %X with no leader list", genesis.LastSeq, genesis.LastSeqHash)
@@ -140,7 +140,8 @@ type AppModule struct {
 	paramSpace paramtypes.Subspace
 }
 
-// NewAppModule registers the ReceiptKeys param on the subspace.
+// NewAppModule registers ReceiptKeys and Leaders on the subspace, including
+// when the module is reconstructed over an existing committed store.
 func NewAppModule(k keeper.Keeper, paramSpace paramtypes.Subspace) AppModule {
 	if !paramSpace.HasKeyTable() {
 		paramSpace = paramSpace.WithKeyTable(keeper.ParamKeyTable())

@@ -66,6 +66,7 @@ pub struct ReclaimAgentContext {
     pub actor: AgentDid,
     pub authority: AuthorityRef,
     pub custody_key: KeyId,
+    pub account_sequence: u64,
     pub nonce: u64,
     pub not_before: u64,
     pub not_after: u64,
@@ -319,6 +320,7 @@ impl Reclaim {
             request.idempotency_key,
             actor,
             request.agent.authority.clone(),
+            request.agent.account_sequence,
             request.agent.nonce(),
             request.agent.not_before,
             request.agent.not_after,
@@ -414,9 +416,12 @@ impl Reclaim {
                         .reclaim_receipt(evidence.action_key, evidence.activity_id)
                         .map_err(ReclaimError::Agent)?;
                     if material.canonical_bytes != evidence.canonical_receipt
-                        || material.tx_hash != evidence.activity_id
+                        || material.tx_hash != evidence.tx_hash
                         || material.receipt_hash != evidence.receipt_digest
-                        || material.rung < layerx_types::rung::Rung::Receipted
+                        || material.rung < evidence.rung
+                        || material.signed_receipt != evidence.signed_receipt
+                        || material.receipt_key != evidence.receipt_key
+                        || material.inclusion_height != evidence.inclusion_height
                     {
                         return Err(ReclaimError::ReceiptMismatch);
                     }
@@ -443,6 +448,7 @@ impl Reclaim {
                 }
                 self.project_activity(scope, None, now)?;
             }
+            JourneyState::Closed => return Err(ReclaimError::Corrupt("reclaim journey is closed")),
             JourneyState::Refused => {
                 self.record.refused = true;
                 self.persist_at(scope, now)?;
@@ -474,6 +480,9 @@ impl Reclaim {
             match engine.state() {
                 JourneyState::GettingReady => ReclaimStage::GettingReady,
                 JourneyState::Sending => ReclaimStage::Sending,
+                JourneyState::Closed => {
+                    return Err(ReclaimError::Corrupt("reclaim journey is closed"))
+                }
                 JourneyState::Processing | JourneyState::Done | JourneyState::Refused => {
                     ReclaimStage::Processing
                 }
@@ -605,6 +614,7 @@ fn request_digest(request: &ReclaimRequest, payload_hash: [u8; 32]) -> [u8; 32] 
     hash_text(&mut digest, request.agent.actor.as_str());
     hash_text(&mut digest, request.agent.authority.as_str());
     hash_text(&mut digest, request.agent.custody_key.as_str());
+    digest.update(request.agent.account_sequence.to_be_bytes());
     digest.update(request.agent.nonce().to_be_bytes());
     digest.update(request.agent.not_before.to_be_bytes());
     digest.update(request.agent.not_after.to_be_bytes());

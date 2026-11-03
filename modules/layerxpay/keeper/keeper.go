@@ -39,6 +39,9 @@ func NewKeeper(cdc codec.BinaryCodec, storeKey, hostKey sdk.StoreKey, host *lxph
 	if host == nil {
 		return Keeper{}, fmt.Errorf("layerxpay: missing shared host")
 	}
+	if evm == nil {
+		return Keeper{}, fmt.Errorf("layerxpay: missing EVM binding reader")
+	}
 	if authority == "" {
 		return Keeper{}, fmt.Errorf("layerxpay: missing authority")
 	}

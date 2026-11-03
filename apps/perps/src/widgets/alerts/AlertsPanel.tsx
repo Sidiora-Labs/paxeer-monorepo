@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { Lock, Trash2, Bell, Loader2 } from "lucide-react";
 import { useSignMessage } from "wagmi";
 import { cn } from "@/ui/utils/cn";
@@ -15,6 +15,10 @@ import { marketLabel as catalogMarketLabel } from "@/core/perps/marketLabel";
 import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { classifyError } from "@/core/errors/classify";
 import { reportError } from "@/core/errors/report";
+
+export function alertErrorText(error: ReturnType<typeof classifyError>): string {
+  return error.suggestedFix ? `${error.message} ${error.suggestedFix}` : error.message;
+}
 
 interface AlertsPanelProps {
   address: string | undefined;
@@ -69,7 +73,7 @@ export function AlertsPanel({ address }: AlertsPanelProps) {
     } catch (err) {
       const ufe = classifyError(err, "alerts/sign-in");
       setFormError(
-        ufe.suggestedFix ? `${ufe.message} ${ufe.suggestedFix}` : ufe.message,
+        alertErrorText(ufe),
       );
       void reportError(ufe);
     } finally {
@@ -98,7 +102,7 @@ export function AlertsPanel({ address }: AlertsPanelProps) {
       } catch (err) {
         const ufe = classifyError(err, "alerts/create");
         setFormError(
-          ufe.suggestedFix ? `${ufe.message} ${ufe.suggestedFix}` : ufe.message,
+          alertErrorText(ufe),
         );
         void reportError(ufe);
       } finally {
@@ -116,7 +120,7 @@ export function AlertsPanel({ address }: AlertsPanelProps) {
       } catch (err) {
         const ufe = classifyError(err, "alerts/delete");
         setFormError(
-          ufe.suggestedFix ? `${ufe.message} ${ufe.suggestedFix}` : ufe.message,
+          alertErrorText(ufe),
         );
         void reportError(ufe);
       } finally {

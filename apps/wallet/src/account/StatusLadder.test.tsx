@@ -263,6 +263,36 @@ describe('StatusLadder', () => {
 
   it(status_ladder_labels_submitted_receipted_and_committed);
 
+  async function status_ladder_prefers_explorer_evidence_at_the_committed_rung() {
+    const mounted = await mount(
+      <StatusLadder
+        steps={[
+          { rung: 'committed', source: 'receipt', state: 'committed:0xabc' },
+          { rung: 'committed', source: 'explorer', state: 'committed:0xabc' },
+        ]}
+      />
+    );
+    view = mounted;
+    expect(rungs(mounted)).toEqual([
+      ['submitted', 'true', 'receipt'],
+      ['receipted', 'true', 'receipt'],
+      ['committed', 'true', 'explorer'],
+    ]);
+    expect(mounted.query('li[data-rung="committed"]')?.getAttribute('data-evidence')).toBe(
+      'committed:0xabc'
+    );
+    await mounted.unmount();
+    view = null;
+
+    const receiptOnly = await mount(
+      <StatusLadder steps={[{ rung: 'committed', source: 'receipt', state: 'committed:0xabc' }]} />
+    );
+    view = receiptOnly;
+    expect(rungs(receiptOnly)[2]).toEqual(['committed', 'true', 'receipt']);
+  }
+
+  it(status_ladder_prefers_explorer_evidence_at_the_committed_rung);
+
   it('reaches nothing for a journey state without a rung', async () => {
     const mounted = await mount(<StatusLadder steps={[statusLadder.fromJourney('refused')]} />);
     view = mounted;

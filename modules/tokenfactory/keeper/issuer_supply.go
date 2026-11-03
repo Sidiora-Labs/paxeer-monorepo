@@ -6,12 +6,13 @@ import (
 )
 
 func (k Keeper) MintByIssuer(ctx sdk.Context, callerDid string, amount sdk.Coin, to string) error {
-	issuerDid, err := k.IssuerDid(ctx, amount.Denom)
-	if err != nil {
+	if _, err := k.requireIssuer(ctx, amount.Denom, callerDid); err != nil {
 		return err
 	}
-	if issuerDid == "" || issuerDid != callerDid {
-		return types.ErrIssuerMismatch
+	// mintTo mints before decoding the recipient; reject bad addresses before
+	// allowing that helper to change supply through this exported keeper API.
+	if _, err := sdk.AccAddressFromBech32(to); err != nil {
+		return err
 	}
 	if err := k.mintTo(ctx, amount, to); err != nil {
 		return err
@@ -25,12 +26,8 @@ func (k Keeper) MintByIssuer(ctx sdk.Context, callerDid string, amount sdk.Coin,
 }
 
 func (k Keeper) BurnByIssuer(ctx sdk.Context, callerDid string, amount sdk.Coin, from string) error {
-	issuerDid, err := k.IssuerDid(ctx, amount.Denom)
-	if err != nil {
+	if _, err := k.requireIssuer(ctx, amount.Denom, callerDid); err != nil {
 		return err
-	}
-	if issuerDid == "" || issuerDid != callerDid {
-		return types.ErrIssuerMismatch
 	}
 	if err := k.burnFrom(ctx, amount, from); err != nil {
 		return err

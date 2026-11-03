@@ -19,7 +19,7 @@ fn path(label: &str) -> PathBuf {
     ))
 }
 
-fn values() -> BTreeMap<String, String> {
+pub(crate) fn values() -> BTreeMap<String, String> {
     BTreeMap::from([
         ("network_id".to_owned(), "42".to_owned()),
         (
@@ -47,7 +47,7 @@ fn values() -> BTreeMap<String, String> {
     ])
 }
 
-fn source(values: &BTreeMap<String, String>) -> String {
+pub(crate) fn source(values: &BTreeMap<String, String>) -> String {
     let mut rendered = String::new();
     for (key, value) in values {
         rendered.push_str(key);
@@ -58,7 +58,7 @@ fn source(values: &BTreeMap<String, String>) -> String {
     rendered
 }
 
-fn write_protected(path: &PathBuf, contents: impl AsRef<[u8]>) {
+pub(crate) fn write_protected(path: &PathBuf, contents: impl AsRef<[u8]>) {
     fs::write(path, contents).unwrap_or_else(|error| panic!("write: {error}"));
     fs::set_permissions(path, fs::Permissions::from_mode(0o600))
         .unwrap_or_else(|error| panic!("permissions: {error}"));

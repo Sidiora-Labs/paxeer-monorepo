@@ -19,11 +19,13 @@ lxp_result lxp_exit_eligibility(const lxp_exit_state *state, bool *eligible)
 lxp_result lxp_exit_declare(lxp_exit_state *state)
 {
     bool eligible = false;
-    lxp_result status = lxp_exit_eligibility(state, &eligible);
+    lxp_result status;
+    if (state == NULL) return LXP_ERR_NON_CANONICAL;
+    if (state->declared) return LXP_ERR_IDEMPOTENT_REPLAY;
+    status = lxp_exit_eligibility(state, &eligible);
     if (status != LXP_OK) return status;
     if (!eligible) return LXP_ERR_DEPOSIT_PROOF_NOT_FINAL;
     state->declared = true;
     state->discard_after_sequence = state->last_finalised_sequence;
     return LXP_OK;
 }
-

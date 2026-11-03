@@ -13,15 +13,16 @@ func TestRetireAtMergeReturnsBondsAndEmits(t *testing.T) {
 	for _, name := range []string{"guarantor_bonds", "mixed_escrow", "empty"} {
 		t.Run(name, func(t *testing.T) {
 			s := newSuite(t, nil)
+			const mergeHeight = int64(20)
+			require.Less(t, s.ctx.BlockHeight(), mergeHeight)
 			t.Cleanup(func() { require.NoError(t, s.app.Close()) })
 			if name != "empty" {
 				s.bondAll()
 			}
 			challengeBond := sdk.ZeroInt()
 			if name == "mixed_escrow" {
-				_, err := s.submit("batch_1_quorum")
-				require.NoError(t, err)
-				_, err = s.k.BeginUnbond(s.ctx, s.operators[0], s.ids[0], sdk.NewInt(1_000_000))
+				s.importHistoricalCheckpoint()
+				_, err := s.k.BeginUnbond(s.ctx, s.operators[0], s.ids[0], sdk.NewInt(1_000_000))
 				require.NoError(t, err)
 				challengeBond = s.k.GetParams(s.ctx).ChallengeBond
 				s.fund(s.reporter, challengeBond.Int64())
@@ -40,10 +41,12 @@ func TestRetireAtMergeReturnsBondsAndEmits(t *testing.T) {
 			}
 			reporterBalance := s.balance(s.reporter)
 			supply := s.app.BankKeeper.GetSupply(s.ctx, s.k.GetParams(s.ctx).BondDenom)
-			s.ctx = s.ctx.WithEventManager(sdk.NewEventManager())
+			s.ctx = s.ctx.WithBlockHeight(mergeHeight).WithEventManager(sdk.NewEventManager())
 
 			total, err := s.k.RetireAtMerge(s.ctx)
 			require.NoError(t, err)
+			s.app.UpgradeKeeper.SetDone(s.ctx, types.MergeUpgrade)
+			require.True(t, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
 			require.Equal(t, wantTotal, total)
 			for i, operator := range s.operators {
 				wantRefund := sdk.ZeroInt()
@@ -70,11 +73,15 @@ func TestRetireAtMergeReturnsBondsAndEmits(t *testing.T) {
 			}
 			require.Equal(t, sdk.Events{sdk.NewEvent("layerx_anchor_retired",
 				sdk.NewAttribute("returned_bond", wantTotal.String()))}, retired)
+			_, err = s.submit(nil, [64]byte{}, nil)
+			require.ErrorIs(t, err, types.ErrModuleRetired)
 		})
 	}
 
 	t.Run("refund_error", func(t *testing.T) {
 		s := newSuite(t, nil)
+		const mergeHeight = int64(20)
+		require.Less(t, s.ctx.BlockHeight(), mergeHeight)
 		t.Cleanup(func() { require.NoError(t, s.app.Close()) })
 		s.bondAll()
 		coins := sdk.NewCoins(sdk.NewInt64Coin(s.k.GetParams(s.ctx).BondDenom, 1))
@@ -88,7 +95,7 @@ func TestRetireAtMergeReturnsBondsAndEmits(t *testing.T) {
 		cached, _ := s.ctx.CacheContext()
 		_, wantErr := s.k.ReturnAllBonds(cached)
 		require.ErrorIs(t, wantErr, types.ErrBond)
-		s.ctx = s.ctx.WithEventManager(sdk.NewEventManager())
+		s.ctx = s.ctx.WithBlockHeight(mergeHeight).WithEventManager(sdk.NewEventManager())
 
 		total, err := s.k.RetireAtMerge(s.ctx)
 		require.ErrorIs(t, err, types.ErrBond)

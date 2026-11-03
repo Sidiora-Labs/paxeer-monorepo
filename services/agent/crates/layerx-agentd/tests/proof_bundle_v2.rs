@@ -6,10 +6,14 @@ use layerx_agentd::read::{
     CommitTimestamp, CommitValidator, CommitVote, ProofBundleRequest,
 };
 use layerx_agentd::receipt::{TransactionReceiptEvidence, TransactionReceiptMetadata};
-use layerx_client::sequencer::{AccountProof, SequencerEndpoint};
+use layerx_client::sequencer::{SequencerEndpoint, StorageWitness};
 use layerx_crypto::evm_transaction::{transaction_hash, Eip1559Call};
 use layerx_types::rung::Rung;
+use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::TcpListener;
+use std::time::Duration;
 
 fn bytes(value: &[u8]) -> Vec<u8> {
     if value.len() == 1 && value[0] < 128 {
@@ -37,13 +41,75 @@ fn leaf(compact: &[u8], value: &[u8]) -> Vec<u8> {
     rlp(&[bytes(compact), bytes(value)].concat(), true)
 }
 
+fn vector_bytes<const N: usize>(value: &Value) -> [u8; N] {
+    hex::decode(value.as_str().expect("vector hex"))
+        .expect("valid vector hex")
+        .try_into()
+        .unwrap_or_else(|_| panic!("vector field must contain {N} bytes"))
+}
+
+fn storage_node(
+    address: [u8; 20],
+    slot: [u8; 32],
+    height: u64,
+    response: Value,
+) -> (SequencerEndpoint, std::thread::JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("storage listener");
+    let endpoint = SequencerEndpoint::new(
+        &format!(
+            "http://{}/",
+            listener.local_addr().expect("storage address")
+        ),
+        &[],
+    )
+    .expect("storage endpoint");
+    let server = std::thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("storage request");
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .expect("storage timeout");
+        let mut reader = BufReader::new(stream);
+        let mut length = None;
+        loop {
+            let mut line = String::new();
+            assert_ne!(reader.read_line(&mut line).expect("request headers"), 0);
+            if line == "\r\n" {
+                break;
+            }
+            if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                length = Some(value.trim().parse::<usize>().expect("request length"));
+            }
+        }
+        let mut body = vec![0; length.expect("content length")];
+        reader.read_exact(&mut body).expect("request body");
+        let request: Value = serde_json::from_slice(&body).expect("JSON-RPC request");
+        assert_eq!(request["jsonrpc"], "2.0");
+        assert_eq!(request["method"], "eth_getProof");
+        assert_eq!(
+            request["params"],
+            json!([
+                format!("0x{}", hex::encode(address)),
+                [format!("0x{}", hex::encode(slot))],
+                format!("{height:#x}")
+            ])
+        );
+        let body = json!({"jsonrpc":"2.0", "id":request["id"], "result":response}).to_string();
+        let mut stream = reader.into_inner();
+        write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
+            .expect("storage response");
+        stream.flush().expect("storage response flush");
+    });
+    (endpoint, server)
+}
+
 struct Fixture {
     raw: Vec<u8>,
     receipt: TransactionReceiptEvidence,
     public_key: Vec<u8>,
     receipt_path: Vec<Vec<u8>>,
     receipt_root: [u8; 32],
-    account: AccountProof,
+    storage: Vec<StorageWitness>,
+    storage_response: Value,
     header: CheckpointHeader,
     commit: BlockCommit,
     validators: Vec<CommitValidator>,
@@ -62,6 +128,23 @@ impl Fixture {
         }
         .sign(&[1; 32])
         .unwrap_or_else(|error| panic!("transaction: {error:?}"));
+        let vector: Value = serde_json::from_str(include_str!(
+            "../../../../../programs/tests/vectors/ics23-evm-storage-app-hash.json"
+        ))
+        .unwrap_or_else(|error| panic!("storage vector: {error}"));
+        let entry = &vector["entries"][0];
+        let height = entry["height"].as_u64().expect("vector height");
+        let address = vector_bytes::<20>(&entry["address"]);
+        let slot = vector_bytes::<32>(&entry["slot"]);
+        let state_root = vector_bytes::<32>(&entry["app_hash"]);
+        let storage_response = entry["response"].clone();
+        let (endpoint, server) = storage_node(address, slot, height, storage_response.clone());
+        let storage = endpoint
+            .storage_witness(&address, &[slot], height)
+            .unwrap_or_else(|error| panic!("storage witness: {error:?}"));
+        server.join().expect("storage node");
+        assert_eq!(storage.len(), 1);
+        assert_eq!(storage[0].value, vector_bytes::<32>(&entry["value"]));
         let bloom = [0; 256];
         let payload = [
             bytes(if status { &[1] } else { &[] }),
@@ -84,7 +167,7 @@ impl Fixture {
         let receipt = TransactionReceiptEvidence {
             metadata: TransactionReceiptMetadata {
                 transaction_hash: transaction_hash(&raw),
-                block_height: 8,
+                block_height: height,
                 tx_index: 0,
                 status,
                 gas_used: 21_000,
@@ -108,33 +191,6 @@ impl Fixture {
         let receipt_branch = rlp(&children, true);
         let receipt_root = transaction_hash(&receipt_branch);
         let receipt_path = vec![receipt_branch, receipt_leaf];
-        let address = [0x12; 20];
-        let storage_hash = transaction_hash(&[0x80]);
-        let code_hash = transaction_hash(&[]);
-        let account_value = rlp(
-            &[
-                bytes(&[1]),
-                bytes(&[9]),
-                bytes(&storage_hash),
-                bytes(&code_hash),
-            ]
-            .concat(),
-            true,
-        );
-        let compact = [&[0x20][..], &transaction_hash(&address)].concat();
-        let account_leaf = leaf(&compact, &account_value);
-        let state_root = transaction_hash(&account_leaf);
-        let mut balance = [0; 32];
-        balance[31] = 9;
-        let account = AccountProof {
-            address,
-            balance,
-            nonce: 1,
-            code_hash,
-            storage_hash,
-            account_proof: vec![account_leaf],
-            storage: Vec::new(),
-        };
         let key = SigningKey::from_bytes(&[3; 32]);
         let public_key = key.verifying_key().to_bytes();
         let validators = vec![CommitValidator {
@@ -146,7 +202,7 @@ impl Fixture {
             version_block: 11,
             version_app: 1,
             chain_id: "paxeer-test".to_owned(),
-            height: 8,
+            height,
             time: CommitTimestamp {
                 seconds: 1_700_000_000,
                 nanos: 0,
@@ -163,7 +219,7 @@ impl Fixture {
             proposer_address: validators[0].address,
         };
         let mut commit = BlockCommit {
-            height: 8,
+            height,
             round: 0,
             block_id: BlockId {
                 hash: header.block_hash(),
@@ -195,7 +251,8 @@ impl Fixture {
                 .to_vec(),
             receipt_path,
             receipt_root,
-            account,
+            storage,
+            storage_response,
             header,
             commit,
             validators,
@@ -219,9 +276,18 @@ impl Fixture {
         }
     }
 
+    fn node(&self, response: Value) -> (SequencerEndpoint, std::thread::JoinHandle<()>) {
+        storage_node(
+            self.storage[0].address,
+            self.storage[0].slot,
+            self.header.height,
+            response,
+        )
+    }
+
     fn account_target(&self) -> ProofBundleTarget {
         let mut account_id = [0; 32];
-        account_id[12..].copy_from_slice(&self.account.address);
+        account_id[12..].copy_from_slice(&self.storage[0].address);
         ProofBundleTarget::AccountState {
             activity_id: self.receipt.metadata.transaction_hash,
             account_id,
@@ -327,14 +393,20 @@ fn receipt_proof_bundle_verifies_against_the_receipts_root() {
 fn account_proof_bundle_requires_a_committed_state_root() {
     let fixture = Fixture::new(true, true);
     let request = ProofBundleRequest {
-        account_proof: Some(&fixture.account),
+        account_proof: Some(&fixture.storage),
         requested_rung: Rung::Committed,
         ..fixture.request(fixture.account_target())
     };
     let served = proof_bundle(&request).unwrap_or_else(|error| panic!("account bundle: {error:?}"));
     assert_eq!(served.verification_level, Rung::Committed);
     assert_eq!(served.state_root, Some(fixture.header.app_hash));
-    assert_eq!(served.account_proof, Some(fixture.account.clone()));
+    assert_eq!(
+        served.account_proof.as_ref().map(|state| &state.storage),
+        Some(&vec![(fixture.storage[0].slot, fixture.storage[0].value)])
+    );
+    let (node, server) = fixture.node(fixture.storage_response.clone());
+    assert_eq!(request.acquire(&node), Ok(served.clone()));
+    server.join().expect("storage node");
     assert_eq!(
         served.checkpoint.as_ref().map(|checkpoint| checkpoint.rung),
         Some(Rung::Committed)
@@ -372,8 +444,8 @@ fn account_proof_bundle_requires_a_committed_state_root() {
         .acquire(&endpoint),
         Err(CheckpointReadError::Commit)
     );
-    let mut wrong_account = fixture.account.clone();
-    wrong_account.balance[31] ^= 1;
+    let mut wrong_account = fixture.storage.clone();
+    wrong_account[0].value[31] ^= 1;
     assert_eq!(
         proof_bundle(&ProofBundleRequest {
             account_proof: Some(&wrong_account),
@@ -381,8 +453,16 @@ fn account_proof_bundle_requires_a_committed_state_root() {
         }),
         Err(CheckpointReadError::InvalidProof)
     );
-    let mut wrong_address = fixture.account.clone();
-    wrong_address.address[0] ^= 1;
+    let mut wrong_response = fixture.storage_response.clone();
+    wrong_response["hexValues"][0] = json!(hex::encode(wrong_account[0].value));
+    let (node, server) = fixture.node(wrong_response);
+    assert_eq!(
+        request.acquire(&node),
+        Err(CheckpointReadError::InvalidProof)
+    );
+    server.join().expect("storage node");
+    let mut wrong_address = fixture.storage.clone();
+    wrong_address[0].address[0] ^= 1;
     assert_eq!(
         proof_bundle(&ProofBundleRequest {
             account_proof: Some(&wrong_address),
@@ -406,13 +486,30 @@ fn account_proof_bundle_requires_a_committed_state_root() {
         }),
         Err(CheckpointReadError::NotCommitted)
     );
-    let mut wrong_proof = fixture.account.clone();
-    wrong_proof.account_proof[0][10] ^= 1;
+    let mut foreign_header = fixture.header.clone();
+    foreign_header.app_hash[0] ^= 1;
+    let mut foreign_commit = fixture.commit.clone();
+    foreign_commit.block_id.hash = foreign_header.block_hash();
+    let key = SigningKey::from_bytes(&[3; 32]);
+    foreign_commit.votes[0].signature = key
+        .sign(
+            &foreign_commit
+                .vote_sign_bytes(&foreign_header.chain_id, foreign_commit.votes[0].timestamp),
+        )
+        .to_bytes();
+    let foreign_request = ProofBundleRequest {
+        header: &foreign_header,
+        commit: Some(&foreign_commit),
+        ..request
+    };
     assert_eq!(
-        proof_bundle(&ProofBundleRequest {
-            account_proof: Some(&wrong_proof),
-            ..request
-        }),
+        proof_bundle(&foreign_request),
         Err(CheckpointReadError::RootMismatch)
     );
+    let (node, server) = fixture.node(fixture.storage_response.clone());
+    assert_eq!(
+        foreign_request.acquire(&node),
+        Err(CheckpointReadError::RootMismatch)
+    );
+    server.join().expect("storage node");
 }

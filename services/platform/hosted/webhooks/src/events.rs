@@ -26,6 +26,29 @@ pub enum Verification {
     BlockCommitted,
 }
 
+pub(crate) fn deserialize_stored_verification<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<Verification, D::Error> {
+    let word = String::deserialize(d)?;
+    match word.as_str() {
+        "unverified" => Ok(Verification::Unverified),
+        "receipt-verified" => Ok(Verification::ReceiptVerified),
+        "block-committed" | "checkpoint-finalised" | "paxeer-finalised" => {
+            Ok(Verification::BlockCommitted)
+        }
+        _ => Err(serde::de::Error::unknown_variant(
+            &word,
+            &[
+                "unverified",
+                "receipt-verified",
+                "block-committed",
+                "checkpoint-finalised",
+                "paxeer-finalised",
+            ],
+        )),
+    }
+}
+
 impl Verification {
     /// Returns the exact wire word the human plane renders.
     #[must_use]
@@ -334,6 +357,7 @@ impl Display for DeliveryId {
 pub struct ProtocolFact {
     name: String,
     value: String,
+    #[serde(deserialize_with = "deserialize_stored_verification")]
     verification: Verification,
     receipt_digest: Option<String>,
 }
@@ -462,6 +486,7 @@ pub struct ProtocolEvent {
     subject: SubjectId,
     subject_sequence: u64,
     occurred_at: u64,
+    #[serde(deserialize_with = "deserialize_stored_verification")]
     verification: Verification,
     receipt_digest: Option<String>,
     facts: Vec<ProtocolFact>,
@@ -669,8 +694,80 @@ pub fn settled_payment(draft: PaymentDraft<'_>) -> Result<ProtocolEvent, Webhook
 
 #[cfg(test)]
 mod tests {
-    use super::Verification;
+    use super::{
+        EventDraft, EventId, EventKind, Principal, ProtocolEvent, ProtocolFact, SubjectId,
+        Verification,
+    };
     use crate::error::WebhookError;
+
+    #[test]
+    fn stored_retired_verification_words_decode_as_block_committed() {
+        let event = ProtocolEvent::new(EventDraft {
+            id: EventId::new("stored-event").expect("valid event id"),
+            kind: EventKind::Payment,
+            principal: Principal::new("stored-principal").expect("valid principal"),
+            subject: SubjectId::new("stored-subject").expect("valid subject"),
+            subject_sequence: 1,
+            occurred_at: 1,
+            facts: vec![ProtocolFact::verified(
+                "payment",
+                "settled",
+                Verification::BlockCommitted,
+                "ab".repeat(32),
+            )
+            .expect("valid committed fact")],
+        })
+        .expect("valid committed event");
+        let canonical = serde_json::to_value(&event).expect("event serializes");
+
+        for event_word in ["checkpoint-finalised", "paxeer-finalised"] {
+            assert!(matches!(
+                Verification::parse(event_word),
+                Err(WebhookError::InvalidRequest)
+            ));
+            assert!(serde_json::from_value::<Verification>(serde_json::json!(event_word)).is_err());
+
+            for fact_word in ["checkpoint-finalised", "paxeer-finalised"] {
+                let mut stored = canonical.clone();
+                stored["verification"] = serde_json::json!(event_word);
+                stored["facts"][0]["verification"] = serde_json::json!(fact_word);
+                let decoded: ProtocolEvent =
+                    serde_json::from_value(stored.clone()).expect("retired stored words decode");
+                assert_eq!(decoded.verification(), Verification::BlockCommitted);
+                assert_eq!(
+                    decoded.facts()[0].verification(),
+                    Verification::BlockCommitted
+                );
+                decoded
+                    .validate()
+                    .expect("decoded event retains its evidence");
+                let serialized = serde_json::to_value(&decoded).expect("decoded event serializes");
+                assert_eq!(serialized["verification"], "block-committed");
+                assert_eq!(serialized["facts"][0]["verification"], "block-committed");
+                assert_eq!(serialized, canonical);
+
+                let mut unknown_event = stored.clone();
+                unknown_event["verification"] = serde_json::json!("finalised-forever");
+                assert!(serde_json::from_value::<ProtocolEvent>(unknown_event).is_err());
+                stored["facts"][0]["verification"] = serde_json::json!("finalised-forever");
+                assert!(serde_json::from_value::<ProtocolEvent>(stored).is_err());
+            }
+        }
+
+        for level in [
+            Verification::Unverified,
+            Verification::ReceiptVerified,
+            Verification::BlockCommitted,
+        ] {
+            let mut stored = canonical.clone();
+            stored["verification"] = serde_json::json!(level.as_str());
+            stored["facts"][0]["verification"] = serde_json::json!(level.as_str());
+            let decoded: ProtocolEvent =
+                serde_json::from_value(stored).expect("current stored words decode");
+            assert_eq!(decoded.verification(), level);
+            assert_eq!(decoded.facts()[0].verification(), level);
+        }
+    }
 
     #[test]
     fn block_committed_is_the_top_verification_above_receipt_verified() {

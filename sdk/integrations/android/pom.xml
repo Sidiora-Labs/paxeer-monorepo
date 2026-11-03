@@ -22,8 +22,8 @@
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <jackson.version>2.17.2</jackson.version>
-    <bouncycastle.version>1.78.1</bouncycastle.version>
+    <jackson.version>2.18.9</jackson.version>
+    <bouncycastle.version>1.85</bouncycastle.version>
     <layerx.sdk.version>0.1.0</layerx.sdk.version>
   </properties>
   <dependencies>

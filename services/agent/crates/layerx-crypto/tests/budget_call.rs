@@ -58,6 +58,98 @@ fn budget_fund_call(amount: u128) -> Eip1559Call {
 }
 
 #[test]
+fn bind_call_refuses_budget_create_payload_rule_violations() -> Result<(), Box<dyn Error>> {
+    let sender = [0xa1; 20];
+    let word = |value: u128| {
+        let mut word = [0; 32];
+        word[16..].copy_from_slice(&value.to_be_bytes());
+        word
+    };
+    let budget_account = [0x32; 32];
+    let asset = [0x33; 32];
+    let purpose = [0x34; 32];
+    let words = [
+        BUDGET,
+        budget_account,
+        asset,
+        purpose,
+        word(100),
+        word(1),
+        word(123),
+        word(1_000),
+        word(2_000),
+        word(3_000),
+        word(7),
+        word(2),
+    ];
+    let mut to = [0; 20];
+    to[18..].copy_from_slice(&[0x10, 0x1b]);
+    let mut data = ledger_selector(
+        "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
+    )
+    .to_vec();
+    data.extend_from_slice(&words.concat());
+    let call = Eip1559Call {
+        chain_id: 125,
+        nonce: 3,
+        max_priority_fee_per_gas: 2,
+        max_fee_per_gas: 30,
+        gas_limit: 100_000,
+        to,
+        data,
+    };
+    let disclosure = bind_call(&call, sender)?;
+    assert_eq!(
+        disclosure.activity_type,
+        ActivityType::new(ModuleId::Budget, 1).map_err(|e| format!("{e:?}"))?
+    );
+    assert_eq!(disclosure.idempotency_key, BUDGET);
+    assert_eq!(disclosure.asset, asset);
+    assert_eq!(disclosure.amounts.len(), 1);
+    assert_eq!(disclosure.amounts[0].role, AmountRole::Transfer);
+    assert_eq!(disclosure.amounts[0].value, 123);
+    let mut payload = 1_u16.to_be_bytes().to_vec();
+    for value in [BUDGET, budget_account, asset, purpose] {
+        payload.extend_from_slice(&value);
+    }
+    for value in [100_u128, 1, 123] {
+        payload.extend_from_slice(&value.to_be_bytes());
+    }
+    for value in [1_000_u64, 2_000, 3_000, 7] {
+        payload.extend_from_slice(&value.to_be_bytes());
+    }
+    payload.push(2);
+    assert_eq!(
+        disclosure.construct_method()?,
+        Some(ConstructMethod::PayBudgetCreate { payload })
+    );
+    assert_eq!(disclosure.signing_digest()?, call.signing_hash());
+
+    for (rule, index, value) in [
+        ("zero budget id", 0, word(0)),
+        ("zero budget account", 1, word(0)),
+        ("zero asset", 2, word(0)),
+        ("zero initial amount", 6, word(0)),
+        ("zero per-period limit", 4, word(0)),
+        ("zero period length", 7, word(0)),
+        ("expiry equals period start", 9, word(2_000)),
+        ("expiry before period start", 9, word(1_999)),
+        ("rollover zero", 11, word(0)),
+        ("rollover three", 11, word(3)),
+        ("rollover one with carry cap one", 11, word(1)),
+    ] {
+        let mut invalid = call.clone();
+        invalid.data[4 + index * 32..4 + (index + 1) * 32].copy_from_slice(&value);
+        assert_eq!(
+            bind_call(&invalid, sender),
+            Err(DisclosureError::MalformedPayload),
+            "{rule}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn bind_call_discloses_budget_defund() -> Result<(), Box<dyn Error>> {
     let account = derive_from_seed(&[0x07; 64], 0)?;
     let signer = LocalSigner::from_derived_account(&account);

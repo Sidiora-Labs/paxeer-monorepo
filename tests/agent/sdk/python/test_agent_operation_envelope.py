@@ -19,6 +19,7 @@ from layerx_sdk.agent_http import (  # noqa: E402
     AgentEnvelopeTransport,
     AgentSessionCredential,
     LayerXKeyCredential,
+    _envelope_reply,
     check_proof_bundle_response,
     encode_proof_bundle_request,
 )
@@ -328,8 +329,10 @@ class Probe:
         other = bytearray.fromhex(typed["target"])
         other[3] ^= 1
         reject({**value, "value": {**value["value"], "target": other.hex()}})
-        reject({**value, "achieved_verification_level": "SettlementAnchored"})
-        reject(value, {"state": "achieved", "level": "SettlementAnchored"})
+        other_rung = "receipted" if value["achieved_verification_level"] == "committed" else "committed"
+        reject({**value, "achieved_verification_level": other_rung})
+        reject(value, {"state": "achieved", "rung": other_rung})
+        reject(value, {"state": "achieved", "level": value["achieved_verification_level"]})
         reject({**value, "unexpected": True})
         for head in [0, "00", "18446744073709551616"]:
             reject({**value, "freshness": {**value["freshness"], "chain_head": head}})
@@ -571,6 +574,19 @@ class Probe:
         credential = dict(self.credential)
         credential["generation"] = "0" + str(credential["generation"])
         self._raw_refusal("noncanonical_integer", self._raw_envelope(credential=credential), 400, "envelope.noncanonical_integer")
+
+
+def test_agent_operation_envelope_reads_daemon_rung() -> None:
+    golden = Path(__file__).resolve().parents[4] / "services/agent/schema/agent-api/golden/agent-http-success.json"
+    encoded = golden.read_bytes()
+    expected = json.loads(encoded)
+
+    response = _envelope_reply(200, "application/json", encoded, "7", False)
+
+    assert isinstance(response, AgentEnvelopeSuccess)
+    assert response.request_id == expected["request_id"]
+    assert response.value == expected["value"]
+    assert response.verification_status == {"state": "achieved", "rung": "submitted"}
 
 
 def main() -> int:

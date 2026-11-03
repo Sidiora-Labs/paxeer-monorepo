@@ -15,19 +15,18 @@ import (
 
 func TestGenesisRoundTripAfterRetiredRelease(t *testing.T) {
 	e := newEnv(t, 600)
+	e.ctx, _ = e.ctx.CacheContext()
 	params := e.k.GetParams(e.ctx)
 	params.Authority = e.payerAcc.String()
 	params.ForcedExitDelaySeconds = 600
 	require.NoError(t, e.k.SetParams(e.ctx, params))
 	e.deposit(e.withdrawal.Fields["asset"], 1_000)
 	e.deposit(e.exit.Fields["asset"], 6_000_000)
-	withdrawal, err := e.k.RequestWithdrawal(e.ctx, e.evidence())
-	require.NoError(t, err)
+	withdrawal := e.seedClaim(types.ClaimKind_CLAIM_KIND_WITHDRAWAL, vectorNumber(t, e.withdrawal, "batch_number"))
 	exitBatch := vectorNumber(t, e.withdrawal, "batch_number") + 1
 	require.NoError(t, e.k.RegisterCheckpoint(e.ctx, exitBatch, vectorArray(t, e.exit, "state_root"), [32]byte{7}))
 	require.NoError(t, e.k.SetEmergency(e.ctx, true))
-	exit, err := e.k.RequestForcedExit(e.ctx, e.exitEvidence(exitBatch))
-	require.NoError(t, err)
+	exit := e.seedClaim(types.ClaimKind_CLAIM_KIND_FORCED_EXIT, exitBatch)
 
 	claims := []types.Claim{withdrawal, exit}
 	nullifiers := make(map[string]types.Nullifier)

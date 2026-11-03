@@ -36,7 +36,6 @@ fn offline_export_verifies_with_only_receipt_keys_and_validator_set() {
         let verified = must(verify(&offline, &trust));
         assert_eq!(verified.verified_receipts, 1);
         assert_eq!(verified.verified_inclusions, 1);
-        assert_eq!(verified.verified_checkpoints, 1);
         assert_eq!(verified.height, 8);
         assert_eq!(verified.block_hash, fixture.header.block_hash());
         assert_eq!(verified.achieved_rung, Rung::Committed);

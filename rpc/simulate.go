@@ -326,12 +326,23 @@ func isPendingBlockNrOrHash(blockNrOrHash rpc.BlockNumberOrHash) bool {
 }
 
 // ctxAtHeight returns the open-block snapshot for the height of the open
-// block and the provider's context for every other height.
+// block, the latest committed context for a future height, and the provider's
+// context for every other height.
 func (b *Backend) ctxAtHeight(height int64) sdk.Context {
-	if b.watermarks != nil && b.watermarks.pending != nil {
-		if open, err := b.watermarks.resolvePending(); err == nil && open == height {
-			return b.ctxProvider(PendingCtxHeight)
+	latest := b.ctxProvider(LatestCtxHeight)
+	if b.watermarks != nil && b.watermarks.pending != nil && (height == PendingCtxHeight || height > latest.BlockHeight()) {
+		snapshot, pendingHeight, open, err := b.watermarks.pendingSnapshot(context.Background())
+		if err == nil {
+			if open && (height == PendingCtxHeight || pendingHeight == height) {
+				return snapshot
+			}
+			if !open && height == PendingCtxHeight {
+				return b.ctxProvider(pendingHeight)
+			}
 		}
+	}
+	if height > latest.BlockHeight() {
+		return latest
 	}
 	return b.ctxProvider(height)
 }
@@ -341,12 +352,15 @@ func (b *Backend) ctxAtHeight(height int64) sdk.Context {
 // committed parent's hash, and no hash or state root, since the block is not
 // sealed.
 func (b *Backend) pendingStateAndHeader(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.StateDB, *ethtypes.Header, error) {
-	height, err := b.watermarks.ResolveHeight(ctx, blockNrOrHash)
+	snapshot, height, open, err := b.watermarks.pendingSnapshot(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
+	if !open {
+		return b.StateAndHeaderByNumberOrHash(ctx, rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(height)))
+	}
 	isWasmdCall, ok := ctx.Value(CtxIsWasmdPrecompileCallKey).(bool)
-	sdkCtx := b.ctxProvider(height).WithIsEVM(true).WithEVMEntryViaWasmdPrecompile(ok && isWasmdCall)
+	sdkCtx := snapshot.WithIsEVM(true).WithEVMEntryViaWasmdPrecompile(ok && isWasmdCall)
 	openHeight := sdkCtx.BlockHeight()
 	if openHeight <= 0 {
 		return nil, nil, fmt.Errorf("open block height %d is not positive", openHeight)
@@ -385,6 +399,8 @@ func (b *Backend) pendingStateAndHeader(ctx context.Context, blockNrOrHash rpc.B
 	return state.NewDBImpl(sdkCtx, b.keeper, true), header, nil
 }
 
+// StateAndHeaderByNumberOrHash returns the requested state and header. Pending
+// reads return the latest committed block while no block is open.
 func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.StateDB, *ethtypes.Header, error) {
 	if isPendingBlockNrOrHash(blockNrOrHash) {
 		return b.pendingStateAndHeader(ctx, blockNrOrHash)

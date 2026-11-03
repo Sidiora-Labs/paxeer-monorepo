@@ -7,11 +7,14 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/querier"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/replay"
 	paxapp "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	srvconfig "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/config"
 	paxdbconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
 	wasmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 )
+
+const defaultNodeWasmQueryGasLimit uint64 = 300000
 
 // WASMConfig defines configuration for the wasm module.
 type WASMConfig struct {
@@ -46,7 +49,7 @@ func NewCustomAppConfig(baseConfig *srvconfig.Config, evmConfig evmrpcconfig.Con
 		StateStore:   paxdbconfig.DefaultStateStoreConfig(),
 		ReceiptStore: paxdbconfig.DefaultReceiptStoreConfig(),
 		WASM: WASMConfig{
-			QueryGasLimit:   300000,
+			QueryGasLimit:   defaultNodeWasmQueryGasLimit,
 			MemoryCacheSize: wasmtypes.DefaultWasmConfig().MemoryCacheSize,
 		},
 		EVM:             evmConfig,
@@ -57,4 +60,10 @@ func NewCustomAppConfig(baseConfig *srvconfig.Config, evmConfig evmrpcconfig.Con
 		LightInvariance: paxapp.DefaultLightInvarianceConfig,
 		Admin:           admin.DefaultConfig,
 	}
+}
+
+// NewAppConfigForMode creates the mode-specific configuration written by init.
+func NewAppConfigForMode(baseConfig *srvconfig.Config, mode params.NodeMode) CustomAppConfig {
+	params.SetAppConfigByMode(baseConfig, mode)
+	return NewCustomAppConfig(baseConfig, params.DefaultEVMConfigByMode(mode))
 }

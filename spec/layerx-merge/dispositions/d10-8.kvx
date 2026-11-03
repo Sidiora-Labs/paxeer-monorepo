@@ -1,0 +1,149 @@
+[disposition.10.2.4.3]
+finding = "10.2.4.3"
+status = "resolved"
+evidence = "Commit b8137deb6 refreshed the human lock after layerx-client gained base64 and the programs registry, and services/human/Cargo.lock:923 now records both dependencies in that package."
+follow_up = "closure"
+
+[disposition.10.20.5.2]
+finding = "10.20.5.2"
+status = "resolved"
+evidence = "Commit 5ff108e0d landed the Move fixture repair, and services/human/crates/layerx-human-service/tests/support/production_fixture.rs:1333 sends both the CSRF cookie and matching header for Move requests after the lock refresh in b8137deb6."
+follow_up = "closure"
+
+[disposition.10.20.5.3]
+finding = "10.20.5.3"
+status = "resolved"
+evidence = "Commit c2cb4a4d7 replaced the removed account_proof assertions with landing-block assertions, which remain at services/human/crates/layerx-human-service/tests/evidence_node.rs:401."
+follow_up = "closure"
+
+[disposition.10.2.11.1]
+finding = "10.2.11.1"
+status = "resolved"
+evidence = "Commit 63961a63d restricted the daemon activity types to asset send, and services/human/crates/layerx-human-kms/tests/attestor.rs:620 filters for 65541 and asserts that it is the only configured type."
+follow_up = "closure"
+
+[disposition.10.2.4.4]
+finding = "10.2.4.4"
+status = "resolved"
+evidence = "Commit e03138d96 supplied and destructured all three added receipt fields at services/human/crates/layerx-human-service/tests/receipt_material_rungs.rs:132 and supplied the seventh context argument at services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs:117."
+follow_up = "closure"
+
+[disposition.10.2.11.2]
+finding = "10.2.11.2"
+status = "resolved"
+evidence = "Commit 63961a63d added the signed custody inventory and pinned authority configuration, and services/human/crates/layerx-human-kms/tests/attestor.rs:682 supplies all five authority and inventory environment variables to each daemon."
+follow_up = "closure"
+
+[disposition.10.2.4.5]
+finding = "10.2.4.5"
+status = "resolved"
+evidence = "Commit e03138d96 added pending_nonce to the preparation at services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:497 and the signed receipt, key and inclusion height to its receipt construction at services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:702."
+follow_up = "closure"
+
+[disposition.10.2.11.3]
+finding = "10.2.11.3"
+status = "resolved"
+evidence = "Commit 63961a63d added the ledger precompile selector allow-list, and services/human/crates/layerx-human-kms/tests/attestor.rs:588 now permits 0x2bb1ae7c, 0x78ea11db and 0x2e89490f at 0x101a."
+follow_up = "closure"
+
+[disposition.10.20.5.4]
+finding = "10.20.5.4"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:170800 now declares only ProductionComponents for task 10.20.5, removing the deleted UnixMovementProvider and movement_account_address from its graph obligations."
+follow_up = "closure"
+
+[disposition.10.2.11.4]
+finding = "10.2.11.4"
+status = "resolved"
+evidence = "Commit 63961a63d added a cap for the zero asset identifier used by the disclosed transfer, and services/human/crates/layerx-human-kms/tests/attestor.rs:595 now gives that asset per-transaction and daily limits."
+follow_up = "closure"
+
+[disposition.10.2.4.6]
+finding = "10.2.4.6"
+status = "resolved"
+evidence = "Commit e03138d96 ported the receipt construction at services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs:186 and the widened preparation and receipt constructions in tests/move_money.rs and tests/spend.rs within the same task."
+follow_up = "closure"
+
+[disposition.10.2.11.5]
+finding = "10.2.11.5"
+status = "resolved"
+evidence = "Commit 63961a63d added wire_transaction at services/human/crates/layerx-human-kms/tests/attestor.rs:111 to append the three empty EIP-1559 signature fields and rewrap the list, and the repeat request uses it at services/human/crates/layerx-human-kms/tests/attestor.rs:1233."
+follow_up = "closure"
+
+[disposition.10.2.11.6]
+finding = "10.2.11.6"
+status = "environment"
+evidence = "services/human/crates/layerx-human-kms/tests/provider.rs:47 requires the environment runtime clock, and spec/layerx-merge/spec.kvx:130586 now runs both KMS test targets through layerx-runtime-clock to provide the service absent from the bare qualification run."
+follow_up = "closure"
+
+[disposition.10.92.1.4]
+finding = "10.92.1.4"
+status = "resolved"
+evidence = "Commit c55d8901a replaced the protected external fixture with the in-tree production fixture at services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs:19 and extended its sequencer receipt replies to support both receipted and committed tests."
+follow_up = "closure"
+
+[disposition.10.10.1.1]
+finding = "10.10.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:169687 excludes the already-deleted evidence_export.rs and includes retired_client_modules.rs and the boundary assertion, while b55da7a91 landed those deletions and the crate-directory absence assertion in retired_movement_crate.rs."
+follow_up = "closure"
+
+[disposition.10.10.2.1]
+finding = "10.10.2.1"
+status = "resolved"
+evidence = "Commit 479b9cc75 made services/human/tools/boundary-check/tests/retired_movement_sources.rs:7 check only the ten paths owned by task 10.10.2, and b55da7a91 placed the final directory absence assertion in retired_movement_crate.rs."
+follow_up = "closure"
+
+[disposition.10.96.1.1]
+finding = "10.96.1.1"
+status = "environment"
+evidence = "services/human/Cargo.lock:355 pins data-encoding 2.9.0 with its registry source and checksum, while spec/layerx-merge/spec.kvx:172365 now qualifies without --offline, addressing the missing qualification registry cache."
+follow_up = "closure"
+
+[disposition.10.96.1.2]
+finding = "10.96.1.2"
+status = "resolved"
+evidence = "Commit 54f32cf9a deleted the unused AgentRuntime::receipt_keys method and replaced the test's Paxeer-client hash parser with the local transaction_hash function at services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:10."
+follow_up = "closure"
+
+[disposition.10.92.1.5]
+finding = "10.92.1.5"
+status = "resolved"
+evidence = "Commit c55d8901a mapped receipt rungs to receipt-verified and checkpoint-finalised in production_reads.rs and added the optional rung field at services/human/schema/human-api/journeys.kvx:52, with the receipt export tests asserting both values."
+follow_up = "closure"
+
+[disposition.10.92.1.6]
+finding = "10.92.1.6"
+status = "resolved"
+evidence = "Commit 54f32cf9a removed the deleted movement provider from the workspace members, and services/human/Cargo.toml:2 now lists only existing human workspace crates."
+follow_up = "closure"
+
+[disposition.10.1.2.1]
+finding = "10.1.2.1"
+status = "resolved"
+evidence = "Commit d1692d74d refreshed the dependent lock files after the registry dependency retirement, and services/human/Cargo.lock:1205 now resolves layerx-programs-registry without layerx-proof or layerx-wire."
+follow_up = "closure"
+
+[disposition.10.1.2.2]
+finding = "10.1.2.2"
+status = "resolved"
+evidence = "Commit 2c086460e removed both calls to verify_native_owner_outcome and both NativeOwnerOutcomeContext constructions from production_components.rs while retaining ProductionAgentCreation::protocol_evidence."
+follow_up = "closure"
+
+[disposition.10.26.6.1]
+finding = "10.26.6.1"
+status = "superseded"
+evidence = "Commit e1a0eb016 retired the Paxeer client emergency exit planner and deleted tests/exit.rs, removing the reported state_proof importer before 65b673e71 retired the state proof module and vectors."
+follow_up = "closure"
+
+[disposition.10.26.9.1]
+finding = "10.26.9.1"
+status = "superseded"
+evidence = "Commit 65b673e71 deleted the last reported custody importer tests/state_proof.rs after 51b365a03, e1a0eb016 and 4f9d21778 retired the other importing tests, and 5a73d8940 then retired the custody codec."
+follow_up = "closure"
+
+[disposition.10.26.12.1]
+finding = "10.26.12.1"
+status = "superseded"
+evidence = "Commit 42d290e0c retired the Paxeer client deposit tests and deleted tests/deposit.rs, removing the reported wire reference before fb2c75323 retired the debit wire codec."
+follow_up = "closure"

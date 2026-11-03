@@ -14,7 +14,7 @@ law = "the invoking principal pays the fee into the web fee account for the asse
 [entry.read]
 discriminator = 2
 payload = "request_id:u64be || content_digest:bytes32 || full_length:u32be || response"
-law = "web_read returns the answer attestation intake committed for this program's request; the call refuses unless it is present and equal to the expected digest, full length and response"
+law = "program web_read is retired: the kernel answers LXP_ERR_MODULE_DISABLED (src/modules/programs/call.c:1138-1162), so this entrypoint reverts LXP_NON_CANONICAL for every request id, digest, full length and response; committed answers are read through the xweb keeper GetProgramResult (modules/xweb/keeper/program_result.go:16), per decision.1977"
 
 [event.request]
 topic = "PAXEERX_WEB_REQUEST_V1"

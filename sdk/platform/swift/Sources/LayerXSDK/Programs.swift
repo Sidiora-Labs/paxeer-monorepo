@@ -567,8 +567,16 @@ public struct ProgramsClient: Sendable {
       retainedSignedActivity: submission.retainedSignedActivity, execution: submission.execution,
       sequencerReceipt: submission.sequencerReceipt)
   }
-  public func lifecycleReceipt(_ request: NativeProgramLifecycleRequest) async throws -> Data {
-    let submission = try await activity(transactionHash: request.activityID)
+  /// Resolves a lifecycle receipt using the Keccak hash of the signed EVM transaction
+  /// built from deploy, upgrade or windDown. The request's activity ID is an
+  /// LXP/v1/activity-id digest, not an EVM transaction identity.
+  public func lifecycleReceipt(
+    _ request: NativeProgramLifecycleRequest, transactionHash: Data
+  ) async throws -> Data {
+    guard transactionHash.count == 32, transactionHash != request.activityID else {
+      throw programInvalid()
+    }
+    let submission = try await activity(transactionHash: transactionHash)
     guard let receipt = submission.sequencerReceipt else {
       throw PlatformSDKError(code: .unknownOutcome, retry: .unknownOutcome)
     }

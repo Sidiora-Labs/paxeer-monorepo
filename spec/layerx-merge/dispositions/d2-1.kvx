@@ -1,0 +1,125 @@
+[disposition.2.3.4]
+finding = "2.3.4"
+status = "resolved"
+evidence = "Commit 95cf1c458 sets asset binding_authority from verified host authority and verifies nonempty signatures, as retained at modules/lxphost/host.go:265 and src/modules/asset/lx_asset_execution.h:124."
+
+[disposition.2.3.6]
+finding = "2.3.6"
+status = "resolved"
+evidence = "Commit 5e468268c removes the conflicting Event alias and types Result.Events as []lxphost.ReceiptEvent at modules/layerxledger/keeper/execute.go:13, leaving the decoded Event declaration at modules/layerxledger/keeper/events.go:8."
+
+[disposition.2.4.2]
+finding = "2.4.2"
+status = "resolved"
+evidence = "Commit 5e468268c supplies EventArgs and LedgerEvents, whose declarations remain at modules/layerxledger/keeper/events.go:13 and modules/layerxledger/keeper/events.go:21 for the supply, send, payexact and grants callers."
+
+[disposition.2.4.2.1]
+finding = "2.4.2.1"
+status = "resolved"
+evidence = "Commit c72fcb164 removes the post-execute ReadIdempotentReceipt and replay-table branches, so modules/layerxledger/keeper/execute.go:57 returns the host receipt directly without reading the retired table."
+
+[disposition.2.4.2.2]
+finding = "2.4.2.2"
+status = "resolved"
+evidence = "Commit 43f3d9a1f asserts empty kernel events for mint and burn at modules/layerxledger/keeper/supply_test.go:80 and modules/layerxledger/keeper/supply_test.go:144 and checks the exact Transfer events decoded from each receipt."
+
+[disposition.2.4.4]
+finding = "2.4.4"
+status = "resolved"
+evidence = "Commit d163405ab replaces the nonempty send-event expectation with empty kernel events at modules/layerxledger/keeper/send_test.go:132 and an exact LedgerEvents Transfer assertion immediately afterward."
+
+[disposition.2.4.5]
+finding = "2.4.5"
+status = "resolved"
+evidence = "Commit c72fcb164 removes the missing idempotency-row read shared by PayExact and other ledger operations, and modules/layerxledger/keeper/execute.go:61 returns the execution receipt and its mapped result code."
+
+[disposition.2.4.5.1]
+finding = "2.4.5.1"
+status = "resolved"
+evidence = "Commit 49c795b68 replaces stored-receipt and idempotent-replay expectations with consecutive successful payments reusing the first reference at modules/layerxledger/keeper/payexact_test.go:65 while asserting sequences, transfers, balances and PaymentExact fields."
+
+[disposition.2.4.7]
+finding = "2.4.7"
+status = "superseded"
+evidence = "Commit 52fda45db retires kernel RECEIVE and deletes src/ledger/lxp_receive.c, including verify_receiver, so the receiver-signature condition belongs to a removed kernel surface."
+
+[disposition.2.5.2]
+finding = "2.5.2"
+status = "resolved"
+evidence = "Commit b76044b03 adds Keeper.checkPause, retained at modules/layerxledger/keeper/pause.go:15, which reads stored pause parameters and delegates to the governance pause scope."
+
+[disposition.2.6.1]
+finding = "2.6.1"
+status = "resolved"
+evidence = "Commit 3bcb01ac4 implements SetParams without the nonexistent host retention setter, and modules/layerxauth/keeper/keeper.go:40 validates parameters and writes ParamsKey only."
+
+[disposition.2.6.4]
+finding = "2.6.4"
+status = "resolved"
+evidence = "Commit 75ee11a07 replaces receipt-root equality with refusal semantics, retained at modules/layerxauth/keeper/execute_test.go:130 as ErrSequenceReused, code -301, unchanged grant and consumed global and identity sequences."
+
+[disposition.2.6.4.1]
+finding = "2.6.4.1"
+status = "resolved"
+evidence = "Commit 75ee11a07 corrects the unsigned-versus-signed comparison with authExecuteSignedReceipt, while modules/layerxauth/keeper/execute_test.go:148 now exercises replay refusal and reuse at a new sequence without reading or comparing retired idempotency records."
+
+[disposition.2.10.5]
+finding = "2.10.5"
+status = "resolved"
+evidence = "Commit b73d902df restricts Actor resolution to nonconstant methods at precompiles/layerxledger/layerxledger.go:90, and precompiles/layerxledger/assets.go:25 registers the register handler in the dispatch table."
+
+[disposition.2.10.5.1]
+finding = "2.10.5.1"
+status = "resolved"
+evidence = "Commit b73d902df normalizes the expected zero big.Int values with SetBytes at precompiles/layerxledger/views_test.go:172 and compares packed ABI bytes at precompiles/layerxledger/views_test.go:203."
+
+[disposition.2.10.5.2]
+finding = "2.10.5.2"
+status = "resolved"
+evidence = "Commit b73d902df changes Execute itself so precompiles/layerxledger/layerxledger.go:90 resolves Keeper.Actor only for nonconstant methods, allowing unbound views to reach dispatch."
+
+[disposition.2.11.1]
+finding = "2.11.1"
+status = "resolved"
+evidence = "Commit 63c32fa83 replaces the deleted auth error with govtypes.ErrPausedScope, retained at precompiles/layerxauth/errors.go:33 and tested in the governance codespace at precompiles/layerxauth/errors_test.go:78."
+
+[disposition.2.11.1.1]
+finding = "2.11.1.1"
+status = "resolved"
+evidence = "Commit 63c32fa83 changes authKeepers to embed *app.PrecompileKeepers at precompiles/layerxauth/harness_test.go:31, preserving the concrete launchpad keeper accessor used during constructor registration."
+
+[disposition.2.11.2]
+finding = "2.11.2"
+status = "resolved"
+evidence = "Requirement 2056 ac_2 at spec/layerx-merge/spec.kvx:14651 now requires a revoked fee-bearing predecessor, and commit f7a1bd126 implements that scenario by revoking before succession at precompiles/layerxauth/grants_test.go:271."
+
+[disposition.2.11.2.1]
+finding = "2.11.2.1"
+status = "resolved"
+evidence = "The revoked fee-bearing predecessor rule is adopted at spec/layerx-merge/spec.kvx:14651 and exercised at precompiles/layerxauth/grants_test.go:316, matching session_inherit_fee at src/modules/governance/lxp_governance.c:319."
+
+[disposition.2.11.2.2]
+finding = "2.11.2.2"
+status = "resolved"
+evidence = "Commit 347d7fca5 resolves the governed occupancy asset at src/modules/governance/lxp_governance.c:484, and precompiles/layerxauth/grants_test.go:249 seeds its active record while precompiles/layerxauth/grants_test.go:207 expects ErrSequenceReused for replay."
+
+[disposition.2.11.2.3]
+finding = "2.11.2.3"
+status = "resolved"
+evidence = "Commit 32c6ae892 adds governance fee-record loading, and modules/lxphost/host.go:1165 now includes the Programs module when a valid progfee/active/v1 record is present before branch.load."
+
+[disposition.2.11.4]
+finding = "2.11.4"
+status = "resolved"
+evidence = "Commit 7ac8f2d73 restricts Actor resolution to nonconstant methods at precompiles/layerxauth/layerxauth.go:84 and compares packed capabilityScope output at precompiles/layerxauth/views_test.go:195 for bound and unbound callers."
+
+[disposition.2.12.4]
+finding = "2.12.4"
+status = "resolved"
+evidence = "Commit 1542220c2 exposes the application auth keeper through node/precompiles.go:144, and modules/layerxauth/ante/integration_test.go:41 supplies the LayerXAuthK provider expected by NewPrecompile."
+
+[disposition.2.12.4.1]
+finding = "2.12.4.1"
+status = "open"
+evidence = "modules/layerxauth/keeper/revoke.go:74 still deletes matching Cosmos grants and modules/layerxauth/ante/integration_test.go:243 expects ErrUnauthorized afterward, whereas requirement 2063 ac_1 at spec/layerx-merge/spec.kvx:14686 still requires ErrAuthRevoked for that path."
+follow_up = "22.2.4"

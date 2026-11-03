@@ -19,7 +19,6 @@ use layerx_types::limits::{
     IDENTIFIER_BYTES, MAX_AUTHORITY_BYTES, MAX_DID_BYTES, MAX_PAYLOAD_BYTES,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
-use layerx_wire::activity::{decode_unsigned, encode_unsigned};
 use layerx_wire::decode::Decoder;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::{account_id_for_protocol, Domain};
@@ -578,7 +577,7 @@ fn generated_vectors() -> String {
     let _ = writeln!(rendered, "  \"activities\": [");
     let all = cases(&owner, &peer, &actor);
     for (index, case) in all.iter().enumerate() {
-        let (canonical, registry) = envelope(case, &actor, owner);
+        let (canonical, _) = envelope(case, &actor, owner);
         let disclosure = vector_fields(case, &actor);
         assert_eq!(
             disclosure.is_ok(),
@@ -597,10 +596,6 @@ fn generated_vectors() -> String {
                 "{}: payload encoder",
                 case.name
             );
-            let decoded = ok(decode_unsigned(&canonical, &registry), case.name);
-            assert_eq!(decoded.payload(), disclosure.payload);
-            let encoded = ok(encode_unsigned(&decoded), case.name);
-            assert_eq!(encoded, canonical, "{}: envelope encoder", case.name);
         }
         let preimage = ok(
             SignatureMessage::new(

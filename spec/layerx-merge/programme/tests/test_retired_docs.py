@@ -31,3 +31,40 @@ def test_docs_name_no_retired_paths() -> None:
         )
         for vector in VECTORS:
             assert vector in document, f"{name}: missing sequencer vector {vector}"
+
+
+def test_no_docs_page_links_retired_relay_archive() -> None:
+    pages = sorted((ROOT / "docs/site/docs").rglob("*.md"))
+    assert pages, "no documentation pages found"
+    offending_pages = [
+        str(page.relative_to(ROOT))
+        for page in pages
+        if "relay-archive.md" in page.read_text(encoding="utf-8")
+    ]
+    assert not offending_pages, (
+        f"retired relay/archive link target remains in: {', '.join(offending_pages)}"
+    )
+
+
+def test_inbound_pages_describe_sequencer_receipt_verification() -> None:
+    pages = (
+        "docs/wiki/PortableVerifier.md",
+        "docs/site/docs/interop/portable-receipts.md",
+        "docs/site/docs/agents/index.md",
+        "docs/site/docs/agents/sdks.md",
+        "docs/site/docs/programs/index.md",
+    )
+    retired_descriptions = (
+        "CALL terminal decoder",
+        "Program CALL terminal",
+        "SdkTerminalVerification.md:17-19",
+        "SdkTerminalVerification.md:50-62",
+        "SdkTerminalVerification.md:57-58",
+    )
+    for name in pages:
+        document = " ".join((ROOT / name).read_text(encoding="utf-8").split())
+        assert "SDK sequencer receipt verification" in document, (
+            f"{name}: missing sequencer receipt verification description"
+        )
+        for retired in retired_descriptions:
+            assert retired not in document, f"{name}: retired reference {retired}"

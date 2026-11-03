@@ -214,6 +214,17 @@ export function headerHash(header: TendermintHeader): Uint8Array {
   return merkleRoot(fields);
 }
 
+export function validatorSetHash(validators: readonly Validator[]): Uint8Array {
+  return merkleRoot(
+    validators.map((validator) =>
+      concatBytes(
+        bytesField(1, bytesField(1, base64(validator.pub_key, 32)), true),
+        varintField(2, integer(validator.voting_power))
+      )
+    )
+  );
+}
+
 export function verifyCommit({
   chainId,
   header,
@@ -251,11 +262,7 @@ export function verifyCommit({
       seen.add(address);
       return { key, address, power };
     });
-    const validatorsHash = merkleRoot(
-      entries.map(({ key, power }) =>
-        concatBytes(bytesField(1, bytesField(1, key), true), varintField(2, power))
-      )
-    );
+    const validatorsHash = validatorSetHash(validators);
     if (bytesToHex(validatorsHash) !== bytesToHex(hex(header.validators_hash, 32))) {
       throw new HeaderError('Header validator hash does not match the configured set');
     }

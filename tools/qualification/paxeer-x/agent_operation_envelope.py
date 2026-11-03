@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import hashlib
 import importlib.util
 import json
@@ -22,7 +23,6 @@ sys.path.insert(0, str(ROOT / 'tests/daemon'))
 sys.path.insert(0, str(ROOT / 'services/agent/sdk/python'))
 sys.path.insert(0, str(ROOT / 'tools/qualification/paxeer-x/fixtures'))
 from event_source_fixture import NativeProofFaultRelay
-import paxeer_x_runtime_fixture as fixture
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
@@ -77,7 +77,7 @@ W8_DECIMAL = '(0|[1-9][0-9]{0,38})'
 SERVED_READ_DIRECT = ('project_fee_projection', 'policy_dry_run_explained', 'export_offline_bounded', 'program_discover_registry', 'program_interface_registry')
 SERVED_READ_REFUSALS = ('project_refuse_over_bound', 'project_refuse_legacy_payload', 'policy_dry_run_refuse_unknown_capability',
                         'export_refuse_seventeen_facts', 'export_refuse_duplicate_fact', 'export_refuse_uppercase_fact',
-                        'export_refuse_settlement_anchored', 'prepare_refuse_uppercase_capability_id',
+                        'export_refuse_legacy_verification_field', 'prepare_refuse_uppercase_capability_id',
                         'program_interface_refuse_unknown_field', 'program_interface_refuse_bad_level')
 PROJECT_REQUEST = ('protocol_activity_type', 'canonical_bytes', 'execution_units', 'storage_units')
 PROJECTED = ('request', 'parameter_version', 'fee', 'canonical_schedule', 'snapshot_sequence', 'snapshot_state_root')
@@ -120,7 +120,6 @@ SOURCES = ('services/agent/crates', 'services/agent/Cargo.toml', 'services/agent
            'services/platform/Cargo.lock', 'sdk/platform/go', 'sdk/platform/jvm', 'sdk/platform/swift', 'sdk/platform/dotnet',
            'tools/paxeer-x/route-catalogue.json', 'tools/qualification/paxeer-x/agent_operation_envelope.py',
            'tools/qualification/paxeer-x/fixtures/event_source_fixture.py',
-           'tests/daemon/lxp_test_runtime_fixture.c',
            'tests/programs/test_call_activity.c', 'services/agent/schema/lni/v1.kvx')
 CASE_LINE = re.compile(r'^PAXEER_X_AGENT_ENVELOPE_CASE ([a-z0-9_.\-]+) passed$', re.M)
 COUNT_LINE = re.compile(r'^PAXEER_X_AGENT_ENVELOPE_CASES=(\d+)$', re.M)
@@ -175,8 +174,14 @@ def operations():
     body = text[text.index('pub const fn name(self)'):]
     body = body[:body.index('\n    }\n')]
     names = re.findall(r'=> "([a-z_.\-]+)"', body)
-    require(len(names) == 51 and len(set(names)) == 51, 'generated catalogue must name exactly 51 operations')
-    require('faucet.claim' in names, 'generated catalogue lost faucet.claim')
+    require(len(names) == 53 and len(set(names)) == 53, 'generated catalogue must name exactly 53 operations')
+    schema = ROOT / 'services/agent/schema/agent-api'
+    declared = []
+    for path in sorted(schema.glob('*.kvx')):
+        declared.extend(re.findall(r'^\[operation\.([a-z_.\-]+)\]$', path.read_text(), re.M))
+    require(len(declared) == len(set(declared)) and set(names) == set(declared),
+            'generated catalogue differs from the live operation schema')
+    require('faucet.claim' not in names, 'generated catalogue includes retired faucet.claim')
     require('policy.dry_run' in names, 'generated catalogue lacks policy.dry_run')
     return sorted(names)
 
@@ -2059,9 +2064,10 @@ class Qualification:
         require(rest.upper() != rest, 'provisioned fact reference has no hex letter to uppercase')
         self.served_read_refused(SERVED_READ_REFUSALS[5], 'export.offline', dict(export, fact_set=[kind + ':' + rest.upper()]),
                                  400, 'ProtocolIncompatibility', 'envelope.malformed')
+        # ExportOfflineWire accepts requested_rung and rejects the legacy field before dispatch.
         self.served_read_refused(SERVED_READ_REFUSALS[6], 'export.offline',
                                  dict(export, requested_verification_level='SettlementAnchored'),
-                                 503, 'UnavailableCapability', 'export.settlement_anchoring_unavailable')
+                                 400, 'ProtocolIncompatibility', 'envelope.unknown_field')
 
         discover = req['operation.program.discover']['request']
         case = SERVED_READ_DIRECT[3]
@@ -2328,6 +2334,11 @@ class Qualification:
 
 
 def worker(directory):
+    # Runtime dependencies are needed only when starting the actual runtime;
+    # argument validation and artifact production must work before provisioning.
+    global fixture
+    import paxeer_x_runtime_fixture as fixture
+
     built = load_manifest()
     config, credential = load_config()
     bundle = fixture.artifacts(os.environ.get('PAXEER_X_RUNTIME_ARTIFACTS'))
@@ -2374,15 +2385,19 @@ def worker(directory):
 
 def main():
     os.umask(0o077)
-    if sys.argv[1:] in (['-h'], ['--help']):
-        print('usage: agent_operation_envelope.py [--build --manifest PATH]')
+    parser = argparse.ArgumentParser(allow_abbrev=False)
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('--build', action='store_true')
+    modes.add_argument('--worker', metavar='DIRECTORY', help=argparse.SUPPRESS)
+    parser.add_argument('--manifest', metavar='PATH')
+    args = parser.parse_args()
+    if args.build != (args.manifest is not None):
+        parser.error('--build and --manifest PATH must be supplied together')
+    if args.build:
+        return build(args.manifest)
+    if args.worker:
+        worker(args.worker)
         return 0
-    if len(sys.argv) == 4 and sys.argv[1] == '--build' and sys.argv[2] == '--manifest':
-        return build(sys.argv[3])
-    if len(sys.argv) == 3 and sys.argv[1] == '--worker':
-        worker(sys.argv[2])
-        return 0
-    require(len(sys.argv) == 1, 'usage: agent_operation_envelope.py [--build --manifest PATH]')
     require(os.geteuid() == 0, 'disposable runtime requires root for distinct peer credentials')
     load_manifest()
     load_config()

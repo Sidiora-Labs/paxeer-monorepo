@@ -76,13 +76,15 @@ def test_retired_human_make_targets_absent():
         for relative in ("release_runner.py", "beta_driver.py"):
             assert target not in (QUALIFICATION / relative).read_text(), relative
 
-    result = subprocess.run(
-        ["make", "-n", "human-test"],
-        cwd=ROOT,
-        env={**os.environ, "LC_ALL": "C"},
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "LAYERX_EXPLORER_CORE_FIXTURE=" in result.stdout
+    for target in ("human-test", "human-test-integration"):
+        result = subprocess.run(
+            ["make", "-n", target],
+            cwd=ROOT,
+            env={**os.environ, "LC_ALL": "C"},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "LAYERX_EXPLORER_CORE_FIXTURE=" not in result.stdout, target
+        assert "tests/explorer_fixture" not in result.stdout, target

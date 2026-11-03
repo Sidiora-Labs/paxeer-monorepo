@@ -14,6 +14,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	common "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/common"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/oracle"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store"
@@ -23,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -225,6 +227,14 @@ func TestGasTable(t *testing.T) {
 	} {
 		t.Run(row.method, func(t *testing.T) {
 			id := selector(t, row.selector)
+			orobSignatures := map[string]string{
+				"resolveOffset":      "resolveOffset(int256,int16)",
+				"resolveOffsetBatch": "resolveOffsetBatch(int256,int16[])",
+				"toOffset":           "toOffset(int256,int256)",
+			}
+			if signature, ok := orobSignatures[row.method]; ok {
+				require.Equal(t, crypto.Keccak256([]byte(signature))[:4], id)
+			}
 			require.Equal(t, row.base, common.MethodGas(id, 0))
 			require.Equal(t, row.at260, common.MethodGas(id, 260))
 			require.Equal(t, row.base+4*row.perByte, common.MethodGas(id, 4))
@@ -238,6 +248,16 @@ func TestGasTable(t *testing.T) {
 		})
 	}
 	require.Equal(t, uint64(21080), common.MethodGas(selector(t, "40e58ee5"), 36))
+	// Bind the scheduler gas inventory to canonical ABI signatures, not only literal selectors.
+	for signature, id := range map[string]string{
+		"schedule(address,bytes,uint64,uint64)": "849ba0a3",
+		"cancel(uint256)":                       "40e58ee5",
+		"reschedule(uint256,uint64)":            "08e6f770",
+		"getJob(uint256)":                       "bf22c457",
+		"pending(address)":                      "5eebea20",
+	} {
+		require.Equal(t, selector(t, id), crypto.Keccak256([]byte(signature))[:4])
+	}
 }
 
 func TestFrameworkRefusalCodes(t *testing.T) {
@@ -368,6 +388,111 @@ func TestErrorCodeRegistry(t *testing.T) {
 			data := pcommon.RevertReason(row.code)
 			require.Equal(t, row.text, revertText(t, data))
 			require.True(t, bytes.Equal(data[:4], []byte{0x08, 0xc3, 0x79, 0xa0}))
+		})
+	}
+}
+
+func TestStreamsGasCanonicalCallSizes(t *testing.T) {
+	for _, row := range []struct {
+		signature string
+		words     int
+		want      uint64
+	}{
+		{"open(address,address,uint256,uint64,uint64,uint256)", 6, 55880},
+		{"settle(uint256)", 1, 61080},
+		{"close(uint256)", 1, 81080},
+		{"updateRate(uint256,uint256)", 2, 62040},
+		{"accrued(uint256)", 1, 1108},
+		{"getStream(uint256)", 1, 1108},
+	} {
+		t.Run(row.signature, func(t *testing.T) {
+			id := crypto.Keccak256([]byte(row.signature))[:4]
+			require.Equal(t, row.want, common.MethodGas(id, 4+32*row.words))
+		})
+	}
+}
+
+// TestEip712CalldataGas checks the exported schedule against real ABI calldata.
+func TestEip712CalldataGas(t *testing.T) {
+	a, err := abi.JSON(strings.NewReader(`[
+    {"type":"function","name":"hashTypedData","inputs":[{"type":"bytes32"},{"type":"bytes32"}]},
+    {"type":"function","name":"domainSeparator","inputs":[{"type":"string"},{"type":"string"},{"type":"uint256"},{"type":"address"}]},
+    {"type":"function","name":"recoverTypedSigner","inputs":[{"type":"bytes32"},{"type":"bytes32"},{"type":"bytes"}]}
+  ]`))
+	require.NoError(t, err)
+	for _, row := range []struct {
+		name string
+		args []interface{}
+		base uint64
+	}{
+		{"hashTypedData", []interface{}{[32]byte{1}, [32]byte{2}}, 1000},
+		{"domainSeparator", []interface{}{"Paxeer", "1", big.NewInt(125), ethcommon.Address{}}, 1000},
+		{"recoverTypedSigner", []interface{}{[32]byte{1}, [32]byte{2}, make([]byte, 65)}, 4000},
+	} {
+		input, err := a.Pack(row.name, row.args...)
+		require.NoError(t, err)
+		require.Equal(t, crypto.Keccak256([]byte(a.Methods[row.name].Sig))[:4], input[:4])
+		require.Equal(t, row.base+3*uint64(len(input)), common.MethodGas(input[:4], len(input)))
+	}
+}
+
+func TestOracleGasCanonicalCallSizes(t *testing.T) {
+	for _, row := range []struct {
+		signature string
+		length    int
+		want      uint64
+	}{
+		{"aggregate((int256,uint256,uint256)[])", 4 + 64 + 96, 1492},
+		{"aggregate((int256,uint256,uint256)[])", 4 + 64 + 32*96, 10420},
+		{"submitPrice(bytes32,int256,uint256)", 4 + 96, 33000},
+		{"getValidatorPrice(bytes32)", 4 + 32, 1108},
+	} {
+		t.Run(row.signature+strconv.Itoa(row.length), func(t *testing.T) {
+			id := crypto.Keccak256([]byte(row.signature))[:4]
+			require.Equal(t, row.want, common.MethodGas(id, row.length))
+		})
+	}
+	require.Equal(t, "0x0000000000000000000000000000000000000903", oracle.OracleAddress)
+}
+
+func TestTeeGasCanonicalCallSizes(t *testing.T) {
+	// Full calldata includes selector, tuple heads, quote length and byte padding.
+	for _, row := range []struct {
+		signature         string
+		quoteBytes, words int
+		base              uint64
+	}{
+		{"rootCount(uint8)", 0, 1, 1000},
+		{"rootOf(uint8,uint256)", 0, 2, 1000},
+		{"verify(uint8,bytes)", 291, 3, 46000},
+		{"verifyAndExpect(uint8,bytes,bytes32)", 291, 4, 46000},
+		{"verify(uint8,bytes)", 421, 3, 46000},
+		{"verifyAndExpect(uint8,bytes,bytes32)", 421, 4, 46000},
+	} {
+		t.Run(row.signature+strconv.Itoa(row.quoteBytes), func(t *testing.T) {
+			id := crypto.Keccak256([]byte(row.signature))[:4]
+			size := 4 + 32*row.words + 32*((row.quoteBytes+31)/32)
+			require.Equal(t, row.base+3*uint64(size), common.MethodGas(id, size))
+			require.Equal(t, uint64(math.MaxUint64), common.MethodGas(id, -1))
+		})
+	}
+}
+
+func TestPofqGasCanonicalCallSizes(t *testing.T) {
+	for _, row := range []struct {
+		signature string
+		inputLen  int
+		want      uint64
+	}{
+		{"scoreFill(int256,int256)", 68, 1204},
+		{"scoreBatch((int256,int256,uint128)[])", 68, 1204},
+		{"scoreBatch((int256,int256,uint128)[])", 260, 1780},
+		{"updateRollingScore(uint256,uint256,uint256,uint256,uint16)", 164, 1492},
+	} {
+		t.Run(row.signature+"/"+strconv.Itoa(row.inputLen), func(t *testing.T) {
+			id := crypto.Keccak256([]byte(row.signature))[:4]
+			require.Equal(t, row.want, common.MethodGas(id, row.inputLen))
+			require.Equal(t, row.want-12, common.MethodGas(id, row.inputLen-4))
 		})
 	}
 }

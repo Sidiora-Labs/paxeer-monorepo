@@ -17,7 +17,7 @@ use crate::index::WebIndex;
 use crate::program::ProgramRequest;
 use crate::search;
 use crate::server::{Response, RouteError, RouteTable};
-use crate::watch::{hex0x, keccak, unhex0x, EvmError, EvmRpc, WebRequest, XWEB_PRECOMPILE};
+use crate::watch::{hex0x, keccak, unhex0x, EvmError, EvmRpc, WebRequest};
 
 /// The ASCII domain every attestation preimage starts with.
 pub const DOMAIN: &[u8] = b"PAXEERX_WEB_V1";
@@ -496,7 +496,7 @@ impl Attestor {
                 let hex = canonical::digest_hex(&digest);
                 let bytes = self
                     .fetcher
-                    .fetch_bytes(&format!("{base}/objects/{hex}"), 8 * 1024 * 1024)
+                    .fetch_bytes(&format!("{base}/manifests/{hex}.json"), 8 * 1024 * 1024)
                     .map_err(AttestError::Fetch)?;
                 let actual: [u8; 32] = Sha256::digest(&bytes).into();
                 if actual != digest {
@@ -605,18 +605,8 @@ impl Attestor {
         if request.program_id == [0; 32] || request.payload.is_empty() {
             return Err(ProgramAttestError::Attest(AttestError::Payload));
         }
-        let word = rpc
-            .eth_call(XWEB_PRECOMPILE, &keccak(b"getKernelNetworkId()")[..4])
-            .map_err(ProgramAttestError::Network)?;
-        let word: [u8; 32] = word
-            .try_into()
-            .map_err(|_| ProgramAttestError::Network(EvmError::Malformed))?;
-        if word[..28] != [0; 28] {
-            return Err(ProgramAttestError::Network(EvmError::Malformed));
-        }
-        let mut network = [0; 4];
-        network.copy_from_slice(&word[28..]);
-        let network_id = u32::from_be_bytes(network);
+        let network_id =
+            crate::watch::kernel_network_id(rpc).map_err(ProgramAttestError::Network)?;
         if network_id == 0 {
             return Err(ProgramAttestError::Network(EvmError::Malformed));
         }

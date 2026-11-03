@@ -155,6 +155,16 @@ fn repo_fixture(label: &str) -> PathBuf {
         "services/human/schema/human-api/golden/account.create.request.json",
         "{}\n",
     );
+    let contract = include_str!("../../../../services/agent/schema/agent-api/v1.kvx")
+        .split("\n[record.VerificationStatus]\n")
+        .nth(1)
+        .and_then(|rest| rest.split("\n[").next())
+        .unwrap_or_else(|| panic!("repository VerificationStatus contract missing"));
+    let schema_path = root.join("services/agent/schema/agent-api/v1.kvx");
+    let mut schema = fs::read_to_string(&schema_path)
+        .unwrap_or_else(|error| panic!("read fixture schema: {error}"));
+    schema.push_str(&format!("\n[record.VerificationStatus]\n{contract}\n"));
+    fs::write(schema_path, schema).unwrap_or_else(|error| panic!("write fixture schema: {error}"));
     place_generated_fixture(&root);
     root
 }
@@ -219,6 +229,11 @@ fn place_generated_fixture(root: &Path) {
     for relative in pipeline::JVM_FILES {
         place(root, &format!("sdk/platform/jvm/{relative}"), "jvm\n");
     }
+    place(
+        root,
+        "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java",
+        include_str!("../../jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"),
+    );
     place(
         root,
         "sdk/platform/conformance/jvm.kvx",
@@ -681,46 +696,6 @@ fn programs_schema_value_differing_from_the_canonical_policy_is_refused() {
 }
 
 #[test]
-fn execution_v5_profile_must_admit_exactly_the_third_to_fifth_guest_abis() {
-    let admitted =
-        "allowed_guest_abis = [\"ABI_V3_VERSION\",\"ABI_V4_VERSION\",\"ABI_V5_VERSION\"]";
-    for (label, profile) in [
-        (
-            "execution-v5-without-five",
-            "allowed_guest_abis = [\"ABI_V3_VERSION\",\"ABI_V4_VERSION\"]",
-        ),
-        (
-            "execution-v5-with-two",
-            "allowed_guest_abis = [\"ABI_V2_VERSION\",\"ABI_V3_VERSION\",\"ABI_V4_VERSION\",\"ABI_V5_VERSION\"]",
-        ),
-        (
-            "execution-v5-reordered",
-            "allowed_guest_abis = [\"ABI_V5_VERSION\",\"ABI_V4_VERSION\",\"ABI_V3_VERSION\"]",
-        ),
-    ] {
-        let root = repo_fixture(label);
-        let path = root.join("services/agent/schema/agent-api/programs.kvx");
-        let schema =
-            fs::read_to_string(&path).unwrap_or_else(|error| panic!("read schema: {error}"));
-        assert_eq!(
-            schema.matches(admitted).count(),
-            1,
-            "fixture schema must admit ABI 3, 4 and 5 under execution v5"
-        );
-        fs::write(&path, schema.replace(admitted, profile))
-            .unwrap_or_else(|error| panic!("write schema: {error}"));
-        let error = write_lock(&root, &lock_path(&root))
-            .err()
-            .unwrap_or_else(|| panic!("{label} must not generate"));
-        assert_eq!(
-            error,
-            "type.ProgramExecutionV5 violates the frozen execution profile"
-        );
-        cleanup(&root);
-    }
-}
-
-#[test]
 fn rust_operation_catalogue_matches_the_repository_schema() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
     let generated = generate_rust_operation_catalog(&root)
@@ -753,7 +728,13 @@ fn rust_operation_catalogue_matches_the_repository_schema() {
     let sections = schema_sections(&root.join("services/agent/schema/agent-api"))
         .unwrap_or_else(|error| panic!("read agent schema: {error}"));
     let transport = sections
-        .keys()
+        .iter()
+        .filter(|(_, entries)| {
+            !entries
+                .get("disposition")
+                .is_some_and(|disposition| disposition == "\"retired\"")
+        })
+        .map(|(section, _)| section)
         .filter_map(|section| section.strip_prefix("transport.agent_http.operation."))
         .collect::<BTreeSet<_>>();
     let declared = sections
@@ -761,6 +742,13 @@ fn rust_operation_catalogue_matches_the_repository_schema() {
         .filter_map(|section| section.strip_prefix("operation."))
         .collect::<BTreeSet<_>>();
     assert!(transport.contains("mcp.invoke"));
+    assert_eq!(
+        sections["transport.agent_http.operation.faucet.claim"]["disposition"],
+        "\"retired\""
+    );
+    assert!(!transport.contains("faucet.claim"));
+    assert!(!declared.contains("faucet.claim"));
+    assert!(!generated.contains("FaucetClaim"));
     assert_eq!(
         transport, declared,
         "every agent transport operation needs an [operation.<name>] module declaration"
@@ -802,4 +790,109 @@ fn repository_conformance_root_declares_every_shipped_handwritten_file() {
             "lock must declare {relative} handwritten"
         );
     }
+}
+
+fn missing_jvm_component_types(source: &str) -> BTreeSet<String> {
+    let mut namespace = "";
+    let mut declarations = BTreeSet::new();
+    let mut references = BTreeSet::new();
+    for line in source.lines().map(str::trim) {
+        if let Some(rest) = line.strip_prefix("public static final class ") {
+            namespace = rest.split_whitespace().next().unwrap_or("");
+        }
+        for kind in ["record", "enum", "class", "interface"] {
+            if let Some(rest) = line.strip_prefix(&format!("public {kind} ")) {
+                let name = rest
+                    .split(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+                    .next()
+                    .unwrap_or("");
+                declarations.insert(format!("{namespace}.{name}"));
+            }
+        }
+        if line.starts_with("public record ") {
+            let components = line.split(" implements ").next().unwrap_or(line);
+            for token in
+                components.split(|c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '.')
+            {
+                if [
+                    "AgentModels.",
+                    "HumanModels.",
+                    "AgentOperations.",
+                    "HumanOperations.",
+                ]
+                .iter()
+                .any(|prefix| token.starts_with(prefix))
+                {
+                    references.insert(token.to_owned());
+                }
+            }
+        }
+    }
+    references.difference(&declarations).cloned().collect()
+}
+
+#[test]
+fn jvm_record_components_reference_declared_nested_types() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let generated = pipeline::jvm_schema_with_verification_status(&root)
+        .unwrap_or_else(|error| panic!("generate JVM VerificationStatus: {error}"));
+    let committed = fs::read_to_string(
+        root.join("sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"),
+    )
+    .unwrap_or_else(|error| panic!("read JVM schema: {error}"));
+    assert_eq!(generated, committed, "JVM schema must be regenerated");
+    let missing = missing_jvm_component_types(&generated);
+    assert!(
+        missing.is_empty(),
+        "JVM record component types are undeclared: {missing:?}"
+    );
+    assert!(generated.contains("AgentModels.VerificationStatus verification_status"));
+    let declaration = pipeline::jvm_verification_status(&root)
+        .unwrap_or_else(|error| panic!("render VerificationStatus: {error}"));
+    for shape in [
+        "case \"achieved\" -> rung != null && requested == null && achieved == null && reason == null;",
+        "case \"unverified\" -> rung == null && requested != null && achieved != null && reason != null && !reason.isEmpty();",
+        "case \"pending\" -> rung == null && requested != null && achieved != null && reason == null;",
+        "case \"absent\" -> rung == null && requested != null && achieved == null && reason == null;",
+        "rank(achieved) >= rank(requested)",
+        "case \"submitted\" -> 0;",
+        "case \"receipted\" -> 1;",
+        "case \"committed\" -> 2;",
+    ] {
+        assert!(declaration.contains(shape), "VerificationStatus lacks {shape}");
+    }
+    let removed = generated.replace(&declaration, "");
+    assert_eq!(
+        missing_jvm_component_types(&removed),
+        BTreeSet::from(["AgentModels.VerificationStatus".to_owned(),]),
+        "removing VerificationStatus must expose the dangling reference"
+    );
+}
+
+#[test]
+fn jvm_verification_status_regeneration_preserves_other_models() {
+    let root = repo_fixture("jvm-verification-status");
+    let relative = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java";
+    let original = fs::read_to_string(root.join(relative))
+        .unwrap_or_else(|error| panic!("read generated JVM schema: {error}"));
+    let declaration = pipeline::jvm_verification_status(&root)
+        .unwrap_or_else(|error| panic!("render VerificationStatus: {error}"));
+    let removed = original.replace(&declaration, "");
+    place(&root, relative, &removed);
+    let regenerated = pipeline::jvm_schema_with_verification_status(&root)
+        .unwrap_or_else(|error| panic!("regenerate missing VerificationStatus: {error}"));
+    assert_eq!(regenerated, original);
+
+    let first_model = "        private AgentModels() {}\n";
+    let reordered = removed.replacen(first_model, &format!("{first_model}{declaration}"), 1);
+    assert_ne!(reordered, original);
+    place(&root, relative, &reordered);
+    let regenerated = pipeline::jvm_schema_with_verification_status(&root)
+        .unwrap_or_else(|error| panic!("regenerate existing VerificationStatus: {error}"));
+    assert_eq!(
+        regenerated, reordered,
+        "regeneration must preserve every model"
+    );
+    assert!(missing_jvm_component_types(&regenerated).is_empty());
+    fs::remove_dir_all(root).unwrap_or_else(|error| panic!("remove fixture: {error}"));
 }

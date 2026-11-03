@@ -1,0 +1,35 @@
+[disposition.2.28.5.1]
+finding = "2.28.5.1"
+status = "resolved"
+evidence = "Commit 1c81ed369 retires budgetPull before any keeper call at precompiles/layerxpay/layerxpay.go:176 and replaces the retired grant submission in TestPrecompileBudgetNativeAndPull with assertions of the retired revert and unchanged balances at precompiles/layerxpay/budget_test.go:321."
+follow_up = "closure"
+
+[disposition.2.96.1.1]
+finding = "2.96.1.1"
+status = "resolved"
+evidence = "Commit 3e43ee214 adds the recordLifecycle gas expectation at precompiles/layerxauth/gas_test.go:16 and updates the frozen ABI, argument and gas-table counts to ten at precompiles/layerxauth/surface_test.go:30."
+follow_up = "closure"
+
+[disposition.2.90.1.1]
+finding = "2.90.1.1"
+status = "resolved"
+evidence = "Commit 5f61ded47 makes TestExecuteIdempotentReplay assert LXP_ERR_SEQUENCE_REUSED for the consumed actor sequence at modules/layerxledger/keeper/execute_test.go:283 and successful reuse of the key with a fresh activity at modules/layerxledger/keeper/execute_test.go:303, while TestAuthExecuteIdempotentReplay checks ErrSequenceReused and the unchanged grant at modules/layerxauth/keeper/execute_test.go:164."
+follow_up = "closure"
+
+[disposition.2.90.1.2]
+finding = "2.90.1.2"
+status = "resolved"
+evidence = "Commit 5f61ded47 changes commitListener to log a recovered panic with its height and value without setting the returned error at node/abci.go:334, while preserving errors returned by the listener at node/abci.go:340 and asserting successful commits after panics at node/commit_listener_test.go:109."
+follow_up = "closure"
+
+[disposition.2.90.1.3]
+finding = "2.90.1.3"
+status = "resolved"
+evidence = "Commit 5f61ded47 replaces TestResubmittedCheckpointKeepsChallengeWindow with TestSubmitCheckpointIsRetired, retained at modules/layerxanchor/keeper/keeper_test.go:346, which asserts ErrModuleRetired and absent checkpoint records for both submissions separated by thirty seconds, matching the restated acceptance scenario."
+follow_up = "closure"
+
+[disposition.2.24.7.1]
+finding = "2.24.7.1"
+status = "resolved"
+evidence = "Commit 1c81ed369 makes Keeper.BudgetPull immediately return ErrBudgetPullRetired at modules/layerxpay/keeper/budget_pull.go:17 and replaces TestBudgetPullWithPayerGrant with TestBudgetPullIsRetired, which asserts LXP_ERR_UNKNOWN_ACTIVITY for both retired kernel activities at modules/layerxpay/keeper/budget_pull_test.go:125 and unchanged balances, stores and call ordinal after the keeper refusal at modules/layerxpay/keeper/budget_pull_test.go:144."
+follow_up = "closure"

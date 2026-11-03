@@ -25,6 +25,8 @@ import (
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	chainskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/keeper"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
@@ -73,7 +75,9 @@ func newSeqReceiptChain9005(t *testing.T) *seqReceiptChain9005 {
 	db := dbm.NewMemDB()
 	ms := store.NewCommitMultiStore(db)
 	key := sdk.NewKVStoreKey(seqtypes.StoreKey)
+	chainsKey := sdk.NewKVStoreKey(chainstypes.StoreKey)
 	ms.MountStoreWithDB(key, sdk.StoreTypeIAVL, db)
+	ms.MountStoreWithDB(chainsKey, sdk.StoreTypeIAVL, db)
 	require.NoError(t, ms.LoadLatestVersion())
 
 	seed := bytes.Repeat([]byte{0x21}, ed25519.SeedSize)
@@ -106,12 +110,24 @@ func newSeqReceiptChain9005(t *testing.T) *seqReceiptChain9005 {
 		activities: map[uint64][32]byte{},
 		sends:      map[common.Hash]*evmrpc.SequencerSend{},
 	}
+	chains, err := chainskeeper.NewKeeper(EVMKeeper.AccountKeeper().GetCodec(), chainsKey, EVMKeeper.BankKeeper(), EVMKeeper.GetBaseDenom)
+	require.NoError(t, err)
+	ctx := c.writeCtx9005(1)
+	require.NoError(t, chains.InitGenesis(ctx, *chainstypes.DefaultGenesis()))
+	root := chainstypes.Domain{Id: 0, Name: "root", Status: chainstypes.StatusActive, Bond: sdk.ZeroInt()}
+	rootJSON, err := json.Marshal(root)
+	require.NoError(t, err)
+	ctx.KVStore(chainsKey).Set(chainstypes.DomainKey(root.Id), rootJSON)
+	ctx.KVStore(chainsKey).Set(chainstypes.NameIndexKey(root.Name), binary.BigEndian.AppendUint32(nil, root.Id))
 	require.NoError(t, c.keeper.InitGenesis(c.writeCtx9005(1), seqtypes.GenesisState{
 		Leaders:     [][32]byte{leader},
 		ReceiptKeys: []seqtypes.ReceiptKey{{KeyId: keyID, PublicKey: public, FirstHeight: 1, LastHeight: 1999}},
 	}))
 	for height := int64(1); height <= 6; height++ {
 		c.commit9005(height)
+		domain, found := chains.GetDomain(c.ctxProvider(height), 0)
+		require.True(t, found)
+		require.Equal(t, root, domain)
 	}
 	return c
 }
@@ -123,14 +139,18 @@ func (c *seqReceiptChain9005) commit9005(height int64) {
 	require.Equal(c.t, height, c.ms.Commit(true).Version)
 	db := dbm.NewMemDB()
 	snapshot := store.NewCommitMultiStore(db)
-	snapshot.MountStoreWithDB(c.key, sdk.StoreTypeIAVL, db)
-	require.NoError(c.t, snapshot.LoadLatestVersion())
-	src, dst := c.ms.GetKVStore(c.key), snapshot.GetKVStore(c.key)
-	it := src.Iterator(nil, nil)
-	for ; it.Valid(); it.Next() {
-		dst.Set(bytes.Clone(it.Key()), bytes.Clone(it.Value()))
+	for _, key := range c.ms.StoreKeys() {
+		snapshot.MountStoreWithDB(key, sdk.StoreTypeIAVL, db)
 	}
-	require.NoError(c.t, it.Close())
+	require.NoError(c.t, snapshot.LoadLatestVersion())
+	for _, key := range c.ms.StoreKeys() {
+		src, dst := c.ms.GetKVStore(key), snapshot.GetKVStore(key)
+		it := src.Iterator(nil, nil)
+		for ; it.Valid(); it.Next() {
+			dst.Set(bytes.Clone(it.Key()), bytes.Clone(it.Value()))
+		}
+		require.NoError(c.t, it.Close())
+	}
 	snapshot.Commit(true)
 	c.snapshots[height], c.latest = snapshot, height
 }
@@ -307,6 +327,10 @@ func (c *seqReceiptChain9005) commitBatch9005(height int64, toSeq uint64) {
 	require.NoError(c.t, err)
 	msg.Sig = ed25519.Sign(ed25519.NewKeyFromSeed(c.seed), digest[:])
 	require.NoError(c.t, c.keeper.DeliverSequenceBatch(c.writeCtx9005(height), msg))
+	exported, err := c.keeper.ExportGenesis(c.writeCtx9005(height))
+	require.NoError(c.t, err)
+	require.Equal(c.t, toSeq, exported.LastSeq)
+	require.Equal(c.t, last, exported.LastSeqHash)
 	c.commit9005(height)
 	c.committed = toSeq
 }

@@ -353,7 +353,10 @@ impl AttestorClient {
         for (node, result) in self.post_all(&nodes, PATH_GENERATE, &body, None) {
             let raw = result?;
             let response: KeyBody = serde_json::from_slice(&raw).map_err(|_| malformed(&node))?;
-            if response.node_id != node || response.key_id != key_id || response.curve != "ed25519"
+            if response.node_id != node
+                || response.key_id != key_id
+                || response.curve != "ed25519"
+                || response.audit_sequence == 0
             {
                 return Err(malformed(&node));
             }
@@ -525,14 +528,14 @@ pub struct AttestorSigner {
     native_replays: Mutex<BTreeMap<String, NativeReplay>>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AttestorNodeConfig {
     pub id: String,
     pub address: SocketAddr,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AttestorSignerConfig {
     pub nodes: Vec<AttestorNodeConfig>,
@@ -564,6 +567,9 @@ impl AttestorSigner {
     pub fn from_config(config: &AttestorSignerConfig) -> Result<Self, AttestorError> {
         if config.evm_key_id.trim().is_empty() || !valid_identifier(&config.evm_key_id) {
             return Err(AttestorError::Configuration("EVM key id"));
+        }
+        if config.evm_address == [0; 20] {
+            return Err(AttestorError::Configuration("attestor chain or address"));
         }
         if config.timeout_seconds == 0 || config.timeout_seconds > 60 {
             return Err(AttestorError::Configuration("attestor timeout"));
@@ -882,7 +888,7 @@ impl AttestorSigner {
         let signature = match future.as_mut().poll(&mut context) {
             std::task::Poll::Ready(result) => result,
             std::task::Poll::Pending => {
-                return Err(AttestorError::Configuration("synchronous attestor signer"))
+                return Err(AttestorError::Configuration("synchronous attestor signer"));
             }
         };
         drop(future);

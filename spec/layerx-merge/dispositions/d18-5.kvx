@@ -1,0 +1,124 @@
+[disposition.18.1119.1.3]
+finding = "18.1119.1.3"
+status = "resolved"
+evidence = "Commit 9ea5dac81 replaced the level loops with Submitted and Receipted rungs at services/human/crates/layerx-human-service/tests/detail_rungs.rs:164 and Committed at line 218, retaining the nonfinal and final assertions."
+
+[disposition.18.1121.1.1]
+finding = "18.1121.1.1"
+status = "resolved"
+evidence = "Commit 33be5948f regenerated client-exchange.json with one authenticated log in each of its five settlement responses and published the buyer sequencer authorization metadata consumed at services/interop/crates/x-websearch/tests/payment.rs:3593."
+
+[disposition.18.1121.1.2]
+finding = "18.1121.1.2"
+status = "resolved"
+evidence = "Commit 1794c3d55 ported the exact payload to idempotencyKey, receiptDigest, txHash and verificationLevel at services/agent/crates/layerx-mcp/src/tools/web.rs:1369, while tests/web.rs:658 retrieves receipt bytes from the gateway recording by txHash."
+
+[disposition.18.1121.1.3]
+finding = "18.1121.1.3"
+status = "resolved"
+evidence = "Commit 1794c3d55 changed the metered request to LAYERX-PAYER-ADDRESS at services/agent/crates/layerx-mcp/src/tools/web.rs:962 and bound the recorded tests to eip155:125 at services/agent/crates/layerx-mcp/tests/web.rs:48."
+
+[disposition.18.1121.1.4]
+finding = "18.1121.1.4"
+status = "resolved"
+evidence = "Commit 1794c3d55 replaced DID-derived payer accounts with the payer-address owner and ledger accountId call now at services/agent/crates/layerx-mcp/src/tools/web.rs:1221, retaining the PAX main-account special case at line 1259."
+
+[disposition.18.1121.1.5]
+finding = "18.1121.1.5"
+status = "resolved"
+evidence = "Commit 1794c3d55 changed purpose_of to hash receiver_address at services/agent/crates/layerx-mcp/src/tools/web.rs:1909 and check_receipt to verify authenticated PaymentExact logs, whose payer, payee, asset and amount checks remain at line 1545."
+
+[disposition.18.1121.1.6]
+finding = "18.1121.1.6"
+status = "resolved"
+evidence = "Commit 1794c3d55 changed the routed web.fetch request to read the exact USDC idempotency key from gateway/buyer.json at services/agent/crates/layerx-mcp/tests/web.rs:2092, preserving the receipt and content assertions that follow."
+
+[disposition.18.1126.1.1]
+finding = "18.1126.1.1"
+status = "resolved"
+evidence = "Commit 3ed1f47aa supplied the sealed-layer source missing from 07d11e56d, installing it at node/sequencer/standby_role.go:140 and implementing SealForFinalize at line 288 so consensus commits the replayed layer while Execute retains its receipt-byte comparison."
+
+[disposition.18.1129.1.1]
+finding = "18.1129.1.1"
+status = "resolved"
+evidence = "Commit 33be5948f restored the server authority window to receipt_key_id with heights zero through u64::MAX at services/interop/crates/x-websearch/tests/payment.rs:394, issued recordings from the address-bound payer accounts and regenerated all five client settlements with logs."
+
+[disposition.18.1129.1.2]
+finding = "18.1129.1.2"
+status = "resolved"
+evidence = "Commit d20d224d8 taught unhex to accept bare lowercase 64-hex assets at services/interop/crates/layerx-x402/src/buyer.rs:656 and added authenticated settlement logs at services/interop/crates/layerx-x402/src/seller.rs:403."
+
+[disposition.18.1129.1.3]
+finding = "18.1129.1.3"
+status = "resolved"
+evidence = "Commit 33be5948f restored the PAX main-account offer at services/interop/crates/x-websearch/src/payment.rs:1306 and the corresponding payer-account special case at line 162, matching the preserved per-currency account assertions in tests/payment.rs:1279."
+
+[disposition.18.1129.1.4]
+finding = "18.1129.1.4"
+status = "resolved"
+evidence = "Commit ffad6623f added metered PaymentDrawn capture at services/interop/crates/layerx-x402/src/buyer.rs:516, and 33be5948f repinned conformance, ported native RPC and PAX assertions, added native refusal rules at tests/payment.rs:3364 and moved RECEIVER_SEQUENCE to 19 at line 2730."
+
+[disposition.18.1129.1.5]
+finding = "18.1129.1.5"
+status = "resolved"
+evidence = "Commit 33be5948f bound configure_with to chain 125 at services/interop/crates/x-websearch/tests/payment.rs:387 and ported the transaction, RPC and network assertions with the regenerated recordings, including the eip155:125 assertion at line 1249."
+
+[disposition.18.1130.1.1]
+finding = "18.1130.1.1"
+status = "resolved"
+evidence = "Commit 853be0b59 replaced the two stray programs fee keys with a conditional full programs-module load at modules/lxphost/host.go:1164, and be598ef6d seeded the resolution fixture whose consecutive receipt roots are still compared at modules/lxphost/resolution_test.go:224."
+
+[disposition.18.1131.1.1]
+finding = "18.1131.1.1"
+status = "resolved"
+evidence = "Commit adb2e7429 ported the shared StartupConfig literal to the responder URL, expected_chain_id and ReceiptKeySource::PinnedFile at services/agent/crates/layerx-agentd/tests/support/mod.rs:459."
+
+[disposition.18.1131.1.2]
+finding = "18.1131.1.2"
+status = "resolved"
+evidence = "Commit c4a51d824 ported config_with_authority to node_endpoint, expected_chain_id and receipt_key_source at services/agent/crates/layerx-agentd/tests/handshake_gate.rs:138, replacing the removed startup fields used by the included fixture."
+
+[disposition.18.1131.1.3]
+finding = "18.1131.1.3"
+status = "resolved"
+evidence = "Commit 2463da723 replaced the obsolete seven-field ProofBundleRequest with the receipt-proof request at services/agent/crates/layerx-agentd/tests/checkpoint.rs:151, retaining explicit BelowRequestedRung and NotCommitted refusal assertions."
+
+[disposition.18.1131.1.4]
+finding = "18.1131.1.4"
+status = "resolved"
+evidence = "Commit e3484ca97 replaced the obsolete trust constructor and settlement accessor with receipt-key and validator-set vectors at services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs:188, followed by accessor and invalid-entry assertions."
+
+[disposition.18.1131.1.5]
+finding = "18.1131.1.5"
+status = "resolved"
+evidence = "Commit adb2e7429 replaced Version arguments with supported and unsupported paxd client strings at services/agent/crates/layerx-agentd/tests/migration.rs:242, preserving UnsupportedNodeInterface, UnsupportedContract and UnsupportedSdk assertions."
+
+[disposition.18.1132.1.1]
+finding = "18.1132.1.1"
+status = "resolved"
+evidence = "Commit 9ea5dac81 removed the activity-module rung errors, with direct finality.rung use at services/human/crates/layerx-human-service/src/activity/detail.rs:292, and 55929f4c2 completed the shared readiness helper and evidence_node port without the former circular dependency."
+
+[disposition.18.1132.1.2]
+finding = "18.1132.1.2"
+status = "resolved"
+evidence = "Commit 54e0666d0 supplied ReclaimAgentContext.nonce in the reclaim fixture, still present at services/human/crates/layerx-human-service/tests/reclaim.rs:107 alongside the separately declared account_sequence field now carried by the current context type."
+
+[disposition.18.1135.1.1]
+finding = "18.1135.1.1"
+status = "resolved"
+evidence = "Commit 853be0b59 made governance load the full programs module only when progfee/active/v1 contains an LXFR1 record at modules/lxphost/host.go:1166, leaving the programs module out of fresh-chain governance loads."
+
+[disposition.18.1135.1.2]
+finding = "18.1135.1.2"
+status = "resolved"
+evidence = "Commit be598ef6d added seedProgramsFeeRecord before the resolution sequence at modules/lxphost/resolution_test.go:205, so the fixture supplies the required fee record while retaining its success and receipt-root continuity assertions."
+
+[disposition.18.1136.1.1]
+finding = "18.1136.1.1"
+status = "resolved"
+evidence = "Commit 646a1205d pinned Vite 7.3.7 for the app, both plugins and Vitest as recorded at apps/bridge/pnpm-lock.yaml:17196, and repaired the bridge write-request union and parsed import event types without casting the plugins."
+
+[disposition.18.1142.1.1]
+finding = "18.1142.1.1"
+status = "resolved"
+evidence = "Commit 886bdaf0f ported reclaim journeys to type-2 transactions with 65-byte signatures and verify_before_submit at services/human/crates/layerx-human-service/tests/journey_faults.rs:770, while 55929f4c2 repaired evidence_node, 1c2c252a7 supplied ureq and b6b097019 ported export tests to receipt bundles."

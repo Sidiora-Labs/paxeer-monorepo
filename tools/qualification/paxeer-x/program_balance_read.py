@@ -227,20 +227,20 @@ def verify(_args):
 
 def main():
     os.umask(0o077)
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(allow_abbrev=False)
     sub = parser.add_subparsers(dest='operation', required=True)
-    before = sub.add_parser('snapshot')
+    before = sub.add_parser('snapshot', allow_abbrev=False)
     before.add_argument('--compiler', required=True)
     before.add_argument('--cargo', required=True)
     before.add_argument('--cppflags', required=True)
     before.add_argument('--cflags', required=True)
     before.add_argument('--ldflags', required=True)
     before.set_defaults(run=snapshot)
-    producer = sub.add_parser('record')
+    producer = sub.add_parser('record', allow_abbrev=False)
     for name in ['native', 'accounts-tests', 'library', 'staticlib', 'cargo-json', 'guests', 'generated-header']:
         producer.add_argument('--' + name, required=True)
     producer.set_defaults(run=record)
-    gate = sub.add_parser('verify')
+    gate = sub.add_parser('verify', allow_abbrev=False)
     gate.set_defaults(run=verify)
     args = parser.parse_args()
     try:

@@ -129,6 +129,23 @@ pub struct Outbox {
     records: BTreeMap<[u8; 32], OutboxRecord>,
 }
 
+pub(crate) fn indexed_submission_owner_entry(
+    tenant: &TenantId,
+    idempotency_key: [u8; 32],
+    transaction_hash: [u8; 32],
+    principal: &str,
+) -> Result<(TenantKey, Vec<u8>), StoreError> {
+    let mut bytes = Vec::with_capacity(65 + principal.len());
+    bytes.push(2);
+    bytes.extend_from_slice(&idempotency_key);
+    bytes.extend_from_slice(&transaction_hash);
+    bytes.extend_from_slice(principal.as_bytes());
+    Ok((
+        crate::store::activity_owner_key(tenant, transaction_hash)?,
+        bytes,
+    ))
+}
+
 impl Outbox {
     /// Durably queues exact raw transaction bytes and returns their keccak hash.
     ///
@@ -164,7 +181,14 @@ impl Outbox {
         if verified.idempotency_key() != submission_id {
             return Err(OutboxError::IdempotencyMismatch);
         }
-        self.enqueue_exact(store, tenant, verified.into_exact_bytes(), origin, owner)
+        let indexed_owner = owner.map(|principal| (verified.idempotency_key(), principal));
+        self.enqueue_exact(
+            store,
+            tenant,
+            verified.into_exact_bytes(),
+            origin,
+            indexed_owner,
+        )
     }
 
     fn enqueue_exact(
@@ -173,7 +197,7 @@ impl Outbox {
         tenant: TenantId,
         signed_canonical_bytes: Vec<u8>,
         origin: Option<PreparationAuthorization>,
-        owner: Option<&str>,
+        owner: Option<([u8; 32], &str)>,
     ) -> Result<[u8; 32], OutboxError> {
         let submission_id = transaction_hash(&signed_canonical_bytes);
         let key = TenantKey::new(tenant.clone(), ObjectKind::Outbox, submission_id.to_vec())
@@ -208,14 +232,35 @@ impl Outbox {
             signed_canonical_bytes: signed_canonical_bytes.clone(),
             origin,
         };
-        store
-            .record_submission_with_activity_owner(
-                tenant,
-                submission_id.to_vec(),
+        let mut inserts = vec![
+            (key, encode_record(&record)?),
+            (
+                TenantKey::new(
+                    tenant.clone(),
+                    ObjectKind::PreparedActivity,
+                    submission_id.to_vec(),
+                )
+                .map_err(OutboxError::Store)?,
                 signed_canonical_bytes,
-                encode_record(&record)?,
-                owner.map(|principal| (activity_id, principal)),
-            )
+            ),
+            (
+                TenantKey::new(
+                    tenant.clone(),
+                    ObjectKind::Idempotency,
+                    submission_id.to_vec(),
+                )
+                .map_err(OutboxError::Store)?,
+                b"pending".to_vec(),
+            ),
+        ];
+        if let Some((idempotency_key, principal)) = owner {
+            inserts.push(
+                indexed_submission_owner_entry(&tenant, idempotency_key, submission_id, principal)
+                    .map_err(OutboxError::Store)?,
+            );
+        }
+        store
+            .apply_program_approval_batch(Vec::new(), inserts, Vec::new())
             .map_err(OutboxError::Store)?;
         self.records.insert(submission_id, record);
         Ok(submission_id)
@@ -245,7 +290,10 @@ impl Outbox {
         let encoded = store.get(&outbox_key).ok_or(OutboxError::NotFound)?;
         let signed = store.get(&signed_key).ok_or(OutboxError::Corrupt)?;
         let mut record = decode_record(encoded.bytes(), tenant)?;
+        let (call, signature) = decode_signed(signed.bytes()).map_err(|_| OutboxError::Corrupt)?;
+        recover_sender(&call, &signature).map_err(|_| OutboxError::Corrupt)?;
         if record.status.submission_id != submission_id
+            || record.status.activity_id != submission_id
             || transaction_hash(signed.bytes()) != submission_id
         {
             return Err(OutboxError::Corrupt);

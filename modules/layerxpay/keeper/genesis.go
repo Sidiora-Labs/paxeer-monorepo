@@ -8,6 +8,8 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/kv"
 )
 
+// InitGenesis validates the complete genesis envelope before writing params or
+// records. Kernel records belong to the shared host store, not the pay store.
 func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) error {
 	if err := gs.Validate(); err != nil {
 		return err
@@ -17,9 +19,15 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) error {
 	for _, record := range gs.KernelRecords {
 		store.Set(record.Key, append([]byte{}, record.Value...))
 	}
+	payStore := ctx.KVStore(k.storeKey)
+	for _, record := range gs.AgentStreamMetadata {
+		payStore.Set(record.Key, bytes.Clone(record.Value))
+	}
 	return nil
 }
 
+// ExportGenesis returns a detached snapshot of pay params, kernel families and
+// agent stream metadata for the application's JSON genesis boundary.
 func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	gs := &types.GenesisState{Params: k.GetParams(ctx)}
 	store := ctx.KVStore(k.hostKey)
@@ -35,5 +43,12 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 		}
 		iterator.Close()
 	}
+	iterator := sdk.KVStorePrefixIterator(ctx.KVStore(k.storeKey), []byte(types.AgentStreamMetadataPrefix))
+	for ; iterator.Valid(); iterator.Next() {
+		gs.AgentStreamMetadata = append(gs.AgentStreamMetadata, kv.Pair{
+			Key: bytes.Clone(iterator.Key()), Value: bytes.Clone(iterator.Value()),
+		})
+	}
+	iterator.Close()
 	return gs
 }

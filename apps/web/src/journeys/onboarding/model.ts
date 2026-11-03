@@ -1,6 +1,6 @@
 import { copyEntry } from "../../../copy/runtime.ts";
 import type { EvidenceRef, Journey, JourneyStage, JourneyState } from "../../api/index.ts";
-import { verificationRung, type StatusKey } from "../../kit/model";
+import { verificationRung, type StatusKey } from "../../kit/model.ts";
 
 export const ONBOARDING_DECISION_LIMIT = 3;
 export const CREATE_ACCOUNT_DECISIONS = 2;
@@ -59,7 +59,10 @@ function verifiedReceipt(evidence: EvidenceRef): boolean {
 
 export function accountActive(journey: Journey): boolean {
   const protocolStage = journey.stages.find((stage) => stage.copy_key === PROTOCOL_IDENTITY_STAGE_KEY);
-  return protocolStage !== undefined && protocolStage.evidence.some(verifiedReceipt);
+  return journey.state !== "refused" && journey.refusal === undefined
+    && protocolStage !== undefined
+    && (protocolStage.state === "done" || protocolStage.state === "done-finalised")
+    && protocolStage.evidence.some(verifiedReceipt);
 }
 
 export function completedStageIds(journey: Journey): ReadonlySet<string> {
