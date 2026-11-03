@@ -20,7 +20,8 @@ const pair = generateKeyPairSync("ed25519");
 const pin = { keyId, publicKey: new Uint8Array(pair.publicKey.export({ type: "spki", format: "der" }).subarray(-32)),
   first_height: 1n, last_height: 1000n };
 const requirements = { scheme: "metered", network: "eip155:125", amount: "40", asset: hex(draw.assetId),
-  payTo: hex(payee), maxTimeoutSeconds: 120 };
+  payTo: hex(payee), maxTimeoutSeconds: 120,
+  extra: { layerx: { commitment: "receipted", purposeHash: draw.assetId.toString("hex") } } };
 const drawnTopic = keccak256(new TextEncoder().encode("PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)"));
 
 function uint(value, width) {
