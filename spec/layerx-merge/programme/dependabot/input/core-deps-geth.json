@@ -1,0 +1,28 @@
+{
+ "slug": "core-deps-geth",
+ "manifests": [
+  "core/deps/geth/go.mod"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-9f3f-wv7r-qc8r",
+   "number": 2042,
+   "package": "github.com/pion/dtls/v2",
+   "ecosystem": "go",
+   "manifest": "core/deps/geth/go.mod",
+   "severity": "medium",
+   "range": "<= 2.2.12",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-34rh-wp3j-6cxc",
+   "number": 2057,
+   "package": "github.com/pion/stun/v2",
+   "ecosystem": "go",
+   "manifest": "core/deps/geth/go.mod",
+   "severity": "medium",
+   "range": "<= 2.0.0",
+   "patched": null
+  }
+ ]
+}

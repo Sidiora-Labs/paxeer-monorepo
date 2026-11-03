@@ -16,7 +16,6 @@ use layerx_human_service::server::{
 };
 use layerx_human_service::store::{PrincipalScope, PrincipalStore, Table};
 use layerx_human_test_support as support;
-use layerx_proof::checkpoint::SettlementDomain;
 use layerx_types::account::AccountId;
 use layerx_types::clock::Clock;
 use layerx_types::ids::Did;
@@ -383,13 +382,7 @@ impl PrivilegedHumanServices for BalanceServices {
     ) -> Result<BackendResponse, ApiFailure> {
         let result = match request.operation.name.as_str() {
             "account.balance" => AccountBalance::read(&mut self.agent, scope, now, 10)?,
-            "home.summary" => AccountBalance::read_home_summary(
-                &mut self.agent,
-                scope,
-                now,
-                10,
-                SettlementDomain::new(125, [0x11; 20]),
-            )?,
+            "home.summary" => AccountBalance::read_home_summary(&mut self.agent, scope, now, 10)?,
             _ => {
                 return self
                     .identity
