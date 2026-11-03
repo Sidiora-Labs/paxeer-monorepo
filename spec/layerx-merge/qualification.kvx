@@ -20419,3 +20419,107 @@ symbol = "v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes"
 observed = "Attempt 13: the test fails with Error: Decode on the terminal-v5 corpus the verify builds with scripts/qualification/paxeer-x/program-terminal-v5.py; the error names neither the record nor the offset."
 assumption = "The decoder error carries record and offset; the decoder follows the kernel terminal-v5 wire or the script's path is reported."
 severity = "medium"
+
+[finding.22.99.155.1]
+task = "22.99.155"
+file = "services/platform/hosted/indexer/tests/history_position.rs"
+symbol = "proof_layerxpay_0x101b"
+observed = "Attempt 1: proof_layerxledger_0x101a, proof_layerxpay_0x101b and proof_layerxauth_0x101c_receipts panic because the Go producer link step cannot find the kernel native libraries; every other indexer test passes."
+assumption = "The task runs in the mixed profile and builds the native libraries first (gotcha 2955); the attempt-1 tree is requalified."
+severity = "medium"
+
+[finding.22.99.154.1]
+task = "22.99.154"
+file = "services/interop/crates/layerx-bridge-relayer/tests/outbound_isolation.rs"
+symbol = "outbound_isolation_captured_production_boundaries"
+observed = "Attempt 1: the test refuses without LAYERX_BRIDGE_CAPTURE_MANIFEST, the captured production boundary corpus; every other relayer test passes."
+assumption = "Producer input (decision 2506): the verify excludes the test by name and the repair record lists it with its input."
+severity = "low"
+
+[finding.13.99.1.3]
+task = "13.99.1"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx_programs_ai_market.wasm"
+observed = "Attempt 4: the last measured deployment was 534851 bytes against the 520192-byte limit; the final reductions were committed unmeasured after the repair budget ran out."
+assumption = "The next attempt measures first and reports the per-function size table when the limit is out of reach."
+severity = "medium"
+
+[finding.22.99.148.1]
+task = "22.99.148"
+file = "sdk/platform/conformance/fixtures/intent-plan-v1.json"
+symbol = "plan_request"
+observed = "Attempt 1: intent.test.ts fails because plan_request in the fixture carries the resolved account and evm_address that decision 2320 reserves for plan_result.legs; program-executed-v3.test.ts is repaired."
+assumption = "The fixture joins the task's paths and is corrected to decision 2320; the Python intent test must keep passing."
+severity = "medium"
+
+[finding.22.99.106.1]
+task = "22.99.106"
+file = "spec/layerx-merge/programme/sweeps/repairs/go-modules.8.kvx"
+symbol = "modules/evm"
+observed = "Attempt 1: go test ./modules/evm/ passes at the attempt revision; the done step failed only because modules/evm in the paths was unchanged."
+assumption = "Paths reduced to the record (already-passing target)."
+severity = "low"
+
+[finding.22.99.150.1]
+task = "22.99.150"
+file = "services/agent/sdk/python/pyproject.toml"
+symbol = "build_backend"
+observed = "Attempt 1: the build command installed the Python SDK in editable mode, which the local build backend does not support (no build_editable hook); nothing was changed."
+assumption = "The build command becomes the pytest version check, like the sibling collection tasks."
+severity = "low"
+
+[finding.22.23.11.2]
+task = "22.23.11"
+file = "services/agent/crates/layerx-agentd-host/tests/payer.rs"
+symbol = "ExecutedReceipt"
+observed = "Attempt 3: the dependent-crate check fails in layerx-agentd-host tests payer and payer_evm (payer.rs:220): the initializer lacks the payment_denom field the task added to ExecutedReceipt."
+assumption = "The dependent tests join the paths and are updated with the field; continue from attempt 3."
+severity = "medium"
+
+[finding.22.99.35.4]
+task = "22.99.35"
+file = ".cursor/rules/spec-workflow.mdc"
+symbol = "specgen"
+observed = "Attempt 5: the renderer check passes and three pointer files changed; the done step failed only because .cursor/rules/spec-workflow.mdc, listed in the paths, already matched the renderer output."
+assumption = "The four pointer files move to planned paths; the attempt-5 tree is requalified."
+severity = "low"
+
+[finding.14.99.1.1]
+task = "14.99.1"
+file = "apps/explorer/toolkit/chakra/stat.tsx"
+symbol = "Stat.Group"
+observed = "Attempt 2: one type error remains, stat.tsx:8 maps Stat.Group, which the installed @chakra-ui/react namespace does not export; the repair budget was exhausted."
+assumption = "Continue from attempt 2 with the namespace members the installed version exports."
+severity = "low"
+
+[finding.22.99.117.1]
+task = "22.99.117"
+file = "storage/state_db/sc/memiavl/tree.go"
+symbol = "TestReceiptKeysAppHashVector"
+observed = "Attempt 1: the recorded app_hash at height 1200 differs because the tree writes version 1 where the initial version is 1200 (tree.go:165), and TestProofSequencerModule reports the JSON view of an older receipt missing paymentDenom."
+assumption = "The tree honours the initial version and the older receipt view carries paymentDenom; the storage tree and rpc/sequencer_receipt.go are planned paths."
+severity = "high"
+
+[finding.22.99.145.1]
+task = "22.99.145"
+file = "precompiles/layerxprograms/submit.go"
+symbol = "TestProgramsSubmitCarriesFeeLimitAndKey"
+observed = "Attempt 1: after the keeper-interface and constructor-equality repairs, the submit test, the proof test 0x101d, FuzzProgramsDecodeArgs corpus entries 62 to 86 and TestProgramsPrecompileListedInMergeSet (reflection on an unexported field) fail."
+assumption = "The remaining failures are inside the task's paths and are repaired in the next attempt."
+severity = "medium"
+
+[finding.22.99.156.1]
+task = "22.99.156"
+file = "programs/vendor/wasm-instrument/src/gas_metering/validation.rs"
+symbol = "test_build_control_flow_graph"
+observed = "Attempt 1: after restoring the default-feature memory-growth metering, the vendored control-flow graph test panics at validation.rs:429; 37 tests pass."
+assumption = "The vendored test follows the patched cost model or the patch is corrected; continue from attempt 1."
+severity = "medium"
+
+[finding.22.99.72.3]
+task = "22.99.72"
+file = "services/platform/hosted/gateway/tests/chain_reads.rs"
+symbol = "readyz_reports_the_consensus_endpoint"
+observed = "Attempt 6: the readiness logic passes; readyz_reports_the_consensus_endpoint fails at chain_reads.rs:64 on a fixed temporary directory that already exists when the tests run in parallel."
+assumption = "The fixture takes a unique temporary directory; continue from attempt 6."
+severity = "low"
