@@ -135332,7 +135332,7 @@ do_5 = "Attempt 2: the subscription and block changes are in scope; the build fa
 
 [task.18.1508.2]
 title = "Give the launchpad REST package tests fixtures the repository holds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
