@@ -2,7 +2,7 @@
 mod attestor_cluster;
 
 use attestor_cluster::{checked, scratch, Cluster, Result};
-use layerx_client::lni::framing::{read_frame, write_frame};
+use layerx_client::frame::framing::{read_frame, write_frame};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_types::clock::Deadline;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};

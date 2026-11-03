@@ -1,0 +1,18 @@
+{
+ "slug": "sdk-js",
+ "manifests": [
+  "sdk/js/package-lock.json"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-848j-6mx2-7j84",
+   "number": 4465,
+   "package": "elliptic",
+   "ecosystem": "npm",
+   "manifest": "sdk/js/package-lock.json",
+   "severity": "low",
+   "range": "<= 6.6.1",
+   "patched": null
+  }
+ ]
+}

@@ -293,7 +293,6 @@ impl AccountBalance {
         scope: &mut crate::store::PrincipalScope<'_>,
         now: u64,
         freshness_seconds: u64,
-        _settlement_domain: layerx_proof::checkpoint::SettlementDomain,
     ) -> Result<serde_json::Value, ApiFailure> {
         Self::read_native_home_summary(agent, scope, now, freshness_seconds)
     }
@@ -733,15 +732,7 @@ impl ProductionComponents {
             custody,
             attestor,
             security: Mutex::new(security),
-            stream: super::stream_journal::StreamJournal::new(
-                config.stream_cursor_key,
-                layerx_proof::checkpoint::SettlementDomain::new(
-                    layerx_agentd::node_rpc::NodeRpcConfig::from_environment()
-                        .map_err(|error| error.to_string())?
-                        .chain_id,
-                    precompile(0x1013),
-                ),
-            ),
+            stream: super::stream_journal::StreamJournal::new(config.stream_cursor_key),
             feed: Feed::new(config.activity_freshness_seconds)
                 .map_err(|_| "activity freshness bound is invalid".to_owned())?,
             activity_export_maximum_bytes: config.activity_export_maximum_bytes,
