@@ -1,0 +1,1342 @@
+[audit.22.30.41]
+task = "22.30.41"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 153
+findings = 38
+docs_reviewed = 6
+upgrade_ready = false
+blocking = ["1", "2", "11", "21", "22"]
+
+[file.1]
+path = "apps/launchpad/web/next.config.ts"
+lines = 117
+verdict = "clean"
+note = "Read in full: delegated backend rewrite admission, seven SDK transpilation targets, runtime image origins, bounded raster decoding, development roots and Sentry wrapping. No retired RPC endpoint in this file."
+
+[file.2]
+path = "sdk/launchpad/packages/candles-sdk/package.json"
+lines = 22
+verdict = "clean"
+note = "Exports and build/test entrypoints resolve the local TypeScript implementation; no runtime dependency or unavailable phase script is introduced."
+
+[file.3]
+path = "sdk/launchpad/packages/candles-sdk/src/index.ts"
+lines = 255
+verdict = "issues"
+note = "Read all request, symbol, config, history and error decoders and the timeout/abort path; vendor page-bound and continuation disagreements are recorded. Response buffering also lacks a byte bound."
+
+[file.4]
+path = "sdk/launchpad/packages/candles-sdk/test/client.test.mjs"
+lines = 134
+verdict = "issues"
+note = "Read all loopback HTTP, shape, cancellation and refusal tests; the missing real Go producer proof is recorded."
+
+[file.5]
+path = "sdk/launchpad/packages/candles-sdk/tsconfig.json"
+lines = 14
+verdict = "clean"
+note = "Read full TypeScript compiler configuration, extends/include/exclude and declaration/output settings against package exports and tests; no skipped assertion or retired transport is enabled here."
+
+[file.6]
+path = "sdk/launchpad/packages/indexer-sdk/README.md"
+lines = 13
+verdict = "clean"
+note = "Accurately describes stats-workers transactions, the adapter to recentTrades and removal of the historical BFF route; does not claim canonical stream durability."
+
+[file.7]
+path = "sdk/launchpad/packages/indexer-sdk/package.json"
+lines = 22
+verdict = "clean"
+note = "Read every manifest field: package identity, local exports, scripts, workspace/runtime dependencies and compiler tools resolve the declared implementation; generated output is not mistaken for an absent source file."
+
+[file.8]
+path = "sdk/launchpad/packages/indexer-sdk/src/index.ts"
+lines = 68
+verdict = "issues"
+note = "Transaction address validation, string amounts and transactions-to-trades adaptation agree with stats-workers; default deadline and buffering risk recorded."
+
+[file.9]
+path = "sdk/launchpad/packages/indexer-sdk/test/http.test.mjs"
+lines = 69
+verdict = "clean"
+note = "Read the loopback transactions, malformed-response and HTTP/caller-abort cases; assertions preserve string money and explicit failure."
+
+[file.10]
+path = "sdk/launchpad/packages/indexer-sdk/tsconfig.json"
+lines = 1
+verdict = "clean"
+note = "Read full TypeScript compiler configuration, extends/include/exclude and declaration/output settings against package exports and tests; no skipped assertion or retired transport is enabled here."
+
+[file.11]
+path = "sdk/launchpad/packages/metadata-sdk/package.json"
+lines = 20
+verdict = "clean"
+note = "Read every manifest field: package identity, local exports, scripts, workspace/runtime dependencies and compiler tools resolve the declared implementation; generated output is not mistaken for an absent source file."
+
+[file.12]
+path = "sdk/launchpad/packages/metadata-sdk/src/index.ts"
+lines = 197
+verdict = "issues"
+note = "Read metadata parsers, batch mapping, signed multipart upload and URL validation against metadata handlers; bounded request lifetime/body gap recorded."
+
+[file.13]
+path = "sdk/launchpad/packages/metadata-sdk/test/client.test.ts"
+lines = 91
+verdict = "clean"
+note = "Read loopback metadata, null/optional fields, batch, upload and failure tests; signed multipart fields and response parsing match the service path."
+
+[file.14]
+path = "sdk/launchpad/packages/metadata-sdk/tsconfig.json"
+lines = 8
+verdict = "clean"
+note = "Read full TypeScript compiler configuration, extends/include/exclude and declaration/output settings against package exports and tests; no skipped assertion or retired transport is enabled here."
+
+[file.15]
+path = "sdk/launchpad/packages/production-contracts-v2/package.json"
+lines = 29
+verdict = "clean"
+note = "Read every manifest field: package identity, local exports, scripts, workspace/runtime dependencies and compiler tools resolve the declared implementation; generated output is not mistaken for an absent source file."
+
+[file.16]
+path = "sdk/launchpad/packages/production-contracts/package.json"
+lines = 29
+verdict = "clean"
+note = "Read every manifest field: package identity, local exports, scripts, workspace/runtime dependencies and compiler tools resolve the declared implementation; generated output is not mistaken for an absent source file."
+
+[file.17]
+path = "sdk/launchpad/packages/production-contracts/src/index.ts"
+lines = 2
+verdict = "clean"
+note = "Barrel exports generated contract types and validators without changing their names or wire shapes."
+
+[file.18]
+path = "sdk/launchpad/packages/production-contracts/src/validate.ts"
+lines = 32
+verdict = "clean"
+note = "Own-property lookup and compiled validator dispatch reject unknown contract names; exported validation result retains the declared API."
+
+[file.19]
+path = "sdk/launchpad/packages/production-contracts/test/contracts.test.mjs"
+lines = 50
+verdict = "clean"
+note = "Read schema acceptance/refusal cases and standalone validator assertions; immutable amount encodings remain strings and invalid inputs are refused."
+
+[file.20]
+path = "sdk/launchpad/packages/production-contracts/test/fixtures.types.ts"
+lines = 14
+verdict = "clean"
+note = "Read compile-time accepted/refused DTO assignments; type-only fixtures retain declared contract field names and amount types."
+
+[file.21]
+path = "sdk/launchpad/packages/production-contracts/tsconfig.json"
+lines = 1
+verdict = "clean"
+note = "Read full TypeScript compiler configuration, extends/include/exclude and declaration/output settings against package exports and tests; no skipped assertion or retired transport is enabled here."
+
+[file.22]
+path = "sdk/launchpad/packages/production-contracts/tsconfig.type-tests.json"
+lines = 12
+verdict = "clean"
+note = "Read full TypeScript compiler configuration, extends/include/exclude and declaration/output settings against package exports and tests; no skipped assertion or retired transport is enabled here."
+
+[file.23]
+path = "sdk/launchpad/packages/ranking-algo-sdk/package.json"
+lines = 21
+verdict = "clean"
+note = "Read every manifest field: package identity, local exports, scripts, workspace/runtime dependencies and compiler tools resolve the declared implementation; generated output is not mistaken for an absent source file."
+
+[file.24]
+path = "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts"
+lines = 81
+verdict = "issues"
+note = "Read ranking pagination, score/decimal parsing and endpoint responses against the ranking service; default deadline and body bound gap recorded."
+
+[file.25]
+path = "sdk/launchpad/packages/ranking-algo-sdk/test/client.test.mjs"
+lines = 38
+verdict = "clean"
+note = "Read real-loopback ranking, malformed row, pagination and failure cases; score fields and envelope agree with the service."
+
+[file.26]
+path = "sdk/launchpad/packages/ranking-algo-sdk/tsconfig.json"
+lines = 8
+verdict = "clean"
+note = "Read full TypeScript compiler configuration, extends/include/exclude and declaration/output settings against package exports and tests; no skipped assertion or retired transport is enabled here."
+
+[file.27]
+path = "sdk/launchpad/packages/sdk-v2/package.json"
+lines = 29
+verdict = "clean"
+note = "Read every manifest field: package identity, local exports, scripts, workspace/runtime dependencies and compiler tools resolve the declared implementation; generated output is not mistaken for an absent source file."
+
+[file.28]
+path = "sdk/launchpad/packages/sdk-v2/release-manifest.json"
+lines = 15
+verdict = "generated"
+note = "Generated immutable release metadata: read schema/emitter/input/output digest declarations and version identity; generator input availability is recorded on the owning scripts without rewriting this frozen manifest."
+
+[file.29]
+path = "sdk/launchpad/packages/sdk/README.md"
+lines = 17
+verdict = "issues"
+note = "Read the full transport, operations, snapshot/resume, browser and qualification guidance; obsolete phase command and unavailable generation guidance recorded."
+
+[file.30]
+path = "sdk/launchpad/packages/sdk/examples/pagination.mjs"
+lines = 20
+verdict = "clean"
+note = "Read executable real-service pagination: canonical pool configuration, duplicate-identity detection, advancing cursors and 100-page bound; no invented successful data."
+
+[file.31]
+path = "sdk/launchpad/packages/sdk/examples/snapshot-resume.mjs"
+lines = 37
+verdict = "clean"
+note = "Read real-service snapshot/reconnect example: digest-bound restart/fill commands, synchronous event effects, authentication refusal and explicit disposal."
+
+[file.32]
+path = "sdk/launchpad/packages/sdk/package.json"
+lines = 51
+verdict = "clean"
+note = "Read every manifest field: package identity, local exports, scripts, workspace/runtime dependencies and compiler tools resolve the declared implementation; generated output is not mistaken for an absent source file."
+
+[file.33]
+path = "sdk/launchpad/packages/sdk/release-manifest.json"
+lines = 15
+verdict = "generated"
+note = "Generated immutable release metadata: read schema/emitter/input/output digest declarations and version identity; generator input availability is recorded on the owning scripts without rewriting this frozen manifest."
+
+[file.34]
+path = "sdk/launchpad/packages/sdk/scripts/compatibility.py"
+lines = 65
+verdict = "clean"
+note = "Read recursive schema comparison and explicit reviewed compatibility-window enforcement; unsupported changed constraints fail closed rather than assuming a major number proves compatibility."
+
+[file.35]
+path = "sdk/launchpad/packages/sdk/scripts/compile-validators.mjs"
+lines = 113
+verdict = "clean"
+note = "Read deterministic standalone AJV emission for v1/v2 contracts and formats; compiled validators retain the selected schema definitions and package output locations."
+
+[file.36]
+path = "sdk/launchpad/packages/sdk/scripts/examples.py"
+lines = 58
+verdict = "issues"
+note = "Full generator read; repository output path is correct, but the selected OpenAPI input is absent and is recorded."
+
+[file.37]
+path = "sdk/launchpad/packages/sdk/scripts/generate.py"
+lines = 191
+verdict = "issues"
+note = "Full pinned emitter, allowlist, version, digest and clean-output logic read; absent default bundle and restrictive stale allowlist are recorded."
+
+[file.38]
+path = "sdk/launchpad/packages/sdk/src/amounts.ts"
+lines = 39
+verdict = "clean"
+note = "Read canonical decimal parsing, BigInt amount brands, bound checks and explicit display rounding; PAX18 and USDL6 remain distinct."
+
+[file.39]
+path = "sdk/launchpad/packages/sdk/src/browser-stream.ts"
+lines = 87
+verdict = "clean"
+note = "Read the served v2/v3 browser adapters: snapshot path, ticket acquisition, subprotocol and origin/cancellation handling; retired v1 browser transport is absent."
+
+[file.40]
+path = "sdk/launchpad/packages/sdk/src/index.ts"
+lines = 11
+verdict = "clean"
+note = "Read every public export and confirm surviving transport, operation, amount and reconnect names resolve; no re-export of retired browserStreamTransport."
+
+[file.41]
+path = "sdk/launchpad/packages/sdk/src/operations.ts"
+lines = 81
+verdict = "clean"
+note = "Read route disposition before networking, typed operation/path/query validation, explicit corrected paths and operation metadata selection; unrouted/development refusals remain explicit."
+
+[file.42]
+path = "sdk/launchpad/packages/sdk/src/reconnect.ts"
+lines = 69
+verdict = "clean"
+note = "Read jitter, 72-hour cursor expiry, authentication stop, retry/circuit state and disposal lifecycle; cursors are authorization-scoped and not claimed durable across process restart."
+
+[file.43]
+path = "sdk/launchpad/packages/sdk/src/route-corrections.ts"
+lines = 5
+verdict = "clean"
+note = "IF_REWARD_CLAIM uses the served /v2/me/rewards/claim path; correction is frozen and selected before issuing the request."
+
+[file.44]
+path = "sdk/launchpad/packages/sdk/src/served-routes.ts"
+lines = 209
+verdict = "clean"
+note = "Read every operation disposition; reward claim is served, intentionally unavailable operations refuse and development operations require nonproduction admission."
+
+[file.45]
+path = "sdk/launchpad/packages/sdk/src/shared-snapshot.ts"
+lines = 35
+verdict = "clean"
+note = "Read normalized topic union and authorization-scoped shared connection ownership, consumer lifecycle, synchronous snapshot effects and animation-frame coalescing of replaceable state only."
+
+[file.46]
+path = "sdk/launchpad/packages/sdk/src/stream.ts"
+lines = 369
+verdict = "clean"
+note = "Read complete snapshot/checkpoint/live/resync state machine, decimal sequence validation, event identity deduplication and post-effect cursor advance; failed effects do not acknowledge data."
+
+[file.47]
+path = "sdk/launchpad/packages/sdk/src/transport.ts"
+lines = 159
+verdict = "issues"
+note = "Read origin/session/CSRF admission, fetch receiver handling, generated response dispatch, deadlines and GET-only retry semantics; response buffering gap recorded."
+
+[file.48]
+path = "sdk/launchpad/packages/sdk/src/validate.ts"
+lines = 26
+verdict = "clean"
+note = "Read standalone v1 validation entrypoint and error formatting; unknown names do not acquire prototype validators or silently bypass schema checks."
+
+[file.49]
+path = "sdk/launchpad/packages/sdk/test/browser-lifecycle.test.tsx"
+lines = 87
+verdict = "clean"
+note = "Read StrictMode lifecycle and real-coordinator fixture flow, authorization changes, topic unions, consumer isolation and cleanup assertions; missing fixture authority is an error."
+
+[file.50]
+path = "sdk/launchpad/packages/sdk/test/browser-measurement.ts"
+lines = 102
+verdict = "clean"
+note = "Read real browser journey measurement and event/candle accounting; returned measurements use observed client effects rather than fabricated success values."
+
+[file.51]
+path = "sdk/launchpad/packages/sdk/test/browser-stream-retirement.test.mjs"
+lines = 10
+verdict = "clean"
+note = "Read named retirement proof asserting v1 browser transport absence and surviving served adapters; source inspection complements current exports."
+
+[file.52]
+path = "sdk/launchpad/packages/sdk/test/compatibility.test.py"
+lines = 24
+verdict = "clean"
+note = "Read compatibility cases for breaking schema constraints and explicit windows; no automatic compatibility assumption is made from the major number alone."
+
+[file.53]
+path = "sdk/launchpad/packages/sdk/test/connected-services.test.mjs"
+lines = 168
+verdict = "clean"
+note = "Read configured real-service journeys and refusal cases; credentials/origins and fixture capabilities are required rather than replaced with empty successful responses."
+
+[file.54]
+path = "sdk/launchpad/packages/sdk/test/development-gating.test.mjs"
+lines = 75
+verdict = "clean"
+note = "Read production pre-network refusal and nonproduction allowed-operation assertions; explicit test fetch observations prove the primitive dispatch decision."
+
+[file.55]
+path = "sdk/launchpad/packages/sdk/test/fetch-receiver.test.mjs"
+lines = 79
+verdict = "clean"
+note = "Read detached fetch receiver regression proof; default and injected native-style fetch are invoked without an SdkClient receiver."
+
+[file.56]
+path = "sdk/launchpad/packages/sdk/test/generation.test.py"
+lines = 36
+verdict = "issues"
+note = "Read both clean-root v1/v2 generation and committed-output comparisons; absent source bundles prevent reaching the assertions and are recorded."
+
+[file.57]
+path = "sdk/launchpad/packages/sdk/test/measure-browser.mjs"
+lines = 170
+verdict = "clean"
+note = "Read browser measurement entrypoint, coordinator fixture use and process/report lifecycle; does not claim a static fixture is durable service evidence."
+
+[file.58]
+path = "sdk/launchpad/packages/sdk/test/operation-timeouts.test.mjs"
+lines = 68
+verdict = "clean"
+note = "Read metadata-selected timeout and caller-abort HTTP proofs; preserves request-wide deadlines and disposal without broadening retries."
+
+[file.59]
+path = "sdk/launchpad/packages/sdk/test/package-scripts.test.mjs"
+lines = 42
+verdict = "clean"
+note = "Read package script existence checks and retirement assertions; removed phase scripts/evidence key are intentionally absent."
+
+[file.60]
+path = "sdk/launchpad/packages/sdk/test/primitives.test.mjs"
+lines = 187
+verdict = "clean"
+note = "Read every transport, decimal, contract, origin and snapshot primitive case; invalid data and failed effects remain explicit refusals."
+
+[file.61]
+path = "sdk/launchpad/packages/sdk/test/proof_launchpad_sdk_sdk.test.mjs"
+lines = 304
+verdict = "clean"
+note = "Read complete actual-coordinator producer/transport/consumer proof and restart/refusal assertions; digest-bound command providers supply real effects and missing authority fails."
+
+[file.62]
+path = "sdk/launchpad/packages/sdk/test/route-corrections.test.mjs"
+lines = 95
+verdict = "clean"
+note = "Read actual operation dispatch assertion for the served reward claim path and request validation; agrees with current correction and route registry."
+
+[file.63]
+path = "sdk/launchpad/packages/sdk/test/served-routes.test.mjs"
+lines = 73
+verdict = "issues"
+note = "Read exhaustive names and category assertions; stale IF_REWARD_CLAIM unrouted expectation is recorded."
+
+[file.64]
+path = "sdk/launchpad/packages/sdk/test/test_examples_layout.py"
+lines = 20
+verdict = "issues"
+note = "Read all root/output layout assertions; missing real OpenAPI existence/operation proof is recorded."
+
+[file.65]
+path = "sdk/launchpad/packages/sdk/test/test_generate_layout.py"
+lines = 25
+verdict = "issues"
+note = "Read repository root and versioned bundle assertions; absent-input path equality is recorded as an inadequate layout proof."
+
+[file.66]
+path = "sdk/launchpad/packages/sdk/test/transport-errors.test.mjs"
+lines = 78
+verdict = "clean"
+note = "Read real HTTP error/redirect cases, sanitized stable codes and retry behavior; error contents do not become arbitrary public exception messages."
+
+[file.67]
+path = "sdk/launchpad/packages/sdk/test/unrouted-refusal.test.mjs"
+lines = 82
+verdict = "clean"
+note = "Read unrouted operation pre-network refusal and served-operation continuation proofs; keeps unavailable capabilities distinct from transport success."
+
+[file.68]
+path = "sdk/launchpad/packages/sdk/tsconfig.json"
+lines = 1
+verdict = "clean"
+note = "Read full TypeScript compiler configuration, extends/include/exclude and declaration/output settings against package exports and tests; no skipped assertion or retired transport is enabled here."
+
+[file.69]
+path = "sdk/launchpad/packages/sidiora-launchpad-v3/package.json"
+lines = 21
+verdict = "clean"
+note = "Read every manifest field: package identity, local exports, scripts, workspace/runtime dependencies and compiler tools resolve the declared implementation; generated output is not mistaken for an absent source file."
+
+[file.70]
+path = "sdk/launchpad/packages/sidiora-launchpad-v3/provenance.json"
+lines = 46
+verdict = "issues"
+note = "Read every source/artifact/export/digest row and license marker; stale source roots and ERC20 identity are recorded."
+
+[file.71]
+path = "sdk/launchpad/packages/sidiora-launchpad-v3/src/abis.ts"
+lines = 3567
+verdict = "generated"
+note = "Artifact-derived ABI literal asset. Role selectors and ERC20 binding additions were inspected; source provenance and complete conformance proof gaps are recorded on their owning metadata/tests."
+
+[file.72]
+path = "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts"
+lines = 56
+verdict = "clean"
+note = "Read ABI re-exports, explicit address configuration and exported contract helpers; no implicit deployment address or secret default is supplied."
+
+[file.73]
+path = "sdk/launchpad/packages/sidiora-launchpad-v3/test/abi-conformance.test.mjs"
+lines = 39
+verdict = "issues"
+note = "Read all role and web comparisons; selector-only identity comparison omits return and event layout fields and is recorded."
+
+[file.74]
+path = "sdk/launchpad/packages/sidiora-launchpad-v3/test/provenance.test.mjs"
+lines = 33
+verdict = "issues"
+note = "Read repository containment and artifact digest proof; missing source/export binding checks are recorded."
+
+[file.75]
+path = "sdk/launchpad/packages/sidiora-launchpad-v3/test/sdk.test.mjs"
+lines = 44
+verdict = "clean"
+note = "Read ERC20 role deep equality, required bindPool/deploymentFactory/pool/error entries and package API assertions; no default deployments added."
+
+[file.76]
+path = "sdk/launchpad/packages/sidiora-launchpad-v3/tsconfig.json"
+lines = 14
+verdict = "clean"
+note = "Read full TypeScript compiler configuration, extends/include/exclude and declaration/output settings against package exports and tests; no skipped assertion or retired transport is enabled here."
+
+[file.77]
+path = "sdk/launchpad/packages/stats-sdk/README.md"
+lines = 7
+verdict = "clean"
+note = "Read full local-implementation provenance and request guidance; endpoint coverage, string money, timeout and batch missing-pool behavior match the SDK."
+
+[file.78]
+path = "sdk/launchpad/packages/stats-sdk/package.json"
+lines = 25
+verdict = "clean"
+note = "Read every manifest field: package identity, local exports, scripts, workspace/runtime dependencies and compiler tools resolve the declared implementation; generated output is not mistaken for an absent source file."
+
+[file.79]
+path = "sdk/launchpad/packages/stats-sdk/src/index.ts"
+lines = 72
+verdict = "issues"
+note = "Read strict stats field validation, service-root URL admission, string amounts, deadline/caller cancellation and missing-pool batch adaptation against the stats store DTO. Unbounded response buffering is recorded despite the existing deadline."
+
+[file.80]
+path = "sdk/launchpad/packages/stats-sdk/src/types.ts"
+lines = 66
+verdict = "clean"
+note = "Read every PoolStats field and validation-kind row against the stats-worker store serialization; decimal and monetary values remain strings."
+
+[file.81]
+path = "sdk/launchpad/packages/stats-sdk/tests/http.test.mjs"
+lines = 61
+verdict = "clean"
+note = "Read every real-loopback single/batch, missing-pool, malformed-response, deadline, caller-abort and HTTP error test; expected fields match the producer DTO."
+
+[file.82]
+path = "sdk/launchpad/packages/stats-sdk/tsconfig.json"
+lines = 18
+verdict = "clean"
+note = "Read full TypeScript compiler configuration, extends/include/exclude and declaration/output settings against package exports and tests; no skipped assertion or retired transport is enabled here."
+
+[file.83]
+path = "sdk/launchpad/packages/users-sdk/package.json"
+lines = 20
+verdict = "clean"
+note = "Read every manifest field: package identity, local exports, scripts, workspace/runtime dependencies and compiler tools resolve the declared implementation; generated output is not mistaken for an absent source file."
+
+[file.84]
+path = "sdk/launchpad/packages/users-sdk/src/index.ts"
+lines = 133
+verdict = "issues"
+note = "Read profile/watchlist parsers, signed mutation and multipart upload fields against user handlers; default deadline/body bound gap recorded."
+
+[file.85]
+path = "sdk/launchpad/packages/users-sdk/test/http.test.mjs"
+lines = 43
+verdict = "clean"
+note = "Read loopback profile, watchlist, signed updates, image upload and failure cases; wallet normalization and nullable response fields match the service."
+
+[file.86]
+path = "sdk/launchpad/packages/users-sdk/tsconfig.json"
+lines = 1
+verdict = "clean"
+note = "Read full TypeScript compiler configuration, extends/include/exclude and declaration/output settings against package exports and tests; no skipped assertion or retired transport is enabled here."
+
+[file.87]
+path = "services/launchpad/trading-charts/cmd/charts-measure/main.go"
+lines = 591
+verdict = "clean"
+note = "Read full measurement CLI, real-chain/S3/Postgres providers, dataset bounds, resource reports and refusal/evidence handling; measurement results derive from actual runtime observations."
+
+[file.88]
+path = "services/launchpad/trading-charts/cmd/charts-rebuild/main.go"
+lines = 103
+verdict = "issues"
+note = "Read full archive manifest admission, chain identity adapter and reconstruction invocation; wrong default schema recorded."
+
+[file.89]
+path = "services/launchpad/trading-charts/cmd/chartsd/main.go"
+lines = 19
+verdict = "clean"
+note = "Read signal context and fatal exit delegation to app.Run; no alternate ingestion path bypasses application configuration."
+
+[file.90]
+path = "services/launchpad/trading-charts/integration/qualify.go"
+lines = 335
+verdict = "clean"
+note = "Read complete real container/node/archive qualification setup and report flow; source authority, failure propagation and cleanup remain explicit."
+
+[file.91]
+path = "services/launchpad/trading-charts/internal/app/app.go"
+lines = 629
+verdict = "issues"
+note = "Read full production/development bootstrapping, profile/source bindings, pool/secret ownership, route mounts, tracked workers and drain. Missing outbox/legacy route wiring recorded."
+
+[file.92]
+path = "services/launchpad/trading-charts/internal/app/app_dev_test.go"
+lines = 123
+verdict = "clean"
+note = "Read actual development database/RPC route tests and source fixture loading; v1 UDF registration remains distinct from canonical production v2."
+
+[file.93]
+path = "services/launchpad/trading-charts/internal/app/app_test.go"
+lines = 138
+verdict = "issues"
+note = "Read production authority, runtime binding and shutdown tests; retired /rpc fixture reference recorded."
+
+[file.94]
+path = "services/launchpad/trading-charts/internal/chainread/reader.go"
+lines = 99
+verdict = "clean"
+note = "Read committed node-reported hash, height, timestamp and call adapter; compares RPC block identity without substituting geth header rehash."
+
+[file.95]
+path = "services/launchpad/trading-charts/internal/chainread/reader_test.go"
+lines = 64
+verdict = "clean"
+note = "Read node-hash versus local-header regression, call/hash refusal and native chain adapter cases; authoritative committed hash is preserved."
+
+[file.96]
+path = "services/launchpad/trading-charts/internal/config/config.go"
+lines = 507
+verdict = "clean"
+note = "Read full env parsing, runtime chart feature document/digest checks, production profile/schema admission and explicit operators/transport bindings."
+
+[file.97]
+path = "services/launchpad/trading-charts/internal/config/config_test.go"
+lines = 194
+verdict = "issues"
+note = "Read defaults, production profile and feature admission cases; retired /rpc fixture reference recorded."
+
+[file.98]
+path = "services/launchpad/trading-charts/internal/config/trusted_proxies_test.go"
+lines = 35
+verdict = "clean"
+note = "Read trusted proxy parsing/admission and forwarded-address behavior; untrusted spoofed headers do not establish the client IP."
+
+[file.99]
+path = "services/launchpad/trading-charts/internal/consumer/accounting.go"
+lines = 84
+verdict = "issues"
+note = "Read source-authorized reprocess and completeness-refresh transactions; missing idle refresh caller recorded."
+
+[file.100]
+path = "services/launchpad/trading-charts/internal/consumer/accounting_test.go"
+lines = 1101
+verdict = "clean"
+note = "Read every committed fill, forged identity, authority, rollback, duplicate, unresolved delivery, reprocess, NATS publication and restarted-store case; relay is explicitly invoked by tests only."
+
+[file.101]
+path = "services/launchpad/trading-charts/internal/consumer/source_bootstrap.go"
+lines = 316
+verdict = "clean"
+note = "Read complete canonical publication, emitter/receipt/creation authority, source checkpoint and lease bootstrap; economic fold is bound to authenticated indexer facts."
+
+[file.102]
+path = "services/launchpad/trading-charts/internal/consumer/source_bootstrap_test.go"
+lines = 369
+verdict = "clean"
+note = "Read real source-authority bootstrap, forged inputs and checkpoint cases; referenced production migration path exists and is not mistaken for a missing bundle."
+
+[file.103]
+path = "services/launchpad/trading-charts/internal/consumer/swap_consumer.go"
+lines = 543
+verdict = "clean"
+note = "Read bounded development Redis message ingestion, startup/close lifecycle and parse failures; production uses the separately admitted accounting consumer."
+
+[file.104]
+path = "services/launchpad/trading-charts/internal/consumer/swap_consumer_test.go"
+lines = 309
+verdict = "clean"
+note = "Read actual Redis ingestion, malformed swap and consumer shutdown cases; primitive development route is not claimed as canonical durable accounting proof."
+
+[file.105]
+path = "services/launchpad/trading-charts/internal/engine/builder.go"
+lines = 456
+verdict = "issues"
+note = "Read complete development swap fold, deduplication, cursor, Redis membership and publication paths; concurrency, rollback and late-order risks recorded separately."
+
+[file.106]
+path = "services/launchpad/trading-charts/internal/engine/builder_test.go"
+lines = 300
+verdict = "clean"
+note = "Read actual database/Redis builder tests and duplicate/trade-only behavior; their sequential cases do not replace the proposed concurrency and rollback proofs."
+
+[file.107]
+path = "services/launchpad/trading-charts/internal/engine/candle_stream.go"
+lines = 199
+verdict = "clean"
+note = "Read canonical Price provenance conversion, exact aggregate encodings, authenticated chart_stream_sources insertion and atomic api_stream append; source refs are checked against persisted fills."
+
+[file.108]
+path = "services/launchpad/trading-charts/internal/engine/candle_stream_test.go"
+lines = 28
+verdict = "clean"
+note = "Read actual fill-to-canonical stream proof, exact money/provenance, refusal and restart cases; producer source proofs and consumer payload agree on live folds."
+
+[file.109]
+path = "services/launchpad/trading-charts/internal/engine/exact.go"
+lines = 325
+verdict = "clean"
+note = "Read all exact rational arithmetic, source-qualified fill admission, OHLC ordering and bounded aggregate validation; no floating-point economic fold."
+
+[file.110]
+path = "services/launchpad/trading-charts/internal/engine/exact_test.go"
+lines = 315
+verdict = "clean"
+note = "Read every rational, mixed-decimal, order/tie, actor, provenance and overflow refusal case; comparisons assert exact source-qualified values."
+
+[file.111]
+path = "services/launchpad/trading-charts/internal/engine/exact_transaction.go"
+lines = 373
+verdict = "clean"
+note = "Read transaction-fenced deduplication, source proof, pool revision, per-interval update and committed stream/outbox operations; current live writes agree with canonical payload conversion."
+
+[file.112]
+path = "services/launchpad/trading-charts/internal/engine/measurement_test.go"
+lines = 124
+verdict = "clean"
+note = "Read real-store timing/resource measurement assertions and dataset boundaries; reporting does not synthesize economic observations."
+
+[file.113]
+path = "services/launchpad/trading-charts/internal/engine/rollup.go"
+lines = 281
+verdict = "clean"
+note = "Read all parent aggregation, actor union, overflow, lineage and pending-worker code; compares economic parity with fenced direct bars and preserves provenance."
+
+[file.114]
+path = "services/launchpad/trading-charts/internal/engine/rollup_test.go"
+lines = 122
+verdict = "issues"
+note = "Read full rollup, archive and retention live proof; outdated local-header hash comparison recorded."
+
+[file.115]
+path = "services/launchpad/trading-charts/internal/engine/series.go"
+lines = 686
+verdict = "issues"
+note = "Read full completeness, dense display, authenticated archive reconstruction, parity and measurement logic; projection-dependent recovery checksum recorded."
+
+[file.116]
+path = "services/launchpad/trading-charts/internal/engine/series_test.go"
+lines = 165
+verdict = "clean"
+note = "Read complete dense/empty/gap/completeness and reconstruction cases; isolated intact-projection parity cases do not establish recovery after deleting the projection."
+
+[file.117]
+path = "services/launchpad/trading-charts/internal/httpapi/convert.go"
+lines = 38
+verdict = "clean"
+note = "Read exact raw-unit-to-display conversion and legacy response mapping; decimal scale is explicit and raw money is not converted through float arithmetic."
+
+[file.118]
+path = "services/launchpad/trading-charts/internal/httpapi/convert_test.go"
+lines = 45
+verdict = "clean"
+note = "Read decimal boundary, large-value and invalid-input conversion assertions; precision expectations match the conversion producer."
+
+[file.119]
+path = "services/launchpad/trading-charts/internal/httpapi/dev_symbols.go"
+lines = 203
+verdict = "clean"
+note = "Read development pool/chain metadata lookup and fail-closed RPC dependency handling; symbols use real pool identities instead of hardcoded token metadata."
+
+[file.120]
+path = "services/launchpad/trading-charts/internal/httpapi/dev_udf.go"
+lines = 170
+verdict = "clean"
+note = "Read versioned development UDF registration and bounded Postgres history adaptation; kept separate from production canonical valuations."
+
+[file.121]
+path = "services/launchpad/trading-charts/internal/httpapi/dev_udf_test.go"
+lines = 468
+verdict = "clean"
+note = "Read real-store versioned route, legacy refusal and bounded-history cases; unsafe unbounded fallback is intentionally rejected."
+
+[file.122]
+path = "services/launchpad/trading-charts/internal/httpapi/history.go"
+lines = 445
+verdict = "clean"
+note = "Read full request/cursor binding, 5000 vendor versus 2000 canonical bounds, keyset pagination, exact conversion and unavailable/error handling. SDK disagreements recorded on the client."
+
+[file.123]
+path = "services/launchpad/trading-charts/internal/httpapi/history_cache.go"
+lines = 440
+verdict = "clean"
+note = "Read bounded origin cache, revision binding, Redis operations and stale-response protection; keys distinguish admitted origin and projection revision."
+
+[file.124]
+path = "services/launchpad/trading-charts/internal/httpapi/history_contract_test.go"
+lines = 435
+verdict = "clean"
+note = "Read actual HTTP contract cases including vendor/canonical separate bounds, cursor tampering/query binding and invalid history refusal; producer intentionally permits vendor 5000."
+
+[file.125]
+path = "services/launchpad/trading-charts/internal/httpapi/history_integrated_test.go"
+lines = 438
+verdict = "clean"
+note = "Read real-store history pagination, ordering, continuation and error assertions; cursor continuation derives from actual handler output."
+
+[file.126]
+path = "services/launchpad/trading-charts/internal/httpapi/history_valuation.go"
+lines = 292
+verdict = "clean"
+note = "Read canonical API client, valuation source proofs, supply pinning, bounded pages and production UDF conversion; distinguishes display values from lossless accounting data."
+
+[file.127]
+path = "services/launchpad/trading-charts/internal/httpapi/history_valuation_live_test.go"
+lines = 53
+verdict = "clean"
+note = "Read actual chain/source valuation journey and refusal cases; historical values are pinned to admitted provenance and supply reads."
+
+[file.128]
+path = "services/launchpad/trading-charts/internal/httpapi/replay_catalog_test.go"
+lines = 59
+verdict = "clean"
+note = "Read real replay-gateway mount for the frozen topic snapshot read, path forwarding and upstream contract assertions."
+
+[file.129]
+path = "services/launchpad/trading-charts/internal/httpapi/replay_error_test.go"
+lines = 55
+verdict = "clean"
+note = "Read actual outage/error envelope proof for the replay gateway; unavailable responses preserve the frozen contract instead of empty success."
+
+[file.130]
+path = "services/launchpad/trading-charts/internal/httpapi/symbols.go"
+lines = 303
+verdict = "clean"
+note = "Read complete pool metadata, ERC20 selector, display precision and canonical symbol response handling; invalid metadata/RPC failures remain unavailable."
+
+[file.131]
+path = "services/launchpad/trading-charts/internal/httpapi/symbols_abi_parity_test.go"
+lines = 37
+verdict = "clean"
+note = "Read role ERC20 ABI selector comparison for name/symbol/decimals/totalSupply; selector identity matches the token metadata calls."
+
+[file.132]
+path = "services/launchpad/trading-charts/internal/httpapi/symbols_contract_test.go"
+lines = 54
+verdict = "clean"
+note = "Read canonical symbol response, pool address and RPC failure/refusal cases; assertions agree with the current metadata producer."
+
+[file.133]
+path = "services/launchpad/trading-charts/internal/httpapi/symbols_integrated_test.go"
+lines = 53
+verdict = "clean"
+note = "Read actual database and chain symbol integration, decimals, supply and unknown pool behavior; does not substitute SID-only fixtures for pool identity."
+
+[file.134]
+path = "services/launchpad/trading-charts/internal/httpapi/udf.go"
+lines = 48
+verdict = "clean"
+note = "Read full legacy and production versioned route registration, config and time payloads; legacy unavailable history wiring is recorded at App.New."
+
+[file.135]
+path = "services/launchpad/trading-charts/internal/httpapi/udf_test.go"
+lines = 146
+verdict = "clean"
+note = "Read all unversioned config/time/history tests including explicit rejection of legacy unbounded history and bounded-source alternative registration."
+
+[file.136]
+path = "services/launchpad/trading-charts/internal/httpapi/webhook.go"
+lines = 137
+verdict = "issues"
+note = "Read full HMAC/body handling and per-event application/acknowledgement; unbounded preauthentication body and retry-loss risks recorded."
+
+[file.137]
+path = "services/launchpad/trading-charts/internal/httpapi/webhook_test.go"
+lines = 169
+verdict = "clean"
+note = "Read real builder/HTTP webhook signature, timestamp and malformed request tests; no generated signing bypass or secret logging introduced."
+
+[file.138]
+path = "services/launchpad/trading-charts/internal/httpapi/ws.go"
+lines = 542
+verdict = "clean"
+note = "Read complete legacy socket admission, origin/subscription bounds, channel/coalescing, slow-consumer eviction and cancellation; absent application channel is recorded on its wiring."
+
+[file.139]
+path = "services/launchpad/trading-charts/internal/httpapi/ws_recovery.go"
+lines = 40
+verdict = "clean"
+note = "Read replay proxy registration, approved origin checks, request forwarding and frozen failure mapping; canonical gateway remains separate from legacy hub."
+
+[file.140]
+path = "services/launchpad/trading-charts/internal/httpapi/ws_recovery_test.go"
+lines = 66
+verdict = "clean"
+note = "Read real gateway proxy snapshot/replay/error cases; explicit unavailable authority is refused and payload identity is preserved."
+
+[file.141]
+path = "services/launchpad/trading-charts/internal/httpapi/ws_snapshot.go"
+lines = 132
+verdict = "clean"
+note = "Read exact human-unit snapshot metadata, decimal/uint validation and bounded revision-aware coalescer; it deliberately rejects raw builder-event shapes."
+
+[file.142]
+path = "services/launchpad/trading-charts/internal/httpapi/ws_test.go"
+lines = 498
+verdict = "issues"
+note = "Read all socket subscribe, coalescing, rate/origin, slow consumer and cancellation cases; synthetic producer/application wiring gap recorded."
+
+[file.143]
+path = "services/launchpad/trading-charts/internal/internaltest/containers.go"
+lines = 174
+verdict = "clean"
+note = "Read real disposable Postgres/Redis process setup, connection discovery and cleanup; failures propagate rather than skipping required authorities."
+
+[file.144]
+path = "services/launchpad/trading-charts/internal/migrate/migrate.go"
+lines = 42
+verdict = "clean"
+note = "Read migration resource loading, ordering, schema version and transaction/error handling; production app deliberately uses admitted external migration ownership."
+
+[file.145]
+path = "services/launchpad/trading-charts/internal/migrate/migrate_test.go"
+lines = 37
+verdict = "clean"
+note = "Read disposable database migration tests and idempotent application checks; migration payload is real embedded SQL."
+
+[file.146]
+path = "services/launchpad/trading-charts/internal/store/rebuild.go"
+lines = 373
+verdict = "issues"
+note = "Read full authenticated archive validation, bounded object reads, staging, fencing and promotion; missing canonical correction append recorded."
+
+[file.147]
+path = "services/launchpad/trading-charts/internal/store/rebuild_test.go"
+lines = 51
+verdict = "clean"
+note = "Read staging, source-integrity, epoch/revision fencing, promotion, retention/replay guard and duplicate cases; current tests do not assert canonical correction delivery."
+
+[file.148]
+path = "services/launchpad/trading-charts/internal/store/retention.go"
+lines = 184
+verdict = "clean"
+note = "Read retention floors, archive/replay/unpublished guards, incidents and bounded dry run. Guard refusal is intentional; unstarted relay and unusable reconstruction are recorded at their owners."
+
+[file.149]
+path = "services/launchpad/trading-charts/internal/store/series.go"
+lines = 270
+verdict = "clean"
+note = "Read full persisted clock, bounded snapshots/seed, display completeness and source-fill lookup; persisted source state is used rather than in-memory recovery assumptions."
+
+[file.150]
+path = "services/launchpad/trading-charts/internal/store/store.go"
+lines = 262
+verdict = "clean"
+note = "Read legacy candle/cursor/history/row DTO accessors and explicit unbounded query refusal; cursor/deduplication runtime defects are recorded at Builder and route assembly."
+
+[file.151]
+path = "services/launchpad/trading-charts/internal/store/store_test.go"
+lines = 208
+verdict = "clean"
+note = "Read actual store insert/query/cursor/history boundary cases; monetary field serialization agrees with Go history conversion."
+
+[file.152]
+path = "services/launchpad/trading-charts/internal/store/transactional.go"
+lines = 299
+verdict = "clean"
+note = "Read full exact schema, inbox/outbox, fencing, publication and quarantine paths; PublishNextCommitted is durable but has no production worker, recorded on App.Run."
+
+[file.153]
+path = "services/launchpad/trading-charts/migrations/migrations.go"
+lines = 11
+verdict = "clean"
+note = "Read embedded migration resource declaration and path binding; SQL assets are loaded from the declared chart migrations directory."
+
+[finding.1]
+file = "sdk/launchpad/packages/candles-sdk/src/index.ts"
+line = 118
+class = "interface-mismatch"
+severity = "high"
+observed = "parseHistory rejects more than 2000 bars and getHistory rejects countback above 2000, while the declared Go /history vendor handler admits and emits up to MaxHistoryBars=5000. A valid vendor page selected with from/to can therefore fail in the SDK. The separate 2000-bar canonical endpoint does not establish the vendor bound."
+expected = "Registry rows 4.ts-candles-sdk-parse-history, 4.ts-candles-sdk-get-history and 4.http-trading-charts-get-history-history must agree on the admitted page size; the Go history contract test deliberately distinguishes vendor 5000 from canonical 2000."
+proposal = "In sdk/launchpad/packages/candles-sdk/src/index.ts, bind the vendor client to the declared vendor limit and preserve the separate canonical limit. Add a producer-to-SDK proof using the Go handler with 2001 and 5000 bars and explicit out-of-bound refusals."
+owner_domain = 4
+interface = "4.ts-candles-sdk-parse-history"
+
+[finding.2]
+file = "sdk/launchpad/packages/candles-sdk/src/index.ts"
+line = 5
+class = "interface-mismatch"
+severity = "high"
+observed = "HistoryRequest has no cursor field, HistoryBars has no nextCursor field, and parseHistory reconstructs only s/t/o/h/l/c/v. Go writeHistoryPage emits nextCursor for a truncated bounded page and the handler accepts cursor, so callers lose the continuation needed to retrieve the remaining history."
+expected = "The declared /history transport must preserve the producer pagination token and provide a way to send it back, so a history range can be retrieved completely without inventing an offset or silently treating the first page as the whole range."
+proposal = "Extend the request and response contract in sdk/launchpad/packages/candles-sdk/src/index.ts with the Go opaque cursor and validated nextCursor. Prove a multi-page Go history response can be consumed and resumed through the exported client with no missing or duplicate bars."
+owner_domain = 4
+interface = "4.http-trading-charts-get-history-history"
+
+[finding.3]
+file = "sdk/launchpad/packages/candles-sdk/test/client.test.mjs"
+line = 34
+class = "test-gap"
+severity = "medium"
+observed = "The loopback handler returns hand-written symbol and bar fixtures for SID and SID & USDL. The test labels these current Go wire shapes but never calls the Go handler, whose symbol parser requires a 20-byte pool address; the small two-bar fixture also hides the vendor bound and continuation disagreement."
+expected = "The brief requires proof of the actual producer, transport and consumer contract; successful synthetic responses for symbols the real handler rejects cannot establish that client integration."
+proposal = "Add a real Go-handler journey in sdk/launchpad/packages/candles-sdk/test/client.test.mjs using canonical pool addresses, paginated vendor output and actual errors. Keep the existing isolated parser and HTTP refusal coverage as primitive tests."
+owner_domain = 4
+
+[finding.4]
+file = "sdk/launchpad/packages/sdk/scripts/generate.py"
+line = 19
+class = "config-drift"
+severity = "medium"
+observed = "default_contracts points to launchpad/spec/production-system/integration/contracts/vN, which does not exist in this checkout. The bundle allowlist at line 119 pins the same missing tree, so supplying another authoritative location is refused. The restored protocol v1 directory contains only six fixtures and is not a complete generator bundle."
+expected = "Requirements 4517.1 and 4517.2 require a generator that resolves the repository layout; declared CLI row 4.cli-sdk-script-generate must load the digest-pinned schema, OpenAPI, AsyncAPI and emitter inputs from an available authoritative bundle."
+proposal = "Have the protocol owner restore the complete immutable versioned input bundle at its agreed repository location, then update default_contracts and its allowlist together in sdk/launchpad/packages/sdk/scripts/generate.py. Retain every generator/template/schema digest and version agreement check."
+owner_domain = 4
+interface = "4.cli-sdk-script-generate"
+
+[finding.5]
+file = "sdk/launchpad/packages/sdk/scripts/examples.py"
+line = 9
+class = "config-drift"
+severity = "medium"
+observed = "examples_paths reads launchpad/spec/production-system/integration/contracts/v2/openapi.json, an absent path. The selected examples output directory is correct, but generate:examples cannot read its authoritative operation catalog in the current layout."
+expected = "Requirement 4518.1 and registry row 4.cli-sdk-script-examples require executable examples emitted from the selected admitted OpenAPI document in the monorepo, rather than an unavailable pre-layout directory."
+proposal = "After the protocol owner restores the authoritative v2 contract bundle, repoint examples_paths in sdk/launchpad/packages/sdk/scripts/examples.py to that bundle and prove its digest-bound input and both generated examples in a clean checkout."
+owner_domain = 4
+interface = "4.cli-sdk-script-examples"
+
+[finding.6]
+file = "sdk/launchpad/packages/sdk/test/generation.test.py"
+line = 5
+class = "test-gap"
+severity = "medium"
+observed = "The deterministic-generation proof copies v1 and v2 inputs from the missing launchpad/spec/production-system/integration/contracts directories before invoking the generator. It cannot reach either byte-for-byte reproduction assertion with the repository inputs currently present."
+expected = "Frozen v1 reproduction and additive v2 generation must use complete authoritative inputs that exist in the repository, preserving independent clean roots, immutable digest checks and comparison against committed output."
+proposal = "Update sdk/launchpad/packages/sdk/test/generation.test.py alongside the authoritative bundle restoration and generator path repair. Copy real versioned inputs from the selected owner path and retain the two clean generations plus checked-in byte equality for every output."
+owner_domain = 4
+
+[finding.7]
+file = "sdk/launchpad/packages/sdk/test/test_generate_layout.py"
+line = 18
+class = "test-gap"
+severity = "medium"
+observed = "test_default_contracts_use_launchpad_spec_prefix asserts string equality with the absent launchpad/spec/production-system/integration/contracts/vN paths for majors 1, 2 and 3. It never opens a manifest or schema, so the layout proof can pass while the default generator cannot load any bundle."
+expected = "Requirement 4517.2 needs repository defaults that resolve usable generation inputs, with intentional refusal for unsupported majors, rather than a second copy of the same nonexistent pathname."
+proposal = "In sdk/launchpad/packages/sdk/test/test_generate_layout.py, independently locate supported authoritative bundles, require their real manifests and schemas, and exercise default resolution. Assert an explicit error for unsupported majors instead of certifying invented directories."
+owner_domain = 4
+
+[finding.8]
+file = "sdk/launchpad/packages/sdk/test/test_examples_layout.py"
+line = 14
+class = "test-gap"
+severity = "medium"
+observed = "test_examples_paths_use_monorepo_layout asserts the missing v2 OpenAPI pathname for both a real root and tmp_path and checks only the output path. It does not establish that the selected document exists or contains the operations used by the examples."
+expected = "The examples layout proof must establish that the real repository input can be read and that emitted pagination and snapshot-resume examples derive from the admitted operation catalog."
+proposal = "In sdk/launchpad/packages/sdk/test/test_examples_layout.py, resolve the real restored v2 bundle and read its operation catalog before checking output placement. Preserve temporary-root coverage using copied authoritative inputs and assert the expected operation identities."
+owner_domain = 4
+
+[finding.9]
+file = "sdk/launchpad/packages/sdk/test/served-routes.test.mjs"
+line = 35
+class = "test-gap"
+severity = "medium"
+observed = "routeStatusCoversEveryOperation includes IF_REWARD_CLAIM in its unrouted set and expects 153 served / 33 unrouted. served-routes.ts declares IF_REWARD_CLAIM served and route-corrections.ts selects /v2/me/rewards/claim; the dedicated reward route test requires that served behavior."
+expected = "Requirements 4511.1 and 4514.1 must describe the same complete route disposition, including the served reward claim route and exact category counts after that correction."
+proposal = "Update the independent topology expectations and category totals in sdk/launchpad/packages/sdk/test/served-routes.test.mjs to the actual served rewards claim contract. Retain the exhaustive operation-name comparison, per-operation assertions and network refusal tests."
+owner_domain = 4
+
+[finding.10]
+file = "sdk/launchpad/packages/sdk/README.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The README directs operators to test:phase2 and describes a phase2 evidence manifest, but package.json deliberately removed the phase scripts and evidence-manifest key under requirement 4515.1. Its reproducibility guidance also assumes generation inputs that are absent from the current tree."
+expected = "The SDK documentation must name existing qualification commands and authoritative bundle locations, distinguish primitive coverage from connected-service proof, and avoid directing users to retired phase entrypoints."
+proposal = "Rewrite sdk/launchpad/packages/sdk/README.md around the current package commands and restored versioned inputs, explicitly describing how to supply the real-service fixture for the surviving connected and browser proofs without reintroducing retired scripts."
+owner_domain = 4
+
+[finding.11]
+file = "services/launchpad/trading-charts/internal/app/app.go"
+line = 395
+class = "wiring-gap"
+severity = "high"
+observed = "Run starts the accounting consumer and rollup worker but no chart outbox relay. ApplySeriesStreamTx writes chart_outbox as well as the direct api_stream update; PublishNextCommitted has callers only in accounting tests. Unpublished rows accumulate and DeleteRetainedRange refuses every range containing them."
+expected = "Committed chart delivery must be resumed by an owned running worker, and retention must eventually progress after verified publication. The direct canonical api_stream path does not mark the separate chart_outbox rows published."
+proposal = "Wire a bounded durable PublishNextCommitted relay into services/launchpad/trading-charts/internal/app/app.go with the admitted delivery subject, tracked shutdown and restart recovery. Prove committed-only publication, duplicate-safe retry and successful guarded retention after relay drain."
+owner_domain = 4
+interface = "4.go-shared-delivery-natsdriver-publisher-publish"
+
+[finding.12]
+file = "services/launchpad/trading-charts/internal/consumer/accounting.go"
+line = 29
+class = "wiring-gap"
+severity = "medium"
+observed = "RefreshCompleteness implements source-authorized checkpoint refresh, but has no caller. Production advances a pool chart_series_clock on fills; when that pool becomes idle, later indexer completeness does not reach its persisted watermark and elapsed bars remain incomplete until another fill."
+expected = "A closed interval should advance to complete_through_watermark when the authenticated source checkpoint proves completeness, including idle pools, while unresolved deliveries continue to prevent a complete claim."
+proposal = "Start a bounded refresh loop from services/launchpad/trading-charts/internal/app/app.go that resumes each pool from its persisted authenticated publication and invokes RefreshCompleteness. Prove idle-pool completion, gap refusal and restart behavior without bypassing source authorization."
+owner_domain = 4
+
+[finding.13]
+file = "services/launchpad/trading-charts/internal/app/app.go"
+line = 303
+class = "wiring-gap"
+severity = "medium"
+observed = "App.New mounts /ws with no CandleChannel and no AllowedOrigins. runRedisSubscriber immediately returns for an empty channel, but the route still accepts a socket and acknowledges subscriptions. The canonical replay gateway is separate; the legacy /ws surface cannot deliver any candle from this application wiring."
+expected = "An exposed subscription must have an admitted producer and origin policy or report capability unavailable before accepting subscriptions; a healthy acknowledgement must not promise an event stream that has no source."
+proposal = "In services/launchpad/trading-charts/internal/app/app.go and internal/httpapi/ws.go, explicitly retire the unavailable legacy surface or supply the admitted partition transport, origin allowlist and an authoritative decimal/provenance adapter. Prove the decision through App.New rather than a manually constructed hub."
+owner_domain = 4
+
+[finding.14]
+file = "services/launchpad/trading-charts/internal/httpapi/ws_test.go"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "The WebSocket delivery tests construct their own hub and channel and publish hand-written CandleSnapshot payloads. They do not exercise App.New, which leaves CandleChannel empty, or the development Builder, which emits candleStart and raw-unit CandleUpdateEvent without the required snapshot metadata."
+expected = "The real stream path must prove producer shape, transport configuration and consumer decoding together; synthetic human-unit snapshots cannot certify the raw builder event or an application with no subscriber channel."
+proposal = "Add an application-level producer-to-socket test in services/launchpad/trading-charts/internal/httpapi/ws_test.go after the legacy surface disposition. Use actual admitted producer output and prove unavailable-source refusal as well as restart/resync behavior; retain coalescer unit coverage."
+owner_domain = 4
+
+[finding.15]
+file = "services/launchpad/trading-charts/internal/app/app.go"
+line = 268
+class = "wiring-gap"
+severity = "medium"
+observed = "App.New always registers the legacy /history endpoint through RegisterUDF(st). That handler wraps legacyHistory, whose QueryHistory always returns bounded history requires native history source. Separate versioned development and production UDF routes do not make the still-advertised unversioned endpoint usable."
+expected = "The stable unversioned history route must either use the bounded history source and cursor contract or expose an explicit retirement/capability decision. The deliberate refusal to execute an unbounded legacy read must remain intact."
+proposal = "Resolve the unversioned route disposition in services/launchpad/trading-charts/internal/app/app.go: mount RegisterUDFWithHistory with a bounded source and stable cursor authority where supported, or retire the route with a documented migration to /v1/udf or /v2/udf. Prove the selected application route end to end."
+owner_domain = 4
+interface = "4.http-trading-charts-get-history-history"
+
+[finding.16]
+file = "services/launchpad/trading-charts/internal/engine/builder.go"
+line = 179
+class = "runtime-risk"
+severity = "medium"
+observed = "The development Builder reads a candle without a row or pool lock, computes replacement totals, and writes them back. Concurrent distinct swaps can both claim processed_swaps and overwrite one another; concurrent first inserts use ON CONFLICT DO NOTHING, also losing one claimed fold. Production exact folding uses a separate fenced path."
+expected = "Even the exposed development webhook and Redis ingestion paths must not commit deduplication claims for economic effects that were lost through concurrent read/modify/write processing."
+proposal = "Serialize development pool folding within the same transaction in services/launchpad/trading-charts/internal/engine/builder.go, including first insertion and cursor updates, or route it through the admitted exact fold. Add concurrent distinct-swap proofs that preserve both volumes and trade counts."
+owner_domain = 4
+
+[finding.17]
+file = "services/launchpad/trading-charts/internal/engine/builder.go"
+line = 244
+class = "restart-recovery"
+severity = "medium"
+observed = "The development Builder mutates Redis trader sets and publishes candle updates inside upsertCandleInTx before ProcessSwap commits SQL. A later timeframe or commit failure can leave a published candle and trader membership for rolled-back data; swallowed Redis errors or Redis loss can also change persisted unique-trader counts on retry."
+expected = "Published state must represent committed folds and trader membership must survive retry and restart consistently with the candle transaction, even when one external system fails."
+proposal = "Persist development trader membership and a committed delivery outbox transactionally in services/launchpad/trading-charts/internal/engine/builder.go and its store. Publish only committed records with idempotent retry, and prove rollback after an early timeframe plus Redis restart does not emit phantom state or alter counts."
+owner_domain = 4
+
+[finding.18]
+file = "services/launchpad/trading-charts/internal/engine/builder.go"
+line = 300
+class = "runtime-risk"
+severity = "medium"
+observed = "When a late swap opens a previously absent old bucket, the development Builder seeds its open from the current cursor.LastClose and then unconditionally upserts last_candle_start. An out-of-order old bucket can inherit a future price and move the cursor backwards; existing bucket closes also follow arrival order."
+expected = "Historical and current candles must follow source chain order, and late arrivals must not replace the latest cursor with an older bucket or introduce future information into an older open."
+proposal = "In services/launchpad/trading-charts/internal/engine/builder.go, derive OHLC from persisted source ordering and fence cursor updates monotonically, preferably using the exact fold already owned by this service. Add an actual late-delivery sequence covering both an old missing bucket and an existing bucket."
+owner_domain = 4
+
+[finding.19]
+file = "services/launchpad/trading-charts/internal/httpapi/webhook.go"
+line = 123
+class = "security"
+severity = "medium"
+observed = "webhookAuth performs an unbounded io.ReadAll before checking the HMAC, and webhookHandler reads the body again. An unauthenticated client of the mounted development webhook can force large allocations and decoding work without possessing the signing secret."
+expected = "Request size and batch cardinality must be bounded before authentication-related body buffering and JSON decoding; invalid or oversized requests must not exhaust the service."
+proposal = "Apply http.MaxBytesReader and a declared event-count bound in services/launchpad/trading-charts/internal/httpapi/webhook.go before reading or verifying the body. Return a stable oversized-request refusal and prove both forged and valid oversized batches are rejected within the bound."
+owner_domain = 4
+
+[finding.20]
+file = "services/launchpad/trading-charts/internal/httpapi/webhook.go"
+line = 95
+class = "runtime-risk"
+severity = "medium"
+observed = "The development webhook logs ProcessSwap failures, increments errors, and still returns HTTP 200 with ok:true. A transient SQL or commit failure is therefore acknowledged like durable success, allowing a sender that retries failed HTTP deliveries to discard an unapplied swap."
+expected = "A delivery acknowledgement must mean every accepted event was durably applied or has a durable retry owner; transient storage failure must remain distinguishable from successful or duplicate application."
+proposal = "In services/launchpad/trading-charts/internal/httpapi/webhook.go, distinguish permanent validation failures from retryable apply failures and return a retryable non-2xx response unless the failed event is durably queued. Preserve idempotency for already committed batch members and prove partial failure followed by retry."
+owner_domain = 4
+
+[finding.21]
+file = "services/launchpad/trading-charts/internal/engine/series.go"
+line = 403
+class = "restart-recovery"
+severity = "high"
+observed = "ReconstructArchive calculates ExpectedDigest from current chart_exact rows, then refuses promotion unless that digest equals the archive reconstruction. After guarded retention removes those rows, or when the projection is missing or corrupt, authentic nonempty archive output cannot match the damaged or empty current projection, so reconstruction cannot restore the requested history."
+expected = "Archive recovery must restore lost or retained-away projection data from authenticated authoritative inputs using an independent parity commitment; the projection being repaired cannot be the only expected checksum authority."
+proposal = "Persist an independent range economic digest/checkpoint before deletion in services/launchpad/trading-charts/internal/store, and make internal/engine/series.go verify reconstruction against that retained authority. Preserve manifest, source, epoch and parity checks; prove a delete-close-reopen-reconstruct journey restores bars without weakening checksum validation."
+owner_domain = 4
+
+[finding.22]
+file = "services/launchpad/trading-charts/internal/store/rebuild.go"
+line = 358
+class = "wiring-gap"
+severity = "high"
+observed = "PromoteRebuild updates chart_exact, revisions and chart_outbox but never appends chart_stream_sources or an api_stream correction. Live ApplySeriesStreamTx uses appendCandleStreamTx for that proof and append. Rebuilt rows can thus be visible to history while canonical stream subscribers and their last materialized payload retain the older revision."
+expected = "A promoted authoritative correction must become visible through the same canonical snapshot/replay lifecycle as live folds, with durable source proof and an atomic revision transition across projection and publication."
+proposal = "Extend services/launchpad/trading-charts/internal/store/rebuild.go and the chart stream proof contract to append authenticated reconstruction corrections transactionally during promotion. Prove history, canonical snapshot and resumed event consumers converge on the promoted revision after restart; retain independent archive and source authorization."
+owner_domain = 4
+
+[finding.23]
+file = "services/launchpad/trading-charts/cmd/charts-rebuild/main.go"
+line = 28
+class = "config-drift"
+severity = "medium"
+observed = "charts-rebuild defaults --schema to charts, while production chartsd requires the admitted candles schema and the canonical stream/read-model contracts refer to candles views. An operator using the documented default targets the wrong schema instead of the running service projection."
+expected = "The reconstruction tool default must identify the same owned chart schema as production, or require an explicit validated deployment binding before any reconstruction operation."
+proposal = "Change the deployment-bound schema selection in services/launchpad/trading-charts/cmd/charts-rebuild/main.go to the admitted candles configuration and validate it against the runtime profile before loading or promoting a run. Prove the default resolves the production chart tables and rejects mismatched bindings."
+owner_domain = 4
+
+[finding.24]
+file = "services/launchpad/trading-charts/internal/engine/rollup_test.go"
+line = 93
+class = "test-gap"
+severity = "medium"
+observed = "The live archive/retention proof uses ethclient.HeaderByNumber and compares header.Hash().Hex() to the archive block hash. On chain 125 the committed node-reported block hash is not the local geth header rehash, as internal/chainread/reader_test.go explicitly demonstrates; the application and rebuild CLI already use chainread.Reader."
+expected = "The live proof must authenticate the same committed block identity as production and accept real chain-125 archive manifests, while still refusing a foreign or changed block hash."
+proposal = "Use the production chainread.Reader adapter in services/launchpad/trading-charts/internal/engine/rollup_test.go for ArchiveReader.BlockTime. Retain the foreign-hash refusal and add a committed node-hash success case so recovery qualification follows the real chain identity."
+owner_domain = 4
+
+[finding.25]
+file = "services/launchpad/trading-charts/internal/app/app_test.go"
+line = 101
+class = "retired-reference"
+severity = "low"
+observed = "The application production configuration fixture sets RPC_URL to https://rpc.example.com/rpc. Although it is a placeholder rather than a live network call, it normalizes the retired /rpc path in the merged-network application setup."
+expected = "Brief facts 2 and 3 define public JSON-RPC at the root of the admitted API node origin and explicitly identify pre-merge /rpc references in tests as drift."
+proposal = "Replace the RPC fixture with a root-path API origin in services/launchpad/trading-charts/internal/app/app_test.go, and preserve the existing startup assertions while adding an explicit refusal case if the shared profile rejects retired endpoint paths."
+owner_domain = 4
+
+[finding.26]
+file = "services/launchpad/trading-charts/internal/config/config_test.go"
+line = 24
+class = "retired-reference"
+severity = "low"
+observed = "The production environment fixture uses RPC_URL=https://rpc.example.com/rpc, retaining the pre-merge router endpoint shape in a configuration test even though the merged public node serves JSON-RPC at its root."
+expected = "Merged-network configuration examples and tests must use root-path API node origins and must not teach callers to append the retired unified /rpc path."
+proposal = "Update services/launchpad/trading-charts/internal/config/config_test.go to a root-path node fixture and retain all environment admission checks. Exercise the applicable shared endpoint validation for a retired /rpc URL instead of treating it as the ordinary production configuration."
+owner_domain = 4
+
+[finding.27]
+file = "sdk/launchpad/packages/sidiora-launchpad-v3/provenance.json"
+line = 7
+class = "config-drift"
+severity = "medium"
+observed = "Artifact paths were repointed under contracts/launchpad/artifacts, but every source path still starts at contracts/core, contracts/periphery, contracts/protocol or contracts/base and does not resolve at the repository root. erc20Abi provenance also still names ERC20Base while the exported binding now follows the SidioraERC20 role ABI."
+expected = "Requirement 4521.1 and reproducible ABI provenance require source and artifact identities that resolve consistently inside the repository and actually describe each published ABI, including its current role contract."
+proposal = "Regenerate sdk/launchpad/packages/sidiora-launchpad-v3/provenance.json from the authoritative role sources and artifacts, using repository-relative source paths, matching content digests and the current SidioraERC20 role. Keep explicit license provenance and avoid adding deployment defaults."
+owner_domain = 4
+
+[finding.28]
+file = "sdk/launchpad/packages/sidiora-launchpad-v3/test/provenance.test.mjs"
+line = 16
+class = "test-gap"
+severity = "medium"
+observed = "provenanceArtifactsResolveInRepository checks only artifact path containment, existence and artifact_sha256. It never validates source, source_sha256, license or that entry.export equals the ABI in the referenced artifact, allowing the stale source paths and ERC20 source identity to escape the provenance proof."
+expected = "Reproducible provenance must bind each exported ABI to both the authoritative source and built artifact, rather than merely proving an unrelated artifact has the recorded digest."
+proposal = "Extend sdk/launchpad/packages/sidiora-launchpad-v3/test/provenance.test.mjs to validate contained source paths, source digests and license markers, and compare every named exported ABI to its authoritative artifact ABI after the provenance repair. Preserve artifact containment and digest assertions."
+owner_domain = 4
+
+[finding.29]
+file = "sdk/launchpad/packages/sidiora-launchpad-v3/test/abi-conformance.test.mjs"
+line = 13
+class = "test-gap"
+severity = "medium"
+observed = "abiIdentities compares only entry type, name and input types. It ignores function output types, event indexed flags and stateMutability, so the five-role conformance proof can accept different return decoding or log topic/data layouts. The separate ERC20 deep-equality test does not cover all other role ABIs."
+expected = "Requirement 4522.1 requires one ABI truth across role, package and web consumers, including response encodings and event layouts as well as call selectors."
+proposal = "In sdk/launchpad/packages/sidiora-launchpad-v3/test/abi-conformance.test.mjs, compare canonical complete wire-relevant ABI entries for all roles, including tuple components, outputs, indexed flags, anonymous and stateMutability. Retain the existing role/web comparisons and explicit selector coverage."
+owner_domain = 4
+
+[finding.30]
+file = "sdk/launchpad/packages/indexer-sdk/src/index.ts"
+line = 41
+class = "runtime-risk"
+severity = "medium"
+observed = "HttpClient.get forwards only an optional caller AbortSignal to fetch and buffers JSON or error text without a byte cap. With the default options, a stalled service can hold a request indefinitely and an oversized response can allocate memory before any DTO validation."
+expected = "The brief requires bounded runtime work: a client request must have a default deadline and bounded success/error body consumption even when the application omits its optional signal."
+proposal = "Add a configurable bounded default deadline, combined caller cancellation and endpoint-appropriate streamed response byte caps in sdk/launchpad/packages/indexer-sdk/src/index.ts. Preserve typed errors and existing shape checks, and prove stalled headers/body, oversize refusal and listener cleanup through HTTP."
+owner_domain = 4
+
+[finding.31]
+file = "sdk/launchpad/packages/metadata-sdk/src/index.ts"
+line = 158
+class = "runtime-risk"
+severity = "medium"
+observed = "createMetadataClient.request forwards only an optional caller AbortSignal to fetch and buffers JSON or error text without a byte cap. With the default options, a stalled service can hold a request indefinitely and an oversized response can allocate memory before any DTO validation."
+expected = "The brief requires bounded runtime work: a client request must have a default deadline and bounded success/error body consumption even when the application omits its optional signal."
+proposal = "Add a configurable bounded default deadline, combined caller cancellation and endpoint-appropriate streamed response byte caps in sdk/launchpad/packages/metadata-sdk/src/index.ts. Preserve typed errors and existing shape checks, and prove stalled headers/body, oversize refusal and listener cleanup through HTTP."
+owner_domain = 4
+
+[finding.32]
+file = "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts"
+line = 72
+class = "runtime-risk"
+severity = "medium"
+observed = "RankingHttpClient request forwards only an optional caller AbortSignal to fetch and buffers JSON or error text without a byte cap. With the default options, a stalled service can hold a request indefinitely and an oversized response can allocate memory before any DTO validation."
+expected = "The brief requires bounded runtime work: a client request must have a default deadline and bounded success/error body consumption even when the application omits its optional signal."
+proposal = "Add a configurable bounded default deadline, combined caller cancellation and endpoint-appropriate streamed response byte caps in sdk/launchpad/packages/ranking-algo-sdk/src/index.ts. Preserve typed errors and existing shape checks, and prove stalled headers/body, oversize refusal and listener cleanup through HTTP."
+owner_domain = 4
+
+[finding.33]
+file = "sdk/launchpad/packages/users-sdk/src/index.ts"
+line = 91
+class = "runtime-risk"
+severity = "medium"
+observed = "UsersHttpClient.request forwards only an optional caller AbortSignal to fetch and buffers JSON or error text without a byte cap. With the default options, a stalled service can hold a request indefinitely and an oversized response can allocate memory before any DTO validation."
+expected = "The brief requires bounded runtime work: a client request must have a default deadline and bounded success/error body consumption even when the application omits its optional signal."
+proposal = "Add a configurable bounded default deadline, combined caller cancellation and endpoint-appropriate streamed response byte caps in sdk/launchpad/packages/users-sdk/src/index.ts. Preserve typed errors and existing shape checks, and prove stalled headers/body, oversize refusal and listener cleanup through HTTP."
+owner_domain = 4
+
+[finding.34]
+file = "sdk/launchpad/packages/sdk/src/transport.ts"
+line = 151
+class = "runtime-risk"
+severity = "medium"
+observed = "requestValue reads successful JSON with result.text() and error envelopes with result.clone().json() before schema validation, with no byte bound. The deadline limits elapsed time but does not bound bytes allocated; cloning an error response can also retain a second unread body branch."
+expected = "The transport must bound memory consumption before parsing untrusted success and error responses, preserve its existing deadline and cancellation behavior, and release every body branch on refusal or retry."
+proposal = "Implement endpoint-appropriate bounded body readers in sdk/launchpad/packages/sdk/src/transport.ts, cancel unused streams and parse the bounded error body once. Prove oversized success/error responses fail without buffering the entire body and retain current stable error codes and retry limits."
+owner_domain = 4
+
+[finding.35]
+file = "spec/layerx-merge/contracts/clients.md"
+line = 502
+class = "doc-drift"
+severity = "low"
+observed = "The launchpad SDK acceptance table still marks route-disposition, correction, script-retirement and layout tests as planned even though the named functions are present in the package. The generated page therefore does not distinguish implementation existence from qualification state."
+expected = "The interface contract documentation should identify current declared test locations and separately state any unqualified behavior, so readers do not interpret a historical planned label as an absent implementation or a passed gate."
+proposal = "Update the source inputs of the clients contract generator for spec/layerx-merge/contracts/clients.md and regenerate the launchpad sections with actual declaration locations and explicit qualification state; retain the existing interface status and acceptance criteria."
+owner_domain = 4
+
+[finding.36]
+file = "spec/layerx-merge/contracts/services.md"
+line = 3533
+class = "doc-drift"
+severity = "low"
+observed = "The chart-service acceptance table labels TestERC20MetadataSelectorsMatchTokenABI, TestReplayGatewayMountsFrozenTopicSnapshotRead and TestReplayGatewayOutageAnswersFrozenError planned although all three functions now exist in the listed files."
+expected = "The generated service contract should describe current test declarations separately from verification evidence, preserving the frozen selector, snapshot-route and outage-error acceptance criteria."
+proposal = "Refresh the owning generator inputs for spec/layerx-merge/contracts/services.md and regenerate the trading-charts acceptance rows with current test locations and explicit evidence status; do not infer successful qualification merely from declaration existence."
+owner_domain = 4
+
+[finding.37]
+file = "sdk/launchpad/packages/stats-sdk/src/index.ts"
+line = 53
+class = "runtime-risk"
+severity = "medium"
+observed = "The stats-sdk request path has a deadline but buffers the complete response body before validating its DTO, with no response byte cap. A fast oversized or malformed upstream response can exhaust browser or server memory before the existing schema checks run."
+expected = "The brief requires bounded runtime resource consumption; a response deadline must be paired with an endpoint-appropriate byte limit before allocating and parsing untrusted success or error content."
+proposal = "Add bounded streamed response consumption in sdk/launchpad/packages/stats-sdk/src/index.ts, with explicit oversized-response refusal and cancellation. Retain the existing deadline, caller abort, status propagation and exact DTO validation, and prove a fast oversized response is refused before full buffering."
+owner_domain = 4
+
+[finding.38]
+file = "sdk/launchpad/packages/candles-sdk/src/index.ts"
+line = 213
+class = "runtime-risk"
+severity = "medium"
+observed = "The candles-sdk request path has a deadline but buffers the complete response body before validating its DTO, with no response byte cap. A fast oversized or malformed upstream response can exhaust browser or server memory before the existing schema checks run."
+expected = "The brief requires bounded runtime resource consumption; a response deadline must be paired with an endpoint-appropriate byte limit before allocating and parsing untrusted success or error content."
+proposal = "Add bounded streamed response consumption in sdk/launchpad/packages/candles-sdk/src/index.ts, with explicit oversized-response refusal and cancellation. Retain the existing deadline, caller abort, status propagation and exact DTO validation, and prove a fast oversized response is refused before full buffering."
+owner_domain = 4
+
+[doc.1]
+path = "docs/wiki/HostedDashboard.md"
+status = "accurate"
+notes = "Read the complete hosted developer-dashboard page. It describes platform session, quota, gateway and webhook views, not launchpad charts or these SDKs; no chart deployment claims were inferred from its Fly/Railway inventory."
+
+[doc.2]
+path = "sdk/launchpad/packages/indexer-sdk/README.md"
+status = "accurate"
+notes = "Read in full: current stats-workers transactions endpoint, explicit base URL, string amounts and historical BFF retirement agree with the implementation."
+
+[doc.3]
+path = "sdk/launchpad/packages/stats-sdk/README.md"
+status = "accurate"
+notes = "Read in full: local client provenance, single/batch coverage, timeout, caller cancellation and missing-pool semantics agree with the implementation; no broader statistics coverage is claimed."
+
+[doc.4]
+path = "sdk/launchpad/packages/sdk/README.md"
+status = "stale"
+notes = "Read in full. Lines 3 and 17 retain removed phase2 evidence/qualification guidance; generator reproducibility currently lacks the authoritative bundle. Finding 10 proposes the owning documentation repair."
+
+[doc.5]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "stale"
+notes = "Read the package-relevant launchpad client sections, including SDK disposition/requirements, shared Go contract and small SDK rows. Acceptance tables still label now-declared test functions planned; preserve interface dispositions while regenerating implementation locations and qualification state."
+
+[doc.6]
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Read the trading-charts section and relevant launchpad producer sections. The acceptance rows call existing selector/replay tests planned and the all-stable route inventory does not explain the mounted unavailable legacy history/socket behavior; update generated service claims after explicit route disposition."
