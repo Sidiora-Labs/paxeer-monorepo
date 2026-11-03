@@ -2,8 +2,8 @@
 revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "python3 -m pytest -q --collect-only TARGET"
 targets_total = 84
-targets_passed = 74
-targets_failed = 10
+targets_passed = 75
+targets_failed = 9
 targets_not_run = 0
 
 [target.python-pytest-collect.1]

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/holiman/uint256"
@@ -668,11 +669,20 @@ func TestTypedDataChainPinned(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expect(t, h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: right}, h.ledger), CodeAllowed)
+	expect(t, h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: right}, h.ledger), CodeMissingField)
 	expect(t, h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: wrong}, h.ledger), CodeChainMismatch)
 	tampered := *right
 	tampered.Digest = common.Hash{2}
 	expect(t, h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: &tampered}, h.ledger), CodeDigestMismatch)
+
+	permit := permitData(t, "1")
+	expect(t, h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: permit}, h.ledger), CodeAllowed)
+	permit.Data.Domain.ChainId = math.NewHexOrDecimal256(1)
+	permit.Digest, err = evm.TypedDataDigest(permit.Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect(t, h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: permit}, h.ledger), CodeChainMismatch)
 }
 
 func TestLoadFile(t *testing.T) {
@@ -706,8 +716,8 @@ func TestShippedPolicyListsSendAuthorizationKind(t *testing.T) {
 	if !slices.Contains(doc.Defaults.Kinds, KindLXSendAuth) {
 		t.Fatal("shipped defaults omit lx_send_authorization")
 	}
-	if !slices.Contains(doc.Defaults.Kinds, KindLXActivity) {
-		t.Fatal("shipped defaults no longer allow lx_activity")
+	if slices.Contains(doc.Defaults.Kinds, KindLXActivity) {
+		t.Fatal("shipped defaults allow retired lx_activity")
 	}
 }
 
@@ -768,6 +778,14 @@ func TestShippedPolicyAllowsWalletSDKWrites(t *testing.T) {
 			"openPosition(uint256,address,uint256,uint256,bool)",
 			"cancelOrder(uint256)",
 			"closePosition(uint256)",
+			"placeLimitOrder(uint256,bool,uint256,uint256,uint256,address,uint256)",
+			"placeStopLimitOrder(uint256,bool,uint256,uint256,uint256,uint256,address,uint256)",
+			"placeTakeProfitOrder(uint256,uint256)",
+			"placeStopLossOrder(uint256,uint256)",
+			"setPositionTpSl(uint256,uint256,uint256)",
+			"partialClose(uint256,uint256)",
+			"addCollateral(uint256,uint256)",
+			"removeCollateral(uint256,uint256)",
 		}, "transferCollateral(address,uint256)"},
 		{"layerxbridge", []string{
 			"bridgeIn(uint64,address,bytes32,uint64,bytes32,address,uint256,bytes[])",
@@ -1218,7 +1236,10 @@ func TestShippedPolicyAllowsLaunchpadApproveThenBuy(t *testing.T) {
 		t.Fatal(err)
 	}
 	launchpad, _ := evm.PrecompileAddress("launchpad")
-	custody, _ := evm.PrecompileAddress("layerxcustody")
+	untrusted, ok := evm.PrecompileAddress("layerxledger")
+	if !ok {
+		t.Fatal("layerxledger precompile is missing")
+	}
 	usdl := common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479")
 	amount := big.NewInt(25_000_000)
 	h := newHarness(t)
@@ -1239,7 +1260,7 @@ func TestShippedPolicyAllowsLaunchpadApproveThenBuy(t *testing.T) {
 	}
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, launchpad, big.NewInt(0), buy), h.ledger), CodeAllowed)
 
-	unlistedSpender, err := erc20.Pack("approve", custody, amount)
+	unlistedSpender, err := erc20.Pack("approve", untrusted, amount)
 	if err != nil {
 		t.Fatal(err)
 	}

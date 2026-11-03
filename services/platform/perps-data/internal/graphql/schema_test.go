@@ -57,18 +57,24 @@ func TestSchemaSDL(t *testing.T) {
 			"SpotMarket",
 			"SpotOrder",
 			"SpotOrderFill",
+			"SpotCollateralMovement",
+		} {
+			if _, ok := schema.AST().Types[name].(*ast.ObjectTypeDefinition); !ok {
+				t.Errorf("missing application object %s", name)
+			}
+		}
+		for _, name := range []string{
 			"SpotBatchClearing",
 			"SpotEpochSettlement",
 			"SpotFastSettlement",
-			"SpotCollateralMovement",
 			"SpotMarketModeChange",
 			"SpotPofqUpdate",
 			"SpotPLV",
 			"SpotKeeperCycle",
 			"SpotBatchClearFailure",
 		} {
-			if _, ok := schema.AST().Types[name].(*ast.ObjectTypeDefinition); !ok {
-				t.Errorf("missing application object %s", name)
+			if _, ok := schema.AST().Types[name]; ok {
+				t.Errorf("retired application type %s remains in the schema", name)
 			}
 		}
 		for _, name := range []string{"BigDecimal", "DateTime"} {

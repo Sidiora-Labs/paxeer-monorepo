@@ -9,11 +9,17 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/oracle/types"
 	oracletypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/oracle/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/oracle/utils"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	"github.com/stretchr/testify/require"
 )
+
+func newOracleAnteTx(t *testing.T, msgs ...sdk.Msg) sdk.Tx {
+	t.Helper()
+	builder := testutils.MakeEncodingConfig(t).TxConfig.NewTxBuilder()
+	require.NoError(t, builder.SetMsgs(msgs...))
+	return builder.GetTx()
+}
 
 func TestOracleVoteAloneAnteHandler(t *testing.T) {
 
@@ -28,9 +34,9 @@ func TestOracleVoteAloneAnteHandler(t *testing.T) {
 		expErr bool
 		tx     sdk.Tx
 	}{
-		{"only oracle vote", false, app.NewTestTx([]sdk.Msg{&testOracleMsg})},
-		{"only non-oracle msgs", false, app.NewTestTx([]sdk.Msg{&testNonOracleMsg, &testNonOracleMsg2})},
-		{"mixed messages", true, app.NewTestTx([]sdk.Msg{&testNonOracleMsg, &testOracleMsg, &testNonOracleMsg2})},
+		{"only oracle vote", false, newOracleAnteTx(t, &testOracleMsg)},
+		{"only non-oracle msgs", false, newOracleAnteTx(t, &testNonOracleMsg, &testNonOracleMsg2)},
+		{"mixed messages", true, newOracleAnteTx(t, &testNonOracleMsg, &testOracleMsg, &testNonOracleMsg2)},
 	}
 
 	for _, tc := range testCases {
@@ -57,32 +63,32 @@ func TestSpammingPreventionAnteHandler(t *testing.T) {
 	anteHandler := sdk.ChainAnteDecorators(spd)
 
 	recheckCtx := input.Ctx.WithIsReCheckTx(true)
-	_, err := anteHandler(recheckCtx, app.NewTestTx([]sdk.Msg{voteMsg}), false) // should skip the SPD
+	_, err := anteHandler(recheckCtx, newOracleAnteTx(t, voteMsg), false) // should skip the SPD
 	require.NoError(t, err)
 
 	ctx := input.Ctx.WithIsCheckTx(true)
-	_, err = anteHandler(ctx, app.NewTestTx([]sdk.Msg{voteMsg}), false)
+	_, err = anteHandler(ctx, newOracleAnteTx(t, voteMsg), false)
 	require.NoError(t, err)
 
 	// invalid because bad feeder val combo
-	_, err = anteHandler(ctx, app.NewTestTx([]sdk.Msg{invalidVoteMsg}), false)
+	_, err = anteHandler(ctx, newOracleAnteTx(t, invalidVoteMsg), false)
 	require.Error(t, err)
 
 	// malform feeder
 	malformedVote := voteMsg
 	malformedVote.Feeder = "paxfoobar"
-	_, err = anteHandler(ctx, app.NewTestTx([]sdk.Msg{malformedVote}), false)
+	_, err = anteHandler(ctx, newOracleAnteTx(t, malformedVote), false)
 	require.Error(t, err)
 
 	// malform val
 	malformedVote = voteMsg
 	malformedVote.Validator = "paxvaloperfoobar"
-	_, err = anteHandler(ctx, app.NewTestTx([]sdk.Msg{malformedVote}), false)
+	_, err = anteHandler(ctx, newOracleAnteTx(t, malformedVote), false)
 	require.Error(t, err)
 
 	// set aggregate vote for val 0
 	input.OracleKeeper.SetAggregateExchangeRateVote(ctx, testutils.ValAddrs[0], types.NewAggregateExchangeRateVote(types.ExchangeRateTuples{}, testutils.ValAddrs[0]))
 	// now should fail
-	_, err = anteHandler(ctx, app.NewTestTx([]sdk.Msg{voteMsg}), false)
+	_, err = anteHandler(ctx, newOracleAnteTx(t, voteMsg), false)
 	require.Error(t, err)
 }

@@ -1,0 +1,8 @@
+[repair.go-modules.36]
+target = "modules/launchpad/keeper"
+command = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./modules/launchpad/keeper/ && test -s spec/layerx-merge/programme/sweeps/repairs/go-modules.36.kvx && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/launchpad/keeper/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "modules/launchpad/keeper/sweep_test.go reports each test and the measured suite wall time without changing product behavior or test assertions."
+wall_time = "TestMain reports the measured duration as launchpad keeper inventory sweep wall time in the verification output."
+producer_input_tests = []
