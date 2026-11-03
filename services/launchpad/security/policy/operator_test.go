@@ -29,7 +29,7 @@ func realSecurityDatabase(t *testing.T) (*pgxpool.Pool, string) {
 	t.Helper()
 	dsn := os.Getenv("L45_DATABASE_URL")
 	if dsn == "" {
-		dsn = "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable"
+		dsn = localSecurityPostgres(t)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()

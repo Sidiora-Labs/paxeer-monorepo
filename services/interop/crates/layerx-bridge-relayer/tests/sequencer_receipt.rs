@@ -74,6 +74,33 @@ fn key(document: &Value) -> SequencerAuthorization {
 }
 
 #[test]
+fn inbound_receipt_views_carry_the_producer_payment_denom() {
+    let document: Value = must(serde_json::from_str(include_str!(
+        "fixtures/inbound_sequencer_receipt.json"
+    )));
+    let pin = key(&json!({"key": document["receiptKey"]}));
+    for phase in ["receipted", "committed", "reverted", "consumed", "invalid"] {
+        let answer = must(SequencerReceipt::decode(
+            &document["endpoints"]["paxeer"][phase][0]["result"],
+        ));
+        assert_eq!(
+            answer
+                .view
+                .as_ref()
+                .expect("inbound receipt view")
+                .payment_denom,
+            "uhpx",
+            "payment denomination in {phase} view"
+        );
+        if phase == "invalid" {
+            assert!(answer.verify(&[pin]).is_err());
+        } else {
+            must(answer.verify(&[pin]));
+        }
+    }
+}
+
+#[test]
 fn a_committed_answer_decodes_every_field() {
     let document = fixture();
     let answer = must(SequencerReceipt::decode(&document["committed"]));
