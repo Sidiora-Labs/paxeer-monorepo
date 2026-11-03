@@ -37,8 +37,8 @@ func (k *Keeper) retirementError(ctx sdk.Context) error {
 	if !ok {
 		return sdkerrors.Wrap(types.ErrKeeperMissing, "upgrade keeper done-height reader")
 	}
-	return fmt.Errorf("%s done at height %d: %w", types.RetiredFromUpgrade,
-		upgrade.GetDoneHeight(ctx, types.RetiredFromUpgrade), types.ErrRetired)
+	return sdkerrors.Wrapf(types.ErrRetired, "%s done at height %d", types.RetiredFromUpgrade,
+		upgrade.GetDoneHeight(ctx, types.RetiredFromUpgrade))
 }
 
 // record assigns the owner's next nonce and its intent identifier and stores
@@ -135,7 +135,7 @@ func (k *Keeper) RecordPlaceOrderIntent(ctx sdk.Context, owner common.Address, m
 		}
 		commitment, enabled, err := types.NativeGenesisCapability(market.NativeGenesis)
 		if err != nil {
-			return types.Intent{}, sdkerrors.Wrap(types.ErrInvalidProof, err.Error())
+			return types.Intent{}, fmt.Errorf("%s: %w", err.Error(), types.ErrInvalidProof)
 		}
 		if !bytes.Equal(proven.Value, commitment[:]) {
 			return types.Intent{}, types.ErrStateMismatch

@@ -10,10 +10,9 @@
 // the private cache directive for cookie-only failures on private operations.
 // WriteV2NotConfiguredError now preserves private, no-store for those routes.
 //
-// Outside scope: services/launchpad/discovery/errors.go, writeError copies an
-// unchecked X-Request-Id into the response body instead of the metadata UUID.
-// A malformed value must be refused by v2.DecodeError; the proof pins this
-// current producer behavior without repairing the discovery service here.
+// Discovery sanitizes malformed X-Request-Id values before writing its error
+// envelope. The consumer must accept the resulting UUID and the malformed
+// input must appear in neither the response body nor its metadata.
 // The unavailable response is the successful contract result for operations
 // whose backing authority is unconfigured; malformed queries must be refused
 // before admission rather than reaching that producer.
@@ -213,20 +212,20 @@ func TestProofLaunchpadApiDiscoveryAndMalformedProducer(t *testing.T) {
 			}
 		})
 	}
-	// The malformed document is emitted by the real discovery producer, not
-	// constructed by the test: its writer trusts this request header verbatim.
+	// Exercise malformed input through the real discovery producer and decoder.
 	before := admission.Stats()
 	response, body := proofLaunchpadAPIRequest(t, server, http.MethodDelete, "/v2/me/alerts/"+id, "not-a-uuid")
-	if response.StatusCode != http.StatusUnauthorized || !strings.Contains(string(body), `"requestId":"not-a-uuid"`) {
-		t.Fatalf("discovery writeError behavior changed: status=%d body=%s", response.StatusCode, body)
+	failure := proofLaunchpadAPIDecode(t, response, body, http.StatusUnauthorized, "AUTH_REQUIRED")
+	if strings.Contains(string(body), "not-a-uuid") || response.Header.Get("X-Request-ID") == "not-a-uuid" {
+		t.Fatal("discovery accepted the malformed request identity")
 	}
-	if response.Header.Get("X-Request-ID") == "not-a-uuid" {
-		t.Fatal("response metadata accepted the malformed producer request identity")
+	if _, err := uuid.Parse(failure.RequestId); err != nil {
+		t.Fatalf("discovery did not sanitize the request identity: %v", err)
 	}
-	if _, err := v2.DecodeError(body); err == nil || !strings.Contains(err.Error(), "requestId") || !strings.Contains(err.Error(), "invalid uuid") {
-		t.Fatalf("consumer must refuse the producer's malformed requestId: err=%v body=%s", err, body)
+	if response.Header.Get("Cache-Control") != "private, no-store" {
+		t.Fatalf("private discovery failure can be cached: %v", response.Header)
 	}
 	if admission.Stats().Admitted != before.Admitted+1 || admission.Stats().Used != 0 {
-		t.Fatal("malformed producer result did not traverse real admission")
+		t.Fatal("malformed request identity did not traverse real admission")
 	}
 }

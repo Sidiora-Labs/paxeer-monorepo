@@ -974,11 +974,48 @@ fn publisher_targets_only_the_paymaster_never_the_fee_token() -> TestResult {
 #[test]
 fn real_signed_v2_publication_replays_exactly_and_refuses_identity_corruption() -> TestResult {
     use layerx_gas_station::journal::PublicationTransaction;
-    use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
-    let input = PathBuf::from(
-        std::env::var_os("PAXEER_X_RATE_AUTHENTICATED_TRANSACTION")
-            .ok_or("genuine private signed publisher transaction required")?,
-    );
+    use layerx_gas_station::tx::{sign_call, Fees};
+    use std::io::Write as _;
+    use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _};
+
+    let directory =
+        std::env::temp_dir().join(format!("paxeer-rate-authenticated-{}", std::process::id()));
+    std::fs::create_dir(&directory)?;
+    std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o700))?;
+    let owner = signer(&SigningKey::random(&mut OsRng).to_bytes())?;
+    let fees = Fees {
+        gas_limit: RATE_GAS_LIMIT,
+        max_fee_per_gas: 5_000_000_000,
+        max_priority_fee_per_gas: 1_000_000_000,
+    };
+    let rate = word(3_200_000);
+    let data = [&keccak(b"setRate(uint256)")[..4], rate.as_slice()].concat();
+    let signed = sign_call(125, 7, fees, PAYMASTER, &data, &owner)?;
+    let generated = PublicationTransaction {
+        version: 2,
+        publication: Publication {
+            owner: owner.address(),
+            nonce: 7,
+            hash: signed.hash,
+            rate,
+            gas_limit: fees.gas_limit,
+            max_fee_per_gas: fees.max_fee_per_gas,
+            signed_at: NOW,
+        },
+        chain_id: 125,
+        paymaster: PAYMASTER,
+        max_priority_fee_per_gas: fees.max_priority_fee_per_gas,
+        raw: signed.raw,
+        cancellation: false,
+    };
+    let input = directory.join("transaction.json");
+    let mut fixture = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&input)?;
+    fixture.write_all(&serde_json::to_vec(&generated)?)?;
+    drop(fixture);
     let metadata = std::fs::symlink_metadata(&input)?;
     if !input.is_absolute()
         || !metadata.is_file()
@@ -995,11 +1032,8 @@ fn real_signed_v2_publication_replays_exactly_and_refuses_identity_corruption() 
     {
         return Err("protected genuine publisher transaction required".into());
     }
-    let transaction: PublicationTransaction = serde_json::from_slice(&std::fs::read(input)?)?;
-    let directory =
-        std::env::temp_dir().join(format!("paxeer-rate-authenticated-{}", std::process::id()));
-    std::fs::create_dir(&directory)?;
-    std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o700))?;
+    let transaction: PublicationTransaction = serde_json::from_slice(&std::fs::read(&input)?)?;
+    assert_eq!(transaction, generated);
     let path = directory.join("rate.jsonl");
     let mut journal = Journal::open(&path)?;
     let entry = Entry::RatePrepared {
@@ -1035,6 +1069,7 @@ fn real_signed_v2_publication_replays_exactly_and_refuses_identity_corruption() 
     drop(journal);
     assert_eq!(Journal::open(&path)?.state(), &state);
     std::fs::remove_file(path)?;
+    std::fs::remove_file(input)?;
     std::fs::remove_dir(directory)?;
     Ok(())
 }

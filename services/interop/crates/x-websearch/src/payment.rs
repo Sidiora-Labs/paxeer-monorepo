@@ -2351,7 +2351,8 @@ impl<'Plane> Plane<'Plane> {
                     .into_iter()
                     .map(|log| SequencerLog::new(log.address, log.topics, log.data, log.log_index))
                     .collect(),
-                rung: answer.rung,
+                // Receipt and logs were verified; RPC block fields are not a commit proof.
+                rung: SettlementRung::Receipted,
             },
         }))
     }

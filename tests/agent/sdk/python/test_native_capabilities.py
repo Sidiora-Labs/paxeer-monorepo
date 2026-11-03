@@ -19,7 +19,9 @@ from layerx_sdk.native_capabilities import (
     encode_native_capability_set,
     narrow_native_capability_set,
 )
-from layerx_sdk.verifier import programs_module_version_for_protocol
+from layerx_sdk.programs import ProgramTrustContext
+
+from program_receipt_evidence import ProgramReceiptEvidence
 
 _CLASSES = dict(zip(
     ("StorageRead", "StorageWrite", "EmitEvent", "Call", "Transfer402", "ProgramSpend", "ReceiptRead", "BalanceView", "SharedStorageRead", "SharedStorageWrite"),
@@ -82,8 +84,14 @@ class NativeCapabilitiesTest(unittest.TestCase):
                 with self.assertRaises(ValueError): encode_native_capability_set((replace(grant, receipt_digest=bytes(32)),))
 
     def test_protocol_binding_rejects_bool_and_wrong_module_version(self):
+        evidence = ProgramReceiptEvidence()
+        self.assertEqual(evidence.verify(), evidence.verified)
         for protocol in (2, 3):
-            for module in (1, 2, 3, 4):
-                self.assertEqual(programs_module_version_for_protocol(protocol, module), (module == 4) == (protocol == 3))
-        self.assertFalse(programs_module_version_for_protocol(2, True))
-        self.assertFalse(programs_module_version_for_protocol(True, 1))
+            trust = replace(evidence.trust, protocol_version=protocol)
+            self.assertEqual(evidence.verify(trust=trust), evidence.verified)
+        for protocol in (True, 1, 4):
+            with self.subTest(protocol=protocol), self.assertRaises(ValueError):
+                ProgramTrustContext(evidence.key.public_key, protocol_version=protocol)
+        for module in (2, 3, 4, 5):
+            with self.subTest(module=module), self.assertRaisesRegex(ValueError, "receipt binding failed"):
+                evidence.verify({**evidence.execution, "module_version": module})

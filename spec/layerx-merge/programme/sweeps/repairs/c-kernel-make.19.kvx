@@ -1,0 +1,6 @@
+[repair.c-kernel-make.19]
+target = "test-state-commitment-transition"
+command = "make -s test-state-commitment-transition"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "repaired"
+change = "Decision 101 retired the idempotency table. Replace the transition suite's reads of the deleted idempotency_count member with actor-sequence consumption and global-sequence advancement checks for committed receipts, and actor-sequence preservation for malformed input; retain receipt, root, balance and tamper assertions."

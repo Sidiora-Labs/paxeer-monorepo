@@ -25,6 +25,10 @@ func renderInputs(t *testing.T) runtimedocs.Inputs {
 	t.Helper()
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Join(filepath.Dir(file), "..", "..", "..", "..", "..")
+	manifest, ok := deployment.Approved(32226215)
+	if !ok {
+		t.Fatal("historical chain-125 deployment manifest is not approved")
+	}
 	reviewed, err := os.ReadFile(filepath.Join(root, "sdk", "launchpad", "protocol", "catalog", "reviewed.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -43,7 +47,7 @@ func renderInputs(t *testing.T) runtimedocs.Inputs {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return runtimedocs.Inputs{Manifest: deployment.Current(), ReviewedCatalog: reviewed, ERC20RuntimeCode: code, PoolRuntimeHash: common.HexToHash("0xa9b304d6d0aa562f283b45978b84ced8840a9331f8ac946742670b1b02a2872d"), Anchor: receipt.BlockAnchor{Height: 33963715, Hash: common.HexToHash("0x82477110c5fc791f6bef5a7d96636dc457e83daf59c8b802e264bada02f13395")}}
+	return runtimedocs.Inputs{Manifest: manifest, ReviewedCatalog: reviewed, ERC20RuntimeCode: code, PoolRuntimeHash: common.HexToHash("0xa9b304d6d0aa562f283b45978b84ced8840a9331f8ac946742670b1b02a2872d"), Anchor: receipt.BlockAnchor{Height: 33963715, Hash: common.HexToHash("0x82477110c5fc791f6bef5a7d96636dc457e83daf59c8b802e264bada02f13395")}}
 }
 
 // The rendered production documents bind exactly as app.New reads them
