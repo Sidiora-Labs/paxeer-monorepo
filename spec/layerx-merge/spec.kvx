@@ -138245,7 +138245,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.157]
 title = "Repair the inventory sweep target layerx-platform-cli"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147897,7 +147897,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.141]
 title = "Repair the inventory sweep target services/platform/perps-data/loadtest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147928,7 +147928,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.140]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/ws"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147959,7 +147959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.139]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147990,7 +147990,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.138]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148021,7 +148021,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.137]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/rest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148674,7 +148674,7 @@ do_6 = "Attempt 3 (continue): regenerate a vector only from its provenance sourc
 
 [task.22.99.16]
 title = "Repair the inventory sweep target services/launchpad/user"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203754,7 +203754,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.108]
 title = "Repair the inventory sweep target modules/launchpad/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203909,7 +203909,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.103]
 title = "Repair the inventory sweep target modules/epoch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240023,7 +240023,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.152]
 title = "Repair the inventory sweep target tools/launchpad/production/load"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240054,7 +240054,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.151]
 title = "Repair the inventory sweep target tools/launchpad/production/interfaces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240116,7 +240116,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.149]
 title = "Repair the inventory sweep target deploy/launchpad/production/observability/phase2/tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
