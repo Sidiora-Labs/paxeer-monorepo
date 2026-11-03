@@ -83,6 +83,9 @@ defaults:
   run:
     working-directory: wasm-runtime
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

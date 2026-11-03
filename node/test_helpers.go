@@ -16,6 +16,8 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 	gigalib "github.com/Sidiora-Labs/Paxeer-X-Network/engine/executor/lib"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	layerxchainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
+	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	slashingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/slashing/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking"
@@ -203,6 +205,12 @@ func newTestWrapper(tb testing.TB, tm time.Time, valPub cryptotypes.PubKey, enab
 		}
 	})
 	ctx := appPtr.NewContext(false, tmproto.Header{Height: 1, ChainID: "pax-test", Time: tm})
+	for _, name := range []string{seqtypes.StoreKey, layerxchainstypes.StoreKey} {
+		key := appPtr.GetKey(name)
+		require.NotNil(tb, key, "RPC test application store key %s", name)
+		require.NotNil(tb, appPtr.CommitMultiStore().GetCommitKVStore(key), "RPC test application store %s", name)
+		require.Contains(tb, ctx.MultiStore().StoreKeys(), key, "RPC test context store %s", name)
+	}
 	wrapper := &TestWrapper{
 		App:  appPtr,
 		Ctx:  ctx,

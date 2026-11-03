@@ -148,6 +148,9 @@ defaults:
   run:
     working-directory: .
 
+permissions:
+  contents: read
+
 jobs:
   mock-balances-build:
     name: Compile with Mock Balances

@@ -10,6 +10,8 @@ import unittest
 
 import yaml
 
+import provision
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[3]
 spec = importlib.util.spec_from_file_location('material', HERE / 'material.py')
@@ -18,6 +20,66 @@ spec.loader.exec_module(material)
 
 
 class MaterialTests(unittest.TestCase):
+    def owner_policy(self):
+        policy = provision.owner_policy()
+        self.assertEqual(policy, json.loads((HERE / 'beta-owner-policy.json').read_text()))
+        self.assertRegex(policy['limit']['id'], r'\A[0-9a-f]{32}\Z')
+        self.assertNotEqual(int(policy['limit']['id'], 16), 0)
+        return policy
+
+    def test_bundled_owner_policy_projects_to_sixteen_byte_limit_id(self):
+        policy = self.owner_policy()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evidence = root / 'evidence'
+            evidence.mkdir(mode=0o700)
+            config = root / 'agent-config'
+            config.mkdir(mode=0o700)
+            material.write(evidence, 'authority.json', json.dumps({
+                'core-clock-horizon': policy['core-clock-horizon']}))
+            material.write(evidence, 'agent.json', json.dumps({
+                'HUMAN_LIMIT_ID': policy['limit']['id'],
+                'HUMAN_LIMIT_NAME': policy['limit']['name'],
+                'HUMAN_LIMIT_CEILING': policy['limit']['ceiling']}))
+            status = material.policy_graph_status(
+                evidence, root / 'journal', root / 'deployment.json',
+                root / 'module-registry.json', root / 'bundle', root / 'registry',
+                root / 'authority', 402, 31337)['nodes']['owner-policy']
+            self.assertEqual(status['state'], 'ready')
+            self.assertIsNone(status['reason'])
+            material.write_agent_config(config, material.protected_json(evidence / 'agent.json'))
+            projected = config / 'LAYERX_AGENT_HUMAN_LIMIT_ID'
+            limit_id = projected.read_text()
+            self.assertEqual(limit_id, policy['limit']['id'])
+            self.assertRegex(limit_id, r'\A[0-9a-f]{32}\Z')
+            self.assertEqual(len(bytes.fromhex(limit_id)), 16)
+            self.assertEqual(bytes.fromhex(limit_id).hex(), policy['limit']['id'])
+            self.assertEqual(projected.stat().st_mode & 0o777, 0o600)
+
+    def test_owner_policy_refuses_malformed_zero_and_legacy_limit_ids(self):
+        policy = self.owner_policy()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'provision.py'
+            source.write_text((HERE / 'provision.py').read_text())
+            spec = importlib.util.spec_from_file_location('limit_policy_provision', source)
+            copied_provision = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(copied_provision)
+            policy_path = root / 'beta-owner-policy.json'
+            policy_path.write_text(json.dumps(policy))
+            self.assertEqual(copied_provision.owner_policy(), policy)
+            for limit_id in ('', 'g' * 32, policy['limit']['id'].upper(),
+                             policy['limit']['id'][:-1], '0' * 32,
+                             policy['limit']['id'] * 2,
+                             'ef060d2533e9bcc511e5583aa2802ee44baa120fc7de7b03a55bce6b02cf8b71',
+                             None, 1):
+                with self.subTest(limit_id=limit_id):
+                    policy['limit']['id'] = limit_id
+                    policy_path.write_text(json.dumps(policy))
+                    with self.assertRaises(copied_provision.Refused) as caught:
+                        copied_provision.owner_policy()
+                    self.assertEqual(str(caught.exception), f'{policy_path}: invalid limit.id')
+
     def test_owner_policy_limit_id_is_sixteen_bytes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

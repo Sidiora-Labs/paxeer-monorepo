@@ -1,0 +1,28 @@
+{
+  "manifests": {
+    "core/deps/geth/go.mod": {
+      "github.com/consensys/gnark-crypto": "0.18.1",
+      "github.com/golang-jwt/jwt/v4": "4.5.2",
+      "github.com/gorilla/websocket": "1.5.3",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0",
+      "golang.org/x/net": "0.55.0"
+    },
+    "core/deps/db-backend/go.mod": {
+      "github.com/golang/glog": "1.2.4",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/net": "0.7.0",
+      "golang.org/x/sys": "0.0.0-20220412211240-33da011f77ad",
+      "golang.org/x/text": "0.3.8",
+      "google.golang.org/grpc": "1.83.1",
+      "google.golang.org/protobuf": "1.33.0",
+      "gopkg.in/yaml.v3": "3.0.1"
+    },
+    "core/deps/tm-db/go.mod": {
+      "github.com/golang/glog": "1.2.4",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/net": "0.7.0",
+      "google.golang.org/protobuf": "1.33.0"
+    }
+  }
+}

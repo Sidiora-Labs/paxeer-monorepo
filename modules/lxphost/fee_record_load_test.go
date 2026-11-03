@@ -9,6 +9,7 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
+	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/stretchr/testify/require"
 )
@@ -176,7 +177,55 @@ func TestHostProgramsOccupancyAssetFollowsFeeSchedule(t *testing.T) {
 
 func TestHostUnrelatedModuleNineRowsStillIgnored(t *testing.T) {
 	f := newFeeRecordLoadFixture(t, true)
-	ctx := f.chain.context(1, feeRecordLoadTime, 2)
+	payer, payee := newTestActor(t, 90), newTestActor(t, 91)
+	asset := newTestAsset(t, payer, 0x92)
+	setup := []struct {
+		actor    testActor
+		activity Activity
+	}{
+		{payer, payer.registerAsset(t, f.host, 0, feeRecordLoadTime, asset, 0x92, 1000)},
+		{payer, payer.openAssetAccount(t, f.host, 1, feeRecordLoadTime, asset)},
+		{payee, payee.openAssetAccount(t, f.host, 0, feeRecordLoadTime, asset)},
+		{payer, payer.mint(t, f.host, 2, feeRecordLoadTime, asset, 20)},
+	}
+	for i, step := range setup {
+		receipt := execute(t, f.host, f.chain.context(1, feeRecordLoadTime, uint64(i+2)), step.activity, step.actor.authority())
+		require.Equal(t, Code(0), receipt.ResultCode)
+	}
+	_, to, err := AssetAccountID(payee.public, asset.id)
+	require.NoError(t, err)
+	payments := map[string][]byte{}
+	var paymentActivities []Activity
+	authority := payer.authority()
+	authority.Bound = true
+	for i := uint64(0); i < 2; i++ {
+		reference := IdempotencyKey{byte(0x93 + i)}
+		args := ledgertypes.SendArgs{
+			From: asset.account, To: to, Asset: asset.id, Amount: sdk.NewInt(3),
+			Sequence: i, IdempotencyKey: reference, ExpiresAt: uint64(feeRecordLoadTime + 1000),
+			PublicKey: payer.public, NetworkID: testNetworkID, ProtocolVersion: stateCommitment,
+		}
+		payload, err := ledgertypes.EncodeSendPayload(args)
+		require.NoError(t, err)
+		material := append(append([]byte(nil), payload[4:116]...), reference[:]...)
+		args.ContextHash, err = codec.DomainHash(codec.DomainContextHash, material)
+		require.NoError(t, err)
+		payload, err = ledgertypes.EncodeSendPayload(args)
+		require.NoError(t, err)
+		payment := payer.activity(t, f.host, 0x00010005, 3+i, feeRecordLoadTime, payload)
+		payment.IdempotencyKey, payment.Signature = reference, nil
+		receipt := execute(t, f.host, f.chain.context(1, feeRecordLoadTime, 6+i), payment, authority)
+		require.Equal(t, Code(0), receipt.ResultCode)
+		require.NotEmpty(t, receipt.Encoded)
+		require.Equal(t, []TransferLeg{{Asset: asset.id, From: asset.account, To: to, Amount: sdk.NewInt(3)}}, receipt.Transfers)
+		payments[string(idempotencyKey(reference))] = receipt.Encoded
+		paymentActivities = append(paymentActivities, payment)
+		require.Equal(t, receipt.Encoded, f.chain.get(idempotencyKey(reference)))
+	}
+	f.chain.commit()
+	f.host.Close()
+	f.host = f.chain.host(t)
+	ctx := f.chain.context(2, feeRecordLoadTime, 8)
 	store := ctx.KVStore(f.chain.key)
 	untouched := map[string][]byte{
 		string(feeRecordHistoryKey(feeRecordLoadVersion + 1)): []byte("unselected history"),
@@ -208,4 +257,18 @@ func TestHostUnrelatedModuleNineRowsStillIgnored(t *testing.T) {
 	for key, value := range untouched {
 		require.Equal(t, value, f.chain.get([]byte(key)), "module row %x changed", key)
 	}
+	for key, value := range payments {
+		require.Equal(t, value, f.chain.get([]byte(key)), "payment record %x changed", key)
+	}
+	before := f.chain.dump()
+	for _, payment := range paymentActivities {
+		duplicate, err := f.host.Execute(f.chain.context(2, feeRecordLoadTime, 9), payment, authority)
+		require.Equal(t, codeIdempotentReplay, err)
+		require.Empty(t, duplicate.Encoded)
+		require.Equal(t, before, f.chain.dump())
+	}
+	programs := execute(t, f.host, f.chain.context(2, feeRecordLoadTime, 9),
+		f.actor.registry(t, f.host, 2, feeRecordLoadTime, 0x94, []byte("manifest")), f.actor.authority())
+	require.Equal(t, Code(0), programs.ResultCode)
+	require.Equal(t, f.asset, f.host.ProgramsOccupancyAsset())
 }

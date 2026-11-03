@@ -329,7 +329,7 @@ mod tests {
     }
 }
 
-fn response<S: Write>(stream: &mut S, status: u16, body: &str) -> Result<(), String> {
+pub(crate) fn response<S: Write>(stream: &mut S, status: u16, body: &str) -> Result<(), String> {
     let reason = if status < 300 { "OK" } else { "Refused" };
     let header = format!(
         "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
@@ -350,7 +350,7 @@ fn refresh_native_receipt_keys(native: &mut Option<NativeReadRoute>) -> Result<(
     Ok(())
 }
 
-enum Parsed {
+pub(crate) enum Parsed {
     Admitted(String),
     Refused(u16, &'static str),
     Closed,
@@ -380,7 +380,7 @@ fn declared_body(request: &str) -> Result<usize, ()> {
 /// Reads one request head under a single absolute deadline. Every read is also capped by the
 /// per-I/O ceiling, so neither a silent peer nor a peer trickling partial bytes can hold a
 /// connection worker beyond `REQUEST_DEADLINE`.
-fn parse_request(stream: &mut DeadlineStream, bearer: &str) -> Parsed {
+pub(crate) fn parse_request(stream: &mut DeadlineStream, bearer: &str) -> Parsed {
     let deadline = stream.expires;
     let mut bytes = [0_u8; HEADER_LIMIT];
     let mut length = 0_usize;

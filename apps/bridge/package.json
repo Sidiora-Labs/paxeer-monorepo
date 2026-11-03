@@ -88,7 +88,7 @@
     "vite": "7.3.7",
     "vite-plugin-svgr": "^2.2.2",
     "vite-tsconfig-paths": "5.1.4",
-    "vitest": "4.0.15",
+    "vitest": "4.1.11",
     "vitest-fetch-mock": "0.4.5",
     "ws": "^8.17.1"
   },
