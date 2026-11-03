@@ -81,6 +81,9 @@ func (n *Node) Start(ctx context.Context) (err error) {
 			_ = n.Executor.Fence()
 		}
 	}()
+	if err := n.ReceiptSource.restoreCommitted(ctx, n.WAL); err != nil {
+		return fmt.Errorf("sequencer: start receipt source rebuild: %w", err)
+	}
 	replayer := &nodeStartReplayer{AppReplayer: NewAppReplayer(n.Executor, n.Receipter), ctx: ctx}
 	replayer.src = n.ReceiptSource
 	result, err := n.WAL.Replay(replayer)
