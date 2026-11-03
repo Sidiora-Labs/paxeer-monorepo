@@ -1,0 +1,26 @@
+[alert.GHSA-mjcv-p78q-w5fw]
+package = "github.com/moby/sys/user"
+manifest = "go.mod"
+verdict = "upgraded"
+version_before = "0.3.0"
+version_after = "0.4.1"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-9f3f-wv7r-qc8r]
+package = "github.com/pion/dtls/v2"
+manifest = "go.mod"
+verdict = "no-fix"
+version_before = "2.2.7"
+version_after = "2.2.7"
+pinned_by = "github.com/ethereum/go-ethereum v1.16.8 (replaced by ./core/deps/geth) -> github.com/pion/stun/v2 v2.0.0 -> github.com/pion/dtls/v2 v2.2.7; the advisory names no patched version"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-34rh-wp3j-6cxc]
+package = "github.com/pion/stun/v2"
+manifest = "go.mod"
+verdict = "no-fix"
+version_before = "2.0.0"
+version_after = "2.0.0"
+pinned_by = "github.com/ethereum/go-ethereum v1.16.8 (replaced by ./core/deps/geth) -> github.com/pion/stun/v2 v2.0.0; the advisory names no patched version"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
