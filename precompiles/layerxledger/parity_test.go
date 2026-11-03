@@ -15,6 +15,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxledger"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 )
 
@@ -80,6 +81,18 @@ func assertLedgerKernelParity(t *testing.T, h *harness, caller common.Address, a
 		Bound: true, Actor: actor.id, Principal: actor.id, VerifiedKey: actor.public,
 	}
 	want, err := direct.Execute(lxphost.WithSequence(branch, sequence), activity, authority)
+	if method == "issueGrant" || method == "draw" || method == "revokeGrant" {
+		require.ErrorIs(t, err, lxphost.Code(-106))
+		require.Empty(t, want.Encoded)
+		require.Equal(t, before, storeSnapshot(t, branch.KVStore(h.hostKey)))
+		logs := len(h.stateDB.GetAllLogs())
+		data, err := assetCall(t, h, caller, method, args...)
+		require.ErrorIs(t, err, vm.ErrExecutionReverted)
+		assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
+		require.Equal(t, before, storeSnapshot(t, h.ctx.KVStore(h.hostKey)))
+		require.Len(t, h.stateDB.GetAllLogs(), logs)
+		return
+	}
 	require.NoError(t, err)
 	require.Equal(t, lxphost.Code(0), want.ResultCode)
 	require.Equal(t, before, storeSnapshot(t, h.ctx.KVStore(h.hostKey)))
@@ -159,8 +172,9 @@ func TestLedgerPrecompileKernelParity(t *testing.T) {
 
 	t.Run("draw", func(t *testing.T) {
 		f := newPaymentFixture(t)
-		_, err := f.call(t, f.caller, "issueGrant", f.grant)
-		require.NoError(t, err)
+		data, err := f.call(t, f.caller, "issueGrant", f.grant)
+		require.ErrorIs(t, err, vm.ErrExecutionReverted)
+		assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
 		key := [32]byte{0x64}
 		payload, err := types.EncodeReceivePayload(types.ReceiveArgs{
 			From: f.from, To: f.to, Asset: f.asset, Amount: sdk.NewInt(15), GrantID: f.grantID,
@@ -174,8 +188,9 @@ func TestLedgerPrecompileKernelParity(t *testing.T) {
 
 	t.Run("revokeGrant", func(t *testing.T) {
 		f := newPaymentFixture(t)
-		_, err := f.call(t, f.caller, "issueGrant", f.grant)
-		require.NoError(t, err)
+		data, err := f.call(t, f.caller, "issueGrant", f.grant)
+		require.ErrorIs(t, err, vm.ErrExecutionReverted)
+		assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
 		sequence, err := f.host.ReadIdentitySequence(f.ctx, f.payer.DID)
 		require.NoError(t, err)
 		payload := types.EncodeRevokeGrantPayload(f.grantID, sequence)
