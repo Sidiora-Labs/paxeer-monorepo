@@ -14250,3 +14250,8 @@ fix = "A client call shape is asserted against the producer's ABI file, never ag
 title = "A producer task whose verify runs one test target leaves sibling tests of the same crate asserting the old shape"
 symptom = "22.9.17 attempt 10: 9.35.16 changed bind_call's budgetCreate disclosure to two amounts and qualified on --test disclosure_call alone; tests/budget_call.rs in the same crate still expected one amount and failed the next whole-crate run."
 fix = "A task that changes a crate's behaviour runs that crate's whole test set in its verify, or names the sibling tests it leaves to a task that requires it."
+
+[gotcha.2886]
+title = "A receipt-shape change that makes a field mandatory fails every vector builder and fixture copy another task owns"
+symptom = "22.23.8 attempt 5: ReceiptInput.PaymentDenom became required and the vector test's builder and the V1 to V3 fixture copies, owned by 22.25.3, were not in the task's touches."
+fix = "A task that adds a mandatory input field lists every builder of that input and every recorded fixture of its output in touches, and orders itself after the task that is regenerating the same fixtures."
