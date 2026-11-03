@@ -137771,7 +137771,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.99]
 title = "Inventory every test run of the tools/platform/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.79", "22.99.157"]
@@ -147843,7 +147843,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.118]
 title = "Inventory every Go module under services/launchpad a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.7", "22.99.8", "22.99.9", "22.99.10", "22.99.11", "22.99.12", "22.99.13", "22.99.14", "22.99.15", "22.99.16"]
@@ -202693,7 +202693,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.116]
 title = "Inventory every Go package under tests/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -202853,7 +202853,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.111]
 title = "Inventory every Go package under engine/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -203014,7 +203014,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.106]
 title = "Inventory every Go package under daemon/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -203610,7 +203610,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.113]
 title = "Repair the inventory sweep target modules/mint/types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203827,7 +203827,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.106]
 title = "Repair the inventory sweep target modules/evm"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
