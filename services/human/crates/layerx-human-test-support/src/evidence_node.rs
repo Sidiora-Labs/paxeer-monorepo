@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use ed25519_dalek::SigningKey;
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
@@ -314,20 +314,7 @@ impl EvidenceNode {
             .unwrap_or_else(|error| panic!("evidence listener: {error}"));
         thread::spawn(move || {
             for _ in 0..self.requests {
-                let expires = Instant::now() + Duration::from_secs(5);
-                let stream = loop {
-                    match listener.accept() {
-                        Ok((stream, _)) => break stream,
-                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            assert!(
-                                Instant::now() < expires,
-                                "evidence_node.rs: missing consumer request"
-                            );
-                            thread::sleep(Duration::from_millis(1));
-                        }
-                        Err(error) => panic!("evidence accept: {error}"),
-                    }
-                };
+                let stream = accept_request(&listener, 5_000);
                 stream
                     .set_read_timeout(Some(Duration::from_secs(2)))
                     .unwrap_or_else(|error| panic!("evidence read timeout: {error}"));
@@ -383,6 +370,19 @@ impl EvidenceNode {
             self
         })
     }
+}
+
+fn accept_request(listener: &TcpListener, attempts: usize) -> TcpStream {
+    for _ in 0..attempts {
+        match listener.accept() {
+            Ok((stream, _)) => return stream,
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                thread::sleep(Duration::from_millis(1));
+            }
+            Err(error) => panic!("evidence accept: {error}"),
+        }
+    }
+    panic!("evidence_node.rs: missing consumer request");
 }
 
 fn decode_hex(text: &str) -> Option<Vec<u8>> {
