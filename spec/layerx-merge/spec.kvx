@@ -7323,6 +7323,48 @@ value = "When an attempt fails on a test harness defect that is already on main 
 basis = "Three families of attempts (22.9.27, 22.9.28, 22.23.8; 22.2.5; 9.97.15) failed on the same three harness defects while their own changes were correct."
 affects = ["22.25.1", "22.25.2", "22.25.3", "22.9.27", "22.9.28", "22.23.8", "22.2.5", "9.97.15"]
 
+[decision.2369]
+title = "Every Go task requires the root go.sum repair that follows the in-repo go-ethereum replace"
+value = "Task 22.25.4 (wave 0) completes go.sum so that go list -mod=readonly -m all, go mod verify and go build of the node and rpc packages pass in a fresh environment; every pending or running Go task requires it, so no attempt is spent on the module graph error, and 7.10.6 continues from attempt 2 on top of it."
+basis = "After 66d80726c replaced github.com/ethereum/go-ethereum with ./core/deps/geth, go.sum carries only the v1.5.1 and v1.5.2 go.mod hashes of go.uber.org/automaxprocs while go.mod requires v1.6.0; attempt 2 of 7.10.6 on base 77cccd304 failed go build ./rpc/ ./node/ with the missing go.sum entry (finding 18.1043.2.1)."
+affects = ["22.25.4", "7.10.6", "22.25.1", "22.25.2", "22.25.3", "22.9.27", "22.9.28", "22.23.8", "22.2.5", "22.6.4", "22.6.5", "22.7.3", "22.11.8", "18.1211.7", "18.1509.1", "18.1510.1", "6.0.9", "1.2.5", "1.6.1", "1.0.9", "22.24.16", "1.17.2", "1.19.3", "1.2.3", "1.38.2"]
+
+[decision.2370]
+title = "A retired transport operation has no catalogue operation and no generated variant"
+value = "A transport section of the agent API schema whose disposition is retired (today faucet.claim, refused by RETIRED_OPERATIONS by wire name before any arm) declares no [operation.<name>] block; the schema drift test exempts such sections from the catalogue comparison and the generators emit no Operation variant for them."
+basis = "Declaring the retired faucet.claim as an operation generated Operation::FaucetClaim and broke five exhaustive matches of the agent daemon (18.1503.1 attempt 8); the retirement is enforced by name in agent_rpc.rs:25 and documented at v1.kvx:151."
+affects = ["18.1503.1"]
+
+[decision.2371]
+title = "The root go.mod indirect requirements follow the in-repo go-ethereum replace together with go.sum"
+value = "The replace of 66d80726c changed the selected versions of several modules (golang.org/x/sync, x/sys, x/crypto, x/text among them), so the root go.mod's indirect requirement lines and go.sum both need the versions the graph selects; task 22.25.4 brings both to the state go mod tidy produces with the pinned toolchain, raises no version above what the graph selects and removes nothing the build needs."
+basis = "22.25.2 attempt 1 ran go mod download for every reported module and go vet still reported that go.mod needs updates; 7.10.6 attempt 2, 1.38.2 attempt 4, 22.25.1 attempt 1 and 22.6.4 attempt 12 failed on the same gap, and 22.6.4 edited go.mod outside its scope to pass its build."
+affects = ["22.25.4", "22.6.4", "22.25.2"]
+
+[decision.2372]
+title = "A floors file carries one floor per package and the floor of a package patched on two major lines is the lowest patched release"
+value = "The floor checker applies a single minimum to every resolved copy of a package in a manifest; where a package has a patched release on each of two major lines (fast-uri 3.1.9 and 4.2.3) the floor is the lowest patched release, since the higher line's copy is above it and the lower line cannot be raised across a major by its consumer. fast-uri is floored at 3.1.9 in every floors file, including tools/deps/floors/wallet-services.json where ajv 8 pins the 3.x line."
+basis = "22.24.12 attempt 2 floored fast-uri at 4.2.3 as its do_1 stated and the checker refused the 3.1.9 copy that ajv 8.20.0 resolves; eighteen other floors tasks already state 3.1.9."
+affects = ["22.24.12"]
+
+[decision.2373]
+title = "A task whose verify runs both Cargo and Maven uses the environment profile that carries every SDK toolchain"
+value = "The generator task 18.1503.1 verifies the Rust generator, its drift test and the Maven compile of sdk/platform/jvm in one command; the mixed profile carries no Maven, so the task's profile key is the all-SDK profile (the one 8.45.4 qualified on), which carries Cargo, Maven, the JDK, Go, Node and Python together."
+basis = "18.1503.1 attempt 9 passed the generator check and all 27 drift tests and then failed with mvn not found (exit 127); the all-SDK profile already carries Maven and Cargo."
+affects = ["18.1503.1"]
+
+[decision.2374]
+title = "The build of a Rust task compiles its declared targets, never every target of a workspace"
+value = "A task's build_cmd compiles the binaries and test targets its verify runs (cargo test --no-run per target, cargo build per binary); an --all-targets build of the agent daemon workspace followed by the human workspace exceeded the storage of the qualification environment three times on 22.9.33, so the task's build is reduced to its declared targets and the dependent-crate check keeps its own scope."
+basis = "22.9.33 attempts 3, 5 and 6 ran out of storage (no space left on device) after the all-targets build of layerx-agentd and layerx-agentd-host; 9.1.8 qualified with a two-package build."
+affects = ["22.9.33"]
+
+[decision.2375]
+title = "Maven steps of a verify resolve plugins and dependencies online, never in offline mode"
+value = "Every qualified JVM verify of this feature (52 commands) runs mvn without -o and resolves from the configured repositories; 18.1503.1 was the only verify with -o and failed because the all-SDK environment holds no cached maven-source-plugin 3.3.1. The -o flag leaves the verify; the pom's repositories are the source of plugins as for every other JVM task."
+basis = "18.1503.1 attempt 10 passed the generator check and the 27 drift tests and failed with PluginResolutionException for maven-source-plugin 3.3.1 in offline mode."
+affects = ["18.1503.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20943,6 +20985,10 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22086]
+title = "The root module's go.sum carries every entry its module graph needs"
+ac_1 = "Given the root go.mod with the in-repo go-ethereum replace, when go list -mod=readonly -m all, go mod verify and go build of the node and rpc packages run in a fresh module cache, then they pass without a missing go.sum entry."
 
 [req.22085]
 title = "The sequencer receipt vectors carry an accepted Programs call"
@@ -35860,12 +35906,21 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.25.4]
+title = "Complete the root go.sum for the in-repo go-ethereum replace"
+reqs = ["22086.1"]
+touches = ["go.sum"]
+tests = []
+verification_contract = "go list -mod=readonly -m all >/dev/null && go mod verify && go build ./node/ ./rpc/"
+do_1 = "Since 66d80726c replaced github.com/ethereum/go-ethereum with ./core/deps/geth, go list -mod=readonly -m all fails at the root with missing go.sum entry for go.mod file for go.uber.org/automaxprocs v1.6.0 (go.sum carries only the v1.5.1 and v1.5.2 go.mod hashes). Run go mod download for that module and for every other module the command reports, so go.sum carries the entries the module graph needs; go.mod is not edited and no entry is removed."
+symbols = []
+
 [capability.22.25.3]
 title = "Add the accepted Programs call case to the sequencer receipt vectors and refresh every copy"
 reqs = ["22085.1"]
 touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures", "daemon/committed-fixture"]
 tests = ["rpc/sequencer_receipt_vectors_test.go"]
-verification_contract = "go test -count=1 ./rpc/ -run 'SequencerReceiptVectors|VectorFilesV1ToV3' && go test -count=1 ./daemon/committed-fixture/ && python3 -m pytest -q tests/ci/test_receipt_fixture_readers.py tests/agent/sdk/python/test_receipt_fixture.py"
+verification_contract = "go test -count=1 ./rpc/ -run 'SequencerReceiptVectors|VectorFilesV1ToV3' && go test -count=1 ./daemon/committed-fixture/ && python3 -m pytest -q tests/ci/test_receipt_fixture_readers.py tests/agent/sdk/python/test_receipt_fixture.py && cd sdk/platform/go && go test -count=1 ./ -run '^TestVectorFilesV1ToV3MatchSequencerReceiptFixture$' && go test -count=1 ./cmd/conformance/"
 do_1 = "rpc/sequencer_receipt_vectors_test.go TestSequencerReceiptVectors (:562) accepts no Programs transaction, so the AI market decoder has nothing in the conformance fixture to decode (finding 9.97.15.1). Add the V1 case V1-layerxprograms-call: deploy the smallest committed fixture program the way the runtime precompile tests do, then a call entry of precompiles/layerxprograms/abi.json whose receipt carries the ProgramCallOutcome log, built like the ledger payment case. Regenerate sdk/platform/conformance/fixtures/sequencer-receipt-v1.json with the -update flag."
 symbols = ["TestSequencerReceiptVectors", "TestVectorFilesV1ToV3MatchSequencerReceiptFixture"]
 
@@ -36378,7 +36433,7 @@ title = "Give the launchpad REST package tests fixtures the repository holds"
 reqs = ["22050.1"]
 touches = ["services/launchpad/api/internal/rest"]
 tests = ["services/launchpad/api/internal/rest/production_integration_test.go", "services/launchpad/api/internal/rest/route_inventory_test.go"]
-verification_contract = "cd services/launchpad/api && go vet ./internal/rest/ && go test -count=1 ./internal/rest/ -skip '^TestProductionRESTMeasurementHarness$'"
+verification_contract = "cd services/launchpad/api && go vet ./internal/rest/ && go test -count=1 ./internal/rest/ -skip '^TestProductionRESTMeasurement(Harness|Aggregate)$'"
 do_1 = "services/launchpad/api/internal/rest/production_integration_test.go:71 reads launchpad/spec/production-system/integration/contracts/v2/examples.json and route_inventory_test.go:30 reads contracts/<version>/openapi.json from the same tree; the tree does not exist on main (commit 384f41641 removed the launchpad configuration tree, and no revision of this repository ever held the v2 examples or the openapi files), so the rest package tests fail to run and every task whose verify names the rest package fails with them."
 symbols = ["TestPoolDetailProductionRead"]
 
@@ -36504,7 +36559,7 @@ title = "Issue #1503: Emit the VerificationStatus declaration the JVM AgentHttpS
 reqs = ["22033.1"]
 touches = ["sdk/platform/generators/src/main.rs", "sdk/platform/generators/tests/drift.rs", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"]
 tests = ["sdk/platform/generators/tests/drift.rs"]
-verification_contract = "cargo run --locked --manifest-path sdk/platform/generators/Cargo.toml -- --check && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml --test drift && mvn -q -o -f sdk/platform/jvm/pom.xml -DskipTests compile"
+verification_contract = "cargo run --locked --manifest-path sdk/platform/generators/Cargo.toml -- --check && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml --test drift && mvn -q -f sdk/platform/jvm/pom.xml -DskipTests compile"
 do_1 = "Regeneration at 2ddf941d9 removed the nested AgentModels.VerificationStatus declaration from sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java while AgentHttpSuccess (:76-81) still types its component AgentModels.VerificationStatus, so the JVM main tree does not compile; the generator (sdk/platform/generators/src/main.rs) emits the declaration again for the JVM target from the four status shapes of services/agent/schema/agent-api/v1.kvx:116-122 (the Rust, TypeScript and Python targets already carry theirs), and GeneratedSchema.java is regenerated, not hand-edited."
 symbols = ["VerificationStatus", "AgentHttpSuccess"]
 
@@ -103003,7 +103058,7 @@ title = "Gate domain 1 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.2.3", "1.2.4", "1.2.5", "1.6.1", "1.6.3", "1.15.2", "1.17.4", "1.18.2", "1.18.3", "1.19.3", "1.26.1", "1.26.2", "1.27.1", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.4", "1.29.5", "1.31.1", "1.31.2", "1.31.3", "1.31.5", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.36.1", "1.36.2", "1.36.3", "1.37.1", "1.38.1", "1.38.2", "1.39.2", "1.97.1", "16.2.1", "6.96.5", "21.38.1", "21.164.1", "21.165.1", "21.166.1", "21.167.1", "21.168.1", "21.169.1", "21.170.1", "21.171.1"]
+requires = ["1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.2.3", "1.2.4", "1.2.5", "1.6.1", "1.6.3", "1.15.2", "1.17.4", "1.18.2", "1.18.3", "1.19.3", "1.26.1", "1.26.2", "1.27.1", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.4", "1.29.5", "1.31.1", "1.31.2", "1.31.3", "1.31.5", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.36.1", "1.36.2", "1.36.3", "1.37.1", "1.38.1", "1.38.2", "1.39.2", "1.97.1", "16.2.1", "6.96.5", "21.38.1", "21.164.1", "21.165.1", "21.166.1", "21.167.1", "21.168.1", "21.169.1", "21.170.1", "21.171.1", "22.25.4"]
 reqs = ["1999.1"]
 capabilities = ["1.0.9"]
 interfaces = []
@@ -103296,7 +103351,7 @@ title = "Delete the kernel idempotency table and its journal staging"
 status = "pending"
 mode = "BUILD"
 wave = 46
-requires = ["1.2.2", "1.25.1", "1.25.2", "1.0.4", "16.2.1", "1.2.4", "6.96.5"]
+requires = ["1.2.2", "1.25.1", "1.25.2", "1.0.4", "16.2.1", "1.2.4", "6.96.5", "22.25.4"]
 reqs = ["1012.1", "1012.2"]
 capabilities = ["1.2.3"]
 interfaces = ["interface.1.c-lxp-idempotency-key-state", "interface.1.c-lxp-state-journal", "interface.1.c-lxp-idempotency-reserve", "interface.1.c-lxp-idempotency-prune", "interface.1.c-lxp-idempotency-append", "interface.1.c-lxp-idempotency-live-count", "interface.1.c-lxp-idempotency-can-commit", "interface.1.c-lxp-idempotency-commit-staged", "interface.1.c-lxp-state-store-init", "interface.1.c-lxp-state-journal-commit", "interface.1.c-lxp-state-store"]
@@ -103310,7 +103365,7 @@ do_6 = "Remove the remaining lxp_idempotency_reserve call at src/protocol/lxp_mo
 do_7 = "Remove the lxp_idempotency_append use at tests/codec/lxp_test_snapshot_idempotency.c:39 (the 1.2.2 test, built by the kernel pattern rule) so root_ignores_idempotency and snapshot_count_word_zero build without the deleted module; both cases stay."
 do_8 = "With src/state/lxp_idempotency.c deleted, move \"lxp_idempotency\" in tools/ci/tests/test_makefile_wave1.py test_aggregates_dry_run_clean from the non-library-line check back to the whole make -n stdout check, and give it no LIB_SOURCES filter-out entry."
 symbols = ["lxp_state_journal_commit", "lxp_state_store_init", "idempotency_symbols_absent", "journal_commit_without_idempotency"]
-touches = ["include/layerx/lxp_state.h", "src/state/lxp_idempotency.c", "src/state/lxp_journal.c", "src/state/lxp_snapshot.c", "tests/codec/lxp_test_idempotency_absent.c", "src/protocol/lxp_module_ctx.c", "tests/codec/lxp_test_snapshot_idempotency.c", "tools/ci/tests/test_makefile_wave1.py", "src/protocol/lxp_genesis.c"]
+touches = ["include/layerx/lxp_state.h", "src/state/lxp_idempotency.c", "src/state/lxp_journal.c", "src/state/lxp_snapshot.c", "tests/codec/lxp_test_idempotency_absent.c", "src/protocol/lxp_module_ctx.c", "tests/codec/lxp_test_snapshot_idempotency.c", "tools/ci/tests/test_makefile_wave1.py", "src/protocol/lxp_genesis.c", "src/protocol/lxp_kernel.c", "src/state/lxp_state_root.c"]
 tests = ["tests/codec/lxp_test_idempotency_absent.c::idempotency_symbols_absent", "tests/codec/lxp_test_idempotency_absent.c::journal_commit_without_idempotency"]
 planned_paths = ["tests/codec/lxp_test_idempotency_absent.c"]
 build_cmd = "make -C . build/liblayerx.a"
@@ -103328,6 +103383,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_9 = "Attempt 2: src/protocol/lxp_genesis.c:1064 still reads kernel->state->idempotency_count in the empty-state check; drop that term (the idempotency state leaves with this task) and keep the count term."
+do_10 = "Attempt 3: the build failed in src/protocol/lxp_kernel.c (:3123, :3131, :3134 read idempotency_count and the idempotency array) after the state fields left; src/state/lxp_state_root.c:22 and src/protocol/lxp_module_ctx.c:1409-1417 read them too. All three files are in touches now: remove the idempotency terms from the state-root bound check and the key enumeration of lxp_kernel.c, the state-root check of lxp_state_root.c and the preview copy of lxp_module_ctx.c, so no reader of the deleted fields remains."
 
 [task.1.2.4]
 title = "Delete retired kernel entry points: capacity ledger, maintenance and credit stage"
@@ -103374,7 +103430,7 @@ title = "Delete the bridge reserve credit from the ledger apply layer"
 status = "pending"
 mode = "BUILD"
 wave = 46
-requires = ["1.2.4", "16.2.1", "16.97.1", "6.96.5", "1.19.3"]
+requires = ["1.2.4", "16.2.1", "16.97.1", "6.96.5", "1.19.3", "22.25.4"]
 reqs = ["1014.1", "1014.2"]
 capabilities = ["1.2.5"]
 interfaces = ["interface.1.c-lxp-ledger-apply-bridge-credit"]
@@ -103795,7 +103851,7 @@ title = "Pin the kernel snapshot format with a conformance golden"
 status = "pending"
 mode = "BUILD"
 wave = 47
-requires = ["1.2.3", "1.4.5", "16.2.1", "6.96.5"]
+requires = ["1.2.3", "1.4.5", "16.2.1", "6.96.5", "22.25.4"]
 reqs = ["1026.1", "1026.2"]
 capabilities = ["1.6.1"]
 interfaces = []
@@ -105083,10 +105139,10 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.17.2]
 title = "Delete the handover protocol source and header"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 46
-requires = ["1.17.1", "1.17.3", "1.0.4", "16.2.1", "16.97.1", "1.2.4", "1.34.2", "6.96.5"]
+requires = ["1.17.1", "1.17.3", "1.0.4", "16.2.1", "16.97.1", "1.2.4", "1.34.2", "6.96.5", "22.25.4"]
 reqs = ["1062.1"]
 capabilities = ["1.17.2"]
 interfaces = ["interface.1.c-enum-lxp-governance-handover", "interface.1.c-lxp-handover-certificate", "interface.1.c-lxp-handover-evidence", "interface.1.c-lxp-handover-genesis-trust-encode", "interface.1.c-lxp-handover-finality-verify-fn", "interface.1.c-lxp-handover-state", "interface.1.c-enum-lxp-handover-max-transitions", "interface.1.c-lxp-handover-trust-chain", "interface.1.c-lxp-handover-trust-finality-fn", "interface.1.c-lxp-handover-trust-initialize", "interface.1.c-lxp-handover-trust-accept", "interface.1.c-lxp-handover-trust-scan-log", "interface.1.c-lxp-handover-trust-authorization", "interface.1.c-lxp-handover-trust-authorization-sequence", "interface.1.c-lxp-handover-trust-matches-kernel", "interface.1.c-lxp-handover-sequencer-id", "interface.1.c-lxp-handover-genesis-authority", "interface.1.c-lxp-handover-certificate-encode", "interface.1.c-lxp-handover-certificate-decode", "interface.1.c-lxp-handover-certificate-sign", "interface.1.c-lxp-handover-certificate-verify", "interface.1.c-lxp-handover-finality-digest", "interface.1.c-lxp-handover-evidence-encode", "interface.1.c-lxp-handover-evidence-decode", "interface.1.c-lxp-handover-evidence-verify-binding", "interface.1.c-lxp-handover-recovery-is-envelope", "interface.1.c-lxp-handover-recovery-encode", "interface.1.c-lxp-handover-recovery-decode", "interface.1.c-lxp-handover-kernel-initialize", "interface.1.c-lxp-handover-history-resolve", "interface.1.c-lxp-handover-history-resolve-sequence", "interface.1.c-lxp-handover-history-latest", "interface.1.c-lxp-handover-prepare", "interface.1.c-lxp-handover-stage", "interface.1.c-lxp-handover-incoming"]
@@ -105388,7 +105444,7 @@ title = "Delete bridge credit and light-client sources and headers"
 status = "pending"
 mode = "BUILD"
 wave = 46
-requires = ["1.18.1", "1.0.4", "16.2.1", "16.97.2", "5.97.4", "1.2.4", "6.96.5"]
+requires = ["1.18.1", "1.0.4", "16.2.1", "16.97.2", "5.97.4", "1.2.4", "6.96.5", "22.25.4"]
 reqs = ["1070.1", "1070.2"]
 capabilities = ["1.19.3"]
 interfaces = ["interface.1.c-enum-lxp-bridge-credit", "interface.1.c-lxp-bridge-profile", "interface.1.c-lxp-bridge-credit", "interface.1.c-lxp-bridge-profile-beneficiary", "interface.1.c-lxp-bridge-registry-key", "interface.1.c-lxp-bridge-profile-key-asset", "interface.1.c-lxp-bridge-light-trust-key-asset", "interface.1.c-lxp-bridge-reserve-name", "interface.1.c-lxp-bridge-profile-validate-asset", "interface.1.c-lxp-bridge-registry-decode", "interface.1.c-lxp-bridge-registry-append", "interface.1.c-lxp-bridge-registry-profile", "interface.1.c-lxp-bridge-profile-load-asset", "interface.1.c-lxp-bridge-light-trust-load-asset", "interface.1.c-lxp-bridge-credit-verify-asset", "interface.1.c-lxp-bridge-credit-parse", "interface.1.c-lxp-bridge-credit-matches", "interface.1.c-lxp-bridge-credit-owner-bound", "interface.1.c-lxp-bridge-profile-trust", "interface.1.c-lxp-bridge-light-trust-load", "interface.1.c-lxp-bridge-profile-validate", "interface.1.c-lxp-bridge-genesis-profile", "interface.1.c-lxp-bridge-genesis-append", "interface.1.c-lxp-bridge-credit-verify", "interface.1.c-lxp-bridge-module-iface", "interface.1.c-lxp-bridge-credit-bind-receipt", "interface.1.c-lxp-ctx-bridge-credit", "interface.1.c-enum-lxp-bridge-light-max-validators", "interface.1.c-lxp-bridge-light-trust", "interface.1.c-lxp-bridge-light-result", "interface.1.c-lxp-bridge-light-deposit", "interface.1.c-lxp-bridge-light-verify", "interface.1.c-lxp-bridge-light-deposit-decode", "interface.1.c-lxp-bridge-light-trust-encode", "interface.1.c-lxp-bridge-light-trust-decode", "interface.1.c-lxp-bridge-profile-key", "interface.1.c-lxp-bridge-light-trust-key"]
@@ -107502,7 +107558,7 @@ title = "Delete the DA, replica and sequencer headers; trim the batch, history a
 status = "pending"
 mode = "BUILD"
 wave = 46
-requires = ["1.0.3", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.3", "1.29.4", "1.29.5", "1.30.1", "1.31.1", "1.31.2", "1.31.3", "1.31.4", "1.31.5", "1.31.6", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.38.1", "13.34.1", "6.96.5", "1.2.4"]
+requires = ["1.0.3", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.3", "1.29.4", "1.29.5", "1.30.1", "1.31.1", "1.31.2", "1.31.3", "1.31.4", "1.31.5", "1.31.6", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.38.1", "13.34.1", "6.96.5", "1.2.4", "22.25.4"]
 reqs = ["1296.1"]
 capabilities = ["1.38.2"]
 interfaces = ["interface.1.c-enum-lxp-da-class-count", "interface.1.c-enum-lxp-max-divergence-value-bytes", "interface.1.c-enum-lxp-max-replay-transitions", "interface.1.c-enum-lxp-max-sealed-batch-headers", "interface.1.c-lxp-admission-queue", "interface.1.c-lxp-admission-ticket", "interface.1.c-lxp-batch-body", "interface.1.c-lxp-batch-chunk-send-fn", "interface.1.c-lxp-batch-eligibility-state", "interface.1.c-lxp-batch-replica-target", "interface.1.c-lxp-batch-seal-input", "interface.1.c-lxp-da-bundle", "interface.1.c-lxp-da-chunk", "interface.1.c-lxp-da-chunk-fetch-fn", "interface.1.c-lxp-da-class", "interface.1.c-lxp-da-fetch", "interface.1.c-lxp-da-lookup-kind", "interface.1.c-lxp-da-module-root", "interface.1.c-lxp-da-recovery-input", "interface.1.c-lxp-da-retrieval-request", "interface.1.c-lxp-da-store", "interface.1.c-lxp-da-verify-served-bytes", "interface.1.c-lxp-divergence-component", "interface.1.c-lxp-divergence-report-record", "interface.1.c-lxp-divergence-state", "interface.1.c-lxp-equivocation-publish-fn", "interface.1.c-lxp-history-send-fn", "interface.1.c-lxp-replay-activity-output", "interface.1.c-lxp-replay-batch-finalize-fn", "interface.1.c-lxp-replay-batch-result", "interface.1.c-lxp-replay-checkpoint", "interface.1.c-lxp-replay-engine", "interface.1.c-lxp-replay-parameter-version-fn", "interface.1.c-lxp-replay-transaction-begin-fn", "interface.1.c-lxp-replay-transaction-finish-fn", "interface.1.c-lxp-replay-transition-fn", "interface.1.c-lxp-replay-transition-registration", "interface.1.c-lxp-replica", "interface.1.c-lxp-sealed-header-record", "interface.1.c-lxp-seq-allocator", "interface.1.c-lxp-seq-persist-fn", "interface.1.c-lxp-sequencer-equivocation-evidence", "interface.1.c-lxp-sequencer-header-registry", "interface.1.c-lxp-sequencer-liveness", "interface.1.c-lxp-sequencer-projection-rebuild-fn", "interface.1.c-lxp-sequencer-recovery-ops", "interface.1.c-lxp-sequencer-recovery-result", "interface.1.c-lxp-sequencer-replay-record-fn", "interface.1.c-lxp-sequencer-snapshot-load-fn"]
@@ -117318,7 +117374,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.12]
 title = "Close the open dependency advisories of the wallet-services manifests (22 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -117346,6 +117402,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1: below-floor copies remain in services/wallet/pnpm-lock.yaml (@vitest/mocker, fast-uri, postcss, tinypool, vitest) and in the demo package manifest. Raise them to the floors, including the vitest major; if the wallet test suites do not run under the raised vitest, record a finding naming the package and the failing suite and keep the raise out of the lock for that package only, naming it in the commit message."
+do_5 = "Decision 2372, attempt 2: do_1 stated fast-uri>=4.2.3, which is the 4.x patched release; the lock resolves fast-uri 3.1.9 for ajv 8.20.0 and the checker applies one floor to every copy, so the floor refused the patched 3.x copy. The floor of fast-uri in tools/deps/floors/wallet-services.json is 3.1.9, the same as every other floors file; the 4.2.3 copy satisfies it and no consumer is moved across a major. Every other floor of do_1 stands. Rerun the task's verify afterwards."
 
 [task.22.24.11]
 title = "Close the open dependency advisories of the wallet-app manifests (21 floors)"
@@ -117439,7 +117496,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.8]
 title = "Close the open dependency advisories of the launchpad-web manifests (33 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -117450,7 +117507,7 @@ do_1 = "Decision 2362: the open dependency advisories of these manifests at HEAD
 do_2 = "A floor that a resolution cannot reach without raising a direct dependency raises that direct dependency in the manifest to the lowest version that resolves above the floor; the manifest change is part of this task. Where the directory's package.json defines a typecheck or build script, it is run once after the raise and a breakage it shows is recorded in the task's qualification note rather than resolved by pinning below the floor. No source file changes."
 do_3 = "Advised packages with no patched release are not in the floors file; they are listed in finding 22.24.1.1 for the owner. The verify is the floor checker (task 22.24.1) followed by the frozen install or lock-consistency command of each manifest, so a lock file that drifts from its manifest fails."
 symbols = []
-touches = ["apps/launchpad/pnpm-lock.yaml", "apps/launchpad/web/package.json", "apps/launchpad/mobile/package.json", "apps/launchpad/qualification/image-dependencies/fixture/package.json", "tools/deps/floors/launchpad-web.json"]
+touches = ["apps/launchpad/pnpm-lock.yaml", "apps/launchpad/web/package.json", "apps/launchpad/mobile/package.json", "apps/launchpad/qualification/image-dependencies/fixture/package.json", "tools/deps/floors/launchpad-web.json", "apps/launchpad/package.json"]
 tests = []
 planned_paths = ["tools/deps/floors/launchpad-web.json"]
 build_cmd = "python3 -m py_compile tools/deps/lockfloor.py"
@@ -117467,6 +117524,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1: six @opentelemetry/instrumentation-* floors came back unresolved. Check each against apps/launchpad/pnpm-lock.yaml by its package key: when the lock holds the package, the floors entry names the wrong manifest or package name and is corrected (the lock file of a pnpm workspace member is the workspace root lock); when the lock resolves the package nowhere, the entry leaves the floors file and the commit message names it."
+do_5 = "Attempt 3: 14 floors remain. apps/launchpad/package.json (in touches now) carries the pnpm overrides that pin nested copies below their floors (hono 4.13.7, fast-uri 3.1.8, uuid 11.1.1 for major 11 only); raise each override to its floor and add overrides for the packages whose nested copies stay below (decode-uri-component, esbuild, glob, minimatch, uuid majors 8 and 9, zod majors 3), then refresh the lock with pnpm install and record a build or typecheck breakage per do_2. stream-json and tinypool are unresolved: when the lock resolves the package nowhere after the refresh, the entry leaves the floors file and the commit message names it; when the registry holds no release at or above the floor, the floor is wrong, leaves the file and is recorded as a finding naming the advisory."
 
 [task.22.24.7]
 title = "Close the open dependency advisories of the blockscout manifests (49 floors)"
@@ -117868,6 +117926,7 @@ do_10 = "Finding 22.8.11.4: a2a-store.test.mjs environment() (:255-271) adds LAY
 do_11 = "Finding 22.8.11.5: the environment() fixture of a2a-store.test.mjs declares every key createAgentIntegration requires (the declared-key list in sdk/integrations/agents/src/integration.ts); the verify now installs a package only when its node_modules is absent; continue from attempt 8."
 do_12 = "Attempt 9: the seller test package fails to resolve express from test/proof_middleware_seller_ts_exports.test.mjs, and the merchant build fails on a TypeScript parameter property (merchant/src/index.ts:366) under strip-only type stripping; express becomes a declared dependency of the seller package's test setup and the parameter property becomes an explicit field assigned in the constructor."
 do_13 = "Attempt 10: the merchant middleware test (node --test over test/*.test.mjs) loads services/platform/middleware/conformance/src/scenarios.ts:67 directly and node 24 refuses the constructor parameter properties in strip-only mode (ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX). Declare the two fields explicitly and assign them in the constructor body; check the other .ts files node loads directly for parameter properties, enums and namespaces. If the paid-route sample build then reports an unknown module type for a dependency, next.config.mjs gains transpilePackages for that dependency."
+do_14 = "Attempt 11: the only failing check is services/platform/middleware/seller/test/settlement-response.test.mjs:352-354 (replayedSettlementAnswersStoredTransaction): since 7829d8d2b (task 22.23.10) a stored fulfilment whose requestDigest differs from the request is answered with the receipt-reuse refusal (kind refused, status 409, errorReason receipt_reuse) and no longer throws fulfillment-conflict. Change that second expectation to await the decision and assert kind, status and settlement.errorReason, with settleCount and releaseCount still 1; the first expectation (a stored txHash that disagrees with the receipt is a fulfillment-conflict) stays. The seller test directory is inside touches."
 
 [task.22.9.14]
 title = "Admit guest ABI 5 in the TypeScript lifecycle test"
@@ -117911,7 +117970,7 @@ do_1 = "services/agent/sdk/typescript/src/ai_market.ts:3273 decodeProgramsReceip
 do_2 = "Share d9-6.kvx with 22.9.11: set follow_up of [disposition.9.97.8.3] to 22.9.10."
 do_3 = "Set follow_up of [disposition.9.97.8.3] in spec/layerx-merge/dispositions/d9-6.kvx to 22.9.10 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
 symbols = ["decodeProgramsReceipt"]
-touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/package.json", "sdk/platform/conformance/fixtures/intent-plan-v1.json", "services/agent/sdk/typescript/test/intent.test.ts", "sdk/platform/conformance/evm-call-wrapping.test.py", "tests/agent/sdk/python/test_intent.py", "services/agent/sdk/typescript/src/intent.ts", "services/agent/sdk/typescript/test/exchange-v2.test.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/typescript/test/proof_exchange.test.ts", "services/agent/sdk/typescript/src/exchange.ts"]
+touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/package.json", "sdk/platform/conformance/fixtures/intent-plan-v1.json", "services/agent/sdk/typescript/test/intent.test.ts", "sdk/platform/conformance/evm-call-wrapping.test.py", "tests/agent/sdk/python/test_intent.py", "services/agent/sdk/typescript/src/intent.ts", "services/agent/sdk/typescript/test/exchange-v2.test.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/typescript/test/proof_exchange.test.ts", "services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/test/support/exchange_consumers.ts", "services/agent/sdk/typescript/test/xweb-api.test.ts"]
 tests = []
 planned_paths = ["services/agent/sdk/typescript/test/ai-market.test.ts"]
 build_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build"
@@ -117937,6 +117996,7 @@ do_10 = "Finding 22.9.10.6: the python_market_signs_secp256k1 failure is environ
 do_11 = "Finding 22.9.10.7: precompile-calls.test.ts asserts the five-argument placeOrder signature precompiles/layerxexchange/abi.json carries and drops the six-argument entry; continue from attempt 10."
 do_12 = "Attempt 11: the published ABI precompiles/layerxexchange/abi.json declares placeOrder with five inputs (bytes32,uint8,uint256,uint256,uint8) while exchange-v2.test.ts:37, precompile-calls.test.ts:137 and :209 and proof_exchange.test.ts:49 (now in touches) still assert the six-argument signature; do_11 applies to all four and the published ABI is the fact."
 do_13 = "Attempt 12: the precompile-calls test asserts the five-input placeOrder selector 0x36633730 of precompiles/layerxexchange/abi.json (marketId, side, price, quantity, timeInForce) while services/agent/sdk/typescript/src/exchange.ts:586-606 exchangePlaceOrderCall still encodes the six-input signature with accountId and produces 0xf9835781 (finding 22.9.10.8). Encode the five ABI inputs, drop the accountId argument from the call builder and its callers in src, and keep the test's expectation."
+do_14 = "Attempt 13: the build failed in test/support/exchange_consumers.ts:52 and test/xweb-api.test.ts:546, which still pass accountId to exchangePlaceOrderCall after the call builder dropped it. Both files are in touches now: remove the accountId field from the xweb-api order literal and the accountId word from the expected calldata of the consumers helper, so the expectation is the five-input encoding of the ABI. No other test expectation changes."
 
 [task.22.91.38]
 title = "Inventory the platform examples packages"
@@ -121234,9 +121294,9 @@ touches = ["sdk/platform/generators/src/main.rs", "sdk/platform/generators/tests
 tests = ["sdk/platform/generators/tests/drift.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml && make platform-sdk-generate"
-verify_cmd = "cargo run --locked --manifest-path sdk/platform/generators/Cargo.toml -- --check && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml --test drift && mvn -q -o -f sdk/platform/jvm/pom.xml -DskipTests compile"
+verify_cmd = "cargo run --locked --manifest-path sdk/platform/generators/Cargo.toml -- --check && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml --test drift && mvn -q -f sdk/platform/jvm/pom.xml -DskipTests compile"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "sdk-all"
 owner_role = "fm-platform"
 rollback = "Revert the task's commits."
 max_builds = 1
@@ -121251,6 +121311,9 @@ do_5 = "Attempt 4 (base 9b73cf9ce): the drift failure outside this task is gone 
 do_6 = "Finding at the fifth attempt: tests/drift.rs:739 rust_operation_catalogue_matches_the_repository_schema compares the transport.agent_http.operation.<name> sections with the operation.<name> sections of services/agent/schema/agent-api; five transport operations have no [operation.<name>] declaration (budget.state, faucet.claim, mcp.invoke, policy.dry_run, tenant.readiness) and faucet.claim has two transport sections. Each operation whose route has a handler in the agent daemon's RPC adapters gets its [operation.<name>] declaration in the schema file that holds its neighbours (read.kvx, write.kvx, approval.kvx, programs.kvx, identity.kvx or stream.kvx, with the golden copy regenerated the way that directory's other files are), the duplicate faucet.claim transport section is reduced to one, and a transport section whose operation has no handler is removed; services/agent/schema/agent-api is in touches for this. The drift test is the oracle and its assertion does not change."
 do_7 = "Attempt 6: the only remaining difference is faucet.claim, present as [transport.agent_http.operation.faucet.claim] (v1.kvx:320, restored by task 22.9.24 at 5b4f53b03 with disposition retired) and absent from the [operation.<name>] declarations. The retired operation keeps its transport entry (the refusal is served on the wire and v1.kvx:129 and :151 name it) and gains [operation.faucet.claim] in identity.kvx beside tenant.readiness, budget.state, mcp.invoke and policy.dry_run, with the fields of its neighbours and a retired marker in the same form the transport entry uses; the golden copy is regenerated the way the directory's other files are. The drift test stays the oracle."
 do_8 = "Attempt 7: the schema repair is correct and the scope check refused the regenerated clients. Regenerating the Go, JVM, Rust, Python and TypeScript clients and the JVM conformance file from the repaired schema is part of this task; the seven generated files are now in touches and are regenerated by the pipeline, never edited by hand."
+do_9 = "Attempt 8 (decision 2370): the catalogue check failed because faucet.claim was declared as [operation.faucet.claim]; that generated Operation::FaucetClaim and the agent daemon's exhaustive matches (agent_rpc.rs:129, human_runtime.rs:5300, tenant.rs:113 and two arms of the RPC adapter) no longer compile. faucet.claim is retired: agent_rpc.rs:25 RETIRED_OPERATIONS refuses it by wire name before any arm, and its transport section carries disposition retired. Remove the [operation.faucet.claim] block from identity.kvx and its golden, keep one transport section for it, and make the catalogue test of drift.rs skip transport sections whose disposition is retired, so no generator emits a variant for them; tenant.readiness and the other declarations of attempt 8 stay. The dependent-crate check must pass again without touching the agent daemon."
+do_10 = "Attempt 9 is complete: the generator check passes, all 27 drift tests pass, and the Maven compile of sdk/platform/jvm could not run because the environment lacked Maven (exit 127). Decision 2373: the task's profile key is the all-SDK profile now, which carries Cargo and Maven together; the attempt 9 candidate ddfb21392 is re-qualified unchanged with the task's build and verify."
+do_11 = "Attempt 10 is complete: the generator check passes, all 27 drift tests pass, and the Maven compile failed only because -o kept Maven from resolving maven-source-plugin 3.3.1 (decision 2375). The verify runs mvn without -o now like every other JVM verify; the attempt 10 candidate f2ecb5dd9 is re-qualified unchanged with the task's build and verify."
 
 [task.18.1500.1]
 title = "Issue #1500: Give the real-node prerequisite script a POSIX function name and a syntax check"
@@ -128357,7 +128420,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.20]
 title = "Close the open dependency advisories of the rust-vendored manifests (22 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -128391,7 +128454,7 @@ title = "Close the open dependency advisories of the rust-services manifests (9 
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.24.1"]
+requires = ["22.24.1", "22.9.33"]
 reqs = ["22076.1"]
 capabilities = ["22.24.19"]
 interfaces = []
@@ -128416,6 +128479,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1: rustls 0.23.45 is below the 0.23.46 floor in six lock files and jsonwebtoken 9.3.1 is below 10.3.0 in services/human. Raise rustls with cargo update -p rustls --precise 0.23.46 per manifest. services/human/crates/layerx-human-identity-provider/Cargo.toml:20 pins jsonwebtoken exactly (=9.3.1): raise the pin to =10.3.0 with the lock and build the crate; if its source no longer compiles against 10, record a finding naming the changed API, keep the 9.3.1 pin, remove that floor and name it in the commit message."
+do_5 = "Attempt 3 is complete: the nine floors are applied, the floor checker passes and every cargo metadata --locked call succeeds; the dependent-crate check of the human workspace fails on services/human/crates/layerx-human-kms/tests/no_layerx_intents.rs:82-85, which calls account_sequence(), network_id(), actor_did() and authority() on a BoundLifecycleCall that has none of them. That test is repaired by task 22.9.33, which this task requires now; the attempt 3 candidate eff168642 is re-qualified unchanged once it publishes."
 
 [task.22.23.11]
 title = "Read paymentDenom in the Rust client's receipt view and check the asset against it"
@@ -128923,7 +128987,7 @@ symbols = ["response", "Parsed", "parse_request"]
 touches = ["services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs", "services/human/crates/layerx-human-kms/tests/no_layerx_intents.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host --all-targets && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service -p layerx-human-kms --tests"
+build_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors --test serve_routes --no-run && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test no_layerx_intents --no-run"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors --test serve_routes --no-run && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && grep -c 'pub(crate) fn response\|pub(crate) enum Parsed\|pub(crate) fn parse_request' services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs | grep -qx 3 && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test no_layerx_intents"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -128940,6 +129004,7 @@ do_4 = "Decision 2358 (2026-11-02): this task also repairs the human workspace h
 do_5 = "services/human/crates/layerx-human-service/src/agents/create.rs:647 match disclosure.construct_method() is non-exhaustive since the binder gained PayBudgetCreateNative and AuthSession: the native budget creation arm maps to its canonical payload with STATE_COMMITMENT_PROTOCOL_VERSION exactly as PayBudgetCreate does, and the session arm is refused with the same invalid-lifecycle-transaction-method reason as ProgramCall, because a session authorization is not a lifecycle transaction."
 do_6 = "The verify now runs the no_layerx_intents target and builds the human service; the commit message names both workspaces. Task 22.9.34 is superseded by this task."
 do_7 = "Attempt 4, decision 2366 (2026-11-03): do item 5 is superseded. The call binder on main declares no PayBudgetCreateNative or AuthSession variant, so the match of services/human/crates/layerx-human-service/src/agents/create.rs is exhaustive today and the file leaves touches: restore it to its content on the base revision and keep the proof_serve_errors.rs and no_layerx_intents.rs changes. Task 9.35.16 adds the arms with the variants."
+do_8 = "Decision 2374, attempts 3, 5 and 6: the all-targets build of the agent daemon workspace followed by the human workspace tests exhausted the storage of the qualification environment (no space left on device while the dependent-crate check wrote its metadata). The build is the task's declared targets now: the two agent daemon test targets with --no-run, the layerx-agentd binary, and the no_layerx_intents target of layerx-human-kms with --no-run. The attempt 4 candidate carries the proof_serve_errors.rs change; apply do_4 to no_layerx_intents.rs on top of it (the create.rs file stays at its main content per do_7), then run the task's build and verify."
 
 [task.22.9.32]
 title = "Port the pay2 qualification harness off the LNI handshake"
@@ -134975,12 +135040,43 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.25.4]
+title = "Complete the root go.sum for the in-repo go-ethereum replace"
+status = "pending"
+mode = "BUILD"
+wave = 0
+requires = []
+reqs = ["22086.1"]
+capabilities = ["22.25.4"]
+interfaces = []
+do_1 = "Since 66d80726c replaced github.com/ethereum/go-ethereum with ./core/deps/geth, go list -mod=readonly -m all fails at the root with missing go.sum entry for go.mod file for go.uber.org/automaxprocs v1.6.0 (go.sum carries only the v1.5.1 and v1.5.2 go.mod hashes). Run go mod download for that module and for every other module the command reports, so go.sum carries the entries the module graph needs; go.mod is not edited and no entry is removed."
+do_2 = "go mod verify passes afterwards and go build ./node/ ./rpc/ passes in a fresh module cache. The commit message names every go.sum entry added."
+do_3 = "Finding 18.1043.2.1 records the gap; every Go task requires this task (decision 2369)."
+symbols = []
+touches = ["go.sum", "go.mod"]
+tests = []
+planned_paths = ["go.sum"]
+build_cmd = "go list -mod=readonly -m all >/dev/null"
+verify_cmd = "go list -mod=readonly -m all >/dev/null && go mod verify && go build ./node/ ./rpc/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-rpc-api"
+rollback = "Restore go.sum; root module builds fail on the missing entry again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2371: go mod download alone is not enough; after it go vet still reports that go.mod needs updates because the graph selects newer golang.org/x modules than the indirect requirement lines record. Run go mod tidy with the pinned toolchain at the repository root and commit go.mod and go.sum together (go.mod is in touches now); no version is raised above what the graph already selects and no requirement the build needs is removed. The commit message names every requirement line changed. The verify's go list -mod=readonly -m all, go mod verify and go build ./node/ ./rpc/ then pass in a fresh module cache."
+
 [task.22.25.3]
 title = "Add the accepted Programs call case to the sequencer receipt vectors and refresh every copy"
 status = "pending"
 mode = "BUILD"
 wave = 0
-requires = []
+requires = ["22.25.4"]
 reqs = ["22085.1"]
 capabilities = ["22.25.3"]
 interfaces = []
@@ -134988,11 +135084,11 @@ do_1 = "rpc/sequencer_receipt_vectors_test.go TestSequencerReceiptVectors (:562)
 do_2 = "The pins move with the fixture: 11 to 12 cases and 4 to 5 V1 cases in TestVectorFilesV1ToV3MatchSequencerReceiptFixture (:699) and in the case assertion helper. Regenerate sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json and daemon/committed-fixture/vectors/vector-v1-receipted-positive.json byte-identical to the source group."
 do_3 = "A reader outside touches that pins the old count (the Go conformance readers under sdk/platform/go, the Python readers, the market namespaces vector test) stops the attempt with a finding naming the file and line; it is not edited here. If no committed fixture program can be deployed from the vectors chain, record a finding naming the missing fixture and stop."
 symbols = ["TestSequencerReceiptVectors", "TestVectorFilesV1ToV3MatchSequencerReceiptFixture"]
-touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures", "daemon/committed-fixture"]
+touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures", "daemon/committed-fixture", "sdk/platform/go/conformance_vectors_test.go", "sdk/platform/go/cmd/conformance/main.go"]
 tests = ["rpc/sequencer_receipt_vectors_test.go"]
 planned_paths = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures", "daemon/committed-fixture"]
 build_cmd = "go vet ./rpc/ ./daemon/committed-fixture/"
-verify_cmd = "go test -count=1 ./rpc/ -run 'SequencerReceiptVectors|VectorFilesV1ToV3' && go test -count=1 ./daemon/committed-fixture/ && python3 -m pytest -q tests/ci/test_receipt_fixture_readers.py tests/agent/sdk/python/test_receipt_fixture.py"
+verify_cmd = "go test -count=1 ./rpc/ -run 'SequencerReceiptVectors|VectorFilesV1ToV3' && go test -count=1 ./daemon/committed-fixture/ && python3 -m pytest -q tests/ci/test_receipt_fixture_readers.py tests/agent/sdk/python/test_receipt_fixture.py && cd sdk/platform/go && go test -count=1 ./ -run '^TestVectorFilesV1ToV3MatchSequencerReceiptFixture$' && go test -count=1 ./cmd/conformance/"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-rpc-api"
@@ -135004,13 +135100,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 1 stopped on the out-of-scope readers that pin four V1 cases: sdk/platform/go/conformance_vectors_test.go:171 and sdk/platform/go/cmd/conformance/main.go:226. Both files are in touches now: move each pin from 4 to 5 with the new V1-layerxprograms-call case, and the verify runs the Go platform module's V1-to-V3 vector test and its conformance command tests after the rpc and committed-fixture tests. The Python readers pin no count. do_3 no longer stops on these two files."
 
 [task.22.25.1]
 title = "Mount the chain registry and sequencer stores in the rpc receipt test chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
-requires = []
+requires = ["22.25.4"]
 reqs = ["22083.1"]
 capabilities = ["22.25.1"]
 interfaces = []
@@ -135100,7 +135197,7 @@ title = "Close the open dependency advisories of the go-root manifests (37 floor
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.24.1"]
+requires = ["22.24.1", "22.25.4"]
 reqs = ["22076.1"]
 capabilities = ["22.24.16"]
 interfaces = []
@@ -135130,7 +135227,7 @@ title = "Refresh the committed-fixture receipted-revert vector from the conforma
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.23.8", "18.1211.6"]
+requires = ["22.23.8", "18.1211.6", "22.25.4"]
 reqs = ["22078.1"]
 capabilities = ["18.1211.7"]
 interfaces = []
@@ -135221,7 +135318,7 @@ title = "Make the newHeads subscription tests pass against the test node after t
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["7.10.3"]
+requires = ["7.10.3", "22.25.4"]
 reqs = ["22052.1"]
 capabilities = ["7.10.6"]
 interfaces = []
@@ -135246,10 +135343,11 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1: task 7.10.3 reads the committed block's stateRoot from header.AppHash (rpc/subscribe.go:472), but node/abci.go:320 leaves Header.AppHash unset on purpose and node/app.go:1943-1945 stashes the request and response for the notifier; node/abci.go and node/app.go are now in touches so the published header carries the AppHash that eth_getBlockByNumber (rpc/block.go:478) returns for the same height, and the test asserts the two are equal."
+do_5 = "Attempt 2: the subscription and block changes are in scope; the build failed on the root go.sum gap of finding 18.1043.2.1 (missing go.sum entry for go.uber.org/automaxprocs v1.6.0 after the in-repo go-ethereum replace), not on this task's code. Task 22.25.4 repairs go.sum; this task requires it and continues attempt 2 unchanged on top of it."
 
 [task.18.1508.2]
 title = "Give the launchpad REST package tests fixtures the repository holds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -135264,7 +135362,7 @@ touches = ["services/launchpad/api/internal/rest"]
 tests = ["services/launchpad/api/internal/rest/production_integration_test.go", "services/launchpad/api/internal/rest/route_inventory_test.go"]
 planned_paths = []
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && cd services/launchpad/api && go build ./internal/rest/"
-verify_cmd = "cd services/launchpad/api && go vet ./internal/rest/ && go test -count=1 ./internal/rest/ -skip '^TestProductionRESTMeasurementHarness$'"
+verify_cmd = "cd services/launchpad/api && go vet ./internal/rest/ && go test -count=1 ./internal/rest/ -skip '^TestProductionRESTMeasurement(Harness|Aggregate)$'"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
@@ -135278,6 +135376,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1: production_integration_test.go:258 reads the built SDK at sdk/launchpad/packages/sdk/dist/index.js, so the build now installs and builds that package first and the profile is mixed; qualification_workload_test.go:1028 TestProductionRESTMeasurementHarness needs an approved measurement input the repository does not carry (L22_MEASUREMENT_INPUT and its digest), so the verify skips that one test and the gap is recorded as a finding for the owner."
 do_5 = "Attempt 3: sdk/launchpad/packages/sdk depends on @kindle/sdk-v2 through the workspace protocol, so npm install fails with EUNSUPPORTEDPROTOCOL; the package is a member of the apps/launchpad pnpm workspace (apps/launchpad/pnpm-workspace.yaml:4), so the build installs that workspace with pnpm and builds @kindle/sdk with its workspace dependencies through the pnpm filter before the Go build; nothing else changes."
+do_6 = "Attempt 5: TestProductionRESTMeasurementAggregate (qualification_workload_test.go:1367) needs the approved aggregate input and digest (L22_MEASUREMENT_AGGREGATE_INPUT and its SHA-256) that the repository does not carry, exactly like the harness test of do_4; the verify skips both measurement tests and the gap is one finding for the owner. The rest of the package passed at attempt 5."
 
 [task.22.9.35]
 title = "Mount the sequencer and chain registry stores in the RPC test application"
@@ -135314,7 +135413,7 @@ title = "Preserve subscription lag signals when another chain's log is excluded"
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["18.1509.1"]
+requires = ["18.1509.1", "22.25.4"]
 reqs = ["22043.1"]
 capabilities = ["18.1510.1"]
 interfaces = []
@@ -135343,7 +135442,7 @@ title = "Keep chain-scoped log subscriptions alive across the seal-to-open windo
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["7.10.6"]
+requires = ["7.10.6", "22.25.4"]
 reqs = ["22042.1"]
 capabilities = ["18.1509.1"]
 interfaces = []
@@ -135405,7 +135504,7 @@ title = "Serve px_getReceiptKeys from the node"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.35", "22.25.1"]
+requires = ["22.9.35", "22.25.1", "22.25.4"]
 reqs = ["22039.1"]
 capabilities = ["22.9.28"]
 interfaces = []
@@ -135438,7 +135537,7 @@ title = "Answer an identical raw transaction resubmission with its known hash an
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.35", "22.25.1"]
+requires = ["22.9.35", "22.25.1", "22.25.4"]
 reqs = ["22038.1"]
 capabilities = ["22.9.27"]
 interfaces = []
@@ -147492,7 +147591,7 @@ title = "Gate domain 6 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 42
-requires = ["6.0.1", "6.0.2", "6.0.3", "6.0.4", "6.2.3", "6.2.4", "6.13.1", "6.32.3", "6.34.1", "6.52.1", "6.52.2", "6.52.3", "6.52.4", "6.52.5", "6.53.1", "6.53.2", "6.53.3", "6.53.4", "6.54.1", "6.54.2", "6.54.3", "6.54.4", "6.55.1", "6.55.2", "6.56.1", "6.56.3", "6.56.4", "6.57.1", "6.57.2", "6.57.3", "6.57.4", "6.57.5", "6.57.6", "6.57.7", "6.57.8", "6.57.9", "6.57.10", "6.58.1", "6.58.2", "6.58.4", "6.58.5", "6.58.7", "6.58.8", "6.58.9", "6.59.1", "6.59.2", "6.59.3", "6.59.4", "6.59.5", "6.59.6", "6.59.7", "6.59.8", "6.60.2", "6.60.3", "6.60.4", "6.60.5", "6.71.1", "6.80.1", "6.80.4", "6.80.5", "6.97.2", "6.96.3", "6.96.4", "6.96.5", "21.11.1", "21.13.1", "21.21.1", "21.23.1", "21.49.1", "21.50.1", "21.75.1", "21.76.1", "21.77.1", "21.88.1", "21.89.1", "21.90.1", "21.91.1", "21.123.1", "21.124.1", "21.172.1"]
+requires = ["6.0.1", "6.0.2", "6.0.3", "6.0.4", "6.2.3", "6.2.4", "6.13.1", "6.32.3", "6.34.1", "6.52.1", "6.52.2", "6.52.3", "6.52.4", "6.52.5", "6.53.1", "6.53.2", "6.53.3", "6.53.4", "6.54.1", "6.54.2", "6.54.3", "6.54.4", "6.55.1", "6.55.2", "6.56.1", "6.56.3", "6.56.4", "6.57.1", "6.57.2", "6.57.3", "6.57.4", "6.57.5", "6.57.6", "6.57.7", "6.57.8", "6.57.9", "6.57.10", "6.58.1", "6.58.2", "6.58.4", "6.58.5", "6.58.7", "6.58.8", "6.58.9", "6.59.1", "6.59.2", "6.59.3", "6.59.4", "6.59.5", "6.59.6", "6.59.7", "6.59.8", "6.60.2", "6.60.3", "6.60.4", "6.60.5", "6.71.1", "6.80.1", "6.80.4", "6.80.5", "6.97.2", "6.96.3", "6.96.4", "6.96.5", "21.11.1", "21.13.1", "21.21.1", "21.23.1", "21.49.1", "21.50.1", "21.75.1", "21.76.1", "21.77.1", "21.88.1", "21.89.1", "21.90.1", "21.91.1", "21.123.1", "21.124.1", "21.172.1", "22.25.4"]
 reqs = ["6999.1"]
 capabilities = ["6.0.9"]
 interfaces = []
@@ -163891,7 +163990,7 @@ title = "Close the open dependency advisories of the jvm manifests (8 floors)"
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.24.1"]
+requires = ["22.24.1", "18.1503.1"]
 reqs = ["22076.1"]
 capabilities = ["22.24.21"]
 interfaces = []
@@ -163916,6 +164015,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempts 1 and 2, decision 2367: the spring and android integrations depend on the in-repo com.sidiora.layerx:layerx-sdk:0.1.0, so the verify installs sdk/platform/jvm (tests skipped) before resolving them. The floors and the lock raise of the attempts stand."
+do_5 = "Attempt 4 is complete: the eight floors are applied and the floor checker passes; mvn install of sdk/platform/jvm fails on GeneratedSchema.java:76, which references AgentModels.VerificationStatus while no generated record of that name exists (finding 18.1456.1.1). Task 18.1503.1 emits the record from the generator; this task requires it and re-qualifies the attempt 4 candidate unchanged once it publishes."
 
 [task.22.8.7]
 title = "Drop the retired batch and checkpoint verifiers from the JVM conformance main"
@@ -187839,7 +187939,7 @@ title = "Admit the active programs fee record and keep unrelated module-9 rows o
 status = "pending"
 mode = "BUILD"
 wave = 0
-requires = []
+requires = ["22.25.4"]
 reqs = ["22084.1"]
 capabilities = ["22.25.2"]
 interfaces = []
@@ -187899,7 +187999,7 @@ title = "Name the payment asset in the sequencer receipt and carry the fee denom
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.25.1"]
+requires = ["22.25.1", "22.25.4"]
 reqs = ["22072.1"]
 capabilities = ["22.23.8"]
 interfaces = []
@@ -188081,7 +188181,7 @@ title = "Repair the auth keeper, ledger precompile, host module and auth precomp
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.2.5"]
+requires = ["22.2.5", "22.25.4"]
 reqs = ["22028.1"]
 capabilities = ["22.11.8"]
 interfaces = []
@@ -188230,7 +188330,7 @@ title = "Reconcile the latest-tag pending expectation and export the gas price h
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.7.2", "22.5.9", "22.6.4"]
+requires = ["22.7.2", "22.5.9", "22.6.4", "22.25.4"]
 reqs = ["22011.1"]
 capabilities = ["22.7.3"]
 interfaces = []
@@ -188367,7 +188467,7 @@ title = "Align the capability replay order, the retired payer-grant reader and t
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.2.4", "22.2.6", "22.25.2"]
+requires = ["22.2.4", "22.2.6", "22.25.2", "22.25.4"]
 reqs = ["22011.1"]
 capabilities = ["22.2.5"]
 interfaces = []
@@ -188500,7 +188600,7 @@ title = "Account for the layerxchains merge address in every merge-table expecta
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.6.4"]
+requires = ["22.6.4", "22.25.4"]
 reqs = ["22011.1"]
 capabilities = ["22.6.5"]
 interfaces = []
@@ -188860,7 +188960,7 @@ title = "Resolve precompile info without merge keepers and supply the pay and ch
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.25.4"]
 reqs = ["22018.1"]
 capabilities = ["22.6.4"]
 interfaces = []
@@ -188895,6 +188995,7 @@ do_11 = "Finding 22.6.4.6: TestSidioraFeePaid asserts the balance of the holding
 do_12 = "Finding at the ninth attempt: precompiles/proof_activation_test.go:192 fails for orob, clearing, oracle aggregator, pofq, scheduler, streams, tee attestor and eip712 because InitializePrecompiles no longer publishes them to the VM in the activation harness; the missing-keeper handling this task adds applies to the merge-table info resolution only, and InitializePrecompiles keeps publishing every precompile of the activation table whether or not a merge keeper is supplied; proof_activation_test.go is the oracle and is not edited."
 do_13 = "Attempt 10: TestInitializePrecompilesKeepsMergeOutOfVM (precompiles/precompile_info_e_test.go:148-170) requires every MergeAddressTable entry (0x101A-0x101E and 0x0901-0x0908) absent from the VM tables after InitializePrecompiles(false, keepers), while proof_activation_test.go:192 requires each activation row published after activation; both are right: before the activation state the merge addresses are absent, after it they are published, so setup.go gates the publication on the activation state the activation test sets and neither test changes."
 do_14 = "Attempt 11, decision 2365 (2026-11-03): drop the PrecompileContextProvider of attempt 11. node/precompiles.go PrecompileKeepers keeps the application NewPrecompileKeepers was built from and gains MergePlanActive() bool: open a query context at the latest committed height with the application's CreateQueryContext(0, false) (sdk/baseapp/abci.go:662), return false when no height is committed or the context cannot be opened, else return the upgrade keeper's IsUpgradeActiveAtHeight(ctx, pcommon.MergeUpgrade, ctx.BlockHeight()). precompiles/setup.go publishes the merge rows into the VM tables (the addPrecompileToVM loop over merge) only when keepers implements MergePlanActive and it returns true; the info rows stay unconditional. GetPrecompileKeepers (node/app.go:3888) returns that value, so proof_activation_test.go (:170) sees the rows on the reopened consumer and precompile_info_e_test.go (:96), whose keepers lack the method, sees none. Both tests are oracles and are not edited."
+do_15 = "Attempt 12: TestInitializePrecompilesUsesMergeActivationContext (setup_test.go:469) failed with unexpected ChainID, got empty, want pax-test: the application app.Setup builds carries no chain id, so FinalizeBlock refuses the pax-test header. Build the application the way precompiles/proof_activation_test.go:92-107 does (app.New, then InitChain with ChainId pax-test and the default genesis) before finalizing the first block. go.mod and go.sum are outside this task: the module gap is repaired by task 22.25.4, which this task requires; the attempt that edits either file is refused."
 
 [task.22.5.4]
 title = "Return the committed block's own id from LastBlockID"
@@ -204145,7 +204246,7 @@ title = "Run the wave 5 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 30
-requires = ["17.5.8", "17.0.4", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.6", "18.1121.1", "8.101.2", "8.101.6"]
+requires = ["17.5.8", "17.0.4", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.6", "18.1121.1", "8.101.2"]
 reqs = ["17059.1"]
 capabilities = ["17.5.6"]
 interfaces = []
@@ -204171,6 +204272,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 9.28.1.4: the gate's human-build target fails on main until task 8.101.2 refreshes services/platform/Cargo.lock, so this task requires 8.101.2; attempt 1 (cd5e1678c) is otherwise complete and continues once 8.101.2 is on main."
+do_5 = "Requires drops 8.101.6: that task was superseded because both lock files were already current at HEAD, so the requirement it stood for (the refreshed services/platform/Cargo.lock) is met on main. The task stays held until the closure wave with the other programme gates."
 
 [task.17.5.7]
 title = "Run the wave 6 aggregate gate once on the merged wave revision"
@@ -210867,6 +210969,14 @@ req = "18790.1"
 scenario = "Given two recipients of 1 ether each, when batchTransferEqualAmount is called with 3 ether, then it reverts with Incorrect amount sent, and with 2 ether it succeeds leaving the contract balance at zero"
 contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
+qualification = "UNRUN"
+
+[acceptance.22.25.4.1]
+feature = "22"
+req = "22086.1"
+scenario = "The module graph lists, go.sum verifies and the node and rpc packages build at the root in a fresh module cache."
+contract = "go list -mod=readonly -m all >/dev/null && go mod verify && go build ./node/ ./rpc/"
+test = "go.sum"
 qualification = "UNRUN"
 
 [acceptance.22.25.3.1]
