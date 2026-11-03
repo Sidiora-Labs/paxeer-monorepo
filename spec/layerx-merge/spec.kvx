@@ -124671,7 +124671,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.123]
 title = "Inventory the platform examples packages a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -124703,7 +124703,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.122]
 title = "Inventory the sdk integrations packages a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.39"]
@@ -124735,7 +124735,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.121]
 title = "Inventory the platform middleware packages a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -137707,7 +137707,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.101]
 title = "Inventory every test run of the services/explorer/services/smart-contract-verifier/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.153"]
@@ -137739,7 +137739,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.100]
 title = "Inventory every test run of the services/explorer/services/libs/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.53"]
@@ -137771,7 +137771,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.99]
 title = "Inventory every test run of the tools/platform/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.79", "22.99.157"]
@@ -137963,7 +137963,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.93]
 title = "Inventory every build target of the services/explorer/services/smart-contract-verifier/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.44", "22.99.153"]
@@ -137995,7 +137995,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.92]
 title = "Inventory every build target of the services/explorer/services/libs/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -138027,7 +138027,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.91]
 title = "Inventory every build target of the tools/platform/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -138059,7 +138059,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.90]
 title = "Inventory every build target of the services/platform/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -138091,7 +138091,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.89]
 title = "Inventory every build target of the services/interop/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -138123,7 +138123,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.88]
 title = "Inventory every build target of the services/human/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -138155,7 +138155,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.87]
 title = "Inventory every build target of the services/agent/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -138187,7 +138187,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.86]
 title = "Inventory every build target of the programs/Cargo.toml Rust workspace a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.45"]
@@ -138219,7 +138219,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.158]
 title = "Refresh the services/agent workspace lock for the layerx-client and layerx-sdk manifest changes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -138346,7 +138346,7 @@ do_6 = "Attempt 1 (requalify, gotcha 2955): the three proof tests spawn the Go p
 
 [task.22.99.154]
 title = "Repair the inventory sweep target layerx-bridge-relayer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -138379,7 +138379,7 @@ do_6 = "Attempt 1 (continue, decision 2506): outbound_isolation_captured_product
 
 [task.22.99.153]
 title = "Repair the inventory sweep targets of the smart contract verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -138557,7 +138557,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.98.2]
 title = "Repair the agent daemon library tests that fail on the main line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -141753,7 +141753,7 @@ title = "Port the agent daemon test support and the Human peer tests off the LNI
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.30", "22.95.11"]
+requires = ["22.9.30", "22.95.11", "22.99.158"]
 reqs = ["22045.1"]
 capabilities = ["22.9.31"]
 interfaces = []
@@ -141780,6 +141780,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Decision 2400 (attempts 1 and 2, continue): the only remaining failure, real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen, reads the PAXEER_X_HUMAN_PROJECTION_FACTS_FIXTURE file nothing produces (tests/human_projection_facts.rs:98-110) and has never passed; the verify now skips it by name and task 22.9.38 rebuilds it from the in-process Human peer server. The attempt 2 candidate (lni ported, four facts tests passing) is re-qualified unchanged against the amended verify."
 do_6 = "Attempt 4 (continue): the three webhook tests (unreachable, slow and revoked endpoint) receive something other than RetryScheduled or Stopped from deliver_outbound after the support port. Replace the matches! assertions with assertions that print the actual result, then restore the failing endpoint fixtures: unreachable is a closed local port, slow is a local listener that never answers, revoked flips the stop signal mid-flight; the port off the LNI module must not substitute a stub that answers."
+do_7 = "Attempt 5 (requalify after 22.99.158): the locked build failed only on the stale services/agent lock (gotcha 2954). Requalify the attempt-5 tree once 22.99.158 is on main; a webhook test that still fails prints the actual deliver_outbound result and is repaired inside the paths."
 
 [task.22.9.30]
 title = "Re-home the frame codec and Unix-socket transport and port the agent daemon library off the LNI module"
@@ -147842,7 +147843,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.118]
 title = "Inventory every Go module under services/launchpad a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.7", "22.99.8", "22.99.9", "22.99.10", "22.99.11", "22.99.12", "22.99.13", "22.99.14", "22.99.15", "22.99.16"]
@@ -147874,7 +147875,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.142]
 title = "Repair the inventory sweep target services/platform/perps-data"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.123", "22.99.124", "22.99.125", "22.99.126", "22.99.127", "22.99.128", "22.99.129", "22.99.130", "22.99.131", "22.99.132", "22.99.133", "22.99.134", "22.99.135", "22.99.136", "22.99.137", "22.99.138", "22.99.139", "22.99.140", "22.99.141"]
@@ -148553,7 +148554,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.31]
 title = "Repair the inventory sweep target services/wallet/attestor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148586,7 +148587,7 @@ do_6 = "Attempt 4 (continue): TestNativeCustodyRealProfiles and TestNativeSendPu
 
 [task.22.99.30]
 title = "Repair the inventory sweep target sdk/launchpad/shared"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148649,7 +148650,7 @@ do_4 = "Decision 2496 (continue): TestRealReviewedHistoricalDecoderMeasurement n
 
 [task.22.99.28]
 title = "Repair the inventory sweep target sdk/platform/go"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -202692,7 +202693,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.116]
 title = "Inventory every Go package under tests/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -202756,7 +202757,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.114]
 title = "Inventory every Go package under utils/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -202788,7 +202789,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.113]
 title = "Inventory every Go package under wasm-runtime/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.36"]
@@ -202820,7 +202821,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.112]
 title = "Inventory every Go package under wasm/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.37", "22.99.38"]
@@ -202852,7 +202853,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.111]
 title = "Inventory every Go package under engine/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -202948,7 +202949,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.108]
 title = "Inventory every Go package under consensus/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -202980,7 +202981,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.107]
 title = "Inventory every Go package under cmd/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -203013,7 +203014,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.106]
 title = "Inventory every Go package under daemon/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -203204,7 +203205,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.146]
 title = "Repair the inventory sweep target rpc"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203329,7 +203330,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.122]
 title = "Repair the inventory sweep target modules/xweb/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203360,7 +203361,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.121]
 title = "Repair the inventory sweep target modules/tokenfactory/client/cli"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203391,7 +203392,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.120]
 title = "Repair the inventory sweep target modules/tokenfactory/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203422,7 +203423,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.119]
 title = "Repair the inventory sweep target modules/spot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203453,7 +203454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.118]
 title = "Repair the inventory sweep target modules/spot/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203547,7 +203548,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.115]
 title = "Repair the inventory sweep target modules/pricefeed/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203609,7 +203610,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.113]
 title = "Repair the inventory sweep target modules/mint/types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203640,7 +203641,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.112]
 title = "Repair the inventory sweep target modules/mint/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203671,7 +203672,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.111]
 title = "Repair the inventory sweep target modules/mint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203733,7 +203734,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.109]
 title = "Repair the inventory sweep target modules/layerxledger/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203795,7 +203796,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.107]
 title = "Repair the inventory sweep target modules/evm/ante"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203826,7 +203827,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.106]
 title = "Repair the inventory sweep target modules/evm"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203858,7 +203859,7 @@ do_5 = "Attempt 1 (requalify): go test ./modules/evm/ passes at the attempt revi
 
 [task.22.99.105]
 title = "Repair the inventory sweep target modules/epoch/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203889,7 +203890,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.104]
 title = "Repair the inventory sweep target modules/epoch/client/cli"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204254,7 +204255,7 @@ title = "Repair the kernel make target test-tests-python of the c-kernel-make sw
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.99.158"]
 reqs = ["22998.1"]
 capabilities = ["22.99.92"]
 interfaces = []
@@ -204262,7 +204263,7 @@ do_1 = "Decision 2498: the inventory sweep c-kernel-make (spec/layerx-merge/prog
 do_2 = "The edit scope of this task is the repair record plus the kernel directories src, include, tests, contracts, scripts/ci and the Makefile at the repository root (decision 2498); a change anywhere else is out of scope: stop and report it. A failure that is a missing tool of the environment (pytest, forge) is handled by the build step, not by a product change."
 do_3 = "Write the repair record spec/layerx-merge/programme/sweeps/repairs/c-kernel-make.5.kvx with block [repair.c-kernel-make.5] holding target, command, revision, result (repaired or already-passing) and change; product facts only."
 symbols = []
-touches = ["spec/layerx-merge/programme/sweeps/repairs/c-kernel-make.5.kvx"]
+touches = ["spec/layerx-merge/programme/sweeps/repairs/c-kernel-make.5.kvx", "services/platform/hosted/node/bootstrap.sh"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/c-kernel-make.5.kvx", "src", "include", "tests", "contracts", "scripts/ci", "Makefile"]
 build_cmd = "python3 -c 'import pytest' || python3 -m pip install -q --break-system-packages pytest"
@@ -204280,6 +204281,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1 (continue): decision 2504. verify_cmd now runs the same file list as make test-tests-python and deselects test_no_bridge_credit_apply_caller, whose retirement awaits the owner decision of issue #1540 (decision 2438); record it under producer_input_tests with that reason. The other nine failing guards are deterministic: remove the stale retired reference each one names (claims and replay root callers, queue disposition codec case, kernel test rule codec primitives, replay crossarch, checkpoint and library suites, state withdraw web) in src, include, tests, contracts and scripts/ci, set the Makefile chain domain to the merged-chain golden, and where a guard contradicts another test the retirement guard wins and the other test is updated; cite each guard and the change in the repair record."
 do_5 = "Attempt 2 (continue): the nine remaining guard failures lie in the planned paths and are repaired here, not inherited: test_no_claim_or_deposit_root_callers flags tests/codec/lxp_test_bridge_claims_retired.c, itself a retired-use guard, so that file is removed or its symbol mentions move behind the guard's allow-list; test_kernel_rule_builds_and_runs_codec_primitives, test_makefile_chain_domain_is_merged_chain_golden, test_replay_crossarch_retired, test_checkpoint_and_library_suites_retired and test_state_withdraw_web_retired are repaired in the kernel tree; the two beta-withdrawal genesis runs fail with bootstrap: public testnet genesis requires seven configured modules, so the bootstrap input gains the seventh module or, when the bootstrap source lies outside the planned paths, its path is reported. The bridge-credit guard stays deselected (decision 2438)."
+do_6 = "Attempt 3 (continue): services/platform/hosted/node/bootstrap.sh is now in the paths. genesis-modules.conf lists six modules since the registry reconciliation of task 22.1.9 (budget, escrow, perps, service, spot, stream) while bootstrap.sh:334 still demands seven: make the count check compare against the module list the registry defines (the same list tests/test_beta_withdrawal_genesis.py takes from the genesis preparation) instead of a literal, so the two public-bootstrap genesis runs pass. The locked agent build is repaired by 22.99.158, which this task now requires; keep every guard repair of attempt 3."
 
 [task.22.99.86]
 title = "Re-sweep the not-run targets of the go-precompiles inventory sweep"
@@ -204518,7 +204520,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.35]
 title = "Repair the inventory sweep target tools/specgen"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204672,7 +204674,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.26]
 title = "Repair the inventory sweep target precompiles/perps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.19"]
@@ -239761,7 +239763,7 @@ do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible)
 
 [task.22.92.7]
 title = "Write the closure dispositions misc for 8 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239791,7 +239793,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.92.6]
 title = "Write the closure dispositions 21 for 9 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239821,7 +239823,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.92.5]
 title = "Write the closure dispositions 18 for 9 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239851,7 +239853,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.92.4]
 title = "Write the closure dispositions 17 for 18 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239881,7 +239883,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.92.3]
 title = "Write the closure dispositions 22-3 for 17 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239911,7 +239913,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.92.2]
 title = "Write the closure dispositions 22-2 for 19 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239941,7 +239943,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.92.1]
 title = "Write the closure dispositions 22-1 for 19 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240003,7 +240005,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.124]
 title = "Inventory every tracked Python file for compilation a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -240310,7 +240312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1575.1]
 title = "Issue #1575: Make the sweep summary accept the recorded results"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.81"]

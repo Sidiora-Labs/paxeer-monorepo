@@ -19684,7 +19684,7 @@ pub(crate) mod activity_submission_index_tests {
     fn signed_submission() -> (ModuleRegistry, crate::sign::VerifiedSubmission) {
         let bytes = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../../../tests/fixtures/authority/provider-subject/onboarding.activity"
+            "/../../../../tests/fixtures/authority/provider-subject/sponsored.activity"
         ));
         let kind = must(ActivityType::new(
             layerx_types::payload::ModuleId::Governance,
@@ -19697,6 +19697,18 @@ pub(crate) mod activity_submission_index_tests {
             ),
         )]));
         let activity = must(layerx_wire::activity::decode_signed(bytes, &registry));
+        assert_eq!(must(layerx_wire::activity::encode_signed(&activity)), bytes);
+        let registration = must(layerx_crypto::payments::SponsoredRegistration::decode(
+            activity.payload(),
+        ));
+        must(registration.validate_outer(&activity));
+        assert_eq!(
+            registration.signed_consent(),
+            include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../../../tests/fixtures/authority/provider-subject/consent.activity"
+            )),
+        );
         let payload = must(layerx_types::payload::Payload::new(
             &registry,
             kind,
@@ -19757,39 +19769,80 @@ pub(crate) mod activity_submission_index_tests {
         prepared: crate::prepare::Prepared,
         registry: &ModuleRegistry,
     ) -> crate::sign::VerifiedSubmission {
+        use crate::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+        use layerx_crypto::disclosure::{AmountRole, CounterpartyRole};
         use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
+        use layerx_types::payload::ModuleId;
+        let kind = prepared.envelope.activity_type();
+        let construct = match (kind.module(), kind.ordinal()) {
+            (ModuleId::Governance, 1) => PrecompileCall {
+                target: PrecompileTarget::Auth,
+                selector: layerx_crypto::disclosure::call::ledger_selector(
+                    "recordLifecycle(bytes,bytes32)",
+                ),
+                arguments: vec![
+                    AbiArgument::Bytes(prepared.envelope.payload().as_bytes().to_vec()),
+                    AbiArgument::Word(prepared.envelope.idempotency_key().bytes()),
+                ],
+            },
+            (ModuleId::Bridge, 1) => {
+                let [amount] = prepared.disclosure.amounts.as_slice() else {
+                    panic!("one bridge credit amount");
+                };
+                assert_eq!(amount.role, AmountRole::Transfer);
+                let recipient = prepared
+                    .disclosure
+                    .counterparties
+                    .iter()
+                    .find(|party| party.role == CounterpartyRole::Recipient)
+                    .expect("bridge credit recipient");
+                let mut amount_word = [0; 32];
+                amount_word[16..].copy_from_slice(&amount.value.to_be_bytes());
+                PrecompileCall {
+                    target: PrecompileTarget::Ledger,
+                    selector: layerx_crypto::disclosure::call::ledger_selector(
+                        "mint(bytes32,bytes32,uint128)",
+                    ),
+                    arguments: vec![
+                        AbiArgument::Word(prepared.disclosure.asset),
+                        AbiArgument::Word(recipient.account),
+                        AbiArgument::Word(amount_word),
+                    ],
+                }
+            }
+            _ => panic!("unsupported submission fixture activity: {kind:?}"),
+        };
         let call = Eip1559Call {
             chain_id: u64::from(prepared.envelope.network_id()),
             nonce: prepared.envelope.account_sequence(),
             max_priority_fee_per_gas: 1,
             max_fee_per_gas: 10,
             gas_limit: 100_000,
-            to: crate::prepare::evm::PrecompileTarget::Auth.address(),
-            data: must(
-                crate::prepare::evm::PrecompileCall {
-                    target: crate::prepare::evm::PrecompileTarget::Auth,
-                    selector: layerx_crypto::disclosure::call::ledger_selector(
-                        "recordLifecycle(bytes,bytes32)",
-                    ),
-                    arguments: vec![
-                        crate::prepare::evm::AbiArgument::Bytes(
-                            prepared.envelope.payload().as_bytes().to_vec(),
-                        ),
-                        crate::prepare::evm::AbiArgument::Word(
-                            prepared.envelope.idempotency_key().bytes(),
-                        ),
-                    ],
-                }
-                .encode(),
-            ),
+            to: construct.target.address(),
+            data: must(construct.encode()),
         };
         let raw = must(call.sign(&[0xa5; 32]));
         let (decoded, signature) = must(decode_signed(&raw));
+        assert_eq!(decoded, call);
         let actor_address = must(recover_sender(&decoded, &signature));
         let disclosure = must(layerx_crypto::disclosure::call::bind_call(
             &call,
             actor_address,
         ));
+        if kind.module() == ModuleId::Bridge {
+            assert_eq!(disclosure.asset, prepared.disclosure.asset);
+            assert_eq!(disclosure.amounts, prepared.disclosure.amounts);
+            assert_eq!(
+                disclosure.counterparties,
+                prepared
+                    .disclosure
+                    .counterparties
+                    .iter()
+                    .filter(|party| party.role == CounterpartyRole::Recipient)
+                    .copied()
+                    .collect::<Vec<_>>()
+            );
+        }
         let preparation = crate::sign::SigningPreparation {
             transaction: crate::prepare::EvmPrepared {
                 from: actor_address,
