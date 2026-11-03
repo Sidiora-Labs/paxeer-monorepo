@@ -129287,7 +129287,7 @@ do_7 = "Finding 22.9.30.1: do_4 is amended to keep the blanket impl; continue fr
 
 [task.18.1507.1]
 title = "Issue #1507: Serve the intermediate checkpoint reads in the historical-admission fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.33"]
