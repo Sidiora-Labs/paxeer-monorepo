@@ -45,14 +45,14 @@ func TestLedgerABIMethods(t *testing.T) {
 	methods := []struct {
 		name, signature, selector, mutability, outputs string
 	}{
-		{"register", "register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes)", "fd03012a", "nonpayable", "()"},
+		{"register", "register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes)", "fd03012a", "nonpayable", "(bytes32)"},
 		{"pause", "pause(bytes32)", "ed56531a", "nonpayable", "()"},
 		{"unpause", "unpause(bytes32)", "2f4dae9f", "nonpayable", "()"},
-		{"openAccount", "openAccount(bytes32)", "bdf52150", "nonpayable", "()"},
+		{"openAccount", "openAccount(bytes32)", "bdf52150", "nonpayable", "(bytes32)"},
 		{"send", "send(bytes)", "2bb1ae7c", "nonpayable", "()"},
 		{"draw", "draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)", "2e89490f", "nonpayable", "()"},
 		{"payExact", "payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)", "78ea11db", "nonpayable", "()"},
-		{"issueGrant", "issueGrant(bytes)", "d0d53480", "nonpayable", "()"},
+		{"issueGrant", "issueGrant(bytes)", "d0d53480", "nonpayable", "(bytes32)"},
 		{"revokeGrant", "revokeGrant(bytes32,uint64)", "58d183a8", "nonpayable", "()"},
 		{"mint", "mint(bytes32,bytes32,uint128)", "f04db938", "nonpayable", "()"},
 		{"burn", "burn(bytes32,bytes32,uint128)", "da3c63f3", "nonpayable", "()"},

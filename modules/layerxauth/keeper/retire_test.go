@@ -72,6 +72,10 @@ func TestAuthModuleStoreHasNoIdempotencyKeys(t *testing.T) {
 			receipt, err := host.Execute(lxphost.WithSequence(ctx, 41), activity, actor.Authority)
 			require.NoError(t, err)
 			require.Equal(t, lxphost.Code(0), receipt.ResultCode)
+			beforeRefusal := authViewStores(ctx, hostKey)
+			_, err = k.RecordLifecycle(ctx, actor, registration[:4], [32]byte{0x43})
+			require.Error(t, err)
+			require.Equal(t, beforeRefusal, authViewStores(ctx, hostKey))
 			db := state.NewDBImpl(ctx.WithEventManager(sdk.NewEventManager()), &a.EvmKeeper, true)
 			ctx = db.Ctx()
 			evm := &vm.EVM{StateDB: db, TxContext: vm.TxContext{Origin: caller}}
@@ -160,6 +164,12 @@ func TestAuthModuleStoreHasNoIdempotencyKeys(t *testing.T) {
 			require.Len(t, db.GetAllLogs(), logCount+2)
 			require.Equal(t, abi.Events["GrantRevoked"].ID, db.GetAllLogs()[logCount].Topics[0])
 			assertParamsOnly("after revoke")
+			beforeReplay := len(db.GetAllLogs())
+			data, err = call("revokeGrant", grantID, uint8(1), sequence)
+			require.ErrorIs(t, err, vm.ErrExecutionReverted)
+			require.NotEmpty(t, data)
+			require.Len(t, db.GetAllLogs(), beforeReplay)
+			assertParamsOnly("after refused revoke replay")
 		})
 	}
 }

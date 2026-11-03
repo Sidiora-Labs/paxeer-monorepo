@@ -130,12 +130,7 @@ func TestAuthGasConformance(t *testing.T) {
 	require.NoError(t, err)
 	timestamp := uint64(ctx.BlockTime().UnixMilli())
 	registration := append(append([]byte{0x71, 1, 0, 2}, actor.Authority.Actor[:]...), public[:]...)
-	registered, err := a.LayerXHost.Execute(lxphost.WithSequence(ctx, 41), lxphost.Activity{
-		ProtocolVersion: 3, Type: 0x00070001, ActorDID: actor.DID, AuthorityKey: public,
-		NotBefore: timestamp, NotAfter: timestamp, IdempotencyKey: [32]byte{0x41}, Payload: registration,
-	}, actor.Authority)
-	require.NoError(t, err)
-	require.Equal(t, lxphost.Code(0), registered.ResultCode)
+	require.Equal(t, []interface{}{uint64(1)}, call(sender, "recordLifecycle", registration, [32]byte{0x41}))
 	fixture := &grantFixture{actor: actor, timestamp: timestamp, asset: [32]byte{0x11}, purpose: [32]byte{0x22}}
 	hostKey := a.GetKey(app.LayerXHostStoreKey)
 	var policyKey, policy [32]byte
@@ -159,12 +154,13 @@ func TestAuthGasConformance(t *testing.T) {
 		private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{byte(74 + i)}, ed25519.SeedSize))
 		copy(key[:], private.Public().(ed25519.PublicKey))
 	}
-	body := fixture.feeSessionBody(sessionKey, 41)
+	body := fixture.feeSessionBody(sessionKey, 1)
 	action := [32]byte{0x33}
 	sessionID, err := codec.DomainHash(codec.DomainAuthorityHash, body)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{sessionID}, call(sender, "grantSession", body, uint64(100), action))
 	capabilityBody := fixture.body(3, capabilityKey)
+	binary.BigEndian.PutUint64(capabilityBody[len(capabilityBody)-85:len(capabilityBody)-77], 1)
 	capabilityID, err := codec.DomainHash(codec.DomainAuthorityHash, capabilityBody)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{capabilityID}, call(sender, "grantCapability", capabilityBody))
