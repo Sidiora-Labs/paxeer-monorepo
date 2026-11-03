@@ -1,0 +1,243 @@
+[reconcile.r16-206]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r16-206.1]
+interface = "interface.16.mk-interop-build"
+verdict = "served"
+path = "Makefile"
+line = 2662
+symbol = "interop-build"
+evidence = "Declares interop-build: with the registered prerequisite-free signature. Its recipe builds the locked interop workspace; this is the rule, rather than the .PHONY list, workspace-build dependency or help text."
+
+[row.r16-206.2]
+interface = "interface.16.mk-interop-build-ramps"
+verdict = "served"
+path = "Makefile"
+line = 2645
+symbol = "interop-build-ramps"
+evidence = "Declares interop-build-ramps: with the registered prerequisite-free signature. The recipe prepares ramp evidence, builds layerx-ramp-toolkit and layerx-reference-ramp, then records the build; the .PHONY occurrence is not the rule."
+
+[row.r16-206.3]
+interface = "interface.16.mk-interop-lint"
+verdict = "served"
+path = "Makefile"
+line = 2700
+symbol = "interop-lint"
+evidence = "Declares interop-lint: with the registered prerequisite-free signature. Its recipe runs interop workspace clippy, dependency-policy.sh and cargo deny; the workspace-lint dependency and .PHONY entry are references."
+
+[row.r16-206.4]
+interface = "interface.16.mk-interop-test"
+verdict = "served"
+path = "Makefile"
+line = 2665
+symbol = "interop-test"
+evidence = "Declares interop-test: with the registered prerequisite-free signature. Its recipe runs locked cargo tests for the interop workspace; the aggregate prerequisite and .PHONY occurrences do not define this rule."
+
+[row.r16-206.5]
+interface = "interface.16.mk-interop-test-mandates"
+verdict = "served"
+path = "Makefile"
+line = 2679
+symbol = "interop-test-mandates"
+evidence = "Declares interop-test-mandates: with the registered prerequisite-free signature. The recipe runs locked tests for layerx-ap2 using INTEROP_MANIFEST, distinguishing the rule from its .PHONY mention."
+
+[row.r16-206.6]
+interface = "interface.16.mk-interop-test-migration"
+verdict = "served"
+path = "Makefile"
+line = 2682
+symbol = "interop-test-migration"
+evidence = "Declares interop-test-migration: with the registered prerequisite-free signature. The recipe runs locked tests for layerx-migrate; this declaration is separate from interop-test-migration-testnets and the .PHONY list."
+
+[row.r16-206.7]
+interface = "interface.16.mk-interop-test-migration-testnets"
+verdict = "served"
+path = "Makefile"
+line = 2685
+symbol = "interop-test-migration-testnets"
+evidence = "Declares interop-test-migration-testnets: with the registered prerequisite-free signature. Its recipe selects layerx-migrate's testnets integration test with --ignored --nocapture, rather than the ordinary migration test rule."
+
+[row.r16-206.8]
+interface = "interface.16.mk-interop-test-mirrors"
+verdict = "served"
+path = "Makefile"
+line = 2668
+symbol = "interop-test-mirrors"
+evidence = "Declares interop-test-mirrors: with the registered prerequisite-free signature. Its recipe tests layerx-mirror, the Solana mirror and the Ethereum mirror archive; .PHONY and help-text occurrences are references."
+
+[row.r16-206.9]
+interface = "interface.16.mk-interop-test-portable"
+verdict = "served"
+path = "Makefile"
+line = 2691
+symbol = "interop-test-portable"
+evidence = "Declares interop-test-portable: with the registered prerequisite-free signature. Its recipe tests layerx-portable plus receipt_vectors, external_verification and independent_verifier; the earlier .PHONY entry is not the rule."
+
+[row.r16-206.10]
+interface = "interface.16.mk-interop-test-ramps"
+verdict = "served"
+path = "Makefile"
+line = 2641
+symbol = "interop-test-ramps"
+evidence = "Declares interop-test-ramps: with the registered prerequisite-free signature. Its recipe tests layerx-ramp-toolkit and builds layerx-reference-ramp through services/platform/Cargo.toml; .PHONY and help text only mention it."
+
+[row.r16-206.11]
+interface = "interface.16.mk-interop-test-ramps-sandbox"
+verdict = "served"
+path = "Makefile"
+line = 2654
+symbol = "interop-test-ramps-sandbox"
+evidence = "Declares interop-test-ramps-sandbox: with the registered prerequisite-free signature. The rule invokes services/platform/ramps/sandbox-journey.sh, while the earlier .PHONY list merely marks the target phony."
+
+[row.r16-206.12]
+interface = "interface.16.mk-interop-test-ucp"
+verdict = "served"
+path = "Makefile"
+line = 2688
+symbol = "interop-test-ucp"
+evidence = "Declares interop-test-ucp: with the registered prerequisite-free signature. Its recipe runs locked tests for layerx-ucp using INTEROP_MANIFEST; the other occurrence is in the .PHONY list."
+
+[row.r16-206.13]
+interface = "interface.16.mk-interop-test-visa-tap"
+verdict = "served"
+path = "Makefile"
+line = 2697
+symbol = "interop-test-visa-tap"
+evidence = "Declares interop-test-visa-tap: with the registered prerequisite-free signature. Its recipe runs locked tests for layerx-visa-tap using INTEROP_MANIFEST, distinguishing the definition from the .PHONY mention."
+
+[row.r16-206.14]
+interface = "interface.16.mk-interop-test-x402"
+verdict = "served"
+path = "Makefile"
+line = 2676
+symbol = "interop-test-x402"
+evidence = "Declares interop-test-x402: with the registered prerequisite-free signature. Its recipe runs locked tests for layerx-x402 using INTEROP_MANIFEST; the earlier .PHONY entry is not the target rule."
+
+[row.r16-206.15]
+interface = "interface.16.mk-jev-deps"
+verdict = "served"
+path = "Makefile"
+line = 1865
+symbol = "jev-deps"
+evidence = "Declares jev-deps: with the registered prerequisite-free signature. The recipe invokes JEV_RUN deps --run with workspace arguments and JEV_COMMON; the .PHONY list is a separate mention."
+
+[row.r16-206.16]
+interface = "interface.16.mk-jev-docs"
+verdict = "served"
+path = "Makefile"
+line = 1868
+symbol = "jev-docs"
+evidence = "Declares jev-docs: with the registered prerequisite-free signature. Its recipe invokes JEV_RUN docs with JEV_COMMON, distinguishing the definition from the earlier .PHONY occurrence."
+
+[row.r16-206.17]
+interface = "interface.16.mk-jev-failures"
+verdict = "served"
+path = "Makefile"
+line = 1861
+symbol = "jev-failures"
+evidence = "Declares jev-failures: with the registered prerequisite-free signature. Its recipe invokes JEV_RUN failures with log-file arguments, JEV_FORMAT and JEV_COMMON; the earlier .PHONY list does not define the recipe."
+
+[row.r16-206.18]
+interface = "interface.16.mk-jev-ledger"
+verdict = "served"
+path = "Makefile"
+line = 1854
+symbol = "jev-ledger"
+evidence = "Declares jev-ledger: with the registered prerequisite-free signature. The rule invokes JEV_RUN ledger with JEV_COMMON; the .PHONY occurrence two lines earlier only marks the target phony."
+
+[row.r16-206.19]
+interface = "interface.16.mk-jev-pr"
+verdict = "served"
+path = "Makefile"
+line = 1857
+symbol = "jev-pr"
+evidence = "Declares jev-pr: with the registered prerequisite-free signature. Its recipe invokes JEV_RUN pr with base, head, commits and optional body arguments; the .PHONY occurrence is not the declaration of that recipe."
+
+[row.r16-206.20]
+interface = "interface.16.mk-jev-test"
+verdict = "served"
+path = "Makefile"
+line = 1871
+symbol = "jev-test"
+evidence = "Declares jev-test: with the registered prerequisite-free signature. The recipe runs python3 -m unittest discover -s tools/jev/tests -t .; the earlier .PHONY entry is a mention rather than the rule."
+
+[row.r16-206.21]
+interface = "interface.16.mk-kill-pax-node"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "Declares $(PAXEER_FORWARDED_TARGETS): exactly as registered, with recipe $(PAXEER_MAKE) $@. kill-pax-node is a member at Makefile:2417; the assignment and .PHONY expansion are not the shared target-rule declaration."
+
+[row.r16-206.22]
+interface = "interface.16.mk-kill-rpc-node"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "Declares $(PAXEER_FORWARDED_TARGETS): exactly as registered, with recipe $(PAXEER_MAKE) $@. kill-rpc-node is a member at Makefile:2417; the assignment and .PHONY expansion are not the shared target-rule declaration."
+
+[row.r16-206.23]
+interface = "interface.16.mk-latency-wave-test"
+verdict = "served"
+path = "Makefile"
+line = 3080
+symbol = "latency-wave-test"
+evidence = "Declares latency-wave-test: with the registered prerequisite-free signature. Its recipe selects the real_node lifecycle latency-wave test with --exact --nocapture; the .PHONY occurrence is not the rule."
+
+[row.r16-206.24]
+interface = "interface.16.mk-layerx-archive-codec"
+verdict = "served"
+path = "Makefile"
+line = 3175
+symbol = "layerx-archive-codec"
+evidence = "Declares layerx-archive-codec: $(BUILD_DIR)/bin/layerx-archive-codec exactly as registered. This phony alias is distinct from the following binary build rule, the source-path assignment and the .PHONY mention."
+
+[row.r16-206.25]
+interface = "interface.16.mk-layerx-genesis-build"
+verdict = "served"
+path = "Makefile"
+line = 1026
+symbol = "layerx-genesis-build"
+evidence = "Declares layerx-genesis-build: $(BUILD_DIR)/bin/layerx-genesis-build exactly as registered. The alias survives in the current tree; the earlier binary rule and later build and latency-wave-build prerequisites are distinct occurrences."
+
+[row.r16-206.26]
+interface = "interface.16.mk-lint"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "Declares $(PAXEER_FORWARDED_TARGETS): exactly as registered, with recipe $(PAXEER_MAKE) $@. lint is a member at Makefile:2418; npm lint recipes, chain lint invocations, the variable assignment and .PHONY expansion are not this rule."
+
+[row.r16-206.27]
+interface = "interface.16.mk-loadtest"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "Declares $(PAXEER_FORWARDED_TARGETS): exactly as registered, with recipe $(PAXEER_MAKE) $@. loadtest is a member at Makefile:2418; loadtest contract paths, the variable assignment and .PHONY expansion are references rather than this rule."
+
+[row.r16-206.28]
+interface = "interface.16.mk-monorepo-ci"
+verdict = "served"
+path = "Makefile"
+line = 2631
+symbol = "monorepo-ci"
+evidence = "Declares monorepo-ci: workspace-ci exactly as registered. This dependency-only alias defines the target; the earlier .PHONY list merely marks it phony."
+
+[row.r16-206.29]
+interface = "interface.16.mk-paxai-host-boundary-build"
+verdict = "served"
+path = "Makefile"
+line = 2914
+symbol = "paxai-host-boundary-build"
+evidence = "Declares paxai-host-boundary-build: $(BUILD_DIR)/tests/paxai_host_boundary exactly as registered. The recipe builds the AI market Wasm and writes its manifest; the .PHONY list and paxai-host-boundary prerequisite are references."
+
+[row.r16-206.30]
+interface = "interface.16.mk-paxd-build"
+verdict = "served"
+path = "Makefile"
+line = 2434
+symbol = "paxd-build"
+evidence = "Declares paxd-build: paxd-native-libs exactly as registered. The recipe reads tools/release/version.json and invokes the chain build with version LDFLAGS; the preceding .PHONY entry is not the target rule."

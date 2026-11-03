@@ -23,18 +23,34 @@ fn digest(bytes: &[u8]) -> [u8; 32] {
     hasher.finalize().into()
 }
 
-fn prepared(bytes: &[u8]) -> Prepared {
-    let actor = AgentDid::new("did:layerx:approval-agent")
+fn prepared(label: &[u8]) -> Prepared {
+    let id = label.last().copied().unwrap_or(1);
+    let call = layerx_crypto::evm_transaction::Eip1559Call {
+        chain_id: 125,
+        nonce: u64::from(id),
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 100_000,
+        to: [3; 20],
+        data: [
+            layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)").to_vec(),
+            [vec![0; 12], vec![5; 20]].concat(),
+            [vec![0; 31], vec![50]].concat(),
+        ]
+        .concat(),
+    };
+    let bytes = call.encode_unsigned();
+    let actor = AgentDid::new("0404040404040404040404040404040404040404")
         .unwrap_or_else(|error| panic!("actor: {error:?}"));
     Prepared {
         preparation_ref: PreparationRef::new("prepared-1")
             .unwrap_or_else(|error| panic!("preparation: {error:?}")),
         unsigned_canonical_bytes: CanonicalBytes::new(bytes.to_vec())
             .unwrap_or_else(|error| panic!("canonical: {error:?}")),
-        signing_preimage: SigningPreimage::new(b"signing-preimage".to_vec())
+        signing_preimage: SigningPreimage::new(call.signing_hash().to_vec())
             .unwrap_or_else(|error| panic!("preimage: {error:?}")),
         disclosure: Disclosure {
-            canonical_digest: digest(bytes),
+            canonical_digest: digest(&bytes),
             activity_type: ActivityType(7),
             actor: actor.clone(),
             authority: AuthorityRef::new("session-key-1")
@@ -58,8 +74,9 @@ fn prepared(bytes: &[u8]) -> Prepared {
 
 fn context(id: u8) -> ApprovalContext {
     ApprovalContext {
+        actor_address: [4; 20],
         tenant: TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}")),
-        agent: Did::new(b"did:layerx:approval-agent")
+        agent: Did::new(b"0404040404040404040404040404040404040404")
             .unwrap_or_else(|error| panic!("agent: {error:?}")),
         session: SessionId([2; 32]),
         capability: CapabilityId([3; 32]),
@@ -128,7 +145,10 @@ fn approval_is_bound_to_the_disclosure_from_prepared_bytes() {
         audit.approver.as_ref().map(ApproverId::as_str),
         Some("operator-a")
     );
-    assert_eq!(audit.disclosure_digest, digest(b"canonical-2"));
+    assert_eq!(
+        audit.disclosure_digest,
+        prepared(b"canonical-2").disclosure.canonical_digest
+    );
     assert_eq!(audit.idempotency_key, "idempotency-1");
 }
 
@@ -174,4 +194,151 @@ fn unbound_disclosure_digest_is_refused_before_hold() {
         hold(&registry, context(4), altered, 10, 20),
         Err(ApprovalError::InvalidDisclosureDigest)
     );
+}
+
+#[test]
+fn replay_refuses_a_hold_whose_call_bytes_or_sender_changed() {
+    use std::sync::Mutex;
+
+    use layerx_agentd::budget::{
+        reserve, BudgetLimiter, LimitConfig, LimitId, LimitScope, ReservationRequest,
+    };
+    use layerx_agentd::policy::approval::hold_reserved;
+    use layerx_agentd::store::{ObjectKind, Store, TenantKey};
+    use layerx_crypto::evm_transaction::decode_unsigned;
+    use layerx_types::payload::ModuleRegistry;
+
+    fn limiter() -> BudgetLimiter {
+        BudgetLimiter::new(vec![LimitConfig {
+            id: LimitId([9; 16]),
+            name: "call-replay".to_owned(),
+            scope: LimitScope::Tenant([9; 32]),
+            ceiling: 1_000,
+            consumed: 0,
+        }])
+        .unwrap_or_else(|error| panic!("limiter: {error:?}"))
+    }
+
+    for alteration in ["unchanged", "call", "sender", "previous", "previous-timed"] {
+        let root = std::env::temp_dir().join(format!(
+            "layerx-approval-call-replay-{alteration}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        let ctx = context(9);
+        let tenant = ctx.tenant.clone();
+        let original = prepared(b"canonical-9");
+        let unsigned = original.unsigned_canonical_bytes.as_bytes();
+        let call = decode_unsigned(unsigned).unwrap_or_else(|error| panic!("call: {error:?}"));
+        assert_eq!(original.signing_preimage.as_bytes(), call.signing_hash());
+        assert_eq!(call.encode_unsigned(), unsigned);
+        let key = TenantKey::new(
+            tenant.clone(),
+            ObjectKind::PreparedActivity,
+            [b"approval-hold-v1:".as_slice(), &[9; 32]].concat(),
+        )
+        .unwrap_or_else(|error| panic!("key: {error}"));
+        {
+            let store = Arc::new(Mutex::new(
+                Store::open(&root).unwrap_or_else(|error| panic!("store: {error}")),
+            ));
+            let registry = ApprovalRegistry::with_store(Arc::clone(&store));
+            let limiter = limiter();
+            let reservation = reserve(
+                &limiter,
+                &ReservationRequest {
+                    id: [9; 32],
+                    amount: 50,
+                    expiry_sequence: 100,
+                    current_sequence: 10,
+                    applicable_limits: vec![LimitId([9; 16])],
+                },
+            )
+            .unwrap_or_else(|error| panic!("reserve: {error:?}"));
+            hold_reserved(&registry, ctx, original.clone(), 10, 100, &reservation)
+                .unwrap_or_else(|error| panic!("hold: {error:?}"));
+            let mut store = store.lock().unwrap_or_else(|_| panic!("store lock"));
+            let mut record = store
+                .get(&key)
+                .unwrap_or_else(|| panic!("persisted hold"))
+                .bytes()
+                .to_vec();
+            match alteration {
+                "call" => {
+                    let offsets = record
+                        .windows(unsigned.len())
+                        .enumerate()
+                        .filter_map(|(index, value)| (value == unsigned).then_some(index))
+                        .collect::<Vec<_>>();
+                    assert_eq!(offsets.len(), 1);
+                    let start = offsets[0];
+                    let data_offsets = unsigned
+                        .windows(call.data.len())
+                        .enumerate()
+                        .filter_map(|(index, value)| (value == call.data).then_some(index))
+                        .collect::<Vec<_>>();
+                    assert_eq!(data_offsets.len(), 1);
+                    record[start + data_offsets[0] + call.data.len() - 1] ^= 1;
+                    let changed = &record[start..start + unsigned.len()];
+                    assert!(decode_unsigned(changed).is_ok());
+                    let changed_digest = digest(changed);
+                    let digest_offsets = record
+                        .windows(32)
+                        .enumerate()
+                        .filter_map(|(index, value)| {
+                            (value == original.disclosure.canonical_digest).then_some(index)
+                        })
+                        .collect::<Vec<_>>();
+                    assert_eq!(digest_offsets.len(), 1);
+                    record[digest_offsets[0]..digest_offsets[0] + 32]
+                        .copy_from_slice(&changed_digest);
+                }
+                "sender" => {
+                    let offsets = record
+                        .windows(20)
+                        .enumerate()
+                        .filter_map(|(index, value)| (value == [4; 20]).then_some(index))
+                        .collect::<Vec<_>>();
+                    assert_eq!(offsets.len(), 1);
+                    record[offsets[0]..offsets[0] + 20].copy_from_slice(&[6; 20]);
+                }
+                "previous" => record[..8].copy_from_slice(b"LXAPHLD2"),
+                "previous-timed" => record[..8].copy_from_slice(b"LXAPHLD3"),
+                "unchanged" => {}
+                _ => unreachable!(),
+            }
+            store
+                .update_local_batch(vec![(key, record)])
+                .unwrap_or_else(|error| panic!("persist changed record: {error}"));
+        }
+        {
+            let store = Arc::new(Mutex::new(
+                Store::open(&root).unwrap_or_else(|error| panic!("restart store: {error}")),
+            ));
+            let restarted = ApprovalRegistry::with_store(store);
+            let replay = restarted.replay_tenant(&tenant, &limiter());
+            if matches!(alteration, "previous" | "previous-timed") {
+                assert_eq!(replay, Err(ApprovalError::CorruptRecord));
+            } else {
+                assert_eq!(replay, Ok(1));
+                let modules =
+                    ModuleRegistry::new(&[]).unwrap_or_else(|error| panic!("registry: {error:?}"));
+                let result = restarted.validate_registry(&tenant, &modules);
+                if alteration == "unchanged" {
+                    assert_eq!(result, Ok(()));
+                    assert_eq!(
+                        restarted
+                            .ticket([9; 32])
+                            .unwrap_or_else(|error| panic!("ticket: {error:?}"))
+                            .unwrap_or_else(|| panic!("held ticket"))
+                            .disclosure,
+                        original.disclosure
+                    );
+                } else {
+                    assert_eq!(result, Err(ApprovalError::CorruptRecord));
+                }
+            }
+        }
+        std::fs::remove_dir_all(root).unwrap_or_else(|error| panic!("remove fixture: {error}"));
+    }
 }

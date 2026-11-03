@@ -74,14 +74,15 @@ export function ExchangeView({ sidRate, legs }: ExchangeViewProps) {
       switch (action) {
         case 'open': {
           if (!marketId || !collateralToken || !collateralAmount || !leverage) return null;
+          const pull = parseSurfaceAmount(collateralAmount, USDL.decimals);
           const tx = surfaceModule.openPosition({
             marketId: parseSurfaceId(marketId),
             collateralToken,
-            collateralAmount: parseSurfaceAmount(collateralAmount, USDL.decimals),
+            collateralAmount: pull,
             leverage: parseSurfaceAmount(leverage, 18),
             isLong: side === 'long',
           });
-          return { tx, pull: 0n };
+          return { tx, pull };
         }
         case 'close':
           return id ? { tx: surfaceModule.closePosition(parseSurfaceId(id)), pull: 0n } : null;
@@ -114,10 +115,11 @@ export function ExchangeView({ sidRate, legs }: ExchangeViewProps) {
   ]);
   const transaction = built.value?.tx ?? null;
   const pull = built.value?.pull ?? 0n;
+  const approvalToken = action === 'open' ? collateralToken : USDL.address;
   const approval = useCallback(
     async (owner: string) =>
-      surfaceModule && pull > 0n ? surfaceModule.approval(owner, USDL.address, pull) : undefined,
-    [surfaceModule, pull]
+      surfaceModule && pull > 0n ? surfaceModule.approval(owner, approvalToken, pull) : undefined,
+    [surfaceModule, approvalToken, pull]
   );
   const state = useModuleSend(surfaceModule, provider, address, fee, approval);
 

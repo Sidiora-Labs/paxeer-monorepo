@@ -1,0 +1,243 @@
+[reconcile.r14-189]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r14-189.1]
+interface = "interface.14.ts-web-api-generated-index-encodeagentspend"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1305
+symbol = "encodeAgentSpend"
+evidence = "Declaration at line 1305: export function encodeAgentSpend(value: AgentSpend): JsonValue {; matches the registered signature export function encodeAgentSpend(value: AgentSpend): JsonValue. Only the location drifted from registry line 1213; other occurrences are calls or callback references."
+
+[row.r14-189.2]
+interface = "interface.14.ts-web-api-generated-index-encodeapierror"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1346
+symbol = "encodeApiError"
+evidence = "Declaration at line 1346: export function encodeApiError(value: ApiError): JsonValue {; matches the registered signature export function encodeApiError(value: ApiError): JsonValue. Only the location drifted from registry line 1251; other occurrences are calls or callback references."
+
+[row.r14-189.3]
+interface = "interface.14.ts-web-api-generated-index-encodeapprovalapproverequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1373
+symbol = "encodeApprovalApproveRequest"
+evidence = "Declaration at line 1373: export function encodeApprovalApproveRequest(value: ApprovalApproveRequest): JsonValue {; matches the registered signature export function encodeApprovalApproveRequest(value: ApprovalApproveRequest): JsonValue. Only the location drifted from registry line 1278; other occurrences are calls or callback references."
+
+[row.r14-189.4]
+interface = "interface.14.ts-web-api-generated-index-encodeapprovalfacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1480
+symbol = "encodeApprovalFacts"
+evidence = "Declaration at line 1480: export function encodeApprovalFacts(value: ApprovalFacts): JsonValue {; matches the registered signature export function encodeApprovalFacts(value: ApprovalFacts): JsonValue. Only the location drifted from registry line 1385; other occurrences are calls or callback references."
+
+[row.r14-189.5]
+interface = "interface.14.ts-web-api-generated-index-encodeapprovalsummary"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1541
+symbol = "encodeApprovalSummary"
+evidence = "Declaration at line 1541: export function encodeApprovalSummary(value: ApprovalSummary): JsonValue {; matches the registered signature export function encodeApprovalSummary(value: ApprovalSummary): JsonValue. Only the location drifted from registry line 1446; other occurrences are calls or callback references."
+
+[row.r14-189.6]
+interface = "interface.14.ts-web-api-generated-index-encodeauthenticatordisable"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1568
+symbol = "encodeAuthenticatorDisable"
+evidence = "Declaration at line 1568: export function encodeAuthenticatorDisable(value: AuthenticatorDisable): JsonValue {; matches the registered signature export function encodeAuthenticatorDisable(value: AuthenticatorDisable): JsonValue. Only the location drifted from registry line 1473; other occurrences are calls or callback references."
+
+[row.r14-189.7]
+interface = "interface.14.ts-web-api-generated-index-encodeauthenticatormethod"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1595
+symbol = "encodeAuthenticatorMethod"
+evidence = "Declaration at line 1595: export function encodeAuthenticatorMethod(value: AuthenticatorMethod): JsonValue {; matches the registered signature export function encodeAuthenticatorMethod(value: AuthenticatorMethod): JsonValue. Only the location drifted from registry line 1500; other occurrences are calls or callback references."
+
+[row.r14-189.8]
+interface = "interface.14.ts-web-api-generated-index-encodeauthenticatorsetupbegin"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1621
+symbol = "encodeAuthenticatorSetupBegin"
+evidence = "Declaration at line 1621: export function encodeAuthenticatorSetupBegin(value: AuthenticatorSetupBegin): JsonValue {; matches the registered signature export function encodeAuthenticatorSetupBegin(value: AuthenticatorSetupBegin): JsonValue. Only the location drifted from registry line 1526; other occurrences are calls or callback references."
+
+[row.r14-189.9]
+interface = "interface.14.ts-web-api-generated-index-encodeauthenticatorsetupfinish"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1671
+symbol = "encodeAuthenticatorSetupFinish"
+evidence = "Declaration at line 1671: export function encodeAuthenticatorSetupFinish(value: AuthenticatorSetupFinish): JsonValue {; matches the registered signature export function encodeAuthenticatorSetupFinish(value: AuthenticatorSetupFinish): JsonValue. Only the location drifted from registry line 1576; other occurrences are calls or callback references."
+
+[row.r14-189.10]
+interface = "interface.14.ts-web-api-generated-index-encodebackupcoderotation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1735
+symbol = "encodeBackupCodeRotation"
+evidence = "Declaration at line 1735: export function encodeBackupCodeRotation(value: BackupCodeRotation): JsonValue {; matches the registered signature export function encodeBackupCodeRotation(value: BackupCodeRotation): JsonValue. Only the location drifted from registry line 1640; other occurrences are calls or callback references."
+
+[row.r14-189.11]
+interface = "interface.14.ts-web-api-generated-index-encodechannelpreference"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1872
+symbol = "encodeChannelPreference"
+evidence = "Declaration at line 1872: export function encodeChannelPreference(value: ChannelPreference): JsonValue {; matches the registered signature export function encodeChannelPreference(value: ChannelPreference): JsonValue. Only the location drifted from registry line 1777; other occurrences are calls or callback references."
+
+[row.r14-189.12]
+interface = "interface.14.ts-web-api-generated-index-encodeclasstoggle"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1894
+symbol = "encodeClassToggle"
+evidence = "Declaration at line 1894: export function encodeClassToggle(value: ClassToggle): JsonValue {; matches the registered signature export function encodeClassToggle(value: ClassToggle): JsonValue. Only the location drifted from registry line 1799; other occurrences are calls or callback references."
+
+[row.r14-189.13]
+interface = "interface.14.ts-web-api-generated-index-encodedevice"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1970
+symbol = "encodeDevice"
+evidence = "Declaration at line 1970: export function encodeDevice(value: Device): JsonValue {; matches the registered signature export function encodeDevice(value: Device): JsonValue. Only the location drifted from registry line 1875; other occurrences are calls or callback references."
+
+[row.r14-189.14]
+interface = "interface.14.ts-web-api-generated-index-encodeevidenceref"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2062
+symbol = "encodeEvidenceRef"
+evidence = "Declaration at line 2062: export function encodeEvidenceRef(value: EvidenceRef): JsonValue {; matches the registered signature export function encodeEvidenceRef(value: EvidenceRef): JsonValue. Only the location drifted from registry line 1953; other occurrences are calls or callback references."
+
+[row.r14-189.15]
+interface = "interface.14.ts-web-api-generated-index-encodeexportevidencerequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2194
+symbol = "encodeExportEvidenceRequest"
+evidence = "Declaration at line 2194: export function encodeExportEvidenceRequest(value: ExportEvidenceRequest): JsonValue {; matches the registered signature export function encodeExportEvidenceRequest(value: ExportEvidenceRequest): JsonValue. Only the location drifted from registry line 2078; other occurrences are calls or callback references."
+
+[row.r14-189.16]
+interface = "interface.14.ts-web-api-generated-index-encodeexportstatementrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2218
+symbol = "encodeExportStatementRequest"
+evidence = "Declaration at line 2218: export function encodeExportStatementRequest(value: ExportStatementRequest): JsonValue {; matches the registered signature export function encodeExportStatementRequest(value: ExportStatementRequest): JsonValue. Only the location drifted from registry line 2102; other occurrences are calls or callback references."
+
+[row.r14-189.17]
+interface = "interface.14.ts-web-api-generated-index-encodeintentconstraints"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2309
+symbol = "encodeIntentConstraints"
+evidence = "Declaration at line 2309: export function encodeIntentConstraints(value: IntentConstraints): JsonValue {; matches the registered signature export function encodeIntentConstraints(value: IntentConstraints): JsonValue. Only the location drifted from registry line 2186; other occurrences are calls or callback references."
+
+[row.r14-189.18]
+interface = "interface.14.ts-web-api-generated-index-encodeintentendpoint"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2334
+symbol = "encodeIntentEndpoint"
+evidence = "Declaration at line 2334: export function encodeIntentEndpoint(value: IntentEndpoint): JsonValue {; matches the registered signature export function encodeIntentEndpoint(value: IntentEndpoint): JsonValue. Only the location drifted from registry line 2211; other occurrences are calls or callback references."
+
+[row.r14-189.19]
+interface = "interface.14.ts-web-api-generated-index-encodeintentleg"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2400
+symbol = "encodeIntentLeg"
+evidence = "Declaration at line 2400: export function encodeIntentLeg(value: IntentLeg): JsonValue {; matches the registered signature export function encodeIntentLeg(value: IntentLeg): JsonValue. Only the location drifted from registry line 2245; other occurrences are calls or callback references."
+
+[row.r14-189.20]
+interface = "interface.14.ts-web-api-generated-index-encodeintentsigningrequirement"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2536
+symbol = "encodeIntentSigningRequirement"
+evidence = "Declaration at line 2536: export function encodeIntentSigningRequirement(value: IntentSigningRequirement): JsonValue {; matches the registered signature export function encodeIntentSigningRequirement(value: IntentSigningRequirement): JsonValue. Only the location drifted from registry line 2350; other occurrences are calls or callback references."
+
+[row.r14-189.21]
+interface = "interface.14.ts-web-api-generated-index-encodejourney"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2615
+symbol = "encodeJourney"
+evidence = "Declaration at line 2615: export function encodeJourney(value: Journey): JsonValue {; matches the registered signature export function encodeJourney(value: Journey): JsonValue. Only the location drifted from registry line 2422; other occurrences are calls or callback references."
+
+[row.r14-189.22]
+interface = "interface.14.ts-web-api-generated-index-encodejourneystage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2683
+symbol = "encodeJourneyStage"
+evidence = "Declaration at line 2683: export function encodeJourneyStage(value: JourneyStage): JsonValue {; matches the registered signature export function encodeJourneyStage(value: JourneyStage): JsonValue. Only the location drifted from registry line 2482; other occurrences are calls or callback references."
+
+[row.r14-189.23]
+interface = "interface.14.ts-web-api-generated-index-encodekeyexportbegin"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2745
+symbol = "encodeKeyExportBegin"
+evidence = "Declaration at line 2745: export function encodeKeyExportBegin(value: KeyExportBegin): JsonValue {; matches the registered signature export function encodeKeyExportBegin(value: KeyExportBegin): JsonValue. Only the location drifted from registry line 2538; other occurrences are calls or callback references."
+
+[row.r14-189.24]
+interface = "interface.14.ts-web-api-generated-index-encodekeyexportfinish"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2791
+symbol = "encodeKeyExportFinish"
+evidence = "Declaration at line 2791: export function encodeKeyExportFinish(value: KeyExportFinish): JsonValue {; matches the registered signature export function encodeKeyExportFinish(value: KeyExportFinish): JsonValue. Only the location drifted from registry line 2584; other occurrences are calls or callback references."
+
+[row.r14-189.25]
+interface = "interface.14.ts-web-api-generated-index-encodemoney"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2813
+symbol = "encodeMoney"
+evidence = "Declaration at line 2813: export function encodeMoney(value: Money): JsonValue {; matches the registered signature export function encodeMoney(value: Money): JsonValue. Only the location drifted from registry line 2606; other occurrences are calls or callback references."
+
+[row.r14-189.26]
+interface = "interface.14.ts-web-api-generated-index-encodemovecommitrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2837
+symbol = "encodeMoveCommitRequest"
+evidence = "Declaration at line 2837: export function encodeMoveCommitRequest(value: MoveCommitRequest): JsonValue {; matches the registered signature export function encodeMoveCommitRequest(value: MoveCommitRequest): JsonValue. Only the location drifted from registry line 2630; other occurrences are calls or callback references."
+
+[row.r14-189.27]
+interface = "interface.14.ts-web-api-generated-index-encodemovequoterequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2917
+symbol = "encodeMoveQuoteRequest"
+evidence = "Declaration at line 2917: export function encodeMoveQuoteRequest(value: MoveQuoteRequest): JsonValue {; matches the registered signature export function encodeMoveQuoteRequest(value: MoveQuoteRequest): JsonValue. Only the location drifted from registry line 2710; other occurrences are calls or callback references."
+
+[row.r14-189.28]
+interface = "interface.14.ts-web-api-generated-index-encodenativefeebudget"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2971
+symbol = "encodeNativeFeeBudget"
+evidence = "Declaration at line 2971: export function encodeNativeFeeBudget(value: NativeFeeBudget): JsonValue {; matches the registered signature export function encodeNativeFeeBudget(value: NativeFeeBudget): JsonValue. Only the location drifted from registry line 2764; other occurrences are calls or callback references."
+
+[row.r14-189.29]
+interface = "interface.14.ts-web-api-generated-index-encodenativesendaccessconfirmation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3020
+symbol = "encodeNativeSendAccessConfirmation"
+evidence = "Declaration at line 3020: export function encodeNativeSendAccessConfirmation(value: NativeSendAccessConfirmation): JsonValue {; matches the registered signature export function encodeNativeSendAccessConfirmation(value: NativeSendAccessConfirmation): JsonValue. Only the location drifted from registry line 2809; other occurrences are calls or callback references."
+
+[row.r14-189.30]
+interface = "interface.14.ts-web-api-generated-index-encodenotificationgroup"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3154
+symbol = "encodeNotificationGroup"
+evidence = "Declaration at line 3154: export function encodeNotificationGroup(value: NotificationGroup): JsonValue {; matches the registered signature export function encodeNotificationGroup(value: NotificationGroup): JsonValue. Only the location drifted from registry line 2933; other occurrences are calls or callback references."

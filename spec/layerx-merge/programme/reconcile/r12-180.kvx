@@ -1,0 +1,163 @@
+[reconcile.r12-180]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 20
+
+[row.r12-180.1]
+interface = "interface.12.err-gw-action-call-pending"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 62
+symbol = "CALL_PENDING"
+evidence = "ActionErrorCode declares the 'CALL_PENDING' union member at line 62, matching the registered signature. STRATEGY maps it to POLL_ACTION at line 85; that mapping is a use, not the declaration."
+
+[row.r12-180.2]
+interface = "interface.12.err-gw-action-custody-authority-required"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 54
+symbol = "CUSTODY_AUTHORITY_REQUIRED"
+evidence = "ActionErrorCode declares the 'CUSTODY_AUTHORITY_REQUIRED' union member at line 54. The registered signature is retained; the occurrence at line 77 maps the code to USER_INTERVENTION."
+
+[row.r12-180.3]
+interface = "interface.12.err-gw-action-fee-too-low"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 67
+symbol = "FEE_TOO_LOW"
+evidence = "ActionErrorCode declares its final union member 'FEE_TOO_LOW' at line 67. The signature remains served there; STRATEGY uses the code at line 90 to select RETRY_SAME_ACTION."
+
+[row.r12-180.4]
+interface = "interface.12.err-gw-action-forbidden-destination"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 50
+symbol = "FORBIDDEN_DESTINATION"
+evidence = "ActionErrorCode declares 'FORBIDDEN_DESTINATION' at line 50 as the registered error-code union member. STRATEGY maps it to NEVER at line 73, and terminalStatusFor consumes it in a case at line 186."
+
+[row.r12-180.5]
+interface = "interface.12.err-gw-action-insufficient-balance"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 57
+symbol = "INSUFFICIENT_BALANCE"
+evidence = "ActionErrorCode declares 'INSUFFICIENT_BALANCE' at line 57, retaining the registered signature. Its USER_INTERVENTION strategy at line 80 and terminalStatusFor case at line 192 are uses of that member."
+
+[row.r12-180.6]
+interface = "interface.12.err-gw-action-insufficient-gas"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 58
+symbol = "INSUFFICIENT_GAS"
+evidence = "ActionErrorCode declares 'INSUFFICIENT_GAS' at line 58, matching the registry signature. STRATEGY uses it at line 81 for USER_INTERVENTION, and terminalStatusFor consumes it at line 193."
+
+[row.r12-180.7]
+interface = "interface.12.err-gw-action-invalid-amount"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 49
+symbol = "INVALID_AMOUNT"
+evidence = "ActionErrorCode declares the registered 'INVALID_AMOUNT' union member at line 49. The occurrences at lines 72 and 185 are its NEVER strategy mapping and terminalStatusFor case respectively."
+
+[row.r12-180.8]
+interface = "interface.12.err-gw-action-invalid-request"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 48
+symbol = "INVALID_REQUEST"
+evidence = "ActionErrorCode declares the registered 'INVALID_REQUEST' union member at line 48. STRATEGY maps it to NEVER at line 71; the case at line 184 consumes the code to select a terminal status."
+
+[row.r12-180.9]
+interface = "interface.12.err-gw-action-nonce-wedged"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 66
+symbol = "NONCE_WEDGED"
+evidence = "ActionErrorCode declares 'NONCE_WEDGED' at line 66, preserving the registered error-code signature. The occurrence at line 89 belongs to STRATEGY and maps the code to RETRY_SAME_ACTION."
+
+[row.r12-180.10]
+interface = "interface.12.err-gw-action-policy-denied"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 47
+symbol = "POLICY_DENIED"
+evidence = "ActionErrorCode declares its first union member 'POLICY_DENIED' at line 47. The signature remains served; STRATEGY uses it at line 70 for NEVER, and terminalStatusFor switches on it at line 182."
+
+[row.r12-180.11]
+interface = "interface.12.err-gw-action-reconciling"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 63
+symbol = "RECONCILING"
+evidence = "ActionErrorCode declares the 'RECONCILING' union member at line 63, matching the registered signature. STRATEGY consumes it at line 86 to select POLL_ACTION; that occurrence is not its declaration."
+
+[row.r12-180.12]
+interface = "interface.12.err-gw-action-rpc-unavailable"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 65
+symbol = "RPC_UNAVAILABLE"
+evidence = "ActionErrorCode declares 'RPC_UNAVAILABLE' at line 65 as the registered error-code union member. STRATEGY references it at line 88 to select RETRY_SAME_ACTION."
+
+[row.r12-180.13]
+interface = "interface.12.err-gw-action-simulation-reverted"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 51
+symbol = "SIMULATION_REVERTED"
+evidence = "ActionErrorCode declares 'SIMULATION_REVERTED' at line 51, retaining the registry signature. STRATEGY maps it to NEVER at line 74, and terminalStatusFor consumes it in a case at line 188."
+
+[row.r12-180.14]
+interface = "interface.12.err-gw-action-transaction-reverted"
+verdict = "served"
+path = "services/wallet/gateway/src/agent/actions/errors.ts"
+line = 52
+symbol = "TRANSACTION_REVERTED"
+evidence = "ActionErrorCode declares 'TRANSACTION_REVERTED' at line 52, matching the registered union-member signature. Its occurrences at lines 75 and 190 are the NEVER strategy mapping and terminalStatusFor case."
+
+[row.r12-180.15]
+interface = "interface.12.err-gw-action-authorization-mismatch"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentActions.ts"
+line = 160
+symbol = "action_authorization_mismatch"
+evidence = "The replay reauthorization catch returns reply.code(409).send({ error: 'action_authorization_mismatch' }) at line 160 when retainActionCustodyAuthorization fails. This is the registered HTTP error-body definition, relocated from line 184."
+
+[row.r12-180.16]
+interface = "interface.12.err-gw-precompile-not-served"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 113
+symbol = "precompile_not_served"
+evidence = "refuseUnserved defines error: 'precompile_not_served' in its HTTP 503 response at line 113 after catching PrecompileNotServedError. The body includes retryable: false and precompile/address metadata; the registered literal remains served."
+
+[row.r12-180.17]
+interface = "interface.12.http-gw-post-v1-wallet-sign-message"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 782
+symbol = "/v1/wallet/sign-message"
+evidence = "app.post('/v1/wallet/sign-message', { preHandler: requireAuth }, ...) registers the authenticated POST at line 782. It validates SignMessageBody and calls signer.signMessage. The route string at line 795 is audit metadata, not the route declaration."
+
+[row.r12-180.18]
+interface = "interface.12.http-gw-post-v1-wallet-sign-typed-data"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 828
+symbol = "/v1/wallet/sign-typed-data"
+evidence = "app.post('/v1/wallet/sign-typed-data', { preHandler: requireAuth }, ...) registers the authenticated POST at line 828. It validates SignTypedDataBody and calls signer.signTypedData. The occurrence at line 843 supplies audit metadata rather than registering the handler."
+
+[row.r12-180.19]
+interface = "interface.12.err-gw-sponsored-construction-invalid"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/wallet.ts"
+line = 667
+symbol = "sponsored_construction_invalid"
+evidence = "The catch returns reply.code(403).send({ error: 'sponsored_construction_invalid', status: 'pending' }) at line 667 after handling StationAdapterError separately. This defines the registered HTTP error literal at its current location."
+
+[row.r12-180.20]
+interface = "interface.12.err-gw-outcome-unknown"
+verdict = "served"
+path = "services/wallet/gateway/src/rpc/pool.ts"
+line = 104
+symbol = "outcome_unknown"
+evidence = "outcomeUnknownBody defines error: 'outcome_unknown' in its returned HTTP body at line 104. It includes the transaction hash, nonce, retry: 'poll_receipt', poll: 'eth_getTransactionReceipt' and must_not_resubmit: true, preserving the registered error literal."

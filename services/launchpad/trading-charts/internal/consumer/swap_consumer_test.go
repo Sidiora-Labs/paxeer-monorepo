@@ -157,7 +157,7 @@ func TestConsumerProcessesSwapFromChannel(t *testing.T) {
 	}
 }
 
-func TestConsumerFallsBackToBlockNumber(t *testing.T) {
+func TestConsumerRejectsBlockNumberAsTimestamp(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -181,7 +181,7 @@ func TestConsumerFallsBackToBlockNumber(t *testing.T) {
 		t.Fatalf("Start: %v", err)
 	}
 
-	// No args.timestamp -> blockNumber is used as the block timestamp.
+	// A block height that resembles a timestamp still cannot supply block time.
 	msg, _ := json.Marshal(map[string]interface{}{
 		"eventName":   "Swap",
 		"blockNumber": 1704067320,
@@ -201,15 +201,49 @@ func TestConsumerFallsBackToBlockNumber(t *testing.T) {
 		t.Fatalf("publish: %v", err)
 	}
 
+	// The next message on the same subscription proves the first was handled.
+	valid, err := json.Marshal(map[string]interface{}{
+		"eventName":      "Swap",
+		"blockNumber":    1704067321,
+		"blockTimestamp": 1704067380,
+		"txHash":         "0xfeed2valid",
+		"logIndex":       0,
+		"args": map[string]interface{}{
+			"poolAddress": cPool,
+			"sender":      "0xtrader",
+			"isBuy":       true,
+			"amountIn":    "100",
+			"amountOut":   "200",
+			"fee":         "1",
+			"price":       "1000000000000000000",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rdb.Publish(ctx, constants.ChannelSwap, valid).Err(); err != nil {
+		t.Fatalf("publish timestamped swap: %v", err)
+	}
+
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		if got, err := st.GetCandle(ctx, cPool, "1m", 1704067320); err == nil && got != nil {
+		got, err := st.GetCandle(ctx, cPool, "1m", 1704067380)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != nil {
+			if got.VolumeUsdl != "100" || got.TradeCount != 1 {
+				t.Fatalf("timestamped swap folded incorrectly: %+v", got)
+			}
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("consumer did not fold candle from blockNumber fallback")
+			t.Fatal("consumer did not process the timestamped swap after rejecting a missing timestamp")
 		}
 		time.Sleep(50 * time.Millisecond)
+	}
+	if got, err := st.GetCandle(ctx, cPool, "1m", 1704067320); err != nil || got != nil {
+		t.Fatalf("block number used as a timestamp: candle=%+v err=%v", got, err)
 	}
 }
 

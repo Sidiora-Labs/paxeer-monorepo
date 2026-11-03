@@ -1,0 +1,243 @@
+[reconcile.r8-136]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-136.1]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentpauseresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3572
+symbol = "AgentPauseResponse"
+evidence = "HumanOperations declaration at line 3572, moved from registered line 3675: public record AgentPauseResponse(String agent_id, String name, String purpose, HumanModels.AgentState state, String state_copy_key, HumanModels.SpendLimit limit, HumanModels.AgentSpend spend, List<HumanModels.EvidenceRef> evidence, String created_at, String updated_at, String creation_journey_id) implements SchemaTypes.GeneratedResponse. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.2]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentreclaimrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3587
+symbol = "AgentReclaimRequest"
+evidence = "HumanOperations declaration at line 3587, moved from registered line 3690: public record AgentReclaimRequest(HumanModels.Money money) implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references. The same-named record at line 1188 implements GeneratedResponse; this operation request implements GeneratedRequest."
+
+[row.r8-136.3]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentreclaimresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3592
+symbol = "AgentReclaimResponse"
+evidence = "HumanOperations declaration at line 3592, moved from registered line 3695: public record AgentReclaimResponse(String journey_id, HumanModels.JourneyKind kind, HumanModels.JourneyState state, String state_copy_key, List<HumanModels.JourneyStage> stages, List<HumanModels.EvidenceRef> evidence, String started_at, String updated_at, HumanModels.Refusal refusal, HumanModels.WalletSignRequest wallet_request) implements SchemaTypes.GeneratedResponse. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.4]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentrecoverrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3605
+symbol = "AgentRecoverRequest"
+evidence = "HumanOperations declaration at line 3605, moved from registered line 3708: public record AgentRecoverRequest() implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.5]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentrecoverresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3607
+symbol = "AgentRecoverResponse"
+evidence = "HumanOperations declaration at line 3607, moved from registered line 3710: public record AgentRecoverResponse(String agent_id, HumanModels.KeyChallengeKind kind, String delay_copy_key, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long delay_seconds, String ready_at, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.6]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentresumerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3617
+symbol = "AgentResumeRequest"
+evidence = "HumanOperations declaration at line 3617, moved from registered line 3720: public record AgentResumeRequest() implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.7]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentresumeresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3619
+symbol = "AgentResumeResponse"
+evidence = "HumanOperations declaration at line 3619, moved from registered line 3722: public record AgentResumeResponse(String agent_id, String name, String purpose, HumanModels.AgentState state, String state_copy_key, HumanModels.SpendLimit limit, HumanModels.AgentSpend spend, List<HumanModels.EvidenceRef> evidence, String created_at, String updated_at, String creation_journey_id) implements SchemaTypes.GeneratedResponse. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.8]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentrotaterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3634
+symbol = "AgentRotateRequest"
+evidence = "HumanOperations declaration at line 3634, moved from registered line 3737: public record AgentRotateRequest() implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.9]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentrotateresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3636
+symbol = "AgentRotateResponse"
+evidence = "HumanOperations declaration at line 3636, moved from registered line 3739: public record AgentRotateResponse(String agent_id, HumanModels.KeyChallengeKind kind, String delay_copy_key, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long delay_seconds, String ready_at, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.10]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentrotationdisclosurerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3646
+symbol = "AgentRotationDisclosureRequest"
+evidence = "HumanOperations declaration at line 3646, moved from registered line 3749: public record AgentRotationDisclosureRequest(@JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long delay_seconds, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long window_seconds, String idempotency_key) implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.11]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentrotationdisclosureresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3651
+symbol = "AgentRotationDisclosureResponse"
+evidence = "HumanOperations declaration at line 3651, moved from registered line 3754: public record AgentRotationDisclosureResponse(String confirms) implements SchemaTypes.GeneratedResponse. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.12]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentrotationstartrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3657
+symbol = "AgentRotationStartRequest"
+evidence = "HumanOperations declaration at line 3657, moved from registered line 3760: public record AgentRotationStartRequest(@JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long delay_seconds, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long window_seconds, HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.13]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentrotationstartresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3662
+symbol = "AgentRotationStartResponse"
+evidence = "HumanOperations declaration at line 3662, moved from registered line 3765: public record AgentRotationStartResponse(String agent_id, HumanModels.KeyChallengeKind kind, String delay_copy_key, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long delay_seconds, String ready_at, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.14]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalapproverequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3672
+symbol = "ApprovalApproveRequest"
+evidence = "HumanOperations declaration at line 3672, moved from registered line 3775: public record ApprovalApproveRequest(String step_up_evidence) implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references. The same-named record at line 1223 implements GeneratedResponse and the AgentOperations record at line 2602 takes JsonNode fields; this human request takes String step_up_evidence."
+
+[row.r8-136.15]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalapproveresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3677
+symbol = "ApprovalApproveResponse"
+evidence = "HumanOperations declaration at line 3677, moved from registered line 3780: public record ApprovalApproveResponse(String approval_id, HumanModels.ApprovalState state, String state_copy_key, boolean money_moved, String moved_copy_key, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references. The AgentOperations record at line 2609 takes JsonNode outcome and submission_ref; this human response carries approval state, money_moved and evidence."
+
+[row.r8-136.16]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalgetrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3687
+symbol = "ApprovalGetRequest"
+evidence = "HumanOperations declaration at line 3687, moved from registered line 3790: public record ApprovalGetRequest() implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references. The AgentOperations record at line 2616 takes JsonNode tenant and approval_id; this human request has no components."
+
+[row.r8-136.17]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalgetresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3689
+symbol = "ApprovalGetResponse"
+evidence = "HumanOperations declaration at line 3689, moved from registered line 3792: public record ApprovalGetResponse(String approval_id, String agent_id, String agent_name, HumanModels.ApprovalState state, String state_copy_key, String reason_copy_key, HumanModels.ApprovalFacts facts, HumanModels.VerifiedMoney budget_remaining_after, String created_at, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references. The AgentOperations record at line 2622 takes JsonNode fields; this human response carries ApprovalFacts and VerifiedMoney budget_remaining_after."
+
+[row.r8-136.18]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvallistrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3704
+symbol = "ApprovalListRequest"
+evidence = "HumanOperations declaration at line 3704, moved from registered line 3807: public record ApprovalListRequest() implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references. The AgentOperations record at line 2637 takes tenant, cursor and page_limit; this human request has no components."
+
+[row.r8-136.19]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvallistresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3706
+symbol = "ApprovalListResponse"
+evidence = "HumanOperations declaration at line 3706, moved from registered line 3809: public record ApprovalListResponse(List<HumanModels.ApprovalSummary> approvals, String next_cursor) implements SchemaTypes.GeneratedResponse. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references. The AgentOperations record at line 2644 takes JsonNode approvals; this human response takes List<HumanModels.ApprovalSummary> approvals."
+
+[row.r8-136.20]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalprogramapproverequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3713
+symbol = "ApprovalProgramApproveRequest"
+evidence = "HumanOperations declaration at line 3713, moved from registered line 3816: public record ApprovalProgramApproveRequest(String held_digest, String step_up_evidence) implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.21]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalprogramapproveresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3719
+symbol = "ApprovalProgramApproveResponse"
+evidence = "HumanOperations declaration at line 3719, moved from registered line 3822: public record ApprovalProgramApproveResponse(String approval_id, String held_digest, HumanModels.ProgramApprovalState state, String state_copy_key, boolean money_moved, String moved_copy_key, List<HumanModels.EvidenceRef> evidence, String release_ref, HumanModels.Rung rung) implements SchemaTypes.GeneratedResponse. Signature changed: appended HumanModels.Rung rung after String release_ref. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.22]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalprogrambudgetrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3730
+symbol = "ApprovalProgramBudgetRequest"
+evidence = "HumanOperations declaration at line 3730, moved from registered line 3833: public record ApprovalProgramBudgetRequest() implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.23]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalprogrambudgetresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3732
+symbol = "ApprovalProgramBudgetResponse"
+evidence = "HumanOperations declaration at line 3732, moved from registered line 3835: public record ApprovalProgramBudgetResponse(String approval_id, String held_digest, String budget_id, String asset_id, String source_account, ProtocolAmount remaining, ProtocolAmount observed_head_sequence, ProtocolAmount age_sequences, ProtocolAmount maximum_age_sequences, boolean within_bound, boolean terminal, HumanModels.HumanVerificationLevel verification, String proof_digest, String receipt_digest, String checkpoint_digest, List<HumanModels.EvidenceRef> evidence, HumanModels.Rung rung) implements SchemaTypes.GeneratedResponse. Signature changed: HumanModels.VerificationLevel verification became HumanModels.HumanVerificationLevel verification, and HumanModels.Rung rung was appended after evidence. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.24]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalprogramdisclosurerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3751
+symbol = "ApprovalProgramDisclosureRequest"
+evidence = "HumanOperations declaration at line 3751, moved from registered line 3854: public record ApprovalProgramDisclosureRequest(HumanModels.ProgramApprovalDecisionKind decision, String held_digest, String idempotency_key) implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.25]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalprogramdisclosureresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3758
+symbol = "ApprovalProgramDisclosureResponse"
+evidence = "HumanOperations declaration at line 3758, moved from registered line 3861: public record ApprovalProgramDisclosureResponse(String approval_id, String held_digest, HumanModels.ProgramApprovalDecisionKind decision, String confirms, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.26]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalprogramgetrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3768
+symbol = "ApprovalProgramGetRequest"
+evidence = "HumanOperations declaration at line 3768, moved from registered line 3871: public record ApprovalProgramGetRequest() implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.27]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalprogramgetresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3770
+symbol = "ApprovalProgramGetResponse"
+evidence = "HumanOperations declaration at line 3770, moved from registered line 3873: public record ApprovalProgramGetResponse(String approval_id, String agent_id, String agent_name, HumanModels.ProgramApprovalState state, String reason_copy_key, String created_at, String expires_at, String held_digest, HumanModels.ProgramApprovalOperation operation, HumanModels.ProgramApprovalSemantics semantics, List<HumanModels.ProgramAuthorizedLimit> authorized_limits, List<HumanModels.EvidenceRef> evidence, String state_copy_key, ProtocolAmount created_at_sequence, ProtocolAmount budget_expiry_sequence, String release_ref, HumanModels.ProgramApprovalBudget budget) implements SchemaTypes.GeneratedResponse. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.28]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalprogramlistrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3790
+symbol = "ApprovalProgramListRequest"
+evidence = "HumanOperations declaration at line 3790, moved from registered line 3893: public record ApprovalProgramListRequest() implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.29]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalprogramlistresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3792
+symbol = "ApprovalProgramListResponse"
+evidence = "HumanOperations declaration at line 3792, moved from registered line 3895: public record ApprovalProgramListResponse(List<HumanModels.ProgramApprovalSummary> approvals, String next_cursor) implements SchemaTypes.GeneratedResponse. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."
+
+[row.r8-136.30]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-approvalprogrammaterialrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3799
+symbol = "ApprovalProgramMaterialRequest"
+evidence = "HumanOperations declaration at line 3799, moved from registered line 3902: public record ApprovalProgramMaterialRequest() implements SchemaTypes.GeneratedRequest. Signature matches the registry. Selected the record declaration rather than constructor or typed-operation references."

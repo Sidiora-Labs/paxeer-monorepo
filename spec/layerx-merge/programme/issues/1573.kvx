@@ -1,0 +1,48 @@
+[issue.1573]
+number = 1573
+title = "[P2] Update gateway renderer self-test for the split x402 vector suites"
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+verdict = "task"
+evidence = "services/interop/deploy/gateway/render.py:1114-1156 (the self-test) reads only services/interop/crates/layerx-x402/tests/vectors.rs and expects 22 vectors, while tests/sequenced_vectors.rs:36-39 now owns sequenced-settlement.json and services/interop/specs/conformance/x402 holds 27 records."
+close_comment = "The gateway renderer self-test now enumerates the x402 conformance suite directory and both vector test files, so the split vector suites are counted from the records instead of a fixed number."
+
+[task.18.1573.1]
+title = "Issue #1573: Update the gateway renderer self-test for the split x402 vector suites"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181573.1"]
+capabilities = []
+interfaces = []
+do_1 = "Decision 2490 (triage record spec/layerx-merge/programme/issues/1573.kvx, verdict task): the self-test of services/interop/deploy/gateway/render.py (lines 1114-1156, run by --self-test at line 886) reads only services/interop/crates/layerx-x402/tests/vectors.rs and expects exactly 22 vectors; since the suite split, services/interop/crates/layerx-x402/tests/sequenced_vectors.rs:36-39 owns sequenced-settlement.json and services/interop/specs/conformance/x402 holds 27 records. Make the self-test enumerate the suite directory and both test files, derive the expected count from the records present and check that every record is referenced by one of the two test files."
+do_2 = "The verify runs the self-test; keep every other check of render.py unchanged."
+symbols = []
+touches = ["services/interop/deploy/gateway/render.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile services/interop/deploy/gateway/render.py"
+verify_cmd = "python3 services/interop/deploy/gateway/render.py --self-test"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181573]
+title = "The gateway renderer self-test counts the split x402 vector suites from the records"
+ac_1 = "Given the x402 conformance records under services/interop/specs/conformance/x402 and the two vector test files, when render.py --self-test runs, then it derives the expected count from the records, checks every record is referenced and exits zero."
+
+[acceptance.18.1573.1]
+feature = "18"
+req = "181573.1"
+scenario = "Given 27 conformance records across the two vector suites, when the renderer self-test runs, then it passes without a fixed vector count."
+contract = "contracts/interop.md#gateway-renderer"
+test = "python3 services/interop/deploy/gateway/render.py --self-test (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,6 @@
+[repair.go-storage.53]
+target = "storage/state_db/sc/memiavl"
+command = "CGO_ENABLED=1 go vet ./storage/state_db/sc/memiavl/ && CGO_ENABLED=1 go test -count=1 ./storage/state_db/sc/memiavl/"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "storage/state_db/sc/memiavl/snapshot_methods_test.go and storage/state_db/sc/memiavl/snapshot_pipeline_test.go use regular files as snapshot destinations' parents and assert ENOTDIR."

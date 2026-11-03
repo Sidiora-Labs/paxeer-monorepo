@@ -439,6 +439,10 @@ impl WebConfig {
     pub fn payer_did(&self) -> &str {
         &self.payer_did
     }
+
+    pub(crate) fn payer_address(&self) -> Option<[u8; 20]> {
+        unhex20(&self.payer_address)
+    }
 }
 
 /// The approval boundary one web spend passes through.
@@ -2494,6 +2498,10 @@ mod tests {
                 amount_threshold: u128::MAX,
             },
             context: ApprovalContext {
+                actor_address: unhex20(text(
+                    &exchange["exchange"][0]["request"]["headers"][PAYER_ADDRESS],
+                ))
+                .unwrap_or_else(|| panic!("payer address")),
                 tenant: TenantId::new("metered-offer-test")
                     .unwrap_or_else(|error| panic!("tenant: {error}")),
                 agent: Did::new(text(&buyer["payerDid"]).as_bytes())
@@ -2686,6 +2694,10 @@ mod tests {
                 amount_threshold: u128::MAX,
             },
             context: ApprovalContext {
+                actor_address: unhex20(text(
+                    &exchange["exchange"][0]["request"]["headers"][PAYER_ADDRESS],
+                ))
+                .unwrap_or_else(|| panic!("payer address")),
                 tenant: TenantId::new("standing-grant-test")
                     .unwrap_or_else(|error| panic!("tenant: {error}")),
                 agent: Did::new(text(&buyer["payerDid"]).as_bytes())

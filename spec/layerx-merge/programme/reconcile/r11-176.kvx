@@ -1,0 +1,83 @@
+[reconcile.r11-176]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 10
+
+[row.r11-176.1]
+interface = "interface.11.rs-xws-transaction-sign"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 295
+symbol = "sign"
+evidence = "Transaction::sign is declared at line 295 with &self and key: &SigningKey, returning Result<SignedTransaction, SubmitError>; later .sign calls are uses of this method."
+
+[row.r11-176.2]
+interface = "interface.11.fmt-xws-work-stage"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/watch.rs"
+line = 461
+symbol = "WorkStage"
+evidence = "The WorkStage enum declaration at line 461 derives Serialize and Deserialize with serde rename_all snake_case; its eight variants encode queued, attesting, attested, quorum, signed, retry, refused and reorged, matching the registered journal format."
+
+[row.r11-176.3]
+interface = "interface.11.rs-xws-pending"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/watch.rs"
+line = 434
+symbol = "Pending"
+evidence = "pub struct Pending is declared at line 434 with request, attempts, refused, source, stage, next_retry_block and last_error fields; other Pending occurrences are type references or construction."
+
+[row.r11-176.4]
+interface = "interface.11.rs-xws-request-watcher"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/watch.rs"
+line = 419
+symbol = "RequestWatcher"
+evidence = "pub struct RequestWatcher is declared at line 419 with RPC, confirmation depth, cursor and pending state; the occurrence at line 506 opens its impl block."
+
+[row.r11-176.5]
+interface = "interface.11.rs-xws-request-watcher-canonical"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/watch.rs"
+line = 797
+symbol = "canonical"
+evidence = "RequestWatcher::canonical is declared at line 797 as pub fn canonical(&mut self, request: &WebRequest) -> Result<Canonical, EvmError>; it rereads confirmed logs and checks source identity."
+
+[row.r11-176.6]
+interface = "interface.11.rs-xws-request-watcher-fail"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/watch.rs"
+line = 728
+symbol = "fail"
+evidence = "RequestWatcher::fail is declared across lines 728-733, taking &mut self, request_id: u64, terminal: bool and reason: &str and returning Result<bool, EvmError>; self.fail at line 661 is a call."
+
+[row.r11-176.7]
+interface = "interface.11.rs-xws-request-watcher-last-head"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/watch.rs"
+line = 677
+symbol = "last_head"
+evidence = "pub const fn last_head(&self) -> u64 is declared at line 677 inside impl RequestWatcher and returns self.last_head; the struct field and assignments are separate occurrences."
+
+[row.r11-176.8]
+interface = "interface.11.rs-xws-request-watcher-open"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/watch.rs"
+line = 513
+symbol = "open"
+evidence = "RequestWatcher::open begins at line 513; lines 514-518 preserve the registered EvmRpc, u32 confirmations, &Path state_dir and Option<u64> start parameters and io::Result<Self> return. Later file and lock open calls are uses."
+
+[row.r11-176.9]
+interface = "interface.11.rs-xws-source-identity"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/watch.rs"
+line = 452
+symbol = "SourceIdentity"
+evidence = "pub struct SourceIdentity is declared at line 452 with chain_id, block_hash, transaction_hash and log_index fields; the pending fields, helper return type and constructor reference this declaration."
+
+[row.r11-176.10]
+interface = "interface.11.rs-xws-work-stage"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/watch.rs"
+line = 461
+symbol = "WorkStage"
+evidence = "pub enum WorkStage is declared at line 461 with Queued as default and Attesting, Attested, Quorum, Signed, Retry, Refused and Reorged variants; pending fields and transitions use this enum."
