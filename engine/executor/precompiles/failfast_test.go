@@ -53,6 +53,7 @@ func TestMergeFailFastPrecompiles(t *testing.T) {
 		common.HexToAddress("0x101A"),
 		common.HexToAddress("0x101C"),
 		common.HexToAddress("0x101D"),
+		common.HexToAddress("0x101E"),
 		common.HexToAddress("0x0901"),
 		common.HexToAddress("0x0902"),
 		common.HexToAddress("0x0903"),

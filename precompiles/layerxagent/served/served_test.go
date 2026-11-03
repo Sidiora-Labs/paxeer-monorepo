@@ -44,6 +44,7 @@ func TestAgentMergeAddressesServedAfterUpgrade(t *testing.T) {
 		typeName string
 		method   string
 	}{
+		common.HexToAddress("0x101E"): {"*layerxchains.Precompile", "getChain"},
 		common.HexToAddress("0x0901"): {"*common.Precompile", "resolveOffset"},
 		common.HexToAddress("0x0902"): {"*clearing.ClearingPrecompile", "computeClearing"},
 		common.HexToAddress("0x0903"): {"*common.Precompile", "aggregate"},
