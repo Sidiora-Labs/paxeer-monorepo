@@ -1,0 +1,123 @@
+[reconcile.r9-64]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 15
+
+[row.r9-64.1]
+interface = "interface.9.env-layerx-qualify-lni-socket"
+verdict = "served"
+path = "services/agent/tests/boundary/src/production.rs"
+line = 16
+symbol = "LAYERX_QUALIFY_LNI_SOCKET"
+evidence = "Literal remains in RETIRED_VARIABLES at line 16; refuse_retired_environment rejects its presence with an is retired error directing callers to LAYERX_QUALIFY_NODE_RPC_URL. It no longer supplies an LNI socket."
+
+[row.r9-64.2]
+interface = "interface.9.env-layerx-qualify-signed-activity"
+verdict = "served"
+path = "services/agent/tests/boundary/src/production.rs"
+line = 17
+symbol = "LAYERX_QUALIFY_SIGNED_ACTIVITY"
+evidence = "Literal remains in RETIRED_VARIABLES at line 17; refuse_retired_environment rejects its presence and names LAYERX_QUALIFY_NODE_RPC_URL as the replacement. The former signed-activity file input is no longer consumed."
+
+[row.r9-64.3]
+interface = "interface.9.env-layerx-qualify-lni-daemon-uid"
+verdict = "served"
+path = "services/agent/tests/boundary/src/production.rs"
+line = 18
+symbol = "LAYERX_QUALIFY_LNI_DAEMON_UID"
+evidence = "Literal remains in RETIRED_VARIABLES at line 18; refuse_retired_environment reports it as retired when set, directing callers to LAYERX_QUALIFY_NODE_RPC_URL. The old u32 daemon-uid parsing is gone."
+
+[row.r9-64.4]
+interface = "interface.9.env-layerx-qualify-lni-client-gid"
+verdict = "served"
+path = "services/agent/tests/boundary/src/production.rs"
+line = 19
+symbol = "LAYERX_QUALIFY_LNI_CLIENT_GID"
+evidence = "Literal remains in RETIRED_VARIABLES at line 19; refuse_retired_environment reports it as retired when set, directing callers to LAYERX_QUALIFY_NODE_RPC_URL. The old u32 client-gid parsing is gone."
+
+[row.r9-64.5]
+interface = "interface.9.env-layerx-qualify-max-signed-activity"
+verdict = "served"
+path = "services/agent/tests/boundary/src/production.rs"
+line = 20
+symbol = "LAYERX_QUALIFY_MAX_SIGNED_ACTIVITY"
+evidence = "Literal remains in RETIRED_VARIABLES at line 20; refuse_retired_environment rejects its presence and names LAYERX_QUALIFY_NODE_RPC_URL as the replacement. It no longer reads the maximum signed-activity file."
+
+[row.r9-64.6]
+interface = "interface.9.env-layerx-qualify-lni-deadline-ms"
+verdict = "served"
+path = "services/agent/tests/boundary/src/production.rs"
+line = 21
+symbol = "LAYERX_QUALIFY_LNI_DEADLINE_MS"
+evidence = "Literal remains in RETIRED_VARIABLES at line 21; refuse_retired_environment rejects its presence and names LAYERX_QUALIFY_NODE_RPC_URL as the replacement. The former u64 LNI deadline input is no longer parsed."
+
+[row.r9-64.7]
+interface = "interface.9.env-layerx-qualify-unknown-signed-activity"
+verdict = "served"
+path = "services/agent/tests/boundary/src/production.rs"
+line = 22
+symbol = "LAYERX_QUALIFY_UNKNOWN_SIGNED_ACTIVITY"
+evidence = "Literal remains in RETIRED_VARIABLES at line 22; refuse_retired_environment rejects its presence and names LAYERX_QUALIFY_NODE_RPC_URL as the replacement. The former unknown signed-activity file is no longer consumed."
+
+[row.r9-64.8]
+interface = "interface.9.cli-agent-sdk-parity"
+verdict = "served"
+path = "services/agent/tests/parity/src/main.rs"
+line = 784
+symbol = "main"
+evidence = "Declaring line is fn main() -> ExitCode. The NODE REPOSITORY invocation now requires NODE to be an http or https JSON-RPC URL rather than the old LNI node executable; --check-scenarios <path> is also accepted. main validates the URL and passes it to agent_sdk_parity_suite(node_url: &str, repository: &Path)."
+
+[row.r9-64.9]
+interface = "interface.9.cli-agent-qualification-gates-boundary"
+verdict = "served"
+path = "services/agent/tests/qualify/src/main.rs"
+line = 26
+symbol = "boundary"
+evidence = "The dispatch branch is else if command == boundary at line 26. The registered boundary [ARGS] is concretely boundary REPOSITORY NODE HARNESS: all three paths are required, surplus arguments fail, and agent_qualify_boundary_gate receives the three paths at line 42."
+
+[row.r9-64.10]
+interface = "interface.9.cli-layerx-boundary-check"
+verdict = "served"
+path = "services/agent/tools/boundary-check/src/main.rs"
+line = 191
+symbol = "main"
+evidence = "Declaring line is fn main(). The CLI signature still accepts [ROOT], defaulting to agent via env::args_os().nth(1); no positional signature change is observed. Its current agent_boundary_purity_check rejects layerx_client::lni references, private C boundaries and unapproved unsafe or ambient nondeterminism."
+
+[row.r9-64.11]
+interface = "interface.9.cli-run-real-node-tests-test"
+verdict = "served"
+path = "services/agent/tools/run-real-node-tests.sh"
+line = 41
+symbol = "test"
+evidence = "The declaring case arm is test) test_target=agent-test at line 41. The one-argument test signature is unchanged; execution now exports Paxeer chain id and RPC port from the runtime manifest or configured defaults before make agent-test, with build ownership restored on exit."
+
+[row.r9-64.12]
+interface = "interface.9.cli-run-real-node-tests-sanitizers"
+verdict = "served"
+path = "services/agent/tools/run-real-node-tests.sh"
+line = 42
+symbol = "sanitizers"
+evidence = "The declaring case arm is sanitizers) test_target=agent-test-sanitize at line 42. The one-argument sanitizers signature is unchanged; execution exports Paxeer chain id and RPC port before make agent-test-sanitize and installs the build ownership restoration trap."
+
+[row.r9-64.13]
+interface = "interface.9.cli-run-real-node-tests-prepare"
+verdict = "served"
+path = "services/agent/tools/run-real-node-tests.sh"
+line = 43
+symbol = "prepare"
+evidence = "The declaring case arm is prepare) test_target= at line 43. The one-argument prepare signature is unchanged; the empty target reaches run_real_node_tests, which builds native program-admission and metered-allowance tests plus paxeer-build, exports PAXD and prints its hash."
+
+[row.r9-64.14]
+interface = "interface.9.cli-agent-sdk-gen-write"
+verdict = "served"
+path = "services/agent/tools/sdk-gen/src/main.rs"
+line = 1001
+symbol = "--write"
+evidence = "The declaring match arm is --write at line 1001. The CLI retains --write [SCHEMA_ROOT] [OUTPUT_ROOT], with defaults services/agent/schema/agent-api and services/agent/sdk; this arm now writes the generated SDK files and regenerates golden/programs.kvx through write_programs_golden."
+
+[row.r9-64.15]
+interface = "interface.9.cli-agent-sdk-gen-check"
+verdict = "served"
+path = "services/agent/tools/sdk-gen/src/main.rs"
+line = 1005
+symbol = "--check"
+evidence = "The declaring match arm is --check at line 1005; arguments.first().map_or selects it by default at line 991. The CLI retains --check [SCHEMA_ROOT] [OUTPUT_ROOT], and this arm now checks both generated SDK bytes and the locked Programs contract with programs_golden_drift_gate."
