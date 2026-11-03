@@ -1,0 +1,6 @@
+[repair.rust-test-interop.8]
+target = "layerx-interop-service"
+command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --no-fail-fast"
+revision = "2c6b4f012f09edd4fbbb62ba80fe239db4e3fdbf"
+result = "already-passing"
+change = "none"
