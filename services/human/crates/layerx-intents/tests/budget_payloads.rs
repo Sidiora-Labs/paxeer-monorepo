@@ -242,10 +242,21 @@ fn budget_create_compiles_to_canonical_call_payload() {
             checked(disclosure.construct_method()),
             Some(ConstructMethod::PayBudgetCreate { payload: expected })
         );
-        assert_eq!(disclosure.amounts.len(), 1);
+        assert_eq!(disclosure.amounts.len(), 2);
         assert_eq!(disclosure.amounts[0].role, AmountRole::Transfer);
         assert_eq!(disclosure.amounts[0].value, AMOUNT);
-        assert!(disclosure.counterparties.is_empty());
+        assert_eq!(disclosure.amounts[1].role, AmountRole::SpendingLimit);
+        assert_eq!(disclosure.amounts[1].value, AMOUNT);
+        assert_eq!(disclosure.counterparties.len(), 1);
+        assert_eq!(
+            disclosure.counterparties[0].role,
+            CounterpartyRole::Recipient
+        );
+        assert_eq!(
+            disclosure.counterparties[0].account,
+            account_id(&budget_account())
+        );
+        assert_eq!(disclosure.expiry.payload_expires_at, 1_900_000_000_000);
         assert_eq!(disclosure.asset, ASSET);
         assert_eq!(disclosure.idempotency_key, BUDGET_ID);
         for (rule, index, value) in [
