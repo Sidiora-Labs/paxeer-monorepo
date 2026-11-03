@@ -14560,3 +14560,13 @@ fix = "Re-render with go run ./tools/specgen -root . and commit the four outputs
 title = "Feature-gated helpers used by ungated tests break an all-targets build with default features"
 symptom = "The vendored wasm-instrument crate defines DynamicHelper and add_dynamic_helpers under the bulk feature while two helper-sequence tests in src/gas_metering/mod.rs use them without a gate; cargo build --all-targets fails with E0433/E0425."
 fix = "Gate the tests with the same feature attribute as the items they use, or enable the feature in the test profile; never widen default features to make a test compile."
+
+[gotcha.2948]
+title = "A manifest change without a lock refresh fails the requalification build under --locked"
+symptom = "The gateway repair added two dependencies to services/platform/hosted/gateway/Cargo.toml; the workspace lock was outside the edit scope, so the requalification build stopped with the lock file needs to be updated."
+fix = "Give every task that may change a manifest the workspace lock file in its scope and refresh only the entries that manifest needs."
+
+[gotcha.2949]
+title = "Sweep record header counts drift from their blocks after block-level re-records"
+symptom = "go-consensus.kvx declared 161 passed targets while all 162 blocks passed, failing the summary generator for an unrelated task."
+fix = "Recompute header counts from the blocks whenever a block result changes."
