@@ -20107,3 +20107,11 @@ symbol = "CreateBucket"
 observed = "Attempt 1: the app, storage, serve and auth tests fail creating the kl-token bucket with empty static credentials, the identity peers test needs a running sociald, and the app package ran into its ten-minute limit."
 assumption = "Fixture-bound tests (object store, identity service); decision 2496 compile gate applies."
 severity = "low"
+
+[finding.22.99.52.1]
+task = "22.99.52"
+file = "services/agent/crates/layerx-mcp/tests/daemon_bound.rs"
+symbol = "Binding::parse"
+observed = "Attempt 1: five native-read proof tests need the local node; three binding tests are refused with mcp.binding_retired_key; the web section and receipt key index assertions fail; the settlement, web-scoped session, producer-consumer and payer artifact tests fail."
+assumption = "The live-node part belongs to 18.1578.1 (decision 2500); the rest are deterministic defects of the crate or its fixtures after the binding key retirement."
+severity = "high"

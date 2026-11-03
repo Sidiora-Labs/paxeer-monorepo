@@ -947,6 +947,36 @@ def main(argv):
     return 0
 
 
+def self_test_root_fixture():
+    """Build the fixture through the beta-root producer and current validators."""
+    import tempfile
+
+    material = {
+        "ap2_keys": {use_case: "04" + "ab" * 64 for use_case in BETA_AP2_USE_CASES},
+        "visa_agent_public_key": "cc" * 32,
+        "visa_agent_expires_at": 1893456000,
+        "fiat_provider_public_key": "dd" * 32,
+        "principal_digest": "11" * 32,
+        "layerx_agent": "22" * 32,
+        "payer_account": "22" * 32,
+        "payee_account": "44" * 32,
+        "asset": "55" * 32,
+        "audience": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+        "currency": "LXT",
+        "asset_decimals": 18,
+    }
+    reasons = []
+    with tempfile.TemporaryDirectory() as directory:
+        roots_file = pathlib.Path(directory) / "interop-beta-roots.json"
+        roots_file.write_text(json.dumps(material))
+        roots = beta_roots(roots_file, reasons)
+    assert roots is not None and not reasons, reasons
+    assert set(roots) == set(EXTERNAL_ROOTS), roots
+    validate_roots(roots, reasons)
+    assert not reasons, reasons
+    return material, roots
+
+
 def self_test():
     """Exercise the real render against the documents and vectors in this checkout."""
     import shutil
@@ -954,7 +984,7 @@ def self_test():
 
     root = repository_root()
     vendor = root / "services/interop/specs/vendor"
-    network, key = "layerx-testnet", "ab" * 32
+    network, key = "layerx-beta", "ab" * 32
     with tempfile.TemporaryDirectory() as directory:
         keys_file = pathlib.Path(directory) / "receipt-keys.json"
 
@@ -1039,24 +1069,17 @@ def self_test():
             if identifier not in transport_first_party
         }
     )
+    material, fixture_roots = self_test_root_fixture()
     complete.update(
-        {
-            ROOT_VARIABLE["ap2_keys"]: json.dumps(
-                [
-                    {
-                        "use_case": "checkout-mandate",
-                        "key_id": "k1",
-                        "public_key_sec1": "04" + "ab" * 64,
-                    }
-                ]
-            ),
-            ROOT_VARIABLE["ap2_assets"]: json.dumps([{"principal_digest": "33" * 32}]),
-            ROOT_VARIABLE["visa_agents"]: json.dumps([{"key_id": "tap-1"}]),
-            ROOT_VARIABLE["visa_targets"]: json.dumps([{"authority": "shop.example"}]),
-            ROOT_VARIABLE["fiat_providers"]: json.dumps(
-                [{"provider": "example-provider", "public_key_ed25519": "dd" * 32}]
-            ),
-        }
+        {ROOT_VARIABLE[name]: json.dumps(fixture_roots[name]) for name in EXTERNAL_ROOTS}
+    )
+    complete[ROOT_VARIABLE["fiat_providers"]] = json.dumps(
+        [
+            {
+                "provider": "example-provider",
+                "public_key_ed25519": material["fiat_provider_public_key"],
+            }
+        ]
     )
 
     def refusal(environ, network_id=network, public_key=key, beta_file=None):
@@ -1113,11 +1136,20 @@ def self_test():
 
     transport_tests = (root / "services/interop/crates/layerx-x402/tests/transports.rs").read_text()
     tests = {
-        "x402": (root / "services/interop/crates/layerx-x402/tests/vectors.rs").read_text(),
+        "x402": "\n".join(
+            (root / "services/interop/crates/layerx-x402/tests" / filename).read_text()
+            for filename in ("vectors.rs", "sequenced_vectors.rs")
+        ),
         "ap2": (root / "services/interop/crates/layerx-ap2/tests/mandates.rs").read_text(),
-        "ucp": (root / "services/interop/crates/layerx-ucp/tests/conformance_vectors.rs").read_text(),
+        "ucp": "\n".join(
+            (root / "services/interop/crates/layerx-ucp/tests" / filename).read_text()
+            for filename in ("conformance_vectors.rs", "sequenced_vectors.rs")
+        ),
         "visa-tap": (root / "services/interop/crates/layerx-visa-tap/tests/conformance.rs").read_text(),
-        "fiat": (root / "services/interop/crates/layerx-fiat/tests/adapter.rs").read_text(),
+        "fiat": "\n".join(
+            (root / "services/interop/crates/layerx-fiat/tests" / filename).read_text()
+            for filename in ("adapter.rs", "sequenced_vectors.rs")
+        ),
     }
     tests.update(
         {TRANSPORT_CONFORMANCE[identifier]: transport_tests for identifier in TRANSPORTS}
@@ -1153,11 +1185,17 @@ def self_test():
         assert adapters[identifier]["conformance_vectors"] == count
         assert adapters[identifier]["conformance_sha256"] == digest
         exercised(identifier, declared, tests[identifier])
-    assert adapters["x402"]["conformance_vectors"] == 22
+    x402_records = [
+        json.loads(path.read_text())
+        for path in sorted((root / CONFORMANCE_DIRECTORY / "x402").rglob("*.json"))
+    ]
+    assert adapters["x402"]["conformance_vectors"] == sum(
+        len(records) if isinstance(records, list) else 1 for records in x402_records
+    )
     assert adapters["ap2"]["conformance_vectors"] == 6
-    assert adapters["ucp"]["conformance_vectors"] == 26
+    assert adapters["ucp"]["conformance_vectors"] == 29
     assert adapters["visa-tap"]["conformance_vectors"] == 23
-    assert adapters["fiat"]["conformance_vectors"] == 26
+    assert adapters["fiat"]["conformance_vectors"] == 31
 
     overriding = dict(complete)
     overriding[CONFORMANCE_VARIABLE["x402"]] = "owner-x402-suite,4,%s" % ("77" * 32)
@@ -1241,20 +1279,6 @@ def self_test():
         for reason in refusal(dict(complete), network_id="layerxtestnet")
     )
 
-    material = {
-        "ap2_keys": {use_case: "04" + "ab" * 64 for use_case in BETA_AP2_USE_CASES},
-        "visa_agent_public_key": "cc" * 32,
-        "visa_agent_expires_at": 1893456000,
-        "fiat_provider_public_key": "dd" * 32,
-        "principal_digest": "11" * 32,
-        "layerx_agent": "22" * 32,
-        "payer_account": "22" * 32,
-        "payee_account": "44" * 32,
-        "asset": "55" * 32,
-        "audience": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
-        "currency": "LXT",
-        "asset_decimals": 18,
-    }
     with tempfile.TemporaryDirectory() as directory:
         roots_file = pathlib.Path(directory) / "interop-beta-roots.json"
         roots_file.write_text(json.dumps(material))
