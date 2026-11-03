@@ -19883,3 +19883,11 @@ symbol = "v5_refusal_detail"
 observed = "Attempt 11 (94cdc09ea) passes its schema and freshness tests and fails the corpus step: the native producer exits 1 after writing two cases, its stderr reads terminal v5 fixture line 103, because the settlement-failure detail now carries transfer error tag 7 (TransferLawError::Kernel since 867cb1560) where the fixture expects 9; the fixture is unchanged since cd8fcfa86, when it last passed."
 assumption = "Task 1.18.5 aligns the fixture; 22.9.18 requires it and is re-qualified on the current tree once it is on main."
 severity = "blocker"
+
+[finding.22.97.10.1]
+task = "22.97.10"
+file = "programs/vendor/wasm-instrument/Cargo.toml"
+symbol = "binaryen"
+observed = "Attempts 3 and 4 (386f6d53d, 399c35e72) fail the verify in the binaryen-sys 0.12.0 build script with CMake Error at CMakeLists.txt:1 (cmake_minimum_required): Compatibility with CMake < 3.5 has been removed, exit 101, with cmake present."
+assumption = "The test-only binaryen dependency of the vendored wasm-instrument crate is unbuildable on CMake 4 and is dropped by decision 2481; the next attempt rewrites the one test that used it on fixed wat texts."
+severity = "major"

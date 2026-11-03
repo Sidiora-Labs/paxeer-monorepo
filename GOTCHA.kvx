@@ -14460,3 +14460,13 @@ fix = "When a producer changes an encoded tag, run the native corpus producer an
 title = "A scope rename stranded a publication that deleted the old path"
 symptom = "A task moved a test file to another crate; its scope was renamed to the new path only, so the publication that deleted the old file was refused for a change outside the scope although the verify and the done check had passed."
 fix = "When a task moves or deletes a file, keep the old path in the scope beside the new one; a deletion is a change of the old path."
+
+[gotcha.2928]
+title = "CMake 4 refuses projects declaring a minimum version below 3.5"
+symptom = "A Rust crate that compiles a bundled C++ project through the cmake crate failed in its build script with Compatibility with CMake < 3.5 has been removed, because CMake 4 no longer accepts cmake_minimum_required values below 3.5."
+fix = "Upgrade or drop the dependency that bundles the old project; CMAKE_POLICY_VERSION_MINIMUM=3.5 only probes whether the rest of the build would succeed."
+
+[gotcha.2929]
+title = "A test that starts a tool binary needs the binary in the qualification environment"
+symptom = "The TypeScript SDK gas-station test starts a local EVM through anvil; run directly as node dist/test/gas-station.test.js in an environment without Foundry it fails with local EVM exited before readiness after every other case passed."
+fix = "Install Foundry before running the compiled SDK tests, or set ANVIL_BIN to the binary; the failure is environmental, not a product defect."

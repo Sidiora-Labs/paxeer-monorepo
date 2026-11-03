@@ -7995,6 +7995,12 @@ value = "21.95.1 do_8 deletes the agent daemon test target services/agent/crates
 basis = "21.95.1 attempt 11: build and verify exit 0, the done check accepts every scope entry, the publication records changed files outside touches and planned_paths naming the deleted daemon test."
 affects = ["21.95.1"]
 
+[decision.2481]
+title = "The vendored wasm-instrument crate drops its binaryen test dependency"
+value = "programs/vendor/wasm-instrument declares binaryen 0.12.1 as a test-only dependency, used by one test (src/gas_metering/validation.rs, test_build_control_flow_graph) to generate random modules through translate_to_fuzz_mvp. binaryen-sys 0.12.0 compiles a bundled binaryen whose CMakeLists.txt declares a minimum CMake version below 3.5, which CMake 4 refuses (Compatibility with CMake < 3.5 has been removed), so cargo build -p wasm-instrument --all-targets cannot pass on a current toolchain regardless of cmake being installed. The crate drops the binaryen test dependency, the test generates its modules from fixed wat texts through the wat test dependency already declared, programs/Cargo.lock is pruned of the orphaned packages, and sweep target 19 records the result."
+basis = "22.97.10 attempts 3 and 4: the verify fails in the binaryen-sys build script, CMake Error at CMakeLists.txt:1 (cmake_minimum_required), exit 101, with cmake present on PATH."
+affects = ["22.97.10"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -133841,7 +133847,7 @@ capabilities = ["22.97.10"]
 interfaces = []
 do_1 = "Decision 2473: wasm-instrument (programs/vendor/wasm-instrument) builds a native dependency through cmake. Build it with cmake on PATH (the task's verify) and update [target.rust-build-programs.19] of spec/layerx-merge/programme/sweeps/rust-build-programs.kvx with the result, exit code and the 40-hex revision; if the build fails with cmake present, record the first error in observed."
 symbols = []
-touches = ["spec/layerx-merge/programme/sweeps/rust-build-programs.kvx"]
+touches = ["spec/layerx-merge/programme/sweeps/rust-build-programs.kvx", "programs/vendor/wasm-instrument/Cargo.toml", "programs/vendor/wasm-instrument/src/gas_metering/validation.rs", "programs/Cargo.lock"]
 tests = []
 planned_paths = []
 build_cmd = "cargo metadata --locked --manifest-path programs/Cargo.toml --format-version 1 >/dev/null"
@@ -133857,6 +133863,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_2 = "Decision 2481 (attempt 4, 399c35e72, continue): the verify fails inside the binaryen-sys 0.12.0 build script because its bundled binaryen declares a CMake minimum below 3.5 and CMake 4 refuses it; cmake being installed does not help. Remove the binaryen entry from the dev-dependencies of programs/vendor/wasm-instrument/Cargo.toml; in programs/vendor/wasm-instrument/src/gas_metering/validation.rs replace the translate_to_fuzz_mvp generator of test_build_control_flow_graph with modules parsed by wat::parse_str from at least eight fixed wat texts covering blocks, loops, br, br_if, br_table, if-else, call and return, keeping the loop that meters each module and asserts validate_metering_injections, and keeping the fixed SplitMix64 generator state constant only if it is still used; then run cargo metadata --manifest-path programs/Cargo.toml --format-version 1 without --locked once so programs/Cargo.lock drops binaryen, binaryen-sys and the packages only they used (cmake stays only if another package needs it), and commit the lock. Then run the verify and update [target.rust-build-programs.19] of spec/layerx-merge/programme/sweeps/rust-build-programs.kvx with result, exit_code, the 40-hex revision, an observed sentence naming the dropped test dependency and an assumption that names the qualification environment and no hosting environment. All three product files and the lock are in scope."
 
 [task.22.97.9]
 title = "Record the verifier proto crate build"
