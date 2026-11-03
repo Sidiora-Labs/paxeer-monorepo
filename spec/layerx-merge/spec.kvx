@@ -8181,6 +8181,12 @@ value = "Every Rust task carries its workspace Cargo.lock as a planned path; a c
 basis = "Tasks 22.99.49 and 22.99.50 added dependencies to the layerx-client and layerx-sdk manifests without the lock; since their merge every --locked build of the services/agent workspace fails (9.35.19 attempt 5)."
 affects = ["22.99.158", "9.35.19", "22.99.153", "22.99.154", "22.99.155", "22.99.156", "22.99.157"]
 
+[decision.2512]
+title = "The intent plan result contract is the human-api schema and its producer"
+value = "plan_result in sdk/platform/conformance/fixtures/intent-plan-v1.json and the IntentPlan and IntentLeg decoders of the TypeScript and Python SDKs follow the human-api schema (services/human/schema/human-api/baseline.kvx, intent.kvx types IntentPlan and IntentLeg) and the producer in services/human/crates/layerx-human-service/src/server/production_components.rs (the plan object around line 8263): a plan carries exactly plan_digest, journey_kind, total_fee, legs and signing_requirements plus the optional tx_hash; a leg carries index, mechanism, domain, source, destination, money and fee plus the optional EVM wrapping fields under their schema names (to, value, calldata, nonce, chain_id, gas_limit, max_fee_per_gas, max_priority_fee_per_gas). The TypeScript decoder drops its required sponsored, call and nonce keys, the Python decoder admits the optional leg keys, and the fixture renames data, chainId and payment to the schema names or drops them."
+basis = "Attempt 2 of 22.99.148 and attempt 24 of 22.9.10: the fixture written by 8.47.1, the TypeScript decoder (exactKeys at src/intent.ts:425 and :479) and the Python decoder (_exact at layerx_sdk/intent.py:459) each name a different key set, so no fixture can satisfy both SDKs."
+affects = ["22.9.10", "22.99.148"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37071,6 +37077,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.99.159]
+title = "Restore the provider-subject consent fixture the agent daemon tests include"
+reqs = ["22998.1"]
+touches = ["tests/fixtures/authority/provider-subject"]
+tests = []
+verification_contract = "test -s tests/fixtures/authority/provider-subject/consent.activity && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- human_runtime::subject::tests activity_submission_index_tests"
+do_1 = "Commit a1ea1c8a6 (task 9.98.2) made services/agent/crates/layerx-agentd/src/human_runtime.rs:19709 and src/human_runtime/subject/tests.rs:100 include tests/fixtures/authority/provider-subject/consent.activity and deleted onboarding.activity, but the new file never reached main, so cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests fails for every task (gotcha 2956)."
+symbols = []
 
 [capability.22.92.7]
 title = "Write the closure dispositions misc for 8 findings"
@@ -124802,7 +124817,7 @@ title = "Repair the inventory sweep target services/agent/sdk/typescript"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.9.10"]
 reqs = ["22998.1"]
 capabilities = ["22.99.148"]
 interfaces = []
@@ -124828,6 +124843,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 1 (continue, decision 2320): the intent fixture sdk/platform/conformance/fixtures/intent-plan-v1.json is now in the paths. plan_request holds only the IntentEndpoint fields the SDKs encode (kind, optional account); move the resolved account and evm_address under plan_result.legs. intent.test.ts and the Python intent conformance test both read the fixture; run the Python test locally once (python3 -m pytest tests/agent/sdk/python -k intent -q) and report if it disagrees."
+do_6 = "Attempt 2 (continue after 22.9.10): test/intent.test.ts:68 fails because the TypeScript decoder, the Python decoder and the fixture disagree on the plan and leg key sets; decision 2512 makes the human-api schema the contract and task 22.9.10 repairs the fixture and both decoders. This task now requires 22.9.10; continue the attempt-2 tree on top of it, keep its request-fixture repair and record the intent tests as passing."
 
 [task.22.99.39]
 title = "Repair the inventory sweep target sdk/integrations/next/example"
@@ -126976,7 +126992,7 @@ do_1 = "services/agent/sdk/typescript/src/ai_market.ts:3273 decodeProgramsReceip
 do_2 = "Share d9-6.kvx with 22.9.11: set follow_up of [disposition.9.97.8.3] to 22.9.10."
 do_3 = "Set follow_up of [disposition.9.97.8.3] in spec/layerx-merge/dispositions/d9-6.kvx to 22.9.10 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
 symbols = ["decodeProgramsReceipt"]
-touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/package.json", "sdk/platform/conformance/fixtures/intent-plan-v1.json", "services/agent/sdk/typescript/test/intent.test.ts", "sdk/platform/conformance/evm-call-wrapping.test.py", "tests/agent/sdk/python/test_intent.py", "services/agent/sdk/typescript/src/intent.ts", "services/agent/sdk/typescript/test/exchange-v2.test.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/typescript/test/proof_exchange.test.ts", "services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/test/support/exchange_consumers.ts", "services/agent/sdk/typescript/test/xweb-api.test.ts", "services/agent/sdk/typescript/test/gas-station.test.ts", "services/agent/sdk/typescript/test/web-search.test.ts", "services/agent/sdk/typescript/src/web-search.ts", "services/agent/sdk/typescript/test/web-search-sequencer.test.ts", "services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json", "services/agent/sdk/typescript/test/receipt-fixture.test.ts"]
+touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/package.json", "sdk/platform/conformance/fixtures/intent-plan-v1.json", "services/agent/sdk/typescript/test/intent.test.ts", "sdk/platform/conformance/evm-call-wrapping.test.py", "tests/agent/sdk/python/test_intent.py", "services/agent/sdk/typescript/src/intent.ts", "services/agent/sdk/typescript/test/exchange-v2.test.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/typescript/test/proof_exchange.test.ts", "services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/test/support/exchange_consumers.ts", "services/agent/sdk/typescript/test/xweb-api.test.ts", "services/agent/sdk/typescript/test/gas-station.test.ts", "services/agent/sdk/typescript/test/web-search.test.ts", "services/agent/sdk/typescript/src/web-search.ts", "services/agent/sdk/typescript/test/web-search-sequencer.test.ts", "services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json", "services/agent/sdk/typescript/test/receipt-fixture.test.ts", "services/agent/sdk/python/layerx_sdk/intent.py"]
 tests = []
 planned_paths = ["services/agent/sdk/typescript/test/ai-market.test.ts"]
 build_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build"
@@ -127012,6 +127028,7 @@ do_20 = "Decision 2474: services/agent/sdk/typescript/test/web-search-sequencer.
 do_21 = "test/web-search.test.ts (exact payer, lines 190-203) recomputes receiptDigest as sha256 of the domain prefix LXP/v1/merkle-leaf followed by the receipt bytes and compares it with the receiptDigest recorded in services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json; the values differ. Read how the recording producer (services/interop/crates/x-websearch/tests/payment.rs and the gateway code that writes receiptDigest) derives the digest and compute it the same way in the test. If the fixture predates the current receipt bytes, re-record it with the producer under its recording environment variable and commit the new fixture; never relax or drop the digest check."
 do_22 = "Decision 2495 (attempt 23, 5256ba333, continue): the exact fixtures now carry rawTransaction (task 11.98.1, required). In test/web-search.test.ts the exact payer (lines 190-203) returns rawTransaction decoded from the recorded payment's rawTransaction field beside receipt, txHash and idempotencyKey, and the receiptDigest comparison stays as do_21 settled it. Do not change src/web-search.ts for this case; the client's checks that the receipt verifies against the signed bytes and that txHash equals keccak of them are the contract."
 do_23 = "Attempt 24 (continue): test/receipt-fixture.test.ts is now in the paths. Lines 13, 275 and 282 still import and call decodeProgramsReceipt, which this task removed from src/ai_market.ts; move those two assertions to the decoder this task keeps for the native programs receipt, or delete only the assertions whose fixture no longer exists, so npm run build and npm test pass."
+do_24 = "Decision 2512 (attempt 24, continue): plan_result in sdk/platform/conformance/fixtures/intent-plan-v1.json, decodeIntentPlan and decodeLeg in src/intent.ts (exactKeys at lines 425 and 479) and _decode_plan and _decode_leg in services/agent/sdk/python/layerx_sdk/intent.py (now in the paths) all follow the human-api schema (services/human/schema/human-api/baseline.kvx, intent.kvx types IntentPlan and IntentLeg) and the producer in production_components.rs around line 8263: plan keys exactly plan_digest, journey_kind, total_fee, legs, signing_requirements plus optional tx_hash; leg keys index, mechanism, domain, source, destination, money, fee plus the optional EVM wrapping keys under the schema names to, value, calldata, nonce, chain_id, gas_limit, max_fee_per_gas, max_priority_fee_per_gas. Drop sponsored, call and nonce as required keys from the TypeScript decoder, admit the optional leg keys in both decoders, rename the fixture's data, chainId and payment keys to the schema names or drop payment, and keep tests/agent/sdk/python/test_intent.py and test/intent.test.ts passing on the same fixture."
 
 [task.22.91.38]
 title = "Inventory the platform examples packages"
@@ -137706,6 +137723,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.99.159]
+title = "Restore the provider-subject consent fixture the agent daemon tests include"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.99.159"]
+interfaces = []
+do_1 = "Commit a1ea1c8a6 (task 9.98.2) made services/agent/crates/layerx-agentd/src/human_runtime.rs:19709 and src/human_runtime/subject/tests.rs:100 include tests/fixtures/authority/provider-subject/consent.activity and deleted onboarding.activity, but the new file never reached main, so cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests fails for every task (gotcha 2956)."
+do_2 = "Write tests/fixtures/authority/provider-subject/consent.activity with exactly the bytes those tests expect: decode tests/fixtures/authority/provider-subject/sponsored.activity with layerx_wire::activity::decode_signed under the Governance module registry the tests build, decode its payload as layerx_crypto::payments::SponsoredRegistration, and store registration.signed_consent() byte for byte (a small throwaway Rust test or example may produce the bytes; it is not kept)."
+do_3 = "Do not edit the two including source files; the fixture is the only change. The file is binary and is part of the change set of this task."
+do_4 = "The verify runs the human_runtime subject tests and the activity submission index tests of the daemon library, which include the fixture, and they pass."
+symbols = []
+touches = ["tests/fixtures/authority/provider-subject"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "test -s tests/fixtures/authority/provider-subject/consent.activity && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- human_runtime::subject::tests activity_submission_index_tests"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 45
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.91.101]
 title = "Inventory every test run of the services/explorer/services/smart-contract-verifier/Cargo.toml Rust workspace a third time at the closure revision"
 status = "done"
@@ -138883,7 +138931,7 @@ symbols = []
 touches = ["services/platform/hosted/gateway", "spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.11.kvx", "services/platform/Cargo.lock"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.11.kvx", "tools/paxeer-x/route-catalogue.json"]
-build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
+build_cmd = "(cd services/agent/sdk/typescript && npm ci) && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
 verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.11.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --no-fail-fast -- --skip real_core_and_identity_readiness_contract --skip real_gateway_readiness_capabilities_contract --skip payment_facts_cross_real_tls_and_refuse_foreign_principals_without_losing_the_outbox"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -138901,6 +138949,7 @@ do_5 = "Attempt 1 (continue): besides the three excluded tests the recorded comm
 do_6 = "Attempt 3 (continue): gotcha 2948. The attempt-2 manifest adds layerx-platform-authority and signal-hook =0.3.18; services/platform/Cargo.lock is now in the edit scope. Refresh only the entries that manifest needs (cargo update -p signal-hook --precise 0.3.18 in services/platform, or one build without --locked), commit the lock with the repair and run verify_cmd as written."
 do_7 = "Attempt 4 (continue): decision 2508. The readiness report must not degrade on a backend the configuration does not name: consensus not_configured with every configured backend ready is overall ready; the four degraded-endpoint tests state the contract. tools/paxeer-x/route-catalogue.json is a planned path of this task: remove the retired wallet routes (the /v1/wallet/sign-custody route and any other route a decision retired) so unified_service_paths agrees with the served surface."
 do_8 = "Attempt 6 (continue): the readiness logic passes; readyz_reports_the_consensus_endpoint fails at chain_reads.rs:64 because the fixture uses a fixed temporary directory that already exists under parallel tests. Give the fixture a unique temporary directory (tempfile::tempdir) and keep every other change of attempt 6."
+do_9 = "Attempt 7 (continue): the build now installs the TypeScript SDK dependencies that the px_getReceiptKeys TypeScript consumer imports (@noble/curves through src/ai_market.ts); that failure was environmental. Continue the attempt-7 tree, rerun the gates and record px_getReceiptKeys as passing in the repair record."
 
 [task.22.99.71]
 title = "Repair the inventory sweep target layerx-platform-paxeer-boundary"
@@ -139529,7 +139578,7 @@ title = "Repair the inventory sweep target layerx-agentd-host"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.95.11", "18.1578.1"]
+requires = ["22.95.11", "18.1578.1", "22.99.159"]
 reqs = ["22998.1"]
 capabilities = ["22.99.51"]
 interfaces = []
@@ -140412,7 +140461,7 @@ title = "Serve px_getReceiptKeys as the keys object in the handshake and human n
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.95.11"]
+requires = ["22.95.11", "22.99.159", "22.99.158"]
 reqs = ["22105.1"]
 capabilities = ["22.95.1"]
 interfaces = []
@@ -140439,6 +140488,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Decision 2447 (attempt 1, b6601504f, continue): with the fixtures serving the keys object, three handshake tests panic with NodeRpc(Sequencer(Malformed)) at handshake_gate.rs:33 because decode_receipt_keys (services/agent/crates/layerx-client/src/sequencer.rs:860) refuses a keys array with no entries, while the readiness gate (services/agent/crates/layerx-agentd/src/boot.rs:146-149) is written to turn an empty set into GateError::NoReceiptKeys and the node serves its pinned keys as that list (rpc/sequencer_receipt.go:335-341). Make decode_receipt_keys return an empty list for an empty keys array (remove the non-empty filter), keep refusing unknown fields, duplicate ids, invalid keys and ranges, update its doc comment, and add a unit case in the same module's tests for the empty list. services/agent/crates/layerx-client/src/sequencer.rs is now in touches. Rerun the task's verify."
 do_5 = "Attempt 2 (e681c68c9) did not edit services/agent/crates/layerx-client/src/sequencer.rs although it is in the task's touches since decision 2447: the empty-list filter at sequencer.rs:864 is in scope and do_4 is the repair; the test assertions stay as they are."
 do_6 = "Attempt 4 (continue): gotcha 2951. Keep the attempt-4 decoder (exact field set keyId, publicKey, firstHeight, lastHeight; empty list allowed). Correct the node fixtures in handshake_gate.rs (ready_node) and human_node.rs so firstHeight and lastHeight are JSON numbers exactly as rpc/sequencer_receipt.go ReceiptKey encodes them (uint64), and assert in one fixture test that the fixture body decodes with the same decoder as the real node answer."
+do_7 = "Attempt 5 (requalify after 22.99.158 and 22.99.159): the locked build failed only on the stale services/agent lock (gotcha 2954) and main then lacked the consent fixture (gotcha 2956). Requalify the attempt-5 tree once both repairs are on main; a test that still fails is repaired inside the paths."
 
 [task.22.23.14]
 title = "Read paymentDenom in the relayer receipt decoder and classify the Programs call vector case"
@@ -141031,7 +141081,7 @@ title = "Build the human projection facts fixture in-process from the Human peer
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.9.31"]
+requires = ["22.9.31", "22.99.159"]
 reqs = ["22096.1"]
 capabilities = ["22.9.38"]
 interfaces = []
@@ -141284,7 +141334,7 @@ title = "Delete the agent daemon's legacy activity preparation module and the ke
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["9.35.22", "9.35.23"]
+requires = ["9.35.22", "9.35.23", "22.99.159"]
 reqs = ["22063.1"]
 capabilities = ["9.35.24"]
 interfaces = []
@@ -141344,7 +141394,7 @@ title = "Build the agent daemon test authorizations from the ledger payment call
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["9.35.21"]
+requires = ["9.35.21", "22.99.159"]
 reqs = ["22061.1"]
 capabilities = ["9.35.22"]
 interfaces = []
@@ -141375,7 +141425,7 @@ title = "Attach external secp256k1 signatures to the prepared call in every Huma
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["9.35.20"]
+requires = ["9.35.20", "22.99.159"]
 reqs = ["22060.1"]
 capabilities = ["9.35.21"]
 interfaces = []
@@ -141405,7 +141455,7 @@ title = "Serve the Human API prepare, native, native-effect, native-send and nat
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["9.35.18", "9.35.19"]
+requires = ["9.35.18", "9.35.19", "22.99.159"]
 reqs = ["22059.1"]
 capabilities = ["9.35.20"]
 interfaces = []
@@ -141436,7 +141486,7 @@ title = "Read the call-bound preparation in the native-effect carrier and the pr
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["9.35.17", "22.99.158"]
+requires = ["9.35.17", "22.99.158", "22.99.159"]
 reqs = ["22058.1"]
 capabilities = ["9.35.19"]
 interfaces = []
@@ -141465,6 +141515,7 @@ do_5 = "Decision 2468 (attempt 1, 6cd5d5ba0, continue): the two cache insertions
 do_6 = "tests/budget_durable_limits.rs line 488 passes prepared: &self.prepared where prepare::evm::Prepared is expected; after renaming the approval type to EvmPrepared the test fails with E0308. Update the test's import and type (or keep a pub use alias for the old name) so cargo build --all-targets compiles; the test's assertions stay unchanged."
 do_7 = "Attempt 4 (continue): the test build fails in tests/w7_core_time.rs (lines 245, 263, 465) because its prepared() helper (line 108) returns prepare::Prepared while LifecycleRegistry register and the permit register_preparation now take the call-bound prepare::evm::Prepared (task 9.35.17). Migrate the helper and its callers to the call-bound preparation (construct it the way tests/approval.rs or the native_send_preview_evm test does after 9.35.17) without weakening any assertion; the file is now inside the task's paths."
 do_8 = "Attempt 5 (continue after 22.99.158): the build failed only on the stale services/agent lock (gotcha 2954); requalify the attempt-5 tree once 22.99.158 is on main. If the migration of w7_core_time to the call-bound preparation then fails a test, repair it inside the task's paths."
+do_9 = "Attempt 6 (continue after 22.99.159): the build failed only because tests/fixtures/authority/provider-subject/consent.activity was absent on main (gotcha 2956); 22.99.159 restores it and this task now requires it. Continue the attempt-6 tree unchanged and run the gates."
 
 [task.9.35.18]
 title = "Hold approvals over the unsigned EIP-1559 call and replay them through bind_call"
@@ -141759,7 +141810,7 @@ title = "Port the agent daemon test support and the Human peer tests off the LNI
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.30", "22.95.11", "22.99.158"]
+requires = ["22.9.30", "22.95.11", "22.99.158", "22.99.159"]
 reqs = ["22045.1"]
 capabilities = ["22.9.31"]
 interfaces = []
@@ -142367,7 +142418,7 @@ title = "Reconcile the agent API schema, daemon freshness, SDK corpus and MCP sc
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.16", "22.9.24", "22.9.25", "22.9.33", "22.1.11", "22.1.12", "1.18.5", "22.95.11"]
+requires = ["22.9.16", "22.9.24", "22.9.25", "22.9.33", "22.1.11", "22.1.12", "1.18.5", "22.95.11", "22.99.159"]
 reqs = ["22012.1"]
 capabilities = ["22.9.18"]
 interfaces = []
@@ -184724,7 +184775,7 @@ title = "Delete the LNI framing, handshake, schema and transport module"
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.25.1", "9.24.4", "9.18.5", "9.13.1", "9.18.1", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.12.3", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "13.8.3", "22.9.24", "22.9.29", "22.9.30", "22.9.31", "22.9.32"]
+requires = ["9.25.1", "9.24.4", "9.18.5", "9.13.1", "9.18.1", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.12.3", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "13.8.3", "22.9.24", "22.9.29", "22.9.30", "22.9.31", "22.9.32", "22.99.159"]
 reqs = ["9277.1"]
 capabilities = ["9.24.7"]
 interfaces = ["interface.9.rs-client-lni-abi-abiversion-j44", "interface.9.rs-client-lni-abi-abiincompatible-j44", "interface.9.rs-client-lni-abi-fn-j44", "interface.9.rs-client-lni-abi-functions-j44", "interface.9.rs-client-lni-abi-handle-j44", "interface.9.rs-client-lni-abi-abiopenerror-j44", "interface.9.rs-client-lni-capabilities-capabilities", "interface.9.rs-client-lni-framing-decode-frame", "interface.9.rs-client-lni-framing-read-frame", "interface.9.rs-client-lni-framing-write-frame", "interface.9.rs-client-lni-framing-length-prefix-bytes-j44", "interface.9.rs-client-lni-framing-decodedframe-j44", "interface.9.rs-client-lni-handshake-noderole", "interface.9.rs-client-lni-handshake-nodeinfo", "interface.9.rs-client-lni-handshake-handshakeconfig", "interface.9.rs-client-lni-handshake-handshake", "interface.9.rs-client-lni-handshake-handshakeerror", "interface.9.rs-client-lni-handshake-perform", "interface.9.rs-client-lni-handshake-validate", "interface.9.rs-client-lni-handshake-encode-node-info", "interface.9.rs-client-lni-handshake-decode-node-info", "interface.9.rs-client-lni-handshake-sequencerkeychange-j44", "interface.9.rs-client-lni-handshake-perform-with-schema-j44", "interface.9.rs-client-lni-handshake-validate-with-schema-j44", "interface.9.rs-client-lni-refusal-corerefusal", "interface.9.rs-client-lni-refusal-decode-core-refusal", "interface.9.rs-client-lni-report-capabilityreport", "interface.9.rs-client-lni-report-capability-report", "interface.9.rs-client-lni-report-capabilitystatus-j44", "interface.9.rs-client-lni-report-capability-report-with-schema-j44", "interface.9.rs-client-lni-schema-version", "interface.9.rs-client-lni-schema-capability", "interface.9.rs-client-lni-schema-envelope", "interface.9.rs-client-lni-schema-schemaerror", "interface.9.rs-client-lni-schema-encode-envelope", "interface.9.rs-client-lni-schema-decode-envelope", "interface.9.rs-client-lni-schema-lni-v1-source-j44", "interface.9.rs-client-lni-schema-messagekind-j44", "interface.9.rs-client-lni-schema-messagedescriptor-j44", "interface.9.rs-client-lni-schema-schema-j44", "interface.9.rs-client-lni-schema-fn-j44", "interface.9.rs-client-lni-schema-fn-2-j44", "interface.9.rs-client-lni-schema-fn-2-3-j44", "interface.9.rs-client-lni-schema-goldenvector-j44", "interface.9.rs-client-lni-schema-fn-2-3-4-j44", "interface.9.rs-client-lni-schema-encode-envelope-with-schema-j44", "interface.9.rs-client-lni-schema-decode-envelope-with-schema-j44", "interface.9.rs-client-lni-transport-frameviolation", "interface.9.rs-client-lni-transport-transporterror", "interface.9.rs-client-lni-transport-limits", "interface.9.rs-client-lni-transport-connectiongate", "interface.9.rs-client-lni-transport-connectionpermit", "interface.9.rs-client-lni-transport-frametransport", "interface.9.rs-client-lni-transport-uds", "interface.9.rs-client-lni-transport-mutualtlsconfig", "interface.9.rs-client-lni-transport-tls", "interface.9.rs-client-lni-transport-trafficclass-j44", "interface.9.rs-client-lni-transport-outboundframe-j44", "interface.9.rs-client-lni-transport-multiplexer-j44"]
@@ -203495,7 +203546,7 @@ title = "Repair the inventory sweep target modules/sequencer/keeper"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.99.158"]
 reqs = ["22998.1"]
 capabilities = ["22.99.117"]
 interfaces = []
@@ -203504,11 +203555,11 @@ do_2 = "Decision 2506: the recorded failure is the time limit (240 or 600 second
 do_3 = "If the defect lies in a file outside the task's paths, stop and report the exact path and the failing output instead of editing it. If the recorded failure no longer reproduces on the current main line, no product change is made and the repair record says so."
 do_4 = "Write spec/layerx-merge/programme/sweeps/repairs/go-modules.106.kvx and spec/layerx-merge/programme/sweeps/repairs/go-modules-2.5.kvx, each with one block ([repair.go-modules.106] and [repair.go-modules-2.5]) holding target (the recorded target), command (the recorded command as run), revision (the 40-hex commit of main the verify passed at), result (repaired or already-passing), change (one sentence naming the files changed, or none) and producer_input_tests (the tests that need an input the qualification environment lacks, each with the input it needs, or an empty list). Product facts only; no names of people, nothing about how or where work is executed. The sweep record itself is left unchanged; a later inventory pass re-records it."
 symbols = []
-touches = ["modules/sequencer/keeper", "spec/layerx-merge/programme/sweeps/repairs/go-modules.106.kvx", "spec/layerx-merge/programme/sweeps/repairs/go-modules-2.5.kvx"]
+touches = ["modules/sequencer/keeper", "spec/layerx-merge/programme/sweeps/repairs/go-modules.106.kvx", "spec/layerx-merge/programme/sweeps/repairs/go-modules-2.5.kvx", "programs/tests/vectors"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/go-modules.106.kvx", "spec/layerx-merge/programme/sweeps/repairs/go-modules-2.5.kvx", "storage/state_db/sc/memiavl", "rpc/sequencer_receipt.go"]
 build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./modules/sequencer/keeper/"
-verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/go-modules.106.kvx && test -s spec/layerx-merge/programme/sweeps/repairs/go-modules-2.5.kvx && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/sequencer/keeper/"
+verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/go-modules.106.kvx && test -s spec/layerx-merge/programme/sweeps/repairs/go-modules-2.5.kvx && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/sequencer/keeper/ && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --tests && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_bundle_v2 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer_reads"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-chain-modules"
@@ -203516,11 +203567,12 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 60
+time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 1 (continue): TestReceiptKeysAppHashVector records app_hash at height 1200 while the tree writes version 1 where the initial version is 1200 (storage/state_db/sc/memiavl/tree.go:165, now a planned path): make the tree honour the configured initial version and keep the recorded vector unless its provenance shows it was recorded with the wrong version. TestProofSequencerModule reports the JSON view of an older receipt missing paymentDenom: the older receipt view carries the receipt's denomination (rpc/sequencer_receipt.go is a planned path). Report any failure whose fix lies outside the paths with file and line."
+do_6 = "Attempt 2 (continue): programs/tests/vectors is now in the paths. The four vectors ics23-admission-evidence, ics23-market-namespaces, ics23-module-catalogue and ics23-evm-storage (all -app-hash.json) were produced while the tree wrote version 1 instead of the configured initial version, which attempt 1 repaired, so regenerate them from the keeper with LXP_WRITE_VECTORS=1 on the four vector tests and commit the regenerated files. The verify then runs the Rust consumers of those vectors (the arbiter crate tests, the agent daemon proof_bundle_v2 test and the client sequencer_reads test); a consumer that fails on the regenerated vectors is a real producer-to-consumer break: report the exact test and field in the repair record instead of hand-editing a vector."
 
 [task.22.99.116]
 title = "Repair the inventory sweep target modules/pricefeed/types"
@@ -240118,7 +240170,7 @@ do_2 = "tests/agent/sdk/python/test_account_derivation.py:19 imports layerx_sdk,
 do_3 = "If the defect lies in a file outside the task's paths, stop and report the exact path and the failing output instead of editing it. If the recorded failure no longer reproduces on the current main line, no product change is made and the repair record says so."
 do_4 = "Write spec/layerx-merge/programme/sweeps/repairs/python-pytest-collect.48.kvx, each with one block ([repair.python-pytest-collect.48]) holding target (the recorded target), command (the recorded command as run), revision (the 40-hex commit of main the verify passed at), result (repaired or already-passing), change (one sentence naming the files changed, or none) and producer_input_tests (the tests that need an input the qualification environment lacks, each with the input it needs, or an empty list). Product facts only; no names of people, nothing about how or where work is executed. The sweep record itself is left unchanged; a later inventory pass re-records it."
 symbols = []
-touches = ["tests/agent/sdk/python", "spec/layerx-merge/programme/sweeps/repairs/python-pytest-collect.48.kvx"]
+touches = ["tests/bridge/retired", "spec/layerx-merge/programme/sweeps/repairs/python-pytest-collect.48.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/python-pytest-collect.48.kvx"]
 build_cmd = "python3 -m pytest --version"
@@ -240135,6 +240187,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "The build command is the pytest version check; the Python SDK is not installed in editable mode (its local build backend has no build_editable hook). Collection runs against the checked-out tree like the sibling collection tasks."
+do_6 = "Attempts 1 and 2 (reopened): the collection fails with import file mismatch because tests/ci/test_retired_emergency_exit.py and tests/bridge/retired/test_retired_emergency_exit.py share a module name. tests/bridge/retired is now the only product path: rename tests/bridge/retired/test_retired_emergency_exit.py to tests/bridge/retired/test_retired_bridge_emergency_exit.py (content unchanged), then python3 -m pytest -q --collect-only tests exits 0; the repair record names the rename."
 
 [task.22.99.149]
 title = "Repair the inventory sweep target deploy/launchpad/production/observability/phase2/tests"

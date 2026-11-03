@@ -14600,3 +14600,8 @@ fix = "Give every Rust task its workspace lock as a planned path (decision 2511)
 title = "The indexer proof tests spawn the Go proof producers, which link against the kernel native libraries a Rust-only build never produces"
 symptom = "hosted/indexer/tests/history_position.rs runs go test for the layerxledger, layerxpay and layerxauth proof producers and reads their bytes from stdin; in a Rust-only environment the Go link step fails (cannot find the kernel and programs environment libraries) and the three proof tests panic with an empty producer answer."
 fix = "Run such tasks in the mixed environment profile and build the kernel native libraries (make -s paxd-native-libs) before the cargo build."
+
+[gotcha.2956]
+title = "A fixture file a test includes at compile time was created during the task but did not reach its commit"
+symptom = "Task 9.98.2 made two agent daemon tests include tests/fixtures/authority/provider-subject/consent.activity; its commit a1ea1c8a6 deleted onboarding.activity but did not add the new file, so cargo build --tests of layerx-agentd fails on main for every later task while the task's own verification had passed against its working tree."
+fix = "22.99.159 restores the fixture from its producer (the signed consent inside sponsored.activity); every task that creates a file its code includes or reads lists the file in the change set and the repair record names it; reviewers compare the commit's file list with the new include_bytes and read_to_string paths."
