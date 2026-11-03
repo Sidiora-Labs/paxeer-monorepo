@@ -133423,7 +133423,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1211.6]
 title = "Refresh the interop and explorer copies of the sequencer receipt vectors from the conformance source and compare them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.23.8", "22.23.14"]
