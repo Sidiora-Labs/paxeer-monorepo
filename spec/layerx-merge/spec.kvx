@@ -119809,7 +119809,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.26]
 title = "Close the 24 dependency alerts of tests/integration/dapp_tests/package-lock.json"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -119899,7 +119899,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.22]
 title = "Close the 4 dependency alerts of services-explorer-block-scout-web-assets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -120079,7 +120079,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.6]
 title = "Close the 2 dependency alerts of apps/wallet/package.json, apps/wallet/pnpm-lock.yaml"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -139428,7 +139428,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.25]
 title = "Report the 10 dependency alerts of services-launchpad that name no patched version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -139518,7 +139518,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.13]
 title = "Close the 3 dependency alerts of go.mod"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -168771,7 +168771,7 @@ do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/co
 
 [task.22.96.21]
 title = "Close the 5 dependency alerts of sdk/platform/jvm/pom.xml"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -193084,7 +193084,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.95.3]
 title = "Record the fee-token sequencer receipt vector as its own producer-generated fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
