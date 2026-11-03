@@ -120019,7 +120019,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.9]
 title = "Close the 13 dependency alerts of contracts/package-lock.json"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -120049,7 +120049,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.8]
 title = "Report the 1 dependency alerts of contracts/launchpad/pnpm-lock.yaml that name no patched version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -120199,7 +120199,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.2]
 title = "Report the 1 dependency alerts of apps/launchpad/pnpm-lock.yaml that name no patched version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
