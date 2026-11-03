@@ -187,19 +187,19 @@ func TestResolutionBatchInjection(t *testing.T) {
 	require.Error(t, err, "consumer must refuse a truncated real producer batch")
 
 	at := time.UnixMilli(batch.TimestampMs).UTC()
-	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, resolutionProposal(t, rh.app, openHeight, at, block))
+	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, resolutionProposalFrom(t, rh.app, openHeight, at, block, rh.proposer))
 
 	// A batch whose txRoot differs from the sealed sequence is refused, even when re-signed.
 	other := root
 	other[0] ^= 0xff
 	_, tampered := resolutionBatch(t, batch, other)
 	require.Equal(t, abci.ResponseProcessProposal_REJECT,
-		resolutionProposal(t, rh.app, openHeight, at, append([][]byte{tampered}, batch.Txs...)))
+		resolutionProposalFrom(t, rh.app, openHeight, at, append([][]byte{tampered}, batch.Txs...), rh.proposer))
 
 	// So is the sealed slice out of receipt order under the original batch.
 	swapped := append([][]byte{batchTx}, batch.Txs...)
 	swapped[1], swapped[2] = swapped[2], swapped[1]
-	require.Equal(t, abci.ResponseProcessProposal_REJECT, resolutionProposal(t, rh.app, openHeight, at, swapped))
+	require.Equal(t, abci.ResponseProcessProposal_REJECT, resolutionProposalFrom(t, rh.app, openHeight, at, swapped, rh.proposer))
 }
 
 func TestResolutionNonceQueue(t *testing.T) {
@@ -397,6 +397,6 @@ func TestResolutionProposalSource(t *testing.T) {
 	require.Equal(t, abci.ResponseProcessProposal_REJECT, resolutionProposal(t, rh.app, openHeight, at, batch.Txs))
 	require.Equal(t, abci.ResponseProcessProposal_REJECT, resolutionProposal(t, rh.app, openHeight, at, nil))
 	require.Equal(t, abci.ResponseProcessProposal_ACCEPT,
-		resolutionProposal(t, rh.app, openHeight, at, append([][]byte{batchTx}, batch.Txs...)))
+		resolutionProposalFrom(t, rh.app, openHeight, at, append([][]byte{batchTx}, batch.Txs...), rh.proposer))
 
 }

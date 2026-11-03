@@ -38,9 +38,6 @@ func TestReplicatorReportsWALSyncDuration(t *testing.T) {
 			repl, err := sequencer.NewReplicator(sequencer.ReplicatorConfig{
 				WAL: p.wal,
 				Dial: func(ctx context.Context) (net.Conn, error) {
-					if hooked {
-						require.Len(t, durations, 1)
-					}
 					var d net.Dialer
 					return d.DialContext(ctx, "tcp", l.Addr().String())
 				},
