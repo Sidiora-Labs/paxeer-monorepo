@@ -8109,6 +8109,12 @@ value = "Tests whose names carry real_https or checks_the_actual_server_identity
 basis = "22.99.63 attempt 2: ten station tests pass and the two real_https tests fail without the boundary binary."
 affects = ["22.99.63"]
 
+[decision.2500]
+title = "The MCP native-read proof is isolated from the live node before the MCP sweep repair runs"
+value = "The layerx-mcp sweep repair (22.99.52) fails in the five native_reads::daemon::proof tests of tests/proof_native_reads.rs with real local node required; task 18.1578.1 (issue #1578) isolates exactly those inherited live-node tests so the proof runs without LOCAL_NODE_RPC. 22.99.52 requires 18.1578.1 instead of excluding the tests, so the repaired proof is exercised by the sweep verify; the remaining failures of the crate (three binding tests refused with mcp.binding_retired_key, the_web_section_is_closed_and_typed at daemon_bound.rs:1089, web_binding_names_a_receipt_key_index at web_payments_layerxpay.rs:429, a_settlement_under_another_sequencer_key_is_refused, a_web_scoped_session_without_an_attached_payer_is_refused, native_reads_producer_http_consumer_reopens_and_refuses_malformed_results, payer_artifacts_that_do_not_bind_the_offer_are_never_sent) are deterministic defects the repair task fixes."
+basis = "22.99.52 attempt 1: 5 tests need the local node, 9 fail on binding parsing, retired key refusals and receipt key index assertions."
+affects = ["22.99.52", "18.1578.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -137578,7 +137584,7 @@ title = "Repair the inventory sweep target layerx-mcp"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1578.1"]
 reqs = ["22998.1"]
 capabilities = ["22.99.52"]
 interfaces = []
@@ -137602,6 +137608,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 1 (continue): decision 2500. The five native_reads::daemon::proof tests are isolated from the live node by 18.1578.1 (required); do not exclude or edit them. Repair the deterministic failures inside the crate: the three binding tests refused with mcp.binding_retired_key (the fixture binding still names the retired key; rebuild it from the daemon enrolment the served path opens), the_web_section_is_closed_and_typed (daemon_bound.rs:1089, Binding::parse of the served body), web_binding_names_a_receipt_key_index (web_payments_layerxpay.rs:429), a_settlement_under_another_sequencer_key_is_refused, a_web_scoped_session_without_an_attached_payer_is_refused, native_reads_producer_http_consumer_reopens_and_refuses_malformed_results and payer_artifacts_that_do_not_bind_the_offer_are_never_sent. Name in the commit any decision that retired an asserted behaviour; never delete, skip or weaken a test."
 
 [task.22.99.51]
 title = "Repair the inventory sweep target layerx-agentd-host"
