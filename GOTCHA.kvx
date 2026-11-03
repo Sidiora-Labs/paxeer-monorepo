@@ -14325,3 +14325,13 @@ fix = "When a module is retired, list every file that includes its header, gener
 title = "A test that never ran is stale on arrival"
 symptom = "The agent SDK gas-station test asserted the latest block tag five days after the source moved to pending; no environment had the local EVM, so the test never ran and nobody noticed."
 fix = "When a toolchain is first provided, read the test's expectations against the current contract before treating a failure as a regression of the candidate."
+
+[gotcha.2901]
+title = "A field added to a producer's view reaches every consumer's mutation test"
+symptom = "22.23.8 added paymentDenom to the sequencer receipt view; the relayer's submitted-rung test copies every receipted field onto a submitted answer and expects a refusal, so the new field made the relayer test fail although the relayer never read it."
+fix = "When a view gains a field, list the consumers whose tests enumerate the view's fields and port them with the producer."
+
+[gotcha.2902]
+title = "A triage report is cheaper than a guess"
+symptom = "Fifty-one open issues and eighty-seven findings waited for a reader; writing one report task per issue and one disposition task per ten findings turns the backlog into checkable files."
+fix = "Triage by report with a fixed shape and a checker, then splice the accepted blocks; never author tasks from issue text that nobody checked against main."
