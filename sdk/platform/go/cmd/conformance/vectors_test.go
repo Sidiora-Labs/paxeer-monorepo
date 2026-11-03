@@ -92,8 +92,8 @@ func TestConformanceCommandFailsOnTamperedVector(t *testing.T) {
 	if err := json.Unmarshal(data, &vector); err != nil {
 		t.Fatal(err)
 	}
-	if len(vector.Cases) != 4 {
-		t.Fatalf("expected four V1 cases, got %d", len(vector.Cases))
+	if len(vector.Cases) != 5 {
+		t.Fatalf("expected five V1 cases, got %d", len(vector.Cases))
 	}
 	c := vector.Cases[0]
 	if !strings.HasPrefix(c.ReceiptJSON.Receipt, "0x") {
