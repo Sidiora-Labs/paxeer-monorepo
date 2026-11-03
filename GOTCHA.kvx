@@ -14070,3 +14070,38 @@ fix = "Before appending a finding, check the id is unused; a duplicate is remove
 title = "A transport entry restored for a retired operation needs its operation declaration too"
 symptom = "The drift test compares the transport operations of the agent API schema with the [operation.<name>] declarations; a task restored the retired faucet.claim transport entry without the declaration and the next task to touch the schema failed the drift test."
 fix = "Restore or add transport entries and operation declarations together; the drift test is the oracle for both."
+
+[gotcha.2850]
+title = "Node's strip-only TypeScript loader refuses constructor parameter properties"
+symptom = "A TypeScript source loaded directly by node --test used constructor parameter properties (private readonly in the parameter list) and node 24 refused it with ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX in strip-only mode."
+fix = "A .ts file that node loads without a build step declares its fields explicitly and assigns them in the constructor body; parameter properties, enums and namespaces need a build step."
+
+[gotcha.2851]
+title = "An in-repo Maven module must be installed before a dependent module can resolve it"
+symptom = "mvn dependency:resolve on an integration module failed with 'Could not find artifact' for the repository's own sdk artifact, because the local repository had no copy and no remote carries it."
+fix = "Run mvn install (tests skipped) of the in-repo module first, then resolve the modules that depend on it; put both into the same command."
+
+[gotcha.2852]
+title = "A match-arm repair must cite the variant list of the current main, not a planned one"
+symptom = "A do item named two enum variants that a later task was going to add; the attempt added arms for them and the build failed with E0599 because the enum on main did not declare them."
+fix = "Before writing a do item that names enum variants or fields, read the declaration on the current main; a repair that depends on a planned variant belongs to the task that adds the variant."
+
+[gotcha.2853]
+title = "A pinned dependency requirement blocks a lock-file raise"
+symptom = "A lock-file raise to a floored version failed silently: the manifest pinned the dependency with an exact requirement (=9.3.1), so the lock could not move without a manifest edit outside the task's touches."
+fix = "A floor task whose package is pinned exactly in a manifest includes that manifest in its touches, raises the requirement with the lock, and builds the crate that uses it."
+
+[gotcha.2854]
+title = "A go.mod replace onto an in-repo module changes the module graph and go.sum must follow"
+symptom = "Replacing a published module with a relative in-repo path made the module graph load a requirement whose go.mod hash go.sum did not carry; the task's own environment built, a fresh environment failed with missing go.sum entry for go.mod file."
+fix = "A task that edits go.mod runs go list -mod=readonly -m all and go mod verify as part of its verify and commits the go.sum entries they need; the dependent check builds in a fresh module cache."
+
+[gotcha.2855]
+title = "Changing a package's decision rule while running only the new test file leaves the package suite red"
+symptom = "7829d8d2b (22.23.10) made a differing requestDigest a 409 receipt_reuse refusal and verified only two test files; the seller package suite failed on main at settlement-response.test.mjs:352 until 22.8.11 repaired it."
+fix = "A task that changes a decision rule of a package runs that package's whole test suite in its verify, not only the file it adds."
+
+[gotcha.2856]
+title = "A retired transport section must not be declared as a catalogue operation"
+symptom = "Adding [operation.faucet.claim] to satisfy the catalogue drift test generated an Operation variant that five exhaustive matches of the agent daemon did not cover and the dependent-crate check failed."
+fix = "Exempt retired transport sections in the drift test (decision 2370); never declare an operation for a name the daemon refuses by RETIRED_OPERATIONS."
