@@ -246905,7 +246905,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.22]
 title = "Pre-upgrade audit of launchpad: apps/launchpad/web/src/widgets/profile (141 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247129,7 +247129,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.15]
 title = "Pre-upgrade audit of markets: modules/spot (124 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247289,7 +247289,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.10]
 title = "Pre-upgrade audit of markets: apps/perps/src/app (17 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247545,7 +247545,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.2]
 title = "Pre-upgrade audit of kernel: src/modules/programs (107 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247577,7 +247577,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.1]
 title = "Pre-upgrade audit of kernel: src/modules/escrow (67 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
