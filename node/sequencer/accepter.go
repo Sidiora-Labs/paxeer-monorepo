@@ -54,7 +54,7 @@ func (a *Accepter) Accept(txBytes []byte) (evmrpc.AcceptedSend, error) {
 		}
 		return evmrpc.AcceptedSend{}, err
 	}
-	send, exec, err := a.send(txBytes, acc, receipt)
+	send, exec, err := a.r.send(txBytes, acc, receipt)
 	if err != nil {
 		a.halted = true
 		return evmrpc.AcceptedSend{}, fmt.Errorf("sequencer: accepted send at sequence %d: %w", acc.Seq, err)
@@ -76,20 +76,20 @@ func (a *Accepter) Accept(txBytes []byte) (evmrpc.AcceptedSend, error) {
 	return evmrpc.AcceptedSend{Receipt: receipt, Height: acc.Height, Exec: exec}, nil
 }
 
-func (a *Accepter) send(txBytes []byte, acc *Accepted, receipt []byte) (evmrpc.SequencerSend, *evmtypes.Receipt, error) {
+func (r *Receipter) send(txBytes []byte, acc *Accepted, receipt []byte) (evmrpc.SequencerSend, *evmtypes.Receipt, error) {
 	decoded, err := codec.DecodeReceipt(receipt)
 	if err != nil {
 		return evmrpc.SequencerSend{}, nil, err
 	}
 	send := evmrpc.SequencerSend{Nonce: decoded.FromSequence, Receipt: receipt}
-	tx, err := a.r.host.GetTxConfig().TxDecoder()(txBytes)
+	tx, err := r.host.GetTxConfig().TxDecoder()(txBytes)
 	if err != nil {
 		return evmrpc.SequencerSend{}, nil, err
 	}
-	if a.r.host.GetEVMMsg(tx) == nil {
+	if r.host.GetEVMMsg(tx) == nil {
 		return send, nil, nil
 	}
-	rcpt, err := a.r.evm.GetTransientReceipt(acc.ReceiptContext, common.Hash(acc.ActivityID), uint64(acc.TxIndex))
+	rcpt, err := r.evm.GetTransientReceipt(acc.ReceiptContext, common.Hash(acc.ActivityID), uint64(acc.TxIndex))
 	if err != nil {
 		return evmrpc.SequencerSend{}, nil, err
 	}

@@ -15,10 +15,12 @@ export class ChainDraftStorage {
     return `chain-draft-v1:125:${this.creator}`;
   }
 
-  private checked(draft: ChainDraft): ChainDraft {
-    const errors = validateChainDraft(draft, Date.now());
+  private checked(draft: ChainDraft, kind: 'draft' | 'submission'): ChainDraft {
+    const now = Date.now();
+    const errors = validateChainDraft(draft, kind === 'draft' ? now : draft?.updatedAt);
     delete errors.name;
     if (Object.keys(errors).length || draft.version !== 1 || address(draft.creator) !== this.creator
+      || !Number.isSafeInteger(now) || draft.updatedAt > now
       || typeof draft.name !== 'string' || draft.name.length > 32) {
       throw new Error('Your saved chain draft is invalid or expired.');
     }
@@ -27,18 +29,18 @@ export class ChainDraftStorage {
   }
 
   saveDraft(draft: ChainDraft): void {
-    localStorage.setItem(this.key(), JSON.stringify(this.checked(draft)));
+    localStorage.setItem(this.key(), JSON.stringify(this.checked(draft, 'draft')));
   }
 
   restoreDraft(): ChainDraft | null {
     const body = localStorage.getItem(this.key());
     if (body === null) return null;
     if (body.length > 4096) throw new Error('Your saved chain draft is too large.');
-    return this.checked(JSON.parse(body));
+    return this.checked(JSON.parse(body), 'draft');
   }
 
   saveSubmission(draft: ChainDraft, submission: ChainSubmission): void {
-    const checked = this.checked(draft);
+    const checked = this.checked(draft, 'submission');
     if (address(submission.creator) !== this.creator || submission.chainId !== checked.chainId
       || !['confirm', 'reverted'].includes(submission.phase)) throw new Error('Invalid saved submission.');
     const saved: ChainSubmission = {
@@ -58,7 +60,7 @@ export class ChainDraftStorage {
     if (body.length > 4096) throw new Error('Your saved submission is too large.');
     const saved = JSON.parse(body) as { draft: ChainDraft; submission: ChainSubmission };
     const owner = new ChainDraftStorage(saved.submission.creator);
-    const draft = owner.checked(saved.draft);
+    const draft = owner.checked(saved.draft, 'submission');
     const submission = saved.submission;
     if (address(submission.creator) !== address(draft.creator) || submission.chainId !== draft.chainId
       || !['confirm', 'reverted'].includes(submission.phase)) throw new Error('Invalid saved submission.');

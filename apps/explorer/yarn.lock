@@ -18645,11 +18645,6 @@ js-cookie@3.0.7:
   resolved "https://registry.yarnpkg.com/js-cookie/-/js-cookie-3.0.7.tgz#0a53abfc459c8e89c85d7a38eb6cb68714965b8c"
   integrity sha512-z/wZZgDrkNV1eA0ULjM/F9/50Ya8fbzgKneSpoPsXSGd0KnpdtHfOZWK+GcwLk+EZbS4F9RBhU+K2RgzuDaItw==
 
-js-cookie@^3.0.7:
-  version "3.0.8"
-  resolved "https://registry.yarnpkg.com/js-cookie/-/js-cookie-3.0.8.tgz#444e6f4b27a5d844594fef61c9d6bca5f0787688"
-  integrity sha512-yeJd4aNAdYZQjaon2bpD/Gb0B/omw7HQOsynXXcOiWVCacbBcPlgn8S/d1X6blFSaHao7ozqtW7NZW19xpCtIw==
-
 js-file-download@^0.4.12:
   version "0.4.12"
   resolved "https://registry.yarnpkg.com/js-file-download/-/js-file-download-0.4.12.tgz#10c70ef362559a5b23cdbdc3bd6f399c3d91d821"
@@ -20401,11 +20396,6 @@ phoenix@1.6.17:
   version "1.6.17"
   resolved "https://registry.yarnpkg.com/phoenix/-/phoenix-1.6.17.tgz#f2d571fc50bad51e536d9971f5fab5bbfa45bbcf"
   integrity sha512-nDEw3+JHDjjjsG7GMKQUcynhX7i9oPx/Wk5dUy/0kf3RTWkpk2gE4w2+dGMMxikvy9hEBqvzD1eLhv9g8G3VnQ==
-
-phoenix@^1.6.17:
-  version "1.8.16"
-  resolved "https://registry.yarnpkg.com/phoenix/-/phoenix-1.8.16.tgz#f8a3b1068aff4548170a8cdfc8f091f9a4f1983b"
-  integrity sha512-bNNJkYBnES2MHo8XjBg6ROK7iU7FeYfkANpTnYzh2ecOipI+8ZF1wiiWdvqv2YfV4MVb9yFJBE2BPF+RXgXXuw==
 
 picocolors@^1.0.0:
   version "1.1.0"
