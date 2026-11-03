@@ -1,0 +1,11 @@
+[reconcile.r13-83]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 1
+
+[row.r13-83.1]
+interface = "interface.13.cfg-programs-cargo-workspace-members"
+verdict = "served"
+path = "programs/Cargo.toml"
+line = 2
+symbol = "members"
+evidence = "The [workspace] key members = [ remains at programs/Cargo.toml:2. Compared with the registered signature, the current members list removes crates/layerx-programs-protocol-adapter; all other registered members remain in the same order."
