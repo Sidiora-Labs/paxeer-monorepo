@@ -19507,3 +19507,83 @@ symbol = "fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly"
 observed = "take_execution_trap_record answers None after a recursive guest traps with StackOverflow under a 128-frame stack limit, so the test panics at :61 real terminal trap record on the current main."
 assumption = "Decision 2403: the vendored engine raises the trap at call entry without recording the terminal step; 22.13.12 records it."
 severity = "medium"
+
+[finding.22.7.3.3]
+task = "22.7.3"
+file = "rpc/tests/regression_test.go"
+symbol = "TestTransactionRegression"
+observed = "Two fixture cases replay Sei mainnet transactions that need the sei wasm capability and the seichain oracle vote type, which this chain does not carry."
+assumption = "Decision 2405: the two cases and fixtures leave."
+severity = "low"
+
+[finding.5.98.6.1]
+task = "5.98.6"
+file = "rpc/send_sequencer_test.go"
+symbol = "TestSendSequencerReturnsAfterReceipt"
+observed = "The sealed-layer send path continues to the pending context since 5.98.5 and 5.98.6, and the harness built without a WatermarkManager answers ErrPendingServedBySequencer where the test still expects ErrLayerNotOpen."
+assumption = "Decision 2405: the harness carries a WatermarkManager and expects ErrPendingBlockClosed."
+severity = "medium"
+
+[finding.7.18.1.1]
+task = "7.18.1"
+file = "rpc/tracers_test.go"
+symbol = "TestDebugGetRawMethodsNotSupported"
+observed = "The test still expects debug_getRawTransaction to refuse after 7.18.1 implemented it."
+assumption = "Decision 2405: the subtest leaves."
+severity = "low"
+
+[finding.7.10.1.1]
+task = "7.10.1"
+file = "rpc/subscribe_test.go"
+symbol = "TestSubscribeNewHeads"
+observed = "7.10.1 removed four header keys from encodeHead and 7.10.2 moved the head's gasUsed to the receipts, and the new-heads tests kept the old key set and the mock gas sum."
+assumption = "Decision 2406: both encoders carry the four keys and the test compares against eth_getBlockByNumber."
+severity = "medium"
+
+[finding.10.20.6.1]
+task = "10.20.6"
+file = "services/human/crates/layerx-human-service/tests/production_unhooked.rs"
+symbol = "components_binary_starts_without_recipient_environment"
+observed = "The human-owner daemon's network read needs the router's px_getNetwork, which the qualification environment cannot run (no Redis store, boundary, authority or client identity), so the proof answers it from a stand-in over the real node and consensus status; the router itself is outside this proof."
+assumption = "Decision 2407: a closure item adds a router helper to the localnode qualification once the environment carries its store."
+severity = "medium"
+
+[finding.22.11.8.1]
+task = "22.11.8"
+file = "modules/evm/keeper/msg_server.go"
+symbol = "VmError"
+observed = "The coded precompile suffix reaches only the transient receipt; the MsgServer response and EvmTxInfo carry the raw execution reverted string."
+assumption = "Decision 2408: a closure item decides whether the response carries the coded error too."
+severity = "low"
+
+[finding.9.35.17.1]
+task = "9.35.17"
+file = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"
+symbol = "SigningPreparation"
+observed = "Four human service test constructions still pass the authorization field that 9.35.17 removes from SigningPreparation, so the dependent-crate check fails to compile the human service tests."
+assumption = "Decision 2410: the constructions move with the struct inside 9.35.17."
+severity = "medium"
+
+[finding.21.95.1.5]
+task = "21.95.1"
+file = "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"
+symbol = "native_reads_producer_http_consumer_reopens_and_refuses_malformed_results"
+observed = "The task's enforced lists named the agent daemon test target that do_8 deleted, so a passing candidate was refused for a path with no change."
+assumption = "Decision 2411: the lists follow the finding."
+severity = "low"
+
+[finding.22.12.5.1]
+task = "22.12.5"
+file = "sdk/wallet/src/index.test.ts"
+symbol = "PaxeerWallet"
+observed = "The wallet SDK test file imports node built-ins while sdk/wallet/tsconfig.json compiles src/**/* with no node type declarations, so tsc -p sdk/wallet/tsconfig.json fails on every build."
+assumption = "Decision 2413: the build excludes the test files."
+severity = "medium"
+
+[finding.22.9.37.2]
+task = "22.9.37"
+file = "sdk/wallet/src/modules/exchange.ts"
+symbol = "exchange"
+observed = "The wallet SDK exchange module still calls the perps cancel encoder with two arguments after 22.9.37 narrowed it to one, so the web typecheck fails on main."
+assumption = "Decision 2413: 22.24.26 moves the caller; 22.23.13 requires it."
+severity = "medium"
