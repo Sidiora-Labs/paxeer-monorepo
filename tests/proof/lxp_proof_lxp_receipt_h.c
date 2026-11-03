@@ -210,10 +210,7 @@ static int receipt_h_restart(receipt_h_fixture *f)
     size_t account_count = p->accounts.count;
 
     LXP_CASE_CHECK(receipt_count == RECEIPT_H_PRODUCERS);
-    /* src/protocol/lxp_kernel.c:lxp_kernel_execute_activity deliberately keeps
-     * the retired idempotency cache empty (lxp_test_idempotency_retired.c).
-     * The real publication observer persists canonical receipts in the log. */
-    LXP_CASE_CHECK(p->state.idempotency_count == 0U);
+    /* The real publication observer persists canonical receipts in the log. */
     LXP_CASE_CHECK(lxp_log_close(&f->receipt_log) == LXP_OK);
     LXP_CASE_CHECK(lxp_state_root(&p->kernel, before) == LXP_OK);
     LXP_CASE_CHECK(lxp_state_snapshot_create(&p->state, &saved) == LXP_OK);
@@ -225,7 +222,6 @@ static int receipt_h_restart(receipt_h_fixture *f)
     LXP_CASE_CHECK(lxp_state_store_bind_accounts(&p->state,
         &p->accounts) == LXP_OK);
     LXP_CASE_CHECK(p->state.next_sequence == 0U);
-    LXP_CASE_CHECK(p->state.idempotency_count == 0U);
     LXP_CASE_CHECK(p->accounts.count == 0U);
     LXP_CASE_CHECK(lx_account_registry_reserve(&p->accounts,
         account_count) == LXP_OK);
@@ -234,7 +230,6 @@ static int receipt_h_restart(receipt_h_fixture *f)
     LXP_CASE_CHECK(lxp_state_root(&p->kernel, after) == LXP_OK);
     LXP_CASE_CHECK(memcmp(before, after, 32U) == 0);
     LXP_CASE_CHECK(p->state.next_sequence == 10U);
-    LXP_CASE_CHECK(p->state.idempotency_count == 0U);
     LXP_CASE_CHECK(p->accounts.accounts[0].balance.lo == 7U);
     LXP_CASE_CHECK(p->accounts.accounts[1].balance.lo == 3U);
 

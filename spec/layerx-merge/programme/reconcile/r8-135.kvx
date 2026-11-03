@@ -1,0 +1,243 @@
+[reconcile.r8-135]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-135.1]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supporttopic-deposit"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2529
+symbol = "DEPOSIT"
+evidence = "HumanModels.SupportTopic declares DEPOSIT(\"deposit\"), matching the registered wire value; the earlier DEPOSIT at line 1103 belongs to ActivityEntryKind."
+
+[row.r8-135.2]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supporttopic-withdrawal"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2530
+symbol = "WITHDRAWAL"
+evidence = "HumanModels.SupportTopic declares WITHDRAWAL(\"withdrawal\"), matching the registered wire value; the earlier WITHDRAWAL at line 1104 belongs to ActivityEntryKind."
+
+[row.r8-135.3]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-timedsecret"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2542
+symbol = "TimedSecret"
+evidence = "HumanModels declares the TimedSecret record with String value, String remask_at and boolean copyable, implementing SchemaTypes.GeneratedResponse; line 2543 is its compact constructor."
+
+[row.r8-135.4]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-verifiedmoney"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2560
+symbol = "VerifiedMoney"
+evidence = "HumanModels declares VerifiedMoney as a GeneratedResponse record. Relative to the registered signature, verification is now HumanModels.HumanVerificationLevel instead of HumanModels.VerificationLevel, and HumanModels.Rung rung is appended after verification; HumanModels.Money money remains."
+
+[row.r8-135.5]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-versioninfo"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2566
+symbol = "VersionInfo"
+evidence = "HumanModels declares VersionInfo(HumanModels.SchemaVersion schema, String service) implementing SchemaTypes.GeneratedResponse; the following occurrence is its compact constructor."
+
+[row.r8-135.6]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-walletsignrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2572
+symbol = "WalletSignRequest"
+evidence = "HumanModels declares WalletSignRequest as a GeneratedResponse record with the original String stage_id, copy_key, from_address and to_sign_base64 fields. The registered HumanModels.SettlementDomain settlement_domain is replaced by String chain_id, String nonce, ProtocolAmount max_fee_per_gas and ProtocolAmount max_priority_fee_per_gas."
+
+[row.r8-135.7]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3405
+symbol = "HumanOperations"
+evidence = "The public static final class HumanOperations declaration encloses the human request and response records and typed operations; line 3406 is its private constructor and later occurrences are operation-map references."
+
+[row.r8-135.8]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-accountbalancerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3407
+symbol = "AccountBalanceRequest"
+evidence = "HumanOperations declares the empty AccountBalanceRequest record implementing SchemaTypes.GeneratedRequest; ACCOUNT_BALANCE uses this request type at line 3418."
+
+[row.r8-135.9]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-accountbalanceresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3409
+symbol = "AccountBalanceResponse"
+evidence = "HumanOperations declares AccountBalanceResponse as a GeneratedResponse record. Compared with the registered signature, verification now uses HumanModels.HumanVerificationLevel instead of HumanModels.VerificationLevel and HumanModels.Rung rung is appended after evidence; account_id, money, freshness and evidence remain."
+
+[row.r8-135.10]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-accountcreaterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3419
+symbol = "AccountCreateRequest"
+evidence = "HumanOperations declares AccountCreateRequest(String email, String display_name) implementing SchemaTypes.GeneratedRequest, matching the registered signature. The namesake at line 1068 belongs to HumanModels and implements GeneratedResponse."
+
+[row.r8-135.11]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-accountcreateresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3425
+symbol = "AccountCreateResponse"
+evidence = "HumanOperations declares AccountCreateResponse(String account_id, HumanModels.Journey onboarding) implementing SchemaTypes.GeneratedResponse; ACCOUNT_CREATE references the record at line 3431."
+
+[row.r8-135.12]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-activityentryrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3432
+symbol = "ActivityEntryRequest"
+evidence = "HumanOperations declares the empty ActivityEntryRequest record implementing SchemaTypes.GeneratedRequest; the later occurrence at line 3446 is the ACTIVITY_ENTRY typed-operation reference."
+
+[row.r8-135.13]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-activityentryresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3434
+symbol = "ActivityEntryResponse"
+evidence = "HumanOperations declares ActivityEntryResponse implementing SchemaTypes.GeneratedResponse with the registered entry_id, kind, state, copy keys, occurred_at, stages, evidence, money, fees, direction, agent_id, journey_id and approval_id fields; the next occurrence is its compact constructor."
+
+[row.r8-135.14]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-activityexportevidencerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3447
+symbol = "ActivityExportEvidenceRequest"
+evidence = "HumanOperations declares ActivityExportEvidenceRequest(HumanModels.ActivityFilter filter, List<String> entry_ids) implementing SchemaTypes.GeneratedRequest; the following occurrence is its compact constructor."
+
+[row.r8-135.15]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-activityexportevidenceresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3452
+symbol = "ActivityExportEvidenceResponse"
+evidence = "HumanOperations declares ActivityExportEvidenceResponse implementing SchemaTypes.GeneratedResponse. Its registered export_id, kind, download_path, content_type, created_at and evidence fields remain, with HumanModels.Rung rung appended after evidence."
+
+[row.r8-135.16]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-activityexportstatementrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3463
+symbol = "ActivityExportStatementRequest"
+evidence = "HumanOperations declares ActivityExportStatementRequest(HumanModels.ActivityFilter filter) implementing SchemaTypes.GeneratedRequest; ACTIVITY_EXPORT_STATEMENT references this record at line 3475."
+
+[row.r8-135.17]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-activityexportstatementresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3465
+symbol = "ActivityExportStatementResponse"
+evidence = "HumanOperations declares ActivityExportStatementResponse implementing SchemaTypes.GeneratedResponse. Its registered export_id, kind, download_path, content_type, created_at and evidence fields remain, with HumanModels.Rung rung appended after evidence."
+
+[row.r8-135.18]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-activityqueryrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3476
+symbol = "ActivityQueryRequest"
+evidence = "HumanOperations declares ActivityQueryRequest(String cursor, HumanModels.ActivityFilter filter, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) Long page_limit) implementing SchemaTypes.GeneratedRequest. The namesake at line 1137 implements GeneratedResponse under HumanModels."
+
+[row.r8-135.19]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-activityqueryresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3478
+symbol = "ActivityQueryResponse"
+evidence = "HumanOperations declares ActivityQueryResponse(List<HumanModels.ActivityGroup> groups, String next_cursor, HumanModels.ActivityFilter filter) implementing SchemaTypes.GeneratedResponse; the next occurrence is its compact constructor."
+
+[row.r8-135.20]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentarchiverequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3486
+symbol = "AgentArchiveRequest"
+evidence = "HumanOperations declares AgentArchiveRequest(String confirm_name) implementing SchemaTypes.GeneratedRequest. The namesake at line 1153 is a HumanModels GeneratedResponse record; AGENT_ARCHIVE references the request at line 3503."
+
+[row.r8-135.21]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentarchiveresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3491
+symbol = "AgentArchiveResponse"
+evidence = "HumanOperations declares AgentArchiveResponse implementing SchemaTypes.GeneratedResponse with the registered journey_id, kind, state, state_copy_key, stages, evidence, started_at, updated_at, refusal and wallet_request fields; line 3492 is its compact constructor."
+
+[row.r8-135.22]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentcreaterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3504
+symbol = "AgentCreateRequest"
+evidence = "HumanOperations declares AgentCreateRequest(String name, String purpose, HumanModels.Money monthly_limit, HumanModels.NativeFeeBudget native_fee_budget) implementing SchemaTypes.GeneratedRequest. The namesake at line 1158 is a HumanModels GeneratedResponse record."
+
+[row.r8-135.23]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentcreateresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3511
+symbol = "AgentCreateResponse"
+evidence = "HumanOperations declares AgentCreateResponse implementing SchemaTypes.GeneratedResponse. Its registered journey_id, kind, state, state_copy_key, stages, evidence, started_at, updated_at, refusal and wallet_request fields remain, with HumanModels.Rung rung appended after wallet_request."
+
+[row.r8-135.24]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentgetrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3524
+symbol = "AgentGetRequest"
+evidence = "HumanOperations declares the empty AgentGetRequest record implementing SchemaTypes.GeneratedRequest; the later occurrence at line 3540 is the AGENT_GET typed-operation reference."
+
+[row.r8-135.25]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentgetresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3526
+symbol = "AgentGetResponse"
+evidence = "HumanOperations declares AgentGetResponse implementing SchemaTypes.GeneratedResponse with the registered agent_id, name, purpose, state, state_copy_key, limit, spend, evidence, created_at, updated_at and creation_journey_id fields; line 3527 is its compact constructor."
+
+[row.r8-135.26]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentlimitrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3541
+symbol = "AgentLimitRequest"
+evidence = "HumanOperations declares AgentLimitRequest(HumanModels.Money monthly_limit) implementing SchemaTypes.GeneratedRequest. The namesake at line 1177 is a HumanModels GeneratedResponse record; AGENT_LIMIT references the request at line 3560."
+
+[row.r8-135.27]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentlimitresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3546
+symbol = "AgentLimitResponse"
+evidence = "HumanOperations declares AgentLimitResponse implementing SchemaTypes.GeneratedResponse with the registered agent_id, name, purpose, state, state_copy_key, limit, spend, evidence, created_at, updated_at and creation_journey_id fields; line 3547 is its compact constructor."
+
+[row.r8-135.28]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentlistrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3561
+symbol = "AgentListRequest"
+evidence = "HumanOperations declares the empty AgentListRequest record implementing SchemaTypes.GeneratedRequest; the later occurrence at line 3569 is the AGENT_LIST typed-operation reference."
+
+[row.r8-135.29]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentlistresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3563
+symbol = "AgentListResponse"
+evidence = "HumanOperations declares AgentListResponse(List<HumanModels.Agent> agents, String next_cursor) implementing SchemaTypes.GeneratedResponse; the following occurrence is its compact constructor."
+
+[row.r8-135.30]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-agentpauserequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3570
+symbol = "AgentPauseRequest"
+evidence = "HumanOperations declares the empty AgentPauseRequest record implementing SchemaTypes.GeneratedRequest; the later occurrence at line 3586 is the AGENT_PAUSE typed-operation reference."
