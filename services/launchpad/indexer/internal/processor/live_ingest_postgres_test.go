@@ -125,6 +125,7 @@ type liveIngestor struct {
 func newLiveIngestor(t *testing.T, ctx context.Context, pool *pgxpool.Pool, primary, historical string, anchor receipt.BlockAnchor) liveIngestor {
 	t.Helper()
 	inputs := realReceiptInputs(t)
+	inputs.Manifest = deployment.Current()
 	inputs.Anchor = anchor
 	options, _, err := runtimedocs.ReceiptOptions(inputs)
 	if err != nil {
