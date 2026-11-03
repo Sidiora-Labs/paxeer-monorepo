@@ -119779,7 +119779,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.27]
 title = "Report the 1 dependency alerts of tests/integration/rpc_tests/package-lock.json that name no patched version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -119839,7 +119839,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.24]
 title = "Close the 7 dependency alerts of services/explorer/services/libs/blockscout-client/yarn.lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -119929,7 +119929,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.20]
 title = "Close the 1 dependency alerts of sdk/names/pnpm-lock.yaml"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -119959,7 +119959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.18]
 title = "Report the 1 dependency alerts of sdk/js/package-lock.json that name no patched version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -120169,7 +120169,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.3]
 title = "Close the 4 dependency alerts of apps-launchpad-image-fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131952,7 +131952,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.29]
 title = "Close the 3 dependency alerts of wasm-runtime/libwasmvm/Cargo.lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132012,7 +132012,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.7]
 title = "Close the 10 dependency alerts of contracts/bridge/solana/Cargo.lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -139458,7 +139458,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.19]
 title = "Report the 2 dependency alerts of sdk/launchpad/shared/go.mod that name no patched version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -139488,7 +139488,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.15]
 title = "Close the 1 dependency alerts of sdk/cosmovisor/go.mod"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -139548,7 +139548,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.12]
 title = "Close the 7 dependency alerts of core/deps/tm-db/go.mod"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -168801,7 +168801,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.17]
 title = "Close the 7 dependency alerts of sdk/integrations/spring/pom.xml"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
