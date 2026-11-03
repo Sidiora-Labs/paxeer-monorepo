@@ -202719,7 +202719,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.117]
 title = "Inventory every Go package under services/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.80", "22.99.123", "22.99.124", "22.99.125", "22.99.126", "22.99.127", "22.99.128", "22.99.129", "22.99.130", "22.99.131", "22.99.132", "22.99.133", "22.99.134", "22.99.135", "22.99.136", "22.99.137", "22.99.138", "22.99.139", "22.99.140", "22.99.141", "22.99.142"]
@@ -202783,7 +202783,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.115]
 title = "Inventory every Go package under tools/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.34", "22.99.35"]
