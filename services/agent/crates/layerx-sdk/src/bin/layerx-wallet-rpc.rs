@@ -206,6 +206,9 @@ fn submit(v: &Value, rpc: &RpcClient, policy: &ReceiptPolicy) -> Result<Value, B
     };
     let ordinal = u16::try_from(number(v, "ordinal")?).map_err(|_| ())?;
     let payload = bytes(v, "payload")?;
+    if payload.len() > layerx_sdk::rpc::MAX_TRANSACTION_CALLDATA_BYTES {
+        return Err(BridgeError::Invalid);
+    }
     let prepared = wallet
         .prepare_payload(ModuleId::Asset, ordinal, &payload, &options)
         .map_err(BridgeError::Rpc)?;
@@ -250,10 +253,23 @@ fn execute(v: &Value) -> Result<Value, BridgeError> {
     } else {
         None
     };
-    let rpc = if c.get("ca_der").is_some() {
-        RpcClient::connect_with_ca_der(text(c, "endpoint")?, credential, &bytes(c, "ca_der")?)
-    } else {
-        RpcClient::connect(text(c, "endpoint")?, credential)
+    let node = match c.get("rpc_route").and_then(Value::as_str) {
+        None if !c.as_object().ok_or(())?.contains_key("rpc_route") => false,
+        Some("gateway") => false,
+        Some("node") => true,
+        _ => return Err(BridgeError::Invalid),
+    };
+    let rpc = match (node, c.get("ca_der").is_some()) {
+        (true, true) => RpcClient::connect_node_with_ca_der(
+            text(c, "endpoint")?,
+            credential,
+            &bytes(c, "ca_der")?,
+        ),
+        (true, false) => RpcClient::connect_node(text(c, "endpoint")?, credential),
+        (false, true) => {
+            RpcClient::connect_with_ca_der(text(c, "endpoint")?, credential, &bytes(c, "ca_der")?)
+        }
+        (false, false) => RpcClient::connect(text(c, "endpoint")?, credential),
     }
     .map_err(|_| ())?;
     let policy = ReceiptPolicy {

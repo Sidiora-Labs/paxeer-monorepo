@@ -258,7 +258,7 @@ func TestFactWriters(t *testing.T) {
 	db := testDB(t)
 	migrate(t, db)
 	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
-	wantCounts := []string{"collateral_events=3", "fills=1", "raw_logs=0", "protocol_events=3", "tx_actions=2", "outbox=7"}
+	wantCounts := []string{"collateral_events=3", "fills=1", "raw_logs=0", "protocol_events=3", "tx_actions=3", "outbox=8"}
 
 	t.Run("one_row_per_log", func(t *testing.T) {
 		c := newChain(t, db)
@@ -274,6 +274,12 @@ func TestFactWriters(t *testing.T) {
 FROM perps.protocol_events WHERE block = 400`,
 			[]string{"CollateralTransferred:0:0:null,CollateralDeposited:1:0:null,Fill:2:0:1"})
 		c.want(`SELECT args->>'amount', account = $1 FROM perps.protocol_events WHERE block = 400 AND log_index = 0`, []string{"5", "true"}, traderA.Bytes())
+		deposit := rows.Decoded[1].Rows[0].Common()
+		c.want(`SELECT action, kind, tx_index::text, log_index::text, sub::text, receipt_kind,
+    (account = $1)::text, size::text, (tx_hash = $2)::text
+FROM perps.tx_actions WHERE block = 400 AND kind = 'CollateralDeposited'`,
+			[]string{"Collateral Deposited", "CollateralDeposited", "0", "1", "0", "tx", "true", "100", "true"},
+			traderA.Bytes(), deposit.TxHash.Bytes())
 	})
 
 	t.Run("duplicate_block_noop", func(t *testing.T) {
@@ -301,7 +307,7 @@ FROM perps.protocol_events WHERE block = 400`,
 		b, rows := block400(c, t0)
 		c.blockRow(400, t0)
 		c.writeBlock(b, rows)
-		c.want(outboxAtSQL, []string{"7"}, "400")
+		c.want(outboxAtSQL, []string{"8"}, "400")
 		c.want(`SELECT string_agg(subject, ',' ORDER BY perps_seq) FROM perps.delivery_outbox
 WHERE convert_from(envelope, 'UTF8')::jsonb #>> '{source_order,height}' = '400'`,
 			[]string{strings.Join([]string{
@@ -310,6 +316,7 @@ WHERE convert_from(envelope, 'UTF8')::jsonb #>> '{source_order,height}' = '400'`
 				"perps.125.user." + lower(traderA) + ".margin",
 				"perps.125.1.fill",
 				"perps.125.chain.block",
+				"perps.125.chain.tx",
 				"perps.125.chain.tx",
 				"perps.125.chain.tx",
 			}, ",")})
@@ -434,6 +441,7 @@ WHERE convert_from(envelope, 'UTF8')::jsonb #>> '{source_order,height}' = '420'`
 				"perps.125.user." + lower(traderA) + ".margin",
 				"perps.125.spot." + lower(tokenOut) + ".swap",
 				"perps.125.chain.block",
+				"perps.125.chain.tx",
 				"perps.125.chain.tx",
 			}, ",")})
 	})

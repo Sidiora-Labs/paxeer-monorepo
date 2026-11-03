@@ -276,6 +276,15 @@ fn stalled_public_read(clock: Arc<RuntimeClock>, root: &Path) -> Result {
     let client = RpcClient::connect(&format!("http://{address}"), None)
         .map_err(|error| format!("RPC: {error:?}"))?
         .with_clock(clock);
+    assert!(matches!(
+        client.wait_for(
+            [0; 32],
+            Commitment::Executed,
+            &policy,
+            Duration::from_millis(20)
+        ),
+        Err(RpcError::InvalidRequest)
+    ));
     let start = Instant::now();
     assert!(
         matches!(client.wait_for(activity, Commitment::Executed, &policy, Duration::from_millis(20)), Err(RpcError::Pending { activity_id }) if activity_id == activity)
