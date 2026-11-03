@@ -7371,6 +7371,12 @@ value = "A refusal that names receipt reuse is decided only after the payment au
 basis = "22.8.11 attempt 12: sdk/integrations/next/test/receipt-keys.test.mjs:296 presents the settled receipt with a changed receipt key and received 409 from services/platform/middleware/seller/src/index.ts:264-266, which returns the reuse refusal from the unverified hint before the authority runs."
 affects = ["22.8.11"]
 
+[decision.2377]
+title = "Every lxphost test that executes a programs activity installs the active fee record first"
+value = "Since the loader change of 22.2.7 (4120aa4c4) a module-9 activity executes only with an active programs fee record in the store, so each test in modules/lxphost that runs a programs registry activity calls the programs fee record fixture helper of host_test.go:102 before it; a test that passed before that change and now reports LXP_ERR_VERSION_UNSUPPORTED from Execute is missing that call, not exposing a kernel defect."
+basis = "22.25.2 attempt 2: TestHostAuthorityDelegatedScope (authority_test.go:25-50) passed at 1.23.3 (44edbdfbc), executes a programs registry activity without the fixture call and failed with LXP_ERR_VERSION_UNSUPPORTED at host_test.go:213 after the loader change; the same class as the two failures of finding 22.2.5.7."
+affects = ["22.25.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -187971,6 +187977,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2, decision 2377: the loader change and the two test repairs are complete; the verify selection fails only on TestHostAuthorityDelegatedScope (authority_test.go:25-50), which executes a programs registry activity (0x71) without the active fee record and gets LXP_ERR_VERSION_UNSUPPORTED from Execute at host_test.go:213. It passed at 1.23.3 before the loader change of 22.2.7, so it is the third failure of the class of do_1, not a kernel defect: call the programs fee record fixture helper of host_test.go:102 with the actor id before the registry activity, exactly as scope_test.go now does. Run the whole ^TestHost selection before the single verify run."
 
 [task.18.1043.2]
 title = "Build the root module against the in-repo go-ethereum fork and run the deny-list batch parity tests from the root"

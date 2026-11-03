@@ -14140,3 +14140,8 @@ fix = "Name each test target under the package whose Cargo.toml declares it; che
 title = "A reuse refusal keyed on an unverified receipt hint is a settlement oracle"
 symptom = "The seller returned 409 receipt reuse from the payload's receiptDigest hint before verification, so a tampered payment got 409 instead of 402 and the status alone told whether the digest had been settled."
 fix = "Verify first, then decide reuse (decision 2376); any pre-verification lookup may only serve the identical-request replay."
+
+[gotcha.2864]
+title = "A loader precondition on module-9 activities reaches every test that executes one"
+symptom = "After 22.2.7 made programs activities require the active fee record, three lxphost tests that run a registry activity without the fixture helper failed with LXP_ERR_VERSION_UNSUPPORTED; the task listed two and attempt 2 stopped on the third as pre-existing."
+fix = "When a change adds a store precondition to a module's execution, grep the package for every test that executes that module's activities and give each the fixture call; run the task's whole verify selection before the single verify run."
