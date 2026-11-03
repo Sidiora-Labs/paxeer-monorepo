@@ -1,55 +1,57 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { Address } from "viem";
-
+import { useEffect } from "react";
+import { queryOptions, useQuery } from "@tanstack/react-query";
+import { isAddress, type Address } from "viem";
+import { z } from "zod";
 import { classifyError } from "@/core/errors/classify";
 import { reportError } from "@/core/errors/report";
-import { activePoll } from "@/core/net/realtime";
 import { buildGetTokenInfo, buildIsTokenPaused } from "@/core/spot/calls";
-import {
-  spotTokenState,
-  type SpotTokenState,
-  type VaultTokenInfo,
-} from "@/core/spot/tokenState";
+import { spotTokenState } from "@/core/spot/tokenState";
 import { readContract } from "@/hooks/perps/useContract";
 import { getPaxPointer } from "./useSpotOrders";
 
+const uint256 = z
+  .bigint()
+  .nonnegative()
+  .max((1n << 256n) - 1n);
+const tokenInfo = z.tuple([
+  z.boolean(),
+  z.boolean(),
+  z.number().int().min(0).max(255),
+  uint256,
+  uint256,
+  uint256,
+]);
+
+export function spotTokenStateQueryOptions(token: Address, native = false) {
+  return queryOptions({
+    queryKey: ["spot", "tokenState", token.toLowerCase(), native],
+    retry: false,
+    retryOnMount: false,
+    refetchInterval: 8_000,
+    queryFn: async () => {
+      if (!isAddress(token)) throw new Error("Invalid token address");
+      const address = native ? await getPaxPointer() : token;
+      const [paused, info] = await Promise.all([
+        readContract(buildIsTokenPaused(address)),
+        readContract(buildGetTokenInfo(address)),
+      ]);
+      return spotTokenState(z.boolean().parse(paused), tokenInfo.parse(info));
+    },
+  });
+}
+
 export function useSpotTokenState(token: Address, native = false) {
-  const [snapshot, setSnapshot] = useState<{
-    token: Address;
-    native: boolean;
-    state: SpotTokenState | null;
-    error: string | null;
-  } | null>(null);
-
+  const query = useQuery(spotTokenStateQueryOptions(token, native));
   useEffect(() => {
-    let cancelled = false;
-    setSnapshot(null);
-    const stop = activePoll(async () => {
-      try {
-        const address = native ? await getPaxPointer() : token;
-        const [paused, info] = await Promise.all([
-          readContract(buildIsTokenPaused(address)),
-          readContract(buildGetTokenInfo(address)),
-        ]);
-        const state = spotTokenState(paused as boolean, info as VaultTokenInfo);
-        if (!cancelled) setSnapshot({ token, native, state, error: null });
-      } catch (err: unknown) {
-        if (cancelled) return;
-        const error = classifyError(err, "spot-order/token-state");
-        setSnapshot({ token, native, state: null, error: error.message });
-        void reportError(error);
-        throw err;
-      }
-    }, 8_000);
-    return () => {
-      cancelled = true;
-      stop();
-    };
-  }, [token, native]);
-
-  const current =
-    snapshot?.token === token && snapshot.native === native ? snapshot : null;
-  return { state: current?.state ?? null, error: current?.error ?? null };
+    if (query.error)
+      void reportError(classifyError(query.error, "spot-order/token-state"));
+  }, [query.error]);
+  return {
+    state: query.isError ? null : (query.data ?? null),
+    error: query.error
+      ? classifyError(query.error, "spot-order/token-state").message
+      : null,
+  };
 }

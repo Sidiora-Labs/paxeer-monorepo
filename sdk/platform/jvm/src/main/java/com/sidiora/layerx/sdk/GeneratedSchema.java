@@ -1025,6 +1025,34 @@ public final class GeneratedSchema {
                 SchemaTypes.protocolBoundedLong(node_interface_major, 0, 65535);
             }
         }
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        public record VerificationStatus(String state, String rung, String requested, String achieved, String reason) implements SchemaTypes.GeneratedResponse {
+            @JsonCreator
+            public VerificationStatus {
+                Objects.requireNonNull(state, "state");
+                boolean valid = switch (state) {
+                    case "achieved" -> rung != null && requested == null && achieved == null && reason == null;
+                    case "unverified" -> rung == null && requested != null && achieved != null && reason != null && !reason.isEmpty();
+                    case "pending" -> rung == null && requested != null && achieved != null && reason == null;
+                    case "absent" -> rung == null && requested != null && achieved == null && reason == null;
+                    default -> false;
+                };
+                if (!valid) throw new IllegalArgumentException("invalid verification status shape");
+                if (rung != null) rank(rung);
+                if (requested != null) rank(requested);
+                if (achieved != null && rank(achieved) >= rank(requested)) {
+                    throw new IllegalArgumentException("verification.inconsistent");
+                }
+            }
+            private static int rank(String rung) {
+                return switch (rung) {
+                    case "submitted" -> 0;
+                    case "receipted" -> 1;
+                    case "committed" -> 2;
+                    default -> throw new IllegalArgumentException("unknown verification rung");
+                };
+            }
+        }
     }
     public static final class HumanModels {
         private HumanModels() {}

@@ -10,6 +10,7 @@ from typing import Awaitable, Callable
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from fastapi import HTTPException
 from layerx_sdk.account_derivation import keccak256
 from layerx_sdk.px import PxReceiptKeyEntry
 from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt
@@ -34,6 +35,7 @@ from layerx_fastapi.seller import (
     SellerSettlementRequest,
     SettlementSettled,
     StoredFulfillment,
+    idempotency_key,
 )
 from layerx_fastapi.signatures import LayerXSignatureVerifier
 
@@ -222,6 +224,48 @@ def test_seller_settles_signed_sequencer_receipt(tmp_path: Path) -> None:
         asyncio.run(reopened.handle(config.principal, header, release))
     assert raised.value.code is MiddlewareErrorCode.FULFILLMENT_CONFLICT
     assert releases == [b"paid resource"]
+
+
+def test_seller_refuses_a_settled_receipt_for_a_new_request(tmp_path: Path) -> None:
+    raw, signed, key, digest, config = _fixture()
+    first = _payload(config, raw, signed, key, digest)
+    second = replace(first, resource=replace(config.payment_required.resource, description="second"))
+    first_header = encode_payment_payload_header(first)
+    second_header = encode_payment_payload_header(second)
+    assert first_header != second_header
+    assert parse_layerx_evidence(first.payload) == parse_layerx_evidence(second.payload)
+    releases: list[bytes] = []
+
+    async def release() -> bytes:
+        releases.append(b"paid resource")
+        return releases[-1]
+
+    authority = ReceiptPayloadAuthority(config.receipt_keys)
+    seller = SellerMiddleware(
+        config.payment_required, authority, FileFulfillments(tmp_path), LayerXSignatureVerifier()
+    )
+    decision = asyncio.run(seller.handle(config.principal, first_header, release))
+    assert isinstance(decision, ReleasedDecision)
+    assert decision.resource == b"paid resource"
+    assert decision.verification.receipt_digest.hex() == digest
+    record = tmp_path / (idempotency_key(config.principal, decision.verification) + ".json")
+    original_record = record.read_bytes()
+
+    for active_seller in (
+        seller,
+        SellerMiddleware(
+            config.payment_required, authority, FileFulfillments(tmp_path), LayerXSignatureVerifier()
+        ),
+    ):
+        with pytest.raises(HTTPException) as raised:
+            asyncio.run(active_seller.handle(config.principal, second_header, release))
+        assert raised.value.status_code == 409
+        assert raised.value.detail == "settled_receipt_reuse"
+        assert releases == [b"paid resource"]
+        assert record.read_bytes() == original_record
+        assert asyncio.run(active_seller.handle(config.principal, first_header, release)) == decision
+        assert releases == [b"paid resource"]
+    assert list(tmp_path.glob("*.json")) == [record]
 
 
 def test_verify_payment_receipt_refuses_unpinned_key(tmp_path: Path) -> None:

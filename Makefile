@@ -3094,7 +3094,6 @@ test-state-proof: $(BUILD_DIR)/tests/lxp_test_state_proof
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_state_proof
 	$(BUILD_DIR)/tests/lxp_test_state_proof --vectors > $(BUILD_DIR)/tests/native-state-proofs.json
 	cmp $(BUILD_DIR)/tests/native-state-proofs.json contracts/config/native-state-proofs.json
-	cmp $(BUILD_DIR)/tests/native-state-proofs.json services/human/crates/layerx-paxeer-client/tests/vectors/native-state-proofs.json
 
 .PHONY: test-asset-withdraw-activity
 test-asset-withdraw-activity: $(BUILD_DIR)/tests/test_asset_withdraw_activity

@@ -24,8 +24,10 @@ import (
 
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	proofcodec "github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/keeper"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/testutil"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
@@ -44,6 +46,7 @@ type proofPayGenesisNode struct {
 	cdc     *codec.ProtoCodec
 	payKey  *sdk.KVStoreKey
 	hostKey *sdk.KVStoreKey
+	evmKey  *sdk.KVStoreKey
 	host    *lxphost.Host
 	keeper  keeper.Keeper
 	module  layerxpay.AppModule
@@ -57,11 +60,13 @@ func openProofPayGenesisNode(t *testing.T, dir string) *proofPayGenesisNode {
 	n := &proofPayGenesisNode{
 		cdc:    codec.NewProtoCodec(cdctypes.NewInterfaceRegistry()),
 		payKey: sdk.NewKVStoreKey(types.StoreKey), hostKey: sdk.NewKVStoreKey("lxphost"),
+		evmKey: sdk.NewKVStoreKey(evmtypes.StoreKey),
 	}
 	n.cms = store.NewCommitMultiStore(db)
 	t.Cleanup(func() { n.close(t) })
 	n.cms.MountStoreWithDB(n.payKey, sdk.StoreTypeIAVL, db)
 	n.cms.MountStoreWithDB(n.hostKey, sdk.StoreTypeIAVL, db)
+	n.cms.MountStoreWithDB(n.evmKey, sdk.StoreTypeIAVL, db)
 	require.NoError(t, n.cms.LoadLatestVersion())
 	n.ctx = sdk.NewContext(n.cms, tmproto.Header{
 		ChainID: "hyperpax_125-1", Height: n.cms.LastCommitID().Version + 1,
@@ -72,7 +77,7 @@ func openProofPayGenesisNode(t *testing.T, dir string) *proofPayGenesisNode {
 		TimestampWindowMs: 60000, GasLimit: 1000000,
 	})
 	require.NoError(t, err)
-	n.keeper, err = keeper.NewKeeper(n.cdc, n.payKey, n.hostKey, n.host, nil, nil, "pay-governance")
+	n.keeper, err = keeper.NewKeeper(n.cdc, n.payKey, n.hostKey, n.host, testutil.NewEVMBindingReader(n.cdc, n.evmKey), nil, "pay-governance")
 	require.NoError(t, err)
 	n.module = layerxpay.NewAppModule(n.keeper)
 	return n
@@ -93,7 +98,7 @@ func (n *proofPayGenesisNode) close(t *testing.T) {
 func (n *proofPayGenesisNode) snapshot(t *testing.T) map[string]map[string][]byte {
 	t.Helper()
 	result := make(map[string]map[string][]byte)
-	for _, key := range []*sdk.KVStoreKey{n.payKey, n.hostKey} {
+	for _, key := range []*sdk.KVStoreKey{n.payKey, n.hostKey, n.evmKey} {
 		values := make(map[string][]byte)
 		iterator := n.ctx.KVStore(key).Iterator(nil, nil)
 		for ; iterator.Valid(); iterator.Next() {

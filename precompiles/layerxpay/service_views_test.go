@@ -155,6 +155,14 @@ func assertPrecompileServiceViews(t *testing.T, h *payPrecompileHarness, cases [
 	executor := h.precompile.GetExecutor().(*lp.Executor)
 	before := h.keeper.ExportGenesis(h.db.Ctx())
 	eventsBefore := h.db.Ctx().EventManager().Events()
+	flatGas := map[string]uint64{
+		"getOffer": 1000, "getAgreement": 1000, "getCommitment": 1000,
+		"getExecution": 1000, "getDelivery": 1000, "latestDelivery": 1000,
+		"getProgress": 1000, "progressHighWater": 1000, "getDispute": 1000,
+	}
+	// The fixture has three delivery headers, three progress records and two
+	// items per delivery. This allowance covers their metered store reads.
+	const storeAllowance uint64 = 10000
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			method := a.Methods[test.name]
@@ -164,12 +172,14 @@ func assertPrecompileServiceViews(t *testing.T, h *payPrecompileHarness, cases [
 			row, ok := lp.MethodGas[test.name]
 			require.True(t, ok)
 			require.False(t, row.Write)
-			require.Zero(t, row.Surcharge)
-			gas := row.Gas(input[4:])
-			require.Equal(t, uint64(1096), gas)
-			require.Equal(t, gas, h.precompile.RequiredGas(input))
-			require.Equal(t, gas, executor.RequiredGas(input[4:], &method))
-			require.Equal(t, gas+12, lp.RequiredGas(input))
+			require.Equal(t, flatGas[test.name]-1000, row.Surcharge)
+			rowGas := row.Gas(input[4:])
+			require.Equal(t, flatGas[test.name]+96, rowGas)
+			require.Equal(t, rowGas, h.precompile.RequiredGas(input))
+			require.Equal(t, rowGas, executor.RequiredGas(input[4:], &method))
+			estimatedGas := lp.RequiredGas(input)
+			require.Equal(t, rowGas+12, estimatedGas)
+			gas := estimatedGas + storeAllowance
 			direct, handled, err := executor.ServiceViewHandlers(h.db.Ctx(), &method, []interface{}{test.id})
 			require.True(t, handled)
 			require.NoError(t, err)
@@ -180,20 +190,24 @@ func assertPrecompileServiceViews(t *testing.T, h *payPrecompileHarness, cases [
 			for _, caller := range []common.Address{h.caller, common.HexToAddress("0xbad2288")} {
 				output, left, err := h.evm.StaticCall(caller, h.precompile.Address(), input, gas)
 				require.NoError(t, err)
-				require.Zero(t, left)
+				require.LessOrEqual(t, left, gas)
+				require.GreaterOrEqual(t, gas-left, rowGas)
+				require.LessOrEqual(t, gas-left, rowGas+storeAllowance)
 				require.Equal(t, direct, output)
 			}
 			output, err := h.precompile.Run(h.evm, h.caller, h.caller, input, big.NewInt(0), false, false, nil)
 			require.NoError(t, err)
 			require.Equal(t, direct, output)
-			_, left, err := h.evm.StaticCall(h.caller, h.precompile.Address(), input, gas-1)
+			_, left, err := h.evm.StaticCall(h.caller, h.precompile.Address(), input, rowGas-1)
 			require.ErrorIs(t, err, vm.ErrOutOfGas)
 			require.Zero(t, left)
 			for _, unknown := range [][32]byte{{}, precompileServiceID(200)} {
 				input, err := a.Pack(test.name, unknown)
 				require.NoError(t, err)
 				output, left, err := h.evm.StaticCall(h.caller, h.precompile.Address(), input, gas)
-				require.Zero(t, left)
+				require.LessOrEqual(t, left, gas)
+				require.GreaterOrEqual(t, gas-left, rowGas)
+				require.LessOrEqual(t, gas-left, rowGas+storeAllowance)
 				if test.name == "progressHighWater" {
 					require.NoError(t, err)
 					values, err := method.Outputs.Unpack(output)

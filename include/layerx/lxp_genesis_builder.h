@@ -4,7 +4,6 @@
 #include "layerx/lxp_genesis.h"
 #include "layerx/lxp_snapshot.h"
 #include "layerx/programs.h"
-#include "layerx/lxp_bridge_credit.h"
 
 enum {
     LXP_GENESIS_REGISTRATION_REQUEST_BYTES = 73,

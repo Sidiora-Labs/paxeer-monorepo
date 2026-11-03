@@ -885,6 +885,10 @@ func inspectTransaction(ctx Context, view any) (Inspection, error) {
 	return out, nil
 }
 
+func InspectTypedData(ctx Context, view any) (Inspection, error) {
+	return inspectTypedData(ctx, view)
+}
+
 func inspectTypedData(ctx Context, view any) (Inspection, error) {
 	typed, ok := view.(*evm.TypedData)
 	if !ok || typed == nil {
@@ -912,15 +916,59 @@ func inspectTypedData(ctx Context, view any) (Inspection, error) {
 		address := common.HexToAddress(domain.VerifyingContract)
 		out.Destinations = append(out.Destinations, Destination{Address: address, Precompile: evm.IsPrecompile(address)})
 	}
-	if typed.Data.PrimaryType == "Permit" {
-		spend, spender, err := permitSpend(typed)
+	if !common.IsHexAddress(domain.VerifyingContract) {
+		return Inspection{}, refuse(CodeMissingField, "permit has no verifying contract")
+	}
+	message := typed.Data.Message
+	spenderRaw, ok := message["spender"].(string)
+	if !ok || !common.IsHexAddress(spenderRaw) {
+		return Inspection{}, refuse(CodeDecodeError, "permit spender is missing or not an address")
+	}
+	spender := common.HexToAddress(spenderRaw)
+	switch typed.Data.PrimaryType {
+	case "Permit":
+		spend, _, err := permitSpend(typed)
 		if err != nil {
 			return Inspection{}, err
 		}
-		spend.Spender = &spender
 		out.Spends = append(out.Spends, spend)
-		out.Destinations = append(out.Destinations, Destination{Address: spender, Precompile: evm.IsPrecompile(spender), Counterparty: true, Spender: true})
+	case "PermitSingle", "PermitTransferFrom":
+		field := "details"
+		if typed.Data.PrimaryType == "PermitTransferFrom" {
+			field = "permitted"
+		}
+		spend, err := permitTokenSpend(message[field])
+		if err != nil {
+			return Inspection{}, err
+		}
+		out.Spends = append(out.Spends, spend)
+	case "PermitBatch", "PermitBatchTransferFrom":
+		field := "details"
+		if typed.Data.PrimaryType == "PermitBatchTransferFrom" {
+			field = "permitted"
+		}
+		details, ok := message[field].([]any)
+		if !ok || len(details) == 0 {
+			return Inspection{}, refuse(CodeDecodeError, "permit batch has no token permissions")
+		}
+		for _, detail := range details {
+			spend, err := permitTokenSpend(detail)
+			if err != nil {
+				return Inspection{}, err
+			}
+			out.Spends = append(out.Spends, spend)
+		}
+	default:
+		return Inspection{}, refuse(CodeDecodeError, "typed data primary type %q is not supported", typed.Data.PrimaryType)
 	}
+	for i := range out.Spends {
+		out.Spends[i].Spender = &spender
+		if typed.Data.PrimaryType != "Permit" {
+			token := common.HexToAddress(out.Spends[i].Asset)
+			out.Destinations = append(out.Destinations, Destination{Address: token, Precompile: evm.IsPrecompile(token), Counterparty: true})
+		}
+	}
+	out.Destinations = append(out.Destinations, Destination{Address: spender, Precompile: evm.IsPrecompile(spender), Counterparty: true, Spender: true})
 	return out, nil
 }
 
@@ -954,6 +1002,22 @@ func permitSpend(typed *evm.TypedData) (Spend, common.Address, error) {
 		return Spend{Asset: TokenAsset(token), Amount: amount}, spender, nil
 	}
 	return Spend{}, common.Address{}, refuse(CodeDecodeError, "permit carries neither a value nor an allowed flag")
+}
+
+func permitTokenSpend(raw any) (Spend, error) {
+	detail, ok := raw.(map[string]any)
+	if !ok {
+		return Spend{}, refuse(CodeDecodeError, "permit token permission is missing or malformed")
+	}
+	token, ok := detail["token"].(string)
+	if !ok || !common.IsHexAddress(token) {
+		return Spend{}, refuse(CodeDecodeError, "permit token is missing or not an address")
+	}
+	amount, err := permitAmount(detail["amount"])
+	if err != nil {
+		return Spend{}, err
+	}
+	return Spend{Asset: TokenAsset(common.HexToAddress(token)), Amount: amount}, nil
 }
 
 func permitAmount(raw any) (*big.Int, error) {
