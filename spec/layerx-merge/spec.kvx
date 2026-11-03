@@ -228777,7 +228777,7 @@ do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible)
 
 [task.22.97.5]
 title = "Record the chainflow test collection with its declared extras"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.97.4"]
