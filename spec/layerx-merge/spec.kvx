@@ -140658,7 +140658,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1211.7]
 title = "Refresh the committed-fixture receipted-revert vector from the conformance source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.23.8", "18.1211.6", "22.25.4"]
@@ -228058,7 +228058,7 @@ do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible)
 
 [task.22.94.41]
 title = "Disposition of qualification findings 22.9.30.1 to 22.24.12.1 (domain 22, part 13)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228091,7 +228091,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.40]
 title = "Disposition of qualification findings 22.13.9.2 to 22.9.29.1 (domain 22, part 12)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228124,7 +228124,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.39]
 title = "Disposition of qualification findings 22.6.7.4 to 22.13.8.2 (domain 22, part 11)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228157,7 +228157,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.38]
 title = "Disposition of qualification findings 22.13.9.1 to 22.4.5.4 (domain 22, part 10)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228190,7 +228190,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.37]
 title = "Disposition of qualification findings 22.13.6.5 to 22.13.8.1 (domain 22, part 9)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228223,7 +228223,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.36]
 title = "Disposition of qualification findings 22.10.7.3 to 22.6.7.3 (domain 22, part 8)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228256,7 +228256,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.35]
 title = "Disposition of qualification findings 22.6.4.1 to 22.8.11.2 (domain 22, part 7)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228685,7 +228685,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.22]
 title = "Disposition of qualification findings 6.96.6.1 to 6.96.6.3 (domain 6, part 5)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228718,7 +228718,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.21]
 title = "Disposition of qualification findings 5.0.9.1 to 5.0.9.1 (domain 5, part 6)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228751,7 +228751,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.20]
 title = "Disposition of qualification findings 3.54.7.1 to 3.54.7.1 (domain 3, part 4)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228784,7 +228784,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.19]
 title = "Disposition of qualification findings 1.2.4.1 to 1.2.4.1 (domain 1, part 5)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
