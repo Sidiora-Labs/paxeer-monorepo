@@ -1,0 +1,49 @@
+[issue.1551]
+number = 1551
+title = "[P2] Decode canonical receipt-key responses in both public PxClient SDKs"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "The node and gateway serve an object containing keys with hex bytes and numeric ranges at rpc/sequencer_receipt.go:334 and services/platform/hosted/gateway/src/chain_reads.rs:281, but TypeScript rewraps that object at services/agent/sdk/typescript/src/px.ts:230 and requires base64 at :498, while Python rejects the object at services/agent/sdk/python/layerx_sdk/px.py:378 and requires base64 at :601; services/agent/sdk/typescript/test/px.test.ts:654 still tests bare lists and base64 rather than the served response."
+close_comment = "Both public PxClient SDKs reject the canonical receipt-key response before returning pinned keys. The repair will decode the served object and hex fields, preserve key order and inclusive height ranges, and cover both public methods against the node, including empty and rotated key lists and error responses."
+
+[task.18.1551.1]
+title = "Issue #1551: Decode canonical receipt-key responses in both public PxClient SDKs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181551.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update TypeScript PxClient.getReceiptKeys and call at services/agent/sdk/typescript/src/px.ts:177 and :230 and Python PxClient.get_receipt_keys and call at services/agent/sdk/python/layerx_sdk/px.py:291 and :378 to consume the canonical result object exactly once; update decodePxReceiptKeys and receiptKeyBytes at services/agent/sdk/typescript/src/px.ts:470 and :498 and decode_px_receipt_keys and _receipt_key_bytes at services/agent/sdk/python/layerx_sdk/px.py:578 and :601 to decode the served 0x-prefixed 32-byte keyId and publicKey fields, preserving the public entry types, key bytes, order, inclusive ranges, empty lists and existing quantity bounds."
+do_2 = "Migrate the receipt-key fixtures and cross-language assertions at services/agent/sdk/typescript/test/px.test.ts:654, :737 and :781 to the canonical producer object and hex bytes; retain strict rejection of missing or extra entry fields, malformed or wrong-length bytes, zero keys, duplicate key ids, reversed ranges and invalid or unsafe quantities, and retain JSON-RPC envelope validation and error code, message and data propagation."
+do_3 = "Add TestPublicPxReceiptKeysCanonical to rpc/sequencer_receipt_test.go using the real node server, keeper updates and empty-list production exercised by TestReceiptKeysServedByTheNode at rpc/sequencer_receipt_test.go:412; invoke the exported TypeScript PxClient.getReceiptKeys and Python PxClient.get_receipt_keys over loopback JSON-RPC in subprocesses, assert exact decoded bytes and inclusive range endpoints for initial, rotated multi-key and empty lists, and assert the non-serving node's error propagates with its code, message and data; use captured producer results for malformed-byte, duplicate, range and shape mutations checked by both decoders without substituting a fake producer or transport."
+symbols = ["PxClient", "decodePxReceiptKeys", "receiptKeyBytes", "decode_px_receipt_keys", "_receipt_key_bytes", "receipt_keys_shape", "TestPublicPxReceiptKeysCanonical"]
+touches = ["services/agent/sdk/typescript/src/px.ts", "services/agent/sdk/python/layerx_sdk/px.py", "services/agent/sdk/typescript/test/px.test.ts", "rpc/sequencer_receipt_test.go"]
+tests = ["rpc/sequencer_receipt_test.go::TestPublicPxReceiptKeysCanonical"]
+planned_paths = []
+build_cmd = "go build ./rpc/... && pnpm --dir services/agent/sdk/typescript exec tsc --noEmit && python3 -m py_compile services/agent/sdk/python/layerx_sdk/px.py"
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestPublicPxReceiptKeysCanonical$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181551]
+title = "Both public PxClient SDKs decode the served receipt-key response"
+ac_1 = "Given the canonical object emitted by rpc/sequencer_receipt.go:376 and services/platform/hosted/gateway/src/chain_reads.rs:292, TypeScript PxClient.getReceiptKeys at services/agent/sdk/typescript/src/px.ts:177 and Python PxClient.get_receipt_keys at services/agent/sdk/python/layerx_sdk/px.py:291 return the exact key bytes in producer order with inclusive numeric height ranges, including empty and rotated lists, while rejecting malformed entries, bytes, duplicate ids and invalid ranges and preserving JSON-RPC errors."
+
+[acceptance.18.1551.1]
+feature = "18"
+req = "181551.1"
+scenario = "Given a node serving its governed receipt keys, when both exported PxClient methods read initial, rotated multi-key and empty lists over JSON-RPC, then both return the exact bytes, order and inclusive ranges, reject malformed captured documents and preserve the non-serving node's JSON-RPC error."
+contract = "contracts/platform-gateway.md#gateway-jsonrpc-methods"
+test = "rpc/sequencer_receipt_test.go::TestPublicPxReceiptKeysCanonical (planned)"
+qualification = "UNRUN"
