@@ -8,7 +8,6 @@ mod event_producer;
 mod time;
 
 use layerx_human_test_support as test_support;
-use layerx_proof::checkpoint::SettlementDomain;
 use serde_json::{json, Value};
 use service::server::stream_journal::StreamJournal;
 use sha2::{Digest as _, Sha256};
@@ -20,7 +19,7 @@ use store::{
 };
 
 fn stream_journal() -> StreamJournal {
-    StreamJournal::new([37; 32], SettlementDomain::new(125, [0x55; 20]))
+    StreamJournal::new([37; 32])
 }
 
 fn row_key(value: &str) -> RowKey {
