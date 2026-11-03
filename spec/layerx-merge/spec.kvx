@@ -7845,6 +7845,66 @@ value = "Under the merge upgrade the scheduler at 0x0905 is served by precompile
 basis = "18.1552.1 attempt 1 (f9dc7617a) removed the two events and the equality assertion at setup_test.go:458 failed: served five events, cold three."
 affects = ["18.1552.1"]
 
+[decision.2456]
+title = "The issue-closure gate requires every issue task it counts"
+value = "spec/layerx-merge/programme/issue_closure.py exits non-zero while any issue task of the programme is not done; 18.0.1 therefore requires every issue task that list names (the 29 of attempt 2: 18.1211.6, 18.1211.7, 18.1510.1, 18.1515.1, 18.1518.1, 18.1519.1, 18.1521.1, 18.1522.1, 18.1525.1, 18.1526.1, 18.1527.1, 18.1528.1, 18.1535.1, 18.1536.1, 18.1537.1, 18.1539.1, 18.1541.1, 18.1543.1, 18.1545.1, 18.1547.1, 18.1548.1, 18.1549.1, 18.1550.1, 18.1551.1, 18.1552.1, 18.1556.1, 18.1558.1, 18.1561.1, 18.1562.1) and becomes eligible when the last of them publishes."
+basis = "18.0.1 attempt 2 (26e5df6d3): the three programme tests pass and the closure gate exits 1 naming the 29 undone issue tasks."
+affects = ["18.0.1"]
+
+[decision.2457]
+title = "The explorer tasks install with the explorer's own package manager and get a 60-minute limit"
+value = "apps/explorer pins yarn through corepack (pnpm exits with ERR_PNPM_OTHER_PM_EXPECTED) and its frozen install takes about fifteen minutes in the qualification environment; 22.96.1 and 18.1526.1 carry time_limit_minutes 60, 18.1526.1 builds with corepack enable, the frozen install and yarn tsc --noEmit, and verifies with yarn test:vitest from apps/explorer."
+basis = "22.96.1 attempt 1: the frozen install took 868 s and the attempt ended at the working-time limit before its verify ran; 18.1526.1 attempt 1 (5b7663901): build exit 2 on ERR_PNPM_OTHER_PM_EXPECTED."
+affects = ["22.96.1", "18.1526.1"]
+
+[decision.2458]
+title = "The AI market receipt task builds the TypeScript sdk with npm"
+value = "services/agent/sdk/typescript pins npm (decision 2450); 18.1562.1 builds with go build ./rpc/... and cd services/agent/sdk/typescript && npm ci && npm run build, and its verify runs the Go vector test and node --test on the built ai-market test."
+basis = "18.1562.1 attempts 1 and 2 fail their build on ERR_PNPM_OTHER_PM_EXPECTED before any code runs."
+affects = ["18.1562.1"]
+
+[decision.2459]
+title = "The gateway chain type and the Zod 4 record migration land in one task"
+value = "22.95.7 is superseded: annotating services/wallet/gateway/src/chain.ts with the viem Chain type makes tsc --noEmit reach the six one-argument z.record calls at src/routes/sign.ts:60-63 and src/schemas/agent.ts:63-66 (TS2554 under Zod 4), which are 18.1548.1's subject, so 22.95.7's build can never pass alone. 18.1548.1 gains chain.ts in its touches, requires nothing, and does both changes."
+basis = "22.95.7 attempts 1 and 2 (791835e72) fail tsc only in the two files 18.1548.1 owns; 18.1548.1 attempts 1 and 2 fail on chain.ts:15 TS2742 before reaching their own files."
+affects = ["22.95.7", "18.1548.1"]
+
+[decision.2460]
+title = "The web search receipt test pays the derived seller account"
+value = "WebSearchClient refuses an offer whose account is not derivedAccount(receiver.did, asset, nativeAsset).name or whose payTo is not that derived account id (src/web-search.ts:450-451), and verifySequencerReceipt (src/web-search.ts:315-326) requires the receipt's to to equal the offer's payTo. The conformance receipt vector pays an EVM address, so web_search_receipt_shape_matches_sequencer must rewrite the receipt's to field at toOffset to the derived seller account id, re-sign the receipt with resignReceipt and the test's fixture key, and advertise the derived account name and id in the offer; every other byte of the vector stays canonical."
+basis = "18.1518.1 attempts 3 and 4 (8f884530d) pass the build and fail all 39 subtests with offer-account-mismatch because the offer carries agent:did:layerx:seller:main and the padded EVM address of the vector."
+affects = ["18.1518.1"]
+
+[decision.2461]
+title = "The upstream regression corpus is retired and the chain path keeps its transactions"
+value = "rpc/tests/regression_test.go replays 34 recorded upstream transactions (32 Test0x cases, Test169638844, Test169750823) whose state references usei balances and sei Wasm capabilities that do not exist on this chain, so they can never pass by re-typing (attempt 11 rewrote the type URLs and the traces still fail on insufficient usei funds, duplicate usei denominations and the unavailable sei capability). 22.7.3 skips them by name; task 22.95.8 deletes the corpus, its mock data and its readers after 22.7.3 publishes. The chain-path ethclient test TestEthclientOnTheChainPathSendsReceiptsAndFilters (rpc/ethclient_domain_test.go:267) passes on main and must keep passing: a block served on the chain path carries its full transaction list."
+basis = "22.7.3 attempt 12 (7e6207bac) fails the corpus and, newly, the ethclient test with server returned empty transaction list but block header indicates transactions; attempt 11 (c814c4d2c) also crashed the rpc package with a nil net/http.Server in HTTPServer.Start's goroutine (rpc/rpcstack.go:191) after Stop, which task 22.95.9 repairs."
+affects = ["22.7.3", "22.95.8", "22.95.9"]
+
+[decision.2462]
+title = "The x402 vector tests follow the eip155:125 network rule"
+value = "e556c8b04 (18.1162.1) replaced the layerx: network namespace with the single network eip155:125 in services/interop/crates/layerx-x402/src/model.rs and refuses a layerx profile block on any other network with ProfileMismatch; tests/vectors.rs still builds offers on layerx:beta and specs/conformance/x402/payment-payload.json still carries layerx: networks, so six of the fifteen vector tests fail on main. 18.1211.6 verifies only all_settlement_response_vectors_validate_correctly, the consumer of the fixture it refreshes; task 22.95.10 moves the vector tests and the payload fixture to eip155:125 and makes the whole vectors and seller suites pass."
+basis = "18.1211.6 attempts 7 and 8 (01ea2ae40) pass the copies check, the relayer and gas station receipt tests and nine vector tests and fail layerx_offer_without_quote_terms_is_refused, layerx_pay_to_must_derive_from_the_advertised_account, the two transport encodings, payment_requirements_validates_layerx_network_format and wire_encoding_round_trip_preserves_all_fields; vectors.rs and the fixtures are unchanged since 15265d831 and model.rs changed at e556c8b04."
+affects = ["18.1211.6", "22.95.10", "18.1162.1"]
+
+[decision.2463]
+title = "The approval hold task owns the expiry initializer it changes"
+value = "9.35.18 adds actor_address to ApprovalContext; services/agent/crates/layerx-agentd/src/approval/expiry.rs:645 builds an ApprovalContext and is in the task's touches so the lib test target compiles."
+basis = "9.35.18 attempt 1 (85aecb005): cargo build --tests fails with E0063 missing field actor_address at expiry.rs:645, a file outside the attempt's scope."
+affects = ["9.35.18"]
+
+[decision.2464]
+title = "The OpenTelemetry core override keeps the 1.x consumer on a 1.x core"
+value = "fc3d178f2 (22.24.6) added the override @opentelemetry/core@<2.8.0 -> 2.8.0 to apps/perps; it also rewrites the ^1.30.1 core dependency of @opentelemetry/sdk-trace-base 1.30.1 (pnpm-lock.yaml:8101-8104), and sdk-trace-base 1.x reads TracesSamplerValues from core, which core 2.x no longer exports, so loading the production Next config fails with Cannot read properties of undefined (reading AlwaysOn). 18.1521.1 narrows the override to the 2.x range (>=2.0.0 <2.8.0) in both override blocks, regenerates both locks, keeps the floors of tools/deps/floors/perps-web.json satisfied and its production-config test passing."
+basis = "18.1521.1 attempt 1 (df357bc8e): tsc passes and the test fails inside @opentelemetry/sdk-trace-base/src/config.ts:25 while loadConfig(PHASE_PRODUCTION_BUILD) runs; main's lock resolves the same core 2.8.0 under sdk-trace-base 1.30.1."
+affects = ["18.1521.1", "22.24.6"]
+
+[decision.2465]
+title = "Every finding of a done task gets a written disposition"
+value = "161 findings of 80 done tasks had no disposition task; tasks 22.94.19 to 22.94.41 write one [disposition.<id>] block per finding into fresh d<domain>-<part>.kvx files under spec/layerx-merge/dispositions, grouped by domain in the order of qualification.kvx; the 36 findings of still-pending tasks are dispositioned after those tasks publish."
+basis = "The closure ruling requires every finding resolved or ruled out in writing; the finding list was computed from qualification.kvx against the do_1 lists of tasks 22.<n>.k and 22.94.1 to 22.94.18."
+affects = ["22.94.19", "22.94.41"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -21465,6 +21525,18 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22115]
+title = "The x402 vector and seller suites pass under the eip155:125 network rule"
+ac_1 = "Given the conformance fixtures under services/interop/specs/conformance/x402 and the layerx-x402 crate, when cargo test runs the vectors and seller suites, then every test passes and every layerx offer in the fixtures and tests names network eip155:125 with a payTo derived from its advertised account."
+
+[req.22114]
+title = "The HTTP RPC server stops without racing its serve goroutine"
+ac_1 = "Given an HTTPServer that is started and stopped immediately in a loop, when Stop returns, then the serve goroutine has returned and no nil server is dereferenced, which the test asserts."
+
+[req.22113]
+title = "The rpc test package carries no upstream regression corpus"
+ac_1 = "Given the rpc test package after the retirement, when its tests run, then no test replays a transaction recorded on another chain, rpc/tests/mock_data and rpc/tests/regression_test.go are gone, the readers that only served them are gone, and every remaining test passes."
 
 [req.22112]
 title = "The wallet gateway type-checks after the dependency floor raise"
@@ -36610,6 +36682,240 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.94.41]
+title = "Disposition of qualification findings 22.9.30.1 to 22.24.12.1 (domain 22, part 13)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d22-13.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 22.9.30.1, 22.11.7.5, 22.2.6.5, 22.6.4.6, 22.8.11.5, 22.23.8.2, 22.25.3.1, 22.24.8.1, 22.24.12.1."
+symbols = []
+
+[capability.22.94.40]
+title = "Disposition of qualification findings 22.13.9.2 to 22.9.29.1 (domain 22, part 12)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d22-12.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 22.13.9.2, 22.9.13.1, 22.9.13.2, 22.13.6.8, 22.9.17.2, 22.6.4.5, 22.1.9.1, 22.13.9.3, 22.9.29.1."
+symbols = []
+
+[capability.22.94.39]
+title = "Disposition of qualification findings 22.6.7.4 to 22.13.8.2 (domain 22, part 11)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d22-11.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 22.6.7.4, 22.2.5.4, 22.8.11.4, 22.2.6.2, 22.2.6.3, 22.11.7.3, 22.16.9.2, 22.9.7.1, 22.13.8.2."
+symbols = []
+
+[capability.22.94.38]
+title = "Disposition of qualification findings 22.13.9.1 to 22.4.5.4 (domain 22, part 10)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d22-10.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 22.13.9.1, 22.9.17.1, 22.11.7.1, 22.11.7.2, 22.16.9.1, 22.12.7.2, 22.6.4.4, 22.13.6.7, 22.4.5.4."
+symbols = []
+
+[capability.22.94.37]
+title = "Disposition of qualification findings 22.13.6.5 to 22.13.8.1 (domain 22, part 9)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d22-9.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 22.13.6.5, 22.2.5.2, 22.8.11.3, 22.4.5.3, 22.1.6.1, 22.13.6.6, 22.6.4.3, 22.2.5.3, 22.13.8.1."
+symbols = []
+
+[capability.22.94.36]
+title = "Disposition of qualification findings 22.10.7.3 to 22.6.7.3 (domain 22, part 8)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d22-8.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 22.10.7.3, 22.4.5.2, 22.12.7.1, 22.1.4.2, 22.2.6.1, 22.9.23.2, 22.16.4.5, 22.10.7.4, 22.6.7.3."
+symbols = []
+
+[capability.22.94.35]
+title = "Disposition of qualification findings 22.6.4.1 to 22.8.11.2 (domain 22, part 7)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d22-7.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 22.6.4.1, 22.12.4.2, 22.13.6.3, 22.9.24.1, 22.1.4.1, 22.13.6.4, 22.6.7.2, 22.6.4.2, 22.9.24.2, 22.8.11.2."
+symbols = []
+
+[capability.22.94.34]
+title = "Disposition of qualification findings 22.13.6.2 to 22.4.5.1 (domain 22, part 6)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d22-6.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 22.13.6.2, 22.8.11.1, 22.9.16.1, 22.2.4.2, 22.2.7.1, 22.10.7.2, 22.17.4.1, 22.90.9.2, 22.16.4.3, 22.4.5.1."
+symbols = []
+
+[capability.22.94.33]
+title = "Disposition of qualification findings 22.16.7.1 to 22.16.8.1 (domain 22, part 5)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d22-5.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 22.16.7.1, 22.16.5.2, 22.5.7.1, 22.6.7.1, 22.6.8.1, 22.8.12.1, 22.11.5.1, 22.9.11.1, 22.12.4.1, 22.16.8.1."
+symbols = []
+
+[capability.22.94.32]
+title = "Disposition of qualification findings 22.90.9.1 to 22.10.7.1 (domain 22, part 4)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d22-4.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 22.90.9.1, 22.16.4.1, 22.13.6.1, 22.5.4.1, 22.4.3.1, 22.10.6.1, 22.16.5.1, 22.9.12.1, 22.2.4.1, 22.10.7.1."
+symbols = []
+
+[capability.22.94.31]
+title = "Disposition of qualification findings 21.142.1.1 to 21.18.1.3 (domain 21, part 4)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d21-4.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 21.142.1.1, 21.63.1.1, 21.130.1.2, 21.11.1.3, 21.18.1.2, 21.92.1.3, 21.11.1.4, 21.18.1.3."
+symbols = []
+
+[capability.22.94.30]
+title = "Disposition of qualification findings 21.5.1.1 to 21.11.1.2 (domain 21, part 3)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d21-3.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 21.5.1.1, 21.19.1.1, 21.5.1.2, 21.87.1.1, 21.92.1.1, 21.160.1.1, 21.18.1.1, 21.130.1.1, 21.11.1.2."
+symbols = []
+
+[capability.22.94.29]
+title = "Disposition of qualification findings 20.3.4.1 to 20.4.3.1 (domain 20, part 3)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d20-3.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 20.3.4.1, 20.4.4.1, 20.3.4.2, 20.3.4.3, 20.3.4.4, 20.3.4.5, 20.3.4.6, 20.4.3.1."
+symbols = []
+
+[capability.22.94.28]
+title = "Disposition of qualification findings 18.1471.1.5 to 18.1144.1.3 (domain 18, part 17)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d18-17.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 18.1471.1.5, 18.1471.1.6, 18.1503.1.1, 18.1506.1.1, 18.1509.1.1, 18.1129.1.6, 18.1434.1.1, 18.1144.1.3."
+symbols = []
+
+[capability.22.94.27]
+title = "Disposition of qualification findings 18.1485.1.1 to 18.1502.1.2 (domain 18, part 16)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d18-16.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 18.1485.1.1, 18.1487.1.1, 18.1471.1.1, 18.1487.1.2, 18.1471.1.3, 18.1471.1.4, 18.1496.1.1, 18.1502.1.1, 18.1502.1.2."
+symbols = []
+
+[capability.22.94.26]
+title = "Disposition of qualification findings 17.1.7.1 to 17.1.7.3 (domain 17, part 6)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d17-6.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 17.1.7.1, 17.1.7.2, 17.3.4.attempt1, 17.3.4.attempt2, 17.3.4.attempt3, 17.1.7.3."
+symbols = []
+
+[capability.22.94.25]
+title = "Disposition of qualification findings 11.23.3.2 to 11.23.3.2 (domain 11, part 5)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d11-5.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 11.23.3.2."
+symbols = []
+
+[capability.22.94.24]
+title = "Disposition of qualification findings 9.35.9.1 to 9.35.11.3 (domain 9, part 12)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d9-12.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 9.35.9.1, 9.35.9.2, 9.35.9.3, 9.35.11.1, 9.35.9.4, 9.35.9.5, 9.35.11.2, 9.35.9.6, 9.35.9.7, 9.35.11.3."
+symbols = []
+
+[capability.22.94.23]
+title = "Disposition of qualification findings 8.101.4.1 to 8.101.4.2 (domain 8, part 10)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d8-10.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 8.101.4.1, 8.101.4.2."
+symbols = []
+
+[capability.22.94.22]
+title = "Disposition of qualification findings 6.96.6.1 to 6.96.6.3 (domain 6, part 5)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d6-5.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 6.96.6.1, 6.96.6.2, 6.96.6.3."
+symbols = []
+
+[capability.22.94.21]
+title = "Disposition of qualification findings 5.0.9.1 to 5.0.9.1 (domain 5, part 6)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d5-6.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 5.0.9.1."
+symbols = []
+
+[capability.22.94.20]
+title = "Disposition of qualification findings 3.54.7.1 to 3.54.7.1 (domain 3, part 4)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d3-4.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 3.54.7.1."
+symbols = []
+
+[capability.22.94.19]
+title = "Disposition of qualification findings 1.2.4.1 to 1.2.4.1 (domain 1, part 5)"
+reqs = ["22103.1"]
+touches = ["spec/layerx-merge/dispositions/d1-5.kvx"]
+tests = []
+verification_contract = "true"
+do_1 = "Decision 2465. The task's findings are: 1.2.4.1."
+symbols = []
+
+[capability.22.95.10]
+title = "Move the x402 vector suite and the payload fixture to the eip155:125 network rule"
+reqs = ["22115.1"]
+touches = ["services/interop/crates/layerx-x402/tests/vectors.rs", "services/interop/specs/conformance/x402/payment-payload.json"]
+tests = ["all_payment_payload_vectors_validate_correctly", "payment_requirements_validates_layerx_network_format"]
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test vectors --test seller"
+do_1 = "Decision 2462: in services/interop/crates/layerx-x402/tests/vectors.rs build every layerx offer on network eip155:125 (model.rs LAYERX_NETWORK) with a payTo from account_identifiers of the advertised account, rewrite payment_requirements_validates_layerx_network_format to the eip155:125 rule (a layerx profile block on any other network is ProfileMismatch, a missing block on eip155:125 is ProfileMissing) and keep the transport-encoding and round-trip tests asserting the same field set."
+symbols = []
+
+[capability.22.95.9]
+title = "Make HTTPServer.Stop wait for the serve goroutine it races"
+reqs = ["22114.1"]
+touches = ["rpc/rpcstack.go", "rpc/rpcstack_test.go"]
+tests = ["TestHTTPServerStartThenStopDoesNotPanic"]
+verification_contract = "CGO_ENABLED=1 go test -count=1 -run '^TestHTTPServerStartThenStopDoesNotPanic$' ./rpc/"
+do_1 = "Decision 2461: in rpc/rpcstack.go HTTPServer.Start spawns a goroutine at :191 that reads h.server, while Stop (:311) and doStop (:319) release the server under h.mu; capture the server and listener into locals before spawning, record the goroutine's completion (a done channel or WaitGroup), and make doStop wait for Serve to return after Shutdown and Close so a Stop that follows Start never leaves the goroutine reading a released server."
+symbols = ["HTTPServer"]
+
+[capability.22.95.8]
+title = "Retire the upstream regression corpus of the rpc test package"
+reqs = ["22113.1"]
+touches = ["rpc/tests"]
+tests = []
+verification_contract = "! test -e rpc/tests/regression_test.go && ! test -e rpc/tests/mock_data && CGO_ENABLED=1 go vet ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 ./rpc/tests/"
+do_1 = "Decision 2461: delete rpc/tests/regression_test.go and the directory rpc/tests/mock_data (its recorded blocks, transactions and code files) and remove from rpc/tests/mock_state.go, rpc/tests/utils.go and rpc/tests/gas_price_test.go every reader that only served the corpus (the transaction-JSON state loader and the recorded-chain mock server setup); keep every helper another test still uses and keep the gas price test's own cases on the live mock chain."
+symbols = []
+
 [capability.22.95.7]
 title = "Give the gateway chain definition a portable viem type"
 reqs = ["22112.1"]
@@ -36651,7 +36957,7 @@ title = "Issue #1562: Decode and validate transfer-authority wrappers in AI mark
 reqs = ["181562.1"]
 touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "rpc/sequencer_receipt_vectors_test.go"]
 tests = ["rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"]
-verification_contract = "go test -count=1 ./rpc/ -run '^TestAiMarketTransferAuthorityReceipt$'"
+verification_contract = "go test -count=1 ./rpc/ -run '^TestAiMarketTransferAuthorityReceipt$' && cd services/agent/sdk/typescript && npm ci && npm run build && node --test dist/test/ai-market.test.js"
 do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1562.kvx, verdict task at its revision). Update decodeProgramsCallResult and validateProgramsExecutionResponse in services/agent/sdk/typescript/src/ai_market.ts:3169 and :3265 to decode one bounded transfer-authority/v2 wrapper before optional occupancy and execution/v2-v5, following programs/crates/layerx-programs-runtime/src/terminal.rs:325; validate canonical authorization, account-bound names, transfer sources, assets, destinations, amounts and the reconstructed authority root against the wrapper root and corresponding applied legs, including funding and Program-account payments, rather than discarding the attachment or conflating its root with occupancy-inclusive applied legs; reject truncation, empty or oversized fields, trailing bytes, repeated wrappers, wrong ordering and binding mismatches."
 symbols = ["decodeProgramsCallResult", "validateProgramsExecutionResponse", "TestAiMarketTransferAuthorityReceipt", "market_receipt_transfer_authority_resolves"]
 
@@ -36822,7 +37128,7 @@ title = "Issue #1526: Align explorer telemetry dependencies with Jaeger's requir
 reqs = ["181526.1"]
 touches = ["apps/explorer/package.json", "apps/explorer/yarn.lock", "apps/explorer/instrumentation.node.ts", "apps/explorer/instrumentation.node.spec.ts"]
 tests = ["apps/explorer/instrumentation.node.spec.ts::test_explorer_telemetry_dependency_coherence"]
-verification_contract = "yarn --cwd apps/explorer test:vitest run instrumentation.node.spec.ts -t '^test_explorer_telemetry_dependency_coherence$'"
+verification_contract = "cd apps/explorer && corepack enable && yarn test:vitest run instrumentation.node.spec.ts -t '^test_explorer_telemetry_dependency_coherence$'"
 do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1526.kvx, verdict task at its revision). Replace the incompatible core override at apps/explorer/package.json:219 and align the legacy telemetry dependencies at apps/explorer/package.json:69 with the Jaeger 2.9.0 requirement at apps/explorer/yarn.lock:6821; upgrade consumers that require core 1.x to compatible releases, remove the unused legacy Jaeger exporter dependency at apps/explorer/package.json:70 while retaining OTLP trace export at apps/explorer/instrumentation.node.ts:17, adapt SDK initialization at apps/explorer/instrumentation.node.ts:19 to the aligned SDK APIs, and regenerate apps/explorer/yarn.lock with its declared Yarn manager so every remaining core selector satisfies its resolved version and every core copy meets the unchanged 2.8.0 minimum at tools/deps/floors/explorer-web.json:12."
 symbols = ["test_explorer_telemetry_dependency_coherence"]
 
@@ -36849,7 +37155,7 @@ title = "Issue #1521: Restore compatible PWA cleanup without lowering dependency
 reqs = ["181521.1"]
 touches = ["apps/perps/package.json", "apps/perps/pnpm-lock.yaml", "apps/perps/package-lock.json", "apps/perps/tests/pwa-cleanup.test.ts"]
 tests = ["apps/perps/tests/pwa-cleanup.test.ts::productionPwaCleanupUsesCompatibleGlobApi"]
-verification_contract = "pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^productionPwaCleanupUsesCompatibleGlobApi$' tests/pwa-cleanup.test.ts"
+verification_contract = "python3 tools/deps/lockfloor.py tools/deps/floors/perps-web.json && pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^productionPwaCleanupUsesCompatibleGlobApi$' tests/pwa-cleanup.test.ts"
 do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1521.kvx, verdict task at its revision). In apps/perps/package.json:85 and :125, add equivalent npm and pnpm overrides scoped to clean-webpack-plugin's del dependency, raising del from 4.1.1 to 6.1.1, and regenerate apps/perps/pnpm-lock.yaml and apps/perps/package-lock.json consistently; the chain at apps/perps/pnpm-lock.yaml:10979 and :11189 must use globby 11 instead of globby 6 and the compatible del 6 sync API, whose rimraf calls disable glob expansion, retaining every floor in tools/deps/floors/perps-web.json:1 and both glob overrides at apps/perps/package.json:105 and :145."
 symbols = ["productionPwaCleanupUsesCompatibleGlobApi"]
 
@@ -38667,7 +38973,7 @@ title = "Refresh the interop and explorer copies of the sequencer receipt vector
 reqs = ["22078.1"]
 touches = ["services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json", "services/interop/crates/layerx-bridge-relayer/tests/fixtures/sequencer_receipts.json", "services/interop/crates/layerx-gas-station/tests/fixtures/sequencer_receipts.json", "services/interop/specs/conformance/x402/settlement-response.json", "tests/conformance/check_receipt_vector_copies.py"]
 tests = ["tests/conformance/check_receipt_vector_copies.py"]
-verification_contract = "python3 tests/conformance/check_receipt_vector_copies.py && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --test sequencer_receipt && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-gas-station --test sequencer_receipt && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test vectors"
+verification_contract = "python3 tests/conformance/check_receipt_vector_copies.py && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --test sequencer_receipt && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-gas-station --test sequencer_receipt && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test vectors all_settlement_response_vectors_validate_correctly"
 do_1 = "Finding 18.1211.5.1: services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json, services/interop/crates/layerx-bridge-relayer/tests/fixtures/sequencer_receipts.json, services/interop/crates/layerx-gas-station/tests/fixtures/sequencer_receipts.json and services/interop/specs/conformance/x402/settlement-response.json are self-verified copies of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json that no test compares with the source; after task 22.23.8 re-records the source with paymentDenom (decision 2360) every copy is re-recorded from it case by case, matched by transaction hash, so the copied bytes equal the source bytes."
 symbols = ["check_receipt_vector_copies"]
 
@@ -39630,7 +39936,7 @@ title = "Reconcile the latest-tag pending expectation and export the gas price h
 reqs = ["22011.1"]
 touches = ["rpc/block_txcount_parity_test.go", "rpc/info.go", "rpc/tests/gas_price_test.go"]
 tests = []
-verification_contract = "CGO_ENABLED=1 go vet ./rpc/ ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 -skip '^(TestHttpDenyList|TestSubscribeLogsFromReceipts|TestSubscribeNewHeads|TestSubscribeNewHeadsAutobahn)$' ./rpc/ ./rpc/tests/"
+verification_contract = "CGO_ENABLED=1 go vet ./rpc/ ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 -skip '^(TestHttpDenyList|TestSubscribeLogsFromReceipts|TestSubscribeNewHeads|TestSubscribeNewHeadsAutobahn|Test0x[0-9a-f]+|Test169638844|Test169750823)$' ./rpc/ ./rpc/tests/"
 do_1 = "rpc/block_txcount_parity_test.go:209 TestBlockAPILatestTagResolves expects an error containing 'pending served by sequencer' and receives nil now that pending reads are served from the committed state (task 22.7.2): assert the served response. rpc/tests/gas_price_test.go:31 fails vet because InfoAPI.GasPriceHelper is unexported (gasPriceHelper): export the helper with a doc comment or point the test at the exported entry."
 symbols = []
 
@@ -119745,7 +120051,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.95.7]
 title = "Give the gateway chain definition a portable viem type"
-status = "pending"
+status = "superseded"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -119771,10 +120077,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Decision 2459: superseded. Annotating chain.ts alone cannot pass tsc because the six one-argument z.record calls of src/routes/sign.ts:60-63 and src/schemas/agent.ts:63-66 fail under Zod 4; 18.1548.1 does both changes."
 
 [task.22.95.6]
 title = "Type the launchpad web test configs and search shell against the raised floors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -119806,14 +120113,14 @@ title = "Issue #1548: Migrate gateway typed-data records to the Zod 4 signature"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.95.7"]
+requires = []
 reqs = ["181548.1"]
 capabilities = ["18.1548.1"]
 interfaces = []
 do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1548.kvx, verdict task at its revision). Replace the three one-argument z.record calls at services/wallet/gateway/src/schemas/agent.ts:63 and the three at services/wallet/gateway/src/routes/sign.ts:60 with z.record(z.string(), valueSchema), retaining each existing value schema, optional agent domain, agent typed-data passthrough, wallet typedData and typed_data aliases, strict envelopes, field bounds and 256-field array limit; retain the Zod 4 dependency at services/wallet/gateway/package.json:30 and its resolution at services/wallet/pnpm-lock.yaml:126."
 do_2 = "Add services/wallet/gateway/test/typed-data-records.test.ts (planned) with one declared test function gatewayTypedDataRecordsZod4 exercising the exported AgentSignTypedDataBody and SignTypedDataBody directly without replacing either schema: assert parsed valid named records retain their values through all six records and both wallet aliases; accept an omitted agent domain and agent typed-data extra properties; reject null, array and scalar record containers, unknown outer keys, unknown wallet document keys, malformed wallet TypedDataField values and 257-field arrays, while accepting 256 fields and retaining existing string bounds at services/wallet/gateway/src/routes/sign.ts:56; follow the focused Vitest runner in services/wallet/gateway/vitest.config.ts:6 and the existing schema safeParse assertion pattern at services/wallet/gateway/test/schemas.injection.test.ts:154."
 symbols = ["AgentSignTypedDataBody", "TypedDataDocument", "gatewayTypedDataRecordsZod4"]
-touches = ["services/wallet/gateway/src/schemas/agent.ts", "services/wallet/gateway/src/routes/sign.ts", "services/wallet/gateway/test/typed-data-records.test.ts"]
+touches = ["services/wallet/gateway/src/schemas/agent.ts", "services/wallet/gateway/src/routes/sign.ts", "services/wallet/gateway/test/typed-data-records.test.ts", "services/wallet/gateway/src/chain.ts"]
 tests = ["services/wallet/gateway/test/typed-data-records.test.ts::gatewayTypedDataRecordsZod4"]
 planned_paths = ["services/wallet/gateway/test/typed-data-records.test.ts"]
 build_cmd = "pnpm --dir services/wallet/gateway exec tsc --noEmit"
@@ -119830,6 +120137,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Decision 2449 (attempt 1, 3f829a126, continue): the build failed at services/wallet/gateway/src/chain.ts:15 (TS2742), a file this task does not touch, broken by the floor raise of 22.24.12; task 22.95.7 repairs it and is now required. Keep the candidate's schema, route and test changes; rerun the build and the task's verify once 22.95.7 has landed."
+do_4 = "Decision 2459 (attempts 1 and 2, continue): the task now also owns services/wallet/gateway/src/chain.ts: annotate the exported chain constant with viem's Chain type (import type { Chain } from viem) so TS2742 at chain.ts:15 is gone, then migrate the six z.record calls at src/routes/sign.ts:60-63 and src/schemas/agent.ts:63-66 to the two-argument Zod 4 signature (z.record(z.string(), <value schema>)) keeping the accepted documents identical, and make tsc --noEmit and the typed-data records test pass together."
 
 [task.18.1527.1]
 title = "Issue #1527: Align explorer Phoenix and cookie dependencies with their resolution pins"
@@ -119875,8 +120183,8 @@ symbols = ["test_explorer_telemetry_dependency_coherence"]
 touches = ["apps/explorer/package.json", "apps/explorer/yarn.lock", "apps/explorer/instrumentation.node.ts", "apps/explorer/instrumentation.node.spec.ts"]
 tests = ["apps/explorer/instrumentation.node.spec.ts::test_explorer_telemetry_dependency_coherence"]
 planned_paths = ["apps/explorer/instrumentation.node.spec.ts"]
-build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit"
-verify_cmd = "yarn --cwd apps/explorer test:vitest run instrumentation.node.spec.ts -t '^test_explorer_telemetry_dependency_coherence$'"
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit"
+verify_cmd = "cd apps/explorer && corepack enable && yarn test:vitest run instrumentation.node.spec.ts -t '^test_explorer_telemetry_dependency_coherence$'"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -119884,10 +120192,11 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 30
+time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Decision 2457 (attempt 1, 5b7663901, continue): the build failed with ERR_PNPM_OTHER_PM_EXPECTED because apps/explorer pins yarn through corepack; the build now enables corepack, runs the frozen install and yarn tsc --noEmit, the verify runs yarn test:vitest from apps/explorer, and the task has sixty minutes. Keep yarn.lock consistent with package.json so the frozen install passes."
 
 [task.18.1521.1]
 title = "Issue #1521: Restore compatible PWA cleanup without lowering dependency floors"
@@ -119905,7 +120214,7 @@ touches = ["apps/perps/package.json", "apps/perps/pnpm-lock.yaml", "apps/perps/p
 tests = ["apps/perps/tests/pwa-cleanup.test.ts::productionPwaCleanupUsesCompatibleGlobApi"]
 planned_paths = ["apps/perps/tests/pwa-cleanup.test.ts"]
 build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^productionPwaCleanupUsesCompatibleGlobApi$' tests/pwa-cleanup.test.ts"
+verify_cmd = "python3 tools/deps/lockfloor.py tools/deps/floors/perps-web.json && pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^productionPwaCleanupUsesCompatibleGlobApi$' tests/pwa-cleanup.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -119917,6 +120226,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Decision 2464 (attempt 1, df357bc8e, continue): the test fails inside @opentelemetry/sdk-trace-base/src/config.ts:25 because the override @opentelemetry/core@<2.8.0 -> 2.8.0 (added by fc3d178f2) also rewrites sdk-trace-base 1.30.1's ^1.30.1 core, and core 2.x no longer exports TracesSamplerValues. Narrow the override in both the overrides and pnpm.overrides blocks of apps/perps/package.json to @opentelemetry/core@>=2.0.0 <2.8.0 -> 2.8.0 so sdk-trace-base keeps a 1.x core, regenerate pnpm-lock.yaml and package-lock.json, and keep every floor of tools/deps/floors/perps-web.json satisfied; the verify now runs the floors check before the test."
 
 [task.18.1518.1]
 title = "Issue #1518: Align TypeScript web search settlement with the sequencer receipt shape"
@@ -119948,10 +120258,11 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2450 (attempt 1, 1d650f6c0, continue): the build failed with ERR_PNPM_OTHER_PM_EXPECTED because services/agent/sdk/typescript pins npm; the build and verify now run npm ci and npm run build inside the package and node --test on the compiled test. Keep the candidate's source and test changes; rerun the build and the task's verify."
+do_5 = "Decision 2460 (attempts 3 and 4, 8f884530d, continue): the build passes and all 39 subtests fail with offer-account-mismatch. In test/web-search.test.ts compute the seller's derived account with the same helper the client uses (derivedAccount(receiver.did, asset, nativeAsset) of src/web-search.ts), set the test offer's account to its name and payTo to its id, rewrite the receipt's to field at toOffset to that id and re-sign the receipt with resignReceipt and the test's fixture key before each subtest; every other field of the conformance vector stays as recorded, so verifySequencerReceipt's module, operation, asset, amount and to checks all pass."
 
 [task.18.1515.1]
 title = "Issue #1515: Preserve submitted chain history beyond editable-draft expiry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.6"]
@@ -120342,7 +120653,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.4]
 title = "Close the 1 dependency alerts of apps/names/pnpm-lock.yaml"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -120456,10 +120767,11 @@ rollback = "Revert the task's commit; the manifests return to the previous versi
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 30
+time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2457 (attempt 1, continue): the frozen install alone took 868 s and the attempt ended at its limit before the alert check ran; the task now has sixty minutes. Run the install once, then the alert check; commit only the manifest, the lock and the report."
 
 [task.22.24.27]
 title = "Decode the xweb program request event in the wallet web-data module"
@@ -124732,8 +125044,8 @@ symbols = ["decodeProgramsCallResult", "validateProgramsExecutionResponse", "Tes
 touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "rpc/sequencer_receipt_vectors_test.go"]
 tests = ["rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"]
 planned_paths = []
-build_cmd = "go build ./rpc/... && pnpm --dir services/agent/sdk/typescript exec tsc --noEmit"
-verify_cmd = "go test -count=1 ./rpc/ -run '^TestAiMarketTransferAuthorityReceipt$'"
+build_cmd = "go build ./rpc/... && cd services/agent/sdk/typescript && npm ci && npm run build"
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestAiMarketTransferAuthorityReceipt$' && cd services/agent/sdk/typescript && npm ci && npm run build && node --test dist/test/ai-market.test.js"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-agent"
@@ -124745,10 +125057,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Decision 2458 (attempts 1 and 2, continue): the build failed with ERR_PNPM_OTHER_PM_EXPECTED because services/agent/sdk/typescript pins npm; the build and verify now use npm ci and npm run build and the verify runs the built ai-market test with node --test after the Go vector test. Keep the Go vector test and the TypeScript test both green."
 
 [task.18.1561.1]
 title = "Issue #1561: Prepare the codec replay corpus before agent vector tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124807,7 +125120,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1543.1]
 title = "Issue #1543: Align Android sample dependencies and verification checksums with the binding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124867,7 +125180,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1519.1]
 title = "Issue #1519: Restore the nine explorer tool lockfiles at their dependency floors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132035,9 +132348,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.95.10]
+title = "Move the x402 vector suite and the payload fixture to the eip155:125 network rule"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["18.1211.6"]
+reqs = ["22115.1"]
+capabilities = ["22.95.10"]
+interfaces = []
+do_1 = "Decision 2462: in services/interop/crates/layerx-x402/tests/vectors.rs build every layerx offer on network eip155:125 (model.rs LAYERX_NETWORK) with a payTo from account_identifiers of the advertised account, rewrite payment_requirements_validates_layerx_network_format to the eip155:125 rule (a layerx profile block on any other network is ProfileMismatch, a missing block on eip155:125 is ProfileMissing) and keep the transport-encoding and round-trip tests asserting the same field set."
+do_2 = "In services/interop/specs/conformance/x402/payment-payload.json replace every layerx: network with eip155:125 and keep each payload's payTo derived from its account as payment-required.json already does; do not edit payment-required.json or settlement-response.json."
+do_3 = "Run the task's verify, which runs the vectors and seller suites."
+symbols = []
+touches = ["services/interop/crates/layerx-x402/tests/vectors.rs", "services/interop/specs/conformance/x402/payment-payload.json"]
+tests = ["all_payment_payload_vectors_validate_correctly", "payment_requirements_validates_layerx_network_format"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --tests"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test vectors --test seller"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.95.4]
 title = "Read the gas station relayer key from the variable the config names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132067,7 +132410,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1556.1]
 title = "Issue #1556: Ingest receipted logs and reconcile their committed copies"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132218,7 +132561,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.28]
 title = "Close the 18 dependency alerts of tools/wasm-tools/Cargo.lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -133096,7 +133439,7 @@ touches = ["services/explorer/backend/apps/explorer/test/support/fixture/paxeer_
 tests = ["tests/conformance/check_receipt_vector_copies.py"]
 planned_paths = ["tests/conformance/check_receipt_vector_copies.py"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer -p layerx-gas-station -p layerx-x402 --tests"
-verify_cmd = "python3 tests/conformance/check_receipt_vector_copies.py && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --test sequencer_receipt && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-gas-station --test sequencer_receipt && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test vectors"
+verify_cmd = "python3 tests/conformance/check_receipt_vector_copies.py && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --test sequencer_receipt && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-gas-station --test sequencer_receipt && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test vectors all_settlement_response_vectors_validate_correctly"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-interop"
@@ -133111,6 +133454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "Decision 2422 (attempts 1 and 2, c089c89e2 and 16714d7fc, continue): the comparison fails on daemon/committed-fixture/vectors/vector-v2-receipted-revert.json, a daemon fixture in another format whose case the source does not carry; it is not one of the four copies of do_1 and leaves the script, which compares exactly the explorer, relayer, gas-station and x402 copies with sdk/platform/conformance/fixtures/sequencer-receipt-v1.json. The attempt 1 base predated 415f541ed (22.23.8 re-recorded the source with paymentDenom), so that candidate edited the source itself and twenty files outside touches (rpc tests, the source fixture, the daemon vectors): those edits are not part of this task and are dropped. Re-record the four copies from the source as main carries it now and rerun the task's verify."
 do_6 = "Decision 2428 (attempt 3, 7a0f13cc1, re-qualify unchanged): the copy comparison passes and the relayer sequencer_receipt test fails on the relayer's own decoder and classification (a submitted answer carrying paymentDenom decodes instead of Malformed at tests/sequencer_receipt.rs:242; V1-layerxprograms-call is unclassified at :424), which 22.23.14 repairs; this task now requires it and the attempt 3 candidate is re-qualified unchanged once 22.23.14 has published."
 do_7 = "Decision 2441 (attempt 6, a57e26625, re-qualify unchanged): the only failure of attempt 6 was documented_deploy_inputs_start_service of the gas station service tests, whose KeySource error is the relayer key loader (task 22.95.4), unrelated to the receipt vector copies this task owns; the verify no longer runs the service test. The copies check, the relayer and gas station sequencer_receipt tests and the x402 vectors are the proof. Rerun the task's verify on the attempt 6 candidate without further edits."
+do_8 = "Decision 2462 (attempts 7 and 8, 01ea2ae40, re-qualify unchanged): the six failing vector tests fail on main since e556c8b04 moved the x402 network rule to eip155:125 and are repaired by task 22.95.10; the task's verify now runs only all_settlement_response_vectors_validate_correctly, the consumer of the settlement fixture it refreshes, beside the copies check and the two receipt test suites."
 
 [task.10.1.11]
 title = "Remove the ambient randomness, clock and environment writes from the KMS proofs and the evidence node fixture"
@@ -133339,7 +133683,7 @@ do_2 = "services/agent/crates/layerx-agentd/src/approval/mod.rs: the record at :
 do_3 = "The tests services/agent/crates/layerx-agentd/tests/approval.rs, approval_ops.rs, approval_semantics.rs, approval_events.rs and approval_ordering/mod.rs build their Prepared fixtures from a fixed call (the single signing_preimage line each one carries today becomes the call's signing hash) and gain, in approval.rs, replay_refuses_a_hold_whose_call_bytes_or_sender_changed: a persisted hold with one call byte flipped and one with another sender is refused by validate_registry."
 do_4 = "The verify runs the crate's lib tests and the five approval targets."
 symbols = ["HeldApproval", "replay_refuses_a_hold_whose_call_bytes_or_sender_changed"]
-touches = ["services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/src/approval/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/approval.rs", "services/agent/crates/layerx-agentd/tests/approval_ops.rs", "services/agent/crates/layerx-agentd/tests/approval_semantics.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/src/approval/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/approval.rs", "services/agent/crates/layerx-agentd/tests/approval_ops.rs", "services/agent/crates/layerx-agentd/tests/approval_semantics.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs", "services/agent/crates/layerx-agentd/src/approval/expiry.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/approval.rs::replay_refuses_a_hold_whose_call_bytes_or_sender_changed"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -133355,6 +133699,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Decision 2463 (attempt 1, 85aecb005, continue): the lib test build fails with E0063 at services/agent/crates/layerx-agentd/src/approval/expiry.rs:645 because that ApprovalContext initializer lacks the new actor_address field; the file is now in the task's touches, so fill the field there from the context the expiry path holds and rebuild before the verify."
 
 [task.9.35.17]
 title = "Carry the call-bound disclosure on the EIP-1559 preparation and drop the legacy authorization from the signing preparation"
@@ -140431,7 +140776,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1510.1]
 title = "Preserve subscription lag signals when another chain's log is excluded"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["18.1509.1", "22.25.4"]
@@ -177577,7 +177922,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.0.9]
 title = "Gate domain 10 completion on its retired surfaces and planned paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["10.0.1", "10.0.2", "10.0.3", "10.0.4", "10.1.2", "10.1.3", "10.1.4", "10.10.1", "10.10.2", "10.14.1", "10.16.2", "10.21.4", "10.21.5", "10.21.6", "10.24.3", "10.25.4", "10.97.1", "18.1119.1", "10.16.4", "9.25.16", "10.2.10", "10.2.11", "21.52.1", "21.63.1", "21.97.1", "21.109.1", "21.110.1", "21.111.1", "22.9.24"]
@@ -193087,9 +193432,69 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.95.9]
+title = "Make HTTPServer.Stop wait for the serve goroutine it races"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22114.1"]
+capabilities = ["22.95.9"]
+interfaces = []
+do_1 = "Decision 2461: in rpc/rpcstack.go HTTPServer.Start spawns a goroutine at :191 that reads h.server, while Stop (:311) and doStop (:319) release the server under h.mu; capture the server and listener into locals before spawning, record the goroutine's completion (a done channel or WaitGroup), and make doStop wait for Serve to return after Shutdown and Close so a Stop that follows Start never leaves the goroutine reading a released server."
+do_2 = "Add TestHTTPServerStartThenStopDoesNotPanic to rpc/rpcstack_test.go: start and stop a server on a free port in a loop of at least fifty iterations and assert no panic and that Stop returns."
+do_3 = "Run the task's verify, which runs the new test."
+symbols = ["HTTPServer"]
+touches = ["rpc/rpcstack.go", "rpc/rpcstack_test.go"]
+tests = ["TestHTTPServerStartThenStopDoesNotPanic"]
+planned_paths = []
+build_cmd = "CGO_ENABLED=1 go build ./rpc/..."
+verify_cmd = "CGO_ENABLED=1 go test -count=1 -run '^TestHTTPServerStartThenStopDoesNotPanic$' ./rpc/"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.95.8]
+title = "Retire the upstream regression corpus of the rpc test package"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.7.3"]
+reqs = ["22113.1"]
+capabilities = ["22.95.8"]
+interfaces = []
+do_1 = "Decision 2461: delete rpc/tests/regression_test.go and the directory rpc/tests/mock_data (its recorded blocks, transactions and code files) and remove from rpc/tests/mock_state.go, rpc/tests/utils.go and rpc/tests/gas_price_test.go every reader that only served the corpus (the transaction-JSON state loader and the recorded-chain mock server setup); keep every helper another test still uses and keep the gas price test's own cases on the live mock chain."
+do_2 = "Do not weaken any remaining assertion; the retirement removes recorded upstream data, not coverage of this chain's RPC."
+do_3 = "Run the task's verify, which asserts the corpus files are gone, vets the package and runs every remaining test of rpc/tests."
+symbols = []
+touches = ["rpc/tests"]
+tests = []
+planned_paths = []
+build_cmd = "CGO_ENABLED=1 go vet ./rpc/tests/"
+verify_cmd = "! test -e rpc/tests/regression_test.go && ! test -e rpc/tests/mock_data && CGO_ENABLED=1 go vet ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 ./rpc/tests/"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.95.5]
 title = "Make the standby resolution and ledger replay tests pass on the landed replay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.95.2"]
@@ -193149,7 +193554,7 @@ do_3 = "Decision 2455 (attempt 1, f9dc7617a, continue): attempt 1 removed JobExe
 
 [task.18.1551.1]
 title = "Issue #1551: Decode canonical receipt-key responses in both public PxClient SDKs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -193385,7 +193790,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.95.2]
 title = "Rebuild the sequencer receipt source from the write-ahead log replay on node start"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -194418,7 +194823,7 @@ touches = ["rpc/block_txcount_parity_test.go", "rpc/info.go", "rpc/tests/gas_pri
 tests = []
 planned_paths = []
 build_cmd = "CGO_ENABLED=1 go build ./rpc/..."
-verify_cmd = "CGO_ENABLED=1 go vet ./rpc/ ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 -skip '^(TestHttpDenyList|TestSubscribeLogsFromReceipts|TestSubscribeNewHeads|TestSubscribeNewHeadsAutobahn)$' ./rpc/ ./rpc/tests/"
+verify_cmd = "CGO_ENABLED=1 go vet ./rpc/ ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 -skip '^(TestHttpDenyList|TestSubscribeLogsFromReceipts|TestSubscribeNewHeads|TestSubscribeNewHeadsAutobahn|Test0x[0-9a-f]+|Test169638844|Test169750823)$' ./rpc/ ./rpc/tests/"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-rpc-api"
@@ -194447,6 +194852,7 @@ do_16 = "Decision 2405, superseding do_11: rpc/send.go acceptOnSequencer continu
 do_17 = "Decision 2419 (attempt 7, ef0fc44d0, continue): eleven Test0x regression cases and Test169638844 answer -32000 with unable to resolve type URL for the oracle vote message of the fixtures' encoded block transactions. Facts: every fixture under rpc/tests/mock_data/transactions encodes its block transactions with the upstream chain's type URLs (the oracle vote, the EVM message and the eth transaction types), which no codec of this repository registers; Backend.BlockByNumber (rpc/simulate.go:518) returns the first decode error of any transaction of the block; the same eleven cases passed at attempt 6 (70991e4d2 on c1f5f4d31) with identical fixture bytes, so whether a case reaches that decode depends on state shared between the cases of the rpc/tests package (the mock upgrade table of mock_upgrade.go, the package caches, or the receipt lookup that routes debug_traceTransaction). First run one failing case alone, then after one passing case, find the shared state and make every case independent of the cases before it; rpc/tests is now in touches as a directory. If the oracle decode is on every isolated case's path, re-encode the fixtures' block transactions with this chain's type URLs: the names have the same byte length, so the protobuf framing is unchanged, and a committed python script under rpc/tests/mock_data performs the rewrite so it can be repeated. Never register the upstream type URLs in a product codec and never skip an undecodable transaction in BlockByNumber. The attempt 7 changes to the other files stand; rerun the task's verify afterwards."
 do_18 = "Decision 2431 (attempt 8, 940ed5126, continue): the condition of do_17 is met, the same eleven Test0x cases and Test169638844 fail again with the -32000 answer unable to resolve type URL for the upstream oracle vote message. Write rpc/tests/mock_data/retype.py (plain python3, no third-party imports) that rewrites, in every fixture under rpc/tests/mock_data/transactions, the encoded transactions' type URLs from the upstream packages seiprotocol.seichain.<module> to this chain's paxprotocol.paxchain.<module> (api/oracle/tx.proto:2; the package names have the same byte lengths, so the protobuf framing is unchanged), run it and commit the rewritten fixtures with it; then run one failing case alone and the whole package. Never register the upstream type URLs in a product codec and never skip an undecodable transaction in BlockByNumber. The attempt 8 changes to the other files stand; rerun the task's verify afterwards."
 do_19 = "Decision 2439 (attempt 9, 4a618bdaf, continue): the type URL rewrite is accepted; the twelve regression cases now fail at rpc/tests/regression_test.go:381 with the -32000 answer failed to load validators for block N from tendermint: incomplete validator fixture, captured 30 of 39 validators, raised by the refusal the candidate added to MockClient.Validators in rpc/tests/mock_client.go (line 183). Every block fixture records exactly one Validators page (count 30, total 40 at block 169638843); the recording's loader fetched a single default page and passed those validators to BeginBlock, so the recorded answers derive from the captured validators. Make the mock serve the captured validators as the complete set (Total and Count equal the captured length; pages cut from the captured list by the requested per_page; a page beyond the list is an error), remove the incomplete-fixture refusal and state in a comment that the trace is a single recorded page. rpc/simulate.go loadAllValidators is not changed. If a case then differs in its recorded answer, record the case, the field and both values in the commit message and continue. Rerun the task's verify."
+do_20 = "Decision 2461 (attempts 11 and 12, 7e6207bac, continue): the recorded upstream corpus of rpc/tests/regression_test.go (Test0x cases, Test169638844, Test169750823) is skipped by the verify and retired by task 22.95.8; do not re-type or edit its mock data. Attempt 12 regressed TestEthclientOnTheChainPathSendsReceiptsAndFilters (rpc/ethclient_domain_test.go:267: server returned empty transaction list but block header indicates transactions): a block served on the chain path through eth_getBlockByNumber with full transactions must carry its transaction list, so revert whatever the candidate changed in rpc/info.go, rpc/simulate.go or rpc/notifier.go on that path until the test passes again alongside the task's own tests."
 
 [task.22.4.5]
 title = "Reconcile the launchpad module, CLI, airdrop and legacy fixtures"
@@ -227552,7 +227958,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 37
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1", "18.1186.1", "18.1188.1", "18.766.1", "18.914.1", "18.1092.1", "18.1113.1", "18.1180.1", "18.1189.1", "18.1192.1", "18.1194.1", "18.1195.1", "18.1196.1", "18.1197.1", "18.1199.1", "18.1200.1", "18.1203.1", "18.1204.1", "18.1205.1", "18.1206.1", "18.1218.1", "18.1219.1", "18.1221.1", "18.1222.1", "18.1223.1", "18.1224.1", "18.1225.1", "18.1227.1", "18.1228.1", "18.1229.1", "18.1230.1", "18.1231.1", "18.1233.1", "18.1234.1", "18.1235.1", "18.1236.1", "18.1237.1", "18.1239.1", "18.1193.1", "18.1215.1", "18.1043.1", "18.1209.1", "18.1001.3", "18.1172.2", "18.1245.1", "18.1246.1", "18.1159.1", "18.1201.1", "18.1241.1", "18.1244.1", "18.1240.1", "18.1243.1", "18.1242.1", "18.756.1", "18.757.1", "18.769.1", "18.813.1", "18.821.1", "18.962.1", "18.1214.1", "18.1238.1", "18.1271.1", "18.1303.1", "18.1311.1", "18.1312.1", "18.1313.1", "18.1314.1", "18.1315.1", "18.1316.1", "18.1317.1", "18.1318.1", "18.1320.1", "18.1322.1", "18.1323.1", "18.1325.1", "18.1327.1", "18.1328.1", "18.1329.1", "18.1330.1", "18.1331.1", "18.1333.1", "18.1335.1", "18.1337.1", "18.1338.1", "18.1339.1", "18.1341.1", "18.1344.1", "18.1346.1", "18.1347.1", "18.1348.1", "18.1349.1", "18.1350.1", "18.1351.1", "18.1352.1", "18.1353.1", "18.1355.1", "18.1356.1", "18.1357.1", "18.1358.1", "18.1359.1", "18.1360.1", "18.1362.1", "18.1363.1", "18.1364.1", "18.1365.1", "18.1366.1", "18.1367.1", "18.1369.1", "18.1370.1", "18.1371.1", "18.1373.1", "18.1374.1", "18.1375.1", "18.1376.1", "18.1377.1", "18.1378.1", "18.1379.1", "18.1381.1", "18.1382.1", "18.1383.1", "18.1387.1", "18.1388.1", "18.1389.1", "18.1391.1", "18.1392.1", "18.1394.1", "18.1396.1", "18.1402.1", "18.1403.1", "18.1404.1", "18.1405.1", "18.1406.1", "18.1408.1", "18.1409.1", "18.1410.1", "18.1412.1", "18.1413.1", "18.1417.1", "18.1423.1", "18.1424.1", "18.1425.1", "18.1426.1", "18.1427.1", "18.1326.1", "18.1075.1", "18.1134.1", "18.1148.1", "18.1188.2", "18.1202.1", "18.1204.2", "18.1211.1", "18.1211.2", "18.1211.3", "18.1211.4", "18.1211.5", "18.1228.2", "18.1232.1", "18.1243.2", "18.1250.1", "18.1252.1", "18.1254.1", "18.1255.1", "18.1256.1", "18.1257.1", "18.1258.1", "18.1259.1", "18.1262.1", "18.1263.1", "18.1264.1", "18.1265.1", "18.1268.1", "18.1269.1", "18.1270.1", "18.1272.1", "18.1273.1", "18.1275.1", "18.1279.1", "18.1279.2", "18.1279.3", "18.1286.1", "18.1287.1", "18.1288.1", "18.1289.1", "18.1291.1", "18.1291.2", "18.1292.1", "18.1293.1", "18.1293.2", "18.1293.3", "18.1293.4", "18.1294.1", "18.1295.1", "18.1296.1", "18.1297.1", "18.1297.2", "18.1298.1", "18.1299.1", "18.1300.1", "18.1301.1", "18.1302.1", "18.1304.1", "18.1305.1", "18.1306.1", "18.1307.1", "18.1308.1", "18.1308.2", "18.1308.3", "18.1309.1", "18.1310.1", "18.1429.1", "18.1430.1", "18.1431.1", "18.1432.1", "18.1433.1", "18.1434.1", "18.1435.1", "18.1435.2", "18.1435.3", "18.1435.4", "18.1435.5", "18.1437.1", "18.1439.1", "18.1441.1", "18.835.1", "18.893.1", "18.90.1", "18.905.1", "18.911.2", "18.918.1", "18.927.1", "18.960.1", "18.963.1", "18.1443.1", "18.1444.1", "18.1445.1", "18.1446.1", "18.1451.1", "18.1452.1", "18.1453.1", "18.1456.1", "18.1459.1", "18.1460.1", "18.1463.1", "18.1467.1", "18.1468.1", "18.1471.1", "18.1472.1", "18.1475.1", "18.1477.1", "18.1478.1", "18.1479.1", "18.1481.1", "18.1482.1", "18.1483.1", "18.1484.1", "18.1485.1", "18.1486.1", "18.1487.1", "18.1476.1", "18.1488.1", "18.1489.1", "18.1490.1", "18.1491.1", "18.1492.1", "18.1493.1", "18.1494.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1", "18.1186.1", "18.1188.1", "18.766.1", "18.914.1", "18.1092.1", "18.1113.1", "18.1180.1", "18.1189.1", "18.1192.1", "18.1194.1", "18.1195.1", "18.1196.1", "18.1197.1", "18.1199.1", "18.1200.1", "18.1203.1", "18.1204.1", "18.1205.1", "18.1206.1", "18.1218.1", "18.1219.1", "18.1221.1", "18.1222.1", "18.1223.1", "18.1224.1", "18.1225.1", "18.1227.1", "18.1228.1", "18.1229.1", "18.1230.1", "18.1231.1", "18.1233.1", "18.1234.1", "18.1235.1", "18.1236.1", "18.1237.1", "18.1239.1", "18.1193.1", "18.1215.1", "18.1043.1", "18.1209.1", "18.1001.3", "18.1172.2", "18.1245.1", "18.1246.1", "18.1159.1", "18.1201.1", "18.1241.1", "18.1244.1", "18.1240.1", "18.1243.1", "18.1242.1", "18.756.1", "18.757.1", "18.769.1", "18.813.1", "18.821.1", "18.962.1", "18.1214.1", "18.1238.1", "18.1271.1", "18.1303.1", "18.1311.1", "18.1312.1", "18.1313.1", "18.1314.1", "18.1315.1", "18.1316.1", "18.1317.1", "18.1318.1", "18.1320.1", "18.1322.1", "18.1323.1", "18.1325.1", "18.1327.1", "18.1328.1", "18.1329.1", "18.1330.1", "18.1331.1", "18.1333.1", "18.1335.1", "18.1337.1", "18.1338.1", "18.1339.1", "18.1341.1", "18.1344.1", "18.1346.1", "18.1347.1", "18.1348.1", "18.1349.1", "18.1350.1", "18.1351.1", "18.1352.1", "18.1353.1", "18.1355.1", "18.1356.1", "18.1357.1", "18.1358.1", "18.1359.1", "18.1360.1", "18.1362.1", "18.1363.1", "18.1364.1", "18.1365.1", "18.1366.1", "18.1367.1", "18.1369.1", "18.1370.1", "18.1371.1", "18.1373.1", "18.1374.1", "18.1375.1", "18.1376.1", "18.1377.1", "18.1378.1", "18.1379.1", "18.1381.1", "18.1382.1", "18.1383.1", "18.1387.1", "18.1388.1", "18.1389.1", "18.1391.1", "18.1392.1", "18.1394.1", "18.1396.1", "18.1402.1", "18.1403.1", "18.1404.1", "18.1405.1", "18.1406.1", "18.1408.1", "18.1409.1", "18.1410.1", "18.1412.1", "18.1413.1", "18.1417.1", "18.1423.1", "18.1424.1", "18.1425.1", "18.1426.1", "18.1427.1", "18.1326.1", "18.1075.1", "18.1134.1", "18.1148.1", "18.1188.2", "18.1202.1", "18.1204.2", "18.1211.1", "18.1211.2", "18.1211.3", "18.1211.4", "18.1211.5", "18.1228.2", "18.1232.1", "18.1243.2", "18.1250.1", "18.1252.1", "18.1254.1", "18.1255.1", "18.1256.1", "18.1257.1", "18.1258.1", "18.1259.1", "18.1262.1", "18.1263.1", "18.1264.1", "18.1265.1", "18.1268.1", "18.1269.1", "18.1270.1", "18.1272.1", "18.1273.1", "18.1275.1", "18.1279.1", "18.1279.2", "18.1279.3", "18.1286.1", "18.1287.1", "18.1288.1", "18.1289.1", "18.1291.1", "18.1291.2", "18.1292.1", "18.1293.1", "18.1293.2", "18.1293.3", "18.1293.4", "18.1294.1", "18.1295.1", "18.1296.1", "18.1297.1", "18.1297.2", "18.1298.1", "18.1299.1", "18.1300.1", "18.1301.1", "18.1302.1", "18.1304.1", "18.1305.1", "18.1306.1", "18.1307.1", "18.1308.1", "18.1308.2", "18.1308.3", "18.1309.1", "18.1310.1", "18.1429.1", "18.1430.1", "18.1431.1", "18.1432.1", "18.1433.1", "18.1434.1", "18.1435.1", "18.1435.2", "18.1435.3", "18.1435.4", "18.1435.5", "18.1437.1", "18.1439.1", "18.1441.1", "18.835.1", "18.893.1", "18.90.1", "18.905.1", "18.911.2", "18.918.1", "18.927.1", "18.960.1", "18.963.1", "18.1443.1", "18.1444.1", "18.1445.1", "18.1446.1", "18.1451.1", "18.1452.1", "18.1453.1", "18.1456.1", "18.1459.1", "18.1460.1", "18.1463.1", "18.1467.1", "18.1468.1", "18.1471.1", "18.1472.1", "18.1475.1", "18.1477.1", "18.1478.1", "18.1479.1", "18.1481.1", "18.1482.1", "18.1483.1", "18.1484.1", "18.1485.1", "18.1486.1", "18.1487.1", "18.1476.1", "18.1488.1", "18.1489.1", "18.1490.1", "18.1491.1", "18.1492.1", "18.1493.1", "18.1494.1", "18.1211.6", "18.1211.7", "18.1510.1", "18.1515.1", "18.1518.1", "18.1519.1", "18.1521.1", "18.1522.1", "18.1525.1", "18.1526.1", "18.1527.1", "18.1528.1", "18.1535.1", "18.1536.1", "18.1537.1", "18.1539.1", "18.1541.1", "18.1543.1", "18.1545.1", "18.1547.1", "18.1548.1", "18.1549.1", "18.1550.1", "18.1551.1", "18.1552.1", "18.1556.1", "18.1558.1", "18.1561.1", "18.1562.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -227577,6 +227983,743 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx-merge/programme/tests/test_issue_closure.py: a temporary spec with one done and one superseded 18.x task returns an empty list."
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
+do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
+
+[task.22.94.41]
+title = "Disposition of qualification findings 22.9.30.1 to 22.24.12.1 (domain 22, part 13)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.41"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 22.9.30.1, 22.11.7.5, 22.2.6.5, 22.6.4.6, 22.8.11.5, 22.23.8.2, 22.25.3.1, 22.24.8.1, 22.24.12.1."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d22-13.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d22-13.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d22-13.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-13.kvx 22.9.30.1,22.11.7.5,22.2.6.5,22.6.4.6,22.8.11.5,22.23.8.2,22.25.3.1,22.24.8.1,22.24.12.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.40]
+title = "Disposition of qualification findings 22.13.9.2 to 22.9.29.1 (domain 22, part 12)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.40"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 22.13.9.2, 22.9.13.1, 22.9.13.2, 22.13.6.8, 22.9.17.2, 22.6.4.5, 22.1.9.1, 22.13.9.3, 22.9.29.1."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d22-12.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d22-12.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d22-12.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-12.kvx 22.13.9.2,22.9.13.1,22.9.13.2,22.13.6.8,22.9.17.2,22.6.4.5,22.1.9.1,22.13.9.3,22.9.29.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.39]
+title = "Disposition of qualification findings 22.6.7.4 to 22.13.8.2 (domain 22, part 11)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.39"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 22.6.7.4, 22.2.5.4, 22.8.11.4, 22.2.6.2, 22.2.6.3, 22.11.7.3, 22.16.9.2, 22.9.7.1, 22.13.8.2."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d22-11.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d22-11.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d22-11.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-11.kvx 22.6.7.4,22.2.5.4,22.8.11.4,22.2.6.2,22.2.6.3,22.11.7.3,22.16.9.2,22.9.7.1,22.13.8.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.38]
+title = "Disposition of qualification findings 22.13.9.1 to 22.4.5.4 (domain 22, part 10)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.38"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 22.13.9.1, 22.9.17.1, 22.11.7.1, 22.11.7.2, 22.16.9.1, 22.12.7.2, 22.6.4.4, 22.13.6.7, 22.4.5.4."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d22-10.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d22-10.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d22-10.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-10.kvx 22.13.9.1,22.9.17.1,22.11.7.1,22.11.7.2,22.16.9.1,22.12.7.2,22.6.4.4,22.13.6.7,22.4.5.4 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.37]
+title = "Disposition of qualification findings 22.13.6.5 to 22.13.8.1 (domain 22, part 9)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.37"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 22.13.6.5, 22.2.5.2, 22.8.11.3, 22.4.5.3, 22.1.6.1, 22.13.6.6, 22.6.4.3, 22.2.5.3, 22.13.8.1."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d22-9.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d22-9.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d22-9.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-9.kvx 22.13.6.5,22.2.5.2,22.8.11.3,22.4.5.3,22.1.6.1,22.13.6.6,22.6.4.3,22.2.5.3,22.13.8.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.36]
+title = "Disposition of qualification findings 22.10.7.3 to 22.6.7.3 (domain 22, part 8)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.36"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 22.10.7.3, 22.4.5.2, 22.12.7.1, 22.1.4.2, 22.2.6.1, 22.9.23.2, 22.16.4.5, 22.10.7.4, 22.6.7.3."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d22-8.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d22-8.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d22-8.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-8.kvx 22.10.7.3,22.4.5.2,22.12.7.1,22.1.4.2,22.2.6.1,22.9.23.2,22.16.4.5,22.10.7.4,22.6.7.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.35]
+title = "Disposition of qualification findings 22.6.4.1 to 22.8.11.2 (domain 22, part 7)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.35"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 22.6.4.1, 22.12.4.2, 22.13.6.3, 22.9.24.1, 22.1.4.1, 22.13.6.4, 22.6.7.2, 22.6.4.2, 22.9.24.2, 22.8.11.2."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d22-7.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d22-7.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d22-7.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-7.kvx 22.6.4.1,22.12.4.2,22.13.6.3,22.9.24.1,22.1.4.1,22.13.6.4,22.6.7.2,22.6.4.2,22.9.24.2,22.8.11.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.34]
+title = "Disposition of qualification findings 22.13.6.2 to 22.4.5.1 (domain 22, part 6)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.34"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 22.13.6.2, 22.8.11.1, 22.9.16.1, 22.2.4.2, 22.2.7.1, 22.10.7.2, 22.17.4.1, 22.90.9.2, 22.16.4.3, 22.4.5.1."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d22-6.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d22-6.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d22-6.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-6.kvx 22.13.6.2,22.8.11.1,22.9.16.1,22.2.4.2,22.2.7.1,22.10.7.2,22.17.4.1,22.90.9.2,22.16.4.3,22.4.5.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.33]
+title = "Disposition of qualification findings 22.16.7.1 to 22.16.8.1 (domain 22, part 5)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.33"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 22.16.7.1, 22.16.5.2, 22.5.7.1, 22.6.7.1, 22.6.8.1, 22.8.12.1, 22.11.5.1, 22.9.11.1, 22.12.4.1, 22.16.8.1."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d22-5.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d22-5.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d22-5.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-5.kvx 22.16.7.1,22.16.5.2,22.5.7.1,22.6.7.1,22.6.8.1,22.8.12.1,22.11.5.1,22.9.11.1,22.12.4.1,22.16.8.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.32]
+title = "Disposition of qualification findings 22.90.9.1 to 22.10.7.1 (domain 22, part 4)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.32"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 22.90.9.1, 22.16.4.1, 22.13.6.1, 22.5.4.1, 22.4.3.1, 22.10.6.1, 22.16.5.1, 22.9.12.1, 22.2.4.1, 22.10.7.1."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d22-4.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d22-4.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d22-4.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d22-4.kvx 22.90.9.1,22.16.4.1,22.13.6.1,22.5.4.1,22.4.3.1,22.10.6.1,22.16.5.1,22.9.12.1,22.2.4.1,22.10.7.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.31]
+title = "Disposition of qualification findings 21.142.1.1 to 21.18.1.3 (domain 21, part 4)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.31"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 21.142.1.1, 21.63.1.1, 21.130.1.2, 21.11.1.3, 21.18.1.2, 21.92.1.3, 21.11.1.4, 21.18.1.3."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d21-4.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d21-4.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d21-4.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d21-4.kvx 21.142.1.1,21.63.1.1,21.130.1.2,21.11.1.3,21.18.1.2,21.92.1.3,21.11.1.4,21.18.1.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.30]
+title = "Disposition of qualification findings 21.5.1.1 to 21.11.1.2 (domain 21, part 3)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.30"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 21.5.1.1, 21.19.1.1, 21.5.1.2, 21.87.1.1, 21.92.1.1, 21.160.1.1, 21.18.1.1, 21.130.1.1, 21.11.1.2."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d21-3.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d21-3.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d21-3.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d21-3.kvx 21.5.1.1,21.19.1.1,21.5.1.2,21.87.1.1,21.92.1.1,21.160.1.1,21.18.1.1,21.130.1.1,21.11.1.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.29]
+title = "Disposition of qualification findings 20.3.4.1 to 20.4.3.1 (domain 20, part 3)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.29"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 20.3.4.1, 20.4.4.1, 20.3.4.2, 20.3.4.3, 20.3.4.4, 20.3.4.5, 20.3.4.6, 20.4.3.1."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d20-3.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d20-3.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d20-3.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d20-3.kvx 20.3.4.1,20.4.4.1,20.3.4.2,20.3.4.3,20.3.4.4,20.3.4.5,20.3.4.6,20.4.3.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.28]
+title = "Disposition of qualification findings 18.1471.1.5 to 18.1144.1.3 (domain 18, part 17)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.28"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 18.1471.1.5, 18.1471.1.6, 18.1503.1.1, 18.1506.1.1, 18.1509.1.1, 18.1129.1.6, 18.1434.1.1, 18.1144.1.3."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d18-17.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d18-17.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d18-17.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d18-17.kvx 18.1471.1.5,18.1471.1.6,18.1503.1.1,18.1506.1.1,18.1509.1.1,18.1129.1.6,18.1434.1.1,18.1144.1.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.27]
+title = "Disposition of qualification findings 18.1485.1.1 to 18.1502.1.2 (domain 18, part 16)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.27"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 18.1485.1.1, 18.1487.1.1, 18.1471.1.1, 18.1487.1.2, 18.1471.1.3, 18.1471.1.4, 18.1496.1.1, 18.1502.1.1, 18.1502.1.2."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d18-16.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d18-16.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d18-16.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d18-16.kvx 18.1485.1.1,18.1487.1.1,18.1471.1.1,18.1487.1.2,18.1471.1.3,18.1471.1.4,18.1496.1.1,18.1502.1.1,18.1502.1.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.26]
+title = "Disposition of qualification findings 17.1.7.1 to 17.1.7.3 (domain 17, part 6)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.26"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 17.1.7.1, 17.1.7.2, 17.3.4.attempt1, 17.3.4.attempt2, 17.3.4.attempt3, 17.1.7.3."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d17-6.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d17-6.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d17-6.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d17-6.kvx 17.1.7.1,17.1.7.2,17.3.4.attempt1,17.3.4.attempt2,17.3.4.attempt3,17.1.7.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.25]
+title = "Disposition of qualification findings 11.23.3.2 to 11.23.3.2 (domain 11, part 5)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.25"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 11.23.3.2."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d11-5.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d11-5.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d11-5.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d11-5.kvx 11.23.3.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.24]
+title = "Disposition of qualification findings 9.35.9.1 to 9.35.11.3 (domain 9, part 12)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.24"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 9.35.9.1, 9.35.9.2, 9.35.9.3, 9.35.11.1, 9.35.9.4, 9.35.9.5, 9.35.11.2, 9.35.9.6, 9.35.9.7, 9.35.11.3."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d9-12.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d9-12.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d9-12.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d9-12.kvx 9.35.9.1,9.35.9.2,9.35.9.3,9.35.11.1,9.35.9.4,9.35.9.5,9.35.11.2,9.35.9.6,9.35.9.7,9.35.11.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.23]
+title = "Disposition of qualification findings 8.101.4.1 to 8.101.4.2 (domain 8, part 10)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.23"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 8.101.4.1, 8.101.4.2."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d8-10.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d8-10.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d8-10.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d8-10.kvx 8.101.4.1,8.101.4.2 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.22]
+title = "Disposition of qualification findings 6.96.6.1 to 6.96.6.3 (domain 6, part 5)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.22"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 6.96.6.1, 6.96.6.2, 6.96.6.3."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d6-5.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d6-5.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d6-5.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d6-5.kvx 6.96.6.1,6.96.6.2,6.96.6.3 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.21]
+title = "Disposition of qualification findings 5.0.9.1 to 5.0.9.1 (domain 5, part 6)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.21"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 5.0.9.1."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d5-6.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d5-6.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d5-6.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d5-6.kvx 5.0.9.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.20]
+title = "Disposition of qualification findings 3.54.7.1 to 3.54.7.1 (domain 3, part 4)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.20"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 3.54.7.1."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d3-4.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d3-4.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d3-4.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d3-4.kvx 3.54.7.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.94.19]
+title = "Disposition of qualification findings 1.2.4.1 to 1.2.4.1 (domain 1, part 5)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22103.1"]
+capabilities = ["22.94.19"]
+interfaces = []
+do_1 = "Decision 2465. The task's findings are: 1.2.4.1."
+do_2 = "Read every finding of the task's list from spec/layerx-merge/qualification.kvx (task, file, symbol, observed, assumption, severity) and check the observed condition against the current main: open the file and line the finding names, read the task's done commit (git log --all --grep '[spec:layerx-merge/<task>]' -- <path>) and the surrounding code; never decide from the finding text alone."
+do_3 = "Write one [disposition.<id>] block per finding, in the order of the list, to spec/layerx-merge/dispositions/d1-5.kvx with exactly these keys: finding = '<id>'; status = one of resolved (the observed condition no longer holds on main), open (it still holds and still matters), environment (the condition was a property of the qualification environment, not of the repository: a missing toolchain, network, corpus or external service), superseded (the file or symbol left the repository with a retired surface); evidence = one sentence citing the commit hash that changed the condition or the file:line of main that shows the current state; follow_up = '<task id>' (an existing task of spec.kvx that repairs it, or a new one named in the commit message for the programme to author) when the status is open, else 'closure'."
+do_4 = "A finding whose repair has not landed is open, never resolved: resolved means the reader can go to the cited line or commit and see the condition gone. A finding whose task was superseded is judged by what main holds, not by the task's status."
+do_5 = "qualification.kvx is not edited (it holds only [finding.*] blocks); the task writes only its own dispositions file; no finding outside the list gets a block and none in the list is left out, which the verify asserts."
+symbols = []
+touches = ["spec/layerx-merge/dispositions/d1-5.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/dispositions/d1-5.kvx"]
+build_cmd = "test -f spec/layerx-merge/qualification.kvx"
+verify_cmd = "python3 -c 'import re,sys;t=open(sys.argv[1]).read();ids=sys.argv[2].split(chr(44));P=sys.argv[3:];B={m.group(1):m.group(2) for m in re.finditer(P[0],t,re.M|re.S)};ok=lambda i:(lambda b:b is not None and bool(re.search(P[1]+re.escape(i)+P[2],b,re.M)) and bool(re.search(P[3],b,re.M)) and bool(re.search(P[4],b,re.M)) and (not re.search(P[5],b,re.M) or bool(re.search(P[6],b,re.M))))(B.get(i));bad=[i for i in ids if not ok(i)];extra=[i for i in B if i not in ids];print(bad,extra);sys.exit(1 if bad or extra else 0)' spec/layerx-merge/dispositions/spec/layerx-merge/dispositions/d1-5.kvx 1.2.4.1 '^\[disposition\.([0-9A-Za-z.]+)\](.*?)(?=^\[|\Z)' '^finding = \x22' '\x22' '^status = \x22(resolved|open|environment|superseded)\x22' '^evidence = \x22.*([0-9a-f]{7,40}|[A-Za-z0-9_./-]+\.[A-Za-z]+:[0-9]+).*\x22' '^status = \x22open\x22' '^follow_up = \x22([0-9]+(\.[0-9]+)+|closure)\x22'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the dispositions file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.18.1558.1]
 title = "Issue #1558: Document the actual scope of the perps ABI decision commit"
@@ -229887,7 +231030,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.17.6]
 title = "Regenerate the sweep summary from the second-pass reports"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.91.43", "22.91.44", "22.91.45", "22.91.46", "22.91.47", "22.91.48", "22.91.49", "22.91.50", "22.91.51", "22.91.52", "22.91.53", "22.91.54", "22.91.55", "22.91.56", "22.91.57", "22.91.58", "22.91.59", "22.91.60", "22.91.61", "22.91.62", "22.91.63", "22.91.64", "22.91.65", "22.91.66", "22.91.67", "22.91.68", "22.91.69", "22.91.70", "22.91.71", "22.91.72", "22.91.73", "22.91.74", "22.91.75", "22.91.76", "22.91.77", "22.91.78", "22.91.79", "22.91.80", "22.91.81", "22.91.82", "22.91.83", "22.91.84", "22.91.85"]
