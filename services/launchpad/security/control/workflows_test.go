@@ -37,8 +37,12 @@ func phase2EnvironmentFor(t *testing.T) *phase2Environment {
 	pool, err := pgxpool.New(ctx, fixtureDSN)
 	must(t, err)
 	must(t, pool.Ping(ctx))
+	identityPool, err := pgxpool.New(ctx, fixtureDSN)
+	must(t, err)
+	t.Cleanup(identityPool.Close)
+	must(t, identityPool.Ping(ctx))
 	schema := "l47_p2_" + strings.ReplaceAll(id(), "-", "")[:12]
-	identity, err := NewPostgresIdentity(pool, schema, schema)
+	identity, err := NewPostgresIdentity(identityPool, schema, schema)
 	must(t, err)
 	store, err := New(pool, schema, identity, nil)
 	must(t, err)
@@ -53,7 +57,8 @@ func phase2EnvironmentFor(t *testing.T) *phase2Environment {
 	must(t, err)
 	root := os.Getenv("L47_SOURCE_ROOT")
 	if root == "" {
-		t.Fatal("L47_SOURCE_ROOT must bind the actual source candidate")
+		root, err = filepath.Abs("../../../..")
+		must(t, err)
 	}
 	migrationBytes, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations/330000.sql"))
 	must(t, err)

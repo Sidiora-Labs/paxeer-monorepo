@@ -1,0 +1,6 @@
+[repair.go-launchpad-modules.10]
+target = "services/launchpad/security/control"
+command = "cd services/launchpad/security/control && go vet ./... && go test -count=1 ./..."
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "fixtures_test.go starts isolated PostgreSQL and chain-125 Anvil fixtures, control_test.go uses the owned database, and workflows_test.go separates identity and control pools and resolves the existing identity migration from the source tree."
