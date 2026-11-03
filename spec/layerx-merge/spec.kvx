@@ -7347,6 +7347,24 @@ value = "The floor checker applies a single minimum to every resolved copy of a 
 basis = "22.24.12 attempt 2 floored fast-uri at 4.2.3 as its do_1 stated and the checker refused the 3.1.9 copy that ajv 8.20.0 resolves; eighteen other floors tasks already state 3.1.9."
 affects = ["22.24.12"]
 
+[decision.2373]
+title = "A task whose verify runs both Cargo and Maven uses the environment profile that carries every SDK toolchain"
+value = "The generator task 18.1503.1 verifies the Rust generator, its drift test and the Maven compile of sdk/platform/jvm in one command; the mixed profile carries no Maven, so the task's profile key is the all-SDK profile (the one 8.45.4 qualified on), which carries Cargo, Maven, the JDK, Go, Node and Python together."
+basis = "18.1503.1 attempt 9 passed the generator check and all 27 drift tests and then failed with mvn not found (exit 127); the all-SDK profile already carries Maven and Cargo."
+affects = ["18.1503.1"]
+
+[decision.2374]
+title = "The build of a Rust task compiles its declared targets, never every target of a workspace"
+value = "A task's build_cmd compiles the binaries and test targets its verify runs (cargo test --no-run per target, cargo build per binary); an --all-targets build of the agent daemon workspace followed by the human workspace exceeded the storage of the qualification environment three times on 22.9.33, so the task's build is reduced to its declared targets and the dependent-crate check keeps its own scope."
+basis = "22.9.33 attempts 3, 5 and 6 ran out of storage (no space left on device) after the all-targets build of layerx-agentd and layerx-agentd-host; 9.1.8 qualified with a two-package build."
+affects = ["22.9.33"]
+
+[decision.2375]
+title = "Maven steps of a verify resolve plugins and dependencies online, never in offline mode"
+value = "Every qualified JVM verify of this feature (52 commands) runs mvn without -o and resolves from the configured repositories; 18.1503.1 was the only verify with -o and failed because the all-SDK environment holds no cached maven-source-plugin 3.3.1. The -o flag leaves the verify; the pom's repositories are the source of plugins as for every other JVM task."
+basis = "18.1503.1 attempt 10 passed the generator check and the 27 drift tests and failed with PluginResolutionException for maven-source-plugin 3.3.1 in offline mode."
+affects = ["18.1503.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -36541,7 +36559,7 @@ title = "Issue #1503: Emit the VerificationStatus declaration the JVM AgentHttpS
 reqs = ["22033.1"]
 touches = ["sdk/platform/generators/src/main.rs", "sdk/platform/generators/tests/drift.rs", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"]
 tests = ["sdk/platform/generators/tests/drift.rs"]
-verification_contract = "cargo run --locked --manifest-path sdk/platform/generators/Cargo.toml -- --check && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml --test drift && mvn -q -o -f sdk/platform/jvm/pom.xml -DskipTests compile"
+verification_contract = "cargo run --locked --manifest-path sdk/platform/generators/Cargo.toml -- --check && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml --test drift && mvn -q -f sdk/platform/jvm/pom.xml -DskipTests compile"
 do_1 = "Regeneration at 2ddf941d9 removed the nested AgentModels.VerificationStatus declaration from sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java while AgentHttpSuccess (:76-81) still types its component AgentModels.VerificationStatus, so the JVM main tree does not compile; the generator (sdk/platform/generators/src/main.rs) emits the declaration again for the JVM target from the four status shapes of services/agent/schema/agent-api/v1.kvx:116-122 (the Rust, TypeScript and Python targets already carry theirs), and GeneratedSchema.java is regenerated, not hand-edited."
 symbols = ["VerificationStatus", "AgentHttpSuccess"]
 
@@ -117356,7 +117374,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.12]
 title = "Close the open dependency advisories of the wallet-services manifests (22 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -117478,7 +117496,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.8]
 title = "Close the open dependency advisories of the launchpad-web manifests (33 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -121276,9 +121294,9 @@ touches = ["sdk/platform/generators/src/main.rs", "sdk/platform/generators/tests
 tests = ["sdk/platform/generators/tests/drift.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml && make platform-sdk-generate"
-verify_cmd = "cargo run --locked --manifest-path sdk/platform/generators/Cargo.toml -- --check && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml --test drift && mvn -q -o -f sdk/platform/jvm/pom.xml -DskipTests compile"
+verify_cmd = "cargo run --locked --manifest-path sdk/platform/generators/Cargo.toml -- --check && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml --test drift && mvn -q -f sdk/platform/jvm/pom.xml -DskipTests compile"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "sdk-all"
 owner_role = "fm-platform"
 rollback = "Revert the task's commits."
 max_builds = 1
@@ -121294,6 +121312,8 @@ do_6 = "Finding at the fifth attempt: tests/drift.rs:739 rust_operation_catalogu
 do_7 = "Attempt 6: the only remaining difference is faucet.claim, present as [transport.agent_http.operation.faucet.claim] (v1.kvx:320, restored by task 22.9.24 at 5b4f53b03 with disposition retired) and absent from the [operation.<name>] declarations. The retired operation keeps its transport entry (the refusal is served on the wire and v1.kvx:129 and :151 name it) and gains [operation.faucet.claim] in identity.kvx beside tenant.readiness, budget.state, mcp.invoke and policy.dry_run, with the fields of its neighbours and a retired marker in the same form the transport entry uses; the golden copy is regenerated the way the directory's other files are. The drift test stays the oracle."
 do_8 = "Attempt 7: the schema repair is correct and the scope check refused the regenerated clients. Regenerating the Go, JVM, Rust, Python and TypeScript clients and the JVM conformance file from the repaired schema is part of this task; the seven generated files are now in touches and are regenerated by the pipeline, never edited by hand."
 do_9 = "Attempt 8 (decision 2370): the catalogue check failed because faucet.claim was declared as [operation.faucet.claim]; that generated Operation::FaucetClaim and the agent daemon's exhaustive matches (agent_rpc.rs:129, human_runtime.rs:5300, tenant.rs:113 and two arms of the RPC adapter) no longer compile. faucet.claim is retired: agent_rpc.rs:25 RETIRED_OPERATIONS refuses it by wire name before any arm, and its transport section carries disposition retired. Remove the [operation.faucet.claim] block from identity.kvx and its golden, keep one transport section for it, and make the catalogue test of drift.rs skip transport sections whose disposition is retired, so no generator emits a variant for them; tenant.readiness and the other declarations of attempt 8 stay. The dependent-crate check must pass again without touching the agent daemon."
+do_10 = "Attempt 9 is complete: the generator check passes, all 27 drift tests pass, and the Maven compile of sdk/platform/jvm could not run because the environment lacked Maven (exit 127). Decision 2373: the task's profile key is the all-SDK profile now, which carries Cargo and Maven together; the attempt 9 candidate ddfb21392 is re-qualified unchanged with the task's build and verify."
+do_11 = "Attempt 10 is complete: the generator check passes, all 27 drift tests pass, and the Maven compile failed only because -o kept Maven from resolving maven-source-plugin 3.3.1 (decision 2375). The verify runs mvn without -o now like every other JVM verify; the attempt 10 candidate f2ecb5dd9 is re-qualified unchanged with the task's build and verify."
 
 [task.18.1500.1]
 title = "Issue #1500: Give the real-node prerequisite script a POSIX function name and a syntax check"
@@ -128434,7 +128454,7 @@ title = "Close the open dependency advisories of the rust-services manifests (9 
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.24.1"]
+requires = ["22.24.1", "22.9.33"]
 reqs = ["22076.1"]
 capabilities = ["22.24.19"]
 interfaces = []
@@ -128459,6 +128479,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1: rustls 0.23.45 is below the 0.23.46 floor in six lock files and jsonwebtoken 9.3.1 is below 10.3.0 in services/human. Raise rustls with cargo update -p rustls --precise 0.23.46 per manifest. services/human/crates/layerx-human-identity-provider/Cargo.toml:20 pins jsonwebtoken exactly (=9.3.1): raise the pin to =10.3.0 with the lock and build the crate; if its source no longer compiles against 10, record a finding naming the changed API, keep the 9.3.1 pin, remove that floor and name it in the commit message."
+do_5 = "Attempt 3 is complete: the nine floors are applied, the floor checker passes and every cargo metadata --locked call succeeds; the dependent-crate check of the human workspace fails on services/human/crates/layerx-human-kms/tests/no_layerx_intents.rs:82-85, which calls account_sequence(), network_id(), actor_did() and authority() on a BoundLifecycleCall that has none of them. That test is repaired by task 22.9.33, which this task requires now; the attempt 3 candidate eff168642 is re-qualified unchanged once it publishes."
 
 [task.22.23.11]
 title = "Read paymentDenom in the Rust client's receipt view and check the asset against it"
@@ -128966,7 +128987,7 @@ symbols = ["response", "Parsed", "parse_request"]
 touches = ["services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs", "services/human/crates/layerx-human-kms/tests/no_layerx_intents.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host --all-targets && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service -p layerx-human-kms --tests"
+build_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors --test serve_routes --no-run && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test no_layerx_intents --no-run"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_serve_errors --test serve_routes --no-run && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && grep -c 'pub(crate) fn response\|pub(crate) enum Parsed\|pub(crate) fn parse_request' services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs | grep -qx 3 && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test no_layerx_intents"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -128983,6 +129004,7 @@ do_4 = "Decision 2358 (2026-11-02): this task also repairs the human workspace h
 do_5 = "services/human/crates/layerx-human-service/src/agents/create.rs:647 match disclosure.construct_method() is non-exhaustive since the binder gained PayBudgetCreateNative and AuthSession: the native budget creation arm maps to its canonical payload with STATE_COMMITMENT_PROTOCOL_VERSION exactly as PayBudgetCreate does, and the session arm is refused with the same invalid-lifecycle-transaction-method reason as ProgramCall, because a session authorization is not a lifecycle transaction."
 do_6 = "The verify now runs the no_layerx_intents target and builds the human service; the commit message names both workspaces. Task 22.9.34 is superseded by this task."
 do_7 = "Attempt 4, decision 2366 (2026-11-03): do item 5 is superseded. The call binder on main declares no PayBudgetCreateNative or AuthSession variant, so the match of services/human/crates/layerx-human-service/src/agents/create.rs is exhaustive today and the file leaves touches: restore it to its content on the base revision and keep the proof_serve_errors.rs and no_layerx_intents.rs changes. Task 9.35.16 adds the arms with the variants."
+do_8 = "Decision 2374, attempts 3, 5 and 6: the all-targets build of the agent daemon workspace followed by the human workspace tests exhausted the storage of the qualification environment (no space left on device while the dependent-crate check wrote its metadata). The build is the task's declared targets now: the two agent daemon test targets with --no-run, the layerx-agentd binary, and the no_layerx_intents target of layerx-human-kms with --no-run. The attempt 4 candidate carries the proof_serve_errors.rs change; apply do_4 to no_layerx_intents.rs on top of it (the create.rs file stays at its main content per do_7), then run the task's build and verify."
 
 [task.22.9.32]
 title = "Port the pay2 qualification harness off the LNI handshake"
@@ -135082,7 +135104,7 @@ do_4 = "Attempt 1 stopped on the out-of-scope readers that pin four V1 cases: sd
 
 [task.22.25.1]
 title = "Mount the chain registry and sequencer stores in the rpc receipt test chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["22.25.4"]
@@ -135325,7 +135347,7 @@ do_5 = "Attempt 2: the subscription and block changes are in scope; the build fa
 
 [task.18.1508.2]
 title = "Give the launchpad REST package tests fixtures the repository holds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

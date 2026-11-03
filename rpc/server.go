@@ -232,6 +232,7 @@ func NewEVMHTTPServer(
 	if err != nil {
 		return nil, err
 	}
+	sendCfg.SequencerSource = sequencerReceipts.Source
 
 	globalBlockCache := NewBlockCache(3000)
 	cacheCreationMutex := &sync.Mutex{}
