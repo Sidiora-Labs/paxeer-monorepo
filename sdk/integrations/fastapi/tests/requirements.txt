@@ -1,0 +1,3 @@
+pytest
+fastapi>=0.110
+cryptography>=41

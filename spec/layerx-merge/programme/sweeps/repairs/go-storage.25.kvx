@@ -1,0 +1,6 @@
+[repair.go-storage.25]
+target = "storage/db_engine/litt/util"
+command = "CGO_ENABLED=1 go vet ./storage/db_engine/litt/util/ && CGO_ENABLED=1 go test -count=1 ./storage/db_engine/litt/util/"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "storage/db_engine/litt/util/file_utils_test.go exercises swap-file permission denial with an unprivileged subprocess and checks that the swap file remains intact."

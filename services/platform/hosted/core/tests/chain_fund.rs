@@ -372,6 +372,11 @@ impl Harness {
             .env("LAYERX_CORE_STATE_DIR", self.root.join("state"))
             .env("LAYERX_CORE_NODE_URL", "http://127.0.0.1:1")
             .env("LAYERX_CORE_REPLICA_URL", "http://127.0.0.1:1")
+            .env("LAYERX_CORE_SEQUENCER_ENDPOINT", "https://localhost:1")
+            .env(
+                "LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER",
+                self.root.join("tls.der"),
+            )
             .env("LAYERX_CORE_LNI_SOCKET", self.root.join("absent-lni.sock"))
             .env(
                 "LAYERX_CORE_SUPERVISOR_SOCKET",

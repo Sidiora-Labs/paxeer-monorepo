@@ -1,0 +1,7 @@
+[issue.1564]
+number = 1564
+title = "[P2] Restore the Solana workspace lockfile required by locked bridge checks"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+verdict = "already-fixed"
+evidence = "contracts/bridge/solana/Cargo.lock is present on main at the recorded revision, so cargo metadata --locked resolves the bridge manifest."
+close_comment = "The Solana bridge lockfile is present on main and the locked metadata read resolves; the locked bridge checks run again."
