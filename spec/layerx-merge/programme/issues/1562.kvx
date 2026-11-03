@@ -1,0 +1,50 @@
+[issue.1562]
+number = 1562
+title = "[P2] Decode transfer-authority terminal wrappers in the AI market receipt reader"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "services/agent/sdk/typescript/src/ai_market.ts:3270 only unwraps occupancy before rejecting unsupported execution prefixes at :3287, whereas programs/crates/layerx-programs-runtime/src/ffi_call.rs:3415 emits transfer-authority/v2 outside occupancy for the ABI2-5 branch at :3121 and programs/crates/layerx-programs-runtime/src/terminal.rs:328 unwraps authority first, so the decoder introduced by e45224abc88855de961e47ee57644c22002759c4 still rejects supported authority-bearing results."
+close_comment = "Authority-bearing Programs results still fail receipt decoding, preventing AI market operations from reaching a resolved journal state. The follow-up adds bounded authority decoding and binding validation, with coverage for ordinary results, malformed wrappers and recovery of an ABI5 reward operation."
+
+[task.18.1562.1]
+title = "Issue #1562: Decode and validate transfer-authority wrappers in AI market receipts"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181562.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update decodeProgramsCallResult and validateProgramsExecutionResponse in services/agent/sdk/typescript/src/ai_market.ts:3169 and :3265 to decode one bounded transfer-authority/v2 wrapper before optional occupancy and execution/v2-v5, following programs/crates/layerx-programs-runtime/src/terminal.rs:325; validate canonical authorization, account-bound names, transfer sources, assets, destinations, amounts and the reconstructed authority root against the wrapper root and corresponding applied legs, including funding and Program-account payments, rather than discarding the attachment or conflating its root with occupancy-inclusive applied legs; reject truncation, empty or oversized fields, trailing bytes, repeated wrappers, wrong ordering and binding mismatches."
+do_2 = "Preserve the applied-leg Merkle-root check in services/agent/sdk/typescript/src/ai_market.ts:3247, receipt signature and transaction bindings in decodeProgramsReceipt at :3468 and :3453, ProgramCallOutcome log binding at :3638, terminal-kind and guest-response-capacity checks at :3325 and :3327, and OperationJournal.resolve persistence at :3090; keep ordinary no-transfer decoding and ReceiptMismatch refusals intact."
+do_3 = "Add TestAiMarketTransferAuthorityReceipt in rpc/sequencer_receipt_vectors_test.go using the real app, runtime and sequencer receipt producers already exercised by seqVecProgramsCall at :459 and TestSequencerReceiptVectors at :795; produce an ABI5 AI reward Fund call carrying capabilities as services/agent/sdk/typescript/src/ai_market.ts:2274 does and reaching programs/crates/layerx-programs-ai-market/src/dispatch.rs:1084 and programs/crates/layerx-programs-ai-market/src/value_adapter.rs:329, then pass its actual ABI output, signed transaction, receipt, pinned key and logs to a dedicated market_receipt_transfer_authority_resolves consumer mode in services/agent/sdk/typescript/test/ai-market.test.ts, using the TypeScript loader pattern in precompiles/layerxprograms/proof_layerxprograms_0x101d_test.go:265; build any required guest artifact from its repository source and fail if the producer cannot run."
+do_4 = "The single focused test asserts ordinary no-transfer conformance results, the real account-bound authority fixture checked at services/agent/sdk/typescript/test/account-bound-call.test.ts:13, and the separate producer-generated ABI5 reward receipt; it drives decodeProgramsCallResult, decodeProgramsReceipt and OperationJournal.resolve, reopens the journal and asserts executed state, result code, sequence and transaction hash; negative subcases mutate real producer outputs to test malformed or mismatched authorization, authority and applied roots, account names, signature, transaction, logs, terminal kind and guest response capacity, and prove refused receipts leave the reopened journal unresolved; the generic ABI2 fixture alone is decoder coverage, never an AI reward integration proof."
+symbols = ["decodeProgramsCallResult", "validateProgramsExecutionResponse", "TestAiMarketTransferAuthorityReceipt", "market_receipt_transfer_authority_resolves"]
+touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "rpc/sequencer_receipt_vectors_test.go"]
+tests = ["rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"]
+planned_paths = []
+build_cmd = "go build ./rpc/... && pnpm --dir services/agent/sdk/typescript exec tsc --noEmit"
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestAiMarketTransferAuthorityReceipt$'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181562]
+title = "AI market receipts accept supported authority-bearing terminals with all receipt and transfer bindings preserved"
+ac_1 = "Given ordinary and authority-bearing results produced by the Programs runtime, including the authority-before-occupancy order at programs/crates/layerx-programs-runtime/src/ffi_call.rs:3409, the AI market decoder at services/agent/sdk/typescript/src/ai_market.ts:3265 accepts canonical supported results and refuses malformed, reordered, oversized or mismatched authority data while retaining applied-leg, signature, transaction, log, terminal-kind and guest-capacity validation; a real ABI5 reward receipt resolves through OperationJournal.resolve at :3069 and remains executed after reopen, while refused receipts remain unresolved."
+
+[acceptance.18.1562.1]
+feature = "18"
+req = "181562.1"
+scenario = "Given a real ABI5 AI reward operation with a transfer-authority terminal and an ordinary no-transfer operation, when their signed sequencer receipts pass through the AI market decoder and journal, then both valid operations resolve and survive journal reopen, while malformed wrappers or mismatched authority, applied legs, signatures, transactions, logs, terminal kinds or guest response capacities are refused without resolving the journal."
+contract = "contracts/agent-ts-sdk.md#ai-market"
+test = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt (planned)"
+qualification = "UNRUN"

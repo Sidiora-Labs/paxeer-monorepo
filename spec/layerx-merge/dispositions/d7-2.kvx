@@ -1,0 +1,17 @@
+[disposition.7.10.6.1]
+finding = "7.10.6.1"
+status = "resolved"
+evidence = "Commit 740605d0ffa5f6e7a2896fc90399b822c80fb831 assigns the committed LastCommitID hash to the stashed header before publication at node/abci.go:323, and rpc/subscribe_test.go:225 compares the published stateRoot with eth_getBlockByNumber."
+follow_up = "closure"
+
+[disposition.7.18.1.1]
+finding = "7.18.1.1"
+status = "open"
+evidence = "rpc/tracers_test.go:24 retains the getRawTransaction subtest expecting ErrCodeEVMNotSupported at rpc/tracers_test.go:28 even though rpc/tracers.go:748 retrieves the raw transaction envelope, and pending task 22.7.3 do_14 explicitly removes this stale subtest."
+follow_up = "22.7.3"
+
+[disposition.7.10.1.1]
+finding = "7.10.1.1"
+status = "resolved"
+evidence = "Commit 740605d0ffa5f6e7a2896fc90399b822c80fb831 restores the four header keys in both encoders and replaces the mock gas sum with the eth_getBlockByNumber comparison at rpc/subscribe_test.go:226, with the four key values asserted at rpc/subscribe_test.go:231."
+follow_up = "closure"

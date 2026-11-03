@@ -1,0 +1,7 @@
+[issue.1538]
+number = 1538
+title = "[Coherence] The acceptance contract of 22.9.33.1 still names --test serve_routes under -p layerx-agentd, the command the commit corrected elsewhere"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "spec-edit"
+evidence = "Task 22.9.33 is done at spec/layerx-merge/spec.kvx:131487 and its commands select the correct packages at spec/layerx-merge/spec.kvx:131501 and spec/layerx-merge/spec.kvx:131502, but acceptance.22.9.33.1 at spec/layerx-merge/spec.kvx:214947 still assigns serve_routes to layerx-agentd despite services/agent/crates/layerx-agentd-host/Cargo.toml:26 declaring it in layerx-agentd-host; the acceptance contract must compile proof_serve_errors under layerx-agentd and serve_routes under layerx-agentd-host in separate commands before building the host binary."
+close_comment = "The completed serve-http visibility fix has the correct test-package selections, but its acceptance contract still carries the old combined command. Update acceptance.22.9.33.1 to compile proof_serve_errors under layerx-agentd and serve_routes under layerx-agentd-host separately, then build the layerx-agentd host binary."

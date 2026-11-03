@@ -1,0 +1,5 @@
+[disposition.6.94.3.1]
+finding = "6.94.3.1"
+status = "resolved"
+evidence = "Commit b5c1ae0bfc5636d70cc45b1e2659d0c83008cbf9, present on origin/main, added the ABI-matching XWebProgramRequested spec at sdk/wallet/src/modules/web-data.ts:54 and its webData test vector at sdk/wallet/test/fixtures/modules/events.json:481."
+follow_up = "closure"

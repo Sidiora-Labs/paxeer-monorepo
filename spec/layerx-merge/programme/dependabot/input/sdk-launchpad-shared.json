@@ -1,0 +1,28 @@
+{
+ "slug": "sdk-launchpad-shared",
+ "manifests": [
+  "sdk/launchpad/shared/go.mod"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-9f3f-wv7r-qc8r",
+   "number": 2773,
+   "package": "github.com/pion/dtls/v2",
+   "ecosystem": "go",
+   "manifest": "sdk/launchpad/shared/go.mod",
+   "severity": "medium",
+   "range": "<= 2.2.12",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-34rh-wp3j-6cxc",
+   "number": 2789,
+   "package": "github.com/pion/stun/v2",
+   "ecosystem": "go",
+   "manifest": "sdk/launchpad/shared/go.mod",
+   "severity": "medium",
+   "range": "<= 2.0.0",
+   "patched": null
+  }
+ ]
+}

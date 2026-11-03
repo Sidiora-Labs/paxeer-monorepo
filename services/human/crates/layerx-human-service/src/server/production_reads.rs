@@ -16,7 +16,6 @@ use crate::store::{PrincipalScope, Table};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_portable::PortableReceiptV2;
-use layerx_proof::checkpoint::SettlementDomain;
 use layerx_types::rung::Rung;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
@@ -608,7 +607,6 @@ pub(super) fn intent_journey_json(record: &Value) -> Result<Value, ApiFailure> {
 
 pub(super) fn journey_json(
     scope: &PrincipalScope<'_>,
-    _settlement_domain: SettlementDomain,
     journey: &JourneyEngine,
 ) -> Result<Value, ApiFailure> {
     native_journey_json(scope, journey)
