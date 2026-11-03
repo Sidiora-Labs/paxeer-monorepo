@@ -188993,7 +188993,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.6.4]
 title = "Resolve precompile info without merge keepers and supply the pay and chains keepers in every merge-table harness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.25.4"]
