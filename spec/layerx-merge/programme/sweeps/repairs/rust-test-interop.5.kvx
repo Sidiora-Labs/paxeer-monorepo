@@ -1,0 +1,7 @@
+[repair.rust-test-interop.5]
+target = "layerx-mirror"
+command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror --no-fail-fast"
+revision = "e76071595d1d4a3431a020f0b88670c45feec8af"
+result = "repaired"
+change = "services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs classifies the accepted Programs call introduced by task 22.25.3 under decision 2395 and requires all twelve shared cases, including six accepted receipts, to be checked."
+producer_input_tests = []

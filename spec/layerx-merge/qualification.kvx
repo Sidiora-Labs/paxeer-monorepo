@@ -19979,3 +19979,403 @@ symbol = "txHash"
 observed = "Attempt 23: web-search.test.js:201 throws receipt-unverified because the exact fixtures carry a synthetic transaction hash with no signed transaction bytes."
 assumption = "The fixture producer never signed a transaction for the exact payments; 11.98.1 records rawTransaction and 22.9.10 consumes it (decision 2495)."
 severity = "high"
+
+[finding.22.95.11.3]
+task = "22.95.11"
+file = "services/human/crates/layerx-human-service/tests/retired_crypto_codec_2.rs"
+symbol = "no_retired_layerx_crypto_codec_paths_2"
+observed = "Attempt 6: the custody and session-key tests pass; the verify fails only on the retired-path guard because session_keys.rs:267-268 panics with the text bind call in the same statement as the layerx_crypto::disclosure::call::bind_call path."
+assumption = "The guard treats panic text as identifiers (gotcha 2937); renaming the panic text clears it."
+severity = "low"
+
+[finding.18.1574.1.1]
+task = "18.1574.1"
+file = "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json"
+symbol = "cases"
+observed = "Attempt 2: the verify iterated the values of the fixture's top entry and failed because the vectors sit in the cases list."
+assumption = "Verify defect (gotcha 2936); corrected in this revision."
+severity = "low"
+
+[finding.18.1573.1.1]
+task = "18.1573.1"
+file = "services/interop/deploy/gateway/render.py"
+symbol = "self_test"
+observed = "Attempts 1 and 2: python3 render.py --self-test fails because the complete fixture at lines 1041-1058 carries one AP2 use case, one asset field, one agent field and one target field while the validators at lines 575-660 require every use case and complete bindings."
+assumption = "The self-test fixture was never updated when the validators were tightened by 11.13.7, whose verify ran only a pytest target."
+severity = "medium"
+
+[finding.18.1568.1.1]
+task = "18.1568.1"
+file = "sdk/platform/jvm/pom.xml"
+symbol = "JVM_FILES"
+observed = "Attempts 1 and 2: the generator check reports pom.xml stale or hand-edited because 22.96.21 raised dependency floors in the generated file."
+assumption = "The floors belong in the pom renderer of sdk/platform/generators/src/main.rs (gotcha 2939)."
+severity = "medium"
+
+[finding.22.99.19.1]
+task = "22.99.19"
+file = "modules/layerxexchange/keeper/intents.go"
+symbol = "retirementError"
+observed = "Attempt 1: proof_layerxexchange_retirement_test.go expects codespace layerxexchange and code 14 but the error is wrapped with fmt.Errorf and %w, so the ABCI result carries the generic code."
+assumption = "Product defect (gotcha 2940); the fix lives in the keeper, outside the task's original paths, now added."
+severity = "medium"
+
+[finding.22.99.26.1]
+task = "22.99.26"
+file = "modules/layerxexchange/keeper/proofs.go"
+symbol = "RetiredFromUpgrade"
+observed = "Attempt 1: TestVersionSwitchV69Vectors reports keeper revert reasons that include source paths at intents.go:122 and proofs.go:38, 52 and 84, contrary to decision 2336."
+assumption = "The keeper fix belongs to 22.99.19, which 22.99.26 now requires."
+severity = "medium"
+
+[finding.22.99.35.1]
+task = "22.99.35"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "req.22056"
+observed = "Attempt 1: tools/specgen TestRepositorySpecIsValidAndCurrent fails because task 9.35.17 cites 22056.2 and [req.22056] has only ac_1."
+assumption = "Spec defect (gotcha 2938); ac_2 is added in this revision."
+severity = "low"
+
+[finding.22.99.42.1]
+task = "22.99.42"
+file = "services/agent/sdk/python/layerx_sdk/programs.py"
+symbol = "verify_program_receipt"
+observed = "Attempt 1: tests under tests/agent/sdk/python import programs_module_version_for_protocol, decode_and_verify_program_terminal and _receipt_usage, retired by 22.9.11, and programs.py:425 still calls verify_program_receipt, which exists only as a declaration in programs.pyi:81 and which test_retired_kernel_receipts.py asserts absent."
+assumption = "The SDK carries a dead call to a retired function (task 9.98.3) and the inherited tests were never migrated (22.99.42)."
+severity = "high"
+
+[finding.22.99.62.1]
+task = "22.99.62"
+file = "services/interop/specs/conformance/committed/vector-v4-committed.json"
+symbol = "sourceSha256"
+observed = "Attempt 1: committed_vectors.rs:394-397 asserts the record's provenance.sourceSha256 equals the digest of daemon/committed-fixture/vectors/vector-v4-committed.json; the record declares dc364da8 and the recording hashes to 34e9f6ab."
+assumption = "The conformance record drifted from its recording; the record is regenerated from the recording."
+severity = "medium"
+
+[finding.22.99.65.1]
+task = "22.99.65"
+file = "services/interop/specs/conformance/fiat/sequenced-journeys.json"
+symbol = "transaction_hash"
+observed = "Attempt 1: sequenced_vectors.rs:337 finds the declared transaction_hash at line 171 differs from the shared receipt txHash."
+assumption = "The journeys record drifted from the shared receipt recording; the record is aligned."
+severity = "medium"
+
+[finding.22.99.64.1]
+task = "22.99.64"
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+symbol = "paymentDenom"
+observed = "Attempt 1: the relay tests of layerx-interop-service fail with a malformed receipt because the exact receipt field set at sequencer.rs:902 omits paymentDenom."
+assumption = "22.23.11 changes the field set; 22.99.64 now requires it."
+severity = "medium"
+
+[finding.9.35.18.1]
+task = "9.35.18"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "activity_submission_index_tests"
+observed = "Attempt 4: fifteen library tests outside the task fail on the main line (ten activity submission index tests and the subject and native terminal tests decode tests/fixtures/authority/provider-subject/onboarding.activity as MalformedPayload; freshness_serializes_block_height_coordinates and wait_request_refuses_retired_level_names_and_field assert stale shapes; two TLS identity tests need the boundary binary)."
+assumption = "Pre-existing library test breaks unrelated to approvals; task 9.98.2 repairs them and 9.35.18 runs only its approval tests."
+severity = "high"
+
+[finding.22.99.80.1]
+task = "22.99.80"
+file = "services/platform/perps-data/deploy/dockerfile_test.go"
+symbol = "TestDockerfileContext"
+observed = "The go-services sweep records services/platform/perps-data/deploy failing at dockerfile_test.go:313 while the other twenty perps-data targets need PERPS_DATA_TEST_DATABASE_URL and related inputs."
+assumption = "One deterministic defect in the deploy package; the rest are producer inputs (decision 2325)."
+severity = "medium"
+
+[finding.22.99.10.1]
+task = "22.99.10"
+file = "services/launchpad/ranking-algo/app_test.go"
+symbol = "00001_init.sql"
+observed = "Attempt 1: app_test.go:233 opens core/indexer/migrations/00001_init.sql, which lives at services/launchpad/indexer/migrations/00001_init.sql; the other failures need L19_POSTGRES_DSN, L19_REDIS_URL and the moderation inputs."
+assumption = "One deterministic path defect beside producer-input tests (decision 2496)."
+severity = "medium"
+
+[finding.9.35.19.1]
+task = "9.35.19"
+file = "services/agent/crates/layerx-agentd/tests/w7_core_time.rs"
+symbol = "prepared"
+observed = "Attempt 4: the test build fails with E0308 at w7_core_time.rs:245, 263 and 465 because prepared() returns prepare::Prepared while register and register_preparation take prepare::evm::Prepared."
+assumption = "A stale sibling test left behind by 9.35.17 (gotcha 2941); now inside 9.35.19's paths."
+severity = "medium"
+
+[finding.22.99.3.1]
+task = "22.99.3"
+file = "services/launchpad/gateway/internal/app/app_test.go"
+symbol = "CreateBucket"
+observed = "Attempt 1: the app, storage, serve and auth tests fail creating the kl-token bucket with empty static credentials, the identity peers test needs a running sociald, and the app package ran into its ten-minute limit."
+assumption = "Fixture-bound tests (object store, identity service); decision 2496 compile gate applies."
+severity = "low"
+
+[finding.22.99.52.1]
+task = "22.99.52"
+file = "services/agent/crates/layerx-mcp/tests/daemon_bound.rs"
+symbol = "Binding::parse"
+observed = "Attempt 1: five native-read proof tests need the local node; three binding tests are refused with mcp.binding_retired_key; the web section and receipt key index assertions fail; the settlement, web-scoped session, producer-consumer and payer artifact tests fail."
+assumption = "The live-node part belongs to 18.1578.1 (decision 2500); the rest are deterministic defects of the crate or its fixtures after the binding key retirement."
+severity = "high"
+
+[finding.22.99.31.1]
+task = "22.99.31"
+file = "services/wallet/attestor/internal/policy/policy_test.go"
+symbol = "TestShippedPolicyAllowsWalletSDKWrites"
+observed = "Attempt 2: TestTypedDataChainPinned (permit has no verifying contract), TestShippedPolicyListsSendAuthorizationKind (defaults omit lx_activity), TestShippedPolicyAllowsWalletSDKWrites (perps selector set), TestShippedPolicyAllowsLaunchpadApproveThenBuy (unlisted spender approve allowed) fail deterministically; TestXweb0x1019ApplicationPolicy needs the proof flag; TestProofS28WalletAttestorsTss fails with tsx not found in the TypeScript consumer."
+assumption = "The four policy tests diverge from behaviour changed by later qualified tasks and must be aligned to the shipped policy where that change was intended; the two proof tests are producer inputs (decision 2501)."
+severity = "medium"
+
+[finding.22.99.44.1]
+task = "22.99.44"
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/sourcify_from_etherscan.rs"
+symbol = "chain_not_supported_fail"
+observed = "Attempt 2 fixed fifteen deterministic failures of attempt 1; the remaining chain_not_supported_fail (third-party API reply not JSON), success_tests::solidity_0_4_10 and verify::solc_compiler_cli::tests::compile (fetched legacy compiler output lacks the contracts field) depend on inputs the repair cannot provide."
+assumption = "The three tests are producer inputs excluded by name (decision 2501)."
+severity = "low"
+
+[finding.22.99.102.1]
+task = "22.99.102"
+file = "services/platform/hosted/paxai-worker/tests/real_workload.rs"
+symbol = "a08_a11_real_inference_workload_end_to_end"
+observed = "Attempt 1 repaired the startup configuration; seven tests of real_workload.rs and job_recovery.rs stop on PAXAI_RUNNER is not provisioned / PAXAI_REAL_WORKLOAD names no pinned runner."
+assumption = "The real-workload family is qualified by the provisioning producer and is excluded by its shared name marker (decision 2501)."
+severity = "low"
+
+[finding.22.99.88.1]
+task = "22.99.88"
+file = "services/human/crates/layerx-human-service/tests/custody.rs"
+symbol = "SigningPreparation"
+observed = "Attempt 1 built the custody test target before the 22.95.11 repair was published: E0063 missing fields disclosure, disclosure_digest, from; E0560/E0609 no field authorization on SigningPreparation."
+assumption = "Resolved on main by 22.95.11; the re-sweep requalifies on the current main."
+severity = "low"
+
+[finding.22.99.28.1]
+task = "22.99.28"
+file = "sdk/platform/go/sequencer_receipt_test.go"
+symbol = "TestSequencerReceiptV1CasesVerifyReceipted"
+observed = "Attempt 2: eleven tests fail with expected 11 conformance cases, got 12 (sequencer-receipt-v1.json has twelve cases since 22.25.3); TestVectorV5PortableRoundTrips/receipted fails local verification on the embedded receipt copy; TestNativeLifecycleCFixtures deploy and upgrade accept an empty signed activity (accepted signed prefix 0)."
+assumption = "Consumer defects repaired in sdk/platform/go plus a regenerated vector-v5-portable.json (decision 2502)."
+severity = "medium"
+
+[finding.22.99.35.2]
+task = "22.99.35"
+file = "tools/specgen/validate_test.go"
+symbol = "TestRepositorySpecIsValidAndCurrent"
+observed = "Attempt 2: 4 generated output(s) stale (CLAUDE.md, AGENTS.md, .cursor/rules/spec-workflow.mdc, .github/copilot-instructions.md); the repair was removed as out of scope."
+assumption = "The four pointer files are generated outputs regenerated by this task (decision 2502)."
+severity = "low"
+
+[finding.22.97.10.3]
+task = "22.97.10"
+file = "programs/vendor/wasm-instrument/src/gas_metering/mod.rs"
+symbol = "DynamicHelper"
+observed = "Attempt 6: cargo build --all-targets fails with E0433 undeclared type DynamicHelper and E0425 cannot find add_dynamic_helpers at mod.rs:1645-1694 (two LayerX helper-sequence tests) because both items are compiled only under the bulk feature."
+assumption = "The tests are gated with the bulk feature in this task (gotcha 2947)."
+severity = "low"
+
+[finding.22.99.51.1]
+task = "22.99.51"
+file = "services/agent/crates/layerx-agentd/host-tests/serve_routes.rs"
+symbol = "healthz_reports_not_ready_until_the_node_answers"
+observed = "Attempt 2: five serve_http::proof tests and their daemon duplicates panic at proof_serve_errors.rs:708 real local node required; healthz_trusts_the_configured_node_ca_over_https and healthz_reports_not_ready_until_the_node_answers get 503 where 200 is expected after the NodePeer fixture is set ready."
+assumption = "The proof tests wait for 18.1578.1 (decision 2503); the readiness defect is repaired in this task."
+severity = "medium"
+
+[finding.22.99.62.2]
+task = "22.99.62"
+file = "services/interop/crates/layerx-committed-proof/tests/receipted.rs"
+symbol = "receipted_fixture_cases_verify_or_refuse"
+observed = "Attempt 2 regenerated the committed vector and bound paymentDenom; receipted.rs:318 and :377 assert four recorded V1 cases while the fixture carries five since 22.25.3."
+assumption = "Consumer count defect repaired from the fixture count (decision 2502)."
+severity = "low"
+
+[finding.22.99.72.1]
+task = "22.99.72"
+file = "services/platform/hosted/gateway/Cargo.toml"
+symbol = "layerx-platform-gateway"
+observed = "Attempt 3 (requalification): cargo build --locked fails because services/platform/Cargo.lock lacks the layerx-platform-authority and signal-hook entries the attempt-2 manifest adds."
+assumption = "Lock refreshed in this task (gotcha 2948)."
+severity = "low"
+
+[finding.13.99.1.1]
+task = "13.99.1"
+file = "programs/crates/layerx-programs-ai-market/src/lib.rs"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 2 (requalification of attempt 1): the release wasm32 artifact is still above 520192 bytes under opt-level z; the size was not printed."
+assumption = "Further in-crate reduction with the measured size recorded."
+severity = "medium"
+
+[finding.22.99.31.2]
+task = "22.99.31"
+file = "services/wallet/deploy/attestor-policy.json"
+symbol = "TestShippedPolicyListsSendAuthorizationKind"
+observed = "Attempt 3 lost the attempt-2 repairs and showed the shipped policy document at services/wallet/deploy/attestor-policy.json drives the four shipped-policy assertions."
+assumption = "The deploy document is in scope; continue from attempt 2."
+severity = "medium"
+
+[finding.22.99.92.1]
+task = "22.99.92"
+file = "tests/ci/test_kernel_suite_retired_uses.py"
+symbol = "test_no_bridge_credit_apply_caller"
+observed = "Attempt 1: 10 of 106 guard tests fail (claims and replay root callers, queue disposition codec case, bridge-credit apply caller, kernel test rule codec primitives, Makefile chain domain golden, replay crossarch, checkpoint and library suites, state withdraw web)."
+assumption = "Stale retired references removed in the kernel tree; the bridge-credit guard waits for decision 2438 (decision 2504)."
+severity = "medium"
+
+[finding.18.1575.1.1]
+task = "18.1575.1"
+file = "spec/layerx-merge/programme/sweeps/go-consensus.kvx"
+symbol = "sweeps_summary"
+observed = "Attempt 2: targets_passed is 161, expected 162 from target blocks."
+assumption = "Header recomputed from blocks (decision 2504)."
+severity = "low"
+
+[finding.22.95.1.1]
+task = "22.95.1"
+file = "services/agent/crates/layerx-agentd/tests/handshake_gate.rs"
+symbol = "ready_node"
+observed = "Attempt 4 (requalification of attempt 3): the receipt-key decoder now follows rpc/sequencer_receipt.go and refuses the fixture, which serves firstHeight and lastHeight as hex strings."
+assumption = "Fixtures are corrected to the numeric wire shape (gotcha 2951); the decoder change stays."
+severity = "medium"
+
+[finding.21.45.1.5]
+task = "21.45.1"
+file = "node/sequencer/wal/wal.go"
+symbol = "Replay"
+observed = "Attempt 15: the reopened durable WAL proof fails with InvalidResponse at proof_sdk.rs:868 because a send committed before the restart has no receipt after it."
+assumption = "Producer defect repaired by 22.95.13 (gotcha 2950); 21.45.1 requalifies after it."
+severity = "high"
+
+[finding.18.1578.1.1]
+task = "18.1578.1"
+file = "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"
+symbol = "LocalNode"
+observed = "Attempt 2: one of the three producer reads (chain id, block by number, receipt keys) returns Sequencer(Malformed); the shared expect message does not say which."
+assumption = "Depends on the 22.95.1 decoder; each read gets its own message and prints the raw answer."
+severity = "medium"
+
+[finding.22.99.26.2]
+task = "22.99.26"
+file = "precompiles/perps/switch_test.go"
+symbol = "TestVersionSwitchV69Vectors"
+observed = "Attempt 2: the legacy case receives the LXP_UNKNOWN-prefixed revert (164 bytes) where the recorded vector holds the bare keeper reason (132 bytes); the repair record nevertheless says repaired."
+assumption = "Decision 2505: the legacy path must not be wrapped; the record is corrected."
+severity = "medium"
+
+[finding.22.99.28.2]
+task = "22.99.28"
+file = "sdk/platform/go/testdata/vector-v4-committed.json"
+symbol = "TestCommittedRungAcceptsTwoThirdsCommit"
+observed = "Attempt 3: the regenerated committed-rung vector fails local verification (V2-layerxledger-revert at offset 0) and TestProgramTerminalV5NativeCorpus needs the native signed corpus."
+assumption = "Vectors regenerate only from provenance sources; the corpus test is producer input (decision 2325)."
+severity = "medium"
+
+[finding.22.99.30.1]
+task = "22.99.30"
+file = "apps/launchpad/web/src/core/network/deployment.ts"
+symbol = "deployment"
+observed = "Attempt 3: the sweep reports role_missing for Treasury and LaunchpadPrecompile; the file was outside the edit scope."
+assumption = "The file is added to the scope and the roles are added."
+severity = "low"
+
+[finding.9.98.2.1]
+task = "9.98.2"
+file = "tests/fixtures/authority/provider-subject/onboarding.activity"
+symbol = "decode_signed"
+observed = "Attempt 1: fifteen library tests fail, the activity fixture no longer decodes (MalformedPayload) and the fixture directory is outside the edit scope."
+assumption = "Decision 2502: regenerate the fixture from the producer when a qualified task changed the wire, otherwise repair the consumer; the fixture paths are added to the scope."
+severity = "medium"
+
+[finding.22.99.55.1]
+task = "22.99.55"
+file = "services/human/crates/layerx-human-kms/src/store.rs"
+symbol = "SelfCustodied"
+observed = "Attempt 2: the store answers Refused for the EVM wallet after a handover, satisfying provider.rs:1336 and breaking proof_human_kms_wire.rs:855; the attestor fixture also failed once on a port already in use."
+assumption = "Decision 2507: SelfCustodied for every operation; the fixture passes bound listeners or retries on address in use."
+severity = "medium"
+
+[finding.18.1526.1.2]
+task = "18.1526.1"
+file = "apps/explorer/instrumentation.node.spec.ts"
+symbol = "readInstalledTelemetryManifest"
+observed = "Attempt 5: the manifest path is resolved by a fixed ../.. hop from the resolved entry file and ends in ENOENT at node_modules/@opentelemetry/package.json."
+assumption = "Walk up from the resolved entry to the first package.json whose name matches."
+severity = "low"
+
+[finding.11.98.1.1]
+task = "11.98.1"
+file = "services/interop/crates/x-websearch/src/lib.rs"
+symbol = "CONFORMANCE_SUITE_DIGEST"
+observed = "Attempt 1: after re-recording fixtures/gateway the gate reports GateError::Conformance because the digest and count constants are stale."
+assumption = "Gotcha 2952; src/lib.rs is added to the scope."
+severity = "medium"
+
+[finding.18.1575.1.2]
+task = "18.1575.1"
+file = "spec/layerx-merge/programme/sweeps/python-pytest-collect.kvx"
+symbol = "sweeps_summary"
+observed = "Attempt 3: python-pytest-collect.kvx declares 74 passed targets against 75 passed blocks; the record was outside the edit scope."
+assumption = "Decision 2504: the record is added to the scope and its header recomputed."
+severity = "low"
+
+[finding.22.99.35.3]
+task = "22.99.35"
+file = "tools/specgen/adapters.go"
+symbol = "render"
+observed = "Attempt 4: build and tests pass; the done step re-rendered the four pointer files and the candidate differed from the verified tree (same_candidate unmet)."
+assumption = "Gotcha 2953: commit the pointer files exactly as rendered."
+severity = "medium"
+
+[finding.22.99.45.1]
+task = "22.99.45"
+file = "spec/layerx-merge/programme/sweeps/repairs/rust-build-programs.19.kvx"
+symbol = "repair"
+observed = "Attempt 2: both builds pass and the record says already-passing, yet the done step reports one graph check failed because programs/vendor/wasm-instrument in the scope was not changed."
+assumption = "Scope reduced to the record (decision 2342 pattern)."
+severity = "low"
+
+[finding.22.99.31.3]
+task = "22.99.31"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go"
+symbol = "TestNativeCustodyRealProfiles"
+observed = "Attempt 4: TestNativeCustodyRealProfiles and TestNativeSendPurposeRealProfiles need the prebuilt native Rust custody consumer; everything else passes."
+assumption = "Producer-input tests excluded by name (decision 2325)."
+severity = "low"
+
+[finding.22.99.72.2]
+task = "22.99.72"
+file = "services/platform/hosted/gateway/tests/degraded.rs"
+symbol = "degraded_endpoint"
+observed = "Attempt 4: four degraded-endpoint tests receive overall state degraded with consensus not_configured; unified_service_paths also fails because tools/paxeer-x/route-catalogue.json still advertises the retired /v1/wallet/sign-custody route."
+assumption = "Decision 2508 for readiness; the catalogue is a planned path and loses the retired routes."
+severity = "medium"
+
+[finding.22.99.16.1]
+task = "22.99.16"
+file = "services/launchpad/user/internal/account/connected_integration_test.go"
+symbol = "TestConnected"
+observed = "Attempt 4: the connected tests need L35_TEST_OBJECT_ENDPOINT, the MinIO credentials and L35_PHASE3_GATEWAY_URL; TestUserService needs the MinIO credentials."
+assumption = "Producer-input tests excluded by name (decision 2496)."
+severity = "low"
+
+[finding.13.99.1.2]
+task = "13.99.1"
+file = "programs/crates/layerx-programs-ai-market/src/lib.rs"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 3: the release wasm32 guest is 534469 bytes against the 520192 limit after in-crate reductions from 543746."
+assumption = "Remaining size is formatting and hashing code; see the continue ruling."
+severity = "medium"
+
+[finding.22.9.31.2]
+task = "22.9.31"
+file = "services/agent/crates/layerx-agentd/tests/webhook.rs"
+symbol = "deliver_outbound"
+observed = "Attempt 4: three webhook tests (unreachable, slow, revoked endpoint) no longer receive RetryScheduled or Stopped from deliver_outbound after the support port off the LNI module."
+assumption = "The port replaced the failing endpoint fixtures; the tests print the actual result and the fixtures are restored."
+severity = "medium"
+
+[finding.22.99.92.2]
+task = "22.99.92"
+file = "tests/codec/lxp_test_bridge_claims_retired.c"
+symbol = "test_no_claim_or_deposit_root_callers"
+observed = "Attempt 2: nine guard tests still fail, among them two beta-withdrawal genesis runs (bootstrap: public testnet genesis requires seven configured modules) and the claim-caller guard that flags the retired-use guard test itself."
+assumption = "All nine lie in the planned paths; each is repaired or reported with its path."
+severity = "medium"

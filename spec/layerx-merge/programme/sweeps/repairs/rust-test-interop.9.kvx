@@ -1,0 +1,6 @@
+[repair.rust-test-interop.9]
+target = "layerx-fiat"
+command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-fiat --no-fail-fast"
+revision = "c56bf8dab2a36860f56543433ebe85802b492d14"
+result = "repaired"
+change = "services/interop/specs/conformance/fiat/sequenced-journeys.json aligns the reverted journey transaction hash and receipt digest with the shared recording, and services/interop/crates/layerx-fiat/record_sequenced_journeys.py refreshes receipt metadata while requiring re-signing when a payment source receipt changes."

@@ -474,7 +474,7 @@ fn a_fulfil_is_journalled_before_broadcast_and_confirmed_from_its_receipt() -> C
 #[test]
 fn a_restart_rebroadcasts_the_journalled_bytes_without_signing_again() -> Checked {
     let scratch = Scratch::new("restart")?;
-    let node = Node::start(&["submit.json", "chain.json"], &scratch.journal())?;
+    let node = Node::start(&["restart.json", "chain.json"], &scratch.journal())?;
     let hash = recorded_hash()?;
     {
         let submitter =
@@ -535,7 +535,16 @@ fn a_refused_broadcast_for_a_request_fulfilled_meanwhile_is_completed() -> Check
         .load(7)?
         .ok_or_else(|| fail("no journal entry"))?;
     assert_eq!(entry.state, JournalState::AlreadyFulfilled);
-    assert_eq!(entry.transaction, None);
+    assert_eq!(
+        entry.transaction,
+        Some((
+            3,
+            x_websearch::submit::SignedTransaction {
+                raw: bytes(text(&recorded()?, "/raw")?)?,
+                hash: recorded_hash()?,
+            }
+        ))
+    );
     Ok(())
 }
 

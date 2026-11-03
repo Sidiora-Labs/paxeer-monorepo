@@ -1,6 +1,7 @@
 *
 !go.mod
 !go.sum
+!core/deps/geth/
 !consensus/
 !precompiles/perps/
 !precompiles/pricefeed/

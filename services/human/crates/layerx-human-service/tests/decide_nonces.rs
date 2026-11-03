@@ -507,6 +507,7 @@ fn decide_at(pending: u64) {
     hold(
         &registry,
         ApprovalContext {
+            actor_address: evm.from,
             tenant: tenant(),
             agent: Did::new(b"did:layerx:decision-agent").expect("agent"),
             session: SessionId([2; 32]),

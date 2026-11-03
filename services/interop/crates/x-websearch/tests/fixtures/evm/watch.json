@@ -15,7 +15,10 @@
               "fromBlock": "0x19",
               "toBlock": "0x1e",
               "topics": [
-                "0x3761cb12023af30e23da5dd47f1bf8cae4951138f813d82effc788e317254293"
+                [
+                  "0x3761cb12023af30e23da5dd47f1bf8cae4951138f813d82effc788e317254293",
+                  "0x295e54336f16bc9fe27affd4ab54282ee687dfad7a3f0c15c8a50eb758ee39b3"
+                ]
               ]
             }
           ],

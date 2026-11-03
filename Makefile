@@ -1129,7 +1129,7 @@ test-contract-state-surface:
 	scripts/ci/solidity-state-surface.sh
 
 test-contracts: test-contract-state-surface
-	forge test --offline --root .
+	FOUNDRY_TEST=tests/solidity forge test --offline --root . --no-dynamic-test-linking
 
 qualify-replay:
 	tools/lxp_qual_replay_matrix.sh

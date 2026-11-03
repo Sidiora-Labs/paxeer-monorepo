@@ -100,13 +100,16 @@ async fn chain_not_supported_fail() {
         .send_request(&app)
         .await;
 
+    let status = resp.status();
+    let response_body = test::read_body(resp).await;
     assert!(
-        resp.status().is_success(),
-        "failed to verify contract, status is {}",
-        resp.status()
+        status.is_success(),
+        "failed to verify contract, status is {}, body: {}",
+        status,
+        String::from_utf8_lossy(&response_body)
     );
 
-    let body: VerifyResponse = test::read_body_json(resp).await;
+    let body: VerifyResponse = serde_json::from_slice(&response_body).unwrap();
 
     assert_eq!(body.status().as_str_name(), "FAILURE");
 
@@ -117,6 +120,8 @@ async fn chain_not_supported_fail() {
         body.message,
         error_message
     );
+    assert!(body.message.contains(chain_id), "{}", body.message);
+    assert!(body.source.is_none());
 }
 
 // #[tokio::test]

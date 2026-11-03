@@ -1,3 +1,6 @@
+#[path = "support/corpus.rs"]
+mod replay_corpus;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 #[path = "../../../tests/support/rustc.rs"]
@@ -73,7 +76,7 @@ fn registry(corpus: &Corpus) -> ModuleRegistry {
 
 #[test]
 fn activity_and_payload_hashes_match_every_replay_vector() {
-    let Ok(corpus) = Corpus::load(&repository_root()) else {
+    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
         panic!("published corpus failed to load");
     };
     let registry = registry(&corpus);
@@ -103,7 +106,7 @@ fn activity_and_payload_hashes_match_every_replay_vector() {
 
 #[test]
 fn all_domains_separate_identical_canonical_bytes() {
-    let Ok(corpus) = Corpus::load(&repository_root()) else {
+    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
         panic!("published corpus failed to load");
     };
     let Ok(activity) = decode_signed(&corpus.replay.canonical_activities[0], &registry(&corpus))
@@ -127,7 +130,7 @@ fn all_domains_separate_identical_canonical_bytes() {
 
 #[test]
 fn signing_preimage_binds_network_and_protocol_version() {
-    let Ok(corpus) = Corpus::load(&repository_root()) else {
+    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
         panic!("published corpus failed to load");
     };
     let registry = registry(&corpus);

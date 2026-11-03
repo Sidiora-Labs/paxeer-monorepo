@@ -45,7 +45,7 @@ func NewSwapConsumer(st *store.Store, rdb *goredis.Client, logger *slog.Logger) 
 // the 1-minute volume bucket + trader, (3) recompute rolling stats, (4) snapshot
 // the price, (5) compute price changes, (6) update price/mcap/high-low, (7) cache.
 func (c *SwapConsumer) ProcessEvent(ctx context.Context, ev SwapEvent) error {
-	if _, err := project(ctx, c.store, ev, false); err != nil {
+	if _, err := project(ctx, c.store, ev, false, shareddb.NowSeconds()); err != nil {
 		return err
 	}
 	// 7. Cache the fresh row in Redis.
@@ -65,7 +65,7 @@ func (c *SwapConsumer) ProjectTx(ctx context.Context, tx pgx.Tx, ev SwapEvent) (
 	if st == nil {
 		return false, fmt.Errorf("consumer: swap projection transaction required")
 	}
-	return project(ctx, st, ev, true)
+	return project(ctx, st, ev, true, ev.BlockTimestamp)
 }
 
 // CachePoolStats refreshes the Redis pool_stats cache and publishes stats:update
@@ -79,9 +79,7 @@ func (c *SwapConsumer) CachePoolStats(ctx context.Context, poolAddress string) e
 // stopOnDuplicate an already-recorded id ends the projection (inbox
 // semantics); without it steps 2-6 run regardless, preserving the webhook's
 // historical ProcessEvent behaviour.
-func project(ctx context.Context, st *store.Store, ev SwapEvent, stopOnDuplicate bool) (bool, error) {
-	now := shareddb.NowSeconds()
-
+func project(ctx context.Context, st *store.Store, ev SwapEvent, stopOnDuplicate bool, now int64) (bool, error) {
 	// 1. Record transaction (idempotent on txHash-logIndex).
 	inserted, err := st.RecordTransaction(ctx, store.TransactionRow{
 		ID:             fmt.Sprintf("%s-%d", ev.TxHash, ev.LogIndex),
