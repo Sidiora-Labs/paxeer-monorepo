@@ -1,0 +1,17 @@
+[alert.GHSA-9f3f-wv7r-qc8r]
+package = "github.com/pion/dtls/v2"
+manifest = "core/deps/geth/go.mod"
+verdict = "no-fix"
+version_before = "v2.2.7"
+version_after = "v2.2.7"
+pinned_by = "github.com/ethereum/go-ethereum (core/deps/geth) -> github.com/pion/stun/v2@v2.0.0 (direct) -> github.com/pion/dtls/v2@v2.2.7. The advisory names no patched version. STUN v2.0.0 is the latest v2 release and requires DTLS v2.2.7. Migrating the direct dependency to github.com/pion/stun/v3@v3.0.0 would remove DTLS /v2: that release requires github.com/pion/dtls/v3@v3.0.1 instead. This requires changing the NAT STUN import and removing the retained DTLS /v2 requirement."
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-34rh-wp3j-6cxc]
+package = "github.com/pion/stun/v2"
+manifest = "core/deps/geth/go.mod"
+verdict = "no-fix"
+version_before = "v2.0.0"
+version_after = "v2.0.0"
+pinned_by = "github.com/ethereum/go-ethereum (core/deps/geth), p2p/nat/stun.go -> github.com/pion/stun/v2@v2.0.0 (direct). The advisory names no patched version. STUN v2.0.0 is the latest v2 release. Migrating the direct dependency and the NAT STUN import to github.com/pion/stun/v3@v3.0.0 would remove the affected /v2 module path; this is a major-version migration rather than an update within /v2."
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
