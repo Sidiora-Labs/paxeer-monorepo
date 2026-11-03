@@ -152,7 +152,14 @@ func (i *InfoAPI) GasPrice(ctx context.Context) (result *hexutil.Big, returnErr 
 	} else {
 		medianRewardPrevBlock = feeHist.Reward[0][0].ToInt()
 	}
-	return i.gasPriceHelper(ctx, baseFee, totalGasUsed, medianRewardPrevBlock)
+	return GasPriceHelper(i, ctx, baseFee, totalGasUsed, medianRewardPrevBlock)
+}
+
+// GasPriceHelper calculates the suggested gas price from the base fee and the
+// previous block's gas usage and median reward. It is a package function so it
+// does not register an additional JSON-RPC method on InfoAPI.
+func GasPriceHelper(i *InfoAPI, ctx context.Context, baseFee *big.Int, totalGasUsedPrevBlock uint64, medianRewardPrevBlock *big.Int) (*hexutil.Big, error) {
+	return i.gasPriceHelper(ctx, baseFee, totalGasUsedPrevBlock, medianRewardPrevBlock)
 }
 
 // Helper function useful for testing

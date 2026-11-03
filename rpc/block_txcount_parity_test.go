@@ -19,8 +19,10 @@ import (
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
@@ -162,8 +164,8 @@ func countDecodeOnlyEvmTxs(txs tmtypes.Txs, dec sdk.TxDecoder) int {
 
 // TestBlockAPILatestTagResolves verifies that block endpoints accepting
 // "latest"/"safe"/"finalized" tags resolve to the safe-latest height rather
-// than returning JSON null, and that a node without a pending snapshot refuses
-// the "pending" tag.
+// than returning JSON null. Pending receipts use committed state while the
+// sequencer has no open block; without a pending source, the count is JSON null.
 func TestBlockAPILatestTagResolves(t *testing.T) {
 	application := app.Setup(t, false, true, false)
 	k := &application.EvmKeeper
@@ -201,11 +203,20 @@ func TestBlockAPILatestTagResolves(t *testing.T) {
 		require.NotNil(t, count, "GetBlockTransactionCountByNumber tag %v must resolve, not null", tag)
 	}
 
-	receipts, err := api.GetBlockReceipts(ctx, rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber))
-	require.ErrorIs(t, err, evmrpc.ErrPendingServedBySequencer)
-	require.Nil(t, receipts)
-
 	count, err := api.GetBlockTransactionCountByNumber(ctx, rpc.PendingBlockNumber)
-	require.ErrorIs(t, err, evmrpc.ErrPendingServedBySequencer)
+	require.NoError(t, err)
 	require.Nil(t, count)
+
+	pending, err := sequencer.NewExecutor(application, sequencer.Options{
+		ChainID:         sdkCtx.ChainID(),
+		ProposerAddress: secp256k1.GenPrivKey().PubKey().Address().Bytes(),
+	})
+	require.NoError(t, err)
+	_, err = pending.Snapshot()
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	watermarks.SetPendingSnapshot(pending)
+
+	receipts, err := api.GetBlockReceipts(ctx, rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber))
+	require.NoError(t, err)
+	require.Equal(t, []map[string]interface{}{}, receipts)
 }

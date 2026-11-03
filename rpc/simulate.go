@@ -329,22 +329,7 @@ func isPendingBlockNrOrHash(blockNrOrHash rpc.BlockNumberOrHash) bool {
 // block, the latest committed context for a future height, and the provider's
 // context for every other height.
 func (b *Backend) ctxAtHeight(height int64) sdk.Context {
-	latest := b.ctxProvider(LatestCtxHeight)
-	if b.watermarks != nil && b.watermarks.pending != nil && (height == PendingCtxHeight || height > latest.BlockHeight()) {
-		snapshot, pendingHeight, open, err := b.watermarks.pendingSnapshot(context.Background())
-		if err == nil {
-			if open && (height == PendingCtxHeight || pendingHeight == height) {
-				return snapshot
-			}
-			if !open && height == PendingCtxHeight {
-				return b.ctxProvider(pendingHeight)
-			}
-		}
-	}
-	if height > latest.BlockHeight() {
-		return latest
-	}
-	return b.ctxProvider(height)
+	return simulationContextAtHeight(context.Background(), b.ctxProvider, b.watermarks, height)
 }
 
 // pendingStateAndHeader reads a snapshot of the open block. Its header carries
