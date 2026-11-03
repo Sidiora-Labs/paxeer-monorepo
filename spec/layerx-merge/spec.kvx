@@ -136541,7 +136541,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.90]
 title = "Re-sweep the not-run targets of the rust-test-platform inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136628,7 +136628,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.87]
 title = "Re-sweep the not-run targets of the rust-test-agent inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137149,7 +137149,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.66]
 title = "Repair the inventory sweep target layerx-migrate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137180,7 +137180,7 @@ do_4 = "Decision 2496 (continue): the tests funded_operator_runs_real_gateway_so
 
 [task.22.99.65]
 title = "Repair the inventory sweep target layerx-fiat"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -138184,7 +138184,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.95.11]
 title = "Migrate the human service session-key test to the call-bound preparation shape"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -145888,7 +145888,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.80]
 title = "Repair the perps-data deploy test of the go-services sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
