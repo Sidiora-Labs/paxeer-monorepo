@@ -1,0 +1,6 @@
+[repair.node-sdk-integrations.4]
+target = "sdk/integrations/next/example"
+command = "cd sdk/integrations/next/example && npm ci && npm run build && npm test"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "next.config.mjs transpiles @scure/bip32 and writes build output to dist, package.json scans dist/static, and .gitignore excludes dist."
