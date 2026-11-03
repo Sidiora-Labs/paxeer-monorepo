@@ -1,0 +1,48 @@
+[issue.1535]
+number = 1535
+title = "[Coherence] The legacy-import lock file is deleted while the floors file and the task's own verify command still read it"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit 8dc0d37ce04f002d216ab533a297389e013f15d5 deleted the still-absent services/wallet/ceremony/legacy-import/pnpm-lock.yaml, but tools/deps/floors/wallet-services.json:30 still requires it, tools/deps/lockfloor.py:240 rejects its absence, services/wallet/ceremony/legacy-import/package.json:25 pins vitest 4.1.12 in the separate workspace at services/wallet/ceremony/legacy-import/pnpm-workspace.yaml:1, services/wallet/pnpm-lock.yaml:7 has no importer for that workspace, and spec/layerx-merge/spec.kvx:119212 still requires its frozen install."
+close_comment = "The legacy importer still lacks its own lockfile, so its dependency-floor check and frozen install cannot succeed. A follow-up task will regenerate the lockfile for Vitest 4.1.12 and add a focused check for patched resolved dependencies and a frozen install."
+
+[task.18.1535.1]
+title = "Issue #1535: Restore the legacy importer's patched frozen dependency lockfile"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181535.1"]
+capabilities = []
+interfaces = []
+do_1 = "Regenerate services/wallet/ceremony/legacy-import/pnpm-lock.yaml with the importer's own pnpm workspace, preserving the manifest's vitest 4.1.12 pin at services/wallet/ceremony/legacy-import/package.json:25 and resolving every @vitest/mocker copy to at least the 4.1.12 floor at tools/deps/floors/wallet-services.json:30; the workspace boundary at services/wallet/ceremony/legacy-import/pnpm-workspace.yaml:1 requires a local lockfile rather than the parent wallet lockfile."
+do_2 = "Add services/wallet/ceremony/legacy-import/test/test_lockfile.py (planned) with test_legacy_import_lockfile: read the real manifest and the importer's entry from tools/deps/floors/wallet-services.json:30, use the production _lock_path, _pnpm_lock and compare_versions functions in tools/deps/lockfloor.py:239, tools/deps/lockfloor.py:90 and tools/deps/lockfloor.py:30 to assert the local lock exists and every resolved vitest and @vitest/mocker copy meets 4.1.12 and the recorded floors, then run pnpm --dir services/wallet/ceremony/legacy-import --ignore-workspace install --frozen-lockfile --ignore-scripts, assert exit zero and assert the committed lockfile bytes remain unchanged; missing or unresolved packages must fail."
+symbols = ["test_legacy_import_lockfile"]
+touches = ["services/wallet/ceremony/legacy-import/pnpm-lock.yaml", "services/wallet/ceremony/legacy-import/test/test_lockfile.py"]
+tests = ["services/wallet/ceremony/legacy-import/test/test_lockfile.py::test_legacy_import_lockfile"]
+planned_paths = ["services/wallet/ceremony/legacy-import/pnpm-lock.yaml", "services/wallet/ceremony/legacy-import/test/test_lockfile.py"]
+build_cmd = "pnpm --dir services/wallet/ceremony/legacy-import exec tsc --noEmit"
+verify_cmd = "python3 -m pytest services/wallet/ceremony/legacy-import/test/test_lockfile.py::test_legacy_import_lockfile -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181535]
+title = "The legacy importer has a patched lockfile that supports a frozen install"
+ac_1 = "Given the standalone importer workspace at services/wallet/ceremony/legacy-import/pnpm-workspace.yaml:1 and vitest 4.1.12 at services/wallet/ceremony/legacy-import/package.json:25, its own committed lockfile resolves vitest and every @vitest/mocker copy at or above 4.1.12, satisfies its entry at tools/deps/floors/wallet-services.json:30, and permits the frozen install required by spec/layerx-merge/spec.kvx:119212 without changing that lockfile."
+
+[acceptance.18.1535.1]
+feature = "18"
+req = "181535.1"
+scenario = "Given the legacy importer's committed manifest, standalone workspace and local lockfile, when the focused lockfile regression checks the actual resolved versions and performs a frozen install, then all recorded importer floors and the Vitest 4.1.12 minimum are met, installation succeeds and the lockfile remains byte-for-byte unchanged."
+contract = "contracts/tools-ops.md#qualification-harness"
+test = "services/wallet/ceremony/legacy-import/test/test_lockfile.py::test_legacy_import_lockfile (planned)"
+qualification = "UNRUN"
