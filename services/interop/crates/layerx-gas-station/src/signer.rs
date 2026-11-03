@@ -44,19 +44,16 @@ pub struct LocalSigner {
     sender: EvmSender,
 }
 impl LocalSigner {
-    /// Loads the relayer through the shared EVM sender loader with
-    /// `relayer_key_env` as its prefix: `<prefix>_KEY_FILE` or
-    /// `<prefix>_KMS_KEY_ID`. Every signature is made by that loader and
-    /// recovers to its sender address.
+    /// Loads the raw hexadecimal secp256k1 private key from the environment
+    /// variable named by `relayer_key_env`, with or without a `0x` prefix.
+    /// Every signature recovers to that key's sender address.
     ///
     /// # Errors
-    /// Refuses an invalid configuration, an absent, ambiguous or unreadable
-    /// source and an invalid key.
+    /// Refuses an invalid configuration, an absent or unreadable environment
+    /// variable and an invalid key.
     pub fn from_config(config: &StationConfig) -> Result<Self, SignerError> {
         config.validate().map_err(|_| SignerError::KeySource)?;
-        Ok(Self {
-            sender: EvmSender::from_env(config.relayer_key_env.as_str())?,
-        })
+        Self::from_env(config.relayer_key_env.as_str())
     }
 
     /// # Errors

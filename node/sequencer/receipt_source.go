@@ -47,6 +47,10 @@ func NewReceiptSource(capacity int) *ReceiptSource {
 // accepted receipt. Retained committed sends are evicted oldest first as needed.
 // Sends recorded at already committed heights are not retained.
 func (s *ReceiptSource) Record(hash common.Hash, send evmrpc.SequencerSend) {
+	s.record(hash, send, false)
+}
+
+func (s *ReceiptSource) record(hash common.Hash, send evmrpc.SequencerSend, replay bool) {
 	send = cloneReceiptSourceSend(send)
 	receipt, err := codec.DecodeReceipt(send.Receipt)
 	if err != nil {
@@ -62,7 +66,7 @@ func (s *ReceiptSource) Record(hash common.Hash, send evmrpc.SequencerSend) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if int64(height) <= s.committed {
+	if int64(height) <= s.committed && !replay {
 		return
 	}
 	capacity := s.capacity
@@ -71,11 +75,16 @@ func (s *ReceiptSource) Record(hash common.Hash, send evmrpc.SequencerSend) {
 	}
 	entry, exists := s.entries[hash]
 	if !exists && len(s.entries) >= capacity {
-		if len(s.committedOrder) == 0 {
+		switch {
+		case len(s.committedOrder) > 0:
+			delete(s.entries, s.committedOrder[0])
+			s.committedOrder = s.committedOrder[1:]
+		case replay && len(s.pendingOrder) > 0:
+			delete(s.entries, s.pendingOrder[0])
+			s.pendingOrder = s.pendingOrder[1:]
+		default:
 			panic("sequencer: receipt source capacity exhausted before commit")
 		}
-		delete(s.entries, s.committedOrder[0])
-		s.committedOrder = s.committedOrder[1:]
 	}
 	if exists && entry.height <= s.committed {
 		for i, committedHash := range s.committedOrder {
@@ -86,7 +95,16 @@ func (s *ReceiptSource) Record(hash common.Hash, send evmrpc.SequencerSend) {
 		}
 	}
 	if !exists || entry.height <= s.committed {
-		s.pendingOrder = append(s.pendingOrder, hash)
+		if int64(height) <= s.committed {
+			i := sort.Search(len(s.committedOrder), func(i int) bool {
+				return s.entries[s.committedOrder[i]].height > int64(height)
+			})
+			s.committedOrder = append(s.committedOrder, common.Hash{})
+			copy(s.committedOrder[i+1:], s.committedOrder[i:])
+			s.committedOrder[i] = hash
+		} else {
+			s.pendingOrder = append(s.pendingOrder, hash)
+		}
 	}
 	if s.entries == nil {
 		s.entries = make(map[common.Hash]receiptSourceEntry)
