@@ -118244,7 +118244,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.79]
 title = "Inventory the sdk integrations packages again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -118275,7 +118275,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.78]
 title = "Inventory the platform middleware packages again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129946,7 +129946,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.47]
 title = "Inventory every build target of the services/platform/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130008,7 +130008,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.45]
 title = "Inventory every build target of the services/human/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
