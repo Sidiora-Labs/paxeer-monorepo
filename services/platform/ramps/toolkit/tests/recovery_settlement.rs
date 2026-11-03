@@ -370,13 +370,16 @@ impl RpcListener {
                     }
                     "px_getNetwork" => {
                         assert_eq!(request["params"], json!([]));
-                        json!({"network_id": "paxeer", "paxeer": {"chain_id": 125, "latest_block": 20}, "layerx": null, "latest_committed_height": 20})
+                        json!({"network_id": "paxeer", "paxeer": {"chain_id": 125, "latest_block": 20},
+                            "consensus": {"latest_height": "20", "latest_block_hash": "34".repeat(32),
+                                "latest_app_hash": "56".repeat(32), "catching_up": false}})
                     }
                     "eth_getBlockByNumber" => {
                         assert_eq!(request["params"], json!(["0x14", true]));
                         json!({"number": "0x14", "hash": format!("0x{}", "34".repeat(32)),
                             "parentHash": format!("0x{}", "56".repeat(32)), "timestamp": "0x1",
-                            "transactionsRoot": format!("0x{}", "78".repeat(32)), "transactions": []})
+                            "transactionsRoot": format!("0x{}", "78".repeat(32)),
+                            "receiptsRoot": format!("0x{}", "9a".repeat(32)), "transactions": []})
                     }
                     method => panic!("unexpected RPC before order validation: {method}"),
                 };

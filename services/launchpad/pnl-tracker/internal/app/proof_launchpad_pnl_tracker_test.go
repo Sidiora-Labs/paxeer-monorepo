@@ -36,6 +36,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/migrate"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
@@ -433,60 +434,8 @@ func proofLaunchpadPostgres(t *testing.T, ctx context.Context) (string, *pgxpool
 
 func proofLaunchpadChain(t *testing.T, ctx context.Context, root string) (*rpc.Client, proofLaunchpadFixture) {
 	t.Helper()
-	anvil, err := exec.LookPath("anvil")
-	if err != nil {
-		t.Fatalf("services/launchpad/pnl-tracker/internal/production/l18/fixture.cjs requires a local Anvil executable: %v", err)
-	}
-	// The existing fixture requires this exact loopback endpoint and verifies
-	// the PID, start time, and socket ownership before every chain mutation.
-	cmd := exec.CommandContext(ctx, anvil, "--host", "127.0.0.1", "--port", "21800", "--chain-id", "125", "--silent")
-	log, err := os.CreateTemp(t.TempDir(), "anvil-*.log")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer log.Close()
-	cmd.Stdout, cmd.Stderr = log, log
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("real Anvil required on PATH: %v", err)
-	}
-	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
-	stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", cmd.Process.Pid))
-	if err != nil {
-		t.Fatal(err)
-	}
-	fields := strings.Fields(string(stat[strings.LastIndexByte(string(stat), ')')+1:]))
-	identity, _ := json.Marshal(map[string]any{"pid": cmd.Process.Pid, "starttime": fields[19]})
-	r, err := rpc.DialContext(ctx, "http://127.0.0.1:21800")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(r.Close)
-	ready := false
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
-		var chain hexutil.Uint64
-		if err := r.CallContext(ctx, &chain, "eth_chainId"); err == nil && chain == 125 {
-			ready = true
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	if !ready {
-		t.Fatal("owned real chain did not become ready")
-	}
-	fixture := exec.CommandContext(ctx, "node", filepath.Join(root, "services/launchpad/pnl-tracker/internal/production/l18/fixture.cjs"))
-	fixture.Env = append(os.Environ(), "L18_ANVIL_IDENTITY="+string(identity))
-	var stderr bytes.Buffer
-	fixture.Stderr = &stderr
-	raw, err := fixture.Output()
-	if err != nil {
-		t.Fatalf("actual contract fixture: %v: %s", err, stderr.String())
-	}
-	var result proofLaunchpadFixture
-	if err := json.Unmarshal(raw, &result); err != nil {
-		t.Fatal(err)
-	}
-	result.Alice, result.Bob, result.Pool = strings.ToLower(result.Alice), strings.ToLower(result.Bob), strings.ToLower(result.Pool)
-	return r, result
+	r, fixture := internaltest.NewAnvilFixture(t, ctx, root)
+	return r, proofLaunchpadFixture{Pool: fixture.Pool, Alice: fixture.Alice, Bob: fixture.Bob}
 }
 
 func proofLaunchpadABI(t *testing.T, root, group, name string) abi.ABI {

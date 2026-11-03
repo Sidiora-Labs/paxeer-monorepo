@@ -59,7 +59,8 @@ fn classify(case: &Case) -> Classification {
         "V1-pax-transfer"
         | "V1-erc20-approve"
         | "V1-layerxledger-pay-exact"
-        | "V1-layerxbridge-bridge-out" => {
+        | "V1-layerxbridge-bridge-out"
+        | "V1-layerxprograms-call" => {
             assert_eq!(case.vector, "V1", "{}", case.id);
             Classification::Answer
         }
@@ -92,7 +93,7 @@ fn shared_vectors() -> Vectors {
         .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
     assert_eq!(vectors.name, "sequencer-receipt-v1");
     assert_eq!(vectors.chain_id, 125);
-    assert_eq!(vectors.cases.len(), 11);
+    assert_eq!(vectors.cases.len(), 12);
     let mut ids = BTreeSet::new();
     for case in &vectors.cases {
         assert!(ids.insert(&case.id), "duplicate case: {}", case.id);
@@ -243,7 +244,7 @@ fn every_shared_receipted_case_verifies_in_the_mirror() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 5);
+    assert_eq!(checked, 6);
 }
 
 #[test]

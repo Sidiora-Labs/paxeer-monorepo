@@ -1,0 +1,6 @@
+[repair.c-kernel-make.127]
+target = "test-mcp-binding-receipt-keys"
+command = "make -s test-mcp-binding-receipt-keys"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "repaired"
+change = "The declared build step supplies pytest to the current Python interpreter, resolving the sweep's ModuleNotFoundError; the existing Makefile target and all receipt-key test assertions are unchanged."

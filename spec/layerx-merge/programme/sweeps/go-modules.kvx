@@ -1,10 +1,10 @@
 [sweep.go-modules]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 124
-targets_passed = 65
-targets_failed = 2
-targets_not_run = 45
+targets_passed = 92
+targets_failed = 20
+targets_not_run = 0
 targets_no_tests = 12
 enumeration_command = "CGO_ENABLED=1 go list ./modules/..."
 enumeration_exit_code = 0
@@ -14,19 +14,25 @@ prerequisite_exit_code = 0
 environment = "CGO_ENABLED=1; GOMAXPROCS=2; four concurrent package commands"
 target_time_limit_seconds = 240
 time_budget = "Per-target allocations are capped by the remaining inventory time; three minutes are reserved for reporting and bounded qualification gates."
-qualification_record = "/out/logs/go-modules-pass2/results.jsonl"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/results.jsonl"
 
 [target.go-modules.1]
 target = "modules/epoch"
-result = "not_run"
+result = "failed"
 exit_code = 124
-reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-001.log"
 
 [target.go-modules.2]
 target = "modules/epoch/client/cli"
-result = "not_run"
+result = "failed"
 exit_code = 124
-reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-002.log"
 
 [target.go-modules.3]
 target = "modules/epoch/client/wasm"
@@ -44,9 +50,12 @@ observed = "No *_test.go files are present in modules/epoch/client/wasm/bindings
 
 [target.go-modules.5]
 target = "modules/epoch/keeper"
-result = "not_run"
+result = "failed"
 exit_code = 124
-reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-005.log"
 
 [target.go-modules.6]
 target = "modules/epoch/simulation"
@@ -60,15 +69,21 @@ exit_code = 0
 
 [target.go-modules.8]
 target = "modules/evm"
-result = "not_run"
+result = "failed"
 exit_code = 124
-reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-008.log"
 
 [target.go-modules.9]
 target = "modules/evm/ante"
-result = "not_run"
+result = "failed"
 exit_code = 124
-reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-009.log"
 
 [target.go-modules.10]
 target = "modules/evm/artifacts"
@@ -206,9 +221,12 @@ exit_code = 0
 
 [target.go-modules.36]
 target = "modules/launchpad/keeper"
-result = "not_run"
+result = "failed"
 exit_code = 124
-reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-036.log"
 
 [target.go-modules.37]
 target = "modules/launchpad/launchpadtest"
@@ -389,9 +407,12 @@ exit_code = 0
 
 [target.go-modules.72]
 target = "modules/layerxledger/keeper"
-result = "not_run"
+result = "failed"
 exit_code = 124
-reason = "The vet/test pair did not finish within its 33-second inventory allocation and was stopped to preserve the task wall clock."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-072.log"
 
 [target.go-modules.73]
 target = "modules/layerxledger/types"
@@ -412,57 +433,78 @@ exit_code = 0
 
 [target.go-modules.76]
 target = "modules/layerxpay/integration"
-result = "not_run"
+result = "failed"
 exit_code = 124
-reason = "The vet/test pair did not finish within its 18-second inventory allocation and was stopped to preserve the task wall clock."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-076.log"
 
 [target.go-modules.77]
 target = "modules/layerxpay/keeper"
-result = "not_run"
-exit_code = 124
-reason = "The vet/test pair did not finish within its 15-second inventory allocation and was stopped to preserve the task wall clock."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/keeper\t8.895s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-077.log"
 
 [target.go-modules.78]
 target = "modules/layerxpay/testutil"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "?   \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/testutil\t[no test files]"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-078.log"
 
 [target.go-modules.79]
 target = "modules/layerxpay/types"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types\t4.897s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-079.log"
 
 [target.go-modules.80]
 target = "modules/lxphost"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost\t19.229s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-080.log"
 
 [target.go-modules.81]
 target = "modules/mint"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "failed"
+exit_code = 124
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-081.log"
 
 [target.go-modules.82]
 target = "modules/mint/client/cli"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "?   \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/mint/client/cli\t[no test files]"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-082.log"
 
 [target.go-modules.83]
 target = "modules/mint/client/rest"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "?   \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/mint/client/rest\t[no test files]"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-083.log"
 
 [target.go-modules.84]
 target = "modules/mint/keeper"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "failed"
+exit_code = 124
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-084.log"
 
 [target.go-modules.85]
 target = "modules/mint/simulation"
@@ -473,21 +515,29 @@ observed = "No *_test.go files are present in modules/mint/simulation; no packag
 
 [target.go-modules.86]
 target = "modules/mint/types"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "failed"
+exit_code = 124
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-086.log"
 
 [target.go-modules.87]
 target = "modules/oracle"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "failed"
+exit_code = 124
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-087.log"
 
 [target.go-modules.88]
 target = "modules/oracle/client/cli"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "?   \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/oracle/client/cli\t[no test files]"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-088.log"
 
 [target.go-modules.89]
 target = "modules/oracle/client/rest"
@@ -512,9 +562,11 @@ observed = "No *_test.go files are present in modules/oracle/client/wasm/binding
 
 [target.go-modules.92]
 target = "modules/oracle/keeper"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/oracle/keeper\t0.293s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-092.log"
 
 [target.go-modules.93]
 target = "modules/oracle/keeper/testutils"
@@ -532,9 +584,11 @@ observed = "No *_test.go files are present in modules/oracle/simulation; no pack
 
 [target.go-modules.95]
 target = "modules/oracle/types"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/oracle/types\t0.076s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-095.log"
 
 [target.go-modules.96]
 target = "modules/oracle/utils"
@@ -545,39 +599,52 @@ observed = "No *_test.go files are present in modules/oracle/utils; no package t
 
 [target.go-modules.97]
 target = "modules/perps"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/perps\t1.572s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-097.log"
 
 [target.go-modules.98]
 target = "modules/perps/keeper"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/keeper\t120.772s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-098.log"
 
 [target.go-modules.99]
 target = "modules/perps/types"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types\t0.877s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-099.log"
 
 [target.go-modules.100]
 target = "modules/pricefeed"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed\t20.858s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-100.log"
 
 [target.go-modules.101]
 target = "modules/pricefeed/client/cli"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/client/cli\t0.202s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-101.log"
 
 [target.go-modules.102]
 target = "modules/pricefeed/keeper"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "failed"
+exit_code = 124
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-102.log"
 
 [target.go-modules.103]
 target = "modules/pricefeed/testutil"
@@ -588,69 +655,94 @@ observed = "No *_test.go files are present in modules/pricefeed/testutil; no pac
 
 [target.go-modules.104]
 target = "modules/pricefeed/types"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "failed"
+exit_code = 124
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-104.log"
 
 [target.go-modules.105]
 target = "modules/sequencer"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer\t0.039s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-105.log"
 
 [target.go-modules.106]
 target = "modules/sequencer/keeper"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "failed"
+exit_code = 1
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "--- FAIL: TestReceiptKeysAppHashVector (0.03s)"
+assumption = "The committed programs/tests/vectors/ics23-receipt-keys-app-hash.json differs from its TestReceiptKeysAppHashVector producer output (LXP_WRITE_VECTORS=1); sibling test setup also conflicts with activation height 1001 and omits the required payment denomination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-106.log"
 
 [target.go-modules.107]
 target = "modules/sequencer/types"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types\t0.124s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-107.log"
 
 [target.go-modules.108]
 target = "modules/spot"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/spot\t2.984s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-108.log"
 
 [target.go-modules.109]
 target = "modules/spot/keeper"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "failed"
+exit_code = 1
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "--- FAIL: TestCustodyAddressIsModuleAccount (0.01s)"
+assumption = "The custody test fixtures appear to omit a nonzero marketID for non-stablecoin tokens; sibling expectations omit the registered spot/active-index invariant, and TestOrderMinOutput supplies genesis that fails active-index insertion."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-109.log"
 
 [target.go-modules.110]
 target = "modules/spot/types"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types\t0.086s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-110.log"
 
 [target.go-modules.111]
 target = "modules/store"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "?   \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/store\t[no test files]"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-111.log"
 
 [target.go-modules.112]
 target = "modules/tokenfactory"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "?   \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory\t[no test files]"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-112.log"
 
 [target.go-modules.113]
 target = "modules/tokenfactory/client/cli"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/client/cli\t60.183s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-113.log"
 
 [target.go-modules.114]
 target = "modules/tokenfactory/client/wasm"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/client/wasm\t0.021s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-114.log"
 
 [target.go-modules.115]
 target = "modules/tokenfactory/client/wasm/bindings"
@@ -663,45 +755,61 @@ qualification_record = "/out/logs/verify-1.log"
 
 [target.go-modules.116]
 target = "modules/tokenfactory/keeper"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "failed"
+exit_code = 124
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-116.log"
 
 [target.go-modules.117]
 target = "modules/tokenfactory/types"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types\t1.102s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-117.log"
 
 [target.go-modules.118]
 target = "modules/xweb"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb\t6.540s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-118.log"
 
 [target.go-modules.119]
 target = "modules/xweb/client/cli"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/client/cli\t0.177s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-119.log"
 
 [target.go-modules.120]
 target = "modules/xweb/keeper"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "failed"
+exit_code = 124
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-120.log"
 
 [target.go-modules.121]
 target = "modules/xweb/testutil"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "?   \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/testutil\t[no test files]"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-121.log"
 
 [target.go-modules.122]
 target = "modules/xweb/types"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types\t3.383s"
+qualification_record = "/out/logs/go-modules-resweep-22.99.84/target-122.log"
 
 [target.go-modules.123]
 target = "precompiles/addr/legacy/v552"

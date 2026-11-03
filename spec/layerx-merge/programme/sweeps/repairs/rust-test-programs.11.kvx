@@ -1,0 +1,7 @@
+[repair.rust-test-programs.11]
+target = "layerx-programs-arbiter"
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --no-fail-fast -- --skip canonical_native_authority_matches_authenticated_historical_facts --skip genuine_signed_market_profile_claim_steps_and_cryptographic_refusals --skip authenticated_admission_authority_reaches_real_bounded_step_verifier --skip genuine_signed_serial_scheduled_trap_steps_and_bound_refusals"
+revision = "c56bf8dab2a36860f56543433ebe85802b492d14"
+result = "already-passing"
+change = "none"
+producer_input_tests = ["canonical_native_authority_matches_authenticated_historical_facts: LAYERX_AUTHENTICATED_REPLAY_INPUTS and LAYERX_ARBITER_ADMISSION_INPUTS containing genuine native replay and signed historical admission corpora", "genuine_signed_market_profile_claim_steps_and_cryptographic_refusals: LAYERX_MARKET_SANDBOX_INPUTS containing the genuine signed tenant/provider Market profile and claim corpus and its referenced admission manifest", "authenticated_admission_authority_reaches_real_bounded_step_verifier: LAYERX_AUTHENTICATED_REPLAY_INPUTS and LAYERX_ARBITER_ADMISSION_INPUTS containing genuine native replay and signed admission corpora", "genuine_signed_serial_scheduled_trap_steps_and_bound_refusals: LAYERX_AUTHENTICATED_REPLAY_INPUTS and LAYERX_ARBITER_ADMISSION_INPUTS containing genuine serial, scheduled and trap replay captures and their signed admission corpus"]

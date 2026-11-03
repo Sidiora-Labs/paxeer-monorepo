@@ -37,8 +37,14 @@
   },
   "gateway": {
     "endpoint": "https://gateway.example",
-    "sequencer_id": "REPLACE_WITH_SEQUENCER_ID",
-    "sequencer_public_key": "REPLACE_WITH_SEQUENCER_PUBLIC_KEY"
+    "receipt_keys": [
+      {
+        "key_id": "REPLACE_WITH_SEQUENCER_ID",
+        "public_key": "REPLACE_WITH_SEQUENCER_PUBLIC_KEY",
+        "first_height": 0,
+        "last_height": 18446744073709551615
+      }
+    ]
   },
   "evm": {
     "endpoint": "https://evm.example",
