@@ -14535,3 +14535,28 @@ fix = "When a task changes a type that tests construct, every test file construc
 title = "A sweep repair of a crate that another open task is already fixing must wait for that task"
 symptom = "The layerx-mcp sweep repair hit the same live-node tests issue task 18.1578.1 isolates; running both at once would have made the repair task re-solve or skip the proof."
 fix = "Make the sweep repair require the open task that owns the failure and leave its verify exercising the fixed tests."
+
+[gotcha.2943]
+title = "A re-sweep that started before the repair it depended on was published failed on the old break"
+symptom = "The human-service re-sweep (22.99.88) built the custody test target minutes before the custody.rs repair of 22.95.11 landed and stopped on E0063/E0560/E0609."
+fix = "Make the re-sweep require the repair task and requalify it on the current main once the repair is published."
+
+[gotcha.2944]
+title = "The Rust test harness skip filter matches by substring"
+symptom = "A seven-test real-workload family in the hosted PaxAI service shares the _real_ name marker; listing each test separately bloated the verify command."
+fix = "Exclude a family with its shared marker in one --skip filter and list every excluded test by name in the repair record."
+
+[gotcha.2945]
+title = "The fee-token sequencer receipt vector names a different payment asset on purpose"
+symptom = "A repair stopped because sequencer-receipt-fee-token-v1.json carries paymentDenom usid while the other vectors carry uhpx and read it as a fixture disagreement."
+fix = "The fee-token vector records a fee paid in another asset (22.23.8, 22.95.3); it is not a defect and must not be edited."
+
+[gotcha.2946]
+title = "Generated pointer files go stale when the workflow spec changes without a re-render"
+symptom = "tools/specgen TestRepositorySpecIsValidAndCurrent reports CLAUDE.md, AGENTS.md, .cursor/rules/spec-workflow.mdc and .github/copilot-instructions.md stale and fails every specgen change."
+fix = "Re-render with go run ./tools/specgen -root . and commit the four outputs in the same change."
+
+[gotcha.2947]
+title = "Feature-gated helpers used by ungated tests break an all-targets build with default features"
+symptom = "The vendored wasm-instrument crate defines DynamicHelper and add_dynamic_helpers under the bulk feature while two helper-sequence tests in src/gas_metering/mod.rs use them without a gate; cargo build --all-targets fails with E0433/E0425."
+fix = "Gate the tests with the same feature attribute as the items they use, or enable the feature in the test profile; never widen default features to make a test compile."

@@ -1,7 +1,7 @@
 [issue.1572]
 number = 1572
 title = "[P2] Migrate the custody integration fixture to call-bound signing preparation"
-revision = "53150198caf59defafffab36d79dbc66d921ae57"
+revision = "09ebe39397036037685d9a78ecdfc60ec4c8a74f"
 verdict = "duplicate"
 evidence = "Task 22.95.11 migrates services/human/crates/layerx-human-service/tests/custody.rs:405-417 and tests/session_keys.rs to call-bound signing preparation (Prepared with disclosure, disclosure_digest and from); the issue describes that same change."
 close_comment = "The custody integration fixture is migrated to call-bound signing preparation by the task that owns the human service tests; this record verifies the custody test passes on main."
