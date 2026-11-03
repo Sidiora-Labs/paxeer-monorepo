@@ -123744,7 +123744,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.42]
 title = "Close the 3 dependency alerts of apps-explorer-2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136700,7 +136700,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.102]
 title = "Repair the hosted PaxAI service test target of the platform test sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137907,7 +137907,7 @@ do_3 = "Attempt 1 (continue): the dependent-crate check failed only on the human
 
 [task.18.1572.1]
 title = "Issue #1572: Verify the custody integration fixture binds its signing preparation to the call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.95.11"]
@@ -146242,7 +146242,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.10]
 title = "Repair the inventory sweep target services/launchpad/ranking-algo"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146274,7 +146274,7 @@ do_5 = "Attempt 1 (continue): app_test.go:233 opens core/indexer/migrations/0000
 
 [task.22.99.9]
 title = "Repair the inventory sweep target services/launchpad/pnl-tracker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146365,7 +146365,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.6]
 title = "Repair the inventory sweep target services/launchpad/metadata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146396,7 +146396,7 @@ do_4 = "Decision 2496 (continue): the module's tests are bound to inputs the qua
 
 [task.22.99.5]
 title = "Repair the inventory sweep target services/launchpad/livestream"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200003,7 +200003,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.100]
 title = "Repair the kernel make target test-mcp-binding-receipt-keys of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200033,7 +200033,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.99]
 title = "Repair the kernel make target test-journal of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200183,7 +200183,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.94]
 title = "Repair the kernel make target test-state-commitment-transition of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200273,7 +200273,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.86]
 title = "Re-sweep the not-run targets of the go-precompiles inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -235807,7 +235807,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.42]
 title = "Repair the inventory sweep target tests/agent/sdk/python"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.98.3"]
