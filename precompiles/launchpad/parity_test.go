@@ -106,7 +106,20 @@ func (h *harness) deployOptical(flags uint8, proceed bool, delta *big.Int, ack [
 	)
 	testkeeper.EVMTestApp.EvmKeeper.SetCode(h.ctx(), address, code)
 	require.Equal(h.t, hexutil.Bytes(code), hexutil.Bytes(h.stateDB.GetCode(address)))
+	registry := h.keeper.Generation2().OpticalRegistry
+	retained := &retainedHarness{t: h.t, stateDB: h.stateDB, evm: h.evm, admin: h.caller, trader: h.caller}
+	require.False(h.t, retBool(h.t, retained.view(registry, "isApproved(address)", address)))
+	retained.send(h.caller, registry, "registerOptical(address,string,string,uint8,string)", address,
+		"Swap optical", "Swap hook parity", uint8(1), "unaudited")
+	require.True(h.t, retBool(h.t, retained.view(registry, "isApproved(address)", address)))
 	return address
+}
+
+func (h *harness) installOpticalRegistry() {
+	h.t.Helper()
+	retained := &retainedHarness{t: h.t, stateDB: h.stateDB, evm: h.evm, admin: h.caller}
+	retained.installProxy(h.keeper.Generation2().OpticalRegistry, opticalRegistryCreation,
+		calldata(h.t, "initialize(address,address)", h.keeper.Generation2().EventEmitter, h.caller))
 }
 
 // hookCaller is the caller the optical recorded for selector.
@@ -201,6 +214,7 @@ func TestRouterPullsWithAllowanceTo1017(t *testing.T) {
 
 func TestSwapPreconditions(t *testing.T) {
 	h := newHarness(t)
+	h.installOpticalRegistry()
 	_, pool, _ := h.createMarket(h.caller, "Kindle Token", "KNDL", types.FeeStrategyClaim, common.Address{})
 	past := big.NewInt(genesisTime.Unix() - 1)
 	for _, c := range []struct {
@@ -244,6 +258,7 @@ func TestSwapPreconditions(t *testing.T) {
 
 func TestAfterSwapSelectorAndBalanceCheck(t *testing.T) {
 	h := newHarness(t)
+	h.installOpticalRegistry()
 	in := big.NewInt(100_000_000)
 
 	acked := h.deployOptical(opticalAfterSwap, true, big.NewInt(0), afterSwapSelector)

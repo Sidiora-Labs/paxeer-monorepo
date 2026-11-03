@@ -1,0 +1,6 @@
+[repair.rust-test-interop.13]
+target = "layerx-x402"
+command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --no-fail-fast"
+revision = "3bc9e23f938f3add09f1b16665b0c66d9e4695a1"
+result = "already-passing"
+change = "none"
