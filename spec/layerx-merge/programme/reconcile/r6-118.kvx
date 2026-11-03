@@ -1,0 +1,243 @@
+[reconcile.r6-118]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r6-118.1]
+interface = "interface.6.msg-ibc-channel-channelcloseconfirm"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 361
+symbol = "ChannelCloseConfirm"
+evidence = "Keeper.ChannelCloseConfirm declares the context.Context and *channeltypes.MsgChannelCloseConfirm handler returning (*channeltypes.MsgChannelCloseConfirmResponse, error), matching the registered channel RPC; the declaration remains at line 361."
+
+[row.r6-118.2]
+interface = "interface.6.msg-ibc-channel-channelcloseinit"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 334
+symbol = "ChannelCloseInit"
+evidence = "Keeper.ChannelCloseInit declares the context.Context and *channeltypes.MsgChannelCloseInit handler returning (*channeltypes.MsgChannelCloseInitResponse, error), matching the registered channel RPC; the declaration remains at line 334."
+
+[row.r6-118.3]
+interface = "interface.6.msg-ibc-channel-channelopenack"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 266
+symbol = "ChannelOpenAck"
+evidence = "Keeper.ChannelOpenAck declares the context.Context and *channeltypes.MsgChannelOpenAck handler returning (*channeltypes.MsgChannelOpenAckResponse, error), matching the registered channel RPC; the declaration remains at line 266."
+
+[row.r6-118.4]
+interface = "interface.6.msg-ibc-channel-channelopenconfirm"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 302
+symbol = "ChannelOpenConfirm"
+evidence = "Keeper.ChannelOpenConfirm declares the context.Context and *channeltypes.MsgChannelOpenConfirm handler returning (*channeltypes.MsgChannelOpenConfirmResponse, error), matching the registered channel RPC; the declaration remains at line 302."
+
+[row.r6-118.5]
+interface = "interface.6.msg-ibc-channel-channelopeninit"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 176
+symbol = "ChannelOpenInit"
+evidence = "Keeper.ChannelOpenInit declares the context.Context and *channeltypes.MsgChannelOpenInit handler returning (*channeltypes.MsgChannelOpenInitResponse, error), matching the registered channel RPC; the declaration remains at line 176."
+
+[row.r6-118.6]
+interface = "interface.6.msg-ibc-channel-channelopentry"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 222
+symbol = "ChannelOpenTry"
+evidence = "Keeper.ChannelOpenTry declares the context.Context and *channeltypes.MsgChannelOpenTry handler returning (*channeltypes.MsgChannelOpenTryResponse, error), matching the registered channel RPC; the declaration remains at line 222."
+
+[row.r6-118.7]
+interface = "interface.6.msg-ibc-channel-recvpacket"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 389
+symbol = "RecvPacket"
+evidence = "Keeper.RecvPacket declares the context.Context and *channeltypes.MsgRecvPacket handler returning (*channeltypes.MsgRecvPacketResponse, error) at line 389; the ChannelKeeper.RecvPacket invocation at line 418 is an internal call, not this RPC declaration."
+
+[row.r6-118.8]
+interface = "interface.6.msg-ibc-client-createclient"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 28
+symbol = "CreateClient"
+evidence = "Keeper.CreateClient declares the context.Context and *clienttypes.MsgCreateClient handler returning (*clienttypes.MsgCreateClientResponse, error) at line 28; ClientKeeper.CreateClient at line 41 is the delegated call, not the registered RPC declaration."
+
+[row.r6-118.9]
+interface = "interface.6.msg-ibc-client-submitmisbehaviour"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 86
+symbol = "SubmitMisbehaviour"
+evidence = "Keeper.SubmitMisbehaviour declares the context.Context and *clienttypes.MsgSubmitMisbehaviour handler returning (*clienttypes.MsgSubmitMisbehaviourResponse, error), matching the registered client RPC; the declaration remains at line 86."
+
+[row.r6-118.10]
+interface = "interface.6.msg-ibc-client-updateclient"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 49
+symbol = "UpdateClient"
+evidence = "Keeper.UpdateClient declares the context.Context and *clienttypes.MsgUpdateClient handler returning (*clienttypes.MsgUpdateClientResponse, error) at line 49; ClientKeeper.UpdateClient at line 57 is a delegated call, not the RPC declaration."
+
+[row.r6-118.11]
+interface = "interface.6.msg-ibc-client-upgradeclient"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 65
+symbol = "UpgradeClient"
+evidence = "Keeper.UpgradeClient declares the context.Context and *clienttypes.MsgUpgradeClient handler returning (*clienttypes.MsgUpgradeClientResponse, error) at line 65; ClientKeeper.UpgradeClient at line 77 is a delegated call, not the RPC declaration."
+
+[row.r6-118.12]
+interface = "interface.6.msg-ibc-connection-connectionopenack"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 142
+symbol = "ConnectionOpenAck"
+evidence = "Keeper.ConnectionOpenAck declares the context.Context and *connectiontypes.MsgConnectionOpenAck handler returning (*connectiontypes.MsgConnectionOpenAckResponse, error), matching the registered connection RPC; the declaration remains at line 142."
+
+[row.r6-118.13]
+interface = "interface.6.msg-ibc-connection-connectionopenconfirm"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 161
+symbol = "ConnectionOpenConfirm"
+evidence = "Keeper.ConnectionOpenConfirm declares the context.Context and *connectiontypes.MsgConnectionOpenConfirm handler returning (*connectiontypes.MsgConnectionOpenConfirmResponse, error), matching the registered connection RPC; the declaration remains at line 161."
+
+[row.r6-118.14]
+interface = "interface.6.msg-ibc-connection-connectionopeninit"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 102
+symbol = "ConnectionOpenInit"
+evidence = "Keeper.ConnectionOpenInit declares the context.Context and *connectiontypes.MsgConnectionOpenInit handler returning (*connectiontypes.MsgConnectionOpenInitResponse, error), matching the registered connection RPC; the declaration remains at line 102."
+
+[row.r6-118.15]
+interface = "interface.6.msg-ibc-connection-connectionopentry"
+verdict = "served"
+path = "interchain/modules/core/keeper/msg_server.go"
+line = 118
+symbol = "ConnectionOpenTry"
+evidence = "Keeper.ConnectionOpenTry declares the context.Context and *connectiontypes.MsgConnectionOpenTry handler returning (*connectiontypes.MsgConnectionOpenTryResponse, error), matching the registered connection RPC; the declaration remains at line 118."
+
+[row.r6-118.16]
+interface = "interface.6.go-layerxanchor-keeper-keeper-finalize-j35"
+verdict = "served"
+path = "modules/layerxanchor/keeper/checkpoints.go"
+line = 109
+symbol = "Finalize"
+evidence = "Keeper.Finalize is declared at line 109 with the registered (ctx sdk.Context, batchNumber uint64) (types.Checkpoint, error) signature. It loads the checkpoint, checks finalizable and calls the distinct lowercase finalize helper."
+
+[row.r6-118.17]
+interface = "interface.6.go-layerxanchor-keeper-keeper-getavailability-j35"
+verdict = "served"
+path = "modules/layerxanchor/keeper/checkpoints.go"
+line = 122
+symbol = "GetAvailability"
+evidence = "Keeper.GetAvailability is declared at line 122 with (ctx sdk.Context) []types.AvailabilityAttestation and iterates AvailabilityPrefix to decode stored attestations. Its invocation inside clearAvailability at line 136 is not the declaration."
+
+[row.r6-118.18]
+interface = "interface.6.go-layerxanchor-keeper-keeper-submitavailabilityattestation-j35"
+verdict = "served"
+path = "modules/layerxanchor/keeper/checkpoints.go"
+line = 175
+symbol = "SubmitAvailabilityAttestation"
+evidence = "Keeper.SubmitAvailabilityAttestation remains declared at line 175 with (ctx sdk.Context, encoded []byte) (types.Checkpoint, types.AvailabilityAttestation, error). Its body returns empty values and types.ErrModuleRetired.Wrap; the interface exists but refuses the retired guarantor availability path."
+
+[row.r6-118.19]
+interface = "interface.6.go-layerxanchor-keeper-keeper-submitcheckpoint-j35"
+verdict = "served"
+path = "modules/layerxanchor/keeper/checkpoints.go"
+line = 56
+symbol = "SubmitCheckpoint"
+evidence = "Keeper.SubmitCheckpoint remains declared at line 56 with ctx sdk.Context, submitter sdk.AccAddress, header []byte, headerSignature [64]byte and certificateBytes []byte, returning (types.Checkpoint, error). Its body returns types.ErrModuleRetired.Wrap; the interface exists but refuses the retired guarantor checkpoint path."
+
+[row.r6-118.20]
+interface = "interface.6.rest-layerxbridge-gov-proposal"
+verdict = "served"
+path = "modules/layerxbridge/client/cli/tx.go"
+line = 39
+symbol = "ProposalRESTSubRoute"
+evidence = "ProposalRESTSubRoute is defined as the literal layerxbridge at line 39. BridgeProposalRESTHandler at line 226 returns this constant as SubRoute and newBridgeProposalPostHandler as Handler; BridgeProposalHandler at line 44 registers that factory for the governance proposal route."
+
+[row.r6-118.21]
+interface = "interface.6.rest-layerxgov-gov-proposal"
+verdict = "served"
+path = "modules/layerxgov/client/cli/tx.go"
+line = 30
+symbol = "ProposalRESTSubRoute"
+evidence = "ProposalRESTSubRoute is defined as the literal layerx at line 30. LayerXProposalRESTHandler at line 187 returns this constant as SubRoute and newLayerXProposalPostHandler as Handler; LayerXProposalHandler at line 33 registers that factory for the governance proposal route."
+
+[row.r6-118.22]
+interface = "interface.6.go-xweb-keeper-fee-j37"
+verdict = "served"
+path = "modules/xweb/keeper/keeper.go"
+line = 188
+symbol = "Fee"
+evidence = "Keeper.Fee is declared at line 188 as func (k Keeper) Fee(ctx sdk.Context) sdk.Int { return k.GetParams(ctx).Fee }, matching the registered signature and body. The returned Params.Fee field is a separate occurrence on the same line."
+
+[row.r6-118.23]
+interface = "interface.6.go-xweb-keeper-getattestorset-j37"
+verdict = "served"
+path = "modules/xweb/keeper/keeper.go"
+line = 199
+symbol = "GetAttestorSet"
+evidence = "Keeper.GetAttestorSet is declared at line 199 with (ctx sdk.Context) types.AttestorSet and reads types.AttestorSetKey into the returned set. Threshold calls this method at line 206; that invocation is not its definition."
+
+[row.r6-118.24]
+interface = "interface.6.go-xweb-keeper-getparams-j37"
+verdict = "served"
+path = "modules/xweb/keeper/keeper.go"
+line = 171
+symbol = "GetParams"
+evidence = "Keeper.GetParams is declared at line 171 with (ctx sdk.Context) types.Params and reads types.ParamsKey, returning default params when absent. Fee and requireAuthority invoke it later; those calls do not declare the registered method."
+
+[row.r6-118.25]
+interface = "interface.6.go-xweb-keeper-nonce-j37"
+verdict = "served"
+path = "modules/xweb/keeper/keeper.go"
+line = 227
+symbol = "Nonce"
+evidence = "Keeper.Nonce is declared at line 227 with (ctx sdk.Context) uint64, loading types.NonceKey into a uint64. The preceding comment mentions Nonce and Nonce+1, but line 227 is the registered method definition."
+
+[row.r6-118.26]
+interface = "interface.6.go-xweb-keeper-threshold-j37"
+verdict = "served"
+path = "modules/xweb/keeper/keeper.go"
+line = 206
+symbol = "Threshold"
+evidence = "Keeper.Threshold is declared at line 206 as func (k Keeper) Threshold(ctx sdk.Context) uint32 { return k.GetAttestorSet(ctx).Threshold }, matching the registered signature and body. The field access and preceding comment are other mentions, not method definitions."
+
+[row.r6-118.27]
+interface = "interface.6.pc-0x1004-err-lxp-addr-already-associated"
+verdict = "served"
+path = "precompiles/addr/addr.go"
+line = 311
+symbol = "LXP_ADDR_ALREADY_ASSOCIATED"
+evidence = "The literal LXP_ADDR_ALREADY_ASSOCIATED is supplied to p.refusal at line 311 in associateAddresses when GetEVMAddress finds an existing association. This is the registered error-producing site and remains at the registered line."
+
+[row.r6-118.28]
+interface = "interface.6.pc-0x1004-err-lxp-addr-delegatecall"
+verdict = "served"
+path = "precompiles/addr/addr.go"
+line = 162
+symbol = "LXP_ADDR_DELEGATECALL"
+evidence = "The literal LXP_ADDR_DELEGATECALL is supplied to p.refusal at line 162 when bindLayerX is called through delegatecall, matching the registered first error site. The same code is also emitted for unbindLayerX delegatecall at line 171."
+
+[row.r6-118.29]
+interface = "interface.6.pc-0x1004-err-lxp-addr-did-not-bound"
+verdict = "served"
+path = "precompiles/addr/addr.go"
+line = 420
+symbol = "LXP_ADDR_DID_NOT_BOUND"
+evidence = "The literal LXP_ADDR_DID_NOT_BOUND is supplied to p.refusal at line 420 when GetEVMAddressByLayerXDid finds no binding for didPublicKey. This is the registered error-producing site and remains at the registered line."
+
+[row.r6-118.30]
+interface = "interface.6.pc-0x1004-err-lxp-addr-evm-not-associated"
+verdict = "served"
+path = "precompiles/addr/addr.go"
+line = 199
+symbol = "LXP_ADDR_EVM_NOT_ASSOCIATED"
+evidence = "The literal LXP_ADDR_EVM_NOT_ASSOCIATED is supplied to p.refusal at line 199 when GetPaxAddress finds no association for the supplied EVM address. This is the registered error-producing site and remains at the registered line."

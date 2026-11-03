@@ -1,0 +1,243 @@
+[reconcile.r14-192]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r14-192.1]
+interface = "interface.14.ts-web-api-generated-index-humanapiclient"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5879
+symbol = "HumanApiClient"
+evidence = "export interface HumanApiClient is declared at line 5879, replacing stale registry line 5563. Declares streamSubscribe and accountBalance methods; createHumanApiClient return types and the client object are uses."
+
+[row.r14-192.2]
+interface = "interface.14.ts-web-api-generated-index-humanapiclientoptions"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5751
+symbol = "HumanApiClientOptions"
+evidence = "export interface HumanApiClientOptions is declared at line 5751, replacing stale registry line 5435. Declares optional baseUrl, fetch, headers, credentials, csrfToken and trace options; the factory parameter is a use."
+
+[row.r14-192.3]
+interface = "interface.14.ts-web-api-generated-index-humanapierror"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5547
+symbol = "HumanApiError"
+evidence = "export class HumanApiError extends Error is declared at line 5547, replacing stale registry line 5209. Extends Error and declares readonly status, trace and detail plus its constructor; throw sites and the name string are uses."
+
+[row.r14-192.4]
+interface = "interface.14.ts-web-api-generated-index-intentconstraints"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2293
+symbol = "IntentConstraints"
+evidence = "export interface IntentConstraints is declared at line 2293, replacing stale registry line 2170. Declares deadline, max_fee and allow_top_up fields; codec annotations and the constraints field are uses."
+
+[row.r14-192.5]
+interface = "interface.14.ts-web-api-generated-index-intentendpoint"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2318
+symbol = "IntentEndpoint"
+evidence = "export interface IntentEndpoint is declared at line 2318, replacing stale registry line 2195. Declares kind and optional account fields; codec annotations and source/destination fields are uses."
+
+[row.r14-192.6]
+interface = "interface.14.ts-web-api-generated-index-intentleg"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2344
+symbol = "IntentLeg"
+evidence = "export interface IntentLeg is declared at line 2344, replacing stale registry line 2221. Declares index, mechanism, domain, source and destination fields; codec annotations and the plan legs array are uses."
+
+[row.r14-192.7]
+interface = "interface.14.ts-web-api-generated-index-intentplan"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2480
+symbol = "IntentPlan"
+evidence = "export interface IntentPlan is declared at line 2480, replacing stale registry line 2301. Declares plan_digest, journey_kind, total_fee, legs and signing_requirements; codecs and intent.plan metadata are uses."
+
+[row.r14-192.8]
+interface = "interface.14.ts-web-api-generated-index-intentsigningrequirement"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2518
+symbol = "IntentSigningRequirement"
+evidence = "export interface IntentSigningRequirement is declared at line 2518, replacing stale registry line 2332. Declares leg_index, action_key, signing_context and authority; the plan array and codec annotations are uses."
+
+[row.r14-192.9]
+interface = "interface.14.ts-web-api-generated-index-intentsubmission"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2546
+symbol = "IntentSubmission"
+evidence = "export interface IntentSubmission is declared at line 2546, replacing stale registry line 2360. Declares journey_id, plan_digest, state and state_copy_key; codecs and intent.submit response metadata are uses."
+
+[row.r14-192.10]
+interface = "interface.14.ts-web-api-generated-index-journey"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2581
+symbol = "Journey"
+evidence = "export interface Journey is declared at line 2581, replacing stale registry line 2388. Declares journey_id, kind, state, state_copy_key and stages; codec annotations and API response types are uses."
+
+[row.r14-192.11]
+interface = "interface.14.ts-web-api-generated-index-journeypage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2635
+symbol = "JourneyPage"
+evidence = "export interface JourneyPage is declared at line 2635, replacing stale registry line 2442. Declares journeys and next_cursor; codec annotations and journey list/page response metadata are uses."
+
+[row.r14-192.12]
+interface = "interface.14.ts-web-api-generated-index-journeystage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2657
+symbol = "JourneyStage"
+evidence = "export interface JourneyStage is declared at line 2657, replacing stale registry line 2464. Declares stage_id, copy_key, state and evidence; stage arrays and codec annotations are uses."
+
+[row.r14-192.13]
+interface = "interface.14.ts-web-api-generated-index-keychallenge"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2699
+symbol = "KeyChallenge"
+evidence = "export interface KeyChallenge is declared at line 2699, replacing stale registry line 2492. Declares agent_id, kind, delay_copy_key, delay_seconds and ready_at; codecs and agent recovery/rotation responses are uses."
+
+[row.r14-192.14]
+interface = "interface.14.ts-web-api-generated-index-keyexportbegin"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2733
+symbol = "KeyExportBegin"
+evidence = "export interface KeyExportBegin is declared at line 2733, replacing stale registry line 2526. Declares step_up: StepUpEvidence; codec annotations and security.key-export.begin request metadata are uses."
+
+[row.r14-192.15]
+interface = "interface.14.ts-web-api-generated-index-keyexportchallenge"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2752
+symbol = "KeyExportChallenge"
+evidence = "export interface KeyExportChallenge is declared at line 2752, replacing stale registry line 2545. Declares export_id, confirms and expires_at; codec annotations and key export begin response metadata are uses."
+
+[row.r14-192.16]
+interface = "interface.14.ts-web-api-generated-index-keyexportfinish"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2777
+symbol = "KeyExportFinish"
+evidence = "export interface KeyExportFinish is declared at line 2777, replacing stale registry line 2570. Declares export_id and step_up; codec annotations and security.key-export.finish request metadata are uses."
+
+[row.r14-192.17]
+interface = "interface.14.ts-web-api-generated-index-money"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2799
+symbol = "Money"
+evidence = "export interface Money is declared at line 2799, replacing stale registry line 2592. Declares amount: Amount and currency: CurrencyCode; monetary fields and codec annotations are uses."
+
+[row.r14-192.18]
+interface = "interface.14.ts-web-api-generated-index-movecommitrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2821
+symbol = "MoveCommitRequest"
+evidence = "export interface MoveCommitRequest is declared at line 2821, replacing stale registry line 2614. Declares quote_id and optional native_access_id; codec annotations and move.commit request metadata are uses."
+
+[row.r14-192.19]
+interface = "interface.14.ts-web-api-generated-index-movequote"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2847
+symbol = "MoveQuote"
+evidence = "export interface MoveQuote is declared at line 2847, replacing stale registry line 2640. Declares quote_id, description_copy_key, mechanism, money and fee_estimate; codecs and move.quote responses are uses."
+
+[row.r14-192.20]
+interface = "interface.14.ts-web-api-generated-index-movequoterequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2901
+symbol = "MoveQuoteRequest"
+evidence = "export interface MoveQuoteRequest is declared at line 2901, replacing stale registry line 2694. Declares source, destination and money; codec annotations and move.quote request metadata are uses."
+
+[row.r14-192.21]
+interface = "interface.14.ts-web-api-generated-index-nativefeeasset"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2926
+symbol = "NativeFeeAsset"
+evidence = "export interface NativeFeeAsset is declared at line 2926, replacing stale registry line 2719. Declares asset_id, currency and decimals; codec annotations and session.fee-policy response metadata are uses."
+
+[row.r14-192.22]
+interface = "interface.14.ts-web-api-generated-index-nativefeebudget"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2951
+symbol = "NativeFeeBudget"
+evidence = "export interface NativeFeeBudget is declared at line 2951, replacing stale registry line 2744. Declares asset_id, maximum_per_activity, maximum_total, period_length_ms and maximum_per_period; budget fields and codecs are uses."
+
+[row.r14-192.23]
+interface = "interface.14.ts-web-api-generated-index-nativesendaccessconfirmation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2982
+symbol = "NativeSendAccessConfirmation"
+evidence = "export interface NativeSendAccessConfirmation is declared at line 2982, replacing stale registry line 2775. Declares access_id, counterparty, asset, maximum_amount and time bounds; codecs and native.send.access.confirm requests are uses."
+
+[row.r14-192.24]
+interface = "interface.14.ts-web-api-generated-index-nativesendaccessdisclosure"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3042
+symbol = "NativeSendAccessDisclosure"
+evidence = "export interface NativeSendAccessDisclosure is declared at line 3042, replacing stale registry line 2828. Declares access_id and confirms: OperationDigest; codecs and native.send.access.begin responses are uses."
+
+[row.r14-192.25]
+interface = "interface.14.ts-web-api-generated-index-nativesendaccessresult"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3121
+symbol = "NativeSendAccessResult"
+evidence = "export interface NativeSendAccessResult is declared at line 3121, replacing stale registry line 2900. Declares native_access_id: string; codecs and native.send.access.confirm response metadata are uses."
+
+[row.r14-192.26]
+interface = "interface.14.ts-web-api-generated-index-notificationgroup"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3140
+symbol = "NotificationGroup"
+evidence = "export interface NotificationGroup is declared at line 3140, replacing stale registry line 2919. Declares recency and notifications: NotificationSummary[]; codecs and the page groups field are uses."
+
+[row.r14-192.27]
+interface = "interface.14.ts-web-api-generated-index-notificationpage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3162
+symbol = "NotificationPage"
+evidence = "export interface NotificationPage is declared at line 3162, replacing stale registry line 2941. Declares groups, next_cursor and unread_count; codecs and notification.list response metadata are uses."
+
+[row.r14-192.28]
+interface = "interface.14.ts-web-api-generated-index-notificationpreferences"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3187
+symbol = "NotificationPreferences"
+evidence = "export interface NotificationPreferences is declared at line 3187, replacing stale registry line 2966. Declares push, email, in_app and detail preferences; codecs and notification preferences request/response metadata are uses."
+
+[row.r14-192.29]
+interface = "interface.14.ts-web-api-generated-index-notificationsummary"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3215
+symbol = "NotificationSummary"
+evidence = "export interface NotificationSummary is declared at line 3215, replacing stale registry line 2994. Declares notification_id, class, title_copy_key, body_copy_key and deep_link; group arrays, codecs and response types are uses."
+
+[row.r14-192.30]
+interface = "interface.14.ts-web-api-generated-index-operationname"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5660
+symbol = "OperationName"
+evidence = "export type OperationName = (typeof operationNames)[number]; is declared at line 5660, replacing stale registry line 5333. Defines the indexed access alias (typeof operationNames)[number]; the operations mapped type is a use."

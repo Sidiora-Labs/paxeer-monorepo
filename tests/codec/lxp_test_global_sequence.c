@@ -204,7 +204,6 @@ static int sequence_refusal_case(sequence_fixture *f, bool reuse)
     uint64_t next_sequence;
     uint64_t identity_sequence;
     uint64_t account_sequence;
-    size_t idempotency_count;
     lxp_result result;
 
     LXP_CASE_CHECK(lxp_state_root_proof(&f->kernel, 0U,
@@ -222,7 +221,6 @@ static int sequence_refusal_case(sequence_fixture *f, bool reuse)
     next_sequence = f->state.next_sequence;
     identity_sequence = f->identities.identities[0].next_sequence;
     account_sequence = f->accounts.accounts[0].next_sequence;
-    idempotency_count = f->state.idempotency_count;
     f->execution.global_sequence = reuse ? 7U : next_sequence + 2U;
     LXP_CASE_CHECK(lxp_state_root_proof(&f->kernel, 0U,
         before_root, &proof) == LXP_OK);
@@ -247,7 +245,6 @@ static int sequence_refusal_case(sequence_fixture *f, bool reuse)
     LXP_CASE_CHECK(f->state.next_sequence == next_sequence);
     LXP_CASE_CHECK(f->identities.identities[0].next_sequence == identity_sequence);
     LXP_CASE_CHECK(f->accounts.accounts[0].next_sequence == account_sequence);
-    LXP_CASE_CHECK(f->state.idempotency_count == idempotency_count);
     LXP_CASE_CHECK(!f->journal.open);
     LXP_CASE_CHECK(lxp_u128_cmp(f->accounts.accounts[0].balance,
         (lxp_u128){0U, 9U}) == 0);

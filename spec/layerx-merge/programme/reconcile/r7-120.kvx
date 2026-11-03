@@ -1,0 +1,27 @@
+[reconcile.r7-120]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 3
+
+[row.r7-120.1]
+interface = "interface.7.go-newevmwebsocketserver-j38"
+verdict = "served"
+path = "rpc/server.go"
+line = 401
+symbol = "NewEVMWebSocketServer"
+evidence = "The func NewEVMWebSocketServer( declaration starts at rpc/server.go:401 and returns (EVMServer, error), matching the registered constructor signature. The occurrence at line 49 is a comment, not the declaration; registered line 315 is in the HTTP API registrations."
+
+[row.r7-120.2]
+interface = "interface.7.rpc-eth-sign"
+verdict = "served"
+path = "rpc/tx.go"
+line = 593
+symbol = "Sign"
+evidence = "rpc/tx.go:593 declares func (t *TransactionAPI) Sign(ctx context.Context, addr common.Address, data hexutil.Bytes) (result hexutil.Bytes, returnErr error), exactly matching the registry signature. rpc/server.go registers TransactionAPI under eth for HTTP and WebSocket. The crypto.Sign call at line 610 is a use, not this method declaration; registered line 530 is in getTransactionWithBlock."
+
+[row.r7-120.3]
+interface = "interface.7.rpc-pax-sign"
+verdict = "served"
+path = "rpc/tx.go"
+line = 593
+symbol = "Sign"
+evidence = "rpc/tx.go:593 declares func (t *TransactionAPI) Sign(ctx context.Context, addr common.Address, data hexutil.Bytes) (result hexutil.Bytes, returnErr error), exactly matching the registry signature. PaxTransactionAPI embeds *TransactionAPI at line 52 and NewPaxTransactionAPI sets its namespace to pax at line 103; rpc/server.go registers that wrapper under pax for HTTP, promoting the same Sign method. The crypto.Sign call at line 610 is not the declaration; registered line 530 is in getTransactionWithBlock."
