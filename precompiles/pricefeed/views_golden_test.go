@@ -29,8 +29,11 @@ func TestViewGolden1020(t *testing.T) {
 	staking := testkeeper.EVMTestApp.StakingKeeper
 	validator, found := staking.GetValidator(ctx, operator)
 	require.True(t, found)
+	validator, _ = validator.AddTokensFromDel(staking.TokensFromConsensusPower(ctx, 1))
+	staking.SetValidator(ctx, validator)
 	staking.SetValidatorByPowerIndex(ctx, validator)
 	require.Len(t, staking.GetBondedValidatorsByPower(ctx), 1)
+	require.Equal(t, int64(1), validator.GetConsensusPower(sdk.DefaultPowerReduction))
 
 	pubKey, err := hex.DecodeString("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
 	require.NoError(t, err)
