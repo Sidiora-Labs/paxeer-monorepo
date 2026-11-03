@@ -221068,7 +221068,7 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 
 [task.22.24.23]
 title = "Pin every workflow action to a commit digest and declare token permissions in every workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
