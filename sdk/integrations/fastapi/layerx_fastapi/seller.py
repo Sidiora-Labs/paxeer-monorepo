@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from re import fullmatch
 from typing import Awaitable, Callable, Generic, Literal, Mapping, Protocol, TypeVar
 
+from fastapi import HTTPException
 from layerx_sdk import LocalSignatureVerifier
 from layerx_sdk.px import PxReceiptKeyEntry
 from layerx_sdk.verifier import SequencerReceiptVerification
@@ -208,13 +209,13 @@ class SellerMiddleware(Generic[T]):
         canonical = canonical_json(payload.to_wire())
         request_digest_bytes = sha256_digest(canonical.encode("utf-8"))
         request_digest = request_digest_bytes.hex()
-        idempotency_key = payment_idempotency_key(principal, request_digest_bytes)
+        request_key = payment_idempotency_key(principal, request_digest_bytes)
         outcome = await self._authority.settle(
             SellerSettlementRequest(
                 principal=principal,
                 payload=payload,
                 requirements=requirements,
-                idempotency_key=idempotency_key,
+                idempotency_key=request_key,
                 request_digest=request_digest,
             )
         )
@@ -222,23 +223,23 @@ class SellerMiddleware(Generic[T]):
             return PendingDecision()
         if isinstance(outcome, SettlementRefused):
             return refusal_decision(requirements, outcome.reason)
+        verification = verify_payment_receipt(
+            outcome.signed_receipt,
+            outcome.raw_transaction,
+            (outcome.receipt_key,),
+            requirements,
+        )
+        fulfillment_key = idempotency_key(principal, verification)
         proposed = ProposedFulfillment(
-            idempotency_key=idempotency_key,
+            idempotency_key=fulfillment_key,
             request_digest=request_digest,
             raw_transaction=outcome.raw_transaction,
             signed_receipt=outcome.signed_receipt,
             receipt_key=outcome.receipt_key,
         )
-        verification = verify_payment_receipt(
-            proposed.signed_receipt,
-            proposed.raw_transaction,
-            (proposed.receipt_key,),
-            requirements,
-        )
         stored = await self._fulfillments.fulfill(proposed, release)
         if (
-            stored.idempotency_key != idempotency_key
-            or stored.request_digest != request_digest
+            stored.idempotency_key != fulfillment_key
             or stored.receipt_key != proposed.receipt_key
         ):
             raise MiddlewareError(MiddlewareErrorCode.FULFILLMENT_CONFLICT)
@@ -250,6 +251,8 @@ class SellerMiddleware(Generic[T]):
         )
         if not constant_time_equal(verification.receipt_digest, stored_verification.receipt_digest):
             raise MiddlewareError(MiddlewareErrorCode.FULFILLMENT_CONFLICT)
+        if stored.request_digest != request_digest:
+            raise HTTPException(status_code=409, detail="settled_receipt_reuse")
         receipt_digest = stored_verification.receipt_digest.hex()
         evidence = LayerXReceiptEvidence(
             raw_transaction=encode_base64(stored.raw_transaction),
@@ -272,6 +275,10 @@ class SellerMiddleware(Generic[T]):
             verification=stored_verification,
             resource=stored.resource,
         )
+
+
+def idempotency_key(principal: str, verification: SequencerReceiptVerification) -> str:
+    return payment_idempotency_key(principal, verification.receipt_digest)
 
 
 def layerx_evidence_wire(evidence: LayerXReceiptEvidence) -> JsonValue:

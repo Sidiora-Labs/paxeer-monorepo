@@ -385,6 +385,117 @@ func TestTriggersOneCancelsOther(t *testing.T) {
 	require.Zero(t, env.account(t, traderA).OpenOrderCount)
 }
 
+func TestTriggersDroppedWithPosition(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		kind keeper.FillKind
+	}{
+		{"fill", keeper.FillKindTrade},
+		{"liquidation", keeper.FillKindLiquidation},
+		{"adl", keeper.FillKindADL},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := newTriggerEnv(t)
+			market, err := env.k.GetMarket(env.ctx, 0)
+			require.NoError(t, err)
+			env.price(t, 60_000)
+			position := env.seedPosition(t, traderA, true, lots(10_000), e18(60_000))
+			_, err = env.k.SetPositionTpSl(env.ctx, traderA, position.ID, e18(66_000), e18(57_000))
+			require.NoError(t, err)
+			pair, err := env.k.GetAttachedTpSl(env.ctx, position.ID)
+			require.NoError(t, err)
+			require.Equal(t, 2, env.triggerEntries(t))
+			require.Equal(t, uint64(2), env.account(t, traderA).OpenOrderCount)
+
+			closed, err := env.k.ApplyFill(env.ctx, keeper.PositionFill{
+				Account: traderA, MarketID: 0, IsLong: false, SizeBase: position.SizeBase,
+				Price: e18(60_000), Leverage: e18(10), Kind: tc.kind,
+			})
+			require.NoError(t, err)
+			require.Equal(t, position.ID, closed.PositionID)
+			require.Len(t, eventsNamed(closed.Events, types.EventPositionClosed), 1)
+			cancelled := eventsNamed(closed.Events, types.EventOrderCancelled)
+			require.Len(t, cancelled, 2)
+			for i, id := range []uint256.Int{pair.TakeProfitOrderID, pair.StopLossOrderID} {
+				require.Equal(t, []string{types.EventOrderCancelled, id.Dec(), traderA.Hex()}, eventArgs(cancelled[i]))
+				leg := env.order(t, id)
+				require.Equal(t, types.OrderStatusCancelled, leg.Status)
+				require.True(t, leg.FilledBase.IsZero())
+				require.Nil(t, env.store().Get(types.AccountOrderKey(traderA, id)))
+			}
+			require.Nil(t, env.store().Get(types.PositionKey(position.ID)))
+			require.Nil(t, env.store().Get(types.AccountMarketPositionKey(traderA, 0)))
+			require.Nil(t, env.store().Get(types.AttachedTpSlKey(position.ID)))
+			require.Zero(t, env.triggerEntries(t))
+			require.Zero(t, env.account(t, traderA).OpenOrderCount)
+			require.Zero(t, env.account(t, traderA).PositionCount)
+
+			maker := env.seedBid(t, traderB, e18(56_990), position.SizeBase)
+			addresses := []common.Address{traderA, traderB, env.k.FeesAccountAddress(), env.k.InsuranceAccountAddress()}
+			accounts := make([]types.Account, len(addresses))
+			for i, address := range addresses {
+				accounts[i] = env.account(t, address)
+			}
+			env = env.at(11)
+			mark := env.price(t, 56_990)
+			evaluated, events, err := env.k.EvaluateTriggers(env.ctx, market, mark, 256)
+			require.NoError(t, err)
+			require.Zero(t, evaluated)
+			require.Empty(t, events)
+			require.Equal(t, maker, env.order(t, maker.ID))
+			for i, address := range addresses {
+				require.Equal(t, accounts[i], env.account(t, address))
+			}
+			_, _, err = env.k.ExecuteOrder(env.ctx, pair.StopLossOrderID)
+			require.ErrorIs(t, err, types.ErrUnknownOrder)
+		})
+	}
+
+	for _, direct := range []bool{false, true} {
+		for _, danglingIndex := range []bool{false, true} {
+			t.Run(fmt.Sprintf("orphan/direct=%t/danglingIndex=%t", direct, danglingIndex), func(t *testing.T) {
+				env := newTriggerEnv(t)
+				market, err := env.k.GetMarket(env.ctx, 0)
+				require.NoError(t, err)
+				if danglingIndex {
+					position := env.seedPosition(t, traderA, true, lots(10_000), e18(60_000))
+					env.store().Delete(types.PositionKey(position.ID))
+				}
+				stop := env.seedOrder(t, types.Order{Account: traderA, MarketID: 0, IsLong: false,
+					Type: types.OrderTypeStopLoss, TimeInForce: types.TimeInForceIOC,
+					Status: types.OrderStatusUntriggered, ReduceOnly: true,
+					TriggerPrice: e18(57_000), SizeBase: lots(10_000)})
+				maker := env.seedBid(t, traderB, e18(56_990), stop.SizeBase)
+				before := env.account(t, traderA)
+				counterparty := env.account(t, traderB)
+				mark := env.price(t, 56_990)
+				var events []types.EventRecord
+				if direct {
+					var positionID uint256.Int
+					positionID, events, err = env.k.ExecuteOrder(env.ctx, stop.ID)
+					require.True(t, positionID.IsZero())
+				} else {
+					var evaluated uint64
+					evaluated, events, err = env.k.EvaluateTriggers(env.ctx, market, mark, 256)
+					require.Equal(t, uint64(1), evaluated)
+				}
+				require.NoError(t, err)
+				require.Len(t, events, 1)
+				require.Equal(t, []string{types.EventOrderCancelled, stop.ID.Dec(), traderA.Hex()}, eventArgs(events[0]))
+				cancelled := env.order(t, stop.ID)
+				require.Equal(t, types.OrderStatusCancelled, cancelled.Status)
+				require.True(t, cancelled.FilledBase.IsZero())
+				require.Nil(t, env.store().Get(types.AccountOrderKey(traderA, stop.ID)))
+				require.Zero(t, env.triggerEntries(t))
+				before.OpenOrderCount--
+				require.Equal(t, before, env.account(t, traderA))
+				require.Equal(t, counterparty, env.account(t, traderB))
+				require.Equal(t, maker, env.order(t, maker.ID))
+			})
+		}
+	}
+}
+
 func TestTriggersStopLimitRests(t *testing.T) {
 	env := newTriggerEnv(t)
 	market, err := env.k.GetMarket(env.ctx, 0)

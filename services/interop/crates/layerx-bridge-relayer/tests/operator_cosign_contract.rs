@@ -19,6 +19,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
+mod support;
+
 use k256::ecdsa::SigningKey;
 use layerx_bridge_relayer::attestation::{
     assemble_signatures, ethereum_address, recover_signer, uint256_from_u64, InboundAttestation,
@@ -54,26 +56,9 @@ const HANDLE: &str = "bridge-attestor";
 const TRANSPORT: &str = env!("CARGO_BIN_EXE_layerx-bridge-cosign");
 const WAIT: Duration = Duration::from_secs(60);
 
-/// The real bridge signer binary. A missing binary is a refused fixture,
-/// never a skipped or simulated signer.
-fn signer_binary() -> PathBuf {
-    if let Some(path) = std::env::var_os("LAYERX_MIRROR_SIGNER_BIN") {
-        return PathBuf::from(path);
-    }
-    let target = std::env::var_os("CARGO_TARGET_DIR").map_or_else(
-        || Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target"),
-        PathBuf::from,
-    );
-    let binary = target.join("debug/layerx-mirror-signer");
-    assert!(
-        binary.is_file(),
-        "refused: the real bridge signer binary {} is missing; build it with \
-         `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror-signer` \
-         or name it in LAYERX_MIRROR_SIGNER_BIN",
-        binary.display()
-    );
-    binary
-}
+#[path = "support/signer_binary.rs"]
+mod signer_binary;
+use signer_binary::signer_binary;
 
 /// Qualification uses the declared cardinality; generated keys confer no operator approval.
 fn declared_quorum() -> (usize, usize) {
@@ -229,7 +214,12 @@ impl Operator {
         let fee_payer_handle = format!("bridge-fee-payer-{index}");
         let key_file = secrets.join("attestor.key");
         let fee_payer_file = secrets.join("fee-payer.key");
-        for (path, last) in [(&key_file, 0x40 + index), (&fee_payer_file, 0x60 + index)] {
+        let ethereum_file = secrets.join("ethereum-fee-payer.key");
+        for (path, last) in [
+            (&key_file, 0x40 + index),
+            (&fee_payer_file, 0x60 + index),
+            (&ethereum_file, 0x80 + index),
+        ] {
             fs::write(path, hex::encode(&fixture_secret(last)))
                 .unwrap_or_else(|error| panic!("key file: {error}"));
             fs::set_permissions(path, fs::Permissions::from_mode(0o400))
@@ -253,6 +243,11 @@ impl Operator {
             "algorithm": "secp256k1",
             "key_file": path(&fee_payer_file),
             "domains": [domain(PAXEER_TRANSACTION_DOMAIN)],
+        }, {
+            "handle": format!("ethereum-fee-payer-{index}"),
+            "algorithm": "secp256k1",
+            "key_file": path(&ethereum_file),
+            "domains": [domain(layerx_bridge_relayer::signer::ETHEREUM_TRANSACTION_DOMAIN)],
         }]});
         fs::write(home.join("keys.json"), manifest.to_string())
             .unwrap_or_else(|error| panic!("manifest: {error}"));
@@ -339,6 +334,11 @@ impl Operator {
         self.child = Some(child);
         let started = Instant::now();
         while !self.socket.exists() {
+            assert!(
+                self.child.as_mut().unwrap().try_wait().unwrap().is_none(),
+                "bridge signer exited before binding {}",
+                self.socket.display()
+            );
             assert!(
                 started.elapsed() < Duration::from_secs(10),
                 "bridge signer did not bind"
@@ -593,6 +593,18 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
             .filter(|peer| peer.name != operator.name)
             .collect();
         operator.configure(&ca, &peers);
+    }
+    let inputs = operator_inputs(&root, &operators);
+    let inventory =
+        OperatorInventory::load(&inputs.inventory).expect("generated operator inventory");
+    for input in &inputs.operators {
+        Transport::load(&input.transport_config)
+            .unwrap()
+            .validate_operator(
+                &inventory,
+                &RelayerConfig::load(&input.relayer_config).unwrap(),
+            )
+            .expect("generated signer and transport belong to the in-test inventory");
     }
     outsider.configure(&ca, &operators.iter().collect::<Vec<_>>());
     for operator in &mut operators {
@@ -1085,16 +1097,176 @@ fn supplied_paxeer_endpoints_build_a_relayer_rpc() {
     fs::remove_dir_all(root).expect("remove endpoint config fixture");
 }
 
+fn operator_inputs(root: &Path, operators: &[Operator]) -> SuppliedInputs {
+    let (_, threshold) = declared_quorum();
+    let mut members: Vec<_> = operators
+        .iter()
+        .map(|operator| hex::prefixed(&operator.address()))
+        .collect();
+    members.sort();
+    let ca_der = root.join("ca.der");
+    fs::write(
+        &ca_der,
+        X509::from_pem(&fs::read(root.join("ca.pem")).unwrap())
+            .unwrap()
+            .to_der()
+            .unwrap(),
+    )
+    .unwrap();
+    let token = root.join("rpc.token");
+    fs::write(&token, "operator-contract-rpc-token").unwrap();
+    fs::set_permissions(&token, fs::Permissions::from_mode(0o600)).unwrap();
+    let membership = root.join("membership.json");
+    fs::write(
+        &membership,
+        serde_json::json!({"attestors": members, "threshold": threshold}).to_string(),
+    )
+    .unwrap();
+    let mut records = Vec::new();
+    let mut inputs = Vec::new();
+    for (index, operator) in operators.iter().enumerate() {
+        let ethereum_key = fixture_key(0x80 + u8::try_from(index).unwrap());
+        let ethereum_handle = format!("ethereum-fee-payer-{index}");
+        let mut relayer: serde_json::Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../services/bridge/deploy/relayer-solana.example.json"
+        )))
+        .unwrap();
+        relayer.as_object_mut().unwrap().remove("solana");
+        relayer["chains"].as_array_mut().unwrap().truncate(1);
+        relayer["journal_path"] = serde_json::json!(operator.home.join("journal/relay.jsonl"));
+        relayer["cosign_directory"] = serde_json::json!(operator.cosign);
+        relayer["signer"]["endpoint"] =
+            serde_json::json!({"transport": "uds", "socket": operator.socket});
+        relayer["attestor"] = serde_json::json!({"handle": HANDLE, "public_key": hex::prefixed(&fixture_public_key(&operator.key))});
+        relayer["attestor_set"] = serde_json::json!({"members": members, "threshold": threshold});
+        relayer["paxeer"]["chain_id"] = serde_json::json!(125);
+        relayer["paxeer"]["endpoints"] = serde_json::json!([{"url": "http://127.0.0.1:8545", "local_emulator": true, "request_timeout_ms": 2000}]);
+        for endpoint in relayer["chains"][0]["rpc"]["endpoints"]
+            .as_array_mut()
+            .unwrap()
+        {
+            endpoint["ca_certificate_der"] = serde_json::json!(ca_der);
+            endpoint["bearer_token_file"] = serde_json::json!(token);
+        }
+        relayer["paxeer"]["submitter"] = serde_json::json!({"handle": operator.fee_payer_handle, "public_key": hex::prefixed(&fixture_public_key(&operator.fee_payer))});
+        relayer["chains"][0]["chain_id"] = serde_json::json!(1);
+        relayer["chains"][0]["vault"] = serde_json::json!(hex::prefixed(&[0x11; 20]));
+        relayer["chains"][0]["submitter"] = serde_json::json!({"handle": ethereum_handle, "public_key": hex::prefixed(&fixture_public_key(&ethereum_key))});
+        let relayer_config = operator.home.join("relayer.json");
+        fs::write(&relayer_config, relayer.to_string()).unwrap();
+        records.push(serde_json::json!({
+            "instance": operator.name, "storage": operator.home.to_str().unwrap(),
+            "attestor": hex::prefixed(&operator.address()), "signer_handle": HANDLE,
+            "signer_public_key": hex::prefixed(&fixture_public_key(&operator.key)),
+            "journal_path": operator.home.join("journal/relay.jsonl"), "cosign_directory": operator.cosign,
+            "delivery_directory": operator.delivery, "spki_sha256": hex::prefixed(&operator.pin),
+            "fee_payers": [
+                {"chain_id": 125, "handle": operator.fee_payer_handle, "public_key": hex::prefixed(&fixture_public_key(&operator.fee_payer))},
+                {"chain_id": 1, "handle": ethereum_handle, "public_key": hex::prefixed(&fixture_public_key(&ethereum_key))}
+            ]
+        }));
+        inputs.push(SuppliedOperator {
+            transport_config: operator.config.clone(),
+            relayer_config,
+        });
+    }
+    let inventory = root.join("inventory.json");
+    fs::write(&inventory, serde_json::json!({
+        "version": 1, "authority": "bridge", "approval": "in-test generated signer membership",
+        "membership": membership, "operators": records,
+        "destinations": [
+            {"chain_id": 125, "vault": hex::prefixed(&layerx_bridge_relayer::abi::LAYERX_BRIDGE_PRECOMPILE), "attestors": members, "threshold": threshold, "observed_block_hash": hex::prefixed(&[0x12; 32])},
+            {"chain_id": 1, "vault": hex::prefixed(&[0x11; 20]), "attestors": members, "threshold": threshold, "observed_block_hash": hex::prefixed(&[0x13; 32])}
+        ]
+    }).to_string()).unwrap();
+    SuppliedInputs {
+        inventory,
+        operators: inputs,
+    }
+}
+
+fn recorded_operator_policies(
+    root: &Path,
+    inventory: &OperatorInventory,
+    relayer: &RelayerConfig,
+) -> support::Recording {
+    use layerx_bridge_relayer::abi;
+    use serde_json::json;
+    let mut endpoints = serde_json::Map::new();
+    for policy in &inventory.destinations {
+        let word = |value: u64| uint256_from_u64(value).to_vec();
+        let addresses: Vec<u8> = policy
+            .attestors
+            .iter()
+            .flat_map(|address| abi::address_word(&hex::fixed::<20>(address).unwrap()))
+            .collect();
+        let list: Vec<u8> = [
+            word(32),
+            word(policy.attestors.len() as u64),
+            addresses.clone(),
+        ]
+        .concat();
+        let native: Vec<u8> = [
+            word(96),
+            word(128 + 32 * policy.attestors.len() as u64),
+            word(policy.threshold as u64),
+            word(policy.attestors.len() as u64),
+            addresses,
+            word(policy.attestors.len() as u64),
+            policy.attestors.iter().flat_map(|_| word(1000)).collect(),
+        ]
+        .concat();
+        let call = |data: Vec<u8>, result: Vec<u8>| json!({"method": "eth_call", "params": [{"to": policy.vault, "data": hex::prefixed(&data)}, "latest"], "result": hex::prefixed(&result)});
+        let mut rules = vec![
+            json!({"method": "eth_chainId", "params": [], "result": hex::quantity(policy.chain_id)}),
+            json!({"method": "eth_getBlockByNumber", "params": ["latest", false], "result": {"hash": policy.observed_block_hash}}),
+            call(abi::GET_ATTESTORS_SELECTOR.to_vec(), native),
+            call(abi::ATTESTORS_SELECTOR.to_vec(), list),
+            call(
+                abi::THRESHOLD_SELECTOR.to_vec(),
+                word(policy.threshold as u64),
+            ),
+        ];
+        if policy.chain_id == relayer.paxeer.chain_id {
+            for chain in &relayer.chains {
+                rules.push(call(
+                    abi::encode_get_chain(chain.chain_id),
+                    [
+                        word(1),
+                        abi::address_word(&chain.vault).to_vec(),
+                        word(chain.finality_depth),
+                        word(1),
+                    ]
+                    .concat(),
+                ));
+            }
+        }
+        endpoints.insert(policy.chain_id.to_string(), json!({"*": rules}));
+    }
+    let path = root.join("policies.json");
+    fs::write(&path, json!({"endpoints": endpoints}).to_string()).unwrap();
+    support::Recording::load(path.to_str().unwrap())
+}
+
 #[test]
 fn supplied_operator_inventory_matches_registered_bridge_configuration() {
-    let path = std::env::var_os("LAYERX_BRIDGE_OPERATOR_CONTRACT_INPUTS")
-        .expect("missing authorized operator inventory/configuration inputs; generated signers are not approved membership");
-    let path = PathBuf::from(path);
-    assert!(path.is_absolute());
-    let bytes = fs::read(&path).expect("read supplied operator contract inputs");
-    assert!(bytes.len() <= 1_048_576);
-    let inputs: SuppliedInputs =
-        serde_json::from_slice(&bytes).expect("strict operator contract inputs");
+    let root = fixture_directory("operator-inventory");
+    let ca = Ca::new(&root);
+    let (size, _) = declared_quorum();
+    let operators: Vec<_> = (0..u8::try_from(size).unwrap())
+        .map(|index| Operator::new(&root, &ca, index))
+        .collect();
+    for operator in &operators {
+        operator.configure(
+            &ca,
+            &operators
+                .iter()
+                .filter(|peer| peer.name != operator.name)
+                .collect::<Vec<_>>(),
+        );
+    }
+    let inputs = operator_inputs(&root, &operators);
     let inventory =
         OperatorInventory::load(&inputs.inventory).expect("genuine approved bridge inventory");
     let (size, threshold) = declared_quorum();
@@ -1129,23 +1301,26 @@ fn supplied_operator_inventory_matches_registered_bridge_configuration() {
     let endpoints = relayer
         .paxeer_endpoints()
         .expect("production Paxeer RPC endpoints");
-    let paxeer = PaxeerRpc::new(endpoints).expect("production Paxeer RPC adapter");
+    let _paxeer_transport = PaxeerRpc::new(endpoints).expect("production Paxeer RPC adapter");
+    let recording = recorded_operator_policies(&root, &inventory, relayer);
+    let paxeer = recording.endpoint(&relayer.paxeer.chain_id.to_string());
     let policy = inventory
         .destinations
         .iter()
         .find(|policy| policy.chain_id == relayer.paxeer.chain_id)
         .expect("Paxeer policy");
-    verify_registered_evm_policy(&paxeer, policy, true);
+    verify_registered_evm_policy(paxeer.as_ref(), policy, true);
     for chain in &relayer.chains {
-        let rpc = RpcCluster::new(&chain.rpc).expect("production destination quorum RPC");
+        let _quorum = RpcCluster::new(&chain.rpc).expect("production destination quorum RPC");
+        let rpc = recording.endpoint(&chain.chain_id.to_string());
         let policy = inventory
             .destinations
             .iter()
             .find(|policy| policy.chain_id == chain.chain_id)
             .expect("destination policy");
-        verify_registered_evm_policy(&rpc, policy, false);
+        verify_registered_evm_policy(rpc.as_ref(), policy, false);
         let registration = layerx_bridge_relayer::abi::decode_get_chain(&policy_call(
-            &paxeer,
+            paxeer.as_ref(),
             &layerx_bridge_relayer::abi::LAYERX_BRIDGE_PRECOMPILE,
             &layerx_bridge_relayer::abi::encode_get_chain(chain.chain_id),
         ))
@@ -1205,7 +1380,7 @@ fn supplied_operator_inventory_matches_registered_bridge_configuration() {
             slot
         );
         let registration = layerx_bridge_relayer::abi::decode_get_chain(&policy_call(
-            &paxeer,
+            paxeer.as_ref(),
             &layerx_bridge_relayer::abi::LAYERX_BRIDGE_PRECOMPILE,
             &layerx_bridge_relayer::abi::encode_get_chain(config.chain_id),
         ))
@@ -1416,11 +1591,11 @@ fn fixture_public_key(key: &SigningKey) -> Vec<u8> {
         .as_bytes()
         .to_vec()
 }
-fn fixture_directory(name: &str) -> PathBuf {
+fn fixture_directory(_name: &str) -> PathBuf {
     let mut unique = [0; 16];
     openssl::rand::rand_bytes(&mut unique).expect("private fixture directory identifier");
     let directory = std::env::temp_dir().join(format!(
-        "lxbr-{}-{name}-{}",
+        "lxbr-{}-{}",
         std::process::id(),
         hex::encode(&unique)
     ));

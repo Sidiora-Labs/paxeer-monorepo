@@ -16,14 +16,24 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
 use std::net::{SocketAddr, TcpListener};
+use std::os::unix::fs::PermissionsExt as _;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
+
+#[path = "support/signer_binary.rs"]
+mod signer_binary;
+
+use layerx_bridge_relayer::signer::{Attestor, ATTEST_INBOUND_DOMAIN, ATTEST_OUTBOUND_DOMAIN};
+use layerx_mirror::signer::{
+    RemoteChainSigner, RemoteSignerConfig, SignerEndpoint, SigningAlgorithm,
+};
+use std::sync::OnceLock;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use k256::ecdsa::SigningKey;
 use layerx_bridge_relayer::attestation::{
-    ethereum_address, to_attestor_signature, InboundAttestation, OutboundAttestation,
+    ethereum_address, InboundAttestation, OutboundAttestation,
 };
 use layerx_bridge_relayer::attestation_api::{
     deposit_answer, release_answer, serve, AttestationView,
@@ -98,8 +108,16 @@ import { registerHooks } from 'node:module';
 import { extname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 registerHooks({ resolve(specifier, context, nextResolve) {
-  if ((specifier.startsWith('./') || specifier.startsWith('../')) && !extname(specifier)) {
-    specifier += '.ts';
+  const applicationImport = context.parentURL?.startsWith(
+    pathToFileURL(process.env.BRIDGE_PROOF_SOURCE + '/').href,
+  );
+  if (applicationImport) {
+    if (specifier === 'viem' || specifier.startsWith('@noble/curves/')) {
+      context = { ...context, parentURL: pathToFileURL(process.env.BRIDGE_PROOF_DEPENDENCIES).href };
+    }
+    if ((specifier.startsWith('./') || specifier.startsWith('../')) && !extname(specifier)) {
+      specifier += '.ts';
+    }
   }
   return nextResolve(specifier, context);
 } });
@@ -201,6 +219,143 @@ process.stdout.write('consumer assertions passed\n');
 process.stdin.destroy();
 "#;
 
+fn consumer_available() -> bool {
+    match Command::new("npm").arg("--version").output() {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("SKIP bridge TypeScript consumer: missing prerequisite npm");
+            return false;
+        }
+        Err(error) => panic!("npm prerequisite check: {error}"),
+        Ok(output) => assert!(
+            output.status.success(),
+            "npm prerequisite check: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ),
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(4)
+        .unwrap()
+        .to_path_buf();
+    let output = Command::new("node")
+        .current_dir(root.join("apps/bridge"))
+        .args([
+            "--input-type=module",
+            "--eval",
+            "import { registerHooks } from 'node:module';",
+        ])
+        .output();
+    match output {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("SKIP bridge TypeScript consumer: missing prerequisite node (22.15+)");
+            false
+        }
+        Err(error) => panic!("Node prerequisite check: {error}"),
+        Ok(output) if !output.status.success() => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if stderr.contains("does not provide an export named 'registerHooks'") {
+                eprintln!(
+                    "SKIP bridge TypeScript consumer: missing prerequisite Node 22.15+: {stderr}"
+                );
+                false
+            } else {
+                panic!("TypeScript prerequisite check failed: {stderr}")
+            }
+        }
+        Ok(_) => true,
+    }
+}
+
+fn consumer_dependencies() -> &'static PathBuf {
+    static DEPENDENCIES: OnceLock<PathBuf> = OnceLock::new();
+    DEPENDENCIES.get_or_init(|| {
+        let directory = std::env::temp_dir().join(format!(
+            "layerx-bridge-consumer-dependencies-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&directory).expect("consumer dependency directory");
+        let manifest: Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../apps/bridge/package.json"
+        )))
+        .expect("TypeScript consumer package manifest");
+        let dependencies = json!({
+            "viem": manifest["dependencies"]["viem"],
+            "@noble/curves": manifest["devDependencies"]["@noble/curves"],
+        });
+        let package = directory.join("package.json");
+        fs::write(
+            &package,
+            json!({"private": true, "dependencies": dependencies}).to_string(),
+        )
+        .expect("consumer dependency manifest");
+        let output = Command::new("npm")
+            .current_dir(&directory)
+            .args([
+                "install",
+                "--ignore-scripts",
+                "--no-audit",
+                "--no-fund",
+                "--no-package-lock",
+            ])
+            .output()
+            .expect("install the real TypeScript consumer dependencies");
+        assert!(
+            output.status.success(),
+            "TypeScript consumer dependency install failed with {}: {}\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        package
+    })
+}
+
+struct ProofSigner(Child);
+impl Drop for ProofSigner {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+fn proof_signer(directory: &Directory) -> ProofSigner {
+    let mut keys = Vec::new();
+    for seed in 1..=3 {
+        let path = directory.0.join(format!("attestor-{seed}.key"));
+        fs::write(&path, hex::encode(&[seed; 32])).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        keys.push(json!({"handle": format!("attestor-{seed}"), "algorithm": "secp256k1", "key_file": path,
+            "domains": [std::str::from_utf8(ATTEST_INBOUND_DOMAIN).unwrap(), std::str::from_utf8(ATTEST_OUTBOUND_DOMAIN).unwrap()]}));
+    }
+    fs::set_permissions(&directory.0, fs::Permissions::from_mode(0o700)).unwrap();
+    let manifest = directory.0.join("keys.json");
+    fs::write(&manifest, json!({"keys": keys}).to_string()).unwrap();
+    let mut signer = ProofSigner(
+        Command::new(signer_binary::signer_binary())
+            .arg("bridge")
+            .arg("--socket")
+            .arg(directory.0.join("signer.sock"))
+            .arg("--keys")
+            .arg(manifest)
+            .spawn()
+            .expect("real bridge signer"),
+    );
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    while !directory.0.join("signer.sock").exists() {
+        assert!(
+            signer.0.try_wait().unwrap().is_none(),
+            "real signer exited during startup"
+        );
+        assert!(
+            std::time::Instant::now() < deadline,
+            "real signer startup timed out"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    signer
+}
+
 fn consume(
     address: SocketAddr,
     chain: u64,
@@ -225,6 +380,11 @@ fn consume(
             "BRIDGE_PROOF_CLIENT",
             root.join("apps/bridge/src/lib/bridge/attestation-api.ts"),
         )
+        .env(
+            "BRIDGE_PROOF_SOURCE",
+            root.join("apps/bridge/src/lib/bridge"),
+        )
+        .env("BRIDGE_PROOF_DEPENDENCIES", consumer_dependencies())
         .env("NEXT_PUBLIC_BRIDGE_API_URL", format!("http://{address}"))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -249,10 +409,15 @@ fn consume(
     if let Some((shared, next)) = transition {
         let mut signal = String::new();
         stdout.read_line(&mut signal).expect("read refresh signal");
-        assert_eq!(
-            signal, "refresh\n",
-            "consumer must finish both initial HTTP reads"
-        );
+        if signal != "refresh\n" {
+            drop(stdin);
+            let output = child.wait_with_output().expect("failed consumer output");
+            panic!(
+                "consumer must finish both initial HTTP reads; signal {signal:?}, status {}: {}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
         *shared.write().expect("refresh live producer view") = next.clone();
         writeln!(stdin, "continue").expect("resume same consumer instance");
     }
@@ -273,6 +438,9 @@ fn consume(
 
 #[test]
 fn unobserved() {
+    if !consumer_available() {
+        return;
+    }
     let directory = Directory::new();
     let view = Arc::new(RwLock::new(AttestationView::default()));
     let config = directory.config(false);
@@ -292,7 +460,11 @@ fn unobserved() {
 
 #[test]
 fn runs() {
+    if !consumer_available() {
+        return;
+    }
     let directory = Directory::new();
+    let _signer = proof_signer(&directory);
     let mut config = directory.config(true);
     for invalid in [
         "*",
@@ -349,13 +521,29 @@ fn runs() {
             .expect("persist event");
         for seed in 1..=3 {
             let key = SigningKey::from_bytes((&[seed; 32]).into()).expect("real signing key");
-            let (signature, recovery) = key
-                .sign_prehash_recoverable(&digest)
-                .expect("sign real digest");
-            let mut recoverable = [0; 65];
-            recoverable[..64].copy_from_slice(&signature.to_bytes());
-            recoverable[64] = recovery.to_byte();
-            let signature = to_attestor_signature(recoverable).expect("attestor encoding");
+            let attestor = Attestor::new(
+                RemoteChainSigner::new(RemoteSignerConfig {
+                    endpoint: SignerEndpoint::Uds {
+                        socket: directory.0.join("signer.sock"),
+                    },
+                    algorithm: SigningAlgorithm::Secp256k1Recoverable,
+                    key_handle: format!("attestor-{seed}"),
+                    public_key: key
+                        .verifying_key()
+                        .to_encoded_point(true)
+                        .as_bytes()
+                        .to_vec(),
+                    timeout: Duration::from_secs(5),
+                })
+                .expect("real signer client"),
+            )
+            .expect("real attestor");
+            let signature = if matches!(observation, Observation::Inbound { .. }) {
+                attestor.sign_inbound(&inbound)
+            } else {
+                attestor.sign_outbound(&outbound)
+            }
+            .expect("real bridge signer share");
             cosign
                 .publish(&digest, &ethereum_address(key.verifying_key()), &signature)
                 .expect("persist cosign");
