@@ -144399,7 +144399,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.45.1]
 title = "Prove the sdk path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24", "22.9.33", "22.9.36", "22.95.2", "22.95.11", "22.95.13"]
