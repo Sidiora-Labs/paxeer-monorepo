@@ -221128,7 +221128,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.1]
 title = "Add the dependency floor checker that reads a floors file and the lock file it names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -221159,7 +221159,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.16]
 title = "Accept the sequencer receipt in the Python web search verifier and drop the module 1 checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
