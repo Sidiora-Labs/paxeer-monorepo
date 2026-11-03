@@ -1,4 +1,4 @@
-import { decodeEventLog, decodeFunctionResult, encodeFunctionData, type Hex } from 'viem';
+import { decodeEventLog, decodeFunctionResult, encodeFunctionData, encodeFunctionResult, type Hex } from 'viem';
 import { publicClient } from './chainReads.js';
 
 /**
@@ -311,6 +311,20 @@ export const EIP712_ABI = [
   },
 ] as const;
 
+/** Frozen event metadata; the native view precompile does not emit this event. */
+export const AttestationVerified = {
+  type: 'event',
+  name: 'AttestationVerified',
+  anonymous: false,
+  inputs: [
+    { name: 'family', type: 'uint8', indexed: true },
+    { name: 'mrtd', type: 'bytes32', indexed: true },
+    { name: 'reportData', type: 'bytes32', indexed: false },
+    { name: 'timestamp', type: 'uint64', indexed: false },
+    { name: 'debug', type: 'bool', indexed: false },
+  ],
+} as const;
+
 export const TEE_ATTESTOR_ABI = [
   {
     type: 'function',
@@ -374,6 +388,7 @@ export const TEE_ATTESTOR_ABI = [
     inputs: [{ name: 'family', type: 'uint8' }],
     outputs: [{ name: 'count', type: 'uint256' }],
   },
+  AttestationVerified,
 ] as const;
 
 // -----------------------------------------------------------------------------
@@ -653,44 +668,60 @@ function shapeAttestation(r: {
   };
 }
 
-export const teeAttestor = {
-  async verify(family: number, quote: Hex): Promise<Attestation> {
-    await ensureServed('teeAttestor');
-    const r = (await publicClient().readContract({
-      address: servedAddress('teeAttestor'),
-      abi: TEE_ATTESTOR_ABI,
-      functionName: 'verify',
-      args: [family, quote],
-    })) as { family: number; mrtd: Hex; reportData: Hex; timestamp: bigint; debug: boolean };
-    return shapeAttestation(r);
-  },
-  async verifyAndExpect(family: number, quote: Hex, expectedReportData: Hex): Promise<Attestation> {
-    await ensureServed('teeAttestor');
-    const r = (await publicClient().readContract({
-      address: servedAddress('teeAttestor'),
-      abi: TEE_ATTESTOR_ABI,
-      functionName: 'verifyAndExpect',
-      args: [family, quote, expectedReportData],
-    })) as { family: number; mrtd: Hex; reportData: Hex; timestamp: bigint; debug: boolean };
-    return shapeAttestation(r);
-  },
-  async rootOf(family: number, index: bigint): Promise<Hex> {
-    await ensureServed('teeAttestor');
-    return (await publicClient().readContract({
-      address: servedAddress('teeAttestor'),
-      abi: TEE_ATTESTOR_ABI,
-      functionName: 'rootOf',
-      args: [family, index],
-    })) as Hex;
-  },
-  async rootCount(family: number): Promise<string> {
-    await ensureServed('teeAttestor');
-    const r = (await publicClient().readContract({
-      address: servedAddress('teeAttestor'),
-      abi: TEE_ATTESTOR_ABI,
-      functionName: 'rootCount',
-      args: [family],
-    })) as bigint;
-    return r.toString();
-  },
-};
+/** Decode only canonical, non-debug results for the requested attestation family. */
+export function decodeTeeAttestationResult(data: Hex, expectedFamily: number): Attestation {
+  const result = decodeFunctionResult({ abi: TEE_ATTESTOR_ABI, functionName: 'verify', data });
+  const canonical = encodeFunctionResult({
+    abi: TEE_ATTESTOR_ABI, functionName: 'verify', result,
+  });
+  if (
+    canonical.toLowerCase() !== data.toLowerCase() ||
+    result.family !== expectedFamily ||
+    familyName(result.family) === 'unknown' ||
+    result.debug
+  ) {
+    throw new Error('invalid attestation result');
+  }
+  return shapeAttestation(result);
+}
+
+export async function verify(family: number, quote: Hex): Promise<Attestation> {
+  await ensureServed('teeAttestor');
+  const { data } = await publicClient().call({
+    to: servedAddress('teeAttestor'),
+    data: encodeFunctionData({ abi: TEE_ATTESTOR_ABI, functionName: 'verify', args: [family, quote] }),
+  });
+  if (!data) throw new Error('missing attestation result');
+  return decodeTeeAttestationResult(data, family);
+}
+
+export async function verifyAndExpect(family: number, quote: Hex, expectedReportData: Hex): Promise<Attestation> {
+  await ensureServed('teeAttestor');
+  const { data } = await publicClient().call({
+    to: servedAddress('teeAttestor'),
+    data: encodeFunctionData({
+      abi: TEE_ATTESTOR_ABI, functionName: 'verifyAndExpect', args: [family, quote, expectedReportData],
+    }),
+  });
+  if (!data) throw new Error('missing attestation result');
+  return decodeTeeAttestationResult(data, family);
+}
+
+export async function rootOf(family: number, index: bigint): Promise<Hex> {
+  await ensureServed('teeAttestor');
+  return publicClient().readContract({
+    address: servedAddress('teeAttestor'), abi: TEE_ATTESTOR_ABI,
+    functionName: 'rootOf', args: [family, index],
+  });
+}
+
+export async function rootCount(family: number): Promise<string> {
+  await ensureServed('teeAttestor');
+  const count = await publicClient().readContract({
+    address: servedAddress('teeAttestor'), abi: TEE_ATTESTOR_ABI,
+    functionName: 'rootCount', args: [family],
+  });
+  return count.toString();
+}
+
+export const teeAttestor = { verify, verifyAndExpect, rootOf, rootCount };

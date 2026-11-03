@@ -1438,7 +1438,7 @@ impl Relayer {
                     .as_ref()
                     .ok_or(RelayerError::Rpc(RpcFault::Malformed))?;
                 match pending.status {
-                    SubmissionStatus::Pending => {
+                    SubmissionStatus::Pending if view.status == 1 => {
                         self.journal.append(&Entry::Receipted {
                             item: key.to_owned(),
                             tx_hash: pending.tx_hash,
@@ -1446,6 +1446,7 @@ impl Relayer {
                             height: view.height,
                         })?;
                     }
+                    SubmissionStatus::Pending if view.status == 0 => {}
                     SubmissionStatus::Receipted { sequence, height }
                         if sequence == view.seq && height == view.height => {}
                     _ => return Err(RelayerError::Rpc(RpcFault::Malformed)),

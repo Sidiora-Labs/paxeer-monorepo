@@ -61,6 +61,9 @@ func TestGasTable(t *testing.T) {
 				require.True(t, ok)
 				require.Equal(t, expected.write, row.Write)
 				require.Equal(t, !expected.write, method.IsConstant())
+				if !expected.write {
+					require.Zero(t, row.Surcharge, "%s uses the flat KV read charge", name)
+				}
 				require.Equal(t, expected.flat, row.Gas(nil))
 				perByte := uint64(3)
 				if expected.write {

@@ -71,9 +71,11 @@ concurrency:
   cancel-in-progress: true
 permissions:
   contents: read
-  pull-requests: write
 jobs:
   buf:
+    permissions:
+      contents: read
+      pull-requests: write
     name: Check
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
     steps:

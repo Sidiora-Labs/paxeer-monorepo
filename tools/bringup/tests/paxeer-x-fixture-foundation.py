@@ -295,7 +295,9 @@ for node in range(1,6):
                    '--sequencer-id', seq_id, '--sequencer-public-key', public, '--deposit-root-authority', deposit,
                    '--asset', asset + ':uhpx', '--output', '/fixture/genesis/custody.json']
         self.execute(custody)
-        threshold = json.loads((ROOT / 'contracts/config/checkpoint-settlement.json').read_text())['finality_policy']['certificate_threshold']
+        settlement = json.loads((ROOT / 'contracts/config/checkpoint-settlement.json').read_text())
+        require(settlement['schema'] == 'layerx/checkpoint-settlement/1', 'unsupported checkpoint settlement schema')
+        threshold = settlement['finality_policy']['certificate_threshold']
         self.execute(['python3', '/source/services/platform/hosted/paxeer/anchor-genesis.py', '--network-id', str(NETWORK_ID),
                       '--sequencer-id', seq_id, '--sequencer-public-key', public, '--authority-evm', address,
                       '--paxeer-chain-id', '125', '--threshold', str(threshold), '--output', '/fixture/genesis/anchor.json'])

@@ -101,8 +101,18 @@ export function receiptEvents(
   receipt: SequencerReceiptAnswer,
   surfaceModule: Pick<SurfaceModule, 'address' | 'decodeEvent'>
 ): SentTransaction['events'] {
-  if (!receipt.logs) throw new Error('the receipt carries no logs');
+  if (!Array.isArray(receipt.logs)) throw new Error('the receipt carries no logs');
   return receipt.logs
+    .map((log) => {
+      if (
+        !isLog(log) ||
+        !/^0x[0-9a-fA-F]{40}$/u.test(log.address) ||
+        !/^0x(?:[0-9a-fA-F]{2})*$/u.test(log.data) ||
+        !log.topics.every((topic) => /^0x[0-9a-fA-F]{64}$/u.test(topic))
+      )
+        throw new TypeError('the receipt carries an invalid log');
+      return log;
+    })
     .filter((log) => log.address.toLowerCase() === surfaceModule.address.toLowerCase())
     .map((log) => surfaceModule.decodeEvent(log));
 }

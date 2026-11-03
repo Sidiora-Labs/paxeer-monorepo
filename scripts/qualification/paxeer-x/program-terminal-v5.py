@@ -42,12 +42,11 @@ def build(output):
     environment = dict(os.environ, CARGO_BUILD_JOBS='2', CARGO_PROFILE_DEV_DEBUG='0',
         CARGO_PROFILE_TEST_DEBUG='0', CARGO_INCREMENTAL='0', PYTHONDONTWRITEBYTECODE='1')
     library = native_dir / 'liblayerx.a'
-    header = generated / 'lxp_checkpoint_settlement.h'
     sandbox = cargo_dir / 'debug/liblayerx_programs_sandbox.a'
     native = directory / 'program-terminal-v5-native'
     commands = [
         ['make', '--no-print-directory', '-j2', 'BUILD_DIR=' + str(native_dir),
-            'LXP_REVISION=' + source['revision'], str(library), str(header)],
+            'LXP_REVISION=' + source['revision'], str(library)],
         ['cargo', '+1.91.1', 'build', '--locked', '--manifest-path', 'programs/Cargo.toml',
             '-p', 'layerx-programs-sandbox', '--features', 'host-ffi'],
         ['cc', '-Iinclude', '-Itests/programs', '-I' + str(generated), '-std=c17',

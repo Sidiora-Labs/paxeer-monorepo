@@ -12,7 +12,6 @@ use layerx_crypto::evm_transaction::{recover_sender, Eip1559Call};
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::signer::{sign_disclosed_call, AgentSignature, Signer as _};
 use layerx_types::clock::{Clock, Deadline};
-use layerx_types::payload::ModuleRegistry;
 use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
 
@@ -689,12 +688,11 @@ impl RemoteCustodySigner {
         Ok(signature)
     }
 
-    /// Sends the exact call and matching disclosure to the provider.
-    pub async fn sign_disclosed(
+    /// Sends the exact EIP-1559 call and its disclosure to the provider.
+    pub async fn sign_call(
         &self,
         canonical_bytes: &[u8],
         disclosure: &Disclosure,
-        _registry: &ModuleRegistry,
     ) -> Result<[u8; 65], CustodyError> {
         let call = crate::server::agent_runtime::decode_unsigned(canonical_bytes)
             .map_err(|_| CustodyError::Sign(layerx_crypto::signer::SignError::InvalidDisclosure))?;

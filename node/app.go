@@ -598,6 +598,7 @@ type App struct {
 	// defend against stale tuples from prior failed commits or
 	// non-stashing return paths (EthReplay/EthBlockTest).
 	blockHeaderNotifier   tmutils.Option[*evmrpc.BlockHeaderNotifier]
+	pendingBlockHeader    *tmproto.Header
 	adminConfig           admin.Config
 	adminServer           *grpc.Server
 	lightInvarianceConfig LightInvarianceConfig
@@ -1825,6 +1826,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	if hasHeadNotifier {
 		headNotifier.ClearStash()
 	}
+	app.pendingBlockHeader = nil
 	startTime := time.Now()
 	defer func() {
 		app.ClearOptimisticProcessingInfo()
@@ -1886,7 +1888,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 			app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig)
 			resp := app.getFinalizeBlockResponse(app.GetWorkingHash(), sealed.Events, sealed.Results, sealed.EndBlock, consensusParamUpdates)
 			if hasHeadNotifier {
-				headNotifier.Stash(req, &resp)
+				app.stashBlockHeader(headNotifier, req, &resp)
 			}
 			return &resp, nil
 		}
@@ -1916,7 +1918,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 			appHash := app.GetWorkingHash()
 			resp := app.getFinalizeBlockResponse(appHash, events, txRes, endBlockResp, consensusParamUpdates)
 			if hasHeadNotifier {
-				headNotifier.Stash(req, &resp)
+				app.stashBlockHeader(headNotifier, req, &resp)
 			}
 			return &resp, nil
 		}
@@ -1942,9 +1944,17 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	appHash := app.GetWorkingHash()
 	resp := app.getFinalizeBlockResponse(appHash, events, txResults, endBlockResp, consensusParamUpdates)
 	if hasHeadNotifier {
-		headNotifier.Stash(req, &resp)
+		app.stashBlockHeader(headNotifier, req, &resp)
 	}
 	return &resp, nil
+}
+
+func (app *App) stashBlockHeader(notifier *evmrpc.BlockHeaderNotifier, req *abci.RequestFinalizeBlock, resp *abci.ResponseFinalizeBlock) {
+	header := *req.Header
+	request := *req
+	request.Header = &header
+	app.pendingBlockHeader = &header
+	notifier.Stash(&request, resp)
 }
 
 func (app *App) DeliverTxWithResult(ctx sdk.Context, tx []byte, typedTx sdk.Tx) *abci.ExecTxResult {

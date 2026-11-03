@@ -224,9 +224,11 @@ func (k *Keeper) applyFill(ctx sdk.Context, fill PositionFill) (PositionFillResu
 			closeNotional := new(big.Int).Div(new(big.Int).Mul(held, price), positionWad)
 			closeFunding := new(big.Int).Div(new(big.Int).Mul(held, index), positionWad)
 			result.Events = append(result.Events, positionClosedEvent(position, held, fill.Price, closeNotional, true))
-			if err := k.positionRemove(ctx, &account, position, closeNotional, closeFunding, &books); err != nil {
+			cancelled, err := k.positionRemove(ctx, &account, position, closeNotional, closeFunding, &books)
+			if err != nil {
 				return PositionFillResult{}, err
 			}
+			result.Events = append(result.Events, cancelled...)
 			settled.TradeType = TradeTypeClose
 			settled.SizeUsd.SetFromBig(closeNotional)
 			result.Trades = append(result.Trades, settled)
@@ -557,24 +559,33 @@ func positionReduce(position *types.Position, size, notional, fundingShare *big.
 // settlement, goes to residueUsd, and the position, its market index, its
 // rank entry and its liquidation cooldown are deleted.
 func (k *Keeper) positionRemove(ctx sdk.Context, account *types.Account, position types.Position, notional,
-	fundingShare *big.Int, books *types.VenueBooks) error {
+	fundingShare *big.Int, books *types.VenueBooks) ([]types.EventRecord, error) {
 	leftover := new(big.Int).Sub(signedBig(position.FundingBasis), fundingShare)
 	leftover.Sub(leftover, new(big.Int).Sub(position.CostBasisUsd.ToBig(), notional))
 	if !position.IsLong {
 		leftover.Neg(leftover)
 	}
 	if leftover.Sign() < 0 {
-		return fmt.Errorf("%w: closing position %s leaves %s USD below its shares", types.ErrInvalidParams,
+		return nil, fmt.Errorf("%w: closing position %s leaves %s USD below its shares", types.ErrInvalidParams,
 			position.ID.Dec(), leftover)
 	}
 	residue, err := positionWord(new(big.Int).Add(books.ResidueUsd.ToBig(), leftover))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if account.PositionCount == 0 {
-		return fmt.Errorf("%w: position %s of %s is not counted", types.ErrInvalidParams, position.ID.Dec(),
+		return nil, fmt.Errorf("%w: position %s of %s is not counted", types.ErrInvalidParams, position.ID.Dec(),
 			account.Address)
 	}
+	cancelled, err := k.CancelPositionTpSl(ctx, position.ID)
+	if err != nil {
+		return nil, err
+	}
+	holder, err := k.positionAccount(ctx, account.Address)
+	if err != nil {
+		return nil, err
+	}
+	account.OpenOrderCount = holder.OpenOrderCount
 	books.ResidueUsd = residue
 	account.PositionCount--
 	store := k.store(ctx)
@@ -582,7 +593,7 @@ func (k *Keeper) positionRemove(ctx sdk.Context, account *types.Account, positio
 	store.Delete(types.AccountMarketPositionKey(position.Account, position.MarketID))
 	store.Delete(types.AdlRankIndexKey(position.MarketID, types.SideOf(position.IsLong), position.RankScore, position.ID))
 	store.Delete(types.LiquidationCooldownKey(position.ID))
-	return nil
+	return cancelled, nil
 }
 
 // positionClosedEvent is PositionClosed for closed base at exit price, the

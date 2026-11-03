@@ -1,8 +1,9 @@
 [sweep.go-interchain]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 enumeration_command = "CGO_ENABLED=1 go list ./interchain/..."
-native_libraries_command = "CGO_ENABLED=1 make paxd-native-libs"
+enumeration_exit_code = 0
+native_libraries_command = "make paxd-native-libs"
 native_libraries_exit_code = 0
 targets_total = 63
 targets_passed = 63

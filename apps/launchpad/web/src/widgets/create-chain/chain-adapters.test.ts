@@ -206,7 +206,10 @@ async function chain_adapter_refuses_a_taken_name_and_a_changed_wallet() {
         error = 'Registry unavailable'; break;
       }
     }
-    await expect(f.adapter.launch(f.draft, step => steps.push(step))).rejects.toThrow(error);
+    const outcome = await f.adapter.launch(f.draft, step => steps.push(step));
+    expect(outcome).toMatchObject({ txHash, submission: { txHash, phase: kind === 'reverted' ? 'reverted' : 'confirm' } });
+    if (!('error' in outcome)) throw new Error('Expected a confirmation outcome');
+    expect(outcome.error).toContain(error);
     expect(steps).not.toContain('ready');
   }
 
@@ -218,10 +221,9 @@ async function chain_adapter_refuses_a_taken_name_and_a_changed_wallet() {
       if (request.functionName === 'getChain') throw unknownChainError();
       return read(request);
     });
-    const rejected = expect(missing.adapter.launch(missing.draft, () => {}))
-      .rejects.toThrow('Chain registry record is unavailable after confirmation');
+    const confirmation = missing.adapter.launch(missing.draft, () => {});
     await vi.runAllTimersAsync();
-    await rejected;
+    expect(await confirmation).toMatchObject({ txHash, submission: { phase: 'confirm' }, error: 'Chain registry record is unavailable after confirmation.' });
     expect(missing.client.readContract.mock.calls.filter(([request]) => request.functionName === 'getChain')).toHaveLength(30);
     expect(missing.wallet.writeContract).toHaveBeenCalledTimes(1);
   } finally {
@@ -229,5 +231,63 @@ async function chain_adapter_refuses_a_taken_name_and_a_changed_wallet() {
   }
 }
 
+async function chain_adapter_recovers_receipt_and_readback_without_resubmitting() {
+  for (const interruption of ['receipt', 'readback'] as const) {
+    const f = chainFixture();
+    if (interruption === 'receipt') f.client.waitForTransactionReceipt.mockRejectedValueOnce(new Error('Receipt timeout'));
+    else {
+      const read = f.client.readContract.getMockImplementation()!;
+      let interrupted = false;
+      f.client.readContract.mockImplementation(async request => {
+        if (request.functionName === 'getChain' && !interrupted) {
+          interrupted = true;
+          throw new Error('Readback interrupted');
+        }
+        return read(request);
+      });
+    }
+    let observedHash: Hex | undefined;
+    const outcome = await f.adapter.launch(f.draft, (_step, submission) => {
+      if (submission) observedHash = submission.txHash;
+    });
+    expect(observedHash).toBe(txHash);
+    if (!('submission' in outcome)) throw new Error('Expected interrupted confirmation');
+    expect(outcome.submission).toEqual({ creator, chainId: 125, txHash, phase: 'confirm', bondRaw: f.params[1].toString() });
+    expect(outcome.error).toContain(interruption === 'receipt' ? 'Receipt timeout' : 'Readback interrupted');
+    await expect(f.adapter.launch(f.draft, () => {})).rejects.toThrow('Retry confirmation');
+    const recovered = await f.adapter.confirm(txHash, f.draft, outcome.submission);
+    expect(recovered).toMatchObject({ id: 1, chainId: 125000001, txHash });
+    expect(f.wallet.writeContract).toHaveBeenCalledTimes(1);
+    expect(f.client.waitForTransactionReceipt.mock.calls.every(([request]) => request.hash === txHash)).toBe(true);
+  }
+}
+
+async function chain_adapter_distinguishes_revert_from_unknown_and_checks_recovery_scope() {
+  const f = chainFixture();
+  f.client.waitForTransactionReceipt.mockRejectedValueOnce(new Error('Receipt timeout'));
+  const outcome = await f.adapter.launch(f.draft, () => {});
+  if (!('submission' in outcome)) throw new Error('Expected interrupted confirmation');
+  f.scope.creator = other;
+  const changed = await f.adapter.confirm(txHash, f.draft, outcome.submission);
+  expect(changed).toMatchObject({ submission: { phase: 'confirm', creator }, error: 'Submitted transaction belongs to a different account or chain.' });
+  expect(f.client.waitForTransactionReceipt).toHaveBeenCalledTimes(1);
+  f.scope.creator = creator;
+  f.receipt.status = 'reverted';
+  f.receipt.transactionHash = blockHash;
+  expect(await f.adapter.confirm(txHash, f.draft, outcome.submission)).toMatchObject({ submission: { phase: 'confirm' }, error: 'Chain creation receipt failed.' });
+  f.receipt.transactionHash = txHash;
+  expect(await f.adapter.confirm(txHash, f.draft, outcome.submission)).toMatchObject({ txHash, submission: { phase: 'reverted' } });
+  const read = f.client.readContract.getMockImplementation()!;
+  f.client.readContract.mockImplementation(async request => request.functionName === 'chainByName' ? 1 : read(request));
+  await expect(f.adapter.launch(f.draft, () => {})).rejects.toThrow('Chain name is taken');
+  expect(f.wallet.writeContract).toHaveBeenCalledTimes(1);
+  f.client.readContract.mockImplementation(read);
+  f.receipt.status = 'success';
+  expect(await f.adapter.launch(f.draft, () => {})).toMatchObject({ id: 1, txHash });
+  expect(f.wallet.writeContract).toHaveBeenCalledTimes(2);
+}
+
 test(chain_adapter_launches_and_reports_the_new_chain);
 test(chain_adapter_refuses_a_taken_name_and_a_changed_wallet);
+test(chain_adapter_recovers_receipt_and_readback_without_resubmitting);
+test(chain_adapter_distinguishes_revert_from_unknown_and_checks_recovery_scope);
