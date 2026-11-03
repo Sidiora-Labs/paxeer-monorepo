@@ -58,25 +58,4 @@ typedef struct lxp_history {
     void *database;
 } lxp_history;
 
-typedef lxp_result (*lxp_history_send_fn)(
-    void *context, uint8_t record_kind, uint64_t global_sequence,
-    const uint8_t *canonical_bytes, size_t length);
-
-lxp_result lxp_history_open(lxp_history *history, const lxp_log *log,
-                            const char *database_path,
-                            const char *migration_path);
-lxp_result lxp_history_close(lxp_history *history);
-lxp_result lxp_history_index_rebuild(lxp_history *history);
-lxp_result lxp_history_query(const lxp_history *history,
-                             const lxp_history_query_spec *query,
-                             lxp_arena *arena, lxp_history_result *result);
-lxp_result lxp_history_serve_range(const lxp_history *history,
-                                   uint64_t first_sequence,
-                                   uint64_t last_sequence,
-                                   size_t maximum_response_bytes,
-                                   lxp_history_send_fn send,
-                                   void *send_context, lxp_arena *arena);
-lxp_result lxp_receipt_lookup(const lxp_history *history,
-                              const lxp_receipt_query *query,
-                              lxp_arena *arena, lxp_byte_span *receipt);
 #endif

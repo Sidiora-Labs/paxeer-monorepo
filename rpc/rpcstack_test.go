@@ -601,7 +601,7 @@ func (s *testService) Sleep() {
 
 func TestHttpDenyList(t *testing.T) {
 	const (
-		expectRes = `{"jsonrpc":"2.0","id":null,"error":{"code":-32601,"message":"the method test_sleep does not exist/is not available"}}`
+		expectRes = `{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"the method test_sleep does not exist/is not available"}}` + "\n"
 	)
 	// Set-up server
 	timeouts := rpc.DefaultHTTPTimeouts

@@ -150,8 +150,8 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 		Cases []json.RawMessage `json:"cases"`
 	}
 	readConformanceVector(t, "sequencer-receipt-v1", &source)
-	if len(source.Cases) != 11 {
-		t.Fatalf("want 11 source cases, got %d", len(source.Cases))
+	if len(source.Cases) != 12 {
+		t.Fatalf("want 12 source cases, got %d", len(source.Cases))
 	}
 	refusals := map[string]struct {
 		check sdk.ReceiptCheck
@@ -168,7 +168,7 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 		name, section string
 		count         int
 	}{
-		{"vector-v1-receipted-positive", "V1", 4},
+		{"vector-v1-receipted-positive", "V1", 5},
 		{"vector-v2-receipted-revert", "V2", 1},
 		{"vector-v3-receipt-refusals", "V3", 6},
 	} {
@@ -328,7 +328,7 @@ func TestVectorV5PortableRoundTrips(t *testing.T) {
 	readConformanceVector(t, "vector-v1-receipted-positive", &v1)
 	var v4 conformanceCommittedVector
 	readConformanceVector(t, "vector-v4-committed", &v4)
-	if len(v1.Cases) != 4 {
+	if len(v1.Cases) != 5 {
 		t.Fatal("V1 source cases missing")
 	}
 	for i, level := range []string{"receipted", "committed"} {

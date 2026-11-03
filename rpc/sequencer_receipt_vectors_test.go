@@ -10,28 +10,37 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"math"
 	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	seqnode "github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 )
 
@@ -257,6 +266,7 @@ func (b *seqVecBuilder) receipt(key *seqnode.ReceiptKey, keyID [32]byte, signedT
 		},
 		Operation:         signedTx.Type(),
 		ReturnData:        tx.returnData,
+		PaymentDenom:      evmkeeper.BaseDenom,
 		FeeDenom:          evmkeeper.BaseDenom,
 		FeeCharged:        fee,
 		Amount:            tx.value,
@@ -446,6 +456,229 @@ func seqVecBridgeOut(t *testing.T, nonce uint64) seqVecTx {
 	}
 }
 
+func seqVecProgramsCall(t *testing.T, b *seqVecBuilder, nonce uint64) seqVecTx {
+	t.Helper()
+	a := app.Setup(t, false, false, false)
+	ctx, _ := a.GetContextForDeliverTx(nil).CacheContext()
+	ctx = ctx.WithBlockHeight(seqVecFirstHeight + 2).WithBlockTime(time.UnixMilli(seqVecTimeBase + (seqVecFirstHeight+2)*seqVecBlockMs))
+	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx)).WithEventManager(sdk.NewEventManager())
+	key := a.GetKey(app.LayerXHostStoreKey)
+	host, err := lxphost.NewHost(lxphost.Config{StoreKey: key, NetworkID: seqVecChainID, ParameterVersion: 1, TimestampWindowMs: 60000, GasLimit: 1000000})
+	require.NoError(t, err)
+	t.Cleanup(host.Close)
+	private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x41}, ed25519.SeedSize))
+	publicKey := [32]byte(private.Public().(ed25519.PublicKey))
+	message, err := evmtypes.LayerXBindMessage(a.EvmKeeper.ChainID(ctx), b.sender, 0)
+	require.NoError(t, err)
+	_, err = a.EvmKeeper.BindLayerX(ctx, b.sender, publicKey, [64]byte(ed25519.Sign(private, message)))
+	require.NoError(t, err)
+	did := []byte(evmtypes.LayerXDid(publicKey))
+	actor, err := lxphost.DIDID(did)
+	require.NoError(t, err)
+	authorityHash, err := lxphost.AuthorityHash(lxphost.AuthorityKindOwner, [32]byte{}, publicKey)
+	require.NoError(t, err)
+	authority := lxphost.KernelAuthority{Kind: lxphost.AuthorityKindOwner, AuthorityHash: authorityHash, Bound: true, Actor: actor, Principal: actor, VerifiedKey: publicKey}
+	moduleKey := func(key []byte) []byte { return append([]byte{1, 0, 9}, key...) }
+	store := ctx.KVStore(key)
+	initialFee := binary.BigEndian.AppendUint32([]byte("LXFR1"), 1)
+	for i := 0; i < 7; i++ {
+		initialFee = binary.BigEndian.AppendUint64(initialFee, 1)
+	}
+	occupancyAsset := [32]byte{0x91}
+	initialFee = append(initialFee, occupancyAsset[:]...)
+	for _, value := range []uint64{1000, 8, 1, 8, 1, 100, 1, 0, 1} {
+		initialFee = binary.BigEndian.AppendUint64(initialFee, value)
+	}
+	initialFee = append(initialFee, authority.Actor[:]...)
+	initialFee = append(initialFee, make([]byte, 16)...)
+	store.Set(moduleKey([]byte("progfee/active/v1")), initialFee)
+	store.Set(moduleKey(binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)), initialFee)
+	metering := binary.BigEndian.AppendUint32([]byte("LXMR1"), 1)
+	for _, coefficient := range []uint64{1, 1, 1, 1, 1, 8, 8, 64, 8} {
+		metering = binary.BigEndian.AppendUint64(metering, coefficient)
+	}
+	metering = binary.BigEndian.AppendUint64(metering, 1)
+	metering = append(metering, 1)
+	metering = append(metering, authority.Actor[:]...)
+	store.Set(moduleKey([]byte("progmet/active/v1")), metering)
+	store.Set(moduleKey(binary.BigEndian.AppendUint32([]byte("progmet/history/v1/"), 1)), metering)
+
+	execute := func(activityType uint32, payload []byte) {
+		sequence, err := host.ReadIdentitySequence(ctx, did)
+		require.NoError(t, err)
+		last, err := host.ReadLastSequence(ctx, did)
+		require.NoError(t, err)
+		receipt, err := lxphost.ExecuteActivity(lxphost.WithSequence(ctx, last+1), host, authority, activityType, payload, sequence)
+		require.NoError(t, err)
+		require.Zero(t, receipt.ResultCode)
+	}
+	salt := bytes.Repeat([]byte{0x55}, 32)
+	assetMaterial := append([]byte("LX:ASSET:v1"), authority.Actor[:]...)
+	asset := sha256.Sum256(append(assetMaterial, salt...))
+	register := append([]byte{0, 1}, asset[:]...)
+	register = append(register, salt...)
+	register = append(register, 1, 'T', 1, 'T', 6)
+	register = binary.BigEndian.AppendUint64(binary.BigEndian.AppendUint64(register, 0), 1000000000)
+	execute(0x00010001, append(register, 1, 0))
+	execute(0x00010004, append([]byte{0, 1}, asset[:]...))
+	_, payer, err := lxphost.AssetAccountID(publicKey, asset)
+	require.NoError(t, err)
+	mint := append([]byte{0, 1}, asset[:]...)
+	mint = append(mint, payer[:]...)
+	mint = binary.BigEndian.AppendUint64(binary.BigEndian.AppendUint64(mint, 0), 500000000)
+	execute(0x0001000a, mint)
+
+	mainName, mainID, err := lxphost.MainAccountID(publicKey)
+	require.NoError(t, err)
+	field := func(out, value []byte) []byte {
+		return append(binary.BigEndian.AppendUint32(out, uint32(len(value))), value...)
+	}
+	main := field(nil, mainID[:])
+	main = field(main, []byte(mainName))
+	main = append(main, 1)
+	main = binary.BigEndian.AppendUint64(main, 0)
+	main = binary.BigEndian.AppendUint64(main, 100000000)
+	mainAsset := [32]byte{0x91}
+	main = field(main, mainAsset[:])
+	main = append(main, 1)
+	main = binary.BigEndian.AppendUint64(main, 0)
+	main = binary.BigEndian.AppendUint64(main, 1)
+	main = append(main, 0, 0)
+	main = field(main, publicKey[:])
+	store.Set(append([]byte{6}, mainID[:]...), append(main, 1))
+	mainAccount, err := host.ReadAccount(ctx, mainName, mainID)
+	require.NoError(t, err)
+	require.Equal(t, int64(100000000), mainAccount.Balance.Int64())
+
+	treasuryID, err := codec.DeriveAccountID([]byte("system:fees"))
+	require.NoError(t, err)
+	treasury := field(nil, treasuryID[:])
+	treasury = field(treasury, []byte("system:fees"))
+	treasury = append(treasury, 10)
+	treasury = append(treasury, make([]byte, 16)...)
+	treasury = field(treasury, asset[:])
+	treasury = append(treasury, 1)
+	treasury = append(treasury, make([]byte, 16)...)
+	treasury = append(treasury, 0, 0)
+	treasury = field(treasury, make([]byte, 32))
+	store.Set(append([]byte{6}, treasuryID[:]...), append(treasury, 0))
+	treasuryAccount, err := host.ReadAccount(ctx, "system:fees", treasuryID)
+	require.NoError(t, err)
+	require.False(t, treasuryAccount.Frozen)
+	require.True(t, treasuryAccount.Balance.IsZero())
+	require.Equal(t, asset, treasuryAccount.AssetID)
+
+	fee := binary.BigEndian.AppendUint32([]byte("LXFR1"), 1)
+	for i := 0; i < 7; i++ {
+		fee = binary.BigEndian.AppendUint64(fee, 1)
+	}
+	fee = append(fee, asset[:]...)
+	for _, value := range []uint64{1000, 8, 1, 8, 1, 100, 1, 0, 1} {
+		fee = binary.BigEndian.AppendUint64(fee, value)
+	}
+	fee = append(fee, authority.Actor[:]...)
+	fee = append(fee, make([]byte, 16)...)
+	store.Set(moduleKey([]byte("progfee/active/v1")), fee)
+	store.Set(moduleKey(binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)), fee)
+
+	wasm := []byte{
+		0, 97, 115, 109, 1, 0, 0, 0, 1, 12, 2, 96, 2, 127, 127, 1, 127, 96, 1, 127, 1, 127,
+		3, 3, 2, 0, 1, 5, 3, 1, 0, 1, 7, 41, 3,
+		11, 'l', 'a', 'y', 'e', 'r', 'x', '_', 'c', 'a', 'l', 'l', 0, 0,
+		14, 'l', 'a', 'y', 'e', 'r', 'x', '_', 'r', 'e', 's', 'e', 'r', 'v', 'e', 0, 1,
+		6, 'm', 'e', 'm', 'o', 'r', 'y', 2, 0, 10, 11, 2, 4, 0, 65, 0, 11, 4, 0, 65, 0, 11,
+	}
+
+	program := sha256.Sum256([]byte("sequencer receipt vector program"))
+	codeHash := sha256.Sum256(wasm)
+	iface := append([]byte("LayerX/program-interface/v1\x00"), codeHash[:]...)
+	iface = append(iface, 0, 1, 0, 1, 0, 11)
+	iface = append(iface, "layerx_call"...)
+	iface = append(iface, 0, 0, 0, 0, 1, 0x20, 0, 0, 0, 64, 1, 0x20, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0)
+	rawABI, err := os.ReadFile("../precompiles/layerxprograms/abi.json")
+	require.NoError(t, err)
+	programs, err := abi.JSON(bytes.NewReader(rawABI))
+	require.NoError(t, err)
+	budget := [7]uint64{1000000, 16777216, 1048576, 1048576, 64, 1048576, 4096}
+	input, err := programs.Pack("call", program, uint16(1), "layerx_call", []byte{}, []byte{0, 0}, []byte("LayerX/programs/access-declaration/v1\x00\x00"), uint32(64), budget, big.NewInt(100000000))
+	require.NoError(t, err)
+	tx := seqVecTx{nonce: nonce, to: lp.Address, value: new(big.Int), data: input, gasLimit: 20000000, status: uint32(ethtypes.ReceiptStatusSuccessful)}
+	ctx = ctx.WithEVMTxHash(b.signTx(tx).Hash())
+	precompile, err := lp.NewPrecompile(host, &a.EvmKeeper, a.EvmKeeper.UpgradeKeeper(), app.MergeUpgrade)
+	require.NoError(t, err)
+	db := state.NewDBImpl(ctx, &a.EvmKeeper, false)
+	t.Cleanup(db.Cleanup)
+	block, err := a.EvmKeeper.GetVMBlockContext(ctx, core.GasPool(math.MaxUint64))
+	require.NoError(t, err)
+	evm := vm.NewEVM(*block, db, evmtypes.DefaultChainConfig().EthereumConfig(a.EvmKeeper.ChainID(ctx)), vm.Config{}, map[common.Address]vm.PrecompiledContract{lp.Address: precompile})
+	deploy, err := programs.Pack("deploy", program, uint16(1), uint8(1), authority.Principal, codeHash, iface, wasm)
+	require.NoError(t, err)
+	output, _, err := evm.Call(b.sender, lp.Address, deploy, 2000000, uint256.NewInt(0))
+	require.NoError(t, err, "deploy committed runtime fixture: %x; %v", output, db.GetPrecompileError())
+	record, err := host.ReadProgram(db.Ctx(), program)
+	require.NoError(t, err)
+	require.True(t, record.Active)
+	require.Equal(t, codeHash, record.CodeHash)
+	before := len(db.GetAllLogs())
+	output, remaining, err := evm.Call(b.sender, lp.Address, input, tx.gasLimit, uint256.NewInt(0))
+	require.NoError(t, err, "call committed runtime fixture: %x; %v", output, db.GetPrecompileError())
+	values, err := programs.Methods["call"].Outputs.Unpack(output)
+	require.NoError(t, err)
+	require.Equal(t, int32(0), values[0])
+	require.Equal(t, uint8(1), values[1])
+	seqVecAssertProgramTerminal(t, values[2].([]byte))
+	logs := db.GetAllLogs()[before:]
+	require.Len(t, logs, 1)
+	require.Equal(t, []common.Hash{programs.Events["ProgramCallOutcome"].ID, common.Hash(program)}, logs[0].Topics)
+	tx.returnData, tx.gasUsed = output, tx.gasLimit-remaining
+	tx.logs = []*evmtypes.Log{seqVecLog(logs[0].Address, logs[0].Data, logs[0].Topics...)}
+	return tx
+}
+
+func seqVecAssertProgramTerminal(t *testing.T, encoded []byte) {
+	t.Helper()
+	remaining := encoded
+	take := func(length uint32) []byte {
+		t.Helper()
+		require.LessOrEqual(t, uint64(length), uint64(len(remaining)))
+		value := remaining[:length]
+		remaining = remaining[length:]
+		return value
+	}
+	sized := func() []byte {
+		t.Helper()
+		return take(binary.BigEndian.Uint32(take(4)))
+	}
+	domain := []byte("LXP/programs/terminal-applied-legs/v1\x00")
+	require.Equal(t, domain, take(uint32(len(domain))))
+	detail, legs := sized(), sized()
+	require.Empty(t, legs)
+	require.Empty(t, remaining)
+	remaining = detail
+	occupancy := []byte("LXP/program-execution-with-occupancy/v1\x00")
+	require.Equal(t, occupancy, take(uint32(len(occupancy))))
+	execution, settlement := sized(), sized()
+	require.Empty(t, remaining)
+	settlementDomain := []byte("LXP/storage-occupancy-settlement/v3\x00")
+	require.True(t, bytes.HasPrefix(settlement, settlementDomain))
+	require.Equal(t, uint64(seqVecFirstHeight+2), binary.BigEndian.Uint64(settlement[len(settlementDomain):]))
+	remaining = execution
+	executionDomain := []byte("LXP/program-execution/v2\x00")
+	require.Equal(t, executionDomain, take(uint32(len(executionDomain))))
+	require.Equal(t, uint16(1), binary.BigEndian.Uint16(take(2)))
+	require.Equal(t, uint16(1), binary.BigEndian.Uint16(take(2)))
+	require.Equal(t, uint32(1), binary.BigEndian.Uint32(take(4)))
+	require.Equal(t, common.BigToHash(big.NewInt(1)).Bytes()[16:], take(16))
+	require.Equal(t, []byte{1, 0, 0, 0, 0}, take(5))
+	require.Positive(t, binary.BigEndian.Uint64(take(8)))
+	require.Equal(t, uint64(65536), binary.BigEndian.Uint64(take(8)))
+	require.Zero(t, binary.BigEndian.Uint64(take(8)))
+	require.Zero(t, binary.BigEndian.Uint64(take(8)))
+	require.Equal(t, uint32(1), binary.BigEndian.Uint32(take(4)))
+	require.Positive(t, new(big.Int).SetBytes(take(16)).Sign())
+	require.Empty(t, remaining)
+}
+
 func seqVecTransfer(nonce uint64, paxUnits int64) seqVecTx {
 	return seqVecTx{
 		nonce: nonce, to: seqVecRecipient, value: new(big.Int).Mul(big.NewInt(paxUnits), seqVecOnePAX),
@@ -594,7 +827,8 @@ func TestSequencerReceiptVectors(t *testing.T) {
 	approve, approveJSON, approvePrev := accept("V1-erc20-approve", "V1", "ERC-20 approve with one Approval log", seqVecApprove(t, b.sender, 1), seqVecFirstHeight, 2)
 	accept("V1-layerxledger-pay-exact", "V1", "layerxledger payExact at 0x101A with one PaymentExact log", seqVecLedgerPayment(t, 2), seqVecFirstHeight+1, 1)
 	accept("V1-layerxbridge-bridge-out", "V1", "layerxbridge bridgeOut at 0x1016 with one BridgeOut log", seqVecBridgeOut(t, 3), seqVecFirstHeight+1, 2)
-	accept("V2-layerxledger-revert", "V2", "layerxledger payExact reverted with Error(string) LXP_INSUFFICIENT_BALANCE", seqVecLedgerRevert(t, 4), seqVecFirstHeight+2, 1)
+	accept("V1-layerxprograms-call", "V1", "layerxprograms call at 0x101D with one ProgramCallOutcome log", seqVecProgramsCall(t, b, 4), seqVecFirstHeight+2, 1)
+	accept("V2-layerxledger-revert", "V2", "layerxledger payExact reverted with Error(string) LXP_INSUFFICIENT_BALANCE", seqVecLedgerRevert(t, 5), seqVecFirstHeight+2, 2)
 	cases[len(cases)-1].LXPCode = seqVecInsufficient
 
 	refuse := func(id, description string, c seqVecCase, refusal seqVecRefusal) {
@@ -633,19 +867,19 @@ func TestSequencerReceiptVectors(t *testing.T) {
 	}
 
 	refuse("V3-key-not-pinned", "receipt signed under a keyId outside the pinned ReceiptKeys",
-		refusedCase(rogue, seqVecRogueKeyID, seqVecTransfer(5, 2), next, fmt.Sprintf("is not in the list at height %d", next.height)),
+		refusedCase(rogue, seqVecRogueKeyID, seqVecTransfer(6, 2), next, fmt.Sprintf("is not in the list at height %d", next.height)),
 		seqVecRefusal{refusedAt: "R3", err: errSeqVecKeyID, verifier: "SequencerSignature"})
 
 	outOfRange := next
 	outOfRange.height = seqVecLastHeight + 1
 	refuse("V3-height-outside-key-range", "receipt at a height above the pinned key's lastHeight",
-		refusedCase(extended, seqVecKeyID, seqVecTransfer(5, 3), outOfRange, fmt.Sprintf("excludes height %d", outOfRange.height)),
+		refusedCase(extended, seqVecKeyID, seqVecTransfer(6, 3), outOfRange, fmt.Sprintf("excludes height %d", outOfRange.height)),
 		seqVecRefusal{refusedAt: "R3", err: errSeqVecHeight, verifier: "SequencerSignature"})
 
-	sentTx := b.signTx(seqVecTransfer(5, 4))
+	sentTx := b.signTx(seqVecTransfer(6, 4))
 	sentRaw, err := sentTx.MarshalBinary()
 	require.NoError(t, err)
-	substituted := nextCase(primary, seqVecKeyID, seqVecTransfer(5, 5), next)
+	substituted := nextCase(primary, seqVecKeyID, seqVecTransfer(6, 5), next)
 	require.NotEqual(t, crypto.Keccak256(sentRaw), crypto.Keccak256(substituted.RawTransaction))
 	substituted.RawTransaction = sentRaw
 	refuse("V3-activity-id-not-raw-hash", "receipt whose activity_id is not keccak256 of the raw transaction the client signed",
@@ -654,7 +888,7 @@ func TestSequencerReceiptVectors(t *testing.T) {
 	forked := next
 	forked.prev = approvePrev
 	refuse("V3-seq-hash-mismatch", "receipt chained from a prevSeqHash other than the client's predecessor",
-		nextCase(primary, seqVecKeyID, seqVecTransfer(5, 6), forked),
+		nextCase(primary, seqVecKeyID, seqVecTransfer(6, 6), forked),
 		seqVecRefusal{refusedAt: "R6", err: errSeqVecSeqHash, verifier: "accepts"})
 
 	tamperedLog := seqVecCaseOf("", "", "", approve, approve.raw, seqVecEdit(t, approveJSON, func(r *evmrpc.SequencerReceiptResult) {
@@ -703,12 +937,12 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 	stored, err := os.ReadFile(seqVecFixture)
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(stored, &source))
-	require.Len(t, source.Cases, 11)
+	require.Len(t, source.Cases, 12)
 	for _, group := range []struct {
 		name, vector string
 		count        int
 	}{
-		{"vector-v1-receipted-positive", "V1", 4},
+		{"vector-v1-receipted-positive", "V1", 5},
 		{"vector-v2-receipted-revert", "V2", 1},
 		{"vector-v3-receipt-refusals", "V3", 6},
 	} {
@@ -725,13 +959,29 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 				Name  string            `json:"name"`
 				Cases []json.RawMessage `json:"cases"`
 			}
-			stored, err := os.ReadFile(filepath.Join(filepath.Dir(seqVecFixture), group.name+".json"))
-			require.NoError(t, err)
-			require.NoError(t, json.Unmarshal(stored, &copy))
-			require.Equal(t, group.name, copy.Name)
 			require.Len(t, expected, group.count)
-			require.Len(t, copy.Cases, group.count)
-			require.Equal(t, expected, copy.Cases, "conformance cases must be byte-identical to the source")
+			paths := []string{filepath.Join(filepath.Dir(seqVecFixture), group.name+".json")}
+			if group.vector == "V1" {
+				paths = append(paths, filepath.Join("../daemon/committed-fixture/vectors", group.name+".json"))
+			}
+			for _, path := range paths {
+				stored, err := os.ReadFile(path)
+				require.NoError(t, err)
+				if *updateSequencerReceiptVectors {
+					var document map[string]json.RawMessage
+					require.NoError(t, json.Unmarshal(stored, &document))
+					document["cases"], err = json.Marshal(expected)
+					require.NoError(t, err)
+					stored, err = json.MarshalIndent(document, "", "  ")
+					require.NoError(t, err)
+					stored = append(stored, '\n')
+					require.NoError(t, os.WriteFile(path, stored, 0o644))
+				}
+				require.NoError(t, json.Unmarshal(stored, &copy))
+				require.Equal(t, group.name, copy.Name)
+				require.Len(t, copy.Cases, group.count)
+				require.Equal(t, expected, copy.Cases, "%s cases must be byte-identical to the source", path)
+			}
 		})
 	}
 }
@@ -740,7 +990,16 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 // case refusing at exactly its named check.
 func seqVecAssertCases(t *testing.T, cases []seqVecCase, refusals map[string]seqVecRefusal) {
 	t.Helper()
-	require.Len(t, cases, 11)
+	require.Len(t, cases, 12)
+	counts := map[string]int{}
+	seen := map[string]bool{}
+	for _, c := range cases {
+		require.False(t, seen[c.ID], "duplicate vector case %s", c.ID)
+		seen[c.ID] = true
+		counts[c.Vector]++
+	}
+	require.Equal(t, map[string]int{"V1": 5, "V2": 1, "V3": 6}, counts)
+	require.True(t, seen["V1-layerxprograms-call"])
 	for _, c := range cases {
 		check, err := seqVecClientCheck(c.RawTransaction, c.ReceiptJSON, c.PrevSeqHash, c.PinnedKey)
 		if c.Vector == "V3" {
@@ -794,6 +1053,7 @@ func seqVecAssertFields(t *testing.T, c seqVecCase) {
 			"V1-erc20-approve":           "Approval(address,address,uint256)",
 			"V1-layerxledger-pay-exact":  "PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)",
 			"V1-layerxbridge-bridge-out": "BridgeOut(uint64,address,uint256,address,uint64)",
+			"V1-layerxprograms-call":     "ProgramCallOutcome(bytes32,bytes32,bytes32,uint64,uint8,uint16,uint16,uint32,uint32,int32,bytes32,bytes32,bytes32,bytes32)",
 		}[c.ID]
 		if !logged {
 			require.Equal(t, "V1-pax-transfer", c.ID)
@@ -804,6 +1064,37 @@ func seqVecAssertFields(t *testing.T, c seqVecCase) {
 		require.Len(t, result.Logs, 1, c.ID)
 		require.Equal(t, crypto.Keccak256Hash([]byte(topic)), result.Logs[0].Topics[0], c.ID)
 		require.Equal(t, *tx.To(), result.Logs[0].Address, c.ID)
+		if c.ID == "V1-layerxprograms-call" {
+			rawABI, err := os.ReadFile("../precompiles/layerxprograms/abi.json")
+			require.NoError(t, err)
+			programs, err := abi.JSON(bytes.NewReader(rawABI))
+			require.NoError(t, err)
+			method := programs.Methods["call"]
+			require.Equal(t, method.ID, tx.Data()[:4])
+			inputs, err := method.Inputs.Unpack(tx.Data()[4:])
+			require.NoError(t, err)
+			require.Equal(t, sha256.Sum256([]byte("sequencer receipt vector program")), inputs[0])
+			require.Equal(t, uint16(1), inputs[1])
+			require.Equal(t, "layerx_call", inputs[2])
+			log := result.Logs[0]
+			require.Equal(t, lp.Address, log.Address)
+			require.Equal(t, []common.Hash{programs.Events["ProgramCallOutcome"].ID, common.Hash(inputs[0].([32]byte))}, log.Topics)
+			outcome, err := programs.Events["ProgramCallOutcome"].Inputs.NonIndexed().Unpack(log.Data)
+			require.NoError(t, err)
+			require.NotEqual(t, [32]byte{}, outcome[0])
+			require.NotEqual(t, [32]byte{}, outcome[1])
+			require.Equal(t, uint64(0), outcome[2])
+			require.Equal(t, uint8(0), outcome[3])
+			require.Equal(t, inputs[1], outcome[5])
+			require.Equal(t, uint32(1), outcome[6])
+			require.Equal(t, uint32(1), outcome[7])
+			require.Equal(t, int32(0), outcome[8])
+			output, err := method.Outputs.Unpack(result.ReturnData)
+			require.NoError(t, err)
+			require.Equal(t, outcome[8], output[0])
+			require.Equal(t, uint8(1), output[1])
+			seqVecAssertProgramTerminal(t, output[2].([]byte))
+		}
 		if c.ID == "V1-layerxledger-pay-exact" {
 			require.Len(t, tx.Data(), 4+6*32, c.ID)
 			require.Len(t, result.Logs[0].Topics, 4, c.ID)
