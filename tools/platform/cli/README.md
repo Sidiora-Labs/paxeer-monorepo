@@ -210,6 +210,15 @@ server; `layerx mcp serve --daemon-binding FILE` serves it on stdin and stdout.
 The real OS credential integration tests require `dbus-daemon`, `dbus-send`, and `gnome-keyring-daemon`; when `dbus-daemon` is absent they print `skipped: dbus-daemon is not installed` and return early.
 Set `LAYERX_CLI_TESTS_REQUIRE_DBUS` to any value (including an empty value) to require these tests to run and preserve the missing-daemon panic.
 
+## TLS integration test input
+
+`public_http_uses_system_trust_and_checks_server_identity` requires the real
+`layerx-paxeer-boundary` binary built from `services/platform/Cargo.toml`. Supply
+its path through `LAYERX_PAXEER_BOUNDARY_BIN`, or place it in
+`tools/platform/target/debug/` beside the test target directory. The test uses
+OpenSSL to generate certificates and checks system trust and server identity
+against that boundary (decisions 2325 and 2499).
+
 ## Headless credential storage
 
 The OS keyring is the default. On a headless Linux server, container, or CI

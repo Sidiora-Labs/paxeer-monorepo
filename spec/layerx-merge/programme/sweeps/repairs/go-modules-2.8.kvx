@@ -1,0 +1,8 @@
+[repair.go-modules-2.8]
+target = "modules/spot/keeper"
+command = "CGO_ENABLED=1 go vet ./modules/spot/keeper/ && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/spot/keeper/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "modules/spot/keeper/custody_test.go supplies market IDs required by Decision 326, modules/spot/keeper/invariants_test.go asserts all registered invariants, and modules/spot/keeper/orders_test.go imports genesis into an empty spot store as required by Decision 328."
+producer_input_tests = []
+recorded_timeout_seconds = 600

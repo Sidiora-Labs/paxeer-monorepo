@@ -106,7 +106,26 @@ func TestNativeLifecycleCFixtures(t *testing.T) {
 					t.Fatalf("accepted changed protocol/type at %d", offset)
 				}
 			}
-			for length := 0; length < len(signed); length++ {
+			unsignedRequest, unsignedErr := NewNativeProgramLifecycleRequest(ordinal, payload, nil)
+			if ordinal == 1 || ordinal == 2 {
+				if unsignedErr != nil {
+					t.Fatalf("externally signed EVM lifecycle request rejected: %v", unsignedErr)
+				}
+				if !bytes.Equal(unsignedRequest.payload, payload) || len(unsignedRequest.signedActivity) != 0 || unsignedRequest.binding != (programCallBinding{}) {
+					t.Fatal("unsigned EVM lifecycle request changed its payload or claimed a native activity binding")
+				}
+				unsignedCalldata, err := unsignedRequest.EVMCalldata()
+				if err != nil {
+					t.Fatal(err)
+				}
+				signedCalldata, err := request.EVMCalldata()
+				if err != nil || !bytes.Equal(unsignedCalldata, signedCalldata) {
+					t.Fatalf("native signed activity changed the EVM lifecycle calldata: %v", err)
+				}
+			} else if unsignedErr == nil {
+				t.Fatal("accepted unsigned native wind-down")
+			}
+			for length := 1; length < len(signed); length++ {
 				if _, err := NewNativeProgramLifecycleRequest(ordinal, payload, signed[:length]); err == nil {
 					t.Fatalf("accepted signed prefix %d", length)
 				}

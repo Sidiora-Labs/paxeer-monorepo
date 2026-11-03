@@ -141,7 +141,7 @@ func TestEveryFrontendGeneratedRoleMatchesGoManifest(t *testing.T) {
 	if e = json.Unmarshal([]byte(text[:end]), &frontend); e != nil {
 		t.Fatal(e)
 	}
-	roles := map[string]string{"Router": "router", "Quoter": "quoter", "FeesRouter": "feesRouter", "OpticalRegistry": "opticalRegistry", "ProtocolConfig": "protocolConfig", "SidioraFactory": "factory", "SidioraNFT": "nft", "EventEmitter": "eventEmitter", "FeeAccumulator": "feeAccumulator", "PoolRegistry": "poolRegistry", "PoolBeacon": "poolBeacon", "USDL": "usdl"}
+	roles := map[string]string{"Router": "router", "Quoter": "quoter", "FeesRouter": "feesRouter", "OpticalRegistry": "opticalRegistry", "ProtocolConfig": "protocolConfig", "SidioraFactory": "factory", "SidioraNFT": "nft", "EventEmitter": "eventEmitter", "FeeAccumulator": "feeAccumulator", "PoolRegistry": "poolRegistry", "PoolBeacon": "poolBeacon", "USDL": "usdl", "Treasury": "treasury", LaunchpadPrecompileRole: "launchpadPrecompile"}
 	addresses := map[string]string{}
 	for role, key := range roles {
 		s, ok := frontend[key].(string)
