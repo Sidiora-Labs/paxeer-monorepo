@@ -1,0 +1,8 @@
+[repair.go-modules.5]
+target = "modules/epoch/keeper"
+command = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./modules/epoch/keeper/ && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/epoch/keeper/"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+result = "already-passing"
+change = "No product change; modules/epoch/keeper/epoch_test.go and modules/epoch/keeper/abci_catchup_test.go log application initialization and epoch checks to identify waits in verbose test output."
+producer_input_tests = []
+wall_time_measurement = "The verification evidence records the command start and finish times and the uncached package test duration."

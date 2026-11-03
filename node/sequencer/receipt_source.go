@@ -2,6 +2,8 @@ package sequencer
 
 import (
 	"bytes"
+	"context"
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -9,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -40,6 +43,62 @@ func NewReceiptSource(capacity int) *ReceiptSource {
 		panic("sequencer: receipt source capacity must be positive")
 	}
 	return &ReceiptSource{capacity: capacity}
+}
+
+func (s *ReceiptSource) restoreCommitted(ctx context.Context, log *wal.WAL) error {
+	tip := log.LastCommitted()
+	if tip == nil {
+		return nil
+	}
+	if tip.Height > math.MaxInt64 {
+		return fmt.Errorf("%w: committed height exceeds int64", wal.ErrMalformed)
+	}
+	s.Committed(int64(tip.Height))
+	return log.Scan(func(entry wal.Entry) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		a, ok := entry.(*wal.Accept)
+		if !ok || a.Height > tip.Height {
+			return nil
+		}
+		receipt, err := codec.DecodeReceipt(a.Receipt)
+		if err != nil {
+			return fmt.Errorf("sequencer: stored receipt at sequence %d: %w", a.Seq, err)
+		}
+		if receipt.SequencerSignature == nil || receipt.ProtocolVersion != receiptProtocolVersion ||
+			receipt.ModuleVersion != ReceiptLayoutVersion || receipt.ModuleID <= KernelReservedModules ||
+			!bytes.Equal(receipt.BatchID[:24], make([]byte, 24)) || a.Height == 0 ||
+			binary.BigEndian.Uint64(receipt.BatchID[24:]) != a.Height || receipt.GlobalSequence != a.Seq || a.Seq > tip.LastSeq {
+			return fmt.Errorf("%w: stored receipt at sequence %d", wal.ErrMalformed, a.Seq)
+		}
+		if len(receipt.Effects) == 0 || receipt.Effects[0].Kind != effectKindState ||
+			receipt.Effects[0].ModuleID != receipt.ModuleID || receipt.Effects[0].Ordinal != 0 || len(receipt.Effects[0].Body) < 109 {
+			return inputErr("stored receipt at sequence %d has no execution summary", a.Seq)
+		}
+		body := receipt.Effects[0].Body
+		vmDigest := sha256.Sum256([]byte(a.VMError))
+		if uint64(len(a.ReturnData)) != uint64(binary.BigEndian.Uint32(body[100:104])) ||
+			sha256.Sum256(a.ReturnData) != receipt.ActivityRoot || !bytes.Equal(vmDigest[:], body[68:100]) ||
+			len(a.LogData) != len(receipt.Effects)-1 || uint64(len(a.LogData)) != uint64(binary.BigEndian.Uint32(body[104:108])) {
+			return fmt.Errorf("%w: stored execution outputs at sequence %d", wal.ErrReceiptMismatch, a.Seq)
+		}
+		for i, data := range a.LogData {
+			effect := receipt.Effects[i+1]
+			digest := sha256.Sum256(data)
+			if effect.ModuleID != receipt.ModuleID || int(effect.Ordinal) != i+1 || effect.Kind != effectKindEvent ||
+				len(effect.Body) < 32 || !bytes.Equal(digest[:], effect.Body[len(effect.Body)-32:]) {
+				return fmt.Errorf("%w: stored log %d at sequence %d", wal.ErrReceiptMismatch, i, a.Seq)
+			}
+		}
+		send := evmrpc.SequencerSend{Nonce: receipt.FromSequence, Receipt: a.Receipt,
+			ReturnData: a.ReturnData, LogData: a.LogData, VMError: a.VMError}
+		if receipt.Operation != CosmosOperation && send.LogData == nil {
+			send.LogData = make([][]byte, 0)
+		}
+		s.record(common.Hash(receipt.ActivityID), send, true)
+		return nil
+	})
 }
 
 // Record stores an owned copy of an accepted, signed send. Invalid input or

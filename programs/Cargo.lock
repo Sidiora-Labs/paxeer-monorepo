@@ -878,7 +878,6 @@ dependencies = [
  "layerx-program-sdk",
  "layerx-programs-runtime",
  "sha2",
- "spin",
 ]
 
 [[package]]

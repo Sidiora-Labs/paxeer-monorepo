@@ -503,10 +503,9 @@ func TestAccountIDsMatchRustAndChain(t *testing.T) {
 		}
 		chain, err := codec.DeriveAccountID([]byte(account.Name))
 		if bytes.Contains([]byte(account.Name), []byte(assetMarker)) {
-			if !errors.Is(err, codec.ErrAccountIdentity) {
-				t.Fatalf("%s: chain now derives %x (%v); compare it with the Rust identifier", account.Name, chain, err)
+			if kind, ok := codec.AccountKind([]byte(account.Name)); !ok || kind != 14 {
+				t.Fatalf("%s: chain account kind %d (%v), want asset sub-account kind 14", account.Name, kind, ok)
 			}
-			continue
 		}
 		if err != nil || chain != got {
 			t.Fatalf("%s: %x, chain derives %x (%v)", account.Name, got, chain, err)

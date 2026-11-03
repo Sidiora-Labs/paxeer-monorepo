@@ -1,0 +1,8 @@
+[repair.go-modules.8]
+target = "modules/evm"
+command = "CGO_ENABLED=1 go vet ./modules/evm/ && GOFLAGS=-v CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/evm/"
+revision = "542f30607b0ed66a5c3bd210a7162e579fd3fd6f"
+result = "already-passing"
+change = "none"
+producer_input_tests = []
+package_wall_seconds = 19.665

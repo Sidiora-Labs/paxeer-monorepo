@@ -1,6 +1,7 @@
+mod support;
+
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
-use layerx_client::runtime_clock::RuntimeClock;
 use layerx_human_identity_provider::{
     AssertionConfig, AssertionReceipt, AssertionRefusal, AssertionVerifier, Policy, Server, State,
 };
@@ -25,6 +26,7 @@ type Result<T = ()> = std::result::Result<T, Box<dyn Error>>;
 
 const ISSUER: &str = "https://identity.example.test/auth/v1";
 const AUDIENCE: &str = "authenticated";
+const TENANT: &str = "identity-tests";
 const WALLET_DID: &str =
     "did:layerx:3f1c0a9e5b7d2468ace013579bdf2468ace013579bdf2468ace013579bdf2468";
 const OTHER_DID: &str =
@@ -185,6 +187,27 @@ impl TokenSigner {
 
     fn mint(&self, claims: &Value) -> String {
         let header = json!({ "alg": "ES256", "typ": "JWT", "kid": self.key_id });
+        self.sign(&header, claims)
+    }
+
+    fn sec1_hex(&self) -> String {
+        self.key
+            .verifying_key()
+            .to_encoded_point(false)
+            .as_bytes()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect()
+    }
+
+    fn binding(&self, subject: &str, did: &str) -> String {
+        self.sign(
+            &json!({"alg": "ES256", "typ": "layerx-wallet-binding+jwt"}),
+            &json!({"iss": ISSUER, "sub": subject, "did": did, "tenant": TENANT}),
+        )
+    }
+
+    fn sign(&self, header: &Value, claims: &Value) -> String {
         let input = format!(
             "{}.{}",
             URL_SAFE_NO_PAD.encode(header.to_string()),
@@ -289,8 +312,24 @@ impl Fixture {
         let root = directory.path().join("identity");
         let signer = TokenSigner::generate("signing-key-1")?;
         let server = KeySetServer::serve(&[signer.jwk()?])?;
+        let clock = Arc::new(StepClock::default());
+        let uid = rustix::process::geteuid().as_raw();
+        drop(
+            Server::bind(
+                &directory.path().join("initialize.sock"),
+                State::open(&root, policy())?,
+                uid,
+                Duration::from_secs(2),
+                clock.clone(),
+            )?
+            .with_binding_reader(
+                &directory.path().join("initialize-reader.sock"),
+                TENANT,
+                &[uid],
+            )?,
+        );
         Ok(Self {
-            clock: Arc::new(StepClock::default()),
+            clock,
             _directory: directory,
             root,
             server,
@@ -299,11 +338,12 @@ impl Fixture {
     }
 
     fn state(&self) -> Result<State> {
-        open_state(
-            &self.root,
-            config(self.server.url(), 300),
-            self.clock.clone(),
-        )
+        let mut state = State::open(&self.root, policy())?;
+        state.enable_assertion(
+            AssertionVerifier::new_with_clock(config(self.server.url(), 300), self.clock.clone())?
+                .with_binding_producer_key(&self.signer.sec1_hex())?,
+        )?;
+        Ok(state)
     }
 }
 
@@ -420,7 +460,11 @@ fn assertion_did_recorded_on_first_login_and_returned_on_reopen() -> Result {
     let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0004", now));
 
-    let (first, created) = state.open_or_create_by_assertion(&token, Some(WALLET_DID), now)?;
+    let (first, created) = state.open_or_create_by_assertion(
+        &token,
+        Some(&fixture.signer.binding("user-0004", WALLET_DID)),
+        now,
+    )?;
     assert!(created);
     assert_eq!(first.did(), Some(WALLET_DID));
     assert_eq!(
@@ -431,7 +475,11 @@ fn assertion_did_recorded_on_first_login_and_returned_on_reopen() -> Result {
     let (again, created) = state.open_or_create_by_assertion(&token, None, now)?;
     assert!(!created);
     assert_eq!(again.did(), Some(WALLET_DID));
-    let (same, created) = state.open_or_create_by_assertion(&token, Some(WALLET_DID), now)?;
+    let (same, created) = state.open_or_create_by_assertion(
+        &token,
+        Some(&fixture.signer.binding("user-0004", WALLET_DID)),
+        now,
+    )?;
     assert!(!created);
     assert_eq!(same, first);
     assert_eq!(state.assertion_receipts().len(), 1);
@@ -453,8 +501,11 @@ fn assertion_did_supplied_after_creation_is_recorded_with_a_receipt() -> Result 
     let token = fixture.signer.mint(&claims("user-0005", now));
 
     let (first, _) = state.open_or_create_by_assertion(&token, None, now)?;
-    let (recorded, created) =
-        state.open_or_create_by_assertion(&token, Some(WALLET_DID), now + 7)?;
+    let (recorded, created) = state.open_or_create_by_assertion(
+        &token,
+        Some(&fixture.signer.binding("user-0005", WALLET_DID)),
+        now + 7,
+    )?;
     assert!(!created);
     assert_eq!(recorded.principal(), first.principal());
     assert_eq!(recorded.did(), Some(WALLET_DID));
@@ -474,9 +525,17 @@ fn assertion_different_did_for_the_same_account_is_refused() -> Result {
     let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0006", now));
 
-    state.open_or_create_by_assertion(&token, Some(WALLET_DID), now)?;
+    state.open_or_create_by_assertion(
+        &token,
+        Some(&fixture.signer.binding("user-0006", WALLET_DID)),
+        now,
+    )?;
     assert!(state
-        .open_or_create_by_assertion(&token, Some(OTHER_DID), now)
+        .open_or_create_by_assertion(
+            &token,
+            Some(&fixture.signer.binding("user-0006", OTHER_DID)),
+            now
+        )
         .is_err());
     let principal = state
         .assertion_principal(ISSUER, "user-0006")
@@ -495,15 +554,27 @@ fn assertion_same_did_for_another_subject_is_refused() -> Result {
     let owner = fixture.signer.mint(&claims("user-0007", now));
     let other = fixture.signer.mint(&claims("user-0008", now));
 
-    state.open_or_create_by_assertion(&owner, Some(WALLET_DID), now)?;
+    state.open_or_create_by_assertion(
+        &owner,
+        Some(&fixture.signer.binding("user-0007", WALLET_DID)),
+        now,
+    )?;
     assert!(state
-        .open_or_create_by_assertion(&other, Some(WALLET_DID), now)
+        .open_or_create_by_assertion(
+            &other,
+            Some(&fixture.signer.binding("user-0008", WALLET_DID)),
+            now
+        )
         .is_err());
     assert!(state.assertion_principal(ISSUER, "user-0008").is_none());
 
     state.open_or_create_by_assertion(&other, None, now)?;
     assert!(state
-        .open_or_create_by_assertion(&other, Some(WALLET_DID), now)
+        .open_or_create_by_assertion(
+            &other,
+            Some(&fixture.signer.binding("user-0008", WALLET_DID)),
+            now
+        )
         .is_err());
     assert_eq!(
         state
@@ -528,7 +599,11 @@ fn assertion_invalid_did_is_refused() -> Result {
         "did:layerx:0000000000000000000000000000000000000000000000000000000000000000",
     ] {
         assert!(state
-            .open_or_create_by_assertion(&token, Some(invalid), now)
+            .open_or_create_by_assertion(
+                &token,
+                Some(&fixture.signer.binding("user-0009", invalid)),
+                now
+            )
             .is_err());
     }
     assert!(state.assertion_principal(ISSUER, "user-0009").is_none());
@@ -758,7 +833,7 @@ impl Drop for OwnedChild {
 }
 
 fn authority_now() -> Result<u64> {
-    Ok(RuntimeClock::from_environment()?
+    Ok(support::clock()?
         .sample(Duration::from_secs(1))?
         .unix_seconds())
 }
@@ -812,7 +887,7 @@ fn operation_four(socket: &Path, fields: &[&[u8]]) -> Result<(u8, Vec<Vec<u8>>)>
 }
 
 fn wait_ready(socket: &Path, child: &mut std::process::Child) -> Result {
-    let clock = RuntimeClock::from_environment()?;
+    let clock = support::clock()?;
     let mut expires = Deadline::start(clock.as_ref(), Duration::from_secs(5))?;
     while !expires.remaining(clock.as_ref())?.is_zero() {
         if exchange(socket, &request(0, &[])?).is_ok() {
@@ -845,7 +920,13 @@ fn assertion_wire_operation_four_returns_principal_and_recorded_did() -> Result 
     let principal = String::from_utf8(fields[0].clone())?;
     assert!(principal.starts_with("act_"));
 
-    let (status, fields) = operation_four(&socket, &[token.as_bytes(), WALLET_DID.as_bytes()])?;
+    let (status, fields) = operation_four(
+        &socket,
+        &[
+            token.as_bytes(),
+            fixture.signer.binding("user-0014", WALLET_DID).as_bytes(),
+        ],
+    )?;
     assert_eq!(status, 0);
     assert_eq!(
         fields,
@@ -864,13 +945,25 @@ fn assertion_wire_operation_four_returns_principal_and_recorded_did() -> Result 
         ]
     );
 
-    let (status, fields) = operation_four(&socket, &[token.as_bytes(), OTHER_DID.as_bytes()])?;
+    let (status, fields) = operation_four(
+        &socket,
+        &[
+            token.as_bytes(),
+            fixture.signer.binding("user-0014", OTHER_DID).as_bytes(),
+        ],
+    )?;
     assert_eq!(
         (status, fields.len()),
         (AssertionRefusal::Identity.status(), 0)
     );
     let other = fixture.signer.mint(&claims("user-0015", now));
-    let (status, _) = operation_four(&socket, &[other.as_bytes(), WALLET_DID.as_bytes()])?;
+    let (status, _) = operation_four(
+        &socket,
+        &[
+            other.as_bytes(),
+            fixture.signer.binding("user-0015", WALLET_DID).as_bytes(),
+        ],
+    )?;
     assert_eq!(status, AssertionRefusal::Identity.status());
 
     let mut expired = claims("user-0014", now);
@@ -977,10 +1070,16 @@ fn assertion_binary_serve_wires_the_configuration_from_the_environment() -> Resu
         .mode(0o600)
         .open(&policy_file)?
         .write_all(&serde_json::to_vec(&policy())?)?;
+    let clock_command = support::command()?;
     let command = || {
         let mut command =
             std::process::Command::new(env!("CARGO_BIN_EXE_layerx-human-identity-provider"));
         command
+            .envs(
+                clock_command
+                    .get_envs()
+                    .map(|(key, value)| (key, value.expect("clock binding value"))),
+            )
             .arg("serve")
             .env("LAYERX_HUMAN_IDENTITY_PROVIDER_STATE_ROOT", &fixture.root)
             .env("LAYERX_HUMAN_IDENTITY_PROVIDER_SOCKET", &socket)
@@ -1005,13 +1104,32 @@ fn assertion_binary_serve_wires_the_configuration_from_the_environment() -> Resu
             )
             .env("LAYERX_HUMAN_IDENTITY_PROVIDER_ASSERTION_ISSUER", ISSUER)
             .env(
+                "LAYERX_HUMAN_IDENTITY_PROVIDER_ASSERTION_BINDING_PRODUCER_KEY",
+                fixture.signer.sec1_hex(),
+            )
+            .env(
+                "LAYERX_HUMAN_IDENTITY_PROVIDER_BINDING_SOCKET",
+                directory.join("binding.sock"),
+            )
+            .env("LAYERX_HUMAN_IDENTITY_PROVIDER_BINDING_TENANT", TENANT)
+            .env(
+                "LAYERX_HUMAN_IDENTITY_PROVIDER_BINDING_ALLOWED_UIDS",
+                rustix::process::geteuid().as_raw().to_string(),
+            )
+            .env(
                 "LAYERX_HUMAN_IDENTITY_PROVIDER_ASSERTION_AUDIENCE",
                 AUDIENCE,
             )
             .spawn()?,
     );
     wait_ready(&socket, &mut configured.0)?;
-    let (status, fields) = operation_four(&socket, &[token.as_bytes(), WALLET_DID.as_bytes()])?;
+    let (status, fields) = operation_four(
+        &socket,
+        &[
+            token.as_bytes(),
+            fixture.signer.binding("user-0017", WALLET_DID).as_bytes(),
+        ],
+    )?;
     assert_eq!(status, 0);
     assert_eq!(fields.len(), 2);
     assert!(fields[0].starts_with(b"act_"));
@@ -1034,7 +1152,7 @@ fn assertion_binary_serve_wires_the_configuration_from_the_environment() -> Resu
             .env("LAYERX_HUMAN_IDENTITY_PROVIDER_ASSERTION_ISSUER", ISSUER)
             .spawn()?,
     );
-    let clock = RuntimeClock::from_environment()?;
+    let clock = support::clock()?;
     let mut expires = Deadline::start(clock.as_ref(), Duration::from_secs(5))?;
     let status = loop {
         if let Some(status) = partial.0.try_wait()? {

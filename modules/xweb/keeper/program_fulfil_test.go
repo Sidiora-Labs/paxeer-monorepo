@@ -664,6 +664,6 @@ func TestFeeAccountDerivation(t *testing.T) {
 	require.Len(t, preimage, 51)
 	id := ProgramFeeAccountID(asset)
 	require.Equal(t, types.Hash32(sha256.Sum256(preimage)), id)
-	require.Equal(t, address.Module("layerx", id[:]), ProgramFeeAccount(asset))
+	require.Equal(t, sdk.AccAddress(address.Module("layerx", id[:])), ProgramFeeAccount(asset))
 	require.NotEqual(t, ProgramFeeAccount(asset), ProgramFeeAccount(sidProgramAsset.id))
 }
