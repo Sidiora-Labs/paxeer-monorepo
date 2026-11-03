@@ -14535,3 +14535,58 @@ fix = "When a task changes a type that tests construct, every test file construc
 title = "A sweep repair of a crate that another open task is already fixing must wait for that task"
 symptom = "The layerx-mcp sweep repair hit the same live-node tests issue task 18.1578.1 isolates; running both at once would have made the repair task re-solve or skip the proof."
 fix = "Make the sweep repair require the open task that owns the failure and leave its verify exercising the fixed tests."
+
+[gotcha.2943]
+title = "A re-sweep that started before the repair it depended on was published failed on the old break"
+symptom = "The human-service re-sweep (22.99.88) built the custody test target minutes before the custody.rs repair of 22.95.11 landed and stopped on E0063/E0560/E0609."
+fix = "Make the re-sweep require the repair task and requalify it on the current main once the repair is published."
+
+[gotcha.2944]
+title = "The Rust test harness skip filter matches by substring"
+symptom = "A seven-test real-workload family in the hosted PaxAI service shares the _real_ name marker; listing each test separately bloated the verify command."
+fix = "Exclude a family with its shared marker in one --skip filter and list every excluded test by name in the repair record."
+
+[gotcha.2945]
+title = "The fee-token sequencer receipt vector names a different payment asset on purpose"
+symptom = "A repair stopped because sequencer-receipt-fee-token-v1.json carries paymentDenom usid while the other vectors carry uhpx and read it as a fixture disagreement."
+fix = "The fee-token vector records a fee paid in another asset (22.23.8, 22.95.3); it is not a defect and must not be edited."
+
+[gotcha.2946]
+title = "Generated pointer files go stale when the workflow spec changes without a re-render"
+symptom = "tools/specgen TestRepositorySpecIsValidAndCurrent reports CLAUDE.md, AGENTS.md, .cursor/rules/spec-workflow.mdc and .github/copilot-instructions.md stale and fails every specgen change."
+fix = "Re-render with go run ./tools/specgen -root . and commit the four outputs in the same change."
+
+[gotcha.2947]
+title = "Feature-gated helpers used by ungated tests break an all-targets build with default features"
+symptom = "The vendored wasm-instrument crate defines DynamicHelper and add_dynamic_helpers under the bulk feature while two helper-sequence tests in src/gas_metering/mod.rs use them without a gate; cargo build --all-targets fails with E0433/E0425."
+fix = "Gate the tests with the same feature attribute as the items they use, or enable the feature in the test profile; never widen default features to make a test compile."
+
+[gotcha.2948]
+title = "A manifest change without a lock refresh fails the requalification build under --locked"
+symptom = "The gateway repair added two dependencies to services/platform/hosted/gateway/Cargo.toml; the workspace lock was outside the edit scope, so the requalification build stopped with the lock file needs to be updated."
+fix = "Give every task that may change a manifest the workspace lock file in its scope and refresh only the entries that manifest needs."
+
+[gotcha.2949]
+title = "Sweep record header counts drift from their blocks after block-level re-records"
+symptom = "go-consensus.kvx declared 161 passed targets while all 162 blocks passed, failing the summary generator for an unrelated task."
+fix = "Recompute header counts from the blocks whenever a block result changes."
+
+[gotcha.2950]
+title = "The receipt source is rebuilt only from entries after the last committed WAL entry"
+symptom = "node/sequencer/wal replay feeds exec only the entries after the last COMMITTED entry, so a send committed before a restart has no receipt after it and pax_sequencerReceipt answers nothing for it."
+fix = "Rebuild the receipt source from every retained ACCEPT entry on start, marking those at or below the commit watermark committed without re-executing them."
+
+[gotcha.2951]
+title = "Test fixtures serve receipt-key heights as hex strings while the node serves numbers"
+symptom = "The agent daemon node fixtures answer firstHeight and lastHeight as 0x strings; rpc/sequencer_receipt.go encodes them as uint64 numbers, so a decoder matched to the real wire refuses the fixture."
+fix = "Make every fixture answer the exact JSON shape of the Go wire type and decode numbers as numbers."
+
+[gotcha.2952]
+title = "Conformance digest constants go stale when the recorded fixture directory is regenerated"
+symptom = "x-websearch recorded_suite hashes every file under fixtures/gateway and counts the gateway endpoint rules; after re-recording, CONFORMANCE_SUITE_DIGEST and CONFORMANCE_VECTOR_COUNT in src/lib.rs no longer match and the gate reports a conformance error."
+fix = "Regenerate the digest and count constants in the same change that re-records the fixtures."
+
+[gotcha.2953]
+title = "Rendered spec pointer files that differ from the committed adapters make the qualification candidate drift"
+symptom = "The qualification done step re-renders CLAUDE.md, AGENTS.md, the cursor rule and the copilot instructions; when the committed files differ from the render, the verified tree is not the candidate (same_candidate unmet)."
+fix = "Commit the four pointer files exactly as the renderer writes them and keep the generator check mode identical to the renderer."

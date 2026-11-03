@@ -1,0 +1,7 @@
+[repair.rust-test-programs.3]
+target = "layerx-programs-registry"
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --no-fail-fast -- --skip native_receipt_authorized_interface_reads"
+revision = "c56bf8dab2a36860f56543433ebe85802b492d14"
+result = "repaired"
+change = "programs/crates/layerx-programs-registry/tests/interface_protocol.rs validates emitted native inputs in a private test directory and preserves explicitly configured input export."
+producer_input_tests = ["native_receipt_authorized_interface_reads: requires PAXEER_X_INTERFACE_FIXTURES containing native evidence.kvx files from the program-interface producer, using modules and interfaces exported through PAXEER_X_INTERFACE_INPUTS."]

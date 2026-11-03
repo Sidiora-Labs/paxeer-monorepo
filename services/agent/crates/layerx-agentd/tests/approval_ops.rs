@@ -56,15 +56,29 @@ fn tenant(value: &str) -> TenantId {
 }
 
 fn prepared(id: u8) -> Prepared {
-    let canonical = format!("canonical-approved-activity-{id}").into_bytes();
-    let actor = AgentDid::new("did:layerx:approval-agent")
+    let call = layerx_crypto::evm_transaction::Eip1559Call {
+        chain_id: 125,
+        nonce: u64::from(id),
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 100_000,
+        to: [3; 20],
+        data: [
+            layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)").to_vec(),
+            [vec![0; 12], vec![5; 20]].concat(),
+            [vec![0; 31], vec![50]].concat(),
+        ]
+        .concat(),
+    };
+    let canonical = call.encode_unsigned();
+    let actor = AgentDid::new("0404040404040404040404040404040404040404")
         .unwrap_or_else(|error| panic!("actor: {error:?}"));
     Prepared {
         preparation_ref: PreparationRef::new(format!("prepared-{id}"))
             .unwrap_or_else(|error| panic!("preparation: {error:?}")),
         unsigned_canonical_bytes: CanonicalBytes::new(canonical.clone())
             .unwrap_or_else(|error| panic!("canonical: {error:?}")),
-        signing_preimage: SigningPreimage::new(vec![id; 32])
+        signing_preimage: SigningPreimage::new(call.signing_hash().to_vec())
             .unwrap_or_else(|error| panic!("preimage: {error:?}")),
         disclosure: Disclosure {
             canonical_digest: digest(&canonical),
@@ -91,8 +105,9 @@ fn prepared(id: u8) -> Prepared {
 
 fn context(tenant_id: &TenantId, id: u8) -> ApprovalContext {
     ApprovalContext {
+        actor_address: [4; 20],
         tenant: tenant_id.clone(),
-        agent: Did::new(b"did:layerx:approval-agent")
+        agent: Did::new(b"0404040404040404040404040404040404040404")
             .unwrap_or_else(|error| panic!("agent: {error:?}")),
         session: SessionId([2; 32]),
         capability: CapabilityId([3; 32]),
@@ -153,7 +168,7 @@ fn approval_service_lists_and_gets_only_the_authenticated_tenant() {
     assert_eq!(record.held_activity, prepared(1).disclosure);
     assert_eq!(
         record.canonical_bytes_digest,
-        digest(b"canonical-approved-activity-1")
+        prepared(1).disclosure.canonical_digest
     );
     assert_eq!(record.state, ApprovalState::AwaitingApproval);
     assert_eq!(record.enforcement, ApprovalEnforcement::DaemonOnly);

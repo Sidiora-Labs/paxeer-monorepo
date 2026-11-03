@@ -165,7 +165,7 @@ func TestServe_NoCacheConfigured(t *testing.T) {
 }
 
 func TestServe_UnknownBucket(t *testing.T) {
-	h, _ := setup(t)
+	h := New(Deps{})
 	rec := do(t, h, http.MethodGet, "/media/nope/key.png", nil)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", rec.Code)

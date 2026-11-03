@@ -303,6 +303,7 @@ fn prepared(id: u8) -> Prepared {
 
 fn context(id: u8) -> ApprovalContext {
     ApprovalContext {
+        actor_address: [4; 20],
         tenant: tenant(),
         agent: Did::new(b"did:layerx:decision-agent")
             .unwrap_or_else(|error| panic!("agent: {error:?}")),
