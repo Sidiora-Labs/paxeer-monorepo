@@ -136920,7 +136920,7 @@ do_4 = "Decision 2496 (continue): the tests native_receipt_authorized_interface_
 
 [task.22.99.74]
 title = "Repair the inventory sweep target layerx-program-sdk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
