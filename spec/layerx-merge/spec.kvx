@@ -129166,7 +129166,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.29]
 title = "Port the agent daemon event ingestor and gap backfill off the LNI frame transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.33"]
