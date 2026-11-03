@@ -138550,7 +138550,7 @@ do_4 = "Decision 2496 (continue): the tests repository_corpora_are_loaded_and_fu
 
 [task.22.99.45]
 title = "Repair the inventory sweep target wasm-instrument"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.97.10"]
