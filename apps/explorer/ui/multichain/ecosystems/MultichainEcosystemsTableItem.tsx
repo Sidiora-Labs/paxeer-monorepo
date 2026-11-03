@@ -1,4 +1,4 @@
-import { Box, HStack, Stat } from '@chakra-ui/react';
+import { Box, HStack } from '@chakra-ui/react';
 import React from 'react';
 
 import type * as multichain from '@blockscout/multichain-aggregator-types';
@@ -10,6 +10,7 @@ import { WALLETS_INFO } from 'lib/web3/wallets';
 import { IconButton } from 'toolkit/chakra/icon-button';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
+import { Stat } from 'toolkit/chakra/stat';
 import { TableCell, TableRow } from 'toolkit/chakra/table';
 import { Tooltip } from 'toolkit/chakra/tooltip';
 import { TruncatedText } from 'toolkit/components/truncation/TruncatedText';

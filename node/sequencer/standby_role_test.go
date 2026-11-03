@@ -783,19 +783,20 @@ func TestReplicatorReleaseOverLaggingStandbyCommit(t *testing.T) {
 	}()
 	select {
 	case result := <-released:
-		t.Fatalf("open returned before the standby consensus commit: %+v", result)
-	case <-time.After(250 * time.Millisecond):
-	}
-	require.Equal(t, openHeight-1, backupApp.App.LastBlockHeight())
-	commit(backupApp.App)
-	select {
-	case result := <-released:
 		require.NoError(t, result.err)
 		require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: accepted.Seq}, result.ack)
 		require.Less(t, time.Since(started), cfg.ReplicationTimeout)
 	case <-time.After(cfg.ReplicationTimeout):
-		t.Fatal("standby did not acknowledge after consensus committed")
+		t.Fatal("standby did not acknowledge the durable OPEN before consensus committed")
 	}
+	require.Equal(t, openHeight-1, backupApp.App.LastBlockHeight())
+	persisted := driverEntries(t, cfg.WALDir)
+	require.Equal(t, uint64(openHeight+1), persisted[len(persisted)-1].(*wal.Open).Height)
+	commit(backupApp.App)
+	require.Eventually(t, func() bool {
+		snapshot, err := backupApp.App.PendingSnapshot()
+		return err == nil && snapshot.BlockHeight() == openHeight+1
+	}, cfg.ReplicationTimeout, time.Millisecond)
 	require.NoError(t, s.Err())
 }
 
@@ -861,7 +862,7 @@ func TestStandbyTakeLeaseWhileOpenWaitsForCommit(t *testing.T) {
 	ack := standbyLeaseExchange(t, conn,
 		&wal.Lease{Epoch: 1},
 		&wal.Open{Height: uint64(openHeight), OpenTimeMs: openMs, BaseFee: uint256.NewInt(0)},
-		&wal.Seal{Height: uint64(openHeight), FromSeq: startSeq, ToSeq: startSeq, LastSeqHash: startSeqHash})
+		&wal.Seal{Height: uint64(openHeight), FromSeq: startSeq + 1, ToSeq: startSeq, LastSeqHash: startSeqHash})
 	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: startSeq}, ack)
 	require.Equal(t, int64(committedTip), a.LastBlockHeight())
 	frame, err := wal.NewFrame(&wal.Open{Height: uint64(openHeight + 1), OpenTimeMs: openMs + 1, BaseFee: uint256.NewInt(0)})
@@ -883,9 +884,13 @@ func TestStandbyTakeLeaseWhileOpenWaitsForCommit(t *testing.T) {
 	}()
 	select {
 	case result := <-exchanged:
-		t.Fatalf("OPEN answered before the previous height committed: %+v", result)
-	case <-time.After(20 * time.Millisecond):
+		require.NoError(t, result.err)
+		require.Equal(t, sequencer.AckOK, sequencer.AckStatus(result.reply[0]))
+		require.Equal(t, startSeq, binary.BigEndian.Uint64(result.reply[1:9]))
+	case <-time.After(cfg.ReplicationTimeout):
+		t.Fatal("durable OPEN was not acknowledged before the previous height committed")
 	}
+	require.Equal(t, int64(committedTip), a.LastBlockHeight())
 	responsive := func(name string, call func()) {
 		t.Helper()
 		returned := make(chan struct{})
@@ -908,15 +913,10 @@ func TestStandbyTakeLeaseWhileOpenWaitsForCommit(t *testing.T) {
 	var leaseErr error
 	responsive("TakeLease", func() { leaseErr = s.TakeLease(lease) })
 	require.NoError(t, leaseErr)
-	select {
-	case result := <-exchanged:
-		require.NoError(t, result.err)
-		require.Equal(t, sequencer.AckRefused, sequencer.AckStatus(result.reply[0]))
-		require.Equal(t, startSeq, binary.BigEndian.Uint64(result.reply[1:9]))
-		require.Equal(t, lease.Epoch, binary.BigEndian.Uint64(result.reply[25:33]))
-	case <-time.After(cfg.ReplicationTimeout + time.Second):
-		t.Fatal("waiting OPEN did not answer after lease takeover")
-	}
+	ack = standbyLeaseExchange(t, conn, &wal.Open{Height: uint64(openHeight + 1), OpenTimeMs: openMs + 1, BaseFee: uint256.NewInt(0)})
+	require.Equal(t, sequencer.AckRefused, ack.Status)
+	require.Equal(t, startSeq, ack.LastSeq)
+	require.Equal(t, lease.Epoch, ack.Epoch)
 	require.ErrorIs(t, s.RefusalReason(), sequencer.ErrFenced)
 	require.NoError(t, s.Err())
 	require.Equal(t, int64(committedTip), a.LastBlockHeight())
