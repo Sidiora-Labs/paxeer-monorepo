@@ -26,6 +26,7 @@ func TestHostAuthorityDelegatedScope(t *testing.T) {
 	chain := newTestChain(t)
 	host := chain.host(t)
 	actor := newTestActor(t, 101)
+	seedProgramsFeeRecord(t, chain, actor.id)
 	scope := AuthorityScope{
 		ModuleMask: 1 << 9, ActivityOrdinalMin: 4, ActivityOrdinalMax: 4,
 		AssetID: [32]byte{11}, MaximumPerActivity: sdk.NewInt(12),

@@ -131231,7 +131231,7 @@ do_7 = "Decision 2295: attempt 2 (d800e2d50) failed on its own guard `missing LA
 
 [task.21.92.1]
 title = "Prove the agent boundary conformance path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.7.2", "18.1502.1", "22.9.24", "22.9.27"]
@@ -135214,7 +135214,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.16]
 title = "Close the open dependency advisories of the go-root manifests (37 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1", "22.25.4"]
@@ -187956,7 +187956,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.25.2]
 title = "Admit the active programs fee record and keep unrelated module-9 rows out of the lxphost loader tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["22.25.4"]
