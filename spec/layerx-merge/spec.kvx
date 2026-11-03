@@ -128852,7 +128852,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.16]
 title = "Make bind_call construct every precompile call the agent daemon's EVM preparation offers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.9.33"]
