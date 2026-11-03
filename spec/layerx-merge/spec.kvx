@@ -234845,7 +234845,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.213]
 title = "Reconcile drifted interface registry rows: tools/bringup and tools/qualification part 15"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234875,7 +234875,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.212]
 title = "Reconcile drifted interface registry rows: Makefile and docker/kernel part 14"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234905,7 +234905,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.211]
 title = "Reconcile drifted interface registry rows: Makefile part 13"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234935,7 +234935,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.210]
 title = "Reconcile drifted interface registry rows: Makefile part 12"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234965,7 +234965,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.209]
 title = "Reconcile drifted interface registry rows: Makefile part 11"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
