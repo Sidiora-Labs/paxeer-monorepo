@@ -176537,7 +176537,7 @@ do_29 = "The verify runs production_configuration_validates_without_retired_oper
 
 [task.10.20.6]
 title = "Prove the human service production startup against the merged node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 45
 requires = ["10.20.3", "5.50.7", "5.98.4", "9.25.16", "13.8.3", "10.99.2", "10.1.9", "10.21.8", "9.100.2", "22.9.24", "22.9.33", "22.24.24"]
