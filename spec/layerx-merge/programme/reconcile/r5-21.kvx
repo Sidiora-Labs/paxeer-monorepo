@@ -1,0 +1,419 @@
+[reconcile.r5-21]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 52
+
+[row.r5-21.1]
+interface = "interface.5.go-storage-common-keys-evm-key-empty"
+verdict = "served"
+path = "storage/common/keys/evm.go"
+line = 38
+symbol = "EVMKeyEmpty"
+evidence = "EVMKeyEmpty EVMKeyKind = iota still starts the enum and ParseEVMKey returns it only for zero-length keys."
+
+[row.r5-21.2]
+interface = "interface.5.go-storage-common-keys-evm-key-nonce"
+verdict = "served"
+path = "storage/common/keys/evm.go"
+line = 39
+symbol = "EVMKeyNonce"
+evidence = "EVMKeyNonce remains the next EVMKeyKind constant; ParseEVMKey strips the nonce prefix from a validated 20-byte address."
+
+[row.r5-21.3]
+interface = "interface.5.go-storage-common-keys-evm-key-code-hash"
+verdict = "served"
+path = "storage/common/keys/evm.go"
+line = 40
+symbol = "EVMKeyCodeHash"
+evidence = "EVMKeyCodeHash remains an EVMKeyKind constant; ParseEVMKey strips the code-hash prefix from a validated 20-byte address."
+
+[row.r5-21.4]
+interface = "interface.5.go-storage-common-keys-evm-key-code"
+verdict = "served"
+path = "storage/common/keys/evm.go"
+line = 41
+symbol = "EVMKeyCode"
+evidence = "EVMKeyCode remains an EVMKeyKind constant; ParseEVMKey strips the code prefix from a validated 20-byte address."
+
+[row.r5-21.5]
+interface = "interface.5.go-storage-common-keys-layer-x-ledger-store-key"
+verdict = "served"
+path = "storage/common/keys/store_keys.go"
+line = 46
+symbol = "LayerXLedgerStoreKey"
+evidence = "Declaration remains LayerXLedgerStoreKey = \"layerxledger\"; the string signature is unchanged. Unlike the registry notes, MemIAVLStoreKeys now includes it at storage/common/keys/store_keys.go:91 and node/app.go:377 includes it in kvStoreKeyNames."
+
+[row.r5-21.6]
+interface = "interface.5.key-storage-common-keys-layer-x-ledger-store-key"
+verdict = "served"
+path = "storage/common/keys/store_keys.go"
+line = 46
+symbol = "layerxledger"
+evidence = "Declaration remains LayerXLedgerStoreKey = \"layerxledger\"; the string signature is unchanged. Unlike the registry notes, MemIAVLStoreKeys now includes it at storage/common/keys/store_keys.go:91 and node/app.go:377 includes it in kvStoreKeyNames."
+
+[row.r5-21.7]
+interface = "interface.5.go-storage-common-keys-layer-x-auth-store-key"
+verdict = "served"
+path = "storage/common/keys/store_keys.go"
+line = 47
+symbol = "LayerXAuthStoreKey"
+evidence = "Declaration remains LayerXAuthStoreKey = \"layerxauth\"; the string signature is unchanged. Unlike the registry notes, MemIAVLStoreKeys now includes it at storage/common/keys/store_keys.go:92 and node/app.go:378 includes it in kvStoreKeyNames."
+
+[row.r5-21.8]
+interface = "interface.5.key-storage-common-keys-layer-x-auth-store-key"
+verdict = "served"
+path = "storage/common/keys/store_keys.go"
+line = 47
+symbol = "layerxauth"
+evidence = "Declaration remains LayerXAuthStoreKey = \"layerxauth\"; the string signature is unchanged. Unlike the registry notes, MemIAVLStoreKeys now includes it at storage/common/keys/store_keys.go:92 and node/app.go:378 includes it in kvStoreKeyNames."
+
+[row.r5-21.9]
+interface = "interface.5.go-storage-common-keys-layer-x-pay-store-key"
+verdict = "served"
+path = "storage/common/keys/store_keys.go"
+line = 48
+symbol = "LayerXPayStoreKey"
+evidence = "Declaration remains LayerXPayStoreKey = \"layerxpay\"; the string signature is unchanged. Unlike the registry notes, MemIAVLStoreKeys now includes it at storage/common/keys/store_keys.go:93 and node/app.go:379 includes it in kvStoreKeyNames."
+
+[row.r5-21.10]
+interface = "interface.5.key-storage-common-keys-layer-x-pay-store-key"
+verdict = "served"
+path = "storage/common/keys/store_keys.go"
+line = 48
+symbol = "layerxpay"
+evidence = "Declaration remains LayerXPayStoreKey = \"layerxpay\"; the string signature is unchanged. Unlike the registry notes, MemIAVLStoreKeys now includes it at storage/common/keys/store_keys.go:93 and node/app.go:379 includes it in kvStoreKeyNames."
+
+[row.r5-21.11]
+interface = "interface.5.go-storage-common-keys-layer-x-programs-store-key"
+verdict = "served"
+path = "storage/common/keys/store_keys.go"
+line = 50
+symbol = "LayerXProgramsStoreKey"
+evidence = "Declaration remains LayerXProgramsStoreKey = \"layerxprograms\"; the string signature is unchanged. Unlike the registry notes, MemIAVLStoreKeys now includes it at storage/common/keys/store_keys.go:95 and node/app.go:381 includes it in kvStoreKeyNames. The declaration comment now names precompiles/layerxprograms instead of modules/layerxprograms/types.StoreKey."
+
+[row.r5-21.12]
+interface = "interface.5.key-storage-common-keys-layer-x-programs-store-key"
+verdict = "served"
+path = "storage/common/keys/store_keys.go"
+line = 50
+symbol = "layerxprograms"
+evidence = "Declaration remains LayerXProgramsStoreKey = \"layerxprograms\"; the string signature is unchanged. Unlike the registry notes, MemIAVLStoreKeys now includes it at storage/common/keys/store_keys.go:95 and node/app.go:381 includes it in kvStoreKeyNames. The declaration comment now names precompiles/layerxprograms instead of modules/layerxprograms/types.StoreKey."
+
+[row.r5-21.13]
+interface = "interface.5.go-storage-common-keys-mem-iavl-store-keys"
+verdict = "served"
+path = "storage/common/keys/store_keys.go"
+line = 60
+symbol = "MemIAVLStoreKeys"
+evidence = "var MemIAVLStoreKeys = []string retains its Go type but its contents now include LayerXLedgerStoreKey, LayerXAuthStoreKey, LayerXPayStoreKey and LayerXProgramsStoreKey at lines 91-95, alongside chains, agent and host stores. LayerXAnchorStoreKey remains at line 82 and node/app.go:368; the requested anchor removal has not occurred."
+
+[row.r5-21.14]
+interface = "interface.5.go-storage-config-state-commit-config-template"
+verdict = "served"
+path = "storage/config/toml.go"
+line = 4
+symbol = "StateCommitConfigTemplate"
+evidence = "const StateCommitConfigTemplate remains a raw-string constant. Its emitted configuration now contains sc-snapshot-writer-limit = {{ .StateCommit.MemIAVLConfig.SnapshotWriterLimit }} at line 44, fulfilling the change in override.J33.1; node/paxdb.go:109-110 reads it. Snapshot count comments also now specify the uint32 bounds."
+
+[row.r5-21.15]
+interface = "interface.5.cfg-app-state-commit-flatkv-fsync"
+verdict = "served"
+path = "storage/config/toml.go"
+line = 77
+symbol = "fsync"
+evidence = "Template signature remains fsync = {{ .StateCommit.FlatKVConfig.Fsync }}. The change is the consumer: storage/config/flatkv_parse.go ParseFlatKVConfig reads state-commit.flatkv.fsync with cast.ToBoolE; node/paxdb.go:115-119 installs the parsed FlatKVConfig instead of leaving defaults unconditionally."
+
+[row.r5-21.16]
+interface = "interface.5.cfg-app-state-commit-flatkv-async-write-buffer"
+verdict = "served"
+path = "storage/config/toml.go"
+line = 81
+symbol = "async-write-buffer"
+evidence = "Template signature remains async-write-buffer = {{ .StateCommit.FlatKVConfig.AsyncWriteBuffer }}. The change is the consumer: storage/config/flatkv_parse.go ParseFlatKVConfig reads state-commit.flatkv.async-write-buffer with cast.ToIntE; node/paxdb.go:115-119 installs the parsed FlatKVConfig instead of leaving defaults unconditionally."
+
+[row.r5-21.17]
+interface = "interface.5.cfg-app-state-commit-flatkv-snapshot-interval"
+verdict = "served"
+path = "storage/config/toml.go"
+line = 86
+symbol = "snapshot-interval"
+evidence = "Template signature remains snapshot-interval = {{ .StateCommit.FlatKVConfig.SnapshotInterval }}. The change is the consumer: storage/config/flatkv_parse.go ParseFlatKVConfig reads state-commit.flatkv.snapshot-interval through parseFlatKVSnapshotCount, rejecting values outside uint32; node/paxdb.go:115-119 installs the parsed FlatKVConfig instead of leaving defaults unconditionally."
+
+[row.r5-21.18]
+interface = "interface.5.cfg-app-state-commit-flatkv-snapshot-keep-recent"
+verdict = "served"
+path = "storage/config/toml.go"
+line = 91
+symbol = "snapshot-keep-recent"
+evidence = "Template signature remains snapshot-keep-recent = {{ .StateCommit.FlatKVConfig.SnapshotKeepRecent }}. The change is the consumer: storage/config/flatkv_parse.go ParseFlatKVConfig reads state-commit.flatkv.snapshot-keep-recent through parseFlatKVSnapshotCount, rejecting values outside uint32; node/paxdb.go:115-119 installs the parsed FlatKVConfig instead of leaving defaults unconditionally."
+
+[row.r5-21.19]
+interface = "interface.5.met-paxdb-pebble-pebble-get-latency-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 62
+symbol = "pebble_get_latency"
+evidence = "newMVCCMetrics still registers meter.Float64Histogram(pebble_get_latency) with unit s in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:265 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.20]
+interface = "interface.5.met-paxdb-pebble-pebble-apply-changeset-latency-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 68
+symbol = "pebble_apply_changeset_latency"
+evidence = "newMVCCMetrics still registers meter.Float64Histogram(pebble_apply_changeset_latency) with unit s in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:271 under the same meter. The name argument is now a package constant resolving to the identical metric string (declared at lines 12-19)."
+
+[row.r5-21.21]
+interface = "interface.5.met-paxdb-pebble-pebble-apply-changeset-async-latency-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 74
+symbol = "pebble_apply_changeset_async_latency"
+evidence = "newMVCCMetrics still registers meter.Float64Histogram(pebble_apply_changeset_async_latency) with unit s in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:277 under the same meter. The name argument is now a package constant resolving to the identical metric string (declared at lines 12-19)."
+
+[row.r5-21.22]
+interface = "interface.5.met-paxdb-pebble-pebble-prune-latency-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 80
+symbol = "pebble_prune_latency"
+evidence = "newMVCCMetrics still registers meter.Float64Histogram(pebble_prune_latency) with unit s in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:283 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.23]
+interface = "interface.5.met-paxdb-pebble-pebble-import-latency-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 86
+symbol = "pebble_import_latency"
+evidence = "newMVCCMetrics still registers meter.Float64Histogram(pebble_import_latency) with unit s in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:289 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.24]
+interface = "interface.5.met-paxdb-pebble-pebble-batch-write-latency-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 92
+symbol = "pebble_batch_write_latency"
+evidence = "newMVCCMetrics still registers meter.Float64Histogram(pebble_batch_write_latency) with unit s in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:295 under the same meter. The name argument is now a package constant resolving to the identical metric string (declared at lines 12-19)."
+
+[row.r5-21.25]
+interface = "interface.5.met-paxdb-pebble-pebble-compaction-count-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 99
+symbol = "pebble_compaction_count"
+evidence = "newMVCCMetrics still registers meter.Int64Counter(pebble_compaction_count) with unit {count} in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:302 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.26]
+interface = "interface.5.met-paxdb-pebble-pebble-compaction-duration-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 104
+symbol = "pebble_compaction_duration"
+evidence = "newMVCCMetrics still registers meter.Float64Histogram(pebble_compaction_duration) with unit s in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:307 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.27]
+interface = "interface.5.met-paxdb-pebble-pebble-compaction-bytes-read-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 110
+symbol = "pebble_compaction_bytes_read"
+evidence = "newMVCCMetrics still registers meter.Int64Counter(pebble_compaction_bytes_read) with unit By in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:313 under the same meter. The name argument is now a package constant resolving to the identical metric string (declared at lines 12-19)."
+
+[row.r5-21.28]
+interface = "interface.5.met-paxdb-pebble-pebble-compaction-bytes-written-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 115
+symbol = "pebble_compaction_bytes_written"
+evidence = "newMVCCMetrics still registers meter.Int64Counter(pebble_compaction_bytes_written) with unit By in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:318 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.29]
+interface = "interface.5.met-paxdb-pebble-pebble-flush-count-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 121
+symbol = "pebble_flush_count"
+evidence = "newMVCCMetrics still registers meter.Int64Counter(pebble_flush_count) with unit {count} in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:425 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.30]
+interface = "interface.5.met-paxdb-pebble-pebble-flush-duration-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 126
+symbol = "pebble_flush_duration"
+evidence = "newMVCCMetrics still registers meter.Float64Histogram(pebble_flush_duration) with unit s in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:430 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.31]
+interface = "interface.5.met-paxdb-pebble-pebble-flush-bytes-written-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 132
+symbol = "pebble_flush_bytes_written"
+evidence = "newMVCCMetrics still registers meter.Int64Counter(pebble_flush_bytes_written) with unit By in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:436 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.32]
+interface = "interface.5.met-paxdb-pebble-pebble-sstable-count-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 138
+symbol = "pebble_sstable_count"
+evidence = "newMVCCMetrics still registers meter.Int64Gauge(pebble_sstable_count) with unit {count} in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:478 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.33]
+interface = "interface.5.met-paxdb-pebble-pebble-sstable-total-size-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 143
+symbol = "pebble_sstable_total_size"
+evidence = "newMVCCMetrics still registers meter.Int64Gauge(pebble_sstable_total_size) with unit By in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:483 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.34]
+interface = "interface.5.met-paxdb-pebble-pebble-memtable-count-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 149
+symbol = "pebble_memtable_count"
+evidence = "newMVCCMetrics still registers meter.Int64Gauge(pebble_memtable_count) with unit {count} in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:619 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.35]
+interface = "interface.5.met-paxdb-pebble-pebble-memtable-total-size-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 154
+symbol = "pebble_memtable_total_size"
+evidence = "newMVCCMetrics still registers meter.Int64Gauge(pebble_memtable_total_size) with unit By in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:624 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.36]
+interface = "interface.5.met-paxdb-pebble-pebble-wal-size-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 158
+symbol = "pebble_wal_size"
+evidence = "newMVCCMetrics still registers meter.Int64Gauge(pebble_wal_size) with unit By in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:640 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.37]
+interface = "interface.5.met-paxdb-pebble-pebble-cache-hits-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 164
+symbol = "pebble_cache_hits"
+evidence = "newMVCCMetrics still registers meter.Int64Counter(pebble_cache_hits) with unit {count} in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:970 under the same meter. The name argument is now a package constant resolving to the identical metric string (declared at lines 12-19)."
+
+[row.r5-21.38]
+interface = "interface.5.met-paxdb-pebble-pebble-cache-misses-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 169
+symbol = "pebble_cache_misses"
+evidence = "newMVCCMetrics still registers meter.Int64Counter(pebble_cache_misses) with unit {count} in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:975 under the same meter. The name argument is now a package constant resolving to the identical metric string (declared at lines 12-19)."
+
+[row.r5-21.39]
+interface = "interface.5.met-paxdb-pebble-pebble-cache-size-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 174
+symbol = "pebble_cache_size"
+evidence = "newMVCCMetrics still registers meter.Int64Gauge(pebble_cache_size) with unit By in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:980 under the same meter. The name argument is now a package constant resolving to the identical metric string (declared at lines 12-19)."
+
+[row.r5-21.40]
+interface = "interface.5.met-paxdb-pebble-pebble-batch-size-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 180
+symbol = "pebble_batch_size"
+evidence = "newMVCCMetrics still registers meter.Int64Histogram(pebble_batch_size) with unit By in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:986 under the same meter. The name argument is now a package constant resolving to the identical metric string (declared at lines 12-19)."
+
+[row.r5-21.41]
+interface = "interface.5.met-paxdb-pebble-pebble-pending-changes-queue-depth-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 186
+symbol = "pebble_pending_changes_queue_depth"
+evidence = "newMVCCMetrics still registers meter.Int64Gauge(pebble_pending_changes_queue_depth) with unit {count} in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:992 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.42]
+interface = "interface.5.met-paxdb-pebble-pebble-iterator-iterations-2"
+verdict = "served"
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+line = 191
+symbol = "pebble_iterator_iterations"
+evidence = "newMVCCMetrics still registers meter.Float64Histogram(pebble_iterator_iterations) with unit {count} in meter paxdb_pebble. The registered name, instrument type and unit are unchanged; the duplicate registration remains in storage/db_engine/pebbledb/pebble_metrics.go:997 under the same meter. The name argument remains a string literal; only its source line has drifted."
+
+[row.r5-21.43]
+interface = "interface.5.wasm-std-msg-distribution-fund-community-pool"
+verdict = "served"
+path = "wasm-runtime/types/msg.go"
+line = 251
+symbol = "fund_community_pool"
+evidence = "JSON field fund_community_pool remains declared as FundCommunityPool *FundCommunityPoolMsg. EncodeDistributionMsg in wasm/x/wasm/keeper/handler_plugin_encoders.go:132 still has no FundCommunityPool case and returns ErrUnknownMsg for this variant. The served verdict records declaration presence; it does not claim message execution support."
+
+[row.r5-21.44]
+interface = "interface.5.wasm-std-msg-wasm-instantiate2"
+verdict = "served"
+path = "wasm-runtime/types/msg.go"
+line = 285
+symbol = "instantiate2"
+evidence = "JSON field instantiate2 remains declared as Instantiate2 *Instantiate2Msg. EncodeWasmMsg in wasm/x/wasm/keeper/handler_plugin_encoders.go:210 still has no Instantiate2 case and returns ErrUnknownMsg for this variant. The served verdict records declaration presence; it does not claim message execution support."
+
+[row.r5-21.45]
+interface = "interface.5.wasm-std-qry-bank-supply"
+verdict = "served"
+path = "wasm-runtime/types/queries.go"
+line = 113
+symbol = "supply"
+evidence = "JSON field supply remains declared as Supply *SupplyQuery. BankQuerier at wasm/x/wasm/keeper/query_plugins.go:167 handles only Balance and AllBalances and returns UnsupportedRequest for this variant. The served verdict records declaration presence; query execution remains unsupported."
+
+[row.r5-21.46]
+interface = "interface.5.wasm-std-qry-bank-denom-metadata"
+verdict = "served"
+path = "wasm-runtime/types/queries.go"
+line = 116
+symbol = "denom_metadata"
+evidence = "JSON field denom_metadata remains declared as DenomMetadata *DenomMetadataQuery. BankQuerier at wasm/x/wasm/keeper/query_plugins.go:167 has no DenomMetadata branch and returns UnsupportedRequest for this variant. The served verdict records declaration presence; query execution remains unsupported."
+
+[row.r5-21.47]
+interface = "interface.5.wasm-std-qry-bank-all-denom-metadata"
+verdict = "served"
+path = "wasm-runtime/types/queries.go"
+line = 117
+symbol = "all_denom_metadata"
+evidence = "JSON field all_denom_metadata remains declared as AllDenomMetadata *AllDenomMetadataQuery. BankQuerier at wasm/x/wasm/keeper/query_plugins.go:167 has no AllDenomMetadata branch and returns UnsupportedRequest for this variant. The served verdict records declaration presence; query execution remains unsupported."
+
+[row.r5-21.48]
+interface = "interface.5.wasm-std-qry-distribution-delegator-withdraw-address"
+verdict = "served"
+path = "wasm-runtime/types/queries.go"
+line = 370
+symbol = "delegator_withdraw_address"
+evidence = "JSON field delegator_withdraw_address remains declared as DelegatorWithdrawAddress *DelegatorWithdrawAddressQuery. QueryPlugins.HandleQuery at wasm/x/wasm/keeper/query_plugins.go:144 has no Distribution dispatch and falls through to wasmvmtypes.Unknown{}, rather than the UnsupportedRequest described in the registry. The served verdict records declaration presence; query execution remains unsupported."
+
+[row.r5-21.49]
+interface = "interface.5.wasm-std-qry-distribution-delegation-rewards"
+verdict = "served"
+path = "wasm-runtime/types/queries.go"
+line = 372
+symbol = "delegation_rewards"
+evidence = "JSON field delegation_rewards remains declared as DelegationRewards *DelegationRewardsQuery. QueryPlugins.HandleQuery at wasm/x/wasm/keeper/query_plugins.go:144 has no Distribution dispatch and falls through to wasmvmtypes.Unknown{}, rather than the UnsupportedRequest described in the registry. The served verdict records declaration presence; query execution remains unsupported."
+
+[row.r5-21.50]
+interface = "interface.5.wasm-std-qry-distribution-delegation-total-rewards"
+verdict = "served"
+path = "wasm-runtime/types/queries.go"
+line = 374
+symbol = "delegation_total_rewards"
+evidence = "JSON field delegation_total_rewards remains declared as DelegationTotalRewards *DelegationTotalRewardsQuery. QueryPlugins.HandleQuery at wasm/x/wasm/keeper/query_plugins.go:144 has no Distribution dispatch and falls through to wasmvmtypes.Unknown{}, rather than the UnsupportedRequest described in the registry. The served verdict records declaration presence; query execution remains unsupported."
+
+[row.r5-21.51]
+interface = "interface.5.wasm-std-qry-distribution-delegator-validators"
+verdict = "served"
+path = "wasm-runtime/types/queries.go"
+line = 376
+symbol = "delegator_validators"
+evidence = "JSON field delegator_validators remains declared as DelegatorValidators *DelegatorValidatorsQuery. QueryPlugins.HandleQuery at wasm/x/wasm/keeper/query_plugins.go:144 has no Distribution dispatch and falls through to wasmvmtypes.Unknown{}, rather than the UnsupportedRequest described in the registry. The served verdict records declaration presence; query execution remains unsupported."
+
+[row.r5-21.52]
+interface = "interface.5.wasm-std-qry-wasm-code-info"
+verdict = "served"
+path = "wasm-runtime/types/queries.go"
+line = 479
+symbol = "code_info"
+evidence = "JSON field code_info remains declared as CodeInfo *CodeInfoQuery. WasmQuerier at wasm/x/wasm/keeper/query_plugins.go:509 handles Smart, Raw and ContractInfo only and returns UnsupportedRequest for CodeInfo. The served verdict records declaration presence; query execution remains unsupported."

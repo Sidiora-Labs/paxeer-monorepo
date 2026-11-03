@@ -1,0 +1,535 @@
+[reconcile.r16-101]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 58
+
+[row.r16-101.1]
+interface = "interface.16.mk-agent-qualify-wire"
+verdict = "retired"
+path = "Makefile"
+line = 3064
+symbol = "agent-qualify-wire"
+evidence = "No agent-qualify-wire declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 1 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave3.py:19"]
+
+[row.r16-101.2]
+interface = "interface.16.mk-test-paxd-domain"
+verdict = "served"
+path = "Makefile"
+line = 2441
+symbol = "test-paxd-domain"
+evidence = "Declares test-paxd-domain: paxd-native-libs at the current line; prerequisite signature is unchanged. The recipe invokes test-lxphost and CGO Go tests for node, EVM keeper and RPC packages."
+
+[row.r16-101.3]
+interface = "interface.16.mk-core-test-all"
+verdict = "served"
+path = "Makefile"
+line = 2563
+symbol = "core-test-all"
+evidence = "Declares core-test-all: test test-kernel test-module-ctx test-dispatch test-receipts, continued below. The aggregate no longer depends on test-replay-golden-local; its current tail runs sanitizer targets."
+
+[row.r16-101.4]
+interface = "interface.16.mk-core-qualification-environment"
+verdict = "served"
+path = "Makefile"
+line = 2581
+symbol = "core-qualification-environment"
+evidence = "Declares core-qualification-environment: qualify-replay qualify-fuzz. The registered test-replay-golden prerequisite has been removed from this signature."
+
+[row.r16-101.5]
+interface = "interface.16.mk-test-programs-oracle-read"
+verdict = "served"
+path = "Makefile"
+line = 2820
+symbol = "test-programs-oracle-read"
+evidence = "Declares test-programs-oracle-read: $(BUILD_DIR)/tests/test_programs_oracle_read; the prerequisite signature is unchanged. Its recipe now runs the binary and tests/ledger/lxp_check_sole_writer.sh, with no lx_oracle_adapter_isolation.sh invocation."
+
+[row.r16-101.6]
+interface = "interface.16.mk-test-web-program-path"
+verdict = "retired"
+path = "Makefile"
+line = 3547
+symbol = "test-web-program-path"
+evidence = "No test-web-program-path declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["scripts/ci/xweb-workflow-check.sh:321", "tools/ci/tests/test_makefile_wave1.py:20"]
+
+[row.r16-101.7]
+interface = "interface.16.mk-test-paxai-blob-admission"
+verdict = "retired"
+path = "Makefile"
+line = 3646
+symbol = "test-paxai-blob-admission"
+evidence = "No test-paxai-blob-admission declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_makefile_wave5.py:30", "tools/paxeer-x/ai_evidence.py:705"]
+
+[row.r16-101.8]
+interface = "interface.16.mk-test-paxai-storage-continuity"
+verdict = "retired"
+path = "Makefile"
+line = 3660
+symbol = "test-paxai-storage-continuity"
+evidence = "No test-paxai-storage-continuity declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 1 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave5.py:31"]
+
+[row.r16-101.9]
+interface = "interface.16.mk-test-paxai-native-gaps"
+verdict = "served"
+path = "Makefile"
+line = 2936
+symbol = "test-paxai-native-gaps"
+evidence = "Declares test-paxai-native-gaps: $(BUILD_DIR)/tests/lxp_test_paxai_native_gaps; signature is unchanged and its recipe executes that native test binary. Registry override.J77.96 is recorded, but the row is served at this declaration."
+
+[row.r16-101.10]
+interface = "interface.16.mk-programs-core-test"
+verdict = "served"
+path = "Makefile"
+line = 2939
+symbol = "programs-core-test"
+evidence = "Declares programs-core-test with continued binary prerequisites. Compared with the registered signature, programs_occupancy_batch and programs_fee_governance are gone, and programs_transfer_principal and programs_call_escrow_principal are included."
+
+[row.r16-101.11]
+interface = "interface.16.mk-programs-protocol-regression"
+verdict = "served"
+path = "Makefile"
+line = 2960
+symbol = "programs-protocol-regression"
+evidence = "Declares programs-protocol-regression: test-kernel test-module-ctx test-dispatch, continued with test-receipts test-state-root test-snapshot; test-replay-golden-local has been removed from the signature."
+
+[row.r16-101.12]
+interface = "interface.16.mk-builddir-tests-programs-parallel-differential"
+verdict = "served"
+path = "Makefile"
+line = 2978
+symbol = "$(BUILD_DIR)/tests/programs_parallel_differential"
+evidence = "Declares $(BUILD_DIR)/tests/programs_parallel_differential: programs/tests/differential/parallel.c with test_call_activity.c and native libraries. The cmd/layerxd/lxp_daemon_batch_wal.c prerequisite and compiler input have been removed."
+
+[row.r16-101.13]
+interface = "interface.16.mk-programs-differential"
+verdict = "served"
+path = "Makefile"
+line = 2986
+symbol = "programs-differential"
+evidence = "Declares programs-differential: $(BUILD_DIR)/tests/programs_parallel_differential; this signature is unchanged. The recipe runs Rust replay and determinism tests plus the C differential binary; registry override.J77.93 remains recorded."
+
+[row.r16-101.14]
+interface = "interface.16.mk-test-daemon-metered-allowance"
+verdict = "retired"
+path = "Makefile"
+line = 3825
+symbol = "test-daemon-metered-allowance"
+evidence = "No test-daemon-metered-allowance declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:149", "tools/ci/tests/test_makefile_wave6.py:23"]
+
+[row.r16-101.15]
+interface = "interface.16.mk-test-daemon-native-onboarding"
+verdict = "retired"
+path = "Makefile"
+line = 3833
+symbol = "test-daemon-native-onboarding"
+evidence = "No test-daemon-native-onboarding declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:157", "tools/ci/tests/test_makefile_wave6.py:24"]
+
+[row.r16-101.16]
+interface = "interface.16.mk-test-daemon-module-maintenance"
+verdict = "retired"
+path = "Makefile"
+line = 3841
+symbol = "test-daemon-module-maintenance"
+evidence = "No test-daemon-module-maintenance declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:153", "tools/ci/tests/test_makefile_wave6.py:25"]
+
+[row.r16-101.17]
+interface = "interface.16.mk-test-daemon-handover"
+verdict = "retired"
+path = "Makefile"
+line = 3845
+symbol = "test-daemon-handover"
+evidence = "No test-daemon-handover declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:125", "tools/ci/tests/test_makefile_wave6.py:26"]
+
+[row.r16-101.18]
+interface = "interface.16.mk-test-daemon-handover-crash"
+verdict = "retired"
+path = "Makefile"
+line = 3849
+symbol = "test-daemon-handover-crash"
+evidence = "No test-daemon-handover-crash declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:133", "tools/ci/tests/test_makefile_wave6.py:27"]
+
+[row.r16-101.19]
+interface = "interface.16.mk-test-daemon-handover-peers"
+verdict = "retired"
+path = "Makefile"
+line = 3855
+symbol = "test-daemon-handover-peers"
+evidence = "No test-daemon-handover-peers declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:137", "tools/ci/tests/test_makefile_wave6.py:28"]
+
+[row.r16-101.20]
+interface = "interface.16.mk-test-daemon-handover-consumers"
+verdict = "retired"
+path = "Makefile"
+line = 3863
+symbol = "test-daemon-handover-consumers"
+evidence = "No test-daemon-handover-consumers declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:129", "tools/ci/tests/test_makefile_wave6.py:30"]
+
+[row.r16-101.21]
+interface = "interface.16.mk-test-program-admission"
+verdict = "retired"
+path = "Makefile"
+line = 3871
+symbol = "test-program-admission"
+evidence = "No test-program-admission declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:185", "tools/ci/tests/test_makefile_wave6.py:31"]
+
+[row.r16-101.22]
+interface = "interface.16.mk-test-daemon-withdrawal"
+verdict = "retired"
+path = "Makefile"
+line = 3875
+symbol = "test-daemon-withdrawal"
+evidence = "No test-daemon-withdrawal declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:165", "tools/ci/tests/test_makefile_wave6.py:32"]
+
+[row.r16-101.23]
+interface = "interface.16.mk-test-daemon-withdrawal-replica-recovery"
+verdict = "retired"
+path = "Makefile"
+line = 3881
+symbol = "test-daemon-withdrawal-replica-recovery"
+evidence = "No test-daemon-withdrawal-replica-recovery declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:165", "tools/ci/tests/test_makefile_wave6.py:33"]
+
+[row.r16-101.24]
+interface = "interface.16.mk-test-daemon-paid-withdrawal"
+verdict = "retired"
+path = "Makefile"
+line = 3895
+symbol = "test-daemon-paid-withdrawal"
+evidence = "No test-daemon-paid-withdrawal declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 1 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave6.py:34"]
+
+[row.r16-101.25]
+interface = "interface.16.mk-test-program-simulate"
+verdict = "retired"
+path = "Makefile"
+line = 3899
+symbol = "test-program-simulate"
+evidence = "No test-program-simulate declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:189", "tools/ci/tests/test_makefile_wave6.py:35"]
+
+[row.r16-101.26]
+interface = "interface.16.mk-latency-wave-build"
+verdict = "served"
+path = "Makefile"
+line = 3075
+symbol = "latency-wave-build"
+evidence = "Declares latency-wave-build: $(BUILD_DIR)/bin/layerx-genesis-build. The registered layerxd prerequisite is removed; the recipe builds the escrow WASM example and platform crates and compiles the real_node test."
+
+[row.r16-101.27]
+interface = "interface.16.mk-custody-proof-build"
+verdict = "retired"
+path = "Makefile"
+line = 3915
+symbol = "custody-proof-build"
+evidence = "No custody-proof-build declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 3 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 3
+remaining = ["services/agent/tools/test_run_real_node_script.py:13", "tests/ci/test_retired_module_drivers.py:12", "tools/ci/tests/test_makefile_wave5.py:21"]
+
+[row.r16-101.28]
+interface = "interface.16.mk-test-light-credit"
+verdict = "retired"
+path = "Makefile"
+line = 3925
+symbol = "test-light-credit"
+evidence = "No test-light-credit declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 1 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave5.py:19"]
+
+[row.r16-101.29]
+interface = "interface.16.mk-test-bridge-credit"
+verdict = "retired"
+path = "Makefile"
+line = 3939
+symbol = "test-bridge-credit"
+evidence = "No test-bridge-credit declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 1 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave5.py:20"]
+
+[row.r16-101.30]
+interface = "interface.16.mk-test-daemon-maintenance-publication"
+verdict = "retired"
+path = "Makefile"
+line = 3943
+symbol = "test-daemon-maintenance-publication"
+evidence = "No test-daemon-maintenance-publication declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:145", "tools/ci/tests/test_makefile_wave6.py:36"]
+
+[row.r16-101.31]
+interface = "interface.16.mk-test-daemon-maintenance-crash"
+verdict = "retired"
+path = "Makefile"
+line = 3951
+symbol = "test-daemon-maintenance-crash"
+evidence = "No test-daemon-maintenance-crash declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:141", "tools/ci/tests/test_makefile_wave6.py:37"]
+
+[row.r16-101.32]
+interface = "interface.16.mk-test-bridge-maintenance-publication"
+verdict = "retired"
+path = "Makefile"
+line = 3955
+symbol = "test-bridge-maintenance-publication"
+evidence = "No test-bridge-maintenance-publication declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:89", "tools/ci/tests/test_makefile_wave6.py:38"]
+
+[row.r16-101.33]
+interface = "interface.16.mk-test-daemon-allowance"
+verdict = "retired"
+path = "Makefile"
+line = 4010
+symbol = "test-daemon-allowance"
+evidence = "No test-daemon-allowance declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:93", "tools/ci/tests/test_makefile_wave6.py:39"]
+
+[row.r16-101.34]
+interface = "interface.16.mk-beta-qualify-focused"
+verdict = "served"
+path = "Makefile"
+line = 3087
+symbol = "beta-qualify-focused"
+evidence = "Declares beta-qualify-focused: with no prerequisites, unchanged from the registered signature. Its release recipe no longer requests test-daemon-lni-admission or agent-test-lni-schema and now starts with make build layerx-genesis-build."
+
+[row.r16-101.35]
+interface = "interface.16.mk-test-daemon-availability"
+verdict = "retired"
+path = "Makefile"
+line = 4050
+symbol = "test-daemon-availability"
+evidence = "No test-daemon-availability declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 1 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave6.py:40"]
+
+[row.r16-101.36]
+interface = "interface.16.mk-platform-hosted-topology-check"
+verdict = "served_elsewhere"
+path = "services/platform/Makefile.inc"
+line = 199
+symbol = "platform-hosted-topology-check"
+evidence = "The declaration moved from Makefile to services/platform/Makefile.inc: platform-hosted-topology-check: platform-hosted-agentd-check. The former platform-hosted-guarantor-topology-check prerequisite is replaced; the recipe runs hosted/tests/topology-check.sh."
+
+[row.r16-101.37]
+interface = "interface.16.mk-test-state-proof"
+verdict = "served"
+path = "Makefile"
+line = 3119
+symbol = "test-state-proof"
+evidence = "Declares test-state-proof: $(BUILD_DIR)/tests/lxp_test_state_proof; prerequisite signature is unchanged. Its generated vectors are now compared with contracts/config/native-state-proofs.json instead of the retired layerx-paxeer-client vector path."
+
+[row.r16-101.38]
+interface = "interface.16.mk-test-native-withdrawal-proof"
+verdict = "served"
+path = "Makefile"
+line = 3135
+symbol = "test-native-withdrawal-proof"
+evidence = "Declares test-native-withdrawal-proof: $(BUILD_DIR)/tests/test_asset_withdraw_activity; prerequisite signature is unchanged. Its recipe only runs the activity binary and no longer reads layerx-paxeer-client/tests/vectors/native-withdrawal-proof.json."
+
+[row.r16-101.39]
+interface = "interface.16.mk-layerx-module-registry"
+verdict = "served"
+path = "Makefile"
+line = 3140
+symbol = "layerx-module-registry"
+evidence = "Declares layerx-module-registry: $(BUILD_DIR)/bin/layerx-module-registry; signature remains unchanged. The binary rule compiles cmd/layerx-module-registry/main.c against the native libraries; registry override.J77.94 remains recorded."
+
+[row.r16-101.40]
+interface = "interface.16.mk-test-paxeer-membership-sync"
+verdict = "retired"
+path = "Makefile"
+line = 4196
+symbol = "test-paxeer-membership-sync"
+evidence = "No test-paxeer-membership-sync declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 1 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave5.py:22"]
+
+[row.r16-101.41]
+interface = "interface.16.mk-test-paxeer-anchor-submit"
+verdict = "retired"
+path = "Makefile"
+line = 4207
+symbol = "test-paxeer-anchor-submit"
+evidence = "No test-paxeer-anchor-submit declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 1 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave5.py:23"]
+
+[row.r16-101.42]
+interface = "interface.16.mk-builddir-tests-lxp-test-paxeer-membership-sync"
+verdict = "retired"
+path = "Makefile"
+line = 4213
+symbol = "$(BUILD_DIR)/tests/lxp_test_paxeer_membership_sync"
+evidence = "No $(BUILD_DIR)/tests/lxp_test_paxeer_membership_sync declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 0 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 0
+remaining = []
+
+[row.r16-101.43]
+interface = "interface.16.mk-test-paxeer-membership-chain"
+verdict = "retired"
+path = "Makefile"
+line = 4221
+symbol = "test-paxeer-membership-chain"
+evidence = "No test-paxeer-membership-chain declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 1 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 1
+remaining = ["tools/ci/tests/test_makefile_wave5.py:29"]
+
+[row.r16-101.44]
+interface = "interface.16.mk-test-daemon-grant-issuance"
+verdict = "retired"
+path = "Makefile"
+line = 4230
+symbol = "test-daemon-grant-issuance"
+evidence = "No test-daemon-grant-issuance declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:97", "tools/ci/tests/test_makefile_wave6.py:49"]
+
+[row.r16-101.45]
+interface = "interface.16.mk-authority-grant-fixtures"
+verdict = "retired"
+path = "Makefile"
+line = 4233
+symbol = "authority-grant-fixtures"
+evidence = "No authority-grant-fixtures declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:9", "tools/ci/tests/test_makefile_wave6.py:50"]
+
+[row.r16-101.46]
+interface = "interface.16.mk-authority-grant-fixtures-check"
+verdict = "retired"
+path = "Makefile"
+line = 4236
+symbol = "authority-grant-fixtures-check"
+evidence = "No authority-grant-fixtures-check declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:13", "tools/ci/tests/test_makefile_wave6.py:51"]
+
+[row.r16-101.47]
+interface = "interface.16.mk-test-daemon-owner-rotation"
+verdict = "retired"
+path = "Makefile"
+line = 4264
+symbol = "test-daemon-owner-rotation"
+evidence = "No test-daemon-owner-rotation declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:161", "tools/ci/tests/test_makefile_wave6.py:52"]
+
+[row.r16-101.48]
+interface = "interface.16.mk-paxeer-x-finality-recordings-build"
+verdict = "retired"
+path = "Makefile"
+line = 4299
+symbol = "paxeer-x-finality-recordings-build"
+evidence = "No paxeer-x-finality-recordings-build declaration or literal remains in Makefile. Repository-wide fixed-string search excluding spec and docs found 2 other files; the remaining list records the first matching line in each file, including retirement checks and any stale callers."
+remaining_refs = 2
+remaining = ["tools/ci/tests/test_completion_gate.py:73", "tools/ci/tests/test_makefile_wave6.py:55"]
+
+[row.r16-101.49]
+interface = "interface.16.fmt-dock-human-service-dockerfile"
+verdict = "served"
+path = "docker/human-service/Dockerfile"
+line = 1
+symbol = "FROM rust:1.91.1-bookworm"
+evidence = "The declaring FROM rust:1.91.1-bookworm image line remains unchanged. The image still builds the human service, KMS, agent host and identity/security providers, and installs human-entrypoint with service as its entrypoint role; this is an existing image, not a pending interface."
+
+[row.r16-101.50]
+interface = "interface.16.cli-dock-human-service-entrypoint"
+verdict = "served"
+path = "docker/human-service/entrypoint.sh"
+line = 1
+symbol = "#!/bin/sh"
+evidence = "The CLI declaration remains #!/bin/sh, with set -eu and role dispatch. The current security branch executes layerx-human-security-provider under layerx-runtime-clock at line 240; the service branch follows at line 242. The shell signature is unchanged."
+
+[row.r16-101.51]
+interface = "interface.16.fmt-dock-kernel-dockerfile"
+verdict = "served"
+path = "docker/kernel/Dockerfile"
+line = 1
+symbol = "# The kernel app image"
+evidence = "The opening kernel image comment remains unchanged. Its build now requests layerx-genesis-build and layerx-module-registry, without layerxd, layerx-handover or layerx-guarantor binaries; layerxanchor ABI COPY instructions still remain at lines 328 and 357."
+
+[row.r16-101.52]
+interface = "interface.16.cli-dock-kernel-init"
+verdict = "served"
+path = "docker/kernel/init.sh"
+line = 1
+symbol = "#!/bin/bash"
+evidence = "The CLI declaration remains #!/bin/bash. The script now selects full or native through LAYERX_KERNEL_PROFILE and refuses authority-human configuration in native mode; legacy custody and anchor exports still occur in the same script. The interpreter signature is unchanged."
+
+[row.r16-101.53]
+interface = "interface.16.fmt-dock-kernel-kernel-env-example"
+verdict = "served"
+path = "docker/kernel/kernel.env.example"
+line = 1
+symbol = "# /etc/layerx/kernel.env"
+evidence = "The opening /etc/layerx/kernel.env format comment remains unchanged. The example now selects LAYERX_KERNEL_PROFILE=native and provides registry authorization variables; the LNI transport variable noted in the registry is absent, while full-profile human options remain."
+
+[row.r16-101.54]
+interface = "interface.16.fmt-dock-layerx-dockerfile"
+verdict = "served"
+path = "docker/layerx/Dockerfile"
+line = 1
+symbol = "ARG PAXCTL_VERSION=v0.0.5-pax.1"
+evidence = "Declares ARG PAXCTL_VERSION=v0.0.5-pax.1 unchanged at line 1. The native image stage now copies spec/layerx-merge/contracts/address-table.md; it still copies the generated lxp_checkpoint_settlement.h header into the build output."
+
+[row.r16-101.55]
+interface = "interface.16.fmt-dock-paxeer-dockerfile-paxd-node"
+verdict = "served"
+path = "docker/paxeer/Dockerfile.paxd-node"
+line = 1
+symbol = "# The LayerX kernel (C)"
+evidence = "The opening LayerX kernel static-library comment remains unchanged. The native build now copies spec/layerx-merge/contracts/address-table.md and builds paxd-native-libs; its output still includes generated lxp_checkpoint_settlement.h for the cgo build."
+
+[row.r16-101.56]
+interface = "interface.16.fmt-dock-platform-node-dockerfile"
+verdict = "served"
+path = "docker/platform-node/Dockerfile"
+line = 1
+symbol = "ARG LXP_REVISION"
+evidence = "Declares ARG LXP_REVISION unchanged at line 1. The Dockerfile still requests layerxd, layerx-handover and layerx-guarantor and copies custody/anchor ABIs; those legacy references persist, so the recorded change requirement is not evidence of their removal."
+
+[row.r16-101.57]
+interface = "interface.16.cfg-foundry-toml-profile-default-test-j16"
+verdict = "retired"
+path = "foundry.toml"
+line = 3
+symbol = "test = \"tests/solidity\""
+evidence = "The default-profile test = \"tests/solidity\" assignment is absent from foundry.toml. Only profile.names declares test = \"tests/solidity/names\" at line 23; the old default value has no replacement declaration. Repository search excludes spec and docs; remaining entries count literal references once per other file."
+remaining_refs = 0
+remaining = []
+
+[row.r16-101.58]
+interface = "interface.16.cfg-foundry-toml-profile-default-fs-permissions-j16"
+verdict = "served"
+path = "foundry.toml"
+line = 16
+symbol = "fs_permissions = ["
+evidence = "Declares fs_permissions = [ at line 16. The registered read grants for ./contracts/config and ./tests/vectors/checkpoint are replaced by read-write ./tests/vectors/names and write ./build; the names profile has its own separate permissions list."

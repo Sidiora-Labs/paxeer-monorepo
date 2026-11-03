@@ -1,0 +1,509 @@
+[reconcile.r8-40]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r8-40.1]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-receiptcheck-wire"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 27
+symbol = "wire"
+evidence = "ReceiptCheck still declares public String wire() { return wire; }; the accessor signature is unchanged, but its enum now reports sequencer checks such as KEY_ID, RAW_TRANSACTION and SEQUENCE_HASH instead of the former kernel receipt checks."
+
+[row.r8-40.2]
+interface = "interface.8.go-sdkjvm-generatedreceiptcontract-required-nonzero-checks"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java"
+line = 41
+symbol = "REQUIRED_NONZERO_CHECKS"
+evidence = "REQUIRED_NONZERO_CHECKS is absent from GeneratedReceiptContract.java; ReceiptCheck now enumerates sequencer field checks without the former required-nonzero list. Repository-wide tracked-file search outside spec and docs found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-40.3]
+interface = "interface.8.go-sdkjvm-localverifier"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 23
+symbol = "LocalVerifier"
+evidence = "The declaration remains public final class LocalVerifier; its public verification API now exposes verifySequencerReceipt with ReceiptKeys, replacing authorized kernel-batch receipt verification and checkpoint methods."
+
+[row.r8-40.4]
+interface = "interface.8.go-sdkjvm-localverifier-merkleproof"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 38
+symbol = "MerkleProof"
+evidence = "The record signature is unchanged: public record MerkleProof(long leafIndex, long leafCount, List<byte[]> siblings). Its compact constructor still copies siblings; the declaration moved from line 53 to 38."
+
+[row.r8-40.5]
+interface = "interface.8.go-sdkjvm-localverifier-verificationlevel"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 41
+symbol = "VerificationLevel"
+evidence = "The declaration remains public enum VerificationLevel; its members changed from SEQUENCER_SIGNED, BATCH_INCLUDED, STATE_PROVEN and CHECKPOINT_FINALISED to RECEIPTED and COMMITTED, with wire values receipted and committed."
+
+[row.r8-40.6]
+interface = "interface.8.go-sdkjvm-localverifier-verificationlevel-batch-included"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 64
+symbol = "BATCH_INCLUDED"
+evidence = "BATCH_INCLUDED is absent from LocalVerifier.java; VerificationLevel now declares only RECEIPTED and COMMITTED. Remaining matches are references or other verification types, not a relocated LocalVerifier enum member."
+remaining_refs = 23
+remaining = ["GOTCHA.kvx:10031", "sdk/platform/jvm/README.md:106", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:729", "services/agent/crates/layerx-agentd/src/budget/execution_state.rs:770", "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs:66", "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs:803", "services/agent/crates/layerx-agentd/src/config.rs:504", "services/agent/crates/layerx-agentd/src/events/ingest.rs:383", "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs:3", "services/agent/crates/layerx-agentd/src/human_runtime.rs:11409", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:106", "services/agent/crates/layerx-agentd/src/receipt.rs:602", "services/agent/crates/layerx-agentd/tests/outbox.rs:139", "services/agent/crates/layerx-proof/src/export.rs:607", "services/agent/crates/layerx-proof/src/level.rs:31", "services/agent/crates/layerx-proof/tests/inclusion.rs:113", "services/agent/crates/layerx-proof/tests/offline_export.rs:89", "services/agent/crates/layerx-types/src/verify.rs:34", "services/agent/crates/layerx-types/tests/proof_types.rs:247", "services/agent/crates/layerx-types/tests/verification.rs:72", "services/human/crates/layerx-human-service/tests/activity.rs:296", "services/human/crates/layerx-human-test-support/tests/proof_human_test_support.rs:325", "services/human/crates/layerx-human-test-support/tests/receipt_evidence_key.rs:68"]
+
+[row.r8-40.7]
+interface = "interface.8.go-sdkjvm-localverifier-verificationlevel-sequencer-signed"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 64
+symbol = "SEQUENCER_SIGNED"
+evidence = "SEQUENCER_SIGNED is absent from LocalVerifier.java; the replacement local verification rung is RECEIPTED. ProgramsClient retains a private string constant of the same name, and other languages retain distinct types; these are not the former enum member."
+remaining_refs = 35
+remaining = ["GOTCHA.kvx:11920", "sdk/platform/jvm/README.md:105", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:280", "services/agent/crates/layerx-agentd/src/config.rs:503", "services/agent/crates/layerx-agentd/src/events/ingest.rs:528", "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs:3", "services/agent/crates/layerx-agentd/src/human_runtime.rs:1088", "services/agent/crates/layerx-agentd/src/managed_agent.rs:477", "services/agent/crates/layerx-agentd/src/receipt.rs:601", "services/agent/crates/layerx-agentd/tests/cache.rs:94", "services/agent/crates/layerx-agentd/tests/ingest.rs:33", "services/agent/crates/layerx-agentd/tests/receipts.rs:161", "services/agent/crates/layerx-agentd/tests/webhook.rs:135", "services/agent/crates/layerx-mcp/src/tools/web.rs:57", "services/agent/crates/layerx-proof/src/level.rs:13", "services/agent/crates/layerx-proof/tests/native_owner_outcome.rs:37", "services/agent/crates/layerx-proof/tests/native_terminal_outcome.rs:189", "services/agent/crates/layerx-proof/tests/offline_export.rs:88", "services/agent/crates/layerx-proof/tests/receipt.rs:267", "services/agent/crates/layerx-types/src/verify.rs:32", "services/agent/crates/layerx-types/tests/proof_types.rs:247", "services/agent/crates/layerx-types/tests/verification.rs:71", "services/human/crates/layerx-human-service/src/activity/export.rs:1088", "services/human/crates/layerx-human-service/tests/activity.rs:212", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1928", "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs:30", "services/human/crates/layerx-human-service/tests/detail.rs:100", "services/human/crates/layerx-human-service/tests/detail_rungs.rs:99", "services/human/crates/layerx-human-service/tests/journey_faults.rs:1083", "services/human/crates/layerx-human-service/tests/move_money.rs:680", "services/human/crates/layerx-human-service/tests/receipt_material_rungs.rs:124", "services/human/crates/layerx-human-service/tests/spend.rs:295", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs:566", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:724", "services/platform/hosted/gateway/src/lib.rs:1288"]
+
+[row.r8-40.8]
+interface = "interface.8.go-sdkjvm-localverifier-verificationlevel-checkpoint-finalised"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 65
+symbol = "CHECKPOINT_FINALISED"
+evidence = "CHECKPOINT_FINALISED is absent from LocalVerifier.java; VerificationLevel now has RECEIPTED and COMMITTED. The HumanVerificationLevel schema constant and other language references are distinct from the removed local verifier member."
+remaining_refs = 31
+remaining = ["GOTCHA.kvx:10657", "sdk/platform/jvm/README.md:106", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:2551", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java:99", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/GeneratedSchema.HumanModels.HumanVerificationLevel.html:127", "sdk/platform/jvm/target/apidocs/index-all.html:2677", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:744", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs:22", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs:239", "services/agent/crates/layerx-agentd/src/config.rs:506", "services/agent/crates/layerx-agentd/src/events/ingest.rs:414", "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs:4", "services/agent/crates/layerx-agentd/src/human_runtime.rs:5038", "services/agent/crates/layerx-agentd/src/managed_agent.rs:1588", "services/agent/crates/layerx-agentd/src/read/committed.rs:123", "services/agent/crates/layerx-agentd/src/receipt.rs:604", "services/agent/crates/layerx-agentd/tests/admin_retry_rung.rs:69", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs:500", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:546", "services/agent/crates/layerx-agentd/tests/operator.rs:137", "services/agent/crates/layerx-agentd/tests/tenant_isolation.rs:241", "services/agent/crates/layerx-proof/src/level.rs:39", "services/agent/crates/layerx-proof/tests/checkpoint.rs:219", "services/agent/crates/layerx-types/src/verify.rs:38", "services/agent/crates/layerx-types/tests/proof_types.rs:248", "services/agent/crates/layerx-types/tests/verification.rs:74", "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs:48", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs:213", "services/human/crates/layerx-human-test-support/src/lib.rs:191", "services/human/crates/layerx-human-test-support/tests/evidence_gate_rungs.rs:22"]
+
+[row.r8-40.9]
+interface = "interface.8.go-sdkjvm-localverifier-verificationlevel-state-proven"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 65
+symbol = "STATE_PROVEN"
+evidence = "STATE_PROVEN is absent from LocalVerifier.java; VerificationLevel now has RECEIPTED and COMMITTED. Repository-wide remaining matches refer to other verification types and their consumers, not the removed local verifier member."
+remaining_refs = 64
+remaining = ["sdk/platform/jvm/README.md:106", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:730", "services/agent/crates/layerx-agentd/src/budget/execution_state.rs:50", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs:366", "services/agent/crates/layerx-agentd/src/config.rs:505", "services/agent/crates/layerx-agentd/src/enrolment.rs:1204", "services/agent/crates/layerx-agentd/src/events/ingest.rs:530", "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs:4", "services/agent/crates/layerx-agentd/src/human_runtime.rs:197", "services/agent/crates/layerx-agentd/src/managed_agent.rs:2229", "services/agent/crates/layerx-agentd/src/receipt.rs:603", "services/agent/crates/layerx-agentd/src/session_control.rs:1431", "services/agent/crates/layerx-agentd/tests/approval_events.rs:149", "services/agent/crates/layerx-agentd/tests/audit_coverage.rs:42", "services/agent/crates/layerx-agentd/tests/audit_export.rs:52", "services/agent/crates/layerx-agentd/tests/audit_record_v3.rs:76", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs:392", "services/agent/crates/layerx-agentd/tests/budget_reconcile.rs:31", "services/agent/crates/layerx-agentd/tests/cache.rs:87", "services/agent/crates/layerx-agentd/tests/config.rs:91", "services/agent/crates/layerx-agentd/tests/gaps.rs:140", "services/agent/crates/layerx-agentd/tests/grant_revocation_on_chain.rs:35", "services/agent/crates/layerx-agentd/tests/handshake_gate.rs:154", "services/agent/crates/layerx-agentd/tests/identity.rs:59", "services/agent/crates/layerx-agentd/tests/observability.rs:115", "services/agent/crates/layerx-agentd/tests/operator.rs:136", "services/agent/crates/layerx-agentd/tests/protocol_evidence.rs:87", "services/agent/crates/layerx-agentd/tests/redaction.rs:32", "services/agent/crates/layerx-agentd/tests/revocation.rs:59", "services/agent/crates/layerx-agentd/tests/session.rs:48", "services/agent/crates/layerx-agentd/tests/subscription.rs:498", "services/agent/crates/layerx-agentd/tests/support/mod.rs:472", "services/agent/crates/layerx-agentd/tests/tenant_isolation.rs:255", "services/agent/crates/layerx-agentd/tests/tenant_resolve.rs:141", "services/agent/crates/layerx-agentd/tests/w7_core_time.rs:162", "services/agent/crates/layerx-agentd/tests/w7_subscription_permit.rs:122", "services/agent/crates/layerx-mcp/tests/daemon_bound.rs:107", "services/agent/crates/layerx-mcp/tests/faucet.rs:104", "services/agent/crates/layerx-mcp/tests/readonly.rs:49", "services/agent/crates/layerx-mcp/tests/scope.rs:74", "services/agent/crates/layerx-mcp/tests/web.rs:1793", "services/agent/crates/layerx-mcp/tests/write.rs:76", "services/agent/crates/layerx-proof/src/export.rs:582", "services/agent/crates/layerx-proof/src/level.rs:35", "services/agent/crates/layerx-proof/tests/inclusion.rs:124", "services/agent/crates/layerx-types/src/verify.rs:36", "services/agent/crates/layerx-types/tests/proof_types.rs:248", "services/agent/crates/layerx-types/tests/verification.rs:73", "services/agent/qualification/pay2/pay2e_test.rs:70", "services/agent/schema/agent-api/golden/identity.kvx:21", "services/agent/schema/agent-api/identity.kvx:21", "services/agent/tests/parity/python.py:59", "services/agent/tests/qualify/fabrication.rs:106", "services/human/crates/layerx-human-service/tests/agent_controls.rs:220", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:224", "services/human/crates/layerx-human-service/tests/agent_create.rs:423", "services/human/crates/layerx-human-service/tests/approvals.rs:148", "services/human/crates/layerx-human-service/tests/archive.rs:189", "services/human/crates/layerx-human-service/tests/render.rs:256", "services/human/crates/layerx-human-service/tests/session_keys.rs:380", "services/human/crates/layerx-human-service/tests/session_rungs.rs:273", "services/platform/hosted/node/tests/probe/src/main.rs:411", "tools/platform/cli/tests/mcp_daemon_bound.rs:91", "tools/qualification/paxeer-x/mcp_web_payer.py:408"]
+
+[row.r8-40.10]
+interface = "interface.8.go-sdkjvm-localverifier-verificationlevel-wire"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 45
+symbol = "wire"
+evidence = "VerificationLevel still declares public String wire() { return wire; }; its signature is unchanged, while the enum values returned by the accessor changed to receipted and committed."
+
+[row.r8-40.11]
+interface = "interface.8.go-sdkjvm-localverifier-receipteffect"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 47
+symbol = "ReceiptEffect"
+evidence = "The declaration still reads public record ReceiptEffect(int moduleId, int ordinal, int eventType, int kind, boolean monetary, byte[] transferSetRoot, byte[] body); the registered declaration prefix is unchanged and moved to line 47."
+
+[row.r8-40.12]
+interface = "interface.8.go-sdkjvm-localverifier-programreceiptoutcome"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 49
+symbol = "ProgramReceiptOutcome"
+evidence = "The declaration still begins public record ProgramReceiptOutcome(int encodingVersion, int terminalKind, int resultCode, ...); the registered prefix is unchanged, and the record retains occupancy, fee schedule and appliedLegsDigest fields."
+
+[row.r8-40.13]
+interface = "interface.8.go-sdkjvm-localverifier-protocolreceipt"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 58
+symbol = "ProtocolReceipt"
+evidence = "The declaration still begins public record ProtocolReceipt(int protocolVersion, byte[] activityId, BigInteger globalSequence, ...); the registered prefix is unchanged. Sequencer decoding now supplies this record and rejects kernel module IDs at decode time."
+
+[row.r8-40.14]
+interface = "interface.8.go-sdkjvm-localverifier-receiptverification"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 68
+symbol = "ReceiptVerification"
+evidence = "The record still declares ReceiptVerification(VerificationLevel level, ProtocolReceipt receipt, byte[] canonicalBytes, byte[] receiptDigest); its signature is retained, while VerificationLevel now permits RECEIPTED and COMMITTED instead of kernel proof rungs."
+
+[row.r8-40.15]
+interface = "interface.8.go-sdkjvm-localverifier-verifymerkleinclusion"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 373
+symbol = "verifyMerkleInclusion"
+evidence = "The signature remains public static void verifyMerkleInclusion(byte[] canonicalLeaf, MerkleProof proof, byte[] expectedRoot); the method still validates proof depth and domain-separated hashes, and its declaration moved from line 123 to 373."
+
+[row.r8-40.16]
+interface = "interface.8.go-sdkjvm-localverifier-verifyrecoverablesecp256k1"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 243
+symbol = "verifyRecoverableSecp256k1"
+evidence = "verifyRecoverableSecp256k1 is absent from LocalVerifier.java; KernelVerifierRetiredTest.java:39 explicitly asserts that this checkpoint verification method is absent. Its test reference remains; no relocated JVM implementation was found."
+remaining_refs = 1
+remaining = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:39"]
+
+[row.r8-40.17]
+interface = "interface.8.go-sdkjvm-localverifier-verifyreceiptoutcome"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 281
+symbol = "verifyReceiptOutcome"
+evidence = "verifyReceiptOutcome is absent from LocalVerifier.java; KernelVerifierRetiredTest.java:46 asserts its removal. The live replacement is verifySequencerReceipt(byte[], byte[], ReceiptKeys); generator, conformance and example references still mention the removed method."
+remaining_refs = 5
+remaining = ["sdk/platform/conformance/jvm.kvx:21", "sdk/platform/generators/src/main.rs:1579", "sdk/platform/jvm/examples/OfflineVerificationExample.java:29", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:46", "services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:6"]
+
+[row.r8-40.18]
+interface = "interface.8.go-sdkjvm-localverifier-verifyprogramterminalv5receipt"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 286
+symbol = "verifyProgramTerminalV5Receipt"
+evidence = "The first verifyProgramTerminalV5Receipt overload is absent from LocalVerifier.java, along with the authorized kernel receipt API. KernelVerifierRetiredTest.java:46 explicitly asserts the method name is absent; only that reference remains outside spec and docs."
+remaining_refs = 1
+remaining = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:46"]
+
+[row.r8-40.19]
+interface = "interface.8.go-sdkjvm-localverifier-verifyprogramterminalv5receipt-2"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 294
+symbol = "verifyProgramTerminalV5Receipt"
+evidence = "The second verifyProgramTerminalV5Receipt overload is also absent from LocalVerifier.java. KernelVerifierRetiredTest.java:46 checks absence by method name, covering both former overloads; remaining references are counted once per file."
+remaining_refs = 1
+remaining = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:46"]
+
+[row.r8-40.20]
+interface = "interface.8.go-sdkjvm-localverifier-verifyprogramlifecyclereceipt"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 382
+symbol = "verifyProgramLifecycleReceipt"
+evidence = "verifyProgramLifecycleReceipt is absent from LocalVerifier.java and its absence is asserted at KernelVerifierRetiredTest.java:47. Swift retains a separate implementation with the same method name; it is not a moved JVM LocalVerifier API."
+remaining_refs = 3
+remaining = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:47", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:229", "services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:14"]
+
+[row.r8-40.21]
+interface = "interface.8.go-sdkjvm-localverifier-verifyreceipt"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 393
+symbol = "verifyReceipt"
+evidence = "The AuthorizedReceiptBatch verifyReceipt entry point is absent from LocalVerifier.java, as asserted at KernelVerifierRetiredTest.java:46. ProgramsClient, PortableReceipt, Swift and precompile methods sharing the name have different owners and signatures; they are remaining references, not this retired API."
+remaining_refs = 19
+remaining = ["contracts/src/precompiles/ILayerXVerify.sol:17", "precompiles/layerxverify/LayerXVerify.sol:17", "precompiles/layerxverify/abi.json:1", "precompiles/layerxverify/layerxverify.go:17", "sdk/platform/conformance/jvm.kvx:20", "sdk/platform/generators/src/main.rs:1578", "sdk/platform/jvm/README.md:101", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:592", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/PortableReceipt.java:103", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:46", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsEvmTest.java:66", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/ProgramsClient.html:311", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ReceiptKeys.html:76", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.SequencerReceiptVerification.html:86", "sdk/platform/jvm/target/apidocs/index-all.html:21706", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "sdk/platform/swift/Sources/LayerXSDK/PortableReceipt.swift:27", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:619", "services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts:5"]
+
+[row.r8-40.22]
+interface = "interface.8.go-sdkjvm-localverifier-decodeprogramreceiptoutcome"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java"
+line = 445
+symbol = "decodeProgramReceiptOutcome"
+evidence = "The public signature remains ProgramReceiptOutcome decodeProgramReceiptOutcome(byte[] canonicalOutcome, int protocolVersion). It decodes and finishes the canonical outcome and reports ReceiptCheck.FIELDS failures; the declaration moved from line 530 to 445."
+
+[row.r8-40.23]
+interface = "interface.8.cfg-sdk-pipeline-files-platform-go"
+verdict = "served"
+path = "sdk/platform/pipeline.kvx"
+line = 291
+symbol = "[files.platform-go]"
+evidence = "[files.platform-go] now lists generated.go, mirror_generated.go and receipt_generated.go with content hashes; program_lifecycle_generated.go from the registered section signature is no longer listed."
+
+[row.r8-40.24]
+interface = "interface.8.cfg-sdk-pipeline-handwritten-platform-go"
+verdict = "served"
+path = "sdk/platform/pipeline.kvx"
+line = 296
+symbol = "[handwritten.platform-go]"
+evidence = "[handwritten.platform-go] now includes committed.go, portable_receipt.go, chains.go and sequencer_receipt_test.go; terminal_v4_test.go from the registry signature is absent, and kernel_verifier_retired_test.go records removal of kernel verification."
+
+[row.r8-40.25]
+interface = "interface.8.cfg-sdk-pipeline-files-platform-jvm"
+verdict = "served"
+path = "sdk/platform/pipeline.kvx"
+line = 343
+symbol = "[files.platform-jvm]"
+evidence = "[files.platform-jvm] still registers LocalVerifier.java and GeneratedReceiptContract.java with updated hashes; ProgramLifecycleRoutes.java from the registered file-list signature is absent. The section moved from line 286 to 343."
+
+[row.r8-40.26]
+interface = "interface.8.cfg-sdk-pipeline-handwritten-platform-jvm"
+verdict = "served"
+path = "sdk/platform/pipeline.kvx"
+line = 366
+symbol = "[handwritten.platform-jvm]"
+evidence = "[handwritten.platform-jvm] adds verify/Committed.java, verify/PortableReceipt.java, Chains.java and KernelVerifierRetiredTest.java; the registered NativeLifecycleTransportTest.java and TerminalV4Test.java entries are absent."
+
+[row.r8-40.27]
+interface = "interface.8.cfg-sdk-pipeline-files-platform-conformance"
+verdict = "served"
+path = "sdk/platform/pipeline.kvx"
+line = 409
+symbol = "[files.platform-conformance]"
+evidence = "[files.platform-conformance] retains the registered file-list signature jvm.kvx, run-jvm.sh and mirror-v2.json with content hashes; there is no file-name change in this section, whose header moved from line 341 to 409."
+
+[row.r8-40.28]
+interface = "interface.8.cfg-sdk-pipeline-handwritten-platform-conformance"
+verdict = "served"
+path = "sdk/platform/pipeline.kvx"
+line = 414
+symbol = "[handwritten.platform-conformance]"
+evidence = "[handwritten.platform-conformance] replaces the listed kernel receipt fixture generators and receipt-positive fixtures with sequencer receipt and vector-v1 through vector-v5 fixtures, and adds kernel-fixtures-retired tests and EVM wrapping tests."
+
+[row.r8-40.29]
+interface = "interface.8.cfg-sdk-pipeline-files-platform-swift"
+verdict = "served"
+path = "sdk/platform/pipeline.kvx"
+line = 462
+symbol = "[files.platform-swift]"
+evidence = "[files.platform-swift] now names Generated/OperationCatalog.swift, Generated/MirrorSchema.swift and Generated/ReceiptContract.swift; the registered ProgramLifecycleRoutes.swift entry is absent and the remaining entries carry their Generated/ directory prefix."
+
+[row.r8-40.30]
+interface = "interface.8.cfg-sdk-pipeline-files-platform-dotnet"
+verdict = "served"
+path = "sdk/platform/pipeline.kvx"
+line = 486
+symbol = "[files.platform-dotnet]"
+evidence = "[files.platform-dotnet] now names Generated/OperationCatalog.cs, Generated/MirrorSchema.cs and Generated/ReceiptContract.cs; the registered ProgramLifecycleRoutes.cs entry is absent and the remaining entries carry their Generated/ directory prefix."
+
+[row.r8-40.31]
+interface = "interface.8.cfg-sdk-pipeline-files-platform-portable-conformance"
+verdict = "served"
+path = "sdk/platform/pipeline.kvx"
+line = 524
+symbol = "[files.platform-portable-conformance]"
+evidence = "[files.platform-portable-conformance] still declares operations.json with a content hash; its registered single-file section signature is unchanged, and its header moved from line 422 to 524."
+
+[row.r8-40.32]
+interface = "interface.8.fmt-sdk-paxai-binding"
+verdict = "served"
+path = "sdk/platform/schema/paxai-v1.kvx"
+line = 51
+symbol = "[binding]"
+evidence = "[binding] retains the registered fields, optional, snapshot_id_domain, snapshot_id_excludes and finality_source keys. Observed values bind observed_sequence, execution_height and native_state_root, and finality_source is now [receipted, committed]."
+
+[row.r8-40.33]
+interface = "interface.8.fmt-sdk-paxai-approval"
+verdict = "served"
+path = "sdk/platform/schema/paxai-v1.kvx"
+line = 114
+symbol = "[approval]"
+evidence = "[approval] retains the registered terms, effect_fields, mismatch_fields, source, approver and freshness_gate keys; terms and mismatch_fields include nonce, gas and validity, while freshness_gate is authority-freshness-heights."
+
+[row.r8-40.34]
+interface = "interface.8.fmt-sdk-paxai-native-call"
+verdict = "served"
+path = "sdk/platform/schema/paxai-v1.kvx"
+line = 122
+symbol = "[native_call]"
+evidence = "[native_call] replaces the registered protocol_version, module and activity_ordinal keys with to = 0x101D, selector = 0x54bd2b48 and chainId = 125; guest_abi remains 5, entrypoint is layerx_call and authentication is native."
+
+[row.r8-40.35]
+interface = "interface.8.fmt-sdk-paxai-recovery"
+verdict = "served"
+path = "sdk/platform/schema/paxai-v1.kvx"
+line = 156
+symbol = "[recovery]"
+evidence = "[recovery] retains the registered journal, interrupted_submitting, resend, fresh_signing_on_unknown, receipt_absence and failure_by_elapsed_time keys; finality is committed and committed_height = landing-height is an additional key."
+
+[row.r8-40.36]
+interface = "interface.8.go-sdkswift-mirrorerrorcode-authorization"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/MirrorSchema.swift"
+line = 13
+symbol = "authorization"
+evidence = "MirrorErrorCode still declares authorization in the shared case declaration at line 13. The registered stable case is unchanged; select the identifier for this row rather than the first case configuration on that line."
+
+[row.r8-40.37]
+interface = "interface.8.go-sdkswift-mirrorerrorcode-bounds"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/MirrorSchema.swift"
+line = 13
+symbol = "bounds"
+evidence = "MirrorErrorCode still declares bounds in the shared case declaration at line 13. The registered stable case is unchanged; select the identifier for this row rather than the first case configuration on that line."
+
+[row.r8-40.38]
+interface = "interface.8.go-sdkswift-mirrorerrorcode-commitment"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/MirrorSchema.swift"
+line = 13
+symbol = "commitment"
+evidence = "MirrorErrorCode still declares commitment in the shared case declaration at line 13. The registered stable case is unchanged; select the identifier for this row rather than the first case configuration on that line."
+
+[row.r8-40.39]
+interface = "interface.8.go-sdkswift-mirrorerrorcode-configuration"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/MirrorSchema.swift"
+line = 13
+symbol = "configuration"
+evidence = "MirrorErrorCode still declares configuration in the shared case declaration at line 13. The registered stable case is unchanged; select the identifier for this row rather than the first case configuration on that line."
+
+[row.r8-40.40]
+interface = "interface.8.go-sdkswift-mirrorerrorcode-divergent"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/MirrorSchema.swift"
+line = 13
+symbol = "divergent"
+evidence = "MirrorErrorCode still declares divergent in the shared case declaration at line 13. The registered stable case is unchanged; select the identifier for this row rather than the first case configuration on that line."
+
+[row.r8-40.41]
+interface = "interface.8.go-sdkswift-mirrorerrorcode-malformed"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/MirrorSchema.swift"
+line = 13
+symbol = "malformed"
+evidence = "MirrorErrorCode still declares malformed in the shared case declaration at line 13. The registered stable case is unchanged; select the identifier for this row rather than the first case configuration on that line."
+
+[row.r8-40.42]
+interface = "interface.8.go-sdkswift-mirrorerrorcode-missing"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/MirrorSchema.swift"
+line = 13
+symbol = "missing"
+evidence = "MirrorErrorCode still declares missing in the shared case declaration at line 13. The registered stable case is unchanged; select the identifier for this row rather than the first case configuration on that line."
+
+[row.r8-40.43]
+interface = "interface.8.go-sdkswift-mirrorerrorcode-proof"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/MirrorSchema.swift"
+line = 13
+symbol = "proof"
+evidence = "MirrorErrorCode still declares proof in the shared case declaration at line 13. The registered stable case is unchanged; select the identifier for this row rather than the first case configuration on that line."
+
+[row.r8-40.44]
+interface = "interface.8.go-sdkswift-mirrorerrorcode-reorged"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/MirrorSchema.swift"
+line = 13
+symbol = "reorged"
+evidence = "MirrorErrorCode still declares reorged in the shared case declaration at line 13. The registered stable case is unchanged; select the identifier for this row rather than the first case configuration on that line."
+
+[row.r8-40.45]
+interface = "interface.8.go-sdkswift-mirrorerrorcode-unavailable"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/MirrorSchema.swift"
+line = 13
+symbol = "unavailable"
+evidence = "MirrorErrorCode still declares unavailable in the shared case declaration at line 13. The registered stable case is unchanged; select the identifier for this row rather than the first case configuration on that line."
+
+[row.r8-40.46]
+interface = "interface.8.go-sdkswift-platformoperation-agentfaucetclaim"
+verdict = "retired"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 21
+symbol = "agentFaucetClaim"
+evidence = "agentFaucetClaim is absent from Generated/OperationCatalog.swift, both as a PlatformOperation case and as a PlatformClient method; repository-wide tracked-file search outside spec and docs found no remaining references to this exact identifier."
+remaining_refs = 0
+remaining = []
+
+[row.r8-40.47]
+interface = "interface.8.go-sdkswift-platformoperation-agentprogramactivity"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 32
+symbol = "agentProgramActivity"
+evidence = "The declaration remains case agentProgramActivity = \"agent:program.activity\"; its registered enum signature is unchanged. The transport descriptor now uses eth_getTransactionByHash without an EVM target instead of the registered /v1/programs REST route, with an empty descriptor path."
+
+[row.r8-40.48]
+interface = "interface.8.go-sdkswift-platformoperation-agentprogramcall"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 33
+symbol = "agentProgramCall"
+evidence = "The declaration remains case agentProgramCall = \"agent:program.call\"; its registered enum signature is unchanged. The transport descriptor now uses eth_sendRawTransaction to 0x101d with call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128) instead of the registered /v1/programs REST route, with an empty descriptor path."
+
+[row.r8-40.49]
+interface = "interface.8.go-sdkswift-platformoperation-agentprogramdeploy"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 34
+symbol = "agentProgramDeploy"
+evidence = "The declaration remains case agentProgramDeploy = \"agent:program.deploy\"; its registered enum signature is unchanged. The transport descriptor now uses eth_sendRawTransaction to 0x101d with deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes) instead of the registered /v1/programs REST route, with an empty descriptor path."
+
+[row.r8-40.50]
+interface = "interface.8.go-sdkswift-platformoperation-agentprogramdiscover"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 35
+symbol = "agentProgramDiscover"
+evidence = "The declaration remains case agentProgramDiscover = \"agent:program.discover\"; its registered enum signature is unchanged. The transport descriptor now uses eth_call to 0x101d with getProgram(bytes32) instead of the registered /v1/programs REST route, with an empty descriptor path."
+
+[row.r8-40.51]
+interface = "interface.8.go-sdkswift-platformoperation-agentprograminterface"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 36
+symbol = "agentProgramInterface"
+evidence = "The declaration remains case agentProgramInterface = \"agent:program.interface\"; its registered enum signature is unchanged. The transport descriptor now uses eth_call to 0x101d with getInterface(bytes32) instead of the registered /v1/programs REST route, with an empty descriptor path."
+
+[row.r8-40.52]
+interface = "interface.8.go-sdkswift-platformoperation-agentprogramreceipt"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 37
+symbol = "agentProgramReceipt"
+evidence = "The declaration remains case agentProgramReceipt = \"agent:program.receipt\"; its registered enum signature is unchanged. The transport descriptor now uses eth_getTransactionByHash without an EVM target instead of the registered /v1/programs REST route, with an empty descriptor path."
+
+[row.r8-40.53]
+interface = "interface.8.go-sdkswift-platformoperation-agentprogramsimulate"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 38
+symbol = "agentProgramSimulate"
+evidence = "The declaration remains case agentProgramSimulate = \"agent:program.simulate\"; its registered enum signature is unchanged. The transport descriptor now uses eth_call to 0x101d with simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128) instead of the registered /v1/programs REST route, with an empty descriptor path."
+
+[row.r8-40.54]
+interface = "interface.8.go-sdkswift-platformoperation-agentprogramupgrade"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 39
+symbol = "agentProgramUpgrade"
+evidence = "The declaration remains case agentProgramUpgrade = \"agent:program.upgrade\"; its registered enum signature is unchanged. The transport descriptor now uses eth_sendRawTransaction to 0x101d with upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128) instead of the registered /v1/programs REST route, with an empty descriptor path."
+
+[row.r8-40.55]
+interface = "interface.8.go-sdkswift-platformoperation-agentprogramwinddown"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 40
+symbol = "agentProgramWindDown"
+evidence = "The declaration remains case agentProgramWindDown = \"agent:program.wind-down\"; its registered enum signature is unchanged. The transport descriptor now uses eth_sendRawTransaction to 0x101d with deprecate(bytes32,bytes32,uint64) instead of the registered /v1/programs REST route, with an empty descriptor path."
+
+[row.r8-40.56]
+interface = "interface.8.go-sdkswift-platformoperation-humanintentplan"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 101
+symbol = "humanIntentPlan"
+evidence = "The declaration remains case humanIntentPlan = \"human:intent.plan\"; its enum signature is unchanged and moved from line 103 to 101. Its descriptor still uses POST /v1/intents/plan with PlanIntentRequest and IntentPlan, and transport remains HTTP."
+
+[row.r8-40.57]
+interface = "interface.8.go-sdkswift-platformoperation-humanintentsubmit"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 102
+symbol = "humanIntentSubmit"
+evidence = "The declaration remains case humanIntentSubmit = \"human:intent.submit\"; its enum signature is unchanged and moved from line 104 to 102. Its descriptor still uses POST /v1/intents/submit with SubmitPlanRequest and IntentSubmission and requires idempotency; transport remains HTTP."
+
+[row.r8-40.58]
+interface = "interface.8.go-sdkswift-platformclient-agentfaucetclaim"
+verdict = "retired"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 361
+symbol = "agentFaucetClaim"
+evidence = "The PlatformClient agentFaucetClaim method is absent from Generated/OperationCatalog.swift, as is its PlatformOperation case; repository-wide tracked-file search outside spec and docs found no remaining references to this exact identifier."
+remaining_refs = 0
+remaining = []
+
+[row.r8-40.59]
+interface = "interface.8.go-sdkswift-platformclient-agentprogramactivity"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 496
+symbol = "agentProgramActivity"
+evidence = "The signature remains func agentProgramActivity(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue. It still delegates to read(.agentProgramActivity); its operation transport now uses eth_getTransactionByHash instead of GET /v1/programs/activities/{activity_id}."
+
+[row.r8-40.60]
+interface = "interface.8.go-sdkswift-platformclient-agentprogramcall"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 499
+symbol = "agentProgramCall"
+evidence = "The signature remains func agentProgramCall(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue. It still delegates to mutate(.agentProgramCall); transport now uses eth_sendRawTransaction to 0x101d with the native call selector instead of POST /v1/programs/call."

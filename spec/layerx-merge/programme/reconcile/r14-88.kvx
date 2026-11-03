@@ -1,0 +1,505 @@
+[reconcile.r14-88]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r14-88.1]
+interface = "interface.14.ts-web-api-gas-station-gasquoteoutcome"
+verdict = "served"
+path = "apps/web/src/api/gas-station.ts"
+line = 22
+symbol = "GasQuoteOutcome"
+evidence = "GasQuoteOutcome now includes an ok:false arm with refusal: \"budget_exhausted\" and failure: PrecompileSendOutcome, alongside success and generic failure. Declaring line: export type GasQuoteOutcome ="
+
+[row.r14-88.2]
+interface = "interface.14.ts-web-api-gas-station-requestsidioragasquote"
+verdict = "served"
+path = "apps/web/src/api/gas-station.ts"
+line = 76
+symbol = "requestSidioraGasQuote"
+evidence = "The (request: GasQuoteRequest, chainId: bigint): Promise<GasQuoteOutcome> signature is unchanged; the return union now carries refusal: \"budget_exhausted\", mapped explicitly from the SDK refusal code. Declaring line: export async function requestSidioraGasQuote(request: GasQuoteRequest, chainId: bigint): Promise<GasQuoteOutcome> {"
+
+[row.r14-88.3]
+interface = "interface.14.ts-web-api-gas-station-sendsponsoredbatch"
+verdict = "served"
+path = "apps/web/src/api/gas-station.ts"
+line = 96
+symbol = "sendSponsoredBatch"
+evidence = "The four parameters and Promise<PrecompileSendOutcome> signature are unchanged; the return type now supports a receipt and reverted/unconfirmed outcomes. The implementation reads ethTransactionReceipt after receiving transactionHash, and may return sent without a receipt when unavailable. Declaring line: export async function sendSponsoredBatch("
+
+[row.r14-88.4]
+interface = "interface.14.env-web-paxeer-gas-station-submit-url"
+verdict = "served"
+path = "apps/web/src/api/gas-station.ts"
+line = 49
+symbol = "PAXEER_GAS_STATION_SUBMIT_URL"
+evidence = "The environment literal is unchanged but its read moved into sidioraStationSubmitUrl(): Promise<string | undefined>, which validates HTTPS. sendSponsoredBatch now fetches the transaction receipt after submission rather than returning only the hash. Declaring line: const configured = process.env.PAXEER_GAS_STATION_SUBMIT_URL;"
+
+[row.r14-88.5]
+interface = "interface.14.ts-web-api-generated-index-bindingstate"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 213
+symbol = "BindingState"
+evidence = "BindingState still declares none, binding, bound and rebinding. The generated type remains present despite registry status retire; retirement has not removed this declaration. Declaring line: export type BindingState = \"none\" | \"binding\" | \"bound\" | \"rebinding\";"
+
+[row.r14-88.6]
+interface = "interface.14.ts-web-api-generated-index-bindingstatevariants"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 215
+symbol = "bindingStateVariants"
+evidence = "bindingStateVariants still declares all four BindingState values as a readonly array; registry status retire has not removed it. Declaring line: export const bindingStateVariants: readonly BindingState[] = [\"none\", \"binding\", \"bound\", \"rebinding\"];"
+
+[row.r14-88.7]
+interface = "interface.14.ts-web-api-generated-index-decodebindingstate"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 217
+symbol = "decodeBindingState"
+evidence = "decodeBindingState(value: JsonValue | undefined, at: string): BindingState still validates the four declared variants; it remains served despite registry status retire. Declaring line: export function decodeBindingState(value: JsonValue | undefined, at: string): BindingState {"
+
+[row.r14-88.8]
+interface = "interface.14.ts-web-api-generated-index-verificationlevel"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 675
+symbol = "VerificationLevel"
+evidence = "The VerificationLevel signature is unchanged: it still includes unverified, receipt-verified, checkpoint-finalised, paxeer-finalised and settlement-anchored. The generated union has not narrowed to the kit three-rung type. Declaring line: export type VerificationLevel = \"unverified\" | \"receipt-verified\" | \"checkpoint-finalised\" | \"paxeer-finalised\" | \"settlement-anchored\";"
+
+[row.r14-88.9]
+interface = "interface.14.ts-web-api-generated-index-verificationlevelvariants"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 677
+symbol = "verificationLevelVariants"
+evidence = "The readonly VerificationLevel[] signature and five variant literals are unchanged, including paxeer-finalised and settlement-anchored; the generated array has not narrowed to the kit three rungs. Declaring line: export const verificationLevelVariants: readonly VerificationLevel[] = [\"unverified\", \"receipt-verified\", \"checkpoint-finalised\", \"paxeer-finalised\", \"settlement-anchored\"];"
+
+[row.r14-88.10]
+interface = "interface.14.ts-web-api-generated-index-bindingrebindaction"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1767
+symbol = "BindingRebindAction"
+evidence = "BindingRebindAction still declares binding: BindingStatement and confirms: OperationDigest. The generated interface remains despite registry status retire. Declaring line: export interface BindingRebindAction {"
+
+[row.r14-88.11]
+interface = "interface.14.ts-web-api-generated-index-decodebindingrebindaction"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1772
+symbol = "decodeBindingRebindAction"
+evidence = "decodeBindingRebindAction still returns BindingRebindAction from JsonValue | undefined and an at:string path; registry status retire has not removed the decoder. Declaring line: export function decodeBindingRebindAction(value: JsonValue | undefined, at: string): BindingRebindAction {"
+
+[row.r14-88.12]
+interface = "interface.14.ts-web-api-generated-index-encodebindingrebindaction"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1781
+symbol = "encodeBindingRebindAction"
+evidence = "The encodeBindingRebindAction(value: BindingRebindAction): JsonValue signature is unchanged; it still serializes binding via encodeBindingStatement and confirms. The generated binding codec has not been retired. Declaring line: export function encodeBindingRebindAction(value: BindingRebindAction): JsonValue {"
+
+[row.r14-88.13]
+interface = "interface.14.ts-web-api-generated-index-bindingstatement"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1789
+symbol = "BindingStatement"
+evidence = "The BindingStatement interface signature is unchanged, with statement:string, address:EvmAddress and expires_at:Timestamp fields. The generated payout-binding type remains implemented. Declaring line: export interface BindingStatement {"
+
+[row.r14-88.14]
+interface = "interface.14.ts-web-api-generated-index-decodebindingstatement"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1795
+symbol = "decodeBindingStatement"
+evidence = "decodeBindingStatement still decodes statement, address and expires_at into BindingStatement; the generated declaration remains despite registry status retire. Declaring line: export function decodeBindingStatement(value: JsonValue | undefined, at: string): BindingStatement {"
+
+[row.r14-88.15]
+interface = "interface.14.ts-web-api-generated-index-encodebindingstatement"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1805
+symbol = "encodeBindingStatement"
+evidence = "The encodeBindingStatement(value: BindingStatement): JsonValue signature is unchanged; statement, address and expires_at are still serialized. The generated binding encoder remains implemented. Declaring line: export function encodeBindingStatement(value: BindingStatement): JsonValue {"
+
+[row.r14-88.16]
+interface = "interface.14.ts-web-api-generated-index-bindingstatementrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1814
+symbol = "BindingStatementRequest"
+evidence = "BindingStatementRequest still declares address:EvmAddress; the generated request interface remains present despite registry status retire. Declaring line: export interface BindingStatementRequest {"
+
+[row.r14-88.17]
+interface = "interface.14.ts-web-api-generated-index-decodebindingstatementrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1818
+symbol = "decodeBindingStatementRequest"
+evidence = "The decodeBindingStatementRequest(value: JsonValue | undefined, at: string): BindingStatementRequest signature is unchanged; it still decodes address. The generated binding decoder remains implemented. Declaring line: export function decodeBindingStatementRequest(value: JsonValue | undefined, at: string): BindingStatementRequest {"
+
+[row.r14-88.18]
+interface = "interface.14.ts-web-api-generated-index-encodebindingstatementrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1826
+symbol = "encodeBindingStatementRequest"
+evidence = "encodeBindingStatementRequest still returns JsonValue containing address from BindingStatementRequest; registry status retire has not removed this encoder. Declaring line: export function encodeBindingStatementRequest(value: BindingStatementRequest): JsonValue {"
+
+[row.r14-88.19]
+interface = "interface.14.ts-web-api-generated-index-bindingsubmission"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1833
+symbol = "BindingSubmission"
+evidence = "BindingSubmission still declares address:EvmAddress, statement:string and signature:EvmSignature. The generated interface remains despite registry status retire. Declaring line: export interface BindingSubmission {"
+
+[row.r14-88.20]
+interface = "interface.14.ts-web-api-generated-index-decodebindingsubmission"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1839
+symbol = "decodeBindingSubmission"
+evidence = "The decodeBindingSubmission(value: JsonValue | undefined, at: string): BindingSubmission signature is unchanged; address, statement and signature are still decoded. The generated binding decoder remains implemented. Declaring line: export function decodeBindingSubmission(value: JsonValue | undefined, at: string): BindingSubmission {"
+
+[row.r14-88.21]
+interface = "interface.14.ts-web-api-generated-index-encodebindingsubmission"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1849
+symbol = "encodeBindingSubmission"
+evidence = "encodeBindingSubmission still serializes address, statement and signature into JsonValue; the generated declaration remains despite registry status retire. Declaring line: export function encodeBindingSubmission(value: BindingSubmission): JsonValue {"
+
+[row.r14-88.22]
+interface = "interface.14.ts-web-api-generated-index-intentlegbinding"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2437
+symbol = "IntentLegBinding"
+evidence = "IntentLegBinding still declares leg_index, action_key, actor, authority, relationship, account_sequence, not_before, not_after and fee_limit. The interface remains despite registry status retire. Declaring line: export interface IntentLegBinding {"
+
+[row.r14-88.23]
+interface = "interface.14.ts-web-api-generated-index-decodeintentlegbinding"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2449
+symbol = "decodeIntentLegBinding"
+evidence = "decodeIntentLegBinding still decodes the declared leg binding fields and fee_limit into IntentLegBinding; registry status retire has not removed this function. Declaring line: export function decodeIntentLegBinding(value: JsonValue | undefined, at: string): IntentLegBinding {"
+
+[row.r14-88.24]
+interface = "interface.14.ts-web-api-generated-index-encodeintentlegbinding"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2465
+symbol = "encodeIntentLegBinding"
+evidence = "encodeIntentLegBinding still serializes the leg binding fields and fee_limit into JsonValue; registry status retire has not removed this function. Declaring line: export function encodeIntentLegBinding(value: IntentLegBinding): JsonValue {"
+
+[row.r14-88.25]
+interface = "interface.14.ts-web-api-generated-index-rebindingsubmission"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4432
+symbol = "RebindingSubmission"
+evidence = "RebindingSubmission still declares address, statement, signature and step_up:StepUpEvidence. The generated interface remains present despite registry status retire. Declaring line: export interface RebindingSubmission {"
+
+[row.r14-88.26]
+interface = "interface.14.ts-web-api-generated-index-decoderebindingsubmission"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4439
+symbol = "decodeRebindingSubmission"
+evidence = "The decodeRebindingSubmission(value: JsonValue | undefined, at: string): RebindingSubmission signature is unchanged; it still decodes address, statement, signature and step_up. The generated binding decoder remains implemented. Declaring line: export function decodeRebindingSubmission(value: JsonValue | undefined, at: string): RebindingSubmission {"
+
+[row.r14-88.27]
+interface = "interface.14.ts-web-api-generated-index-encoderebindingsubmission"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4450
+symbol = "encodeRebindingSubmission"
+evidence = "encodeRebindingSubmission still serializes address, statement, signature and step_up into JsonValue; the generated encoder remains despite registry status retire. Declaring line: export function encodeRebindingSubmission(value: RebindingSubmission): JsonValue {"
+
+[row.r14-88.28]
+interface = "interface.14.ts-web-api-generated-index-walletbinding"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5389
+symbol = "WalletBinding"
+evidence = "The WalletBinding interface signature is unchanged: state:BindingState with optional address:EvmAddress, bound_at:Timestamp and evidence:EvidenceRef. The generated binding type remains implemented. Declaring line: export interface WalletBinding {"
+
+[row.r14-88.29]
+interface = "interface.14.ts-web-api-generated-index-decodewalletbinding"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5396
+symbol = "decodeWalletBinding"
+evidence = "decodeWalletBinding still decodes state and optional address, bound_at and evidence; the generated decoder remains despite registry status retire. Declaring line: export function decodeWalletBinding(value: JsonValue | undefined, at: string): WalletBinding {"
+
+[row.r14-88.30]
+interface = "interface.14.ts-web-api-generated-index-encodewalletbinding"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5413
+symbol = "encodeWalletBinding"
+evidence = "The encodeWalletBinding(value: WalletBinding): JsonValue signature is unchanged; it still serializes state and optional address, bound_at and evidence. The generated binding encoder remains implemented. Declaring line: export function encodeWalletBinding(value: WalletBinding): JsonValue {"
+
+[row.r14-88.31]
+interface = "interface.14.ts-web-api-wallet-precompilesendoutcome"
+verdict = "served"
+path = "apps/web/src/api/wallet.ts"
+line = 24
+symbol = "PrecompileSendOutcome"
+evidence = "PrecompileSendOutcome now includes sent with optional GatewayReceipt, reverted with required receipt, unconfirmed with transactionHash, and optional detail for failure outcomes. Receipts expose logs, replacing the old hash-only result shape. Declaring line: export type PrecompileSendOutcome ="
+
+[row.r14-88.32]
+interface = "interface.14.ts-web-api-wallet-sendwalletprecompilecall"
+verdict = "served"
+path = "apps/web/src/api/wallet.ts"
+line = 139
+symbol = "sendWalletPrecompileCall"
+evidence = "sendWalletPrecompileCall now adds sleep:(milliseconds:number)=>Promise<void> with a default timer after from and build, while retaining Promise<PrecompileSendOutcome>. It polls gatewayTransactionReceipt and returns receipt/reverted outcomes under decision.1403. Declaring line: export async function sendWalletPrecompileCall("
+
+[row.r14-88.33]
+interface = "interface.14.ts-web-api-wallet-resumewalletsponsoredsubmission"
+verdict = "served"
+path = "apps/web/src/api/wallet.ts"
+line = 376
+symbol = "resumeWalletSponsoredSubmission"
+evidence = "The (account: string, call?: PrecompileCall): Promise<PrecompileSendOutcome | undefined> signature is unchanged; the expanded return union now carries receipts. Resume calls statusOutcome, which reads gatewayTransactionReceipt for the retained hash under decision.1403. Declaring line: export async function resumeWalletSponsoredSubmission("
+
+[row.r14-88.34]
+interface = "interface.14.ts-web-api-wallet-sendwalletsponsoredbatch"
+verdict = "served"
+path = "apps/web/src/api/wallet.ts"
+line = 437
+symbol = "sendWalletSponsoredBatch"
+evidence = "The (quoted: SidioraGasQuote, consentIdentity: string | undefined): Promise<PrecompileSendOutcome> signature is unchanged; the expanded return type now carries receipts and reverted/unconfirmed outcomes. It reads gatewayTransactionReceipt after submission under decision.1403. Declaring line: export async function sendWalletSponsoredBatch("
+
+[row.r14-88.35]
+interface = "interface.14.ts-web-app-markets-send-outcome-sendoutcome"
+verdict = "served"
+path = "apps/web/src/app/_markets/send-outcome.tsx"
+line = 5
+symbol = "SendOutcome"
+evidence = "The SendOutcome({ outcome }: Readonly<{ outcome: PrecompileSendOutcome | undefined }>) parameter signature is unchanged. The expanded outcome union is validated, renders receipt block/log counts and handles reverted/unconfirmed results, satisfying decision.1403 cited by override.J53.5. Declaring line: export function SendOutcome({ outcome }: Readonly<{ outcome: PrecompileSendOutcome | undefined }>) {"
+
+[row.r14-88.36]
+interface = "interface.14.env-web-layerx-explorer-program-api-origin"
+verdict = "retired"
+path = "apps/web/src/explorer/client.ts"
+line = 40
+symbol = "LAYERX_EXPLORER_PROGRAM_API_ORIGIN"
+evidence = "LAYERX_EXPLORER_PROGRAM_API_ORIGIN is absent from client.ts; explorerBaseUrl reads only PAXEER_X_EXPLORER_BASE_URL. Repository-wide exact-identifier search excluding spec and docs found four other files, containing retired-setting tests and deployment configuration."
+remaining_refs = 4
+remaining = ["apps/web/e2e/explorer-origin.test.ts:141", "apps/web/e2e/explorer-program-origin.test.ts:113", "apps/web/e2e/proof_env.test.ts:67", "services/platform/hosted/human/web-deployment.yaml:32"]
+
+[row.r14-88.37]
+interface = "interface.14.env-web-layerx-explorer-program-bearer-token"
+verdict = "retired"
+path = "apps/web/src/explorer/client.ts"
+line = 41
+symbol = "LAYERX_EXPLORER_PROGRAM_BEARER_TOKEN"
+evidence = "LAYERX_EXPLORER_PROGRAM_BEARER_TOKEN is absent from client.ts; programRecord and resolveName now send Accept without the old bearer authorization. Repository-wide exact-identifier search excluding spec and docs found six other test/deployment files."
+remaining_refs = 6
+remaining = ["apps/web/e2e/completion-gate.test.ts:30", "apps/web/e2e/explorer-origin.test.ts:142", "apps/web/e2e/explorer-program-origin.test.ts:114", "apps/web/e2e/proof_env.test.ts:68", "services/platform/hosted/human/web-deployment.yaml:34", "services/platform/hosted/registry/deployment.yaml:158"]
+
+[row.r14-88.38]
+interface = "interface.14.env-web-layerx-explorer-api-origin"
+verdict = "retired"
+path = "apps/web/src/explorer/client.ts"
+line = 59
+symbol = "LAYERX_EXPLORER_API_ORIGIN"
+evidence = "LAYERX_EXPLORER_API_ORIGIN is absent from client.ts; all explorer requests resolve through PAXEER_X_EXPLORER_BASE_URL. Repository-wide exact-identifier search excluding spec and docs found nine other test, deployment and qualification/tooling files."
+remaining_refs = 9
+remaining = ["apps/web/e2e/explorer-origin.test.ts:140", "apps/web/e2e/proof_env.test.ts:66", "scripts/qualify-mirror-verification-live.sh:15", "services/platform/hosted/human/web-deployment.yaml:28", "services/platform/hosted/tests/topology-regressions.py:81", "tools/bringup/check-live.sh:3140", "tools/bringup/check-live.test.sh:2253", "tools/paxeer-x/gates/104.25.2.sh:160", "tools/qualification/beta_driver.py:80"]
+
+[row.r14-88.39]
+interface = "interface.14.ts-web-explorer-client-receiptrecord"
+verdict = "served"
+path = "apps/web/src/explorer/client.ts"
+line = 102
+symbol = "receiptRecord"
+evidence = "The receiptRecord(identifier: string): Promise<ExplorerRecord<ReceiptRecord>> signature is unchanged. Its get helper now uses only PAXEER_X_EXPLORER_BASE_URL, and decodeReceiptRecordForIdentifier additionally binds the response to the requested identifier. Declaring line: export async function receiptRecord("
+
+[row.r14-88.40]
+interface = "interface.14.ts-web-explorer-client-accountactivitypage"
+verdict = "served"
+path = "apps/web/src/explorer/client.ts"
+line = 128
+symbol = "accountActivityPage"
+evidence = "The accountActivityPage(identifier: string, before?: string, limit = \"25\"): Promise<ExplorerPage<AccountActivityRecord>> signature is unchanged; get now uses only PAXEER_X_EXPLORER_BASE_URL with no legacy explorer origin fallback. Declaring line: export async function accountActivityPage("
+
+[row.r14-88.41]
+interface = "interface.14.ts-web-explorer-client-programrecord"
+verdict = "served"
+path = "apps/web/src/explorer/client.ts"
+line = 150
+symbol = "programRecord"
+evidence = "The programRecord(identifier: string): Promise<ProgramRecord | undefined> signature is unchanged; requests now use explorerOrigin backed only by PAXEER_X_EXPLORER_BASE_URL and send Accept without the former program bearer token. Declaring line: export async function programRecord(identifier: string): Promise<ProgramRecord | undefined> {"
+
+[row.r14-88.42]
+interface = "interface.14.ts-web-explorer-client-unifiedaccount"
+verdict = "served"
+path = "apps/web/src/explorer/client.ts"
+line = 181
+symbol = "unifiedAccount"
+evidence = "The unifiedAccount(identifier: string, beforeBlock?: string, before?: string, limit = 25): Promise<UnifiedAccountRecord | undefined> signature is unchanged; get now uses the sole PAXEER_X_EXPLORER_BASE_URL origin with the unified profile. Declaring line: export async function unifiedAccount("
+
+[row.r14-88.43]
+interface = "interface.14.ts-web-explorer-client-unifiedaccountavailability"
+verdict = "served"
+path = "apps/web/src/explorer/client.ts"
+line = 212
+symbol = "unifiedAccountAvailability"
+evidence = "The unifiedAccountAvailability(identifier: string, beforeBlock?: string, before?: string, limit = 25): Promise<UnifiedAccountAvailabilityRecord | undefined> signature is unchanged; get now uses only PAXEER_X_EXPLORER_BASE_URL with the unified-availability profile. Declaring line: export async function unifiedAccountAvailability("
+
+[row.r14-88.44]
+interface = "interface.14.ts-web-explorer-client-resolvename"
+verdict = "served"
+path = "apps/web/src/explorer/client.ts"
+line = 258
+symbol = "resolveName"
+evidence = "The resolveName(name: string): Promise<NameResolutionRecord | undefined> signature is unchanged; the naming-program read now uses the single PAXEER_X_EXPLORER_BASE_URL origin and Accept without the former program bearer token. Declaring line: export async function resolveName(name: string): Promise<NameResolutionRecord | undefined> {"
+
+[row.r14-88.45]
+interface = "interface.14.ts-web-explorer-components-verificationlabel"
+verdict = "served"
+path = "apps/web/src/explorer/components.tsx"
+line = 38
+symbol = "verificationLabel"
+evidence = "verificationLabel now accepts level:string instead of ExplorerVerificationLevel, still returns string, and delegates to verificationWord. The kit maps unsupported levels to unverified under decision.1405, addressing override.J53.30. Declaring line: export function verificationLabel(level: string): string {"
+
+[row.r14-88.46]
+interface = "interface.14.ts-web-explorer-links-explorerlinktarget"
+verdict = "served"
+path = "apps/web/src/explorer/links.ts"
+line = 12
+symbol = "ExplorerLinkTarget"
+evidence = "ExplorerLinkTarget now contains only receipt/receiptId, transaction/transactionHash and address/address variants. Anchor, batch and checkpoint targets are absent from the union. Declaring line: export type ExplorerLinkTarget ="
+
+[row.r14-88.47]
+interface = "interface.14.ts-web-explorer-links-explorer-anchor-path"
+verdict = "served"
+path = "apps/web/src/explorer/links.ts"
+line = 18
+symbol = "EXPLORER_ANCHOR_PATH"
+evidence = "The EXPLORER_ANCHOR_PATH literal and const signature are unchanged. The adjacent comment retains it only as the retired-surface identifier for admission checks; explorerLinkPath no longer accepts an anchor target. Declaring line: export const EXPLORER_ANCHOR_PATH = \"/paxeer-x/anchors\";"
+
+[row.r14-88.48]
+interface = "interface.14.ts-web-explorer-links-explorerlinkpath"
+verdict = "served"
+path = "apps/web/src/explorer/links.ts"
+line = 23
+symbol = "explorerLinkPath"
+evidence = "The explorerLinkPath(target: ExplorerLinkTarget): string signature is unchanged, but ExplorerLinkTarget now accepts only receipt, transaction and address. The switch handles those three kinds and rejects unsupported kinds; anchor/batch/checkpoint targets are gone. Declaring line: export function explorerLinkPath(target: ExplorerLinkTarget): string {"
+
+[row.r14-88.49]
+interface = "interface.14.ts-web-explorer-mirror-admission-mirroroverloadederror"
+verdict = "retired"
+path = "apps/web/src/explorer/mirror-admission.ts"
+line = 1
+symbol = "MirrorOverloadedError"
+evidence = "The registered mirror-admission.ts file is deleted. Repository-wide exact-identifier search excluding spec and docs found no MirrorOverloadedError references or relocated declaration."
+remaining_refs = 0
+remaining = []
+
+[row.r14-88.50]
+interface = "interface.14.ts-web-explorer-mirror-admission-mirrorverificationadmission"
+verdict = "retired"
+path = "apps/web/src/explorer/mirror-admission.ts"
+line = 8
+symbol = "MirrorVerificationAdmission"
+evidence = "The registered mirror-admission.ts file is deleted. Repository-wide exact-identifier search excluding spec and docs found no MirrorVerificationAdmission references or relocated declaration."
+remaining_refs = 0
+remaining = []
+
+[row.r14-88.51]
+interface = "interface.14.env-web-layerx-mirror-verifier-config"
+verdict = "retired"
+path = "apps/web/src/explorer/mirror-server.ts"
+line = 34
+symbol = "LAYERX_MIRROR_VERIFIER_CONFIG"
+evidence = "The registered mirror-server.ts file is deleted. Repository-wide exact-identifier search excluding spec and docs found no remaining LAYERX_MIRROR_VERIFIER_CONFIG references."
+remaining_refs = 0
+remaining = []
+
+[row.r14-88.52]
+interface = "interface.14.env-web-layerx-mirror-verifier-executable"
+verdict = "retired"
+path = "apps/web/src/explorer/mirror-server.ts"
+line = 34
+symbol = "LAYERX_MIRROR_VERIFIER_EXECUTABLE"
+evidence = "The registered mirror-server.ts file is deleted. Repository-wide exact-identifier search excluding spec and docs found no remaining LAYERX_MIRROR_VERIFIER_EXECUTABLE references."
+remaining_refs = 0
+remaining = []
+
+[row.r14-88.53]
+interface = "interface.14.env-web-layerx-mirror-verifier-prlimit-executable"
+verdict = "retired"
+path = "apps/web/src/explorer/mirror-server.ts"
+line = 34
+symbol = "LAYERX_MIRROR_VERIFIER_PRLIMIT_EXECUTABLE"
+evidence = "The registered mirror-server.ts file is deleted. Repository-wide exact-identifier search excluding spec and docs found no remaining LAYERX_MIRROR_VERIFIER_PRLIMIT_EXECUTABLE references."
+remaining_refs = 0
+remaining = []
+
+[row.r14-88.54]
+interface = "interface.14.ts-web-explorer-model-explorerverificationlevel"
+verdict = "served"
+path = "apps/web/src/explorer/model.ts"
+line = 3
+symbol = "ExplorerVerificationLevel"
+evidence = "ExplorerVerificationLevel is now an alias of VerificationRung imported from ../kit/model.ts, replacing the old level union with unverified, receipt-verified and checkpoint-finalised under decision.1405. Declaring line: export type ExplorerVerificationLevel = VerificationRung;"
+
+[row.r14-88.55]
+interface = "interface.14.ts-web-explorer-verifier-state-explorer-verifier-refused-statuses"
+verdict = "retired"
+path = "apps/web/src/explorer/verifier-state.ts"
+line = 11
+symbol = "EXPLORER_VERIFIER_REFUSED_STATUSES"
+evidence = "The registered verifier-state.ts file is deleted. Repository-wide exact-identifier search excluding spec and docs found no EXPLORER_VERIFIER_REFUSED_STATUSES references or relocated declaration."
+remaining_refs = 0
+remaining = []
+
+[row.r14-88.56]
+interface = "interface.14.ts-web-explorer-verifier-state-explorerverifierretryafter-2"
+verdict = "retired"
+path = "apps/web/src/explorer/verifier-state.ts"
+line = 18
+symbol = "explorerVerifierRetryAfter"
+evidence = "The registered verifier-state.ts file is deleted. Repository-wide exact-identifier search excluding spec and docs found no explorerVerifierRetryAfter references or relocated declaration."
+remaining_refs = 0
+remaining = []
+
+[row.r14-88.57]
+interface = "interface.14.ts-web-explorer-verifier-state-explorerverifierfailure-2"
+verdict = "retired"
+path = "apps/web/src/explorer/verifier-state.ts"
+line = 34
+symbol = "explorerVerifierFailure"
+evidence = "The registered verifier-state.ts file is deleted. Repository-wide exact-identifier search excluding spec and docs found no explorerVerifierFailure references or relocated declaration."
+remaining_refs = 0
+remaining = []
+
+[row.r14-88.58]
+interface = "interface.14.ts-web-journeys-activity-model-verificationlabel"
+verdict = "served"
+path = "apps/web/src/journeys/activity/model.ts"
+line = 193
+symbol = "verificationLabel"
+evidence = "The verificationLabel(level: VerificationLevel): string signature is unchanged. It now normalizes through verificationRung before indexing three label keys; unsupported levels map to unverified under decision.1405, addressing override.J53.37. Declaring line: export function verificationLabel(level: VerificationLevel): string {"
+
+[row.r14-88.59]
+interface = "interface.14.ts-web-journeys-activity-model-entryverification"
+verdict = "served"
+path = "apps/web/src/journeys/activity/model.ts"
+line = 201
+symbol = "entryVerification"
+evidence = "The entryVerification(evidence: readonly EvidenceRef[]): VerificationLevel signature is unchanged. It now ranks verificationRung(reference.verification) against three kit rungs, so unsupported generated levels cannot win, addressing decision.1405 and override.J53.38. Declaring line: export function entryVerification(evidence: readonly EvidenceRef[]): VerificationLevel {"
+
+[row.r14-88.60]
+interface = "interface.14.ts-web-journeys-activity-model-receiptbacked"
+verdict = "served"
+path = "apps/web/src/journeys/activity/model.ts"
+line = 422
+symbol = "receiptBacked"
+evidence = "The receiptBacked(reference: EvidenceRef): boolean signature is unchanged. RECEIPT_LEVELS contains only receipt-verified and checkpoint-finalised; it still requires class layerx-receipt, excluding the retired finality levels under decision.1405 and override.J53.39. Declaring line: export function receiptBacked(reference: EvidenceRef): boolean {"
