@@ -1,0 +1,8 @@
+[repair.rust-test-agent.2]
+target = "layerx-wire"
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --no-fail-fast"
+revision = "d2c6ee445fe8faac6462e3321fb754ab7485a286"
+result = "repaired"
+change = "services/agent/crates/layerx-wire/tests/support/corpus.rs shares canonical corpus generation with src/activity.rs and tests/hashing.rs, tests/primitives.rs, tests/rejection.rs and tests/structures.rs while preserving every assertion."
+producer_input_tests = ["activity::replay_registry_tests::replay_registry_tracks_kernel_budget_and_stream_declarations", "activity_and_payload_hashes_match_every_replay_vector", "all_domains_separate_identical_canonical_bytes", "signing_preimage_binds_network_and_protocol_version", "published_primitive_vectors_match_exact_results", "arbitrary_input_never_unwinds", "published_rejection_corpus_matches_core_classes", "generated_noncanonical_mutations_are_rejected", "rejection_taxonomy_coverage_has_no_silent_gap", "every_published_activity_and_receipt_round_trips_exactly", "all_nine_module_payload_tags_are_preserved", "unknown_version_activity_and_field_are_deterministic_rejections"]
+producer_inputs = "All listed tests load the canonical corpus produced by tests/vectors/codec/generate.py from scripts/replica/lxp_replay_fixture.py and include/layerx/*.h, together with tests/vectors/codec/valid.lxv, tests/vectors/codec/adversarial.lxv and tests/vectors/qualification_replay_10m.digest."
