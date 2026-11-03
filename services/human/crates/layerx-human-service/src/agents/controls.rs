@@ -614,8 +614,8 @@ impl<B: AgentControlContract> AgentControls<B> {
                 .map_err(|_| AgentControlError::InvalidProfile)?,
             started_at: observed_at,
         })?;
-        if evidence.action_key != replacement || evidence.bound_activity(kind)?.payload() != payload
-        {
+        let bound = evidence.bound_activity(kind)?;
+        if evidence.action_key != replacement || bound.payload() != payload {
             return Err(AgentControlError::EvidenceConflict);
         }
         let verified = evidence.verify_outcome(kind)?;

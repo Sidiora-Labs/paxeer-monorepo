@@ -74,13 +74,14 @@ func (server msgServer) EVMTransaction(goCtx context.Context, msg *types.MsgEVMT
 	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	tx, _ := msg.AsTransaction()
+	readCtx := ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
 	if id, ok := chainstypes.DomainOfChainID(tx.ChainId()); ok && id != 0 {
 		binding := server.chainsBinding()
 		if binding == nil {
 			return nil, chainstypes.ErrUnknownDomain
 		}
 		active := false
-		for _, candidate := range binding.ActiveDomains(ctx) {
+		for _, candidate := range binding.ActiveDomains(readCtx) {
 			if candidate == id {
 				active = true
 				break
@@ -89,7 +90,7 @@ func (server msgServer) EVMTransaction(goCtx context.Context, msg *types.MsgEVMT
 		if !active {
 			return nil, chainstypes.ErrDomainNotActive
 		}
-		fee := binding.NextBaseFee(ctx, id)
+		fee := binding.NextBaseFee(readCtx, id)
 		if tx.GasFeeCap().Cmp(fee.TruncateInt().BigInt()) < 0 {
 			return nil, sdkerrors.ErrInsufficientFee
 		}
@@ -244,10 +245,11 @@ func (k *Keeper) GetEVMMessage(ctx sdk.Context, tx *ethtypes.Transaction, sender
 		From:                  sender,
 	}
 	// If baseFee provided, set gasPrice to effectiveGasPrice.
-	baseFee := k.GetBaseFee(ctx)
+	readCtx := ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
+	baseFee := k.GetBaseFee(readCtx)
 	if id, ok := chainstypes.DomainOfChainID(tx.ChainId()); ok && id != 0 {
 		if binding := k.chainsBinding(); binding != nil {
-			baseFee = binding.NextBaseFee(ctx, id).TruncateInt().BigInt()
+			baseFee = binding.NextBaseFee(readCtx, id).TruncateInt().BigInt()
 		}
 	}
 	if baseFee != nil {

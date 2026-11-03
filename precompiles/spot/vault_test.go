@@ -355,6 +355,61 @@ func requireRefused(t *testing.T, e *vaultEnv, name string, args ...interface{})
 	}
 }
 
+func TestVaultRefusesDelegateCall(t *testing.T) {
+	e := newVaultEnv(t)
+	user := e.depositUSDL(" user", 5_000_000)
+	e.giveUSDL(user, 2_000_000, 2_000_000)
+	e.fundUhpx(user, 5_000_000)
+	e.fundUhpx(vaultAddress, 1_000_000)
+	_, _, err := e.call(user, nil, "deposit", e.pax, big.NewInt(3_000_000))
+	require.NoError(t, err)
+
+	snapshot := func() []interface{} {
+		balances := []interface{}{e.uhpx(vaultAddress), e.uhpx(user)}
+		for _, token := range []common.Address{e.usdl, e.pax, e.sid} {
+			book, err := e.k.GetBook(e.ctx, token)
+			require.NoError(t, err)
+			balances = append(balances, e.balance(token, vaultAddress),
+				e.balance(token, e.k.CustodyEVMAddress(e.ctx)), e.balance(token, user),
+				e.balance(e.shares[token], user), book)
+		}
+		return balances
+	}
+	want := snapshot()
+	argsByMethod := map[string][]interface{}{
+		"deposit":        {e.usdl, big.NewInt(1_000_000)},
+		"depositBatch":   {[]common.Address{e.usdl, e.pax}, []*big.Int{big.NewInt(1_000_000), big.NewInt(1_000_000)}},
+		"withdraw":       {e.usdl, big.NewInt(1_000_000)},
+		"withdrawNative": {big.NewInt(1_000_000), user},
+	}
+	methods := make(map[string]abi.Method, len(e.vault.Methods)+1)
+	for name, method := range e.vault.Methods {
+		methods[name] = method
+	}
+	methods["receive"] = e.vault.Receive
+	for name, method := range methods {
+		t.Run(name, func(t *testing.T) {
+			ctx := (sdk.Context{}).WithEVMPrecompileCalledFromDelegateCall(true)
+			ret, err := e.exec.Execute(ctx, &method, user, user, nil, nil, false, nil, nil)
+			require.EqualError(t, err, "spot: cannot delegatecall vault")
+			require.Nil(t, ret)
+
+			e.inTx(func(evm *vm.EVM, ctx sdk.Context) error {
+				var value *big.Int
+				if name == "depositNative" || name == "receive" {
+					value = new(big.Int).Set(weiPerPax)
+				}
+				ret, err := e.exec.Execute(ctx.WithEVMPrecompileCalledFromDelegateCall(true),
+					&method, user, user, argsByMethod[name], value, false, evm, nil)
+				require.EqualError(t, err, "spot: cannot delegatecall vault")
+				require.Nil(t, ret)
+				return nil
+			})
+			require.Equal(t, want, snapshot())
+		})
+	}
+}
+
 func TestVaultDeposit(t *testing.T) {
 	e := newVaultEnv(t)
 	user := vaultTestAddress(t.Name() + " user")

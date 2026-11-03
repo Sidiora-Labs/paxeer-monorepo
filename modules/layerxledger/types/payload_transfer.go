@@ -7,6 +7,13 @@ import (
 )
 
 const (
+	// PayerGrantIssueActivity and PayerGrantRevokeActivity retain the wire IDs
+	// declared by LX_ASSET_GRANT_ISSUE and LX_ASSET_GRANT_REVOKE in
+	// include/layerx/lx_asset.h:27-28. Decision 2340 retires both routes;
+	// keepers must never submit these legacy identifiers.
+	PayerGrantIssueActivity  uint32 = 0x00010007
+	PayerGrantRevokeActivity uint32 = 0x00010008
+
 	receiveWireTag             = 0x5201
 	receiveFieldCount          = 10
 	receiveHeadLength          = 2 + 2 + 32 + 32 + 32 + 16 + 32 + 8 + 32 + 32

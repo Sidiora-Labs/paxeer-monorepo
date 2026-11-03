@@ -77,8 +77,25 @@ pub fn deploy_fixture(
     block_height: u64,
     timestamp: u64,
 ) -> ProtocolFixture {
-    fixture(
-        &deploy_payload(wasm, policy),
+    deploy_fixture_with_interface(
+        wasm,
+        policy,
+        block_height,
+        timestamp,
+        &fixture_interface(wasm),
+    )
+}
+
+#[must_use]
+pub fn deploy_fixture_with_interface(
+    wasm: &[u8],
+    policy: UpgradePolicy,
+    block_height: u64,
+    timestamp: u64,
+    interface: &ProgramInterface,
+) -> ProtocolFixture {
+    fixture_with_interface(
+        &deploy_payload(wasm, policy, interface),
         &FixtureState {
             wasm,
             policy,
@@ -87,6 +104,7 @@ pub fn deploy_fixture(
             timestamp,
             deprecated: false,
         },
+        interface,
     )
 }
 
@@ -173,11 +191,18 @@ struct FixtureState<'a> {
 }
 
 fn fixture(transaction: &[u8], state: &FixtureState<'_>) -> ProtocolFixture {
+    fixture_with_interface(transaction, state, &fixture_interface(state.wasm))
+}
+
+fn fixture_with_interface(
+    transaction: &[u8],
+    state: &FixtureState<'_>,
+    interface: &ProgramInterface,
+) -> ProtocolFixture {
     let record = program_record(state.wasm, state.policy, state.version);
     let program_key = programs_state_key(&program_key());
     let interface_key = interface_state_key(program());
-    let interface = fixture_interface(state.wasm);
-    let interface_value = interface_state_value(program(), state.version, &interface)
+    let interface_value = interface_state_value(program(), state.version, interface)
         .unwrap_or_else(|error| panic!("interface state value: {error}"));
     let mut pairs = vec![
         (program_key.clone(), record.clone()),
@@ -300,9 +325,8 @@ fn fixture(transaction: &[u8], state: &FixtureState<'_>) -> ProtocolFixture {
     }
 }
 
-fn deploy_payload(wasm: &[u8], policy: UpgradePolicy) -> Vec<u8> {
+fn deploy_payload(wasm: &[u8], policy: UpgradePolicy, interface: &ProgramInterface) -> Vec<u8> {
     use layerx_types::program_lifecycle::{NativeProgramDeploy, ProgramUpgradePolicy};
-    let interface = fixture_interface_encoding(wasm);
     NativeProgramDeploy {
         program_id: layerx_types::intent::ProgramId::new(PROGRAM_BYTES),
         guest_abi: 1,
@@ -311,7 +335,7 @@ fn deploy_payload(wasm: &[u8], policy: UpgradePolicy) -> Vec<u8> {
             UpgradePolicy::Authority(authority) => ProgramUpgradePolicy::Authority(authority),
         },
         new_hash: code_hash(wasm),
-        interface: Some(&interface),
+        interface: Some(interface.canonical_encoding()),
         wasm,
     }
     .encode()
@@ -373,27 +397,20 @@ impl ProtocolFixture {
 }
 
 fn upgrade_payload(old_wasm: &[u8], new_wasm: &[u8]) -> Vec<u8> {
+    use layerx_types::program_lifecycle::NativeProgramUpgrade;
     let interface_encoding = fixture_interface_encoding(new_wasm);
-    let mut payload = Vec::new();
-    payload.extend_from_slice(&PROGRAM_BYTES);
-    payload.extend_from_slice(&1_u16.to_be_bytes());
-    payload.extend([0, 0]);
-    payload.extend_from_slice(&code_hash(old_wasm));
-    payload.extend_from_slice(&code_hash(new_wasm));
-    payload.extend_from_slice(&0_u16.to_be_bytes());
-    payload.extend_from_slice(
-        &u32::try_from(new_wasm.len())
-            .unwrap_or_else(|_| panic!("WASM length"))
-            .to_be_bytes(),
-    );
-    payload.extend_from_slice(
-        &u32::try_from(interface_encoding.len())
-            .unwrap_or_else(|_| panic!("interface length"))
-            .to_be_bytes(),
-    );
-    payload.extend_from_slice(&interface_encoding);
-    payload.extend_from_slice(new_wasm);
-    payload
+    NativeProgramUpgrade {
+        program_id: layerx_types::intent::ProgramId::new(PROGRAM_BYTES),
+        guest_abi: 1,
+        old_hash: code_hash(old_wasm),
+        new_hash: code_hash(new_wasm),
+        migration_hook: &[],
+        clear_interface: false,
+        interface: Some(&interface_encoding),
+        wasm: new_wasm,
+    }
+    .encode()
+    .unwrap_or_else(|error| panic!("native upgrade encoding: {error:?}"))
 }
 
 #[must_use]

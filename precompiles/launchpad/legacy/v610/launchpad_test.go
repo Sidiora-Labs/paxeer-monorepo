@@ -14,10 +14,13 @@ import (
 	launchpadkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/legacy/v610/keeper"
 	types "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/legacy/v610/types"
 	tokenfactorykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/keeper"
+	tokenfactorytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	launchpad "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/launchpad/legacy/v610"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
+	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -49,6 +52,7 @@ type harness struct {
 	evm        *vm.EVM
 	precompile *pcommon.Precompile
 	keeper     *launchpadkeeper.Keeper
+	bank       bankkeeper.BaseKeeper
 	caller     common.Address
 	callerAcc  sdk.AccAddress
 }
@@ -59,10 +63,17 @@ func newHarness(t *testing.T) *harness {
 	ctx := app.GetContextForDeliverTx([]byte{}).WithBlockTime(genesisTime)
 	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
 	key := sdk.NewKVStoreKey(types.StoreKey)
-	k := launchpadkeeper.NewKeeper(key, app.BankKeeper, tokenfactorykeeper.NewMsgServerImpl(app.TokenFactoryKeeper), &app.EvmKeeper)
+	bank := bankkeeper.NewBaseKeeperWithDeferredCache(app.AppCodec(), app.GetKey(banktypes.StoreKey),
+		app.AccountKeeper, app.GetSubspace(banktypes.ModuleName), app.ModuleAccountAddrs(),
+		app.GetMemKey(banktypes.DeferredCacheStoreKey))
+	bank.RegisterRecipientChecker(app.EvmKeeper.CanAddressReceive)
+	factory := tokenfactorykeeper.NewKeeper(app.AppCodec(), app.GetKey(tokenfactorytypes.StoreKey),
+		app.GetSubspace(tokenfactorytypes.ModuleName), app.AccountKeeper, bank)
+	k := launchpadkeeper.NewKeeper(key, bank, tokenfactorykeeper.NewMsgServerImpl(factory), &app.EvmKeeper)
+	bank.RegisterBalanceChangeHook(types.ModuleName, k.BeforeBalanceChange)
 	ctx = launchpadtest.WithStore(ctx, key)
 	k.InitGenesis(ctx, *types.DefaultGenesis())
-	h := &harness{t: t, keeper: k}
+	h := &harness{t: t, keeper: k, bank: bank}
 	var err error
 	h.precompile, err = launchpad.NewPrecompile(keepers{Keepers: app.GetPrecompileKeepers(), launchpad: k})
 	require.NoError(t, err)
@@ -80,8 +91,8 @@ func (h *harness) fund(amount int64) (sdk.AccAddress, common.Address) {
 	acc, address := testkeeper.MockAddressPair()
 	testkeeper.EVMTestApp.EvmKeeper.SetAddressMapping(h.stateDB.Ctx(), acc, address)
 	coins := sdk.NewCoins(sdk.NewCoin(quote, sdk.NewInt(amount)))
-	require.NoError(h.t, testkeeper.EVMTestApp.BankKeeper.MintCoins(h.stateDB.Ctx(), "evm", coins))
-	require.NoError(h.t, testkeeper.EVMTestApp.BankKeeper.SendCoinsFromModuleToAccount(h.stateDB.Ctx(), "evm", acc, coins))
+	require.NoError(h.t, h.bank.MintCoins(h.stateDB.Ctx(), "evm", coins))
+	require.NoError(h.t, h.bank.SendCoinsFromModuleToAccount(h.stateDB.Ctx(), "evm", acc, coins))
 	return acc, address
 }
 
@@ -484,7 +495,7 @@ func TestClaimAirdropForEpochThroughThePrecompile(t *testing.T) {
 
 	// After the boundary the trader moves its whole holding to the stranger
 	// and a second epoch opens; epoch 1 still pays the trader, never the stranger.
-	require.NoError(t, testkeeper.EVMTestApp.BankKeeper.SendCoins(h.stateDB.Ctx(), traderAcc, strangerAcc,
+	require.NoError(t, h.bank.SendCoins(h.stateDB.Ctx(), traderAcc, strangerAcc,
 		sdk.NewCoins(sdk.NewCoin(denom, sdk.NewIntFromBigInt(holding)))))
 	h.call(trader, launchpad.BuyMethod, token, big.NewInt(333_333_334), big.NewInt(0), trader, deadline)
 	require.Equal(t, big.NewInt(9_000_000), h.call(h.caller, launchpad.ExecuteAirdropMethod, token)[0])

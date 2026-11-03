@@ -113,7 +113,7 @@ func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPr
 		return nil, fmt.Errorf("%w: precompile keepers are unavailable", agentcommon.ErrNoContext)
 	}
 	wired, ok := keepers.(utils.XWebKeepers)
-	if !ok {
+	if !ok || wired.XWebK() == nil {
 		return nil, fmt.Errorf("%w: xweb keeper is unavailable", agentcommon.ErrNoContext)
 	}
 	evmKeeper, ok := keepers.EVMK().(*evmkeeper.Keeper)
@@ -128,7 +128,10 @@ func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPr
 }
 
 func (p *PrecompileExecutor) RequiredGas(input []byte, method *abi.Method) uint64 {
-	if method == nil || len(input) > math.MaxInt-4 {
+	if method == nil {
+		return pcommon.UnknownMethodCallGas
+	}
+	if len(input) > math.MaxInt-4 {
 		return math.MaxUint64
 	}
 	return agentcommon.MethodGas(method.ID, len(input)+4)

@@ -39,6 +39,7 @@ func TestEveryAnchorSelectorRetired(t *testing.T) {
 
 	testApp := app.Setup(t, false, true, false)
 	t.Cleanup(func() { require.NoError(t, testApp.Close()) })
+	require.NotNil(t, testApp.GetPrecompileKeepers().AnchorK())
 	require.Same(t, &testApp.LayerXAnchorKeeper, testApp.GetPrecompileKeepers().AnchorK())
 	const mergeHeight, deleteHeight = int64(20), int64(40)
 	ctx := testApp.GetContextForDeliverTx([]byte{}).WithBlockHeight(deleteHeight)
