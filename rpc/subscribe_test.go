@@ -677,6 +677,7 @@ func dialWSPipe(t *testing.T, handler http.Handler) (*websocket.Conn, *subscribe
 	}
 	conn, res, err := dialer.Dial("ws://pipe/", http.Header{"Origin": []string{"localhost"}})
 	require.NoError(t, err)
+	require.Equal(t, http.StatusSwitchingProtocols, res.StatusCode)
 	require.NoError(t, res.Body.Close())
 	t.Cleanup(func() { _ = conn.Close() })
 	return conn, peek
