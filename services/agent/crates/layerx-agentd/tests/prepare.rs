@@ -107,6 +107,24 @@ fn canonical_bytes_and_preimage_come_only_from_layerx_wire() {
         layerx_agentd::prepare::PrecompileTarget::Ledger.address()
     );
     assert_eq!(prepared.signing_hash, prepared.call.signing_hash());
+    assert_eq!(prepared.from, request().from);
+    assert_eq!(prepared.disclosure.idempotency_key, [4; 32]);
+    assert_eq!(
+        prepared.disclosure,
+        layerx_crypto::disclosure::call::bind_call(&prepared.call, request().from)
+            .unwrap_or_else(|error| panic!("bind call: {error:?}"))
+    );
+    assert_eq!(
+        prepared.disclosure_digest,
+        prepared
+            .disclosure
+            .signing_digest()
+            .unwrap_or_else(|error| panic!("disclosure digest: {error:?}"))
+    );
+    assert_eq!(
+        layerx_agentd::prepare::verify_call_binding(&prepared),
+        Ok(())
+    );
     let data = &prepared.call.data;
     assert_eq!(&data[..4], &[0x2b, 0xb1, 0xae, 0x7c]);
     assert_eq!(&data[4..35], &[0; 31]);

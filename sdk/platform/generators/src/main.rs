@@ -12,6 +12,8 @@ const LOCK_PATH: &str = "sdk/platform/pipeline.kvx";
 const RUST_OPERATION_GENERATED_PATH: &str =
     "services/agent/crates/layerx-agent-api/src/operation_generated.rs";
 const GO_GENERATED_PATH: &str = "sdk/platform/go/generated.go";
+const JVM_SCHEMA_PATH: &str =
+    "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java";
 const JVM_CONFORMANCE_PATH: &str = "sdk/platform/conformance/jvm.kvx";
 const RECEIPT_CONTRACT_PATH: &str = "sdk/platform/generators/receipt.kvx";
 const RUST_RECEIPT_GENERATED_PATH: &str =
@@ -1486,6 +1488,59 @@ fn write_go(repo_root: &Path) -> Result<(), String> {
         .map_err(|error| format!("write {}: {error}", path.display()))
 }
 
+pub(crate) fn jvm_verification_status(repo_root: &Path) -> Result<String, String> {
+    let output = Command::new("python3")
+        .arg(repo_root.join("sdk/platform/generators/generate_jvm.py"))
+        .arg("--verification-status")
+        .arg(repo_root)
+        .output()
+        .map_err(|error| format!("start Python VerificationStatus renderer: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "Python VerificationStatus renderer failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    String::from_utf8(output.stdout)
+        .map_err(|error| format!("Python VerificationStatus renderer returned non-UTF-8: {error}"))
+}
+
+pub(crate) fn jvm_schema_with_verification_status(repo_root: &Path) -> Result<String, String> {
+    let path = repo_root.join(JVM_SCHEMA_PATH);
+    let source =
+        fs::read_to_string(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
+    let declaration = jvm_verification_status(repo_root)?;
+    let boundary = "    }\n    public static final class HumanModels {";
+    let (agent, rest) = source
+        .split_once(boundary)
+        .ok_or_else(|| "generated JVM schema has no AgentModels boundary".to_owned())?;
+    let marker = "        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)\n        public record VerificationStatus(";
+    let (agent, following) = if let Some((before, existing)) = agent.split_once(marker) {
+        let (_, following) = existing
+            .split_once("\n        }\n")
+            .ok_or_else(|| "generated JVM VerificationStatus has no closing boundary".to_owned())?;
+        (before, following)
+    } else {
+        (agent, "")
+    };
+    Ok(format!("{agent}{declaration}{following}{boundary}{rest}"))
+}
+
+fn jvm_verification_status_contract(repo_root: &Path, write: bool) -> Result<(), String> {
+    let expected = jvm_schema_with_verification_status(repo_root)?;
+    let path = repo_root.join(JVM_SCHEMA_PATH);
+    if write {
+        fs::write(&path, expected).map_err(|error| format!("write {}: {error}", path.display()))
+    } else {
+        let actual = fs::read_to_string(&path)
+            .map_err(|error| format!("read {}: {error}", path.display()))?;
+        if actual != expected {
+            return Err("generated JVM VerificationStatus is stale or hand-edited; run make platform-sdk-generate".to_owned());
+        }
+        Ok(())
+    }
+}
+
 fn generate_jvm_conformance(repo_root: &Path) -> Result<String, String> {
     let operation_count = |root: &Path| -> Result<usize, String> {
         Ok(schema_sections(root)?
@@ -1902,6 +1957,7 @@ pub fn check(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
     check_rust_operation_catalog(repo_root)?;
     check_go(repo_root)?;
     check_jvm_conformance(repo_root)?;
+    jvm_verification_status_contract(repo_root, false)?;
     check_receipt_contracts(repo_root)
 }
 
@@ -1916,6 +1972,7 @@ pub fn write_lock(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
     write_rust_operation_catalog(repo_root)?;
     write_go(repo_root)?;
     write_jvm_conformance(repo_root)?;
+    jvm_verification_status_contract(repo_root, true)?;
     write_receipt_contracts(repo_root)?;
     replace_lock(lock_path, &classified_lock(repo_root, lock_path)?)
 }

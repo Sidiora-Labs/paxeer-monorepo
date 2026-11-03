@@ -2,10 +2,13 @@
 
 use std::fmt::{Display, Formatter};
 
-use crate::read::{history, Cursor, HistoryLimits, HistoryReadError};
+use crate::read::{Cursor, HistoryLimits, HistoryReadError};
 use layerx_agent_api::subscription::SubscriptionTarget;
-use layerx_client::lni::transport::FrameTransport;
-use layerx_client::rpc::history::{HistoryKind, ReadContext};
+use layerx_client::sequencer::{RpcRefusal, SequencerEndpoint, SequencerError};
+use layerx_client::subscription::SubscriptionTopic;
+use serde_json::{json, Value};
+use std::io::Read;
+use std::time::Duration;
 
 use super::ingestion::{decode_log, durable_event, durable_sequences};
 use super::subscription::{Continuity, Store as SubscriptionStore, SubscriptionError};
@@ -219,99 +222,194 @@ fn detect_inner(
     Ok(Some(gap))
 }
 
+pub struct EthLogSource {
+    agent: ureq::Agent,
+    url: String,
+    address: Option<[u8; 20]>,
+    topics: Vec<[u8; 32]>,
+}
+
+impl EthLogSource {
+    pub fn new(
+        url: &str,
+        trust_anchors: &[&[u8]],
+        topic: SubscriptionTopic,
+    ) -> Result<Self, SequencerError> {
+        let SubscriptionTopic::Logs { address, topics } = topic else {
+            return Err(SequencerError::Endpoint);
+        };
+        if topics.len() > 4 {
+            return Err(SequencerError::Malformed);
+        }
+        SequencerEndpoint::new(url, trust_anchors)?;
+        let roots: Vec<_> = trust_anchors
+            .iter()
+            .map(|anchor| ureq::tls::Certificate::from_der(anchor).to_owned())
+            .collect();
+        let agent = ureq::Agent::config_builder()
+            .timeout_global(Some(Duration::from_secs(30)))
+            .http_status_as_error(false)
+            .max_redirects(0)
+            .tls_config(
+                ureq::tls::TlsConfig::builder()
+                    .provider(ureq::tls::TlsProvider::Rustls)
+                    .root_certs(ureq::tls::RootCerts::new_with_certs(&roots))
+                    .build(),
+            )
+            .build()
+            .into();
+        Ok(Self {
+            agent,
+            url: url.to_owned(),
+            address,
+            topics,
+        })
+    }
+
+    fn read_block(
+        &self,
+        height: u64,
+        limits: HistoryLimits,
+    ) -> Result<Vec<Value>, HistoryReadError> {
+        let hex = |bytes: &[u8]| {
+            format!(
+                "0x{}",
+                bytes
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>()
+            )
+        };
+        let mut filter = json!({"fromBlock":format!("0x{height:x}"),
+            "toBlock":format!("0x{height:x}"),
+            "topics":self.topics.iter().map(|topic| hex(topic)).collect::<Vec<_>>()});
+        if let Some(address) = self.address {
+            filter["address"] = json!(hex(&address));
+        }
+        let request = json!({"jsonrpc":"2.0", "id":1, "method":"eth_getLogs", "params":[filter]});
+        let mut response = self
+            .agent
+            .post(&self.url)
+            .send_json(&request)
+            .map_err(|_| HistoryReadError::Sequencer(SequencerError::Unavailable))?;
+        if response.status().as_u16() != 200 {
+            return Err(HistoryReadError::Sequencer(SequencerError::HttpStatus(
+                response.status().as_u16(),
+            )));
+        }
+        let mut bytes = Vec::new();
+        response
+            .body_mut()
+            .as_reader()
+            .take(
+                u64::try_from(limits.maximum_response_bytes)
+                    .unwrap_or(u64::MAX)
+                    .saturating_add(1),
+            )
+            .read_to_end(&mut bytes)
+            .map_err(|_| HistoryReadError::Sequencer(SequencerError::Unavailable))?;
+        if bytes.len() > limits.maximum_response_bytes {
+            return Err(HistoryReadError::Oversized);
+        }
+        let value: Value =
+            serde_json::from_slice(&bytes).map_err(|_| HistoryReadError::Malformed)?;
+        if value["jsonrpc"] != "2.0" || value["id"] != 1 || value.get("method").is_some() {
+            return Err(HistoryReadError::Malformed);
+        }
+        match (value.get("result"), value.get("error")) {
+            (Some(result), None) => {
+                let logs = result.as_array().ok_or(HistoryReadError::Malformed)?;
+                if logs.len() > usize::from(limits.maximum_items) {
+                    return Err(HistoryReadError::Oversized);
+                }
+                Ok(logs.clone())
+            }
+            (None, Some(error)) => Err(HistoryReadError::Rpc(RpcRefusal {
+                code: error["code"].as_i64().ok_or(HistoryReadError::Malformed)?,
+                message: error["message"]
+                    .as_str()
+                    .ok_or(HistoryReadError::Malformed)?
+                    .to_owned(),
+                data: error.get("data").cloned(),
+            })),
+            _ => Err(HistoryReadError::Malformed),
+        }
+    }
+}
+
 pub fn attempt_backfill(
-    transport: &mut dyn FrameTransport,
+    source: &EthLogSource,
     gap: Gap,
-    context: ReadContext,
     limits: HistoryLimits,
     maximum_records: u32,
 ) -> BackfillReport {
     let mut recovered = Vec::new();
-    let mut cursor = None;
-    let mut read = 0_u32;
-    loop {
-        let remaining = maximum_records.saturating_sub(read);
-        if remaining == 0 || gap.missing_first > gap.missing_last {
-            return BackfillReport::Incomplete {
-                gap,
-                recovered,
-                failure: BackfillFailure::RangeExceedsBound {
-                    required: u64::from(read) + 1,
-                    maximum: maximum_records,
-                },
-            };
+    let result = (|| {
+        if limits.maximum_items == 0 || limits.maximum_response_bytes == 0 {
+            return Err(BackfillFailure::History(HistoryReadError::InvalidLimits));
         }
-        let page_limits = HistoryLimits {
-            maximum_items: limits
-                .maximum_items
-                .min(u16::try_from(remaining).unwrap_or(u16::MAX)),
-            ..limits
-        };
-        let page = match history(
-            transport,
-            gap.missing_first,
-            gap.missing_last,
-            cursor,
-            page_limits,
-            context,
-        ) {
-            Ok(page) => page,
-            Err(error) => {
-                return BackfillReport::Incomplete {
-                    gap,
-                    recovered,
-                    failure: BackfillFailure::History(error),
-                }
-            }
-        };
-        if page.height < gap.missing_last {
-            return BackfillReport::Incomplete {
-                gap,
-                recovered,
-                failure: BackfillFailure::Incomplete,
-            };
+        let blocks = gap
+            .missing_last
+            .checked_sub(gap.missing_first)
+            .and_then(|range| range.checked_add(1))
+            .ok_or(BackfillFailure::History(HistoryReadError::InvalidRange))?;
+        if blocks > u64::from(maximum_records) {
+            return Err(BackfillFailure::RangeExceedsBound {
+                required: blocks,
+                maximum: maximum_records,
+            });
         }
-        read += u32::try_from(page.items.len()).unwrap_or(u32::MAX);
-        for item in page.items {
-            if item.kind != HistoryKind::Event {
-                continue;
-            }
-            let event = decode_log(&item.canonical, layerx_types::rung::Rung::Receipted);
-            if !event.is_ok_and(|event| {
-                Cursor {
+        let mut previous = None;
+        for height in gap.missing_first..=gap.missing_last {
+            for log in source
+                .read_block(height, limits)
+                .map_err(BackfillFailure::History)?
+            {
+                let bytes = serde_json::to_vec(&log)
+                    .map_err(|_| BackfillFailure::History(HistoryReadError::Malformed))?;
+                let event = decode_log(&bytes, layerx_types::rung::Rung::Receipted)
+                    .map_err(|_| BackfillFailure::History(HistoryReadError::Malformed))?;
+                let position = Cursor {
                     block_height: event.block_height,
                     tx_index: event.tx_index,
                     log_index: event.log_index,
-                } == item.position
-            }) {
-                return BackfillReport::Incomplete {
-                    gap,
-                    recovered,
-                    failure: BackfillFailure::History(HistoryReadError::Malformed),
                 };
-            }
-            recovered.push(RecoveredEvent {
-                global_sequence: item.position.block_height,
-                canonical_bytes: item.canonical,
-                position: item.position,
-            });
-        }
-        match page.next_cursor {
-            Some(next) if cursor.is_none_or(|previous| next > previous) => cursor = Some(next),
-            None => {
-                return BackfillReport::Recovered {
-                    gap,
-                    events: recovered,
+                if event.block_hash.is_none()
+                    || event.block_height != height
+                    || previous.is_some_and(|last| position <= last)
+                    || source
+                        .address
+                        .is_some_and(|address| event.address != address)
+                    || !event.topics.starts_with(&source.topics)
+                {
+                    return Err(BackfillFailure::History(HistoryReadError::Cursor));
                 }
-            }
-            _ => {
-                return BackfillReport::Incomplete {
-                    gap,
-                    recovered,
-                    failure: BackfillFailure::Incomplete,
+                if recovered.len() >= maximum_records as usize {
+                    return Err(BackfillFailure::RangeExceedsBound {
+                        required: recovered.len() as u64 + 1,
+                        maximum: maximum_records,
+                    });
                 }
+                previous = Some(position);
+                recovered.push(RecoveredEvent {
+                    global_sequence: height,
+                    canonical_bytes: bytes,
+                    position,
+                });
             }
         }
+        Ok(())
+    })();
+    match result {
+        Ok(()) => BackfillReport::Recovered {
+            gap,
+            events: recovered,
+        },
+        Err(failure) => BackfillReport::Incomplete {
+            gap,
+            recovered,
+            failure,
+        },
     }
 }
 

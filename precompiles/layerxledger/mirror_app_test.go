@@ -41,10 +41,19 @@ func TestBankMirrorMatchesKernelBalances(t *testing.T) {
 	abi := p.GetABI()
 	call := func(caller common.Address, name string, args ...interface{}) []interface{} {
 		t.Helper()
+		before := storeSnapshot(t, ctx.KVStore(a.GetKey(app.LayerXHostStoreKey)))
+		logs := len(db.GetAllLogs())
 		input, err := abi.Pack(name, args...)
 		require.NoError(t, err, name)
 		evm.TxContext.Origin = caller
 		data, err := p.Run(evm, caller, caller, input, nil, abi.Methods[name].IsConstant(), false, nil)
+		if name == "issueGrant" || name == "draw" {
+			require.ErrorIs(t, err, vm.ErrExecutionReverted)
+			assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
+			require.Equal(t, before, storeSnapshot(t, ctx.KVStore(a.GetKey(app.LayerXHostStoreKey))))
+			require.Len(t, db.GetAllLogs(), logs)
+			return nil
+		}
 		require.NoError(t, err, "%s returned %x", name, data)
 		outputs := abi.Methods[name].Outputs
 		switch name {
@@ -184,13 +193,13 @@ func TestBankMirrorMatchesKernelBalances(t *testing.T) {
 	grant := append(append([]byte(nil), grantID[:]...), body...)
 	grant = append(grant, ed25519.Sign(private, grantID[:])...)
 	require.NoError(t, types.ValidateIssueGrantPayload(grant))
-	require.Equal(t, []interface{}{grantID}, call(payerCaller, "issueGrant", grant))
+	call(payerCaller, "issueGrant", grant)
 	assertMirror("issueGrant", 250)
 	sequence := call(payeeCaller, "nextSequence", payee.DIDKey, asset)[0].(uint64)
 	call(payeeCaller, "draw", grantID, to, big.NewInt(15), [32]byte{0x45}, sequence, purpose, contextHash)
-	balances[from], balances[to] = 135, 55
+	balances[from], balances[to] = 150, 40
 	assertMirror("draw", 250)
 	call(payerCaller, "payExact", from, to, asset, big.NewInt(3), now+1000, [32]byte{0x46})
-	balances[from], balances[to] = 132, 58
+	balances[from], balances[to] = 147, 43
 	assertMirror("payExact", 250)
 }

@@ -2474,22 +2474,20 @@ mod evm_program_tests {
 
     #[test]
     fn program_submission_reads_its_receipt_at_the_submitted_rung() {
-        let (payload, signed_kernel) = fixture();
+        let (payload, _) = fixture();
         let (transaction, raw, sender) = transaction(&payload);
         let registry = registry();
-        let activity = decode_signed(&signed_kernel, &registry).unwrap();
-        let canonical = layerx_wire::activity::encode_unsigned(&activity).unwrap();
-        let authority = layerx_types::activity::Authority::owner(activity.authority()).unwrap();
-        let authorization =
-            crate::prepare::restore_canonical(&canonical, 7, &registry, Some(&authority)).unwrap();
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&transaction, sender).unwrap();
         let prepared = crate::sign::SigningPreparation {
             transaction: crate::prepare::EvmPrepared {
                 signing_hash: transaction.signing_hash(),
                 call: transaction.clone(),
+                from: sender,
+                disclosure_digest: disclosure.signing_digest().unwrap(),
+                disclosure,
                 observed_head_height: 7,
             },
             actor_address: sender,
-            authorization,
         };
         for (success, committed) in [(true, false), (false, false), (false, true)] {
             let hash = layerx_crypto::evm_transaction::transaction_hash(&raw);

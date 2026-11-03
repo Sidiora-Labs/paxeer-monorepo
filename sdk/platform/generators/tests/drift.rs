@@ -155,6 +155,16 @@ fn repo_fixture(label: &str) -> PathBuf {
         "services/human/schema/human-api/golden/account.create.request.json",
         "{}\n",
     );
+    let contract = include_str!("../../../../services/agent/schema/agent-api/v1.kvx")
+        .split("\n[record.VerificationStatus]\n")
+        .nth(1)
+        .and_then(|rest| rest.split("\n[").next())
+        .unwrap_or_else(|| panic!("repository VerificationStatus contract missing"));
+    let schema_path = root.join("services/agent/schema/agent-api/v1.kvx");
+    let mut schema = fs::read_to_string(&schema_path)
+        .unwrap_or_else(|error| panic!("read fixture schema: {error}"));
+    schema.push_str(&format!("\n[record.VerificationStatus]\n{contract}\n"));
+    fs::write(schema_path, schema).unwrap_or_else(|error| panic!("write fixture schema: {error}"));
     place_generated_fixture(&root);
     root
 }
@@ -219,6 +229,11 @@ fn place_generated_fixture(root: &Path) {
     for relative in pipeline::JVM_FILES {
         place(root, &format!("sdk/platform/jvm/{relative}"), "jvm\n");
     }
+    place(
+        root,
+        "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java",
+        include_str!("../../jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"),
+    );
     place(
         root,
         "sdk/platform/conformance/jvm.kvx",
@@ -713,7 +728,13 @@ fn rust_operation_catalogue_matches_the_repository_schema() {
     let sections = schema_sections(&root.join("services/agent/schema/agent-api"))
         .unwrap_or_else(|error| panic!("read agent schema: {error}"));
     let transport = sections
-        .keys()
+        .iter()
+        .filter(|(_, entries)| {
+            !entries
+                .get("disposition")
+                .is_some_and(|disposition| disposition == "\"retired\"")
+        })
+        .map(|(section, _)| section)
         .filter_map(|section| section.strip_prefix("transport.agent_http.operation."))
         .collect::<BTreeSet<_>>();
     let declared = sections
@@ -721,6 +742,13 @@ fn rust_operation_catalogue_matches_the_repository_schema() {
         .filter_map(|section| section.strip_prefix("operation."))
         .collect::<BTreeSet<_>>();
     assert!(transport.contains("mcp.invoke"));
+    assert_eq!(
+        sections["transport.agent_http.operation.faucet.claim"]["disposition"],
+        "\"retired\""
+    );
+    assert!(!transport.contains("faucet.claim"));
+    assert!(!declared.contains("faucet.claim"));
+    assert!(!generated.contains("FaucetClaim"));
     assert_eq!(
         transport, declared,
         "every agent transport operation needs an [operation.<name>] module declaration"
@@ -762,4 +790,307 @@ fn repository_conformance_root_declares_every_shipped_handwritten_file() {
             "lock must declare {relative} handwritten"
         );
     }
+}
+
+fn missing_jvm_component_types(source: &str) -> BTreeSet<String> {
+    let mut namespace = "";
+    let mut declarations = BTreeSet::new();
+    let mut references = BTreeSet::new();
+    for line in source.lines().map(str::trim) {
+        if let Some(rest) = line.strip_prefix("public static final class ") {
+            namespace = rest.split_whitespace().next().unwrap_or("");
+        }
+        for kind in ["record", "enum", "class", "interface"] {
+            if let Some(rest) = line.strip_prefix(&format!("public {kind} ")) {
+                let name = rest
+                    .split(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+                    .next()
+                    .unwrap_or("");
+                declarations.insert(format!("{namespace}.{name}"));
+            }
+        }
+        if line.starts_with("public record ") {
+            let components = line.split(" implements ").next().unwrap_or(line);
+            for token in
+                components.split(|c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '.')
+            {
+                if [
+                    "AgentModels.",
+                    "HumanModels.",
+                    "AgentOperations.",
+                    "HumanOperations.",
+                ]
+                .iter()
+                .any(|prefix| token.starts_with(prefix))
+                {
+                    references.insert(token.to_owned());
+                }
+            }
+        }
+    }
+    references.difference(&declarations).cloned().collect()
+}
+
+#[test]
+fn jvm_record_components_reference_declared_nested_types() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let generated = pipeline::jvm_schema_with_verification_status(&root)
+        .unwrap_or_else(|error| panic!("generate JVM VerificationStatus: {error}"));
+    let committed = fs::read_to_string(
+        root.join("sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"),
+    )
+    .unwrap_or_else(|error| panic!("read JVM schema: {error}"));
+    assert_eq!(generated, committed, "JVM schema must be regenerated");
+    let missing = missing_jvm_component_types(&generated);
+    assert!(
+        missing.is_empty(),
+        "JVM record component types are undeclared: {missing:?}"
+    );
+    assert!(generated.contains("AgentModels.VerificationStatus verification_status"));
+    let declaration = pipeline::jvm_verification_status(&root)
+        .unwrap_or_else(|error| panic!("render VerificationStatus: {error}"));
+    for shape in [
+        "case \"achieved\" -> rung != null && requested == null && achieved == null && reason == null;",
+        "case \"unverified\" -> rung == null && requested != null && achieved != null && reason != null && !reason.isEmpty();",
+        "case \"pending\" -> rung == null && requested != null && achieved != null && reason == null;",
+        "case \"absent\" -> rung == null && requested != null && achieved == null && reason == null;",
+        "rank(achieved) >= rank(requested)",
+        "case \"submitted\" -> 0;",
+        "case \"receipted\" -> 1;",
+        "case \"committed\" -> 2;",
+    ] {
+        assert!(declaration.contains(shape), "VerificationStatus lacks {shape}");
+    }
+    let removed = generated.replace(&declaration, "");
+    assert_eq!(
+        missing_jvm_component_types(&removed),
+        BTreeSet::from(["AgentModels.VerificationStatus".to_owned(),]),
+        "removing VerificationStatus must expose the dangling reference"
+    );
+}
+
+#[test]
+fn jvm_verification_status_regeneration_preserves_other_models() {
+    let root = repo_fixture("jvm-verification-status");
+    let relative = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java";
+    let original = fs::read_to_string(root.join(relative))
+        .unwrap_or_else(|error| panic!("read generated JVM schema: {error}"));
+    let declaration = pipeline::jvm_verification_status(&root)
+        .unwrap_or_else(|error| panic!("render VerificationStatus: {error}"));
+    let removed = original.replace(&declaration, "");
+    place(&root, relative, &removed);
+    let regenerated = pipeline::jvm_schema_with_verification_status(&root)
+        .unwrap_or_else(|error| panic!("regenerate missing VerificationStatus: {error}"));
+    assert_eq!(regenerated, original);
+
+    let first_model = "        private AgentModels() {}\n";
+    let reordered = removed.replacen(first_model, &format!("{first_model}{declaration}"), 1);
+    assert_ne!(reordered, original);
+    place(&root, relative, &reordered);
+    let regenerated = pipeline::jvm_schema_with_verification_status(&root)
+        .unwrap_or_else(|error| panic!("regenerate existing VerificationStatus: {error}"));
+    assert_eq!(
+        regenerated, reordered,
+        "regeneration must preserve every model"
+    );
+    assert!(missing_jvm_component_types(&regenerated).is_empty());
+    fs::remove_dir_all(root).unwrap_or_else(|error| panic!("remove fixture: {error}"));
+}
+
+#[test]
+fn jvm_generators_agree_on_verification_status() {
+    let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let root = directory("jvm-generators-agree");
+    let listing = Command::new("git")
+        .arg("-C")
+        .arg(&repository)
+        .args([
+            "ls-files",
+            "-z",
+            "--",
+            "services/agent/schema/agent-api",
+            "services/human/schema/human-api",
+            "services/agent/tools/sdk-gen",
+            "services/human/tools/api-gen",
+            "services/agent/crates/layerx-agent-api/src",
+            "services/agent/crates/layerx-sdk/src",
+            "services/agent/sdk",
+            "apps/web/src/api/generated",
+            "sdk/platform",
+            "programs/sdk/rust/src/abi_policy.rs",
+            "precompiles/layerxprograms/abi.json",
+        ])
+        .output()
+        .unwrap_or_else(|error| panic!("list real pipeline inputs: {error}"));
+    assert!(
+        listing.status.success(),
+        "list real pipeline inputs: {listing:?}"
+    );
+    let listing = String::from_utf8(listing.stdout)
+        .unwrap_or_else(|error| panic!("decode real pipeline paths: {error}"));
+    for relative in listing.split('\0').filter(|path| !path.is_empty()) {
+        let destination = root.join(relative);
+        fs::create_dir_all(
+            destination
+                .parent()
+                .unwrap_or_else(|| panic!("no parent for {relative}")),
+        )
+        .unwrap_or_else(|error| panic!("create parent for {relative}: {error}"));
+        fs::copy(repository.join(relative), destination)
+            .unwrap_or_else(|error| panic!("copy real pipeline input {relative}: {error}"));
+    }
+    let initialized = Command::new("git")
+        .arg("-C")
+        .arg(&root)
+        .args(["init", "-q"])
+        .output()
+        .unwrap_or_else(|error| panic!("initialize real pipeline copy: {error}"));
+    assert!(
+        initialized.status.success(),
+        "initialize real pipeline copy: {initialized:?}"
+    );
+    let indexed = Command::new("git")
+        .arg("-C")
+        .arg(&root)
+        .args(["add", "--force", "--", "."])
+        .output()
+        .unwrap_or_else(|error| panic!("index real pipeline copy: {error}"));
+    assert!(
+        indexed.status.success(),
+        "index real pipeline copy: {indexed:?}"
+    );
+
+    let python = |arguments: &[&str]| {
+        Command::new("python3")
+            .arg(root.join("sdk/platform/generators/generate_jvm.py"))
+            .args(arguments)
+            .arg(&root)
+            .output()
+            .unwrap_or_else(|error| panic!("run Python generator: {error}"))
+    };
+    let sdkgen = |mode: &str| {
+        Command::new(env!("CARGO_BIN_EXE_layerx-platform-sdkgen"))
+            .arg(mode)
+            .arg(&root)
+            .output()
+            .unwrap_or_else(|error| panic!("run sdkgen {mode}: {error}"))
+    };
+    let relative = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java";
+    let committed = fs::read_to_string(repository.join(relative))
+        .unwrap_or_else(|error| panic!("read committed JVM schema: {error}"));
+    let lock_path = root.join("sdk/platform/pipeline.kvx");
+    let committed_lock = fs::read(&lock_path)
+        .unwrap_or_else(|error| panic!("read real pipeline declarations: {error}"));
+    fs::remove_file(root.join(relative))
+        .unwrap_or_else(|error| panic!("remove JVM schema before fresh generation: {error}"));
+    let generated = python(&[]);
+    assert!(
+        generated.status.success(),
+        "fresh Python generation: {generated:?}"
+    );
+    let fresh = fs::read_to_string(root.join(relative))
+        .unwrap_or_else(|error| panic!("read fresh JVM schema: {error}"));
+    assert_eq!(
+        fresh, committed,
+        "fresh Python generation must equal committed JVM bytes"
+    );
+    assert_eq!(
+        fresh.matches("public record VerificationStatus(").count(),
+        1
+    );
+    assert!(missing_jvm_component_types(&fresh).is_empty());
+    let declaration = pipeline::jvm_verification_status(&root)
+        .unwrap_or_else(|error| panic!("render shared VerificationStatus: {error}"));
+    assert_eq!(fresh.matches(&declaration).count(), 1);
+
+    let written = sdkgen("--write");
+    assert!(
+        written.status.success(),
+        "sdkgen writing after Python generation: {written:?}"
+    );
+    assert_eq!(
+        fs::read_to_string(root.join(relative))
+            .unwrap_or_else(|error| panic!("read JVM schema after sdkgen writing: {error}")),
+        fresh,
+        "sdkgen writing must preserve Python's JVM schema bytes"
+    );
+    assert_eq!(
+        fs::read(&lock_path).unwrap_or_else(|error| panic!("read resealed pipeline: {error}")),
+        committed_lock,
+        "real pipeline outputs and handwritten classifications must remain unchanged"
+    );
+    let python_check = python(&["--check"]);
+    assert!(
+        python_check.status.success(),
+        "Python --check: {python_check:?}"
+    );
+    let rust_check = sdkgen("--check");
+    assert!(
+        rust_check.status.success(),
+        "sdkgen --check: {rust_check:?}"
+    );
+
+    let removed = fresh.replace(&declaration, "");
+    assert_eq!(
+        missing_jvm_component_types(&removed),
+        BTreeSet::from(["AgentModels.VerificationStatus".to_owned()])
+    );
+    place(&root, relative, &removed);
+    let python_check = python(&["--check"]);
+    assert!(
+        !python_check.status.success(),
+        "Python accepted missing VerificationStatus"
+    );
+    assert!(
+        String::from_utf8_lossy(&python_check.stderr).contains("generated JVM schema is stale"),
+        "Python must report JVM output drift: {python_check:?}"
+    );
+    let rust_check = sdkgen("--check");
+    assert!(
+        !rust_check.status.success(),
+        "sdkgen accepted missing VerificationStatus"
+    );
+    let diagnostic = String::from_utf8_lossy(&rust_check.stderr);
+    assert!(
+        diagnostic.contains("generated jvm file")
+            && diagnostic.contains("GeneratedSchema.java")
+            && diagnostic.contains("stale or hand-edited"),
+        "sdkgen must report JVM output drift: {rust_check:?}"
+    );
+
+    let schema_path = root.join("services/agent/schema/agent-api/v1.kvx");
+    let schema = fs::read_to_string(&schema_path)
+        .unwrap_or_else(|error| panic!("read live VerificationStatus contract: {error}"));
+    for (supported, unsupported) in [
+        (r#"state:\"pending\""#, r#"state:\"unknown\""#),
+        (
+            "submitted, receipted, committed",
+            "submitted, receipted, finalized",
+        ),
+        (
+            "achieved strictly below requested",
+            "achieved at or below requested",
+        ),
+    ] {
+        let changed = schema.replace(supported, unsupported);
+        assert_ne!(
+            changed, schema,
+            "unsupported-contract mutation must change the real schema"
+        );
+        fs::write(&schema_path, changed).unwrap_or_else(|error| {
+            panic!("write unsupported VerificationStatus contract: {error}")
+        });
+        let rejected = python(&["--verification-status"]);
+        assert!(
+            !rejected.status.success(),
+            "Python accepted an unsupported contract"
+        );
+        assert!(String::from_utf8_lossy(&rejected.stderr)
+            .contains("unsupported VerificationStatus contract"));
+        let rejected = pipeline::jvm_verification_status(&root)
+            .err()
+            .unwrap_or_else(|| panic!("Rust accepted an unsupported contract"));
+        assert!(rejected.contains("unsupported VerificationStatus contract"));
+    }
+    fs::remove_dir_all(root).unwrap_or_else(|error| panic!("remove real pipeline copy: {error}"));
 }

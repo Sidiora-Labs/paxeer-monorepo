@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -30,6 +31,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm"
 	"github.com/ethereum/go-ethereum/common"
@@ -131,10 +133,12 @@ func TestEVMServerServesSequencerReceiptOption(t *testing.T) {
 		receipters[i], err = sequencer.NewReceipter(executors[i], host, &host.EvmKeeper, key, app.EVMReceiptModuleID)
 		require.NoError(t, err)
 	}
-	primaryWAL, err := wal.OpenWAL(filepath.Join(t.TempDir(), "primary"), wal.DefaultConfig())
+	primaryWALDir := filepath.Join(t.TempDir(), "primary")
+	primaryWAL, err := wal.OpenWAL(primaryWALDir, wal.DefaultConfig())
 	require.NoError(t, err)
 	t.Cleanup(primaryWAL.Close)
-	standbyWAL, err := wal.OpenWAL(filepath.Join(t.TempDir(), "standby"), wal.DefaultConfig())
+	standbyWALDir := filepath.Join(t.TempDir(), "standby")
+	standbyWAL, err := wal.OpenWAL(standbyWALDir, wal.DefaultConfig())
 	require.NoError(t, err)
 	t.Cleanup(standbyWAL.Close)
 	_, standbySigningKey, err := ed25519.GenerateKey(nil)
@@ -191,6 +195,23 @@ func TestEVMServerServesSequencerReceiptOption(t *testing.T) {
 	subscription, err := wsClient.EthSubscribe(ctx, pendingHashes, "newPendingTransactions")
 	require.NoError(t, err)
 	defer subscription.Unsubscribe()
+	readAccepts := func(dir string) []*wal.Accept {
+		data, err := os.ReadFile(filepath.Join(dir, "head.seg"))
+		require.NoError(t, err)
+		var accepts []*wal.Accept
+		for len(data) > 0 {
+			require.GreaterOrEqual(t, len(data), 8)
+			size := int(binary.BigEndian.Uint32(data[4:8]))
+			require.GreaterOrEqual(t, len(data), 8+size)
+			entry, err := wal.DecodeEntry(data[8 : 8+size])
+			require.NoError(t, err)
+			if accept, ok := entry.(*wal.Accept); ok {
+				accepts = append(accepts, accept)
+			}
+			data = data[8+size:]
+		}
+		return accepts
+	}
 	to := utils.NewSigner().EvmAddress
 	for nonce, rpcClient := range []*gethrpc.Client{httpClient, wsClient} {
 		signed, err := ethtypes.SignTx(ethtypes.NewTx(&ethtypes.LegacyTx{
@@ -208,16 +229,68 @@ func TestEVMServerServesSequencerReceiptOption(t *testing.T) {
 		require.Equal(t, hash, receipt.TxHash)
 		require.Equal(t, hexutil.Uint64(nonce), receipt.Nonce)
 		require.NoError(t, receipt.Verify(pins))
+		var receiptJSON json.RawMessage
+		require.NoError(t, httpClient.CallContext(ctx, &receiptJSON, evmrpc.SequencerReceiptMethod, hash))
 		select {
 		case pending := <-pendingHashes:
 			require.Equal(t, hash, pending)
 		case <-ctx.Done():
 			t.Fatal("WebSocket did not receive the receipted transaction hash")
 		}
+		var pendingNonce hexutil.Uint64
+		require.NoError(t, httpClient.CallContext(ctx, &pendingNonce, "eth_getTransactionCount", sender.EvmAddress, "pending"))
+		require.Equal(t, hexutil.Uint64(nonce+1), pendingNonce)
+		var senderBalance hexutil.Big
+		require.NoError(t, httpClient.CallContext(ctx, &senderBalance, "eth_getBalance", sender.EvmAddress, "pending"))
+		primaryAccepts, standbyAccepts := readAccepts(primaryWALDir), readAccepts(standbyWALDir)
+		require.Len(t, primaryAccepts, nonce+1)
+		require.Equal(t, primaryAccepts, standbyAccepts)
+		assertUnchanged := func() {
+			var afterJSON json.RawMessage
+			require.NoError(t, httpClient.CallContext(ctx, &afterJSON, evmrpc.SequencerReceiptMethod, hash))
+			require.Equal(t, receiptJSON, afterJSON)
+			for _, client := range []*gethrpc.Client{httpClient, wsClient} {
+				var afterNonce hexutil.Uint64
+				require.NoError(t, client.CallContext(ctx, &afterNonce, "eth_getTransactionCount", sender.EvmAddress, "pending"))
+				require.Equal(t, pendingNonce, afterNonce)
+				var balance hexutil.Big
+				require.NoError(t, client.CallContext(ctx, &balance, "eth_getBalance", sender.EvmAddress, "pending"))
+				require.Equal(t, (*big.Int)(&senderBalance), (*big.Int)(&balance))
+				require.NoError(t, client.CallContext(ctx, &balance, "eth_getBalance", to, "pending"))
+				require.Equal(t, big.NewInt(int64(nonce+1)), (*big.Int)(&balance))
+			}
+			require.Equal(t, primaryAccepts, readAccepts(primaryWALDir))
+			require.Equal(t, standbyAccepts, readAccepts(standbyWALDir))
+		}
+		assertUnchanged()
 		for _, client := range []*gethrpc.Client{httpClient, wsClient} {
-			var balance hexutil.Big
-			require.NoError(t, client.CallContext(ctx, &balance, "eth_getBalance", to, "pending"))
-			require.Equal(t, big.NewInt(int64(nonce+1)), (*big.Int)(&balance))
+			var replayedHash common.Hash
+			require.NoError(t, client.CallContext(ctx, &replayedHash, "eth_sendRawTransaction", hexutil.Bytes(raw)))
+			require.Equal(t, hash, replayedHash)
+			assertUnchanged()
+		}
+		if nonce != 0 {
+			continue
+		}
+		distinct, err := ethtypes.SignTx(ethtypes.NewTx(&ethtypes.LegacyTx{
+			Nonce: uint64(nonce), GasPrice: big.NewInt(500_000_000_000), Gas: 21_000, To: &to, Value: big.NewInt(2),
+		}), ethtypes.LatestSignerForChainID(big.NewInt(evmconfig.DefaultChainID)), sender.EvmPrivateKey)
+		require.NoError(t, err)
+		require.NotEqual(t, hash, distinct.Hash())
+		distinctRaw, err := distinct.MarshalBinary()
+		require.NoError(t, err)
+		for _, client := range []*gethrpc.Client{httpClient, wsClient} {
+			var refusedHash common.Hash
+			err := client.CallContext(ctx, &refusedHash, "eth_sendRawTransaction", hexutil.Bytes(distinctRaw))
+			require.Error(t, err)
+			var rpcErr gethrpc.Error
+			require.ErrorAs(t, err, &rpcErr)
+			require.Equal(t, -32000, rpcErr.ErrorCode())
+			require.Equal(t, ": "+sdkerrors.ErrWrongSequence.Error(), rpcErr.Error())
+			unknown, err := source.SequencerSend(distinct.Hash())
+			require.NoError(t, err)
+			require.Nil(t, unknown)
+			assertUnchanged()
 		}
 	}
 }

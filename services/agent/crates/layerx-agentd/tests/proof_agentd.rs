@@ -142,7 +142,7 @@ fn producer() -> (Prepared, ModuleRegistry, Vec<u8>) {
     (prepared, encoded.registry, payload)
 }
 
-fn signing_preparation(authorization: Prepared, payload: Vec<u8>) -> SigningPreparation {
+fn signing_preparation(payload: Vec<u8>) -> SigningPreparation {
     let key = checked(k256::ecdsa::SigningKey::from_slice(&SEED));
     let actor = checked(layerx_crypto::secp256k1::evm_address(
         key.verifying_key().to_encoded_point(false).as_bytes(),
@@ -172,7 +172,6 @@ fn signing_preparation(authorization: Prepared, payload: Vec<u8>) -> SigningPrep
     SigningPreparation {
         transaction,
         actor_address: actor,
-        authorization,
     }
 }
 
@@ -236,7 +235,7 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
         Err(SigningError::AuthorityMismatch)
     ));
 
-    let signing = signing_preparation(restored, payload);
+    let signing = signing_preparation(payload);
     let raw = checked(signing.transaction.call.sign(&SEED));
     let (call, signature) = checked(decode_signed(&raw));
     assert_eq!(
@@ -369,12 +368,47 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
 }
 
 #[test]
-fn inconsistent_prepared_envelope_preimage_and_audit_are_refused() {
+fn inconsistent_prepared_call_and_disclosure_are_refused() {
     let (prepared, registry, payload) = producer();
-    let mut stale_envelope = prepared.clone();
-    let mut signing = signing_preparation(prepared.clone(), payload);
+    let signing = signing_preparation(payload);
     let raw = checked(signing.transaction.call.sign(&SEED));
-    let (_, signature) = checked(decode_signed(&raw));
+    checked(verify_before_submit(
+        &raw,
+        &signing,
+        &signing.actor_address,
+        &registry,
+    ));
+    let mut stale_digest = signing.clone();
+    stale_digest.transaction.disclosure_digest[0] ^= 1;
+    assert!(matches!(
+        verify_before_submit(&raw, &stale_digest, &stale_digest.actor_address, &registry),
+        Err(SigningError::Disclosure(
+            DisclosureBindingError::DigestMismatch
+        ))
+    ));
+    let mut stale_call = signing.clone();
+    stale_call.transaction.call.data[68 + 4 + 32] ^= 1;
+    assert_eq!(
+        verify_before_submit(&raw, &stale_call, &stale_call.actor_address, &registry),
+        Err(SigningError::PreparedBytesChanged)
+    );
+    let mut stale_disclosure = signing.clone();
+    stale_disclosure.transaction.disclosure.idempotency_key[0] ^= 1;
+    assert!(matches!(
+        verify_before_submit(
+            &raw,
+            &stale_disclosure,
+            &stale_disclosure.actor_address,
+            &registry
+        ),
+        Err(SigningError::Disclosure(_))
+    ));
+    let mut stale_actor = signing.clone();
+    stale_actor.actor_address[0] ^= 1;
+    assert_eq!(
+        verify_before_submit(&raw, &stale_actor, &stale_actor.actor_address, &registry),
+        Err(SigningError::SignerMismatch)
+    );
     for field in 0..3 {
         let mut stale = prepared.clone();
         match field {
@@ -392,21 +426,8 @@ fn inconsistent_prepared_envelope_preimage_and_audit_are_refused() {
                 DisclosureBindingError::CanonicalMismatch
             ))
         ));
-        signing.authorization = stale;
-        assert!(matches!(
-            attach_external_signature(&signing, *signature.as_bytes()),
-            Err(SigningError::Disclosure(
-                DisclosureBindingError::CanonicalMismatch
-            ))
-        ));
-        assert!(matches!(
-            verify_before_submit(&raw, &signing, &signing.actor_address, &registry),
-            Err(SigningError::Disclosure(
-                DisclosureBindingError::CanonicalMismatch
-            ))
-        ));
     }
-    // A separately valid envelope with different identity state must not replace the retained one.
+    let mut stale_envelope = prepared.clone();
     stale_envelope.envelope = checked(encode_send_envelope(
         prepared.envelope.payload().as_bytes(),
         &EnvelopeOptions {
@@ -431,8 +452,8 @@ fn inconsistent_prepared_envelope_preimage_and_audit_are_refused() {
 #[test]
 fn pending_attempt_recovers_original_hash_height_and_exact_request() {
     let root = Directory::new();
-    let (prepared, _, payload) = producer();
-    let signing = signing_preparation(prepared, payload);
+    let (_, _, payload) = producer();
+    let signing = signing_preparation(payload);
     let raw = checked(signing.transaction.call.sign(&SEED));
     let hash = transaction_hash(&raw);
     {

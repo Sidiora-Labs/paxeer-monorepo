@@ -47,7 +47,7 @@ func newRPCEndpointConfig(config evmrpcconfig.Config) RPCEndpointConfig {
 
 // ServerOption configures NewEVMHTTPServer (a TraceContextProvider, SequencerReceiptOption,
 // SequencerOption, PendingOption or SequencerForwardOption) and NewEVMWebSocketServer
-// (a SequencerOption, PendingOption or SequencerForwardOption).
+// (a SequencerReceiptOption, SequencerOption, PendingOption or SequencerForwardOption).
 type ServerOption interface{ serverOption() }
 
 func (TraceContextProvider) serverOption()   {}
@@ -232,6 +232,7 @@ func NewEVMHTTPServer(
 	if err != nil {
 		return nil, err
 	}
+	sendCfg.SequencerSource = sequencerReceipts.Source
 
 	globalBlockCache := NewBlockCache(3000)
 	cacheCreationMutex := &sync.Mutex{}
@@ -319,6 +320,10 @@ func NewEVMHTTPServer(
 		{
 			Namespace: "pax",
 			Service:   sequencerReceiptAPI,
+		},
+		{
+			Namespace: "px",
+			Service:   &receiptKeysAPI{receipts: sequencerReceiptAPI},
 		},
 		{
 			Namespace: "eth",
@@ -417,9 +422,12 @@ func NewEVMWebSocketServer(
 	var seq *SequencerOption
 	var forward *SequencerForwardOption
 	var pending PendingSnapshot
+	var sequencerReceipts SequencerReceiptOption
 	for _, opt := range opts {
 		switch o := opt.(type) {
 		case domainResolverOption:
+		case SequencerReceiptOption:
+			sequencerReceipts = o
 		case PendingOption:
 			if o.source == nil {
 				return nil, errors.New("pending option needs a snapshot source; build it with NewPendingOption")
@@ -440,6 +448,7 @@ func NewEVMWebSocketServer(
 	if err != nil {
 		return nil, err
 	}
+	sendCfg.SequencerSource = sequencerReceipts.Source
 	ctx := ctxProvider(LatestCtxHeight)
 	if config.EnableUnsafeKeyringRPC && evmCfg.IsLiveChainID(ctx) {
 		return nil, errors.New("unsafe keyring RPC cannot be enabled on a live chain")

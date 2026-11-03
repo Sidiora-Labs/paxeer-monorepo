@@ -17713,7 +17713,7 @@ fn core_preparation_snapshot(
 
 fn boundary_correlation(peer: &HumanPeer, actor: &[u8], purpose: &[u8]) -> u64 {
     let mut digest = Sha256::new();
-    digest.update(b"layerx-agentd/human-lni-correlation/v1\0");
+    digest.update(b"layerx-agentd/human-frame-correlation/v1\0");
     hash_text(&mut digest, peer.tenant.as_bytes());
     hash_text(&mut digest, peer.principal.as_bytes());
     hash_text(&mut digest, actor);
@@ -19758,19 +19758,41 @@ pub(crate) mod activity_submission_index_tests {
             max_fee_per_gas: 10,
             gas_limit: 100_000,
             to: crate::prepare::evm::PrecompileTarget::Auth.address(),
-            data: prepared.envelope.payload().as_bytes().to_vec(),
+            data: must(
+                crate::prepare::evm::PrecompileCall {
+                    target: crate::prepare::evm::PrecompileTarget::Auth,
+                    selector: layerx_crypto::disclosure::call::ledger_selector(
+                        "recordLifecycle(bytes,bytes32)",
+                    ),
+                    arguments: vec![
+                        crate::prepare::evm::AbiArgument::Bytes(
+                            prepared.envelope.payload().as_bytes().to_vec(),
+                        ),
+                        crate::prepare::evm::AbiArgument::Word(
+                            prepared.envelope.idempotency_key().bytes(),
+                        ),
+                    ],
+                }
+                .encode(),
+            ),
         };
         let raw = must(call.sign(&[0xa5; 32]));
         let (decoded, signature) = must(decode_signed(&raw));
         let actor_address = must(recover_sender(&decoded, &signature));
+        let disclosure = must(layerx_crypto::disclosure::call::bind_call(
+            &call,
+            actor_address,
+        ));
         let preparation = crate::sign::SigningPreparation {
             transaction: crate::prepare::EvmPrepared {
+                from: actor_address,
+                disclosure_digest: must(disclosure.signing_digest()),
+                disclosure,
                 signing_hash: call.signing_hash(),
                 call,
                 observed_head_height: 0,
             },
             actor_address,
-            authorization: prepared,
         };
         must(crate::sign::verify_before_submit(
             &raw,
@@ -20810,8 +20832,6 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             return Ok((activity_id, None));
         }
         let mut operations = self.lock_operations()?;
-        let correlation =
-            boundary_correlation(context.peer(), &activity_id, b"program-submit-receipt");
         let receipt = match layerx_client::rpc::receipt::lookup_authenticated(
             &operations.node,
             activity_id,
@@ -21153,7 +21173,6 @@ fn prepare_evm_write_at_nonce(
     Ok(crate::sign::SigningPreparation {
         transaction,
         actor_address,
-        authorization: authorization.clone(),
     })
 }
 

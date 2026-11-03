@@ -1,46 +1,50 @@
 [sweep.rust-test-interop]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p TARGET --no-fail-fast"
 targets_total = 15
-targets_passed = 5
+targets_passed = 3
 targets_failed = 10
-targets_not_run = 0
+targets_not_run = 2
 
 [target.rust-test-interop.1]
 target = "layerx-ap2"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = 124
+reason = "The command was stopped after 118 seconds to preserve the bounded inventory and qualification time budget; no completed test result was available."
 
 [target.rust-test-interop.2]
 target = "layerx-interop-gateway"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "gateway::ledger_producer_proof::proof_layerxledger_0x101a at services/interop/crates/layerx-interop-gateway/src/gateway.rs:777 failed while parsing producer JSON from stdin with EOF while parsing a value at line 1 column 0."
+assumption = "The standalone Cargo invocation likely lacks the producer JSON input supplied by the Go ledger proof harness in a connected run."
 
 [target.rust-test-interop.3]
 target = "layerx-portable"
 result = "failed"
 exit_code = 101
-observed = "python_verifier_accepts_the_same_v2_proof at services/interop/crates/layerx-portable/tests/independent_verifier.rs:320 failed because tests/python_portable_verifier.py:8 raised ModuleNotFoundError: No module named 'Crypto'."
-assumption = "The sandbox Python environment likely lacks the pycryptodome dependency that supplies Crypto.Hash.keccak."
+observed = "independent_implementation_can_enumerate_vectors at services/interop/crates/layerx-portable/tests/independent_verifier.rs:160 failed because the enumerated vector count was 6 instead of the expected 5."
+assumption = "The shared vector fixture likely gained a case while the independent verifier test retained its earlier expected count."
 
 [target.rust-test-interop.4]
 target = "layerx-bridge-relayer"
-result = "failed"
-exit_code = 101
-observed = "a_second_relayers_duplicate_bridge_in_reverts_and_is_never_retried at services/interop/crates/layerx-bridge-relayer/tests/loops.rs:987 failed with mined: rpc quorum unavailable."
-assumption = "The test RPC peers likely fail to provide the quorum required during duplicate-submission and restart paths."
+result = "not_run"
+exit_code = 124
+reason = "The command was stopped after 120 seconds to preserve the bounded inventory and qualification time budget; no completed test result was available."
 
 [target.rust-test-interop.5]
 target = "layerx-mirror"
 result = "failed"
 exit_code = 101
-observed = "verify::tests::native_fixture_receipt_verifies_and_altered_bytes_are_refused failed with Error: ReceiptDecode."
-assumption = "The native receipt fixture likely no longer matches the receipt decoder's current wire format."
+observed = "every_shared_receipted_case_verifies_in_the_mirror at services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs:95 failed because the shared vector count was 12 instead of the expected 11."
+assumption = "The shared sequencer vector fixture likely gained a case while the mirror test retained its earlier expected count."
 
 [target.rust-test-interop.6]
 target = "layerx-committed-proof"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "committed_vector_commits_verify at services/interop/crates/layerx-committed-proof/tests/committed_vectors.rs:394 failed because provenance.sourceSha256 differed from the SHA-256 digest of the recording."
+assumption = "The committed vector provenance likely references an earlier recording whose bytes differ from the current recording."
 
 [target.rust-test-interop.7]
 target = "layerx-gas-station"
@@ -53,41 +57,39 @@ assumption = "The sandbox environment likely lacks the protected signed publishe
 target = "layerx-interop-service"
 result = "failed"
 exit_code = 101
-observed = "relay::tests::a_replacement_under_one_key_is_refused failed with OS error 2, NotFound: No such file or directory."
-assumption = "A required fixture file or executable is likely missing from the sandbox environment."
+observed = "relay::tests::a_receipt_signed_by_an_unpinned_key_is_refused failed with OS error 2, NotFound: No such file or directory."
+assumption = "A required relay fixture file or executable is likely missing from the sandbox environment."
 
 [target.rust-test-interop.9]
 target = "layerx-fiat"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "fiat_sequenced_journey_vectors_replay at services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs:337 failed because the declared transaction_hash differed from the shared receiptJson.txHash."
+assumption = "The fiat journey vectors likely retain a transaction hash from an earlier shared sequencer receipt fixture."
 
 [target.rust-test-interop.10]
 target = "layerx-migrate"
 result = "failed"
 exit_code = 101
 observed = "funded_operator_runs_real_gateway_source_and_independent_funded_receipts at services/interop/crates/layerx-migrate/tests/funded_operator.rs:66 failed with genuine protected funded operator fixture required."
-assumption = "The sandbox environment likely lacks the protected funded operator fixture required for this connected integration test."
+assumption = "The sandbox environment likely lacks the protected funded operator fixture required by this connected integration test."
 
 [target.rust-test-interop.11]
 target = "layerx-ucp"
-result = "failed"
-exit_code = 101
-observed = "sequencer_receipt_accepts_exact_payment_and_returns_signature_digest at services/interop/crates/layerx-ucp/tests/conformance_vectors.rs:532 failed because Err(ReceiptMismatch) was returned instead of the expected signature digest."
-assumption = "The conformance receipt fixture likely no longer matches the verifier's settlement identity expectations."
+result = "passed"
+exit_code = 0
 
 [target.rust-test-interop.12]
 target = "layerx-visa-tap"
-result = "failed"
-exit_code = 101
-observed = "v2_exact_payment_verifies_against_the_governed_key_list at services/interop/crates/layerx-visa-tap/tests/conformance.rs:516 failed because Err(ReceiptMismatch) was returned instead of ReceiptVerified."
-assumption = "The conformance receipt fixture likely no longer matches the verifier's settlement identity expectations."
+result = "passed"
+exit_code = 0
 
 [target.rust-test-interop.13]
 target = "layerx-x402"
 result = "failed"
 exit_code = 101
-observed = "buyer_and_seller_complete_payment_flow_over_http at services/interop/crates/layerx-x402/tests/e2e.rs:131 failed with seller created: ProfileMismatch."
-assumption = "The end-to-end offer fixture likely advertises a payment profile that the current seller rejects."
+observed = "layerx_offer_without_quote_terms_is_refused at services/interop/crates/layerx-x402/tests/vectors.rs:484 failed because validation returned Ok(()) instead of Err(ProfileMissing)."
+assumption = "The offer fixture or its refusal expectation likely diverges from the current quote-term validation behavior."
 
 [target.rust-test-interop.14]
 target = "layerx-mirror-signer"
@@ -99,4 +101,4 @@ target = "x-websearch"
 result = "failed"
 exit_code = 101
 observed = "scanned_requests_stay_journalled_across_restart_until_retired failed with Error: Unavailable."
-assumption = "The watcher test's RPC or runtime dependency is likely unavailable in the sandbox environment."
+assumption = "The watcher test likely lacks an available RPC or runtime dependency in the sandbox environment."

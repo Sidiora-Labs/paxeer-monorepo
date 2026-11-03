@@ -1,0 +1,8 @@
+[alert.GHSA-j3f2-48v5-ccww]
+package = "protobufjs"
+manifest = "apps/names/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "7.6.3"
+version_after = "7.6.5"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"

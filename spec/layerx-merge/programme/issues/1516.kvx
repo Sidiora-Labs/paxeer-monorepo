@@ -1,0 +1,49 @@
+[issue.1516]
+number = 1516
+title = "[Coherence] The shipped example fulfilment repository still enforces the request digest on read, so a reused receipt gets fulfillment-conflict instead of settled_receipt_reuse"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit 3d517afabec833b670fabf5be0da787338703945 keys fulfilments by verified receipt in sdk/integrations/fastapi/layerx_fastapi/seller.py:232 and checks request reuse at :254, but sdk/integrations/fastapi/examples/paid_api.py:70 rejects a changed digest before that check and :74 returns the proposed digest, sdk/integrations/fastapi/layerx_fastapi/integration.py:213 maps that conflict to HTTP 409 via :279, and sdk/integrations/fastapi/tests/test_seller_receipts.py:245 exercises the separate FileFulfillments implementation at :45 rather than the shipped example."
+close_comment = "The shipped FastAPI example still reports fulfillment-conflict when a settled receipt is reused for a different request. The follow-up fix will preserve the stored request digest and let the seller return settled_receipt_reuse, with regression coverage for the example repository and replay after reopening it."
+
+[task.18.1516.1]
+title = "Issue #1516: Preserve the stored request digest in the FastAPI example repository"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181516.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update FileFulfillmentRepository.read in sdk/integrations/fastapi/examples/paid_api.py:68 to return the persisted requestDigest instead of the proposed digest at :74 and remove its request-digest conflict rejection at :70; both existing-record paths at :38 and :53 must return the stored fulfilment without releasing the resource again, leaving the receipt, key and request checks in sdk/integrations/fastapi/layerx_fastapi/seller.py:240 intact."
+do_2 = "Add test_example_repository_refuses_settled_receipt_reuse to sdk/integrations/fastapi/tests/test_seller_receipts.py using the real FileFulfillmentRepository from the shipped example, the signed sequencer receipt fixture at :78, ReceiptPayloadAuthority and SellerMiddleware; unlike the separate FileFulfillments used at :245, this test must exercise the example's persisted record."
+do_3 = "In that single test, settle one request, then present the same verified receipt with a different request payload and assert HTTPException status 409 and detail settled_receipt_reuse; repeat with a reopened example repository and seller, assert the original request still returns its recorded resource, exactly one release occurred, and the sole persisted record and its original request digest remain unchanged."
+symbols = ["FileFulfillmentRepository", "test_example_repository_refuses_settled_receipt_reuse"]
+touches = ["sdk/integrations/fastapi/examples/paid_api.py", "sdk/integrations/fastapi/tests/test_seller_receipts.py"]
+tests = ["sdk/integrations/fastapi/tests/test_seller_receipts.py::test_example_repository_refuses_settled_receipt_reuse"]
+planned_paths = []
+build_cmd = "python3 -m py_compile sdk/integrations/fastapi/examples/paid_api.py sdk/integrations/fastapi/tests/test_seller_receipts.py"
+verify_cmd = "PYTHONPATH=sdk/integrations/fastapi:services/agent/sdk/python python3 -m pytest sdk/integrations/fastapi/tests/test_seller_receipts.py::test_example_repository_refuses_settled_receipt_reuse -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181516]
+title = "The FastAPI example preserves receipt-reuse refusal and original-request replay"
+ac_1 = "Given the FileFulfillmentRepository in sdk/integrations/fastapi/examples/paid_api.py:27 with a stored fulfilment, a different request using the same verified receipt reaches the HTTP 409 settled_receipt_reuse check in sdk/integrations/fastapi/layerx_fastapi/seller.py:254 without a second release, while replaying the original request returns the recorded resource before and after reopening the repository and leaves the persisted record unchanged."
+
+[acceptance.18.1516.1]
+feature = "18"
+req = "181516.1"
+scenario = "Given one settled request stored by the shipped FastAPI example repository, when another request reuses its verified receipt before and after reopening the repository, then the seller refuses with HTTP 409 settled_receipt_reuse, the original request still replays its recorded resource, and exactly one release and one unchanged fulfilment record remain."
+contract = "contracts/clients.md#k3r-receipt-checks"
+test = "sdk/integrations/fastapi/tests/test_seller_receipts.py::test_example_repository_refuses_settled_receipt_reuse (planned)"
+qualification = "UNRUN"

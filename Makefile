@@ -15,6 +15,8 @@ AGENT_MANIFEST := services/agent/Cargo.toml
 AGENT_FUZZ_TOOLCHAIN ?= nightly-2025-11-10
 AGENT_BOUNDARY_HARNESS := $(abspath $(or $(CARGO_TARGET_DIR),services/agent/tests/boundary/target))/debug/agent-boundary-conformance
 AGENT_NODE_RPC_URL ?= http://127.0.0.1:8545
+AGENT_BOUNDARY_COMMAND ?= $(AGENT_CARGO) run --manifest-path services/agent/tests/boundary/Cargo.toml --locked --
+AGENT_BOUNDARY_MODE ?=
 HUMAN_CARGO ?= cargo
 HUMAN_API_GEN ?= $(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked --
 HUMAN_API_SCHEMA_DIR ?= services/human/schema/human-api
@@ -46,6 +48,7 @@ LIB_SOURCES := $(filter-out src/storage/lxp_projection.c \
 	src/paxeer/lxp_da_challenge_record.c src/guarantor/lxp_da_challenge.c, \
 	$(shell find src -type f -name '*.c' -print | LC_ALL=C sort))
 LIB_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/obj/%.o,$(LIB_SOURCES))
+LIB_SOURCE_MEMBERSHIP := $(BUILD_DIR)/liblayerx.sources
 LIBRARY := $(BUILD_DIR)/liblayerx.a
 TEST_LIB_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/test-obj/%.o,$(LIB_SOURCES))
 TEST_LIBRARY := $(BUILD_DIR)/liblayerx-testing.a
@@ -180,7 +183,18 @@ build: $(LIBRARY)
 $(LIB_OBJECTS) $(TEST_LIB_OBJECTS): CFLAGS += $(CONSENSUS_CFLAGS)
 $(LIB_OBJECTS) $(TEST_LIB_OBJECTS): Makefile
 
-$(LIBRARY): $(LIB_OBJECTS)
+.PHONY: force-lib-source-membership
+force-lib-source-membership:
+
+$(LIB_SOURCE_MEMBERSHIP): force-lib-source-membership
+	@mkdir -p $(@D)
+	@set -eu; \
+		tmp=$$(mktemp "$@.XXXXXX"); \
+		trap 'rm -f "$$tmp"' EXIT HUP INT TERM; \
+		printf '%s\n' $(LIB_SOURCES) > "$$tmp"; \
+		if ! cmp -s "$$tmp" "$@"; then mv -f "$$tmp" "$@"; fi
+
+$(LIBRARY): $(LIB_OBJECTS) $(LIB_SOURCE_MEMBERSHIP)
 	@mkdir -p $(@D)
 	rm -f $@
 	$(AR) rcsD $@ $(LIB_OBJECTS)
@@ -189,7 +203,7 @@ $(BUILD_DIR)/obj/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
 
-$(TEST_LIBRARY): $(TEST_LIB_OBJECTS)
+$(TEST_LIBRARY): $(TEST_LIB_OBJECTS) $(LIB_SOURCE_MEMBERSHIP)
 	@mkdir -p $(@D)
 	rm -f $@
 	$(AR) rcsD $@ $(TEST_LIB_OBJECTS)
@@ -1453,7 +1467,7 @@ $(BUILD_DIR)/tests/lxp_test_journal: tests/state/lxp_test_journal.c $(LIBRARY)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -lcrypto -pthread -o $@
 
 $(BUILD_DIR)/tests/lxp_test_journal_tsan: tests/state/lxp_test_journal.c \
-		src/state/lxp_journal.c src/state/lxp_idempotency.c \
+		src/state/lxp_journal.c \
 		src/crypto/lxp_hash.c src/crypto/lxp_ed25519.c \
 		src/crypto/lxp_ct.c src/crypto/lxp_ed25519.c \
 		src/ledger/lx_account_registry.c src/ledger/lx_account_id.c \
@@ -1965,7 +1979,11 @@ agent-test-types-receipt:
 agent-test-types-verification:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-types --test verification
 
-agent-test-vectors:
+.PHONY: agent-prepare-codec-corpus
+agent-prepare-codec-corpus:
+	python3 tests/vectors/codec/generate.py
+
+agent-test-vectors: agent-prepare-codec-corpus
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-types --test vectors
 
 agent-test-crypto-verify: test-crypto-ed25519 test-crypto-secp256k1
@@ -2003,9 +2021,17 @@ agent-test-proof-levels:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-proof --tests
 	$(AGENT_CARGO) check --manifest-path $(AGENT_MANIFEST) --locked -p layerx-proof --example offline_verify
 
+.PHONY: agent-boundary-check-report
+agent-boundary-check-report:
+	@$(AGENT_BOUNDARY_COMMAND) --check-report "$(or $(AGENT_BOUNDARY_MODE),default)"
+
 agent-test-boundary:
-	$(AGENT_CARGO) run --manifest-path services/agent/tests/boundary/Cargo.toml --locked -- \
-		"$(AGENT_NODE_RPC_URL)" $(CURDIR)
+	@set -eu; agent_boundary_report=$$(mktemp); \
+	trap 'rm -f -- "$$agent_boundary_report"' EXIT HUP INT TERM; \
+	LAYERX_QUALIFY_NODE_RPC_URL="$(AGENT_NODE_RPC_URL)" \
+		$(AGENT_BOUNDARY_COMMAND) $(if $(AGENT_BOUNDARY_MODE),$(AGENT_BOUNDARY_MODE),"$(AGENT_NODE_RPC_URL)" "$(CURDIR)") > "$$agent_boundary_report"; \
+	$(AGENT_BOUNDARY_COMMAND) --check-report "$(or $(AGENT_BOUNDARY_MODE),default)" < "$$agent_boundary_report"; \
+	cat "$$agent_boundary_report"
 
 agent-qualify-boundary:
 	$(AGENT_CARGO) build --manifest-path services/agent/tests/boundary/Cargo.toml --locked

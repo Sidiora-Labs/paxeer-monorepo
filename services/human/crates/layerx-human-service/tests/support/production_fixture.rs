@@ -155,6 +155,10 @@ pub(crate) struct PeerState {
     pub(crate) receipts: BTreeMap<[u8; 32], Value>,
     pub(crate) blocks: BTreeMap<u64, Value>,
     pub(crate) receipt_rung: Option<layerx_types::rung::Rung>,
+    pub(crate) fail_next_receipt_lookup: bool,
+    pub(crate) failed_receipt_lookups: usize,
+    pub(crate) reject_repeated_send: bool,
+    pub(crate) receipt_lookups: Vec<([u8; 32], [u8; 32])>,
 }
 
 pub(crate) fn bytes(out: &mut Vec<u8>, value: &[u8]) {
@@ -364,7 +368,11 @@ pub(crate) struct RealAgentLayer {
 }
 
 impl RealAgentLayer {
-    fn start(root: &std::path::Path, state: Arc<Mutex<PeerState>>) -> Result<Self> {
+    fn start(
+        root: &std::path::Path,
+        state: Arc<Mutex<PeerState>>,
+        rpc_url: String,
+    ) -> Result<Self> {
         use layerx_agentd::human::{decode_request, encode_response, HumanResponse};
         use layerx_human_service::frame::{read_frame, write_frame};
         let directory = root.join("agent-socket");
@@ -405,7 +413,51 @@ impl RealAgentLayer {
                 };
                 let request = decode_request(frame)
                     .unwrap_or_else(|error| panic!("decode agent request: {error:?}"));
-                let payload = state.lock().expect("peer state").answer(request, None);
+                let mut inner = &request;
+                while let layerx_agentd::human::HumanRequest::Subject { request, .. } = inner {
+                    inner = request;
+                }
+                let payload = if let layerx_agentd::human::HumanRequest::ReceiptLookup {
+                    idempotency_key,
+                    expected_activity_id,
+                } = inner
+                {
+                    let raw = {
+                        let mut state = state.lock().expect("peer state");
+                        state.served.push("ReceiptLookup".to_owned());
+                        state
+                            .receipt_lookups
+                            .push((*idempotency_key, *expected_activity_id));
+                        if std::mem::take(&mut state.fail_next_receipt_lookup) {
+                            state.failed_receipt_lookups += 1;
+                            continue;
+                        }
+                        let raw = state
+                            .submitted
+                            .get(expected_activity_id)
+                            .expect("accepted leg");
+                        let (call, signature) = required(
+                            layerx_crypto::evm_transaction::decode_signed(raw),
+                            "signed leg",
+                        );
+                        let sender = required(
+                            layerx_crypto::evm_transaction::recover_sender(&call, &signature),
+                            "sender",
+                        );
+                        assert_eq!(
+                            required(
+                                layerx_crypto::disclosure::call::bind_call(&call, sender),
+                                "disclosure"
+                            )
+                            .idempotency_key,
+                            *idempotency_key
+                        );
+                        raw.clone()
+                    };
+                    receipt_lookup_answer(&rpc_url, *expected_activity_id, &raw)
+                } else {
+                    state.lock().expect("peer state").answer(request, None)
+                };
                 let response =
                     encode_response(Ok(HumanResponse::new(payload).expect("agent response")));
                 let response = if let Some(trace) = trace {
@@ -441,6 +493,93 @@ impl Drop for RealAgentLayer {
     }
 }
 
+fn receipt_lookup_answer(rpc_url: &str, hash: [u8; 32], raw: &[u8]) -> Vec<u8> {
+    use layerx_agentd::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
+    use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
+    use layerx_client::sequencer::SequencerEndpoint;
+    use layerx_proof::receipt::AuthorizedBatch;
+    use sha2::{Digest as _, Sha256};
+
+    let endpoint = required(SequencerEndpoint::new(rpc_url, &[]), "receipt endpoint");
+    let keys = required(endpoint.receipt_keys(), "receipt keys");
+    let lookup = required(
+        lookup_authenticated(
+            &endpoint,
+            hash,
+            LookupContext {
+                receipt_keys: &keys,
+            },
+        ),
+        "authenticated receipt",
+    );
+    if let Some(answer) = layerx_agentd::human_runtime::receipt_lookup_not_ready_bytes(&lookup) {
+        return answer;
+    }
+    let Lookup::Verified(receipt) = lookup else {
+        unreachable!("not-ready answer handled")
+    };
+    let protocol = receipt.receipt().protocol().expect("protocol receipt");
+    let (call, signature) = required(
+        layerx_crypto::evm_transaction::decode_signed(raw),
+        "submitted call",
+    );
+    let sender = required(
+        layerx_crypto::evm_transaction::recover_sender(&call, &signature),
+        "submitted sender",
+    );
+    let disclosure = required(
+        layerx_crypto::disclosure::call::bind_call(&call, sender),
+        "submitted disclosure",
+    );
+    let batch = protocol.batch_id();
+    eprintln!(
+        "receipt binding: activity_id=0x{} retained_hash=0x{} batch_height={} submission_height={} timestamp={} fee_charged={} fee_limit={} result_code={} module_id={} expected_module=12 protocol_version={} expected_protocol={} module_version={} expiry={}..={}",
+        cluster::hex(&protocol.activity_id()),
+        cluster::hex(&hash),
+        u64::from_be_bytes(batch[24..].try_into().expect("batch height")),
+        receipt.height(),
+        protocol.timestamp(),
+        protocol.fee_charged(),
+        disclosure.fee_limit,
+        protocol.result_code(),
+        protocol.module_id(),
+        protocol.protocol_version(),
+        layerx_wire::limits::PROTOCOL_VERSION,
+        protocol.module_version(),
+        disclosure.expiry.not_before,
+        disclosure.expiry.not_after,
+    );
+    let key = keys
+        .iter()
+        .find(|key| key.key_id == receipt.execution().key_id)
+        .expect("published receipt key");
+    required(
+        ReceiptLookupAnswer::Found(ReceiptLookupFrame {
+            canonical_bytes: receipt.canonical_bytes().to_vec(),
+            authorised_batch: AuthorizedBatch::new(
+                protocol.batch_id(),
+                protocol.asset(),
+                protocol.previous_state_root(),
+                protocol.resulting_state_root(),
+                key.public_key,
+            ),
+            verification_level: layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED,
+            tx_hash: receipt.activity_id(),
+            receipt_hash: Sha256::digest(receipt.canonical_bytes()).into(),
+            block_height: receipt.height(),
+            rung: receipt.rung(),
+            signed_receipt: receipt.canonical_bytes().to_vec(),
+            receipt_key_id: key.key_id,
+            public_key: key.public_key,
+            first_height: key.first_height,
+            last_height: key.last_height,
+            inclusion_height: receipt.height(),
+        })
+        .encode(),
+        "owner receipt answer",
+    )
+}
+
 pub(crate) struct RpcServer {
     pub(crate) url: String,
     pub(crate) shutdown: Arc<AtomicBool>,
@@ -469,9 +608,51 @@ pub(crate) fn receipt_key() -> layerx_proof::inclusion::SequencerAuthorization {
     )
 }
 
+// ProtocolReceipt exposes decoded fields only; bind this pre-encoded fixture before signing.
+const SEQUENCER_RECEIPT_TEMPLATE: &str = concat!(
+    "0x",
+    "0002", // envelope
+    "5201", // receipt tag
+    "0002", // protocol version
+    "000000200000000000000000000000000000000000000000000000000000000000000000", // transaction hash
+    "0000000000000001", // sequence
+    "000000200404040404040404040404040404040404040404040404040404040404040404", // previous root
+    "000000200000000000000000000000000000000000000000000000000000000000000000", // sequence root
+    "00000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", // return hash
+    "00000000", // status
+    "00000001", // effect count
+    "000c", // effect module
+    "0000", // ordinal
+    "0000", // event type
+    "01", // summary effect
+    "00", // monetary
+    "000000200000000000000000000000000000000000000000000000000000000000000000", // effect transfer root
+    "000000710000000000005208000000000000520800000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855000000000000000004616c7870", // summary
+    "00000000000000000000000000005208", // fee
+    "000000200000000000000000000000000000000000000000000000000000000000000058", // height
+    "000c", // module
+    "00000001", // module version
+    "00000000", // parameter version
+    "02", // operation
+    "0000002080face2b4a14308e329326ee2f8141d24907ae847554cbbab64854c6ecc911f7", // asset
+    "00000000000000000000000000000001", // amount
+    "000000200000000000000000000000000000000000000000000000000000000000000000", // from
+    "0000000000000000000000000000520a", // from before
+    "00000000000000000000000000000001", // from after
+    "0000000000000013", // nonce
+    "000000200000000000000000000000000000000000000000000000000000000000000000", // to
+    "00000000000000000000000000000000", // to before
+    "00000000000000000000000000000001", // to after
+    "000000200000000000000000000000000000000000000000000000000000000000000000", // transfer root
+    "000000200000000000000000000000000000000000000000000000000000000000000000", // authorization hash
+    "000000209292929292929292929292929292929292929292929292929292929292929292", // key id
+    "0000000000000001", // timestamp
+    "01", // signature option
+    "0000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", // signature
+);
+
 fn sequencer_answer(raw: &[u8], block: &Value, rung: layerx_types::rung::Rung) -> Value {
     use ed25519_dalek::Signer as _;
-    use layerx_wire::encode::Encoder;
     use sha2::{Digest as _, Sha256};
     let (call, signature) = layerx_crypto::evm_transaction::decode_signed(raw).expect("signed leg");
     let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature).expect("sender");
@@ -500,75 +681,42 @@ fn sequencer_answer(raw: &[u8], block: &Value, rung: layerx_types::rung::Rung) -
     let mut to = [0; 32];
     to[12..].copy_from_slice(&call.to);
     let key = receipt_key();
-    let encode = |signature: Option<[u8; 64]>| {
-        let mut summary = Encoder::new(256);
-        required(summary.u64(gas), "gas");
-        required(summary.u64(gas), "cumulative gas");
-        required(summary.u64(1), "gas price");
-        required(summary.u32(0), "transaction index");
-        required(summary.fixed(&[0; 20]), "contract");
-        required(summary.fixed(&[0; 20]), "sponsor");
-        required(summary.fixed(&Sha256::digest(b"")), "VM error hash");
-        required(summary.u32(0), "return length");
-        required(summary.u32(0), "log count");
-        required(summary.u8(4), "denom length");
-        required(summary.fixed(b"alxp"), "denom");
-        let mut e = Encoder::new(layerx_wire::limits::MAX_MESSAGE_BYTES);
-        let version = layerx_wire::limits::PROTOCOL_VERSION;
-        required(
-            e.structure_header_version(0x5201, version),
-            "receipt header",
-        );
-        required(e.u16(version), "version");
-        required(e.bytes(&hash, 32), "transaction hash");
-        required(e.u64(sequence), "sequence");
-        required(e.bytes(&previous, 32), "previous root");
-        required(
-            e.bytes(&Sha256::digest(&sequence_preimage), 32),
-            "sequence root",
-        );
-        required(e.bytes(&Sha256::digest(b""), 32), "return hash");
-        required(e.i32(0), "status");
-        required(e.sequence_length(1, 512), "effect count");
-        required(e.u16(12), "effect module");
-        required(e.u16(0), "ordinal");
-        required(e.u16(0), "event type");
-        required(e.u8(1), "summary effect");
-        required(e.u8(0), "monetary");
-        required(e.bytes(&[0; 32], 32), "transfer root");
-        required(e.bytes(&summary.finish(), 256), "summary");
-        required(e.u128(fee), "fee");
-        required(e.bytes(&height, 32), "height");
-        required(e.u16(12), "module");
-        required(e.u32(1), "module version");
-        required(e.u32(0), "parameter version");
-        required(e.u8(2), "operation");
-        required(e.bytes(&ASSET, 32), "asset");
-        required(e.u128(1), "amount");
-        required(e.bytes(&from, 32), "from");
-        required(e.u128(fee + 2), "from before");
-        required(e.u128(1), "from after");
-        required(e.u64(call.nonce), "nonce");
-        required(e.bytes(&to, 32), "to");
-        required(e.u128(0), "to before");
-        required(e.u128(1), "to after");
-        required(e.bytes(&[0; 32], 32), "transfer root");
-        required(e.bytes(&[0; 32], 32), "authorization hash");
-        required(e.bytes(&key.sequencer_id(), 32), "key id");
-        required(e.u64(timestamp), "timestamp");
-        required(e.u8(u8::from(signature.is_some())), "signature option");
-        if let Some(signature) = signature {
-            required(e.bytes(&signature, 64), "signature");
-        }
-        e.finish()
-    };
-    let unsigned = encode(None);
+    let mut signed = unhex(SEQUENCER_RECEIPT_TEMPLATE);
+    signed[10..42].copy_from_slice(&hash);
+    signed[42..50].copy_from_slice(&sequence.to_be_bytes());
+    signed[90..122].copy_from_slice(&Sha256::digest(&sequence_preimage));
+    signed[347..379].copy_from_slice(&height);
+    signed[394..426].copy_from_slice(&ASSET);
+    signed[446..478].copy_from_slice(&from);
+    signed[510..518].copy_from_slice(&call.nonce.to_be_bytes());
+    signed[522..554].copy_from_slice(&to);
+    signed[662..694].copy_from_slice(&key.sequencer_id());
+    signed[694..702].copy_from_slice(&timestamp.to_be_bytes());
+    let receipt = required(layerx_wire::receipt::decode(&signed), "receipt fixture");
+    assert_eq!(
+        receipt
+            .protocol()
+            .expect("protocol receipt")
+            .protocol_version(),
+        layerx_wire::limits::PROTOCOL_VERSION
+    );
+    let unsigned = required(
+        layerx_wire::receipt::encode_unsigned(&receipt),
+        "unsigned receipt",
+    );
     let digest = required(
         layerx_wire::hash::receipt_digest(&unsigned),
         "receipt digest",
     );
     let signer = ed25519_dalek::SigningKey::from_bytes(&[0x93; 32]);
-    let signed = encode(Some(signer.sign(&digest).to_bytes()));
+    signed[707..771].copy_from_slice(&signer.sign(&digest).to_bytes());
+    let signed = required(
+        layerx_wire::receipt::encode(&required(
+            layerx_wire::receipt::decode(&signed),
+            "signed receipt fixture",
+        )),
+        "canonical signed receipt",
+    );
     let mut answer = json!({
         "rung": rung.name(), "txHash": format!("0x{}", cluster::hex(&hash)),
         "nonce": format!("0x{:x}", call.nonce), "seq": format!("0x{sequence:x}"),
@@ -672,6 +820,7 @@ impl RpcServer {
                 if method.starts_with("px_") {
                     state.gateway_served.push(format!("{path} {method}"));
                 }
+                let mut rpc_error = None;
                 let result = match method {
                     "eth_chainId" => json!("0x7d"),
                     "eth_getTransactionCount" => {
@@ -758,7 +907,11 @@ impl RpcServer {
                         layerx_crypto::disclosure::call::bind_call(&call, sender)
                             .expect("disclosed call");
                         let hash = layerx_crypto::evm_transaction::transaction_hash(&raw);
-                        if let Some(previous) = state.submitted.insert(hash, raw.clone()) {
+                        if state.reject_repeated_send && state.submitted.contains_key(&hash) {
+                            rpc_error = Some(json!({"code": -32000,
+                                "message": format!("same nonce already receipted or held: sender 0x{} nonce {} receipted",
+                                    cluster::hex(&sender), call.nonce)}));
+                        } else if let Some(previous) = state.submitted.insert(hash, raw.clone()) {
                             assert_eq!(previous, raw);
                         } else {
                             let number = HEAD
@@ -816,10 +969,10 @@ impl RpcServer {
                     "px_getReceiptKeys" => {
                         assert_eq!(request["params"], json!([]));
                         let key = receipt_key();
-                        json!([{"keyId": format!("0x{}", cluster::hex(&key.sequencer_id())),
+                        json!({"keys": [{"keyId": format!("0x{}", cluster::hex(&key.sequencer_id())),
                             "publicKey": format!("0x{}", cluster::hex(&key.public_key())),
-                            "firstHeight": format!("0x{:x}", key.first_batch_number()),
-                            "lastHeight": format!("0x{:x}", key.last_batch_number())}])
+                            "firstHeight": key.first_batch_number(),
+                            "lastHeight": key.last_batch_number()}]})
                     }
                     "pax_sequencerReceipt" => {
                         let hash: [u8; 32] = unhex(request["params"][0].as_str().expect("hash"))
@@ -849,10 +1002,11 @@ impl RpcServer {
                     state.gateway_last_answer = Some(result.clone());
                 }
                 drop(state);
-                let body = serde_json::to_vec(
-                    &json!({"jsonrpc": "2.0", "id": request["id"], "result": result}),
-                )
-                .expect("RPC response");
+                let answer = match rpc_error {
+                    Some(error) => json!({"jsonrpc": "2.0", "id": request["id"], "error": error}),
+                    None => json!({"jsonrpc": "2.0", "id": request["id"], "result": result}),
+                };
+                let body = serde_json::to_vec(&answer).expect("RPC response");
                 write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len())?;
                 stream.write_all(&body)?;
             }
@@ -991,6 +1145,7 @@ impl Fixture {
         fixture.agent_server = Some(RealAgentLayer::start(
             &fixture.root,
             fixture.peer_state.clone(),
+            fixture.rpc_server.as_ref().ok_or("RPC peer")?.url.clone(),
         )?);
         fixture.reopen()?;
         Ok(fixture)
@@ -1385,6 +1540,14 @@ impl Fixture {
     }
 
     pub(crate) fn journey_record(&mut self, journey_id: &str) -> Result<Value> {
+        self.edit_journey_record(journey_id, |_| {})
+    }
+
+    pub(crate) fn edit_journey_record(
+        &mut self,
+        journey_id: &str,
+        edit: impl FnOnce(&mut Value),
+    ) -> Result<Value> {
         use layerx_human_service::store::{
             PrincipalId, PrincipalStore, RowKey, Table, TenancyDigest,
         };
@@ -1411,14 +1574,20 @@ impl Fixture {
             Arc::new(IdentityTenancy(binding)),
         )?;
         let principal = PrincipalId::new(self.document["principal"].as_str().ok_or("principal")?)?;
-        let scope = store.principal(&principal)?;
+        let mut scope = store.principal(&principal)?;
         let key = RowKey::new(format!("intent-evm-{journey_id}"))?;
-        let record = serde_json::from_slice(
+        let mut record: Value = serde_json::from_slice(
             scope
                 .get(Table::Journeys, &key)
                 .ok_or("journey record")?
                 .bytes(),
         )?;
+        let original = record.clone();
+        edit(&mut record);
+        if record != original {
+            let now = self.clock.sample(Duration::from_secs(1))?.unix_seconds();
+            scope.put(Table::Journeys, key, now, serde_json::to_vec(&record)?)?;
+        }
         drop(scope);
         drop(store);
         self.reopen()?;

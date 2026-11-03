@@ -14,6 +14,7 @@ import (
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/feetoken"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/launchpad"
+	agentoracle "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/oracle"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxbridge"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxcustody"
@@ -29,9 +30,7 @@ import (
 // forkPrecompileAddresses are the custom precompiles the Paxeer X fork brings.
 func forkPrecompileAddresses() []common.Address {
 	return []common.Address{
-		common.HexToAddress(layerxverify.LayerXVerifyAddress),
 		common.HexToAddress(layerxcustody.LayerXCustodyAddress),
-		common.HexToAddress(layerxanchor.LayerXAnchorAddress),
 		common.HexToAddress(layerxexchange.ExchangeAddress),
 		common.HexToAddress(layerxbridge.BridgeAddress),
 		common.HexToAddress(launchpad.LaunchpadAddress),
@@ -98,8 +97,15 @@ func TestCustomPrecompilesWithheldUntilTheActivationPlanIsApplied(t *testing.T) 
 	k := &testApp.EvmKeeper
 	fork := forkPrecompileAddresses()
 
-	// A chain whose genesis carries the fork modules serves the eight already.
+	// A chain whose genesis carries the fork modules serves their precompiles already.
 	full := k.CustomPrecompiles(ctx)
+	verify := common.HexToAddress(layerxverify.LayerXVerifyAddress)
+	anchor := common.HexToAddress(layerxanchor.LayerXAnchorAddress)
+	oracle := common.HexToAddress(agentoracle.OracleAddress)
+	withheld := append(forkPrecompileAddresses(), oracle)
+	require.NotContains(t, full, verify)
+	require.Contains(t, full, anchor)
+	require.Contains(t, full, oracle)
 	for _, addr := range fork {
 		require.Contains(t, full, addr)
 	}
@@ -116,12 +122,14 @@ func TestCustomPrecompilesWithheldUntilTheActivationPlanIsApplied(t *testing.T) 
 	}
 	require.Zero(t, testApp.UpgradeKeeper.GetDoneHeight(ctx, app.ActivationUpgrade))
 
-	// The eight are withheld although no upgrade was ever applied, and every
-	// other custom precompile keeps the set it had.
+	// The fork precompiles and merge oracle lose their required module entries;
+	// every other custom precompile keeps the set it had.
 	below := k.CustomPrecompiles(ctx)
-	require.Len(t, below, len(full)-len(fork))
+	require.Len(t, below, len(full)-len(withheld))
+	require.NotContains(t, below, verify)
+	require.Contains(t, below, anchor)
 	for addr := range full {
-		if contains(fork, addr) {
+		if contains(withheld, addr) {
 			require.NotContains(t, below, addr)
 			continue
 		}
@@ -138,14 +146,19 @@ func TestCustomPrecompilesWithheldUntilTheActivationPlanIsApplied(t *testing.T) 
 	k.UpgradeKeeper().SetDone(ctx.WithBlockHeight(forkHeight), app.ActivationUpgrade)
 	for _, height := range []int64{1, forkHeight - 1} {
 		at := k.CustomPrecompiles(ctx.WithBlockHeight(height))
-		require.Len(t, at, len(below), height)
-		for _, addr := range fork {
+		require.Len(t, at, len(below)-1, height)
+		require.NotContains(t, at, verify, height)
+		require.NotContains(t, at, anchor, height)
+		for _, addr := range withheld {
 			require.NotContains(t, at, addr, height)
 		}
 	}
 	for _, height := range []int64{forkHeight, forkHeight + 1} {
 		at := k.CustomPrecompiles(ctx.WithBlockHeight(height))
 		require.Len(t, at, len(full), height)
+		require.Contains(t, at, verify, height)
+		require.NotContains(t, at, oracle, height)
+		require.Same(t, full[anchor], at[anchor], height)
 		for _, addr := range fork {
 			require.Contains(t, at, addr, height)
 			require.Same(t, full[addr], at[addr], height)
@@ -161,14 +174,14 @@ func TestCustomPrecompilesWithheldUntilEachEntryPlanIsApplied(t *testing.T) {
 	// The exchange and launchpad addresses carry versions keyed to the
 	// activation plan, so their version history withholds them below its done
 	// height whichever entry names them; both stay in the activation entry.
-	fork[1], fork[5] = fork[5], fork[1]
+	fork[2], fork[3] = fork[3], fork[2]
 	modules := [][]string{
-		{layerxcustodytypes.ModuleName}, {launchpadtypes.ModuleName},
-		{layerxcustodytypes.ModuleName}, {layerxexchangetypes.ModuleName},
-		{layerxbridgetypes.ModuleName}, {layerxcustodytypes.ModuleName},
+		{layerxcustodytypes.ModuleName},
+		{layerxexchangetypes.ModuleName}, {launchpadtypes.ModuleName},
+		{layerxbridgetypes.ModuleName},
 		{layerxbridgetypes.ModuleName}, {xwebtypes.ModuleName},
 	}
-	first, second := fork[:4], fork[4:]
+	first, second := fork[:3], fork[3:]
 	firstModules := make(map[common.Address][]string, len(first))
 	for i, addr := range first {
 		firstModules[addr] = modules[i]

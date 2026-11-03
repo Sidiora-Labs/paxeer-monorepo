@@ -43,14 +43,16 @@ use std::net::{SocketAddr, TcpListener};
 use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 const PROVIDER: &str = "layerx-human-kms";
 const MAX_FRAME: usize = 2_097_152;
+const CONFIG_CHECK: &str = "LAYERX_PROOF_KMS_CONFIG_CHECK";
+static FIXTURE_COUNTER: AtomicUsize = AtomicUsize::new(0);
 const ENTRYPOINT: &str = include_str!("../../../../../docker/human-service/entrypoint.sh");
 const KERNEL_INIT: &str = include_str!("../../../../../docker/kernel/init.sh");
 
@@ -90,10 +92,11 @@ impl Drop for Host {
 
 impl Host {
     fn new() -> Result<Self> {
-        let mut nonce = [0_u8; 16];
-        getrandom::fill(&mut nonce).map_err(|error| std::io::Error::other(error.to_string()))?;
-        let root =
-            PathBuf::from("/tmp").join(format!("proof-kms-{:x}", u128::from_be_bytes(nonce)));
+        let root = PathBuf::from("/tmp").join(format!(
+            "proof_human_kms-{}-{}",
+            std::process::id(),
+            FIXTURE_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
         fs::DirBuilder::new().mode(0o700).create(&root)?;
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
@@ -330,7 +333,7 @@ impl Host {
                 .stderr(fs::File::create(self.root.join("kms.log"))?)
                 .spawn()?,
         );
-        let start = Instant::now();
+        let start = self.clock.sample(Duration::from_secs(1))?;
         loop {
             if self.remote("human-kms-client", PROVIDER)?.probe().is_ok() {
                 return Ok(());
@@ -348,7 +351,10 @@ impl Host {
                 .into());
             }
             assert!(
-                start.elapsed() < Duration::from_secs(10),
+                self.clock
+                    .sample(Duration::from_secs(1))?
+                    .elapsed_since(start)?
+                    < Duration::from_secs(10),
                 "layerx-human-kms did not listen: {}",
                 fs::read_to_string(self.root.join("kms.log"))?
             );
@@ -390,7 +396,7 @@ impl Host {
         )?)
     }
 
-    fn bind_config(&self) -> Result<()> {
+    fn check_config(&self, expected_error: Option<&str>) -> Result<()> {
         // Consume the entrypoint's actual environment producer, with no ambient configuration.
         let function = shell_function(ENTRYPOINT, "kms_environment")?;
         let mut command = Command::new("sh");
@@ -407,6 +413,14 @@ impl Host {
             output.status.success(),
             "docker/human-service/entrypoint.sh::kms_environment failed"
         );
+        let mut consumer = Command::new(std::env::current_exe()?);
+        consumer
+            .env_clear()
+            .args(["--exact", "proof_human_kms", "--nocapture"])
+            .env(
+                CONFIG_CHECK,
+                serde_json::to_string(&(&self.root, self.address, expected_error))?,
+            );
         for binding in output
             .stdout
             .split(|byte| *byte == 0)
@@ -416,9 +430,16 @@ impl Host {
                 .split_once('=')
                 .ok_or("malformed environment binding")?;
             if name.starts_with("LAYERX_HUMAN_KMS_") {
-                std::env::set_var(name, value);
+                consumer.env(name, value);
             }
         }
+        let output = consumer.output()?;
+        assert!(
+            output.status.success(),
+            "Config::load proof failed: {}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
         Ok(())
     }
 }
@@ -509,8 +530,42 @@ fn prove_signer_contract(host: &Host) -> Result<()> {
 #[test]
 fn proof_human_kms() -> Result<()> {
     let _ = rustls::crypto::ring::default_provider().install_default();
+    if let Some(check) = std::env::var_os(CONFIG_CHECK) {
+        let (root, address, expected_error): (PathBuf, SocketAddr, Option<String>) =
+            serde_json::from_str(check.to_str().ok_or("invalid configuration check")?)?;
+        if let Some(expected) = expected_error {
+            let error = config::Config::load()
+                .err()
+                .ok_or("configuration was accepted")?;
+            if expected == "chain snapshot invalid" {
+                assert!(error.contains(&expected));
+            } else {
+                assert_eq!(error, expected);
+            }
+            return Ok(());
+        }
+        let loaded = config::Config::load()?;
+        assert_eq!(loaded.chain.chain_id, 125);
+        assert_eq!(loaded.provider, PROVIDER);
+        assert_eq!(loaded.state, root.join("state"));
+        assert_eq!(loaded.listen, address);
+        assert_eq!(loaded.seal.len(), 32);
+        assert_eq!(loaded.deadline, Duration::from_secs(3));
+        assert_eq!(loaded.tls.max_early_data_size, 0);
+        assert_eq!(
+            loaded.client_pin,
+            <[u8; 32]>::from(Sha256::digest(fs::read(root.join("kms-client.der"))?))
+        );
+        assert_eq!(
+            loaded
+                .attestor_evm_client_certificate
+                .ok_or("missing executor pin")?
+                .as_ref(),
+            fs::read(root.join("kms-executor.der"))?
+        );
+        return Ok(());
+    }
     let mut host = Host::new()?;
-    host.bind_config()?;
     let legacy = fs::read(host.root.join("registry.json"))?;
     let registry: serde_json::Value = serde_json::from_slice(&legacy)?;
     assert_eq!(registry["modules"][0]["module_id"], 1);
@@ -518,29 +573,11 @@ fn proof_human_kms() -> Result<()> {
         registry["modules"][0]["activity_types"],
         json!([65537, 65540])
     );
-    assert!(matches!(config::Config::load(), Err(e) if e.contains("chain snapshot invalid")));
+    host.check_config(Some("chain snapshot invalid"))?;
     assert!(host.project_chain(125)?.status.success());
     assert!(!host.project_chain(1)?.status.success());
     for _ in 0..2 {
-        let loaded = config::Config::load()?;
-        assert_eq!(loaded.chain.chain_id, 125);
-        assert_eq!(loaded.provider, PROVIDER);
-        assert_eq!(loaded.state, host.root.join("state"));
-        assert_eq!(loaded.listen, host.address);
-        assert_eq!(loaded.seal.len(), 32);
-        assert_eq!(loaded.deadline, Duration::from_secs(3));
-        assert_eq!(loaded.tls.max_early_data_size, 0);
-        assert_eq!(
-            loaded.client_pin,
-            <[u8; 32]>::from(Sha256::digest(fs::read(host.root.join("kms-client.der"))?))
-        );
-        assert_eq!(
-            loaded
-                .attestor_evm_client_certificate
-                .ok_or("missing executor pin")?
-                .as_ref(),
-            fs::read(host.root.join("kms-executor.der"))?
-        );
+        host.check_config(None)?;
     }
     for malformed in [
         br#"{"chain_id":125,"modules":[]}"#.as_slice(),
@@ -550,7 +587,7 @@ fn proof_human_kms() -> Result<()> {
         legacy.as_slice(),
     ] {
         fs::write(host.root.join("registry.json"), malformed)?;
-        assert!(matches!(config::Config::load(), Err(e) if e.contains("chain snapshot invalid")));
+        host.check_config(Some("chain snapshot invalid"))?;
         let refused = host.command()?.output()?;
         assert!(
             !refused.status.success(),
@@ -564,14 +601,12 @@ fn proof_human_kms() -> Result<()> {
         host.root.join("kms-executor.der"),
         fs::read(host.root.join("kms-client.der"))?,
     )?;
-    assert!(
-        matches!(config::Config::load(), Err(e) if e == "attestor signer and service identities must differ")
-    );
+    host.check_config(Some("attestor signer and service identities must differ"))?;
     fs::write(
         host.root.join("kms-executor.der"),
         b"malformed producer certificate",
     )?;
-    assert!(matches!(config::Config::load(), Err(e) if e == "attestor signer certificate invalid"));
+    host.check_config(Some("attestor signer certificate invalid"))?;
     let refused = host.command()?.output()?;
     assert!(
         !refused.status.success(),

@@ -3,7 +3,7 @@ export { decodeDaemonSubmission, decodeDaemonPrepared, signedActivityId } from "
 export type { DaemonPreparation, DaemonPrepareRequest } from "./daemon.js";
 import { paymentCommitment, verifyPaymentReceipt, ReceiptPayloadAuthority, LAYERX_LEDGER_ADDRESS, type PaymentReceiptVerification, type GrantDrawExecution, type SellerSettlementOutcome } from "@sidiora/layerx-seller-middleware";
 import { verifyPaymentCommitment, type PaymentCommitment, type PaymentCommitmentResolver } from "@sidiora/layerx-seller-middleware";
-import { decodePaymentDrawnLog, LEDGER_DRAW_SELECTOR } from "@sidiora/layerx-seller-middleware";
+import { decodePaymentDrawnLog, LEDGER_DRAW_SELECTOR, paymentPurpose } from "@sidiora/layerx-seller-middleware";
 import {
   PlatformSdkError,
   ProductionClient,
@@ -929,10 +929,10 @@ export class AgentGrantMiddleware implements GrantDrawExecution {
     if (toHex(transaction.to) !== LAYERX_LEDGER_ADDRESS.slice(2) || transaction.value !== 0n
       || requirements.network !== `eip155:${transaction.chainId}`
       || data.length !== 4 + 7 * 32 || toHex(data.subarray(0, 4)) !== toHex(LEDGER_DRAW_SELECTOR)
-      || toHex(data.subarray(36, 68)) !== reservation.asset
+      || toHex(data.subarray(164, 196)) !== paymentPurpose(requirements.extra, true)
       || BigInt(`0x${toHex(data.subarray(68, 100))}`) !== BigInt(reservation.amount)
       || BigInt(`0x${toHex(data.subarray(132, 164))}`) >= 1n << 64n
-      || toHex(data.subarray(164, 196)) !== request.idempotencyKey) {
+      || toHex(data.subarray(100, 132)) !== request.idempotencyKey) {
       throw new AgentMiddlewareError("budget-conflict");
     }
     if (reservation.state === "held") return { kind: "pending" };
@@ -987,8 +987,9 @@ export class AgentGrantMiddleware implements GrantDrawExecution {
         throw new AgentMiddlewareError("verification-failure");
       }
       const eventData = new Uint8Array(128);
-      eventData.set(data.subarray(36, 100));
-      eventData.set(data.subarray(164, 228), 64);
+      eventData.set(receiptBytes(request.requirements.asset));
+      eventData.set(data.subarray(68, 132), 32);
+      eventData.set(data.subarray(196, 228), 96);
       const digest = toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", eventData)));
       const topic = toHex(keccak256(new TextEncoder().encode("PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)")));
       let matches = 0;
@@ -1002,8 +1003,8 @@ export class AgentGrantMiddleware implements GrantDrawExecution {
         if (toHex(body.subarray(body.length - 32)) !== digest) throw new AgentMiddlewareError("verification-failure");
         const payment = decodePaymentDrawnLog({ address: LAYERX_LEDGER_ADDRESS, data: eventData,
           topics: Array.from({ length: count }, (_, i) => body.slice(21 + i * 32, 53 + i * 32)) });
-        if (toHex(payment.grantId) !== toHex(data.subarray(100, 132))
-          || toHex(payment.from) !== toHex(data.subarray(4, 36))
+        if (toHex(payment.grantId) !== toHex(data.subarray(4, 36))
+          || toHex(payment.from) !== toHex(data.subarray(36, 68))
           || toHex(payment.to) !== request.requirements.payTo.slice(2)
           || toHex(payment.assetId) !== request.requirements.asset.slice(2)
           || payment.amount !== BigInt(request.requirements.amount)

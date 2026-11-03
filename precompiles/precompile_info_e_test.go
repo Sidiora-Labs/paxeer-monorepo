@@ -56,27 +56,32 @@ func TestGetPrecompileInfoEUnknownName(t *testing.T) {
 		}()
 		GetPrecompileInfo(name)
 	}()
+}
 
+func TestKnownMergePrecompileRequiresKeepersForInitialization(t *testing.T) {
+	initialized, infoBefore := Initialized, PrecompileNamesToInfo
+	mergeConstructorsMtx.Lock()
+	constructorsBefore := mergeConstructors
 	address := ecommon.HexToAddress("0x0908")
 	constructor := constructorsBefore[address]
-	require.NotNil(t, constructor, "the real EIP-712 constructor must be registered")
-	mergeConstructorsMtx.Lock()
-	mergeConstructors[address] = constructor
+	mergeConstructors = map[ecommon.Address]MergeConstructor{address: constructor}
 	mergeConstructorsMtx.Unlock()
 	Initialized = false
+	PrecompileNamesToInfo = map[string]PrecompileInfo{}
+	t.Cleanup(func() {
+		Initialized, PrecompileNamesToInfo = initialized, infoBefore
+		mergeConstructorsMtx.Lock()
+		defer mergeConstructorsMtx.Unlock()
+		mergeConstructors = constructorsBefore
+	})
+	require.NotNil(t, constructor, "the real EIP-712 constructor must be registered")
 	initializationErr := InitializePrecompiles(true, &utils.EmptyKeepers{})
+	require.ErrorContains(t, initializationErr, "merge precompile eip712 at "+address.Hex())
 	require.ErrorContains(t, initializationErr, "evm keeper is unavailable")
-	info, err = GetPrecompileInfoE(name)
-	require.EqualError(t, err, initializationErr.Error())
+	require.False(t, Initialized)
+	info, err := GetPrecompileInfoE("unknown_precompile")
+	require.EqualError(t, err, "unknown_precompile doesn't exist as a precompile")
 	require.Equal(t, PrecompileInfo{}, info)
-	func() {
-		defer func() {
-			panicErr, ok := recover().(error)
-			require.True(t, ok, "GetPrecompileInfo must propagate initialization errors")
-			require.EqualError(t, panicErr, initializationErr.Error())
-		}()
-		GetPrecompileInfo(name)
-	}()
 }
 
 type initializationKeepers struct {
