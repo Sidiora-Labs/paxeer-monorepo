@@ -140,7 +140,7 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
         ("px_getAccount", account_result.clone()),
         ("px_getBalances", balances_result.clone()),
     ];
-    for name in ["account", "paxeer", "layerx"] {
+    for name in ["account", "paxeer"] {
         let mut malformed = account_result.clone();
         malformed.as_object_mut().must().remove(name);
         exchanges.push(("px_getAccount", malformed));
@@ -190,6 +190,13 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
         exchanges.push(("px_getBalances", malformed));
     }
     let bad_balances = exchanges.len() - 2 - bad_accounts;
+    let mut without_native = account_result.clone();
+    assert!(without_native
+        .as_object_mut()
+        .must()
+        .remove("layerx")
+        .is_some());
+    exchanges.push(("px_getAccount", without_native));
     let unbound = json!({"evm_address": null, "pax_address": null, "layerx_did": null,
                          "layerx_account": null, "bound": false});
     exchanges.push((
@@ -247,6 +254,18 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
     for _ in 0..bad_balances {
         assert_eq!(endpoint.balances(&account), Err(SequencerError::Malformed));
     }
+    assert_eq!(
+        endpoint.account(&account).must(),
+        PxAccountJoin {
+            account: expected_identities(),
+            paxeer: Some(PxPaxeerAccount {
+                address: [0x12; 20],
+                balance: u128::MAX,
+                nonce: u64::MAX
+            }),
+            layerx: None,
+        }
+    );
     let empty_identities = PxResolvedIdentities {
         evm_address: None,
         pax_address: None,
@@ -271,7 +290,7 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
         }
     );
     let seen = handle.join().must();
-    assert_eq!(seen.len(), 4 + bad_accounts + bad_balances);
+    assert_eq!(seen.len(), 5 + bad_accounts + bad_balances);
     for params in seen {
         assert_eq!(params, json!([account]));
     }
