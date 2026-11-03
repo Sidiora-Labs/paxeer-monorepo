@@ -4,8 +4,11 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -254,6 +257,245 @@ func TestEvaluateRefusesSponsoredBatchOutsideBindPrecompile(t *testing.T) {
 			}
 			if err := a.Evaluate(keyID, subject, "bind", policy.KindSponsoredBatch, view); !errors.Is(err, ErrAuthority) {
 				t.Fatalf("%s: got %v, want refusal", name, err)
+			}
+		})
+	}
+}
+
+func agentPermitData(t *testing.T, primary string, amounts ...string) *evm.TypedData {
+	t.Helper()
+	field := func(name, typ string) map[string]string { return map[string]string{"name": name, "type": typ} }
+	types := map[string]any{
+		"EIP712Domain":     []any{field("chainId", "uint256"), field("verifyingContract", "address")},
+		"PermitDetails":    []any{field("token", "address"), field("amount", "uint160"), field("expiration", "uint48"), field("nonce", "uint48")},
+		"TokenPermissions": []any{field("token", "address"), field("amount", "uint256")},
+	}
+	const token = "0x3333333333333333333333333333333333333333"
+	const spender = "0x2222222222222222222222222222222222222222"
+	const permit2 = "0x4444444444444444444444444444444444444444"
+	message := map[string]any{"spender": spender}
+	verifier := permit2
+	switch primary {
+	case "Permit":
+		verifier = token
+		types[primary] = []any{field("spender", "address"), field("value", "uint256")}
+		message["value"] = amounts[0]
+	case "PermitSingle", "PermitBatch":
+		details := make([]any, len(amounts))
+		for i, amount := range amounts {
+			details[i] = map[string]any{"token": token, "amount": amount, "expiration": "4102444800", "nonce": "0"}
+		}
+		typ := "PermitDetails"
+		message["details"] = details[0]
+		if primary == "PermitBatch" {
+			typ += "[]"
+			message["details"] = details
+		}
+		types[primary] = []any{field("details", typ), field("spender", "address"), field("sigDeadline", "uint256")}
+		message["sigDeadline"] = "4102444800"
+	case "PermitTransferFrom", "PermitBatchTransferFrom":
+		details := make([]any, len(amounts))
+		for i, amount := range amounts {
+			details[i] = map[string]any{"token": token, "amount": amount}
+		}
+		typ := "TokenPermissions"
+		message["permitted"] = details[0]
+		if primary == "PermitBatchTransferFrom" {
+			typ += "[]"
+			message["permitted"] = details
+		}
+		types[primary] = []any{field("permitted", typ), field("spender", "address"), field("nonce", "uint256"), field("deadline", "uint256")}
+		message["nonce"], message["deadline"] = "0", "4102444800"
+	default:
+		t.Fatal("unsupported test permit type")
+	}
+	raw, err := json.Marshal(map[string]any{"types": types, "primaryType": primary, "domain": map[string]any{"chainId": 125, "verifyingContract": verifier}, "message": message})
+	if err != nil {
+		t.Fatal(err)
+	}
+	typed, err := evm.DecodeTypedData(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return typed
+}
+
+func TestEvaluateTypedDataPermitCountsAgainstTokenCap(t *testing.T) {
+	const token = "0x3333333333333333333333333333333333333333"
+	const spender = "0x2222222222222222222222222222222222222222"
+	for _, primary := range []string{"Permit", "PermitSingle", "PermitBatch", "PermitTransferFrom", "PermitBatchTransferFrom"} {
+		for _, amount := range []string{"101", "100", "99"} {
+			t.Run(primary+"/token cap/"+amount, func(t *testing.T) {
+				a, keyID, subject, _ := sponsoredBindAuthority(t, func(p *AuthorityPrincipal) {
+					cap := "100"
+					p.Policy.MaxApprove = "1000"
+					p.Rules = []AgentRule{{Effect: "allow", Subject: "token", Value: token, MaxValue: &cap}}
+				})
+				err := a.Evaluate(keyID, subject, "permit", policy.KindTypedData, agentPermitData(t, primary, amount))
+				if amount == "101" {
+					if !errors.Is(err, ErrAuthority) {
+						t.Fatalf("over-cap %s admitted: %v", primary, err)
+					}
+				} else if err != nil {
+					t.Fatalf("within-cap %s refused: %v", primary, err)
+				}
+			})
+		}
+		for _, test := range []struct {
+			name      string
+			configure func(*AuthorityPrincipal)
+		}{
+			{"approval cap", func(p *AuthorityPrincipal) { p.Policy.MaxApprove = "98" }},
+			{"deny token", func(p *AuthorityPrincipal) { p.Rules = []AgentRule{{Effect: "deny", Subject: "token", Value: token}} }},
+			{"deny withdrawal", func(p *AuthorityPrincipal) {
+				p.Rules = []AgentRule{{Effect: "deny", Subject: "withdrawal", Value: spender}}
+			}},
+			{"deny spender", func(p *AuthorityPrincipal) {
+				p.Rules = []AgentRule{{Effect: "deny", Subject: "address", Value: spender}}
+			}},
+			{"deny approval selector", func(p *AuthorityPrincipal) {
+				p.Rules = []AgentRule{{Effect: "deny", Subject: "selector", Value: "0x095ea7b3"}}
+			}},
+			{"deny verifier", func(p *AuthorityPrincipal) {
+				verifier := "0x4444444444444444444444444444444444444444"
+				if primary == "Permit" {
+					verifier = token
+				}
+				p.Rules = []AgentRule{{Effect: "deny", Subject: "contract", Value: verifier}}
+			}},
+			{"trade allowlist", func(p *AuthorityPrincipal) {
+				p.Rules = []AgentRule{{Effect: "allow", Subject: "contract", Value: spender}}
+			}},
+			{"withdrawal allowlist", func(p *AuthorityPrincipal) { p.Policy.WithdrawalOnly = true }},
+			{"read only", func(p *AuthorityPrincipal) { p.Policy.Mode = "read_only" }},
+		} {
+			t.Run(primary+"/"+test.name, func(t *testing.T) {
+				a, keyID, subject, _ := sponsoredBindAuthority(t, func(p *AuthorityPrincipal) {
+					p.Policy.MaxApprove = "1000"
+					test.configure(p)
+				})
+				if err := a.Evaluate(keyID, subject, "permit", policy.KindTypedData, agentPermitData(t, primary, "99")); err == nil {
+					t.Fatalf("%s bypassed %s", primary, test.name)
+				}
+			})
+		}
+	}
+	for _, primary := range []string{"Permit", "PermitSingle", "PermitBatch", "PermitTransferFrom", "PermitBatchTransferFrom"} {
+		t.Run(primary+"/matching allowlists", func(t *testing.T) {
+			typed := agentPermitData(t, primary, "99")
+			a, keyID, subject, _ := sponsoredBindAuthority(t, func(p *AuthorityPrincipal) {
+				p.Policy.MaxApprove = "100"
+				p.Policy.WithdrawalOnly = true
+				p.Rules = []AgentRule{
+					{Effect: "allow", Subject: "contract", Value: strings.ToLower(typed.Data.Domain.VerifyingContract)},
+					{Effect: "allow", Subject: "withdrawal", Value: spender},
+					{Effect: "deny", Subject: "address", Value: "0x5555555555555555555555555555555555555555"},
+				}
+			})
+			if err := a.Evaluate(keyID, subject, "permit", policy.KindTypedData, typed); err != nil {
+				t.Fatalf("permit matching trade and withdrawal allowlists refused: %v", err)
+			}
+		})
+	}
+
+	for _, primary := range []string{"PermitBatch", "PermitBatchTransferFrom"} {
+		for _, capKind := range []string{"token", "approval"} {
+			t.Run(primary+"/aggregate/"+capKind, func(t *testing.T) {
+				a, keyID, subject, _ := sponsoredBindAuthority(t, func(p *AuthorityPrincipal) {
+					p.Policy.MaxApprove = "100"
+					if capKind == "token" {
+						cap := "100"
+						p.Policy.MaxApprove = "1000"
+						p.Rules = []AgentRule{{Effect: "allow", Subject: "token", Value: token, MaxValue: &cap}}
+					}
+				})
+				if err := a.Evaluate(keyID, subject, "batch", policy.KindTypedData, agentPermitData(t, primary, "60", "41")); !errors.Is(err, ErrAuthority) {
+					t.Fatalf("split permit bypassed %s cap: %v", capKind, err)
+				}
+			})
+		}
+	}
+	t.Run("digest and chain validated", func(t *testing.T) {
+		a, keyID, subject, _ := sponsoredBindAuthority(t, func(p *AuthorityPrincipal) { p.Policy.MaxApprove = "100" })
+		for _, mutation := range []string{"digest", "chain", "unknown type"} {
+			typed := agentPermitData(t, "PermitSingle", "1")
+			switch mutation {
+			case "digest":
+				typed.Digest[0] ^= 1
+			case "chain":
+				(*big.Int)(typed.Data.Domain.ChainId).SetInt64(1)
+				var err error
+				typed.Digest, err = evm.TypedDataDigest(typed.Data)
+				if err != nil {
+					t.Fatal(err)
+				}
+			case "unknown type":
+				typed.Data.Types["Unknown"] = typed.Data.Types[typed.Data.PrimaryType]
+				typed.Data.PrimaryType = "Unknown"
+				var err error
+				typed.Digest, err = evm.TypedDataDigest(typed.Data)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := a.Evaluate(keyID, subject, mutation, policy.KindTypedData, typed); !errors.Is(err, ErrAuthority) {
+				t.Fatalf("%s admitted: %v", mutation, err)
+			}
+		}
+	})
+}
+
+func TestEvaluatePersonalMessageHonoursDenyRules(t *testing.T) {
+	for _, ruleSubject := range []string{"contract", "token", "address", "withdrawal", "selector"} {
+		t.Run(ruleSubject, func(t *testing.T) {
+			value := "0x2222222222222222222222222222222222222222"
+			if ruleSubject == "selector" {
+				value = "0x095ea7b3"
+			}
+			a, keyID, subject, _ := sponsoredBindAuthority(t, func(p *AuthorityPrincipal) {
+				p.Policy.Mode = "full"
+				p.Rules = []AgentRule{{Effect: "deny", Subject: ruleSubject, Value: value}}
+			})
+			message := evm.DecodePersonalMessage([]byte("Authorize " + strings.ToUpper(value)))
+			if err := a.Evaluate(keyID, subject, "message", policy.KindPersonalMessage, message); !errors.Is(err, ErrAuthority) {
+				t.Fatalf("personal message bypassed %s deny: %v", ruleSubject, err)
+			}
+		})
+	}
+	for _, mode := range []string{"full", "trade_only", "read_only", "withdrawal_only", "token cap"} {
+		t.Run(mode, func(t *testing.T) {
+			a, keyID, subject, _ := sponsoredBindAuthority(t, func(p *AuthorityPrincipal) {
+				p.Policy.Mode = mode
+				if mode == "withdrawal_only" {
+					p.Policy.Mode = "full"
+					p.Policy.WithdrawalOnly = true
+				}
+				if mode == "token cap" {
+					p.Policy.Mode = "full"
+					cap := "100"
+					p.Rules = []AgentRule{{Effect: "allow", Subject: "token", Value: "0x3333333333333333333333333333333333333333", MaxValue: &cap}}
+				}
+			})
+			message := evm.DecodePersonalMessage([]byte("hello"))
+			err := a.Evaluate(keyID, subject, "message", policy.KindPersonalMessage, message)
+			if mode == "full" {
+				if err != nil {
+					t.Fatalf("unrestricted personal message refused: %v", err)
+				}
+				message.Digest[0] ^= 1
+				if err := a.Evaluate(keyID, subject, "tampered", policy.KindPersonalMessage, message); !errors.Is(err, ErrAuthority) {
+					t.Fatalf("invalid message digest admitted: %v", err)
+				}
+			} else if err == nil {
+				t.Fatalf("personal message bypassed %s", mode)
+			}
+		})
+	}
+	for i, view := range []any{nil, (*evm.PersonalMessage)(nil), &evm.Transaction{}} {
+		t.Run(fmt.Sprintf("invalid view/%d", i), func(t *testing.T) {
+			a, keyID, subject, _ := sponsoredBindAuthority(t, func(p *AuthorityPrincipal) { p.Policy.Mode = "full" })
+			if err := a.Evaluate(keyID, subject, "message", policy.KindPersonalMessage, view); !errors.Is(err, ErrAuthority) {
+				t.Fatalf("invalid personal message admitted: %v", err)
 			}
 		})
 	}

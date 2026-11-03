@@ -165,86 +165,100 @@ func (p *OraclePrecompile) Execute(ctx sdk.Context, method *abi.Method, caller c
 	}
 	switch resolved.Name {
 	case AggregateMethod:
-		decoded, ok := args[0].([]struct {
-			Price      *big.Int `json:"price"`
-			Confidence *big.Int `json:"confidence"`
-			Timestamp  *big.Int `json:"timestamp"`
-		})
-		if !ok {
-			return nil, fmt.Errorf("%w: argument decode failed", agentcommon.ErrABIDecode)
-		}
-		if len(decoded) > p.maxFeeds {
-			return nil, fmt.Errorf("%w: batch over the cap (cap set at activation rehearsal)", agentcommon.ErrBatchTooLarge)
-		}
-		feeds := make([]Feed, len(decoded))
-		for i, f := range decoded {
-			if f.Confidence == nil || f.Confidence.Sign() < 0 || f.Confidence.Cmp(p.maxConfidence) > 0 {
-				return nil, fmt.Errorf("%w: invalid confidence", agentcommon.ErrOracleConfidence)
-			}
-			feeds[i] = Feed{f.Price, f.Confidence, f.Timestamp}
-		}
-		price, confidence, err := Aggregate(feeds, p.maxFeeds)
-		if err != nil {
-			return nil, err
-		}
-		return resolved.Outputs.Pack(price, confidence)
-	case SubmitPriceMethod, GetValidatorPriceMethod:
-		feed, ok := args[0].([32]byte)
-		if !ok {
-			return nil, fmt.Errorf("%w: argument decode failed", agentcommon.ErrABIDecode)
-		}
-		var callerKey [32]byte
-		if resolved.Name == SubmitPriceMethod {
-			key, bound := p.evm.GetLayerXDid(ctx, caller)
-			if !bound {
-				return nil, fmt.Errorf("%w: caller is not a validator oracle signer", agentcommon.ErrOracleNotSigner)
-			}
-			callerKey = key
-		}
-		replay, ok := ctx.Value(replayKey{}).(replayBinding)
-		if !ok || len(replay.validator) == 0 {
-			return nil, fmt.Errorf("%w: oracle replay context is unavailable", agentcommon.ErrNoContext)
-		}
-		validator := replay.validator
-		if resolved.Name == SubmitPriceMethod {
-			if callerKey != replay.publicKey {
-				return nil, fmt.Errorf("%w: caller is not a validator oracle signer", agentcommon.ErrOracleNotSigner)
-			}
-			digest := sha256.Sum256(callerKey[:])
-			if !bytes.Equal(validator, digest[:20]) {
-				return nil, fmt.Errorf("%w: caller is not a validator oracle signer", agentcommon.ErrOracleNotSigner)
-			}
-			price, ok := args[1].(*big.Int)
-			if !ok || price == nil {
-				return nil, fmt.Errorf("%w: argument decode failed", agentcommon.ErrABIDecode)
-			}
-			if price.Sign() <= 0 || price.BitLen() > 128 {
-				return nil, fmt.Errorf("%w: invalid price", agentcommon.ErrOraclePrice)
-			}
-			confidence, ok := args[2].(*big.Int)
-			if !ok || confidence == nil {
-				return nil, fmt.Errorf("%w: argument decode failed", agentcommon.ErrABIDecode)
-			}
-			if confidence.Sign() < 0 || confidence.Cmp(p.maxConfidence) > 0 || !confidence.IsUint64() {
-				return nil, fmt.Errorf("%w: invalid confidence", agentcommon.ErrOracleConfidence)
-			}
-			if err := p.exchange.SubmitOracleObservation(ctx, validator, feed, sdk.NewIntFromBigInt(price), confidence.Uint64()); err != nil {
-				if errors.Is(err, lxphost.Code(-729)) {
-					return nil, fmt.Errorf("%w: caller is not a validator oracle signer", agentcommon.ErrOracleNotSigner)
-				}
-				return nil, err
-			}
-			return resolved.Outputs.Pack()
-		}
-		committed, found, err := p.exchange.CommittedOraclePrice(ctx, validator, feed)
-		if err != nil {
-			return nil, err
-		}
-		if !found {
-			return nil, fmt.Errorf("%w: no feeds provided", agentcommon.ErrOracleNoFeeds)
-		}
-		return resolved.Outputs.Pack(committed.Price.BigInt(), big.NewInt(1), new(big.Int).SetUint64(committed.ObservedAt/1000))
+		return p.aggregate(resolved, args)
+	case SubmitPriceMethod:
+		return p.submitPrice(ctx, resolved, caller, args)
+	case GetValidatorPriceMethod:
+		return p.getValidatorPrice(ctx, resolved, args)
 	default:
 		return nil, fmt.Errorf("%w: unknown oracle method", agentcommon.ErrUnknownMethod)
 	}
+}
+
+func (p *OraclePrecompile) aggregate(method *abi.Method, args []interface{}) ([]byte, error) {
+	decoded, ok := args[0].([]struct {
+		Price      *big.Int `json:"price"`
+		Confidence *big.Int `json:"confidence"`
+		Timestamp  *big.Int `json:"timestamp"`
+	})
+	if !ok {
+		return nil, fmt.Errorf("%w: argument decode failed", agentcommon.ErrABIDecode)
+	}
+	if len(decoded) > p.maxFeeds {
+		return nil, fmt.Errorf("%w: batch over the cap (cap set at activation rehearsal)", agentcommon.ErrBatchTooLarge)
+	}
+	feeds := make([]Feed, len(decoded))
+	for i, f := range decoded {
+		if f.Confidence == nil || f.Confidence.Sign() < 0 || f.Confidence.Cmp(p.maxConfidence) > 0 {
+			return nil, fmt.Errorf("%w: invalid confidence", agentcommon.ErrOracleConfidence)
+		}
+		feeds[i] = Feed{f.Price, f.Confidence, f.Timestamp}
+	}
+	price, confidence, err := Aggregate(feeds, p.maxFeeds)
+	if err != nil {
+		return nil, err
+	}
+	return method.Outputs.Pack(price, confidence)
+}
+
+func (p *OraclePrecompile) submitPrice(ctx sdk.Context, method *abi.Method, caller common.Address, args []interface{}) ([]byte, error) {
+	feed, ok := args[0].([32]byte)
+	if !ok {
+		return nil, fmt.Errorf("%w: argument decode failed", agentcommon.ErrABIDecode)
+	}
+	callerKey, bound := p.evm.GetLayerXDid(ctx, caller)
+	if !bound {
+		return nil, fmt.Errorf("%w: caller is not a validator oracle signer", agentcommon.ErrOracleNotSigner)
+	}
+	replay, ok := ctx.Value(replayKey{}).(replayBinding)
+	if !ok || len(replay.validator) == 0 {
+		return nil, fmt.Errorf("%w: oracle replay context is unavailable", agentcommon.ErrNoContext)
+	}
+	if callerKey != replay.publicKey {
+		return nil, fmt.Errorf("%w: caller is not a validator oracle signer", agentcommon.ErrOracleNotSigner)
+	}
+	digest := sha256.Sum256(callerKey[:])
+	if !bytes.Equal(replay.validator, digest[:20]) {
+		return nil, fmt.Errorf("%w: caller is not a validator oracle signer", agentcommon.ErrOracleNotSigner)
+	}
+	price, ok := args[1].(*big.Int)
+	if !ok || price == nil {
+		return nil, fmt.Errorf("%w: argument decode failed", agentcommon.ErrABIDecode)
+	}
+	if price.Sign() <= 0 || price.BitLen() > 128 {
+		return nil, fmt.Errorf("%w: invalid price", agentcommon.ErrOraclePrice)
+	}
+	confidence, ok := args[2].(*big.Int)
+	if !ok || confidence == nil {
+		return nil, fmt.Errorf("%w: argument decode failed", agentcommon.ErrABIDecode)
+	}
+	if confidence.Sign() < 0 || confidence.Cmp(p.maxConfidence) > 0 || !confidence.IsUint64() {
+		return nil, fmt.Errorf("%w: invalid confidence", agentcommon.ErrOracleConfidence)
+	}
+	if err := p.exchange.SubmitOracleObservation(ctx, replay.validator, feed, sdk.NewIntFromBigInt(price), confidence.Uint64()); err != nil {
+		if errors.Is(err, lxphost.Code(-729)) {
+			return nil, fmt.Errorf("%w: caller is not a validator oracle signer", agentcommon.ErrOracleNotSigner)
+		}
+		return nil, err
+	}
+	return method.Outputs.Pack()
+}
+
+func (p *OraclePrecompile) getValidatorPrice(ctx sdk.Context, method *abi.Method, args []interface{}) ([]byte, error) {
+	feed, ok := args[0].([32]byte)
+	if !ok {
+		return nil, fmt.Errorf("%w: argument decode failed", agentcommon.ErrABIDecode)
+	}
+	replay, ok := ctx.Value(replayKey{}).(replayBinding)
+	if !ok || len(replay.validator) == 0 {
+		return nil, fmt.Errorf("%w: oracle replay context is unavailable", agentcommon.ErrNoContext)
+	}
+	committed, found, err := p.exchange.CommittedOraclePrice(ctx, replay.validator, feed)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("%w: no feeds provided", agentcommon.ErrOracleNoFeeds)
+	}
+	return method.Outputs.Pack(committed.Price.BigInt(), big.NewInt(1), new(big.Int).SetUint64(committed.ObservedAt/1000))
 }
