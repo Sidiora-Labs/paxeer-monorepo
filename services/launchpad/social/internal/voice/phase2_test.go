@@ -66,20 +66,13 @@ func TestNativeLiveKitListenerGrantCannotPublish(t *testing.T) {
 }
 func TestPostgresDeclinedConsentStopsBeforeProviderContact(t *testing.T) {
 	c, ctx := fixture(t)
-	ddl, e := os.ReadFile("../../../../../launchpad/spec/production-system/handoffs/L38/phase2/schema-proposal.sql")
-	if e != nil {
-		t.Fatal(e)
-	}
-	if _, e = c.DB.Exec(ctx, string(ddl)); e != nil {
-		t.Fatal(e)
-	}
 	c.RecordingPolicy = RecordingPolicy{Enabled: true, Version: "explicit-v2", Purpose: "Community session archive", Retention: 24 * time.Hour, RestrictedStorageQualified: true}
 	room := Room{ID: uuid.NewString()}
 	c.Policy = &safety.Store{DB: c.DB}
-	if _, e = c.DB.Exec(ctx, `INSERT INTO voice_rooms(id,pool_id,host_wallet,start_key,state,provider_session)VALUES($1,'known-pool',$2,$3,'live','uncontacted-consent-fixture')`, room.ID, host, uuid.NewString()); e != nil {
+	if _, e := c.DB.Exec(ctx, `INSERT INTO voice_rooms(id,pool_id,host_wallet,start_key,state,provider_session)VALUES($1,'known-pool',$2,$3,'live','uncontacted-consent-fixture')`, room.ID, host, uuid.NewString()); e != nil {
 		t.Fatal(e)
 	}
-	if _, e = c.DB.Exec(ctx, `INSERT INTO voice_participants(room_id,wallet,role)VALUES($1,$2,'host')`, room.ID, host); e != nil {
+	if _, e := c.DB.Exec(ctx, `INSERT INTO voice_participants(room_id,wallet,role)VALUES($1,$2,'host')`, room.ID, host); e != nil {
 		t.Fatal(e)
 	}
 	provider := &LiveKit{}
@@ -140,13 +133,6 @@ func phase3Provider(t *testing.T) *LiveKit {
 }
 func phase3Schema(t *testing.T, c *Control, ctx context.Context) {
 	t.Helper()
-	ddl, e := os.ReadFile("../../../../../launchpad/spec/production-system/handoffs/L38/phase2/schema-proposal.sql")
-	if e != nil {
-		t.Fatal(e)
-	}
-	if _, e = c.DB.Exec(ctx, string(ddl)); e != nil {
-		t.Fatal(e)
-	}
 	c.Policy = &safety.Store{DB: c.DB}
 	c.Gates = Gates{true, true, true, true}
 }
