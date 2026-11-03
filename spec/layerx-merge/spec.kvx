@@ -130324,7 +130324,7 @@ do_3 = "Attempts 1 and 2 (continue): the generator check fails because sdk/platf
 
 [task.13.99.1]
 title = "Bring the AI market guest under the native deployment payload limit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -138281,7 +138281,7 @@ do_5 = "Decision 2511: the workspace lock tools/platform/Cargo.lock is a planned
 
 [task.22.99.156]
 title = "Repair the inventory sweep target wasm-instrument"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.45"]
@@ -147818,7 +147818,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.119]
 title = "Inventory the Go SDK modules a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.28", "22.99.29", "22.99.30", "22.99.31"]
@@ -202892,7 +202892,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.110]
 title = "Inventory every Go package under storage/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.32", "22.99.33"]
@@ -202924,7 +202924,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.109]
 title = "Inventory every Go package under interchain/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -203181,7 +203181,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.147]
 title = "Repair the inventory sweep target rpc/tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203306,7 +203306,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.143]
 title = "Repair the inventory sweep target node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
