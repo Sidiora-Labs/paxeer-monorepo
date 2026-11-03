@@ -10,7 +10,7 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use layerx_x402::model::{
     account_identifiers, AtomicAmount, LayerXTerms, PaymentPayload, PaymentRequired,
-    PaymentRequirements, ResourceInfo, SettlementResponse, X402Error, X402_VERSION,
+    PaymentRequirements, ResourceInfo, SettlementResponse, X402Error, LAYERX_NETWORK, X402_VERSION,
 };
 use layerx_x402::transport::{
     decode_payment_required, encode_payment_required, TransportKind, TransportValue,
@@ -138,6 +138,19 @@ fn all_payment_required_vectors_validate_correctly() {
 #[test]
 fn all_payment_payload_vectors_validate_correctly() {
     for vector in payment_payload_vectors() {
+        let accepted: PaymentRequirements = serde_json::from_value(vector.json["accepted"].clone())
+            .unwrap_or_else(|error| panic!("{}: accepted offer: {error}", vector.name));
+        assert_eq!(accepted.network, LAYERX_NETWORK, "{}", vector.name);
+        let terms = accepted
+            .layerx_terms()
+            .unwrap_or_else(|error| panic!("{}: layerx terms: {error}", vector.name));
+        let identifiers = account_identifiers(&terms.account)
+            .unwrap_or_else(|error| panic!("{}: account identifiers: {error}", vector.name));
+        assert!(
+            identifiers.iter().any(|id| accepted.pay_to == hex32(id)),
+            "{}: payTo must derive from the advertised account",
+            vector.name
+        );
         let parsed: Result<PaymentPayload, _> = serde_json::from_value(vector.json.clone());
         match (parsed, vector.valid) {
             (Ok(payload), true) => {
@@ -274,7 +287,7 @@ fn payment_required_http_transport_encoding_is_base64_json() {
         },
         accepts: vec![PaymentRequirements {
             scheme: "exact".to_owned(),
-            network: "layerx:beta".to_owned(),
+            network: LAYERX_NETWORK.to_owned(),
             amount: AtomicAmount::from_u128(750),
             asset: "0x".to_owned() + &"aa".repeat(32),
             pay_to: pay_to(PAYEE_ACCOUNT),
@@ -298,6 +311,7 @@ fn payment_required_http_transport_encoding_is_base64_json() {
     let parsed: PaymentRequired =
         serde_json::from_slice(&decoded).unwrap_or_else(|error| panic!("json: {error:?}"));
     assert_eq!(parsed.x402_version, X402_VERSION);
+    assert_eq!(parsed, required);
 }
 
 #[test]
@@ -315,7 +329,7 @@ fn payment_required_mcp_transport_encoding_is_json() {
         },
         accepts: vec![PaymentRequirements {
             scheme: "exact".to_owned(),
-            network: "layerx:beta".to_owned(),
+            network: LAYERX_NETWORK.to_owned(),
             amount: AtomicAmount::from_u128(750),
             asset: "0x".to_owned() + &"aa".repeat(32),
             pay_to: pay_to(PAYEE_ACCOUNT),
@@ -374,7 +388,7 @@ fn resource_info_validates_url_format() {
 fn payment_requirements_validates_layerx_network_format() {
     let valid = PaymentRequirements {
         scheme: "exact".to_owned(),
-        network: "layerx:beta".to_owned(),
+        network: LAYERX_NETWORK.to_owned(),
         amount: AtomicAmount::from_u128(100),
         asset: "0x".to_owned() + &"ab".repeat(32),
         pay_to: pay_to(PAYEE_ACCOUNT),
@@ -391,28 +405,56 @@ fn payment_requirements_validates_layerx_network_format() {
         })
     );
 
-    let wrong_namespace = PaymentRequirements {
-        scheme: "exact".to_owned(),
-        network: "ethereum:mainnet".to_owned(),
-        amount: AtomicAmount::from_u128(100),
-        asset: "0x".to_owned() + &"ab".repeat(32),
-        pay_to: "0x".to_owned() + &"cd".repeat(32),
-        max_timeout_seconds: 60,
-        extra: None,
-    };
-    assert!(wrong_namespace.validate().is_ok());
-    assert!(wrong_namespace.layerx_facts().is_err());
+    for network in [
+        "layerx:beta",
+        "layerx:mainnet",
+        "ethereum:mainnet",
+        "eip155:1",
+        "eip155:84532",
+        "eip155:1250",
+        "eip155:0125",
+    ] {
+        let wrong_network = PaymentRequirements {
+            network: network.to_owned(),
+            ..valid.clone()
+        };
+        assert_eq!(
+            wrong_network.validate(),
+            Err(X402Error::ProfileMismatch),
+            "a layerx profile must be refused on {network}"
+        );
+        assert_eq!(
+            wrong_network.layerx_facts(),
+            Err(X402Error::UnsupportedOffer)
+        );
+
+        let external = PaymentRequirements {
+            extra: None,
+            ..wrong_network
+        };
+        assert_eq!(external.validate(), Ok(()));
+        assert_eq!(external.layerx_terms(), Err(X402Error::ProfileMissing));
+        assert_eq!(external.layerx_facts(), Err(X402Error::UnsupportedOffer));
+    }
+
+    for extra in [None, Some(json!({"custom": "field"}))] {
+        let missing_profile = PaymentRequirements {
+            extra,
+            ..valid.clone()
+        };
+        assert_eq!(missing_profile.validate(), Err(X402Error::ProfileMissing));
+        assert_eq!(
+            missing_profile.layerx_terms(),
+            Err(X402Error::ProfileMissing)
+        );
+    }
 
     let no_separator = PaymentRequirements {
-        scheme: "exact".to_owned(),
         network: "layerxtestnet".to_owned(),
-        amount: AtomicAmount::from_u128(100),
-        asset: "0x".to_owned() + &"ab".repeat(32),
-        pay_to: "0x".to_owned() + &"cd".repeat(32),
-        max_timeout_seconds: 60,
         extra: None,
+        ..valid
     };
-    assert!(no_separator.validate().is_err());
+    assert_eq!(no_separator.validate(), Err(X402Error::InvalidRequirements));
 }
 
 #[test]
@@ -430,7 +472,7 @@ fn wire_encoding_round_trip_preserves_all_fields() {
         },
         accepts: vec![PaymentRequirements {
             scheme: "exact".to_owned(),
-            network: "layerx:mainnet".to_owned(),
+            network: LAYERX_NETWORK.to_owned(),
             amount: AtomicAmount::from_u128(12345),
             asset: "0x".to_owned() + &"ab".repeat(32),
             pay_to: pay_to(PAYEE_ACCOUNT),
@@ -469,7 +511,7 @@ fn wire_encoding_round_trip_preserves_all_fields() {
 fn layerx_offer(pay_to: String, extra: Option<Value>) -> PaymentRequirements {
     PaymentRequirements {
         scheme: "exact".to_owned(),
-        network: "layerx:beta".to_owned(),
+        network: LAYERX_NETWORK.to_owned(),
         amount: AtomicAmount::from_u128(100),
         asset: "0x".to_owned() + &"ab".repeat(32),
         pay_to,

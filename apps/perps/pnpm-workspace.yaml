@@ -1,5 +1,6 @@
 packages:
   - '.'
+confirmModulesPurge: false
 allowBuilds:
   '@sentry/cli': true
   bufferutil: true
