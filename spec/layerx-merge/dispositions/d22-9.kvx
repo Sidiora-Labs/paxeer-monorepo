@@ -1,0 +1,53 @@
+[disposition.22.13.6.5]
+finding = "22.13.6.5"
+status = "resolved"
+evidence = "fb067a262 preserves module enable-key derivation at src/protocol/lxp_genesis.c:129, reads the separate retirement parameter at src/protocol/lxp_genesis.c:176, accepts its key at src/protocol/lxp_genesis.c:204, and asserts the custody-credit refusal at tests/test_genesis_module_table.c:182."
+follow_up = "closure"
+
+[disposition.22.2.5.2]
+finding = "22.2.5.2"
+status = "resolved"
+evidence = "ea039363e replaces the retired keeper grant reads with LXP_NO_PAYER_GRANT view assertions in precompiles/layerxledger/payments_test.go:160, precompiles/layerxledger/views_test.go:174 and precompiles/layerxledger/pause_test.go:158 while retaining balance, sequence, log and store assertions around the refused grant operations."
+follow_up = "closure"
+
+[disposition.22.8.11.3]
+finding = "22.8.11.3"
+status = "resolved"
+evidence = "a5a196edb supplies the receipted commitment in services/platform/middleware/agent/test/agent-grant.test.mjs:24, constructs signed receipts locally in agent/test/evm-terms.test.mjs, expects hexadecimal heights in agent/test/daemon-evm.test.mjs:154 and removes the stale buyer protocolVersion assertion, with no sdk/integrations/next/example/.next files tracked on main."
+follow_up = "closure"
+
+[disposition.22.4.5.3]
+finding = "22.4.5.3"
+status = "resolved"
+evidence = "84ed832c3 preserves both InvalidArgument and the wrapped address error at modules/launchpad/keeper/grpc_query.go:25 and corrects the denom assertion at modules/launchpad/keeper/price_history_test.go:75, while the repaired holders.json lists 272 holders for the named token, matching modules/launchpad/keeper/testdata/v6120/golden.json:500774."
+follow_up = "closure"
+
+[disposition.22.1.6.1]
+finding = "22.1.6.1"
+status = "resolved"
+evidence = "b5495d2a0 removes the retired test-storage-order recipe and phony listing and drops its prerequisite from test-storage, whose remaining dependencies are visible at Makefile:1462, so the absent check_daemon_recovery_order.sh is no longer invoked."
+follow_up = "closure"
+
+[disposition.22.13.6.6]
+finding = "22.13.6.6"
+status = "resolved"
+evidence = "fb067a262 regenerates both public genesis fixture manifests and snapshots and updates their expected roots in tests/fixtures/public-testnet-genesis-v3/expected.json:2 and tests/fixtures/public-testnet-genesis/expected.json:2, retaining the prior roots explicitly alongside the refreshed artifacts."
+follow_up = "closure"
+
+[disposition.22.6.4.3]
+finding = "22.6.4.3"
+status = "environment"
+evidence = "precompiles/layerxagent/streams/proof_streams_0x0906_test.go:170 still launches the real wallet consumer with node --import tsx from the gateway directory, whose services/wallet/gateway/package.json declares tsx and whose services/wallet/pnpm-workspace.yaml includes gateway, so the reported missing tsx came from uninstalled wallet dependencies in the qualification environment."
+follow_up = "closure"
+
+[disposition.22.2.5.3]
+finding = "22.2.5.3"
+status = "resolved"
+evidence = "ea039363e removes the revoke replay marker and updates the frozen ABI digests at precompiles/layerxledger/abi_published_views_test.go:64, b42f9fa50 repairs the scoped programs-loader cases, and 41642833f repairs the remaining host, ledger gas, mirror, parity and auth refusal cases with refused auth writes isolated in modules/layerxauth/keeper/execute.go:32."
+follow_up = "closure"
+
+[disposition.22.13.8.1]
+finding = "22.13.8.1"
+status = "resolved"
+evidence = "6bbe274ad fixes registry contiguity by recording the verified upgrade at programs/crates/layerx-programs-registry/tests/registry.rs:148, while tools/qualification/paxeer-x/program-bindings-producer.py:307, tools/qualification/paxeer-x/program-bindings.py:95 and tools/qualification/paxeer-x/program-interface.py:72 supply the five producer-dependent tests with their explicitly required output, artifact and fixture directories."
+follow_up = "closure"

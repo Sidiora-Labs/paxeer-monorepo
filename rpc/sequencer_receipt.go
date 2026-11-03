@@ -78,6 +78,16 @@ func (errSequencerReceiptNotServed) ErrorCode() int { return sequencerNotServedC
 
 var _ rpc.Error = errSequencerReceiptNotServed{}
 
+type errReceiptKeysNotServed struct{}
+
+func (errReceiptKeysNotServed) Error() string {
+	return ReceiptKeysMethod + " served by sequencer"
+}
+
+func (errReceiptKeysNotServed) ErrorCode() int { return sequencerNotServedCode }
+
+var _ rpc.Error = errReceiptKeysNotServed{}
+
 // SequencerSend is the sequencer's record of one sent transaction.
 type SequencerSend struct {
 	// Nonce is the transaction nonce.
@@ -356,7 +366,7 @@ func (a *receiptKeysAPI) GetReceiptKeys(ctx context.Context) (result *ReceiptKey
 	}()
 	if a.receipts.option.Source == nil {
 		if a.receipts.option.ForwardURL == nil {
-			return nil, errSequencerReceiptNotServed{}
+			return nil, errReceiptKeysNotServed{}
 		}
 		recordRedirectedRequest(ctx, ReceiptKeysMethod, string(a.receipts.connectionType))
 		c, err := rpc.DialContext(ctx, a.receipts.option.ForwardURL.String())

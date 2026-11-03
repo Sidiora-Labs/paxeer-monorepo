@@ -3661,7 +3661,8 @@ func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.T
 
 	if app.evmRPCConfig.WSEnabled {
 		headNotifier, _ := app.blockHeaderNotifier.Get()
-		wsServer, err := evmrpc.NewEVMWebSocketServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, rpcCtxProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), headNotifier, options...)
+		wsOptions := append([]evmrpc.ServerOption{app.sequencerReceipt}, options...)
+		wsServer, err := evmrpc.NewEVMWebSocketServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, rpcCtxProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), headNotifier, wsOptions...)
 		if err != nil {
 			panic(err)
 		}

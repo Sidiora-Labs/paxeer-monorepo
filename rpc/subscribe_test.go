@@ -682,6 +682,91 @@ func TestSubscribeLogsFromReceipts(t *testing.T) {
 	require.False(t, peek.writing(t, evmrpc.SleepInterval+time.Second))
 }
 
+func TestSubscribeScopedLogsPreserveLag(t *testing.T) {
+	sender := occutils.NewSigner()
+	q := newPendingFilterSequencer(t, sender)
+	state, write := sdk.NewContext(q.app.CommitMultiStore(), q.ctxProvider(evmrpc.LatestCtxHeight).BlockHeader(), false).CacheContext()
+	params := q.app.LayerXChainsKeeper.GetParams(state)
+	operator := common.HexToAddress("0x1234")
+	value := params.MinBond.Add(params.CreationFee)
+	coins := sdk.NewCoins(sdk.NewCoin(q.app.EvmKeeper.GetBaseDenom(state), value))
+	require.NoError(t, q.app.BankKeeper.MintCoins(state, "evm", coins))
+	require.NoError(t, q.app.BankKeeper.SendCoinsFromModuleToAccount(state, "evm", sdk.AccAddress(operator.Bytes()), coins))
+	domain, err := q.app.LayerXChainsKeeper.Create(state, operator, "subscription-lag", 2*subscribeManyLogsGas, params.MinByteAllowance,
+		0, value, q.app.EvmKeeper.GetNextBaseFeePerGas(state))
+	require.NoError(t, err)
+	require.Equal(t, uint32(1), domain.Id)
+	write()
+	initial, err := q.exec.Seal(q.committed + 1)
+	require.NoError(t, err)
+	q.committed++
+	require.Equal(t, q.committed, q.app.CommitMultiStore().Commit(true).Version)
+	require.NoError(t, q.feed.Committed(q.committed))
+	require.NoError(t, q.exec.Open(q.committed+1, initial.TimestampMs+1000))
+
+	pending, err := evmrpc.NewPendingOption(q.exec)
+	require.NoError(t, err)
+	cfg := evmrpcconfig.DefaultConfig
+	cfg.WSPort, cfg.IPRateLimitRPS = 0, 0
+	server, err := evmrpc.NewEVMWebSocketServer(cfg, &MockClient{latestOverride: q.committed}, &q.app.EvmKeeper,
+		q.app.BeginBlockKeepers, q.app.BaseApp, q.app.TracerAnteHandler, q.ctxProvider, q.txConfig, "", nil, nil, q.option, pending)
+	require.NoError(t, err)
+	t.Cleanup(server.Stop)
+	ws, peek := dialWSPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Path = "/chain/1"
+		server.(http.Handler).ServeHTTP(w, r)
+	}))
+	id := wsSubscribe(t, ws, "logs", map[string]any{})
+	receipt := func(chainID *big.Int, nonce, gas uint64, code []byte) (common.Hash, *sequencer.Accepted) {
+		t.Helper()
+		tx, err := ethtypes.SignNewTx(sender.EvmPrivateKey, ethtypes.LatestSignerForChainID(chainID), &ethtypes.DynamicFeeTx{
+			ChainID: chainID, Nonce: nonce, GasFeeCap: big.NewInt(pendingGasPriceWei), GasTipCap: big.NewInt(0),
+			Gas: gas, Data: code,
+		})
+		require.NoError(t, err)
+		data, err := ethtx.NewTxDataFromTx(tx)
+		require.NoError(t, err)
+		msg, err := evmtypes.NewMsgEVMTransaction(data)
+		require.NoError(t, err)
+		builder := q.txConfig(0).NewTxBuilder()
+		require.NoError(t, builder.SetMsgs(msg))
+		builder.SetGasLimit(gas)
+		encoded, err := q.txConfig(0).TxEncoder()(builder.GetTx())
+		require.NoError(t, err)
+		return tx.Hash(), pendingFilterReceipt(t, q.app, q.exec, q.feed, encoded, tx.Hash())
+	}
+
+	chainID := chainstypes.ChainIDOf(domain.Id)
+	height := q.committed + 1
+	hashA, accA := receipt(chainID, 0, subscribeTwoLogsGas, subscribeTwoLogsInitCode)
+	require.Equal(t, height, accA.Height)
+	require.True(t, peek.writing(t, 10*time.Second))
+	const manyLogs = 1100
+	const buffered = 1024 - 1
+	hashB, accB := receipt(chainID, 1, subscribeManyLogsGas, subscribeManyLogsInitCode(manyLogs))
+	require.Equal(t, accA.Seq+1, accB.Seq)
+	addrA := crypto.CreateAddress(sender.EvmAddress, 0)
+	addrB := crypto.CreateAddress(sender.EvmAddress, 1)
+	require.Equal(t, receiptedLogJSON(addrA, 1, height, hashA, accA.TxIndex, 0, accA.Seq), wsNotification(t, ws, id))
+	require.Equal(t, receiptedLogJSON(addrA, 2, height, hashA, accA.TxIndex, 1, accA.Seq), wsNotification(t, ws, id))
+	for i := 0; i < buffered; i++ {
+		require.Equal(t, receiptedLogJSON(addrB, uint64(manyLogs-i), height, hashB, accB.TxIndex, uint(2+i), accB.Seq), wsNotification(t, ws, id)) //nolint:gosec // i is below manyLogs
+	}
+	require.False(t, peek.writing(t, 500*time.Millisecond))
+
+	_, excluded := receipt(big.NewInt(config.DefaultChainID), 2, subscribeTwoLogsGas, subscribeTwoLogsInitCode)
+	require.Equal(t, accB.Seq+1, excluded.Seq)
+	require.Equal(t, map[string]any{"lagged": hexutil.EncodeUint64(manyLogs - buffered)}, wsNotification(t, ws, id))
+	require.False(t, peek.writing(t, 500*time.Millisecond))
+
+	hashC, accC := receipt(chainID, 3, subscribeTwoLogsGas, subscribeTwoLogsInitCode)
+	require.Equal(t, excluded.Seq+1, accC.Seq)
+	addrC := crypto.CreateAddress(sender.EvmAddress, 3)
+	require.Equal(t, receiptedLogJSON(addrC, 1, height, hashC, accC.TxIndex, 4+manyLogs, accC.Seq), wsNotification(t, ws, id))
+	require.Equal(t, receiptedLogJSON(addrC, 2, height, hashC, accC.TxIndex, 5+manyLogs, accC.Seq), wsNotification(t, ws, id))
+	require.False(t, peek.writing(t, 500*time.Millisecond))
+}
+
 func TestSubscribeScopedLogsSurviveSealToOpen(t *testing.T) {
 	for _, drainAt := range []string{"sealed", "committed", "reopened"} {
 		t.Run(drainAt, func(t *testing.T) {

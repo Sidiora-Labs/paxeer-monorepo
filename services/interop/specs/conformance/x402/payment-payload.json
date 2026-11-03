@@ -136,5 +136,30 @@
         }
       }
     }
+  },
+  {
+    "name": "payment_payload_with_native_account_identifier",
+    "valid": true,
+    "document": {
+      "x402Version": 2,
+      "payload": {
+        "authorization": "signed-payment"
+      },
+      "accepted": {
+        "scheme": "exact",
+        "network": "eip155:125",
+        "amount": "1500",
+        "asset": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "payTo": "0xab64d15738d26a67ead2397dcd4044324c4824bcc2fa214c8c4a0f38067596bb",
+        "maxTimeoutSeconds": 180,
+        "extra": {
+          "layerx": {
+            "commitment": "receipted",
+            "account": "agent:did:layerx:api-seller:main",
+            "currency": "LXP"
+          }
+        }
+      }
+    }
   }
 ]
