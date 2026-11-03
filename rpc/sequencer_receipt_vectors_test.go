@@ -266,6 +266,7 @@ func (b *seqVecBuilder) receipt(key *seqnode.ReceiptKey, keyID [32]byte, signedT
 		},
 		Operation:         signedTx.Type(),
 		ReturnData:        tx.returnData,
+		PaymentDenom:      evmkeeper.BaseDenom,
 		FeeDenom:          evmkeeper.BaseDenom,
 		FeeCharged:        fee,
 		Amount:            tx.value,
