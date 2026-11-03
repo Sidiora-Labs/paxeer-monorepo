@@ -1,19 +1,20 @@
 [sweep.go-launchpad-modules-2]
-revision = "5e4cc28620754828d7f3b66c3bee3f0762da5fcf"
+revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "cd TARGET && go vet ./... && go test -count=1 ./..."
 targets_total = 5
 targets_passed = 0
 targets_failed = 5
 targets_not_run = 0
-target_time_limit_seconds = 900
+target_time_limit_seconds = 1000
 
 [target.go-launchpad-modules-2.1]
 target = "services/launchpad/api"
 command = "cd services/launchpad/api && go vet ./... && go test -count=1 ./..."
 result = "failed"
 exit_code = 1
-log = "/out/logs/launchpad-modules-2/api.log"
-observed = "go vet passed, then go test failed with unset CORE_API_TEST_POSTGRES_URL, API_TEST_DATABASE_URL, CORE_API_TEST_REDIS_URL and CORE_API_TEST_NATS_URL, refused PostgreSQL and Redis connections, missing allocated cache and SHA-bound measurement inputs, a ProtocolConfig implementation assertion in dev_authority_contract_test.go:119, an unexpected AUTH_REQUIRED response in proof_launchpad_api_test.go:221 and wildcard admission in topics_test.go:28."
+elapsed_seconds = 780.788
+log = "/out/launchpad-modules-2/api.log"
+observed = "go vet passed, then go test failed with unset CORE_API_TEST_POSTGRES_URL, API_TEST_DATABASE_URL, CORE_API_TEST_REDIS_URL and CORE_API_TEST_NATS_URL, refused PostgreSQL and Redis connections, missing allocated cache and SHA-bound measurement inputs, a Treasury implementation assertion in dev_authority_contract_test.go:119, an unexpected AUTH_REQUIRED response in proof_launchpad_api_test.go:221 and wildcard admission in topics_test.go:28."
 assumption = "The required service fixtures and measurement inputs are unavailable in this environment, while the authority-contract, discovery-envelope and topic-admission assertions require separate investigation and are not attributed solely to an unset PostgreSQL variable."
 
 [target.go-launchpad-modules-2.2]
@@ -21,16 +22,18 @@ target = "services/launchpad/gateway"
 command = "cd services/launchpad/gateway && go vet ./... && go test -count=1 ./..."
 result = "failed"
 exit_code = 1
-log = "/out/logs/launchpad-modules-2/gateway.log"
-observed = "go vet passed, then go test failed with unset GATEWAY_TEST_REDIS_URL, GATEWAY_TEST_MINIO_ENDPOINT and L33_POSTGRES_DSN, refused PostgreSQL, Redis and object-storage connections, missing admitted chain125 Anvil and identity/media workload inputs, default Port = 8080, want 3000 in config_test.go:39, and upload admission failures reporting context deadline exceeded and distributed wallet/global admission 0."
-assumption = "The required service fixtures and admitted workload inputs are unavailable in this environment, the upload admission failures occurred alongside refused Redis connections, and the default-port assertion requires separate investigation."
+elapsed_seconds = 788.461
+log = "/out/launchpad-modules-2/gateway.log"
+observed = "go vet passed, then go test failed with unset GATEWAY_TEST_REDIS_URL, GATEWAY_TEST_MINIO_ENDPOINT and L33_POSTGRES_DSN, refused PostgreSQL, Redis and object-storage connections, missing admitted chain125 Anvil and identity/media workload inputs, missing pg_config in proof_launchpad_gateway_test.go:691, default Port = 8080, want 3000 in config_test.go:39, and upload admission failures reporting context deadline exceeded and distributed wallet/global admission 0."
+assumption = "The required service fixtures, PostgreSQL producer tooling and admitted workload inputs are unavailable in this environment, the upload admission failures occurred alongside refused Redis connections, and the default-port assertion requires separate investigation."
 
 [target.go-launchpad-modules-2.3]
 target = "services/launchpad/indexer"
 command = "cd services/launchpad/indexer && go vet ./... && go test -count=1 ./..."
 result = "failed"
 exit_code = 1
-log = "/out/logs/launchpad-modules-2/indexer.log"
+elapsed_seconds = 667.44
+log = "/out/launchpad-modules-2/indexer.log"
 observed = "go vet passed, then go test failed with unset INDEXER_TEST_POSTGRES_URL, L06_POSTGRES_DSN and INDEXER_TEST_REDIS_URL, anvil missing from PATH, runtimedocs: incomplete inputs in render_test.go:57 and render_test.go:128, no epoch at 0x1017 in precompile_test.go:46, source fixture: integrity and source fixture: incomplete in committed_test.go, and missing bound actual owned source capacity configuration in capacity_integration_test.go:31."
 assumption = "The required PostgreSQL, Redis, Anvil and capacity fixtures are unavailable in this environment, while the runtime-document, ABI-epoch and committed-source assertions require separate investigation and are not attributed solely to unset fixture variables."
 
@@ -39,7 +42,8 @@ target = "services/launchpad/livestream"
 command = "cd services/launchpad/livestream && go vet ./... && go test -count=1 ./..."
 result = "failed"
 exit_code = 1
-log = "/out/logs/launchpad-modules-2/livestream.log"
+elapsed_seconds = 762.132
+log = "/out/launchpad-modules-2/livestream.log"
 observed = "go vet passed, then go test failed because L40_TEST_APP_POSTGRES_DSN, L40_TEST_POSTGRES_DSN and L40_TEST_REDIS_URL are required, actual admitted Livepeer provider operations and a registered playback webhook are required, an approved media measurement manifest and SHA256 are required, and TestProofLaunchpadLivestream could not find the PostgreSQL producer executable pg_config."
 assumption = "The environment lacks the dedicated PostgreSQL and Redis fixture configuration, PostgreSQL producer tooling, admitted Livepeer provider and approved measurement inputs required by these tests."
 
@@ -48,6 +52,7 @@ target = "services/launchpad/metadata"
 command = "cd services/launchpad/metadata && go vet ./... && go test -count=1 ./..."
 result = "failed"
 exit_code = 1
-log = "/out/logs/launchpad-modules-2/metadata.log"
+elapsed_seconds = 778.177
+log = "/out/launchpad-modules-2/metadata.log"
 observed = "go vet passed, then go test failed with unset METADATA_TEST_DATABASE_URL, METADATA_TEST_S3_ENDPOINT, NETWORK_RPC_URL and KINDLE_PUBLICATION_TEST_URL, refused PostgreSQL connections, a missing delegated cgroup for TestProductionActualIsolatedDimensionBomb reporting image codec unavailable, and TestProductionActualScannerMidstreamDisconnect reporting actual configured clamd is required: scanner unavailable."
 assumption = "The environment lacks the PostgreSQL, object-storage, chain RPC and publication fixtures, delegated image-worker cgroup and configured clamd scanner required by these tests."

@@ -1,0 +1,108 @@
+{
+ "slug": "contracts-bridge-solana",
+ "manifests": [
+  "contracts/bridge/solana/Cargo.lock"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-g98v-hv3f-hcfr",
+   "number": 3768,
+   "package": "atty",
+   "ecosystem": "rust",
+   "manifest": "contracts/bridge/solana/Cargo.lock",
+   "severity": "low",
+   "range": "<= 0.2.14",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-x4gp-pqpj-f43q",
+   "number": 3770,
+   "package": "curve25519-dalek",
+   "ecosystem": "rust",
+   "manifest": "contracts/bridge/solana/Cargo.lock",
+   "severity": "low",
+   "range": "< 4.1.3",
+   "patched": "4.1.3"
+  },
+  {
+   "ghsa": "GHSA-w5vr-6qhr-36cc",
+   "number": 3769,
+   "package": "ed25519-dalek",
+   "ecosystem": "rust",
+   "manifest": "contracts/bridge/solana/Cargo.lock",
+   "severity": "medium",
+   "range": "< 2.0.0",
+   "patched": "2.0.0"
+  },
+  {
+   "ghsa": "GHSA-cq8v-f236-94qc",
+   "number": 3773,
+   "package": "rand",
+   "ecosystem": "rust",
+   "manifest": "contracts/bridge/solana/Cargo.lock",
+   "severity": "low",
+   "range": ">= 0.7.0, < 0.8.6",
+   "patched": "0.8.6"
+  },
+  {
+   "ghsa": "GHSA-h2v8-394m-p7vv",
+   "number": 4483,
+   "package": "rustls",
+   "ecosystem": "rust",
+   "manifest": "contracts/bridge/solana/Cargo.lock",
+   "severity": "low",
+   "range": "< 0.23.46",
+   "patched": "0.23.46"
+  },
+  {
+   "ghsa": "GHSA-c8m5-c952-6cm4",
+   "number": 4484,
+   "package": "rustls",
+   "ecosystem": "rust",
+   "manifest": "contracts/bridge/solana/Cargo.lock",
+   "severity": "medium",
+   "range": "< 0.23.46",
+   "patched": "0.23.46"
+  },
+  {
+   "ghsa": "GHSA-w44r-93j7-qv28",
+   "number": 4485,
+   "package": "rustls",
+   "ecosystem": "rust",
+   "manifest": "contracts/bridge/solana/Cargo.lock",
+   "severity": "low",
+   "range": "< 0.23.46",
+   "patched": "0.23.46"
+  },
+  {
+   "ghsa": "GHSA-965h-392x-2mh5",
+   "number": 3771,
+   "package": "rustls-webpki",
+   "ecosystem": "rust",
+   "manifest": "contracts/bridge/solana/Cargo.lock",
+   "severity": "low",
+   "range": ">= 0.101.0, < 0.103.12",
+   "patched": "0.103.12"
+  },
+  {
+   "ghsa": "GHSA-xgp8-3hg3-c2mh",
+   "number": 3772,
+   "package": "rustls-webpki",
+   "ecosystem": "rust",
+   "manifest": "contracts/bridge/solana/Cargo.lock",
+   "severity": "low",
+   "range": ">= 0.101.0, < 0.103.12",
+   "patched": "0.103.12"
+  },
+  {
+   "ghsa": "GHSA-82j2-j2ch-gfr8",
+   "number": 3774,
+   "package": "rustls-webpki",
+   "ecosystem": "rust",
+   "manifest": "contracts/bridge/solana/Cargo.lock",
+   "severity": "high",
+   "range": "< 0.103.13",
+   "patched": "0.103.13"
+  }
+ ]
+}

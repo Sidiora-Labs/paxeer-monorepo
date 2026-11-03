@@ -1,0 +1,7 @@
+[issue.1529]
+number = 1529
+title = "[Coherence] The floors file leaves out 9 of the 22 required floors, so the floor checker passes for packages that are still below their patched versions"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "not-relevant"
+evidence = "The amendment to task 22.24.20 at spec/layerx-merge/spec.kvx:130955 explicitly excludes floors requiring vendored dependency requirement changes and assigns their recorded blockers to upstream, superseding the all-floors demand at spec/layerx-merge/spec.kvx:130935; tools/deps/floors/rust-vendored.json:3 contains 14 enforced floors, its findings at tools/deps/floors/rust-vendored.json:25 record eight blocked floors including all five Solana floors omitted at tools/deps/floors/rust-vendored.json:20, and tools/deps/lockfloor.py:277 checks only the enforced manifests, so the retained Solana rustls 0.21.12 at contracts/bridge/solana/Cargo.lock:3475 is consistent with that explicit exception rather than proof that all 22 floors are met."
+close_comment = "Task 22.24.20 explicitly permits floors blocked by vendored dependency requirements to be excluded from enforcement and recorded as findings for the owner. The file enforces 14 floors and records eight blocked floors, including all five Solana floors; those blocked dependency upgrades remain outstanding."
