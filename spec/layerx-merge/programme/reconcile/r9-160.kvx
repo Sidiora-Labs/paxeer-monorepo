@@ -1,0 +1,243 @@
+[reconcile.r9-160]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r9-160.1]
+interface = "interface.9.env-layerx-agent-mcp-scopes"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 196
+symbol = "LAYERX_AGENT_MCP_SCOPES"
+evidence = "mcp_scopes reads the required comma-separated scopes at the for-entry loop; the later occurrences are empty-scope and duplicate-scope errors."
+
+[row.r9-160.2]
+interface = "interface.9.env-layerx-agent-mcp-web-approval-threshold"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 298
+symbol = "LAYERX_AGENT_MCP_WEB_APPROVAL_THRESHOLD"
+evidence = "mcp_web reads and parses the required approval threshold as a WebDeclaration::new argument here; the later occurrence is its parse-error message."
+
+[row.r9-160.3]
+interface = "interface.9.env-layerx-agent-mcp-web-endpoint"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 274
+symbol = "LAYERX_AGENT_MCP_WEB_ENDPOINT"
+evidence = "mcp_web declares endpoint from optional environment input with let Some(endpoint), returning None when absent; the earlier occurrence is documentation."
+
+[row.r9-160.4]
+interface = "interface.9.env-layerx-agent-mcp-web-pending-attempts"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 295
+symbol = "LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS"
+evidence = "mcp_web reads and parses the required pending-attempt count for WebDeclaration::new here; the later occurrence is its parse-error message."
+
+[row.r9-160.5]
+interface = "interface.9.env-layerx-agent-node-endpoint"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1534
+symbol = "LAYERX_AGENT_NODE_ENDPOINT"
+evidence = "The Config initializer assigns node_endpoint from required environment input here, matching the registered field signature; line 1022 is a separate MCP payer connection read."
+
+[row.r9-160.6]
+interface = "interface.9.env-layerx-agent-program-probe-id"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1544
+symbol = "LAYERX_AGENT_PROGRAM_PROBE_ID"
+evidence = "The Config initializer constructs probe_program with ProgramId::new(parse_digest(...)) here; the following occurrence formats the invalid-id error."
+
+[row.r9-160.7]
+interface = "interface.9.env-layerx-agent-registry-source-config"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 520
+symbol = "LAYERX_AGENT_REGISTRY_SOURCE_CONFIG"
+evidence = "configured_registry_source binds path by matching env::var_os here; its later occurrence reports that the configured file must be absolute and protected."
+
+[row.r9-160.8]
+interface = "interface.9.env-layerx-native-policy-sources"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1448
+symbol = "LAYERX_NATIVE_POLICY_SOURCES"
+evidence = "native_policy_sources passes required environment input and tenants to config::parse_policy_sources here; the other occurrences are validation-error messages."
+
+[row.r9-160.9]
+interface = "interface.9.rs-agentd-managed-agent-context-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/managed_agent.rs"
+line = 622
+symbol = "context"
+evidence = "The public context function takes &Store, &TenantId and agent_id: &str and returns Result<HumanResponse, HumanOperationError>; other occurrences are lifecycle context fields or their uses."
+
+[row.r9-160.10]
+interface = "interface.9.err-rs-layerx-agentd-obs-metrics-error-invalid-capacity"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 170
+symbol = "InvalidCapacity"
+evidence = "InvalidCapacity is declared as a MetricsError enum variant here; Display maps it to the finite non-zero capacity message, and Metrics::new returns it for a zero tenant maximum."
+
+[row.r9-160.11]
+interface = "interface.9.err-rs-layerx-agentd-obs-metrics-error-invalid-label"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 173
+symbol = "InvalidLabel"
+evidence = "InvalidLabel is declared as a MetricsError enum variant here; Display gives the metric-label mismatch message, while observe and observe_named contain return sites."
+
+[row.r9-160.12]
+interface = "interface.9.err-rs-layerx-agentd-obs-metrics-error-tenant-capacity-exceeded"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 171
+symbol = "TenantCapacityExceeded"
+evidence = "TenantCapacityExceeded is declared as a MetricsError enum variant here; Display describes exhausted tenant capacity, and register_tenant returns it when the maximum is reached."
+
+[row.r9-160.13]
+interface = "interface.9.err-rs-layerx-agentd-obs-metrics-error-unknown-tenant"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 172
+symbol = "UnknownTenant"
+evidence = "UnknownTenant is declared as a MetricsError enum variant here; Display describes an unregistered tenant, and observe returns it before recording a sample."
+
+[row.r9-160.14]
+interface = "interface.9.rs-agentd-metrics-new-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 203
+symbol = "new"
+evidence = "Metrics::new is the public constructor taking maximum_tenants: usize and returning Result<Self, MetricsError>; BTreeSet::new and BTreeMap::new below only initialize its fields."
+
+[row.r9-160.15]
+interface = "interface.9.rs-agentd-metrics-observe-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 236
+symbol = "observe"
+evidence = "Metrics::observe is declared with &mut self, tenant: &TenantId, kind: MetricKind, label: MetricLabel and value: u64, returning Result<(), MetricsError>; observe_named calls it later."
+
+[row.r9-160.16]
+interface = "interface.9.rs-agentd-obs-metrics-metrickey-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 155
+symbol = "MetricKey"
+evidence = "The public MetricKey struct is declared here with tenant: TenantId, kind: MetricKind and label: MetricLabel; later occurrences are map types, construction and snapshot output."
+
+[row.r9-160.17]
+interface = "interface.9.rs-agentd-obs-metrics-metricpoint-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 162
+symbol = "MetricPoint"
+evidence = "The public MetricPoint struct is declared here with total: u128, samples: u64 and maximum: u64; later occurrences are map and snapshot return types."
+
+[row.r9-160.18]
+interface = "interface.9.rs-agentd-obs-metrics-metrics-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 191
+symbol = "Metrics"
+evidence = "The public Metrics struct is declared here with maximum_tenants, tenants and points fields; the later impl Metrics block defines its methods rather than the type."
+
+[row.r9-160.19]
+interface = "interface.9.rs-agentd-ops-program-validate-deploy-activity-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+line = 1235
+symbol = "validate_deploy_activity"
+evidence = "The public validate_deploy_activity declaration takes &ModuleRegistry, NativeProgramDeploy and signed bytes, returning Result<(), ProgramOperationError>; it checks the WASM digest and lifecycle ordinal 1."
+
+[row.r9-160.20]
+interface = "interface.9.rs-agentd-ops-program-validate-upgrade-activity-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+line = 1256
+symbol = "validate_upgrade_activity"
+evidence = "The public validate_upgrade_activity declaration takes &ModuleRegistry, NativeProgramUpgrade and signed bytes, returning Result<(), ProgramOperationError>; it checks the WASM digest and lifecycle ordinal 2."
+
+[row.r9-160.21]
+interface = "interface.9.rs-agentd-ops-program-validate-wind-down-activity-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+line = 1277
+symbol = "validate_wind_down_activity"
+evidence = "The public validate_wind_down_activity declaration takes &ModuleRegistry, NativeProgramWindDown and signed bytes, returning Result<(), ProgramOperationError>; it validates lifecycle ordinal 7."
+
+[row.r9-160.22]
+interface = "interface.9.rs-agentd-outbox-transition-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/outbox/mod.rs"
+line = 358
+symbol = "transition"
+evidence = "Outbox::transition is declared with mutable self and Store, submission id, target state, cause and optional VerifiedReceiptEvidence, returning Result<SubmissionStatus, OutboxError>; it delegates persistence to transition_at."
+
+[row.r9-160.23]
+interface = "interface.9.rs-agentd-prepare-corepreparationboundary"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/prepare/mod.rs"
+line = 492
+symbol = "CorePreparationBoundary"
+evidence = "The public CorePreparationBoundary trait is declared inside prepare::legacy; its preparation_state method takes an actor &Did and returns Result<CorePreparationState, CoreStateError>."
+
+[row.r9-160.24]
+interface = "interface.9.rs-agentd-prepare-corepreparationstate"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/prepare/mod.rs"
+line = 483
+symbol = "CorePreparationState"
+evidence = "The public CorePreparationState struct is declared inside prepare::legacy with network id, account sequence, protocol timestamp, observed head sequence and module registry; later occurrences use or construct it."
+
+[row.r9-160.25]
+interface = "interface.9.rs-agentd-prepare-corestateerror"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/prepare/mod.rs"
+line = 507
+symbol = "CoreStateError"
+evidence = "The public CoreStateError enum is declared inside prepare::legacy with Unavailable, Unverified and Refused variants; the earlier occurrence is the trait method return type."
+
+[row.r9-160.26]
+interface = "interface.9.rs-agentd-prepare-mod-disclose-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/prepare/mod.rs"
+line = 744
+symbol = "disclose"
+evidence = "The public disclose function is declared inside prepare::legacy, taking canonical bytes and &ModuleRegistry and returning Result<DisclosedPreparation, DisclosureBindingError>; it calls disclosure_binding::decode_and_bind."
+
+[row.r9-160.27]
+interface = "interface.9.rs-agentd-prepare-mod-disclosuredigest-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/prepare/mod.rs"
+line = 479
+symbol = "DisclosureDigest"
+evidence = "The public DisclosureDigest(pub [u8; 32]) tuple struct is declared inside prepare::legacy; later occurrences are digest fields on Prepared and PreparationAuditEntry."
+
+[row.r9-160.28]
+interface = "interface.9.rs-agentd-prepare-mod-preparationauditentry-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/prepare/mod.rs"
+line = 640
+symbol = "PreparationAuditEntry"
+evidence = "The public PreparationAuditEntry struct is declared inside prepare::legacy with idempotency_key, observed_head_sequence and disclosure_digest; the earlier occurrence is Prepared.audit's type."
+
+[row.r9-160.29]
+interface = "interface.9.rs-agentd-prepare-mod-restorepreparationerror-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/prepare/mod.rs"
+line = 661
+symbol = "RestorePreparationError"
+evidence = "The public RestorePreparationError enum is declared inside prepare::legacy with authority, actor, payload, activity, wire, disclosure and canonical mismatch errors; later occurrences are restore_canonical return and mapping sites."
+
+[row.r9-160.30]
+interface = "interface.9.rs-agentd-prepare-prepare-activity-for-protocol"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/prepare/mod.rs"
+line = 822
+symbol = "prepare_activity_for_protocol"
+evidence = "The public prepare_activity_for_protocol declaration inside prepare::legacy takes the CorePreparationBoundary, defaults, request and protocol_version: u16, returning Result<Prepared, PrepareError>; the earlier occurrence is prepare_activity's call."
