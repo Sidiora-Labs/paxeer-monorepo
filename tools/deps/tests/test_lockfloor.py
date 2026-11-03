@@ -33,6 +33,64 @@ def run_checker(root, manifests):
     )
 
 
+def test_explorer_tools_locks_meet_floors():
+    root = SCRIPT.parents[2]
+    floors = SCRIPT.parent / "floors/explorer-tools.json"
+    manifests = json.loads(floors.read_text())["manifests"]
+    expected_locks = {
+        "apps/explorer/toolkit/package/yarn.lock",
+        "apps/explorer/deploy/tools/essential-dapps-chains-config-generator/yarn.lock",
+        "apps/explorer/deploy/tools/affected-tests/yarn.lock",
+        "apps/explorer/deploy/tools/favicon-generator/yarn.lock",
+        "apps/explorer/deploy/tools/multichain-config-generator/yarn.lock",
+        "apps/explorer/deploy/tools/llms-txt-generator/yarn.lock",
+        "apps/explorer/deploy/tools/envs-validator/yarn.lock",
+        "apps/explorer/deploy/tools/feature-reporter/yarn.lock",
+        "apps/explorer/deploy/tools/sitemap-generator/yarn.lock",
+    }
+    assert set(manifests) == expected_locks
+    locks = [root / name for name in sorted(expected_locks)]
+    for lock in locks:
+        assert lock.is_file(), f"Missing explorer tool lockfile: {lock}"
+    original_contents = {lock: lock.read_bytes() for lock in locks}
+
+    checked = subprocess.run(
+        [sys.executable, str(SCRIPT), str(floors)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert (checked.returncode, checked.stdout, checked.stderr) == (0, "", "")
+
+    for lock in locks:
+        installed = subprocess.run(
+            [
+                "yarn",
+                "--cwd",
+                str(lock.parent),
+                "install",
+                "--frozen-lockfile",
+                "--ignore-scripts",
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert installed.returncode == 0, (
+            f"Frozen install failed in {lock.parent}:\n"
+            f"{installed.stdout}\n{installed.stderr}"
+        )
+        assert lock.read_bytes() == original_contents[lock], (
+            f"Frozen install changed {lock}"
+        )
+    for lock in locks:
+        assert lock.read_bytes() == original_contents[lock], (
+            f"Explorer tool installs changed {lock}"
+        )
+
+
 def test_dashboard_floor_uses_shared_install_lock(tmp_path):
     root = SCRIPT.parents[2]
     manifests = json.loads(

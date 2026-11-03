@@ -68,8 +68,8 @@ android {
 dependencies {
     implementation("com.sidiora.layerx:layerx-android:0.1.0")
     implementation("com.sidiora.layerx:layerx-sdk:0.1.0")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
-    implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.11")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.85")
     secretScan("com.sidiora.layerx:layerx-android:0.1.0")
 }
 
