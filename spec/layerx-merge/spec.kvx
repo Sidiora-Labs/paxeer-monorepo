@@ -130432,7 +130432,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.54]
 title = "Inventory every test run of the services/interop/Cargo.toml Rust workspace again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137572,7 +137572,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.91.85]
 title = "Finish the launchpad modules inventory for the five modules that exceeded their share again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190723,7 +190723,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.83]
 title = "Inventory every test target of the kernel Makefile again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190754,7 +190754,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.74]
 title = "Inventory every Go package under services/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190909,7 +190909,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.69]
 title = "Inventory every Go package under wasm/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190940,7 +190940,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.68]
 title = "Inventory every Go package under engine/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190971,7 +190971,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.67]
 title = "Inventory every Go package under storage/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191002,7 +191002,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.66]
 title = "Inventory every Go package under interchain/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191158,7 +191158,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.61]
 title = "Inventory every Go package under rpc/ of the root module again at the current revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
