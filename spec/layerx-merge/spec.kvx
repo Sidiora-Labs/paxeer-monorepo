@@ -117544,7 +117544,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.2]
 title = "Close the open dependency advisories of the explorer-web manifests (69 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -134923,7 +134923,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.17]
 title = "Close the open dependency advisories of the go-launchpad manifests (71 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
