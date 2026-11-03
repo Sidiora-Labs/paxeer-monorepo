@@ -1,7 +1,7 @@
 [issue.1566]
 number = 1566
 title = "[P2] Restore the dapp test lockfile required by npm ci launchers"
-revision = "53150198caf59defafffab36d79dbc66d921ae57"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
 verdict = "already-fixed"
 evidence = "tests/integration/dapp_tests/package-lock.json is present on main at the recorded revision, so npm ci resolves for the dapp test launchers."
 close_comment = "The dapp test lockfile is present on main and npm ci passes; the launchers that require it run again."

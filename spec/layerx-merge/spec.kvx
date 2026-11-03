@@ -123381,7 +123381,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.39]
 title = "Repair the inventory sweep target sdk/integrations/next/example"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123411,7 +123411,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.44]
 title = "Close the 2 dependency alerts of tests-integration-dapp-tests-2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123441,7 +123441,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.43]
 title = "Close the 1 dependency alerts of tools-wasm-tools-2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123531,7 +123531,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.40]
 title = "Close the 14 dependency alerts of apps-bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123561,7 +123561,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1577.1]
 title = "Issue #1577: Approve the collateral pull before the wallet exchange open"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123590,7 +123590,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1571.1]
 title = "Issue #1571: Verify the perps lockfiles satisfy the image and floor-gate inputs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123619,7 +123619,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1566.1]
 title = "Issue #1566: Verify the dapp test lockfile satisfies npm ci"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123648,7 +123648,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1565.1]
 title = "Issue #1565: Verify the wallet lockfile satisfies the frozen install"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124735,7 +124735,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.23.13]
 title = "Open and cancel perps positions from the web exchange with the precompile ABI's shapes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.9.37", "22.24.26"]
@@ -136640,7 +136640,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.67]
 title = "Repair the inventory sweep target layerx-x402"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137418,7 +137418,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1570.1]
 title = "Issue #1570: Migrate the gas-station signer tests to the named raw-key configuration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137447,7 +137447,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1564.1]
 title = "Issue #1564: Verify the Solana bridge lockfile satisfies the locked metadata read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137476,7 +137476,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1563.1]
 title = "Issue #1563: Refresh the inbound relayer fixtures for the required paymentDenom"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -145623,7 +145623,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.11]
 title = "Repair the inventory sweep target services/launchpad/security/control"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -145713,7 +145713,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.8]
 title = "Repair the inventory sweep target services/launchpad/notifications"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -145743,7 +145743,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.7]
 title = "Repair the inventory sweep target services/launchpad/discovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199375,7 +199375,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.99.38]
 title = "Repair the inventory sweep target wasm/x/wasm/artifacts/v155/api"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199405,7 +199405,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.37]
 title = "Repair the inventory sweep target wasm/x/wasm/artifacts/v152/api"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199435,7 +199435,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.36]
 title = "Repair the inventory sweep target wasm-runtime/internal/api"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199525,7 +199525,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.33]
 title = "Repair the inventory sweep target storage/state_db/sc/memiavl"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199555,7 +199555,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.32]
 title = "Repair the inventory sweep target storage/db_engine/litt/util"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199585,7 +199585,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.27]
 title = "Repair the inventory sweep target precompiles/pricefeed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199645,7 +199645,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.25]
 title = "Repair the inventory sweep target precompiles/layerxagent/teeattestor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199675,7 +199675,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.24]
 title = "Repair the inventory sweep target precompiles/layerxagent/streams"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199735,7 +199735,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.22]
 title = "Repair the inventory sweep target precompiles/layerxagent/eip712"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199795,7 +199795,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.20]
 title = "Repair the inventory sweep target modules/layerxledger/types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199855,7 +199855,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.18]
 title = "Repair the inventory sweep target modules/tokenfactory/types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199915,7 +199915,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1567.1]
 title = "Issue #1567: Populate Autobahn committed header roots before publishing newHeads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199972,7 +199972,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.97.7]
 title = "Record the lxphost target and the repaired kernel targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.97.1", "22.97.2"]
@@ -234701,7 +234701,7 @@ do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible)
 
 [task.22.99.43]
 title = "Repair the inventory sweep target tools/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234761,7 +234761,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.41]
 title = "Repair the inventory sweep target sdk/integrations/fastapi/tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234791,7 +234791,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.40]
 title = "Repair the inventory sweep target deploy/launchpad/production/observability"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234879,7 +234879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1569.1]
 title = "Issue #1569: Verify the Blockscout floor gate lockfiles are present"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -236738,7 +236738,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.152]
 title = "Reconcile drifted interface registry rows: services/platform part 32"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
