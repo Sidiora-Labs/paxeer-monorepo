@@ -64,6 +64,54 @@ fn agent() -> Did {
     Did::new(b"did:layerx:approval-events").unwrap_or_else(|error| panic!("agent: {error:?}"))
 }
 
+fn prepared(id: u8) -> layerx_agent_api::prepare::Prepared {
+    use layerx_agent_api::identity::{Asset, AuthorityRef, ExplicitSet};
+    use layerx_agent_api::prepare::{
+        CanonicalBytes, Disclosure, IdempotencyRef, PreparationRef, Prepared, SigningPreimage,
+    };
+    use layerx_agent_api::{Amount, TimestampSeconds};
+
+    let call = layerx_crypto::evm_transaction::Eip1559Call {
+        chain_id: 125,
+        nonce: u64::from(id),
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 100_000,
+        to: [3; 20],
+        data: [
+            layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)").to_vec(),
+            [vec![0; 12], vec![5; 20]].concat(),
+            [vec![0; 31], vec![50]].concat(),
+        ]
+        .concat(),
+    };
+    let bytes = call.encode_unsigned();
+    Prepared {
+        preparation_ref: PreparationRef::new(format!("prepared-{id}"))
+            .unwrap_or_else(|error| panic!("preparation: {error:?}")),
+        unsigned_canonical_bytes: CanonicalBytes::new(bytes.clone())
+            .unwrap_or_else(|error| panic!("bytes: {error:?}")),
+        signing_preimage: SigningPreimage::new(call.signing_hash().to_vec())
+            .unwrap_or_else(|error| panic!("preimage: {error:?}")),
+        disclosure: Disclosure {
+            canonical_digest: Sha256::digest(bytes).into(),
+            activity_type: ActivityType(7),
+            actor: AgentDid::new("0404040404040404040404040404040404040404")
+                .unwrap_or_else(|error| panic!("actor: {error:?}")),
+            authority: AuthorityRef::new("session-key")
+                .unwrap_or_else(|error| panic!("authority: {error:?}")),
+            counterparties: ExplicitSet::deny_all(),
+            amounts: ExplicitSet::deny_all(),
+            asset: Asset::new("LXP").unwrap_or_else(|error| panic!("asset: {error:?}")),
+            fee_limit: Amount(2),
+            expiry: TimestampSeconds(500),
+            idempotency_key: IdempotencyRef::new(format!("idempotency-{id}"))
+                .unwrap_or_else(|error| panic!("key: {error:?}")),
+        },
+        expiry: TimestampSeconds(500),
+    }
+}
+
 fn lifecycle(kind: ApprovalEventKind, id: u8, observed_at_ms: u64) -> ApprovalLifecycle {
     ApprovalLifecycle {
         tenant: tenant(),
@@ -72,7 +120,7 @@ fn lifecycle(kind: ApprovalEventKind, id: u8, observed_at_ms: u64) -> ApprovalLi
         capability: [3; 32],
         policy_version: "policy-v4".to_owned(),
         approval_id: [id; 32],
-        canonical_digest: Sha256::digest(format!("approval-{id}").as_bytes()).into(),
+        canonical_digest: prepared(id).disclosure.canonical_digest,
         activity_type: 7,
         asset: "LXP".to_owned(),
         kind,
