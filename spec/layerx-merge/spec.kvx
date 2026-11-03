@@ -119951,7 +119951,7 @@ do_4 = "Decision 2450 (attempt 1, 1d650f6c0, continue): the build failed with ER
 
 [task.18.1515.1]
 title = "Issue #1515: Preserve submitted chain history beyond editable-draft expiry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.6"]
@@ -193149,7 +193149,7 @@ do_3 = "Decision 2455 (attempt 1, f9dc7617a, continue): attempt 1 removed JobExe
 
 [task.18.1551.1]
 title = "Issue #1551: Decode canonical receipt-key responses in both public PxClient SDKs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
