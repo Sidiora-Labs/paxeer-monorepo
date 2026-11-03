@@ -1,0 +1,243 @@
+[reconcile.r9-161]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r9-161.1]
+interface = "interface.9.rs-agentd-prepare-productioncorepreparationboundary"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/prepare/mod.rs"
+line = 514
+symbol = "ProductionCorePreparationBoundary"
+evidence = "The declaration is pub struct ProductionCorePreparationBoundary<'a>, holding the human-node reference, module registry and last preparation state; the other occurrences are impl blocks."
+
+[row.r9-161.2]
+interface = "interface.9.rs-agentd-prepare-verify-disclosure-binding"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/prepare/mod.rs"
+line = 757
+symbol = "verify_disclosure_binding"
+evidence = "The pub fn verify_disclosure_binding(prepared: &Prepared) -> Result<(), DisclosureBindingError> declaration checks canonical bytes and signing preimage before disclosure_binding::verify_binding; the later occurrence is documentation."
+
+[row.r9-161.3]
+interface = "interface.9.rs-agentd-protocol-evidence-authenticatedcumulativeuse-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1430
+symbol = "AuthenticatedCumulativeUse"
+evidence = "The pub struct AuthenticatedCumulativeUse declaration holds actor, window, amount and count; earlier and later occurrences construct or return this type."
+
+[row.r9-161.4]
+interface = "interface.9.rs-agentd-protocol-evidence-cumulativeuseerror"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1457
+symbol = "CumulativeUseError"
+evidence = "The pub enum CumulativeUseError declaration lists window, receipt, duplicate, sequence, activity, batch-chain and overflow refusals; the other occurrences are error uses."
+
+[row.r9-161.5]
+interface = "interface.9.rs-agentd-protocol-evidence-cumulativeusewindow"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1294
+symbol = "CumulativeUseWindow"
+evidence = "The pub struct CumulativeUseWindow declaration defines the inclusive first and last u64 sequence bounds; other occurrences use the type or implement its behavior."
+
+[row.r9-161.6]
+interface = "interface.9.rs-agentd-protocol-evidence-exportreceiptevidence-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1640
+symbol = "ExportReceiptEvidence"
+evidence = "The pub struct ExportReceiptEvidence declaration groups verified receipt facts, the authorised batch and raw receipt evidence; other occurrences return, construct or implement the type."
+
+[row.r9-161.7]
+interface = "interface.9.rs-agentd-protocol-evidence-rawactivityreceiptevidence"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1301
+symbol = "RawActivityReceiptEvidence"
+evidence = "The declaration is now pub struct RawActivityReceiptEvidence<R = RawReceiptEvidence, A = Vec<u8>>, retaining default receipt and activity types while adding generic parameters for other evidence shapes."
+
+[row.r9-161.8]
+interface = "interface.9.rs-agentd-protocol-evidence-rawreceiptevidence"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1237
+symbol = "RawReceiptEvidence"
+evidence = "The pub struct RawReceiptEvidence declaration contains canonical receipt bytes, proof, canonical header and header signature; other occurrences are impls, parameters, constructors or generic defaults."
+
+[row.r9-161.9]
+interface = "interface.9.rs-agentd-protocol-evidence-rawstateevidence"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1685
+symbol = "RawStateEvidence"
+evidence = "The pub struct RawStateEvidence declaration stores canonical_state and StateEvidenceShape; the shape supports both signed state-leaf material and a committed module witness."
+
+[row.r9-161.10]
+interface = "interface.9.rs-agentd-protocol-evidence-receiptevidenceerror"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1283
+symbol = "ReceiptEvidenceError"
+evidence = "The pub enum ReceiptEvidenceError declaration lists Policy, Inclusion, Receipt, ProtocolVersion, SequenceRange and BatchIdentity; the many other occurrences return or map these errors."
+
+[row.r9-161.11]
+interface = "interface.9.rs-agentd-protocol-evidence-stateevidenceerror-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1824
+symbol = "StateEvidenceError"
+evidence = "The pub enum StateEvidenceError declaration contains Committed, Policy and Inclusion refusals; other occurrences use the type as an error result or variant."
+
+[row.r9-161.12]
+interface = "interface.9.rs-agentd-protocol-evidence-verifiedstateevidence-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1832
+symbol = "VerifiedStateEvidence"
+evidence = "The pub struct VerifiedStateEvidence declaration contains canonical state bytes, verification level and observed head sequence; other occurrences return, construct or implement it."
+
+[row.r9-161.13]
+interface = "interface.9.rs-agentd-rawactivityreceiptevidence-canonical-activity-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1332
+symbol = "canonical_activity"
+evidence = "Within impl RawActivityReceiptEvidence, pub fn canonical_activity(&self) -> &[u8] returns the stored canonical_activity bytes; field mentions and call sites are not the declaration."
+
+[row.r9-161.14]
+interface = "interface.9.rs-agentd-rawactivityreceiptevidence-from-signed-inclusion-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1324
+symbol = "from_signed_inclusion"
+evidence = "Within impl RawActivityReceiptEvidence, pub fn from_signed_inclusion(canonical_activity: Vec<u8>, receipt: RawReceiptEvidence) -> Self constructs the SignedInclusion variant; the later occurrence calls it."
+
+[row.r9-161.15]
+interface = "interface.9.rs-agentd-rawreceiptevidence-new-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1246
+symbol = "new"
+evidence = "The pub fn new declaration inside impl RawReceiptEvidence takes canonical_receipt: Vec<u8>, proof: Proof, canonical_header: Vec<u8> and header_signature: [u8; 64], returning Self; other new declarations belong to different types."
+
+[row.r9-161.16]
+interface = "interface.9.rs-agentd-rawstateevidence-resulting-state-root-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1755
+symbol = "resulting_state_root"
+evidence = "Within impl RawStateEvidence, pub const fn resulting_state_root(&self) -> Option<[u8; 32]> returns Some for Leaf and None for ModuleWitness; the earlier non-const accessor belongs to ExportReceiptEvidence."
+
+[row.r9-161.17]
+interface = "interface.9.rs-agentd-verifiedreceiptevidence-canonical-receipt-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1596
+symbol = "canonical_receipt"
+evidence = "Within impl VerifiedReceiptEvidence, pub fn canonical_receipt(&self) -> &[u8] returns self.verified.canonical_bytes(); the earlier accessor with this name belongs to RawReceiptEvidence."
+
+[row.r9-161.18]
+interface = "interface.9.rs-agentd-verifiedreceiptevidence-level-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 1601
+symbol = "level"
+evidence = "Within impl VerifiedReceiptEvidence, pub const fn level(&self) -> layerx_types::verify::VerificationLevel delegates to self.inclusion.level(); the later level declaration belongs to VerifiedStateEvidence."
+
+[row.r9-161.19]
+interface = "interface.9.rs-agentd-read-availability-availabilityread-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/availability.rs"
+line = 11
+symbol = "AvailabilityRead"
+evidence = "The pub enum AvailabilityRead declaration has Available with height, transaction and receipt roots and transaction count, plus Pruned with height; later occurrences are result and variant uses."
+
+[row.r9-161.20]
+interface = "interface.9.rs-agentd-read-availability-availabilityreaderror-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/availability.rs"
+line = 24
+symbol = "AvailabilityReadError"
+evidence = "The pub enum AvailabilityReadError declaration lists Ahead, Sequencer and Arithmetic; the other occurrences implement conversion, return the error or use its variants."
+
+[row.r9-161.21]
+interface = "interface.9.rs-agentd-read-checkpoint-checkpointreaderror-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"
+line = 490
+symbol = "CheckpointReadError"
+evidence = "The pub enum CheckpointReadError declaration lists capability, commit, proof, root, target, checkpoint-block, rung, arithmetic and RPC refusals; other occurrences reference the type or its variants."
+
+[row.r9-161.22]
+interface = "interface.9.rs-agentd-read-checkpoint-proofbundlekind-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"
+line = 442
+symbol = "ProofBundleKind"
+evidence = "The pub enum ProofBundleKind declaration defines Activity, Receipt and State; the other occurrence types the kind field of ServedProofBundle."
+
+[row.r9-161.23]
+interface = "interface.9.rs-agentd-read-checkpoint-proofbundlerequest-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"
+line = 449
+symbol = "ProofBundleRequest"
+evidence = "The pub struct ProofBundleRequest<'a> declaration borrows transaction, receipt, header, commit, validator and witness material; the other occurrences implement or accept the request."
+
+[row.r9-161.24]
+interface = "interface.9.rs-agentd-read-checkpoint-servedcheckpoint-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"
+line = 167
+symbol = "ServedCheckpoint"
+evidence = "The pub struct ServedCheckpoint declaration carries height, block hash, app hash, commit, rung, header and validators; the other occurrences implement, construct, accept or return it."
+
+[row.r9-161.25]
+interface = "interface.9.rs-agentd-read-checkpoint-servedproofbundle-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"
+line = 474
+symbol = "ServedProofBundle"
+evidence = "The pub struct ServedProofBundle declaration carries format, kind, transaction and receipt proof material, checkpoint, validators, account proof, state root and verification level; other occurrences return it."
+
+[row.r9-161.26]
+interface = "interface.9.rs-agentd-layerxdprogrambalancereader-read-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+line = 338
+symbol = "read"
+evidence = "The pub fn read declaration inside impl LayerxdProgramBalanceReader takes &mut self, program: ProgramId and height: u64 and returns Result<ProgramBalanceRead<CommittedProgramBalanceFreshness>, ProgramReadError>; the later read method belongs to ProgramBalanceReadRoute."
+
+[row.r9-161.27]
+interface = "interface.9.rs-agentd-layerxdprogrambalancereader-staleness-limit-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+line = 468
+symbol = "staleness_limit"
+evidence = "Within impl LayerxdProgramBalanceReader, pub const fn staleness_limit(&self) -> u64 returns self.staleness_limit; the other occurrences are the field, its initialization or uses."
+
+[row.r9-161.28]
+interface = "interface.9.rs-agentd-read-program-node-programbalancereadroute"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+line = 726
+symbol = "ProgramBalanceReadRoute"
+evidence = "The pub struct ProgramBalanceReadRoute declaration owns a LayerxdProgramBalanceReader; the other occurrence is its impl, whose read method forwards to the connected reader."
+
+[row.r9-161.29]
+interface = "interface.9.rs-agentd-session-revocation-invalidationreason"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/session_revocation.rs"
+line = 217
+symbol = "InvalidationReason"
+evidence = "The pub enum InvalidationReason declaration defines GrantRevokedOnChain, PrimaryKeyRotated and AccountRecovered; other occurrences use the type for fields or compare its variants."
+
+[row.r9-161.30]
+interface = "interface.9.rs-agentd-session-revocation-invalidationreport-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/session_revocation.rs"
+line = 246
+symbol = "InvalidationReport"
+evidence = "The pub struct InvalidationReport declaration records reason, observed sequence, invalidated sessions and generations, and preparation counts; other occurrences return or construct the report."

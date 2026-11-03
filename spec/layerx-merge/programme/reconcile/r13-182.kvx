@@ -1,0 +1,243 @@
+[reconcile.r13-182]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r13-182.1]
+interface = "interface.13.rs-arb-step-boundaryproof"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/step.rs"
+line = 380
+symbol = "BoundaryProof"
+evidence = "The pub struct BoundaryProof declaration has index: u32, leaf: Vec<u8> and siblings: Vec<[u8; 32]>; later occurrences are its impl and proof parameters."
+
+[row.r13-182.2]
+interface = "interface.13.rs-arb-step-verifiedreplay"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/step.rs"
+line = 443
+symbol = "VerifiedReplay"
+evidence = "The pub struct VerifiedReplay declaration contains ReplayMetadata, an Rc<AuthenticatedCatalogue> and PortableReplayInputs; its later impl is not the declaration."
+
+[row.r13-182.3]
+interface = "interface.13.rs-arb-step-verifiedstep"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/step.rs"
+line = 449
+symbol = "VerifiedStep"
+evidence = "The pub struct VerifiedStep declaration contains activity_id, pre_index and post_index; the later Result type and struct construction are uses."
+
+[row.r13-182.4]
+interface = "interface.13.rs-arb-step-verifiedstep-activity-id"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/step.rs"
+line = 455
+symbol = "activity_id"
+evidence = "Inside impl VerifiedStep, pub const fn activity_id(self) -> [u8; 32] returns self.activity_id; the field declaration and receipt calls are other occurrences."
+
+[row.r13-182.5]
+interface = "interface.13.rs-arb-step-verifiedstep-post-index"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/step.rs"
+line = 461
+symbol = "post_index"
+evidence = "Inside impl VerifiedStep, pub const fn post_index(self) -> u32 returns self.post_index; the field and VerifiedStep construction are uses of the identifier."
+
+[row.r13-182.6]
+interface = "interface.13.rs-arb-step-verifiedstep-pre-index"
+verdict = "served"
+path = "programs/crates/layerx-programs-arbiter/src/step.rs"
+line = 458
+symbol = "pre_index"
+evidence = "Inside impl VerifiedStep, pub const fn pre_index(self) -> u32 returns self.pre_index; the field and VerifiedStep construction are other occurrences."
+
+[row.r13-182.7]
+interface = "interface.13.rs-reg-account-state-account-tree-commitment"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/account_state.rs"
+line = 845
+symbol = "account_tree_commitment"
+evidence = "The free pub fn account_tree_commitment(account_root: [u8; 32]) -> [u8; 32] hashes ACCOUNT_TREE_KEY with the root; snapshot verification and tests call it."
+
+[row.r13-182.8]
+interface = "interface.13.rs-reg-account-state-programs-root-commitment"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/account_state.rs"
+line = 857
+symbol = "programs_root_commitment"
+evidence = "The free pub fn programs_root_commitment(programs_root: [u8; 32]) -> [u8; 32] hashes PROGRAMS_MODULE_ID with the root; snapshot verification and tests call it."
+
+[row.r13-182.9]
+interface = "interface.13.rs-reg-account-state-state-leaf-commitment"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/account_state.rs"
+line = 808
+symbol = "state_leaf_commitment"
+evidence = "The free pub fn state_leaf_commitment(key: &[u8], value: &[u8]) -> Result<[u8; 32], AccountStateError> delegates to state_leaf_hash; later occurrences are test calls."
+
+[row.r13-182.10]
+interface = "interface.13.rs-reg-account-state-universal-root-commitment"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/account_state.rs"
+line = 851
+symbol = "universal_root_commitment"
+evidence = "The free pub fn universal_root_commitment(universal_root: [u8; 32]) -> [u8; 32] hashes module id zero with the root; snapshot verification and tests call it."
+
+[row.r13-182.11]
+interface = "interface.13.rs-reg-account-state-verifiedaccountsnapshot-verify"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/account_state.rs"
+line = 578
+symbol = "verify"
+evidence = "Inside impl VerifiedAccountSnapshot, pub fn verify(&self, authority: &JournalAccountStateAuthority<impl AccountStateJournal>) -> Result<(), AccountStateError> delegates to verify_with_head(authority, true); the private authority verify is a different method."
+
+[row.r13-182.12]
+interface = "interface.13.rs-reg-account-state-verify-state-membership"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/account_state.rs"
+line = 820
+symbol = "verify_state_membership"
+evidence = "The free pub fn verify_state_membership takes key: &[u8], value: &[u8], proof: &StateProof and expected_root: [u8; 32], returning Result<(), AccountStateError>; later occurrences are test calls."
+
+[row.r13-182.13]
+interface = "interface.13.rs-reg-registry-read"
+verdict = "served"
+path = "programs/crates/layerx-programs-registry/src/lib.rs"
+line = 659
+symbol = "read"
+evidence = "Inside impl Registry, pub fn read(&self, program: ProgramId, authority: &impl RegistryReadAuthority) -> Result<VerifiedRegistryRead, RegistryError> verifies the latest projection receipt before returning the read."
+
+[row.r13-182.14]
+interface = "interface.13.rs-rt-abi-abi"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/abi/mod.rs"
+line = 798
+symbol = "Abi"
+evidence = "The pub struct Abi declaration owns authorization, storage, receipt and balance maps, and effects; impl Abi and constructor calls refer to this type."
+
+[row.r13-182.15]
+interface = "interface.13.rs-rt-abi-abi-commit"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/abi/mod.rs"
+line = 1430
+symbol = "commit"
+evidence = "Inside impl Abi, pub fn commit(self) -> AbiCommit moves storage and effects into AbiCommit; the earlier commit methods belong to committed oracle and web collections."
+
+[row.r13-182.16]
+interface = "interface.13.rs-rt-abi-abi-new"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/abi/mod.rs"
+line = 820
+symbol = "new"
+evidence = "Inside impl Abi, pub fn new takes version: u16, program: ProgramId, authorization: AuthorizationContext, storage: Storage and receipts: &dyn ReceiptOracle, returning Result<Self, AbiError>; earlier new methods construct other types."
+
+[row.r13-182.17]
+interface = "interface.13.rs-rt-abi-abi-receipt-read"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/abi/mod.rs"
+line = 1367
+symbol = "receipt_read"
+evidence = "Inside impl Abi, pub fn receipt_read(&self, receipt_digest: [u8; 32]) -> Result<ReceiptView, AbiError> checks the receipt grant and clones the verified view; the earlier string names the ABI operation."
+
+[row.r13-182.18]
+interface = "interface.13.rs-rt-abi-abicommit"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/abi/mod.rs"
+line = 722
+symbol = "AbiCommit"
+evidence = "The pub struct AbiCommit declaration contains pub storage: Storage and pub effects: AbiEffects; Abi::commit later uses it as a return type and constructs it."
+
+[row.r13-182.19]
+interface = "interface.13.rs-rt-calls-compositioncontext"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 725
+symbol = "CompositionContext"
+evidence = "The pub struct CompositionContext declaration holds resolver: Rc<dyn ProgramResolver> and rules: CompositionRules; its inherent and Default impls are later occurrences."
+
+[row.r13-182.20]
+interface = "interface.13.rs-rt-calls-compositioncontext-isolated"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 749
+symbol = "isolated"
+evidence = "Inside impl CompositionContext, pub fn isolated() -> Self builds an empty ProgramCatalog resolver and CompositionRules::declared(); the Default impl later calls this method."
+
+[row.r13-182.21]
+interface = "interface.13.rs-rt-calls-compositioncontext-rules"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 758
+symbol = "rules"
+evidence = "Inside impl CompositionContext, pub const fn rules(&self) -> CompositionRules returns self.rules; the earlier identical method signature belongs to CallGraph."
+
+[row.r13-182.22]
+interface = "interface.13.rs-rt-calls-compositionrefusal"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 799
+symbol = "CompositionRefusal"
+evidence = "The pub enum CompositionRefusal declaration defines typed failures including NotComposable, activity evidence refusals and WrongVersion; earlier Result signatures and variants are uses."
+
+[row.r13-182.23]
+interface = "interface.13.rs-rt-calls-meteringplanidentity"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 779
+symbol = "MeteringPlanIdentity"
+evidence = "The pub struct MeteringPlanIdentity(Box<[u8; 76]>) tuple declaration matches the registered signature; its inherent impl, Deref impl and refusal fields are other occurrences."
+
+[row.r13-182.24]
+interface = "interface.13.rs-rt-calls-programcatalog"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 672
+symbol = "ProgramCatalog"
+evidence = "The pub struct ProgramCatalog declaration contains modules: BTreeMap<ProgramId, ValidatedModule>; the inherent impl, resolver impl and constructor calls refer to this type."
+
+[row.r13-182.25]
+interface = "interface.13.rs-rt-calls-programcatalog-insert"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 689
+symbol = "insert"
+evidence = "Inside impl ProgramCatalog, pub fn insert(&mut self, program: ProgramId, module: ValidatedModule) -> Option<ValidatedModule> delegates to self.modules.insert; map insert calls elsewhere are uses."
+
+[row.r13-182.26]
+interface = "interface.13.rs-rt-calls-programcatalog-is-empty"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 705
+symbol = "is_empty"
+evidence = "Inside impl ProgramCatalog, pub fn is_empty(&self) -> bool delegates to self.modules.is_empty(); later assertions and other collection calls are uses."
+
+[row.r13-182.27]
+interface = "interface.13.rs-rt-calls-programcatalog-new"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 680
+symbol = "new"
+evidence = "Inside impl ProgramCatalog, pub fn new() -> Self initializes modules with BTreeMap::new(); the other new declarations construct CompositionRules, CompositionContext or Composition."
+
+[row.r13-182.28]
+interface = "interface.13.rs-rt-calls-programresolver"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 639
+symbol = "ProgramResolver"
+evidence = "The pub trait ProgramResolver: fmt::Debug declaration defines authorization hooks and program_module; the ProgramCatalog impl and Rc<dyn ProgramResolver> fields are uses."
+
+[row.r13-182.29]
+interface = "interface.13.rs-rt-calls-programresolver-authorize-activity"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 645
+symbol = "authorize_activity"
+evidence = "Inside trait ProgramResolver, fn authorize_activity(&self, _binding: Option<crate::ActivityBudgetBinding>) -> Result<(), CompositionRefusal> declares the default hook; claim_resolver later invokes it."
+
+[row.r13-182.30]
+interface = "interface.13.rs-rt-calls-programresolver-authorize-interface-call"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 654
+symbol = "authorize_interface_call"
+evidence = "Inside trait ProgramResolver, fn authorize_interface_call takes &self, _program: ProgramId, _entrypoint: &str, _input: &[u8] and capabilities: &crate::CapabilitySet, returning Result<crate::CapabilitySet, AbiError>; the later resolver call is a use."

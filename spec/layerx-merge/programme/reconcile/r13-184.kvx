@@ -1,0 +1,155 @@
+[reconcile.r13-184]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 19
+
+[row.r13-184.1]
+interface = "interface.13.rs-sbx-expiry-teardownsettlement"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 252
+symbol = "TeardownSettlement"
+evidence = "The declaration pub struct TeardownSettlement at line 252 matches the registered signature, formerly at line 173; the impl at line 260 and later construction sites are separate occurrences."
+
+[row.r13-184.2]
+interface = "interface.13.rs-sbx-expiry-teardownsettlement-final-usage-receipt"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 266
+symbol = "final_usage_receipt"
+evidence = "TeardownSettlement declares pub const fn final_usage_receipt(&self) -> [u8; 32] at line 266, matching the registered signature formerly at line 187; the field at line 254 is not the method declaration."
+
+[row.r13-184.3]
+interface = "interface.13.rs-sbx-expiry-teardownsettlement-ledger-state"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 274
+symbol = "ledger_state"
+evidence = "TeardownSettlement declares pub fn ledger_state(&self) -> &[u8] at line 274, matching the registered signature formerly at line 195; it returns the ledger_state field declared at line 256."
+
+[row.r13-184.4]
+interface = "interface.13.rs-sbx-expiry-teardownsettlement-receipt-digest"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 262
+symbol = "receipt_digest"
+evidence = "TeardownSettlement declares pub const fn receipt_digest(&self) -> [u8; 32] at line 262, matching the registered signature formerly at line 183; the private field at line 253 is a distinct occurrence."
+
+[row.r13-184.5]
+interface = "interface.13.rs-sbx-expiry-teardownsettlement-refund-root"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 278
+symbol = "refund_root"
+evidence = "TeardownSettlement declares pub const fn refund_root(&self) -> [u8; 32] at line 278, matching the registered signature formerly at line 199; later refund_root parameters and uses do not declare this accessor."
+
+[row.r13-184.6]
+interface = "interface.13.rs-sbx-expiry-teardownsettlement-usage-lease-state"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 270
+symbol = "usage_lease_state"
+evidence = "TeardownSettlement declares pub fn usage_lease_state(&self) -> &[u8] at line 270, matching the registered signature formerly at line 191; it borrows the private Vec<u8> field declared at line 255."
+
+[row.r13-184.7]
+interface = "interface.13.rs-sbx-expiry-terminalleaserecord"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 284
+symbol = "TerminalLeaseRecord"
+evidence = "The declaration pub struct TerminalLeaseRecord at line 284 matches the registered signature, formerly at line 205; the impl at line 302 and later return types and constructions are separate occurrences."
+
+[row.r13-184.8]
+interface = "interface.13.rs-sbx-expiry-terminalleaserecord-canonical-bytes"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 333
+symbol = "canonical_bytes"
+evidence = "TerminalLeaseRecord declares pub fn canonical_bytes(&self) -> Vec<u8> at line 333, matching the signature formerly at line 254; the canonical_bytes method at line 113 returns a fixed-array reference and belongs to a different type."
+
+[row.r13-184.9]
+interface = "interface.13.rs-sbx-expiry-terminalleaserecord-destroyed-at"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 308
+symbol = "destroyed_at"
+evidence = "TerminalLeaseRecord declares pub const fn destroyed_at(&self) -> u64 at line 308, matching the registered signature formerly at line 229; the private field is declared separately at line 289."
+
+[row.r13-184.10]
+interface = "interface.13.rs-sbx-expiry-terminalleaserecord-occupancy-charged"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 312
+symbol = "occupancy_charged"
+evidence = "TerminalLeaseRecord declares pub const fn occupancy_charged(&self) -> u128 at line 312, matching the registered signature formerly at line 233; field initialization and accounting assertions are uses of this value."
+
+[row.r13-184.11]
+interface = "interface.13.rs-sbx-expiry-terminalleaserecord-reclaimed-bytes"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 324
+symbol = "reclaimed_bytes"
+evidence = "TerminalLeaseRecord declares pub const fn reclaimed_bytes(&self) -> u64 at line 324, matching the registered signature formerly at line 245; it returns the private field declared at line 291."
+
+[row.r13-184.12]
+interface = "interface.13.rs-sbx-expiry-terminalleaserecord-reclaimed-cells"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 320
+symbol = "reclaimed_cells"
+evidence = "TerminalLeaseRecord declares pub const fn reclaimed_cells(&self) -> u64 at line 320, matching the registered signature formerly at line 241; the field at line 290 and later cleanup calculations are separate occurrences."
+
+[row.r13-184.13]
+interface = "interface.13.rs-sbx-expiry-terminalleaserecord-refunded"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 316
+symbol = "refunded"
+evidence = "TerminalLeaseRecord declares pub const fn refunded(&self) -> u128 at line 316, matching the registered signature formerly at line 237; the private field and later calls on records or escrow are distinct occurrences."
+
+[row.r13-184.14]
+interface = "interface.13.rs-sbx-expiry-terminalleaserecord-terminal-digest"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 328
+symbol = "terminal_digest"
+evidence = "TerminalLeaseRecord declares pub const fn terminal_digest(&self) -> [u8; 32] at line 328, matching the registered signature formerly at line 249; the field at line 299 and digest comparisons are separate occurrences."
+
+[row.r13-184.15]
+interface = "interface.13.rs-sbx-expiry-terminalleaserecord-verify"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 356
+symbol = "verify"
+evidence = "TerminalLeaseRecord declares pub fn verify(&self) -> Result<(), ExpiryRefusal> at line 356, matching the signature formerly at line 277; this checks the terminal digest, expiry and cleanup accounting, unlike the other verify declaration at line 50."
+
+[row.r13-184.16]
+interface = "interface.13.rs-sbx-lease-lease-record-usage"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/lease.rs"
+line = 1644
+symbol = "record_usage"
+evidence = "Lease::record_usage starts at line 1644 and takes &mut self, usage: LeaseUsage, escrow_consumed: u128, observed_batch: u64 and closure: Option<&(LeaseTransition, TransitionEvidence)>, returning Result<UsageOutcome, LeaseRefusal>, matching the signature formerly at line 1686. LeaseBook::record_usage at line 1759 additionally takes id: LeaseId."
+
+[row.r13-184.17]
+interface = "interface.13.rs-sbx-lease-leasebook-get"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/lease.rs"
+line = 1752
+symbol = "get"
+evidence = "Inside impl LeaseBook, pub fn get(&self, id: LeaseId) -> Option<&Lease> is declared at line 1752, matching the registered signature formerly at line 1794; the self.leases.get(&id) call at line 1753 is its implementation."
+
+[row.r13-184.18]
+interface = "interface.13.env-paxeer-x-typed-consumer-output-src-bindgen-rs"
+verdict = "served"
+path = "programs/sdk/rust/src/bindgen.rs"
+line = 1348
+symbol = "PAXEER_X_TYPED_CONSUMER_OUTPUT"
+evidence = "The registered var_os read in the paired match now occurs at line 1348 in typed_interfaces_retain_versioned_capabilities_in_every_language, formerly line 1277; the match requires both directories before emitting consumers. The read at line 1392 belongs to the emission helper."
+
+[row.r13-184.19]
+interface = "interface.13.env-paxeer-x-typed-interface-inputs-src-bindgen-rs"
+verdict = "served"
+path = "programs/sdk/rust/src/bindgen.rs"
+line = 1347
+symbol = "PAXEER_X_TYPED_INTERFACE_INPUTS"
+evidence = "The registered var_os read at the start of the paired match now occurs at line 1347 in typed_interfaces_retain_versioned_capabilities_in_every_language, formerly line 1276; the match pairs it with the consumer output directory. The read at line 1388 belongs to the emission helper."

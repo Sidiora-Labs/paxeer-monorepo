@@ -1,0 +1,243 @@
+[reconcile.r14-185]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r14-185.1]
+interface = "interface.14.ts-bridge-components-bridge-transfer-actions-verifiedclaim"
+verdict = "served"
+path = "apps/bridge/src/components/bridge/transfer-actions.ts"
+line = 132
+symbol = "VerifiedClaim"
+evidence = "Registered line 74 drifted to declaration line 132. The exported type declares the bridgeIn request with layerxBridgeAbi, LAYERX_BRIDGE_ADDRESS, args and chainId; the occurrence at 158 is buildVerifiedClaim's return type."
+
+[row.r14-185.2]
+interface = "interface.14.ts-bridge-components-bridge-transfer-actions-verifiedrelease"
+verdict = "served"
+path = "apps/bridge/src/components/bridge/transfer-actions.ts"
+line = 227
+symbol = "VerifiedRelease"
+evidence = "Registered line 158 drifted to declaration line 227. The exported type declares the release request with paxeerXVaultAbi, address, args and chainId; the occurrence at 256 is buildVerifiedRelease's return type."
+
+[row.r14-185.3]
+interface = "interface.14.ts-web-api-gateway-forksurface"
+verdict = "served"
+path = "apps/web/src/api/gateway.ts"
+line = 233
+symbol = "ForkSurface"
+evidence = "Registered line 186 drifted to declaration line 233. The exported type still declares the exchange, bridge and launchpad literal union; surfaceCapability uses it as its parameter type at 274."
+
+[row.r14-185.4]
+interface = "interface.14.ts-web-api-gateway-historychain"
+verdict = "served"
+path = "apps/web/src/api/gateway.ts"
+line = 312
+symbol = "HistoryChain"
+evidence = "Registered line 265 drifted to declaration line 312. The exported type still declares the layerx and paxeer literal union; the chain and side fields and chainOf return type are references."
+
+[row.r14-185.5]
+interface = "interface.14.ts-web-api-gateway-historyoptions"
+verdict = "served"
+path = "apps/web/src/api/gateway.ts"
+line = 341
+symbol = "HistoryOptions"
+evidence = "Registered line 294 drifted to declaration line 341. The exported interface declares optional readonly cursor and kind strings; historyParams, paxeerHistory and unifiedHistory use it as a parameter type."
+
+[row.r14-185.6]
+interface = "interface.14.ts-web-api-gateway-historypage"
+verdict = "served"
+path = "apps/web/src/api/gateway.ts"
+line = 334
+symbol = "HistoryPage"
+evidence = "Registered line 287 drifted to declaration line 334. The exported interface declares readonly items, nextCursor, indexedHeight and chainHeight; historyPage and the history RPC wrappers reference it as a return type."
+
+[row.r14-185.7]
+interface = "interface.14.ts-web-api-gateway-historyrow"
+verdict = "served"
+path = "apps/web/src/api/gateway.ts"
+line = 314
+symbol = "HistoryRow"
+evidence = "Registered line 267 drifted to declaration line 314. The exported interface declares the history record with id, heightOrSeq, chain and transaction fields; HistoryPage.items and historyRow's return type are references."
+
+[row.r14-185.8]
+interface = "interface.14.ts-web-api-gateway-networkcapabilities"
+verdict = "served"
+path = "apps/web/src/api/gateway.ts"
+line = 238
+symbol = "NetworkCapabilities"
+evidence = "Registered line 191 drifted to declaration line 238. The exported interface declares readonly exchange, bridge, launchpad, probedAt and rpcHeight fields; pxGetCapabilities references it as a Promise result at 247."
+
+[row.r14-185.9]
+interface = "interface.14.ts-web-api-gateway-pxgetcapabilities"
+verdict = "served"
+path = "apps/web/src/api/gateway.ts"
+line = 247
+symbol = "pxGetCapabilities"
+evidence = "Registered line 200 drifted to declaration line 247. The exported async function retains the no-argument Promise<NetworkCapabilities> signature and calls px_getCapabilities; the occurrence at 276 is its call in surfaceCapability."
+
+[row.r14-185.10]
+interface = "interface.14.ts-web-api-gateway-resolvedaccount"
+verdict = "served"
+path = "apps/web/src/api/gateway.ts"
+line = 288
+symbol = "ResolvedAccount"
+evidence = "Registered line 241 drifted to declaration line 288. The exported interface declares readonly evmAddress, layerxDid, layerxAccount and bound; pxResolveAccount references it as a Promise result at 299."
+
+[row.r14-185.11]
+interface = "interface.14.ts-web-api-gateway-surfacecapability"
+verdict = "served"
+path = "apps/web/src/api/gateway.ts"
+line = 271
+symbol = "SurfaceCapability"
+evidence = "Registered line 224 drifted to declaration line 271. The exported type still declares Readonly<{ live: boolean; detail: string | null }>; surfaceCapability references it as a Promise result at 274."
+
+[row.r14-185.12]
+interface = "interface.14.ts-web-api-generated-index-agentlimitrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1217
+symbol = "AgentLimitRequest"
+evidence = "Registered line 1129 drifted to declaration line 1217. The exported interface declares monthly_limit: Money; the decoder result, encoder input, endpoint metadata and client method are references."
+
+[row.r14-185.13]
+interface = "interface.14.ts-web-api-generated-index-agentpage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1236
+symbol = "AgentPage"
+evidence = "Registered line 1148 drifted to declaration line 1236. The exported interface declares agents: Agent[] and next_cursor: Cursor; codec signatures, agent.list metadata and agentList's Promise result reference it."
+
+[row.r14-185.14]
+interface = "interface.14.ts-web-api-generated-index-agentreclaimrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1258
+symbol = "AgentReclaimRequest"
+evidence = "Registered line 1170 drifted to declaration line 1258. The exported interface declares money: Money; codec signatures, agent.reclaim metadata and agentReclaim's request parameter reference it."
+
+[row.r14-185.15]
+interface = "interface.14.ts-web-api-generated-index-agentspend"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1277
+symbol = "AgentSpend"
+evidence = "Registered line 1189 drifted to declaration line 1277. The exported interface declares period_start, period_end, spent, remaining and verification with optional reconciliation_copy_key and rung; the spend field at 1059 and codecs are references."
+
+[row.r14-185.16]
+interface = "interface.14.ts-web-api-generated-index-apierror"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1322
+symbol = "ApiError"
+evidence = "Registered line 1227 drifted to declaration line 1322. The exported interface declares code, copy_key and retry with optional retry_after_ms and field; codecs, the optional error field and the error class detail and constructor reference it."
+
+[row.r14-185.17]
+interface = "interface.14.ts-web-api-generated-index-approvalapproverequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1361
+symbol = "ApprovalApproveRequest"
+evidence = "Registered line 1266 drifted to declaration line 1361. The exported interface declares step_up_evidence: EvidenceId; codec signatures, approval.approve metadata and approvalApprove's request parameter reference it."
+
+[row.r14-185.18]
+interface = "interface.14.ts-web-api-generated-index-approvaldecision"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1380
+symbol = "ApprovalDecision"
+evidence = "Registered line 1285 drifted to declaration line 1380. The exported interface declares approval_id, state, state_copy_key, money_moved, moved_copy_key and evidence; codecs and approval method response types are references."
+
+[row.r14-185.19]
+interface = "interface.14.ts-web-api-generated-index-approvaldetail"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1414
+symbol = "ApprovalDetail"
+evidence = "Registered line 1319 drifted to declaration line 1414. The exported interface declares approval and agent identity, state, reason_copy_key, facts, budget_remaining_after, created_at and evidence; codecs and approval.get's response type reference it."
+
+[row.r14-185.20]
+interface = "interface.14.ts-web-api-generated-index-approvalfacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1460
+symbol = "ApprovalFacts"
+evidence = "Registered line 1365 drifted to declaration line 1460. The exported interface declares amount, counterparty, asset, fees and expires_at; ApprovalDetail.facts at 1421 and codec signatures are references."
+
+[row.r14-185.21]
+interface = "interface.14.ts-web-api-generated-index-approvalpage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1491
+symbol = "ApprovalPage"
+evidence = "Registered line 1396 drifted to declaration line 1491. The exported interface declares approvals: ApprovalSummary[] and next_cursor: Cursor; codecs, approval.list metadata and approvalList's Promise result reference it."
+
+[row.r14-185.22]
+interface = "interface.14.ts-web-api-generated-index-approvalsummary"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1513
+symbol = "ApprovalSummary"
+evidence = "Registered line 1418 drifted to declaration line 1513. The exported interface declares approval and agent identity, counterparty, amount, reason_copy_key, expires_at, state and budget_remaining_after; approval collections and codecs reference it."
+
+[row.r14-185.23]
+interface = "interface.14.ts-web-api-generated-index-authenticatordisable"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1556
+symbol = "AuthenticatorDisable"
+evidence = "Registered line 1461 drifted to declaration line 1556. The exported interface declares step_up: StepUpEvidence; codecs, authenticator.disable metadata and authenticatorDisable's request parameter reference it."
+
+[row.r14-185.24]
+interface = "interface.14.ts-web-api-generated-index-authenticatormethod"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1575
+symbol = "AuthenticatorMethod"
+evidence = "Registered line 1480 drifted to declaration line 1575. The exported interface declares authenticator_id, label and enabled_at with optional last_used_at; codecs, setup result method and status methods are references."
+
+[row.r14-185.25]
+interface = "interface.14.ts-web-api-generated-index-authenticatorsetupbegin"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1607
+symbol = "AuthenticatorSetupBegin"
+evidence = "Registered line 1512 drifted to declaration line 1607. The exported interface declares label: string and step_up: StepUpEvidence; codecs, authenticator.setup.begin metadata and its client request parameter reference it."
+
+[row.r14-185.26]
+interface = "interface.14.ts-web-api-generated-index-authenticatorsetupchallenge"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1629
+symbol = "AuthenticatorSetupChallenge"
+evidence = "Registered line 1534 drifted to declaration line 1629. The exported interface declares setup_id, secret, otpauth_uri and expires_at; codecs, authenticator.setup.begin metadata and its client Promise result reference it."
+
+[row.r14-185.27]
+interface = "interface.14.ts-web-api-generated-index-authenticatorsetupfinish"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1657
+symbol = "AuthenticatorSetupFinish"
+evidence = "Registered line 1562 drifted to declaration line 1657. The exported interface declares code: string and step_up: StepUpEvidence; codecs, authenticator.setup.finish metadata and its client request parameter reference it."
+
+[row.r14-185.28]
+interface = "interface.14.ts-web-api-generated-index-authenticatorsetupresult"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1679
+symbol = "AuthenticatorSetupResult"
+evidence = "Registered line 1584 drifted to declaration line 1679. The exported interface declares method: AuthenticatorMethod and backup_codes: BackupCodeSet; codecs, authenticator.setup.finish metadata and its client Promise result reference it."
+
+[row.r14-185.29]
+interface = "interface.14.ts-web-api-generated-index-authenticatorstatus"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1701
+symbol = "AuthenticatorStatus"
+evidence = "Registered line 1606 drifted to declaration line 1701. The exported interface declares methods: AuthenticatorMethod[] and backup_codes_remaining: number; codecs and authenticator disable/status response types are references."
+
+[row.r14-185.30]
+interface = "interface.14.ts-web-api-generated-index-backupcoderotation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1723
+symbol = "BackupCodeRotation"
+evidence = "Registered line 1628 drifted to declaration line 1723. The exported interface declares step_up: StepUpEvidence; codecs, authenticator.backup.rotate metadata and authenticatorBackupRotate's request parameter reference it."

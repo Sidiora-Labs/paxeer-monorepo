@@ -1,0 +1,243 @@
+[reconcile.r9-162]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r9-162.1]
+interface = "interface.9.rs-agentd-session-revocation-pendingactivity-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/session_revocation.rs"
+line = 237
+symbol = "PendingActivity"
+evidence = "pub struct PendingActivity declares session, state, cancelled and resolution_continues at line 237; the other occurrences are activity slice parameter types."
+
+[row.r9-162.2]
+interface = "interface.9.rs-agentd-session-revocation-preparationstate-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/session_revocation.rs"
+line = 225
+symbol = "PreparationState"
+evidence = "pub enum PreparationState at line 225 declares Prepared through Failed; the PendingActivity field and invalidation match arms reference this declaration."
+
+[row.r9-162.3]
+interface = "interface.9.err-rs-layerx-agentd-normalized-boundary-unavailable"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/tenant/errors.rs"
+line = 289
+symbol = "boundary_unavailable"
+evidence = "normalize defines code: \"boundary_unavailable\" in the InternalClass::Boundary response at line 289, with status 503, the temporary-unavailability message, ErrorClass::Boundary and retryable true; the earlier class label is a separate occurrence."
+
+[row.r9-162.4]
+interface = "interface.9.err-rs-layerx-agentd-normalized-internal-unavailable"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/tenant/errors.rs"
+line = 282
+symbol = "internal_unavailable"
+evidence = "normalize defines code: \"internal_unavailable\" at line 282 in the InternalClass::Storage response, with status 503, message \"the service is temporarily unavailable\", ErrorClass::Storage and retryable true."
+
+[row.r9-162.5]
+interface = "interface.9.err-rs-layerx-agentd-normalized-invalid-request"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/tenant/errors.rs"
+line = 275
+symbol = "invalid_request"
+evidence = "normalize defines code: \"invalid_request\" at line 275 in the InternalClass::InvalidRequest response: status 400, message \"the request is invalid\", ErrorClass::InvalidRequest and retryable false; the constructor and class label are distinct occurrences."
+
+[row.r9-162.6]
+interface = "interface.9.err-rs-layerx-agentd-normalized-not-authorized"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/tenant/errors.rs"
+line = 268
+symbol = "not_authorized"
+evidence = "normalize defines code: \"not_authorized\" at line 268 for Missing or NotAuthorized: status 404, message \"the requested resource is unavailable\", ErrorClass::AccessDenied and retryable false; the earlier function is an InternalError constructor."
+
+[row.r9-162.7]
+interface = "interface.9.rs-client-ai-market-approval-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 928
+symbol = "Approval"
+evidence = "pub struct Approval at line 928 declares review: Review and key: [u8; 32]; the return type, construction and impl occurrences refer to this owner-approval type."
+
+[row.r9-162.8]
+interface = "interface.9.rs-client-ai-market-domainstatus-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 1209
+symbol = "DomainStatus"
+evidence = "pub enum DomainStatus at line 1209 declares Pending = 1 and Completed = 2; the impl, record field, accessor and decoding call use this AI job status type."
+
+[row.r9-162.9]
+interface = "interface.9.rs-client-ai-market-epochhistoryentry-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 1817
+symbol = "EpochHistoryEntry"
+evidence = "pub struct EpochHistoryEntry at line 1817 declares epoch, status: EpochStatus and source: Presence<HistoricalSource>; the later impl supplies its constructor and accessors."
+
+[row.r9-162.10]
+interface = "interface.9.rs-client-ai-market-epochstatus-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 1790
+symbol = "EpochStatus"
+evidence = "pub enum EpochStatus at line 1790 declares the six retention statuses from Retained through UnsupportedVersion; error payloads, history fields and variant comparisons reference this definition."
+
+[row.r9-162.11]
+interface = "interface.9.rs-client-ai-market-historicalsource-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 1808
+symbol = "HistoricalSource"
+evidence = "pub struct HistoricalSource at line 1808 declares snapshot, config, policy and roster; EpochHistoryEntry stores and returns this immutable earlier binding through Presence."
+
+[row.r9-162.12]
+interface = "interface.9.rs-client-ai-market-operationrecord-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 1262
+symbol = "OperationRecord"
+evidence = "pub struct OperationRecord at line 1262 declares the durable signed-operation record, including state, domain and signed_bytes; the signing return type, impl and journal methods reference this declaration."
+
+[row.r9-162.13]
+interface = "interface.9.rs-client-ai-market-operationstate-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 1170
+symbol = "OperationState"
+evidence = "pub enum OperationState at line 1170 declares the nine SDK lifecycle states from Prepared = 1 through Unknown = 9; transitions, errors and record fields use this definition."
+
+[row.r9-162.14]
+interface = "interface.9.rs-client-approval-sign-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 1128
+symbol = "sign"
+evidence = "impl Approval declares pub async fn sign at line 1128, consuming self with signer: &dyn Signer, _registry: &ModuleRegistry and authority_height: u64, returning Result<OperationRecord, AiClientError>; the earlier prose occurrence is not the method."
+
+[row.r9-162.15]
+interface = "interface.9.rs-client-operationrecord-decode-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 1419
+symbol = "decode"
+evidence = "impl OperationRecord declares pub fn decode(bytes: &[u8], _registry: &ModuleRegistry) -> Result<Self, AiClientError> at line 1419; the registered registry parameter is now named _registry and unused, while its type and return type are unchanged. Other decode occurrences are calls or documentation."
+
+[row.r9-162.16]
+interface = "interface.9.rs-client-operationrecord-encode-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 1390
+symbol = "encode"
+evidence = "impl OperationRecord declares pub fn encode(&self) -> Result<Vec<u8>, AiClientError> at line 1390 and serializes the durable record; the other encode occurrences invoke methods on native calls, records or policies."
+
+[row.r9-162.17]
+interface = "interface.9.rs-crypto-disclosure-envelope-sequence-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/disclosure.rs"
+line = 1044
+symbol = "envelope_sequence"
+evidence = "impl Disclosure declares pub const fn envelope_sequence(&self) -> u64 at line 1044, selecting the activity account sequence or call nonce; the encoder and test occurrences invoke it."
+
+[row.r9-162.18]
+interface = "interface.9.rs-crypto-disclosure-payload-sequence-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/disclosure.rs"
+line = 1053
+symbol = "payload_sequence"
+evidence = "impl Disclosure declares pub fn payload_sequence(&self) -> Result<Option<u64>, DisclosureError> at line 1053; call::payload_sequence occurrences are delegated calls and the encoder occurrence uses this method."
+
+[row.r9-162.19]
+interface = "interface.9.rs-crypto-disclosure-reencode-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/disclosure.rs"
+line = 1136
+symbol = "reencode"
+evidence = "impl Disclosure declares pub fn reencode(&self) -> Result<Vec<u8>, DisclosureError> at line 1136, validating fields before encoding an activity; the other occurrences call this method during validation or tests."
+
+[row.r9-162.20]
+interface = "interface.9.rs-crypto-disclosure-program-disclosedprogramdeploy"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/disclosure/program.rs"
+line = 148
+symbol = "DisclosedProgramDeploy"
+evidence = "pub struct DisclosedProgramDeploy at line 148 declares program_id, guest_abi, policy, new_hash, interface and wasm; its impl and the ProgramDeploy construction refer to this type."
+
+[row.r9-162.21]
+interface = "interface.9.rs-crypto-disclosure-program-disclosedprogramupgrade"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/disclosure/program.rs"
+line = 191
+symbol = "DisclosedProgramUpgrade"
+evidence = "pub struct DisclosedProgramUpgrade at line 191 declares program_id, guest_abi, old_hash, new_hash, migration_hook, clear_interface, interface and wasm; the impl and construction are separate uses."
+
+[row.r9-162.22]
+interface = "interface.9.rs-crypto-disclosure-program-disclosedprogramwinddown"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/disclosure/program.rs"
+line = 301
+symbol = "DisclosedProgramWindDown"
+evidence = "pub struct DisclosedProgramWindDown at line 301 declares program_id and operation: DisclosedProgramWindDownOperation; the later impl and ProgramWindDown construction use this definition."
+
+[row.r9-162.23]
+interface = "interface.9.rs-crypto-disclosure-program-disclosedprogramwinddownoperation"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/disclosure/program.rs"
+line = 279
+symbol = "DisclosedProgramWindDownOperation"
+evidence = "pub enum DisclosedProgramWindDownOperation at line 279 declares Route, Deprecate, Tombstone, Exit and BoundedExit; the wind-down field, conversion return type and variant uses reference this enum."
+
+[row.r9-162.24]
+interface = "interface.9.rs-crypto-evm-transaction-assemble-eip7702"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/evm_transaction.rs"
+line = 496
+symbol = "assemble_eip7702"
+evidence = "pub fn assemble_eip7702 at line 496 takes call: &Eip7702Call and signature: &AgentSignature and returns Result<Vec<u8>, EvmTransactionError>, matching the registered multiline signature; the remaining occurrences are test calls."
+
+[row.r9-162.25]
+interface = "interface.9.rs-crypto-evm-transaction-eip7702authorization"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/evm_transaction.rs"
+line = 390
+symbol = "Eip7702Authorization"
+evidence = "pub struct Eip7702Authorization at line 390 declares chain_id: u64, address: [u8; 20] and nonce: u64; its impl, SignedAuthorization field and test fixtures use this tuple type."
+
+[row.r9-162.26]
+interface = "interface.9.rs-crypto-evm-transaction-eip7702call"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/evm_transaction.rs"
+line = 436
+symbol = "Eip7702Call"
+evidence = "pub struct Eip7702Call at line 436 declares the unsigned set-code call, including fee fields, to, data and authorization_list; its impl, assembler parameter and test helper reference this type."
+
+[row.r9-162.27]
+interface = "interface.9.rs-crypto-evm-transaction-signedauthorization"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/evm_transaction.rs"
+line = 418
+symbol = "SignedAuthorization"
+evidence = "pub struct SignedAuthorization at line 418 declares authorization: Eip7702Authorization and signature: AgentSignature; its encoding impl, call authorization_list and test constructions are uses."
+
+[row.r9-162.28]
+interface = "interface.9.rs-crypto-send-disclosedenvelope-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/send.rs"
+line = 229
+symbol = "DisclosedEnvelope"
+evidence = "pub struct DisclosedEnvelope at line 229 declares envelope: UnsignedEnvelope, registry: ModuleRegistry, canonical: Vec<u8> and disclosure: Disclosure; encode_send_envelope returns and constructs this type."
+
+[row.r9-162.29]
+interface = "interface.9.rs-mcp-binding-binding"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/binding.rs"
+line = 536
+symbol = "Binding"
+evidence = "pub struct Binding at line 536 declares the validated binding document with mode, tenant, session and authority settings; DaemonInvocationError::Binding at line 530 is an enum variant and the later impl belongs to this struct."
+
+[row.r9-162.30]
+interface = "interface.9.rs-mcp-binding-daemoninvocationerror"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/binding.rs"
+line = 529
+symbol = "DaemonInvocationError"
+evidence = "pub enum DaemonInvocationError at line 529 declares Binding(BindingError) and Authority(crate::server::ServerError); invocation result types, refusals and map_err calls reference those variants."
