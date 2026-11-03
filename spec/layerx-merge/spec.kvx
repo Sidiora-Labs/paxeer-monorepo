@@ -138346,7 +138346,7 @@ do_6 = "Attempt 1 (requalify, gotcha 2955): the three proof tests spawn the Go p
 
 [task.22.99.154]
 title = "Repair the inventory sweep target layerx-bridge-relayer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -202949,7 +202949,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.108]
 title = "Inventory every Go package under consensus/ of the root module a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -203423,7 +203423,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.119]
 title = "Repair the inventory sweep target modules/spot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203641,7 +203641,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.112]
 title = "Repair the inventory sweep target modules/mint/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204520,7 +204520,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.35]
 title = "Repair the inventory sweep target tools/specgen"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
