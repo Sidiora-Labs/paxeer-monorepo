@@ -385,6 +385,9 @@ def refusal(function, *arguments):
 
 
 def self_test(catalogue):
+    settlement_document = json.loads((ROOT / "contracts/config/checkpoint-settlement.json").read_text())
+    check_equal(settlement_document["schema"], "layerx/checkpoint-settlement/1", "retained settlement schema")
+    check_equal(settlement_document["chain_id"], 125, "retained offline export chain")
     components = catalogue["components"]
     spec = (ROOT / "spec/layerx-merge/spec.kvx").read_text()
     required = set()

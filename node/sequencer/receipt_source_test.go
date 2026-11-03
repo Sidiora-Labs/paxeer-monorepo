@@ -13,6 +13,7 @@ import (
 func receiptSourceAcceptedSend(t *testing.T, height int64) (common.Hash, evmrpc.SequencerSend) {
 	t.Helper()
 	in := vectorInput()
+	in.PaymentDenom = "upax"
 	in.Accepted.Height = height
 	in.Accepted.ActivityID[0] ^= byte(height)
 	in.Accepted.SeqHash = expectedSeqHash(in.Accepted.PrevSeqHash, in.Accepted.Seq, in.Accepted.ActivityID)
@@ -207,6 +208,7 @@ func TestReceiptSourceEvictsOldestCommittedSendAtCapacity(t *testing.T) {
 
 	t.Run("insertion order breaks height ties", func(t *testing.T) {
 		in := vectorInput()
+		in.PaymentDenom = "upax"
 		in.Accepted.Height = 1
 		in.Accepted.ActivityID[0] ^= 0x80
 		in.Accepted.SeqHash = expectedSeqHash(in.Accepted.PrevSeqHash, in.Accepted.Seq, in.Accepted.ActivityID)

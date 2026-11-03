@@ -26,6 +26,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
+	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	chainskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/keeper"
 	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
@@ -249,6 +250,7 @@ func (c *seqReceiptChain9005) signReceipt9005(tx seqReceiptTx9005, seq uint64, p
 		EVM:               evm,
 		Operation:         2,
 		ReturnData:        tx.returnData,
+		PaymentDenom:      evmkeeper.BaseDenom,
 		FeeDenom:          seqReceiptFeeDenom9005,
 		FeeCharged:        seqReceiptFeeTotal9005,
 		Sponsor:           seqReceiptSponsor9005,
@@ -789,4 +791,38 @@ func TestSequencerReceiptForwardedFromFullNode(t *testing.T) {
 		testApp.TracerAnteHandler, chain.ctxProvider, func(int64) client.TxConfig { return TxConfig }, "", nil,
 		evmrpc.SequencerReceiptOption{Source: chain})
 	require.True(t, errors.Is(err, evmrpc.ErrSequencerReceiptOption))
+}
+
+func TestSequencerReceiptViewCarriesPaymentDenom(t *testing.T) {
+	chain := newSeqReceiptChain9005(t)
+	sender, recipient := occutils.NewSigner(), occutils.NewSigner()
+	producer := newPendingSequencer(t, 6, sender)
+	receipter, err := seqnode.NewReceipter(producer.exec, producer.app, &producer.app.EvmKeeper, chain.receiptKey, seqReceiptModuleID9005)
+	require.NoError(t, err)
+	accepted, signed, err := receipter.Accept(pendingTransfer(t, sender, 0, recipient.EvmAddress, big.NewInt(pendingOnePaxWei)))
+	require.NoError(t, err)
+	source := seqnode.NewReceiptSource(1)
+	hash := common.Hash(accepted.ActivityID)
+	source.Record(hash, evmrpc.SequencerSend{Receipt: signed, LogData: [][]byte{}})
+	port := startSeqReceiptServer9005(t, producer.app, chain.ctxProvider, evmrpc.SequencerReceiptOption{Source: source, Keeper: &chain.keeper})
+	fields, result, raw := seqReceiptResult9005(t, port, hash)
+	require.Equal(t, evmkeeper.BaseDenom, fields["paymentDenom"])
+	require.Equal(t, evmkeeper.BaseDenom, result.PaymentDenom)
+	require.Equal(t, evmkeeper.BaseDenom, fields["feeDenom"])
+	require.NoError(t, result.Verify())
+	for _, paymentDenom := range []any{nil, "", "different-payment-asset"} {
+		var changed map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(raw, &changed))
+		if paymentDenom == nil {
+			delete(changed, "paymentDenom")
+		} else {
+			changed["paymentDenom"], err = json.Marshal(paymentDenom)
+			require.NoError(t, err)
+		}
+		encoded, err := json.Marshal(changed)
+		require.NoError(t, err)
+		var decoded evmrpc.SequencerReceiptResult
+		require.NoError(t, json.Unmarshal(encoded, &decoded))
+		require.ErrorIs(t, decoded.Verify(), evmrpc.ErrSequencerReceiptMismatch)
+	}
 }
