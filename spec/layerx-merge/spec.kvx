@@ -103360,7 +103360,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.2.3]
 title = "Delete the kernel idempotency table and its journal staging"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 46
 requires = ["1.2.2", "1.25.1", "1.25.2", "1.0.4", "16.2.1", "1.2.4", "6.96.5", "22.25.4"]
@@ -103439,7 +103439,7 @@ do_11 = "Attempt 4: do_4 must not delete lxp_ctx_bridge_credit (src/protocol/lxp
 
 [task.1.2.5]
 title = "Delete the bridge reserve credit from the ledger apply layer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 46
 requires = ["1.2.4", "16.2.1", "16.97.1", "6.96.5", "1.19.3", "22.25.4"]
@@ -135548,7 +135548,7 @@ do_6 = "Attempt 6: TestReceiptKeysServedByTheNode returned an empty key list whi
 
 [task.22.9.27]
 title = "Answer an identical raw transaction resubmission with its known hash and unchanged receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.35", "22.25.1", "22.25.4"]
@@ -164001,7 +164001,7 @@ do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/co
 
 [task.22.24.21]
 title = "Close the open dependency advisories of the jvm manifests (8 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1", "18.1503.1"]
