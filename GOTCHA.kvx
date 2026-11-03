@@ -14055,3 +14055,38 @@ fix = "When a build command compiles test targets, every test file in the crate 
 title = "A security report's proof of concept is the verify test, written into the task before the fix"
 symptom = "Advisory fixes written from the report's prose alone were hard to qualify: the test had to be invented after the fix and tended to test the fix rather than the attack."
 fix = "Turn the reporter's reproduction into the named test in the task's verify (the delegatecall, the over-cap permit, the refused recipient, the closed position, the low-power majority, the delegate on the owner path, the rate-limited burst, the fee-token receipt, the replayed receipt) so the attack fails before the fix and passes after."
+
+[gotcha.2847]
+title = "A closure checker task fails until every follow-up task its inputs name is done, so those tasks are its requires"
+symptom = "The dispositions closure task ran at wave 6, passed its own tests and failed its verify on the live state of the dispositions: follow-up tasks pending, missing or pointing at a literal placeholder."
+fix = "A task whose verify reads the live specification state requires every task that state names and sits in a wave above all of them; its inputs (placeholders, missing ids, duplicate sections) are repaired in the specification, not in the checker."
+
+[gotcha.2848]
+title = "An appended finding section must not reuse an existing id"
+symptom = "qualification.kvx carried two identical [finding.1.21.1] sections; every parser that indexes findings by id refused the file."
+fix = "Before appending a finding, check the id is unused; a duplicate is removed as a specification edit."
+
+[gotcha.2849]
+title = "A transport entry restored for a retired operation needs its operation declaration too"
+symptom = "The drift test compares the transport operations of the agent API schema with the [operation.<name>] declarations; a task restored the retired faucet.claim transport entry without the declaration and the next task to touch the schema failed the drift test."
+fix = "Restore or add transport entries and operation declarations together; the drift test is the oracle for both."
+
+[gotcha.2850]
+title = "Node's strip-only TypeScript loader refuses constructor parameter properties"
+symptom = "A TypeScript source loaded directly by node --test used constructor parameter properties (private readonly in the parameter list) and node 24 refused it with ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX in strip-only mode."
+fix = "A .ts file that node loads without a build step declares its fields explicitly and assigns them in the constructor body; parameter properties, enums and namespaces need a build step."
+
+[gotcha.2851]
+title = "An in-repo Maven module must be installed before a dependent module can resolve it"
+symptom = "mvn dependency:resolve on an integration module failed with 'Could not find artifact' for the repository's own sdk artifact, because the local repository had no copy and no remote carries it."
+fix = "Run mvn install (tests skipped) of the in-repo module first, then resolve the modules that depend on it; put both into the same command."
+
+[gotcha.2852]
+title = "A match-arm repair must cite the variant list of the current main, not a planned one"
+symptom = "A do item named two enum variants that a later task was going to add; the attempt added arms for them and the build failed with E0599 because the enum on main did not declare them."
+fix = "Before writing a do item that names enum variants or fields, read the declaration on the current main; a repair that depends on a planned variant belongs to the task that adds the variant."
+
+[gotcha.2853]
+title = "A pinned dependency requirement blocks a lock-file raise"
+symptom = "A lock-file raise to a floored version failed silently: the manifest pinned the dependency with an exact requirement (=9.3.1), so the lock could not move without a manifest edit outside the task's touches."
+fix = "A floor task whose package is pinned exactly in a manifest includes that manifest in its touches, raises the requirement with the lock, and builds the crate that uses it."

@@ -146,6 +146,9 @@ defaults:
   run:
     working-directory: .
 
+permissions:
+  contents: read
+
 jobs:
   check:
     strategy:
