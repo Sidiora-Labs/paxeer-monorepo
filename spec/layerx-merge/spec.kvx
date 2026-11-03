@@ -124748,7 +124748,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1561.1]
 title = "Issue #1561: Prepare the codec replay corpus before agent vector tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132218,7 +132218,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.28]
 title = "Close the 18 dependency alerts of tools/wasm-tools/Cargo.lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
