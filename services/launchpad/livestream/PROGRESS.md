@@ -51,3 +51,16 @@ Fix (do NOT bump the repo baseline):
 - create stream name: `sidiora-<poolAddress[:10]>-<msTimestamp>`.
 - `MAX_STREAMS_PER_WALLET` default 3 → 429 when reached.
 - create returns `{id, streamKey, rtmpUrl, playbackUrl, playbackId}`.
+
+## Inventory sweep qualification (decision 2496)
+
+The inventory repair uses `go vet ./...` and
+`go test -count=1 -run NoTestMatchesThisName ./...` to compile every test.
+This gate does not execute the full suite or qualify provider integrations.
+
+The full suite requires dedicated PostgreSQL and Redis fixtures, a chain-125
+RPC, real TLS Vault transit, admitted Livepeer operations and a registered
+playback webhook, and an approved media measurement manifest with its SHA256.
+The lifecycle proof also starts PostgreSQL and Redis executables directly.
+The exact test names and their producer inputs are recorded in
+`spec/layerx-merge/programme/sweeps/repairs/go-launchpad-modules-2.4.kvx`.

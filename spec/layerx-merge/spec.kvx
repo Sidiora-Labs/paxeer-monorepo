@@ -8127,6 +8127,18 @@ value = "When a producer-generated corpus grows (a new sequencer receipt case) o
 basis = "22.99.28 attempt 2: eleven hardcoded cases against a twelve-case corpus (22.25.3), vector-v5-portable embeds a V1-pax-transfer receipt copy predating 22.23.8; 22.99.35 attempt 2: four generated pointer outputs stale."
 affects = ["22.99.28", "22.99.35"]
 
+[decision.2503]
+title = "Live-node proof tests reached through a path include are isolated once by the task that owns the included file"
+value = "When a crate's test target includes another crate's proof source through a path attribute and that source requires the live local node (LOCAL_NODE_RPC), the sweep repair of the including crate requires the task that isolates the live-node tests in the owning crate (18.1578.1 for layerx-agentd tests/proof_serve_errors.rs) instead of excluding or editing the included tests itself. Deterministic failures in the including crate's own tests stay in the repair."
+basis = "22.99.51 attempt 2: serve_http::proof tests of layerx-agentd-host panic at proof_serve_errors.rs:708 real local node required; two healthz route tests fail deterministically with 503."
+affects = ["22.99.51", "18.1578.1"]
+
+[decision.2504]
+title = "Sweep-record header counts are derived from the target blocks and corrected by the task that holds the record"
+value = "A sweep record's targets_total, targets_passed, targets_failed and targets_not_run must equal the counts of its target blocks; the summary generator refuses a mismatch. The task whose scope holds the record recomputes the header from the blocks and never edits a block to fit a header. A repository guard that retired code stays removed is a deterministic defect repaired in the tree it guards, except a guard whose retirement awaits an owner decision, which is deselected by name and recorded."
+basis = "18.1575.1 attempt 2: go-consensus.kvx targets_passed 161 against 162 passed blocks; 22.99.92 attempt 1: ten repository guards fail, one of them the bridge-credit retirement awaiting decision 2438."
+affects = ["18.1575.1", "22.99.92"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -123744,7 +123756,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.42]
 title = "Close the 3 dependency alerts of apps-explorer-2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129170,6 +129182,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue from attempt 1): the requalification shows the guest still above 520192 bytes under opt-level z. Measure with the stat of verify_cmd and write the byte count into the task record before and after each reduction; reduce inside the crate only (SDK hashing import instead of sha2 if available, no formatting or panic-message paths, shared codecs, no generic monomorphisation); the workspace release profile stays unchanged."
 
 [task.22.96.37]
 title = "Restore the wasm-tools Cargo lock and the playground npm lock"
@@ -136611,7 +136624,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.88]
 title = "Re-sweep the not-run targets of the rust-test-human inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -136700,7 +136713,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.102]
 title = "Repair the hosted PaxAI service test target of the platform test sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136883,7 +136896,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.75]
 title = "Repair the inventory sweep target layerx-programs-registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136914,7 +136927,7 @@ do_4 = "Decision 2496 (continue): the tests native_receipt_authorized_interface_
 
 [task.22.99.74]
 title = "Repair the inventory sweep target layerx-program-sdk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -136987,7 +137000,7 @@ do_1 = "Decision 2492: the inventory sweep rust-test-platform (spec/layerx-merge
 do_2 = "If the defect lies in a file outside the task's paths, stop and report the exact path and the failing output instead of editing it. If the recorded failure no longer reproduces on the current main line, no product change is made and the repair record says so."
 do_3 = "Write spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.11.kvx with one block [repair.rust-test-platform.11] holding target (the recorded target), command (the recorded command as run), revision (the 40-hex commit of main the verify passed at), result (repaired or already-passing) and change (one sentence naming the files changed, or none). Product facts only; no names of people, nothing about how or where work is executed. The sweep record itself is left unchanged; a later inventory pass re-records it."
 symbols = []
-touches = ["services/platform/hosted/gateway", "spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.11.kvx"]
+touches = ["services/platform/hosted/gateway", "spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.11.kvx", "services/platform/Cargo.lock"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.11.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
@@ -137005,6 +137018,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2496 (continue): the tests real_core_and_identity_readiness_contract, real_gateway_readiness_capabilities_contract, payment_facts_cross_real_tls_and_refuse_foreign_principals_without_losing_the_outbox are qualified by their producer inputs and are excluded by name from the verify; list each in the repair record as producer_input_tests with the input it needs. Every other failure the recorded command exposes is a defect to repair inside the task's paths; none may be excluded."
 do_5 = "Attempt 1 (continue): besides the three excluded tests the recorded command exposes deterministic failures to repair: chain_only_readiness_omits_kernel_backends, readyz_reports_the_consensus_endpoint, platform_completion_retired_surfaces_absent, native_generated_registry_admits_exactly_the_closed_protocol_module_set, px_request_funds_uses_the_claim_path and settle_binds_a_real_receipt_and_refuses_every_tampered_field (main.rs:4870)."
+do_6 = "Attempt 3 (continue): gotcha 2948. The attempt-2 manifest adds layerx-platform-authority and signal-hook =0.3.18; services/platform/Cargo.lock is now in the edit scope. Refresh only the entries that manifest needs (cargo update -p signal-hook --precise 0.3.18 in services/platform, or one build without --locked), commit the lock with the repair and run verify_cmd as written."
 
 [task.22.99.71]
 title = "Repair the inventory sweep target layerx-platform-paxeer-boundary"
@@ -137101,7 +137115,7 @@ do_5 = "Attempts 1 and 2 (continue): torn_tail_is_recovered_but_terminated_corru
 
 [task.22.99.68]
 title = "Repair the inventory sweep target x-websearch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137315,10 +137329,11 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1 (continue): committed_vectors.rs:394-397 checks provenance.sourceSha256 of services/interop/specs/conformance/committed/vector-v4-committed.json against the digest of daemon/committed-fixture/vectors/vector-v4-committed.json; the record declares dc364da8 while the recording hashes to 34e9f6ab. Regenerate the record from the recording with the crate's recorder (digest and every dependent field), commit it (now inside the task's paths) and keep the test unchanged."
+do_5 = "Attempt 2 (continue): decision 2502. The receipted fixture carries five V1 cases since 22.25.3 added the accepted Programs call case; tests/receipted.rs:318 (all recorded V1 cases must execute) and :377 (all recorded V1 operations must be checked) hardcode four. Take the expected count from the fixture case list, keep the regenerated vector-v4-committed.json and the paymentDenom binding of attempt 2, and run verify_cmd as written."
 
 [task.22.99.61]
 title = "Repair the inventory sweep target layerx-mirror"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -137349,7 +137364,7 @@ do_4 = "Attempt 1 (continue): the dependent-crate check failed only on the human
 
 [task.22.99.60]
 title = "Repair the inventory sweep target layerx-portable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -137380,7 +137395,7 @@ do_4 = "Attempt 1 (continue): the dependent-crate check failed only on the human
 
 [task.22.99.59]
 title = "Repair the inventory sweep target layerx-interop-gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -137441,7 +137456,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.57]
 title = "Repair the inventory sweep target layerx-network-gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -137629,7 +137644,7 @@ title = "Repair the inventory sweep target layerx-agentd-host"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.95.11"]
+requires = ["22.95.11", "18.1578.1"]
 reqs = ["22998.1"]
 capabilities = ["22.99.51"]
 interfaces = []
@@ -137637,7 +137652,7 @@ do_1 = "Decision 2492: the inventory sweep rust-test-agent (spec/layerx-merge/pr
 do_2 = "If the defect lies in a file outside the task's paths, stop and report the exact path and the failing output instead of editing it. If the recorded failure no longer reproduces on the current main line, no product change is made and the repair record says so."
 do_3 = "Write spec/layerx-merge/programme/sweeps/repairs/rust-test-agent.10.kvx with one block [repair.rust-test-agent.10] holding target (the recorded target), command (the recorded command as run), revision (the 40-hex commit of main the verify passed at), result (repaired or already-passing) and change (one sentence naming the files changed, or none). Product facts only; no names of people, nothing about how or where work is executed. The sweep record itself is left unchanged; a later inventory pass re-records it."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd-host", "spec/layerx-merge/programme/sweeps/repairs/rust-test-agent.10.kvx"]
+touches = ["services/agent/crates/layerx-agentd-host", "spec/layerx-merge/programme/sweeps/repairs/rust-test-agent.10.kvx", "services/agent/crates/layerx-agentd/host-tests"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/rust-test-agent.10.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --tests"
@@ -137654,6 +137669,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1 (continue): the recorded failure (tests/proof_serve_errors.rs:708, LOCAL_NODE_RPC) belongs to layerx-agentd, not this crate, and the human service break is repaired by 22.95.11 (required). Run the recorded command for this crate, repair what fails inside it and record the result."
+do_5 = "Attempt 2 (continue): decision 2503. The serve_http::proof tests (and their daemon duplicates) include layerx-agentd tests/proof_serve_errors.rs by path and need the live node; task 18.1578.1 isolates them and is now required, so do not exclude or edit them. The two healthz tests of host-tests/serve_routes.rs are deterministic defects: with the NodePeer fixture set ready the route service still answers 503; compare the readiness probe of layerx-agentd-host (chain id 125, the ready state it requires) with what NodePeer serves and repair the probe or the fixture (host-tests is now in the edit scope). Then run verify_cmd as written."
 
 [task.22.99.50]
 title = "Repair the inventory sweep target layerx-sdk"
@@ -137720,7 +137736,7 @@ do_4 = "Attempt 1 (continue): the dependent-crate check failed only on the human
 
 [task.22.99.48]
 title = "Repair the inventory sweep target layerx-proof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -137752,7 +137768,7 @@ do_5 = "Attempt 1 (continue): go_signed_positive_and_revert_receipts_verify_with
 
 [task.22.99.47]
 title = "Repair the inventory sweep target layerx-wire"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -137783,7 +137799,7 @@ do_4 = "Attempt 1 (continue): the dependent-crate check failed only on the human
 
 [task.22.99.46]
 title = "Repair the inventory sweep target layerx-types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -137845,7 +137861,7 @@ do_4 = "Attempt 1 (continue): the crate does not build because the vendored wasm
 
 [task.22.99.44]
 title = "Repair the rust-build-explorer-verifier inventory sweep targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137907,7 +137923,7 @@ do_3 = "Attempt 1 (continue): the dependent-crate check failed only on the human
 
 [task.18.1572.1]
 title = "Issue #1572: Verify the custody integration fixture binds its signing preparation to the call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.95.11"]
@@ -138053,7 +138069,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.97.10]
 title = "Record the wasm-instrument build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -138062,7 +138078,7 @@ capabilities = ["22.97.10"]
 interfaces = []
 do_1 = "Decision 2473: wasm-instrument (programs/vendor/wasm-instrument) builds a native dependency through cmake. Build it with cmake on PATH (the task's verify) and update [target.rust-build-programs.19] of spec/layerx-merge/programme/sweeps/rust-build-programs.kvx with the result, exit code and the 40-hex revision; if the build fails with cmake present, record the first error in observed."
 symbols = []
-touches = ["spec/layerx-merge/programme/sweeps/rust-build-programs.kvx", "programs/vendor/wasm-instrument/Cargo.toml", "programs/vendor/wasm-instrument/src/gas_metering/validation.rs", "programs/Cargo.lock"]
+touches = ["spec/layerx-merge/programme/sweeps/rust-build-programs.kvx", "programs/vendor/wasm-instrument/Cargo.toml", "programs/vendor/wasm-instrument/src/gas_metering/validation.rs", "programs/Cargo.lock", "programs/vendor/wasm-instrument/src/gas_metering/mod.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo metadata --locked --manifest-path programs/Cargo.toml --format-version 1 >/dev/null"
@@ -138079,6 +138095,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_2 = "Decision 2481 (attempt 4, 399c35e72, continue): the verify fails inside the binaryen-sys 0.12.0 build script because its bundled binaryen declares a CMake minimum below 3.5 and CMake 4 refuses it; cmake being installed does not help. Remove the binaryen entry from the dev-dependencies of programs/vendor/wasm-instrument/Cargo.toml; in programs/vendor/wasm-instrument/src/gas_metering/validation.rs replace the translate_to_fuzz_mvp generator of test_build_control_flow_graph with modules parsed by wat::parse_str from at least eight fixed wat texts covering blocks, loops, br, br_if, br_table, if-else, call and return, keeping the loop that meters each module and asserts validate_metering_injections, and keeping the fixed SplitMix64 generator state constant only if it is still used; then run cargo metadata --manifest-path programs/Cargo.toml --format-version 1 without --locked once so programs/Cargo.lock drops binaryen, binaryen-sys and the packages only they used (cmake stays only if another package needs it), and commit the lock. Then run the verify and update [target.rust-build-programs.19] of spec/layerx-merge/programme/sweeps/rust-build-programs.kvx with result, exit_code, the 40-hex revision, an observed sentence naming the dropped test dependency and an assumption that names the qualification environment and no hosting environment. All three product files and the lock are in scope."
+do_3 = "Attempt 6 (continue): gotcha 2947. src/gas_metering/mod.rs is now in the edit scope. The two LayerX helper-sequence tests of its test module (memory grow at about line 1643 and memory copy at about line 1688) use DynamicHelper and add_dynamic_helpers, which exist only under the bulk feature: add the same bulk feature attribute to those two tests (and any other test using bulk-only items), leave the default features unchanged, record the build result in the sweep record and run verify_cmd as written."
 
 [task.22.97.9]
 title = "Record the verifier proto crate build"
@@ -139561,7 +139578,7 @@ do_7 = "Attempt 4 (continue): the test build fails in tests/w7_core_time.rs (lin
 
 [task.9.35.18]
 title = "Hold approvals over the unsigned EIP-1559 call and replay them through bind_call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["9.35.17"]
@@ -145945,7 +145962,7 @@ do_1 = "Decision 2492: the inventory sweep go-sdk-modules (spec/layerx-merge/pro
 do_2 = "If the defect lies in a file outside the task's paths, stop and report the exact path and the failing output instead of editing it. If the recorded failure no longer reproduces on the current main line, no product change is made and the repair record says so."
 do_3 = "Write spec/layerx-merge/programme/sweeps/repairs/go-sdk-modules.5.kvx with one block [repair.go-sdk-modules.5] holding target (the recorded target), command (the recorded command as run), revision (the 40-hex commit of main the verify passed at), result (repaired or already-passing) and change (one sentence naming the files changed, or none). Product facts only; no names of people, nothing about how or where work is executed. The sweep record itself is left unchanged; a later inventory pass re-records it."
 symbols = []
-touches = ["services/wallet/attestor", "spec/layerx-merge/programme/sweeps/repairs/go-sdk-modules.5.kvx"]
+touches = ["services/wallet/attestor", "spec/layerx-merge/programme/sweeps/repairs/go-sdk-modules.5.kvx", "services/wallet/deploy/attestor-policy.json"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/go-sdk-modules.5.kvx"]
 build_cmd = "cd services/wallet/attestor && go vet ./..."
@@ -145962,6 +145979,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue): decision 2501. TestProofS28WalletAttestorsTss (needs the installed TypeScript consumer dependencies) and TestXweb0x1019ApplicationPolicy (needs the xweb-proof-calldata flag the application proof passes) are producer inputs excluded by name in verify_cmd; list both under producer_input_tests in the repair record. The four remaining policy failures are deterministic and in scope (services/wallet/attestor is the edit scope): for each of TestTypedDataChainPinned, TestShippedPolicyListsSendAuthorizationKind, TestShippedPolicyAllowsWalletSDKWrites and TestShippedPolicyAllowsLaunchpadApproveThenBuy find with git log -S the commit that changed the behaviour the assertion encodes (permit verifying-contract requirement, lx_activity in the shipped default kinds, the perps precompile selector set, approve to an unlisted spender). Where that commit belongs to a qualified task that intended the change, align the assertion to the shipped policy and cite the task id in the repair record; otherwise restore the policy behaviour. Do not exclude these four tests."
+do_5 = "Attempt 3 (continue from attempt 2): the four shipped-policy assertions load services/wallet/deploy/attestor-policy.json, now in the edit scope; apply the decision-2501 ruling to that document or to the assertions, cite the task that intended each change, and carry the attempt-2 repairs of TestAccountIDsMatchRustAndChain, TestFiveNodeEndToEnd, TestNativeCustodyRealProfiles and TestNativeSendPurposeRealProfiles."
 
 [task.22.99.30]
 title = "Repair the inventory sweep target sdk/launchpad/shared"
@@ -146089,7 +146107,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.15]
 title = "Repair the inventory sweep target services/launchpad/trading-charts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146151,7 +146169,7 @@ do_4 = "Decision 2496 (continue): the module's tests are bound to inputs the qua
 
 [task.22.99.13]
 title = "Repair the inventory sweep target services/launchpad/social"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146242,7 +146260,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.10]
 title = "Repair the inventory sweep target services/launchpad/ranking-algo"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146274,7 +146292,7 @@ do_5 = "Attempt 1 (continue): app_test.go:233 opens core/indexer/migrations/0000
 
 [task.22.99.9]
 title = "Repair the inventory sweep target services/launchpad/pnl-tracker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146365,7 +146383,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.6]
 title = "Repair the inventory sweep target services/launchpad/metadata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146396,7 +146414,7 @@ do_4 = "Decision 2496 (continue): the module's tests are bound to inputs the qua
 
 [task.22.99.5]
 title = "Repair the inventory sweep target services/launchpad/livestream"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146427,7 +146445,7 @@ do_4 = "Decision 2496 (continue): the module's tests are bound to inputs the qua
 
 [task.22.99.4]
 title = "Repair the inventory sweep target services/launchpad/indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146458,7 +146476,7 @@ do_4 = "Decision 2496 (continue): the module's tests are bound to inputs the qua
 
 [task.22.99.3]
 title = "Repair the inventory sweep target services/launchpad/gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146490,7 +146508,7 @@ do_5 = "Attempt 1 (continue): the tests of internal/app, internal/storage, inter
 
 [task.22.99.2]
 title = "Repair the inventory sweep target services/launchpad/api"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200003,7 +200021,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.100]
 title = "Repair the kernel make target test-mcp-binding-receipt-keys of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200033,7 +200051,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.99]
 title = "Repair the kernel make target test-journal of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200063,7 +200081,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.98]
 title = "Repair the kernel make target test-storage of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.97"]
@@ -200093,7 +200111,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.97]
 title = "Repair the kernel make target test-log of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200153,7 +200171,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.95]
 title = "Repair the kernel make target test-contract-state-surface of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200183,7 +200201,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.94]
 title = "Repair the kernel make target test-state-commitment-transition of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200213,7 +200231,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.93]
 title = "Repair the kernel make target test-state-root of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200258,7 +200276,7 @@ touches = ["spec/layerx-merge/programme/sweeps/repairs/c-kernel-make.5.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/c-kernel-make.5.kvx", "src", "include", "tests", "contracts", "scripts/ci", "Makefile"]
 build_cmd = "python3 -c 'import pytest' || python3 -m pip install -q --break-system-packages pytest"
-verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/c-kernel-make.5.kvx && make -s test-tests-python"
+verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/c-kernel-make.5.kvx && python3 -m pytest -q tests/ci/test_real_node_build_ownership.py tests/ci/test_runner_routing_container_runtime.py tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci --deselect tests/ci/test_kernel_suite_retired_uses.py::test_no_bridge_credit_apply_caller"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-kernel"
@@ -200270,10 +200288,11 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 1 (continue): decision 2504. verify_cmd now runs the same file list as make test-tests-python and deselects test_no_bridge_credit_apply_caller, whose retirement awaits the owner decision of issue #1540 (decision 2438); record it under producer_input_tests with that reason. The other nine failing guards are deterministic: remove the stale retired reference each one names (claims and replay root callers, queue disposition codec case, kernel test rule codec primitives, replay crossarch, checkpoint and library suites, state withdraw web) in src, include, tests, contracts and scripts/ci, set the Makefile chain domain to the merged-chain golden, and where a guard contradicts another test the retirement guard wins and the other test is updated; cite each guard and the change in the repair record."
 
 [task.22.99.86]
 title = "Re-sweep the not-run targets of the go-precompiles inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200302,7 +200321,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.85]
 title = "Re-sweep the not-run targets of the go-node inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200331,7 +200350,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.84]
 title = "Re-sweep the not-run targets of the go-modules inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200389,7 +200408,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.81]
 title = "Re-sweep the not-run targets of the c-kernel-make inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -235807,7 +235826,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.42]
 title = "Repair the inventory sweep target tests/agent/sdk/python"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.98.3"]
@@ -235908,7 +235927,7 @@ interfaces = []
 do_1 = "Decision 2490 (triage record spec/layerx-merge/programme/issues/1575.kvx, verdict task): sweeps_summary.py:134-137 accepts only passed, failed and not_run while the sweep records also use no_tests; accept no_tests as a result with its own count (targets_no_tests) in the summary. The header of sweeps/rust-build-explorer-verifier.kvx states targets_passed 2 and targets_failed 3 while its target blocks hold 3 passed and 2 failed; correct the header to the target blocks. Restrict the summary's record enumeration to the sweep files directly under the sweeps directory (not its subdirectories, which hold repair records)."
 do_2 = "Regenerate spec/layerx-merge/programme/sweeps/summary.kvx with the corrected tool; the verify is the summary run itself."
 symbols = []
-touches = ["spec/layerx-merge/programme/sweeps_summary.py", "spec/layerx-merge/programme/sweeps/rust-build-explorer-verifier.kvx", "spec/layerx-merge/programme/sweeps/summary.kvx"]
+touches = ["spec/layerx-merge/programme/sweeps_summary.py", "spec/layerx-merge/programme/sweeps/rust-build-explorer-verifier.kvx", "spec/layerx-merge/programme/sweeps/summary.kvx", "spec/layerx-merge/programme/sweeps/go-consensus.kvx"]
 tests = []
 planned_paths = []
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/sweeps_summary.py"
@@ -235925,6 +235944,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 1 (continue): the summary fails on c-kernel-make blocks 85 and 86, failed without an assumption. Decision 2497: the generator accepts a missing assumption on a not_run block and requires one on a failed block; task 22.99.81 (required) fills the c-kernel-make assumptions. Rerun the generator and commit the summary."
+do_4 = "Attempt 2 (continue): decision 2504, gotcha 2949. go-consensus.kvx is now in the edit scope: recompute its header counts from the 162 target blocks (targets_passed 162, targets_failed 0, targets_not_run 0) without editing any block, then run verify_cmd as written."
 
 [task.18.1573.1]
 title = "Issue #1573: Update the gateway renderer self-test for the split x402 vector suites"

@@ -29,13 +29,36 @@ pub async fn compile_using_cli(
         .map_err(|err| SolcError::Io(SolcIoError::new(err, compiler_path)))?;
 
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    let compiler_output = if output.stderr.is_empty() {
-        let output_json: types::OutputJson = serde_json::from_slice(output.stdout.as_slice())?;
-        solc::CompilerOutput::try_from(types::ConvertibleOutput {
+    let compiler_output = if output.status.success() && !output.stdout.is_empty() {
+        let output_json: serde_json::Value = serde_json::from_slice(output.stdout.as_slice())?;
+        if output_json.get("contracts").is_none() {
+            return Ok(solc::CompilerOutput {
+                errors: vec![compiler_error(format!(
+                    "Compiler produced no contracts: {stderr}"
+                ))],
+                sources: BTreeMap::new(),
+                contracts: BTreeMap::new(),
+            });
+        }
+        let output_json: types::OutputJson = serde_json::from_value(output_json)?;
+        if output_json.contracts.is_empty() {
+            return Ok(solc::CompilerOutput {
+                errors: vec![compiler_error(stderr)],
+                sources: BTreeMap::new(),
+                contracts: BTreeMap::new(),
+            });
+        }
+        let mut compiler_output = solc::CompilerOutput::try_from(types::ConvertibleOutput {
             output_json,
             parent_dir: input_files.files_dir.path(),
             file_names: input_files.file_names,
-        })?
+        })?;
+        if !stderr.is_empty() {
+            let mut warning = compiler_error(stderr);
+            warning.severity = solc::Severity::Warning;
+            compiler_output.errors.push(warning);
+        }
+        compiler_output
     } else {
         solc::CompilerOutput {
             errors: vec![compiler_error(stderr)],
@@ -581,6 +604,24 @@ mod tests {
             let expected_names = HashSet::from_iter(["A".into()]);
             assert_eq!(names, expected_names);
 
+            let input = SolcInput(solc::SolcInput {
+                language: solc::SolcLanguage::Solidity,
+                sources: solc::Sources(BTreeMap::from_iter([source(
+                    "main.sol",
+                    "contract A { function get_a() public returns (uint256) { return 1; } }",
+                )])),
+                settings: solc::Settings::default(),
+            });
+            let output = compile_using_cli(&solc, &input)
+                .await
+                .expect("should compile contracts with warnings");
+            assert!(!output.has_error(), "{:?}", output.errors);
+            assert!(output.errors.iter().any(|error| {
+                error.severity == solc::Severity::Warning
+                    && error.message.contains("compiler version")
+            }));
+            assert!(output.contracts[Path::new("main.sol")].contains_key("A"));
+
             for sources in [
                 BTreeMap::from_iter([source("main.sol", "")]),
                 BTreeMap::from_iter([source("main.sol", "some string")]),
@@ -594,6 +635,7 @@ mod tests {
                     .await
                     .expect("shouldn't return Err, but Ok with errors field");
                 assert!(output.has_error());
+                assert!(output.contracts.is_empty());
             }
 
             let input = SolcInput(solc::SolcInput {

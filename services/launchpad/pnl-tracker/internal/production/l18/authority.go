@@ -466,7 +466,7 @@ func (a *Attribution) command(ctx context.Context, actor, request, operation str
 	if e != nil {
 		return nil, e
 	}
-	if _, e = tx.Exec(ctx, `INSERT INTO l18_referral_requests(actor,request_id,operation,digest,response) VALUES($1,$2,$3,$4,$5)`, who, request, operation, digest, response); e != nil {
+	if e = tx.QueryRow(ctx, `INSERT INTO l18_referral_requests(actor,request_id,operation,digest,response) VALUES($1,$2,$3,$4,$5) RETURNING response`, who, request, operation, digest, response).Scan(&response); e != nil {
 		return nil, e
 	}
 	if e = emit(ctx, tx, "referral-command:"+who+":"+request, "referral."+operation, struct {

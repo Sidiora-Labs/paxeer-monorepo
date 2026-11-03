@@ -1,0 +1,16 @@
+[repair.rust-test-platform.15]
+target = "layerx-paxai-worker"
+command = "cargo test --locked --manifest-path services/platform/hosted/paxai-w*/Cargo.toml --no-fail-fast -- --skip _real_"
+revision = "941a534da2c8216895b0b3b873a44e5f013021bc"
+result = "repaired"
+change = "The real workload TLS worker fixture supplies every required service configuration field, isolated membership and job storage, and the built runner executable; startup diagnostics are retained. Test bodies and assertions are unchanged. Decisions 2496 and 2501 assign the eight tests matching _real_ to the provisioning producer."
+producer_input_tests = [
+    "a05_real_runner_executes_once_across_replicas (tests/job_recovery.rs) requires PAXAI_RUNNER to name a provisioned real PAXRUN1 model runner executable with pinned model artifacts and durable runner state.",
+    "a09_real_runner_lookup_resolves_after_restart (tests/job_recovery.rs) requires PAXAI_RUNNER to name a provisioned real PAXRUN1 model runner executable with durable state that survives runner restart and supports lookup of the completed execution.",
+    "a08_a11_real_inference_workload_end_to_end (tests/real_workload.rs) requires PAXAI_REAL_WORKLOAD to name a Provisioned JSON document with the real runner, licensed inference and embedding artifact pins, encrypted payloads, expected output digests and usage, deployment binding, and durable store.",
+    "a08_a11_real_embedding_workload_end_to_end (tests/real_workload.rs) requires PAXAI_REAL_WORKLOAD to name a Provisioned JSON document with the real runner, licensed inference and embedding artifact pins, encrypted payloads, expected output digests and usage, deployment binding, and durable store.",
+    "a08_real_output_above_the_requested_bound_fails_without_output (tests/real_workload.rs) requires PAXAI_REAL_WORKLOAD to name a Provisioned JSON document with the real runner, licensed inference and embedding artifact pins, encrypted payloads, expected output digests and usage, deployment binding, and durable store.",
+    "a17_real_single_dispatch_and_late_commit_refusal (tests/real_workload.rs) requires PAXAI_REAL_WORKLOAD to name a Provisioned JSON document with the real runner, licensed inference and embedding artifact pins, encrypted payloads, expected output digests and usage, deployment binding, and durable store.",
+    "a15_real_expired_metadata_keeps_the_admitted_model_binding (tests/real_workload.rs) requires PAXAI_REAL_WORKLOAD to name a Provisioned JSON document with the real runner, licensed inference and embedding artifact pins, encrypted payloads, expected output digests and usage, deployment binding, and durable store.",
+    "a19_real_revoked_delegate_keeps_completed_evidence_and_evaluator_samples (tests/real_workload.rs) requires PAXAI_REAL_WORKLOAD to name a Provisioned JSON document with the real runner, licensed inference and embedding artifact pins, encrypted payloads, expected output digests and usage, deployment binding, and durable store."
+]

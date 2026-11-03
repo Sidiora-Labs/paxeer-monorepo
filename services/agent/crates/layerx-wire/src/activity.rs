@@ -395,16 +395,19 @@ fn activity_from_unsigned(envelope: &UnsignedEnvelope) -> Activity {
 }
 
 #[cfg(test)]
+#[path = "../tests/support/corpus.rs"]
+mod replay_corpus;
+
+#[cfg(test)]
 mod replay_registry_tests {
     use super::*;
     use layerx_types::payload::{ModuleId, ModuleRegistration};
-    use layerx_types::vectors::Corpus;
     use std::path::Path;
 
     #[test]
     fn replay_registry_tracks_kernel_budget_and_stream_declarations() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
-        let corpus = Corpus::load(&root).unwrap_or_else(|error| panic!("{error:?}"));
+        let corpus = replay_corpus::load(&root).unwrap_or_else(|error| panic!("{error:?}"));
         let budget = std::fs::read_to_string(root.join("include/layerx/lx_budget.h"))
             .unwrap_or_else(|error| panic!("{error}"));
         let stream = std::fs::read_to_string(root.join("include/layerx/lx_stream.h"))
