@@ -93,10 +93,11 @@ type HTTPServer struct {
 	timeouts rpc.HTTPTimeouts
 	mux      http.ServeMux // registered handlers go here
 
-	mu       sync.Mutex
-	server   *http.Server
-	listener net.Listener // non-nil when server is running
-	onStop   []func()
+	mu        sync.Mutex
+	server    *http.Server
+	listener  net.Listener // non-nil when server is running
+	serveDone chan struct{}
+	onStop    []func()
 
 	// HTTP RPC handler things.
 
@@ -187,8 +188,12 @@ func (h *HTTPServer) Start() error {
 		return err
 	}
 	h.listener = listener
+	server := h.server
+	done := make(chan struct{})
+	h.serveDone = done
 	go func() {
-		if err := h.server.Serve(listener); !errors.Is(err, http.ErrServerClosed) {
+		defer close(done)
+		if err := server.Serve(listener); !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("server stopped erroneously", "err", err)
 		}
 	}()
@@ -366,11 +371,13 @@ func (h *HTTPServer) doStop() {
 	}
 
 	_ = h.listener.Close()
+	<-h.serveDone
 	logger.Info("HTTP server stopped", "endpoint", h.listener.Addr())
 
 	// Clear out everything to allow re-configuring it later.
 	h.host, h.port, h.endpoint = "", 0, ""
 	h.server, h.listener = nil, nil
+	h.serveDone = nil
 }
 
 // EnableRPC turns on JSON-RPC over HTTP on the server.
