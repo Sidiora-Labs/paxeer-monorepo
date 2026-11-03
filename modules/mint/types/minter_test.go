@@ -9,7 +9,6 @@ import (
 
 	epochTypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/epoch/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/stretchr/testify/require"
 )
@@ -471,17 +470,17 @@ func TestLastMintAmountCoinAboveInt64(t *testing.T) {
 }
 
 func TestRecordSuccessfulMint(t *testing.T) {
+	currentTime := time.Date(2023, 4, 1, 12, 0, 0, 0, time.UTC)
 	minter := types.NewMinter(
-		time.Now().Format(types.TokenReleaseDateFormat),
-		time.Now().Add(time.Hour*24*10).Format(types.TokenReleaseDateFormat),
+		currentTime.Format(types.TokenReleaseDateFormat),
+		currentTime.AddDate(0, 0, 10).Format(types.TokenReleaseDateFormat),
 		sdk.DefaultBondDenom,
 		1000,
 	)
-	app := app.Setup(t, false, false, false)
-	ctx := app.BaseApp.NewContext(false, tmproto.Header{})
-	currentTime := time.Now().UTC()
+	ctx := sdk.NewContext(nil, tmproto.Header{}, false)
 
 	epoch := epochTypes.Epoch{
+		CurrentEpoch:          7,
 		CurrentEpochStartTime: currentTime,
 		CurrentEpochHeight:    100,
 	}
@@ -492,6 +491,18 @@ func TestRecordSuccessfulMint(t *testing.T) {
 	if minter.GetRemainingMintAmount() != 900 {
 		t.Errorf("Remaining mint amount was incorrect, got: %d, want: %d.", minter.GetRemainingMintAmount(), 900)
 	}
+	require.Equal(t, uint64(1000), minter.GetTotalMintAmount())
+	require.Equal(t, uint64(100), minter.GetLastMintAmount())
+	require.Equal(t, uint64(100), minter.GetLastMintHeight())
+	require.Equal(t, "2023-04-01", minter.GetLastMintDate())
+	require.Equal(t, sdk.Events{
+		sdk.NewEvent(
+			types.EventTypeMint,
+			sdk.NewAttribute(types.AttributeMintEpoch, "7"),
+			sdk.NewAttribute(types.AttribtueMintDate, "2023-04-01"),
+			sdk.NewAttribute(sdk.AttributeKeyAmount, "100"),
+		),
+	}, ctx.EventManager().Events())
 }
 
 func TestValidateMinter(t *testing.T) {
