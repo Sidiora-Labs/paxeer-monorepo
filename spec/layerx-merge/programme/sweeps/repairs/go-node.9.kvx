@@ -1,0 +1,22 @@
+[repair.go-node.9]
+target = "node/sequencer"
+command = "CGO_ENABLED=1 go vet ./node/sequencer/ && CGO_ENABLED=1 go test -count=1 ./node/sequencer/"
+revision = "471d207b0eef6bcf4f9c1dc6a9c5f2b602d0f89b"
+result = "repaired"
+previous_change = "node/sequencer/config_test.go supplies explicit queue and lease bounds and asserts WAL retention, and node/sequencer/config_bounds_test.go asserts the omitted lease override required for timeout derivation."
+producer_input_tests = ["TestReceiptLatencyP99UnderBound requires the reference host; recorded receipt p99 upper bounds over three historical runs were 100 ms, greater than 2000 ms, and 100 ms (decision 2506)."]
+change = "node/sequencer/limits.go classifies unknown chains as ErrInvalidChainID; config, allowance, activation, proposer, microbatch, recovery and standby tests use the current keeper and receipt contracts (decisions 514, 515, 516, 1888, 1939 and 2346)."
+repaired_tests = [
+ "TestSequencerConfigDefaultsSequential, TestSequencerConfigRequiresWALAndKey, TestSequencerConfigRefusesForwardURLOnSequencer, TestSequencerConfigReadsStandbyRole, TestSequencerConfigSelectsMicroBatch: config_test.go supplies queue and lease bounds and WAL retention expectations.",
+ "TestSequencerConfigReadsRetentionAndQueueBounds: config_bounds_test.go checks the omitted lease override used for timeout derivation.",
+ "TestExecutorAdmissionIsAnteChain, TestNonceAdmissionReleasesHeldNonceInOrder: limits.go preserves both Go unwrapping and the SDK Cause chain for the ante invalid-chain ABCI code and codespace.",
+ "TestAcceptRefusesPastChainGasAllowance, TestChainAllowanceDoesNotLimitRootTransactions, TestAcceptRefusesPastChainByteAllowance: limits_test.go registers domains and base fees in the real chains keeper instead of overriding allowance lookup and keeps the configured root at 125 so virtual domains consume their own allowances; unknown chains and inactive registered domains retain distinct errors.",
+ "TestConsensusSourceBelowActivation: consensus_source_test.go supplies the explicit activation height in sequencer genesis; the unmerged application does not initialize merged genesis (decisions 514 and 516).",
+ "TestSealedBlockPassesCheckTotalBlockGas, TestResolutionBatchInjection, TestResolutionProposalSource: limits_test.go and resolution_test.go supply pinned proposers and receipt_equality_test.go pins the fixture leader and receipt key so proposal validation reaches its intended checks (decision 515).",
+ "TestMicroBatchPlacesTxWithSetTxPosition, TestMicroBatchEqualsSequential: microbatch_position_test.go and microbatch_test.go compare every sequenced Accepted field and result separately from each branch's admission context.",
+ "TestProofSequencerExecutorTransportRecovery, TestProofSequencerExecutorRPCConsumers: proof_sequencer_executor_test.go verifies restored receipt lookups, committed-send restart and RPC consumption, identical resubmission without a second WAL acceptance, and refusal of a different transaction reusing a nonce (tasks 22.95.2 and 22.95.13; decision 2346).",
+ "TestSealBatchMatchesProcessBlock, TestSealBatchRefusesMismatchedFields, TestSealBatchEmptyBlock: seal_batch_test.go persists the keeper activation height and carries the parent app hash and last block ID in the ProcessBlock reference header before comparing every module store (decision 516; task 5.4.5).",
+ "TestReplicatorReleaseOverLaggingStandbyCommit: standby_role_test.go requires durable OPEN acknowledgement before predecessor commit and ordered application after commit (decision 1939).",
+ "TestStandbyTakeLeaseWhileOpenWaitsForCommit: standby_role_test.go uses the empty batch range fromSeq=lastSeq+1, acknowledges the queued OPEN before predecessor commit, and checks a subsequent OPEN is fenced after takeover (decision 1939).",
+ "TestReplicatorReportsWALSyncDuration: standby_wal_sync_hook_test.go checks completed sync hooks at Release completion because dial and sync run concurrently (decision 1888)."
+]

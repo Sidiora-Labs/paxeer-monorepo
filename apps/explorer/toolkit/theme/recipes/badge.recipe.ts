@@ -41,6 +41,8 @@ export const recipe = defineRecipe({
   },
   variants: {
     variant: {
+      solid: {},
+
       subtle: {},
       direction: {
         borderRadius: 'sm',
