@@ -20091,3 +20091,19 @@ symbol = "00001_init.sql"
 observed = "Attempt 1: app_test.go:233 opens core/indexer/migrations/00001_init.sql, which lives at services/launchpad/indexer/migrations/00001_init.sql; the other failures need L19_POSTGRES_DSN, L19_REDIS_URL and the moderation inputs."
 assumption = "One deterministic path defect beside producer-input tests (decision 2496)."
 severity = "medium"
+
+[finding.9.35.19.1]
+task = "9.35.19"
+file = "services/agent/crates/layerx-agentd/tests/w7_core_time.rs"
+symbol = "prepared"
+observed = "Attempt 4: the test build fails with E0308 at w7_core_time.rs:245, 263 and 465 because prepared() returns prepare::Prepared while register and register_preparation take prepare::evm::Prepared."
+assumption = "A stale sibling test left behind by 9.35.17 (gotcha 2941); now inside 9.35.19's paths."
+severity = "medium"
+
+[finding.22.99.3.1]
+task = "22.99.3"
+file = "services/launchpad/gateway/internal/app/app_test.go"
+symbol = "CreateBucket"
+observed = "Attempt 1: the app, storage, serve and auth tests fail creating the kl-token bucket with empty static credentials, the identity peers test needs a running sociald, and the app package ran into its ten-minute limit."
+assumption = "Fixture-bound tests (object store, identity service); decision 2496 compile gate applies."
+severity = "low"
