@@ -188825,7 +188825,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.23.8]
 title = "Name the payment asset in the sequencer receipt and carry the fee denomination separately"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.25.1", "22.25.4", "22.25.3"]
@@ -189442,7 +189442,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.6.5]
 title = "Account for the layerxchains merge address in every merge-table expectation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.6.4", "22.25.4"]
