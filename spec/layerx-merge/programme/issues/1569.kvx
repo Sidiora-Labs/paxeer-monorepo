@@ -1,0 +1,7 @@
+[issue.1569]
+number = 1569
+title = "[P2] Restore the explorer lockfiles still required by the Blockscout floor gate"
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+verdict = "already-fixed"
+evidence = "The three lockfiles named by tools/deps/floors/blockscout.json are present on main at the recorded revision, so the Blockscout floor gate reads them."
+close_comment = "The explorer lockfiles the Blockscout floor gate requires are present on main and the gate passes."

@@ -1,0 +1,255 @@
+[reconcile.r9-165]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r9-165.1]
+interface = "interface.9.rs-sdk-protocolamount-get-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/production.rs"
+line = 288
+symbol = "get"
+evidence = "ProtocolAmount impl declares pub const fn get(self) -> u128 and returns self.0; the agent.get string and other method names are unrelated."
+
+[row.r9-165.2]
+interface = "interface.9.rs-sdk-streamcursor-new-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/production.rs"
+line = 483
+symbol = "new"
+evidence = "StreamCursor impl declares new(value: impl Into<String>) -> Result<Self, ProductionError> with a 512-byte cursor limit; the identical IdempotencyKey constructor at line 261 has a different owner."
+
+[row.r9-165.3]
+interface = "interface.9.rs-sdk-layerxkeycredential-new-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/program_http.rs"
+line = 197
+symbol = "new"
+evidence = "LayerXKeyCredential impl declares new(key_id: impl Into<String>, secret: SecretBytes) -> Result<Self, ProgramOperationError>; the other new occurrences construct unrelated types."
+
+[row.r9-165.4]
+interface = "interface.9.rs-sdk-program-http-httpprogramtransport"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/program_http.rs"
+line = 237
+symbol = "HttpProgramTransport"
+evidence = "The pub struct HttpProgramTransport declaration owns the clock, HTTP agent, endpoint, credential and trusted sequencer key; later impl blocks and trait implementations are uses."
+
+[row.r9-165.5]
+interface = "interface.9.rs-sdk-program-http-layerxkeycredential"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/program_http.rs"
+line = 186
+symbol = "LayerXKeyCredential"
+evidence = "The pub struct LayerXKeyCredential declaration holds key_id: String and secret: SecretBytes; the Debug implementation and transport credential field are references."
+
+[row.r9-165.6]
+interface = "interface.9.rs-sdk-rpcclient-register-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/rpc.rs"
+line = 818
+symbol = "register"
+evidence = "RpcClient impl declares pub fn register(&self, signer_public_key: [u8; 32], signature: &[u8; 64]) -> Result<crate::register::Registration, RpcError>; crate::register mentions are module references."
+
+[row.r9-165.7]
+interface = "interface.9.rs-sdk-rpc-history-historypage-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/rpc_history.rs"
+line = 24
+symbol = "HistoryPage"
+evidence = "The pub struct HistoryPage declaration contains items, next_cursor, height and verification_status; the decoder return type and struct initializer are references."
+
+[row.r9-165.8]
+interface = "interface.9.rs-sdk-verifiedrpcaccount-evidence-j70"
+verdict = "retired"
+path = "services/agent/crates/layerx-sdk/src/rpc_verification.rs"
+line = 112
+symbol = "VerifiedRpcAccount::evidence"
+evidence = "The registered pub const fn evidence(&self) -> &VerifiedAccountEvidence and its VerifiedRpcAccount owner are absent. The symbol is qualified to identify that removed method; bare evidence remains only in unrelated comments and locals. Repository-wide search excluding spec and docs found no qualified method, owner or return-type references."
+remaining_refs = 0
+remaining = []
+
+[row.r9-165.9]
+interface = "interface.9.rs-sdk-wallet-prepare-payload-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/wallet.rs"
+line = 270
+symbol = "prepare_payload"
+evidence = "Wallet impl declares pub fn prepare_payload(&self, module: ModuleId, ordinal: u16, payload: &[u8], options: &PaymentOptions) -> Result<PreparedPayment, RpcError>; the private free function at line 443 and call sites are distinct."
+
+[row.r9-165.10]
+interface = "interface.9.proto-agent-api-programs-type-nativeprogramcallfields"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 126
+symbol = "NativeProgramCallFields"
+evidence = "The [type.NativeProgramCallFields] section declares the six registered required fields guest_abi, entrypoint, capabilities_hex, access_declaration_hex, response_capacity and resources; native_call later references this type."
+
+[row.r9-165.11]
+interface = "interface.9.proto-agent-api-programs-type-nativeprogramcallrequest"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 136
+symbol = "NativeProgramCallRequest"
+evidence = "The [type.NativeProgramCallRequest] section declares payload_encoding, program_id, calldata, budget, signed_activity and native_call as required; operation native_request values are references."
+
+[row.r9-165.12]
+interface = "interface.9.proto-agent-api-programs-type-programcallbudget"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 112
+symbol = "ProgramCallBudget"
+evidence = "The [type.ProgramCallBudget] section declares required fuel and fee_limit, matching the registered signature; the budget field in NativeProgramCallRequest is a reference."
+
+[row.r9-165.13]
+interface = "interface.9.proto-agent-api-programs-type-programexecutionevidence"
+verdict = "retired"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 312
+symbol = "ProgramExecutionEvidence"
+evidence = "The [type.ProgramExecutionEvidence] schema section and all occurrences of its name are absent from programs.kvx. Current simulation uses terminal_result and response fields. A Rust struct with this name remains in programs.rs and is consumed by program_http.rs; it does not restore the removed schema declaration. Repository-wide search excluding spec and docs found references in exactly those two files."
+remaining_refs = 2
+remaining = ["services/agent/crates/layerx-sdk/src/program_http.rs:22", "services/agent/crates/layerx-sdk/src/programs.rs:405"]
+
+[row.r9-165.14]
+interface = "interface.9.proto-agent-api-programs-type-programlifecyclereceiptenvelope"
+verdict = "retired"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 274
+symbol = "ProgramLifecycleReceiptEnvelope"
+evidence = "The [type.ProgramLifecycleReceiptEnvelope] schema section is absent; ProgramReceiptResponse now lists only ProgramSubmission. Repository-wide search excluding spec and docs found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r9-165.15]
+interface = "interface.9.proto-agent-api-programs-type-programlifecycleresult"
+verdict = "retired"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 99
+symbol = "ProgramLifecycleResult"
+evidence = "The [type.ProgramLifecycleResult] schema section is absent; ProgramLifecycleResponse now lists only ProgramSubmission with EIP1559 transaction progress rungs. Repository-wide search excluding spec and docs found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r9-165.16]
+interface = "interface.9.proto-agent-api-programs-type-programlifecycleresultenvelope"
+verdict = "retired"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 94
+symbol = "ProgramLifecycleResultEnvelope"
+evidence = "The [type.ProgramLifecycleResultEnvelope] schema section is absent; ProgramLifecycleResponse now refers directly to ProgramSubmission instead of a result envelope. Repository-wide search excluding spec and docs found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r9-165.17]
+interface = "interface.9.proto-agent-api-programs-type-programlifecycleunknown"
+verdict = "retired"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 110
+symbol = "ProgramLifecycleUnknown"
+evidence = "The [type.ProgramLifecycleUnknown] schema section is absent; unknown outcomes are represented by ProgramSubmission state Unknown and retained signed EIP1559 bytes. Repository-wide search excluding spec and docs found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r9-165.18]
+interface = "interface.9.proto-agent-api-programs-type-programsimulation"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 163
+symbol = "ProgramSimulation"
+evidence = "The [type.ProgramSimulation] declaration survives, but required fields changed from committed, execution, simulation_evidence to committed, program_id, terminal_result, terminal_kind, response, block, rung. It now describes an eth_call result at pending without transaction evidence."
+
+[row.r9-165.19]
+interface = "interface.9.proto-agent-api-programs-type-programsubmission"
+verdict = "served"
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 170
+symbol = "ProgramSubmission"
+evidence = "The [type.ProgramSubmission] declaration survives, but required fields changed from state, activity_id, idempotency_key to tx_hash, submission_ref, state, rung. The identifier now binds to the EIP1559 transaction hash and submitted, receipted or committed progress."
+
+[row.r9-165.20]
+interface = "interface.9.ts-sdk-ai-market-decodeprogramsreceipt"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/ai_market.ts"
+line = 3436
+symbol = "decodeProgramsReceipt"
+evidence = "The declaration is now export async function decodeProgramsReceipt(value: unknown, signed: Uint8Array, receiptKeys: readonly SequencerAuthorization[]), rather than the registered synchronous function. It awaits verifySequencerReceipt; the earlier occurrence is a call."
+
+[row.r9-165.21]
+interface = "interface.9.ts-sdk-gas-station-gassubmissionoutcome"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/gas-station.ts"
+line = 706
+symbol = "GasSubmissionOutcome"
+evidence = "The export type GasSubmissionOutcome declaration defines consumed, included, reverted and cancelled outcome variants; the completion property and wireOutcome return type reference it."
+
+[row.r9-165.22]
+interface = "interface.9.ts-sdk-gas-station-gassubmissionstatus"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/gas-station.ts"
+line = 722
+symbol = "GasSubmissionStatus"
+evidence = "The export interface GasSubmissionStatus declaration defines state, deadline, submission, replacement and completion; later wireStatus and Promise return types are references."
+
+[row.r9-165.23]
+interface = "interface.9.ts-sdk-gas-station-nativefeepreference"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/gas-station.ts"
+line = 1171
+symbol = "NativeFeePreference"
+evidence = "The export type NativeFeePreference declaration defines inactive or unavailable and available native-fee-preference variants; the helper return annotation and inactive factory are references."
+
+[row.r9-165.24]
+interface = "interface.9.ts-sdk-gas-station-sponsoredconsent"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/gas-station.ts"
+line = 1050
+symbol = "SponsoredConsent"
+evidence = "The export interface SponsoredConsent declaration defines sponsored-eip7702 consent with account, chainId, delegate, SID amounts, deadline, batchDigest and calls; the sponsoredConsent return type is a reference."
+
+[row.r9-165.25]
+interface = "interface.9.ts-sdk-history-decodehistoryassetmetadata"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/history.ts"
+line = 260
+symbol = "decodeHistoryAssetMetadata"
+evidence = "The exported decodeHistoryAssetMetadata declaration takes value: unknown and optional asset: string, returning HistoryAssetMetadata | null; its earlier occurrence is the call from decodeHistoryRow."
+
+[row.r9-165.26]
+interface = "interface.9.ts-sdk-history-decodehistoryrow"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/history.ts"
+line = 190
+symbol = "decodeHistoryRow"
+evidence = "The export function decodeHistoryRow(value: unknown, unified: boolean): HistoryRow declaration matches the registered signature; the later value.map occurrence is a call."
+
+[row.r9-165.27]
+interface = "interface.9.ts-sdk-programs-gatewayprogramdiscovery"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/programs.ts"
+line = 262
+symbol = "GatewayProgramDiscovery"
+evidence = "The export interface GatewayProgramDiscovery extends ProgramDiscovery declaration adds deployment_receipt_digest, discovery_verification and optional signature fields; cache entries, casts and return annotations are references."
+
+[row.r9-165.28]
+interface = "interface.9.ts-sdk-programs-verifygatewayprogramdiscovery"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/programs.ts"
+line = 269
+symbol = "verifyGatewayProgramDiscovery"
+evidence = "The export async function verifyGatewayProgramDiscovery(value: unknown, programId: string, trust: ProgramTrustContext): Promise<GatewayProgramDiscovery> declaration matches the registered signature; the other occurrences invoke it."
+
+[row.r9-165.29]
+interface = "interface.9.ts-sdk-programs-verifygatewayprograminterface"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/programs.ts"
+line = 310
+symbol = "verifyGatewayProgramInterface"
+evidence = "The export async function verifyGatewayProgramInterface declaration takes value, programId, trust and observed: GatewayProgramDiscovery, returning Promise<ProgramInterface>; the earlier occurrence is the client call."
+
+[row.r9-165.30]
+interface = "interface.9.ts-sdk-rpc-listassetsparams"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/rpc.ts"
+line = 251
+symbol = "listAssetsParams"
+evidence = "The export function listAssetsParams(cursor?: string, limit?: number): readonly RpcParam[] declaration matches the registered signature and validates cursor and page limits; the earlier occurrence is a call."

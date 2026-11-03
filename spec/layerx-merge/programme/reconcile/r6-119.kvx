@@ -1,0 +1,75 @@
+[reconcile.r6-119]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 9
+
+[row.r6-119.1]
+interface = "interface.6.pc-0x1004-err-lxp-addr-evm-not-bound"
+verdict = "served"
+path = "precompiles/addr/addr.go"
+line = 404
+symbol = "LXP_ADDR_EVM_NOT_BOUND"
+evidence = "getLayerXDid emits LXP_ADDR_EVM_NOT_BOUND through p.refusal when GetLayerXDid finds no binding, with evmAddr.Hex() as detail. The emitting literal remains at registered line 404; refusal encodes the LXP Error(string) reason when mergePlanActive is true."
+
+[row.r6-119.2]
+interface = "interface.6.pc-0x1004-err-lxp-addr-panic"
+verdict = "served"
+path = "precompiles/addr/addr.go"
+line = 139
+symbol = "LXP_ADDR_PANIC"
+evidence = "Execute's deferred recovery assigns p.refusal with LXP_ADDR_PANIC and fmt.Sprint(r) as detail for the recovered panic. This emitting literal remains at registered line 139 and matches the signature's error detail; refusal supplies Error(string) after merge activation."
+
+[row.r6-119.3]
+interface = "interface.6.pc-0x1004-err-lxp-addr-pax-not-associated"
+verdict = "served"
+path = "precompiles/addr/addr.go"
+line = 222
+symbol = "LXP_ADDR_PAX_NOT_ASSOCIATED"
+evidence = "getEvmAddr emits LXP_ADDR_PAX_NOT_ASSOCIATED through p.refusal when GetEVMAddress finds no association for the parsed Pax address. The emitting literal remains at registered line 222, with args[0].(string) as detail and merge-gated Error(string) encoding."
+
+[row.r6-119.4]
+interface = "interface.6.pc-0x1004-err-lxp-addr-staticcall"
+verdict = "served"
+path = "precompiles/addr/addr.go"
+line = 149
+symbol = "LXP_ADDR_STATICCALL"
+evidence = "Execute emits LXP_ADDR_STATICCALL for readOnly Associate at line 149, the registered representative of four emitting sites. AssociatePubKey at 154, BindLayerXMethod at 159 and UnbindLayerXMethod at 168 emit the same code with their method as detail; all route through merge-gated refusal."
+
+[row.r6-119.5]
+interface = "interface.6.err-rev-lxp-addr-layerx-signature"
+verdict = "served"
+path = "precompiles/common/lxp_errors.go"
+line = 315
+symbol = "LXP_ADDR_LAYERX_SIGNATURE"
+evidence = "The lxpRevertTable entry at line 315 declares code LXP_ADDR_LAYERX_SIGNATURE, message 'layerx binding: signature refused' and goErr evmtypes.ErrLayerXSignature, matching the registered signature formerly at line 258. The separate SIGNATURE_LENGTH entry at 321 describes another error."
+
+[row.r6-119.6]
+interface = "interface.6.err-rev-lxp-agent-batch-too-large"
+verdict = "served"
+path = "precompiles/common/lxp_errors.go"
+line = 344
+symbol = "LXP_AGENT_BATCH_TOO_LARGE"
+evidence = "The lxpRevertTable entry at line 344 declares code LXP_AGENT_BATCH_TOO_LARGE and message 'batch over the cap (cap set at activation rehearsal)', with no goErr field. It matches the registered code-only precompile error signature formerly at line 282."
+
+[row.r6-119.7]
+interface = "interface.6.err-rev-lxp-tokenfactory-denom-exists"
+verdict = "served"
+path = "precompiles/common/lxp_errors.go"
+line = 297
+symbol = "LXP_TOKENFACTORY_DENOM_EXISTS"
+evidence = "The lxpRevertTable entry at line 297 declares code LXP_TOKENFACTORY_DENOM_EXISTS, message 'attempting to create a denom that already exists (has bank metadata)' and goErr tokenfactorytypes.ErrDenomExists. All fields match the registered signature formerly at line 240."
+
+[row.r6-119.8]
+interface = "interface.6.go-pc-common-lxpcodename-j34"
+verdict = "served"
+path = "precompiles/common/lxp_errors.go"
+line = 442
+symbol = "LXPCodeName"
+evidence = "The function declaration at line 442 is func LXPCodeName(value int32) string, matching the registered signature formerly at line 320. Its documentation starts at 438; the declaration maps kernel values to registry codes and returns an empty string for fatal values."
+
+[row.r6-119.9]
+interface = "interface.6.go-pc-common-lxprevert-j34"
+verdict = "served"
+path = "precompiles/common/lxp_errors.go"
+line = 461
+symbol = "LXPRevert"
+evidence = "The function declaration at line 461 is func LXPRevert(code, detail string) []byte, matching the registered signature formerly at line 339. Its documentation starts at 457; the function returns RevertReason(LXPError(code, detail)), preserving the Error(string) transport."
