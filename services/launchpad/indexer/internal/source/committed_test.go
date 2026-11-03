@@ -6,6 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/trie"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +20,15 @@ import (
 )
 
 const fh = "0x1111111111111111111111111111111111111111111111111111111111111111"
+
+func committedFixtureHash(height uint64) common.Hash {
+	return common.BigToHash(new(big.Int).Add(common.HexToHash(fh).Big(), new(big.Int).SetUint64(height)))
+}
+
+func committedFixtureBlock(tag string, transactions []any) map[string]any {
+	height := hexutil.MustDecodeUint64(tag)
+	return map[string]any{"number": tag, "hash": committedFixtureHash(height).Hex(), "parentHash": committedFixtureHash(height - 1).Hex(), "timestamp": "0x64", "transactions": transactions}
+}
 
 func fixture(t *testing.T, chain string) *httptest.Server {
 	t.Helper()
@@ -39,7 +51,7 @@ func fixture(t *testing.T, chain string) *httptest.Server {
 			if tag == "latest" {
 				tag = "0x65"
 			}
-			result = map[string]any{"number": tag, "hash": fh, "parentHash": fh, "timestamp": "0x64", "transactions": []any{}}
+			result = committedFixtureBlock(tag, []any{})
 		}
 		json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": q.ID, "result": result})
 	}))
@@ -144,7 +156,7 @@ func TestCommittedSubdivisionAndSameBlockDiscovery(t *testing.T) {
 		case "eth_getBlockByNumber":
 			var tag string
 			json.Unmarshal(q.Params[0], &tag)
-			result = map[string]any{"number": tag, "hash": fh, "parentHash": fh, "timestamp": "0x64", "transactions": []any{map[string]any{"hash": fh, "from": address}}}
+			result = committedFixtureBlock(tag, []any{map[string]any{"hash": fh, "from": address}})
 		case "eth_getLogs":
 			logCalls++
 			var filter struct {
@@ -158,7 +170,7 @@ func TestCommittedSubdivisionAndSameBlockDiscovery(t *testing.T) {
 			}
 			result = []any{}
 			if filter.From == "0x64" {
-				result = []any{map[string]any{"address": address, "topics": []string{fh}, "data": "0x", "blockNumber": "0x64", "blockHash": fh, "transactionHash": fh, "transactionIndex": "0x0", "logIndex": "0x0"}}
+				result = []any{map[string]any{"address": address, "topics": []string{fh}, "data": "0x", "blockNumber": "0x64", "blockHash": committedFixtureHash(100).Hex(), "transactionHash": fh, "transactionIndex": "0x0", "logIndex": "0x0"}}
 			}
 		}
 		json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": q.ID, "result": result})
@@ -182,6 +194,7 @@ func TestCommittedSubdivisionAndSameBlockDiscovery(t *testing.T) {
 
 func TestCommittedSingleBlockReceiptFallback(t *testing.T) {
 	address := "0x0000000000000000000000000000000000000001"
+	receiptsRoot := ethtypes.DeriveSha(ethtypes.Receipts{&ethtypes.Receipt{Status: 1, CumulativeGasUsed: 1, Logs: []*ethtypes.Log{}}}, trie.NewStackTrie(nil))
 	headerCalls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var q struct {
@@ -201,9 +214,11 @@ func TestCommittedSingleBlockReceiptFallback(t *testing.T) {
 			headerCalls++
 			var tag string
 			json.Unmarshal(q.Params[0], &tag)
-			result = map[string]any{"number": tag, "hash": fh, "parentHash": fh, "timestamp": "0x64", "transactions": []any{map[string]any{"hash": fh, "from": address}}}
+			block := committedFixtureBlock(tag, []any{map[string]any{"hash": fh, "from": address}})
+			block["receiptsRoot"] = receiptsRoot.Hex()
+			result = block
 		case "eth_getTransactionReceipt":
-			result = map[string]any{"type": "0x0", "root": "0x", "status": "0x1", "cumulativeGasUsed": "0x1", "logsBloom": "0x" + strings.Repeat("0", 512), "logs": []any{}, "transactionHash": fh, "gasUsed": "0x1", "effectiveGasPrice": "0x1", "blockHash": fh, "blockNumber": "0x64", "transactionIndex": "0x0"}
+			result = map[string]any{"type": "0x0", "root": "0x", "status": "0x1", "cumulativeGasUsed": "0x1", "logsBloom": "0x" + strings.Repeat("0", 512), "logs": []any{}, "transactionHash": fh, "gasUsed": "0x1", "effectiveGasPrice": "0x1", "blockHash": committedFixtureHash(100).Hex(), "blockNumber": "0x64", "transactionIndex": "0x0"}
 		}
 		json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": q.ID, "result": result})
 	}))
@@ -217,7 +232,7 @@ func TestCommittedSingleBlockReceiptFallback(t *testing.T) {
 	defer s.Close()
 	r, err := s.FetchLogs(context.Background(), FetchOptions{FromBlock: 100, ToBlock: 100})
 	if err != nil || !r.Complete || len(r.Logs) != 0 || headerCalls != 2 {
-		t.Fatalf("receipt fallback %+v %v", r, err)
+		t.Fatalf("receipt fallback %+v %v; header calls %d", r, err, headerCalls)
 	}
 }
 
@@ -304,7 +319,8 @@ func TestCommittedRequiredTransactionShape(t *testing.T) {
 				if q.Method == "eth_getBlockByNumber" {
 					var tag string
 					json.Unmarshal(q.Params[0], &tag)
-					b := map[string]any{"number": tag, "hash": fh, "parentHash": fh, "timestamp": "0x64"}
+					b := committedFixtureBlock(tag, nil)
+					delete(b, "transactions")
 					if shape == "empty" {
 						b["transactions"] = []any{}
 					} else if shape == "null" {
@@ -375,7 +391,7 @@ func TestCommittedHeadPolling(t *testing.T) {
 				}
 				tag = "0x65"
 			}
-			result = map[string]any{"number": tag, "hash": fh, "parentHash": fh, "timestamp": "0x64", "transactions": []any{}}
+			result = committedFixtureBlock(tag, []any{})
 		}
 		json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": q.ID, "result": result})
 	}))
@@ -472,13 +488,13 @@ func TestCommittedQuantitiesRejectOverflow(t *testing.T) {
 				if q.Method == "eth_getBlockByNumber" {
 					var tag string
 					json.Unmarshal(q.Params[0], &tag)
-					block := map[string]any{"number": tag, "hash": fh, "parentHash": fh, "timestamp": "0x64", "transactions": []any{map[string]any{"hash": fh}}}
+					block := committedFixtureBlock(tag, []any{map[string]any{"hash": fh}})
 					if tag != "0x0" && (field == "number" || field == "timestamp") {
 						block[field] = "0x10000000000000064"
 					}
 					result = block
 				} else if q.Method == "eth_getLogs" {
-					log := map[string]any{"address": "0x0000000000000000000000000000000000000001", "topics": []string{fh}, "data": "0x", "blockNumber": "0x64", "blockHash": fh, "transactionHash": fh, "transactionIndex": "0x0", "logIndex": "0x0"}
+					log := map[string]any{"address": "0x0000000000000000000000000000000000000001", "topics": []string{fh}, "data": "0x", "blockNumber": "0x64", "blockHash": committedFixtureHash(100).Hex(), "transactionHash": fh, "transactionIndex": "0x0", "logIndex": "0x0"}
 					if field != "number" && field != "timestamp" {
 						log[field] = "0x10000000000000064"
 					}
