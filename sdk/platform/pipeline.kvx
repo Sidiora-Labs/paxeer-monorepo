@@ -5,7 +5,7 @@ outputs = ["agent-api-rust", "agent-rust", "agent-typescript", "agent-python", "
 
 [source.agent-api]
 root = "services/agent/schema/agent-api"
-digest = "1e4d396d4f3def8b0cbad99c1850771928b78c4545d1dde0168119fc35f7d609"
+digest = "3687dc298e6afdedf28e7b294ced05229e2607501ce2d6a000378887b41fe31b"
 
 [source.human-api]
 root = "services/human/schema/human-api"
@@ -17,7 +17,7 @@ digest = "de5e350540972ac952d0235bb0d27ce83f391457eee74178bda8642a044d2655"
 
 [generator.platform-sdkgen]
 root = "sdk/platform/generators"
-digest = "8766f5badaf4e0dbe388cea1e541e4fcc8920dbce85c2b71b510857494a77798"
+digest = "209df8cf8bb02a0e3fff9dc428d8901b3a1353ddf084df31235e3f2860704fa0"
 
 [generator.agent-sdk-gen]
 root = "services/agent/tools/sdk-gen"
@@ -255,6 +255,7 @@ root = "services/agent/sdk"
 "typescript/test/precompile-calls.test.ts" = "handwritten"
 "typescript/test/program-executed-v3.test.ts" = "handwritten"
 "typescript/test/program-lifecycle.test.ts" = "handwritten"
+"typescript/test/proof_exchange.test.ts" = "handwritten"
 "typescript/test/proof_gas_station.test.ts" = "handwritten"
 "typescript/test/proof_x402_receive.test.ts" = "handwritten"
 "typescript/test/px.test.ts" = "handwritten"
@@ -266,6 +267,7 @@ root = "services/agent/sdk"
 "typescript/test/rpc-subscription-eth.test.ts" = "handwritten"
 "typescript/test/rpc.test.ts" = "handwritten"
 "typescript/test/sequencer-receipt-verify.test.ts" = "handwritten"
+"typescript/test/support/exchange_consumers.ts" = "handwritten"
 "typescript/test/trading-payload.test.ts" = "handwritten"
 "typescript/test/web-search-sequencer.test.ts" = "handwritten"
 "typescript/test/web-search.test.ts" = "handwritten"
@@ -342,7 +344,7 @@ root = "sdk/platform/jvm"
 "pom.xml" = "ce36a2fa8463c0fbf915f5ba1fb44e5d880b014e6bc22ae446029b0b3516a8f1"
 "src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java" = "c05aa3e779e6b43211d26b8ac9338f10b4e0e6869271b61a729b5e8f3cda6793"
 "src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java" = "c8717feda31a337917d4209c212a2f906bab5a2b3a854731fb494e89f42efede"
-"src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java" = "456d7bd9bca60474890d71653e715e454dd3185c5bbd9d102601d8aca4a66381"
+"src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java" = "1c86fbdc58b7d6ee1c1a462a079e1d8f1133b1edf95d68fe82f4f9af87cf6279"
 "src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java" = "81b5e4ccb7174db995a9f72b53e08126b65ae1ecdc4e391ed30beea66c6510c5"
 "src/main/java/com/sidiora/layerx/sdk/IdempotencyKey.java" = "2cfba7826e4bb7a6f0d4af63530f43c7aece547cf9f64ff1664b781cc431f6a4"
 "src/main/java/com/sidiora/layerx/sdk/OperationCatalog.java" = "477843c32935ffbc9ecff6dd6a35b78693b059c3d29a59aa021349b4a868e8e3"
