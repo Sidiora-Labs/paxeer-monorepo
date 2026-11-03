@@ -1,0 +1,7 @@
+[issue.1517]
+number = 1517
+title = "[P2] Reconcile lxphost result names after retiring kernel code -804"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "already-fixed"
+evidence = "Commit 41642833f92d2e1db4289d7d1589ec246321a8a7 removed only the stale -804 entry from modules/lxphost/code_names.go:125, so modules/lxphost/code.go:9 now returns LXP_ERR_UNKNOWN for -804 as src/protocol/lxp_result.c:38 does, while include/layerx/lxp_result.h:32 permanently reserves the number, tests/codec/lxp_test_result_retired.c:11 asserts its retirement, modules/lxphost/code_test.go:7 retains exhaustive C/Go parity through modules/lxphost/host.go:743, and precompiles/common/lxp_errors.go:164 retains the separate non-kernel LXP_DA_MISSING refusal."
+close_comment = "The generated Go result-name table has been reconciled with the kernel registry: both return LXP_ERR_UNKNOWN for retired code -804, and all other result numbers remain unchanged. The permanent reservation, exhaustive C/Go parity test, and separate named LXP_DA_MISSING service refusal are retained."
