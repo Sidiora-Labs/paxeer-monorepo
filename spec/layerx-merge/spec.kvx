@@ -130326,7 +130326,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.160]
 title = "Refresh the four workspace lockfiles for the AI market manifest change"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
