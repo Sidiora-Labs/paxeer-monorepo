@@ -125436,7 +125436,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.37]
 title = "Restore the wasm-tools Cargo lock and the playground npm lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132815,7 +132815,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.97.9]
 title = "Record the verifier proto crate build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132843,7 +132843,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.39]
 title = "Restore the intents fuzz Cargo lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132873,7 +132873,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.38]
 title = "Restore the libwasmvm Cargo lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -194166,7 +194166,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.97.1]
 title = "Make the budget delegate spend test agree with the kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
