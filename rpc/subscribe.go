@@ -534,6 +534,9 @@ func encodeCommittedBlock(evt blockHeaderEvent, baseFee *big.Int, gasLimit int64
 	if len(header.AppHash) != common.HashLength {
 		return nil, fmt.Errorf("committed Autobahn head %d lacks a state root", header.Height)
 	}
+	if common.BytesToHash(header.DataHash) == (common.Hash{}) || common.BytesToHash(header.LastResultsHash) == (common.Hash{}) || common.BytesToHash(header.AppHash) == (common.Hash{}) {
+		return nil, fmt.Errorf("committed Autobahn head %d has an unpopulated root", header.Height)
+	}
 	if len(evt.hash) != common.HashLength {
 		return nil, fmt.Errorf("committed Autobahn head %d has a %d-byte block hash", header.Height, len(evt.hash))
 	}

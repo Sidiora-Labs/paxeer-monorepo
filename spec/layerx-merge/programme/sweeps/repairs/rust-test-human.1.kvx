@@ -1,0 +1,6 @@
+[repair.rust-test-human.1]
+target = "layerx-human-security-provider"
+command = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-security-provider --no-fail-fast"
+revision = "3bc9e23f938f3add09f1b16665b0c66d9e4695a1"
+result = "repaired"
+change = "tests/probe.rs and tests/server.rs use the real clock authority in tests/support/mod.rs with explicit child-process bindings."

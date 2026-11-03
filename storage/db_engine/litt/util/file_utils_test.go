@@ -2,7 +2,9 @@ package util
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -1019,6 +1021,13 @@ func TestDeleteOrphanedSwapFiles(t *testing.T) {
 }
 
 func TestDeleteOrphanedSwapFilesPermissions(t *testing.T) {
+	const directoryEnv = "LITT_UTIL_SWAP_PERMISSION_TEST_DIR"
+	if directory := os.Getenv(directoryEnv); directory != "" {
+		require.NotZero(t, os.Geteuid())
+		assertDeleteOrphanedSwapFilesPermissionError(t, directory)
+		return
+	}
+
 	// Test behavior with permission issues
 	tempDir := t.TempDir()
 
@@ -1031,19 +1040,50 @@ func TestDeleteOrphanedSwapFilesPermissions(t *testing.T) {
 	swapFile := filepath.Join(testDir, "test"+SwapFileExtension)
 	err = os.WriteFile(swapFile, []byte("content"), 0644)
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, os.Chmod(testDir, 0755))
+	})
 
 	// Make the directory read-only (no write permissions)
 	err = os.Chmod(testDir, 0555) // read + execute only
 	require.NoError(t, err)
 
+	if os.Geteuid() == 0 {
+		require.NoError(t, os.Chmod(filepath.Dir(tempDir), 0755))
+		require.NoError(t, os.Chmod(tempDir, 0755))
+		executable, err := os.Executable()
+		require.NoError(t, err)
+		binary, err := os.ReadFile(executable)
+		require.NoError(t, err)
+		helper := filepath.Join(tempDir, "util-permissions.test")
+		require.NoError(t, os.WriteFile(helper, binary, 0755))
+		require.NoError(t, os.Chmod(helper, 0755))
+
+		cmd := exec.Command(helper, "-test.run=^TestDeleteOrphanedSwapFilesPermissions$")
+		cmd.Dir = tempDir
+		cmd.Env = append(os.Environ(), directoryEnv+"="+testDir)
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Credential: &syscall.Credential{Uid: 65534, Gid: 65534},
+		}
+		output, err := cmd.CombinedOutput()
+		require.NoError(t, err, "%s", output)
+	} else {
+		assertDeleteOrphanedSwapFilesPermissionError(t, testDir)
+	}
+}
+
+func assertDeleteOrphanedSwapFilesPermissionError(t *testing.T, directory string) {
+	t.Helper()
+
 	// Attempt to delete swap files should fail
-	err = DeleteOrphanedSwapFiles(testDir)
+	err := DeleteOrphanedSwapFiles(directory)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to remove swap file")
+	require.ErrorIs(t, err, os.ErrPermission)
 
-	// Restore permissions for cleanup
-	err = os.Chmod(testDir, 0755)
+	content, err := os.ReadFile(filepath.Join(directory, "test"+SwapFileExtension))
 	require.NoError(t, err)
+	require.Equal(t, "content", string(content))
 }
 
 func TestSanitizePath(t *testing.T) {
