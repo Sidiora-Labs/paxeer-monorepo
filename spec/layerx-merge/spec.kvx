@@ -137101,7 +137101,7 @@ do_5 = "Attempts 1 and 2 (continue): torn_tail_is_recovered_but_terminated_corru
 
 [task.22.99.68]
 title = "Repair the inventory sweep target x-websearch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137441,7 +137441,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.57]
 title = "Repair the inventory sweep target layerx-network-gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -146151,7 +146151,7 @@ do_4 = "Decision 2496 (continue): the module's tests are bound to inputs the qua
 
 [task.22.99.13]
 title = "Repair the inventory sweep target services/launchpad/social"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146490,7 +146490,7 @@ do_5 = "Attempt 1 (continue): the tests of internal/app, internal/storage, inter
 
 [task.22.99.2]
 title = "Repair the inventory sweep target services/launchpad/api"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200093,7 +200093,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.97]
 title = "Repair the kernel make target test-log of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200153,7 +200153,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.95]
 title = "Repair the kernel make target test-contract-state-surface of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200213,7 +200213,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.93]
 title = "Repair the kernel make target test-state-root of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200389,7 +200389,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.81]
 title = "Re-sweep the not-run targets of the c-kernel-make inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
