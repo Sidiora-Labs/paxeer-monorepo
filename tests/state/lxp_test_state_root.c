@@ -181,10 +181,21 @@ static int state_root_case(lxp_kernel *first, lxp_kernel *second)
     if (lxp_state_root(first, chained) != LXP_ERR_LENGTH_LIMIT)
         return state_root_failed(__LINE__);
     first_store.count = 2U;
-    first_store.idempotency_count = LXP_STATE_MAX_IDEMPOTENCY + 1U;
-    if (lxp_state_root(first, chained) != LXP_ERR_LENGTH_LIMIT)
-        return state_root_failed(__LINE__);
-    first_store.idempotency_count = 0U;
+    {
+        lx_account_registry accounts;
+        if (lx_account_registry_init(&accounts) != LXP_OK ||
+            lxp_state_store_bind_accounts(&first_store, &accounts) != LXP_OK)
+            return state_root_failed(__LINE__);
+        accounts.count = LX_ACCOUNT_REGISTRY_CAPACITY + 1U;
+        if (lxp_state_root(first, chained) != LXP_ERR_LENGTH_LIMIT)
+            return state_root_failed(__LINE__);
+        accounts.count = 0U;
+        first_store.accounts = NULL;
+        lx_account_registry_release(&accounts);
+        if (lxp_state_root(first, chained) != LXP_OK ||
+            memcmp(chained, first_root, 32U) != 0)
+            return state_root_failed(__LINE__);
+    }
     first->module_kv_count = LXP_KERNEL_MAX_MODULE_KV + 1U;
     if (lxp_state_root(first, chained) != LXP_ERR_LENGTH_LIMIT)
         return state_root_failed(__LINE__);

@@ -4,10 +4,15 @@ import * as React from 'react';
 
 import IndicatorIcon from 'icons/info_filled.svg';
 
+import { recipe as alertRecipe } from '../theme/recipes/alert.recipe';
 import { CloseButton } from './close-button';
+import { withRecipe, type WithRecipeProps } from './recipe-props';
 import { Skeleton } from './skeleton';
 
-export interface AlertProps extends Omit<ChakraAlert.RootProps, 'title'> {
+type RecipeRootProps = WithRecipeProps<ChakraAlert.RootProps, typeof alertRecipe>;
+const RecipeRoot = withRecipe(ChakraAlert.Root, alertRecipe);
+
+export interface AlertProps extends Omit<RecipeRootProps, 'title'> {
   startElement?: React.ReactNode;
   endElement?: React.ReactNode;
   descriptionProps?: AlertDescriptionProps;
@@ -63,7 +68,7 @@ export const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
 
     return (
       <Skeleton loading={ loading } asChild>
-        <ChakraAlert.Root ref={ ref } size={ size ?? { base: 'sm', lg: 'md' } } { ...rest }>
+        <RecipeRoot ref={ ref } size={ size ?? { base: 'sm', lg: 'md' } } { ...rest }>
           { iconElement }
           { children ? (
             <ChakraAlert.Content>
@@ -83,7 +88,7 @@ export const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
               onClick={ handleClose }
             />
           ) }
-        </ChakraAlert.Root>
+        </RecipeRoot>
       </Skeleton>
     );
   },

@@ -63,7 +63,8 @@ pub const ADMISSION_SCRATCH_BYTES: usize = Section::PolicyLifecycle.payload_cap(
     + Section::ReputationAdmission.payload_cap()
     + Section::Control.payload_cap();
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct AdmissionPolicyV1 {
     pub worker_capacity: u8,
     pub evaluator_capacity: u8,
@@ -90,7 +91,8 @@ pub const POLICY_V1: AdmissionPolicyV1 = AdmissionPolicyV1 {
     score_quorum: 3,
 };
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum Role {
     Worker = 1,
@@ -99,6 +101,7 @@ pub enum Role {
 impl Role {
     /// # Errors
     /// `NON_CANONICAL` for any value other than WORKER=1 or EVALUATOR=2.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(value: u8) -> CodecResult<Self> {
         match value {
             1 => Ok(Self::Worker),
@@ -121,7 +124,8 @@ impl Role {
 }
 
 /// Stable role identity; ordering is role first, then unsigned ID bytes.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Participant {
     Worker(WorkerId),
     Evaluator(EvaluatorId),
@@ -141,20 +145,23 @@ impl Participant {
             Self::Evaluator(id) => id.bytes(),
         }
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(self, w: &mut Writer<'_>) -> CodecResult<()> {
         w.u8(self.role() as u8)?;
         w.put(&self.bytes())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'_>) -> CodecResult<Self> {
         Ok(match Role::decode(r.u8()?)? {
-            Role::Worker => Self::Worker(WorkerId::new(r.fixed()?)?),
-            Role::Evaluator => Self::Evaluator(EvaluatorId::new(r.fixed()?)?),
+            Role::Worker => Self::Worker(r.worker_id()?),
+            Role::Evaluator => Self::Evaluator(r.evaluator_id()?),
         })
     }
 }
 
 /// `RequestExit` reason payload values.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum ExitReason {
     Voluntary = 1,
     Retire = 2,
@@ -162,6 +169,7 @@ pub enum ExitReason {
 impl ExitReason {
     /// # Errors
     /// `NON_CANONICAL` for any value other than VOLUNTARY=1 or RETIRE=2.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(value: u8) -> CodecResult<Self> {
         match value {
             1 => Ok(Self::Voluntary),
@@ -172,7 +180,8 @@ impl ExitReason {
 }
 
 /// `AdministrativeRemove` reason payload values.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum RemovalReason {
     Security = 1,
     Terms = 2,
@@ -181,6 +190,7 @@ pub enum RemovalReason {
 impl RemovalReason {
     /// # Errors
     /// `NON_CANONICAL` for any value outside `SECURITY=1..OPERATOR_DECISION=3`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(value: u8) -> CodecResult<Self> {
         match value {
             1 => Ok(Self::Security),
@@ -192,7 +202,8 @@ impl RemovalReason {
 }
 
 /// Who staged a pending exit; only owner-requested exits can be cancelled.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum ExitCause {
     Voluntary = 1,
     Retire = 2,
@@ -202,6 +213,7 @@ pub enum ExitCause {
     OperatorDecision = 6,
 }
 impl ExitCause {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn decode(value: u8) -> CodecResult<Self> {
         Ok(match value {
             1 => Self::Voluntary,
@@ -235,14 +247,16 @@ impl From<RemovalReason> for ExitCause {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct PendingExit {
     pub epoch: u64,
     pub cause: ExitCause,
 }
 
 /// One-use administrator approval: exactly 56 bytes inside the member record.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Approval {
     pub digest: Digest32,
     pub expiry_height: u64,
@@ -251,7 +265,8 @@ pub struct Approval {
 }
 
 /// Bound fields hashed into an approval digest.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ApprovalTerms {
     pub participant: Participant,
     pub owner: PrincipalId,
@@ -291,7 +306,8 @@ impl ApprovalTerms {
 /// `AdmissionMeta` (F08-R005) plus the bound owner, frozen key generation, the owner
 /// admission watermark and the optional unconsumed approval. While a member is
 /// admitted but not yet included, `immunity_until_epoch` holds its scheduled epoch.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct AdmissionMeta {
     pub participant: Participant,
     pub owner: PrincipalId,
@@ -328,6 +344,7 @@ impl AdmissionMeta {
             None => self.admitted_epoch,
         }
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn validate(&self) -> CodecResult<()> {
         let flags_valid = self.membership_flags & !(FLAG_ADMITTED | FLAG_DRAINING | FLAG_REVOKED)
             == 0
@@ -352,6 +369,7 @@ impl AdmissionMeta {
         }
         Ok(())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> CodecResult<()> {
         fn optional(w: &mut Writer<'_>, value: Option<u64>) -> CodecResult<()> {
             w.boolean(value.is_some())?;
@@ -383,6 +401,7 @@ impl AdmissionMeta {
         }
         Ok(())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'_>) -> CodecResult<Self> {
         fn optional(r: &mut Reader<'_>) -> CodecResult<Option<u64>> {
             Ok(if r.boolean()? { Some(r.u64()?) } else { None })
@@ -404,12 +423,12 @@ impl AdmissionMeta {
         let complete_missed_opened_epochs = r.u8()?;
         let membership_flags = r.u8()?;
         r.reserved(2)?;
-        let owner = PrincipalId::new(r.fixed()?)?;
+        let owner = r.principal_id()?;
         let delegate_generation = r.u64()?;
         let admission_height = optional(r)?;
         let approval = if r.boolean()? {
             Some(Approval {
-                digest: Digest32::new(r.fixed()?)?,
+                digest: r.digest32()?,
                 expiry_height: r.u64()?,
                 effective_epoch: r.u64()?,
                 config_version: r.u64()?,
@@ -437,6 +456,7 @@ impl AdmissionMeta {
     }
     /// # Errors
     /// `NON_CANONICAL` for an invalid record; codec errors when `out` is too small.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         let mut w = Writer::new(out);
@@ -446,7 +466,8 @@ impl AdmissionMeta {
 }
 
 /// Authenticated host values for one direct F08 call.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct AdmissionContext<'m> {
     pub market: &'m MarketHeader,
     pub invoking_principal: PrincipalId,
@@ -477,7 +498,8 @@ impl AdmissionContext<'_> {
 }
 
 /// Owner acceptance of a stored approval.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Admission {
     pub participant: Participant,
     pub delegate_generation: u64,
@@ -487,7 +509,8 @@ pub struct Admission {
 }
 
 /// Bounded F08 table in the shared F07/F08 section, sorted by participant.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct AdmissionTable {
     current_epoch: Option<u64>,
     enrollments_this_epoch: u8,
@@ -602,6 +625,7 @@ impl AdmissionTable {
     }
     /// # Errors
     /// Codec errors when `out` is too small or a record is invalid.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         let mut w = Writer::new(out);
         w.u16(crate::SCHEMA_VERSION)?;
@@ -622,6 +646,7 @@ impl AdmissionTable {
     /// # Errors
     /// `BAD_VERSION`, `CAPACITY`, `NON_CANONICAL` for unsorted, duplicate, trailing or
     /// invalid bytes, and `F08_CAPACITY_EXCEEDED` above role capacity.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut table = Self::new();
         if input.is_empty() {
@@ -1064,7 +1089,8 @@ impl AdmissionTable {
 }
 
 /// `EvaluatorAdmissionConsentV1`: exactly 362 canonical bytes.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EvaluatorConsent {
     pub chain: ChainDomain,
     pub program: ProgramId,
@@ -1085,6 +1111,7 @@ pub struct EvaluatorConsent {
 impl EvaluatorConsent {
     /// # Errors
     /// Codec errors only; the layout always fills exactly 362 bytes.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8; CONSENT_BYTES]) -> CodecResult<()> {
         let mut w = Writer::new(out);
         w.u16(1)?;
@@ -1111,6 +1138,7 @@ impl EvaluatorConsent {
     }
     /// # Errors
     /// `NON_CANONICAL` for a wrong length or zero identifier and `BAD_VERSION`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         if input.len() != CONSENT_BYTES {
             return Err(NON_CANONICAL);
@@ -1120,16 +1148,16 @@ impl EvaluatorConsent {
             return Err(BAD_VERSION);
         }
         let value = Self {
-            chain: ChainDomain::new(r.fixed()?)?,
-            program: ProgramId::new(r.fixed()?)?,
-            market: MarketId::new(r.fixed()?)?,
-            evaluator: EvaluatorId::new(r.fixed()?)?,
-            owner: PrincipalId::new(r.fixed()?)?,
+            chain: r.chain_domain()?,
+            program: r.program_id()?,
+            market: r.market_id()?,
+            evaluator: r.evaluator_id()?,
+            owner: r.principal_id()?,
             signing_key: PublicKey32(r.fixed()?),
             enrollment_nonce: r.fixed()?,
-            rubric: RubricDigest::new(r.fixed()?)?,
-            approval_digest: Digest32::new(r.fixed()?)?,
-            request: RequestId::new(r.fixed()?)?,
+            rubric: r.rubric_digest()?,
+            approval_digest: r.digest32()?,
+            request: r.request_id()?,
             grant_version: r.u64()?,
             key_version: r.u64()?,
             effective_epoch: r.u64()?,
@@ -1225,7 +1253,8 @@ pub fn admit_evaluator(
     )
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum AdmissionOutcome {
     Applied {
         revision: u64,
@@ -1270,11 +1299,11 @@ fn admission_call<'a>(envelope: &ValidatedEnvelope<'a>) -> CodecResult<Admission
     let call = match e.operation {
         dispatch::ApproveAdmission => AdmissionCall::Approve(ApprovalTerms {
             participant: Participant::read(&mut r)?,
-            owner: PrincipalId::new(r.fixed()?)?,
-            enrollment_nonce_commitment: Digest32::new(r.fixed()?)?,
+            owner: r.principal_id()?,
+            enrollment_nonce_commitment: r.digest32()?,
             delegate: PublicKey32(r.fixed()?),
             delegate_generation: r.u64()?,
-            identity_commitment: Digest32::new(r.fixed()?)?,
+            identity_commitment: r.digest32()?,
             effective_epoch: r.u64()?,
             config_version: r.u64()?,
             request: e.request,
@@ -1282,11 +1311,11 @@ fn admission_call<'a>(envelope: &ValidatedEnvelope<'a>) -> CodecResult<Admission
         }),
         dispatch::RevokeAdmissionApproval => AdmissionCall::Revoke(Participant::read(&mut r)?),
         dispatch::AdmitWorker => AdmissionCall::Worker(Admission {
-            participant: Participant::Worker(WorkerId::new(r.fixed()?)?),
+            participant: Participant::Worker(r.worker_id()?),
             delegate_generation: r.u64()?,
             effective_epoch: r.u64()?,
             config_version: r.u64()?,
-            approval_digest: Digest32::new(r.fixed()?)?,
+            approval_digest: r.digest32()?,
         }),
         dispatch::AdmitEvaluator => {
             if e.payload.len() != SIGNED_CONSENT_BYTES {
@@ -1689,6 +1718,7 @@ fn apply_admission_inner(
     })
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn encode_admission_state(
     state: SharedState<'_>,
     mut section: PolicySection<'_>,

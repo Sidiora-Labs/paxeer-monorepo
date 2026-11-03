@@ -1,0 +1,7 @@
+[repair.rust-test-interop.2]
+target = "layerx-interop-gateway"
+command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-gateway --no-fail-fast"
+revision = "68517ba97bd4163ddb38a5874a6b6df71fcd6e7b"
+result = "repaired"
+change = "services/interop/crates/layerx-interop-gateway/src/gateway.rs builds the ledger producer's native programs library and starts the real producer and its gateway consumer when no producer input is supplied."
+producer_input_tests = ["gateway::ledger_producer_proof::proof_layerxledger_0x101a consumes JSON from precompiles/layerxledger/proof_layerxledger_0x101a_test.go::TestProofLayerxledger0x101a/gateway; the test starts that producer when stdin is empty."]

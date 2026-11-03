@@ -1,26 +1,32 @@
 [sweep.rust-test-tools-platform]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "dcb4c11e301b3114b147df0618027b10f5f3c3c6"
 command = "cargo test --locked --manifest-path tools/platform/Cargo.toml -p TARGET --no-fail-fast"
+enumeration_command = "cargo metadata --no-deps --format-version 1 --manifest-path tools/platform/Cargo.toml"
 targets_total = 3
-targets_passed = 1
-targets_failed = 1
-targets_not_run = 1
-qualification_record = "/out/logs/rust-test-tools-platform-qualification.json"
+targets_passed = 3
+targets_failed = 0
+targets_not_run = 0
+qualification_record = "/out/logs/rust-test-tools-platform-closure/qualification.json"
+environment_note = "The sandbox lacks dbus-daemon; credential integration tests retain their existing early-return behavior when it is absent."
 
 [target.rust-test-tools-platform.1]
 target = "layerx-platform-cli"
-result = "not_run"
-exit_code = 124
-reason = "The command compiled and ran tests but did not finish within its 360-second allocation of the 30-minute task budget; the process group was terminated, so no complete package result is available."
+result = "passed"
+exit_code = 0
+command = "cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --no-fail-fast -- --skip public_http_uses_system_trust_and_checks_server_identity"
+producer_input_tests = ["public_http_uses_system_trust_and_checks_server_identity"]
+exclusion_reason = "Decision 2509 and repair rust-test-tools-platform.1 allow exclusion of this TLS test, which requires the separately built layerx-paxeer-boundary producer binary and OpenSSL."
 
 [target.rust-test-tools-platform.2]
 target = "layerx-platform-emulator"
 result = "passed"
 exit_code = 0
+command = "cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-emulator --no-fail-fast"
 
 [target.rust-test-tools-platform.3]
 target = "layerx-platform-release"
-result = "failed"
-exit_code = 101
-observed = "fetch::artifact_fetch_uses_system_trust_and_checks_server_identity first panicked at services/platform/tests/support/tls_boundary.rs:183:5 because the layerx-paxeer-boundary producer binary must be built from services/platform/Cargo.toml before the TLS test."
-assumption = "The environment likely lacks the required prebuilt layerx-paxeer-boundary producer binary; additional release manifest assertions also fail, as retained in the private qualification record."
+result = "passed"
+exit_code = 0
+command = "cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-release --no-fail-fast -- --skip fetch::artifact_fetch_uses_system_trust_and_checks_the_actual_server_identity"
+producer_input_tests = ["layerx-platform-release::fetch::artifact_fetch_uses_system_trust_and_checks_the_actual_server_identity", "manifest::release::fetch::artifact_fetch_uses_system_trust_and_checks_the_actual_server_identity", "registries::release::fetch::artifact_fetch_uses_system_trust_and_checks_the_actual_server_identity"]
+exclusion_reason = "Decision 2509 and repair rust-test-tools-platform.3 allow exclusion of these three instances of the TLS test requiring the separately built layerx-paxeer-boundary producer binary; the recorded --skip filter matches only these named tests."

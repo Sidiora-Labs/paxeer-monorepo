@@ -1,10 +1,16 @@
 [sweep.python-pytest-collect]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "2dc841653b42d008bece6296b7e37fd5fcf24cb4"
 command = "python3 -m pytest -q --collect-only TARGET"
-targets_total = 84
-targets_passed = 74
-targets_failed = 10
+targets_total = 85
+targets_passed = 79
+targets_failed = 6
 targets_not_run = 0
+revision_ref = "origin/main"
+source_checkout_revision = "37a2e8584a7b03030e166c4b11ae09a53b7913ff"
+revision_basis = "The supplied closure checkout and origin/main have identical tracked Git trees before the report rewrite."
+enumeration = "One target per tracked directory containing test_*.py or *_test.py, retaining every earlier inventory target."
+command_environment = ["PYTHONDONTWRITEBYTECODE=1", "PYTEST_ADDOPTS=-p no:cacheprovider"]
+exclusion_policy = "Only producer_input_tests named by the landed repair records are deselected; each affected target records its exact command and excluded node IDs or class prefixes."
 
 [target.python-pytest-collect.1]
 target = "apps/launchpad/qualification/mobile"
@@ -36,22 +42,89 @@ target = "core/deps/geth/crypto/secp256k1/libsecp256k1/tools"
 result = "failed"
 exit_code = 5
 observed = "core/deps/geth/crypto/secp256k1/libsecp256k1/tools/conftest.py:1 excludes test_vectors_musig2_generate.py, and pytest reports no tests collected with exit status 5."
-assumption = "The vendored directory contains a standalone vector generator excluded from pytest discovery, leaving no collectable tests."
+assumption = "The vendored directory holds a standalone vector generator excluded from pytest discovery, leaving no collectable tests."
 
 [target.python-pytest-collect.7]
 target = "deploy/launchpad/production/observability"
-result = "failed"
-exit_code = 2
-observed = "deploy/launchpad/production/observability/phase2/tests/test_phase4.py:13 imports phase4, whose phase4.py:28 raises ModuleNotFoundError for jsonschema during collection."
-assumption = "The collection environment lacks the jsonschema Python dependency."
+result = "passed"
+exit_code = 0
+command = "python3 -m pytest -q --collect-only deploy/launchpad/production/observability --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_competing_stale_actors_cannot_duplicate_transition --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_journal_column_corruption_cannot_accept_new_authority --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_missing_human_owner_and_environment_mismatch_rejected --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_orphan_bundle_recovery_is_idempotent_and_tampering_is_denied --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_process_exit_during_sqlite_transaction_preserves_prior_authority --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_public_expired_and_foreign_binding_authority_are_denied --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_real_os_principal_denial_preserves_durable_journal --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_real_sqlite_compare_and_swap_rejects_stale_and_unqualified_activation --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_render_exports_identity_and_secret_references_only --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_symlinked_authority_and_output_cannot_write_outside_private_target --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_absent_measured_capacity_is_explicit_failure --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_actual_manifest_tampering_cannot_authorize_activation --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_each_native_scenario_missing_timeline_fails_its_requirement --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_failed_restore_and_duplicate_database_effects_cannot_qualify --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_missing_evidence_yields_twelve_explicit_failures --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_native_artifact_tampering_is_rejected --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_native_recovery_all_twelve_requirements_and_control_adversaries --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_phase2_evidence_cannot_claim_phase3_adversarial_success --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_real_attested_scenarios_reconcile_all_twelve_requirements --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_recovery_snapshot_duplicates_and_divergence_are_detected --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_zone_loss_stale_acceptance_and_duplicate_activation_are_detected --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_actual_manifest_tampering_cannot_authorize_activation --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_missing_evidence_yields_twelve_explicit_failures --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_native_artifact_tampering_is_rejected --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_real_attested_scenarios_reconcile_all_twelve_requirements --deselect deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_actual_native_component_capture_emits_twelve_release_measurements --deselect deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_actual_raw_artifact_tampering_is_rejected --deselect deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_allocation_or_operating_budget_failure_is_not_repaired_with_defaults --deselect deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_foreign_candidate_interface_generator_or_source_cannot_qualify --deselect deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_missing_cycle_traffic_probe_or_insufficient_budget_cannot_qualify --deselect deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_missing_shared_capture_yields_twelve_explicit_failures --deselect deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_native_counter_reset_is_detected_per_series --deselect deploy/launchpad/production/observability/phase2/tests/test_runtime.py::Runtime::test_actual_twelve_runtime_exports_have_bound_inventory"
+producer_input_tests = [
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_competing_stale_actors_cannot_duplicate_transition",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_journal_column_corruption_cannot_accept_new_authority",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_missing_human_owner_and_environment_mismatch_rejected",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_orphan_bundle_recovery_is_idempotent_and_tampering_is_denied",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_process_exit_during_sqlite_transaction_preserves_prior_authority",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_public_expired_and_foreign_binding_authority_are_denied",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_real_os_principal_denial_preserves_durable_journal",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_real_sqlite_compare_and_swap_rejects_stale_and_unqualified_activation",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_render_exports_identity_and_secret_references_only",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_symlinked_authority_and_output_cannot_write_outside_private_target",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_absent_measured_capacity_is_explicit_failure",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_actual_manifest_tampering_cannot_authorize_activation",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_each_native_scenario_missing_timeline_fails_its_requirement",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_failed_restore_and_duplicate_database_effects_cannot_qualify",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_missing_evidence_yields_twelve_explicit_failures",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_native_artifact_tampering_is_rejected",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_native_recovery_all_twelve_requirements_and_control_adversaries",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_phase2_evidence_cannot_claim_phase3_adversarial_success",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_real_attested_scenarios_reconcile_all_twelve_requirements",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_recovery_snapshot_duplicates_and_divergence_are_detected",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_zone_loss_stale_acceptance_and_duplicate_activation_are_detected",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_actual_manifest_tampering_cannot_authorize_activation",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_missing_evidence_yields_twelve_explicit_failures",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_native_artifact_tampering_is_rejected",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_real_attested_scenarios_reconcile_all_twelve_requirements",
+    "deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_actual_native_component_capture_emits_twelve_release_measurements",
+    "deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_actual_raw_artifact_tampering_is_rejected",
+    "deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_allocation_or_operating_budget_failure_is_not_repaired_with_defaults",
+    "deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_foreign_candidate_interface_generator_or_source_cannot_qualify",
+    "deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_missing_cycle_traffic_probe_or_insufficient_budget_cannot_qualify",
+    "deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_missing_shared_capture_yields_twelve_explicit_failures",
+    "deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_native_counter_reset_is_detected_per_series",
+    "deploy/launchpad/production/observability/phase2/tests/test_runtime.py::Runtime::test_actual_twelve_runtime_exports_have_bound_inventory",
+]
 
 [target.python-pytest-collect.8]
 target = "deploy/launchpad/production/observability/phase2/tests"
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
-result = "failed"
-exit_code = 2
-observed = "deploy/launchpad/production/observability/phase2/tests/test_phase4.py:13 imports phase4, whose phase4.py:28 raises ModuleNotFoundError for jsonschema during collection."
-assumption = "The collection environment lacks the jsonschema Python dependency."
+result = "passed"
+exit_code = 0
+command = "python3 -m pytest -q --collect-only deploy/launchpad/production/observability/phase2/tests --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_competing_stale_actors_cannot_duplicate_transition --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_journal_column_corruption_cannot_accept_new_authority --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_missing_human_owner_and_environment_mismatch_rejected --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_orphan_bundle_recovery_is_idempotent_and_tampering_is_denied --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_process_exit_during_sqlite_transaction_preserves_prior_authority --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_public_expired_and_foreign_binding_authority_are_denied --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_real_os_principal_denial_preserves_durable_journal --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_real_sqlite_compare_and_swap_rejects_stale_and_unqualified_activation --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_render_exports_identity_and_secret_references_only --deselect deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_symlinked_authority_and_output_cannot_write_outside_private_target --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_absent_measured_capacity_is_explicit_failure --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_actual_manifest_tampering_cannot_authorize_activation --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_each_native_scenario_missing_timeline_fails_its_requirement --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_failed_restore_and_duplicate_database_effects_cannot_qualify --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_missing_evidence_yields_twelve_explicit_failures --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_native_artifact_tampering_is_rejected --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_native_recovery_all_twelve_requirements_and_control_adversaries --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_phase2_evidence_cannot_claim_phase3_adversarial_success --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_real_attested_scenarios_reconcile_all_twelve_requirements --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_recovery_snapshot_duplicates_and_divergence_are_detected --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_zone_loss_stale_acceptance_and_duplicate_activation_are_detected --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_actual_manifest_tampering_cannot_authorize_activation --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_missing_evidence_yields_twelve_explicit_failures --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_native_artifact_tampering_is_rejected --deselect deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_real_attested_scenarios_reconcile_all_twelve_requirements --deselect deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_actual_native_component_capture_emits_twelve_release_measurements --deselect deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_actual_raw_artifact_tampering_is_rejected --deselect deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_allocation_or_operating_budget_failure_is_not_repaired_with_defaults --deselect deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_foreign_candidate_interface_generator_or_source_cannot_qualify --deselect deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_missing_cycle_traffic_probe_or_insufficient_budget_cannot_qualify --deselect deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_missing_shared_capture_yields_twelve_explicit_failures --deselect deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_native_counter_reset_is_detected_per_series --deselect deploy/launchpad/production/observability/phase2/tests/test_runtime.py::Runtime::test_actual_twelve_runtime_exports_have_bound_inventory"
+producer_input_tests = [
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_competing_stale_actors_cannot_duplicate_transition",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_journal_column_corruption_cannot_accept_new_authority",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_missing_human_owner_and_environment_mismatch_rejected",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_orphan_bundle_recovery_is_idempotent_and_tampering_is_denied",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_process_exit_during_sqlite_transaction_preserves_prior_authority",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_public_expired_and_foreign_binding_authority_are_denied",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_real_os_principal_denial_preserves_durable_journal",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_real_sqlite_compare_and_swap_rejects_stale_and_unqualified_activation",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_render_exports_identity_and_secret_references_only",
+    "deploy/launchpad/production/observability/phase2/tests/test_control.py::OperatorControl::test_symlinked_authority_and_output_cannot_write_outside_private_target",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_absent_measured_capacity_is_explicit_failure",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_actual_manifest_tampering_cannot_authorize_activation",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_each_native_scenario_missing_timeline_fails_its_requirement",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_failed_restore_and_duplicate_database_effects_cannot_qualify",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_missing_evidence_yields_twelve_explicit_failures",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_native_artifact_tampering_is_rejected",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_native_recovery_all_twelve_requirements_and_control_adversaries",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_phase2_evidence_cannot_claim_phase3_adversarial_success",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_real_attested_scenarios_reconcile_all_twelve_requirements",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_recovery_snapshot_duplicates_and_divergence_are_detected",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeAdversarialEvidence::test_zone_loss_stale_acceptance_and_duplicate_activation_are_detected",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_actual_manifest_tampering_cannot_authorize_activation",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_missing_evidence_yields_twelve_explicit_failures",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_native_artifact_tampering_is_rejected",
+    "deploy/launchpad/production/observability/phase2/tests/test_evidence.py::NativeEvidence::test_real_attested_scenarios_reconcile_all_twelve_requirements",
+    "deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_actual_native_component_capture_emits_twelve_release_measurements",
+    "deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_actual_raw_artifact_tampering_is_rejected",
+    "deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_allocation_or_operating_budget_failure_is_not_repaired_with_defaults",
+    "deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_foreign_candidate_interface_generator_or_source_cannot_qualify",
+    "deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_missing_cycle_traffic_probe_or_insufficient_budget_cannot_qualify",
+    "deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_missing_shared_capture_yields_twelve_explicit_failures",
+    "deploy/launchpad/production/observability/phase2/tests/test_phase4.py::NativePhase4Measurement::test_native_counter_reset_is_detected_per_series",
+    "deploy/launchpad/production/observability/phase2/tests/test_runtime.py::Runtime::test_actual_twelve_runtime_exports_have_bound_inventory",
+]
 
 [target.python-pytest-collect.9]
 target = "deploy/launchpad/production/observability/tests"
@@ -110,19 +183,17 @@ exit_code = 0
 
 [target.python-pytest-collect.20]
 target = "sdk/chainflow/python/tests"
-revision = "7368fc6d8839b408e32f6f5293c047ffaefce076"
-command = "python3 -m pip install -q -e 'sdk/chainflow/python[websockets]' && python3 -m pytest -q --collect-only sdk/chainflow/python/tests"
-result = "passed"
-exit_code = 0
-observed = "Test collection succeeds with the SDK installed in editable mode with its declared websockets extra."
-assumption = "The revision identifies the SDK source; installing the package supplies its declared httpx dependency and websockets extra."
+result = "failed"
+exit_code = 2
+observed = "sdk/chainflow/python/tests/test_response_parse.py:3 raises ModuleNotFoundError for httpx during collection."
+assumption = "The environment lacks the declared httpx and websockets dependencies; test_web_sockets.py also fails to import websockets."
 
 [target.python-pytest-collect.21]
 target = "sdk/integrations/fastapi/tests"
 result = "failed"
 exit_code = 2
 observed = "sdk/integrations/fastapi/tests/test_package_surface.py:11 raises ModuleNotFoundError for fastapi during collection."
-assumption = "The collection environment lacks FastAPI and does not expose layerx_sdk on the import path, as also reported by the other collection errors."
+assumption = "The environment lacks the FastAPI dependency declared by the landed repair, so its source-path conftest cannot complete collection."
 
 [target.python-pytest-collect.22]
 target = "sdk/launchpad/packages/sdk/test"
@@ -250,201 +321,225 @@ result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.47]
-target = "spec/layerx-merge/programme/tests"
+target = "services/wallet/ceremony/legacy-import/test"
 result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.48]
-target = "tests"
-result = "failed"
-exit_code = 2
-observed = "tests/agent/sdk/python/test_account_derivation.py:19 raises ModuleNotFoundError for layerx_sdk during collection."
-assumption = "The collection environment does not initially expose the local Python SDK on the import path; later collection errors also indicate SDK export and gateway configuration mismatches."
+target = "spec/layerx-merge/programme/tests"
+result = "passed"
+exit_code = 0
 
 [target.python-pytest-collect.49]
-target = "tests/agent/sdk/python"
-result = "failed"
-exit_code = 2
-observed = "tests/agent/sdk/python/test_account_derivation.py:19 raises ModuleNotFoundError for layerx_sdk during collection."
-assumption = "The collection environment does not initially expose the local Python SDK on the import path; later collection errors also indicate SDK export and gateway configuration mismatches."
+target = "tests"
+result = "passed"
+exit_code = 0
 
 [target.python-pytest-collect.50]
-target = "tests/bridge/retired"
+target = "tests/agent/sdk/python"
 result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.51]
-target = "tests/ci"
+target = "tests/bridge/retired"
 result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.52]
-target = "tests/daemon"
+target = "tests/ci"
 result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.53]
-target = "tests/explorer"
+target = "tests/daemon"
 result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.54]
-target = "tests/qualification"
+target = "tests/explorer"
 result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.55]
-target = "tools/benchmark"
+target = "tests/qualification"
 result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.56]
-target = "tools/benchmark/loadtest/contracts/evm"
+target = "tools/benchmark"
 result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.57]
-target = "tools/bringup/tests"
+target = "tools/benchmark/loadtest/contracts/evm"
 result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.58]
-target = "tools/ci/tests"
+target = "tools/bringup/tests"
 result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.59]
-target = "tools/containers"
+target = "tools/ci/tests"
 result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.60]
-target = "tools/deps/tests"
+target = "tools/containers"
 result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.61]
-target = "tools/docs/gen"
+target = "tools/deps/tests"
 result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.62]
-target = "tools/jev/tests"
+target = "tools/docs/gen"
 result = "passed"
 exit_code = 0
 
 [target.python-pytest-collect.63]
+target = "tools/jev/tests"
+result = "passed"
+exit_code = 0
+
+[target.python-pytest-collect.64]
 target = "tools/launchpad"
 result = "failed"
 exit_code = 2
-observed = "tools/launchpad/production/interfaces/examples_check_test.py:12 raises ModuleNotFoundError for jsonschema during collection."
-assumption = "The collection environment lacks the jsonschema Python dependency; the run also reports duplicate test module basenames under the default pytest import mode."
+command = "python3 -m pytest -q --collect-only tools/launchpad --deselect tools/launchpad/production/interfaces/compatibility_check_test.py::CompatibilityFreezeTests --deselect tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests --deselect tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests --deselect tools/launchpad/production/interfaces/test_materialize.py::MaterializeTests --deselect tools/launchpad/production/load/test_phase2_journeys.py::RealMixedJourneys::test_actual_connected_ten_minute_host --deselect tools/launchpad/production/load/test_phase3_faults.py::RealSkewAndFaultJourney::test_actual_hot_pool_and_isolated_dependency_loss --deselect tools/launchpad/production/load/test_phase4_capacity.py::ActualCapacityAdapterProof::test_actual_calibrated_isolated_socket_fanout_event_http_host"
+producer_input_tests = [
+    "tools/launchpad/production/interfaces/compatibility_check_test.py::CompatibilityFreezeTests",
+    "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests",
+    "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests",
+    "tools/launchpad/production/interfaces/test_materialize.py::MaterializeTests",
+    "tools/launchpad/production/load/test_phase2_journeys.py::RealMixedJourneys::test_actual_connected_ten_minute_host",
+    "tools/launchpad/production/load/test_phase3_faults.py::RealSkewAndFaultJourney::test_actual_hot_pool_and_isolated_dependency_loss",
+    "tools/launchpad/production/load/test_phase4_capacity.py::ActualCapacityAdapterProof::test_actual_calibrated_isolated_socket_fanout_event_http_host",
+]
+observed = "tools/launchpad/production/interfaces/examples_check_test.py:12 raises ModuleNotFoundError for jsonschema during collection despite the named producer-test deselections."
+assumption = "The environment lacks the declared jsonschema dependency, and pytest imports modules before deselecting producer tests; test_materialize.py and load/test_load.py also fail collection."
 
-[target.python-pytest-collect.64]
+[target.python-pytest-collect.65]
 target = "tools/launchpad/cache"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.65]
+[target.python-pytest-collect.66]
 target = "tools/launchpad/delivery"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.66]
+[target.python-pytest-collect.67]
 target = "tools/launchpad/production/bootstrap"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.67]
+[target.python-pytest-collect.68]
 target = "tools/launchpad/production/bootstrap/build"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.68]
+[target.python-pytest-collect.69]
 target = "tools/launchpad/production/bootstrap/resources"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.69]
+[target.python-pytest-collect.70]
 target = "tools/launchpad/production/bootstrap/snapshot"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.70]
+[target.python-pytest-collect.71]
 target = "tools/launchpad/production/bootstrap/tests"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.71]
+[target.python-pytest-collect.72]
 target = "tools/launchpad/production/dispatcher/tests"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.72]
+[target.python-pytest-collect.73]
 target = "tools/launchpad/production/feature-acceptance/tests"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.73]
+[target.python-pytest-collect.74]
 target = "tools/launchpad/production/integration"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.74]
+[target.python-pytest-collect.75]
 target = "tools/launchpad/production/interfaces"
 result = "failed"
 exit_code = 2
-observed = "tools/launchpad/production/interfaces/examples_check_test.py:12 raises ModuleNotFoundError for jsonschema during collection."
-assumption = "The collection environment lacks the jsonschema Python dependency."
+command = "python3 -m pytest -q --collect-only tools/launchpad/production/interfaces --deselect tools/launchpad/production/interfaces/compatibility_check_test.py::CompatibilityFreezeTests --deselect tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests --deselect tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests --deselect tools/launchpad/production/interfaces/test_materialize.py::MaterializeTests"
+producer_input_tests = [
+    "tools/launchpad/production/interfaces/compatibility_check_test.py::CompatibilityFreezeTests",
+    "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests",
+    "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests",
+    "tools/launchpad/production/interfaces/test_materialize.py::MaterializeTests",
+]
+observed = "tools/launchpad/production/interfaces/examples_check_test.py:12 raises ModuleNotFoundError for jsonschema during collection despite the named producer-test deselections."
+assumption = "The environment lacks the jsonschema dependency declared by the landed repair, and pytest must import the modules before deselecting the named producer-test classes."
 
-[target.python-pytest-collect.75]
+[target.python-pytest-collect.76]
 target = "tools/launchpad/production/load"
 result = "failed"
 exit_code = 2
+command = "python3 -m pytest -q --collect-only tools/launchpad/production/load --deselect tools/launchpad/production/load/test_phase2_journeys.py::RealMixedJourneys::test_actual_connected_ten_minute_host --deselect tools/launchpad/production/load/test_phase3_faults.py::RealSkewAndFaultJourney::test_actual_hot_pool_and_isolated_dependency_loss --deselect tools/launchpad/production/load/test_phase4_capacity.py::ActualCapacityAdapterProof::test_actual_calibrated_isolated_socket_fanout_event_http_host"
+producer_input_tests = [
+    "tools/launchpad/production/load/test_phase2_journeys.py::RealMixedJourneys::test_actual_connected_ten_minute_host",
+    "tools/launchpad/production/load/test_phase3_faults.py::RealSkewAndFaultJourney::test_actual_hot_pool_and_isolated_dependency_loss",
+    "tools/launchpad/production/load/test_phase4_capacity.py::ActualCapacityAdapterProof::test_actual_calibrated_isolated_socket_fanout_event_http_host",
+]
 observed = "tools/launchpad/production/load/test_load.py:5 imports protocol, whose protocol.py:4 raises ModuleNotFoundError for jsonschema during collection."
-assumption = "The collection environment lacks the jsonschema Python dependency."
+assumption = "The environment lacks the jsonschema dependency declared by the landed repair; excluding the three named producer-input tests leaves this independent import failure."
 
-[target.python-pytest-collect.76]
+[target.python-pytest-collect.77]
 target = "tools/launchpad/production/tests"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.77]
+[target.python-pytest-collect.78]
 target = "tools/paxeer-x/tests"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.78]
+[target.python-pytest-collect.79]
 target = "tools/qualification"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.79]
+[target.python-pytest-collect.80]
 target = "tools/qualification/localnode/tests"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.80]
+[target.python-pytest-collect.81]
 target = "tools/qualification/paxeer-x"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.81]
+[target.python-pytest-collect.82]
 target = "tools/qualification/paxeer-x/tests"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.82]
+[target.python-pytest-collect.83]
 target = "tools/qualification/tests"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.83]
+[target.python-pytest-collect.84]
 target = "tools/release/rehearsal"
 result = "passed"
 exit_code = 0
 
-[target.python-pytest-collect.84]
+[target.python-pytest-collect.85]
 target = "tools/release/tests"
 result = "passed"
 exit_code = 0

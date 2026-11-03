@@ -130,6 +130,12 @@ func RepositoryRoot(t testing.TB) string {
 
 func readBound(t testing.TB, root, relative, want string) []byte {
 	t.Helper()
+	for _, prefix := range []string{"core/", "media/"} {
+		if strings.HasPrefix(relative, prefix) {
+			relative = "services/launchpad/" + strings.TrimPrefix(relative, prefix)
+			break
+		}
+	}
 	raw, err := os.ReadFile(filepath.Join(root, relative))
 	if err != nil {
 		t.Fatal(err)

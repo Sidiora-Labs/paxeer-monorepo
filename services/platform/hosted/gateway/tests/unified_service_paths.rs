@@ -15,7 +15,7 @@ const WALLET: &str = include_str!("../../../../../services/wallet/gateway/src/ro
 const SIGN: &str = include_str!("../../../../../services/wallet/gateway/src/routes/sign.ts");
 const OWNER: &str = include_str!("../../../../../services/wallet/gateway/src/index.ts");
 const SDK_PROVIDER: &str = include_str!("../../../../../sdk/wallet/src/provider.ts");
-const SDK_LX: &str = include_str!("../../../../../sdk/wallet/src/index.ts");
+const SDK_WALLET: &str = include_str!("../../../../../sdk/wallet/src/index.ts");
 const SDK_GAS: &str = include_str!("../../../../../sdk/wallet/src/modules/gas-station.ts");
 
 #[test]
@@ -64,9 +64,17 @@ fn real_registered_wallet_handlers_have_the_same_unified_owner() {
     assert!(OWNER.contains("app.register(walletSponsorRoutes)"));
     assert!(OWNER.contains("app.register(signRoutes)"));
     assert!(SIGN.contains("await lxApprovalRoutes(app, pool, attestors, limiter)"));
+    let wallet: String = WALLET
+        .chars()
+        .filter(|value| !value.is_whitespace())
+        .collect();
+    let sign: String = SIGN
+        .chars()
+        .filter(|value| !value.is_whitespace())
+        .collect();
     for name in ["submit", "status"] {
         let path = format!("/v1/wallet/sponsored/{name}");
-        assert!(WALLET.contains(&format!("app.post('{path}',{{preHandler:requireAuth}}")));
+        assert!(wallet.contains(&format!("app.post('{path}',{{preHandler:requireAuth}}")));
         operation(
             "POST",
             &path,
@@ -75,36 +83,59 @@ fn real_registered_wallet_handlers_have_the_same_unified_owner() {
     }
     for path in [
         "/v1/wallet/sign-digest",
-        "/v1/wallet/sign-custody",
         "/v1/wallet/lx/review",
         "/v1/wallet/lx/approve",
         "/v1/wallet/lx/sign",
     ] {
-        assert!(SIGN.contains(&format!("app.post('{path}',{{preHandler:requireAuth")));
+        assert!(sign.contains(&format!("app.post('{path}',{{preHandler:requireAuth")));
         operation("POST", path, "services/wallet/gateway/src/routes/sign.ts");
     }
-    operation(
-        "GET",
-        &format!("/v1/wallet/custody/0x{}", "ab".repeat(32)),
-        "services/wallet/gateway/src/routes/sign.ts",
-    );
+    for (method, route, target) in [
+        (
+            "POST",
+            "/v1/wallet/sign-custody",
+            "/v1/wallet/sign-custody".to_owned(),
+        ),
+        (
+            "GET",
+            "/v1/wallet/custody/:id",
+            format!("/v1/wallet/custody/0x{}", "ab".repeat(32)),
+        ),
+        (
+            "GET",
+            "/v1/wallet/custody-authorization/:id",
+            format!("/v1/wallet/custody-authorization/0x{}", "ab".repeat(32)),
+        ),
+    ] {
+        assert!(!sign.contains(&format!("app.{}('{route}'", method.to_lowercase())));
+        assert!(
+            unified_service_route(method, &target).is_none(),
+            "retired {method} {target}"
+        );
+        assert!(unified_service_catalogue()["routes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|entry| entry["path"] != route));
+    }
     operation(
         "GET",
         "/v1/wallet/lx/approvals/12345678-1234-4234-8234-123456789abc",
         "services/wallet/gateway/src/routes/sign.ts",
     );
-    assert!(SIGN.contains("app.get('/v1/wallet/custody/:id',{preHandler:requireAuth"));
-    assert!(SIGN.contains("app.get('/v1/wallet/lx/approvals/:id',{preHandler:requireAuth"));
+
+    assert!(sign.contains("app.get('/v1/wallet/lx/approvals/:id',{preHandler:requireAuth"));
 }
 
 #[test]
 fn actual_sdk_callers_and_existing_ownership_checks_stay_connected() {
+    assert!(SDK_PROVIDER.contains("/v1/wallet/sign-digest"));
     for path in [
-        "/v1/wallet/sign-digest",
         "/v1/wallet/sign-custody",
         "/v1/wallet/custody/",
+        "/v1/wallet/custody-authorization/",
     ] {
-        assert!(SDK_PROVIDER.contains(path), "actual SDK caller {path}");
+        assert!(!SDK_PROVIDER.contains(path), "retired SDK caller {path}");
     }
     for path in [
         "/v1/wallet/lx/review",
@@ -112,12 +143,23 @@ fn actual_sdk_callers_and_existing_ownership_checks_stay_connected() {
         "/v1/wallet/lx/sign",
         "/v1/wallet/lx/approvals/",
     ] {
-        assert!(SDK_LX.contains(path), "actual retained LX caller {path}");
+        assert!(!SDK_WALLET.contains(path), "retired LX SDK caller {path}");
+    }
+    for path in [
+        "/v1/wallet/evm/review",
+        "/v1/wallet/evm/approve",
+        "/v1/wallet/evm/approvals/",
+    ] {
+        assert!(SDK_WALLET.contains(path), "actual EVM SDK caller {path}");
     }
     assert!(SDK_GAS.contains("/v1/wallet/sponsored/status"));
     assert!(SDK_GAS.contains("/v1/wallet/sponsored/submit"));
-    assert!(WALLET.contains("wallet.address.toLowerCase()!==account.toLowerCase()"));
-    assert!(SIGN.contains("where id=$1 and user_id=$2"));
+    let wallet: String = WALLET
+        .chars()
+        .filter(|value| !value.is_whitespace())
+        .collect();
+    assert!(wallet.contains("wallet.address.toLowerCase()!==account.toLowerCase()"));
+    assert!(!SIGN.contains("where id=$1 and user_id=$2"));
     assert!(SIGN.contains("where id=$1 and principal=$2 for update"));
     assert!(SIGN.contains("explicit_lx_approval_required"));
     assert!(SIGN.contains("attestor_custody_required"));

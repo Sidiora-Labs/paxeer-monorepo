@@ -149,6 +149,7 @@ func TestProofLayerxexchangeRetirement(t *testing.T) {
 		observed, wire := retirementDelivery(t, err)
 		require.Equal(t, "layerxexchange", observed.Codespace)
 		require.Equal(t, uint32(14), observed.Code)
+		require.Equal(t, "v6.12.0 done at height 20: layerxexchange is retired from v6.12.0", observed.Log)
 		consumerErr := sdkerrors.ABCIError(observed.Codespace, observed.Code, observed.Log)
 		require.ErrorIs(t, consumerErr, types.ErrRetired)
 		require.Equal(t, "LXP_EXCHANGE_RETIRED", types.ErrorCode(consumerErr))

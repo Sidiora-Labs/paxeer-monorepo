@@ -50,7 +50,8 @@ pub const SCRATCH_BYTES: usize =
     Section::IdentityRoster.payload_cap() + Section::Control.payload_cap();
 const _: () = assert!(RECORD_BYTES == 356 && REGION_MAX_BYTES <= 4_288);
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u16)]
 pub enum RevocationReason {
     CompromisedKey = 1,
@@ -61,6 +62,7 @@ pub enum RevocationReason {
 impl RevocationReason {
     /// # Errors
     /// `NON_CANONICAL` for any value outside 1..=4.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(value: u16) -> CodecResult<Self> {
         match value {
             1 => Ok(Self::CompromisedKey),
@@ -73,7 +75,8 @@ impl RevocationReason {
 }
 
 /// The last Owner request that changed this record (common replay identity).
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct LastRequest {
     pub sequence: u64,
     pub request: RequestId,
@@ -82,7 +85,8 @@ pub struct LastRequest {
 }
 
 /// A staged replacement key; it never changes a running snapshot.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct PendingRekey {
     pub key: PublicKey32,
     pub key_version: Version,
@@ -91,7 +95,8 @@ pub struct PendingRekey {
 
 /// Terminal revocation. `excludes_frozen_epoch` records whether it preceded the
 /// aggregate seal of the epoch whose snapshot contained the evaluator.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Revocation {
     pub reason: RevocationReason,
     pub evidence: Digest32,
@@ -100,7 +105,8 @@ pub struct Revocation {
 }
 
 /// Current evaluator record: grant 161, last request 104, rekey 48, revocation 43.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EvaluatorRecord {
     pub grant: EvaluatorGrant,
     pub last: LastRequest,
@@ -108,6 +114,7 @@ pub struct EvaluatorRecord {
     pub revocation: Option<Revocation>,
 }
 impl EvaluatorRecord {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn validate(&self) -> CodecResult<()> {
         self.grant.validate()?;
         if (self.grant.status == GrantStatus::Revoked) != self.revocation.is_some()
@@ -127,6 +134,7 @@ impl EvaluatorRecord {
         }
         Ok(())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> CodecResult<()> {
         let mut grant = [0u8; GRANT_BYTES];
         encode_grant(&self.grant, &mut grant)?;
@@ -153,13 +161,14 @@ impl EvaluatorRecord {
             None => w.put(&[0; REVOCATION_BYTES]),
         }
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'_>) -> CodecResult<Self> {
         let grant = decode_grant(r.take(GRANT_BYTES)?)?;
         let last = LastRequest {
             sequence: r.u64()?,
-            request: RequestId::new(r.fixed()?)?,
-            digest: RequestDigest::new(r.fixed()?)?,
-            result: ResultDigest::new(r.fixed()?)?,
+            request: r.request_id()?,
+            digest: r.request_digest()?,
+            result: r.result_digest()?,
         };
         let rekey_bytes = r.take(REKEY_BYTES)?;
         let rekey = if rekey_bytes.iter().all(|b| *b == 0) {
@@ -168,7 +177,7 @@ impl EvaluatorRecord {
             let mut k = Reader::new(rekey_bytes);
             let rekey = PendingRekey {
                 key: PublicKey32(k.fixed()?),
-                key_version: Version::new(k.u64()?)?,
+                key_version: k.version()?,
                 effective_epoch: k.u64()?,
             };
             k.finish()?;
@@ -180,7 +189,7 @@ impl EvaluatorRecord {
         } else {
             let mut k = Reader::new(revocation_bytes);
             let reason = RevocationReason::decode(k.u16()?)?;
-            let evidence = Digest32::new(k.fixed()?)?;
+            let evidence = k.digest32()?;
             let height = k.u64()?;
             let excludes_frozen_epoch = match k.u8()? {
                 1 => false,
@@ -207,12 +216,14 @@ impl EvaluatorRecord {
 }
 
 /// Frozen snapshot entry: the common roster entry plus its exclusive expiry.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct FrozenEvaluator {
     pub entry: EvaluatorRosterEntry,
     pub expiry_epoch_exclusive: u64,
 }
 impl FrozenEvaluator {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> CodecResult<()> {
         w.put(self.entry.evaluator.as_bytes())?;
         w.put(self.entry.owner.as_bytes())?;
@@ -222,15 +233,16 @@ impl FrozenEvaluator {
         w.put(self.entry.rubric.as_bytes())?;
         w.u64(self.expiry_epoch_exclusive)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'_>) -> CodecResult<Self> {
         let value = Self {
             entry: EvaluatorRosterEntry {
-                evaluator: EvaluatorId::new(r.fixed()?)?,
-                owner: PrincipalId::new(r.fixed()?)?,
-                grant: Version::new(r.u64()?)?,
-                key_version: Version::new(r.u64()?)?,
+                evaluator: r.evaluator_id()?,
+                owner: r.principal_id()?,
+                grant: r.version()?,
+                key_version: r.version()?,
                 public_key: PublicKey32(r.fixed()?),
-                rubric: RubricDigest::new(r.fixed()?)?,
+                rubric: r.rubric_digest()?,
             },
             expiry_epoch_exclusive: r.u64()?,
         };
@@ -240,7 +252,8 @@ impl FrozenEvaluator {
 }
 
 /// Immutable eligible evaluator list of one opened epoch, sorted by evaluator ID.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Snapshot {
     pub epoch: u64,
     entries: [Option<FrozenEvaluator>; MAX_EVALUATORS],
@@ -294,7 +307,8 @@ const fn live(status: GrantStatus) -> bool {
 
 /// Bounded F03 region: current records sorted by evaluator ID, then the
 /// optional frozen snapshot of the last opened epoch.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EvaluatorRegion {
     records: [Option<EvaluatorRecord>; MAX_EVALUATORS],
     count: usize,
@@ -452,6 +466,7 @@ impl EvaluatorRegion {
         Ok(())
     }
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encoded_len(&self) -> usize {
         if self.count == 0 && self.snapshot.is_none() {
             return 0;
@@ -466,6 +481,7 @@ impl EvaluatorRegion {
     ///
     /// # Errors
     /// `CAPACITY` when `out` is too small and `NON_CANONICAL` for an invalid region.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.check()?;
         let n = self.encoded_len();
@@ -493,6 +509,7 @@ impl EvaluatorRegion {
     }
     /// # Errors
     /// `CAPACITY` and `NON_CANONICAL` for any non-canonical or inconsistent region.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut region = Self::new();
         if input.is_empty() {
@@ -582,7 +599,8 @@ fn compose(workers: &[u8], region: &EvaluatorRegion, out: &mut [u8]) -> CodecRes
 /// Authenticated host values for one direct F03 call. `approved_rubric` is the
 /// F01 active policy rubric; `aggregate_sealed` is the F05 seal status of the
 /// currently frozen epoch at this activity.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct AuthorityContext<'m> {
     pub market: &'m MarketHeader,
     pub invoking_principal: PrincipalId,
@@ -592,7 +610,8 @@ pub struct AuthorityContext<'m> {
     pub aggregate_sealed: bool,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Outcome {
     Applied {
         state_len: usize,
@@ -662,12 +681,12 @@ fn schedule(
     suffix: &mut [u8],
 ) -> CodecResult<usize> {
     let mut r = exact(payload, SCHEDULE_PAYLOAD_BYTES)?;
-    let principal = PrincipalId::new(r.fixed()?)?;
+    let principal = r.principal_id()?;
     let nonce: [u8; 32] = r.fixed()?;
-    let rubric = RubricDigest::new(r.fixed()?)?;
+    let rubric = r.rubric_digest()?;
     let key = PublicKey32(r.fixed()?);
-    let grant_version = Version::new(r.u64()?)?;
-    let key_version = Version::new(r.u64()?)?;
+    let grant_version = r.version()?;
+    let key_version = r.version()?;
     let effective_epoch = r.u64()?;
     let expiry_epoch_exclusive = r.u64()?;
     r.finish()?;
@@ -757,10 +776,10 @@ fn rotate(
     suffix: &mut [u8],
 ) -> CodecResult<usize> {
     let mut r = exact(payload, ROTATE_PAYLOAD_BYTES)?;
-    let evaluator = EvaluatorId::new(r.fixed()?)?;
+    let evaluator = r.evaluator_id()?;
     let key = PublicKey32(r.fixed()?);
-    let key_version = Version::new(r.u64()?)?;
-    let expected_grant = Version::new(r.u64()?)?;
+    let key_version = r.version()?;
+    let expected_grant = r.version()?;
     let effective_epoch = r.u64()?;
     r.finish()?;
     nonzero_key(key)?;
@@ -812,10 +831,10 @@ fn revoke(
     suffix: &mut [u8],
 ) -> CodecResult<Option<usize>> {
     let mut r = exact(payload, REVOKE_PAYLOAD_BYTES)?;
-    let evaluator = EvaluatorId::new(r.fixed()?)?;
-    let grant_version = Version::new(r.u64()?)?;
+    let evaluator = r.evaluator_id()?;
+    let grant_version = r.version()?;
     let reason = RevocationReason::decode(r.u16()?)?;
-    let evidence = Digest32::new(r.fixed()?)?;
+    let evidence = r.digest32()?;
     r.finish()?;
     let mut record = *region.get(evaluator).ok_or(F03_NO_GRANT)?;
     if grant_version != record.grant.grant_version {
@@ -945,7 +964,8 @@ pub fn apply(
 
 /// Authenticated inputs of one `OpenEpoch` boundary. `admission` is the F08 table
 /// after its own rollover to `epoch`; `workers` is the frozen worker roster.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct SnapshotContext<'a> {
     pub market: &'a MarketHeader,
     pub epoch: u64,
@@ -954,7 +974,8 @@ pub struct SnapshotContext<'a> {
     pub admission: &'a AdmissionTable,
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct OpenedSnapshot {
     pub members: u8,
     pub activated: u8,

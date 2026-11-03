@@ -1,0 +1,7 @@
+[repair.rust-test-tools-platform.1]
+target = "layerx-platform-cli"
+command = "cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --no-fail-fast -- --skip public_http_uses_system_trust_and_checks_server_identity"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "tools/platform/cli/README.md documents the TLS producer input; no product code changes."
+producer_input_tests = ["public_http_uses_system_trust_and_checks_server_identity requires the real layerx-paxeer-boundary binary built from services/platform/Cargo.toml, supplied through LAYERX_PAXEER_BOUNDARY_BIN or tools/platform/target/debug/layerx-paxeer-boundary, and OpenSSL for certificate generation (decisions 2325 and 2499)"]

@@ -29,7 +29,7 @@ func replayPostgres(t *testing.T) (context.Context, string, *pgxpool.Pool) {
 	t.Cleanup(cancel)
 	dsn, pool := canonicaltest.New(t)
 	_, file, _, _ := runtime.Caller(0)
-	ddl, err := os.ReadFile(filepath.Join(filepath.Dir(file), "../../../../../launchpad/spec/production-system/handoffs/L06/phase2/ingestion.sql"))
+	ddl, err := os.ReadFile(filepath.Join(filepath.Dir(file), "../../../../../launchpad/spec/production-system/integration/migrations/60001.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}

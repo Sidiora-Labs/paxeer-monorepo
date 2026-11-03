@@ -679,3 +679,14 @@ pub fn verify_state_inclusion(
         authorization,
     )
 }
+
+/// Verifies a canonical receipt against independently supplied batch authority.
+///
+/// # Errors
+/// Preserves every canonical encoding, root, invariant and signature refusal.
+pub fn verify_receipt(
+    canonical_receipt: &[u8],
+    authorised_batch: &layerx_proof::receipt::AuthorizedBatch,
+) -> Result<layerx_proof::receipt::VerifiedReceipt, layerx_proof::receipt::VerificationFailure> {
+    layerx_proof::receipt::verify(canonical_receipt, authorised_batch)
+}

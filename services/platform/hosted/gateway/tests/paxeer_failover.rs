@@ -40,6 +40,41 @@ fn free_port() -> u16 {
         .port()
 }
 
+struct RefusingEndpoint {
+    _socket: rustix::fd::OwnedFd,
+    port: u16,
+}
+
+impl RefusingEndpoint {
+    fn reserve() -> Self {
+        use rustix::net::{bind, getsockname, socket_with, AddressFamily, SocketFlags, SocketType};
+        let socket = socket_with(
+            AddressFamily::INET,
+            SocketType::STREAM,
+            SocketFlags::CLOEXEC,
+            Some(rustix::net::ipproto::TCP),
+        )
+        .expect("unreachable endpoint socket");
+        bind(
+            &socket,
+            &std::net::SocketAddrV4::new(std::net::Ipv4Addr::LOCALHOST, 0),
+        )
+        .expect("reserve unreachable endpoint without listening");
+        let address = std::net::SocketAddrV4::try_from(
+            getsockname(&socket).expect("reserved endpoint address"),
+        )
+        .expect("IPv4 endpoint");
+        Self {
+            _socket: socket,
+            port: address.port(),
+        }
+    }
+
+    fn url(&self) -> String {
+        format!("https://localhost:{}", self.port)
+    }
+}
+
 /// A real TLS Redis for the gateway's durable store, and the localhost
 /// certificate every TLS peer of the test presents.
 struct Fixture {
@@ -366,13 +401,21 @@ impl Gateway {
         let port = free_port();
         let child = gateway_command(&fixture.environment(port, &json!(urls).to_string()))
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .spawn()
             .unwrap_or_else(|error| panic!("gateway must start: {error}"));
         let mut gateway = Self { child, port };
         for _ in 0..200 {
             if let Ok(Some(status)) = gateway.child.try_wait() {
-                panic!("gateway refused start-up: {status}");
+                let mut diagnostic = String::new();
+                gateway
+                    .child
+                    .stderr
+                    .take()
+                    .expect("startup stderr")
+                    .read_to_string(&mut diagnostic)
+                    .expect("startup diagnostic");
+                panic!("gateway refused start-up: {status}: {diagnostic}; endpoints: {urls:?}");
             }
             if gateway
                 .exchange("GET", "/livez", b"")
@@ -515,21 +558,18 @@ fn a_failing_first_rpc_name_fails_over_and_the_chain_is_down_only_when_both_fail
     gateway.assert_up();
     drop(gateway);
 
-    let refusing = format!("https://localhost:{}", free_port());
+    let refusing = RefusingEndpoint::reserve();
     let answering = Upstream::start(&fixture.tls, false);
-    let gateway = Gateway::start(&fixture, &[refusing, answering.url()]);
+    let gateway = Gateway::start(&fixture, &[refusing.url(), answering.url()]);
     gateway.assert_up();
     answering.fail(true);
     gateway.assert_down("paxeer_node_unavailable");
     drop(gateway);
 
-    let gateway = Gateway::start(
-        &fixture,
-        &[
-            format!("https://localhost:{}", free_port()),
-            format!("https://localhost:{}", free_port()),
-        ],
-    );
+    let first = RefusingEndpoint::reserve();
+    let second = RefusingEndpoint::reserve();
+    assert_ne!(first.port, second.port);
+    let gateway = Gateway::start(&fixture, &[first.url(), second.url()]);
     gateway.assert_down("paxeer_unreachable");
 }
 

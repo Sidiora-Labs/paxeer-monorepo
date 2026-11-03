@@ -8,16 +8,38 @@ use crate::{
         WRONG_EPOCH, WRONG_MARKET, WRONG_PROGRAM, WRONG_ROSTER,
     },
     types::{
-        AccountId, AttestationDigest, Authentication, ChainDomain, CommitmentDigest, Digest32,
-        EvaluatorBinding, EvaluatorId, EvaluatorRosterEntry, EvidenceRoot, FrozenBinding, MarketId,
-        MetadataDigest, Presence, PrincipalId, ProgramId, PublicKey32, ReportDigest, RequestDigest,
-        RequestId, ResultDigest, RosterDigest, RubricDigest, Salt32, Score, ScoreEntry,
-        Signature64, StateDigest, TaskId, Version, WorkerId, WorkerRosterEntry,
+        AccountId, AssetId, AttestationDigest, Authentication, ChainDomain, CommitmentDigest,
+        Digest32, EvaluatorBinding, EvaluatorId, EvaluatorRosterEntry, EvidenceRoot, FrozenBinding,
+        MarketId, MetadataDigest, PolicyDigest, Presence, PrincipalId, ProgramId, PublicKey32,
+        ReportDigest, RequestDigest, RequestId, ResultDigest, RosterDigest, RubricDigest, Salt32,
+        Score, ScoreEntry, Signature64, StateDigest, TaskId, Version, WorkerId, WorkerRosterEntry,
     },
     MAX_CHUNK_BYTES, MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES, MAX_PAYLOAD_BYTES, MAX_RESULT_BYTES,
     MAX_RESULT_PAYLOAD_BYTES, MAX_STATE_BYTES, MAX_WORKERS, SCHEMA_VERSION,
 };
 use sha2::{Digest, Sha256};
+
+/// One concrete streaming implementation shared by the artifact, reputation and
+/// cursor codecs. Slice arguments keep array lengths out of monomorphization;
+/// guest calls retain one copy of SHA-256's update and finalization paths.
+pub(crate) struct Sha256State(Sha256);
+
+impl Sha256State {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn new() -> Self {
+        Self(Sha256::new())
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn update(&mut self, bytes: &[u8]) {
+        self.0.update(bytes);
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn finalize(self) -> [u8; 32] {
+        self.0.finalize().into()
+    }
+}
 
 pub const ENVELOPE_PREFIX_BYTES: usize = 238;
 pub const REPORT_FIXED_BYTES: usize = 228;
@@ -30,12 +52,106 @@ pub const STATE_GLOBAL_BYTES: usize = 16;
 pub const STATE_SECTION_HEADER_BYTES: usize = 8;
 pub const STATE_FRAMING_BYTES: usize = 64;
 
-#[derive(Clone, Copy, Debug)]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn sort_by<T>(values: &mut [T], compare: impl FnMut(&T, &T) -> core::cmp::Ordering) {
+    #[cfg(not(target_arch = "wasm32"))]
+    values.sort_unstable_by(compare);
+    #[cfg(target_arch = "wasm32")]
+    {
+        let mut compare = compare;
+        for i in 1..values.len() {
+            let mut j = i;
+            while j > 0 && compare(&values[j], &values[j - 1]).is_lt() {
+                values.swap(j, j - 1);
+                j -= 1;
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Reader<'a> {
     input: &'a [u8],
     offset: usize,
 }
+// Decode and validate each wire field in one reusable guest function. Keeping
+// the Result boundary here avoids repeating fixed-array copies and error
+// propagation at every field of every higher-level decoder.
+macro_rules! read_identity {
+    ($($method:ident: $ty:ident),+ $(,)?) => {$(
+        /// Reads a checked 32-byte identity or digest.
+        ///
+        /// # Errors
+        /// Propagates the reader and the identity constructor's refusals.
+        #[cfg_attr(target_arch = "wasm32", inline(never))]
+        pub fn $method(&mut self) -> CodecResult<$ty> {
+            $ty::new(self.fixed()?)
+        }
+    )+};
+}
+
 impl<'a> Reader<'a> {
+    read_identity! {
+        principal_id: PrincipalId,
+        program_id: ProgramId,
+        market_id: MarketId,
+        worker_id: WorkerId,
+        evaluator_id: EvaluatorId,
+        account_id: AccountId,
+        asset_id: AssetId,
+        request_id: RequestId,
+        task_id: TaskId,
+        digest32: Digest32,
+        chain_domain: ChainDomain,
+        request_digest: RequestDigest,
+        report_digest: ReportDigest,
+        attestation_digest: AttestationDigest,
+        commitment_digest: CommitmentDigest,
+        roster_digest: RosterDigest,
+        result_digest: ResultDigest,
+        state_digest: StateDigest,
+        evidence_root: EvidenceRoot,
+        metadata_digest: MetadataDigest,
+        rubric_digest: RubricDigest,
+        policy_digest: PolicyDigest,
+        salt32: Salt32,
+    }
+
+    /// Reads a nonzero big-endian version.
+    ///
+    /// # Errors
+    /// Propagates the reader and `Version::new` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub fn version(&mut self) -> CodecResult<Version> {
+        Version::new(self.u64()?)
+    }
+
+    /// Reads a score within the frozen unit interval.
+    ///
+    /// # Errors
+    /// Propagates the reader and `Score::new` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub fn score(&mut self) -> CodecResult<Score> {
+        Score::new(self.u32()?)
+    }
+
+    /// Reads the common frozen binding, without a schema prefix.
+    ///
+    /// # Errors
+    /// Propagates checked field refusals in wire order.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub fn frozen_binding(&mut self) -> CodecResult<FrozenBinding> {
+        Ok(FrozenBinding {
+            chain: self.chain_domain()?,
+            program: self.program_id()?,
+            market: self.market_id()?,
+            epoch: self.u64()?,
+            config: self.version()?,
+            roster: self.roster_digest()?,
+        })
+    }
+
     #[must_use]
     pub const fn new(input: &'a [u8]) -> Self {
         Self { input, offset: 0 }
@@ -52,6 +168,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Returns `ARITHMETIC` when the end offset overflows; `NON_CANONICAL` when fewer than `length` bytes remain.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn take(&mut self, length: usize) -> CodecResult<&'a [u8]> {
         let end = self.offset.checked_add(length).ok_or(ARITHMETIC)?;
         let bytes = self.input.get(self.offset..end).ok_or(NON_CANONICAL)?;
@@ -62,6 +179,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Propagates `take`'s `ARITHMETIC`/`NON_CANONICAL` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn fixed<const N: usize>(&mut self) -> CodecResult<[u8; N]> {
         self.take(N)?.try_into().map_err(|_| NON_CANONICAL)
     }
@@ -69,6 +187,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Propagates `take`'s `ARITHMETIC`/`NON_CANONICAL` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn u8(&mut self) -> CodecResult<u8> {
         Ok(self.fixed::<1>()?[0])
     }
@@ -76,6 +195,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Propagates `take`'s `ARITHMETIC`/`NON_CANONICAL` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn u16(&mut self) -> CodecResult<u16> {
         Ok(u16::from_be_bytes(self.fixed()?))
     }
@@ -83,6 +203,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Propagates `take`'s `ARITHMETIC`/`NON_CANONICAL` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn u32(&mut self) -> CodecResult<u32> {
         Ok(u32::from_be_bytes(self.fixed()?))
     }
@@ -90,6 +211,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Propagates `take`'s `ARITHMETIC`/`NON_CANONICAL` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn u64(&mut self) -> CodecResult<u64> {
         Ok(u64::from_be_bytes(self.fixed()?))
     }
@@ -97,6 +219,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Propagates `take`'s `ARITHMETIC`/`NON_CANONICAL` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn u128(&mut self) -> CodecResult<u128> {
         Ok(u128::from_be_bytes(self.fixed()?))
     }
@@ -104,6 +227,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the byte is neither 0 nor 1; propagates `take`'s refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn boolean(&mut self) -> CodecResult<bool> {
         match self.u8()? {
             0 => Ok(false),
@@ -129,6 +253,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when any reserved byte is nonzero; propagates `take`'s refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn reserved(&mut self, length: usize) -> CodecResult<()> {
         let (words, tail) = self.take(length)?.as_chunks::<8>();
         if words.iter().any(|w| u64::from_ne_bytes(*w) != 0) || tail.iter().any(|b| *b != 0) {
@@ -141,6 +266,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Returns `CAPACITY` when the length exceeds `cap`; `ARITHMETIC` when it does not fit `usize`; propagates `take`'s refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn bytes(&mut self, cap: usize) -> CodecResult<&'a [u8]> {
         let length = usize::try_from(self.u32()?).map_err(|_| ARITHMETIC)?;
         if length > cap {
@@ -152,6 +278,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the count is below `minimum`; `CAPACITY` when above `maximum`; `ARITHMETIC` when the byte length overflows; propagates `take`'s refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn vector_bytes(
         &mut self,
         minimum: usize,
@@ -171,6 +298,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when unread input remains.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn finish(self) -> CodecResult<()> {
         if self.offset == self.input.len() {
             Ok(())
@@ -200,6 +328,7 @@ impl<'a> Writer<'a> {
     ///
     /// # Errors
     /// Returns `ARITHMETIC` when the end offset overflows; `CAPACITY` when the output buffer is too small.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn put(&mut self, bytes: &[u8]) -> CodecResult<()> {
         let end = self.offset.checked_add(bytes.len()).ok_or(ARITHMETIC)?;
         self.output
@@ -213,6 +342,7 @@ impl<'a> Writer<'a> {
     ///
     /// # Errors
     /// Propagates `put`'s `ARITHMETIC`/`CAPACITY` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn u8(&mut self, value: u8) -> CodecResult<()> {
         self.put(&[value])
     }
@@ -220,6 +350,7 @@ impl<'a> Writer<'a> {
     ///
     /// # Errors
     /// Propagates `put`'s `ARITHMETIC`/`CAPACITY` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn u16(&mut self, value: u16) -> CodecResult<()> {
         self.put(&value.to_be_bytes())
     }
@@ -227,6 +358,7 @@ impl<'a> Writer<'a> {
     ///
     /// # Errors
     /// Propagates `put`'s `ARITHMETIC`/`CAPACITY` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn u32(&mut self, value: u32) -> CodecResult<()> {
         self.put(&value.to_be_bytes())
     }
@@ -234,6 +366,7 @@ impl<'a> Writer<'a> {
     ///
     /// # Errors
     /// Propagates `put`'s `ARITHMETIC`/`CAPACITY` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn u64(&mut self, value: u64) -> CodecResult<()> {
         self.put(&value.to_be_bytes())
     }
@@ -241,6 +374,7 @@ impl<'a> Writer<'a> {
     ///
     /// # Errors
     /// Propagates `put`'s `ARITHMETIC`/`CAPACITY` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn u128(&mut self, value: u128) -> CodecResult<()> {
         self.put(&value.to_be_bytes())
     }
@@ -248,6 +382,7 @@ impl<'a> Writer<'a> {
     ///
     /// # Errors
     /// Propagates `put`'s `ARITHMETIC`/`CAPACITY` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn boolean(&mut self, value: bool) -> CodecResult<()> {
         self.u8(u8::from(value))
     }
@@ -272,6 +407,7 @@ impl<'a> Writer<'a> {
     ///
     /// # Errors
     /// Returns `CAPACITY` when `bytes` exceeds `cap` or the output is too small; `ARITHMETIC` when the length does not fit `u32` or the offset overflows.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn bytes(&mut self, bytes: &[u8], cap: usize) -> CodecResult<()> {
         if bytes.len() > cap {
             return Err(CAPACITY);
@@ -280,6 +416,7 @@ impl<'a> Writer<'a> {
         self.put(bytes)
     }
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn output_size(output: &[u8], size: usize, cap: usize) -> CodecResult<()> {
     if size > cap || output.len() < size {
         Err(CAPACITY)
@@ -287,6 +424,7 @@ fn output_size(output: &[u8], size: usize, cap: usize) -> CodecResult<()> {
         Ok(())
     }
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn schema(r: &mut Reader<'_>) -> CodecResult<()> {
     if r.u16()? == SCHEMA_VERSION {
         Ok(())
@@ -345,7 +483,8 @@ fn hash_parts(domain: &str, parts: &[&[u8]]) -> CodecResult<Digest32> {
 }
 
 #[cfg(target_arch = "wasm32")]
-static PREIMAGE: spin::Mutex<[u8; MAX_STATE_BYTES]> = spin::Mutex::new([0; MAX_STATE_BYTES]);
+static PREIMAGE: crate::guest_cell::GuestCell<[u8; MAX_STATE_BYTES]> =
+    crate::guest_cell::GuestCell::new([0; MAX_STATE_BYTES]);
 
 /// SHA-256 of the concatenated `parts`. The guest build hashes a preimage of at most
 /// `MAX_STATE_BYTES` through the host primitive, metered per input byte; a longer preimage
@@ -357,25 +496,43 @@ static PREIMAGE: spin::Mutex<[u8; MAX_STATE_BYTES]> = spin::Mutex::new([0; MAX_S
 pub fn sha256<'p, I>(parts: I) -> CodecResult<[u8; 32]>
 where
     I: IntoIterator<Item = &'p [u8]>,
-    I::IntoIter: Clone,
 {
-    let parts = parts.into_iter();
+    sha256_parts(&mut parts.into_iter())
+}
+
+// Type erase only the traversal, keeping the hashing and buffer handling in one
+// guest function rather than duplicating them for every preimage iterator.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn sha256_parts<'p>(parts: &mut dyn Iterator<Item = &'p [u8]>) -> CodecResult<[u8; 32]> {
     #[cfg(target_arch = "wasm32")]
-    if let Some(mut preimage) = PREIMAGE.try_lock() {
-        let mut w = Writer::new(&mut preimage[..]);
-        if parts.clone().all(|part| w.put(part).is_ok()) {
-            use layerx_program_sdk::crypto::{hash, HashAlgorithm, HashInput};
-            let n = w.len();
-            return HashInput::new(&preimage[..n])
-                .and_then(|input| hash(HashAlgorithm::Sha256, input))
-                .map_err(|_| crate::errors::HOST_CAPABILITY);
+    if let Some(mut preimage) = PREIMAGE.try_borrow_mut() {
+        let mut length = 0;
+        while let Some(part) = parts.next() {
+            if part.len() > preimage.len() - length {
+                // Preserve arbitrary-length hashing without replaying or cloning
+                // the iterator: resume in software with the buffered prefix.
+                let mut h = Sha256State::new();
+                h.update(&preimage[..length]);
+                h.update(part);
+                for part in parts {
+                    h.update(part);
+                }
+                return Ok(h.finalize());
+            }
+            let end = length + part.len();
+            preimage[length..end].copy_from_slice(part);
+            length = end;
         }
+        use layerx_program_sdk::crypto::{hash, HashAlgorithm, HashInput};
+        return HashInput::new(&preimage[..length])
+            .and_then(|input| hash(HashAlgorithm::Sha256, input))
+            .map_err(|_| crate::errors::HOST_CAPABILITY);
     }
-    let mut h = Sha256::new();
+    let mut h = Sha256State::new();
     for part in parts {
         h.update(part);
     }
-    Ok(h.finalize().into())
+    Ok(h.finalize())
 }
 /// Derives the market identity from chain and program.
 ///
@@ -456,7 +613,8 @@ pub fn refuse_identity_collision(candidate: &[u8; 32], existing: &[[u8; 32]]) ->
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Envelope<'a> {
     pub operation: Operation,
     pub chain: ChainDomain,
@@ -472,7 +630,8 @@ pub struct Envelope<'a> {
     pub payload: &'a [u8],
     pub authentication: Authentication,
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ValidatedEnvelope<'a> {
     pub envelope: Envelope<'a>,
     unsigned: &'a [u8],
@@ -490,6 +649,7 @@ impl<'a> ValidatedEnvelope<'a> {
         RequestDigest::new(domain_hash("PAXAI/request/v1", self.unsigned)?.bytes())
     }
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read_optional_roster(r: &mut Reader<'_>) -> CodecResult<Presence<RosterDigest>> {
     let b = r.fixed()?;
     if b == [0; 32] {
@@ -503,6 +663,7 @@ impl Envelope<'_> {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` for a bad payload length, zero expiry, or sequence, read-boundary or config violations; `UNAUTHORIZED` for a delegate on a non-delegable operation; `WRONG_ROSTER` for a missing roster outside pre-epoch registry calls; propagates chunk-request, score payload and binding refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         let m = self.operation.metadata();
         self.operation.validate_payload_length(self.payload.len())?;
@@ -589,6 +750,7 @@ fn registry_before_epoch(selector: u16) -> bool {
 ///
 /// # Errors
 /// Returns `CAPACITY` when the input or payload exceeds its cap; `NON_CANONICAL` for a bad magic, zero identity, unknown authentication kind, short or trailing input; `BAD_VERSION` for a wrong schema; `UNKNOWN_OPERATION` for an unknown selector; propagates `Envelope::validate` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_envelope(input: &[u8]) -> CodecResult<ValidatedEnvelope<'_>> {
     if input.len() > MAX_ENVELOPE_BYTES {
         return Err(CAPACITY);
@@ -599,16 +761,16 @@ pub fn decode_envelope(input: &[u8]) -> CodecResult<ValidatedEnvelope<'_>> {
     }
     schema(&mut r)?;
     let operation = Operation::decode(r.u16()?)?;
-    let chain = ChainDomain::new(r.fixed()?)?;
-    let program = ProgramId::new(r.fixed()?)?;
-    let market = MarketId::new(r.fixed()?)?;
-    let actor = PrincipalId::new(r.fixed()?)?;
+    let chain = r.chain_domain()?;
+    let program = r.program_id()?;
+    let market = r.market_id()?;
+    let actor = r.principal_id()?;
     let epoch = r.u64()?;
     let config = r.u64()?;
     let roster = read_optional_roster(&mut r)?;
     let sequence = r.u64()?;
     let expiry = r.u64()?;
-    let request = RequestId::new(r.fixed()?)?;
+    let request = r.request_id()?;
     let payload = r.bytes(MAX_PAYLOAD_BYTES)?;
     let unsigned = &input[..r.offset()];
     let authentication = match r.u8()? {
@@ -642,6 +804,7 @@ pub fn decode_envelope(input: &[u8]) -> CodecResult<ValidatedEnvelope<'_>> {
 ///
 /// # Errors
 /// Propagates `Envelope::validate` refusals; returns `ARITHMETIC` on size overflow; `CAPACITY` when the size exceeds `MAX_ENVELOPE_BYTES` or `output` is too small.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_envelope(value: &Envelope<'_>, output: &mut [u8]) -> CodecResult<usize> {
     value.validate()?;
     let size = ENVELOPE_PREFIX_BYTES
@@ -684,7 +847,12 @@ pub fn encode_envelope(value: &Envelope<'_>, output: &mut [u8]) -> CodecResult<u
     Ok(w.len())
 }
 
-fn write_evaluator_binding(w: &mut Writer<'_>, b: &EvaluatorBinding) -> CodecResult<()> {
+/// Writes the common evaluator binding without a schema prefix.
+///
+/// # Errors
+/// Propagates the writer's `ARITHMETIC`/`CAPACITY` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub fn write_evaluator_binding(w: &mut Writer<'_>, b: &EvaluatorBinding) -> CodecResult<()> {
     w.put(b.frozen.chain.as_bytes())?;
     w.put(b.frozen.program.as_bytes())?;
     w.put(b.frozen.market.as_bytes())?;
@@ -695,25 +863,17 @@ fn write_evaluator_binding(w: &mut Writer<'_>, b: &EvaluatorBinding) -> CodecRes
     w.u64(b.grant.get())?;
     w.u64(b.key_version.get())
 }
-fn read_evaluator_binding(r: &mut Reader<'_>) -> CodecResult<EvaluatorBinding> {
-    let chain = ChainDomain::new(r.fixed()?)?;
-    let program = ProgramId::new(r.fixed()?)?;
-    let market = MarketId::new(r.fixed()?)?;
-    let epoch = r.u64()?;
-    let config = Version::new(r.u64()?)?;
-    let roster = RosterDigest::new(r.fixed()?)?;
+/// Reads the common evaluator binding without a schema prefix.
+///
+/// # Errors
+/// Propagates checked field refusals in wire order.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub fn read_evaluator_binding(r: &mut Reader<'_>) -> CodecResult<EvaluatorBinding> {
     Ok(EvaluatorBinding {
-        frozen: FrozenBinding {
-            chain,
-            program,
-            market,
-            epoch,
-            config,
-            roster,
-        },
-        evaluator: EvaluatorId::new(r.fixed()?)?,
-        grant: Version::new(r.u64()?)?,
-        key_version: Version::new(r.u64()?)?,
+        frozen: r.frozen_binding()?,
+        evaluator: r.evaluator_id()?,
+        grant: r.version()?,
+        key_version: r.version()?,
     })
 }
 impl EvaluatorBinding {
@@ -735,7 +895,8 @@ impl EvaluatorBinding {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum ScoreVector<'a> {
     Typed(&'a [ScoreEntry]),
     Encoded(&'a [u8]),
@@ -756,6 +917,7 @@ impl ScoreVector<'_> {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` for a ragged encoding, zero worker or unordered workers; `F03_NO_SCORES` when empty; `CAPACITY` above `MAX_WORKERS`; `F03_SCORE_RANGE` for an out-of-range score.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         if let Self::Encoded(v) = self {
             if v.len() % 36 != 0 {
@@ -807,13 +969,15 @@ impl Iterator for ScoreEntries<'_> {
         })
     }
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read_score_entry(r: &mut Reader<'_>) -> CodecResult<ScoreEntry> {
     Ok(ScoreEntry {
-        worker: WorkerId::new(r.fixed()?)?,
-        score: Score::new(r.u32()?)?,
+        worker: r.worker_id()?,
+        score: r.score()?,
     })
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ReportBody<'a> {
     pub binding: EvaluatorBinding,
     pub evidence: EvidenceRoot,
@@ -823,6 +987,7 @@ pub struct ReportBody<'a> {
 ///
 /// # Errors
 /// Propagates `ScoreVector::validate` refusals; returns `CAPACITY` when `output` is too small.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_report(report: &ReportBody<'_>, output: &mut [u8]) -> CodecResult<usize> {
     report.scores.validate()?;
     let size = REPORT_FIXED_BYTES + 36 * report.scores.len();
@@ -843,6 +1008,7 @@ pub fn encode_report(report: &ReportBody<'_>, output: &mut [u8]) -> CodecResult<
 ///
 /// # Errors
 /// Returns `CAPACITY` when the input exceeds `REPORT_MAX_BYTES` or the count exceeds `MAX_WORKERS`; `BAD_VERSION` for a wrong schema; `F03_NO_SCORES` for a zero count; `NON_CANONICAL` for a zero identity, digest or version, short or trailing input; propagates `ScoreVector::validate` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_report(input: &[u8]) -> CodecResult<ReportBody<'_>> {
     if input.len() > REPORT_MAX_BYTES {
         return Err(CAPACITY);
@@ -850,7 +1016,7 @@ pub fn decode_report(input: &[u8]) -> CodecResult<ReportBody<'_>> {
     let mut r = Reader::new(input);
     schema(&mut r)?;
     let binding = read_evaluator_binding(&mut r)?;
-    let evidence = EvidenceRoot::new(r.fixed()?)?;
+    let evidence = r.evidence_root()?;
     let count = usize::from(r.u16()?);
     if count == 0 {
         return Err(F03_NO_SCORES);
@@ -887,6 +1053,7 @@ pub fn attestation_digest(report: ReportDigest) -> CodecResult<AttestationDigest
 ///
 /// # Errors
 /// Returns `CAPACITY` when `output` is shorter than 256 bytes.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_commitment_preimage(
     binding: &EvaluatorBinding,
     report: ReportDigest,
@@ -913,7 +1080,8 @@ pub fn commitment_digest(
     let n = encode_commitment_preimage(binding, report, salt, &mut b)?;
     CommitmentDigest::new(domain_hash("PAXAI/score-commit/v1", &b[..n])?.bytes())
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct CommitScorePayload {
     pub binding: EvaluatorBinding,
     pub commitment: CommitmentDigest,
@@ -922,6 +1090,7 @@ pub struct CommitScorePayload {
 ///
 /// # Errors
 /// Returns `CAPACITY` when `out` is shorter than 224 bytes.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_commit_score(v: &CommitScorePayload, out: &mut [u8]) -> CodecResult<usize> {
     output_size(out, 224, 224)?;
     let mut w = Writer::new(out);
@@ -933,17 +1102,19 @@ pub fn encode_commit_score(v: &CommitScorePayload, out: &mut [u8]) -> CodecResul
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` for a zero identity, digest or version, short or trailing input.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_commit_score(input: &[u8]) -> CodecResult<CommitScorePayload> {
     let mut r = Reader::new(input);
     let binding = read_evaluator_binding(&mut r)?;
-    let commitment = CommitmentDigest::new(r.fixed()?)?;
+    let commitment = r.commitment_digest()?;
     r.finish()?;
     Ok(CommitScorePayload {
         binding,
         commitment,
     })
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RevealScorePayload<'a> {
     pub report: ReportBody<'a>,
     pub signature: Signature64,
@@ -953,6 +1124,7 @@ pub struct RevealScorePayload<'a> {
 ///
 /// # Errors
 /// Returns `CAPACITY` when the input exceeds 1480 bytes or the report exceeds `REPORT_MAX_BYTES`; `F04_SALT_INVALID` for a zero salt; `NON_CANONICAL` for short or trailing input; propagates `decode_report` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_reveal_score(input: &[u8]) -> CodecResult<RevealScorePayload<'_>> {
     if input.len() > 1480 {
         return Err(CAPACITY);
@@ -960,7 +1132,7 @@ pub fn decode_reveal_score(input: &[u8]) -> CodecResult<RevealScorePayload<'_>> 
     let mut r = Reader::new(input);
     let report = decode_report(r.bytes(REPORT_MAX_BYTES)?)?;
     let signature = Signature64(r.fixed()?);
-    let salt = Salt32::new(r.fixed()?)?;
+    let salt = r.salt32()?;
     r.finish()?;
     Ok(RevealScorePayload {
         report,
@@ -972,6 +1144,7 @@ pub fn decode_reveal_score(input: &[u8]) -> CodecResult<RevealScorePayload<'_>> 
 ///
 /// # Errors
 /// Propagates `ScoreVector::validate` and `encode_report` refusals; returns `CAPACITY` when `out` is too small.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_reveal_score(v: &RevealScorePayload<'_>, out: &mut [u8]) -> CodecResult<usize> {
     v.report.scores.validate()?;
     let size = 4 + REPORT_FIXED_BYTES + v.report.scores.len() * 36 + 96;
@@ -989,12 +1162,14 @@ pub fn encode_reveal_score(v: &RevealScorePayload<'_>, out: &mut [u8]) -> CodecR
 ///
 /// # Errors
 /// Returns `CAPACITY` when `out` is shorter than 176 bytes.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_worker_roster(v: &WorkerRosterEntry, out: &mut [u8]) -> CodecResult<usize> {
     output_size(out, 176, 176)?;
     let mut w = Writer::new(out);
     write_worker_roster(&mut w, v)?;
     Ok(w.len())
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_worker_roster(w: &mut Writer<'_>, v: &WorkerRosterEntry) -> CodecResult<()> {
     w.put(v.worker.as_bytes())?;
     w.put(v.owner.as_bytes())?;
@@ -1004,21 +1179,23 @@ fn write_worker_roster(w: &mut Writer<'_>, v: &WorkerRosterEntry) -> CodecResult
     w.put(&v.public_key.0)?;
     w.put(v.metadata.as_bytes())
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read_worker_roster(r: &mut Reader<'_>) -> CodecResult<WorkerRosterEntry> {
     Ok(WorkerRosterEntry {
-        worker: WorkerId::new(r.fixed()?)?,
-        owner: PrincipalId::new(r.fixed()?)?,
-        recipient: AccountId::new(r.fixed()?)?,
-        generation: Version::new(r.u64()?)?,
-        key_version: Version::new(r.u64()?)?,
+        worker: r.worker_id()?,
+        owner: r.principal_id()?,
+        recipient: r.account_id()?,
+        generation: r.version()?,
+        key_version: r.version()?,
         public_key: PublicKey32(r.fixed()?),
-        metadata: MetadataDigest::new(r.fixed()?)?,
+        metadata: r.metadata_digest()?,
     })
 }
 /// Decodes one worker roster entry.
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` for a zero identity, version or digest, short or trailing input.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_worker_roster(input: &[u8]) -> CodecResult<WorkerRosterEntry> {
     let mut r = Reader::new(input);
     let v = read_worker_roster(&mut r)?;
@@ -1029,12 +1206,14 @@ pub fn decode_worker_roster(input: &[u8]) -> CodecResult<WorkerRosterEntry> {
 ///
 /// # Errors
 /// Returns `CAPACITY` when `out` is shorter than 144 bytes.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_evaluator_roster(v: &EvaluatorRosterEntry, out: &mut [u8]) -> CodecResult<usize> {
     output_size(out, 144, 144)?;
     let mut w = Writer::new(out);
     write_evaluator_roster(&mut w, v)?;
     Ok(w.len())
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_evaluator_roster(w: &mut Writer<'_>, v: &EvaluatorRosterEntry) -> CodecResult<()> {
     w.put(v.evaluator.as_bytes())?;
     w.put(v.owner.as_bytes())?;
@@ -1043,27 +1222,30 @@ fn write_evaluator_roster(w: &mut Writer<'_>, v: &EvaluatorRosterEntry) -> Codec
     w.put(&v.public_key.0)?;
     w.put(v.rubric.as_bytes())
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read_evaluator_roster(r: &mut Reader<'_>) -> CodecResult<EvaluatorRosterEntry> {
     Ok(EvaluatorRosterEntry {
-        evaluator: EvaluatorId::new(r.fixed()?)?,
-        owner: PrincipalId::new(r.fixed()?)?,
-        grant: Version::new(r.u64()?)?,
-        key_version: Version::new(r.u64()?)?,
+        evaluator: r.evaluator_id()?,
+        owner: r.principal_id()?,
+        grant: r.version()?,
+        key_version: r.version()?,
         public_key: PublicKey32(r.fixed()?),
-        rubric: RubricDigest::new(r.fixed()?)?,
+        rubric: r.rubric_digest()?,
     })
 }
 /// Decodes one evaluator roster entry.
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` for a zero identity, version or digest, short or trailing input.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_evaluator_roster(input: &[u8]) -> CodecResult<EvaluatorRosterEntry> {
     let mut r = Reader::new(input);
     let v = read_evaluator_roster(&mut r)?;
     r.finish()?;
     Ok(v)
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Roster<'a> {
     pub market: MarketId,
     pub epoch: u64,
@@ -1076,6 +1258,7 @@ impl Roster<'_> {
     ///
     /// # Errors
     /// Returns `CAPACITY` above 32 workers or 8 evaluators; `NON_CANONICAL` for unordered or duplicate entries.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         if self.workers.len() > 32 || self.evaluators.len() > 8 {
             return Err(CAPACITY);
@@ -1096,6 +1279,7 @@ pub const ROSTER_MAX_BYTES: usize = 54 + 32 * 176 + 8 * 144;
 ///
 /// # Errors
 /// Propagates `Roster::validate` refusals; returns `CAPACITY` when `out` is too small.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_roster(v: &Roster<'_>, out: &mut [u8]) -> CodecResult<usize> {
     v.validate()?;
     let n = 54 + v.workers.len() * 176 + v.evaluators.len() * 144;
@@ -1115,7 +1299,8 @@ pub fn encode_roster(v: &Roster<'_>, out: &mut [u8]) -> CodecResult<usize> {
     }
     Ok(w.len())
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RosterView<'a> {
     pub market: MarketId,
     pub epoch: u64,
@@ -1163,15 +1348,16 @@ impl RosterView<'_> {
 ///
 /// # Errors
 /// Returns `CAPACITY` when the input exceeds `ROSTER_MAX_BYTES` or a count exceeds its cap; `BAD_VERSION` for a wrong schema; `NON_CANONICAL` for a zero identity or version, malformed or unordered entries, short or trailing input.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_roster(input: &[u8]) -> CodecResult<RosterView<'_>> {
     if input.len() > ROSTER_MAX_BYTES {
         return Err(CAPACITY);
     }
     let mut r = Reader::new(input);
     schema(&mut r)?;
-    let market = MarketId::new(r.fixed()?)?;
+    let market = r.market_id()?;
     let epoch = r.u64()?;
-    let config = Version::new(r.u64()?)?;
+    let config = r.version()?;
     let workers = r.vector_bytes(0, 32, 176)?;
     let evaluators = r.vector_bytes(0, 8, 144)?;
     r.finish()?;
@@ -1211,14 +1397,16 @@ pub fn roster_digest(v: &Roster<'_>) -> CodecResult<RosterDigest> {
     RosterDigest::new(domain_hash("PAXAI/roster/v1", &b[..n])?.bytes())
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u16)]
 pub enum ResultStatus {
     Ok = 0,
     AlreadyApplied = 1,
     Error = 2,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ApplicationResult<'a> {
     pub status: ResultStatus,
     pub error: Option<ApplicationError>,
@@ -1309,6 +1497,7 @@ impl<'a> ApplicationResult<'a> {
     ///
     /// # Errors
     /// Returns `CAPACITY` when the payload exceeds its cap; `NON_CANONICAL` for a status/error mismatch, error payload, unhidden revision, absent success request or digest mismatch; propagates digest refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         if self.payload.len() > MAX_RESULT_PAYLOAD_BYTES {
             return Err(CAPACITY);
@@ -1342,6 +1531,7 @@ impl<'a> ApplicationResult<'a> {
 ///
 /// # Errors
 /// Propagates `ApplicationResult::validate` refusals; returns `CAPACITY` when `out` is too small.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_result(v: &ApplicationResult<'_>, out: &mut [u8]) -> CodecResult<usize> {
     v.validate()?;
     output_size(out, 82 + v.payload.len(), MAX_RESULT_BYTES)?;
@@ -1359,6 +1549,7 @@ pub fn encode_result(v: &ApplicationResult<'_>, out: &mut [u8]) -> CodecResult<u
 ///
 /// # Errors
 /// Returns `CAPACITY` when the input or payload exceeds its cap; `BAD_VERSION` for a wrong schema; `NON_CANONICAL` for an unknown status or error code, zero digest, short or trailing input; propagates `ApplicationResult::validate` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_result(input: &[u8]) -> CodecResult<ApplicationResult<'_>> {
     if input.len() > MAX_RESULT_BYTES {
         return Err(CAPACITY);
@@ -1384,7 +1575,7 @@ pub fn decode_result(input: &[u8]) -> CodecResult<ApplicationResult<'_>> {
         Presence::Present(RequestDigest::new(bytes)?)
     };
     let revision = r.u64()?;
-    let digest = ResultDigest::new(r.fixed()?)?;
+    let digest = r.result_digest()?;
     let payload = r.bytes(MAX_RESULT_PAYLOAD_BYTES)?;
     r.finish()?;
     let v = ApplicationResult {
@@ -1399,7 +1590,8 @@ pub fn decode_result(input: &[u8]) -> CodecResult<ApplicationResult<'_>> {
     Ok(v)
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EventCommon {
     pub market: MarketId,
     pub epoch: u64,
@@ -1408,6 +1600,7 @@ pub struct EventCommon {
     pub request: RequestDigest,
     pub result: ResultDigest,
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_event_common(w: &mut Writer<'_>, v: &EventCommon) -> CodecResult<()> {
     w.u16(SCHEMA_VERSION)?;
     w.put(v.market.as_bytes())?;
@@ -1417,21 +1610,23 @@ fn write_event_common(w: &mut Writer<'_>, v: &EventCommon) -> CodecResult<()> {
     w.put(v.request.as_bytes())?;
     w.put(v.result.as_bytes())
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read_event_common(r: &mut Reader<'_>) -> CodecResult<EventCommon> {
     schema(r)?;
     Ok(EventCommon {
-        market: MarketId::new(r.fixed()?)?,
+        market: r.market_id()?,
         epoch: r.u64()?,
-        config: Version::new(r.u64()?)?,
+        config: r.version()?,
         revision: r.u64()?,
-        request: RequestDigest::new(r.fixed()?)?,
-        result: ResultDigest::new(r.fixed()?)?,
+        request: r.request_digest()?,
+        result: r.result_digest()?,
     })
 }
 /// Encodes the common event header.
 ///
 /// # Errors
 /// Returns `CAPACITY` when `out` is shorter than 122 bytes.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_event_common(v: &EventCommon, out: &mut [u8]) -> CodecResult<usize> {
     output_size(out, 122, 122)?;
     let mut w = Writer::new(out);
@@ -1442,20 +1637,23 @@ pub fn encode_event_common(v: &EventCommon, out: &mut [u8]) -> CodecResult<usize
 ///
 /// # Errors
 /// Returns `BAD_VERSION` for a wrong schema; `NON_CANONICAL` for a zero identity, version or digest, short or trailing input.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_event_common(input: &[u8]) -> CodecResult<EventCommon> {
     let mut r = Reader::new(input);
     let v = read_event_common(&mut r)?;
     r.finish()?;
     Ok(v)
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct CommitAccepted {
     pub common: EventCommon,
     pub evaluator: EvaluatorId,
     pub commitment: CommitmentDigest,
     pub accepted_height: u64,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RevealScoreEvent {
     pub common: EventCommon,
     pub evaluator: EvaluatorId,
@@ -1468,6 +1666,7 @@ pub struct RevealScoreEvent {
 ///
 /// # Errors
 /// Returns `CAPACITY` when `out` is shorter than 194 bytes.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_commit_event(v: &CommitAccepted, out: &mut [u8]) -> CodecResult<usize> {
     output_size(out, 194, MAX_EVENT_BYTES)?;
     let mut w = Writer::new(out);
@@ -1481,11 +1680,12 @@ pub fn encode_commit_event(v: &CommitAccepted, out: &mut [u8]) -> CodecResult<us
 ///
 /// # Errors
 /// Returns `BAD_VERSION` for a wrong schema; `NON_CANONICAL` for a zero identity, version or digest, short or trailing input.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_commit_event(input: &[u8]) -> CodecResult<CommitAccepted> {
     let mut r = Reader::new(input);
     let common = read_event_common(&mut r)?;
-    let evaluator = EvaluatorId::new(r.fixed()?)?;
-    let commitment = CommitmentDigest::new(r.fixed()?)?;
+    let evaluator = r.evaluator_id()?;
+    let commitment = r.commitment_digest()?;
     let accepted_height = r.u64()?;
     r.finish()?;
     Ok(CommitAccepted {
@@ -1499,6 +1699,7 @@ pub fn decode_commit_event(input: &[u8]) -> CodecResult<CommitAccepted> {
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` when `vector_count` is outside 1..=32; `CAPACITY` when `out` is shorter than 228 bytes.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_reveal_event(v: &RevealScoreEvent, out: &mut [u8]) -> CodecResult<usize> {
     if !(1..=32).contains(&v.vector_count) {
         return Err(NON_CANONICAL);
@@ -1517,12 +1718,13 @@ pub fn encode_reveal_event(v: &RevealScoreEvent, out: &mut [u8]) -> CodecResult<
 ///
 /// # Errors
 /// Returns `BAD_VERSION` for a wrong schema; `NON_CANONICAL` for a zero identity, version or digest, a vector count outside 1..=32, short or trailing input.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_reveal_event(input: &[u8]) -> CodecResult<RevealScoreEvent> {
     let mut r = Reader::new(input);
     let common = read_event_common(&mut r)?;
-    let evaluator = EvaluatorId::new(r.fixed()?)?;
-    let report = ReportDigest::new(r.fixed()?)?;
-    let evidence = EvidenceRoot::new(r.fixed()?)?;
+    let evaluator = r.evaluator_id()?;
+    let report = r.report_digest()?;
+    let evidence = r.evidence_root()?;
     let vector_count = r.u16()?;
     if !(1..=32).contains(&vector_count) {
         return Err(NON_CANONICAL);
@@ -1555,6 +1757,7 @@ pub fn event_topic(operation: Operation, out: &mut [u8]) -> CodecResult<usize> {
 ///
 /// # Errors
 /// Returns `CAPACITY` for an oversized or non-ASCII topic or oversized body; `NON_CANONICAL` for a missing topic prefix; `UNKNOWN_OPERATION` when no mutation matches; propagates common, commit and reveal event decode refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_event_frame<'a>(
     topic: &[u8],
     body: &'a [u8],
@@ -1586,6 +1789,7 @@ pub fn decode_event_frame<'a>(
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` for a non-mutation operation or a wrong fixed suffix length; `ARITHMETIC` on size overflow; `CAPACITY` when the size exceeds `MAX_EVENT_BYTES` or `out` is too small; propagates commit and reveal event decode refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_event_frame(
     operation: Operation,
     common: &EventCommon,
@@ -1621,7 +1825,8 @@ pub fn encode_event_frame(
     Ok(n)
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ReadHeader {
     pub revision: u64,
     pub digest: StateDigest,
@@ -1634,6 +1839,7 @@ pub struct ReadHeader {
     pub roster: Presence<RosterDigest>,
 }
 impl ReadHeader {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn validate(&self) -> CodecResult<()> {
         let framing = u32::try_from(STATE_FRAMING_BYTES).map_err(|_| ARITHMETIC)?;
         let max_state = u32::try_from(MAX_STATE_BYTES).map_err(|_| ARITHMETIC)?;
@@ -1652,6 +1858,7 @@ impl ReadHeader {
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` for a zero revision, out-of-range `total_bytes` or epoch/roster presence mismatch; `CAPACITY` when `out` is too small.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_read_header(v: &ReadHeader, out: &mut [u8]) -> CodecResult<usize> {
     v.validate()?;
     let n =
@@ -1682,6 +1889,7 @@ pub fn encode_read_header(v: &ReadHeader, out: &mut [u8]) -> CodecResult<usize> 
 ///
 /// # Errors
 /// Returns `CAPACITY` when the input exceeds 192 bytes; `BAD_VERSION` for a wrong schema; `NON_CANONICAL` for a zero digest, identity or version, bad presence flag, short or trailing input, or a failed header check.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_read_header(input: &[u8]) -> CodecResult<ReadHeader> {
     if input.len() > 192 {
         return Err(CAPACITY);
@@ -1689,14 +1897,14 @@ pub fn decode_read_header(input: &[u8]) -> CodecResult<ReadHeader> {
     let mut r = Reader::new(input);
     schema(&mut r)?;
     let revision = r.u64()?;
-    let digest = StateDigest::new(r.fixed()?)?;
+    let digest = r.state_digest()?;
     let total_bytes = r.u32()?;
-    let chain = ChainDomain::new(r.fixed()?)?;
-    let program = ProgramId::new(r.fixed()?)?;
-    let market = MarketId::new(r.fixed()?)?;
+    let chain = r.chain_domain()?;
+    let program = r.program_id()?;
+    let market = r.market_id()?;
     let epoch = r.presence(Reader::u64)?;
-    let config = Version::new(r.u64()?)?;
-    let roster = r.presence(|r| RosterDigest::new(r.fixed()?))?;
+    let config = r.version()?;
+    let roster = r.presence(|r| r.roster_digest())?;
     r.finish()?;
     let v = ReadHeader {
         revision,
@@ -1712,7 +1920,8 @@ pub fn decode_read_header(input: &[u8]) -> CodecResult<ReadHeader> {
     v.validate()?;
     Ok(v)
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ChunkRequest {
     pub revision: u64,
     pub digest: Presence<StateDigest>,
@@ -1724,6 +1933,7 @@ impl ChunkRequest {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when revision and digest presence disagree, `requested` is zero or above `MAX_CHUNK_BYTES`, or `offset` is unaligned or beyond `MAX_STATE_BYTES`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         let max_state = u32::try_from(MAX_STATE_BYTES).map_err(|_| ARITHMETIC)?;
         if (self.revision == 0) != (self.digest == Presence::Absent)
@@ -1741,6 +1951,7 @@ impl ChunkRequest {
 ///
 /// # Errors
 /// Propagates `ChunkRequest::validate` refusals; returns `CAPACITY` when `out` is shorter than 46 bytes.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_chunk_request(v: &ChunkRequest, out: &mut [u8]) -> CodecResult<usize> {
     v.validate()?;
     output_size(out, 46, 46)?;
@@ -1758,6 +1969,7 @@ pub fn encode_chunk_request(v: &ChunkRequest, out: &mut [u8]) -> CodecResult<usi
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` for short or trailing input; propagates `ChunkRequest::validate` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_chunk_request(input: &[u8]) -> CodecResult<ChunkRequest> {
     let mut r = Reader::new(input);
     let revision = r.u64()?;
@@ -1779,7 +1991,8 @@ pub fn decode_chunk_request(input: &[u8]) -> CodecResult<ChunkRequest> {
     v.validate()?;
     Ok(v)
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ChunkResponse<'a> {
     pub revision: u64,
     pub digest: StateDigest,
@@ -1792,6 +2005,7 @@ impl ChunkResponse<'_> {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` for a zero revision, out-of-range `total_bytes`, unaligned or out-of-range offset, empty or oversized bytes, or a chunk ending past `total_bytes`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         let framing = u32::try_from(STATE_FRAMING_BYTES).map_err(|_| ARITHMETIC)?;
         let max_state = u32::try_from(MAX_STATE_BYTES).map_err(|_| ARITHMETIC)?;
@@ -1820,6 +2034,7 @@ impl ChunkResponse<'_> {
 ///
 /// # Errors
 /// Propagates `ChunkResponse::validate` refusals; returns `CAPACITY` when `out` is too small.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_chunk_response(v: &ChunkResponse<'_>, out: &mut [u8]) -> CodecResult<usize> {
     v.validate()?;
     output_size(out, 52 + v.bytes.len(), 8244)?;
@@ -1837,6 +2052,7 @@ pub fn encode_chunk_response(v: &ChunkResponse<'_>, out: &mut [u8]) -> CodecResu
 ///
 /// # Errors
 /// Returns `CAPACITY` when the input exceeds 8244 bytes or the chunk exceeds 8192 bytes; `BAD_VERSION` for a wrong schema; `NON_CANONICAL` for a zero digest, short or trailing input; propagates `ChunkResponse::validate` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_chunk_response(input: &[u8]) -> CodecResult<ChunkResponse<'_>> {
     if input.len() > 8244 {
         return Err(CAPACITY);
@@ -1844,7 +2060,7 @@ pub fn decode_chunk_response(input: &[u8]) -> CodecResult<ChunkResponse<'_>> {
     let mut r = Reader::new(input);
     schema(&mut r)?;
     let revision = r.u64()?;
-    let digest = StateDigest::new(r.fixed()?)?;
+    let digest = r.state_digest()?;
     let total_bytes = r.u32()?;
     let offset = r.u32()?;
     let n = usize::from(r.u16()?);
@@ -1892,7 +2108,8 @@ pub fn check_chunk_response(
 /// ordered section frames (index:u16, reserved:u16=0, `bytes_length:u32`, bytes).
 /// No padding. Global16 charged to control, section headers8 to their own caps.
 /// This validates framing only; section owners must validate complete feature semantics.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct StateFrame<'a> {
     pub revision: u64,
     pub sections: [&'a [u8]; 6],
@@ -1902,6 +2119,7 @@ impl StateFrame<'_> {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` for a zero revision; `CAPACITY` when a section exceeds its cap or the total exceeds `MAX_STATE_BYTES`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encoded_len(&self) -> CodecResult<usize> {
         if self.revision == 0 {
             return Err(NON_CANONICAL);
@@ -1931,6 +2149,7 @@ impl StateFrame<'_> {
 ///
 /// # Errors
 /// Propagates `StateFrame::encoded_len` refusals; returns `CAPACITY` when `out` is too small.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_state(v: &StateFrame<'_>, out: &mut [u8]) -> CodecResult<usize> {
     let n = v.encoded_len()?;
     output_size(out, n, MAX_STATE_BYTES)?;
@@ -1952,6 +2171,7 @@ pub fn encode_state(v: &StateFrame<'_>, out: &mut [u8]) -> CodecResult<usize> {
 ///
 /// # Errors
 /// Returns `CAPACITY` when the input or a section exceeds its cap; `BAD_VERSION` for a wrong schema; `NON_CANONICAL` for a bad magic, wrong section index, nonzero reserved bytes, short or trailing input; propagates `StateFrame::encoded_len` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_state(input: &[u8]) -> CodecResult<StateFrame<'_>> {
     if input.len() > MAX_STATE_BYTES {
         return Err(CAPACITY);

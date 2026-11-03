@@ -60,7 +60,8 @@ pub const WORKERS_PER_CHUNK: usize = 8;
 pub const MAX_COMPARISONS_PER_WORKER: u32 = 28;
 pub const DISPLAY_SCALE_PPM: u64 = 1_000_000;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Median {
     pub support: u8,
     pub selected: Presence<Score>,
@@ -208,7 +209,8 @@ pub fn display_share_ppm(weight: u32, total: u64) -> CodecResult<Presence<u32>> 
 
 /// One bounded resumable step: exactly min(8, `worker_count` - cursor) frozen
 /// workers in canonical order, extending the checked running sum.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Chunk {
     outputs: [Option<WorkerAggregate>; WORKERS_PER_CHUNK],
     count: usize,
@@ -285,7 +287,8 @@ pub fn aggregate_chunk(
 }
 
 /// Complete per-epoch result: every frozen worker receives exactly one record.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EpochWeights {
     outputs: [Option<WorkerAggregate>; MAX_WORKERS],
     count: usize,
@@ -371,7 +374,8 @@ pub const PROCESS_RESPONSE_BYTES: usize = 44;
 pub const FINALIZE_RESPONSE_BYTES: usize = 74;
 
 /// The structural fields of one persisted current record, read without the frozen roster.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 struct Record<'a> {
     bytes: &'a [u8],
     phase: AggregationPhase,
@@ -415,7 +419,7 @@ fn split_tail(tail: &[u8]) -> CodecResult<(Option<Record<'_>>, &[u8])> {
             .ok_or(ARITHMETIC)?,
     )?;
     let running_weight = r.u64()?;
-    let root = r.presence(|r| Digest32::new(r.fixed()?))?;
+    let root = r.presence(|r| r.digest32())?;
     let (bytes, history) = tail.split_at_checked(r.offset()).ok_or(NON_CANONICAL)?;
     Ok((
         Some(Record {
@@ -627,10 +631,9 @@ fn frozen_roster(view: &View<'_>) -> CodecResult<FrozenRoster> {
     let mut workers = pack(&workers);
     let worker_count = entries.len();
     if let Some(workers) = workers.as_mut() {
-        workers
-            .get_mut(..worker_count)
-            .ok_or(CAPACITY)?
-            .sort_unstable_by_key(|w| w.worker);
+        codec::sort_by(workers.get_mut(..worker_count).ok_or(CAPACITY)?, |a, b| {
+            a.worker.cmp(&b.worker)
+        });
     }
     let region = evaluator_region(identity)?;
     let snapshot = region
@@ -736,7 +739,8 @@ fn sealed_inputs<'a>(view: &View<'a>, current: &DecodedCurrent) -> CodecResult<P
 }
 
 /// The object-local progress of the opened epoch's aggregation.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Progress {
     pub epoch: u64,
     pub phase: AggregationPhase,
@@ -795,12 +799,14 @@ pub fn progress(current: &[u8]) -> CodecResult<Progress> {
 }
 
 /// The compact C08 result payload of one aggregation operation.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Response {
     bytes: [u8; FINALIZE_RESPONSE_BYTES],
     len: usize,
 }
 impl Response {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(fill: impl FnOnce(&mut Writer<'_>) -> CodecResult<()>) -> CodecResult<Self> {
         let mut bytes = [0; FINALIZE_RESPONSE_BYTES];
         let mut w = Writer::new(&mut bytes);
@@ -821,7 +827,8 @@ impl Response {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Outcome {
     /// One semantic mutation: one revision increment composed into `next` and the operation
     /// event into `event`.
@@ -952,6 +959,7 @@ fn split_outputs<'o>(
 }
 
 /// Writes the unchanged reward state, `record` and `history` into `out`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_settlement<'o>(
     rewards: &[u8],
     record: impl FnOnce(&mut [u8]) -> CodecResult<usize>,

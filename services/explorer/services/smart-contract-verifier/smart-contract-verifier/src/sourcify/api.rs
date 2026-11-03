@@ -81,6 +81,21 @@ pub async fn verify_from_etherscan(
     sourcify_client: Arc<SourcifyApiClient>,
     request: VerifyFromEtherscanRequest,
 ) -> Result<Success, Error> {
+    let supported = sourcify_client
+        .supports_etherscan_import(&request.chain)
+        .await
+        .map_err(|err| {
+            Error::Internal(anyhow!(
+                "error while checking Sourcify Etherscan import support: {err}"
+            ))
+        })?;
+    if !supported {
+        return Err(Error::Verification(format!(
+            "Chain {} is not supported for importing from Etherscan",
+            request.chain
+        )));
+    }
+
     let lib_client = sourcify_client.lib_client();
 
     let verification_result = lib_client

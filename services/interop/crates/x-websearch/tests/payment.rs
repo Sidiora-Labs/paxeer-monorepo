@@ -1037,7 +1037,7 @@ fn a_pending_draw_recovers_from_the_sequencer_receipt_and_releases_once() -> Out
         let mut answer = draw_receipt_answer(signed.hash, &[draw_event(&grant, label)?], 1)?;
         if committed {
             answer["rung"] = json!("committed");
-            answer["blockNumber"] = json!("0xa");
+            answer["blockNumber"] = answer["height"].clone();
             answer["blockHash"] = json!(format!("0x{}", "ab".repeat(32)));
         }
         receipt_rule(&harness, signed.hash, answer, false)?;
@@ -1058,7 +1058,14 @@ fn a_pending_draw_recovers_from_the_sequencer_receipt_and_releases_once() -> Out
         assert_eq!(snapshots.len(), 2);
         assert_eq!(snapshots[0], snapshots[1]);
         drop(snapshots);
-        assert_settled(&harness.pay(&target, Some(harness.payer()?), &signature)?)?;
+        let settled = harness.pay(&target, Some(harness.payer()?), &signature)?;
+        assert_settled(&settled)?;
+        let response = settled.decoded(PAYMENT_RESPONSE)?;
+        let evidence = &response["extensions"]["layerx"];
+        assert_eq!(evidence["verificationLevel"], "receipted");
+        for unproved in ["blockNumber", "blockHash", "proof"] {
+            assert!(evidence.get(unproved).is_none(), "{unproved}: {evidence}");
+        }
         assert_refused(
             &harness.pay(&target, Some(harness.payer()?), &signature)?,
             "receipt_consumed",
@@ -1300,11 +1307,29 @@ fn exact_exchange() -> Outcome<Value> {
     for currency in CURRENCIES {
         let asset = accepted(currency)?;
         let label = format!("pay-exact-{currency}");
-        let hash = labelled("x-websearch-test/transaction/", &label);
         let payer = payer_account(&asset)?;
         let payee = account_id(&wallet_account(&receiver, &asset)).ok_or("payee")?;
         let mut amount = [0; 32];
         amount[16..].copy_from_slice(&asset.price.to_be_bytes());
+        let mut expires = [0; 32];
+        expires[24..].copy_from_slice(&GRANT_EXPIRATION.to_be_bytes());
+        let signed = LedgerTransaction {
+            chain_id: 125,
+            nonce: 7,
+            gas_price: 1,
+            gas_limit: 210_000,
+            data: [
+                &[0x78, 0xea, 0x11, 0xdb][..],
+                &payer,
+                &payee,
+                &asset.asset_id,
+                &amount,
+                &expires,
+                &receive_key_bytes(&label),
+            ]
+            .concat(),
+        }
+        .sign(&receiver_secret()?)?;
         let event = SequencerLog::new(
             LEDGER_PRECOMPILE,
             vec![
@@ -1318,7 +1343,7 @@ fn exact_exchange() -> Outcome<Value> {
             [asset.asset_id, amount].concat(),
             0,
         );
-        let answer = draw_receipt_answer(hash, &[event], 1)?;
+        let answer = draw_receipt_answer(signed.hash, &[event], 1)?;
         let receipt = x_websearch::payment::unhex(
             text(&answer, "/receipt")?
                 .strip_prefix("0x")
@@ -1329,12 +1354,13 @@ fn exact_exchange() -> Outcome<Value> {
         payments.insert(
             currency.to_owned(),
             json!({
-                "txHash": format!("0x{}", hex(&hash)),
+                "txHash": format!("0x{}", hex(&signed.hash)),
+                "rawTransaction": format!("0x{}", hex(&signed.raw)),
                 "receiptDigest": hex(&digest), "verificationLevel": "receipted",
                 "idempotencyKey": receive_key(&label),
             }),
         );
-        rules.push(json!({"method": "pax_sequencerReceipt", "params": [format!("0x{}", hex(&hash))], "result": answer}));
+        rules.push(json!({"method": "pax_sequencerReceipt", "params": [format!("0x{}", hex(&signed.hash))], "result": answer}));
     }
     let sid = accepted("SID")?;
     let receiver = account_id(&wallet_account(&receiver_did(), &sid)).ok_or("payee")?;
@@ -1363,10 +1389,21 @@ fn exact_exchange() -> Outcome<Value> {
 }
 
 fn exact_fixture(currency: &str) -> Outcome<Value> {
-    read_json(&fixtures().join("gateway/exact.json"))?["payments"]
-        .get(currency)
-        .cloned()
-        .ok_or_else(|| fail("exact payment"))
+    exact_payment_fields(
+        &read_json(&fixtures().join("gateway/exact.json"))?["payments"]
+            .get(currency)
+            .cloned()
+            .ok_or_else(|| fail("exact payment"))?,
+    )
+}
+
+fn exact_payment_fields(payment: &Value) -> Outcome<Value> {
+    let mut payment = payment.clone();
+    payment
+        .as_object_mut()
+        .ok_or("exact payment object")?
+        .remove("rawTransaction");
+    Ok(payment)
 }
 
 #[test]
@@ -1377,7 +1414,19 @@ fn an_exact_payment_settles_from_its_pay_exact_transaction() -> Outcome {
     );
     let harness = Harness::start("pay-exact-transaction", &["exact.json"])?;
     for currency in CURRENCIES {
+        let recording = read_json(&fixtures().join("gateway/exact.json"))?;
+        let recorded = &recording["payments"][currency];
+        let raw = text(recorded, "/rawTransaction")?
+            .strip_prefix("0x")
+            .ok_or("transaction prefix")?;
+        let raw = x_websearch::payment::unhex(raw).ok_or("transaction hex")?;
+        assert_eq!(
+            recorded["txHash"],
+            format!("0x{}", hex(&x_websearch::watch::keccak(&raw)))
+        );
         let payment = exact_fixture(currency)?;
+        assert!(payment.get("rawTransaction").is_none());
+        assert_eq!(payment.as_object().ok_or("exact payment object")?.len(), 4);
         let reply = harness.exact(&format!("/fetch?url={currency}"), currency, &payment)?;
         assert_settled(&reply)?;
         let response = reply.decoded(PAYMENT_RESPONSE)?;
@@ -3098,7 +3147,7 @@ fn gateway_recording() -> Outcome<Vec<(&'static str, Value)>> {
         metered_accounts.push(account_rule(&pay_to));
         metered_sends.push(send_rule(&signed.raw, ("result", result)));
 
-        let payment = exact_exchange()?["payments"][currency].clone();
+        let payment = exact_payment_fields(&exact_exchange()?["payments"][currency])?;
         exact.insert(currency.to_owned(), payment);
     }
     let mut metered_rules = Vec::new();
@@ -3557,6 +3606,10 @@ fn the_client_exchange_matches_the_recording() -> Outcome {
         Some(&json!(hex(&purpose_hash(&receiver_public_key()?))))
     );
     for (step, (currency, page)) in FETCHED.iter().enumerate() {
+        assert_eq!(
+            exchange[3 + 2 * step]["request"]["headers"][PAYMENT_SIGNATURE]["payload"],
+            exact_fixture(currency)?
+        );
         let paid = &exchange[3 + 2 * step]["response"];
         let asset = accepted(currency)?;
         assert_eq!(paid["headers"][PAYMENT_RESPONSE]["success"], true);

@@ -383,6 +383,26 @@ func TestSendRawTransactionIdenticalResubmissionKeepsHashAndReceipt(t *testing.T
 func TestSendSequencerReturnsAfterReceipt(t *testing.T) {
 	sender := occutils.NewSigner()
 	h := newSendSeqHarness(t, sender)
+	watermarks := evmrpc.NewWatermarkManager(nil, nil, nil, nil)
+	watermarks.SetPendingSnapshot(h.exec)
+	watermarks.SetPendingOpenWait(50 * time.Millisecond)
+	h.api = evmrpc.NewSendAPI(
+		h.client,
+		func(int64) client.TxConfig { return h.app.GetTxConfig() },
+		&evmrpc.SendConfig{Sequencer: h.accepter},
+		&h.app.EvmKeeper,
+		legacyabci.BeginBlockKeepers{},
+		func(int64) sdk.Context { return h.app.GetContextForDeliverTx([]byte{}) },
+		"",
+		nil,
+		nil,
+		nil,
+		evmrpc.ConnectionTypeHTTP,
+		utils.None[time.Duration](),
+		evmrpc.NewBlockCache(1),
+		nil,
+		watermarks,
+	)
 	to := common.BytesToAddress(sendSeqLabel("send sequencer recipient")[:20])
 	value := big.NewInt(1_000_000)
 
@@ -418,13 +438,16 @@ func TestSendSequencerReturnsAfterReceipt(t *testing.T) {
 	require.Equal(t, uint64(2), h.verifiedReceipt(t, 1).GlobalSequence)
 	require.Equal(t, h.accepter.accepted[0].SeqHash, h.verifiedReceipt(t, 1).PreviousStateRoot)
 
-	// An error without an ABCI code reaches the client unchanged and no hash is receipted.
+	// A sealed layer waits for the next open block and refuses without a receipt if none opens.
 	_, err = h.exec.Seal(sendSeqOpenHeight)
 	require.NoError(t, err)
 	_, raw = sendSeqTransfer(t, sender, 2, to, value, sendSeqTransferGas)
 	_, err = h.api.SendRawTransaction(context.Background(), raw)
-	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
-	require.EqualError(t, err, sequencer.ErrLayerNotOpen.Error())
+	require.ErrorIs(t, err, evmrpc.ErrPendingBlockClosed)
+	require.NotErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	require.EqualError(t, err, "no block is open; retry")
+	require.Len(t, h.accepter.txBytes, 4)
+	require.Len(t, h.accepter.accepted, 2)
 	require.Len(t, h.accepter.receipts, 2)
 	require.Zero(t, h.client.broadcastCount())
 }

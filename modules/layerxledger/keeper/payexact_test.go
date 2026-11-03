@@ -63,6 +63,9 @@ func TestPayExact(t *testing.T) {
 		require.Equal(t, balance, f.bank.GetBalance(f.ctx, lxphost.BankAddress(account), denom).Amount)
 	}
 	for i := uint64(0); i < 3; i++ {
+		if i == 1 {
+			args.PaymentReference = sha256.Sum256([]byte("next-exact-payment"))
+		}
 		if i == 2 {
 			args.PaymentReference = sha256.Sum256([]byte("second-exact-payment"))
 		}
@@ -104,6 +107,22 @@ func TestPayExact(t *testing.T) {
 			require.Len(t, fields, 6)
 		}
 		require.Equal(t, 1, paymentEvents)
+		sequence, err = f.keeper.NextSequence(f.ctx, actor.DIDKey, args.Asset)
+		require.NoError(t, err)
+		require.Equal(t, i+1, sequence)
+		assertBalance(args.From, 25-3*int64(i+1))
+		assertBalance(args.To, 3*int64(i+1))
+
+		hostBefore := ledgerViewStore(t, f.ctx, f.hostKey)
+		bankKey := testkeeper.EVMTestApp.GetKey(banktypes.StoreKey)
+		bankBefore := ledgerViewStore(t, f.ctx, bankKey)
+		eventsBefore = len(f.ctx.EventManager().Events())
+		replayed, err := f.keeper.PayExact(f.ctx, actor, args)
+		require.ErrorIs(t, err, types.ErrIdempotentReplay)
+		require.Equal(t, ledgerkeeper.Result{}, replayed)
+		require.Equal(t, hostBefore, ledgerViewStore(t, f.ctx, f.hostKey))
+		require.Equal(t, bankBefore, ledgerViewStore(t, f.ctx, bankKey))
+		require.Len(t, f.ctx.EventManager().Events(), eventsBefore)
 		sequence, err = f.keeper.NextSequence(f.ctx, actor.DIDKey, args.Asset)
 		require.NoError(t, err)
 		require.Equal(t, i+1, sequence)

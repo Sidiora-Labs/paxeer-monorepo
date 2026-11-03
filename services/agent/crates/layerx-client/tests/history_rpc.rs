@@ -69,7 +69,7 @@ fn history_pages_px_get_history_and_carries_the_next_cursor() {
         json!({"kind": "call", "transactionHash": format!("0x{}", "34".repeat(32))}),
     ];
     let result = json!({
-        "items": items, "next_cursor": next, "indexedHeight": 43981, "chainHeight": 44000
+        "items": items, "next_cursor": next, "indexedHeight": 43981
     });
     let refusal = RpcRefusal {
         code: -32001,
@@ -82,13 +82,15 @@ fn history_pages_px_get_history_and_carries_the_next_cursor() {
             json!([account, null, 2]),
             json!({"result": result}),
         ),
+        ("eth_blockNumber", json!([]), json!({"result": "0xabe0"})),
         (
             "px_getHistory",
             json!([account, next, 50]),
             json!({"result": {
-                "items": [], "next_cursor": null, "indexedHeight": 43982, "chainHeight": 44001
+                "items": [], "next_cursor": null, "indexedHeight": 43982
             }}),
         ),
+        ("eth_blockNumber", json!([]), json!({"result": "0xabe1"})),
     ];
     for cursor in ["a".repeat(112), next.to_uppercase(), "g".repeat(32)] {
         let mut malformed = result.clone();

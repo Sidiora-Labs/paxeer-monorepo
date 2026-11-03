@@ -1,16 +1,18 @@
 [sweep.c-kernel-make]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
 command = "make -s TARGET"
 targets_total = 155
-targets_passed = 135
-targets_failed = 13
-targets_not_run = 7
+targets_passed = 143
+targets_failed = 12
+targets_not_run = 0
 preparation_command = "make -s all"
 preparation_exit_code = 0
 enumeration = "Expanded test-* rules from the root Makefile and its included makefiles, including aggregate aliases, eight variable-expanded proof targets and the test-group-% forwarding pattern; enumerated with make -qp without executing recipes."
 timeout_policy = "Preparation receives at most 180 seconds; each concrete target receives at most 75 seconds within a 1200-second inventory budget, reserving time for report generation and qualification."
 not_run_exit_codes = "124 means the attempted command exceeded its allocation; -1 means the target was not invoked."
-qualification_record = "/out/logs/c-kernel-make-second/qualification.json"
+qualification_record = "/out/logs/c-kernel-make-resweep/results.json"
+preparation_qualification_record = "/out/logs/c-kernel-make-resweep/preparation.log"
+resweep_timeout_policy = "Preparation receives at most 180 seconds; each re-swept target receives at most 1200 seconds within the 120-minute task budget."
 
 [target.c-kernel-make.1]
 target = "test-result"
@@ -175,10 +177,12 @@ exit_code = 0
 
 [target.c-kernel-make.32]
 target = "test-budget-create"
-result = "failed"
-exit_code = 2
-observed = "tests/modules/test_budget_create.c:711 fails dispatch_path because the delegate spend result does not equal LXP_OK."
-assumption = "The existing budget dispatch expectation likely disagrees with the current delegate-spend behavior."
+command = "make -s test-budget-create"
+result = "passed"
+exit_code = 0
+revision = "2f37099c7d1a8d62e5f5cdb90ca751d5c699e5ea"
+observed = "The repaired budget creation and delegate-spend cases pass, together with the sole-writer check."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.c-kernel-make.33]
 target = "test-budget-period"
@@ -373,29 +377,29 @@ exit_code = 0
 [target.c-kernel-make.71]
 target = "test-bridge-deposit"
 command = "make -s test-bridge-deposit"
-result = "not_run"
-exit_code = -1
-revision = "8154f1f17d4ed5f44e83057980d3323d170c0900"
-reason = "The declared verification uses && and stops when make -s test-contracts exits 2 at its state-surface prerequisite; this target is not reached."
-qualification_record = "/out/logs/verify-1.log"
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+qualification_record = "/out/logs/c-kernel-make-resweep/test-bridge-deposit.log"
+observed = "The recorded make command exits zero; the Solidity state-surface check reports 3 selectors with test evidence, and forge warns: No tests found in project!"
 
 [target.c-kernel-make.72]
 target = "test-bridge-withdraw"
 command = "make -s test-bridge-withdraw"
-result = "not_run"
-exit_code = -1
-revision = "8154f1f17d4ed5f44e83057980d3323d170c0900"
-reason = "The declared verification uses && and stops when make -s test-contracts exits 2 at its state-surface prerequisite; this target is not reached."
-qualification_record = "/out/logs/verify-1.log"
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+qualification_record = "/out/logs/c-kernel-make-resweep/test-bridge-withdraw.log"
+observed = "The recorded make command exits zero; the Solidity state-surface check reports 3 selectors with test evidence, and forge warns: No tests found in project!"
 
 [target.c-kernel-make.73]
 target = "test-reserve"
 command = "make -s test-reserve"
-result = "not_run"
-exit_code = -1
-revision = "8154f1f17d4ed5f44e83057980d3323d170c0900"
-reason = "The declared verification uses && and stops when make -s test-contracts exits 2 at its state-surface prerequisite; this target is not reached."
-qualification_record = "/out/logs/verify-1.log"
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+qualification_record = "/out/logs/c-kernel-make-resweep/test-reserve.log"
+observed = "The recorded make command exits zero and emits reserve classes; the Solidity state-surface check reports 3 selectors with test evidence, and forge warns: No tests found in project!"
 
 [target.c-kernel-make.74]
 target = "test-gateway"
@@ -462,6 +466,7 @@ invocation = "Executed as the test-contract-state-surface prerequisite of make -
 make_exit_code = 2
 observed = "First failing coverage assertion: untested external state-changing function: SidioraProxyTimelock.cancel(bytes32); execute(address,uint256,bytes,bytes32,uint256) and schedule(address,uint256,bytes,bytes32,uint64) also lack test evidence."
 qualification_record = "/out/logs/verify-1.log"
+assumption = "At the recorded revision, tests/solidity lacked state-surface test evidence for SidioraProxyTimelock.cancel, execute and schedule; forge was present."
 
 [target.c-kernel-make.86]
 target = "test-contracts"
@@ -471,6 +476,7 @@ exit_code = 2
 revision = "8154f1f17d4ed5f44e83057980d3323d170c0900"
 observed = "The test-contract-state-surface prerequisite fails first on untested external state-changing function: SidioraProxyTimelock.cancel(bytes32); forge is present, and forge test is not reached."
 qualification_record = "/out/logs/verify-1.log"
+assumption = "The test-contract-state-surface prerequisite lacks test evidence for the SidioraProxyTimelock.cancel, execute and schedule functions at the recorded revision, so make stops before forge test; forge was present."
 
 [target.c-kernel-make.87]
 target = "test-wave-8"
@@ -534,9 +540,11 @@ exit_code = 0
 
 [target.c-kernel-make.99]
 target = "test-crypto-sanitizers"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its allocated time (at most 75 seconds) within the bounded inventory budget."
+result = "passed"
+exit_code = 0
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "The AddressSanitizer, UndefinedBehaviorSanitizer and ThreadSanitizer crypto-suite subcommands all exit zero."
+qualification_record = "/out/logs/c-kernel-make-resweep/test-crypto-sanitizers.log"
 
 [target.c-kernel-make.100]
 target = "test-crypto-ct"
@@ -688,21 +696,30 @@ assumption = "The environmental Python interpreter lacks the named dependency, s
 
 [target.c-kernel-make.128]
 target = "test-group-%"
-result = "not_run"
-exit_code = -1
-reason = "This forwarding pattern requires a concrete group name; no single concrete target is declared by this rule."
+result = "failed"
+exit_code = 2
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "grep: /work/paxeer-monorepo/build/packages.txt.%: No such file or directory"
+assumption = "The split-test-packages producer creates numbered build/packages.txt.* inputs, so the literal forwarding pattern has no build/packages.txt.% input; a concrete group suffix is required."
+qualification_record = "/out/logs/c-kernel-make-resweep/test-group-%.log"
 
 [target.c-kernel-make.129]
 target = "test-lxphost"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its allocated time (at most 75 seconds) within the bounded inventory budget."
+command = "make -s test-lxphost"
+result = "passed"
+exit_code = 0
+revision = "2f37099c7d1a8d62e5f5cdb90ca751d5c699e5ea"
+observed = "The native libraries build and CGO_ENABLED=1 go test ./modules/lxphost/... passes."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.c-kernel-make.130]
 target = "test-paxd-domain"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its allocated time (at most 75 seconds) within the bounded inventory budget."
+result = "failed"
+exit_code = 2
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+observed = "--- FAIL: TestPriceFeedLivePathAggregate (2.37s); node/pricefeed_live_test.go:565 expects required = 3 but receives required = 1; further node, sequencer and RPC failures follow in the log."
+assumption = "The price-feed live aggregation path appears to report a required quorum of 1 while its test expects 3; the remaining domain failures require separate repair tasks."
+qualification_record = "/out/logs/c-kernel-make-resweep/test-paxd-domain.log"
 
 [target.c-kernel-make.131]
 target = "test-programs-metered-call"
@@ -788,10 +805,12 @@ exit_code = 0
 
 [target.c-kernel-make.147]
 target = "test-proof"
-result = "failed"
-exit_code = 2
-observed = "tests/codec/lxp_test_global_sequence.c:225 fails to compile in the receipt proof prerequisite because lxp_state_store has no member named idempotency_count."
-assumption = "The existing test likely still references a kernel interface removed or changed at this revision."
+command = "make -s test-proof"
+result = "passed"
+exit_code = 0
+revision = "2f37099c7d1a8d62e5f5cdb90ca751d5c699e5ea"
+observed = "The proof targets pass with the retired idempotency counter checks removed."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.c-kernel-make.148]
 target = "test-proof-b_error_code_registry_d6"
@@ -820,10 +839,12 @@ exit_code = 0
 
 [target.c-kernel-make.153]
 target = "test-proof-lxp_receipt_h"
-result = "failed"
-exit_code = 2
-observed = "tests/codec/lxp_test_global_sequence.c:225 fails to compile in test-proof-lxp_receipt_h because lxp_state_store has no member named idempotency_count."
-assumption = "The existing test likely still references a kernel interface removed or changed at this revision."
+command = "make -s test-proof-lxp_receipt_h"
+result = "passed"
+exit_code = 0
+revision = "2f37099c7d1a8d62e5f5cdb90ca751d5c699e5ea"
+observed = "The receipt header proof passes with the retired idempotency counter checks removed."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.c-kernel-make.154]
 target = "test-proof-programs_h"
