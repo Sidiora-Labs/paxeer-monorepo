@@ -9,7 +9,7 @@ use std::fs::{self, DirBuilder};
 use std::io::{Read as _, Write as _};
 use std::net::TcpListener;
 use std::os::unix::fs::{DirBuilderExt as _, PermissionsExt as _};
-use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -48,25 +48,10 @@ const RETIRED_OPERATIONS: [&str; 11] = [
     "exit.eligibility",
 ];
 
-fn retired_variable(name: &str) -> bool {
-    [
-        "LAYERX_HUMAN_PAXEER_",
-        "LAYERX_HUMAN_EXIT_",
-        "LAYERX_HUMAN_RECIPIENT_",
-    ]
-    .iter()
-    .any(|prefix| name.starts_with(prefix))
-        || matches!(
-            name,
-            "LAYERX_HUMAN_BINDING_STATEMENT_TTL_SECONDS" | "LAYERX_HUMAN_PROTOCOL_VERSION"
-        )
-}
-
 struct Environment {
     root: PathBuf,
     saved: Vec<(OsString, Option<OsString>)>,
     cluster: Option<cluster::Cluster>,
-    _movement_listener: UnixListener,
     _events_listener: TcpListener,
 }
 
@@ -79,18 +64,12 @@ impl Environment {
             u128::from_be_bytes(entropy)
         ));
         DirBuilder::new().mode(0o700).create(&root)?;
-        let movement_directory = root.join("movement-socket");
-        DirBuilder::new().mode(0o700).create(&movement_directory)?;
-        let movement_socket = movement_directory.join("movement.sock");
-        let movement_listener = UnixListener::bind(&movement_socket)?;
-        fs::set_permissions(&movement_socket, fs::Permissions::from_mode(0o600))?;
         let events_listener = TcpListener::bind("127.0.0.1:0")?;
         let events_url = format!("https://localhost:{}", events_listener.local_addr()?.port());
         let mut environment = Self {
             root,
             saved: Vec::new(),
             cluster: None,
-            _movement_listener: movement_listener,
             _events_listener: events_listener,
         };
         for (name, value) in env::vars_os() {
@@ -120,7 +99,6 @@ impl Environment {
             }}),
         )?;
         for (name, value) in loader_environment(&environment.root, &cluster, digest.bytes())? {
-            assert!(!retired_variable(name));
             environment.set(name, value);
         }
         let mut events_secret = [0; 32];
@@ -176,7 +154,6 @@ impl Environment {
             &environment.root.join("purpose-catalog.json"),
             &serde_json::to_vec(&purpose_catalog())?,
         )?;
-        assert!(env::vars_os().all(|(name, _)| !retired_variable(&name.to_string_lossy())));
         Ok(environment)
     }
 
@@ -766,23 +743,6 @@ fn loader_environment(
             "LAYERX_HUMAN_IDENTITY_PEER_GID",
             rustix::process::getgid().as_raw().to_string(),
         ),
-        (
-            "LAYERX_HUMAN_MOVEMENT_SOCKET",
-            path("movement-socket/movement.sock"),
-        ),
-        (
-            "LAYERX_HUMAN_MOVEMENT_PEER_UID",
-            rustix::process::getuid().as_raw().to_string(),
-        ),
-        (
-            "LAYERX_HUMAN_MOVEMENT_PEER_GID",
-            rustix::process::getgid().as_raw().to_string(),
-        ),
-        (
-            "LAYERX_HUMAN_MOVEMENT_MAX_FRAME_BYTES",
-            "1048576".to_owned(),
-        ),
-        ("LAYERX_HUMAN_MOVEMENT_DEADLINE_SECONDS", "5".to_owned()),
         ("LAYERX_HUMAN_ATTESTOR_NODES", nodes),
         ("LAYERX_HUMAN_ATTESTOR_SIGNERS", cluster::SIGNERS.join(",")),
         (
