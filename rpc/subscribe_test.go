@@ -17,21 +17,35 @@ import (
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	atypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/autobahn/types"
+	tmconfig "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 	tmed25519 "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/ed25519"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/merkle"
+	tmutils "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/tcp"
+	tmnode "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	rpclocal "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/local"
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
 	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
+	cryptocodec "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/codec"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
+	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
+	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
 	occutils "github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -39,6 +53,7 @@ import (
 	gethrpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 func TestSubscribeNewHeads(t *testing.T) {
@@ -204,11 +219,128 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 			require.NotEqual(t, "0x0", gasLimitStr)
 			require.Equal(t, common.BytesToHash(parentHash).Hex(), resultMap["parentHash"])
 			require.Equal(t, sameBlockRoot.Hex(), resultMap["receiptsRoot"])
+			t.Run("committed block roots", testSubscribeNewHeadsAutobahnCommit)
 			return
 		case <-timer.C:
 			t.Fatal("No event received within 5 seconds")
 		}
 	}
+}
+
+func testSubscribeNewHeadsAutobahnCommit(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+	cfg, err := tmconfig.ResetTestRoot(t.TempDir(), "subscribe-committed-roots")
+	require.NoError(t, err)
+	p2pAddress := fmt.Sprintf("127.0.0.1:%d", seqReceiptFreePort9005(t))
+	cfg.P2P.ListenAddress = "tcp://" + p2pAddress
+	cfg.RPC.ListenAddress = ""
+	pv, err := privval.LoadFilePV(cfg.PrivValidator.KeyFile(), cfg.PrivValidator.StateFile())
+	require.NoError(t, err)
+	nodeKey, err := tmtypes.LoadOrGenNodeKey(cfg.NodeKeyFile())
+	require.NoError(t, err)
+	address, err := tcp.ParseHostPort(p2pAddress)
+	require.NoError(t, err)
+	validator := tmconfig.AutobahnValidator{
+		ValidatorKey: atypes.SecretKeyFromED25519(pv.Key.PrivKey).Public(),
+		Address:      address,
+	}
+	require.NoError(t, validator.NodeKey.UnmarshalText([]byte(fmt.Sprintf("node:%s", nodeKey.PubKey()))))
+	fc := tmconfig.AutobahnFileConfig{
+		Validators: []tmconfig.AutobahnValidator{validator}, MaxTxsPerBlock: 1,
+		AllowEmptyBlocks: true, BlockInterval: tmutils.Duration(400 * time.Millisecond),
+		ViewTimeout: tmutils.Duration(1500 * time.Millisecond), DialInterval: tmutils.Duration(time.Second),
+		PersistentStateDir: tmutils.Some(t.TempDir()),
+	}
+	encoded, err := json.Marshal(fc)
+	require.NoError(t, err)
+	cfg.AutobahnConfigFile = filepath.Join(t.TempDir(), "autobahn.json")
+	require.NoError(t, os.WriteFile(cfg.AutobahnConfigFile, encoded, 0600))
+	a := app.New(dbm.NewMemDB(), nil, true, map[int64]bool{}, t.TempDir(), 1, true, cfg,
+		app.MakeEncodingConfig(), wasm.EnableAllProposals, app.TestAppOpts{}, app.EmptyWasmOpts, nil)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
+	gen, err := tmtypes.GenesisDocFromFile(cfg.GenesisFile())
+	require.NoError(t, err)
+	gen.ChainID = "pax-test"
+	gen.GenesisTime = time.Now().UTC()
+	gen.ConsensusParams.Block.MaxGas = 50_000_000
+	genesis := app.NewDefaultGenesisState(a.AppCodec())
+	pubkey, err := cryptocodec.FromTmPubKeyInterface(pv.Key.PubKey)
+	require.NoError(t, err)
+	pkAny, err := codectypes.NewAnyWithValue(pubkey)
+	require.NoError(t, err)
+	valAddress := sdk.ValAddress(pv.Key.PubKey.Address())
+	bond := sdk.NewInt(1_000_000)
+	stakingGenesis := stakingtypes.NewGenesisState(stakingtypes.DefaultParams(), []stakingtypes.Validator{{
+		OperatorAddress: valAddress.String(), ConsensusPubkey: pkAny, Status: stakingtypes.Bonded,
+		Tokens: bond, DelegatorShares: sdk.OneDec(), UnbondingTime: time.Unix(0, 0).UTC(),
+		Commission: stakingtypes.NewCommission(sdk.ZeroDec(), sdk.ZeroDec(), sdk.ZeroDec()), MinSelfDelegation: sdk.ZeroInt(),
+	}}, []stakingtypes.Delegation{stakingtypes.NewDelegation(sdk.AccAddress(valAddress), valAddress, sdk.OneDec())})
+	genesis[stakingtypes.ModuleName] = a.AppCodec().MustMarshalJSON(stakingGenesis)
+	coins := sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, bond))
+	bankGenesis := banktypes.NewGenesisState(banktypes.DefaultGenesisState().Params, []banktypes.Balance{{
+		Address: authtypes.NewModuleAddress(stakingtypes.BondedPoolName).String(), Coins: coins,
+	}}, coins, []banktypes.Metadata{}, []banktypes.WeiBalance{})
+	genesis[banktypes.ModuleName] = a.AppCodec().MustMarshalJSON(bankGenesis)
+	gen.AppState, err = json.Marshal(genesis)
+	require.NoError(t, err)
+	var commitsMu sync.Mutex
+	commits := make(map[int64]common.Hash)
+	a.SetCommitListener(func(height int64, hash []byte) error {
+		commitsMu.Lock()
+		commits[height] = common.BytesToHash(hash)
+		commitsMu.Unlock()
+		return nil
+	})
+	n, err := tmnode.New(ctx, cfg, func() {}, a, gen, nil, tmnode.NoOpMetricsProvider(), tmtypes.DefaultConsensusPolicy())
+	require.NoError(t, err)
+	require.NoError(t, n.Start(ctx))
+	t.Cleanup(func() { n.Stop(); n.Wait() })
+	tmClient, err := rpclocal.New(n)
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		commitsMu.Lock()
+		defer commitsMu.Unlock()
+		return len(commits) > 0
+	}, 5*time.Second, 10*time.Millisecond)
+	wsConfig := evmrpcconfig.DefaultConfig
+	wsConfig.WSPort, wsConfig.IPRateLimitRPS = 0, 0
+	server, err := evmrpc.NewEVMWebSocketServer(wsConfig, tmClient, &a.EvmKeeper, a.BeginBlockKeepers,
+		a.BaseApp, a.TracerAnteHandler, a.RPCContextProvider, func(int64) client.TxConfig { return a.GetTxConfig() },
+		"", a.GetStateStore(), a.BlockHeaderNotifier())
+	require.NoError(t, err)
+	t.Cleanup(server.Stop)
+	ws, _ := dialWSPipe(t, server.(http.Handler))
+	id := wsSubscribe(t, ws, "newHeads")
+	head := wsNotification(t, ws, id)
+	heightValue, err := hexutil.DecodeUint64(head["number"].(string))
+	require.NoError(t, err)
+	height := int64(heightValue) //nolint:gosec // heights are produced by the bounded test node.
+	block, err := tmClient.Block(ctx, &height)
+	require.NoError(t, err)
+	results, err := tmClient.BlockResults(ctx, &height)
+	require.NoError(t, err)
+	leaves, err := abci.MarshalTxResults(results.TxsResults)
+	require.NoError(t, err)
+	var stateRoot common.Hash
+	require.Eventually(t, func() bool {
+		commitsMu.Lock()
+		defer commitsMu.Unlock()
+		var ok bool
+		stateRoot, ok = commits[height]
+		return ok
+	}, time.Second, time.Millisecond)
+	roots := map[string]common.Hash{
+		"receiptsRoot":     common.BytesToHash(merkle.HashFromByteSlices(leaves)),
+		"stateRoot":        stateRoot,
+		"transactionsRoot": ethtypes.EmptyTxsHash,
+	}
+	require.Empty(t, block.Block.Txs)
+	for key, root := range roots {
+		require.NotEqual(t, common.Hash{}, root, key)
+		require.Equal(t, root.Hex(), head[key], key)
+	}
+	require.Equal(t, common.BytesToHash(block.BlockID.Hash).Hex(), head["hash"])
 }
 
 func assertNewHeadStateRootMatchesBlock(t *testing.T, head map[string]interface{}) {
@@ -545,6 +677,7 @@ func dialWSPipe(t *testing.T, handler http.Handler) (*websocket.Conn, *subscribe
 	}
 	conn, res, err := dialer.Dial("ws://pipe/", http.Header{"Origin": []string{"localhost"}})
 	require.NoError(t, err)
+	require.Equal(t, http.StatusSwitchingProtocols, res.StatusCode)
 	require.NoError(t, res.Body.Close())
 	t.Cleanup(func() { _ = conn.Close() })
 	return conn, peek

@@ -2,9 +2,9 @@
 revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "make -s TARGET"
 targets_total = 155
-targets_passed = 135
-targets_failed = 16
-targets_not_run = 4
+targets_passed = 139
+targets_failed = 10
+targets_not_run = 6
 preparation_command = "make -s all"
 preparation_exit_code = 0
 enumeration = "Expanded test-* rules from the root Makefile and its included makefiles, including aggregate aliases, eight variable-expanded proof targets and the test-group-% forwarding pattern; enumerated with make -qp without executing recipes."
@@ -175,10 +175,12 @@ exit_code = 0
 
 [target.c-kernel-make.32]
 target = "test-budget-create"
-result = "failed"
-exit_code = 2
-observed = "tests/modules/test_budget_create.c:711 fails dispatch_path because the delegate spend result does not equal LXP_OK."
-assumption = "The existing budget dispatch expectation likely disagrees with the current delegate-spend behavior."
+command = "make -s test-budget-create"
+result = "passed"
+exit_code = 0
+revision = "2f37099c7d1a8d62e5f5cdb90ca751d5c699e5ea"
+observed = "The repaired budget creation and delegate-spend cases pass, together with the sole-writer check."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.c-kernel-make.33]
 target = "test-budget-period"
@@ -372,24 +374,30 @@ exit_code = 0
 
 [target.c-kernel-make.71]
 target = "test-bridge-deposit"
-result = "failed"
-exit_code = 2
-observed = "test-bridge-deposit stops at scripts/ci/solidity-state-surface.sh:10 because forge is not found."
-assumption = "The environmental Foundry forge executable is unavailable, so the Solidity prerequisite cannot run."
+command = "make -s test-bridge-deposit"
+result = "not_run"
+exit_code = -1
+revision = "8154f1f17d4ed5f44e83057980d3323d170c0900"
+reason = "The declared verification uses && and stops when make -s test-contracts exits 2 at its state-surface prerequisite; this target is not reached."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.c-kernel-make.72]
 target = "test-bridge-withdraw"
-result = "failed"
-exit_code = 2
-observed = "test-bridge-withdraw stops at scripts/ci/solidity-state-surface.sh:10 because forge is not found."
-assumption = "The environmental Foundry forge executable is unavailable, so the Solidity prerequisite cannot run."
+command = "make -s test-bridge-withdraw"
+result = "not_run"
+exit_code = -1
+revision = "8154f1f17d4ed5f44e83057980d3323d170c0900"
+reason = "The declared verification uses && and stops when make -s test-contracts exits 2 at its state-surface prerequisite; this target is not reached."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.c-kernel-make.73]
 target = "test-reserve"
-result = "failed"
-exit_code = 2
-observed = "test-reserve stops at scripts/ci/solidity-state-surface.sh:10 because forge is not found."
-assumption = "The environmental Foundry forge executable is unavailable, so the Solidity prerequisite cannot run."
+command = "make -s test-reserve"
+result = "not_run"
+exit_code = -1
+revision = "8154f1f17d4ed5f44e83057980d3323d170c0900"
+reason = "The declared verification uses && and stops when make -s test-contracts exits 2 at its state-surface prerequisite; this target is not reached."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.c-kernel-make.74]
 target = "test-gateway"
@@ -448,17 +456,23 @@ exit_code = 0
 
 [target.c-kernel-make.85]
 target = "test-contract-state-surface"
+command = "scripts/ci/solidity-state-surface.sh"
 result = "failed"
-exit_code = 2
-observed = "test-contract-state-surface stops at scripts/ci/solidity-state-surface.sh:10 because forge is not found."
-assumption = "The environmental Foundry forge executable is unavailable, so the Solidity prerequisite cannot run."
+exit_code = 1
+revision = "8154f1f17d4ed5f44e83057980d3323d170c0900"
+invocation = "Executed as the test-contract-state-surface prerequisite of make -s test-contracts; the later standalone make command was not reached."
+make_exit_code = 2
+observed = "First failing coverage assertion: untested external state-changing function: SidioraProxyTimelock.cancel(bytes32); execute(address,uint256,bytes,bytes32,uint256) and schedule(address,uint256,bytes,bytes32,uint64) also lack test evidence."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.c-kernel-make.86]
 target = "test-contracts"
+command = "make -s test-contracts"
 result = "failed"
 exit_code = 2
-observed = "test-contracts stops at scripts/ci/solidity-state-surface.sh:10 because forge is not found."
-assumption = "The environmental Foundry forge executable is unavailable, so the Solidity prerequisite cannot run."
+revision = "8154f1f17d4ed5f44e83057980d3323d170c0900"
+observed = "The test-contract-state-surface prerequisite fails first on untested external state-changing function: SidioraProxyTimelock.cancel(bytes32); forge is present, and forge test is not reached."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.c-kernel-make.87]
 target = "test-wave-8"
@@ -682,9 +696,12 @@ reason = "This forwarding pattern requires a concrete group name; no single conc
 
 [target.c-kernel-make.129]
 target = "test-lxphost"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its allocated time (at most 75 seconds) within the bounded inventory budget."
+command = "make -s test-lxphost"
+result = "passed"
+exit_code = 0
+revision = "2f37099c7d1a8d62e5f5cdb90ca751d5c699e5ea"
+observed = "The native libraries build and CGO_ENABLED=1 go test ./modules/lxphost/... passes."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.c-kernel-make.130]
 target = "test-paxd-domain"
@@ -776,10 +793,12 @@ exit_code = 0
 
 [target.c-kernel-make.147]
 target = "test-proof"
-result = "failed"
-exit_code = 2
-observed = "tests/codec/lxp_test_global_sequence.c:225 fails to compile in the receipt proof prerequisite because lxp_state_store has no member named idempotency_count."
-assumption = "The existing test likely still references a kernel interface removed or changed at this revision."
+command = "make -s test-proof"
+result = "passed"
+exit_code = 0
+revision = "2f37099c7d1a8d62e5f5cdb90ca751d5c699e5ea"
+observed = "The proof targets pass with the retired idempotency counter checks removed."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.c-kernel-make.148]
 target = "test-proof-b_error_code_registry_d6"
@@ -808,10 +827,12 @@ exit_code = 0
 
 [target.c-kernel-make.153]
 target = "test-proof-lxp_receipt_h"
-result = "failed"
-exit_code = 2
-observed = "tests/codec/lxp_test_global_sequence.c:225 fails to compile in test-proof-lxp_receipt_h because lxp_state_store has no member named idempotency_count."
-assumption = "The existing test likely still references a kernel interface removed or changed at this revision."
+command = "make -s test-proof-lxp_receipt_h"
+result = "passed"
+exit_code = 0
+revision = "2f37099c7d1a8d62e5f5cdb90ca751d5c699e5ea"
+observed = "The receipt header proof passes with the retired idempotency counter checks removed."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.c-kernel-make.154]
 target = "test-proof-programs_h"

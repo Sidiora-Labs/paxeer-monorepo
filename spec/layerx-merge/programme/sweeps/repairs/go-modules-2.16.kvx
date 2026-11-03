@@ -1,0 +1,6 @@
+[repair.go-modules-2.16]
+target = "modules/tokenfactory/types"
+command = "CGO_ENABLED=1 go vet ./modules/tokenfactory/types/ && CGO_ENABLED=1 go test -count=1 ./modules/tokenfactory/types/"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "modules/tokenfactory/types/events_test.go now freezes the pause event name and issuer event type and attribute alongside every existing constant, matching the issuer pause authority of decision 623."

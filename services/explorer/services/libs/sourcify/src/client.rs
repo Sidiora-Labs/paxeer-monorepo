@@ -1,8 +1,5 @@
 use crate::{
-    types::{
-        CustomError, EmptyCustomError, ErrorResponse, GetSourceFilesResponse,
-        VerifyFromEtherscanResponse,
-    },
+    types::{CustomError, EmptyCustomError, GetSourceFilesResponse, VerifyFromEtherscanResponse},
     Error, SourcifyError, VerifyFromEtherscanError,
 };
 use blockscout_display_bytes::ToHex;
@@ -10,8 +7,8 @@ use bytes::Bytes;
 use reqwest::{Response, StatusCode};
 use reqwest_middleware::{ClientWithMiddleware, Middleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
-use serde::{Deserialize, Serialize};
-use std::{str::FromStr, sync::Arc};
+use serde::Deserialize;
+use std::{str::FromStr, sync::Arc, time::Duration};
 use url::Url;
 
 mod retryable_strategy {
@@ -89,11 +86,19 @@ impl ClientBuilder {
 
     pub fn build(self) -> Client {
         let retry_policy = ExponentialBackoff::builder().build_with_max_retries(self.max_retries);
-        let mut client_builder = reqwest_middleware::ClientBuilder::new(reqwest::Client::new())
-            .with(RetryTransientMiddleware::new_with_policy_and_strategy(
-                retry_policy,
-                retryable_strategy::SourcifyRetryableStrategy,
-            ));
+        let mut client_builder = reqwest_middleware::ClientBuilder::new(
+            reqwest::Client::builder()
+                .user_agent(
+                    "blockscout-sourcify/0.1 (+https://github.com/blockscout/blockscout-rs)",
+                )
+                .timeout(Duration::from_secs(60))
+                .build()
+                .expect("valid HTTP client configuration"),
+        )
+        .with(RetryTransientMiddleware::new_with_policy_and_strategy(
+            retry_policy,
+            retryable_strategy::SourcifyRetryableStrategy,
+        ));
         for middleware in self.middleware_stack {
             client_builder = client_builder.with_arc(middleware);
         }
@@ -126,26 +131,54 @@ impl Client {
         chain_id: &str,
         contract_address: Bytes,
     ) -> Result<GetSourceFilesResponse, Error<EmptyCustomError>> {
-        let url = self.generate_url(
-            format!(
-                "files/any/{}/{}",
-                chain_id,
-                ToHex::to_hex(&contract_address)
-            )
-            .as_str(),
-        );
+        self.source_files(chain_id, contract_address).await
+    }
 
+    async fn source_files<E: CustomError>(
+        &self,
+        chain_id: &str,
+        contract_address: Bytes,
+    ) -> Result<GetSourceFilesResponse, Error<E>> {
+        let mut url = self.generate_url(&format!(
+            "v2/contract/{chain_id}/{}",
+            ToHex::to_hex(&contract_address)
+        ));
+        url.query_pairs_mut()
+            .append_pair("fields", crate::v2::CONTRACT_FIELDS);
         let response = self
             .reqwest_client
             .get(url)
             .send()
             .await
-            .map_err(|error| match error {
-                reqwest_middleware::Error::Middleware(err) => Error::ReqwestMiddleware(err),
-                reqwest_middleware::Error::Reqwest(err) => Error::Reqwest(err),
-            })?;
-
-        Self::process_sourcify_response(response).await
+            .map_err(Self::request_error)?;
+        // An unverified contract has the same minimal contract response with null
+        // matches and HTTP 404, rather than the generic API error envelope.
+        let contract: crate::v2::Contract = match response.status() {
+            StatusCode::OK | StatusCode::NOT_FOUND => response.json().await?,
+            _ => Self::process_sourcify_response(response).await?,
+        };
+        if contract.creation_match.is_none() && contract.runtime_match.is_none() {
+            let response = self
+                .reqwest_client
+                .get(self.generate_url("chains"))
+                .send()
+                .await
+                .map_err(Self::request_error)?;
+            let chains: Vec<crate::v2::Chain> = Self::process_sourcify_response(response).await?;
+            if !chains
+                .iter()
+                .any(|chain| chain.chain_id.to_string() == chain_id && chain.supported)
+            {
+                return Err(Error::Sourcify(SourcifyError::ChainNotSupported(format!(
+                    "Chain {chain_id} is not supported by Sourcify"
+                ))));
+            }
+            return Err(Error::Sourcify(SourcifyError::NotFound(format!(
+                "Contract {} on chain {chain_id} is not verified",
+                ToHex::to_hex(&contract_address)
+            ))));
+        }
+        contract.into_source_files().map_err(Error::InvalidResponse)
     }
 
     pub async fn verify_from_etherscan(
@@ -153,102 +186,121 @@ impl Client {
         chain_id: &str,
         contract_address: Bytes,
     ) -> Result<VerifyFromEtherscanResponse, Error<VerifyFromEtherscanError>> {
-        let url = self.generate_url("verify/etherscan");
-
-        #[derive(Serialize)]
-        #[serde(rename_all = "camelCase")]
-        struct Request<'a> {
-            chain_id: &'a str,
-            address: String,
-        }
-
-        let request = Request {
-            chain_id,
-            address: ToHex::to_hex(&contract_address),
-        };
-
+        let url = self.generate_url(&format!(
+            "v2/verify/etherscan/{chain_id}/{}",
+            ToHex::to_hex(&contract_address)
+        ));
         let response = self
             .reqwest_client
             .post(url)
-            .json(&request)
+            .json(&serde_json::json!({}))
             .send()
             .await
-            .map_err(|error| match error {
-                reqwest_middleware::Error::Middleware(err) => Error::ReqwestMiddleware(err),
-                reqwest_middleware::Error::Reqwest(err) => Error::Reqwest(err),
-            })?;
-
-        Self::process_sourcify_response(response).await
+            .map_err(Self::request_error)?;
+        let status = response.status();
+        if status == StatusCode::CONFLICT {
+            let error: crate::v2::ApiError = response.json().await?;
+            if error.custom_code != "already_verified" {
+                return Err(Error::Sourcify(SourcifyError::UnexpectedStatusCode {
+                    status_code: status,
+                    msg: error.message,
+                }));
+            }
+        } else {
+            let submitted: crate::v2::Submission =
+                Self::process_sourcify_response::<_, VerifyFromEtherscanError>(response).await?;
+            let url = self.generate_url(&format!("v2/verify/{}", submitted.verification_id));
+            tokio::time::timeout(Duration::from_secs(60), async {
+                loop {
+                    let response = self
+                        .reqwest_client
+                        .get(url.clone())
+                        .send()
+                        .await
+                        .map_err(Self::request_error)?;
+                    let job: crate::v2::Job =
+                        Self::process_sourcify_response::<_, VerifyFromEtherscanError>(response)
+                            .await?;
+                    if job.is_job_completed {
+                        if let Some(error) = job.error {
+                            return Err(Self::api_error(
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                &error.custom_code,
+                                error.message,
+                            ));
+                        }
+                        return Ok(());
+                    }
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                }
+            })
+            .await
+            .map_err(|_| Error::VerificationTimeout)??;
+        }
+        let source = self
+            .source_files::<VerifyFromEtherscanError>(chain_id, contract_address.clone())
+            .await?;
+        Ok(VerifyFromEtherscanResponse {
+            address: contract_address,
+            chain_id: chain_id.to_string(),
+            status: source.status,
+            library_map: source.library_map,
+            immutable_references: source.immutable_references,
+        })
     }
-}
 
-impl Client {
     fn generate_url(&self, route: &str) -> Url {
         self.base_url.join(route).unwrap()
+    }
+
+    fn request_error<E: CustomError>(error: reqwest_middleware::Error) -> Error<E> {
+        match error {
+            reqwest_middleware::Error::Middleware(error) => Error::ReqwestMiddleware(error),
+            reqwest_middleware::Error::Reqwest(error) => Error::Reqwest(error),
+        }
     }
 
     async fn process_sourcify_response<T: for<'de> Deserialize<'de>, E: CustomError>(
         response: Response,
     ) -> Result<T, Error<E>> {
-        let error_message = |response: Response| async {
-            response
-                .json::<ErrorResponse>()
-                .await
-                .map(|value| value.error)
-        };
-
-        match response.status() {
-            StatusCode::OK => Ok(response.json::<T>().await?),
-            StatusCode::NOT_FOUND => {
-                let message = error_message(response).await?;
-                if let Some(err) = E::handle_not_found(&message) {
-                    Err(Error::Sourcify(SourcifyError::Custom(err)))
-                } else {
-                    Err(Error::Sourcify(SourcifyError::NotFound(message)))
-                }
-            }
-            StatusCode::BAD_REQUEST => {
-                let message = error_message(response).await?;
-                if let Some(err) = E::handle_bad_request(&message) {
-                    Err(Error::Sourcify(SourcifyError::Custom(err)))
-                } else {
-                    Err(Error::Sourcify(SourcifyError::BadRequest(message)))
-                }
-            }
-            StatusCode::BAD_GATEWAY => {
-                let message = error_message(response).await?;
-                if let Some(err) = E::handle_bad_gateway(&message) {
-                    Err(Error::Sourcify(SourcifyError::Custom(err)))
-                } else {
-                    Err(Error::Sourcify(SourcifyError::BadGateway(message)))
-                }
-            }
-            StatusCode::INTERNAL_SERVER_ERROR => {
-                let message = error_message(response).await?;
-                if let Some(err) = E::handle_internal_server_error(&message) {
-                    Err(Error::Sourcify(SourcifyError::Custom(err)))
-                } else {
-                    // For now the only way to recognize that the chain is not supported by Sourcify.
-                    // Message example: "Chain 134135 is not a Sourcify chain!"
-                    if message.contains("is not a Sourcify chain") {
-                        Err(Error::Sourcify(SourcifyError::ChainNotSupported(message)))
-                    } else {
-                        Err(Error::Sourcify(SourcifyError::InternalServerError(message)))
-                    }
-                }
-            }
-            status_code => {
-                let text = response.text().await?;
-                if let Some(err) = E::handle_status_code(status_code, &text) {
-                    Err(Error::Sourcify(SourcifyError::Custom(err)))
-                } else {
-                    Err(Error::Sourcify(SourcifyError::UnexpectedStatusCode {
-                        status_code,
-                        msg: text,
-                    }))
-                }
-            }
+        let status = response.status();
+        if status == StatusCode::OK || status == StatusCode::ACCEPTED {
+            return Ok(response.json().await?);
         }
+        let text = response.text().await?;
+        let error: crate::v2::ApiError = serde_json::from_str(&text)
+            .map_err(|error| Error::InvalidResponse(format!("HTTP {status}: {error}: {text}")))?;
+        Err(Self::api_error(status, &error.custom_code, error.message))
+    }
+
+    fn api_error<E: CustomError>(status: StatusCode, code: &str, message: String) -> Error<E> {
+        if let Some(error) = E::handle_code(code, &message) {
+            return Error::Sourcify(SourcifyError::Custom(error));
+        }
+        if code == "unsupported_chain" {
+            return Error::Sourcify(SourcifyError::ChainNotSupported(message));
+        }
+        let custom = match status {
+            StatusCode::NOT_FOUND => E::handle_not_found(&message),
+            StatusCode::BAD_REQUEST => E::handle_bad_request(&message),
+            StatusCode::BAD_GATEWAY => E::handle_bad_gateway(&message),
+            StatusCode::INTERNAL_SERVER_ERROR => E::handle_internal_server_error(&message),
+            _ => E::handle_status_code(status, &message),
+        };
+        Error::Sourcify(if let Some(error) = custom {
+            SourcifyError::Custom(error)
+        } else {
+            match status {
+                StatusCode::NOT_FOUND => SourcifyError::NotFound(message),
+                StatusCode::BAD_REQUEST => SourcifyError::BadRequest(message),
+                StatusCode::BAD_GATEWAY => SourcifyError::BadGateway(message),
+                StatusCode::INTERNAL_SERVER_ERROR => SourcifyError::InternalServerError(message),
+                _ => SourcifyError::UnexpectedStatusCode {
+                    status_code: status,
+                    msg: message,
+                },
+            }
+        })
     }
 }
 

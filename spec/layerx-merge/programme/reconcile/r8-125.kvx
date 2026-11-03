@@ -1,0 +1,243 @@
+[reconcile.r8-125]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-125.1]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programreceiptresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 730
+symbol = "ProgramReceiptResponse"
+evidence = "AgentModels declares the public enum ProgramReceiptResponse with the ProgramSubmission wire variant; the later AgentOperations record wraps this enum and is a different declaration."
+
+[row.r8-125.2]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programreceiptresponse-programsubmission"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 731
+symbol = "PROGRAMSUBMISSION"
+evidence = "AgentModels.ProgramReceiptResponse declares PROGRAMSUBMISSION with wire value ProgramSubmission at this line; the earlier same-named member belongs to ProgramLifecycleResponse. The registry comma is now a semicolon because this is the sole member."
+
+[row.r8-125.3]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programreceiptselector"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 740
+symbol = "ProgramReceiptSelector"
+evidence = "AgentModels declares ProgramReceiptSelector with JsonNode idempotency_key, expected_activity_id and requested_rung. The registered requested_verification_level component has become requested_rung; the following occurrence is its compact constructor."
+
+[row.r8-125.4]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programselector"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 747
+symbol = "ProgramSelector"
+evidence = "AgentModels declares ProgramSelector with JsonNode program_id and requested_rung. The registered requested_verification_level component has become requested_rung; the following occurrence is its compact constructor."
+
+[row.r8-125.5]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programsimulation"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 753
+symbol = "ProgramSimulation"
+evidence = "AgentModels declares ProgramSimulation with JsonNode committed, program_id, terminal_result, terminal_kind, response, block and rung. The registered execution and simulation_evidence components are gone; committed remains and the six other components are now present. The next occurrence is its compact constructor."
+
+[row.r8-125.6]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programsource"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 764
+symbol = "ProgramSource"
+evidence = "AgentModels declares ProgramSource with String status, source_digest, environment_digest, pipeline, expected_code_hash and reproduced_artifact_digest, matching the registered signature; the next occurrence is its compact constructor."
+
+[row.r8-125.7]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programsubmission"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 769
+symbol = "ProgramSubmission"
+evidence = "AgentModels declares ProgramSubmission with JsonNode tx_hash, submission_ref, state and rung. Compared with the registered state, activity_id and idempotency_key components, state remains, activity_id and idempotency_key are gone, and tx_hash, submission_ref and rung are now present; the next occurrence is its compact constructor."
+
+[row.r8-125.8]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-projectionresult"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 777
+symbol = "ProjectionResult"
+evidence = "AgentModels declares ProjectionResult with JsonNode projected, rationale and observed_freshness, matching the registered signature; the next occurrence is its compact constructor."
+
+[row.r8-125.9]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-proofbundle"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 784
+symbol = "ProofBundle"
+evidence = "AgentModels declares ProofBundle with JsonNode format, verificationLevel, rawTransaction, signedReceipt, receiptDigest, receiptKey and accountProof, matching the registered signature; the next occurrence is its compact constructor."
+
+[row.r8-125.10]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-proofbundletarget"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 794
+symbol = "ProofBundleTarget"
+evidence = "AgentModels declares the public enum ProofBundleTarget with Activity, AccountState and Receipt wire variants; subsequent occurrences name its constructor and fromWire conversion."
+
+[row.r8-125.11]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-proofbundletarget-activity"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 795
+symbol = "ACTIVITY"
+evidence = "AgentModels.ProofBundleTarget declares ACTIVITY with the exact case-sensitive wire literal Activity and a following comma; the earlier ACTIVITY declaration belongs to a different enum."
+
+[row.r8-125.12]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-proofbundletarget-receipt"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 797
+symbol = "RECEIPT"
+evidence = "AgentModels.ProofBundleTarget declares RECEIPT with the exact case-sensitive wire literal Receipt and a terminating semicolon; the earlier RECEIPT declaration belongs to a different enum."
+
+[row.r8-125.13]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-receiptkey"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 806
+symbol = "ReceiptKey"
+evidence = "AgentModels declares ReceiptKey with JsonNode keyId, publicKey, firstHeight and lastHeight, matching the registered signature; the next occurrence is its compact constructor."
+
+[row.r8-125.14]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-receiptreference"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 814
+symbol = "ReceiptReference"
+evidence = "AgentModels declares ReceiptReference with String kind and JsonNode value, matching the registered signature; its compact constructor follows the KINDS constant and accepts None or Verified."
+
+[row.r8-125.15]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-retriability"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 822
+symbol = "Retriability"
+evidence = "AgentModels declares the public enum Retriability with Terminal and Retriable wire literals; the later HumanModels enum uses lower-case wire literals and is a different declaration."
+
+[row.r8-125.16]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-retriability-retriable"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 824
+symbol = "RETRIABLE"
+evidence = "AgentModels.Retriability declares RETRIABLE with the exact case-sensitive wire literal Retriable and a terminating semicolon; HumanModels.Retriability instead declares the lower-case literal retriable."
+
+[row.r8-125.17]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-rung"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 833
+symbol = "Rung"
+evidence = "AgentModels declares the public enum Rung with Submitted, Receipted and Committed wire literals; the later HumanModels.Rung uses lower-case wire literals and is a different declaration."
+
+[row.r8-125.18]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-rung-committed"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 836
+symbol = "COMMITTED"
+evidence = "AgentModels.Rung declares COMMITTED with the exact case-sensitive wire literal Committed and a terminating semicolon; the later HumanModels member uses lower-case committed."
+
+[row.r8-125.19]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-rung-receipted"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 835
+symbol = "RECEIPTED"
+evidence = "AgentModels.Rung declares RECEIPTED with the exact case-sensitive wire literal Receipted and a following comma; the later HumanModels member uses lower-case receipted."
+
+[row.r8-125.20]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-rung-submitted"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 834
+symbol = "SUBMITTED"
+evidence = "AgentModels.Rung declares SUBMITTED with the exact case-sensitive wire literal Submitted and a following comma; the later HumanModels member uses lower-case submitted."
+
+[row.r8-125.21]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-sessioncontext"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 845
+symbol = "SessionContext"
+evidence = "AgentModels declares SessionContext with JsonNode tenant, agent_did, authority_ref, permitted_activity_types, expiry, client and policy_version, matching the registered signature; the next occurrence is its compact constructor."
+
+[row.r8-125.22]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-structuredactivitydisclosure"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 870
+symbol = "StructuredActivityDisclosure"
+evidence = "AgentModels declares StructuredActivityDisclosure with JsonNode canonical_digest, activity_type, actor, authority, counterparties, amounts, asset, fee_limit, expiry and idempotency_key, matching the registered signature; the next occurrence is its compact constructor."
+
+[row.r8-125.23]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-submissionstate"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 884
+symbol = "SubmissionState"
+evidence = "AgentModels declares SubmissionState with String kind and JsonNode value, matching the registered signature; the subsequent same-name occurrence is its compact constructor after the KINDS constant."
+
+[row.r8-125.24]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-subscriptionfilter"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 892
+symbol = "SubscriptionFilter"
+evidence = "AgentModels declares SubscriptionFilter with JsonNode agents, accounts, activity_types, modules, assets, counterparties and result_classes, matching the registered signature; the next occurrence is its compact constructor."
+
+[row.r8-125.25]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-subscriptionhealth"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 903
+symbol = "SubscriptionHealth"
+evidence = "AgentModels declares SubscriptionHealth with JsonNode target, last_acknowledged, last_delivery_at and pending_backfill, matching the registered signature; the next occurrence is its compact constructor."
+
+[row.r8-125.26]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-subscriptionhealthtarget"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 911
+symbol = "SubscriptionHealthTarget"
+evidence = "AgentModels declares SubscriptionHealthTarget with JsonNode scope and subscription_id, matching the registered signature; the next occurrence is its compact constructor."
+
+[row.r8-125.27]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-subscriptionrecord"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 917
+symbol = "SubscriptionRecord"
+evidence = "AgentModels declares SubscriptionRecord with JsonNode subscription_id, scope, filter, start, last_acknowledged, delivery_target and paused, matching the registered signature; the next occurrence is its compact constructor."
+
+[row.r8-125.28]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-subscriptionscope"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 928
+symbol = "SubscriptionScope"
+evidence = "AgentModels declares SubscriptionScope with JsonNode tenant, agent and capability, matching the registered signature; the next occurrence is its compact constructor."
+
+[row.r8-125.29]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-tenantreadiness"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 935
+symbol = "TenantReadiness"
+evidence = "AgentModels declares TenantReadiness with boolean transport_ready, verified_reads_ready and writes_admitted plus JsonNode recovery_reason, matching the registered signature; the next occurrence is its compact constructor."
+
+[row.r8-125.30]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-tenantrecoveryreason"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 940
+symbol = "TenantRecoveryReason"
+evidence = "AgentModels declares the public enum TenantRecoveryReason with nine recovery reason wire variants, from recovery_pending through verified_read_unavailable; subsequent same-name occurrences are its constructor and fromWire conversion."

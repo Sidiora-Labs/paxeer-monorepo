@@ -88,9 +88,9 @@
     "vite": "7.3.7",
     "vite-plugin-svgr": "^2.2.2",
     "vite-tsconfig-paths": "5.1.4",
-    "vitest": "4.1.11",
+    "vitest": "4.1.12",
     "vitest-fetch-mock": "0.4.5",
-    "ws": "^8.17.1"
+    "ws": "^8.21.0"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": "eslint --cache --fix"
@@ -98,7 +98,7 @@
   "resolutions": {
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
-    "wagmi/**/ws": "8.17.1",
+    "wagmi/**/ws": "8.21.0",
     "@helia/verified-fetch/**/axios": "1.12.0",
     "@helia/verified-fetch/**/tar-fs": "2.1.4",
     "@helia/verified-fetch/**/node-forge": "1.3.2",
@@ -110,5 +110,14 @@
     "viem/**/@noble/hashes": "1.8.0",
     "@walletconnect/ethereum-provider/**/@reown/appkit/**/@noble/hashes": "1.8.0"
   },
-  "packageManager": "pnpm@12.15.0"
+  "packageManager": "pnpm@12.15.0",
+  "overrides": {
+    "ws@>=8.0.0 <8.21.0": "8.21.0",
+    "uuid@<11.1.1": "11.1.1",
+    "decode-uri-component@<0.5.1": "0.5.1",
+    "stream-json@<3.6.0": "3.6.0",
+    "zod@<4.6.6": "4.6.6",
+    "follow-redirects@>=1.16.0 <1.16.2": "1.16.2",
+    "minimatch@<11.0.1": "11.0.1"
+  }
 }

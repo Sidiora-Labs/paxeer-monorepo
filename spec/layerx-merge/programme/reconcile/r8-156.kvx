@@ -1,0 +1,159 @@
+[reconcile.r8-156]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 18
+
+[row.r8-156.1]
+interface = "interface.8.http-emulator-get-v1-evidence"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1554
+symbol = "/v1/evidence/"
+evidence = "route declares the GET prefix match and calls evidence_read with path[13..]; this is the registered handler rather than a route mention."
+
+[row.r8-156.2]
+interface = "interface.8.http-emulator-get-v1-journeys"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1557
+symbol = "/v1/journeys/"
+evidence = "route declares the GET prefix match and calls journey_read with path[13..], matching the registered signature."
+
+[row.r8-156.3]
+interface = "interface.8.http-emulator-get-v1-programs-activities"
+verdict = "retired"
+path = "tools/platform/emulator/src/main.rs"
+line = 1589
+symbol = "/v1/programs/activities/"
+evidence = "The route prefix is absent from the entire registered source; line 1589 is route's default 404 refusal. tools/platform/emulator/tests/gateway.rs:328 retired_kernel_routes_answer_not_found includes this GET at line 348 and asserts 404 for protocols 2 and 3. Remaining references below come from a repository-wide literal search excluding spec and docs directories."
+remaining_refs = 12
+remaining = ["services/agent/crates/layerx-agentd/src/read/program_node.rs:134", "services/agent/crates/layerx-sdk/src/program_http.rs:675", "services/agent/sdk/typescript/src/agent-http.ts:46", "services/agent/sdk/python/layerx_sdk/agent_http.py:68", "services/agent/schema/agent-api/programs.kvx:263", "services/agent/schema/agent-api/golden/programs.kvx:263", "services/platform/hosted/gateway/src/lib.rs:1434", "services/platform/hosted/gateway/src/main.rs:3966", "services/platform/hosted/core/src/main.rs:1042", "tools/platform/emulator/tests/gateway.rs:348", "services/platform/hosted/agent-boundary/src/lifecycle_tests.rs:60", "tools/paxeer-x/route-catalogue.json:936"]
+
+[row.r8-156.4]
+interface = "interface.8.http-emulator-get-v1-programs-receipts-by-idempotency"
+verdict = "retired"
+path = "tools/platform/emulator/src/main.rs"
+line = 1589
+symbol = "/v1/programs/receipts/by-idempotency/"
+evidence = "The route prefix is absent from the entire registered source; line 1589 is route's default 404 refusal. tools/platform/emulator/tests/gateway.rs:328 retired_kernel_routes_answer_not_found includes this GET at line 347 and asserts 404 for protocols 2 and 3. Remaining references below come from a repository-wide literal search excluding spec and docs directories."
+remaining_refs = 11
+remaining = ["services/agent/crates/layerx-sdk/src/program_http.rs:533", "services/agent/sdk/typescript/src/agent-http.ts:45", "services/agent/sdk/python/layerx_sdk/agent_http.py:67", "services/agent/schema/agent-api/programs.kvx:255", "services/agent/schema/agent-api/golden/programs.kvx:255", "services/platform/hosted/gateway/src/lib.rs:1435", "services/platform/hosted/gateway/src/main.rs:3965", "services/platform/hosted/core/src/main.rs:781", "tools/platform/emulator/tests/gateway.rs:347", "services/platform/hosted/agent-boundary/src/lifecycle_tests.rs:62", "tools/paxeer-x/route-catalogue.json:957"]
+
+[row.r8-156.5]
+interface = "interface.8.http-emulator-get-v1-programs-registry"
+verdict = "retired"
+path = "tools/platform/emulator/src/main.rs"
+line = 1589
+symbol = "/v1/programs/registry/"
+evidence = "The route prefix is absent from the entire registered source; line 1589 is route's default 404 refusal. tools/platform/emulator/tests/gateway.rs:328 retired_kernel_routes_answer_not_found includes registry GETs at lines 344-346 and asserts 404 for protocols 2 and 3. Hosted registry routes serve another component, not a relocated emulator handler. Remaining references below come from a repository-wide literal search excluding spec and docs directories."
+remaining_refs = 22
+remaining = ["sdk/platform/go/programs_http_test.go:186", "tests/agent/sdk/python/test_integration.py:129", "tools/qualification/paxeer-x/registry-contract.py:245", "tools/qualification/paxeer-x/registry-router-bootstrap.py:1242", "services/agent/crates/layerx-agentd/src/registry_source.rs:180", "tools/qualification/paxeer-x/programs_source_abi.py:507", "services/agent/crates/layerx-sdk/src/program_http.rs:581", "services/agent/sdk/typescript/src/agent-http.ts:41", "services/agent/sdk/typescript/test/agent-http.test.ts:32", "services/agent/sdk/python/layerx_sdk/agent_http.py:63", "services/agent/schema/agent-api/programs.kvx:219", "services/agent/schema/agent-api/golden/programs.kvx:219", "services/platform/hosted/registry/src/routes.rs:45", "services/platform/hosted/registry/src/main.rs:1151", "services/platform/hosted/gateway/src/lib.rs:1431", "services/platform/hosted/gateway/src/main.rs:719", "services/platform/hosted/core/src/main.rs:1041", "tools/platform/emulator/tests/gateway.rs:344", "tools/platform/cli/src/programs.rs:1650", "services/platform/examples/test/agent-program-call.test.mjs:141", "tools/paxeer-x/route-catalogue.json:894", "tools/paxeer-x/gates/104.33.7.sh:59"]
+
+[row.r8-156.6]
+interface = "interface.8.http-emulator-get-v1-protocol-account-state-head"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1542
+symbol = "/v1/protocol/account-state/head"
+evidence = "The GET arm in route dispatches to current_head(emulator, trace), exactly matching the registered signature; the later occurrence is in the wrong-method refusal arm."
+
+[row.r8-156.7]
+interface = "interface.8.http-emulator-get-v1-receipts"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1560
+symbol = "/v1/receipts/"
+evidence = "route declares the registered GET prefix arm, extracts path[13..], and returns receipt_read for a retained receipt or a 404 refusal when absent."
+
+[row.r8-156.8]
+interface = "interface.8.http-emulator-get-v1-sequencer"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1541
+symbol = "/v1/sequencer"
+evidence = "The GET declaration in route calls sequencer_identity(emulator, trace), matching the signature; the later path literal belongs to the wrong-method refusal arm."
+
+[row.r8-156.9]
+interface = "interface.8.http-emulator-get-v1-state"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1544
+symbol = "/v1/state"
+evidence = "The GET declaration in route calls inspect(emulator, trace), matching the signature; the later occurrence only supports the wrong-method refusal."
+
+[row.r8-156.10]
+interface = "interface.8.http-emulator-post-emulator-accounts-prefund"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1548
+symbol = "/__emulator/accounts/prefund"
+evidence = "The POST declaration in route calls prefund(emulator, request, trace), matching the registered signature; the later occurrence is the wrong-method refusal."
+
+[row.r8-156.11]
+interface = "interface.8.http-emulator-post-emulator-faults"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1551
+symbol = "/__emulator/faults"
+evidence = "The POST declaration in route calls inject_fault(emulator, request, trace), exactly matching the registered signature; the later literal belongs to the wrong-method refusal."
+
+[row.r8-156.12]
+interface = "interface.8.http-emulator-post-emulator-time-advance"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1550
+symbol = "/__emulator/time/advance"
+evidence = "The POST declaration in route calls update_time(emulator, request, trace, true); the true flag matches advance semantics in the signature rather than time/set."
+
+[row.r8-156.13]
+interface = "interface.8.http-emulator-post-emulator-time-set"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1549
+symbol = "/__emulator/time/set"
+evidence = "The POST declaration in route calls update_time(emulator, request, trace, false); the false flag matches set semantics in the signature rather than time/advance."
+
+[row.r8-156.14]
+interface = "interface.8.http-emulator-post-v1-activities"
+verdict = "retired"
+path = "tools/platform/emulator/src/main.rs"
+line = 1589
+symbol = "/v1/activities"
+evidence = "The route literal and registered submit arm are absent from the entire registered source; line 1589 is route's default 404 refusal. tools/platform/emulator/tests/gateway.rs:328 retired_kernel_routes_answer_not_found includes this POST at line 333 and asserts 404 for protocols 2 and 3. Remaining references below come from a repository-wide literal search excluding spec and docs directories."
+remaining_refs = 19
+remaining = ["GOTCHA.kvx:11810", "tools/qualification/paxeer-x/registry-contract.py:1317", "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py:207", "services/platform/hosted/webhooks/src/trusted.rs:648", "services/platform/hosted/gateway/src/public_reads.rs:204", "services/platform/hosted/gateway/src/lib.rs:1422", "services/platform/hosted/gateway/src/main.rs:1987", "services/platform/hosted/internal/src/gateway_http.rs:439", "tools/platform/emulator/tests/gateway.rs:333", "services/platform/hosted/core/tests/chain_fund.rs:859", "services/platform/hosted/agent-boundary/src/lifecycle_tests.rs:53", "services/platform/hosted/authority/src/main.rs:51", "services/platform/hosted/authority/README.md:44", "tools/bringup/check-live.test.sh:3693", "tools/bringup/tests/paxeer-x-runtime-contract.py:754", "tools/bringup/check-live.sh:3403", "services/interop/crates/layerx-interop-service/src/server.rs:3209", "services/interop/deploy/gateway/tests/test_completion_gate.py:20", "tools/paxeer-x/route-catalogue.json:726"]
+
+[row.r8-156.15]
+interface = "interface.8.http-emulator-post-v1-moves"
+verdict = "retired"
+path = "tools/platform/emulator/src/main.rs"
+line = 1589
+symbol = "/v1/moves"
+evidence = "The route literal and registered move_commit arm are absent from the entire registered source; line 1589 is route's default 404 refusal. tools/platform/emulator/tests/gateway.rs:328 retired_kernel_routes_answer_not_found includes this POST at line 334 and asserts 404 for protocols 2 and 3. Remaining references below come from a repository-wide literal substring search excluding spec and docs directories, including mentions in longer move route paths."
+remaining_refs = 20
+remaining = ["GOTCHA.kvx:12710", "sdk/platform/go/generated.go:432", "sdk/platform/dotnet/Generated/OperationCatalog.cs:390", "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift:388", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java:183", "sdk/platform/conformance/operations.json:1000", "apps/web/src/api/generated/index.ts:5704", "tools/platform/emulator/tests/gateway.rs:334", "tools/platform/cli/src/payment.rs:23", "tools/platform/cli/README.md:15", "services/platform/middleware/buyer/test/proof_middleware_buyer_ts_exports.test.mjs:108", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs:1490", "services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs:41", "services/human/schema/human-api/baseline.kvx:909", "services/human/schema/human-api/golden/move.quote.request.json:3", "services/human/schema/human-api/golden/move.commit.request.json:3", "services/human/schema/human-api/movement.kvx:130", "services/human/tools/api-gen/tests/retired_operations.rs:106", "services/human/tools/schema-check/tests/conformance.rs:102", "tools/paxeer-x/route-catalogue.json:2412"]
+
+[row.r8-156.16]
+interface = "interface.8.http-emulator-post-v1-moves-quote"
+verdict = "retired"
+path = "tools/platform/emulator/src/main.rs"
+line = 1589
+symbol = "/v1/moves/quote"
+evidence = "The route literal and registered move_quote arm are absent from the entire registered source; line 1589 is route's default 404 refusal. tools/platform/emulator/tests/gateway.rs:328 retired_kernel_routes_answer_not_found includes this POST at line 335 and asserts 404 for protocols 2 and 3. Remaining references below come from a repository-wide literal search excluding spec and docs directories."
+remaining_refs = 16
+remaining = ["GOTCHA.kvx:12710", "sdk/platform/go/generated.go:434", "sdk/platform/dotnet/Generated/OperationCatalog.cs:391", "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift:389", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java:184", "sdk/platform/conformance/operations.json:1010", "apps/web/src/api/generated/index.ts:5705", "tools/platform/emulator/tests/gateway.rs:335", "tools/platform/cli/src/payment.rs:23", "tools/platform/cli/README.md:15", "services/platform/middleware/buyer/test/proof_middleware_buyer_ts_exports.test.mjs:108", "services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs:41", "services/human/schema/human-api/baseline.kvx:915", "services/human/schema/human-api/golden/move.quote.request.json:3", "services/human/schema/human-api/movement.kvx:130", "tools/paxeer-x/route-catalogue.json:2412"]
+
+[row.r8-156.17]
+interface = "interface.8.http-emulator-post-v1-settle"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1543
+symbol = "/v1/settle"
+evidence = "The POST declaration in route calls settle(emulator, request, trace), matching the registered signature; the later occurrence is in the wrong-method refusal arm."
+
+[row.r8-156.18]
+interface = "interface.8.http-emulator-put-emulator-snapshot"
+verdict = "served"
+path = "tools/platform/emulator/src/main.rs"
+line = 1553
+symbol = "/__emulator/snapshot"
+evidence = "The PUT declaration calls import_snapshot(emulator, &request.body, trace), matching the registered import signature; the adjacent GET arm exports the snapshot and is not the registered definition."
