@@ -146,20 +146,19 @@ func TestNewPersisterInvalidDirError(t *testing.T) {
 }
 
 func TestPersistWriteErrorReturnsError(t *testing.T) {
-	// When the directory becomes inaccessible (e.g. permission denied),
+	// When the directory is replaced with a regular file,
 	// Persist returns error from OpenFile.
-	if runtime.GOOS == "windows" {
-		t.Skip("chmod 000 on directory not reliable on Windows")
-	}
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "state")
+	require.NoError(t, os.Mkdir(dir, 0700))
 	w, _, err := NewPersister[*wrapperspb.StringValue](utils.Some(dir), "test")
 	require.NoError(t, err)
 	require.NoError(t, w.Persist(wrapperspb.String("data1")))
-	// Remove all permissions from dir so OpenFile fails with EACCES
-	require.NoError(t, os.Chmod(dir, 0000))
-	defer os.Chmod(dir, 0700) //nolint:errcheck
+	require.NoError(t, os.Rename(dir, dir+"-backup"))
+	require.NoError(t, os.WriteFile(dir, nil, 0600))
 	err = w.Persist(wrapperspb.String("data2"))
 	require.Error(t, err)
+	var pathErr *os.PathError
+	require.True(t, errors.As(err, &pathErr))
 }
 
 func TestPersistWriteErrorDoesNotAdvanceSeq(t *testing.T) {

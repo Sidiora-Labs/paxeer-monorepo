@@ -1,0 +1,59 @@
+[disposition.22.13.6.2]
+finding = "22.13.6.2"
+status = "resolved"
+evidence = "fb067a262 retains programs_module_registration_v4 in src/protocol/lxp_genesis.c:56, selects the storage-retirement variant only with its dedicated manifest flag at src/protocol/lxp_genesis.c:385, refreshes the public fixtures for intervening genesis changes, and updates tests/test_genesis_module_table.c:169 to distinguish supported defaults from the intentional custody-credit refusal."
+follow_up = "closure"
+
+[disposition.22.8.11.1]
+finding = "22.8.11.1"
+status = "resolved"
+evidence = "a5a196edb aligns the seller draw test with the ABI word order now shared by services/platform/middleware/seller/test/ledger.test.mjs:58 and services/platform/middleware/seller/src/ledger.ts:61; services/platform/middleware/seller/test/grant-draw.test.mjs:107 supplies the matching unprefixed hexadecimal idempotency key, and sdk/integrations/next/example/.gitignore:2 excludes the untracked Next build output."
+follow_up = "closure"
+
+[disposition.22.9.16.1]
+finding = "22.9.16.1"
+status = "resolved"
+evidence = "5b4f53b03 restores the retired faucet.claim contract block, including access, at services/agent/schema/agent-api/v1.kvx:320, so the removal that services/agent/crates/layerx-agent-api/build.rs:323 rejects is absent from main."
+follow_up = "closure"
+
+[disposition.22.2.4.2]
+finding = "22.2.4.2"
+status = "resolved"
+evidence = "After ea039363e removes the module replay marker under decision 2344, 41642833f reconciles the bound capability and session replay assertions with the kernel scope refusal at modules/layerxauth/keeper/revoke_test.go:132 while retaining the unchanged-store assertion, replacing the obsolete ErrIdempotentReplay expectation."
+follow_up = "closure"
+
+[disposition.22.2.7.1]
+finding = "22.2.7.1"
+status = "resolved"
+evidence = "The task definition at spec/layerx-merge/spec.kvx:195408 limits touches to the three host files and its verify_cmd at spec/layerx-merge/spec.kvx:195412 runs the restart test and compiles layerxpay without the nonexistent proof filter; 4120aa4c4 supplies the real close-and-reopen duplicate refusal assertions at modules/lxphost/idempotency_restart_test.go:122."
+follow_up = "closure"
+
+[disposition.22.10.7.2]
+finding = "22.10.7.2"
+status = "resolved"
+evidence = "120b02d31 makes missing operator inputs an explicit skip at services/platform/hosted/human/test_material.py:161, adds the local custody-component resolution test, and corrects the bootstrap test at services/platform/hosted/human/test_material.py:148 to expect the protected-producer ValueError without writing policy output."
+follow_up = "closure"
+
+[disposition.22.17.4.1]
+finding = "22.17.4.1"
+status = "resolved"
+evidence = "c8f540587 replaces the decimal sweep durations with integer seconds, and spec/layerx-merge/programme/sweeps/go-modules-2.kvx:18 still records elapsed_seconds = 600 on main."
+follow_up = "closure"
+
+[disposition.22.90.9.2]
+finding = "22.90.9.2"
+status = "resolved"
+evidence = "fc892032f adds the explicit ProgramCall match arm retained at services/human/crates/layerx-human-service/src/agents/create.rs:745, which refuses that method for lifecycle transactions and removes the reported non-exhaustive match."
+follow_up = "closure"
+
+[disposition.22.16.4.3]
+finding = "22.16.4.3"
+status = "resolved"
+evidence = "ff75a3d8a restricts tests/ci/test_requested_suites_absent.py:26 to the retired daemon filename rather than the live receipt-authority type and makes tests/ci/test_qualification_producers_exist.py:33 reject missing referenced producers while accepting an empty reference set."
+follow_up = "closure"
+
+[disposition.22.4.5.1]
+finding = "22.4.5.1"
+status = "resolved"
+evidence = "84ed832c3 changes modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go:92 to assert InvalidArgument and message text on the gRPC client response, then applies ErrorIs and ErrorAs only to the direct keeper query response at modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go:97."
+follow_up = "closure"

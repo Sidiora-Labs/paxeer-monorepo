@@ -19377,7 +19377,7 @@ task = "21.87.1"
 file = "node/sequencer/accepter_test.go"
 symbol = "TestAccepterReceiptsASendAcrossASeal"
 observed = "2f080287b left the across-a-seal test comparing the transient receipt (CumulativeGasUsed 0) with the signed receipt's Exec, which carries the cumulative gas Receipter.after adds (receipt.go:457); the test fails on main and stopped 22.23.8 attempts 1 to 3, none of which changed it."
-assumption = "The proof of 21.87.1 did not run this test; decision 2386 rules cumulative gas receipt-bound, 22.23.8 aligns the comparison, and 21.87.1 stays done."
+assumption = "The proof of 21.87.1 did not run this test; decision 2443 rules cumulative gas receipt-bound, 22.23.8 aligns the comparison, and 21.87.1 stays done."
 severity = "major"
 
 [finding.1.0.9.1]
@@ -19683,3 +19683,203 @@ symbol = "EVMReceiptModuleID"
 observed = "The EVM sequencer receipt carries module id EVMReceiptModuleID (reserved module count plus one, 12) and protocol version 2, while the human service move-commit binding expects the kernel ledger module 1 and the envelope protocol 3 and refuses every node-produced receipt with upstream-degraded; interfaces.kvx records no contract for the EVM receipt module id and protocol version."
 assumption = "interfaces.kvx gains the EVM receipt module and protocol contract and every consumer binds to the constant, not a literal."
 severity = "high"
+
+[finding.11.23.3.2]
+task = "11.23.3"
+file = "services/interop/crates/layerx-gas-station/src/signer.rs"
+symbol = "LocalSigner::from_config"
+observed = "from_config loads the relayer key through the prefixed file-or-KMS loader while the deploy template, init script and interface contract export the raw key in the variable relayer_key_env names; documented_deploy_inputs_start_service fails with KeySource (18.1211.6 attempts 5 and 6)."
+assumption = "11.23.3 verified one test by name and never ran the documented-deploy test; decision 2441 and task 22.95.4 align the loader with the deploy contract."
+severity = "major"
+
+[finding.18.1144.1.3]
+task = "18.1144.1"
+file = "node/sequencer/standby_role_test.go"
+symbol = "TestStartStandbyReplaysLedgerAfterCommit"
+observed = "3ed1f47aa made StartStandby install the standby's sequencer source at start (standby_role.go:140); the assertion require.Nil(backup.SequencerSource()) at standby_role_test.go:138 fails on main since (22.95.2 attempt 1 at acb0ede97)."
+assumption = "18.1144.1 verified only its own test; 22.95.5 updates the assertion to the installed source."
+severity = "major"
+
+[finding.22.95.2.1]
+task = "22.95.2"
+file = "node/sequencer/resolution_test.go"
+symbol = "TestResolutionStandbyReplay"
+observed = "At base acb0ede97 the validator replica rejects the standby's proposal (resolution_test.go:330, sequence batch order check failed at height 2); the test is not run by any task's verify and the node/sequencer package sweep did not run."
+assumption = "The failure is not caused by the replay candidate, which the test's standby and validator do not exercise; 22.95.5 diagnoses it at its base."
+severity = "major"
+
+[finding.22.24.8.1]
+task = "22.24.8"
+file = "apps/launchpad/web/src/core/wallet-sdk/vitest.l25.config.ts"
+symbol = "defineConfig"
+observed = "bb08c0099 raised vitest to 4.x and vite to 7.3.7; the package's type check fails in three vitest project configs and src/shell/global-search-parts.tsx (18.1515.1 attempt 1 at ef4e3121e)."
+assumption = "The task verified the lock floor and the frozen install only; 22.95.6 repairs the types."
+severity = "major"
+
+[finding.22.24.12.1]
+task = "22.24.12"
+file = "services/wallet/gateway/src/chain.ts"
+symbol = "hyperPaxeer"
+observed = "8dc0d37ce raised viem; the package's type check fails at src/chain.ts:15 with TS2742 (18.1548.1 attempt 1 at ef4e3121e)."
+assumption = "The task verified the lock floor and the frozen install only; 22.95.7 annotates the chain constant."
+severity = "major"
+
+[finding.22.7.3.5]
+task = "22.7.3"
+file = "rpc/tests/regression_test.go"
+symbol = "Test0x5174c3eae7c0d87dca905c42a0f1241c2d3834c1421594ad8f067e0f486808a8"
+observed = "The 34 recorded upstream regression cases trace against usei balances and a sei Wasm capability absent on this chain; attempt 11 re-typed the encoded transactions and the traces still failed with insufficient usei funds, duplicate usei denominations and the unavailable capability."
+assumption = "The corpus was recorded on the upstream chain; decision 2461 retires it through task 22.95.8."
+severity = "major"
+
+[finding.22.7.3.6]
+task = "22.7.3"
+file = "rpc/rpcstack.go"
+symbol = "HTTPServer.Start"
+observed = "Attempt 11 (c814c4d2c) crashed the rpc test binary with a nil pointer in net/http.(*Server).Serve called from the goroutine HTTPServer.Start spawns at rpcstack.go:191, which reads h.server after Stop and doStop (rpcstack.go:311, :319) released it."
+assumption = "The goroutine reads the server field without the mutex; task 22.95.9 captures the server before spawning and makes Stop wait for Serve to return."
+severity = "major"
+
+[finding.18.1162.1.4]
+task = "18.1162.1"
+file = "services/interop/crates/layerx-x402/tests/vectors.rs"
+symbol = "layerx_offer"
+observed = "e556c8b04 made eip155:125 the only x402 network and refuses a layerx profile block elsewhere; tests/vectors.rs still builds offers on layerx:beta and specs/conformance/x402/payment-payload.json still carries layerx: networks, so six of fifteen vector tests fail on main (18.1211.6 attempt 7)."
+assumption = "The task ran the seller tests only; task 22.95.10 moves the vector suite and the payload fixture to the eip155:125 rule."
+severity = "major"
+
+[finding.22.24.6.1]
+task = "22.24.6"
+file = "apps/perps/package.json"
+symbol = "overrides"
+observed = "The override @opentelemetry/core@<2.8.0 -> 2.8.0 rewrites the ^1.30.1 core dependency of @opentelemetry/sdk-trace-base 1.30.1 (pnpm-lock.yaml:8101-8104); sdk-trace-base 1.x reads TracesSamplerValues from core, removed in 2.x, so loading the production Next config fails with Cannot read properties of undefined (reading AlwaysOn) (18.1521.1 attempt 1)."
+assumption = "The task verified the floors and the frozen install only; decision 2464 narrows the override through 18.1521.1."
+severity = "major"
+
+[finding.9.35.17.2]
+task = "9.35.17"
+file = "services/human/crates/layerx-human-service/tests/session_keys.rs"
+symbol = "EvmPrepared"
+observed = "9.35.17 added from, disclosure and disclosure_digest to EvmPrepared and removed authorization from SigningPreparation; session_keys.rs:263 and :269 still build the previous shapes, so the layerx-human-service test target fails to compile on main (21.45.1 attempt 13)."
+assumption = "The task's verify did not build the human service tests; task 22.95.11 migrates the test."
+severity = "major"
+
+[finding.22.96.5.1]
+task = "22.96.5"
+file = "apps/perps/pnpm-lock.yaml"
+symbol = "lock"
+observed = "The task's published commit deleted apps/perps/pnpm-lock.yaml (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.6.1]
+task = "22.96.6"
+file = "apps/wallet/pnpm-lock.yaml"
+symbol = "lock"
+observed = "The task's published commit deleted apps/wallet/pnpm-lock.yaml (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.7.1]
+task = "22.96.7"
+file = "contracts/bridge/solana/Cargo.lock"
+symbol = "lock"
+observed = "The task's published commit deleted contracts/bridge/solana/Cargo.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.24.17.1]
+task = "22.24.17"
+file = "services/launchpad/api/go.sum"
+symbol = "lock"
+observed = "The task's published commit deleted services/launchpad/api/go.sum (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.22.1]
+task = "22.96.22"
+file = "services/explorer/backend/apps/block_scout_web/assets/package-lock.json"
+symbol = "lock"
+observed = "The task's published commit deleted services/explorer/backend/apps/block_scout_web/assets/package-lock.json (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.23.1]
+task = "22.96.23"
+file = "services/explorer/backend/apps/explorer/package-lock.json"
+symbol = "lock"
+observed = "The task's published commit deleted services/explorer/backend/apps/explorer/package-lock.json (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.24.1]
+task = "22.96.24"
+file = "services/explorer/services/libs/blockscout-client/yarn.lock"
+symbol = "lock"
+observed = "The task's published commit deleted services/explorer/services/libs/blockscout-client/yarn.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.90.4.1]
+task = "22.90.4"
+file = "services/human/crates/layerx-intents/fuzz/Cargo.lock"
+symbol = "lock"
+observed = "The task's published commit deleted services/human/crates/layerx-intents/fuzz/Cargo.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.26.1]
+task = "22.96.26"
+file = "tests/integration/dapp_tests/package-lock.json"
+symbol = "lock"
+observed = "The task's published commit deleted tests/integration/dapp_tests/package-lock.json (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.28.1]
+task = "22.96.28"
+file = "tools/wasm-tools/Cargo.lock"
+symbol = "lock"
+observed = "The task's published commit deleted tools/wasm-tools/Cargo.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.96.29.1]
+task = "22.96.29"
+file = "wasm-runtime/libwasmvm/Cargo.lock"
+symbol = "lock"
+observed = "The task's published commit deleted wasm-runtime/libwasmvm/Cargo.lock (and every other tracked lock file under its directory scope) while the manifest kept its dependencies, so a frozen install or readonly resolution of main fails for that manifest."
+assumption = "The lock is regenerated from the unchanged manifest by the restoration task decision 2470 names."
+severity = "major"
+
+[finding.22.9.10.9]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+symbol = "WebSearchExactPayment"
+observed = "Attempt 21 (f3642b83b) failed its build: services/agent/sdk/typescript/test/web-search-sequencer.test.ts line 167 returns receipt and rawTransaction where the ported WebSearchExactPayment of src/web-search.ts:57-62 requires receipt, txHash and idempotencyKey (error TS2322); the file was outside the task's scope."
+assumption = "The test is in scope from decision 2474 and the next attempt migrates it to the new payment shape without changing the source."
+severity = "major"
+
+[finding.18.1528.1.1]
+task = "18.1528.1"
+file = "services/launchpad/livestream/go.mod"
+symbol = "go.mod"
+observed = "Attempt 4 (e64678677) regenerated the eighteen checksum files, but test_go_checksums_support_readonly_resolution fails: in services/launchpad/livestream the command go list -mod=readonly -deps -test ./... exits 1 because go.mod needs updates that only go mod tidy writes."
+assumption = "The module manifests are in scope from decision 2475 and the next attempt tidies each failing module with the workspace disabled."
+severity = "major"
+
+[finding.22.24.26.1]
+task = "22.24.26"
+file = "apps/wallet/src/surfaces/test/chain.tsx"
+symbol = "chain"
+observed = "Attempt 6 (c3793a9a1) fails three ExchangeView.test.tsx tests with condition not reached: receipt; the fixture chain returns receipts without nonce and logs without logIndex, and services/agent/sdk/typescript/src/ai_market.ts:3628 refuses a log without logIndex."
+assumption = "The fixture chain is in scope from decision 2476 and carries the fields the SDK readers check."
+severity = "major"
+
+[finding.22.9.18.4]
+task = "22.9.18"
+file = "tests/programs/test_terminal_v5.c:103"
+symbol = "v5_refusal_detail"
+observed = "Attempt 11 (94cdc09ea) passes its schema and freshness tests and fails the corpus step: the native producer exits 1 after writing two cases, its stderr reads terminal v5 fixture line 103, because the settlement-failure detail now carries transfer error tag 7 (TransferLawError::Kernel since 867cb1560) where the fixture expects 9; the fixture is unchanged since cd8fcfa86, when it last passed."
+assumption = "Task 1.18.5 aligns the fixture; 22.9.18 requires it and is re-qualified on the current tree once it is on main."
+severity = "blocker"
