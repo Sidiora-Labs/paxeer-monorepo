@@ -1,0 +1,8 @@
+[repair.go-modules.84]
+target = "modules/mint/keeper"
+command = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./modules/mint/keeper/ && CGO_ENABLED=1 go test -count=1 -timeout 35m -v ./modules/mint/keeper/"
+revision = "5903ffbb1db92c2e133ddd0fa7f87c058af7b5ed"
+result = "already-passing"
+change = "No product change; modules/mint/keeper/hooks_test.go logs application initialization and progress through every existing repeated epoch hook assertion to identify waits."
+producer_input_tests = []
+wall_time = "The verbose verification evidence reports measured package wall time in the go test result and TestNoEpochPassedNoDistribution reports elapsed wall time for application initialization and every 100000 iterations."

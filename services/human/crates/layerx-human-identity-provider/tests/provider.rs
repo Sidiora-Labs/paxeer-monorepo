@@ -1,4 +1,5 @@
-use layerx_client::runtime_clock::RuntimeClock;
+mod support;
+
 use layerx_types::clock::{Clock, Deadline};
 use std::error::Error;
 use std::fs::{self, OpenOptions};
@@ -47,7 +48,7 @@ impl Running {
             State::open(root, policy())?,
             uid,
             Duration::from_millis(200),
-            RuntimeClock::from_environment()?,
+            support::clock()?,
         )?
         .with_binding_reader(reader, tenant, readers)?;
         let shutdown = Arc::new(AtomicBool::new(false));
@@ -64,7 +65,7 @@ impl Running {
             State::open(root, policy())?,
             uid,
             Duration::from_millis(200),
-            RuntimeClock::from_environment()?,
+            support::clock()?,
         )?;
         let shutdown = Arc::new(AtomicBool::new(false));
         let flag = Arc::clone(&shutdown);
@@ -124,10 +125,7 @@ fn read_only_binding_authenticates_tenant_principal_peer_and_durable_restart() -
         peer_gid: gid,
         deadline: Duration::from_millis(200),
     };
-    let client = layerx_identity_binding::Client::new(
-        config.clone(),
-        layerx_client::runtime_clock::RuntimeClock::from_environment()?,
-    )?;
+    let client = layerx_identity_binding::Client::new(config.clone(), support::clock()?)?;
     let binding = client.lookup(principal)?;
     assert_eq!(binding.principal(), principal);
     assert_eq!(binding.tenant(), "tenant-a");
@@ -148,7 +146,7 @@ fn read_only_binding_authenticates_tenant_principal_peer_and_durable_restart() -
             tenant: "tenant-b".into(),
             ..config.clone()
         },
-        layerx_client::runtime_clock::RuntimeClock::from_environment()?,
+        support::clock()?,
     )?;
     assert!(wrong_tenant.lookup(principal).is_err());
     let wrong_peer = layerx_identity_binding::Client::new(
@@ -156,7 +154,7 @@ fn read_only_binding_authenticates_tenant_principal_peer_and_durable_restart() -
             peer_gid: gid.checked_add(1).ok_or("gid overflow")?,
             ..config.clone()
         },
-        layerx_client::runtime_clock::RuntimeClock::from_environment()?,
+        support::clock()?,
     )?;
     assert!(wrong_peer.lookup(principal).is_err());
     read_only_refusals(&reader, &root, &client, &binding, principal)?;
@@ -307,7 +305,8 @@ fn provision_resolve_device_and_restart_replay() -> Result {
         u64::from_be_bytes(account[4].as_slice().try_into()?),
     )?;
     assert_eq!(call(&socket, 1, &fields)?, account);
-    assert_eq!(call(&socket, 2, &[fields[0]])?, vec![account[0].clone()]);
+    let resolution = call(&socket, 2, &[fields[0]])?;
+    assert_eq!(resolution, vec![account[0].clone()]);
     assert_eq!(
         exchange(
             &socket,
@@ -334,6 +333,7 @@ fn provision_resolve_device_and_restart_replay() -> Result {
         .write_all(b"torn uncommitted write")?;
     let running = Running::start(&socket, &root, uid)?;
     assert!(!root.join("state.pending").exists());
+    assert_eq!(call(&socket, 2, &[fields[0]])?, resolution);
     assert_eq!(call(&socket, 1, &fields)?, account);
     let encoded_device = call(&socket, 3, &[principal.as_str().as_bytes(), b"assertion-1"])?;
     assert_eq!(
@@ -428,7 +428,7 @@ fn refuses_conflicts_unknowns_and_malformed_frames() -> Result {
     let mut slow = UnixStream::connect(&socket)?;
     slow.write_all(&100_u32.to_be_bytes())?;
     slow.write_all(b"L")?;
-    let clock = RuntimeClock::from_environment()?;
+    let clock = support::clock()?;
     let start = clock.sample(Duration::from_secs(1))?;
     assert!(call(&socket, 0, &[])?.is_empty());
     assert!(clock.sample(Duration::from_secs(1))?.elapsed_since(start)? < Duration::from_secs(2));
@@ -477,10 +477,16 @@ fn binary_sigterm_and_crash_restart() -> Result {
         .mode(0o600)
         .open(&policy_file)?
         .write_all(&serde_json::to_vec(&policy())?)?;
+    let clock_command = support::command()?;
     let command = || {
         let mut command =
             std::process::Command::new(env!("CARGO_BIN_EXE_layerx-human-identity-provider"));
         command
+            .envs(
+                clock_command
+                    .get_envs()
+                    .map(|(key, value)| (key, value.expect("clock binding value"))),
+            )
             .env("LAYERX_HUMAN_IDENTITY_PROVIDER_STATE_ROOT", &root)
             .env("LAYERX_HUMAN_IDENTITY_PROVIDER_SOCKET", &socket)
             .env(
@@ -530,7 +536,7 @@ fn binary_sigterm_and_crash_restart() -> Result {
     );
     let pid = rustix::process::Pid::from_raw(i32::try_from(child.0.id())?).ok_or("invalid pid")?;
     rustix::process::kill_process(pid, rustix::process::Signal::TERM)?;
-    let clock = RuntimeClock::from_environment()?;
+    let clock = support::clock()?;
     let mut expires = Deadline::start(clock.as_ref(), Duration::from_secs(3))?;
     loop {
         if let Some(status) = child.0.try_wait()? {
@@ -558,7 +564,7 @@ impl Drop for OwnedChild {
 }
 
 fn wait_ready(socket: &Path, child: &mut std::process::Child) -> Result {
-    let clock = RuntimeClock::from_environment()?;
+    let clock = support::clock()?;
     let mut expires = Deadline::start(clock.as_ref(), Duration::from_secs(5))?;
     while !expires.remaining(clock.as_ref())?.is_zero() {
         if exchange(socket, &request(0, &[])?).is_ok() {
@@ -609,7 +615,7 @@ fn refuses_live_sockets_regular_files_and_socket_symlinks() -> Result {
         state,
         uid,
         Duration::from_secs(1),
-        RuntimeClock::from_environment()?
+        support::clock()?
     )
     .is_err());
     running.stop()?;
@@ -620,7 +626,7 @@ fn refuses_live_sockets_regular_files_and_socket_symlinks() -> Result {
         state,
         uid,
         Duration::from_secs(1),
-        RuntimeClock::from_environment()?
+        support::clock()?
     )
     .is_err());
     assert_eq!(fs::read(&socket)?, b"keep this file");
@@ -632,7 +638,7 @@ fn refuses_live_sockets_regular_files_and_socket_symlinks() -> Result {
         state,
         uid,
         Duration::from_secs(1),
-        RuntimeClock::from_environment()?
+        support::clock()?
     )
     .is_err());
     assert!(fs::symlink_metadata(&socket)?.file_type().is_symlink());

@@ -248,7 +248,7 @@ func TestSolvencyInvariant(t *testing.T) {
 	e := newInvEnv(t)
 	registry := &invRegistry{}
 	keeper.RegisterInvariants(registry, e.k)
-	require.Equal(t, []string{"spot/spot-solvency", "spot/spot-share-backing", "spot/spot-escrow"}, registry.routes)
+	require.Equal(t, []string{"spot/spot-solvency", "spot/spot-share-backing", "spot/spot-escrow", "spot/active-index"}, registry.routes)
 
 	solvency := keeper.SolvencyInvariant(e.k)
 	check := func() {

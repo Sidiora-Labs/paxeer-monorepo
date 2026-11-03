@@ -14,7 +14,8 @@ pub const MAX_RECENT_POLICY_HEADERS: usize = 4;
 pub const OBJECTIVE: u8 = 1;
 pub const SUBJECTIVE: u8 = 2;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct PolicyCommitments {
     pub model_artifact: Digest32,
     pub dataset_artifact: [u8; 32],
@@ -25,7 +26,8 @@ pub struct PolicyCommitments {
     pub service_terms: Digest32,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct TaskPolicyV1 {
     pub config_version: u64,
     pub task_kind: u8,
@@ -87,6 +89,7 @@ impl TaskPolicyV1 {
     ///
     /// # Errors
     /// Returns `F01_INVALID_POLICY` when any field is out of bounds or reserved bytes are set.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         if self.config_version == 0
             || !(1..=3).contains(&self.task_kind)
@@ -117,6 +120,7 @@ impl TaskPolicyV1 {
     ///
     /// # Errors
     /// Returns `F01_INVALID_POLICY` when the policy is invalid; `CAPACITY` when `output` is shorter than `TASK_POLICY_BYTES`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, output: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         if output.len() < TASK_POLICY_BYTES {
@@ -154,6 +158,7 @@ impl TaskPolicyV1 {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the input is short or has trailing bytes; `F01_INVALID_POLICY` when a required digest is zero or the policy is invalid.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = Self {
@@ -208,7 +213,8 @@ pub fn next_config_version(highest: u64) -> CodecResult<u64> {
     Ok(Version::new(highest)?.next()?.get())
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct PendingPolicy {
     pub policy: TaskPolicyV1,
     pub digest: PolicyDigest,
@@ -220,6 +226,7 @@ impl PendingPolicy {
     ///
     /// # Errors
     /// Returns `F01_POLICY_MISMATCH` when the digest differs; propagates `TaskPolicyV1::digest` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         if self.policy.digest()? != self.digest {
             return Err(F01_POLICY_MISMATCH);
@@ -230,6 +237,7 @@ impl PendingPolicy {
     ///
     /// # Errors
     /// Propagates `validate` refusals; returns `CAPACITY` when `output` is shorter than `PENDING_POLICY_BYTES`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, output: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         if output.len() < PENDING_POLICY_BYTES {
@@ -246,13 +254,14 @@ impl PendingPolicy {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the input is short, has trailing bytes, or holds a zero digest or proposer; propagates `TaskPolicyV1::decode` and `validate` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = Self {
             policy: TaskPolicyV1::decode(r.take(TASK_POLICY_BYTES)?)?,
-            digest: PolicyDigest::new(r.fixed()?)?,
+            digest: r.policy_digest()?,
             effective_epoch: r.u64()?,
-            proposer: PrincipalId::new(r.fixed()?)?,
+            proposer: r.principal_id()?,
         };
         r.finish()?;
         value.validate()?;
@@ -260,7 +269,8 @@ impl PendingPolicy {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct PolicyHistoryHeader {
     pub config_version: u64,
     pub digest: PolicyDigest,
@@ -272,6 +282,7 @@ impl PolicyHistoryHeader {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the version is zero or the disposition is not 1 or 2.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         if self.config_version == 0 || !(1..=2).contains(&self.disposition) {
             return Err(NON_CANONICAL);
@@ -282,6 +293,7 @@ impl PolicyHistoryHeader {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the header is invalid; `CAPACITY` when `output` is shorter than `POLICY_HISTORY_HEADER_BYTES`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, output: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         if output.len() < POLICY_HISTORY_HEADER_BYTES {
@@ -298,11 +310,12 @@ impl PolicyHistoryHeader {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the input is short, has trailing bytes, holds a zero digest, or fails `validate`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = Self {
             config_version: r.u64()?,
-            digest: PolicyDigest::new(r.fixed()?)?,
+            digest: r.policy_digest()?,
             effective_epoch: r.u64()?,
             disposition: r.u8()?,
         };

@@ -37,6 +37,7 @@ fn receipt(signed: &[u8]) -> SequencerReceipt {
             cumulative_gas_used: 100_000,
             effective_gas_price: 1,
             fee_denom: "upax".into(),
+            payment_denom: "upax".into(),
             fee_amount: [0; 32],
             sponsor: [0; 20],
             from: recover_sender(&call, &signature).expect("sender"),

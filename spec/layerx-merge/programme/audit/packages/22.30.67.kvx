@@ -1,0 +1,13 @@
+[package.22.30.67]
+domain = 7
+owner_role = "fm-rpc-api"
+files = 19
+bytes = 8491
+paths = ["rpc/rpc_unsupported.go", "rpc/web3.go", ".", "rpc/info_helpers_test.go", "rpc/net_peers.go", "rpc/bloom.go", "rpc/filter_feed_setter_test.go", "rpc/export_info_test.go", "rpc/unsupported_ethdb_test.go", "rpc/query_builder.go", "rpc/utils_internal_test.go", "rpc/test.go", "rpc/websockets.go", "rpc/net_listening_test.go", "rpc/net_peers_test.go", "rpc/export_metrics_test.go", "rpc/web3_test.go", "rpc/export_filter_test.go", "rpc/echo.go"]
+members = ["buf.yaml", "rpc/bloom.go", "rpc/echo.go", "rpc/export_filter_test.go", "rpc/export_info_test.go", "rpc/export_metrics_test.go", "rpc/filter_feed_setter_test.go", "rpc/info_helpers_test.go", "rpc/net_listening_test.go", "rpc/net_peers.go", "rpc/net_peers_test.go", "rpc/query_builder.go", "rpc/rpc_unsupported.go", "rpc/test.go", "rpc/unsupported_ethdb_test.go", "rpc/utils_internal_test.go", "rpc/web3.go", "rpc/web3_test.go", "rpc/websockets.go"]
+requirements = ["22092.1", "22052.1", "7001.3", "7001.4", "7002.1", "7002.2", "7002.3", "7002.4", "7002.5", "7004.1", "7004.2", "7004.3", "7014.3", "7014.6", "7244.1", "22998.1"]
+produces_total = 8
+produces = ["7.err-evm-not-supported-32000-j38", "7.fmt-buf-yaml-j39", "7.go-newechoapi-j38", "7.rpc-echo-echo", "7.rpc-net-peercount-j38", "7.rpc-test-incrementpointerversion", "7.rpc-web3-clientversion", "7.rpc-web3-sha3-j38"]
+consumes_total = 8
+consumes = ["6.go-evm-artifacts-cw20-setversionwithoffset-j34", "7.fmt-api-buf-yaml", "7.met-otel-evmrpc-websocket-connects-total", "7.met-pax-websocket-connect", "8.cfg-authority-registry-modules", "8.err-cli-32601", "8.err-gateway-32601", "8.err-paxeer-32601"]
+docs = ["docs/README.md", "docs/paxeer-chain-docs.md", "docs/paxeer-network.md", "docs/site/docs/reference/public-rpc.md", "docs/system/rpc.md"]

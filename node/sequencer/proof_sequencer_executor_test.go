@@ -7,9 +7,8 @@
 //
 // Repairs node/sequencer/receipt.go, Receipter.after: Cosmos gas must contribute
 // to cumulative gas, including the following EVM transaction's receipt.
-// Outside scope: node/sequencer/node_start.go, Node.Start replays execution but
-// does not repopulate ReceiptSource. The recovery proof asserts the current
-// missing lookup alongside recovered state and byte-identical replay receipts.
+// Node.Start restores receipt lookups alongside recovered state and byte-identical
+// replay receipts, including sends retained below the committed WAL watermark.
 package sequencer_test
 
 import (
@@ -17,13 +16,16 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"math/big"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/example/kvstore"
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmutils "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
+	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/local"
 	rpctest "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/test"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
@@ -81,6 +83,7 @@ func proofExecutorRPC(t *testing.T, f *startHarness, consensus *local.Local) *ge
 	option := evmrpc.NewSequencerOption(f.n.Accepter, f.n.ReceiptLogFeed)
 	cfg, err := option.SendConfig(evmrpcconfig.DefaultConfig)
 	require.NoError(t, err)
+	cfg.SequencerSource = f.n.ReceiptSource
 	send := evmrpc.NewSendAPI(nil, func(int64) client.TxConfig { return f.app.GetTxConfig() }, cfg,
 		&f.app.EvmKeeper, f.app.BeginBlockKeepers, ctxProvider, "", nil,
 		f.app.BaseApp, f.app.TracerAnteHandler, evmrpc.ConnectionTypeHTTP,
@@ -98,6 +101,23 @@ func proofExecutorRPC(t *testing.T, f *startHarness, consensus *local.Local) *ge
 	require.NoError(t, err)
 	t.Cleanup(rpcClient.Close)
 	return rpcClient
+}
+
+func proofExecutorReceiptRPC(t *testing.T, n *sequencer.Node, consensus *local.Local) *gethrpc.Client {
+	t.Helper()
+	cfg := evmrpcconfig.DefaultConfig
+	cfg.HTTPAddress, cfg.HTTPPort = "127.0.0.1", rpcE2EPort(t)
+	server, err := evmrpc.NewEVMHTTPServer(cfg, consensus, &n.App.EvmKeeper, n.App.BeginBlockKeepers,
+		n.App.BaseApp, n.App.TracerAnteHandler, n.App.RPCContextProvider,
+		func(int64) client.TxConfig { return n.App.GetTxConfig() }, "", n.App.GetStateStore(),
+		evmrpc.SequencerReceiptOption{Source: n.ReceiptSource, Keeper: &n.App.SequencerKeeper})
+	require.NoError(t, err)
+	require.NoError(t, server.Start())
+	t.Cleanup(server.Stop)
+	c, err := gethrpc.DialHTTP(fmt.Sprintf("http://127.0.0.1:%d", cfg.HTTPPort))
+	require.NoError(t, err)
+	t.Cleanup(c.Close)
+	return c
 }
 
 func TestProofSequencerExecutorTransportRecovery(t *testing.T) {
@@ -238,6 +258,7 @@ func TestProofSequencerExecutorTransportRecovery(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, fee, recoveredFee)
 	recoveredClient := proofExecutorRPC(t, f, consensus)
+	recoveredReceipts := proofExecutorReceiptRPC(t, f.n, consensus)
 	assertPending(recoveredClient)
 	require.Equal(t, committed, f.app.CommitMultiStore().LastCommitID())
 	require.Equal(t, beforeRestart, driverEntries(t, f.cfg.WALDir), "replay must not append producer records")
@@ -250,15 +271,29 @@ func TestProofSequencerExecutorTransportRecovery(t *testing.T) {
 		// Node.Start uses AppReplayer.Execute, which checks the regenerated receipt
 		// byte for byte against the WAL before installing this recovered executor.
 		require.Equal(t, int(i+1), recovered.TxIndex)
-		missing, err := f.n.ReceiptSource.SequencerSend(hash)
+		restored, err := f.n.ReceiptSource.SequencerSend(hash)
 		require.NoError(t, err)
-		require.Nil(t, missing, "outside-scope Node.Start does not rebuild receipt lookup")
+		require.NotNil(t, restored)
+		require.Equal(t, receipts[i], restored.Receipt)
+		require.Equal(t, uint64(i), restored.Nonce)
+		var consumed *evmrpc.SequencerReceiptResult
+		require.NoError(t, recoveredReceipts.CallContext(t.Context(), &consumed, evmrpc.SequencerReceiptMethod, hash))
+		require.NotNil(t, consumed)
+		require.Equal(t, restored.Receipt, []byte(consumed.Receipt))
+		require.Equal(t, evmrpc.RungReceipted, consumed.Rung)
+		rpcE2EVerifyReceipt(t, f.app, consumed)
 	}
 	signed, _ := transfer(t, sender, 0, recipient.EvmAddress, big.NewInt(5))
 	raw, err := signed.MarshalBinary()
 	require.NoError(t, err)
 	var duplicate common.Hash
 	err = recoveredClient.CallContext(t.Context(), &duplicate, "eth_sendRawTransaction", hexutil.Bytes(raw))
+	require.NoError(t, err)
+	require.Equal(t, signed.Hash(), duplicate)
+	conflict, _ := transfer(t, sender, 0, recipient.EvmAddress, big.NewInt(6))
+	conflictRaw, err := conflict.MarshalBinary()
+	require.NoError(t, err)
+	err = recoveredClient.CallContext(t.Context(), &duplicate, "eth_sendRawTransaction", hexutil.Bytes(conflictRaw))
 	require.ErrorContains(t, err, sdkerrors.ErrWrongSequence.Error())
 	assertPending(recoveredClient)
 	require.Equal(t, beforeRestart, driverEntries(t, f.cfg.WALDir))
@@ -387,14 +422,76 @@ func TestProofSequencerExecutorRPCConsumers(t *testing.T) {
 	require.NoError(t, h.client.CallContext(h.ctx, &balance, "eth_getBalance", to, "pending"))
 	require.Equal(t, 0, big.NewInt(5).Cmp(balance.ToInt()))
 
-	// The same JSON-RPC crossing refuses a duplicate and an unsupported full
-	// transaction filter without publishing any additional pending hash.
+	// The same JSON-RPC crossing returns the recorded hash on resubmission and refuses
+	// an unsupported full transaction filter without publishing another pending hash.
 	err = h.client.CallContext(h.ctx, &hash, "eth_sendRawTransaction", hexutil.Bytes(raw))
-	require.ErrorContains(t, err, sdkerrors.ErrWrongSequence.Error())
+	require.NoError(t, err)
+	require.Equal(t, deployment.Hash(), hash)
 	var unsupported gethrpc.ID
 	require.ErrorContains(t, h.client.CallContext(h.ctx, &unsupported, "eth_newPendingTransactionFilter", true), "serves transaction hashes only")
 	require.Empty(t, changes())
 	var unknown *evmrpc.SequencerReceiptResult
 	require.NoError(t, h.client.CallContext(h.ctx, &unknown, evmrpc.SequencerReceiptMethod, common.HexToHash("0xff")))
 	require.Nil(t, unknown)
+
+	pending, err := h.node.Executor.Snapshot()
+	require.NoError(t, err)
+	sealed, err := h.node.ConsensusSource.Seal(h.ctx, openHeight)
+	require.NoError(t, err)
+	response, err := h.node.App.FinalizeBlock(h.ctx, &abci.RequestFinalizeBlock{
+		Header: &tmproto.Header{ChainID: testChainID, Height: openHeight, Time: sealed.OpenTime, ProposerAddress: pending.BlockHeader().ProposerAddress},
+		Txs:    append([][]byte{sealed.Batch}, sealed.Txs.ToSliceOfBytes()...),
+	})
+	require.NoError(t, err)
+	require.Len(t, response.TxResults, 3)
+	for _, result := range response.TxResults {
+		require.Zero(t, result.Code, result.Log)
+	}
+	h.node.App.SetDeliverStateToCommit()
+	_, err = h.node.App.Commit(h.ctx)
+	require.NoError(t, err)
+	commitID := h.node.App.CommitMultiStore().LastCommitID()
+	tip := h.node.WAL.LastCommitted()
+	require.NotNil(t, tip)
+	require.Equal(t, uint64(openHeight), tip.Height)
+	require.Equal(t, uint64(deployed.Seq), tip.LastSeq)
+	require.NoError(t, h.node.Stop())
+	h.node.App.SetOpenBlock(nil)
+	h.node.App.SetSequencerSource(nil)
+	h.node.App.SetSequencerRPC(evmrpc.SequencerOption{}, evmrpc.SequencerReceiptOption{})
+	h.node.App.SetCommitListener(nil)
+	h.node, err = sequencer.NewNode(h.node.Config, h.node.App)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, h.node.Stop()) })
+	replay, err := h.node.WAL.Replay(sequencer.NewAppReplayer(h.node.Executor, h.node.Receipter))
+	require.NoError(t, err)
+	require.Equal(t, tip, replay.From)
+	require.Zero(t, replay.Accepts)
+	require.Nil(t, replay.LastAccept)
+	require.NoError(t, h.node.Stop())
+	h.node, err = sequencer.NewNode(h.node.Config, h.node.App)
+	require.NoError(t, err)
+	require.NoError(t, h.node.Start(h.ctx))
+	require.Equal(t, commitID, h.node.App.CommitMultiStore().LastCommitID())
+	require.Eventually(t, func() bool {
+		height := int64(openHeight)
+		block, err := h.consensus.Block(h.ctx, &height)
+		return err == nil && block != nil && block.Block != nil && block.Block.Height == height
+	}, 5*time.Second, 10*time.Millisecond)
+	recovered := proofExecutorReceiptRPC(t, h.node, h.consensus)
+	for _, original := range []*evmrpc.SequencerReceiptResult{receipt, deployed} {
+		restored, err := h.node.ReceiptSource.SequencerSend(original.TxHash)
+		require.NoError(t, err)
+		require.NotNil(t, restored)
+		require.Equal(t, []byte(original.Receipt), restored.Receipt)
+		var consumed *evmrpc.SequencerReceiptResult
+		require.NoError(t, recovered.CallContext(h.ctx, &consumed, evmrpc.SequencerReceiptMethod, original.TxHash))
+		require.NotNil(t, consumed)
+		require.Equal(t, evmrpc.RungCommitted, consumed.Rung)
+		require.Equal(t, original.TxHash, consumed.TxHash)
+		require.Equal(t, original.SequencerReceiptView, consumed.SequencerReceiptView)
+		require.NotNil(t, consumed.BlockNumber)
+		require.Equal(t, uint64(openHeight), uint64(*consumed.BlockNumber))
+		rpcE2EVerifyReceipt(t, h.node.App, consumed)
+	}
 }

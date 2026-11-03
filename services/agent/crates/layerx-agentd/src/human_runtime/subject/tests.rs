@@ -80,7 +80,7 @@ fn durable_subject_bindings_preserve_service_identity_and_refuse_remap_after_res
 fn signed_submission() -> crate::sign::VerifiedSubmission {
     let bytes = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../../../tests/fixtures/authority/provider-subject/onboarding.activity"
+        "/../../../../tests/fixtures/authority/provider-subject/sponsored.activity"
     ));
     let kind = must(ActivityType::new(ModuleId::Governance, 1));
     let registry = must(ModuleRegistry::new(&[must(ModuleRegistration::new(
@@ -88,6 +88,18 @@ fn signed_submission() -> crate::sign::VerifiedSubmission {
         &[kind],
     ))]));
     let activity = must(layerx_wire::activity::decode_signed(bytes, &registry));
+    assert_eq!(must(layerx_wire::activity::encode_signed(&activity)), bytes);
+    let registration = must(layerx_crypto::payments::SponsoredRegistration::decode(
+        activity.payload(),
+    ));
+    must(registration.validate_outer(&activity));
+    assert_eq!(
+        registration.signed_consent(),
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../tests/fixtures/authority/provider-subject/consent.activity"
+        )),
+    );
     let call = Eip1559Call {
         chain_id: u64::from(activity.network_id()),
         nonce: activity.account_sequence(),

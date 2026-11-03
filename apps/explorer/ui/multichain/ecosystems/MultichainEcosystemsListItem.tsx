@@ -1,4 +1,4 @@
-import { chakra, Grid, HStack, Stat } from '@chakra-ui/react';
+import { chakra, Grid, HStack } from '@chakra-ui/react';
 import React from 'react';
 
 import type * as multichain from '@blockscout/multichain-aggregator-types';
@@ -6,6 +6,7 @@ import type { ClusterChainConfig } from 'types/multichain';
 
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
+import { Stat } from 'toolkit/chakra/stat';
 import { TruncatedText } from 'toolkit/components/truncation/TruncatedText';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
 import ChainIcon from 'ui/shared/externalChains/ChainIcon';
