@@ -2,7 +2,10 @@
   "manifests": {
     "apps/perps/pnpm-lock.yaml": {
       "@babel/core": "7.29.6",
-      "@opentelemetry/core": "2.8.0",
+      "@opentelemetry/core": {
+        "minimum": "2.8.0",
+        "applies_from": "2.0.0"
+      },
       "@opentelemetry/instrumentation-knex": "0.65.0",
       "@opentelemetry/instrumentation-mongoose": "0.67.0",
       "@opentelemetry/instrumentation-mysql": "0.67.0",
@@ -40,7 +43,10 @@
     "apps/perps/package-lock.json": {
       "@babel/core": "7.29.6",
       "@babel/plugin-transform-modules-systemjs": "7.29.4",
-      "@opentelemetry/core": "2.8.0",
+      "@opentelemetry/core": {
+        "minimum": "2.8.0",
+        "applies_from": "2.0.0"
+      },
       "@opentelemetry/instrumentation-knex": "0.65.0",
       "@opentelemetry/instrumentation-mongoose": "0.67.0",
       "@opentelemetry/instrumentation-mysql": "0.67.0",

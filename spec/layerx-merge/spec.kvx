@@ -7929,6 +7929,30 @@ value = "18.1552.1 attempt 2 continued from attempt 1 and carried attempt 1's ed
 basis = "18.1552.1 attempt 2 (2f9b908f7): precompiles/setup.go differs from main by three lines and TestPrecompileInfoResolvesWithoutMergeKeepers fails on the scheduler entry with JobFailed missing from the cold ABI."
 affects = ["18.1552.1"]
 
+[decision.2470]
+title = "Tracked lock files dropped from published trees are regenerated from their unchanged manifests"
+value = "Eleven published tasks whose scope named a directory lost the tracked lock and checksum files under it: apps/perps/package-lock.json and pnpm-lock.yaml (22.96.5), apps/wallet/pnpm-lock.yaml (22.96.6), contracts/bridge/solana/Cargo.lock (22.96.7), the fifteen go.sum files of sdk/launchpad and services/launchpad (22.24.17), the package-lock.json of services/explorer/backend/apps/block_scout_web/assets (22.96.22) and of services/explorer/backend/apps/explorer (22.96.23), services/explorer/services/libs/blockscout-client/yarn.lock (22.96.24), services/human/crates/layerx-intents/fuzz/Cargo.lock (22.90.4), tests/integration/dapp_tests/package-lock.json (22.96.26), tools/wasm-tools/Cargo.lock with tools/wasm-tools/playground/package-lock.json (22.96.28) and wasm-runtime/libwasmvm/Cargo.lock (22.96.29). Each is regenerated from its manifest, which stays as main has it, so the ecosystem's frozen install passes again and the floors and dependency reports hold: 18.1521.1 restores the apps/perps locks, 18.1528.1 the launchpad go.sum files, tasks 22.96.31 to 22.96.39 the rest. The three Cargo.lock files under tools/wasm-tools/crates/wasm-compose/example belong to workspace members that resolve through tools/wasm-tools/Cargo.lock and are not restored. The deletions by 9.18.2, 8.101.4 and 8.17.1 retired whole crates and stand."
+basis = "git diff --diff-filter=D 4a9dbd740 origin/main lists 35 lock files; the eleven publishing commits each changed the manifest or a report only and deleted the lock; 22.96.5 attempt 2 (a25213f32) records hono upgraded to 4.13.11 while main carries no apps/perps lock; 18.1528.1 attempt 2 fails go list -mod=readonly in services/launchpad/api because its go.sum is absent."
+affects = ["22.96.5", "22.96.6", "22.96.7", "22.24.17", "22.96.22", "22.96.23", "22.96.24", "22.90.4", "22.96.26", "22.96.28", "22.96.29", "18.1521.1", "18.1528.1"]
+
+[decision.2471]
+title = "A lock floor applies only inside the advisory's version range"
+value = "tools/deps/lockfloor.py compares every resolved instance of a package with its floor. The @opentelemetry/core advisory covers 2.0.0 to 2.7.x only, but apps/perps resolves core 1.30.1 under @sentry/node 8.55.2, @sentry/opentelemetry 8.55.2 and the OpenTelemetry 1.x instrumentation packages they pin, and 1.30.1 is outside the advisory. A floor entry may now be an object with minimum and applies_from: an instance whose version is below applies_from is outside the advisory's range and is not compared. tools/deps/floors/perps-web.json uses that form for @opentelemetry/core in both manifests (task 22.96.30); the override at apps/perps/package.json stays narrowed to >=2.0.0 <2.8.0 as decision 2464 ruled."
+basis = "18.1521.1 attempt 3 (c765536ba): both regenerated locks carry @opentelemetry/core 1.30.1 and 2.8.0; lockfloor reports 1.30.1 below 2.8.0 in both manifests; the lock shows every 1.30.1 instance under the sentry tree."
+affects = ["22.96.30", "18.1521.1"]
+
+[decision.2472]
+title = "A task that widens ApprovalContext migrates its initializers"
+value = "9.35.18 adds actor_address to layerx_agentd::policy::approval::ApprovalContext. Every initializer outside the daemon is in the task's scope and is migrated in the same task: services/agent/crates/layerx-mcp/src/server.rs:853, src/tools/web.rs:2496 and :2688, tests/approval.rs:67 and tests/web.rs:822, and the human service tests approvals.rs:76, decide.rs:305, decide_nonces.rs:509 and render.rs:225 under services/human/crates/layerx-human-service/tests. The dependent-crate check is the gate that proves it."
+basis = "9.35.18 attempt 2 (c890bd2d0): build passes, dependent-crate check exit 101 with E0063 missing field actor_address at layerx-mcp src/server.rs:853 and src/tools/web.rs:2496 and :2688; the human service render.rs:225 initializer carries the same shape."
+affects = ["9.35.18"]
+
+[decision.2473]
+title = "Sweep targets are repaired, recorded or ruled by their cause"
+value = "Repaired by tasks: tests/modules/test_budget_create.c:707-711 (22.97.1), tests/codec/lxp_test_global_sequence.c:225 (22.97.2), consensus/internal/autobahn/consensus/persist/persist_test.go:155-162 (22.97.3), deploy/launchpad/production/observability/phase2 requirements (22.97.4). Recorded by tasks that run the target in the toolchain it needs: the five Solidity-backed make targets (22.97.6), test-lxphost (22.97.7), the two module packages with tests (22.97.8), smart-contract-verifier-proto with the protobuf compiler on PATH (22.97.9), wasm-instrument with cmake on PATH (22.97.10), the chainflow tests with the package's websockets extra installed (22.97.5). Ruled without a task: the eleven Go packages without test files (epoch client wasm and bindings, mint simulation, oracle client rest, wasm and bindings, oracle keeper testutils, oracle simulation, oracle utils, pricefeed testutil, precompiles addr legacy v552 and v555) record no_tests; test-group-% is a pattern target; test-crypto-sanitizers runs under sanitizers, which no task-level gate runs; the perps-data internal tests need PERPS_DATA_TEST_DATABASE_URL, which the tasks that own them already set."
+basis = "spec/layerx-merge/programme/sweeps/summary.kvx lists 197 failing targets at 1fea7069e; the per-sweep report blocks named here carry the observed line of each."
+affects = ["22.97.1", "22.97.2", "22.97.3", "22.97.4", "22.97.5", "22.97.6", "22.97.7", "22.97.8", "22.97.9", "22.97.10"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -21549,6 +21573,22 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22120]
+title = "Every recorded sweep target carries a current result"
+ac_1 = "Given a sweep target that needed a toolchain the sweep lacked, when its command runs with that toolchain present, then the per-sweep report block records the result, exit code and revision of that run."
+
+[req.22119]
+title = "The repaired sweep targets pass"
+ac_1 = "Given the repaired test files, when the sweep command of each target runs, then it exits 0 and the per-sweep report block records the passing result at the revision it ran on."
+
+[req.22118]
+title = "A lock floor scoped to an advisory range ignores instances below the range"
+ac_1 = "Given a floors file whose entry carries minimum and applies_from, when lockfloor reads a lock with one instance below applies_from and one at or above minimum, then it exits 0, and with the same lock and a plain minimum it exits 1 naming the lower instance."
+
+[req.22117]
+title = "Every tracked lock file resolves its manifest on main"
+ac_1 = "Given a manifest on main whose lock file was deleted, when the ecosystem's frozen install runs against the regenerated lock, then it succeeds, and the resolved versions satisfy the floors file and the dependency report that name the lock."
 
 [req.22116]
 title = "The human service session-key test compiles against the current preparation shapes"
@@ -36710,12 +36750,192 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.97.10]
+title = "Record the wasm-instrument build"
+reqs = ["22120.1"]
+touches = ["spec/layerx-merge/programme/sweeps/rust-build-programs.kvx"]
+tests = []
+verification_contract = "cargo build --locked --manifest-path programs/Cargo.toml -p wasm-instrument --all-targets"
+do_1 = "Decision 2473: wasm-instrument (programs/vendor/wasm-instrument) builds a native dependency through cmake. Build it with cmake on PATH (the task's verify) and update [target.rust-build-programs.19] of spec/layerx-merge/programme/sweeps/rust-build-programs.kvx with the result, exit code and the 40-hex revision; if the build fails with cmake present, record the first error in observed."
+symbols = []
+
+[capability.22.97.9]
+title = "Record the verifier proto crate build"
+reqs = ["22120.1"]
+touches = ["spec/layerx-merge/programme/sweeps/rust-build-explorer-verifier.kvx"]
+tests = []
+verification_contract = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml -p smart-contract-verifier-proto --all-targets"
+do_1 = "Decision 2473: smart-contract-verifier-proto needs the protobuf compiler on PATH for its build script. Build it (the task's verify) and update [target.rust-build-explorer-verifier.2] of spec/layerx-merge/programme/sweeps/rust-build-explorer-verifier.kvx with the result, exit code and the 40-hex revision; if the build fails with protoc present, record the first error in observed."
+symbols = []
+
+[capability.22.97.8]
+title = "Record the two unrun module test packages and the packages without tests"
+reqs = ["22120.1"]
+touches = ["spec/layerx-merge/programme/sweeps/go-modules.kvx"]
+tests = []
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./modules/evm/artifacts/native/ ./modules/tokenfactory/client/wasm/bindings/"
+do_1 = "Decision 2473: modules/evm/artifacts/native and modules/tokenfactory/client/wasm/bindings each carry a test file the sweep did not run; run them (the task's verify) and update [target.go-modules.17] and [target.go-modules.115] of spec/layerx-merge/programme/sweeps/go-modules.kvx with the result, exit code and 40-hex revision. Set result no_tests with observed naming the absence of test files on the blocks of the eleven packages without any: modules/epoch/client/wasm and its bindings, modules/mint/simulation, modules/oracle/client/rest, modules/oracle/client/wasm and its bindings, modules/oracle/keeper/testutils, modules/oracle/simulation, modules/oracle/utils, modules/pricefeed/testutil, precompiles/addr/legacy/v552 and v555 (match them by their target value)."
+symbols = []
+
+[capability.22.97.7]
+title = "Record the lxphost target and the repaired kernel targets"
+reqs = ["22120.1"]
+touches = ["spec/layerx-merge/programme/sweeps/c-kernel-make.kvx"]
+tests = []
+verification_contract = "make -s test-lxphost && make -s test-budget-create && make -s test-proof && make -s test-proof-lxp_receipt_h"
+do_1 = "Decision 2473: test-lxphost builds the native libraries and runs go test ./modules/lxphost/...; the sweep never ran it. Run it together with the repaired targets test-budget-create, test-proof and test-proof-lxp_receipt_h (the task's verify) and update [target.c-kernel-make.129], .32, .147 and .153 of spec/layerx-merge/programme/sweeps/c-kernel-make.kvx with each result, exit code and the 40-hex revision."
+symbols = []
+
+[capability.22.97.6]
+title = "Record the Solidity-backed kernel make targets"
+reqs = ["22120.1"]
+touches = ["spec/layerx-merge/programme/sweeps/c-kernel-make.kvx"]
+tests = []
+verification_contract = "make -s test-contracts && make -s test-contract-state-surface && make -s test-reserve && make -s test-bridge-deposit && make -s test-bridge-withdraw"
+do_1 = "Decision 2473: the make targets test-contracts, test-contract-state-surface, test-reserve, test-bridge-deposit and test-bridge-withdraw run scripts/ci/solidity-state-surface.sh, which needs forge. Run the five targets with the Foundry toolchain present (the task's verify) and update [target.c-kernel-make.86], .85, .73, .71 and .72 of spec/layerx-merge/programme/sweeps/c-kernel-make.kvx with each result, exit code and the 40-hex revision. A target that fails for a reason other than a missing toolchain is recorded failed with its first failing assertion in observed."
+symbols = []
+
+[capability.22.97.5]
+title = "Record the chainflow test collection with its declared extras"
+reqs = ["22120.1"]
+touches = ["spec/layerx-merge/programme/sweeps/python-pytest-collect.kvx"]
+tests = []
+verification_contract = "python3 -m pip install -q -e 'sdk/chainflow/python[websockets]' && python3 -m pytest -q --collect-only sdk/chainflow/python/tests"
+do_1 = "Decision 2473: sdk/chainflow/python/pyproject.toml declares httpx and a websockets extra that the tests import; collect them with the package installed with that extra (the task's verify) and update [target.python-pytest-collect.20] of spec/layerx-merge/programme/sweeps/python-pytest-collect.kvx with the result, exit code and the 40-hex revision of the run. If collection still fails, record the failing import in observed and the cause in assumption."
+symbols = []
+
+[capability.22.97.4]
+title = "Declare the phase2 observability test requirements"
+reqs = ["22119.1"]
+touches = ["deploy/launchpad/production/observability/phase2/requirements.txt", "spec/layerx-merge/programme/sweeps/python-pytest-collect.kvx"]
+tests = []
+verification_contract = "python3 -m pip install -q -r deploy/launchpad/production/observability/phase2/requirements.txt && python3 -m pytest -q --collect-only deploy/launchpad/production/observability/phase2/tests"
+do_1 = "Decision 2473: deploy/launchpad/production/observability/phase2/phase4.py:28 imports jsonschema and tests/test_phase4.py:13 imports it too, but the directory declares no requirements, so pytest collection fails. Add deploy/launchpad/production/observability/phase2/requirements.txt pinning jsonschema and every other third-party import the directory's modules and tests make (read them all; pin exact versions that resolve today)."
+symbols = []
+
+[capability.22.97.3]
+title = "Make the persist write-error test fail its write for every user"
+reqs = ["22119.1"]
+touches = ["consensus/internal/autobahn/consensus/persist/persist_test.go", "spec/layerx-merge/programme/sweeps/go-consensus.kvx"]
+tests = ["consensus/internal/autobahn/consensus/persist/persist_test.go"]
+verification_contract = "CGO_ENABLED=1 go test -count=1 -run '^TestPersistWriteErrorReturnsError$' ./consensus/internal/autobahn/consensus/persist/"
+do_1 = "Decision 2473: consensus/internal/autobahn/consensus/persist/persist_test.go:155-162 (TestPersistWriteErrorReturnsError) makes the write fail by removing the directory's permissions, which the superuser bypasses. Make the failure independent of the user: give the store a path whose parent is a regular file (or a path inside a file), so the write fails with a path error for every user; keep the assertion on the returned error."
+symbols = []
+
+[capability.22.97.2]
+title = "Drop the retired idempotency counter from the global sequence codec test"
+reqs = ["22119.1"]
+touches = ["tests/codec/lxp_test_global_sequence.c"]
+tests = ["tests/codec/lxp_test_global_sequence.c"]
+verification_contract = "make -s test-proof && make -s test-proof-lxp_receipt_h"
+do_1 = "Decision 2473: tests/codec/lxp_test_global_sequence.c:225 reads an idempotency_count member that the idempotency retirement removed from the state. Remove the read and the assertion that depends on it; if the case asserts a count the retirement replaced with another observable, assert that observable instead. Change nothing else in the file."
+symbols = []
+
+[capability.22.97.1]
+title = "Make the budget delegate spend test agree with the kernel"
+reqs = ["22119.1"]
+touches = ["tests/modules/test_budget_create.c"]
+tests = ["tests/modules/test_budget_create.c"]
+verification_contract = "make -s test-budget-create"
+do_1 = "Decision 2473: tests/modules/test_budget_create.c:707-711 (the request-path case) expects the delegate spend to return LXP_OK and the kernel returns another result. Read the kernel's budget delegate spend path and decide which side is right: if the kernel refuses the spend by design (for example the delegate has no allowance on that path or the call carries the owner's key where the delegate's is required), make the test assert the result the kernel returns and the state it leaves; if the kernel is wrong, change nothing and report implemented-not-qualified naming the kernel function and line, since kernel sources are outside this task's scope."
+symbols = []
+
+[capability.22.96.39]
+title = "Restore the intents fuzz Cargo lock"
+reqs = ["22117.1"]
+touches = ["services/human/crates/layerx-intents/fuzz/Cargo.lock"]
+tests = []
+verification_contract = "cargo metadata --locked --manifest-path services/human/crates/layerx-intents/fuzz/Cargo.toml --format-version 1 >/dev/null"
+do_1 = "Decision 2470: services/human/crates/layerx-intents/fuzz/Cargo.lock is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+symbols = []
+
+[capability.22.96.38]
+title = "Restore the libwasmvm Cargo lock"
+reqs = ["22117.1"]
+touches = ["wasm-runtime/libwasmvm/Cargo.lock"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/dependabot/check.py wasm-runtime-libwasmvm && cargo metadata --locked --manifest-path wasm-runtime/libwasmvm/Cargo.toml --format-version 1 >/dev/null"
+do_1 = "Decision 2470: wasm-runtime/libwasmvm/Cargo.lock is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+symbols = []
+
+[capability.22.96.37]
+title = "Restore the wasm-tools Cargo lock and the playground npm lock"
+reqs = ["22117.1"]
+touches = ["tools/wasm-tools/Cargo.lock", "tools/wasm-tools/playground/package-lock.json"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/dependabot/check.py tools-wasm-tools && cargo metadata --locked --manifest-path tools/wasm-tools/Cargo.toml --format-version 1 >/dev/null"
+do_1 = "Decision 2470: tools/wasm-tools/Cargo.lock and tools/wasm-tools/playground/package-lock.json are absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+symbols = []
+
+[capability.22.96.36]
+title = "Restore the dapp integration tests npm lock"
+reqs = ["22117.1"]
+touches = ["tests/integration/dapp_tests/package-lock.json"]
+tests = []
+verification_contract = "python3 tools/deps/lockfloor.py tools/deps/floors/dapp-tests.json && python3 spec/layerx-merge/programme/dependabot/check.py tests-integration-dapp-tests"
+do_1 = "Decision 2470: tests/integration/dapp_tests/package-lock.json is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+symbols = []
+
+[capability.22.96.35]
+title = "Restore the blockscout client yarn lock"
+reqs = ["22117.1"]
+touches = ["services/explorer/services/libs/blockscout-client/yarn.lock"]
+tests = []
+verification_contract = "python3 tools/deps/lockfloor.py tools/deps/floors/blockscout.json && python3 spec/layerx-merge/programme/dependabot/check.py services-explorer-blockscout-client"
+do_1 = "Decision 2470: services/explorer/services/libs/blockscout-client/yarn.lock is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+symbols = []
+
+[capability.22.96.34]
+title = "Restore the explorer backend app npm lock"
+reqs = ["22117.1"]
+touches = ["services/explorer/backend/apps/explorer/package-lock.json"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/dependabot/check.py services-explorer-backend-explorer && cd services/explorer/backend/apps/explorer && npm ci --ignore-scripts"
+do_1 = "Decision 2470: services/explorer/backend/apps/explorer/package-lock.json is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+symbols = []
+
+[capability.22.96.33]
+title = "Restore the explorer web assets npm lock"
+reqs = ["22117.1"]
+touches = ["services/explorer/backend/apps/block_scout_web/assets/package-lock.json"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/dependabot/check.py services-explorer-block-scout-web-assets && cd services/explorer/backend/apps/block_scout_web/assets && npm ci --ignore-scripts"
+do_1 = "Decision 2470: services/explorer/backend/apps/block_scout_web/assets/package-lock.json is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+symbols = []
+
+[capability.22.96.32]
+title = "Restore the Solana bridge Cargo lock"
+reqs = ["22117.1"]
+touches = ["contracts/bridge/solana/Cargo.lock"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/dependabot/check.py contracts-bridge-solana && cargo metadata --locked --manifest-path contracts/bridge/solana/Cargo.toml --format-version 1 >/dev/null"
+do_1 = "Decision 2470: contracts/bridge/solana/Cargo.lock is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+symbols = []
+
+[capability.22.96.31]
+title = "Restore the wallet app pnpm lock"
+reqs = ["22117.1"]
+touches = ["apps/wallet/pnpm-lock.yaml"]
+tests = []
+verification_contract = "python3 tools/deps/lockfloor.py tools/deps/floors/wallet-app.json && python3 spec/layerx-merge/programme/dependabot/check.py apps-wallet"
+do_1 = "Decision 2470: apps/wallet/pnpm-lock.yaml is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+symbols = []
+
+[capability.22.96.30]
+title = "Scope a lock floor to the advisory's version range"
+reqs = ["22118.1"]
+touches = ["tools/deps/lockfloor.py", "tools/deps/floors/perps-web.json", "tools/deps/tests/test_lockfloor_range.py", "tools/deps/README.md"]
+tests = ["tools/deps/tests/test_lockfloor_range.py"]
+verification_contract = "python3 -m pytest -q tools/deps/tests/test_lockfloor_range.py"
+do_1 = "Decision 2471: in tools/deps/lockfloor.py let a floor value be either a version string (unchanged meaning) or an object with minimum (a version string) and applies_from (a version string); an instance whose version compares below applies_from is outside the advisory's range and is not compared, every other instance must be at or above minimum. Validate both strings with the existing version parser, report an object missing minimum as the existing floors-must-be-version-strings error does, and keep the violation output format."
+symbols = []
+
 [capability.22.95.11]
 title = "Migrate the human service session-key test to the call-bound preparation shape"
 reqs = ["22116.1"]
 touches = ["services/human/crates/layerx-human-service/tests/session_keys.rs"]
 tests = []
-verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test session_keys"
+verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test session_keys --test custody"
 do_1 = "Decision 2467: services/human/crates/layerx-human-service/tests/session_keys.rs:263 builds an EvmPrepared without from, disclosure and disclosure_digest and :269 builds a SigningPreparation with an authorization field; 9.35.17 changed both shapes. Build the EvmPrepared with the test's sender address as from, the disclosure from binding the test call with layerx_crypto::disclosure::call::bind_call(&call, from) and its digest as disclosure_digest, and drop the authorization field; keep every assertion of the file."
 symbols = []
 
@@ -120086,6 +120306,155 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.96.36]
+title = "Restore the dapp integration tests npm lock"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22117.1"]
+capabilities = ["22.96.36"]
+interfaces = []
+do_1 = "Decision 2470: tests/integration/dapp_tests/package-lock.json is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+do_2 = "The resolved versions must satisfy every floor and dependency report that names the lock; where the report records an upgraded version, the regenerated lock carries that version or later (raise it with the package manager's update of that single package when the fresh resolution falls short). If a report value cannot be met without editing the manifest, report implemented-not-qualified naming the package and the version."
+do_3 = "Generate with npm install --package-lock-only --ignore-scripts in tests/integration/dapp_tests."
+symbols = []
+touches = ["tests/integration/dapp_tests/package-lock.json"]
+tests = []
+planned_paths = []
+build_cmd = "cd tests/integration/dapp_tests && npm ci --ignore-scripts"
+verify_cmd = "python3 tools/deps/lockfloor.py tools/deps/floors/dapp-tests.json && python3 spec/layerx-merge/programme/dependabot/check.py tests-integration-dapp-tests"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.96.35]
+title = "Restore the blockscout client yarn lock"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.96.33", "22.96.34"]
+reqs = ["22117.1"]
+capabilities = ["22.96.35"]
+interfaces = []
+do_1 = "Decision 2470: services/explorer/services/libs/blockscout-client/yarn.lock is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+do_2 = "The resolved versions must satisfy every floor and dependency report that names the lock; where the report records an upgraded version, the regenerated lock carries that version or later (raise it with the package manager's update of that single package when the fresh resolution falls short). If a report value cannot be met without editing the manifest, report implemented-not-qualified naming the package and the version."
+do_3 = "Generate with the yarn version package.json pins (corepack) by yarn install --ignore-scripts, then confirm yarn install --frozen-lockfile --ignore-scripts passes. The verify runs the blockscout floors file, which also names the two explorer package-lock.json files restored by 22.96.33 and 22.96.34."
+symbols = []
+touches = ["services/explorer/services/libs/blockscout-client/yarn.lock"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/explorer/services/libs/blockscout-client && corepack enable && yarn install --frozen-lockfile --ignore-scripts"
+verify_cmd = "python3 tools/deps/lockfloor.py tools/deps/floors/blockscout.json && python3 spec/layerx-merge/programme/dependabot/check.py services-explorer-blockscout-client"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.96.34]
+title = "Restore the explorer backend app npm lock"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22117.1"]
+capabilities = ["22.96.34"]
+interfaces = []
+do_1 = "Decision 2470: services/explorer/backend/apps/explorer/package-lock.json is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+do_2 = "The resolved versions must satisfy every floor and dependency report that names the lock; where the report records an upgraded version, the regenerated lock carries that version or later (raise it with the package manager's update of that single package when the fresh resolution falls short). If a report value cannot be met without editing the manifest, report implemented-not-qualified naming the package and the version."
+do_3 = "Generate with npm install --package-lock-only --ignore-scripts in services/explorer/backend/apps/explorer."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/package-lock.json"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/explorer/backend/apps/explorer && npm ci --ignore-scripts"
+verify_cmd = "python3 spec/layerx-merge/programme/dependabot/check.py services-explorer-backend-explorer && cd services/explorer/backend/apps/explorer && npm ci --ignore-scripts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.96.33]
+title = "Restore the explorer web assets npm lock"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22117.1"]
+capabilities = ["22.96.33"]
+interfaces = []
+do_1 = "Decision 2470: services/explorer/backend/apps/block_scout_web/assets/package-lock.json is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+do_2 = "The resolved versions must satisfy every floor and dependency report that names the lock; where the report records an upgraded version, the regenerated lock carries that version or later (raise it with the package manager's update of that single package when the fresh resolution falls short). If a report value cannot be met without editing the manifest, report implemented-not-qualified naming the package and the version."
+do_3 = "Generate with npm install --package-lock-only --ignore-scripts in the assets directory."
+symbols = []
+touches = ["services/explorer/backend/apps/block_scout_web/assets/package-lock.json"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/explorer/backend/apps/block_scout_web/assets && npm ci --ignore-scripts"
+verify_cmd = "python3 spec/layerx-merge/programme/dependabot/check.py services-explorer-block-scout-web-assets && cd services/explorer/backend/apps/block_scout_web/assets && npm ci --ignore-scripts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.96.31]
+title = "Restore the wallet app pnpm lock"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22117.1"]
+capabilities = ["22.96.31"]
+interfaces = []
+do_1 = "Decision 2470: apps/wallet/pnpm-lock.yaml is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+do_2 = "The resolved versions must satisfy every floor and dependency report that names the lock; where the report records an upgraded version, the regenerated lock carries that version or later (raise it with the package manager's update of that single package when the fresh resolution falls short). If a report value cannot be met without editing the manifest, report implemented-not-qualified naming the package and the version."
+symbols = []
+touches = ["apps/wallet/pnpm-lock.yaml"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/wallet install --frozen-lockfile --ignore-scripts"
+verify_cmd = "python3 tools/deps/lockfloor.py tools/deps/floors/wallet-app.json && python3 spec/layerx-merge/programme/dependabot/check.py apps-wallet"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.95.7]
 title = "Give the gateway chain definition a portable viem type"
 status = "superseded"
@@ -120240,7 +120609,7 @@ title = "Issue #1521: Restore compatible PWA cleanup without lowering dependency
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.96.30"]
 reqs = ["181521.1"]
 capabilities = ["18.1521.1"]
 interfaces = []
@@ -120264,6 +120633,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Decision 2464 (attempt 1, df357bc8e, continue): the test fails inside @opentelemetry/sdk-trace-base/src/config.ts:25 because the override @opentelemetry/core@<2.8.0 -> 2.8.0 (added by fc3d178f2) also rewrites sdk-trace-base 1.30.1's ^1.30.1 core, and core 2.x no longer exports TracesSamplerValues. Narrow the override in both the overrides and pnpm.overrides blocks of apps/perps/package.json to @opentelemetry/core@>=2.0.0 <2.8.0 -> 2.8.0 so sdk-trace-base keeps a 1.x core, regenerate pnpm-lock.yaml and package-lock.json, and keep every floor of tools/deps/floors/perps-web.json satisfied; the verify now runs the floors check before the test."
+do_4 = "Decisions 2470 and 2471 (attempt 3, c765536ba, continue): apps/perps/pnpm-lock.yaml and package-lock.json are absent on main, so this task's regenerated locks are their restoration; keep them. The floors check failed only on @opentelemetry/core 1.30.1, which the sentry tree pins outside the advisory's range; task 22.96.30, now required, scopes that floor to 2.x. Do not widen the core override, do not raise the sentry packages; re-run the task's verify once 22.96.30 is published."
 
 [task.18.1518.1]
 title = "Issue #1518: Align TypeScript web search settlement with the sequencer receipt shape"
@@ -125056,6 +125426,36 @@ gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-markets"
 rollback = "Revert the touched files of task 3.98.1; the gateway state and env file live outside the repository, so no repository state depends on them."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.96.37]
+title = "Restore the wasm-tools Cargo lock and the playground npm lock"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22117.1"]
+capabilities = ["22.96.37"]
+interfaces = []
+do_1 = "Decision 2470: tools/wasm-tools/Cargo.lock and tools/wasm-tools/playground/package-lock.json are absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+do_2 = "The resolved versions must satisfy every floor and dependency report that names the lock; where the report records an upgraded version, the regenerated lock carries that version or later (raise it with the package manager's update of that single package when the fresh resolution falls short). If a report value cannot be met without editing the manifest, report implemented-not-qualified naming the package and the version."
+do_3 = "Generate the Cargo lock with cargo generate-lockfile on tools/wasm-tools/Cargo.toml, raising each package the report records as upgraded to its version_after with cargo update -p --precise when needed; generate the playground lock with npm install --package-lock-only --ignore-scripts in tools/wasm-tools/playground. The Cargo.lock files under tools/wasm-tools/crates/wasm-compose/example are not restored (decision 2470)."
+symbols = []
+touches = ["tools/wasm-tools/Cargo.lock", "tools/wasm-tools/playground/package-lock.json"]
+tests = []
+planned_paths = []
+build_cmd = "cargo metadata --locked --manifest-path tools/wasm-tools/Cargo.toml --format-version 1 >/dev/null && cd tools/wasm-tools/playground && npm ci --ignore-scripts"
+verify_cmd = "python3 spec/layerx-merge/programme/dependabot/check.py tools-wasm-tools && cargo metadata --locked --manifest-path tools/wasm-tools/Cargo.toml --format-version 1 >/dev/null"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -132385,6 +132785,152 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.97.10]
+title = "Record the wasm-instrument build"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22120.1"]
+capabilities = ["22.97.10"]
+interfaces = []
+do_1 = "Decision 2473: wasm-instrument (programs/vendor/wasm-instrument) builds a native dependency through cmake. Build it with cmake on PATH (the task's verify) and update [target.rust-build-programs.19] of spec/layerx-merge/programme/sweeps/rust-build-programs.kvx with the result, exit code and the 40-hex revision; if the build fails with cmake present, record the first error in observed."
+symbols = []
+touches = ["spec/layerx-merge/programme/sweeps/rust-build-programs.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "cargo metadata --locked --manifest-path programs/Cargo.toml --format-version 1 >/dev/null"
+verify_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p wasm-instrument --all-targets"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.97.9]
+title = "Record the verifier proto crate build"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22120.1"]
+capabilities = ["22.97.9"]
+interfaces = []
+do_1 = "Decision 2473: smart-contract-verifier-proto needs the protobuf compiler on PATH for its build script. Build it (the task's verify) and update [target.rust-build-explorer-verifier.2] of spec/layerx-merge/programme/sweeps/rust-build-explorer-verifier.kvx with the result, exit code and the 40-hex revision; if the build fails with protoc present, record the first error in observed."
+symbols = []
+touches = ["spec/layerx-merge/programme/sweeps/rust-build-explorer-verifier.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "cargo metadata --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml --format-version 1 >/dev/null"
+verify_cmd = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml -p smart-contract-verifier-proto --all-targets"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.96.39]
+title = "Restore the intents fuzz Cargo lock"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22117.1"]
+capabilities = ["22.96.39"]
+interfaces = []
+do_1 = "Decision 2470: services/human/crates/layerx-intents/fuzz/Cargo.lock is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+do_2 = "The resolved versions must satisfy every floor and dependency report that names the lock; where the report records an upgraded version, the regenerated lock carries that version or later (raise it with the package manager's update of that single package when the fresh resolution falls short). If a report value cannot be met without editing the manifest, report implemented-not-qualified naming the package and the version."
+do_3 = "Generate with cargo generate-lockfile on the fuzz manifest; no floors file or dependency report names this lock."
+symbols = []
+touches = ["services/human/crates/layerx-intents/fuzz/Cargo.lock"]
+tests = []
+planned_paths = []
+build_cmd = "cargo metadata --locked --manifest-path services/human/crates/layerx-intents/fuzz/Cargo.toml --format-version 1 >/dev/null"
+verify_cmd = "cargo metadata --locked --manifest-path services/human/crates/layerx-intents/fuzz/Cargo.toml --format-version 1 >/dev/null"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.96.38]
+title = "Restore the libwasmvm Cargo lock"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22117.1"]
+capabilities = ["22.96.38"]
+interfaces = []
+do_1 = "Decision 2470: wasm-runtime/libwasmvm/Cargo.lock is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+do_2 = "The resolved versions must satisfy every floor and dependency report that names the lock; where the report records an upgraded version, the regenerated lock carries that version or later (raise it with the package manager's update of that single package when the fresh resolution falls short). If a report value cannot be met without editing the manifest, report implemented-not-qualified naming the package and the version."
+do_3 = "Generate with cargo generate-lockfile on wasm-runtime/libwasmvm/Cargo.toml, raising each package the report records as upgraded to its version_after with cargo update -p --precise when needed."
+symbols = []
+touches = ["wasm-runtime/libwasmvm/Cargo.lock"]
+tests = []
+planned_paths = []
+build_cmd = "cargo metadata --locked --manifest-path wasm-runtime/libwasmvm/Cargo.toml --format-version 1 >/dev/null"
+verify_cmd = "python3 spec/layerx-merge/programme/dependabot/check.py wasm-runtime-libwasmvm && cargo metadata --locked --manifest-path wasm-runtime/libwasmvm/Cargo.toml --format-version 1 >/dev/null"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-cosmos-fork"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.96.32]
+title = "Restore the Solana bridge Cargo lock"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22117.1"]
+capabilities = ["22.96.32"]
+interfaces = []
+do_1 = "Decision 2470: contracts/bridge/solana/Cargo.lock is absent on main although the manifest beside it is unchanged. Regenerate the lock from that manifest without editing the manifest, so the ecosystem's frozen install (the task's build command) passes on the result."
+do_2 = "The resolved versions must satisfy every floor and dependency report that names the lock; where the report records an upgraded version, the regenerated lock carries that version or later (raise it with the package manager's update of that single package when the fresh resolution falls short). If a report value cannot be met without editing the manifest, report implemented-not-qualified naming the package and the version."
+do_3 = "Generate with cargo generate-lockfile on contracts/bridge/solana/Cargo.toml; for each alert the report records as upgraded, cargo update -p that package --precise its version_after when the fresh resolution is lower."
+symbols = []
+touches = ["contracts/bridge/solana/Cargo.lock"]
+tests = []
+planned_paths = []
+build_cmd = "cargo metadata --locked --manifest-path contracts/bridge/solana/Cargo.toml --format-version 1 >/dev/null"
+verify_cmd = "python3 spec/layerx-merge/programme/dependabot/check.py contracts-bridge-solana && cargo metadata --locked --manifest-path contracts/bridge/solana/Cargo.toml --format-version 1 >/dev/null"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.95.11]
 title = "Migrate the human service session-key test to the call-bound preparation shape"
 status = "pending"
@@ -132398,11 +132944,11 @@ do_1 = "Decision 2467: services/human/crates/layerx-human-service/tests/session_
 do_2 = "Change nothing outside the test file; if a test of the target fails for a reason other than these two shapes, report implemented-not-qualified naming the test and the line."
 do_3 = "Run the task's verify, which runs the session_keys target."
 symbols = []
-touches = ["services/human/crates/layerx-human-service/tests/session_keys.rs"]
+touches = ["services/human/crates/layerx-human-service/tests/session_keys.rs", "services/human/crates/layerx-human-service/tests/custody.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
-verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test session_keys"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test session_keys --test custody"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -132414,6 +132960,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 1 (4728fe84d, continue): the build of the test targets also fails in tests/custody.rs at :415 (EvmPrepared without from, disclosure and disclosure_digest), :423 (SigningPreparation with an authorization field) and :483 (a read of that field). Migrate custody.rs the same way as session_keys.rs: from is the test's sender, the disclosure comes from binding the call with bind_call and its digest, the authorization field is dropped and the assertion at :483 reads the idempotency key from the prepared call's disclosure audit instead. The verify stays the session_keys target; the build must compile every test target of the crate."
 
 [task.22.95.10]
 title = "Move the x402 vector suite and the payload fixture to the eip155:125 network rule"
@@ -133752,7 +134299,7 @@ do_2 = "services/agent/crates/layerx-agentd/src/approval/mod.rs: the record at :
 do_3 = "The tests services/agent/crates/layerx-agentd/tests/approval.rs, approval_ops.rs, approval_semantics.rs, approval_events.rs and approval_ordering/mod.rs build their Prepared fixtures from a fixed call (the single signing_preimage line each one carries today becomes the call's signing hash) and gain, in approval.rs, replay_refuses_a_hold_whose_call_bytes_or_sender_changed: a persisted hold with one call byte flipped and one with another sender is refused by validate_registry."
 do_4 = "The verify runs the crate's lib tests and the five approval targets."
 symbols = ["HeldApproval", "replay_refuses_a_hold_whose_call_bytes_or_sender_changed"]
-touches = ["services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/src/approval/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/approval.rs", "services/agent/crates/layerx-agentd/tests/approval_ops.rs", "services/agent/crates/layerx-agentd/tests/approval_semantics.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs", "services/agent/crates/layerx-agentd/src/approval/expiry.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/src/approval/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/approval.rs", "services/agent/crates/layerx-agentd/tests/approval_ops.rs", "services/agent/crates/layerx-agentd/tests/approval_semantics.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs", "services/agent/crates/layerx-agentd/src/approval/expiry.rs", "services/agent/crates/layerx-mcp/src/server.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/tests/approval.rs", "services/agent/crates/layerx-mcp/tests/web.rs", "services/human/crates/layerx-human-service/tests/approvals.rs", "services/human/crates/layerx-human-service/tests/decide.rs", "services/human/crates/layerx-human-service/tests/decide_nonces.rs", "services/human/crates/layerx-human-service/tests/render.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/approval.rs::replay_refuses_a_hold_whose_call_bytes_or_sender_changed"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -133769,6 +134316,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Decision 2463 (attempt 1, 85aecb005, continue): the lib test build fails with E0063 at services/agent/crates/layerx-agentd/src/approval/expiry.rs:645 because that ApprovalContext initializer lacks the new actor_address field; the file is now in the task's touches, so fill the field there from the context the expiry path holds and rebuild before the verify."
+do_6 = "Decision 2472 (attempt 2, c890bd2d0, continue): ApprovalContext gained actor_address, so every initializer outside the daemon is now in the task's touches and is migrated here with the actor address the surrounding code already holds (the session or request actor; in test fixtures a fixed test address): services/agent/crates/layerx-mcp/src/server.rs:853, src/tools/web.rs:2496 and :2688, tests/approval.rs:67, tests/web.rs:822, and under services/human/crates/layerx-human-service/tests the initializers at approvals.rs:76, decide.rs:305, decide_nonces.rs:509 and render.rs:225. The dependent-crate check must pass; session_keys.rs and custody.rs of the human service are repaired by 22.95.11 and are not this task's concern."
 
 [task.9.35.17]
 title = "Carry the call-bound disclosure on the EIP-1559 preparation and drop the legacy authorization from the signing preparation"
@@ -193502,6 +194050,149 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.97.8]
+title = "Record the two unrun module test packages and the packages without tests"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22120.1"]
+capabilities = ["22.97.8"]
+interfaces = []
+do_1 = "Decision 2473: modules/evm/artifacts/native and modules/tokenfactory/client/wasm/bindings each carry a test file the sweep did not run; run them (the task's verify) and update [target.go-modules.17] and [target.go-modules.115] of spec/layerx-merge/programme/sweeps/go-modules.kvx with the result, exit code and 40-hex revision. Set result no_tests with observed naming the absence of test files on the blocks of the eleven packages without any: modules/epoch/client/wasm and its bindings, modules/mint/simulation, modules/oracle/client/rest, modules/oracle/client/wasm and its bindings, modules/oracle/keeper/testutils, modules/oracle/simulation, modules/oracle/utils, modules/pricefeed/testutil, precompiles/addr/legacy/v552 and v555 (match them by their target value)."
+symbols = []
+touches = ["spec/layerx-merge/programme/sweeps/go-modules.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "CGO_ENABLED=1 go vet ./modules/evm/artifacts/native/ ./modules/tokenfactory/client/wasm/bindings/"
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./modules/evm/artifacts/native/ ./modules/tokenfactory/client/wasm/bindings/"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.97.7]
+title = "Record the lxphost target and the repaired kernel targets"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.97.1", "22.97.2"]
+reqs = ["22120.1"]
+capabilities = ["22.97.7"]
+interfaces = []
+do_1 = "Decision 2473: test-lxphost builds the native libraries and runs go test ./modules/lxphost/...; the sweep never ran it. Run it together with the repaired targets test-budget-create, test-proof and test-proof-lxp_receipt_h (the task's verify) and update [target.c-kernel-make.129], .32, .147 and .153 of spec/layerx-merge/programme/sweeps/c-kernel-make.kvx with each result, exit code and the 40-hex revision."
+symbols = []
+touches = ["spec/layerx-merge/programme/sweeps/c-kernel-make.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "make -s test-lxphost && make -s test-budget-create && make -s test-proof && make -s test-proof-lxp_receipt_h"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.97.3]
+title = "Make the persist write-error test fail its write for every user"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22119.1"]
+capabilities = ["22.97.3"]
+interfaces = []
+do_1 = "Decision 2473: consensus/internal/autobahn/consensus/persist/persist_test.go:155-162 (TestPersistWriteErrorReturnsError) makes the write fail by removing the directory's permissions, which the superuser bypasses. Make the failure independent of the user: give the store a path whose parent is a regular file (or a path inside a file), so the write fails with a path error for every user; keep the assertion on the returned error."
+do_2 = "Update [target.go-consensus.19] of spec/layerx-merge/programme/sweeps/go-consensus.kvx with the passing result, exit code 0 and the 40-hex revision the verify ran on; keep the other blocks unchanged."
+symbols = []
+touches = ["consensus/internal/autobahn/consensus/persist/persist_test.go", "spec/layerx-merge/programme/sweeps/go-consensus.kvx"]
+tests = ["consensus/internal/autobahn/consensus/persist/persist_test.go"]
+planned_paths = []
+build_cmd = "CGO_ENABLED=1 go vet ./consensus/internal/autobahn/consensus/persist/"
+verify_cmd = "CGO_ENABLED=1 go test -count=1 -run '^TestPersistWriteErrorReturnsError$' ./consensus/internal/autobahn/consensus/persist/"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.97.2]
+title = "Drop the retired idempotency counter from the global sequence codec test"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22119.1"]
+capabilities = ["22.97.2"]
+interfaces = []
+do_1 = "Decision 2473: tests/codec/lxp_test_global_sequence.c:225 reads an idempotency_count member that the idempotency retirement removed from the state. Remove the read and the assertion that depends on it; if the case asserts a count the retirement replaced with another observable, assert that observable instead. Change nothing else in the file."
+do_2 = "Run make -s test-proof and make -s test-proof-lxp_receipt_h; both pass."
+symbols = []
+touches = ["tests/codec/lxp_test_global_sequence.c"]
+tests = ["tests/codec/lxp_test_global_sequence.c"]
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "make -s test-proof && make -s test-proof-lxp_receipt_h"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.97.1]
+title = "Make the budget delegate spend test agree with the kernel"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22119.1"]
+capabilities = ["22.97.1"]
+interfaces = []
+do_1 = "Decision 2473: tests/modules/test_budget_create.c:707-711 (the request-path case) expects the delegate spend to return LXP_OK and the kernel returns another result. Read the kernel's budget delegate spend path and decide which side is right: if the kernel refuses the spend by design (for example the delegate has no allowance on that path or the call carries the owner's key where the delegate's is required), make the test assert the result the kernel returns and the state it leaves; if the kernel is wrong, change nothing and report implemented-not-qualified naming the kernel function and line, since kernel sources are outside this task's scope."
+do_2 = "Run make -s test-budget-create; every other case of the file keeps passing."
+symbols = []
+touches = ["tests/modules/test_budget_create.c"]
+tests = ["tests/modules/test_budget_create.c"]
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "make -s test-budget-create"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.95.9]
 title = "Make HTTPServer.Stop wait for the serve goroutine it races"
 status = "done"
@@ -212911,6 +213602,34 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.97.6]
+title = "Record the Solidity-backed kernel make targets"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = []
+reqs = ["22120.1"]
+capabilities = ["22.97.6"]
+interfaces = []
+do_1 = "Decision 2473: the make targets test-contracts, test-contract-state-surface, test-reserve, test-bridge-deposit and test-bridge-withdraw run scripts/ci/solidity-state-surface.sh, which needs forge. Run the five targets with the Foundry toolchain present (the task's verify) and update [target.c-kernel-make.86], .85, .73, .71 and .72 of spec/layerx-merge/programme/sweeps/c-kernel-make.kvx with each result, exit code and the 40-hex revision. A target that fails for a reason other than a missing toolchain is recorded failed with its first failing assertion in observed."
+symbols = []
+touches = ["spec/layerx-merge/programme/sweeps/c-kernel-make.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "bash contracts/bootstrap-libs.sh && FOUNDRY_CONFIG=foundry.paxeer.toml forge build --root ."
+verify_cmd = "make -s test-contracts && make -s test-contract-state-surface && make -s test-reserve && make -s test-bridge-deposit && make -s test-bridge-withdraw"
+gate_kind = "planned"
+sandbox_profile = "solidity"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.19.4.4]
 title = "Write the name availability contract that requests storage receipts through the xweb precompile"
 status = "done"
@@ -228056,6 +228775,94 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 
+[task.22.97.5]
+title = "Record the chainflow test collection with its declared extras"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.97.4"]
+reqs = ["22120.1"]
+capabilities = ["22.97.5"]
+interfaces = []
+do_1 = "Decision 2473: sdk/chainflow/python/pyproject.toml declares httpx and a websockets extra that the tests import; collect them with the package installed with that extra (the task's verify) and update [target.python-pytest-collect.20] of spec/layerx-merge/programme/sweeps/python-pytest-collect.kvx with the result, exit code and the 40-hex revision of the run. If collection still fails, record the failing import in observed and the cause in assumption."
+symbols = []
+touches = ["spec/layerx-merge/programme/sweeps/python-pytest-collect.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -e 'sdk/chainflow/python[websockets]'"
+verify_cmd = "python3 -m pip install -q -e 'sdk/chainflow/python[websockets]' && python3 -m pytest -q --collect-only sdk/chainflow/python/tests"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.97.4]
+title = "Declare the phase2 observability test requirements"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22119.1"]
+capabilities = ["22.97.4"]
+interfaces = []
+do_1 = "Decision 2473: deploy/launchpad/production/observability/phase2/phase4.py:28 imports jsonschema and tests/test_phase4.py:13 imports it too, but the directory declares no requirements, so pytest collection fails. Add deploy/launchpad/production/observability/phase2/requirements.txt pinning jsonschema and every other third-party import the directory's modules and tests make (read them all; pin exact versions that resolve today)."
+do_2 = "Update [target.python-pytest-collect.8] of spec/layerx-merge/programme/sweeps/python-pytest-collect.kvx with the collection result, exit code and the 40-hex revision of the verify run; keep the other blocks unchanged."
+symbols = []
+touches = ["deploy/launchpad/production/observability/phase2/requirements.txt", "spec/layerx-merge/programme/sweeps/python-pytest-collect.kvx"]
+tests = []
+planned_paths = ["deploy/launchpad/production/observability/phase2/requirements.txt"]
+build_cmd = "python3 -m py_compile deploy/launchpad/production/observability/phase2/phase4.py"
+verify_cmd = "python3 -m pip install -q -r deploy/launchpad/production/observability/phase2/requirements.txt && python3 -m pytest -q --collect-only deploy/launchpad/production/observability/phase2/tests"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.96.30]
+title = "Scope a lock floor to the advisory's version range"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22118.1"]
+capabilities = ["22.96.30"]
+interfaces = []
+do_1 = "Decision 2471: in tools/deps/lockfloor.py let a floor value be either a version string (unchanged meaning) or an object with minimum (a version string) and applies_from (a version string); an instance whose version compares below applies_from is outside the advisory's range and is not compared, every other instance must be at or above minimum. Validate both strings with the existing version parser, report an object missing minimum as the existing floors-must-be-version-strings error does, and keep the violation output format."
+do_2 = "In tools/deps/floors/perps-web.json replace the @opentelemetry/core value of both manifests with the object form: minimum 2.8.0 and applies_from 2.0.0. Change no other entry."
+do_3 = "Add tools/deps/tests/test_lockfloor_range.py (planned): it writes a temporary package.json and pnpm-lock.yaml carrying @opentelemetry/core at 1.30.1 and at 2.8.0, writes a floors file whose manifests key is the absolute path of that lock, and asserts that lockfloor returns 0 with the scoped object and 1 with the plain string 2.8.0, the violation line naming 1.30.1. Import lockfloor from tools/deps by path."
+do_4 = "Document the object form in tools/deps/README.md in one paragraph."
+symbols = []
+touches = ["tools/deps/lockfloor.py", "tools/deps/floors/perps-web.json", "tools/deps/tests/test_lockfloor_range.py", "tools/deps/README.md"]
+tests = ["tools/deps/tests/test_lockfloor_range.py"]
+planned_paths = ["tools/deps/tests/test_lockfloor_range.py"]
+build_cmd = "python3 -m py_compile tools/deps/lockfloor.py"
+verify_cmd = "python3 -m pytest -q tools/deps/tests/test_lockfloor_range.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.94.41]
 title = "Disposition of qualification findings 22.9.30.1 to 22.24.12.1 (domain 22, part 13)"
 status = "done"
@@ -228355,7 +229162,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.32]
 title = "Disposition of qualification findings 22.90.9.1 to 22.10.7.1 (domain 22, part 4)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228454,7 +229261,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.29]
 title = "Disposition of qualification findings 20.3.4.1 to 20.4.3.1 (domain 20, part 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228906,6 +229713,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2454 (attempt 1, 756754b7f, continue): the readonly listing of services/launchpad/api fails because internal/rest/production_integration_test.go:32 imports github.com/pressly/goose/v3, which services/launchpad/api/go.mod does not require; no go.sum content can satisfy that. Add the goose requirement to services/launchpad/api/go.mod at the version services/launchpad/user, indexer, trading-charts, metadata and livestream use, regenerate the api module's go.sum and the go.work.sum accordingly, and run go list -mod=readonly -deps -test ./... in each of the seventeen modules before the verify. If another module shows the same manifest gap, stop and report implemented-not-qualified naming the module and the package. Rerun the task's verify."
 do_5 = "Attempt 2 (9ece46d24) reported services/launchpad/api/go.mod as out of scope; it is in the task's touches since decision 2454 and do_4 is the repair: add the goose requirement there and regenerate the api go.sum and go.work.sum."
+do_6 = "Decision 2470 (attempt 2, 9ece46d24): every go.sum in the task's touches is absent on main since b6101fd07, so the readonly resolution fails on missing checksums, not only on goose. Regenerate each with go mod download all followed by go mod verify in its module directory (go.work.sum from the services/launchpad work root), leave every go.mod as main has it except the goose requirement of do_4, and confirm go list -mod=readonly ./... passes in each module before the verify."
 
 [task.18.1522.1]
 title = "Issue #1522: Check the dashboard Next floor against its shared install lock"

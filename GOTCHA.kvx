@@ -14420,3 +14420,18 @@ fix = "When a ruling removes a file from the scope, start the next attempt from 
 title = "A restore path returned the new record into a cache typed for the old one"
 symptom = "Carriers were migrated to restore the call-bound preparation while the runtime cache still held the legacy record, so the two insertions failed to compile."
 fix = "When a producer changes a record type, enumerate every cache that holds it and decide the holding shape in the same task."
+
+[gotcha.2920]
+title = "A directory-scoped publication dropped the tracked lock files under it"
+symptom = "Tasks whose scope named a directory were published without the lock and checksum files tracked there, because those files were classed as generated; frozen installs and readonly module resolution failed later on main."
+fix = "When a scope is a directory, keep every tracked lock file under it in the published tree and verify the ecosystem's frozen install on the published revision."
+
+[gotcha.2921]
+title = "A flat version floor failed instances outside the advisory's range"
+symptom = "A minimum version derived from an advisory on one major was applied to every resolved instance of the package, so a 1.x instance pinned by an unrelated dependency failed a floor meant for 2.x."
+fix = "Scope a floor to the advisory's version range when the lock legitimately carries an older major."
+
+[gotcha.2922]
+title = "A struct gaining a field broke initializers in dependent crates"
+symptom = "A context struct gained a required field in one crate; the dependent-crate check found the initializers in two other crates and their tests uncompilable."
+fix = "When a task adds a required field, list every crate that initializes the struct in its scope and migrate them in the same task."
