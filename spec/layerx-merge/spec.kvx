@@ -8067,6 +8067,24 @@ value = "Every target the inventory sweeps recorded as failed is repaired by its
 basis = "spec/layerx-merge/programme/sweeps: 132 targets recorded failed, 76 not_run, 12 no_tests; 78 failed targets qualify for a scoped repair."
 affects = ["22.99.2", "22.99.79"]
 
+[decision.2493]
+title = "The human custody test runs its own runtime clock"
+value = "services/human/crates/layerx-human-service/tests/custody.rs (line 439 at attempt 5, line 427 on the main line) takes its plan clock from RuntimeClock::from_environment, which needs the runtime clock authority socket, process and user variables that only a running node runtime provides; the qualification environment has none, so the test real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant panics with clock authority unavailable while the four other custody tests pass. tests/component_frame.rs:49-60 already starts an in-process clock (RunningClock::start on a private directory, then RuntimeClock::connect on the returned binding). The custody test adopts the same in-process clock; no test of the human service may depend on an ambient clock authority."
+basis = "22.95.11 attempt 5: build passed, verify failed only at custody.rs:439 with plan clock: clock authority unavailable; the same call exists on the main line, so the test never passed in qualification."
+affects = ["22.95.11"]
+
+[decision.2494]
+title = "A retired registry row may list test-code lines of the registered path"
+value = "The reconcile checker's retired rule required the symbol to be absent from the whole registered file, which rejected retirements whose only surviving occurrences are test inputs proving the retirement (LAYERX_INDEXER_BLOCK_TIME_MS at services/platform/hosted/indexer/src/config.rs:424 and :452, inserted into a lookup to show Config::from_lookup ignores it). From this revision a retired row's remaining list may carry path:line references inside the registered path; the absence check skips exactly those lines and still fails on any other occurrence, and remaining_refs counts every listed reference. The evidence must say the listed lines are test code."
+basis = "22.98.152 attempts 1 and 2: row 9 production lookup gone, the checker failed on the two test literals; no verdict was honest (served would claim a consumed variable, retired was refused)."
+affects = ["22.98.152"]
+
+[decision.2495]
+title = "Exact web-search payment fixtures carry the signed transaction bytes"
+value = "The TypeScript exact payment path (services/agent/sdk/typescript/src/web-search.ts:481-486) verifies the pinned receipt against the signed transaction bytes and requires txHash to equal keccak of those bytes, as the kernel receipt model binds a receipt to its transaction. The recorded exact fixtures (services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json, written by exact_exchange in tests/payment.rs:1296-1336) use a synthetic hash from labelled(x-websearch-test/transaction/, label) with no transaction behind it, so no consumer can verify them. The producer signs a real transaction for each exact payment the way broadcast_draw does (payment.rs:1028, signed.raw and signed.hash), records rawTransaction beside txHash, and re-records the fixtures; the TypeScript exact payer then returns rawTransaction from the fixture. Producer first, consumer second: 22.9.10 requires 11.98.1."
+basis = "22.9.10 attempt 23: every suite passes until web-search.test.js:201 throws receipt-unverified from verifySequencerReceipt because the fixture payer returns no rawTransaction and none exists to return."
+affects = ["11.98.1", "22.9.10"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -21687,6 +21705,10 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.11998]
+title = "Exact web-search payment fixtures are verifiable against signed transaction bytes"
+ac_1 = "Given the recorded exact payment fixtures of x-websearch, when a consumer verifies a recorded receipt, then the fixture supplies the signed transaction bytes whose keccak hash is the recorded txHash and the receipt verifies against them."
 
 [req.22998]
 title = "Every recorded inventory sweep target passes its recorded command"
@@ -36947,6 +36969,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.11.98.1]
+title = "Record signed transaction bytes in the exact web-search payment fixtures"
+reqs = ["11998.1"]
+touches = ["services/interop/crates/x-websearch/tests/payment.rs", "services/interop/crates/x-websearch/tests/fixtures"]
+tests = ["services/interop/crates/x-websearch/tests/payment.rs"]
+verification_contract = "/usr/bin/grep -q rawTransaction services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json && cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test payment"
+do_1 = "Decision 2495: exact_exchange in services/interop/crates/x-websearch/tests/payment.rs (lines 1296-1336) derives each exact payment's transaction hash from labelled(x-websearch-test/transaction/, label), a synthetic value with no transaction behind it, and records txHash, receiptDigest, verificationLevel and idempotencyKey per currency into fixtures/gateway/exact.json. Replace the synthetic hash with a real signed transaction built the way broadcast_draw builds one (payment.rs:1028: signed.raw and signed.hash), use signed.hash as the receipt's transaction hash for draw_receipt_answer and the pax_sequencerReceipt rule, and record rawTransaction as the 0x-prefixed hex of signed.raw beside txHash in the payments map."
+symbols = []
 
 [capability.22.99.79]
 title = "Repair the inventory sweep target layerx-platform-release"
@@ -125224,7 +125255,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.23.12]
 title = "Read paymentDenom in the TypeScript sdk receipt views and check the asset against it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.23.8"]
@@ -125484,7 +125515,7 @@ title = "Finalize TypeScript market operations against commit finality"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.14", "22.9.37", "18.1518.1"]
+requires = ["22.9.14", "22.9.37", "18.1518.1", "11.98.1"]
 reqs = ["22006.1"]
 capabilities = ["22.9.10"]
 interfaces = []
@@ -125526,6 +125557,7 @@ do_18 = "Decision 2432 (attempt 17, 9e6491b8f, continue): every web-search case 
 do_19 = "Decision 2446 (attempt 19, f724e236706, continue), superseding do_18's exclusion of src/web-search.ts for this case: every suite passes through gas station and web-search.test.js fails at line 185 (exactIn) because the recorded exact payment payload in services/interop/crates/x-websearch/tests/fixtures/client-exchange.json carries idempotencyKey, receiptDigest, txHash and verificationLevel receipted (the seller admits exactly those, services/interop/crates/x-websearch/src/payment.rs:2624-2650) and no receipt field. Port the TypeScript exact payment as 18.1121.1 do_7 ported the MCP tool: WebSearchExactPayment (src/web-search.ts:57-58) yields the txHash beside the verified receipt bytes, #prepare verifies the receipt locally and sends the four-field payload, #settle keeps its checks of the response's layerx extension (verificationLevel receipted, receipt, receiptDigest); in test/web-search.test.ts exactIn reads txHash and receiptDigest from the recording and the receipt bytes from the recorded pax_sequencerReceipt answer keyed by txHash. 18.1518.1 edits src/web-search.ts first and is now required. Rerun the task's verify."
 do_20 = "Decision 2474: services/agent/sdk/typescript/test/web-search-sequencer.test.ts constructs WebSearchExactPayment at line 167 (exact: async () => ({ receipt, rawTransaction })) and no longer type-checks against the shape do_19 gives src/web-search.ts:57-62 (receipt, txHash, idempotencyKey, optional rawTransaction). Migrate that test, not the source: return receipt, txHash taken from the transactionHash the test already reads at line 96 (vector.receiptJson.txHash) and idempotencyKey taken from the exact settlement expectation the test asserts, keep rawTransaction, and align the settlement payload assertions at lines 197 and 285 with the fields the port sends. The build (tsc) must pass before the verify runs."
 do_21 = "test/web-search.test.ts (exact payer, lines 190-203) recomputes receiptDigest as sha256 of the domain prefix LXP/v1/merkle-leaf followed by the receipt bytes and compares it with the receiptDigest recorded in services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json; the values differ. Read how the recording producer (services/interop/crates/x-websearch/tests/payment.rs and the gateway code that writes receiptDigest) derives the digest and compute it the same way in the test. If the fixture predates the current receipt bytes, re-record it with the producer under its recording environment variable and commit the new fixture; never relax or drop the digest check."
+do_22 = "Decision 2495 (attempt 23, 5256ba333, continue): the exact fixtures now carry rawTransaction (task 11.98.1, required). In test/web-search.test.ts the exact payer (lines 190-203) returns rawTransaction decoded from the recorded payment's rawTransaction field beside receipt, txHash and idempotencyKey, and the receiptDigest comparison stays as do_21 settled it. Do not change src/web-search.ts for this case; the client's checks that the receipt verifies against the signed bytes and that txHash equals keccak of them are the contract."
 
 [task.22.91.38]
 title = "Inventory the platform examples packages"
@@ -136216,6 +136248,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.11.98.1]
+title = "Record signed transaction bytes in the exact web-search payment fixtures"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.99.68"]
+reqs = ["11998.1"]
+capabilities = ["11.98.1"]
+interfaces = []
+do_1 = "Decision 2495: exact_exchange in services/interop/crates/x-websearch/tests/payment.rs (lines 1296-1336) derives each exact payment's transaction hash from labelled(x-websearch-test/transaction/, label), a synthetic value with no transaction behind it, and records txHash, receiptDigest, verificationLevel and idempotencyKey per currency into fixtures/gateway/exact.json. Replace the synthetic hash with a real signed transaction built the way broadcast_draw builds one (payment.rs:1028: signed.raw and signed.hash), use signed.hash as the receipt's transaction hash for draw_receipt_answer and the pax_sequencerReceipt rule, and record rawTransaction as the 0x-prefixed hex of signed.raw beside txHash in the payments map."
+do_2 = "Re-record services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json and services/interop/crates/x-websearch/tests/fixtures/client-exchange.json under the recording variable X_WEBSEARCH_RECORD_EXCHANGE and commit the new fixtures. Keep every Rust assertion of the payment tests passing; where a test compares the recorded payment to the seller's admitted fields (idempotencyKey, receiptDigest, txHash, verificationLevel), the extra rawTransaction field is fixture-only and is not sent to the seller."
+do_3 = "The verify runs the payment test target and checks that the exact fixture holds rawTransaction. Do not edit services/agent/sdk/typescript; task 22.9.10 consumes the new field."
+symbols = []
+touches = ["services/interop/crates/x-websearch/tests/payment.rs", "services/interop/crates/x-websearch/tests/fixtures"]
+tests = ["services/interop/crates/x-websearch/tests/payment.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --tests"
+verify_cmd = "/usr/bin/grep -q rawTransaction services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json && cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test payment"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit; the fixtures return to the synthetic hashes."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.99.79]
 title = "Repair the inventory sweep target layerx-platform-release"
 status = "pending"
@@ -137649,6 +137711,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1 (4728fe84d, continue): the build of the test targets also fails in tests/custody.rs at :415 (EvmPrepared without from, disclosure and disclosure_digest), :423 (SigningPreparation with an authorization field) and :483 (a read of that field). Migrate custody.rs the same way as session_keys.rs: from is the test's sender, the disclosure comes from binding the call with bind_call and its digest, the authorization field is dropped and the assertion at :483 reads the idempotency key from the prepared call's disclosure audit instead. The verify stays the session_keys target; the build must compile every test target of the crate."
 do_5 = "The custody test (tests/custody.rs lines 405-417) builds an Eip1559Call with to = 0x1a repeated and a kernel authorization as data and passes it to bind_call; the binder in layerx-crypto's disclosure/call.rs refuses it with MalformedPayload because it decodes only registered targets with a canonical ABI payload. Build the call the way the crate's own call.rs tests do (a registered target address and the ABI payload the binder decodes), and derive the disclosure digest the signer binds from that call; the kernel authorization keeps its own signing path. Also repair the test's use of the agent daemon's prepare types: prepare::evm::Prepared now carries disclosure, disclosure_digest and from, and SigningPreparation has transaction and actor_address, no authorization field (lines 415, 423 and 483)."
+do_6 = "Decision 2493 (attempt 5, d9482fe19, continue): keep the migration of both tests; in tests/custody.rs replace the RuntimeClock::from_environment call at line 439 with an in-process clock started the way tests/component_frame.rs:49-60 does it (a RunningClock started on a private temporary directory and RuntimeClock::connect on its binding; copy the small fixture into custody.rs, keeping the server alive until the test ends). The verify runs both targets; all five custody tests and the session-key tests must pass without any clock authority variables set."
 
 [task.22.95.10]
 title = "Move the x402 vector suite and the payload fixture to the eip155:125 network rule"
@@ -201401,7 +201464,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.7.3]
 title = "Reconcile the latest-tag pending expectation and export the gas price helper the RPC tests call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.7.2", "22.5.9", "22.6.4", "22.25.4"]
@@ -234845,7 +234908,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.213]
 title = "Reconcile drifted interface registry rows: tools/bringup and tools/qualification part 15"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234875,7 +234938,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.212]
 title = "Reconcile drifted interface registry rows: Makefile and docker/kernel part 14"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234905,7 +234968,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.211]
 title = "Reconcile drifted interface registry rows: Makefile part 13"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234935,7 +234998,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.210]
 title = "Reconcile drifted interface registry rows: Makefile part 12"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234965,7 +235028,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.209]
 title = "Reconcile drifted interface registry rows: Makefile part 11"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -236702,6 +236765,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2494 (attempt 3, continue): the checker now skips lines of the registered path that remaining lists. Record row 9 as retired with remaining_refs = 2 and remaining = [services/platform/hosted/indexer/src/config.rs:424, services/platform/hosted/indexer/src/config.rs:452] (as path:line strings), with evidence stating that both lines are test inputs inserted into the lookup to prove Config::from_lookup ignores the variable and that no production read remains. Keep every other row as attempt 2 recorded it and rerun the fragment checker."
 
 [task.22.98.151]
 title = "Reconcile drifted interface registry rows: services/platform part 31"
