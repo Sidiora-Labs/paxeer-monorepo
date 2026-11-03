@@ -1,0 +1,243 @@
+[reconcile.r11-173]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r11-173.1]
+interface = "interface.11.rs-mirror-generic-publisher"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1149
+symbol = "GenericPublisher"
+evidence = "pub struct GenericPublisher<E, S> declares the generic dual-chain publisher with EthereumPublisher<E> and SolanaPublisher<S> fields; the registered signature is unchanged."
+
+[row.r11-173.2]
+interface = "interface.11.rs-mirror-generic-publisher-ethereum-cursor"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1211
+symbol = "ethereum_cursor"
+evidence = "Inside impl<E: EthereumArchiveClient, S: SolanaArchiveClient> GenericPublisher<E, S>, pub const fn ethereum_cursor(&self) -> MirrorCursor returns self.ethereum.cursor, matching the registered const method."
+
+[row.r11-173.3]
+interface = "interface.11.rs-mirror-generic-publisher-publish"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1190
+symbol = "publish"
+evidence = "GenericPublisher<E, S> declares pub fn publish(&mut self, archive: &Archive) -> PublicationReport; it publishes through both generic chain clients and returns their MirrorState outcomes."
+
+[row.r11-173.4]
+interface = "interface.11.rs-mirror-generic-publisher-retrieve"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1203
+symbol = "retrieve"
+evidence = "GenericPublisher<E, S> declares pub fn retrieve(&mut self, commitment: ArchiveCommitment) -> RetrievalReport, independently collecting both chain retrieval states; receiver and result match the registry."
+
+[row.r11-173.5]
+interface = "interface.11.rs-mirror-generic-publisher-solana-cursor"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1216
+symbol = "solana_cursor"
+evidence = "Within the GenericPublisher<E, S> impl, pub const fn solana_cursor(&self) -> MirrorCursor returns self.solana.cursor; the declaration retains the registered const signature."
+
+[row.r11-173.6]
+interface = "interface.11.rs-mirror-mirror-degradation"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 705
+symbol = "MirrorDegradation"
+evidence = "pub enum MirrorDegradation declares Chain, TransactionRejected, ArchiveNotRetrievable, RetrievedCommitmentMismatch and RetrievedArchive variants, matching the registered enum declaration."
+
+[row.r11-173.7]
+interface = "interface.11.rs-mirror-mirror-retrieval"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1278
+symbol = "MirrorRetrieval"
+evidence = "pub type MirrorRetrieval<E> = Result<Option<Vec<u8>>, E> is the type alias declaration used by durable retrieval and reconciliation, with the registered generic result shape unchanged."
+
+[row.r11-173.8]
+interface = "interface.11.rs-mirror-mirror-state"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 715
+symbol = "MirrorState"
+evidence = "pub enum MirrorState declares Confirmed, Pending, Reorged and Degraded outcomes carrying archive commitment and mirror freshness; this is the registered enum definition."
+
+[row.r11-173.9]
+interface = "interface.11.rs-mirror-progress-gate"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1444
+symbol = "ProgressGate"
+evidence = "pub struct ProgressGate declares acknowledged: Option<MirrorCursor>, retaining the registered struct used to gate a lane's acknowledged progress after canonical readback."
+
+[row.r11-173.10]
+interface = "interface.11.rs-mirror-progress-gate-acknowledge"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1457
+symbol = "acknowledge"
+evidence = "ProgressGate::acknowledge<E> declares &mut self, journal: MirrorCursor, archives: &[Archive] and retrieve: impl FnOnce(ArchiveCommitment) -> MirrorRetrieval<E>, returning ChainProgress; the multiline signature matches the registry."
+
+[row.r11-173.11]
+interface = "interface.11.rs-mirror-progress-gate-new"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1450
+symbol = "new"
+evidence = "Inside impl ProgressGate, pub const fn new() -> Self initializes acknowledged to None; the enclosing impl identifies the registered constructor among the file's several new declarations."
+
+[row.r11-173.12]
+interface = "interface.11.rs-mirror-publication-id"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 684
+symbol = "PublicationId"
+evidence = "pub enum PublicationId declares Ethereum([u8; 32]) and Solana([u8; 64]) transaction identifiers; the registered enum signature remains present at this definition."
+
+[row.r11-173.13]
+interface = "interface.11.rs-mirror-publication-report"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 754
+symbol = "PublicationReport"
+evidence = "pub struct PublicationReport declares commitment: ArchiveCommitment and ethereum and solana fields of MirrorState; it is the registered generic publication report definition."
+
+[row.r11-173.14]
+interface = "interface.11.rs-mirror-publisher"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1271
+symbol = "Publisher"
+evidence = "pub struct Publisher declares concrete crate::ethereum::EthereumArchiveClient and crate::solana::SolanaArchiveClient fields with two ProgressGate fields, matching the registered durable publisher definition."
+
+[row.r11-173.15]
+interface = "interface.11.rs-mirror-publisher-archive-commitment-2"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 233
+symbol = "archive_commitment"
+evidence = "The free function pub fn archive_commitment(bytes: &[u8]) -> ArchiveCommitment declares the registered byte-slice hashing interface and constructs the commitment from a SHA-256 digest."
+
+[row.r11-173.16]
+interface = "interface.11.rs-mirror-publisher-archive-data"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 212
+symbol = "data"
+evidence = "Inside impl Archive, pub const fn data(&self) -> &ArchiveData returns &self.data; this accessor declaration matches the registered method rather than the data field or its uses."
+
+[row.r11-173.17]
+interface = "interface.11.rs-mirror-publisher-ethereum-archive-client"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 553
+symbol = "EthereumArchiveClient"
+evidence = "pub trait EthereumArchiveClient declares append, observe and retrieve operations for Ethereum archive writes, matching the registered publisher-module trait rather than the concrete client type in crate::ethereum."
+
+[row.r11-173.18]
+interface = "interface.11.rs-mirror-publisher-ethereum-cursor"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1380
+symbol = "ethereum_cursor"
+evidence = "Inside impl Publisher, pub fn ethereum_cursor(&self) -> MirrorCursor returns the Ethereum gate's acknowledged cursor or its default; the registered non-const method belongs to the durable publisher."
+
+[row.r11-173.19]
+interface = "interface.11.rs-mirror-publisher-progress"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1364
+symbol = "progress"
+evidence = "Publisher declares pub fn progress(&mut self, archives: &[Archive]) -> (ChainProgress, ChainProgress), invoking each lane's acknowledgement gate against finalized chain retrieval; the signature matches the registry."
+
+[row.r11-173.20]
+interface = "interface.11.rs-mirror-publisher-publish"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1297
+symbol = "publish"
+evidence = "Inside impl Publisher, pub fn publish(&mut self, archive: &Archive) -> DurablePublicationReport advances the concrete durable lanes; the return type identifies the registered method among the publish occurrences."
+
+[row.r11-173.21]
+interface = "interface.11.rs-mirror-publisher-retrieve"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1389
+symbol = "retrieve"
+evidence = "Publisher::retrieve declares &self and commitment: ArchiveCommitment, returning (MirrorRetrieval<crate::ethereum::EthereumError>, MirrorRetrieval<crate::solana::SolanaError>); the multiline declaration matches the registered shared-receiver method."
+
+[row.r11-173.22]
+interface = "interface.11.rs-mirror-publisher-solana-cursor"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1385
+symbol = "solana_cursor"
+evidence = "Inside impl Publisher, pub fn solana_cursor(&self) -> MirrorCursor returns the Solana gate's acknowledged cursor or its default, retaining the registered non-const durable publisher signature."
+
+[row.r11-173.23]
+interface = "interface.11.rs-mirror-reconcile-journal"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1504
+symbol = "reconcile_journal"
+evidence = "The free function reconcile_journal<E> declares journal: MirrorCursor, archives: &[Archive] and retrieve: impl FnOnce(ArchiveCommitment) -> MirrorRetrieval<E>, returning Result<(), ReconcileRefusal>; the registered signature is unchanged."
+
+[row.r11-173.24]
+interface = "interface.11.rs-mirror-reconcile-refusal-code"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1428
+symbol = "code"
+evidence = "Inside impl ReconcileRefusal, pub const fn code(self) -> &'static str maps each refusal variant to its committed_mirror error code, matching the registered consuming const method."
+
+[row.r11-173.25]
+interface = "interface.11.rs-mirror-retrieval-report"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 769
+symbol = "RetrievalReport"
+evidence = "pub struct RetrievalReport declares ethereum: RetrievalState and solana: RetrievalState; this definition matches the registered report type returned by GenericPublisher::retrieve."
+
+[row.r11-173.26]
+interface = "interface.11.rs-mirror-retrieval-state"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 762
+symbol = "RetrievalState"
+evidence = "pub enum RetrievalState declares Retrieved(Box<ArchiveData>), Missing and Degraded(MirrorDegradation), retaining the registered enum definition for validated mirror retrieval outcomes."
+
+[row.r11-173.27]
+interface = "interface.11.rs-mirror-solana-archive-client"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 585
+symbol = "SolanaArchiveClient"
+evidence = "pub trait SolanaArchiveClient declares append, observe and retrieve operations for Solana archives; this is the registered publisher-module trait definition, distinct from the concrete client in crate::solana."
+
+[row.r11-173.28]
+interface = "interface.11.rs-mirror-solana-archive-write"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 496
+symbol = "SolanaArchiveWrite"
+evidence = "pub struct SolanaArchiveWrite<'a> declares the Solana destination, commitment, network, batch, checkpoint and archive: &'a [u8] fields; its lifetime-bearing declaration matches the registry."
+
+[row.r11-173.29]
+interface = "interface.11.rs-mirror-solana-config-validate"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 463
+symbol = "validate"
+evidence = "Inside impl SolanaConfig, pub fn validate(self) -> Result<Self, ConfigError> rejects zero genesis hash, program, archive account or rooted-slot policy with ConfigError::Solana; the enclosing impl distinguishes the identical EthereumConfig signature."
+
+[row.r11-173.30]
+interface = "interface.11.rs-mirror-solana-lane-state"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1246
+symbol = "SolanaLaneState"
+evidence = "pub enum SolanaLaneState declares durable Progress with stage, phase, signature, position and freshness, and Degraded with crate::solana::SolanaError; the registered enum remains at this definition."
