@@ -93,7 +93,8 @@ func (s *pendingSequencer) ctxProvider(height int64) sdk.Context {
 		}
 		return ctx
 	}
-	return sdk.NewContext(s.app.CommitMultiStore().CacheMultiStore(), tmproto.Header{ChainID: pendingChainID, Height: s.committed}, false)
+	ctx := sdk.NewContext(s.app.CommitMultiStore().CacheMultiStore(), tmproto.Header{ChainID: pendingChainID, Height: s.committed}, false)
+	return ctx.WithConsensusParams(s.app.GetConsensusParams(ctx))
 }
 
 func (s *pendingSequencer) weiBalance(ctx sdk.Context, addr common.Address) *big.Int {

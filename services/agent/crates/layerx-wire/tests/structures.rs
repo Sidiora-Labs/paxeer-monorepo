@@ -1,3 +1,6 @@
+#[path = "support/corpus.rs"]
+mod replay_corpus;
+
 use std::path::{Path, PathBuf};
 
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
@@ -180,7 +183,7 @@ fn proof_bytes() -> Vec<u8> {
 
 #[test]
 fn every_published_activity_and_receipt_round_trips_exactly() {
-    let Ok(corpus) = Corpus::load(&repository_root()) else {
+    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
         panic!("published corpora failed to load");
     };
     let registry = registry(&corpus);
@@ -218,7 +221,7 @@ fn every_published_activity_and_receipt_round_trips_exactly() {
 
 #[test]
 fn all_nine_module_payload_tags_are_preserved() {
-    let Ok(corpus) = Corpus::load(&repository_root()) else {
+    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
         panic!("published corpora failed to load");
     };
     let registry = registry(&corpus);
@@ -320,7 +323,7 @@ fn batch_header_refuses_an_envelope_field_version_mismatch() {
 
 #[test]
 fn unknown_version_activity_and_field_are_deterministic_rejections() {
-    let Ok(corpus) = Corpus::load(&repository_root()) else {
+    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
         panic!("published corpora failed to load");
     };
     let registry = registry(&corpus);

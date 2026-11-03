@@ -28,6 +28,7 @@ use std::time::Duration;
 static NEXT: AtomicU64 = AtomicU64::new(0);
 struct Fixture {
     root: PathBuf,
+    authority: Option<support::ClockAuthority>,
 }
 impl Fixture {
     fn new() -> Self {
@@ -43,7 +44,8 @@ impl Fixture {
             &root.join("receipt"),
             &serde_json::to_vec(&receipt).unwrap(),
         );
-        Self { root }
+        let authority = Some(support::ClockAuthority::start(&root));
+        Self { root, authority }
     }
     fn state(&self) -> PathBuf {
         self.root.join("state")
@@ -63,7 +65,10 @@ impl Fixture {
         .unwrap()
     }
     fn start(&self, uid: u32) -> Running {
-        self.start_with_clock(uid, RuntimeClock::from_environment().unwrap())
+        self.start_with_clock(uid, self.clock())
+    }
+    fn clock(&self) -> Arc<RuntimeClock> {
+        self.authority.as_ref().unwrap().clock.clone()
     }
     fn start_with_clock(&self, uid: u32, clock: Arc<RuntimeClock>) -> Running {
         let stop = Arc::new(AtomicBool::new(false));
@@ -100,6 +105,7 @@ impl Fixture {
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
+        drop(self.authority.take());
         fs::remove_dir_all(&self.root).unwrap();
     }
 }
@@ -436,7 +442,7 @@ fn slow_partial_frame_has_total_deadline() {
         .set_read_timeout(Some(Duration::from_secs(2)))
         .unwrap();
     stream.write_all(&10u32.to_be_bytes()).unwrap();
-    let clock = RuntimeClock::from_environment().unwrap();
+    let clock = fixture.clock();
     let start = clock.sample(Duration::from_secs(1)).unwrap();
     for byte in b"LXSP" {
         if stream.write_all(&[*byte]).is_err() {
@@ -530,6 +536,7 @@ fn binary_configuration_and_signal_shutdown() {
                 "LAYERX_HUMAN_SECURITY_PROVIDER_ALLOWED_UID",
                 uid().to_string(),
             );
+        fixture.authority.as_ref().unwrap().configure(&mut command);
         command
     };
     assert!(!configured()
@@ -548,7 +555,7 @@ fn binary_configuration_and_signal_shutdown() {
     }
     for signal in [rustix::process::Signal::TERM, rustix::process::Signal::INT] {
         let mut child = configured().spawn().unwrap();
-        let clock = RuntimeClock::from_environment().unwrap();
+        let clock = fixture.clock();
         let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(5)).unwrap();
         while fixture.client().probe().is_err() {
             assert!(child.try_wait().unwrap().is_none());

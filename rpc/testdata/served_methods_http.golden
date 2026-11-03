@@ -98,6 +98,7 @@ pax_sign
 pax_traceBlockByHashExcludeTraceFail
 pax_traceBlockByNumberExcludeTraceFail
 pax_uninstallFilter
+px_getReceiptKeys
 txpool_content
 txpool_status
 web3_clientVersion

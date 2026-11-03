@@ -16,6 +16,7 @@ use layerx_programs::chain_proof::{
 };
 use sha2::{Digest as _, Sha256};
 use std::path::Path;
+use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -23,6 +24,7 @@ use std::time::Duration;
 
 pub struct ClockAuthority {
     pub clock: Arc<RuntimeClock>,
+    binding: ClockBinding,
     stop: Arc<AtomicBool>,
     thread: Option<JoinHandle<()>>,
 }
@@ -44,10 +46,18 @@ impl ClockAuthority {
             }
         });
         Self {
-            clock: RuntimeClock::connect(binding).unwrap(),
+            clock: RuntimeClock::connect(binding.clone()).unwrap(),
+            binding,
             stop,
             thread: Some(thread),
         }
+    }
+
+    pub fn configure(&self, command: &mut Command) {
+        command
+            .env("LAYERX_RUNTIME_CLOCK_SOCKET", &self.binding.socket)
+            .env("LAYERX_RUNTIME_CLOCK_PID", self.binding.process.to_string())
+            .env("LAYERX_RUNTIME_CLOCK_UID", self.binding.user.to_string());
     }
 }
 

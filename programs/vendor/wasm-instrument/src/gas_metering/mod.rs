@@ -1640,6 +1640,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "bulk")]
     #[test]
     fn layerx_memory_grow_lazy_helper_sequence_is_frozen() {
         let module = add_dynamic_helpers(
@@ -1684,6 +1685,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "bulk")]
     #[test]
     fn layerx_bulk_memory_lazy_helper_sequence_is_frozen() {
         use parity_wasm::elements::BulkInstruction;

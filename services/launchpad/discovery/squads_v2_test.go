@@ -17,6 +17,7 @@ func TestAdaptV2SquadEnvelopesMatchFrozenSchema(t *testing.T) {
 		OwnerAccountID: "c5a4386a-0037-48e7-8b3d-593f6770b50d",
 		Name:           "Research",
 		Policy:         "request",
+		Visibility:     "private",
 		Revision:       3,
 	}
 	at := time.Date(2026, 10, 26, 12, 34, 56, 123456789, time.FixedZone("test", 2*60*60))
