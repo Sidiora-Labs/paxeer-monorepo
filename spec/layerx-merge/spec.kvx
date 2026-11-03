@@ -138967,7 +138967,7 @@ do_4 = "Attempt 1 (continue): startup_quarantines_defective_units_and_loads_the_
 
 [task.22.99.72]
 title = "Repair the inventory sweep target layerx-platform-gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.160"]
@@ -141286,7 +141286,7 @@ do_7 = "Attempt 5 ruling: six lock files stay at rustls 0.23.45 because six mani
 
 [task.22.23.11]
 title = "Read paymentDenom in the Rust client's receipt view and check the asset against it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.23.8", "22.95.11", "22.99.160"]
