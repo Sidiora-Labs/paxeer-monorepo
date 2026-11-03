@@ -124572,7 +124572,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1545.1]
 title = "Issue #1545: Restore checksums for the four remaining nested Go modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
