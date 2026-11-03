@@ -135,7 +135,8 @@ pub const ADVANCE_SCRATCH_BYTES: usize =
     POLICY_CAP + CONTROL_CAP + MAX_STATE_BYTES + OPEN_SCRATCH_BYTES;
 
 /// The immutable binding one successful opening freezes.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Frozen {
     pub epoch: u64,
     pub previous: Option<u64>,
@@ -149,7 +150,8 @@ pub struct Frozen {
     pub evaluators: u8,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Outcome {
     Opened {
         frozen: Frozen,
@@ -163,7 +165,8 @@ pub enum Outcome {
 }
 
 /// Prerequisites an opening of `epoch` satisfies (or the opened epoch already satisfies).
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Readiness {
     pub epoch: u64,
     pub workers: usize,
@@ -171,7 +174,8 @@ pub struct Readiness {
     pub budget: Amount,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Activated {
     pub readiness: Readiness,
     pub activation_epoch: u64,
@@ -291,7 +295,7 @@ fn worker_roster(
     for (slot, entry) in roster.iter_mut().zip(found.iter().flatten()) {
         *slot = *entry;
     }
-    roster[..count].sort_unstable_by_key(|e| e.worker);
+    codec::sort_by(&mut roster[..count], |a, b| a.worker.cmp(&b.worker));
     Ok((roster, count))
 }
 
@@ -1024,10 +1028,9 @@ fn frozen_workers(
     for (slot, entry) in roster.iter_mut().zip(found.iter().flatten()) {
         *slot = *entry;
     }
-    roster
-        .get_mut(..count)
-        .ok_or(CAPACITY)?
-        .sort_unstable_by_key(|e| e.worker);
+    codec::sort_by(roster.get_mut(..count).ok_or(CAPACITY)?, |a, b| {
+        a.worker.cmp(&b.worker)
+    });
     Ok((roster, count))
 }
 
@@ -1250,7 +1253,8 @@ pub fn aggregate(
 }
 
 /// Outcome of one `ResetHistory`/`SuspendHistory`/`ResumeHistory`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum HistoryOutcome {
     /// One revision increment composed into `next`, the retained result recorded under the
     /// actor's sequence and the `HistoryReset`/`HistoryStatus` event written into `event`.
@@ -1279,8 +1283,8 @@ fn parse_history(payload: &[u8]) -> CodecResult<HistoryRequest> {
     }
     let mut r = Reader::new(payload);
     let request = HistoryRequest {
-        worker: WorkerId::new(r.fixed()?)?,
-        segment: Digest32::new(r.fixed()?)?,
+        worker: r.worker_id()?,
+        segment: r.digest32()?,
         generation: r.u64()?,
         reason: r.u8()?,
     };
