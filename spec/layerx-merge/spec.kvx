@@ -119869,7 +119869,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.23]
 title = "Close the 4 dependency alerts of services/explorer/backend/apps/explorer/package-lock.json"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131863,7 +131863,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1550.1]
 title = "Issue #1550: Align the intents budget-create test with the complete version-1 disclosure"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -133120,7 +133120,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.17]
 title = "Carry the call-bound disclosure on the EIP-1559 preparation and drop the legacy authorization from the signing preparation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["9.35.16"]
@@ -139399,7 +139399,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.18.1525.1]
 title = "Issue #1525: Restore the vendored database module checksums"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192966,7 +192966,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1541.1]
 title = "Issue #1541: Remove the retired idempotency source from the journal TSan prerequisites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -227308,7 +227308,7 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 
 [task.18.1558.1]
 title = "Issue #1558: Document the actual scope of the perps ABI decision commit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
