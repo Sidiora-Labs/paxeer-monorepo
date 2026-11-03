@@ -1,9 +1,9 @@
 [sweep.rust-build-agent]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p TARGET --all-targets"
 targets_total = 11
-targets_passed = 10
-targets_failed = 1
+targets_passed = 11
+targets_failed = 0
 targets_not_run = 0
 
 [target.rust-build-agent.1]
@@ -53,10 +53,8 @@ exit_code = 0
 
 [target.rust-build-agent.10]
 target = "layerx-agentd-host"
-result = "failed"
-exit_code = 101
-observed = "services/agent/crates/layerx-agentd/src/human_owner_mode.rs:2:61 fails with E0432 because super::parse_request, super::response, super::DeadlineStream and super::Parsed are unresolved imports when building layerx-agentd-host."
-assumption = "The host entry point likely still expects HTTP helpers at the crate root after they moved into serve_http, leaving a pre-existing source interface mismatch."
+result = "passed"
+exit_code = 0
 
 [target.rust-build-agent.11]
 target = "layerx-mcp"
