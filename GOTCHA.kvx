@@ -14530,3 +14530,8 @@ fix = "Wrap registered SDK errors with the SDK errors Wrapf (or Wrap) so the cod
 title = "A crate-wide test build fails on a stale sibling test after an interface change"
 symptom = "9.35.19 builds every test target of layerx-agentd; tests/w7_core_time.rs still constructs prepare::Prepared where register and register_preparation now take prepare::evm::Prepared after 9.35.17, so the build fails before the task's own tests run."
 fix = "When a task changes a type that tests construct, every test file constructing it belongs in touches (decision 2342 lesson); a follow-on task that builds all test targets must carry the stale files too."
+
+[gotcha.2942]
+title = "A sweep repair of a crate that another open task is already fixing must wait for that task"
+symptom = "The layerx-mcp sweep repair hit the same live-node tests issue task 18.1578.1 isolates; running both at once would have made the repair task re-solve or skip the proof."
+fix = "Make the sweep repair require the open task that owns the failure and leave its verify exercising the fixed tests."
