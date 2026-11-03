@@ -1,8 +1,11 @@
+#[path = "support/corpus.rs"]
+mod replay_corpus;
+
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 
 use layerx_types::result::{KnownResult, ResultCode};
-use layerx_types::vectors::{CodecVector, Corpus};
+use layerx_types::vectors::CodecVector;
 use layerx_wire::decode::Decoder;
 use layerx_wire::encode::Encoder;
 use layerx_wire::limits::MAX_MESSAGE_BYTES;
@@ -55,7 +58,7 @@ fn run_vector(vector: &CodecVector) -> Result<(), WireError> {
 
 #[test]
 fn published_primitive_vectors_match_exact_results() {
-    let Ok(corpus) = Corpus::load(&repository_root()) else {
+    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
         panic!("published corpus failed to load");
     };
     for vector in corpus.valid_codec.iter().chain(&corpus.adversarial_codec) {
@@ -154,7 +157,7 @@ fn ordered_collections_and_limits_fail_closed() {
 
 #[test]
 fn arbitrary_input_never_unwinds() {
-    let Ok(corpus) = Corpus::load(&repository_root()) else {
+    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
         panic!("published corpus failed to load");
     };
     for vector in corpus.valid_codec.iter().chain(&corpus.adversarial_codec) {
