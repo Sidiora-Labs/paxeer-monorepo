@@ -1,0 +1,239 @@
+[reconcile.r15-98]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 25
+
+[row.r15-98.1]
+interface = "interface.15.go-x-auth-types-default-max-memo-characters-j76"
+verdict = "served"
+path = "sdk/x/auth/types/params.go"
+line = 13
+symbol = "DefaultMaxMemoCharacters"
+evidence = "Grouped constant still declares DefaultMaxMemoCharacters uint64 = 256 at line 13; the registered identifier, type and value are unchanged."
+
+[row.r15-98.2]
+interface = "interface.15.go-x-auth-types-default-tx-sig-limit-j76"
+verdict = "served"
+path = "sdk/x/auth/types/params.go"
+line = 14
+symbol = "DefaultTxSigLimit"
+evidence = "Grouped constant still declares DefaultTxSigLimit uint64 = 7 at line 14; the registered identifier, type and value are unchanged."
+
+[row.r15-98.3]
+interface = "interface.15.go-x-auth-types-default-tx-size-cost-per-byte-j76"
+verdict = "served"
+path = "sdk/x/auth/types/params.go"
+line = 15
+symbol = "DefaultTxSizeCostPerByte"
+evidence = "Grouped constant still declares DefaultTxSizeCostPerByte uint64 = 10 at line 15; the registered identifier, type and value are unchanged."
+
+[row.r15-98.4]
+interface = "interface.15.go-x-auth-types-default-sig-verify-cost-ed25519-j76"
+verdict = "served"
+path = "sdk/x/auth/types/params.go"
+line = 16
+symbol = "DefaultSigVerifyCostED25519"
+evidence = "Grouped constant still declares DefaultSigVerifyCostED25519 uint64 = 590 at line 16; the registered identifier, type and value are unchanged."
+
+[row.r15-98.5]
+interface = "interface.15.met-legacy-x-auth-vesting-msg-server-89-j56"
+verdict = "retired"
+path = "sdk/x/auth/vesting/msg_server.go"
+line = 89
+symbol = "telemetry.IncrCounter(1, \"new\", \"account\")"
+evidence = "The legacy new/account counter call is absent; vestingMetrics.newAccount.Add(goCtx, 1) now records account creation at sdk/x/auth/vesting/msg_server.go:85. The same old call remains in three bank precompile versions and engine/deps/xbank; these are separate emitters, not a relocation of vesting telemetry. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found four other files mentioning this literal."
+remaining_refs = 4
+remaining = ["engine/deps/xbank/keeper/send.go:165", "precompiles/bank/legacy/v601/bank.go:220", "precompiles/bank/legacy/v605/bank.go:226", "precompiles/bank/legacy/v610/bank.go:226"]
+
+[row.r15-98.6]
+interface = "interface.15.met-legacy-x-auth-vesting-msg-server-95-j56"
+verdict = "retired"
+path = "sdk/x/auth/vesting/msg_server.go"
+line = 95
+symbol = "[]string{\"tx\", \"msg\", \"create_vesting_account\"}"
+evidence = "The legacy create_vesting_account gauge key and telemetry.SetGaugeWithLabels call are absent. vestingMetrics.accountAmount.Record now emits the amount with denom_class at sdk/x/auth/vesting/msg_server.go:89 instead of the raw denom label. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.7]
+interface = "interface.15.met-legacy-x-bank-keeper-msg-server-66-j56"
+verdict = "retired"
+path = "sdk/x/bank/keeper/msg_server.go"
+line = 66
+symbol = "[]string{\"tx\", \"msg\", \"send\"}"
+evidence = "The legacy tx/msg/send gauge key and telemetry.SetGaugeWithLabels call are absent. bankMetrics.sendAmount.Record now records the amount with denom_class at sdk/x/bank/keeper/msg_server.go:62 instead of the raw denom label. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.8]
+interface = "interface.15.met-legacy-x-bank-keeper-send-new-account-j56"
+verdict = "retired"
+path = "sdk/x/bank/keeper/send.go"
+line = 167
+symbol = "defer telemetry.IncrCounter(1, \"new\", \"account\")"
+evidence = "Both deferred legacy new/account counter emissions are gone from this file; bankMetrics.newAccount.Add(ctx.Context(), 1) now records creation at sdk/x/bank/keeper/send.go:167 and :188. Four other files retain the old deferred call; engine/deps/xbank/keeper/send.go contains two occurrences and is counted once. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found four other files mentioning this literal."
+remaining_refs = 4
+remaining = ["engine/deps/xbank/keeper/send.go:165", "precompiles/bank/legacy/v601/bank.go:220", "precompiles/bank/legacy/v605/bank.go:226", "precompiles/bank/legacy/v610/bank.go:226"]
+
+[row.r15-98.9]
+interface = "interface.15.met-legacy-x-bank-module-init-genesis-j56"
+verdict = "retired"
+path = "sdk/x/bank/module.go"
+line = 156
+symbol = "telemetry.MeasureSince(start, \"InitGenesis\", \"crisis\", \"unmarshal\")"
+evidence = "The legacy genesis timer under the crisis/unmarshal key is absent. sdk/x/bank/module.go:155 records time.Since(start).Seconds() through bankMetrics.initGenesisDuration after MustUnmarshalJSON, so bank initialization no longer emits the crisis key. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.10]
+interface = "interface.15.met-legacy-x-distribution-keeper-msg-server-75-j56"
+verdict = "retired"
+path = "sdk/x/distribution/keeper/msg_server.go"
+line = 75
+symbol = "[]string{\"tx\", \"msg\", \"withdraw_reward\"}"
+evidence = "The legacy withdraw_reward gauge key and telemetry.SetGaugeWithLabels call are absent. distributionMetrics.withdrawRewardAmount.Record now records each amount with denom_class at sdk/x/distribution/keeper/msg_server.go:71. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.11]
+interface = "interface.15.met-legacy-x-distribution-keeper-msg-server-111-j56"
+verdict = "retired"
+path = "sdk/x/distribution/keeper/msg_server.go"
+line = 111
+symbol = "[]string{\"tx\", \"msg\", \"withdraw_commission\"}"
+evidence = "The legacy withdraw_commission gauge key and telemetry.SetGaugeWithLabels call are absent. distributionMetrics.withdrawCommissionAmount.Record now records each amount with denom_class at sdk/x/distribution/keeper/msg_server.go:101. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.12]
+interface = "interface.15.met-legacy-x-gov-keeper-msg-server-37-j56"
+verdict = "retired"
+path = "sdk/x/gov/keeper/msg_server.go"
+line = 37
+symbol = "telemetry.IncrCounter(1, types.ModuleName, \"proposal\")"
+evidence = "The legacy proposal counter call is absent; SubmitProposal now defers govMetrics.proposalTotal.Add(goCtx, 1) at sdk/x/gov/keeper/msg_server.go:31. This file no longer imports legacy telemetry. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.13]
+interface = "interface.15.met-legacy-x-gov-keeper-msg-server-81-j56"
+verdict = "retired"
+path = "sdk/x/gov/keeper/msg_server.go"
+line = 81
+symbol = "[]string{types.ModuleName, \"vote\"}"
+evidence = "The legacy vote counter key and telemetry.IncrCounterWithLabels call are absent. Vote now defers govMetrics.voteTotal.Add(goCtx, 1) at sdk/x/gov/keeper/msg_server.go:73, with no proposal_id label. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.14]
+interface = "interface.15.met-legacy-x-gov-keeper-msg-server-115-j56"
+verdict = "retired"
+path = "sdk/x/gov/keeper/msg_server.go"
+line = 115
+symbol = "[]string{types.ModuleName, \"vote\"}"
+evidence = "The second legacy vote counter key and telemetry.IncrCounterWithLabels call are absent. VoteWeighted now defers govMetrics.voteTotal.Add(goCtx, 1) at sdk/x/gov/keeper/msg_server.go:99, with no proposal_id label. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.15]
+interface = "interface.15.met-legacy-x-gov-keeper-msg-server-149-j56"
+verdict = "retired"
+path = "sdk/x/gov/keeper/msg_server.go"
+line = 149
+symbol = "[]string{types.ModuleName, \"deposit\"}"
+evidence = "The legacy deposit counter key and telemetry.IncrCounterWithLabels call are absent. Deposit now defers govMetrics.depositTotal.Add(goCtx, 1) at sdk/x/gov/keeper/msg_server.go:125, with no proposal_id label. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.16]
+interface = "interface.15.go-x-gov-types-max-title-length-j76"
+verdict = "served"
+path = "sdk/x/gov/types/content.go"
+line = 13
+symbol = "MaxTitleLength"
+evidence = "Grouped constant still declares MaxTitleLength int = 140 at sdk/x/gov/types/content.go:13; the registered identifier, type and value are unchanged."
+
+[row.r15-98.17]
+interface = "interface.15.go-x-gov-types-default-period-j76"
+verdict = "served"
+path = "sdk/x/gov/types/params.go"
+line = 15
+symbol = "DefaultPeriod"
+evidence = "Grouped constant still declares DefaultPeriod time.Duration = time.Hour * 24 * 2 at line 15, with the 2 days comment; the registered signature is unchanged."
+
+[row.r15-98.18]
+interface = "interface.15.go-x-gov-types-default-expedited-period-j76"
+verdict = "served"
+path = "sdk/x/gov/types/params.go"
+line = 16
+symbol = "DefaultExpeditedPeriod"
+evidence = "Grouped constant still declares DefaultExpeditedPeriod time.Duration = time.Hour * 24 at line 16, with the 1 day comment; the registered signature is unchanged."
+
+[row.r15-98.19]
+interface = "interface.15.met-legacy-x-staking-keeper-msg-server-230-j56"
+verdict = "retired"
+path = "sdk/x/staking/keeper/msg_server.go"
+line = 230
+symbol = "telemetry.IncrCounter(1, types.ModuleName, \"delegate\")"
+evidence = "The legacy delegate counter call is absent. Delegate now records stakingMetrics.delegateTotal.Add(goCtx, 1) at sdk/x/staking/keeper/msg_server.go:225 inside the amount IsInt64 guard. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.20]
+interface = "interface.15.met-legacy-x-staking-keeper-msg-server-233-j56"
+verdict = "retired"
+path = "sdk/x/staking/keeper/msg_server.go"
+line = 233
+symbol = "[]string{\"tx\", \"msg\", msg.Type()}"
+evidence = "The legacy dynamic tx/msg/msg.Type() gauge key and telemetry.SetGaugeWithLabels call are absent. Delegate now records stakingMetrics.delegateAmount.Record(goCtx, msg.Amount.Amount.Int64()) at sdk/x/staking/keeper/msg_server.go:226 without a raw denom label. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.21]
+interface = "interface.15.met-legacy-x-staking-keeper-msg-server-299-j56"
+verdict = "retired"
+path = "sdk/x/staking/keeper/msg_server.go"
+line = 299
+symbol = "telemetry.IncrCounter(1, types.ModuleName, \"redelegate\")"
+evidence = "The legacy redelegate counter call is absent. BeginRedelegate now records stakingMetrics.redelegateTotal.Add(goCtx, 1) at sdk/x/staking/keeper/msg_server.go:286 inside the amount IsInt64 guard. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.22]
+interface = "interface.15.met-legacy-x-staking-keeper-msg-server-302-j56"
+verdict = "retired"
+path = "sdk/x/staking/keeper/msg_server.go"
+line = 302
+symbol = "[]string{\"tx\", \"msg\", msg.Type()}"
+evidence = "The legacy dynamic tx/msg/msg.Type() gauge key and telemetry.SetGaugeWithLabels call are absent. BeginRedelegate now records stakingMetrics.redelegateAmount.Record(goCtx, msg.Amount.Amount.Int64()) at sdk/x/staking/keeper/msg_server.go:287 without a raw denom label. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.23]
+interface = "interface.15.met-legacy-x-staking-keeper-msg-server-365-j56"
+verdict = "retired"
+path = "sdk/x/staking/keeper/msg_server.go"
+line = 365
+symbol = "telemetry.IncrCounter(1, types.ModuleName, \"redelegate\")"
+evidence = "The registered literal says redelegate even though its former line 365 is in the Undelegate region. That literal is absent throughout the file; Undelegate now records stakingMetrics.undelegateTotal.Add(goCtx, 1) at sdk/x/staking/keeper/msg_server.go:344. BeginRedelegate separately uses redelegateTotal at :286. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.24]
+interface = "interface.15.met-legacy-x-staking-keeper-msg-server-368-j56"
+verdict = "retired"
+path = "sdk/x/staking/keeper/msg_server.go"
+line = 368
+symbol = "[]string{\"tx\", \"msg\", msg.Type()}"
+evidence = "The legacy dynamic tx/msg/msg.Type() gauge key and telemetry.SetGaugeWithLabels call are absent. Undelegate now records stakingMetrics.undelegateAmount.Record(goCtx, msg.Amount.Amount.Int64()) at sdk/x/staking/keeper/msg_server.go:345 without a raw denom label. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []
+
+[row.r15-98.25]
+interface = "interface.15.met-legacy-x-upgrade-abci-64-j56"
+verdict = "retired"
+path = "sdk/x/upgrade/abci.go"
+line = 64
+symbol = "[]string{\"cosmos\", \"upgrade\", \"plan\", \"height\"}"
+evidence = "The legacy cosmos/upgrade/plan/height gauge key and telemetry.SetGaugeWithLabels call are absent. upgradeMetrics.planHeight.Record now emits plan.Height at sdk/x/upgrade/abci.go:56 with only the name attribute at :57, dropping the legacy info label. Repository-wide fixed-string search, excluding spec/ and docs/ directories, found no other file mentioning this literal."
+remaining_refs = 0
+remaining = []

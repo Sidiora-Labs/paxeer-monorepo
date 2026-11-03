@@ -1,0 +1,4 @@
+[disposition.12.35.2]
+finding = "12.35.2"
+status = "resolved"
+evidence = "Commit e90ee7775 aligns wallet grant caps with committed block observations at apps/wallet/src/surfaces/useSurface.ts:913 and renders their rung, block_number and state_root at apps/wallet/src/surfaces/WebDataView.tsx:64 on main. Commit b64a7eec2 adds the sequencer-backed send proof at apps/wallet/e2e/send.spec.ts:958, which requires the Receipted title and receipt evidence, preserves that evidence after reload at line 975, and leaves Committed unreached until explorer evidence exists."

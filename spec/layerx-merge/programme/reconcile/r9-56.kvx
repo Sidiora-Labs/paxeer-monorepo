@@ -1,0 +1,515 @@
+[reconcile.r9-56]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r9-56.1]
+interface = "interface.9.rs-client-read-readerror"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/account.rs"
+line = 40
+symbol = "ReadError"
+evidence = "ReadError moved into JSON-RPC account reads and now contains Rpc(SequencerError), MalformedValue and Submitted. Current declaration: pub enum ReadError {"
+
+[row.r9-56.2]
+interface = "interface.9.rs-client-read-balance"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/account.rs"
+line = 52
+symbol = "balance"
+evidence = "The FrameTransport parameter is replaced by &SequencerEndpoint; balance uses eth_call at a committed height and returns Amount. Current declaration: pub fn balance( endpoint: &SequencerEndpoint, account: [u8; 32], asset: [u8; 32], context: ReadContext, ) -> Result<Amount, ReadError>"
+
+[row.r9-56.3]
+interface = "interface.9.rs-client-read-account"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/px.rs"
+line = 108
+symbol = "account"
+evidence = "Account reads moved to PxEndpoint::account, a method taking a string account selector and returning PxAccountJoin via px_getAccount instead of the old FrameTransport free function. Current declaration: pub fn account(&self, account: &str) -> Result<PxAccountJoin, SequencerError>"
+
+[row.r9-56.4]
+interface = "interface.9.rs-client-read-account-with-history"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/read.rs"
+line = 345
+symbol = "account_with_history"
+evidence = "The registered read.rs file is absent. account_with_history has no non-spec, non-docs references; PxEndpoint::account performs account reads without this history-bound helper. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 0
+remaining = []
+
+[row.r9-56.5]
+interface = "interface.9.rs-client-read-module-state"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/module_state.rs"
+line = 40
+symbol = "module_state"
+evidence = "FrameTransport, module_id and key are replaced by an endpoint, calldata and ModuleReadContext; the result is ModuleStateValue with block/app hash consistency checks. Current declaration: pub fn module_state( endpoint: &SequencerEndpoint, calldata: &[u8], context: ModuleReadContext, ) -> Result<ModuleStateValue, ModuleReadError>"
+
+[row.r9-56.6]
+interface = "interface.9.rs-client-read-module-state-with-history"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/read.rs"
+line = 381
+symbol = "module_state_with_history"
+evidence = "The registered read.rs file is absent. module_state_with_history has no non-spec, non-docs references; rpc/module_state.rs instead checks ModuleReadContext through eth_call and committed block/app hashes. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 0
+remaining = []
+
+[row.r9-56.7]
+interface = "interface.9.rs-client-read-historyrange"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/read.rs"
+line = 647
+symbol = "HistoryRange"
+evidence = "The read.rs HistoryRange struct is gone. Remaining whole-word mentions are LNI capability variants and unrelated Go database/chart methods, not a relocated client range struct. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 7
+remaining = ["core/deps/geth/cmd/geth/dbcmd.go:880", "core/deps/geth/triedb/history.go:62", "core/deps/geth/triedb/pathdb/database.go:568", "services/agent/crates/layerx-client/src/lni/report.rs:141", "services/agent/crates/layerx-client/src/lni/schema.rs:76", "services/launchpad/trading-charts/internal/store/store.go:200", "services/launchpad/trading-charts/internal/store/store_test.go:143"]
+
+[row.r9-56.8]
+interface = "interface.9.rs-client-read-history-with-history-j44"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/read.rs"
+line = 658
+symbol = "history_with_history"
+evidence = "The registered read.rs file is absent. history_with_history has no non-spec, non-docs references; rpc/history.rs exposes endpoint-based history without this helper. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 0
+remaining = []
+
+[row.r9-56.9]
+interface = "interface.9.rs-client-read-history"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/history.rs"
+line = 15
+symbol = "history"
+evidence = "FrameTransport and sequence ranges are replaced by an endpoint, string account, optional string cursor and optional limit; endpoint.history supplies HistoryPage. Current declaration: pub fn history( endpoint: &SequencerEndpoint, account: &str, cursor: Option<&str>, limit: Option<u16>, ) -> Result<HistoryPage, SequencerError>"
+
+[row.r9-56.10]
+interface = "interface.9.rs-client-read-historyproof"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/history.rs"
+line = 98
+symbol = "HistoryProof"
+evidence = "HistoryProof moved into rpc/history.rs with proof, header and header_signature fields and a bounded decode method. Current declaration: pub struct HistoryProof {"
+
+[row.r9-56.11]
+interface = "interface.9.rs-client-read-did-accounts"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/history.rs"
+line = 36
+symbol = "did_accounts"
+evidence = "FrameTransport, Did and ReadContext are replaced by &PxEndpoint and did: &str; the result is Vec<Value> derived from a bound px_getAccount response. Current declaration: pub fn did_accounts(endpoint: &PxEndpoint, did: &str) -> Result<Vec<Value>, SequencerError>"
+
+[row.r9-56.12]
+interface = "interface.9.rs-client-receipt-receiptselector"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/receipt.rs"
+line = 26
+symbol = "ReceiptSelector"
+evidence = "The registered receipt.rs file is absent. ReceiptSelector has no non-spec, non-docs references; rpc/receipt.rs lookup selects by transaction hash. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 0
+remaining = []
+
+[row.r9-56.13]
+interface = "interface.9.rs-client-receipt-receiptwaitmode"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/receipt.rs"
+line = 72
+symbol = "ReceiptWaitMode"
+evidence = "The registered receipt.rs file is absent. ReceiptWaitMode has no non-spec, non-docs references; rpc/receipt.rs uses a separate ReconnectPolicy for bounded unknown resolution. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 0
+remaining = []
+
+[row.r9-56.14]
+interface = "interface.9.rs-client-receipt-authenticatedlookupcontext"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 63
+symbol = "AuthenticatedLookupContext"
+evidence = "The former struct is now an alias to LookupContext, whose receipt_keys slice authenticates sequencer receipts. Current declaration: pub type AuthenticatedLookupContext<'a> = LookupContext<'a>;"
+
+[row.r9-56.15]
+interface = "interface.9.rs-client-receipt-authenticatedlookup"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 133
+symbol = "AuthenticatedLookup"
+evidence = "The former enum is now an alias to Lookup, sharing Absent, Submitted and Verified receipt results. Current declaration: pub type AuthenticatedLookup = Lookup;"
+
+[row.r9-56.16]
+interface = "interface.9.rs-client-receipt-lookup"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 127
+symbol = "Lookup"
+evidence = "Lookup moved into rpc/receipt.rs with Absent, Submitted { tx_hash, nonce } and Verified(AuthenticatedReceipt) variants. Current declaration: pub enum Lookup {"
+
+[row.r9-56.17]
+interface = "interface.9.rs-client-receipt-receipterror"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 136
+symbol = "ReceiptError"
+evidence = "ReceiptError moved into rpc/receipt.rs and classifies sequencer, verification, log, field-mismatch and invalid-transaction-hash failures. Current declaration: pub enum ReceiptError {"
+
+[row.r9-56.18]
+interface = "interface.9.rs-client-receipt-lookup-j44"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 168
+symbol = "lookup"
+evidence = "lookup now takes an endpoint, transaction hash and receipt-key LookupContext, delegating to lookup_authenticated in the RPC module. Current declaration: pub fn lookup( endpoint: &SequencerEndpoint, tx_hash: [u8; 32], context: LookupContext<'_>, ) -> Result<Lookup, ReceiptError>"
+
+[row.r9-56.19]
+interface = "interface.9.rs-client-receipt-lookup-native-owner-j44"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/receipt.rs"
+line = 231
+symbol = "lookup_native_owner"
+evidence = "The registered receipt.rs file is absent. lookup_native_owner has no non-spec, non-docs references; authenticated JSON-RPC receipt lookup uses receipt-key context. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 0
+remaining = []
+
+[row.r9-56.20]
+interface = "interface.9.rs-client-receipt-lookup-authenticated"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 176
+symbol = "lookup_authenticated"
+evidence = "FrameTransport and activity_id are replaced by &SequencerEndpoint, tx_hash and receipt-key context; the function verifies receipt signatures, execution fields and optional transaction landing. Current declaration: pub fn lookup_authenticated( endpoint: &SequencerEndpoint, tx_hash: [u8; 32], context: AuthenticatedLookupContext<'_>, ) -> Result<AuthenticatedLookup, ReceiptError>"
+
+[row.r9-56.21]
+interface = "interface.9.rs-client-receipt-resolve-unknown-j44"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 316
+symbol = "resolve_unknown"
+evidence = "Unknown resolution now takes an endpoint, retained raw transaction bytes, receipt-key context and ReconnectPolicy; it hashes retry_bytes and performs bounded receipt lookups. Current declaration: pub fn resolve_unknown( endpoint: &SequencerEndpoint, unknown: &Unknown, context: LookupContext<'_>, policy: ReconnectPolicy, ) -> Result<Resolution, ReceiptError>"
+
+[row.r9-56.22]
+interface = "interface.9.rs-client-stream-cursor"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/stream.rs"
+line = 11
+symbol = "Cursor"
+evidence = "Cursor moved into JSON-RPC streams and now contains block_number and log_index. Current declaration: pub struct Cursor {"
+
+[row.r9-56.23]
+interface = "interface.9.rs-client-stream-event"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/stream.rs"
+line = 31
+symbol = "Event"
+evidence = "Event moved into JSON-RPC streams with a JSON log Value and private Cursor exposed by cursor(). Current declaration: pub struct Event {"
+
+[row.r9-56.24]
+interface = "interface.9.rs-client-stream-streamitem"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/stream.rs"
+line = 44
+symbol = "StreamItem"
+evidence = "StreamItem moved into JSON-RPC streams and still represents explicit Event or Gap results. Current declaration: pub enum StreamItem {"
+
+[row.r9-56.25]
+interface = "interface.9.rs-client-stream-streamconfig"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/stream.rs"
+line = 125
+symbol = "StreamConfig"
+evidence = "The registered stream.rs file is absent. StreamConfig no longer configures client subscriptions; remaining mentions are unrelated NATS jetstream configuration types. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 19
+remaining = ["sdk/launchpad/shared/auth/audit_delivery_integration_test.go:117", "sdk/launchpad/shared/delivery/natsdriver/driver_test.go:111", "sdk/launchpad/shared/delivery/natsdriver/epoch_test.go:114", "services/launchpad/api/internal/app/stream_relay_production_test.go:147", "services/launchpad/gateway/internal/auth/identity_http_test.go:332", "services/launchpad/pnl-tracker/internal/production/l16/baseline_ahead_postgres_test.go:570", "services/launchpad/ranking-algo/internal/store/production_universe_test.go:358", "services/launchpad/social/internal/fanout/connected_protocol_test.go:156", "services/launchpad/social/internal/interactions/integration_test.go:445", "services/launchpad/stats-workers/internal/analytics/projector_test.go:231", "services/launchpad/stats-workers/internal/projectionstats/phase2_test.go:186", "services/launchpad/stats-workers/internal/search/projection_test.go:105", "services/launchpad/trading-charts/internal/consumer/accounting_test.go:640", "services/platform/perps-data/deploy/nats_test.go:287", "services/platform/perps-data/internal/delivery/natsdriver/driver_test.go:59", "services/platform/perps-data/internal/publish/publisher.go:89", "services/platform/perps-data/internal/publish/publisher_test.go:470", "services/platform/perps-data/internal/stream/layout.go:43", "services/platform/perps-data/internal/stream/layout_test.go:16"]
+
+[row.r9-56.26]
+interface = "interface.9.rs-client-stream-streamerror"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/stream.rs"
+line = 149
+symbol = "StreamError"
+evidence = "The registered stream.rs file is absent. StreamError is replaced by SequencerError in rpc/stream.rs; remaining mentions belong to vendored WASI streams. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 2
+remaining = ["programs/vendor/wasip2-1.0.4+wasi-0.2.12/src/ext/std.rs:5", "programs/vendor/wasip2-1.0.4+wasi-0.2.12/src/imports.rs:3933"]
+
+[row.r9-56.27]
+interface = "interface.9.rs-client-stream-eventstream-j44"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/stream.rs"
+line = 49
+symbol = "EventStream"
+evidence = "EventStream moved into rpc/stream.rs and no longer has a lifetime parameter; it owns NodeSubscription, optional Cursor and stopped state. Current declaration: pub struct EventStream {"
+
+[row.r9-56.28]
+interface = "interface.9.rs-client-stream-subscribe"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/stream.rs"
+line = 55
+symbol = "subscribe"
+evidence = "FrameTransport, Cursor and StreamConfig parameters are replaced by URL, trust anchors and SubscriptionTopic; the result is an owned EventStream or SequencerError. Current declaration: pub fn subscribe( url: &str, trust_anchors: &[&[u8]], topic: SubscriptionTopic, ) -> Result<EventStream, SequencerError>"
+
+[row.r9-56.29]
+interface = "interface.9.rs-client-submit-submissioncontext"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/submit.rs"
+line = 19
+symbol = "SubmissionContext"
+evidence = "The registered submit.rs file is absent. SubmissionContext has no non-spec, non-docs references; rpc/submit.rs takes an endpoint and raw transaction bytes directly. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 0
+remaining = []
+
+[row.r9-56.30]
+interface = "interface.9.rs-client-submit-unknowncause"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/submit.rs"
+line = 69
+symbol = "UnknownCause"
+evidence = "The registered submit.rs file is absent. UnknownCause has no non-spec, non-docs references; rpc/submit.rs preserves unknown raw bytes without a cause enum. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 0
+remaining = []
+
+[row.r9-56.31]
+interface = "interface.9.rs-client-submit-unknown"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/submit.rs"
+line = 19
+symbol = "Unknown"
+evidence = "Unknown moved into rpc/submit.rs and stores raw transaction bytes, exposed by retry_bytes for exact resubmission. Current declaration: pub struct Unknown {"
+
+[row.r9-56.32]
+interface = "interface.9.rs-client-submit-submission"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/submit.rs"
+line = 13
+symbol = "Submission"
+evidence = "Submission moved into rpc/submit.rs with Submitted { tx_hash, rung } and Unknown(Unknown) variants. Current declaration: pub enum Submission {"
+
+[row.r9-56.33]
+interface = "interface.9.rs-client-submit-submiterror"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/submit.rs"
+line = 31
+symbol = "SubmitError"
+evidence = "SubmitError moved into rpc/submit.rs and distinguishes Refused { result, refusal } from Sequencer failures. Current declaration: pub enum SubmitError {"
+
+[row.r9-56.34]
+interface = "interface.9.rs-client-submit-submit-signed"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/submit.rs"
+line = 39
+symbol = "submit_signed"
+evidence = "FrameTransport, ModuleRegistry and SubmissionContext are replaced by &SequencerEndpoint and raw transaction bytes; submission calls send_raw_transaction. Current declaration: pub fn submit_signed(endpoint: &SequencerEndpoint, raw: &[u8]) -> Result<Submission, SubmitError>"
+
+[row.r9-56.35]
+interface = "interface.9.rs-client-submit-resubmit-unknown-j44"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/submit.rs"
+line = 57
+symbol = "resubmit_unknown"
+evidence = "Resubmission now takes an endpoint and &Unknown and forwards the original retry_bytes to submit_signed in rpc/submit.rs. Current declaration: pub fn resubmit_unknown( endpoint: &SequencerEndpoint, unknown: &Unknown, ) -> Result<Submission, SubmitError>"
+
+[row.r9-56.36]
+interface = "interface.9.rs-client-withdrawal-withdrawalconfigurationerror"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/withdrawal.rs"
+line = 9
+symbol = "WithdrawalConfigurationError"
+evidence = "WithdrawalConfigurationError moved into rpc/withdrawal.rs with Unsupported, Unavailable, InvalidActivity and AssetUnavailable variants. Current declaration: pub enum WithdrawalConfigurationError {"
+
+[row.r9-56.37]
+interface = "interface.9.rs-client-withdrawal-registry"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-client/src/rpc/withdrawal.rs"
+line = 44
+symbol = "registry"
+evidence = "FrameTransport, Activity, SnapshotContext and network_id are replaced by endpoint, CallRequest, PxEndpoint and asset_id; fee and custody-asset checks precede the returned ModuleRegistry. Current declaration: pub fn registry( endpoint: &SequencerEndpoint, call: &CallRequest, assets: &PxEndpoint, asset_id: [u8; 32], ) -> Result<ModuleRegistry, WithdrawalConfigurationError>"
+
+[row.r9-56.38]
+interface = "interface.9.rs-crypto-disclosure-disclosure"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/disclosure.rs"
+line = 145
+symbol = "Disclosure"
+evidence = "The public struct name is unchanged; its private source now supports both Activity(Activity) and Call(Eip1559Call), with call_sender and signing_digest. The EIP-1559 addition exists, while override.J44.145 and task 9.35.1 removal of the Activity source remains outstanding. Current declaration: pub struct Disclosure {"
+
+[row.r9-56.39]
+interface = "interface.9.rs-crypto-disclosure-bind"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/disclosure.rs"
+line = 1357
+symbol = "bind"
+evidence = "The canonical bytes and ModuleRegistry signature remains unchanged and delegates to bind_with; the retirement requested by override.J44.152 has not removed this function. Current declaration: pub fn bind(canonical: &[u8], registry: &ModuleRegistry) -> Result<Disclosure, DisclosureError>"
+
+[row.r9-56.40]
+interface = "interface.9.rs-crypto-disclosure-bind-budget-mutation"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/disclosure.rs"
+line = 1369
+symbol = "bind_budget_mutation"
+evidence = "The canonical bytes, ModuleRegistry and BudgetStateContext signature remains unchanged; budget fund, defund and revoke activities are still bound despite override.J44.153 retirement. Current declaration: pub fn bind_budget_mutation( canonical: &[u8], registry: &ModuleRegistry, context: &BudgetStateContext, ) -> Result<Disclosure, DisclosureError>"
+
+[row.r9-56.41]
+interface = "interface.9.rs-crypto-signaturemessage-new-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/lib.rs"
+line = 56
+symbol = "new"
+evidence = "SignatureMessage::new still validates protocol version and network and returns Result<Self, VerifyError>; task 9.35.1 has not removed this constructor. Current declaration: pub const fn new( domain: Domain, protocol_version: u16, network_id: u32, canonical: &'a [u8], ) -> Result<Self, VerifyError>"
+
+[row.r9-56.42]
+interface = "interface.9.rs-crypto-signaturemessage-digest-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/lib.rs"
+line = 78
+symbol = "digest"
+evidence = "SignatureMessage::digest still hashes the domain tag and canonical bytes; the task 9.35.1 retirement has not removed this method. Current declaration: pub fn digest(self) -> [u8; 32]"
+
+[row.r9-56.43]
+interface = "interface.9.rs-crypto-verifyerror-result-code-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/lib.rs"
+line = 124
+symbol = "result_code"
+evidence = "VerifyError::result_code still maps all three error variants to ResultCode; task 9.35.1 retirement has not removed this method. Current declaration: pub const fn result_code(self) -> ResultCode"
+
+[row.r9-56.44]
+interface = "interface.9.rs-crypto-onboarding-onboardingconsent"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/onboarding.rs"
+line = 23
+symbol = "OnboardingConsent"
+evidence = "OnboardingConsent still stores sponsor, target DID/key, native asset, action key and expiry; override.J44.146 retirement has not removed this custody-gated declaration. Current declaration: pub struct OnboardingConsent {"
+
+[row.r9-56.45]
+interface = "interface.9.rs-crypto-onboardingconsent-payload-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/onboarding.rs"
+line = 35
+symbol = "payload"
+evidence = "OnboardingConsent::payload still validates consent bindings and encodes CONSENT_HEADER; task 9.35.1 retirement has not removed this method. Current declaration: pub fn payload(&self) -> Result<Vec<u8>, OnboardingError>"
+
+[row.r9-56.46]
+interface = "interface.9.rs-crypto-onboardingconsent-decode-payload-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/onboarding.rs"
+line = 70
+symbol = "decode_payload"
+evidence = "OnboardingConsent::decode_payload still decodes consent bytes using target DID and public key and checks canonical bindings; it remains implemented. Current declaration: pub fn decode_payload( payload: &[u8], target: Did, target_public_key: [u8; 32], ) -> Result<Self, OnboardingError>"
+
+[row.r9-56.47]
+interface = "interface.9.rs-crypto-onboarding-sponsoredregistration"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/onboarding.rs"
+line = 117
+symbol = "SponsoredRegistration"
+evidence = "SponsoredRegistration still stores consent, network_id, not_before and private signed_consent; override.J44.147 retirement has not removed this custody-gated declaration. Current declaration: pub struct SponsoredRegistration {"
+
+[row.r9-56.48]
+interface = "interface.9.rs-crypto-sponsoredregistration-from-signed-consent-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/onboarding.rs"
+line = 127
+symbol = "from_signed_consent"
+evidence = "SponsoredRegistration::from_signed_consent still authenticates a signed kernel activity and its nested consent; task 9.35.1 retirement has not removed it. Current declaration: pub fn from_signed_consent(bytes: &[u8]) -> Result<Self, OnboardingError>"
+
+[row.r9-56.49]
+interface = "interface.9.rs-crypto-sponsoredregistration-decode-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/onboarding.rs"
+line = 178
+symbol = "decode"
+evidence = "SponsoredRegistration::decode still checks registration framing and delegates to from_signed_consent; task 9.35.1 retirement has not removed it. Current declaration: pub fn decode(payload: &[u8]) -> Result<Self, OnboardingError>"
+
+[row.r9-56.50]
+interface = "interface.9.rs-crypto-sponsoredregistration-payload-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/onboarding.rs"
+line = 190
+symbol = "payload"
+evidence = "This is SponsoredRegistration::payload, the second payload method in onboarding.rs; it revalidates and encodes the original signed consent bytes. Current declaration: pub fn payload(&self) -> Result<Vec<u8>, OnboardingError>"
+
+[row.r9-56.51]
+interface = "interface.9.rs-crypto-sponsoredregistration-signed-consent-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/onboarding.rs"
+line = 203
+symbol = "signed_consent"
+evidence = "SponsoredRegistration::signed_consent still returns the original stored signed bytes; task 9.35.1 retirement has not removed it. Current declaration: pub fn signed_consent(&self) -> &[u8]"
+
+[row.r9-56.52]
+interface = "interface.9.rs-crypto-sponsoredregistration-validate-outer-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/onboarding.rs"
+line = 209
+symbol = "validate_outer"
+evidence = "SponsoredRegistration::validate_outer still checks sponsor, network, action key, validity interval and payload against an Activity. Current declaration: pub fn validate_outer(&self, outer: &Activity) -> Result<(), OnboardingError>"
+
+[row.r9-56.53]
+interface = "interface.9.rs-crypto-rotation-ownerrotationstate"
+verdict = "retired"
+path = "services/agent/crates/layerx-crypto/src/rotation.rs"
+line = 12
+symbol = "OwnerRotationState"
+evidence = "The registered crypto rotation.rs file is absent. OwnerRotationState remains only as a cfg(test) alias of OwnerIdentityState in the human service and a test using that alias, not the former crypto struct. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 2
+remaining = ["services/human/crates/layerx-human-service/src/server/production_owner.rs:8", "services/human/crates/layerx-human-service/src/server/production_owner_tests.rs:29"]
+
+[row.r9-56.54]
+interface = "interface.9.rs-crypto-rotation-rotationerror-j44"
+verdict = "retired"
+path = "services/agent/crates/layerx-crypto/src/rotation.rs"
+line = 80
+symbol = "RotationError"
+evidence = "The registered crypto rotation.rs file is absent. RotationError has no non-spec, non-docs references; the stable registry entry no longer describes an implemented enum. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 0
+remaining = []
+
+[row.r9-56.55]
+interface = "interface.9.rs-crypto-rotation-ownerrotationconsent"
+verdict = "retired"
+path = "services/agent/crates/layerx-crypto/src/rotation.rs"
+line = 87
+symbol = "OwnerRotationConsent"
+evidence = "The registered crypto rotation.rs file is absent. OwnerRotationConsent has no non-spec, non-docs references; no relocated consent declaration was found. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 0
+remaining = []
+
+[row.r9-56.56]
+interface = "interface.9.rs-crypto-rotation-ownerrotationcommit"
+verdict = "retired"
+path = "services/agent/crates/layerx-crypto/src/rotation.rs"
+line = 151
+symbol = "OwnerRotationCommit"
+evidence = "The registered crypto rotation.rs file is absent. OwnerRotationCommit has no non-spec, non-docs references; no relocated commit declaration was found. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 0
+remaining = []
+
+[row.r9-56.57]
+interface = "interface.9.rs-crypto-rotation-ownerrotation"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/src/managed_agent_rotation.rs"
+line = 28
+symbol = "OwnerRotation"
+evidence = "The crypto rotation.rs module is absent. OwnerRotation now names a crate-private daemon refusal enum with only Unsupported; prepare returns that refusal rather than producing the former kernel rotation activity. Current declaration: pub(crate) enum OwnerRotation {"
+
+[row.r9-56.58]
+interface = "interface.9.rs-crypto-send-envelopeoptions"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/send.rs"
+line = 217
+symbol = "EnvelopeOptions"
+evidence = "EnvelopeOptions still carries actor, public key, protocol/network, identity sequence, retry identity, fee and time bounds; override.J44.155 retirement has not removed it. Current declaration: pub struct EnvelopeOptions<'a> {"
+
+[row.r9-56.59]
+interface = "interface.9.rs-crypto-send-encode-send-envelope"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/send.rs"
+line = 238
+symbol = "encode_send_envelope"
+evidence = "encode_send_envelope still builds a disclosed asset-send activity with the same payload and EnvelopeOptions parameters; override.J44.154 retirement has not removed it. Current declaration: pub fn encode_send_envelope( payload: &[u8], options: &EnvelopeOptions<'_>, ) -> Result<DisclosedEnvelope, DisclosureError>"
+
+[row.r9-56.60]
+interface = "interface.9.rs-crypto-send-encode-payment-envelope"
+verdict = "retired"
+path = "services/agent/crates/layerx-crypto/src/send.rs"
+line = 190
+symbol = "encode_payment_envelope"
+evidence = "encode_payment_envelope is absent from send.rs. Its replacement is ledger_payment_call at line 189, as override.J44.157 describes; remaining mentions are retirement inventory and tests rejecting the old kernel codec. Repository-wide whole-word search excluded spec and docs directories, with one first occurrence per remaining file."
+remaining_refs = 9
+remaining = ["services/human/crates/layerx-human-kms/tests/retired_crypto_codec.rs:45", "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs:45", "services/human/crates/layerx-human-service/tests/retired_crypto_codec_1.rs:88", "services/human/crates/layerx-human-service/tests/retired_crypto_codec_2.rs:16", "services/human/crates/layerx-human-test-support/tests/retired_crypto_codec.rs:7", "services/human/crates/layerx-intents/tests/retired_crypto_codec.rs:15", "services/human/crates/layerx-intents/tests/retired_crypto_codec_w3.rs:13", "services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/tests/no_kernel_codec.rs:12", "tools/paxeer-x/retired_callers.json:377"]

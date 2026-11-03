@@ -1,10 +1,9 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { EndpointClient, exchange, type IntentLeg, type ModuleTransaction } from '@paxeer/wallet';
+import { exchange, type IntentLeg, type ModuleTransaction } from '@paxeer/wallet';
 import { SegmentedControl, TextField } from '@/components/ui/primitives';
 import { TOKENS } from '@/lib/constants';
-import { useAsync } from '@/account/hooks';
 import { FeeChoice } from './FeeChoice';
 import {
   BuildError,
@@ -60,26 +59,11 @@ export function ExchangeView({ sidRate, legs }: ExchangeViewProps) {
   const { provider, address } = useSurfaceWallet();
   const surfaceModule = useMemo(() => (provider ? exchange(provider) : null), [provider]);
   const fee = useFeeSelection(provider, address);
-  const endpoint = useMemo(
-    () => new EndpointClient({ url: process.env.NEXT_PUBLIC_PAXEER_RPC_URL }),
-    []
-  );
-  const document = useAsync(
-    () => (address ? endpoint.resolveAccount(address) : Promise.resolve(null)),
-    `exchange-account:${address ?? ''}`
-  );
-  const account =
-    document.status === 'ready' &&
-    document.value !== null &&
-    address !== null &&
-    document.value.evm_address?.toLowerCase() === address?.toLowerCase()
-      ? document.value.layerx_account
-      : null;
-  const accountId = account && /^[0-9a-fA-F]{64}$/.test(account) ? `0x${account}` : null;
   const [action, setAction] = useState<ExchangeAction>('open');
   const [marketId, setMarketId] = useState('');
   const [side, setSide] = useState<'long' | 'short'>('long');
-  const [size, setSize] = useState('');
+  const [collateralToken, setCollateralToken] = useState(USDL.address);
+  const [collateralAmount, setCollateralAmount] = useState('');
   const [leverage, setLeverage] = useState('');
   const [id, setId] = useState('');
   const [amount, setAmount] = useState('');
@@ -89,24 +73,21 @@ export function ExchangeView({ sidRate, legs }: ExchangeViewProps) {
     return buildOrError<Built | null>(() => {
       switch (action) {
         case 'open': {
-          if (!marketId || !size || !leverage) return null;
-          if (!accountId) throw new Error('the account has no resolved LayerX main account');
+          if (!marketId || !collateralToken || !collateralAmount || !leverage) return null;
+          const pull = parseSurfaceAmount(collateralAmount, USDL.decimals);
           const tx = surfaceModule.openPosition({
-            marketId: word(marketId),
-            accountId,
-            side: side === 'long' ? 1 : 2,
-            size: parseSurfaceAmount(size, 18),
+            marketId: parseSurfaceId(marketId),
+            collateralToken,
+            collateralAmount: pull,
             leverage: parseSurfaceAmount(leverage, 18),
+            isLong: side === 'long',
           });
-          return { tx, pull: 0n };
+          return { tx, pull };
         }
         case 'close':
           return id ? { tx: surfaceModule.closePosition(parseSurfaceId(id)), pull: 0n } : null;
-        case 'cancel': {
-          if (!id) return null;
-          if (!accountId) throw new Error('the account has no resolved LayerX main account');
-          return { tx: surfaceModule.cancelOrder(word(id), accountId), pull: 0n };
-        }
+        case 'cancel':
+          return id ? { tx: surfaceModule.cancelOrder(parseSurfaceId(id)), pull: 0n } : null;
         case 'deposit': {
           if (!amount) return null;
           const pull = parseSurfaceAmount(amount, USDL.decimals);
@@ -121,13 +102,24 @@ export function ExchangeView({ sidRate, legs }: ExchangeViewProps) {
             : null;
       }
     });
-  }, [surfaceModule, action, marketId, side, size, leverage, id, amount, accountId]);
+  }, [
+    surfaceModule,
+    action,
+    marketId,
+    side,
+    collateralToken,
+    collateralAmount,
+    leverage,
+    id,
+    amount,
+  ]);
   const transaction = built.value?.tx ?? null;
   const pull = built.value?.pull ?? 0n;
+  const approvalToken = action === 'open' ? collateralToken : USDL.address;
   const approval = useCallback(
     async (owner: string) =>
-      surfaceModule && pull > 0n ? surfaceModule.approval(owner, USDL.address, pull) : undefined,
-    [surfaceModule, pull]
+      surfaceModule && pull > 0n ? surfaceModule.approval(owner, approvalToken, pull) : undefined,
+    [surfaceModule, approvalToken, pull]
   );
   const state = useModuleSend(surfaceModule, provider, address, fee, approval);
 
@@ -149,10 +141,16 @@ export function ExchangeView({ sidRate, legs }: ExchangeViewProps) {
           />
           <SegmentedControl label="Side" value={side} options={SIDES} onChange={setSide} />
           <TextField
-            label="Size"
-            name="size"
-            value={size}
-            onChange={(e) => setSize(e.target.value)}
+            label="Collateral token address"
+            name="collateralToken"
+            value={collateralToken}
+            onChange={(e) => setCollateralToken(e.target.value)}
+          />
+          <TextField
+            label="Collateral amount (USDL)"
+            name="collateralAmount"
+            value={collateralAmount}
+            onChange={(e) => setCollateralAmount(e.target.value)}
           />
           <TextField
             label="Leverage (x)"

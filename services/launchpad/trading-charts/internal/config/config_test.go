@@ -44,6 +44,7 @@ func applyEnv(t *testing.T, env map[string]string) {
 }
 
 func TestLoadHappyPath(t *testing.T) {
+	t.Setenv("PORT", "")
 	applyEnv(t, validEnv())
 
 	cfg, err := config.Load()

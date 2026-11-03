@@ -45,8 +45,24 @@ func sequencerReceiptCases(t *testing.T) []sequencerReceiptCase {
 	if err := json.Unmarshal(data, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	if len(fixture.Cases) != 11 {
-		t.Fatalf("expected 11 conformance cases, got %d", len(fixture.Cases))
+	if len(fixture.Cases) != 12 {
+		t.Fatalf("expected 12 conformance cases, got %d", len(fixture.Cases))
+	}
+	expected := map[string]bool{
+		"V1-pax-transfer": false, "V1-erc20-approve": false,
+		"V1-layerxledger-pay-exact": false, "V1-layerxbridge-bridge-out": false,
+		"V1-layerxprograms-call": false,
+		"V2-layerxledger-revert": false,
+		"V3-key-not-pinned":      false, "V3-height-outside-key-range": false,
+		"V3-activity-id-not-raw-hash": false, "V3-seq-hash-mismatch": false,
+		"V3-tampered-log": false, "V3-non-canonical-bytes": false,
+	}
+	for _, c := range fixture.Cases {
+		seen, ok := expected[c.ID]
+		if !ok || seen {
+			t.Fatalf("unexpected or duplicate conformance case %s", c.ID)
+		}
+		expected[c.ID] = true
 	}
 	return fixture.Cases
 }
@@ -123,8 +139,8 @@ func TestSequencerReceiptV1CasesVerifyReceipted(t *testing.T) {
 			}
 		})
 	}
-	if count != 4 {
-		t.Fatalf("executed %d V1 cases, expected 4", count)
+	if count != 5 {
+		t.Fatalf("executed %d V1 cases, expected 5", count)
 	}
 }
 
@@ -195,8 +211,8 @@ func TestSequencerReceiptRefusesForeignSigningKey(t *testing.T) {
 			}
 		})
 	}
-	if count != 4 {
-		t.Fatalf("executed %d V1 cases, expected 4", count)
+	if count != 5 {
+		t.Fatalf("executed %d V1 cases, expected 5", count)
 	}
 }
 
@@ -229,6 +245,93 @@ func TestSequencerReceiptV2RevertDecodesReason(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("executed %d V2 cases, expected 1", count)
+	}
+}
+
+func TestSequencerReceiptFeeTokenSeparatesPaymentAssetAndFeeDenom(t *testing.T) {
+	data, err := os.ReadFile("../conformance/fixtures/sequencer-receipt-fee-token-v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Cases []struct {
+			sequencerReceiptCase
+			PaymentDenom string `json:"paymentDenom"`
+			FeeDenom     string `json:"feeDenom"`
+			Asset        string `json:"asset"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if len(fixture.Cases) != 1 || fixture.Cases[0].ID != "V1-fee-token-payment" {
+		t.Fatal("missing producer fee-token payment case")
+	}
+	c := fixture.Cases[0]
+	if c.PaymentDenom != "usid" || c.FeeDenom != "uhpx" {
+		t.Fatal("fee-token payment must use different payment and fee denominations")
+	}
+	var view sequencerReceiptJSON
+	if err := json.Unmarshal(sequencerReceiptCases(t)[0].ReceiptJSON, &view); err != nil {
+		t.Fatal(err)
+	}
+	view.PaymentDenom, view.FeeDenom, view.Receipt = c.PaymentDenom, c.FeeDenom, c.SignedReceipt
+	receiptJSON, err := json.Marshal(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, keys := sequencerFixtureBytes(t, c.RawTransaction), sequencerFixtureKeys(t, c.sequencerReceiptCase)
+	verified, err := VerifySequencerReceipt(receiptJSON, raw, keys)
+	if err != nil || verified.Rung != "receipted" || verified.Status != 1 || !bytes.Equal(verified.CanonicalBytes, sequencerFixtureBytes(t, c.SignedReceipt)) || !bytes.Equal(verified.ReceiptDigest[:], sequencerFixtureBytes(t, c.ReceiptDigest)) || !bytes.Equal(verified.Receipt.Asset[:], sequencerFixtureBytes(t, c.Asset)) {
+		t.Fatalf("producer fee-token receipt did not verify with distinct denominations: %+v %v", verified, err)
+	}
+	bundle, err := ExportPortableReceipt(receiptJSON, raw, keys, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := bundle.Export()
+	if err != nil {
+		t.Fatal(err)
+	}
+	portable, err := VerifyPortableReceipt(encoded, keys)
+	if err != nil || portable.ReceiptDigest != verified.ReceiptDigest || portable.Receipt.Asset != verified.Receipt.Asset {
+		t.Fatalf("portable fee-token receipt lost authenticated payment asset: %+v %v", portable, err)
+	}
+	for _, field := range []string{"paymentDenom", "feeDenom"} {
+		for _, mutation := range []string{"different", "missing", "empty", "null"} {
+			t.Run(field+"/"+mutation, func(t *testing.T) {
+				var fields map[string]json.RawMessage
+				if err := json.Unmarshal(receiptJSON, &fields); err != nil {
+					t.Fatal(err)
+				}
+				switch mutation {
+				case "different":
+					other := c.PaymentDenom
+					if field == "paymentDenom" {
+						other = c.FeeDenom
+					}
+					fields[field], err = json.Marshal(other)
+				case "missing":
+					delete(fields, field)
+				case "empty":
+					fields[field] = json.RawMessage(`""`)
+				case "null":
+					fields[field] = json.RawMessage(`null`)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				changed, err := json.Marshal(fields)
+				if err != nil {
+					t.Fatal(err)
+				}
+				result, err := VerifySequencerReceipt(changed, raw, keys)
+				var refusal *VerificationError
+				if !errors.As(err, &refusal) || refusal.Check != ReceiptCheckFields || result.Rung != "" || len(result.CanonicalBytes) != 0 {
+					t.Fatalf("denomination mutation returned verified evidence: %+v %v", result, err)
+				}
+			})
+		}
 	}
 }
 

@@ -6,11 +6,14 @@ import { useState, useTransition } from "react";
 
 import {
   perpsCall,
+  perpsCancelOrderCall,
   perpsClosePositionCall,
   perpsDepositCall,
+  perpsOpenPositionCall,
   perpsWithdrawCall,
   waitLaunchpadApproval,
   type PrecompileCall,
+  type PerpsOpenPosition,
   type PerpsWrite,
 } from "../../api/sdk";
 import { isPrecompileSendOutcome, sendWalletPrecompileCall, walletFeePreference, walletSendFailure, type PrecompileSendOutcome } from "../../api/wallet";
@@ -70,11 +73,18 @@ export async function sendPerpsWrite(
 }
 
 export function perpsMarketPositionCall(marketId: bigint, collateral: PerpsCollateral, amount: bigint, leverage: bigint, isLong: boolean): PrecompileCall {
-  return perpsCall("openPosition(uint256,address,uint256,uint256,bool)", [marketId, collateral.token, amount, leverage, isLong]);
+  const order: PerpsOpenPosition = {
+    marketId,
+    collateralToken: collateral.token,
+    collateralAmount: amount,
+    leverage,
+    isLong,
+  };
+  return perpsOpenPositionCall(order);
 }
 
 export function perpsOrderCancelCall(orderId: bigint): PrecompileCall {
-  return perpsCall("cancelOrder(uint256)", [orderId]);
+  return perpsCancelOrderCall(orderId);
 }
 
 export type PerpsOrderInputs = Readonly<{

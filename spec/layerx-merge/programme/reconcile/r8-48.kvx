@@ -1,0 +1,357 @@
+[reconcile.r8-48]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 41
+
+[row.r8-48.1]
+interface = "interface.8.http-ramp-reference-get-readyz"
+verdict = "served"
+path = "services/platform/ramps/reference/src/main.rs"
+line = 731
+symbol = "/readyz"
+evidence = "GET /readyz remains the route declaration; its response now reports chain_id and readiness_scope=local-journal, with 503 when journal health is not ready."
+
+[row.r8-48.2]
+interface = "interface.8.http-ramp-reference-post-internal-v1-work"
+verdict = "served"
+path = "services/platform/ramps/reference/src/main.rs"
+line = 770
+symbol = "/internal/v1/work"
+evidence = "POST /internal/v1/work remains declared and delegates to perform_work; the worker now drives native transaction preparation and signed sequencer receipt resolution through RampEngine."
+
+[row.r8-48.3]
+interface = "interface.8.http-ramp-reference-post-internal-v1-rebalances"
+verdict = "served"
+path = "services/platform/ramps/reference/src/main.rs"
+line = 822
+symbol = "/internal/v1/rebalances"
+evidence = "POST /internal/v1/rebalances remains declared and delegates to rebalance; the handler now uses InventoryRebalancer with LayerxClient and native receipt-backed rung presentation."
+
+[row.r8-48.4]
+interface = "interface.8.err-ramp-reference-native-payer-grant-authorization-required"
+verdict = "retired"
+path = "services/platform/ramps/reference/src/main.rs"
+line = 1050
+symbol = "native_payer_grant_authorization_required"
+evidence = "The native_payer_grant_authorization_required error literal is absent from reference main.rs; the only non-spec, non-docs reference is the sandbox journey expectation."
+remaining_refs = 1
+remaining = ["services/platform/ramps/sandbox-journey.sh:443"]
+
+[row.r8-48.5]
+interface = "interface.8.err-ramp-reference-paxeer-tracker-unavailable"
+verdict = "retired"
+path = "services/platform/ramps/reference/src/main.rs"
+line = 1137
+symbol = "paxeer_tracker_unavailable"
+evidence = "The paxeer_tracker_unavailable error literal is absent from reference main.rs and has no remaining repository references outside spec and docs; custody polling now uses the Layerx sequencer client."
+remaining_refs = 0
+remaining = []
+
+[row.r8-48.6]
+interface = "interface.8.env-ramps-layerx-ramp-receipt-verifier-config"
+verdict = "served"
+path = "services/platform/ramps/sandbox-journey.sh"
+line = 540
+symbol = "LAYERX_RAMP_RECEIPT_VERIFIER_CONFIG"
+evidence = "The required shell variable declaration is still : \"${LAYERX_RAMP_RECEIPT_VERIFIER_CONFIG:?}\" at line 540; its protected LayerxConfig now supplies native chain_id and receipt_keys, and verification consumes a transaction hash."
+
+[row.r8-48.7]
+interface = "interface.8.env-ramps-layerx-ramp-on-account-sequence"
+verdict = "retired"
+path = "services/platform/ramps/sandbox-journey.sh"
+line = 526
+symbol = "LAYERX_RAMP_ON_ACCOUNT_SEQUENCE"
+evidence = "LAYERX_RAMP_ON_ACCOUNT_SEQUENCE is absent from sandbox-journey.sh; native transaction preparation obtains sequence data through the client. Remaining references are bringup, qualification inputs and the removal assertion."
+remaining_refs = 5
+remaining = ["services/platform/hosted/tests/beta-cluster.sh:3411", "services/platform/tests/test_ramp_sandbox_journey.py:29", "tools/bringup/check-live.sh:3661", "tools/bringup/check-live.test.sh:2528", "tools/qualification/beta_driver.py:101"]
+
+[row.r8-48.8]
+interface = "interface.8.cli-ramp-toolkit-ramp-verify-receipt-rs-activity-id"
+verdict = "retired"
+path = "services/platform/ramps/toolkit/src/bin/ramp-verify-receipt.rs"
+line = 55
+symbol = "--activity-id"
+evidence = "The --activity-id flag is absent from this CLI; run() now requires --transaction-hash and validates a 0x-prefixed 32-byte hash. Remaining callers and the rejection test still mention the retired spelling."
+remaining_refs = 3
+remaining = ["services/platform/ramps/sandbox-journey.sh:276", "services/platform/ramps/toolkit/tests/verify_receipt_cli.rs:13", "tools/qualification/paxeer-x/ramp-source-settlement.py:287"]
+
+[row.r8-48.9]
+interface = "interface.8.rs-ramp-toolkit-layerx-ramp-toolkit-clients-layerxconfig"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 833
+symbol = "LayerxConfig"
+evidence = "pub struct LayerxConfig remains; its fields now include rpc_endpoint, rpc_trust_anchor_der, chain_id, operator_address and receipt_keys, replacing gateway/authority endpoints and old sequencer batch pins."
+
+[row.r8-48.10]
+interface = "interface.8.cfg-ramp-toolkit-layerxconfig-gateway-endpoint"
+verdict = "retired"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 877
+symbol = "gateway_endpoint"
+evidence = "The gateway_endpoint field is absent from clients.rs and LayerxConfig now declares rpc_endpoint; other-file references include test rejection inputs and unrelated hosted configurations."
+remaining_refs = 5
+remaining = ["services/platform/hosted/testnet/src/lib.rs:18", "services/platform/hosted/tests/beta-cluster.sh:3282", "services/platform/ramps/toolkit/tests/evm_config.rs:221", "services/platform/ramps/toolkit/tests/proof_ramp_layerx_config.rs:339", "tools/qualification/paxeer-x/fixtures/event_source_fixture.py:133"]
+
+[row.r8-48.11]
+interface = "interface.8.cfg-ramp-toolkit-layerxconfig-receipt-authority-endpoint"
+verdict = "retired"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 878
+symbol = "receipt_authority_endpoint"
+evidence = "The receipt_authority_endpoint field is absent from clients.rs; LayerxConfig uses receipt_keys for signed sequencer receipts. Remaining references belong to hosted registry configuration and the beta cluster."
+remaining_refs = 4
+remaining = ["services/platform/hosted/registry/src/lib.rs:68", "services/platform/hosted/registry/src/main.rs:494", "services/platform/hosted/registry/src/routes.rs:1938", "services/platform/hosted/tests/beta-cluster.sh:3283"]
+
+[row.r8-48.12]
+interface = "interface.8.cfg-ramp-toolkit-layerxconfig-gateway-key-file"
+verdict = "retired"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 880
+symbol = "gateway_key_file"
+evidence = "The gateway_key_file field is absent from clients.rs; the native RPC client uses rpc_trust_anchor_der. Other files still use the spelling for gateway credentials and old cluster configuration."
+remaining_refs = 10
+remaining = ["scripts/qualification/paxeer-x/program-http-producer.py:427", "services/agent/crates/layerx-mcp/README.md:155", "services/agent/crates/layerx-mcp/src/binding.rs:57", "services/platform/hosted/agentd/probe.sh:36", "services/platform/hosted/tests/beta-cluster.sh:3285", "services/wallet/gateway/test/e2e/wallet-signing-adapters.production.ts:52", "tests/agent/sdk/python/test_program_http.py:51", "tools/platform/cli/tests/common/daemon_gateway.rs:131", "tools/qualification/paxeer-x/agent_tenant_readiness.py:434", "tools/qualification/paxeer-x/wallet-402-caps.py:658"]
+
+[row.r8-48.13]
+interface = "interface.8.cfg-ramp-toolkit-layerxconfig-authority-token-file"
+verdict = "retired"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 881
+symbol = "authority_token_file"
+evidence = "The authority_token_file field is absent from clients.rs; native receipt verification uses configured receipt keys. Remaining uses belong to hosted human and beta cluster configurations."
+remaining_refs = 4
+remaining = ["services/platform/hosted/human/native_manifest.py:19", "services/platform/hosted/human/owner_native.py:284", "services/platform/hosted/human/test_owner_native.py:52", "services/platform/hosted/tests/beta-cluster.sh:3286"]
+
+[row.r8-48.14]
+interface = "interface.8.cfg-ramp-toolkit-layerxconfig-protocol-version"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 1782
+symbol = "protocol_version"
+evidence = "LayerxConfig no longer has protocol_version: u16; the identifier survives only as a validate_context parameter inside cfg(test) historical_boundary_tests at line 1782. It is not a production configuration field."
+
+[row.r8-48.15]
+interface = "interface.8.cfg-ramp-toolkit-layerxconfig-network-id"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 1771
+symbol = "network_id"
+evidence = "LayerxConfig no longer has network_id: u32; the identifier survives in historical_boundary_tests as AuthorityBody.network_id: String and a validation parameter. Production configuration now declares chain_id: u64."
+
+[row.r8-48.16]
+interface = "interface.8.cfg-ramp-toolkit-layerxconfig-fee-limit"
+verdict = "retired"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 886
+symbol = "fee_limit"
+evidence = "The fee_limit field is absent from clients.rs; LayerxConfig now has max_fee_per_gas, max_priority_fee_per_gas and gas_limit_cap. Other-file references include distinct kernel and SDK fee interfaces."
+remaining_refs = 297
+remaining = ["apps/wallet/src/account/KernelPlan.tsx:114", "apps/wallet/src/account/test/endpoint.ts:193", "apps/web/src/api/generated/index.ts:2446", "include/layerx/lxp_activity.h:25", "include/layerx/lxp_fee.h:54", "layerxproof/testdata/vectors.json:767", "layerxproof/verify/withdrawal_test.go:29", "modules/lxphost/host.go:1342", "programs/crates/layerx-programs-arbiter/src/activity_codec.rs:47", "programs/crates/layerx-programs-arbiter/src/authority.rs:329", "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:554", "programs/fixtures/pay5/native_roundtrip.h:121", "programs/tests/differential/parallel.c:556", "scripts/qualification/paxeer-x/program-http-producer.py:418", "sdk/integrations/agents/src/tools.ts:69", "sdk/platform/conformance/evm-call-wrapping.test.py:98", "sdk/platform/conformance/evm-lifecycle-wrapping.test.py:72", "sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py:72", "sdk/platform/conformance/fixtures/generate_native_program_fixture.py:12", "sdk/platform/conformance/fixtures/native-program-call-v3.json:12", "sdk/platform/conformance/fixtures/native-program-call-v4.json:12", "sdk/platform/dotnet/Programs.cs:1314", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramTransportRetiredTests.cs:65", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramsContractTests.cs:134", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramsEvmTests.cs:21", "sdk/platform/go/programs.go:44", "sdk/platform/go/programs_evm_test.go:20", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:256", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:1731", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java:163", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramTransportRetiredTest.java:86", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsEvmTest.java:32", "sdk/platform/schema/paxai-v1.kvx:115", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift:2334", "sdk/wallet/src/types.ts:479", "sdk/wallet/test/human-binding.test.ts:108", "services/agent/crates/layerx-agent-api/src/identity.rs:584", "services/agent/crates/layerx-agent-api/src/write.rs:135", "services/agent/crates/layerx-agent-api/tests/write.rs:36", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:47", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:393", "services/agent/crates/layerx-agentd/src/approval/expiry.rs:619", "services/agent/crates/layerx-agentd/src/approval/mod.rs:99", "services/agent/crates/layerx-agentd/src/approval/native_effect.rs:1126", "services/agent/crates/layerx-agentd/src/approval/native_program_presentation.rs:131", "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs:136", "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs:942", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs:445", "services/agent/crates/layerx-agentd/src/capability/binding.rs:2584", "services/agent/crates/layerx-agentd/src/capability/effects.rs:769", "services/agent/crates/layerx-agentd/src/human.rs:184", "services/agent/crates/layerx-agentd/src/human_runtime.rs:76", "services/agent/crates/layerx-agentd/src/ops/program.rs:316", "services/agent/crates/layerx-agentd/src/policy/approval.rs:1250", "services/agent/crates/layerx-agentd/src/prepare/mod.rs:608", "services/agent/crates/layerx-agentd/src/prepare/restore_tests.rs:45", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:181", "services/agent/crates/layerx-agentd/src/session_control.rs:3343", "services/agent/crates/layerx-agentd/tests/approval.rs:50", "services/agent/crates/layerx-agentd/tests/approval_ops.rs:83", "services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs:72", "services/agent/crates/layerx-agentd/tests/approval_semantics.rs:76", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs:656", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs:214", "services/agent/crates/layerx-agentd/tests/disclosure.rs:106", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:788", "services/agent/crates/layerx-agentd/tests/prepare_eip1559.rs:79", "services/agent/crates/layerx-agentd/tests/prepare_expiry.rs:109", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs:128", "services/agent/crates/layerx-agentd/tests/support/mod.rs:177", "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:604", "services/agent/crates/layerx-agentd/tests/w7_core_time.rs:121", "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs:129", "services/agent/crates/layerx-client/src/ai_market.rs:354", "services/agent/crates/layerx-client/tests/ai_market_commit.rs:309", "services/agent/crates/layerx-client/tests/proof_client.rs:273", "services/agent/crates/layerx-crypto/src/disclosure.rs:159", "services/agent/crates/layerx-crypto/src/disclosure/call.rs:27", "services/agent/crates/layerx-crypto/src/disclosure/native.rs:625", "services/agent/crates/layerx-crypto/src/disclosure/program.rs:24", "services/agent/crates/layerx-crypto/src/onboarding.rs:136", "services/agent/crates/layerx-crypto/src/send.rs:224", "services/agent/crates/layerx-crypto/tests/disclosure.rs:54", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs:27", "services/agent/crates/layerx-crypto/tests/proof_crypto.rs:87", "services/agent/crates/layerx-crypto/tests/send_call.rs:79", "services/agent/crates/layerx-crypto/tests/signer_call.rs:106", "services/agent/crates/layerx-mcp/src/catalogue.rs:148", "services/agent/crates/layerx-mcp/src/tools/wallet.rs:184", "services/agent/crates/layerx-mcp/src/tools/web.rs:1488", "services/agent/crates/layerx-mcp/src/tools/write.rs:478", "services/agent/crates/layerx-mcp/tests/approval.rs:57", "services/agent/crates/layerx-mcp/tests/proof_mcp.rs:52", "services/agent/crates/layerx-sdk/src/agent_envelope.rs:542", "services/agent/crates/layerx-sdk/src/bin/layerx-wallet-rpc.rs:201", "services/agent/crates/layerx-sdk/src/native_effect.rs:24", "services/agent/crates/layerx-sdk/src/program_http.rs:46", "services/agent/crates/layerx-sdk/src/programs.rs:100", "services/agent/crates/layerx-sdk/src/wallet.rs:19", "services/agent/crates/layerx-sdk/tests/proof_layerx_wallet_rpc.rs:227", "services/agent/crates/layerx-sdk/tests/sdk.rs:72", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs:189", "services/agent/crates/layerx-sdk/tests/wallet_rpc_bin.rs:180", "services/agent/crates/layerx-types/src/activity.rs:18", "services/agent/crates/layerx-types/src/intent.rs:323", "services/agent/crates/layerx-types/tests/activity.rs:71", "services/agent/crates/layerx-wire/src/activity.rs:40", "services/agent/crates/layerx-wire/tests/support/wallet_vectors/activities.json:15", "services/agent/crates/layerx-wire/tests/wallet_vectors.rs:110", "services/agent/qualification/pay2/pay2e_test.rs:245", "services/agent/schema/agent-api/approval.kvx:13", "services/agent/schema/agent-api/golden/approval.kvx:13", "services/agent/schema/agent-api/golden/identity.kvx:28", "services/agent/schema/agent-api/golden/programs.kvx:113", "services/agent/schema/agent-api/golden/v1.kvx:643", "services/agent/schema/agent-api/golden/write.kvx:8", "services/agent/schema/agent-api/identity.kvx:28", "services/agent/schema/agent-api/programs.kvx:113", "services/agent/schema/agent-api/v1.kvx:643", "services/agent/schema/agent-api/write.kvx:8", "services/agent/sdk/python/layerx_sdk/ai_market.py:130", "services/agent/sdk/python/layerx_sdk/generated/client.py:109", "services/agent/sdk/python/layerx_sdk/generated/client.pyi:67", "services/agent/sdk/python/layerx_sdk/intent.py:191", "services/agent/sdk/python/layerx_sdk/intent.pyi:83", "services/agent/sdk/python/layerx_sdk/native_effect.py:21", "services/agent/sdk/python/layerx_sdk/program_wire.py:123", "services/agent/sdk/python/layerx_sdk/programs.py:39", "services/agent/sdk/python/layerx_sdk/programs.pyi:21", "services/agent/sdk/typescript/src/ai_market.ts:114", "services/agent/sdk/typescript/src/generated/client.ts:184", "services/agent/sdk/typescript/src/intent.ts:367", "services/agent/sdk/typescript/src/native-effect.ts:51", "services/agent/sdk/typescript/src/wallet.ts:82", "services/agent/sdk/typescript/test/agent-operation-envelope.test.ts:305", "services/agent/sdk/typescript/test/ai-market.test.ts:511", "services/agent/sdk/typescript/test/intent.test.ts:87", "services/agent/sdk/typescript/test/native-abi5.test.ts:17", "services/agent/sdk/typescript/test/native-effect.test.ts:14", "services/agent/sdk/typescript/test/program-lifecycle.test.ts:103", "services/agent/tests/limits/exactly_once.rs:1015", "services/agent/tools/sdk-gen/src/main.rs:628", "services/agent/tools/sdk-gen/templates/python.pyi.tpl:78", "services/agent/tools/sdk-gen/templates/python.tpl:91", "services/agent/tools/sdk-gen/templates/typescript.tpl:94", "services/human/crates/layerx-human-kms/src/attestor.rs:1187", "services/human/crates/layerx-human-kms/src/wire.rs:249", "services/human/crates/layerx-human-kms/tests/attestor.rs:1184", "services/human/crates/layerx-human-kms/tests/no_layerx_intents.rs:87", "services/human/crates/layerx-human-kms/tests/provider.rs:680", "services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs:475", "services/human/crates/layerx-human-service/src/agents/create.rs:497", "services/human/crates/layerx-human-service/src/agents/reclaim.rs:73", "services/human/crates/layerx-human-service/src/approvals/mod.rs:222", "services/human/crates/layerx-human-service/src/approvals/render.rs:88", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs:221", "services/human/crates/layerx-human-service/src/custody/provider.rs:1479", "services/human/crates/layerx-human-service/src/journeys/engine.rs:57", "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs:54", "services/human/crates/layerx-human-service/src/journeys/resolver.rs:167", "services/human/crates/layerx-human-service/src/journeys/router.rs:1800", "services/human/crates/layerx-human-service/src/onboarding/mod.rs:307", "services/human/crates/layerx-human-service/src/onboarding/native.rs:139", "services/human/crates/layerx-human-service/src/server/agent_creation.rs:120", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:44", "services/human/crates/layerx-human-service/src/server/production_components.rs:619", "services/human/crates/layerx-human-service/src/server/production_onboarding.rs:329", "services/human/crates/layerx-human-service/src/server/production_rotation.rs:398", "services/human/crates/layerx-human-service/src/server/projection.rs:251", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1210", "services/human/crates/layerx-human-service/tests/agent_create.rs:834", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs:444", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs:89", "services/human/crates/layerx-human-service/tests/approval_rungs.rs:101", "services/human/crates/layerx-human-service/tests/approvals.rs:66", "services/human/crates/layerx-human-service/tests/custody.rs:172", "services/human/crates/layerx-human-service/tests/decide.rs:295", "services/human/crates/layerx-human-service/tests/decide_nonces.rs:326", "services/human/crates/layerx-human-service/tests/intent_nonces.rs:91", "services/human/crates/layerx-human-service/tests/intent_submit.rs:221", "services/human/crates/layerx-human-service/tests/journey_faults.rs:289", "services/human/crates/layerx-human-service/tests/key_export.rs:154", "services/human/crates/layerx-human-service/tests/move_money.rs:300", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs:324", "services/human/crates/layerx-human-service/tests/native_lifecycle.rs:100", "services/human/crates/layerx-human-service/tests/native_send_nonces.rs:203", "services/human/crates/layerx-human-service/tests/native_send_producer.rs:481", "services/human/crates/layerx-human-service/tests/reclaim.rs:110", "services/human/crates/layerx-human-service/tests/reclaim_nonces.rs:51", "services/human/crates/layerx-human-service/tests/render.rs:140", "services/human/crates/layerx-human-service/tests/resolver.rs:250", "services/human/crates/layerx-human-service/tests/send_routes.rs:200", "services/human/crates/layerx-human-service/tests/session_keys.rs:678", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs:536", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:213", "services/human/crates/layerx-intents/tests/budget_payloads.rs:161", "services/human/crates/layerx-intents/tests/compile.rs:187", "services/human/crates/layerx-intents/tests/owner_bootstrap.rs:81", "services/human/crates/layerx-intents/tests/proof_human_intents.rs:485", "services/human/schema/human-api/baseline.kvx:791", "services/human/schema/human-api/golden/intent.submit.request.json:20", "services/human/schema/human-api/intent.kvx:52", "services/interop/crates/x-websearch/src/payment.rs:1753", "services/interop/crates/x-websearch/tests/config.rs:912", "services/platform/examples/agent-program-call/walkthrough.sh:22", "services/platform/hosted/ai-evaluator/src/main.rs:905", "services/platform/hosted/core/src/lib.rs:178", "services/platform/hosted/core/src/main.rs:82", "services/platform/hosted/core/tests/send.rs:24", "services/platform/hosted/core/tests/signer.rs:174", "services/platform/hosted/human/native_manifest.py:18", "services/platform/hosted/human/owner_kms.py:57", "services/platform/hosted/human/owner_native.py:284", "services/platform/hosted/human/test_owner_native.py:50", "services/platform/hosted/node/tests/probe/src/main.rs:246", "services/platform/hosted/paxai-worker/src/main.rs:134", "services/platform/hosted/paxai-worker/tests/job_admission.rs:1583", "services/platform/hosted/paxai-worker/tests/transport_identity.rs:1323", "services/platform/hosted/tests/beta-cluster.sh:3206", "services/platform/middleware/agent/src/daemon.ts:17", "services/platform/middleware/agent/test/daemon-evm.test.mjs:21", "services/platform/middleware/agent/test/evm-terms.test.mjs:112", "services/platform/middleware/agent/test/protocol-selection.test.mjs:109", "services/platform/middleware/conformance/pay6/agent-commitment.test.mjs:19", "services/platform/middleware/conformance/service.mjs:501", "services/wallet/attestor/internal/lxwire/lxwire_test.go:49", "services/wallet/attestor/internal/lxwire/testdata/activities.json:15", "services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/src/main.rs:248", "src/modules/asset/lx_asset_registry.c:223", "src/modules/governance/lxp_governance_onboarding.c:58", "src/modules/governance/lxp_governance_rotation.c:141", "src/modules/programs/fee.c:126", "src/protocol/lxp_activity.c:64", "src/protocol/lxp_fee.c:232", "src/protocol/lxp_fee_policy.c:6", "src/protocol/lxp_kernel.c:1338", "src/protocol/lxp_meter.c:16", "tests/agent/sdk/python/test_ai_market.py:553", "tests/agent/sdk/python/test_intent.py:117", "tests/agent/sdk/python/test_native_effect.py:111", "tests/agent/sdk/python/test_native_program_binding.py:42", "tests/agent/sdk/python/test_program_account_bound.py:30", "tests/agent/sdk/python/test_program_http.py:85", "tests/codec/lxp_test_budget_pull_retired.c:242", "tests/codec/lxp_test_fee_meter_refused.c:234", "tests/codec/lxp_test_handover_retired.c:243", "tests/codec/lxp_test_kernel_entry_retired.c:302", "tests/codec/lxp_test_program_signer_binding.c:235", "tests/codec/lxp_test_sandbox_receipt.c:464", "tests/codec/lxp_test_snapshot_golden.c:214", "tests/codec/lxp_test_state_feed_unbound.c:82", "tests/fuzz/lxp_prop_prepare_workers.c:395", "tests/modules/test_asset_account_grant.c:105", "tests/modules/test_asset_registry.c:106", "tests/modules/test_asset_withdraw_activity.c:118", "tests/modules/test_budget_close.c:382", "tests/modules/test_budget_create.c:329", "tests/modules/test_budget_delegate.c:379", "tests/modules/test_service_helpers.h:206", "tests/programs/test_ai_host_boundary.c:243", "tests/programs/test_blob_lifecycle.c:606", "tests/programs/test_cache_native_equivalence.c:83", "tests/programs/test_call_activity.c:1097", "tests/programs/test_execution_context.c:82", "tests/programs/test_language_abi.c:195", "tests/programs/test_lifecycle.c:965", "tests/programs/test_market_attestation.c:260", "tests/programs/test_metered_call.c:205", "tests/programs/test_monetary_law.c:785", "tests/programs/test_paxai_native_gaps.c:349", "tests/programs/test_programs_abi5_admission.c:267", "tests/programs/test_spend_capability_composition.c:129", "tests/programs/test_terminal_v5.c:19", "tests/programs/test_winddown.c:637", "tests/protocol/lxp_test_activity_codec.c:34", "tests/protocol/lxp_test_dispatch.c:74", "tests/protocol/paxeer_x_rejection_policy.py:31", "tests/qualification/lxp_qual_replay.c:207", "tests/qualification/lxp_wallet_caps_discovery.c:317", "tests/test_fee_replay.c:22", "tests/test_fuzz_smoke.c:117", "tests/test_programs_oracle_read.c:536", "tests/test_web_program_path.c:254", "tools/bringup/xweb-config.sh:69", "tools/platform/cli/examples/hosted-send.rs:139", "tools/platform/cli/src/main.rs:374", "tools/platform/cli/src/programs.rs:312", "tools/platform/cli/src/wallet.rs:116", "tools/platform/cli/src/wallet_signing.rs:126", "tools/platform/cli/tests/install-journey.sh:248", "tools/platform/cli/tests/program_evm_calls.rs:230", "tools/platform/cli/tests/wallet_estimate_fee.rs:302", "tools/platform/cli/tests/wallet_send.rs:129", "tools/qualification/paxeer-x/agent_operation_envelope.py:332", "tools/qualification/paxeer-x/fixtures/agentd_fixture.py:377", "tools/qualification/paxeer-x/mcp_served_writes.py:516", "tools/qualification/paxeer-x/programs_typed_interfaces.py:265"]
+
+[row.r8-48.17]
+interface = "interface.8.cfg-ramp-toolkit-layerxconfig-signer-public-key"
+verdict = "retired"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 887
+symbol = "signer_public_key"
+evidence = "The signer_public_key field is absent from clients.rs; native configuration uses operator_address and receipt_keys. The remaining references include other signing interfaces and fixtures, not this removed field."
+remaining_refs = 114
+remaining = ["cmd/layerx-genesis/lxp_genesis_builder.c:15", "contracts/bridge/README.md:284", "include/layerx/lxp_genesis.h:177", "include/layerx/lxp_snapshot.h:31", "scripts/qualification/paxeer-x/program-http-producer.py:406", "sdk/integrations/agents/src/daemon-budget.ts:161", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:158", "services/agent/crates/layerx-agent-api/src/identity.rs:1062", "services/agent/crates/layerx-agentd/src/admin.rs:44", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:1407", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:872", "services/agent/crates/layerx-agentd/src/human.rs:262", "services/agent/crates/layerx-agentd/src/human_runtime.rs:7866", "services/agent/crates/layerx-agentd/src/ops/program.rs:734", "services/agent/crates/layerx-agentd/src/sign.rs:394", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs:1137", "services/agent/crates/layerx-agentd/tests/faucet_claim_retired.rs:30", "services/agent/crates/layerx-client/src/ai_market.rs:1270", "services/agent/crates/layerx-client/tests/ai_market_rpc.rs:292", "services/agent/crates/layerx-mcp/src/catalogue.rs:156", "services/agent/crates/layerx-mcp/tests/activity_evm_signatures.rs:57", "services/agent/crates/layerx-sdk/src/native_effect.rs:133", "services/agent/crates/layerx-sdk/src/register.rs:20", "services/agent/crates/layerx-sdk/src/rpc.rs:329", "services/agent/crates/layerx-sdk/src/rpc_budget.rs:96", "services/agent/schema/agent-api/golden/identity.kvx:186", "services/agent/schema/agent-api/golden/v1.kvx:209", "services/agent/schema/agent-api/golden/write.kvx:93", "services/agent/schema/agent-api/identity.kvx:186", "services/agent/schema/agent-api/v1.kvx:209", "services/agent/schema/agent-api/write.kvx:93", "services/agent/sdk/python/layerx_sdk/ai_market.py:1400", "services/agent/sdk/typescript/src/wallet.ts:27", "services/human/crates/layerx-human-kms/tests/attestor_native_profile.rs:415", "services/human/crates/layerx-human-service/src/custody/signer.rs:293", "services/human/crates/layerx-human-service/src/journeys/engine.rs:346", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4217", "services/human/crates/layerx-human-service/src/server/native_send.rs:446", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1605", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs:374", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs:236", "services/human/crates/layerx-human-service/tests/custody.rs:403", "services/human/crates/layerx-human-service/tests/journey_faults.rs:752", "services/human/crates/layerx-human-service/tests/move_money.rs:357", "services/human/crates/layerx-human-service/tests/native_send_producer.rs:724", "services/human/crates/layerx-human-service/tests/native_send_purpose.rs:337", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:512", "services/interop/crates/layerx-bridge-relayer/src/cosign.rs:389", "services/interop/crates/layerx-bridge-relayer/tests/operator_cosign_contract.rs:1161", "services/interop/crates/layerx-interop-service/src/server.rs:515", "services/platform/hosted/core/src/lib.rs:188", "services/platform/hosted/core/tests/signer.rs:215", "services/platform/hosted/gateway/openrpc.json:14", "services/platform/hosted/gateway/src/main.rs:304", "services/platform/hosted/gateway/src/rpc_register.rs:87", "services/platform/hosted/gateway/src/store.rs:98", "services/platform/hosted/gateway/tests/receipt_keys.rs:940", "services/platform/hosted/gateway/tests/support/payment_events.rs:314", "services/platform/hosted/gateway/tests/tap_nonce.rs:175", "services/platform/hosted/gateway/tests/unified_service_paths.rs:479", "services/platform/hosted/identity/src/main.rs:150", "services/platform/hosted/identity/src/signup.rs:74", "services/platform/hosted/identity/src/store.rs:50", "services/platform/hosted/node/bootstrap.sh:521", "services/platform/hosted/registry/tests/producer_tls.rs:235", "services/platform/hosted/testnet/tests/journey-credentials.py:35", "services/platform/hosted/tests/beta-cluster.sh:2597", "services/platform/middleware/agent/src/daemon.ts:109", "services/platform/middleware/agent/src/index.ts:132", "services/platform/middleware/conformance/connected.mjs:174", "services/platform/middleware/conformance/service.mjs:476", "src/modules/programs/fees.c:465", "src/modules/programs/metering.c:328", "src/protocol/lxp_genesis.c:318", "src/state/lxp_snapshot.c:91", "src/storage/lxp_snapshot_store.c:88", "tests/codec/lxp_test_client_reads.c:272", "tests/codec/lxp_test_fee_meter_refused.c:209", "tests/codec/lxp_test_fee_relay_retired.c:100", "tests/codec/lxp_test_grant_fee_asset.c:62", "tests/codec/lxp_test_handover_retired.c:69", "tests/codec/lxp_test_kernel_entry_retired.c:164", "tests/codec/lxp_test_migration_authorization.c:37", "tests/codec/lxp_test_program_signer_binding.c:193", "tests/codec/lxp_test_programs_reads.c:105", "tests/codec/lxp_test_sandbox_receipt.c:425", "tests/codec/lxp_test_settled_maintenance.c:186", "tests/codec/lxp_test_state_feed_unbound.c:168", "tests/fuzz/lxp_prop_kernel_integrated.c:103", "tests/fuzz/lxp_prop_prepare_workers.c:57", "tests/programs/test_ai_host_boundary.c:200", "tests/programs/test_cache_native_equivalence.c:169", "tests/programs/test_execution_context.c:168", "tests/programs/test_lifecycle.c:102", "tests/programs/test_market_attestation.c:215", "tests/programs/test_metered_call.c:300", "tests/programs/test_paxai_native_gaps.c:301", "tests/programs/test_programs_abi5_admission.c:216", "tests/programs/test_spend_capability_composition.c:197", "tests/test_genesis_manifest.c:51", "tests/test_genesis_module_table.c:45", "tools/platform/cli/src/install/mod.rs:625", "tools/platform/cli/src/register.rs:23", "tools/platform/cli/src/rpc.rs:243", "tools/platform/cli/tests/fixtures/openrpc.json:14", "tools/platform/cli/tests/install-journey.sh:178", "tools/platform/cli/tests/mcp_evm_submit.rs:225", "tools/platform/cli/tests/rpc_identity.rs:47", "tools/platform/emulator/core/emulator_core.c:303", "tools/qualification/paxeer-x/agent_operation_envelope.py:1513", "tools/qualification/paxeer-x/agent_tenant_readiness.py:279", "tools/qualification/paxeer-x/fixtures/agentd_fixture.py:253", "tools/qualification/paxeer-x/fixtures/event_source_fixture.py:304", "tools/qualification/paxeer-x/mcp_served_writes.py:366"]
+
+[row.r8-48.18]
+interface = "interface.8.cfg-ramp-toolkit-layerxconfig-sequencer-id"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 1821
+symbol = "sequencer_id"
+evidence = "The sequencer_id LayerxConfig field has been removed; this literal survives only in cfg(test) historical_boundary_tests fixture parsing at line 1821. Production receipt authorization uses receipt_keys."
+
+[row.r8-48.19]
+interface = "interface.8.cfg-ramp-toolkit-layerxconfig-sequencer-public-key"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 1738
+symbol = "sequencer_public_key"
+evidence = "The sequencer_public_key LayerxConfig field has been removed; the identifier remains in the cfg(test) historical GatewayAuthorityBody and AuthorityBody records. Production configuration now uses receipt_keys."
+
+[row.r8-48.20]
+interface = "interface.8.cfg-ramp-toolkit-layerxconfig-sequencer-first-batch"
+verdict = "retired"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 890
+symbol = "sequencer_first_batch"
+evidence = "The sequencer_first_batch field is absent from clients.rs; receipt key validity is now bounded by first_height/last_height. Remaining mentions are hosted sequencer-pin helpers and beta cluster configuration."
+remaining_refs = 3
+remaining = ["services/platform/hosted/tests/beta-cluster.sh:3295", "services/platform/hosted/tests/sequencer-pins.py:20", "services/platform/hosted/tests/test_sequencer_pins.py:42"]
+
+[row.r8-48.21]
+interface = "interface.8.cfg-ramp-toolkit-layerxconfig-sequencer-last-batch"
+verdict = "retired"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 891
+symbol = "sequencer_last_batch"
+evidence = "The sequencer_last_batch field is absent from clients.rs; receipt key validity is now bounded by first_height/last_height. Remaining mentions are hosted sequencer-pin helpers and beta cluster configuration."
+remaining_refs = 3
+remaining = ["services/platform/hosted/tests/beta-cluster.sh:3296", "services/platform/hosted/tests/sequencer-pins.py:20", "services/platform/hosted/tests/test_sequencer_pins.py:42"]
+
+[row.r8-48.22]
+interface = "interface.8.rs-ramp-toolkit-layerx-ramp-toolkit-clients-layerxclient"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 922
+symbol = "LayerxClient"
+evidence = "pub struct LayerxClient remains; it now stores SequencerEndpoint, PxEndpoint, chain_id, operator_address, receipt_keys, native gas limits and a raw_transactions map instead of the old gateway/authority configuration."
+
+[row.r8-48.23]
+interface = "interface.8.rs-ramp-toolkit-layerx-ramp-toolkit-clients-layerxsubmission-verified"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 939
+symbol = "LayerxSubmission"
+evidence = "pub enum LayerxSubmission remains; Verified carries leg: VerifiedLayerxLeg and canonical_activity: Option<Vec<u8>>, with the leg now binding tx_hash, receipt_digest, height and rung. Pending/Unknown retain compatibility field names."
+
+[row.r8-48.24]
+interface = "interface.8.rs-ramp-toolkit-clients-preparedlayerx-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 990
+symbol = "PreparedLayerx"
+evidence = "pub struct PreparedLayerx now owns tx_hash: [u8; 32] and raw_transaction: Vec<u8>; activity_id() and canonical_activity() delegate to native transaction accessors rather than holding a compiled kernel activity."
+
+[row.r8-48.25]
+interface = "interface.8.rs-ramp-toolkit-clients-paxeersubmission-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 1298
+symbol = "PaxeerSubmission"
+evidence = "pub struct PaxeerSubmission remains with operation_id, idempotency_key, custody account/wallet/vault, asset, amount and transaction_hash: String. The declaration moved from registry line 1370 to 1298; no rename is observed."
+
+[row.r8-48.26]
+interface = "interface.8.rs-ramp-toolkit-layerx-ramp-toolkit-clients-paxeercustodyclient"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 1309
+symbol = "PaxeerCustodyClient"
+evidence = "pub struct PaxeerCustodyClient remains with HTTP endpoint, credential, broadcast/status paths and custody account fields. The declaration moved from registry line 1381 to 1309; settlement verification now consumes LayerxClient sequencer state."
+
+[row.r8-48.27]
+interface = "interface.8.rs-ramp-toolkit-clients-configured-sequencer-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 1591
+symbol = "configured_sequencer"
+evidence = "The configured_sequencer function still exists with id/key/first/last string parameters, but only inside cfg(test) historical_boundary_tests. Its presence does not retain the retired production configuration API."
+
+[row.r8-48.28]
+interface = "interface.8.rs-ramp-toolkit-clients-maintainedbatchdocument-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 1614
+symbol = "MaintainedBatchDocument"
+evidence = "MaintainedBatchDocument still exists only inside cfg(test) historical_boundary_tests with header_hex, header_signature, receipt_proof_hex and batch_identity fields; production native receipt evidence no longer exposes this batch document."
+
+[row.r8-48.29]
+interface = "interface.8.rs-ramp-toolkit-layerx-ramp-toolkit-clients-verify-recovery-settlement"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/clients.rs"
+line = 2305
+symbol = "verify_recovery_settlement"
+evidence = "pub fn verify_recovery_settlement still takes projection, operator, provider, layerx and custody and returns Result<(), RampError>; its implementation now authenticates chain_id, network head and native signed receipt settlement."
+
+[row.r8-48.30]
+interface = "interface.8.rs-ramp-toolkit-layerx-ramp-toolkit-engine-rampengine"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/engine.rs"
+line = 15
+symbol = "RampEngine"
+evidence = "pub struct RampEngine<'a> remains with journal, compliance, provider, layerx, registry, worker_id and lease_seconds; its LayerxClient dependency now prepares native raw transactions and resolves signed sequencer receipts."
+
+[row.r8-48.31]
+interface = "interface.8.rs-ramp-toolkit-layerx-ramp-toolkit-engine-inventoryrebalancer"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/engine.rs"
+line = 383
+symbol = "InventoryRebalancer"
+evidence = "pub struct InventoryRebalancer<'a> remains with journal, custody and layerx references; the LayerxClient dependency now resolves external-custody transaction hashes through the sequencer and records receipt-backed rungs."
+
+[row.r8-48.32]
+interface = "interface.8.fmt-ramp-toolkit-journal"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/journal.rs"
+line = 14
+symbol = "JOURNAL_DOMAIN"
+evidence = "JOURNAL_DOMAIN is now the byte-string domain LXP/market-maker-ramp/journal/v2 with a trailing NUL, replacing the registered journal/v1 domain. Version-two journal evidence carries native transactions and receipt height/rung."
+
+[row.r8-48.33]
+interface = "interface.8.rs-ramp-toolkit-journal-transitionevidence-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/journal.rs"
+line = 46
+symbol = "TransitionEvidence"
+evidence = "pub struct TransitionEvidence now includes optional tx_hash, raw_transaction, receipt_height and rung fields with serde defaults, while retaining activity_id/canonical_activity for compatibility with historical journal records."
+
+[row.r8-48.34]
+interface = "interface.8.rs-ramp-toolkit-journal-paxeerobservation-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/journal.rs"
+line = 81
+symbol = "PaxeerObservation"
+evidence = "pub struct PaxeerObservation<'a> now carries transaction_hash, Rung, optional block_hash and block_height; from_sequencer_receipt constructs it from the sequencer receipt instead of an external tracker confirmation count."
+
+[row.r8-48.35]
+interface = "interface.8.rs-ramp-toolkit-layerx-ramp-toolkit-journal-paxeersnapshot"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/journal.rs"
+line = 221
+symbol = "PaxeerSnapshot"
+evidence = "pub struct PaxeerSnapshot retains transaction_hash, stage, block_hash and confirmations and now also carries optional rung: Option<Rung> and block_height: Option<u64>, used by its native receipt-backed presentation."
+
+[row.r8-48.36]
+interface = "interface.8.rs-ramp-toolkit-lib-compiledpayment-j41"
+verdict = "retired"
+path = "services/platform/ramps/toolkit/src/lib.rs"
+line = 269
+symbol = "CompiledPayment"
+evidence = "CompiledPayment is absent from lib.rs and from the repository outside spec and docs; native payment compilation now returns LedgerCall with to: [u8; 20] and data: Vec<u8> at lib.rs:287."
+remaining_refs = 0
+remaining = []
+
+[row.r8-48.37]
+interface = "interface.8.rs-ramp-toolkit-lib-compile-payer-grant-draw-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/lib.rs"
+line = 299
+symbol = "compile_payer_grant_draw"
+evidence = "pub fn compile_payer_grant_draw(order: &RampOrder, receiver_sequence: u64) now returns Result<LedgerCall, RampError>; it encodes native ledger draw calldata rather than returning the removed CompiledPayment activity."
+
+[row.r8-48.38]
+interface = "interface.8.rs-ramp-toolkit-lib-compile-operator-send-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/lib.rs"
+line = 340
+symbol = "compile_operator_send"
+evidence = "pub fn compile_operator_send(order: &RampOrder) now returns Result<LedgerCall, RampError> and encodes payExact calldata for LEDGER_ADDRESS; the removed CompiledPayment return type and old activity assembly are gone."
+
+[row.r8-48.39]
+interface = "interface.8.rs-ramp-toolkit-lib-receiptevidence-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/lib.rs"
+line = 359
+symbol = "ReceiptEvidence"
+evidence = "pub struct ReceiptEvidence now holds raw_transaction: Vec<u8>, signed_receipt: Vec<u8>, receipt_keys: Vec<ReceiptKeyEntry> and logs: Vec<SequencerLog>, replacing gateway/authority batch evidence with native transaction receipt inputs."
+
+[row.r8-48.40]
+interface = "interface.8.rs-ramp-toolkit-lib-verifiedlayerxleg-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/lib.rs"
+line = 367
+symbol = "VerifiedLayerxLeg"
+evidence = "pub struct VerifiedLayerxLeg now exposes tx_hash: [u8; 32], receipt_digest: [u8; 32], height: u64 and rung: Rung; the transaction identity and signed receipt height/rung replace the old kernel activity and batch proof shape."
+
+[row.r8-48.41]
+interface = "interface.8.rs-ramp-toolkit-lib-verify-order-receipt-j41"
+verdict = "served"
+path = "services/platform/ramps/toolkit/src/lib.rs"
+line = 381
+symbol = "verify_order_receipt"
+evidence = "pub fn verify_order_receipt(order: &RampOrder, evidence: &ReceiptEvidence) returns Result<VerifiedLayerxLeg, RampError>; the evidence type now carries raw transaction, signed receipt, pinned receipt keys and native sequencer logs."

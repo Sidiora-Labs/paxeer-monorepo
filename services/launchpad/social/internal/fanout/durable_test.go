@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/internaltest"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -46,11 +46,8 @@ func durableFixture(t *testing.T) *fanout.DurableStore {
 		}
 		admin.Close(context.Background())
 	})
-	ddl, err := os.ReadFile("../../../../../launchpad/spec/production-system/handoffs/L36/phase1/schema.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pool.Exec(ctx, string(ddl)); err != nil {
+	ddl := internaltest.CoordinatorMigrationSQL(t, schema, 360000)
+	if _, err = pool.Exec(ctx, ddl); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = pool.Exec(ctx, `CREATE TABLE fixture_policy(wallet text PRIMARY KEY,allowed boolean NOT NULL); CREATE TABLE fixture_pools(id text PRIMARY KEY);`); err != nil {

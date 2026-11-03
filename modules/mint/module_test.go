@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/gorilla/mux"
@@ -36,7 +37,10 @@ func TestRegisterRESTRoutesMountsNoLegacyQuery(t *testing.T) {
 }
 
 func TestNewProposalHandler(t *testing.T) {
+	started := time.Now()
+	t.Log("initializing node fixture")
 	app := app.Setup(t, false, false, false)
+	t.Logf("node fixture initialized after %s", time.Since(started))
 
 	ctx := app.BaseApp.NewContext(false, tmproto.Header{})
 	app.MintKeeper.SetParams(ctx, types.DefaultParams())

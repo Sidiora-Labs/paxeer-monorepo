@@ -1,0 +1,6 @@
+[repair.c-kernel-make.111]
+target = "test-storage"
+command = "make -s test-storage"
+revision = "b7c80079a5ae815c3ef15c95392d8172acfaffee"
+result = "already-passing"
+change = "The test-log prerequisite already reflects decision 124: admitted record kinds round-trip, retired kinds are refused without changing segment bytes or append state, and sequence exhaustion and corruption remain checked. The storage aggregate retains test-log, test-log-durability, test-recovery, test-projection and test-rebuild without product or test changes."

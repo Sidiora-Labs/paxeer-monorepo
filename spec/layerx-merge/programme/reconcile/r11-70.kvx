@@ -1,0 +1,501 @@
+[reconcile.r11-70]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r11-70.1]
+interface = "interface.11.sevt-mirror-archive-manifest-opened"
+verdict = "served"
+path = "services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol"
+line = 53
+symbol = "ManifestOpened"
+evidence = "event ManifestOpened now emits uint64 height in place of batchNumber and adds bytes32 blockHash after height; commitment, networkId, totalBytes, totalChunks and archiveDigest remain. The emitted event at line 116 matches the new declaration."
+
+[row.r11-70.2]
+interface = "interface.11.sol-mirror-archive-begin"
+verdict = "served"
+path = "services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol"
+line = 78
+symbol = "begin"
+evidence = "function begin(bytes32 commitment, uint32 networkId, uint64 height, bytes32 blockHash, uint64 totalBytes, uint32 totalChunks, bytes32 archiveDigest, bytes32 expectedChunkChain) external onlyPublisher replaces batchNumber/checkpointId with height/blockHash; both are validated and persisted in ArchiveManifest."
+
+[row.r11-70.3]
+interface = "interface.11.sol-mirror-archive-append"
+verdict = "served"
+path = "services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol"
+line = 119
+symbol = "append"
+evidence = "function append(bytes32 commitment, uint32 index, bytes calldata value) external onlyPublisher retains its registered signature. It still checks ordered chunk hashes and updates the streamed archive digest; the archive opened by begin now identifies a height and blockHash rather than batchNumber/checkpointId."
+
+[row.r11-70.4]
+interface = "interface.11.fmt-solana-mirror-instruction"
+verdict = "served"
+path = "services/interop/contracts/solana-mirror/src/lib.rs"
+line = 19
+symbol = "LXMA"
+evidence = "INSTRUCTION_MAGIC remains b\"LXMA\", but VERSION is now 4 instead of 3. initialize reads height:u64be and block_hash:bytes32 in place of batch_number/checkpoint_id; append/finalize retain their operation tags, and reader.finish() refuses trailing bytes."
+
+[row.r11-70.5]
+interface = "interface.11.fmt-solana-mirror-manifest-account"
+verdict = "served"
+path = "services/interop/contracts/solana-mirror/src/lib.rs"
+line = 21
+symbol = "LXMMAN04"
+evidence = "MANIFEST_MAGIC is now b\"LXMMAN04\" instead of LXMMAN03. The 334-byte manifest stores height at [76..84] and block_hash at [84..116], replacing batch_number/checkpoint_id; the archive counters, digest and streamed SHA-256 offsets remain unchanged."
+
+[row.r11-70.6]
+interface = "interface.11.fmt-solana-mirror-chunk-account"
+verdict = "served"
+path = "services/interop/contracts/solana-mirror/src/lib.rs"
+line = 22
+symbol = "LXMCHK04"
+evidence = "CHUNK_MAGIC is now b\"LXMCHK04\" instead of LXMCHK03, implementing the format change identified by override.J48.27 and task 11.28.2. append still serializes commitment, index, digest and length into an 80-byte header followed by 1..720 value bytes."
+
+[row.r11-70.7]
+interface = "interface.11.rs-ap2-executed-payment"
+verdict = "served"
+path = "services/interop/crates/layerx-ap2/src/adapter.rs"
+line = 169
+symbol = "ExecutedPayment"
+evidence = "pub struct ExecutedPayment now contains pub evidence: SequencerEvidence and pub order_id: String. The execution evidence is the sequencer receipt/log/rung bundle rather than AuthorizedBatch evidence; the merchant order identifier remains explicit."
+
+[row.r11-70.8]
+interface = "interface.11.rs-ap2-portable-layerx-evidence"
+verdict = "served"
+path = "services/interop/crates/layerx-ap2/src/adapter.rs"
+line = 199
+symbol = "PortableLayerXEvidence"
+evidence = "pub type PortableLayerXEvidence = PortableReceiptV2 replaces the registered PortableReceipt alias. This is the v2 migration identified by override.J47.6, not a retained v1 alias; SignedAp2Evidence exports the updated type."
+
+[row.r11-70.9]
+interface = "interface.11.rs-ap2-ap2-adapter-new"
+verdict = "served"
+path = "services/interop/crates/layerx-ap2/src/adapter.rs"
+line = 233
+symbol = "new"
+evidence = "pub const fn new(resolver: &'a R, receipt_keys: &'a [SequencerAuthorization]) -> Self adds the trusted receipt_keys slice to the registered resolver-only constructor and stores it alongside the MandateVerifier in Ap2Adapter."
+
+[row.r11-70.10]
+interface = "interface.11.rs-ap2-ap2-adapter-execute"
+verdict = "served"
+path = "services/interop/crates/layerx-ap2/src/adapter.rs"
+line = 248
+symbol = "execute"
+evidence = "pub fn execute(&self, gateway: &mut GatewayCore, principal: &PrincipalId, checkout_presentation: &str, payment_presentation: &str, verification: &VerificationContext<'_>, binding: &LayerXAssetBinding, plane: &mut impl LayerXIntentPlane, payment_signer: &mut impl ReceiptSigner, checkout_signer: &mut impl ReceiptSigner, trace: &TraceId, now: u64) -> Result<AdapterOutcome, Traced<Ap2Error>> retains its arguments and return type. Execution now consumes SequencerEvidence and the adapter's pinned receipt keys instead of AuthorizedBatch verification."
+
+[row.r11-70.11]
+interface = "interface.11.rs-relayer-relayer-config"
+verdict = "served"
+path = "services/interop/crates/layerx-bridge-relayer/src/config.rs"
+line = 302
+symbol = "RelayerConfig"
+evidence = "pub struct RelayerConfig remains the configuration root. Its paxeer: PaxeerConfig now supplies receipt_keys: Vec<ReceiptKeyConfig>; no verifier-client configuration remains. The struct also exposes optional attestation_listen and attestation_allowed_origins, so the registered name survives with an expanded configuration shape."
+
+[row.r11-70.12]
+interface = "interface.11.rs-relayer-relayer-config-load"
+verdict = "served"
+path = "services/interop/crates/layerx-bridge-relayer/src/config.rs"
+line = 397
+symbol = "load"
+evidence = "pub fn load(path: &Path) -> Result<Self, RelayerError> retains its signature and reads a size-bounded JSON configuration before config.validate(). Receipt-key configuration comes from PaxeerConfig and is validated locally; loading does not construct the retired verifier client."
+
+[row.r11-70.13]
+interface = "interface.11.rs-relayer-relayer-config-validate"
+verdict = "served"
+path = "services/interop/crates/layerx-bridge-relayer/src/config.rs"
+line = 414
+symbol = "validate"
+evidence = "pub fn validate(&self) -> Result<(), RelayerError> retains its signature. It validates pinned-TLS or explicit-emulator Paxeer endpoints and invokes self.receipt_keys() to validate the height-ranged receipt authorities, as well as checking attestation origins and signer separation."
+
+[row.r11-70.14]
+interface = "interface.11.rs-relayer-submission-status"
+verdict = "served"
+path = "services/interop/crates/layerx-bridge-relayer/src/journal.rs"
+line = 325
+symbol = "SubmissionStatus"
+evidence = "pub enum SubmissionStatus now includes Receipted { sequence: u64, height: u64 } and Committed { sequence: u64, height: u64 }, alongside Pending, Reverted, Dropped and Landed. Receipt and block progress are explicit rather than a single ambiguous submission state."
+
+[row.r11-70.15]
+interface = "interface.11.rs-relayer-relayer"
+verdict = "served"
+path = "services/interop/crates/layerx-bridge-relayer/src/relayer.rs"
+line = 411
+symbol = "Relayer"
+evidence = "pub struct Relayer remains declared in relayer.rs with a PaxeerLink, chains and journal. Its state includes journal_failure: Option<JournalError> and receipt-aware Paxeer linkage; the existing type name is retained while inbound processing uses sequencer evidence rather than a verifier client."
+
+[row.r11-70.16]
+interface = "interface.11.rs-relayer-relayer-inbound-step"
+verdict = "served"
+path = "services/interop/crates/layerx-bridge-relayer/src/relayer.rs"
+line = 669
+symbol = "inbound_step"
+evidence = "pub fn inbound_step(&mut self, index: usize) -> Result<StepReport, RelayerError> retains its signature. It now preserves a journal failure across calls and delegates to run_inbound_step, which scans deposits and advances journaled items through the receipt-aware Paxeer link."
+
+[row.r11-70.17]
+interface = "interface.11.rs-relayer-json-rpc"
+verdict = "served"
+path = "services/interop/crates/layerx-bridge-relayer/src/rpc.rs"
+line = 69
+symbol = "JsonRpc"
+evidence = "pub trait JsonRpc retains call and send_raw_transaction and exposes sequencer_receipt(&self, hash: &[u8; 32]) -> Result<Option<Value>, RpcFault>, calling pax_sequencerReceipt by default. Paxeer transport is supplied by crate::transport, not the retired layerx-paxeer-verifier client."
+
+[row.r11-70.18]
+interface = "interface.11.rs-relayer-paxeer-rpc"
+verdict = "served"
+path = "services/interop/crates/layerx-bridge-relayer/src/rpc.rs"
+line = 112
+symbol = "PaxeerRpc"
+evidence = "pub struct PaxeerRpc now stores endpoints: Vec<PaxeerEndpoint> instead of mirror EndpointConfig values. Requests use PaxeerTransport with pinned TLS or an explicit emulator and require a strict majority of matching chain-bound responses."
+
+[row.r11-70.19]
+interface = "interface.11.rs-relayer-paxeer-rpc-new"
+verdict = "served"
+path = "services/interop/crates/layerx-bridge-relayer/src/rpc.rs"
+line = 121
+symbol = "new"
+evidence = "pub fn new(endpoints: Vec<PaxeerEndpoint>) -> Result<Self, RpcFault> replaces the registered Vec<EndpointConfig> parameter with Vec<PaxeerEndpoint>. The constructor rejects an empty list, more than eight endpoints, or inconsistent expected_chain_id values."
+
+[row.r11-70.20]
+interface = "interface.11.rs-fiat-executed-fiat-outcome"
+verdict = "served"
+path = "services/interop/crates/layerx-fiat/src/lib.rs"
+line = 278
+symbol = "ExecutedFiatOutcome"
+evidence = "pub struct ExecutedFiatOutcome contains pub evidence: SequencerEvidence. Signed receipt bytes and logs are carried by the shared sequencer evidence bundle instead of the former AuthorizedBatch proof representation."
+
+[row.r11-70.21]
+interface = "interface.11.rs-fiat-fiat-plane"
+verdict = "served"
+path = "services/interop/crates/layerx-fiat/src/lib.rs"
+line = 290
+symbol = "FiatPlane"
+evidence = "pub trait FiatPlane now requires receipt_keys(&self) -> &[SequencerAuthorization] and offers capture_evidence(&self, _facts: &VerifiedProviderFacts) -> Option<&SequencerEvidence>. execute still returns Result<FiatPlaneResult, FiatError>, whose executed outcome carries SequencerEvidence."
+
+[row.r11-70.22]
+interface = "interface.11.rs-fiat-fiat-adapter-apply"
+verdict = "served"
+path = "services/interop/crates/layerx-fiat/src/lib.rs"
+line = 363
+symbol = "apply"
+evidence = "pub fn apply(gateway: &mut GatewayCore, principal: &PrincipalId, token: &TokenReference, evidence: &ProviderEvidence, verifier: &impl ProviderVerifier, plane: &mut impl FiatPlane, trace: &TraceId, now: u64) -> Result<FiatJourneyState, Traced<FiatError>> retains its registered signature. Settled/reversed/chargeback facts now execute through the sequencer-evidence FiatPlane boundary; authorisation and clearing still record holds."
+
+[row.r11-70.23]
+interface = "interface.11.rs-gas-policy-refusal"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/policy.rs"
+line = 6
+symbol = "PolicyRefusal"
+evidence = "pub enum PolicyRefusal includes DidUnavailable for a failed DID lookup, separately from BalanceFloor. PerQuote, PerAccount, PerInterval, InvalidAmount and ClockRegression remain explicit variants; this implements the refusal distinction described in task 0.167."
+
+[row.r11-70.24]
+interface = "interface.11.rs-gas-did-budget"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/policy.rs"
+line = 25
+symbol = "DidBudget"
+evidence = "pub struct DidBudget exposes gas_limit: u64 and stores interval: Option<u64> plus used: BTreeMap<String, u64>. DID_BUDGET_INTERVAL_SECONDS is 86_400 and usage is charged in gas per UTC day; the declaration name is unchanged and the daily budget is implemented."
+
+[row.r11-70.25]
+interface = "interface.11.rs-gas-quote-policy-reserve-for-budget"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/policy.rs"
+line = 260
+symbol = "reserve_for_budget"
+evidence = "pub fn reserve_for_budget<E>(&mut self, budget: Result<&BudgetKey, E>, account: Address, amount: u128, fees: crate::tx::Fees, balance: u128, now: u64) -> Result<(), PolicyRefusal> retains its signature. Failed DID reads now map to DidUnavailable; successful reservation atomically charges fees.gas_limit to the 86_400-second DID interval."
+
+[row.r11-70.26]
+interface = "interface.11.rs-gas-quote-policy-quote-for-budget"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/policy.rs"
+line = 315
+symbol = "quote_for_budget"
+evidence = "pub fn quote_for_budget<E>(&mut self, request: &crate::QuoteRequest, rate: &crate::price::GovernedRate, fees: crate::tx::Fees, signer: &impl crate::signer::QuoteSigner, budget: Result<&BudgetKey, E>, context: (u128, u64)) -> Result<crate::SignedQuote, crate::QuoteError> retains its signature. It propagates reserve_for_budget failures as QuoteError::Policy, including DidUnavailable, before signing or consuming the cloned budget."
+
+[row.r11-70.27]
+interface = "interface.11.rs-gas-rpc-fault"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/rpc.rs"
+line = 14
+symbol = "RpcFault"
+evidence = "pub enum RpcFault still declares Rejected { code: i64 }; the planned message/data fields described in task 6.5.41 are absent. Configuration, Unavailable, RateLimited, Divergence and Malformed remain. This is a present interface with that signature change still outstanding, not evidence that the extension shipped."
+
+[row.r11-70.28]
+interface = "interface.11.rs-gas-rung"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/rpc.rs"
+line = 238
+symbol = "Rung"
+evidence = "pub enum Rung remains Submitted | Receipted(Execution) | Committed(Execution), with no declaration change. The full decoder is supplied separately by FullSequencerReceipt and SequencerEndpoint::full_receipt; it does not replace this compact progress enum."
+
+[row.r11-70.29]
+interface = "interface.11.rs-gas-sequencer-receipt"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/rpc.rs"
+line = 255
+symbol = "SequencerReceipt"
+evidence = "pub struct SequencerReceipt remains { pub nonce: u64, pub rung: Rung }; its compact signature is unchanged. A separate FullSequencerReceipt immediately below it carries logs, receipt bytes, key_id, height and block fields, so those additions must not be attributed to this struct."
+
+[row.r11-70.30]
+interface = "interface.11.rs-gas-sequencer-endpoint-receipt"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/rpc.rs"
+line = 313
+symbol = "receipt"
+evidence = "pub fn receipt(&self, hash: &Word) -> Result<Option<SequencerReceipt>, RpcFault> retains its registered signature and delegates to self.rpc.sequencer_receipt(hash). Full receipt decoding was added as the separate full_receipt method at line 319, leaving this compact reader available."
+
+[row.r11-70.31]
+interface = "interface.11.rs-gas-service-error"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/service.rs"
+line = 86
+symbol = "ServiceError"
+evidence = "pub enum ServiceError remains declared with Unavailable, BalanceFloor, StaleRate and SigningUnknown among its variants. The signature does not add a DidUnavailable variant: the conversion now maps PolicyRefusal::DidUnavailable to ServiceError::Unavailable, whose HTTP status is 503."
+
+[row.r11-70.32]
+interface = "interface.11.rs-gas-service-respond"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/service.rs"
+line = 285
+symbol = "respond"
+evidence = "pub fn respond(&mut self, route: &str, body: &[u8]) -> Result<Value, ServiceError> retains its signature and rejects malformed or duplicate-key JSON before routing. /submit now returns full receipt fields via submission_rung and /status reports a per-DID gas budget; /retry is also dispatched."
+
+[row.r11-70.33]
+interface = "interface.11.http-gas-quote"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/service.rs"
+line = 290
+symbol = "/quote"
+evidence = "The literal \"/quote\" still dispatches to self.quote(&body); the POST request interface is retained. Its failed DID-read refusal is now HTTP 503 unavailable through PolicyRefusal::DidUnavailable, rather than a balance-floor refusal; strict JSON parsing remains in respond."
+
+[row.r11-70.34]
+interface = "interface.11.http-gas-submit"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/service.rs"
+line = 291
+symbol = "/submit"
+evidence = "The literal \"/submit\" still dispatches to self.submit(&body); the request route is unchanged. Executed responses now include height, status, logs, keyId and receipt, plus blockNumber/blockHash when committed, in addition to transactionHash/rung/seq. RpcFault::Rejected still has only code, so message/data passthrough is not evidenced."
+
+[row.r11-70.35]
+interface = "interface.11.http-gas-status"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/service.rs"
+line = 292
+symbol = "/status"
+evidence = "The literal \"/status\" still dispatches to self.status(&body). The response now adds budget { key, gasLimit, usedGas, remainingGas, dayEnds } at lines 739-744, using gas counts as decimal strings; this differs from the planned dailyWei/usedWei/remainingWei vocabulary in the registry notes."
+
+[row.r11-70.36]
+interface = "interface.11.env-gas-gas-station-did-gas-limit"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/station.rs"
+line = 210
+symbol = "GAS_STATION_DID_GAS_LIMIT"
+evidence = "GasStation::new reads std::env::var(\"GAS_STATION_DID_GAS_LIMIT\") and parses it through DidGasLimit before constructing DidBudget. The variable name is unchanged; the implementation applies the limit as sponsored gas per DID per UTC day, rather than a wei-denominated allowance."
+
+[row.r11-70.37]
+interface = "interface.11.rs-gw-gateway-core-settle-with-receipt"
+verdict = "retired"
+path = "services/interop/crates/layerx-interop-gateway/src/gateway.rs"
+line = 506
+symbol = "settle_with_receipt"
+evidence = "No settle_with_receipt identifier remains anywhere in the registered gateway.rs. The replacement settle_with_sequencer_receipt is declared at line 520 and delegates to settle_with_sequencer_evidence. Repository-wide exact-identifier search excluding spec and docs finds only the removal assertion in workspace_lock.rs."
+remaining_refs = 1
+remaining = ["services/interop/crates/layerx-interop-gateway/tests/workspace_lock.rs:65"]
+
+[row.r11-70.38]
+interface = "interface.11.rs-gw-gateway-core-settle-with-sequencer-receipt"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-gateway/src/gateway.rs"
+line = 520
+symbol = "settle_with_sequencer_receipt"
+evidence = "pub fn settle_with_sequencer_receipt(&mut self, principal: &PrincipalId, idempotency_key: [u8; 32], signed_receipt: &[u8], logs: Vec<SequencerLog>, receipt_keys: &[SequencerAuthorization], trace: &TraceId, now: u64) -> Result<TranslationStatus, Traced<SequencerSettlementError>> retains its signature. It verifies height-ranged keys, builds SequencerEvidence with the receipt transaction hash and Receipted rung, then delegates to settle_with_sequencer_evidence."
+
+[row.r11-70.39]
+interface = "interface.11.rs-gw-external-state"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-gateway/src/server.rs"
+line = 174
+symbol = "ExternalState"
+evidence = "pub enum ExternalState now includes Submitted alongside Pending, ReversalPending, Refused, ReceiptVerified and Reversed. This extends the registered public state vocabulary with an explicit submitted-but-unverified transaction state."
+
+[row.r11-70.40]
+interface = "interface.11.fmt-gw-external-state-labels"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-gateway/src/server.rs"
+line = 189
+symbol = "submitted"
+evidence = "ExternalState::label now emits the additional literal \"submitted\" for Self::Submitted. The other labels remain pending, reversal-pending, refused, receipt-verified and reversed; the registered five-label format therefore expands to six labels."
+
+[row.r11-70.41]
+interface = "interface.11.rs-gw-external-state-label"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-gateway/src/server.rs"
+line = 186
+symbol = "label"
+evidence = "pub const fn label(self) -> &'static str retains its signature in impl ExternalState. Its match adds Self::Submitted => \"submitted\", extending the returned vocabulary without changing the method arguments or return type."
+
+[row.r11-70.42]
+interface = "interface.11.http-gw-x402-buyer-build"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-gateway/src/server.rs"
+line = 248
+symbol = "\"x402\", [\"buyer\", \"build\"]"
+evidence = "The route match still accepts POST /v1/{http|mcp|a2a}/x402/buyer/build and returns X402BuyerBuild { transport }. The route signature is unchanged; its literal tail is [\"buyer\", \"build\"], and the service dispatches this variant to the buyer handler rather than embedding settlement verification in the parser."
+
+[row.r11-70.43]
+interface = "interface.11.http-gw-x402-verify"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-gateway/src/server.rs"
+line = 254
+symbol = "\"x402\", [\"verify\"] | [\"facilitator\", \"verify\"]"
+evidence = "The POST x402 match retains both [\"verify\"] and [\"facilitator\", \"verify\"] tails for all parsed transports. It returns X402Verify { transport }; the URL signature is unchanged and the hosted-activity submission code has been removed from the service implementation."
+
+[row.r11-70.44]
+interface = "interface.11.http-gw-x402-settle"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-gateway/src/server.rs"
+line = 257
+symbol = "\"x402\", [\"settle\"] | [\"seller\" | \"facilitator\", \"settle\"]"
+evidence = "The POST x402 match retains [\"settle\"], [\"seller\", \"settle\"] and [\"facilitator\", \"settle\"] aliases for each transport and returns X402Settle. The route signature is unchanged; settlement evidence is handled by the sequencer-aware service rather than the retired hosted activity format."
+
+[row.r11-70.45]
+interface = "interface.11.http-gw-ap2-execute"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-gateway/src/server.rs"
+line = 263
+symbol = "\"ap2\", [\"execute\"]"
+evidence = "The exact match (\"POST\", IngressTransport::Http, \"ap2\", [\"execute\"]) remains and returns InteropRoute::Ap2Execute. The URL signature is unchanged; AP2 execution uses the adapter whose constructor now accepts receipt keys and whose executed payment contains SequencerEvidence."
+
+[row.r11-70.46]
+interface = "interface.11.http-gw-ucp-checkouts-complete"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-gateway/src/server.rs"
+line = 264
+symbol = "\"ucp\", [\"checkouts\", \"complete\"]"
+evidence = "The exact match (\"POST\", IngressTransport::Http, \"ucp\", [\"checkouts\", \"complete\"]) remains and returns InteropRoute::UcpComplete. The URL signature is unchanged; legacy HostedActivity/HostedResult are absent from the service that dispatches this operation."
+
+[row.r11-70.47]
+interface = "interface.11.http-gw-visa-tap-intents-execute"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-gateway/src/server.rs"
+line = 270
+symbol = "\"visa-tap\", [\"intents\", \"execute\"]"
+evidence = "The exact match (\"POST\", IngressTransport::Http, \"visa-tap\", [\"intents\", \"execute\"]) remains and returns InteropRoute::VisaExecuteIntent. The route signature is unchanged; it remains distinct from the preceding intents/verify route, and hosted activity submission types are gone from the service."
+
+[row.r11-70.48]
+interface = "interface.11.http-gw-fiat-card-callbacks"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-gateway/src/server.rs"
+line = 273
+symbol = "\"fiat\", [\"card\", \"callbacks\"]"
+evidence = "The exact POST HTTP fiat [\"card\", \"callbacks\"] route remains and returns FiatCallback { adapter: HostedAdapter::FiatCard }. The URL signature is unchanged; executed fiat outcomes now carry SequencerEvidence instead of hosted activity replies."
+
+[row.r11-70.49]
+interface = "interface.11.http-gw-fiat-bank-callbacks"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-gateway/src/server.rs"
+line = 278
+symbol = "\"fiat\", [\"bank\", \"callbacks\"]"
+evidence = "The exact POST HTTP fiat [\"bank\", \"callbacks\"] route remains and returns FiatCallback { adapter: HostedAdapter::FiatBank }. The URL signature is unchanged; the callback adapter uses the shared sequencer-evidence FiatPlane boundary."
+
+[row.r11-70.50]
+interface = "interface.11.http-gw-fiat-rtp-callbacks"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-gateway/src/server.rs"
+line = 283
+symbol = "\"fiat\", [\"rtp\", \"callbacks\"]"
+evidence = "The exact POST HTTP fiat [\"rtp\", \"callbacks\"] route remains and returns FiatCallback { adapter: HostedAdapter::FiatRtp }. The URL signature is unchanged; the callback adapter uses the shared sequencer-evidence FiatPlane boundary."
+
+[row.r11-70.51]
+interface = "interface.11.env-svc-layerx-interop-sequencer-public-key-file"
+verdict = "retired"
+path = "services/interop/crates/layerx-interop-service/src/config.rs"
+line = 268
+symbol = "LAYERX_INTEROP_SEQUENCER_PUBLIC_KEY_FILE"
+evidence = "The registered config.rs no longer reads or mentions LAYERX_INTEROP_SEQUENCER_PUBLIC_KEY_FILE. It instead reads LAYERX_INTEROP_RECEIPT_KEYS_FILE at line 275 and compares the pins with px_getReceiptKeys. Repository-wide exact-identifier search excluding spec and docs finds two stale deployment files and one removal test."
+remaining_refs = 3
+remaining = ["services/interop/crates/layerx-interop-service/tests/plain_listener.rs:273", "services/platform/hosted/interop/deployment.yaml:30", "services/platform/hosted/interop/fly.toml:46"]
+
+[row.r11-70.52]
+interface = "interface.11.env-svc-layerx-interop-sequencer-id-file"
+verdict = "retired"
+path = "services/interop/crates/layerx-interop-service/src/config.rs"
+line = 271
+symbol = "LAYERX_INTEROP_SEQUENCER_ID_FILE"
+evidence = "The registered config.rs no longer reads or mentions LAYERX_INTEROP_SEQUENCER_ID_FILE; the sequencer identity file is replaced by height-ranged receipt-key configuration checked against px_getReceiptKeys. Repository-wide exact-identifier search excluding spec and docs finds only two deployment files and the removal test."
+remaining_refs = 3
+remaining = ["services/interop/crates/layerx-interop-service/tests/plain_listener.rs:277", "services/platform/hosted/interop/deployment.yaml:31", "services/platform/hosted/interop/fly.toml:47"]
+
+[row.r11-70.53]
+interface = "interface.11.env-svc-layerx-interop-sequencer-first-batch-file"
+verdict = "retired"
+path = "services/interop/crates/layerx-interop-service/src/config.rs"
+line = 273
+symbol = "LAYERX_INTEROP_SEQUENCER_FIRST_BATCH_FILE"
+evidence = "The registered config.rs no longer reads or mentions LAYERX_INTEROP_SEQUENCER_FIRST_BATCH_FILE. Receipt authorities now use height ranges from LAYERX_INTEROP_RECEIPT_KEYS_FILE, not a first-batch file. Repository-wide exact-identifier search excluding spec and docs finds only two deployment files and the removal test."
+remaining_refs = 3
+remaining = ["services/interop/crates/layerx-interop-service/tests/plain_listener.rs:281", "services/platform/hosted/interop/deployment.yaml:32", "services/platform/hosted/interop/fly.toml:48"]
+
+[row.r11-70.54]
+interface = "interface.11.env-svc-layerx-interop-sequencer-last-batch-file"
+verdict = "retired"
+path = "services/interop/crates/layerx-interop-service/src/config.rs"
+line = 274
+symbol = "LAYERX_INTEROP_SEQUENCER_LAST_BATCH_FILE"
+evidence = "The registered config.rs no longer reads or mentions LAYERX_INTEROP_SEQUENCER_LAST_BATCH_FILE. Receipt authorities now use height ranges from LAYERX_INTEROP_RECEIPT_KEYS_FILE, not a last-batch file. Repository-wide exact-identifier search excluding spec and docs finds only two deployment files and the removal test."
+remaining_refs = 3
+remaining = ["services/interop/crates/layerx-interop-service/tests/plain_listener.rs:285", "services/platform/hosted/interop/deployment.yaml:33", "services/platform/hosted/interop/fly.toml:49"]
+
+[row.r11-70.55]
+interface = "interface.11.env-svc-layerx-interop-hosted-gateway-url"
+verdict = "retired"
+path = "services/interop/crates/layerx-interop-service/src/config.rs"
+line = 357
+symbol = "LAYERX_INTEROP_HOSTED_GATEWAY_URL"
+evidence = "The registered config.rs no longer reads or mentions LAYERX_INTEROP_HOSTED_GATEWAY_URL; sequencer_url() now requires LAYERX_INTEROP_SEQUENCER_URL. Repository-wide exact-identifier search excluding spec and docs finds five files: a removal test, an environment example, two deployments and an older qualification script; none implements the removed config read."
+remaining_refs = 5
+remaining = ["services/interop/crates/layerx-interop-service/tests/plain_listener.rs:306", "services/interop/deploy/gateway/railway.env.example:18", "services/platform/hosted/interop/deployment.yaml:24", "services/platform/hosted/interop/fly.toml:40", "tools/qualification/paxeer-x/interop-archive-contract.py:1008"]
+
+[row.r11-70.56]
+interface = "interface.11.env-svc-layerx-interop-allow-hosted-private-network"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/config.rs"
+line = 427
+symbol = "LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK"
+evidence = "The actual identifier is LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK, resolving the registry's <PLATFORM> mask. Its 0|1 optional syntax and default false remain; sequencer_url() now applies it to LAYERX_INTEROP_SEQUENCER_URL rather than the hosted gateway URL, as specified by override.J72.1."
+
+[row.r11-70.57]
+interface = "interface.11.cli-svc-layerx-interop-gateway"
+verdict = "served_elsewhere"
+path = "services/interop/crates/layerx-interop-service/Cargo.toml"
+line = 9
+symbol = "layerx-interop-gateway"
+evidence = "Cargo.toml still declares the binary name \"layerx-interop-gateway\" with path src/main.rs. The registered main.rs implements run at line 61 but no longer contains the command-name literal or accepts --verify-readiness-receipt: every argument is rejected at lines 62-64, and no-argument startup loads sequencer configuration."
+
+[row.r11-70.58]
+interface = "interface.11.err-svc-activity-authorization-refused"
+verdict = "retired"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 2062
+symbol = "activity_authorization_refused"
+evidence = "No activity_authorization_refused literal remains in the registered interop-service server.rs, where hosted activity submission has been removed. Repository-wide exact-identifier search excluding spec and docs finds the same spelling only in the separate platform hosted gateway, where it maps to HTTP 403 PolicyRefusal rather than this retired HTTP 400 interface."
+remaining_refs = 1
+remaining = ["services/platform/hosted/gateway/src/main.rs:4050"]
+
+[row.r11-70.59]
+interface = "interface.11.fmt-svc-hosted-activity"
+verdict = "retired"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 2619
+symbol = "HostedActivity"
+evidence = "No HostedActivity identifier or deserializable hosted activity response remains in the registered server.rs. Execution now consumes sequencer evidence through the relay. Repository-wide exact-identifier search excluding spec and docs finds no remaining file; this implements retirement override.J47.17."
+remaining_refs = 0
+remaining = []
+
+[row.r11-70.60]
+interface = "interface.11.fmt-svc-hosted-result"
+verdict = "retired"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 2626
+symbol = "HostedResult"
+evidence = "No HostedResult identifier or former activity_id/batch_id/global_sequence result structure remains in the registered server.rs. Execution now consumes sequencer receipt evidence. Repository-wide exact-identifier search excluding spec and docs finds no remaining file; this implements retirement override.J47.18."
+remaining_refs = 0
+remaining = []

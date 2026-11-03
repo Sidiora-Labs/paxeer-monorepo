@@ -3,13 +3,15 @@ use crate::errors::{CodecResult, ARITHMETIC, F03_SCORE_RANGE, NON_CANONICAL};
 
 macro_rules! id32 {
     ($($name:ident),+ $(,)?) => {$ (
-        #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+        #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+        #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
         pub struct $name([u8; 32]);
         impl $name {
             /// Builds the identity from its 32 bytes.
             ///
             /// # Errors
             /// Returns `NON_CANONICAL` when the bytes are all zero.
+            #[cfg_attr(target_arch = "wasm32", inline(never))]
             pub fn new(bytes: [u8; 32]) -> CodecResult<Self> {
                 if bytes == [0; 32] { Err(NON_CANONICAL) } else { Ok(Self(bytes)) }
             }
@@ -30,13 +32,15 @@ id32!(
     TaskId
 );
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Digest32([u8; 32]);
 impl Digest32 {
     /// Builds the digest from its 32 bytes.
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the bytes are all zero.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn new(bytes: [u8; 32]) -> CodecResult<Self> {
         if bytes == [0; 32] {
             Err(NON_CANONICAL)
@@ -55,7 +59,8 @@ impl Digest32 {
 }
 macro_rules! digest {
     ($($name:ident),+ $(,)?) => {$ (
-        #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+        #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+        #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
         pub struct $name(Digest32);
         impl $name {
             /// Builds the typed digest from its 32 bytes.
@@ -83,16 +88,20 @@ digest!(
     PolicyDigest
 );
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Presence<T> {
     Absent,
     Present(T),
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct PublicKey32(pub [u8; 32]);
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Signature64(pub [u8; 64]);
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Salt32([u8; 32]);
 impl Salt32 {
     /// Builds the salt from its 32 bytes.
@@ -111,7 +120,8 @@ impl Salt32 {
         self.0
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Version(u64);
 impl Version {
     /// Builds a version from its value.
@@ -137,7 +147,8 @@ impl Version {
         Self::new(self.0.checked_add(1).ok_or(ARITHMETIC)?)
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Score(u32);
 impl Score {
     /// Builds a score from its value.
@@ -158,7 +169,8 @@ impl Score {
 }
 pub type Amount = u128;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct FrozenBinding {
     pub chain: ChainDomain,
     pub program: ProgramId,
@@ -167,14 +179,16 @@ pub struct FrozenBinding {
     pub config: Version,
     pub roster: RosterDigest,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EvaluatorBinding {
     pub frozen: FrozenBinding,
     pub evaluator: EvaluatorId,
     pub grant: Version,
     pub key_version: Version,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct WorkerRosterEntry {
     pub worker: WorkerId,
     pub owner: PrincipalId,
@@ -184,7 +198,8 @@ pub struct WorkerRosterEntry {
     pub public_key: PublicKey32,
     pub metadata: MetadataDigest,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EvaluatorRosterEntry {
     pub evaluator: EvaluatorId,
     pub owner: PrincipalId,
@@ -193,12 +208,14 @@ pub struct EvaluatorRosterEntry {
     pub public_key: PublicKey32,
     pub rubric: RubricDigest,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ScoreEntry {
     pub worker: WorkerId,
     pub score: Score,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Authentication {
     Native,
     Delegate {
@@ -208,14 +225,16 @@ pub enum Authentication {
 }
 
 /// Replay assessment only; this does not authenticate callers or commit state.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RoleReplay {
     pub sequence: u64,
     pub request: Presence<RequestId>,
     pub digest: Presence<RequestDigest>,
     pub result: Presence<ResultDigest>,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum ReplayDecision {
     New,
     AlreadyApplied(ResultDigest),
@@ -269,7 +288,8 @@ impl RoleReplay {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EpochWindows {
     pub start: u64,
     pub commit: u64,
@@ -277,7 +297,8 @@ pub struct EpochWindows {
     pub settlement: u64,
     pub end: u64,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum EpochPhase {
     Before,
     Work,

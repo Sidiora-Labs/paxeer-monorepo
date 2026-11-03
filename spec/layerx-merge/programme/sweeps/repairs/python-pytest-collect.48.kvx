@@ -1,0 +1,7 @@
+[repair.python-pytest-collect.48]
+target = "tests"
+command = "python3 -m pytest -q --collect-only tests"
+revision = "e052f13bbcbf729203855dc7f410eae2e6b6a022"
+result = "repaired"
+change = "Renamed tests/bridge/retired/test_retired_emergency_exit.py to tests/bridge/retired/test_retired_bridge_emergency_exit.py with unchanged contents to avoid the module name collision with tests/ci/test_retired_emergency_exit.py."
+producer_input_tests = []

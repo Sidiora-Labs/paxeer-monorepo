@@ -85,7 +85,8 @@ func TestProofIssuerDid(t *testing.T) {
 	require.NoError(t, s.App.Close())
 	closed = true
 	restored := InitGenesis(t, exported, header)
-	s = &KeeperTestSuite{KeeperTestHelper: *restored, defaultDenom: denom}
+	s.App = restored.App
+	s.Ctx = restored.Ctx
 	s.QueryHelper = &baseapp.QueryServiceTestHelper{GRPCQueryRouter: s.App.GRPCQueryRouter(), Ctx: s.Ctx}
 	s.queryClient = types.NewQueryClient(s.QueryHelper)
 	s.msgServer = keeper.NewMsgServerImpl(s.App.TokenFactoryKeeper)

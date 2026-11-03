@@ -1,0 +1,7 @@
+[repair.rust-test-tools-platform.3]
+target = "layerx-platform-release"
+command = "cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-release --no-fail-fast -- --skip checks_the_actual_server_identity"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "repaired"
+change = "tools/platform/release/tests/manifest.rs corrects stale test expectations to the current release inputs of 27 artifacts and 18 images; tools/platform/release/src/fetch.rs aligns the producer-qualified TLS test name with decision 2496."
+producer_input_tests = ["layerx-platform-release::fetch::artifact_fetch_uses_system_trust_and_checks_the_actual_server_identity requires the layerx-paxeer-boundary binary built from services/platform/Cargo.toml, supplied as LAYERX_PAXEER_BOUNDARY_BIN or beside the test target directory", "manifest::release::fetch::artifact_fetch_uses_system_trust_and_checks_the_actual_server_identity requires the same layerx-paxeer-boundary producer binary", "registries::release::fetch::artifact_fetch_uses_system_trust_and_checks_the_actual_server_identity requires the same layerx-paxeer-boundary producer binary"]

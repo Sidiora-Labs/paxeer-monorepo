@@ -1,0 +1,243 @@
+[reconcile.r11-171]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r11-171.1]
+interface = "interface.11.rs-relayer-relayer-outbound-step"
+verdict = "served"
+path = "services/interop/crates/layerx-bridge-relayer/src/relayer.rs"
+line = 795
+symbol = "outbound_step"
+evidence = "Relayer declares pub fn outbound_step(&mut self) -> Result<StepReport, RelayerError> at line 795; the occurrence at 650 calls this method."
+
+[row.r11-171.2]
+interface = "interface.11.rs-gas-https-exchange"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/rpc.rs"
+line = 512
+symbol = "HttpsExchange"
+evidence = "pub struct HttpsExchange is declared at line 512; the following inherent impl and the Exchange trait impl at 602 implement this type."
+
+[row.r11-171.3]
+interface = "interface.11.rs-gas-https-exchange-read-response"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/rpc.rs"
+line = 517
+symbol = "read_response"
+evidence = "HttpsExchange declares pub fn read_response(stream: &mut impl Read, budget: Duration) -> Result<Value, RpcFault> at 517; Self::read_response at 687 is its caller."
+
+[row.r11-171.4]
+interface = "interface.11.http-gas-healthz"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/service.rs"
+line = 777
+symbol = "/healthz"
+evidence = "The path branch at 777 defines /healthz routing; GET returns the status ok JSON at 779 and other methods return MethodNotAllowed at 781."
+
+[row.r11-171.5]
+interface = "interface.11.rs-gas-schedule"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/service.rs"
+line = 882
+symbol = "Schedule"
+evidence = "pub struct Schedule is declared at 882 with interval, max_interval and budget Duration fields; the Default implementation starts at 887."
+
+[row.r11-171.6]
+interface = "interface.11.rs-gas-serve"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/service.rs"
+line = 849
+symbol = "serve"
+evidence = "pub fn serve<S, R, P, C> starts at 849, accepts the TcpListener, mutable Service and Write log, returns Result<Infallible, ServiceError>, and retains all four registered where bounds."
+
+[row.r11-171.7]
+interface = "interface.11.rs-gas-service-recover"
+verdict = "served"
+path = "services/interop/crates/layerx-gas-station/src/service.rs"
+line = 635
+symbol = "recover"
+evidence = "Service declares pub fn recover(&mut self, budget: Duration) -> Result<Recovery, StationError> at 635; it reads the service clock and calls station.recover at 637."
+
+[row.r11-171.8]
+interface = "interface.11.env-svc-layerx-interop-listener"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/config.rs"
+line = 996
+symbol = "LAYERX_INTEROP_LISTENER"
+evidence = "listener_config reads LAYERX_INTEROP_LISTENER at 996 and selects TLS for an absent value or tls, and Listener::Plain for plain; validate_listener_mode separately validates the setting."
+
+[row.r11-171.9]
+interface = "interface.11.env-svc-layerx-interop-tls-cert-der"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/config.rs"
+line = 1005
+symbol = "LAYERX_INTEROP_TLS_CERT_DER"
+evidence = "tls_config loads LAYERX_INTEROP_TLS_CERT_DER through read_file into CertificateDer at 1005 and combines it with the private key in with_single_cert; the occurrence at 973 only lists validation variables."
+
+[row.r11-171.10]
+interface = "interface.11.env-svc-layerx-interop-tls-key-der"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/config.rs"
+line = 1007
+symbol = "LAYERX_INTEROP_TLS_KEY_DER"
+evidence = "tls_config loads LAYERX_INTEROP_TLS_KEY_DER through read_file at 1007 into PrivatePkcs8KeyDer and uses it with the certificate; the occurrence at 973 only lists validation variables."
+
+[row.r11-171.11]
+interface = "interface.11.err-svc-account-binding-invalid"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 1556
+symbol = "account_binding_invalid"
+evidence = "ap2_authorize_and_execute emits Dispatch::error(400, refused, account_binding_invalid) at 1556 when payer_account fails parse_hex32; the payee_account branch emits the same code at 1559."
+
+[row.r11-171.12]
+interface = "interface.11.err-svc-api-key-required"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 97
+symbol = "api_key_required"
+evidence = "authenticated defines HTTP 401 api_key_required through failure at 97 for a missing authorization header; unauthenticated gateway keys emit the same code at 101. This failure helper emits ok and error.code without the registered operation and trace fields."
+
+[row.r11-171.13]
+interface = "interface.11.err-svc-asset-binding-ambiguous"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 1495
+symbol = "asset_binding_ambiguous"
+evidence = "The AP2 asset selection loop emits Dispatch::error(400, refused, asset_binding_ambiguous) at 1495 when a second binding successfully verifies the mandates and currency."
+
+[row.r11-171.14]
+interface = "interface.11.err-svc-asset-binding-invalid"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 1553
+symbol = "asset_binding_invalid"
+evidence = "ap2_authorize_and_execute emits HTTP 400 asset_binding_invalid at 1553 for an asset that fails parse_hex32; the authorize_payment error branch also emits this code at 1593."
+
+[row.r11-171.15]
+interface = "interface.11.err-svc-continuation-invalid"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 311
+symbol = "continuation_invalid"
+evidence = "resume_operation defines HTTP 503 continuation_invalid at 311 for an invalid or recursive resumed route, and at 313 for an undecodable continuation, both with retry_after 5. The failure helper omits the registered operation and trace fields."
+
+[row.r11-171.16]
+interface = "interface.11.err-svc-invalid-evidence"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 664
+symbol = "invalid_evidence"
+evidence = "migration_asset_v2 emits HTTP 400 invalid_evidence at 664 when source_evidence cannot be base64 decoded; canonical encoding and SourceEvidence validation emit the same code at 667 and 670."
+
+[row.r11-171.17]
+interface = "interface.11.err-svc-invalid-provider-callback"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 2655
+symbol = "invalid_provider_callback"
+evidence = "The FiatCallback direct_body decoding error branch defines Dispatch::error(400, refused, invalid_provider_callback) at 2655, before token-reference validation."
+
+[row.r11-171.18]
+interface = "interface.11.err-svc-invalid-ucp-request"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 1950
+symbol = "invalid_ucp_request"
+evidence = "The UcpRequest direct_body decoding error branch defines HTTP 400 invalid_ucp_request at 1950; the UcpError catch-all emits the same refusal at 2082."
+
+[row.r11-171.19]
+interface = "interface.11.err-svc-invalid-visa-tap-request"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 2116
+symbol = "invalid_visa_tap_request"
+evidence = "The direct_body::<VisaRequest> decoding error branch defines Dispatch::error(400, refused, invalid_visa_tap_request) at 2116, before parsing TapRequest."
+
+[row.r11-171.20]
+interface = "interface.11.err-svc-layerx-agent-binding-required"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 2149
+symbol = "layerx_agent_binding_required"
+evidence = "The verified.layerx_agent None branch defines HTTP 400 layerx_agent_binding_required at 2149, before validating the signer public key and requiring the Visa actor."
+
+[row.r11-171.21]
+interface = "interface.11.err-svc-mandate-merchant-mismatch"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 1591
+symbol = "mandate_merchant_mismatch"
+evidence = "ap2_authorize_and_execute maps authorize_payment returning Ap2Error::ConstraintViolated to Dispatch::error(400, refused, mandate_merchant_mismatch) at 1591."
+
+[row.r11-171.22]
+interface = "interface.11.err-svc-mandate-verification-refused"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 1499
+symbol = "mandate_verification_refused"
+evidence = "The AP2 matched-binding None branch defines HTTP 400 mandate_verification_refused at 1499 when no asset binding verifies the checkout and payment mandates with matching currency."
+
+[row.r11-171.23]
+interface = "interface.11.err-svc-mapping-encoding-invalid"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 804
+symbol = "mapping_encoding_invalid"
+evidence = "migration_account_v2 maps failure of serde_json::to_value(mapping) to Dispatch::error(503, refused, mapping_encoding_invalid) at 804 after mapping confirmation succeeds."
+
+[row.r11-171.24]
+interface = "interface.11.err-svc-migration-encoding-invalid"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 678
+symbol = "migration_encoding_invalid"
+evidence = "migration_asset_v2 defines HTTP 503 migration_encoding_invalid at 678 when serde_json::to_vec cannot encode the SourceSettlementRequestV2, before sending it upstream."
+
+[row.r11-171.25]
+interface = "interface.11.err-svc-migration-ramp-unconfigured"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 652
+symbol = "migration_ramp_unconfigured"
+evidence = "migration_asset_v2 defines Dispatch::error(503, refused, migration_ramp_unconfigured) at 652 when migration_v2 or its ramp_intake configuration is absent."
+
+[row.r11-171.26]
+interface = "interface.11.err-svc-migration-source-unconfigured"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 776
+symbol = "migration_source_unconfigured"
+evidence = "migration_account_v2 defines HTTP 503 migration_source_unconfigured at 776 when the Ethereum verifier is absent; the Solana verifier branch emits the same refusal at 789."
+
+[row.r11-171.27]
+interface = "interface.11.err-svc-not-found"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 78
+symbol = "not_found"
+evidence = "route defines failure(404, not_found, None) at 78 when interop_gateway_routes rejects the request method and path; this helper omits the registered operation and trace fields. Dispatch::error at 469 emits the same HTTP code with operation and trace through Dispatch::body."
+
+[row.r11-171.28]
+interface = "interface.11.err-svc-operation-identity-invalid"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 996
+symbol = "operation_identity_invalid"
+evidence = "The buyer payment path defines Dispatch::error(503, pending, operation_identity_invalid) at 996 when the operation cannot be parsed as a 32-byte idempotency identity."
+
+[row.r11-171.29]
+interface = "interface.11.err-svc-persistence-unavailable"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 103
+symbol = "persistence_unavailable"
+evidence = "authenticated maps AccessError::PersistenceUnavailable from authenticate_gateway_key to failure(503, persistence_unavailable, Some(5)) at 103. This helper omits the registered operation and trace fields; Dispatch::error at 2152 also emits HTTP 503 with those fields through Dispatch::body."
+
+[row.r11-171.30]
+interface = "interface.11.err-svc-protocol-idempotency-required"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 1371
+symbol = "protocol_idempotency_required"
+evidence = "The facilitator stable_identity None branch defines HTTP 400 protocol_idempotency_required through Dispatch::error at 1371; the occurrence at 1092 only propagates an error string from a helper."

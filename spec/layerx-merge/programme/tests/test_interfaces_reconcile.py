@@ -110,33 +110,67 @@ def test_interfaces_reconcile_classifies_each_case(tmp_path: Path) -> None:
         ),
         ("http_route", "GET /live", "served", 0, "served_ok", "/live"),
         ("go_exported", "func Absent()", "existing", 0, "missing", "Absent"),
-        ("go_exported", "func Serv()", "retire", 0, "missing", "Serv"),
+        ("go_exported", "func Serv()", "retire", 0, "retired_ok", "Serv"),
         ("go_exported", "func Absent()", "new", 0, "planned_pending", "Absent"),
         ("go_exported", "func Absent()", "planned", 0, "planned_pending", "Absent"),
         ("go_exported", "func Serve()", "new", 500, "stale_planned", "Serve"),
         ("go_exported", "func Serve()", "planned", 500, "stale_planned", "Serve"),
-        ("go_exported", "func Serve()", "change", 42, "line_drift", "Serve"),
+        ("go_exported", "func Serve()", "stable", 42, "line_drift", "Serve"),
         ("go_exported", "func Serve()", "keep", 41, "served_ok", "Serve"),
         ("go_exported", "func Serve()", "stable", 99, "served_ok", "Serve"),
         ("go_exported", "func Gone()", "served", 1, "missing", "Gone"),
         ("go_exported", "func Gone()", "new", 1, "planned_pending", "Gone"),
         ("go_exported", "func Gone()", "planned", 1, "planned_pending", "Gone"),
     ]
+    cases = [(*case, None) for case in cases] + [
+        ("go_exported", "func Serve()", "retire", 500, "retire_pending", "Serve", None),
+        (
+            "go_exported",
+            "func Serve()",
+            "retire",
+            500,
+            "kept",
+            "Serve",
+            "override.2478",
+        ),
+        (
+            "go_exported",
+            "func Absent()",
+            "retire",
+            0,
+            "kept",
+            "Absent",
+            "override.2478",
+        ),
+        ("go_exported", "func Serve()", "change", 500, "change_present", "Serve", None),
+        ("go_exported", "func Absent()", "change", 0, "change_absent", "Absent", None),
+        ("go_exported", "func Gone()", "retire", 1, "retired_ok", "Gone", None),
+        ("go_exported", "func Gone()", "change", 1, "change_absent", "Gone", None),
+    ]
     registry = ['[meta]\nname = "test registry"\n']
     expected = {}
-    for number, (kind, signature, status, line, classification, symbol) in enumerate(
-        cases, 1
-    ):
-        path = "absent.go" if number > len(cases) - 3 else "shared.txt"
+    expected_domains = {}
+    for number, case in enumerate(cases, 1):
+        kind, signature, status, line, classification, symbol, overridden_by = case
+        path = "absent.go" if symbol == "Gone" else "shared.txt"
+        domain = str(number % 2 + 1)
+        name = f"interface.{domain}.case-{number}"
         escaped = signature.replace('"', r"\"")
         registry.append(
-            f'[interface.case-{number}]\nkind = "{kind}"\npath = "{path}"\n'
+            f'[{name}]\nkind = "{kind}"\npath = "{path}"\n'
             f'line = {line}\nsignature = "{escaped}"\ncallers = []\n'
             f'status = "{status}"\ncontract = "test"\nnotes = "case # {number}"\n'
         )
+        if overridden_by is not None:
+            registry[-1] += f'overridden_by = "{overridden_by}"\n'
+        domain_counts = expected_domains.setdefault(
+            f"domain.{domain}", {"rows": 0, **dict.fromkeys(CLASSES, 0)}
+        )
+        domain_counts["rows"] += 1
+        domain_counts[classification] += 1
         if classification != "served_ok":
             expected[f"row.{number}"] = {
-                "interface": f"interface.case-{number}",
+                "interface": name,
                 "path": path,
                 "status": status,
                 "class": classification,
@@ -195,8 +229,11 @@ def test_interfaces_reconcile_classifies_each_case(tmp_path: Path) -> None:
     ).stdout.strip()
     assert header["revision"] == revision
     assert {
-        name: row for name, row in report.items() if name != "interfaces"
+        name: row for name, row in report.items() if name.startswith("row.")
     } == expected
+    assert {
+        name: row for name, row in report.items() if name.startswith("domain.")
+    } == expected_domains
     output = spec / "programme/sweeps/interfaces.kvx"
     assert load(output) == report
     first = output.read_bytes()
@@ -247,6 +284,9 @@ def test_interfaces_reconcile_classifies_each_case(tmp_path: Path) -> None:
     assert updated["interfaces"]["missing"] == header["missing"] - 1
     assert updated["interfaces"]["planned_pending"] == header["planned_pending"] - 2
     assert updated["interfaces"]["stale_planned"] == header["stale_planned"] + 2
+    assert updated["interfaces"]["kept"] == header["kept"]
+    assert updated["interfaces"]["change_absent"] == header["change_absent"] - 1
+    assert updated["interfaces"]["change_present"] == header["change_present"] + 1
     assert "row.22" not in updated
     assert updated["row.24"]["class"] == "stale_planned"
     assert updated["row.25"]["class"] == "stale_planned"
@@ -274,6 +314,25 @@ def test_interfaces_reconcile_reads_the_registry() -> None:
         assert row["path"] == original["path"]
         assert row["status"] == original["status"]
         assert row["symbol"]
+    domains = {
+        name: row for name, row in report.items() if name.startswith("domain.")
+    }
+    expected_rows = collections.Counter(name.split(".", 2)[1] for name in interfaces)
+    assert set(domains) == {f"domain.{domain}" for domain in expected_rows}
+    for domain, count in expected_rows.items():
+        domain_counts = domains[f"domain.{domain}"]
+        assert domain_counts["rows"] == count
+        assert sum(domain_counts[name] for name in CLASSES) == count
+        classified = collections.Counter(
+            row["class"]
+            for row in findings
+            if row["interface"].split(".", 2)[1] == domain
+        )
+        assert domain_counts["served_ok"] == count - sum(classified.values())
+        for name in CLASSES[1:]:
+            assert domain_counts[name] == classified[name]
+    for name in ("rows", *CLASSES):
+        assert sum(row[name] for row in domains.values()) == header[name]
     revision = subprocess.run(
         [
             "git",

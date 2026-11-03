@@ -286,8 +286,8 @@ fn verify_execution(
         (summary.sponsor() == execution.sponsor, "sponsor"),
         (summary.fee_denom() == execution.fee_denom, "feeDenom"),
         (
-            protocol.asset() == sha256(execution.fee_denom.as_bytes()),
-            "feeDenom",
+            protocol.asset() == sha256(execution.payment_denom.as_bytes()),
+            "paymentDenom",
         ),
         (fee == execution.fee_amount, "feeAmount"),
         (protocol.from() == from, "from"),

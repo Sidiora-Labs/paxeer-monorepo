@@ -19,6 +19,8 @@
 //!   result digest of that record.
 //! - A mode, task policy or rubric other than the frozen policy's, or a task-set digest other
 //!   than the sealed one, refuses `EVIDENCE_BINDING`.
+#[cfg(target_arch = "wasm32")]
+use crate::codec::Sha256State as Sha256;
 use crate::{
     admission::{AdmissionTable, Participant},
     codec::{self as wire, EventCommon, ReportBody, ValidatedEnvelope},
@@ -56,6 +58,7 @@ use crate::{
     },
     MAX_TASKS, MAX_WORKERS,
 };
+#[cfg(not(target_arch = "wasm32"))]
 use sha2::{Digest, Sha256};
 
 pub const MAGIC: &[u8; 8] = b"PAXAIF09";
@@ -95,7 +98,8 @@ pub const EVIDENCE_DOMAIN: &str = "PAXAI/evidence/v1";
 
 /// Typed failures of the independent offchain artifact error space; the
 /// discriminant is the 1-based code of `errors::ARTIFACT_SERVICE_ERRORS`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u16)]
 pub enum ArtifactError {
     Malformed = 1,
@@ -140,7 +144,8 @@ impl From<ApplicationError> for ArtifactError {
 pub type ArtifactResult<T> = Result<T, ArtifactError>;
 
 /// Host verification failures stay distinct from typed signature refusal.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum VerificationFailure {
     Artifact(ArtifactError),
     Host(VerificationError),
@@ -153,7 +158,8 @@ impl From<ArtifactError> for VerificationFailure {
 
 macro_rules! u8_enum {
     ($name:ident, $unknown:expr, { $($variant:ident = $value:literal),+ $(,)? }) => {
-        #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+        #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+        #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
         #[repr(u8)]
         pub enum $name { $($variant = $value),+ }
         impl $name {
@@ -161,6 +167,7 @@ macro_rules! u8_enum {
             ///
             /// # Errors
             #[doc = concat!("Returns `", stringify!($unknown), "` when `value` is not a defined discriminant.")]
+            #[cfg_attr(target_arch = "wasm32", inline(never))]
             pub fn decode(value: u8) -> ArtifactResult<Self> {
                 match value {
                     $($value => Ok(Self::$variant),)+
@@ -198,14 +205,17 @@ pub trait Item<'a>: Copy {
     ///
     /// # Errors
     /// Returns `Malformed` when the bytes are truncated or not a canonical item.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'a>) -> ArtifactResult<Self>;
     /// Writes this item to `w`.
     ///
     /// # Errors
     /// Returns `Malformed` when `w` lacks space or a length does not fit its field.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> ArtifactResult<()>;
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Items<'a, T> {
     Typed(&'a [T]),
     Encoded { count: usize, bytes: &'a [u8] },
@@ -260,9 +270,11 @@ impl<'a, T: Item<'a>> Iterator for ItemIter<'a, T> {
     }
 }
 impl<'a> Item<'a> for [u8; 32] {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'a>) -> ArtifactResult<Self> {
         Ok(r.fixed()?)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> ArtifactResult<()> {
         Ok(w.put(self)?)
     }
@@ -297,7 +309,8 @@ fn length_u32(length: usize) -> ArtifactResult<[u8; 4]> {
 }
 
 /// Common context C = `chain_domain32||program32||market32||policy32`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ArtifactContext {
     pub chain: ChainDomain,
     pub program: ProgramId,
@@ -314,18 +327,20 @@ impl ArtifactContext {
         out[96..].copy_from_slice(self.policy.as_bytes());
         out
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'_>) -> ArtifactResult<Self> {
         Ok(Self {
-            chain: ChainDomain::new(r.fixed()?)?,
-            program: ProgramId::new(r.fixed()?)?,
-            market: MarketId::new(r.fixed()?)?,
-            policy: PolicyDigest::new(r.fixed()?)?,
+            chain: r.chain_domain()?,
+            program: r.program_id()?,
+            market: r.market_id()?,
+            policy: r.policy_digest()?,
         })
     }
 }
 
 /// Unsigned-manifest root, distinct from the F09 `EvidenceRoot`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ArtifactManifestRoot(Digest32);
 impl ArtifactManifestRoot {
     /// Root from nonzero bytes.
@@ -341,25 +356,29 @@ impl ArtifactManifestRoot {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ParentRef {
     pub purpose: ParentPurpose,
     pub root: [u8; 32],
 }
 impl<'a> Item<'a> for ParentRef {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'a>) -> ArtifactResult<Self> {
         Ok(Self {
             purpose: ParentPurpose::decode(r.u8()?)?,
             root: r.fixed()?,
         })
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> ArtifactResult<()> {
         w.u8(self.purpose as u8)?;
         Ok(w.put(&self.root)?)
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ArtifactManifest<'a> {
     pub kind: ArtifactKind,
     pub privacy: Privacy,
@@ -393,6 +412,7 @@ impl ArtifactManifest<'_> {
     ///
     /// # Errors
     /// Returns `Malformed` when the length overflows.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encoded_len(&self) -> ArtifactResult<usize> {
         self.parents
             .len()
@@ -407,6 +427,7 @@ impl ArtifactManifest<'_> {
     /// when an empty object's content root is not the empty-tree root; `InvalidContext` when a
     /// policy-scoped kind has a nonzero epoch or a subject other than the policy; `Malformed` for
     /// every other bound, zero-root or ordering violation.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> ArtifactResult<()> {
         if self.byte_length > MAX_OBJECT_BYTES || self.chunk_count > MAX_CHUNKS {
             return Err(ArtifactError::Malformed);
@@ -459,6 +480,7 @@ impl ArtifactManifest<'_> {
 /// # Errors
 /// Propagates `ArtifactManifest::validate` refusals; returns `Malformed` when the encoding exceeds
 /// `MAX_MANIFEST_BYTES` or `out` is too short.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_manifest(value: &ArtifactManifest<'_>, out: &mut [u8]) -> ArtifactResult<usize> {
     value.validate()?;
     let size = value.encoded_len()?;
@@ -497,6 +519,7 @@ pub fn encode_manifest(value: &ArtifactManifest<'_>, out: &mut [u8]) -> Artifact
 /// Returns `UnsupportedVersion` for another version; `UnsupportedKind` for an unknown kind;
 /// `Malformed` for size, magic, chunk-size, parent-count, reserved, zero-identity, truncation or
 /// trailing-byte faults; then propagates `ArtifactManifest::validate` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_manifest(input: &[u8]) -> ArtifactResult<ArtifactManifest<'_>> {
     if input.len() > MAX_MANIFEST_BYTES || input.len() < MANIFEST_FIXED_BYTES {
         return Err(ArtifactError::Malformed);
@@ -511,7 +534,7 @@ pub fn decode_manifest(input: &[u8]) -> ArtifactResult<ArtifactManifest<'_>> {
     r.reserved(4)?;
     let context = ArtifactContext::read(&mut r)?;
     let epoch = r.u64()?;
-    let publisher = PrincipalId::new(r.fixed()?)?;
+    let publisher = r.principal_id()?;
     let subject = r.fixed()?;
     let byte_length = r.u64()?;
     if r.u32()? != CHUNK_BYTES {
@@ -566,7 +589,8 @@ pub fn manifest_root(encoded: &[u8]) -> ArtifactResult<ArtifactManifestRoot> {
 }
 
 /// Supplied subject expectation; a comparison input, never host authority.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum SubjectContext {
     Policy,
     Task { epoch: u64, task: TaskId },
@@ -619,7 +643,8 @@ pub fn publisher_digest(
     )
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct PublisherEnvelope<'a> {
     pub manifest: &'a [u8],
     pub generation: Version,
@@ -627,7 +652,8 @@ pub struct PublisherEnvelope<'a> {
     pub signature: Signature64,
 }
 /// Signature-verified attribution; not tenant admission or grant authority.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct VerifiedPublisher {
     pub root: ArtifactManifestRoot,
     pub publisher: PrincipalId,
@@ -640,6 +666,7 @@ pub struct VerifiedPublisher {
 /// # Errors
 /// Propagates `decode_manifest` refusals for the embedded manifest; returns `Malformed` when the
 /// key is zero, the envelope exceeds `MAX_ENVELOPE_BYTES` or `out` is too short.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_envelope(value: &PublisherEnvelope<'_>, out: &mut [u8]) -> ArtifactResult<usize> {
     decode_manifest(value.manifest)?;
     if value.key.0 == [0; 32] {
@@ -664,6 +691,7 @@ pub fn encode_envelope(value: &PublisherEnvelope<'_>, out: &mut [u8]) -> Artifac
 /// # Errors
 /// Returns `Malformed` for an oversized envelope or manifest, a non-Ed25519 scheme, a zero
 /// generation or key, truncation or trailing bytes; propagates `decode_manifest` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_envelope(input: &[u8]) -> ArtifactResult<PublisherEnvelope<'_>> {
     if input.len() > MAX_ENVELOPE_BYTES {
         return Err(ArtifactError::Malformed);
@@ -678,7 +706,7 @@ pub fn decode_envelope(input: &[u8]) -> ArtifactResult<PublisherEnvelope<'_>> {
     if r.u16()? != SIGNATURE_SCHEME_ED25519 {
         return Err(ArtifactError::Malformed);
     }
-    let generation = Version::new(r.u64()?)?;
+    let generation = r.version()?;
     let key = PublicKey32(r.fixed()?);
     if key.0 == [0; 32] {
         return Err(ArtifactError::Malformed);
@@ -721,13 +749,15 @@ pub fn verify_publisher(
     })
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RightsDocument<'a> {
     pub role: DocumentRole,
     pub root: [u8; 32],
     pub label: &'a str,
 }
 impl<'a> Item<'a> for RightsDocument<'a> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'a>) -> ArtifactResult<Self> {
         let role = DocumentRole::decode(r.u8()?)?;
         let root = r.fixed()?;
@@ -738,6 +768,7 @@ impl<'a> Item<'a> for RightsDocument<'a> {
         let label = core::str::from_utf8(r.take(length)?).map_err(|_| ArtifactError::Malformed)?;
         Ok(Self { role, root, label })
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> ArtifactResult<()> {
         w.u8(self.role as u8)?;
         w.put(&self.root)?;
@@ -747,7 +778,8 @@ impl<'a> Item<'a> for RightsDocument<'a> {
 }
 
 /// A rights claim and evidence reference; DOCUMENTED is never legal clearance.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Declaration<'a> {
     pub publisher: PrincipalId,
     pub rights: RightsStatus,
@@ -763,6 +795,7 @@ impl Declaration<'_> {
     /// # Errors
     /// Returns `Malformed` for undefined mask bits, too many documents, `Documented` without
     /// documents, a zero document root, an oversized label or unordered/duplicate documents.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> ArtifactResult<()> {
         if self.purpose_mask & !0x000f != 0 || self.restriction_mask & !0x001f != 0 {
             return Err(ArtifactError::Malformed);
@@ -792,6 +825,7 @@ impl Declaration<'_> {
     ///
     /// # Errors
     /// Returns `Malformed` when a document fails to decode or the length overflows.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encoded_len(&self) -> ArtifactResult<usize> {
         let mut size = DECLARATION_FIXED_BYTES;
         for document in &self.documents {
@@ -813,6 +847,7 @@ pub fn rights_status(declaration: Option<&Declaration<'_>>) -> RightsStatus {
 /// # Errors
 /// Propagates `Declaration::validate` and `Declaration::encoded_len` refusals; returns `Malformed`
 /// when the encoding exceeds `MAX_RECORD_BYTES` or `out` is too short.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_declaration(value: &Declaration<'_>, out: &mut [u8]) -> ArtifactResult<usize> {
     value.validate()?;
     let size = value.encoded_len()?;
@@ -841,13 +876,14 @@ pub fn encode_declaration(value: &Declaration<'_>, out: &mut [u8]) -> ArtifactRe
 /// Returns `UnsupportedVersion` for another version; `Malformed` for size, zero-publisher,
 /// unknown-enum, document-count, reserved, truncation or trailing-byte faults; then propagates
 /// `Declaration::validate` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_declaration(input: &[u8]) -> ArtifactResult<Declaration<'_>> {
     if input.len() > MAX_RECORD_BYTES || input.len() < DECLARATION_FIXED_BYTES {
         return Err(ArtifactError::Malformed);
     }
     let mut r = Reader::new(input);
     version(&mut r)?;
-    let publisher = PrincipalId::new(r.fixed()?)?;
+    let publisher = r.principal_id()?;
     let rights = RightsStatus::decode(r.u8()?)?;
     let purpose_mask = r.u16()?;
     let restriction_mask = r.u16()?;
@@ -892,7 +928,8 @@ pub fn declaration_root(context: &ArtifactContext, encoded: &[u8]) -> ArtifactRe
 }
 
 /// Matching roots mean equal bytes, never independent re-execution.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Reproduction {
     pub task: TaskId,
     pub request_root: [u8; 32],
@@ -913,6 +950,7 @@ impl Reproduction {
     ///
     /// # Errors
     /// Returns `Malformed` when any of those roots is zero.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> ArtifactResult<()> {
         nonzero(&self.request_root)?;
         nonzero(&self.model_root)?;
@@ -925,6 +963,7 @@ impl Reproduction {
 ///
 /// # Errors
 /// Propagates `Reproduction::validate` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_reproduction(value: &Reproduction) -> ArtifactResult<[u8; REPRODUCTION_BYTES]> {
     value.validate()?;
     let mut out = [0; REPRODUCTION_BYTES];
@@ -956,6 +995,7 @@ pub fn encode_reproduction(value: &Reproduction) -> ArtifactResult<[u8; REPRODUC
 /// # Errors
 /// Returns `UnsupportedVersion` for another version; `Malformed` for a wrong length, zero task,
 /// unknown status or nonzero reserved bytes; then propagates `Reproduction::validate` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_reproduction(input: &[u8]) -> ArtifactResult<Reproduction> {
     if input.len() != REPRODUCTION_BYTES {
         return Err(ArtifactError::Malformed);
@@ -963,7 +1003,7 @@ pub fn decode_reproduction(input: &[u8]) -> ArtifactResult<Reproduction> {
     let mut r = Reader::new(input);
     version(&mut r)?;
     let value = Reproduction {
-        task: TaskId::new(r.fixed()?)?,
+        task: r.task_id()?,
         request_root: r.fixed()?,
         model_root: r.fixed()?,
         input_root: r.fixed()?,
@@ -1180,7 +1220,8 @@ impl<'s> ContentAssembler<'s> {
 }
 
 /// Membership/integrity of one chunk only; never complete availability.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ChunkProof<'a> {
     pub manifest_root: ArtifactManifestRoot,
     pub index: u32,
@@ -1192,6 +1233,7 @@ pub struct ChunkProof<'a> {
 ///
 /// # Errors
 /// Returns `Malformed` when the chunk or sibling count exceeds its bound or `out` is too short.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_chunk_proof(value: &ChunkProof<'_>, out: &mut [u8]) -> ArtifactResult<usize> {
     if value.chunk.len() > CHUNK_BYTES as usize || value.siblings.len() > MAX_PROOF_SIBLINGS {
         return Err(ArtifactError::Malformed);
@@ -1218,6 +1260,7 @@ pub fn encode_chunk_proof(value: &ChunkProof<'_>, out: &mut [u8]) -> ArtifactRes
 /// # Errors
 /// Returns `UnsupportedVersion` for another version; `Malformed` for a zero manifest root, an
 /// oversized chunk or sibling count, truncation or trailing bytes.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_chunk_proof(input: &[u8]) -> ArtifactResult<ChunkProof<'_>> {
     let mut r = Reader::new(input);
     version(&mut r)?;
@@ -1289,7 +1332,8 @@ pub fn verify_chunk_proof(proof: &ChunkProof<'_>, manifest_bytes: &[u8]) -> Arti
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EvidenceTask {
     pub task: TaskId,
     pub request_root: [u8; 32],
@@ -1299,9 +1343,10 @@ pub struct EvidenceTask {
     pub reproduction_root: [u8; 32],
 }
 impl<'a> Item<'a> for EvidenceTask {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'a>) -> ArtifactResult<Self> {
         Ok(Self {
-            task: TaskId::new(r.fixed()?)?,
+            task: r.task_id()?,
             request_root: r.fixed()?,
             result_root: r.fixed()?,
             execution_root: r.fixed()?,
@@ -1309,6 +1354,7 @@ impl<'a> Item<'a> for EvidenceTask {
             reproduction_root: r.fixed()?,
         })
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> ArtifactResult<()> {
         w.put(self.task.as_bytes())?;
         w.put(&self.request_root)?;
@@ -1319,7 +1365,8 @@ impl<'a> Item<'a> for EvidenceTask {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct WorkerGroup<'a> {
     pub worker: WorkerId,
     pub generation: Version,
@@ -1331,12 +1378,13 @@ pub struct WorkerGroup<'a> {
     pub tasks: Items<'a, EvidenceTask>,
 }
 impl<'a> Item<'a> for WorkerGroup<'a> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'a>) -> ArtifactResult<Self> {
-        let worker = WorkerId::new(r.fixed()?)?;
-        let generation = Version::new(r.u64()?)?;
+        let worker = r.worker_id()?;
+        let generation = r.version()?;
         let model_root = r.fixed()?;
         let deployment_root = r.fixed()?;
-        let score = Score::new(r.u32()?)?;
+        let score = r.score()?;
         let reason_code = r.u16()?;
         let reason_artifact_root = r.fixed()?;
         let count = usize::from(r.u16()?);
@@ -1361,6 +1409,7 @@ impl<'a> Item<'a> for WorkerGroup<'a> {
             tasks,
         })
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> ArtifactResult<()> {
         w.put(self.worker.as_bytes())?;
         w.u64(self.generation.get())?;
@@ -1378,7 +1427,8 @@ impl<'a> Item<'a> for WorkerGroup<'a> {
 }
 
 /// Explicit frozen-policy inputs for evidence admission of optional roots.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EvidencePolicy {
     pub mode: AssessmentMode,
     pub rubric: RubricDigest,
@@ -1387,7 +1437,8 @@ pub struct EvidencePolicy {
     pub missing_result_admitted: bool,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EvidenceManifest<'a> {
     pub binding: EvaluatorBinding,
     pub task_policy: PolicyDigest,
@@ -1406,6 +1457,7 @@ impl EvidenceManifest<'_> {
     /// unadmitted absent dataset/benchmark root, an out-of-range group count, unordered workers,
     /// zero model/deployment/request roots, empty, unordered or duplicate tasks, or an unadmitted
     /// missing result.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self, policy: &EvidencePolicy) -> ArtifactResult<()> {
         if self.mode != policy.mode || self.rubric != policy.rubric {
             return Err(ArtifactError::InvalidContext);
@@ -1459,6 +1511,7 @@ impl EvidenceManifest<'_> {
     ///
     /// # Errors
     /// Returns `Malformed` when a group fails to decode or the length overflows.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encoded_len(&self) -> ArtifactResult<usize> {
         let mut size = EVIDENCE_FIXED_BYTES;
         for group in &self.groups {
@@ -1480,6 +1533,7 @@ impl EvidenceManifest<'_> {
 /// Propagates `EvidenceManifest::validate` and `EvidenceManifest::encoded_len` refusals; returns
 /// `Malformed` when the encoding exceeds `MAX_EVIDENCE_BYTES`, `out` is too short or the binding
 /// fails to encode.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_evidence_manifest(
     value: &EvidenceManifest<'_>,
     policy: &EvidencePolicy,
@@ -1513,6 +1567,7 @@ pub fn encode_evidence_manifest(
 /// Returns `UnsupportedVersion` for another version; `Malformed` for size, binding, zero-identity,
 /// unknown-mode, group or task count, reserved, truncation or trailing-byte faults; then propagates
 /// `EvidenceManifest::validate` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_evidence_manifest<'a>(
     input: &'a [u8],
     policy: &EvidencePolicy,
@@ -1523,9 +1578,9 @@ pub fn decode_evidence_manifest<'a>(
     let mut r = Reader::new(input);
     version(&mut r)?;
     let binding = decode_binding(r.take(BINDING_BYTES)?)?;
-    let task_policy = PolicyDigest::new(r.fixed()?)?;
-    let task_set = Digest32::new(r.fixed()?)?;
-    let rubric = RubricDigest::new(r.fixed()?)?;
+    let task_policy = r.policy_digest()?;
+    let task_set = r.digest32()?;
+    let rubric = r.rubric_digest()?;
     let dataset_root = r.fixed()?;
     let benchmark_root = r.fixed()?;
     let mode = AssessmentMode::decode(r.u8()?)?;
@@ -1591,7 +1646,8 @@ pub const SEAL_SCRATCH_BYTES: usize = POLICY_CAP + 2 * CONTROL_CAP;
 
 /// One evaluator's committed evidence claim for the opened epoch. A seal asserts an
 /// authorized claim, never verified AI quality or availability.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EvidenceSeal {
     pub evaluator: EvaluatorId,
     pub grant: Version,
@@ -1608,6 +1664,7 @@ impl EvidenceSeal {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the record does not fill exactly 185 bytes.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self) -> CodecResult<[u8; SEAL_RECORD_BYTES]> {
         let mut out = [0; SEAL_RECORD_BYTES];
         let mut w = Writer::new(&mut out);
@@ -1630,16 +1687,17 @@ impl EvidenceSeal {
     /// # Errors
     /// Returns `NON_CANONICAL` for a wrong length, zero identity, version or root, or an
     /// unknown mode.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let seal = Self {
-            evaluator: EvaluatorId::new(r.fixed()?)?,
-            grant: Version::new(r.u64()?)?,
-            key_version: Version::new(r.u64()?)?,
-            root: EvidenceRoot::new(r.fixed()?)?,
-            task_policy: PolicyDigest::new(r.fixed()?)?,
-            task_set: Digest32::new(r.fixed()?)?,
-            rubric: RubricDigest::new(r.fixed()?)?,
+            evaluator: r.evaluator_id()?,
+            grant: r.version()?,
+            key_version: r.version()?,
+            root: r.evidence_root()?,
+            task_policy: r.policy_digest()?,
+            task_set: r.digest32()?,
+            rubric: r.rubric_digest()?,
             mode: AssessmentMode::decode(r.u8()?).map_err(|_| NON_CANONICAL)?,
             height: r.u64()?,
         };
@@ -1673,7 +1731,8 @@ impl EvidenceSeal {
 /// The F09 seal region at the start of the control feature bytes: `epoch:u64 || count:u8 ||
 /// count seal records` in strictly ascending evaluator order, then the bytes of other control
 /// producers. Empty feature bytes hold no seal; an empty region exists only before other bytes.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct SealRegion<'a> {
     pub epoch: u64,
     records: &'a [u8],
@@ -1685,6 +1744,7 @@ impl<'a> SealRegion<'a> {
     /// # Errors
     /// Returns `NON_CANONICAL` for a truncated, oversized, unordered or duplicate region, an
     /// invalid record, or an empty region with nothing after it.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(feature_bytes: &'a [u8]) -> CodecResult<Self> {
         if feature_bytes.is_empty() {
             return Ok(Self {
@@ -1750,6 +1810,7 @@ impl<'a> SealRegion<'a> {
         self.rest
     }
     /// Writes the region of `epoch` with `seal` inserted, then the unchanged trailing bytes.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write_with(&self, epoch: u64, seal: &EvidenceSeal, out: &mut [u8]) -> CodecResult<usize> {
         let current = self.of(epoch);
         let count = current.len() / SEAL_RECORD_BYTES;
@@ -1846,7 +1907,8 @@ pub(crate) fn sealed_evidence_with<'a>(
     })
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Outcome {
     /// One revision increment and one role sequence were composed into `next` and the
     /// `EvidenceSealed` event into `event`.
@@ -1880,10 +1942,10 @@ impl SealPayload {
             return Err(BAD_VERSION);
         }
         let value = Self {
-            root: EvidenceRoot::new(r.fixed()?)?,
-            task_policy: PolicyDigest::new(r.fixed()?)?,
-            task_set: Digest32::new(r.fixed()?)?,
-            rubric: RubricDigest::new(r.fixed()?)?,
+            root: r.evidence_root()?,
+            task_policy: r.policy_digest()?,
+            task_set: r.digest32()?,
+            rubric: r.rubric_digest()?,
             mode: AssessmentMode::decode(r.u8()?).map_err(|_| NON_CANONICAL)?,
         };
         r.finish()?;
@@ -1922,6 +1984,7 @@ struct Call<'c> {
 }
 impl Call<'_> {
     /// Domain, expiry, market and the exact frozen epoch, config and roster.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn check_binding(&self) -> CodecResult<()> {
         let e = &self.envelope.envelope;
         let frozen = &self.opened.frozen;
@@ -2171,7 +2234,8 @@ pub fn apply(
 }
 
 /// R10 transition of one owning record's root field.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum RootBind {
     /// The owning operation stores this root with its record.
     Bound(Digest32),
@@ -2224,7 +2288,8 @@ pub fn check_root_binding(
 }
 
 /// One verifier conclusion; never collapsed into a single verified flag.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Conclusion {
     Holds,
     Fails(ArtifactError),
@@ -2238,7 +2303,8 @@ impl Conclusion {
 }
 
 /// R19 conclusion vector of one minimal evidence proof.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Conclusions {
     pub binding: Conclusion,
     pub signatures: Conclusion,
@@ -2250,7 +2316,8 @@ pub struct Conclusions {
 }
 
 /// One F02 task/result record of a minimal proof: the task's worker binding and its roots.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ProvenTask {
     pub task: TaskId,
     pub worker: WorkerId,
@@ -2263,7 +2330,8 @@ pub struct ProvenTask {
 /// R19 minimal proof. `seal` and `binding` come from the authenticated finality reference;
 /// `report` is the admitted F03 report; `manifest` the exact evidence bytes; `tasks` the F02
 /// task/result records; `publishers` the publisher envelopes the tasks require.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EvidenceProof<'a> {
     pub seal: EvidenceSeal,
     pub binding: EvaluatorBinding,

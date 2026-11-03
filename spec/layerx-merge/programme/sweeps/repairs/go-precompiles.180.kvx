@@ -1,0 +1,6 @@
+[repair.go-precompiles.180]
+target = "precompiles/pricefeed"
+command = "CGO_ENABLED=1 go vet ./precompiles/pricefeed/ && CGO_ENABLED=1 go test -count=1 ./precompiles/pricefeed/"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "precompiles/pricefeed/views_golden_test.go gives the golden-view validator nonzero consensus power for the bonded-power aggregation quorum required by decision 2359, preserving every golden-byte assertion."

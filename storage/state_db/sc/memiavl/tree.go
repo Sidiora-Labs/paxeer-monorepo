@@ -161,13 +161,13 @@ func (t *Tree) Set(key, value []byte) {
 		// the value could be nil when replaying changes from write-ahead-log because of protobuf decoding
 		value = []byte{}
 	}
-	t.root, _ = setRecursive(t.root, key, value, t.version+1, t.cowVersion)
+	t.root, _ = setRecursive(t.root, key, value, nextVersionU32(t.version, t.initialVersion), t.cowVersion)
 }
 
 func (t *Tree) Remove(key []byte) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
-	_, t.root, _ = removeRecursive(t.root, key, t.version+1, t.cowVersion)
+	_, t.root, _ = removeRecursive(t.root, key, nextVersionU32(t.version, t.initialVersion), t.cowVersion)
 }
 
 // SaveVersion increases the version number and optionally updates the hashes

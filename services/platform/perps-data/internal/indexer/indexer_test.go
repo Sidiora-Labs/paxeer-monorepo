@@ -417,6 +417,9 @@ func less(a, b [3]uint64) bool {
 	return false
 }
 
+// TestIndexer requires PERPS_DATA_TEST_DATABASE_URL for a disposable PostgreSQL
+// database and PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET for the same chain.
+// The chain must retain venue logs and more than 1200 blocks for catch-up.
 func TestIndexer(t *testing.T) {
 	perps, err := perpsabi.ABI()
 	if err != nil {

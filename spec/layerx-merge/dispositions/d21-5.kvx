@@ -1,0 +1,47 @@
+# Main snapshot: origin/main at 52c0e2d626dc404116922a63a8b0427845ff254f.
+
+[disposition.21.11.1.1]
+finding = "21.11.1.1"
+status = "resolved"
+evidence = "On main, precompiles/layerxledger/pause_test.go:158, precompiles/layerxledger/payments_test.go:218 and precompiles/layerxledger/views_test.go:174 assert LXP_NO_PAYER_GRANT through the precompile without Keeper.GetPayerGrant reads, retaining unchanged-state and log assertions. Commits 8fc4a07ff and ea039363e landed the retired-grant assertions and their current view coverage."
+
+[disposition.21.95.1.1]
+finding = "21.95.1.1"
+status = "resolved"
+evidence = "Commit 07e2996df places the native-read consumer proof in services/agent/crates/layerx-mcp/tests/proof_native_reads.rs:40, where it imports layerx_mcp through the consumer crate's own target on main. services/agent/crates/layerx-mcp/Cargo.toml:17 keeps the dependency on layerx-agentd one-way, and services/agent/crates/layerx-agentd/Cargo.toml:41 names the shared producer target native-reads-http."
+
+[disposition.21.92.1.2]
+finding = "21.92.1.2"
+status = "resolved"
+evidence = "Commit f7d25df24 preserves a single pending snapshot's open-versus-idle identity at rpc/watermark_manager.go:110 on main. rpc/tx.go:483 reads the open snapshot's nonce directly and selects committed state only when that snapshot reports idle, so an executed transfer's pending nonce comes from its open state."
+
+[disposition.21.142.1.2]
+finding = "21.142.1.2"
+status = "resolved"
+evidence = "Commit 6c70c0a3e changes sdk/wallet/src/index.ts:230 on main to omit chainId from the assertSendTxResponse options when tx.chainId is undefined. A defined chainId still reaches the response validator, preserving chain-mismatch refusal while satisfying exactOptionalPropertyTypes."
+
+[disposition.21.95.1.2]
+finding = "21.95.1.2"
+status = "resolved"
+evidence = "Commit 07e2996df makes produce_transaction use latest_nonce at services/agent/crates/layerx-mcp/tests/proof_native_reads.rs:187 on main. services/agent/crates/layerx-client/src/sequencer.rs:369 implements that read with eth_getTransactionCount at latest, so this transaction producer does not request a proposer-only pending nonce."
+
+[disposition.21.95.1.3]
+finding = "21.95.1.3"
+status = "resolved"
+evidence = "Commit 07e2996df binds the native-read producer's configuration to the generated configuration file at services/agent/crates/layerx-mcp/tests/proof_native_reads.rs:107 on main. Lines 120 and 121 select the sequencer endpoint and signing key from that file, and line 279 passes that key to produce_transaction instead of reading either value from the process environment."
+
+[disposition.21.92.1.4]
+finding = "21.92.1.4"
+status = "resolved"
+evidence = "Commit 2afc32013 adds the recorded-hash lookup at rpc/send.go:201 on main: SendRawTransaction returns a known transaction's hash before a second Accept, preserving its original receipt and nonce. rpc/server.go:235 supplies the same send-record source used by the receipt API; an unknown hash still reaches sequencer admission."
+
+[disposition.21.95.1.4]
+finding = "21.95.1.4"
+status = "resolved"
+evidence = "Commit b333bce4c serves px_getReceiptKeys through GetReceiptKeys at rpc/sequencer_receipt.go:362 and registers its px service at rpc/server.go:326 on main. The method returns the latest governed receipt pins in the keys object with keyId, publicKey, firstHeight and lastHeight, forwarding to the proposer when its receipt source is remote."
+
+[disposition.21.78.1.1]
+finding = "21.78.1.1"
+status = "open"
+evidence = "On main, services/agent/crates/layerx-client/src/sequencer.rs:869 requires a keys object with numeric, positive height ranges, while services/agent/crates/layerx-agentd/tests/human_node.rs:92 and services/agent/crates/layerx-agentd/tests/handshake_gate.rs:105 still supply bare lists with hexadecimal height strings. services/agent/crates/layerx-agentd/tests/human_node_budgets.rs:213 already supplies the required object and numeric heights, leaving the other two fixtures incompatible with the decoder."
+follow_up = "22.95.1"

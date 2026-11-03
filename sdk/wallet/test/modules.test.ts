@@ -659,10 +659,51 @@ describe('modules', () => {
       expect(ours.value).toBe(0n);
       expect(known.has(ours.data.slice(0, 10))).toBe(true);
     }
+    const openAbi = abi('perps').find(
+      (entry) => entry.type === 'function' && entry.name === 'openPosition'
+    );
+    const cancelAbi = abi('perps').find(
+      (entry) => entry.type === 'function' && entry.name === 'cancelOrder'
+    );
+    if (!openAbi?.inputs || !cancelAbi?.inputs) throw new Error('missing perps open/cancel ABI');
+    expect(openAbi.inputs.map((input) => input.type)).toEqual([
+      'uint256',
+      'address',
+      'uint256',
+      'uint256',
+      'bool',
+    ]);
+    expect(cancelAbi.inputs.map((input) => input.type)).toEqual(['uint256']);
+    const openSelector = abiSelector(
+      `openPosition(${openAbi.inputs.map((input) => input.type).join(',')})`
+    );
+    const cancelSelector = abiSelector(
+      `cancelOrder(${cancelAbi.inputs.map((input) => input.type).join(',')})`
+    );
+    expect(module.openPosition(order).data).toBe(
+      openSelector +
+        [
+          word('uint256', order.marketId.toString()),
+          word('address', order.collateralToken),
+          word('uint256', order.collateralAmount.toString()),
+          word('uint256', order.leverage.toString()),
+          word('bool', order.isLong),
+        ].join('')
+    );
+    expect(module.cancelOrder(orderId).data).toBe(
+      cancelSelector + word('uint256', orderId.toString())
+    );
+    expect(module.openPosition({ ...order, isLong: false }).data).toBe(
+      perpsOpenPositionCall({ ...order, isLong: false }).data
+    );
     expect(known.has(abiSelector('placeOrder(bytes32,uint8,uint256,uint256,uint8)'))).toBe(false);
     const moved = exchange(signer, '0x00000000000000000000000000000000000A1015');
     expect(moved.openPosition(order)).toEqual({
       ...perpsOpenPositionCall(order),
+      to: '0x00000000000000000000000000000000000a1015',
+    });
+    expect(moved.cancelOrder(orderId)).toEqual({
+      ...perpsCancelOrderCall(orderId),
       to: '0x00000000000000000000000000000000000a1015',
     });
   });
@@ -1207,7 +1248,7 @@ describe('modules', () => {
       account,
       nonce: 4n,
       calls: [
-        orders.cancelOrder(`0x${word('uint256', '34')}`, fill(0x33, 32)),
+        orders.cancelOrder(34n),
         feeToken(signer).setFeeDenom('usid'),
         { to: `0x${'dd'.repeat(20)}`, value: 5n, data: '0x' },
       ],

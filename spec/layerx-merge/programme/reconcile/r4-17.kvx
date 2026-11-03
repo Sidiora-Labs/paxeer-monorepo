@@ -1,0 +1,465 @@
+[reconcile.r4-17]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 57
+
+[row.r4-17.1]
+interface = "interface.4.ts-sdk-op-if-operator-redrive-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4816
+symbol = "IF_OPERATOR_REDRIVE"
+evidence = "operationDefinitions.IF_OPERATOR_REDRIVE remains POST /v2/operator/dlq:redrive (api), with body OperatorRedriveBody and response OperatorRedriveResponse; declaration moved from registered line 4808 to 4816. The generated signature remains present despite retire status; served-routes.ts marks it unrouted and Operations.call refuses it before transport (task 4.48.2)."
+
+[row.r4-17.2]
+interface = "interface.4.ts-sdk-op-if-operator-replay-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4834
+symbol = "IF_OPERATOR_REPLAY"
+evidence = "operationDefinitions.IF_OPERATOR_REPLAY remains POST /v2/operator/replays (api), with body OperatorReplayBody and response OperatorReplayResponse; declaration moved from registered line 4826 to 4834. The generated signature remains present despite retire status; served-routes.ts marks it unrouted and Operations.call refuses it before transport (task 4.48.2)."
+
+[row.r4-17.3]
+interface = "interface.4.ts-sdk-op-if-order-cancel-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4852
+symbol = "IF_ORDER_CANCEL"
+evidence = "operationDefinitions.IF_ORDER_CANCEL remains POST /v2/me/orders/{orderId}:cancel (api), with body null and response OrderCancelResponse; declaration moved from registered line 4844 to 4852. The HTTP signature is unchanged; task 4.48.3 adds development-only classification in served-routes.ts and production refusal in Operations.call."
+
+[row.r4-17.4]
+interface = "interface.4.ts-sdk-op-if-order-create-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4880
+symbol = "IF_ORDER_CREATE"
+evidence = "operationDefinitions.IF_ORDER_CREATE remains POST /v2/me/orders (api), with body OrderCreateBody and response OrderCreateResponse; declaration moved from registered line 4872 to 4880. The HTTP signature is unchanged; task 4.48.3 adds development-only classification in served-routes.ts and production refusal in Operations.call."
+
+[row.r4-17.5]
+interface = "interface.4.ts-sdk-op-if-order-list-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4898
+symbol = "IF_ORDER_LIST"
+evidence = "operationDefinitions.IF_ORDER_LIST remains GET /v2/me/orders (api), with body null and response OrderListResponse; declaration moved from registered line 4890 to 4898. The HTTP signature is unchanged; task 4.48.3 adds development-only classification in served-routes.ts and production refusal in Operations.call."
+
+[row.r4-17.6]
+interface = "interface.4.ts-sdk-op-if-pool-detail-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 5047
+symbol = "IF_POOL_DETAIL"
+evidence = "operationDefinitions.IF_POOL_DETAIL remains GET /v2/pools/{poolAddress} (api), with body null and response PoolDetailResponse; declaration moved from registered line 5039 to 5047. served-routes.ts classifies the operation as served; the generated method, path and service match the registered signature."
+
+[row.r4-17.7]
+interface = "interface.4.ts-sdk-op-if-profile-get-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 5240
+symbol = "IF_PROFILE_GET"
+evidence = "operationDefinitions.IF_PROFILE_GET remains GET /v2/profiles/{wallet} (media), with body null and response ProfileGetResponse; declaration moved from registered line 5232 to 5240. served-routes.ts classifies the operation as served; the generated method, path and service match the registered signature."
+
+[row.r4-17.8]
+interface = "interface.4.ts-sdk-op-if-profile-patch-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 5268
+symbol = "IF_PROFILE_PATCH"
+evidence = "operationDefinitions.IF_PROFILE_PATCH remains PATCH /v2/profiles/{wallet} (media), with body ProfilePatchBody and response ProfilePatchResponse; declaration moved from registered line 5260 to 5268. served-routes.ts classifies the operation as served; the generated method, path and service match the registered signature."
+
+[row.r4-17.9]
+interface = "interface.4.ts-sdk-op-if-quote-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 5296
+symbol = "IF_QUOTE"
+evidence = "operationDefinitions.IF_QUOTE remains POST /v2/quotes (api), with body QuoteBody and response QuoteResponse; declaration moved from registered line 5288 to 5296. The generated signature remains present despite retire status; served-routes.ts marks it unrouted and Operations.call refuses it before transport (task 4.48.2)."
+
+[row.r4-17.10]
+interface = "interface.4.ts-sdk-op-if-rankings-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 5314
+symbol = "IF_RANKINGS"
+evidence = "operationDefinitions.IF_RANKINGS remains GET /v2/rankings/{category} (api), with body null and response RankingsResponse; declaration moved from registered line 5306 to 5314. served-routes.ts classifies the operation as served; the generated method, path and service match the registered signature."
+
+[row.r4-17.11]
+interface = "interface.4.ts-sdk-op-if-report-list-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 5445
+symbol = "IF_REPORT_LIST"
+evidence = "operationDefinitions.IF_REPORT_LIST remains GET /v2/admin/reports (api), with body null and response ReportListResponse; declaration moved from registered line 5437 to 5445. The generated signature remains present despite retire status; served-routes.ts marks it unrouted and Operations.call refuses it before transport (task 4.48.2)."
+
+[row.r4-17.12]
+interface = "interface.4.ts-sdk-op-if-reward-claim-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 5548
+symbol = "IF_REWARD_CLAIM"
+evidence = "operationDefinitions.IF_REWARD_CLAIM remains POST /v2/me/rewards:prepare-claim (api), with body RewardClaimBody and response RewardClaimResponse; declaration moved from registered line 5540 to 5548. Generated signature still uses :prepare-claim, while route-corrections.ts:4 changes the effective SDK path to /v2/me/rewards/claim (task 4.48.4); pnl-tracker now registers :prepare-claim, so the correction disagrees with the current service."
+
+[row.r4-17.13]
+interface = "interface.4.ts-sdk-op-if-squad-create-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 5659
+symbol = "IF_SQUAD_CREATE"
+evidence = "operationDefinitions.IF_SQUAD_CREATE remains POST /v2/squads (api), with body SquadCreateBody and response SquadCreateResponse; declaration moved from registered line 5651 to 5659. The generated signature remains present despite retire status; served-routes.ts marks it unrouted and Operations.call refuses it before transport (task 4.48.2)."
+
+[row.r4-17.14]
+interface = "interface.4.ts-sdk-op-if-stream-operation-get-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 5948
+symbol = "IF_STREAM_OPERATION_GET"
+evidence = "operationDefinitions.IF_STREAM_OPERATION_GET remains GET /v2/streams/operations/{operationId} (media), with body null and response StreamOperationGetResponse; declaration moved from registered line 5940 to 5948. served-routes.ts classifies the operation as served; the generated method, path and service match the registered signature."
+
+[row.r4-17.15]
+interface = "interface.4.ts-sdk-op-if-tx-status-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 6165
+symbol = "IF_TX_STATUS"
+evidence = "operationDefinitions.IF_TX_STATUS remains GET /v2/transactions/{transactionHash} (api), with body null and response TxStatusResponse; declaration moved from registered line 6157 to 6165. served-routes.ts classifies the operation as served; the generated method, path and service match the registered signature."
+
+[row.r4-17.16]
+interface = "interface.4.ts-sdk-op-if-unfollow-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 6193
+symbol = "IF_UNFOLLOW"
+evidence = "operationDefinitions.IF_UNFOLLOW remains DELETE /v2/me/following/{wallet} (media), with body null and response null; declaration moved from registered line 6185 to 6193. served-routes.ts classifies the operation as served; the generated method, path and service match the registered signature."
+
+[row.r4-17.17]
+interface = "interface.4.ts-sdk-op-if-voice-end-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 6285
+symbol = "IF_VOICE_END"
+evidence = "operationDefinitions.IF_VOICE_END remains POST /v2/voice-rooms/{roomId}:end (media), with body VoiceEndBody and response VoiceEndResponse; declaration moved from registered line 6277 to 6285. The generated signature remains present despite retire status; served-routes.ts marks it unrouted and Operations.call refuses it before transport (task 4.48.2)."
+
+[row.r4-17.18]
+interface = "interface.4.ts-sdk-op-if-voice-leave-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 6341
+symbol = "IF_VOICE_LEAVE"
+evidence = "operationDefinitions.IF_VOICE_LEAVE remains POST /v2/voice-rooms/{roomId}:leave (media), with body VoiceLeaveBody and response VoiceLeaveResponse; declaration moved from registered line 6333 to 6341. The generated signature remains present despite retire status; served-routes.ts marks it unrouted and Operations.call refuses it before transport (task 4.48.2)."
+
+[row.r4-17.19]
+interface = "interface.4.ts-sdk-op-if-wallet-link-remove-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 6443
+symbol = "IF_WALLET_LINK_REMOVE"
+evidence = "operationDefinitions.IF_WALLET_LINK_REMOVE remains DELETE /v2/me/wallet-links/{linkId} (api), with body WalletLinkRemoveBody and response null; declaration moved from registered line 6435 to 6443. served-routes.ts classifies the operation as served; the generated method, path and service match the registered signature."
+
+[row.r4-17.20]
+interface = "interface.4.ts-sdk-op-if-watchlist-delete-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 6499
+symbol = "IF_WATCHLIST_DELETE"
+evidence = "operationDefinitions.IF_WATCHLIST_DELETE remains DELETE /v2/me/watchlist/{poolAddress} (media), with body null and response null; declaration moved from registered line 6491 to 6499. served-routes.ts classifies the operation as served; the generated method, path and service match the registered signature."
+
+[row.r4-17.21]
+interface = "interface.4.ts-sdk-op-if-watchlist-put-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 6567
+symbol = "IF_WATCHLIST_PUT"
+evidence = "operationDefinitions.IF_WATCHLIST_PUT remains PUT /v2/me/watchlist/{poolAddress} (media), with body WatchlistPutBody and response WatchlistPutResponse; declaration moved from registered line 6559 to 6567. served-routes.ts classifies the operation as served; the generated method, path and service match the registered signature."
+
+[row.r4-17.22]
+interface = "interface.4.ts-sdk-op-if-withdraw-prepare-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 6595
+symbol = "IF_WITHDRAW_PREPARE"
+evidence = "operationDefinitions.IF_WITHDRAW_PREPARE remains POST /v2/me/funding/withdrawals:prepare (api), with body WithdrawPrepareBody and response WithdrawPrepareResponse; declaration moved from registered line 6587 to 6595. The generated signature remains present despite retire status; served-routes.ts marks it unrouted and Operations.call refuses it before transport (task 4.48.2)."
+
+[row.r4-17.23]
+interface = "interface.4.ts-sdk-operations-operations"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.ts"
+line = 37
+symbol = "Operations"
+evidence = "export class Operations remains at line 37; the class declaration is unchanged. Override decision override.J30.2 is implemented by Operations.call: it now rejects production development-only calls and unrouted calls, and applies ROUTE_CORRECTIONS before path interpolation."
+
+[row.r4-17.24]
+interface = "interface.4.fmt-sidiora-launchpad-v3-provenance-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sidiora-launchpad-v3/provenance.json"
+line = 2
+symbol = "abi_sources"
+evidence = "The provenance.json format still contains abi_sources entries with artifact, artifact_sha256, export, source, source_sha256 and license, plus deployment_defaults=false and app_imports=[]. No format-signature change is observed; the erc20Abi entry still names ERC20Base.sol while the current export includes SidioraERC20 pool-binding functions."
+
+[row.r4-17.25]
+interface = "interface.4.ts-sidiora-launchpad-v3-abis-erc20-abi"
+verdict = "served"
+path = "sdk/launchpad/packages/sidiora-launchpad-v3/src/abis.ts"
+line = 3089
+symbol = "erc20Abi"
+evidence = "export const erc20Abi = [ remains at line 3089. Its ABI now includes the previously missing bindPool(address), deploymentFactory() and pool() functions; inspection against precompiles/launchpad/abi/SidioraERC20.json finds no missing function/event identities."
+
+[row.r4-17.26]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-meta-data"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 35
+symbol = "FeeAccumulatorMetaData"
+evidence = "var FeeAccumulatorMetaData = &bind.MetaData{ retains its Go declaration type, now at line 35. The embedded ABI now includes FACTORY_ROLE(), OPTICAL_CLAIM_ROLE(), OPTICAL_GRANTER_ROLE() and accountingInitialized(); the registry reported 25 missing functions and five events. Reading its ABI and precompiles/launchpad/abi/FeeAccumulator.json finds no missing or extra ABI identities; the registry signature gaps have been filled."
+
+[row.r4-17.27]
+interface = "interface.4.go-protocol-bindings-fees-router-meta-data"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 35
+symbol = "FeesRouterMetaData"
+evidence = "var FeesRouterMetaData = &bind.MetaData{ retains its Go declaration type, now at line 35. The embedded ABI now includes claimAirdropEpoch(uint256,uint256), registeredDefaultAdminCount() and MirrorFailed(bytes4). Reading its ABI and precompiles/launchpad/abi/FeesRouter.json finds no missing or extra ABI identities; the registry signature gaps have been filled."
+
+[row.r4-17.28]
+interface = "interface.4.go-protocol-bindings-pool-registry-meta-data"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/poolregistry.go"
+line = 45
+symbol = "PoolRegistryMetaData"
+evidence = "var PoolRegistryMetaData = &bind.MetaData{ retains its Go declaration type, now at line 45. The embedded ABI now includes getPoolCountByCreator(address), getPoolsByCreatorPage(address,uint256,uint256), registeredDefaultAdminCount() and MirrorFailed(bytes4). Reading its ABI and precompiles/launchpad/abi/PoolRegistry.json finds no missing or extra ABI identities; the registry signature gaps have been filled."
+
+[row.r4-17.29]
+interface = "interface.4.go-protocol-bindings-protocol-config-meta-data"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/protocolconfig.go"
+line = 35
+symbol = "ProtocolConfigMetaData"
+evidence = "var ProtocolConfigMetaData = &bind.MetaData{ retains its Go declaration type, now at line 35. The embedded ABI now includes registeredDefaultAdminCount(). Reading its ABI and precompiles/launchpad/abi/ProtocolConfig.json finds no missing or extra ABI identities; the registry signature gaps have been filled."
+
+[row.r4-17.30]
+interface = "interface.4.go-protocol-bindings-quoter-meta-data"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/quoter.go"
+line = 67
+symbol = "QuoterMetaData"
+evidence = "var QuoterMetaData = &bind.MetaData{ retains its Go declaration type, now at line 67. The embedded ABI now includes quoteMultihop(address,address,uint256) and registeredDefaultAdminCount(). Reading its ABI and precompiles/launchpad/abi/Quoter.json finds no missing or extra ABI identities; the registry signature gaps have been filled."
+
+[row.r4-17.31]
+interface = "interface.4.go-protocol-bindings-router-meta-data"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 44
+symbol = "RouterMetaData"
+evidence = "var RouterMetaData = &bind.MetaData{ retains its Go declaration type, now at line 44. The embedded ABI now includes buyWithPermit, createMarketWithPermit, sellWithPermit and registeredDefaultAdminCount(), including the permit tuple inputs. Reading its ABI and precompiles/launchpad/abi/Router.json finds no missing or extra ABI identities; the registry signature gaps have been filled."
+
+[row.r4-17.32]
+interface = "interface.4.go-protocol-bindings-sidiora-factory-meta-data"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/sidiorafactory.go"
+line = 35
+symbol = "SidioraFactoryMetaData"
+evidence = "var SidioraFactoryMetaData = &bind.MetaData{ retains its Go declaration type, now at line 35. The embedded ABI now includes predictPoolAddress(address,address,address) and registeredDefaultAdminCount(). Reading its ABI and precompiles/launchpad/abi/SidioraFactory.json finds no missing or extra ABI identities; the registry signature gaps have been filled."
+
+[row.r4-17.33]
+interface = "interface.4.go-protocol-bindings-sidiora-nftmeta-data"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/sidioranft.go"
+line = 35
+symbol = "SidioraNFTMetaData"
+evidence = "var SidioraNFTMetaData = &bind.MetaData{ retains its Go declaration type, now at line 35. The embedded ABI now includes migratePoolIndex(uint256), poolIndexMigrationCursor(), poolIndexReady() and poolTokenId(address). Reading its ABI and precompiles/launchpad/abi/SidioraNFT.json finds no missing or extra ABI identities; the registry signature gaps have been filled."
+
+[row.r4-17.34]
+interface = "interface.4.cli-protocol-abi-baseline-j30"
+verdict = "served"
+path = "sdk/launchpad/protocol/bootstrap/abi_baseline.py"
+line = 52
+symbol = "main"
+evidence = "def main() now declares required --contracts and --output arguments, with optional --abi-root defaulting to precompiles/launchpad/abi. Compared with the registered invocation, --output <file> is now required; output records ABI hashes, missing/removed signatures, changed schemas and deployment records."
+
+[row.r4-17.35]
+interface = "interface.4.go-shared-config-capabilities-preflight-engine-reconcile-creation-fee"
+verdict = "served"
+path = "sdk/launchpad/shared/config/capabilities/preflight.go"
+line = 988
+symbol = "ReconcileCreationFee"
+evidence = "func (e *PreflightEngine) ReconcileCreationFee(ctx context.Context, hash common.Hash, treasuryIdentity deployment.Role) (CreationFeeReconciliation, error) remains at line 988. The Go signature is unchanged; task 4.55.1 and override decision override.J30.8 changed Treasury validation to accept kind surface alongside direct, while requiring its runtime hash and empty implementation identity."
+
+[row.r4-17.36]
+interface = "interface.4.cfg-launchpad-makefile-modules-j29"
+verdict = "served"
+path = "services/launchpad/Makefile"
+line = 15
+symbol = "MODULES"
+evidence = "MODULES := is now a multiline assignment including discovery, notifications, security and security/control in addition to the registered modules. The four go.work modules previously omitted by the registry signature are present in this Makefile list."
+
+[row.r4-17.37]
+interface = "interface.4.mk-launchpad-fmt-j29"
+verdict = "served"
+path = "services/launchpad/Makefile"
+line = 56
+symbol = "fmt:"
+evidence = "fmt: still runs gofmt -w and conditional goimports -w across MODULES. The recipe now uses if command -v goimports; then goimports -w $(MODULES); fi under -euo pipefail; the former || true that masked a goimports failure is gone."
+
+[row.r4-17.38]
+interface = "interface.4.err-discovery-discovery-unavailable-j11"
+verdict = "retired"
+path = "services/launchpad/discovery/http.go"
+line = 59
+symbol = "discovery_unavailable"
+evidence = "The exact error identifier discovery_unavailable is absent from the entire registered http.go. The handler now delegates failures through errorStatus and writeError; dependency failures use uppercase DEPENDENCY_UNAVAILABLE. Repository-wide search excluding spec and docs finds no exact old code, but one other file mentions the substring in the distinct complete_caps_discovery_unavailable literal. Override decision override.J29.8 requested retirement."
+remaining_refs = 1
+remaining = ["services/agent/crates/layerx-client/src/lni/report.rs:156"]
+
+[row.r4-17.39]
+interface = "interface.4.http-gateway-allow-metadata-get-v2-assets-asset-id"
+verdict = "served"
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 480
+symbol = "/v2/assets/{assetId}"
+evidence = "GET /v2/assets/{assetId} remains literally present at line 480 in RetiredConnectedRoutes, implementing retirement from override decision override.J29.2. It was removed from the active metadata allowlist; gateway app.go mounts these tombstones for rejection. Verdict served records symbol presence only, not an active upstream handler."
+
+[row.r4-17.40]
+interface = "interface.4.http-gateway-allow-metadata-post-v2-assets-asset-id-complete"
+verdict = "served"
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 481
+symbol = "/v2/assets/{assetId}:complete"
+evidence = "POST /v2/assets/{assetId}:complete remains literally present at line 481 in RetiredConnectedRoutes, implementing retirement from override decision override.J29.3. It was removed from the active metadata allowlist; gateway app.go mounts these tombstones for rejection. Verdict served records symbol presence only, not an active upstream handler."
+
+[row.r4-17.41]
+interface = "interface.4.http-gateway-allow-metadata-post-v2-assets-uploads"
+verdict = "served"
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 479
+symbol = "/v2/assets/uploads"
+evidence = "POST /v2/assets/uploads remains literally present at line 479 in RetiredConnectedRoutes, implementing retirement from override decision override.J29.1. It was removed from the active metadata allowlist; gateway app.go mounts these tombstones for rejection. Verdict served records symbol presence only, not an active upstream handler."
+
+[row.r4-17.42]
+interface = "interface.4.http-gateway-allow-livestream-get-v2-streams"
+verdict = "served"
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 534
+symbol = "/v2/streams"
+evidence = "GET /v2/streams retains the registered HTTP signature and the FrozenConnectedSurface entry at line 84. Public GET is now explicitly included in LivestreamConnectedRoutes; livestream handlers.go:165 registers listV2. The former registry note claiming no upstream handler is stale."
+
+[row.r4-17.43]
+interface = "interface.4.http-gateway-allow-livestream-post-v2-streams-stream-id-end"
+verdict = "served"
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 536
+symbol = "/v2/streams/{streamId}:end"
+evidence = "POST /v2/streams/{streamId}:end retains the registered HTTP signature and the FrozenConnectedSurface entry at line 84. The route is now explicitly authenticated in LivestreamConnectedRoutes; livestream handlers.go:182 registers the corresponding frozenAction end alias using {id}. The former registry note claiming no upstream handler is stale."
+
+[row.r4-17.44]
+interface = "interface.4.http-gateway-allow-livestream-post-v2-streams-stream-id-start"
+verdict = "served"
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 535
+symbol = "/v2/streams/{streamId}:start"
+evidence = "POST /v2/streams/{streamId}:start retains the registered HTTP signature and the FrozenConnectedSurface entry at line 84. The route is now explicitly authenticated in LivestreamConnectedRoutes; livestream handlers.go:181 registers the corresponding frozenAction start alias using {id}. The former registry note claiming no upstream handler is stale."
+
+[row.r4-17.45]
+interface = "interface.4.http-gateway-allow-livestream-post-v2-streams-stream-id-viewers-heartbeat"
+verdict = "served"
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 537
+symbol = "/v2/streams/{streamId}/viewers:heartbeat"
+evidence = "POST /v2/streams/{streamId}/viewers:heartbeat retains the registered HTTP signature and the FrozenConnectedSurface entry at line 84. The route is now explicitly anonymous in LivestreamConnectedRoutes; livestream handlers.go:183 registers frozenHeartbeat using {id}. The former registry note claiming no upstream handler is stale."
+
+[row.r4-17.46]
+interface = "interface.4.http-gateway-allow-social-get-v2-rooms-room-id-messages"
+verdict = "served"
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 482
+symbol = "/v2/rooms/{roomId}/messages"
+evidence = "GET /v2/rooms/{roomId}/messages remains literally present at line 482 in RetiredConnectedRoutes, implementing retirement from override decision override.J29.4. It was removed from the active social allowlist and DevelopmentSocialRoutes; gateway app.go mounts these tombstones for rejection. Verdict served records symbol presence only, not an active upstream handler."
+
+[row.r4-17.47]
+interface = "interface.4.http-gateway-allow-social-post-v2-rooms-room-id-messages"
+verdict = "served"
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 483
+symbol = "/v2/rooms/{roomId}/messages"
+evidence = "POST /v2/rooms/{roomId}/messages remains literally present at line 483 in RetiredConnectedRoutes, implementing retirement from override decision override.J29.5. It was removed from the active social allowlist and DevelopmentSocialRoutes; gateway app.go mounts these tombstones for rejection. Verdict served records symbol presence only, not an active upstream handler."
+
+[row.r4-17.48]
+interface = "interface.4.http-gateway-proxy-social-post-v2-voice-rooms"
+verdict = "served"
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 493
+symbol = "/v2/voice-rooms"
+evidence = "POST /v2/voice-rooms remains in the SocialConnectedRoutes methods map, now at line 493, and is emitted with Authenticate=true. The HTTP signature is unchanged; services/launchpad/social/internal/social/moderation.go:347 now registers the matching POST handler, resolving the registry note about a missing upstream route."
+
+[row.r4-17.49]
+interface = "interface.4.http-gateway-proxy-social-post-v2-voice-rooms-room-id-moderation-actions"
+verdict = "served"
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 493
+symbol = "/v2/voice-rooms/{roomId}/moderation-actions"
+evidence = "POST /v2/voice-rooms/{roomId}/moderation-actions remains in the SocialConnectedRoutes methods map, now at line 493, and is emitted with Authenticate=true. The HTTP signature is unchanged; services/launchpad/social/internal/social/moderation.go:650 now registers the matching POST handler, resolving the registry note about a missing upstream route."
+
+[row.r4-17.50]
+interface = "interface.4.http-gateway-proxy-social-post-v2-voice-rooms-room-id-tickets"
+verdict = "served"
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 493
+symbol = "/v2/voice-rooms/{roomId}/tickets"
+evidence = "POST /v2/voice-rooms/{roomId}/tickets remains in the SocialConnectedRoutes methods map, now at line 493, and is emitted with Authenticate=true. The HTTP signature is unchanged; services/launchpad/social/internal/social/moderation.go:588 now registers the matching POST handler, resolving the registry note about a missing upstream route."
+
+[row.r4-17.51]
+interface = "interface.4.http-gateway-proxy-social-get-v2-rooms-room-id-messages"
+verdict = "served"
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 482
+symbol = "/v2/rooms/{roomId}/messages"
+evidence = "GET /v2/rooms/{roomId}/messages remains literally present at line 482 in RetiredConnectedRoutes, implementing retirement from override decision override.J29.6. It was removed from the active social allowlist and DevelopmentSocialRoutes; gateway app.go mounts these tombstones for rejection. Verdict served records symbol presence only, not an active upstream handler."
+
+[row.r4-17.52]
+interface = "interface.4.http-gateway-proxy-social-post-v2-rooms-room-id-messages"
+verdict = "served"
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 483
+symbol = "/v2/rooms/{roomId}/messages"
+evidence = "POST /v2/rooms/{roomId}/messages remains literally present at line 483 in RetiredConnectedRoutes, implementing retirement from override decision override.J29.7. It was removed from the active social allowlist and DevelopmentSocialRoutes; gateway app.go mounts these tombstones for rejection. Verdict served records symbol presence only, not an active upstream handler."
+
+[row.r4-17.53]
+interface = "interface.4.err-notifications-notification-unavailable-j11"
+verdict = "retired"
+path = "services/launchpad/notifications/http.go"
+line = 93
+symbol = "notification_unavailable"
+evidence = "The exact error identifier notification_unavailable is absent from the entire registered http.go. The handler now delegates failures through errorStatus and writeError; dependency failures use uppercase DEPENDENCY_UNAVAILABLE. Repository-wide exact-identifier search excluding spec and docs finds 0 other files. Override decision override.J29.9 requested retirement."
+remaining_refs = 0
+remaining = []
+
+[row.r4-17.54]
+interface = "interface.4.http-pnl-tracker-post-v2-me-rewards-claim"
+verdict = "retired"
+path = "services/launchpad/pnl-tracker/internal/app/app.go"
+line = 296
+symbol = "/v2/me/rewards/claim"
+evidence = "The registered app.go no longer contains /v2/me/rewards/claim. New delegates to registerRewardRoutes at line 353, which registers POST /v2/me/rewards:prepare-claim at line 355. Override decision override.J29.11 retirement is reflected in reward_routes_test.go, which expects the old URL to return 404. Repository-wide literal search excluding spec and docs finds six remaining files, including stale web/SDK consumers and tests."
+remaining_refs = 6
+remaining = ["apps/launchpad/web/src/widgets/rewards/rewards-view.tsx:30", "sdk/launchpad/packages/sdk/src/route-corrections.ts:4", "sdk/launchpad/packages/sdk/test/proof_launchpad_sdk_sdk.test.mjs:196", "sdk/launchpad/packages/sdk/test/route-corrections.test.mjs:50", "services/launchpad/pnl-tracker/internal/app/proof_launchpad_pnl_tracker_test.go:325", "services/launchpad/pnl-tracker/internal/app/reward_routes_test.go:66"]
+
+[row.r4-17.55]
+interface = "interface.4.err-ranking-algo-invalid-category-j11"
+verdict = "served"
+path = "services/launchpad/ranking-algo/internal/httpapi/snapshots.go"
+line = 83
+symbol = "INVALID_CATEGORY"
+evidence = "snapshotError still emits HTTP 400 INVALID_CATEGORY at lines 83 and 202. The guidance signature changed from a hardcoded six-string Supported slice to ranker.Categories[:], sharing the canonical category set. This implements the change requested by override decision override.J29.10; the literal error code is retained."
+
+[row.r4-17.56]
+interface = "interface.4.cli-lp-tools-production-interfaces-contracts-client-deployment"
+verdict = "served"
+path = "tools/launchpad/production/interfaces/contracts/client-deployment.cjs"
+line = 44
+symbol = "main"
+evidence = "The node client-deployment.cjs CLI remains callable through main() with generate/--generate and check/--check modes and required CONTRACT_SOURCE_ROOT. The invocation signature is retained; deriveDeployment now records per-role kind and runtimeHash, plus implementation address/hash only for proxy and beacon roles, and renderHelper emits roleIdentity (override decision override.J30.9, task 4.45.2)."
+
+[row.r4-17.57]
+interface = "interface.4.cli-lp-tools-production-interfaces-contracts-client-deployment-test"
+verdict = "served"
+path = "tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs"
+line = 8
+symbol = "deriveDeploymentDefaultsToRepositoryContracts"
+evidence = "The node client-deployment.test.cjs suite remains present. Its defaultRoot is the repository contracts/launchpad directory and deriveDeploymentDefaultsToRepositoryContracts is a declared, registered test that removes CONTRACT_SOURCE_ROOT. New roleIdentity and role-address-drift tests cover the helper change, addressing override decision override.J30.10 and tasks 4.45.1/4.45.2."

@@ -13,11 +13,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/internaltest"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
@@ -26,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/database"
@@ -45,6 +48,28 @@ func v2OwnerFixture(t *testing.T) Store {
 	_, err = provider.Up(context.Background())
 	must(t, err)
 	return s
+}
+
+func v2OwnerDeletionFixture(t *testing.T) Store {
+	t.Helper()
+	ctx := context.Background()
+	database := internaltest.NewPostgres(t)
+	tx, err := database.Begin(ctx)
+	must(t, err)
+	defer tx.Rollback(ctx)
+	for _, version := range []string{"330000", "330001", "330002"} {
+		migration, err := os.ReadFile(filepath.Join("../../../../../launchpad/spec/production-system/integration/migrations", version+".sql"))
+		must(t, err)
+		_, err = tx.Exec(ctx, string(migration))
+		must(t, err)
+	}
+	must(t, tx.Commit(ctx))
+	cfg := database.Config().Copy()
+	cfg.ConnConfig.RuntimeParams["search_path"] = "public,users"
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	must(t, err)
+	t.Cleanup(pool.Close)
+	return Store{DB: pool}
 }
 
 func requireV2OwnerResponse(t *testing.T, response *httptest.ResponseRecorder, status int, schema string) {
@@ -198,6 +223,7 @@ func TestPostgresHTTPV2OwnerExportsAndDeletion(t *testing.T) {
 	requireV2OwnerResponse(t, httpRequest(handler, p, http.MethodPost, "/v2/me/exports", `{"format":"json","includeMedia":true}`), http.StatusNotImplemented, "Error")
 
 	t.Run("deletion creation", func(t *testing.T) {
+		s := v2OwnerDeletionFixture(t)
 		key, err := crypto.GenerateKey()
 		must(t, err)
 		wallet := strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex())
@@ -210,6 +236,13 @@ func TestPostgresHTTPV2OwnerExportsAndDeletion(t *testing.T) {
 		_, err = s.DB.Exec(context.Background(), `INSERT INTO identity_reauth(proof_hash,account_id,session_id,action,issued_at,expires_at) VALUES($1,$2,$3,'account.delete',clock_timestamp(),clock_timestamp()+interval '5 minutes')`, reauthHash[:], accountID, session)
 		must(t, err)
 		_, err = s.DB.Exec(context.Background(), sharedauth.LedgerDDL)
+		must(t, err)
+		ddl, err := delivery.SchemaDDL("public")
+		must(t, err)
+		_, err = s.DB.Exec(context.Background(), ddl)
+		must(t, err)
+		subjects := map[string]string{"account.deletion.job": "users.account.deletion.job", "account.deletion.requested": "users.account.deletion.requested"}
+		publisher, err := delivery.NewStore(s.DB, "public", delivery.Policy{Subjects: map[string]bool{"users.account.deletion.job": true, "users.account.deletion.requested": true}, EventTypes: map[string]bool{"account.deletion.job": true, "account.deletion.requested": true}})
 		must(t, err)
 		policies, routes := sharedauth.AccountOwnerPoliciesV2()
 		route := routes["account.delete"]
@@ -231,7 +264,7 @@ func TestPostgresHTTPV2OwnerExportsAndDeletion(t *testing.T) {
 		raw, err := json.Marshal(envelope)
 		must(t, err)
 		identity := sharedauth.IdentityPrincipal{AccountID: accountID.String(), SessionID: session.String(), Wallet: wallet, ProofAt: now, AccessExpiresAt: now.Add(time.Hour)}
-		core := (HTTP{Store: s, Runtime: &Runtime{Authorizer: authorizer, EndpointKey: bytes.Repeat([]byte{7}, 32)}}).Handler()
+		core := (HTTP{Store: s, Runtime: &Runtime{Authorizer: authorizer, EndpointKey: bytes.Repeat([]byte{7}, 32), Delivery: publisher, Subjects: subjects}}).Handler()
 		authorized := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			r.Header.Set("X-Request-ID", uuid.NewString())
 			r.Header.Set("Idempotency-Key", uuid.NewString())
@@ -252,6 +285,19 @@ func TestPostgresHTTPV2OwnerExportsAndDeletion(t *testing.T) {
 		must(t, json.Unmarshal(status.Body.Bytes(), &progress))
 		if progress.Data.Job.JobId != deletion.Data.Job.JobId {
 			t.Fatal("deletion job id did not round-trip", progress.Data.Job)
+		}
+		var consumed, revoked bool
+		var epoch int64
+		must(t, s.DB.QueryRow(context.Background(), `SELECT consumed_at IS NOT NULL FROM users.identity_reauth WHERE proof_hash=$1`, reauthHash[:]).Scan(&consumed))
+		must(t, s.DB.QueryRow(context.Background(), `SELECT revoked_at IS NOT NULL FROM users.identity_sessions WHERE session_id=$1`, session).Scan(&revoked))
+		must(t, s.DB.QueryRow(context.Background(), `SELECT auth_epoch FROM users.identity_accounts WHERE account_id=$1`, accountID).Scan(&epoch))
+		if !consumed || !revoked || epoch != 1 {
+			t.Fatalf("deletion identity transaction: consumed=%t revoked=%t epoch=%d", consumed, revoked, epoch)
+		}
+		var events int
+		must(t, s.DB.QueryRow(context.Background(), `SELECT count(*) FROM public.delivery_outbox WHERE subject IN ($1,$2)`, subjects["account.deletion.job"], subjects["account.deletion.requested"]).Scan(&events))
+		if events != 2 {
+			t.Fatalf("deletion delivery outbox: got %d events, want 2", events)
 		}
 	})
 
