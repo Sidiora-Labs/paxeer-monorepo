@@ -1,1 +1,0 @@
-packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"m":"com.sidiora.layerx.sdk","l":"com.sidiora.layerx.sdk"},{"m":"com.sidiora.layerx.sdk","l":"com.sidiora.layerx.sdk.util"},{"m":"com.sidiora.layerx.sdk","l":"com.sidiora.layerx.sdk.verify"}];updateSearchResults();
