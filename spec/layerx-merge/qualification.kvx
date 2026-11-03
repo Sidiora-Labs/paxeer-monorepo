@@ -19283,3 +19283,27 @@ symbol = "receiptKeysAPI.GetReceiptKeys"
 observed = "Attempt 6 served an empty key list while the fixture pinned one key, and the pending-resolution route crashed on the harness gap of finding 22.9.27.2."
 assumption = "The handler reads the pins at the latest committed height and the fixture commits before the request (do item of attempt 6); the harness gap is 22.25.1."
 severity = "major"
+
+[finding.18.1043.2.1]
+task = "18.1043.2"
+file = "go.sum"
+symbol = "go.uber.org/automaxprocs"
+observed = "Attempt 1 built CGO_ENABLED=1 go build ./rpc/... ./node/... at 66d80726c and published, while attempt 2 of 7.10.6 on base 77cccd304 fails go build ./rpc/ ./node/ in a fresh environment with missing go.sum entry for go.mod file for go.uber.org/automaxprocs v1.6.0; go.sum carries only the v1.5.1 and v1.5.2 hashes."
+assumption = "The qualifying environment held a module cache that masked the gap; task 22.25.4 completes go.sum and every Go task requires it (decision 2369)."
+severity = "major"
+
+[finding.22.23.10.1]
+task = "22.23.10"
+file = "services/platform/middleware/seller/test/settlement-response.test.mjs"
+symbol = "replayedSettlementAnswersStoredTransaction"
+observed = "7829d8d2b changed the seller's stored-fulfilment rule (a differing requestDigest is now a 409 receipt_reuse refusal) and its verify ran only receipt-replay and receipt-verification, so the package suite of the seller has failed on main since then at :352-354, which expects fulfillment-conflict."
+assumption = "The suite is repaired inside task 22.8.11, whose verify runs the seller package tests; a task that changes a decision rule of a package runs the package's whole test suite."
+severity = "major"
+
+[finding.18.1508.2.3]
+task = "18.1508.2"
+file = "services/launchpad/api/internal/rest/qualification_workload_test.go"
+symbol = "TestProductionRESTMeasurementAggregate"
+observed = "The test requires an approved source-bound aggregate input file and digest from the environment (:1367-1369); the repository holds none, so it fails everywhere the environment does not provide it."
+assumption = "Both measurement tests are owner-provisioned qualification inputs and are skipped by the task verify; the owner supplies the inputs in the closure wave."
+severity = "minor"
