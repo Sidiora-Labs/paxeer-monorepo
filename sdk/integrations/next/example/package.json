@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prebuild": "npm --prefix ../../../.. run build:dependencies -- @sidiora/layerx-example-next",
     "dev": "next dev --port ${PORT:-8080}",
     "build": "next build",
     "start": "next start --port ${PORT:-8080}",
     "scan": "layerx-scan-bundle .next/static public",
+    "test": "npm run test:fulfillment",
     "test:fulfillment": "node --test test/fulfillment.test.mjs"
   },
   "dependencies": {
