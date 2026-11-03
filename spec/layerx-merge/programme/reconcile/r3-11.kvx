@@ -1,0 +1,379 @@
+[reconcile.r3-11]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 47
+
+[row.r3-11.1]
+interface = "interface.3.go-spot-endblocker-j26"
+verdict = "served"
+path = "modules/spot/abci.go"
+line = 14
+symbol = "EndBlocker"
+evidence = "The declaration remains func EndBlocker(ctx sdk.Context, k *keeper.Keeper) error; no signature change. It calls ExecuteResting with the spot synthetic-receipt context and emits resting counters or a failure event."
+
+[row.r3-11.2]
+interface = "interface.3.go-spot-keeper-executeresting-j64"
+verdict = "served"
+path = "modules/spot/keeper/execute.go"
+line = 111
+symbol = "ExecuteResting"
+evidence = "The declaration remains func (k *Keeper) ExecuteResting(ctx sdk.Context) (RestingExecution, error); no signature change. It checks execution budgets and persisted cursors, then publishes cached state only after all scans succeed."
+
+[row.r3-11.3]
+interface = "interface.3.go-spot-keeper-initgenesis-j64"
+verdict = "served"
+path = "modules/spot/keeper/genesis.go"
+line = 56
+symbol = "InitGenesis"
+evidence = "The declaration remains func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState); no signature change. Its initGenesis helper validates gs, ensures the module account and rebuilds active positions through activeAdd."
+
+[row.r3-11.4]
+interface = "interface.3.go-spot-keeper-registerinvariants-j26"
+verdict = "served"
+path = "modules/spot/keeper/invariants.go"
+line = 25
+symbol = "RegisterInvariants"
+evidence = "The declaration remains func RegisterInvariants(registry sdk.InvariantRegistry, k *Keeper); no signature change. Registration now includes ActiveIndexInvariantName alongside solvency, share backing and escrow routes."
+
+[row.r3-11.5]
+interface = "interface.3.go-spot-keeper-getactivelimitordercount-j64"
+verdict = "served"
+path = "modules/spot/keeper/orders.go"
+line = 300
+symbol = "GetActiveLimitOrderCount"
+evidence = "The declaration remains func (k *Keeper) GetActiveLimitOrderCount(ctx sdk.Context) (uint64, error); no signature change. It reads ActiveLimitPrefix through activeCount, whose orderUint decoder rejects malformed stored integers."
+
+[row.r3-11.6]
+interface = "interface.3.go-spot-keeper-activelimitorderid-j64"
+verdict = "served"
+path = "modules/spot/keeper/orders.go"
+line = 304
+symbol = "ActiveLimitOrderID"
+evidence = "The declaration remains func (k *Keeper) ActiveLimitOrderID(ctx sdk.Context, position uint64) (uint64, error); no signature change. It delegates to activeAt, which checks bounds, nonzero IDs and matching forward/reverse positions."
+
+[row.r3-11.7]
+interface = "interface.3.go-spot-keeper-getactivestoplimitordercount-j64"
+verdict = "served"
+path = "modules/spot/keeper/stoporders.go"
+line = 749
+symbol = "GetActiveStopLimitOrderCount"
+evidence = "The declaration remains func (k *Keeper) GetActiveStopLimitOrderCount(ctx sdk.Context) (uint64, error); no signature change. It reads ActiveStopLimitPrefix through activeCount and propagates malformed stored-integer errors."
+
+[row.r3-11.8]
+interface = "interface.3.go-spot-keeper-getactivestoplossordercount-j64"
+verdict = "served"
+path = "modules/spot/keeper/stoporders.go"
+line = 753
+symbol = "GetActiveStopLossOrderCount"
+evidence = "The declaration remains func (k *Keeper) GetActiveStopLossOrderCount(ctx sdk.Context) (uint64, error); no signature change. It reads ActiveStopLossPrefix through activeCount and propagates malformed stored-integer errors."
+
+[row.r3-11.9]
+interface = "interface.3.go-spot-keeper-activestoplimitorderids-j64"
+verdict = "served"
+path = "modules/spot/keeper/stoporders.go"
+line = 763
+symbol = "ActiveStopLimitOrderIDs"
+evidence = "The declaration remains func (k *Keeper) ActiveStopLimitOrderIDs(ctx sdk.Context, index uint64) (uint64, error); no signature change. stopActiveAt now shares activeAt validation of bounds, nonzero IDs and forward/reverse positions."
+
+[row.r3-11.10]
+interface = "interface.3.go-spot-keeper-activestoplossorderids-j64"
+verdict = "served"
+path = "modules/spot/keeper/stoporders.go"
+line = 767
+symbol = "ActiveStopLossOrderIDs"
+evidence = "The declaration remains func (k *Keeper) ActiveStopLossOrderIDs(ctx sdk.Context, index uint64) (uint64, error); no signature change. stopActiveAt now shares activeAt validation of bounds, nonzero IDs and forward/reverse positions."
+
+[row.r3-11.11]
+interface = "interface.3.go-spot-types-params-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 95
+symbol = "Params"
+evidence = "The declaration remains type Params struct with the registered JSON fields and Go types; no struct signature change. Validate now bounds scan budgets and token count, and requires a nonzero market_id for non-stablecoin tokens."
+
+[row.r3-11.12]
+interface = "interface.3.gen-spot-params-swap-fee-bps-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 96
+symbol = "swap_fee_bps"
+evidence = "The registered spot.params.swap_fee_bps field is still declared as SwapFeeBps                uint64           `json:\"swap_fee_bps\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.13]
+interface = "interface.3.gen-spot-params-tier1-fee-bps-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 97
+symbol = "tier1_fee_bps"
+evidence = "The registered spot.params.tier1_fee_bps field is still declared as Tier1FeeBps               uint64           `json:\"tier1_fee_bps\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.14]
+interface = "interface.3.gen-spot-params-tier2-fee-bps-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 98
+symbol = "tier2_fee_bps"
+evidence = "The registered spot.params.tier2_fee_bps field is still declared as Tier2FeeBps               uint64           `json:\"tier2_fee_bps\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.15]
+interface = "interface.3.gen-spot-params-price-impact-enabled-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 99
+symbol = "price_impact_enabled"
+evidence = "The registered spot.params.price_impact_enabled field is still declared as PriceImpactEnabled        bool             `json:\"price_impact_enabled\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.16]
+interface = "interface.3.gen-spot-params-price-impact-scalar-bps-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 100
+symbol = "price_impact_scalar_bps"
+evidence = "The registered spot.params.price_impact_scalar_bps field is still declared as PriceImpactScalarBps      uint64           `json:\"price_impact_scalar_bps\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.17]
+interface = "interface.3.gen-spot-params-order-fee-bps-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 101
+symbol = "order_fee_bps"
+evidence = "The registered spot.params.order_fee_bps field is still declared as OrderFeeBps               uint64           `json:\"order_fee_bps\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.18]
+interface = "interface.3.gen-spot-params-order-tier1-fee-bps-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 102
+symbol = "order_tier1_fee_bps"
+evidence = "The registered spot.params.order_tier1_fee_bps field is still declared as OrderTier1FeeBps          uint64           `json:\"order_tier1_fee_bps\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.19]
+interface = "interface.3.gen-spot-params-order-tier2-fee-bps-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 103
+symbol = "order_tier2_fee_bps"
+evidence = "The registered spot.params.order_tier2_fee_bps field is still declared as OrderTier2FeeBps          uint64           `json:\"order_tier2_fee_bps\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.20]
+interface = "interface.3.gen-spot-params-order-price-impact-enabled-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 104
+symbol = "order_price_impact_enabled"
+evidence = "The registered spot.params.order_price_impact_enabled field is still declared as OrderPriceImpactEnabled   bool             `json:\"order_price_impact_enabled\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.21]
+interface = "interface.3.gen-spot-params-order-price-impact-scalar-bps-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 105
+symbol = "order_price_impact_scalar_bps"
+evidence = "The registered spot.params.order_price_impact_scalar_bps field is still declared as OrderPriceImpactScalarBps uint64           `json:\"order_price_impact_scalar_bps\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.22]
+interface = "interface.3.gen-spot-params-fee-collector-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 106
+symbol = "fee_collector"
+evidence = "The registered spot.params.fee_collector field is still declared as FeeCollector              common.Address   `json:\"fee_collector\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.23]
+interface = "interface.3.gen-spot-params-swap-paused-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 107
+symbol = "swap_paused"
+evidence = "The registered spot.params.swap_paused field is still declared as SwapPaused                bool             `json:\"swap_paused\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.24]
+interface = "interface.3.gen-spot-params-orders-paused-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 108
+symbol = "orders_paused"
+evidence = "The registered spot.params.orders_paused field is still declared as OrdersPaused              bool             `json:\"orders_paused\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.25]
+interface = "interface.3.gen-spot-params-keeper-open-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 109
+symbol = "keeper_open"
+evidence = "The registered spot.params.keeper_open field is still declared as KeeperOpen                bool             `json:\"keeper_open\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.26]
+interface = "interface.3.gen-spot-params-keepers-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 110
+symbol = "keepers"
+evidence = "The registered spot.params.keepers field is still declared as Keepers                   []common.Address `json:\"keepers\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.27]
+interface = "interface.3.gen-spot-params-fill-quality-twap-period-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 111
+symbol = "fill_quality_twap_period"
+evidence = "The registered spot.params.fill_quality_twap_period field is still declared as FillQualityTwapPeriod     uint64           `json:\"fill_quality_twap_period\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.28]
+interface = "interface.3.gen-spot-params-twap-sanity-enabled-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 112
+symbol = "twap_sanity_enabled"
+evidence = "The registered spot.params.twap_sanity_enabled field is still declared as TwapSanityEnabled         bool             `json:\"twap_sanity_enabled\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.29]
+interface = "interface.3.gen-spot-params-twap-sanity-period-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 113
+symbol = "twap_sanity_period"
+evidence = "The registered spot.params.twap_sanity_period field is still declared as TwapSanityPeriod          uint64           `json:\"twap_sanity_period\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.30]
+interface = "interface.3.gen-spot-params-max-twap-deviation-bps-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 114
+symbol = "max_twap_deviation_bps"
+evidence = "The registered spot.params.max_twap_deviation_bps field is still declared as MaxTwapDeviationBps       uint64           `json:\"max_twap_deviation_bps\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.31]
+interface = "interface.3.gen-spot-params-twap-max-period-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 115
+symbol = "twap_max_period"
+evidence = "The registered spot.params.twap_max_period field is still declared as TwapMaxPeriod             uint64           `json:\"twap_max_period\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.32]
+interface = "interface.3.gen-spot-params-min-order-notional-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 116
+symbol = "min_order_notional"
+evidence = "The registered spot.params.min_order_notional field is still declared as MinOrderNotional          sdk.Int          `json:\"min_order_notional\"`; its JSON key and Go field type are unchanged."
+
+[row.r3-11.33]
+interface = "interface.3.gen-spot-params-max-active-orders-per-user-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 117
+symbol = "max_active_orders_per_user"
+evidence = "MaxActiveOrdersPerUser remains uint64 with JSON key max_active_orders_per_user; no field signature change. Params.Validate now enforces [1, 1000] at params.go:245-246 using the declared limit constant."
+
+[row.r3-11.34]
+interface = "interface.3.gen-spot-params-max-expiries-per-block-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 118
+symbol = "max_expiries_per_block"
+evidence = "MaxExpiriesPerBlock remains uint64 with JSON key max_expiries_per_block; no field signature change. Params.Validate now enforces [1, 2000] at params.go:248-249 using the declared limit constant."
+
+[row.r3-11.35]
+interface = "interface.3.gen-spot-params-activation-scan-per-block-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 119
+symbol = "activation_scan_per_block"
+evidence = "ActivationScanPerBlock remains uint64 with JSON key activation_scan_per_block; no field signature change. Params.Validate now enforces [1, 5000] at params.go:251-252 using the declared limit constant."
+
+[row.r3-11.36]
+interface = "interface.3.gen-spot-params-fill-scan-per-block-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 120
+symbol = "fill_scan_per_block"
+evidence = "FillScanPerBlock remains uint64 with JSON key fill_scan_per_block; no field signature change. Params.Validate now enforces [1, 5000] at params.go:254-255 using the declared limit constant."
+
+[row.r3-11.37]
+interface = "interface.3.gen-spot-params-max-fills-per-block-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 121
+symbol = "max_fills_per_block"
+evidence = "MaxFillsPerBlock remains uint64 with JSON key max_fills_per_block; no field signature change. Params.Validate now enforces [1, 2000] at params.go:257-258 using the declared limit constant."
+
+[row.r3-11.38]
+interface = "interface.3.gen-spot-params-max-fill-backoff-blocks-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 122
+symbol = "max_fill_backoff_blocks"
+evidence = "MaxFillBackoffBlocks remains uint64 with JSON key max_fill_backoff_blocks; no field signature change. Params.Validate now enforces [1, 2560] at params.go:260-261 using the declared limit constant."
+
+[row.r3-11.39]
+interface = "interface.3.gen-spot-params-tokens-j26"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 123
+symbol = "tokens"
+evidence = "Tokens remains []TokenParams with JSON key tokens; no field signature change. Params.Validate now limits the registry to 64 entries at params.go:263-264 and requires market_id != 0 for every non-stablecoin token at params.go:278-279."
+
+[row.r3-11.40]
+interface = "interface.3.go-spot-types-params-validate-j64"
+verdict = "served"
+path = "modules/spot/types/params.go"
+line = 207
+symbol = "Validate"
+evidence = "The declaration remains func (p Params) Validate() error; no signature change. Validation now caps tokens at 64, active orders at 1000, expiries/fills at 2000, scans at 5000 and backoff at 2560, and rejects non-stablecoin tokens without market_id."
+
+[row.r3-11.41]
+interface = "interface.3.go-perps-perpsaddress-j25"
+verdict = "served"
+path = "precompiles/perps/perps.go"
+line = 25
+symbol = "PerpsAddress"
+evidence = "The declaration is now const PerpsAddress = \"0x0000000000000000000000000000000000001015\", replacing the registered PerpsAddress = exchangetypes.ExchangeAddress alias; NewPrecompile converts the constant with common.HexToAddress."
+
+[row.r3-11.42]
+interface = "interface.3.pc-0x1020-err-delegatecall-j25"
+verdict = "served"
+path = "precompiles/pricefeed/pricefeed.go"
+line = 43
+symbol = "LXP_PRICEFEED_DELEGATECALL"
+evidence = "The registered Error(string) LXP_PRICEFEED_DELEGATECALL refusal now uses the named LXP_PRICEFEED_DELEGATECALL constant declared here. guard concatenates the unchanged message \": cannot delegatecall pricefeed\" at pricefeed.go:164."
+
+[row.r3-11.43]
+interface = "interface.3.pc-0x1020-err-staticcall-j25"
+verdict = "served"
+path = "precompiles/pricefeed/pricefeed.go"
+line = 44
+symbol = "LXP_PRICEFEED_STATICCALL"
+evidence = "The registered Error(string) LXP_PRICEFEED_STATICCALL refusal now uses the named LXP_PRICEFEED_STATICCALL constant declared here. guard formats the unchanged message \": cannot call pricefeed %s from staticcall\" at pricefeed.go:167."
+
+[row.r3-11.44]
+interface = "interface.3.pc-0x1020-err-keeper-missing-j25"
+verdict = "served"
+path = "precompiles/pricefeed/pricefeed.go"
+line = 45
+symbol = "LXP_PRICEFEED_KEEPER_MISSING"
+evidence = "The registered Error(string) LXP_PRICEFEED_KEEPER_MISSING refusal now uses the named LXP_PRICEFEED_KEEPER_MISSING constant declared here. guard retains \": pricefeed: the pricefeed keeper is not wired into this application\" at pricefeed.go:170."
+
+[row.r3-11.45]
+interface = "interface.3.pc-0x1020-err-batch-too-large-j25"
+verdict = "served"
+path = "precompiles/pricefeed/views.go"
+line = 89
+symbol = "LXP_PRICEFEED_BATCH_TOO_LARGE"
+evidence = "The registered Error(string) LXP_PRICEFEED_BATCH_TOO_LARGE refusal remains at getPrices in views.go:89, but now references the named constant declared in pricefeed.go:46. The message \": getPrices takes at most 64 market ids\" and the 64-ID bound are unchanged."
+
+[row.r3-11.46]
+interface = "interface.3.pc-0x1021-receive"
+verdict = "served"
+path = "precompiles/spot/abi/pecor.json"
+line = 29
+symbol = "receive"
+evidence = "The ABI still declares \"type\": \"receive\" with \"stateMutability\": \"payable\"; receive() payable is unchanged. precompiles/spot/spot.go:260-266 selects p.Receive for empty input through prepare; this ABI observation alone does not establish production dispatch."
+
+[row.r3-11.47]
+interface = "interface.3.pc-0x1025-receive"
+verdict = "served"
+path = "precompiles/spot/abi/vault.json"
+line = 19
+symbol = "receive"
+evidence = "The ABI still declares \"type\": \"receive\" with \"stateMutability\": \"payable\"; receive() payable is unchanged. precompiles/spot/spot.go:260-266 selects p.Receive for empty input through prepare; this ABI observation alone does not establish production dispatch."
