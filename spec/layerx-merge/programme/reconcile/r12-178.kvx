@@ -1,0 +1,243 @@
+[reconcile.r12-178]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r12-178.1]
+interface = "interface.12.ts-app-wallet-status"
+verdict = "served"
+path = "apps/wallet/src/wallet/WalletProvider.tsx"
+line = 117
+symbol = "WalletStatus"
+evidence = "The exported WalletStatus declaration retains the loading, signed-out, connecting and ready union; later occurrences are context fields using that type."
+
+[row.r12-178.2]
+interface = "interface.12.key-sdk-paxeer-sponsored-pending-v1"
+verdict = "served"
+path = "sdk/wallet/src/modules/gas-station.ts"
+line = 402
+symbol = "paxeer:sponsored:pending:v1:"
+evidence = "The pendingKey template defines the pending submission key from config.chainId and the normalized account; store() uses the supplied submissionStore or globalThis.localStorage."
+
+[row.r12-178.3]
+interface = "interface.12.key-sdk-paxeer-sponsored-v1"
+verdict = "served"
+path = "sdk/wallet/src/modules/gas-station.ts"
+line = 400
+symbol = "paxeer:sponsored:v1:"
+evidence = "The identityKey template defines the sponsored submission key from chainId, normalized account, normalized quote sponsor and decimal quoteNonce; retained() reads the saved JSON through this key."
+
+[row.r12-178.4]
+interface = "interface.12.ts-sdk-fee-token-amount"
+verdict = "served"
+path = "sdk/wallet/src/modules/gas-station.ts"
+line = 208
+symbol = "feeTokenAmount"
+evidence = "The exported feeTokenAmount(gasCost: bigint, rate: string): bigint declaration still computes the rounded token amount; the later occurrence calls this function."
+
+[row.r12-178.5]
+interface = "interface.12.ts-sdk-gas-station-module-resume"
+verdict = "served"
+path = "sdk/wallet/src/modules/gas-station.ts"
+line = 177
+symbol = "resume"
+evidence = "GasStationModule declares resume(batch: SponsoredBatch, relayerSignature: string, signal?: AbortSignal): Promise<SponsoredSubmissionEvidence>; the returned module binds it to resumeSubmission."
+
+[row.r12-178.6]
+interface = "interface.12.ts-sdk-gas-station-module-submit"
+verdict = "served"
+path = "sdk/wallet/src/modules/gas-station.ts"
+line = 162
+symbol = "submit"
+evidence = "GasStationModule declares submit(batch: SponsoredBatch, relayerSignature: string, options?: SponsoredSubmitOptions): Promise<string>; the returned module binds it to serializedSubmit."
+
+[row.r12-178.7]
+interface = "interface.12.ts-sdk-gas-station-module-submit-first-use"
+verdict = "served"
+path = "sdk/wallet/src/modules/gas-station.ts"
+line = 167
+symbol = "submitFirstUse"
+evidence = "GasStationModule declares submitFirstUse(batch: SponsoredBatch, relayerSignature: string, options?: SponsoredSubmitOptions): Promise<string>; its implementation binding is serializedSubmit."
+
+[row.r12-178.8]
+interface = "interface.12.rpc-sdk-provider-proxy-default"
+verdict = "served"
+path = "sdk/wallet/src/provider.ts"
+line = 194
+symbol = "request"
+evidence = "PaxeerProvider declares async request(args: RequestArguments): Promise<unknown> here; its switch default at lines 242-243 returns this.proxy(method, args.params) for unhandled methods."
+
+[row.r12-178.9]
+interface = "interface.12.ts-sdk-construction-digest"
+verdict = "served"
+path = "sdk/wallet/src/provider.ts"
+line = 745
+symbol = "constructionDigest"
+evidence = "The exported constructionDigest(construction: WireDigestConstruction): Hex declaration dispatches to the sponsored batch or EIP-7702 digest function according to construction.kind."
+
+[row.r12-178.10]
+interface = "interface.12.ts-sdk-eip7702-authorization-digest"
+verdict = "served"
+path = "sdk/wallet/src/provider.ts"
+line = 732
+symbol = "eip7702AuthorizationDigest"
+evidence = "The exported eip7702AuthorizationDigest(authorization: WireEip7702Authorization): Hex declaration hashes the 0x05 prefix and RLP authorization fields; constructionDigest calls it later."
+
+[row.r12-178.11]
+interface = "interface.12.ts-sdk-sponsored-batch-digest"
+verdict = "served"
+path = "sdk/wallet/src/provider.ts"
+line = 676
+symbol = "sponsoredBatchDigest"
+evidence = "The exported sponsoredBatchDigest(batch: WireSponsoredBatch): Hex declaration computes quote and call hashes and the batch digest; the later constructionDigest occurrence is a call."
+
+[row.r12-178.12]
+interface = "interface.12.ts-sdk-to-wire-construction"
+verdict = "served"
+path = "sdk/wallet/src/provider.ts"
+line = 794
+symbol = "toWireConstruction"
+evidence = "The exported toWireConstruction(construction: DigestConstruction): WireDigestConstruction declaration converts sponsored batches or EIP-7702 authorizations and validates the authorization nonce."
+
+[row.r12-178.13]
+interface = "interface.12.ts-sdk-wire-sponsored-batch-2"
+verdict = "served"
+path = "sdk/wallet/src/provider.ts"
+line = 751
+symbol = "wireSponsoredBatch"
+evidence = "The exported wireSponsoredBatch(construction: SponsoredBatchConstruction): WireSponsoredBatch declaration validates fields and converts numeric inputs to decimal strings; toWireConstruction calls it."
+
+[row.r12-178.14]
+interface = "interface.12.evt-sdk-provider-message"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 622
+symbol = "message"
+evidence = "ProviderEvent declares the 'message' event literal in its union here; sdk/wallet/src/provider.ts:173 emits this event with { type: 'wallet_caps_invalidated' } from invalidateCapsSession()."
+
+[row.r12-178.15]
+interface = "interface.12.ts-sdk-eip7702-authorization-construction"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 675
+symbol = "Eip7702AuthorizationConstruction"
+evidence = "The exported Eip7702AuthorizationConstruction interface declares kind 'eip7702_authorization', UintInput chainId and nonce, and Hex address; DigestConstruction later references this type."
+
+[row.r12-178.16]
+interface = "interface.12.ts-sdk-provider-listener"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 624
+symbol = "ProviderListener"
+evidence = "The exported ProviderListener type remains (...args: unknown[]) => void; Eip1193Provider.on and removeListener use it in the subsequent interface."
+
+[row.r12-178.17]
+interface = "interface.12.ts-sdk-sponsor-quote"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 656
+symbol = "SponsorQuote"
+evidence = "The exported SponsorQuote interface declares Hex sponsor and token plus UintInput amount, deadline, nonce and gasCost fields; SponsoredBatchConstruction.quote uses this interface."
+
+[row.r12-178.18]
+interface = "interface.12.ts-sdk-sponsored-batch-construction"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 666
+symbol = "SponsoredBatchConstruction"
+evidence = "The exported SponsoredBatchConstruction interface declares the sponsored_batch discriminant, chainId, account, nonce, SponsoredCall[] calls and SponsorQuote quote; DigestConstruction later references it."
+
+[row.r12-178.19]
+interface = "interface.12.ts-sdk-sponsored-call"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 650
+symbol = "SponsoredCall"
+evidence = "The exported SponsoredCall interface declares to: Hex, value: UintInput and data: Hex; the later SponsoredBatchConstruction.calls field uses an array of this type."
+
+[row.r12-178.20]
+interface = "interface.12.ts-sdk-uint-input"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 648
+symbol = "UintInput"
+evidence = "The exported UintInput declaration remains the union string | number | bigint; subsequent sponsored call, quote and construction fields are uses of that type."
+
+[row.r12-178.21]
+interface = "interface.12.ts-sdk-wire-eip7702-authorization"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 701
+symbol = "WireEip7702Authorization"
+evidence = "The exported WireEip7702Authorization interface declares the eip7702_authorization discriminant, string chainId and nonce, and Hex address; WireDigestConstruction subsequently references it."
+
+[row.r12-178.22]
+interface = "interface.12.ts-sdk-wire-sponsored-batch"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 684
+symbol = "WireSponsoredBatch"
+evidence = "The exported WireSponsoredBatch interface declares sponsored_batch with decimal string chainId, nonce, call values and quote quantities; WireDigestConstruction and response types later use it."
+
+[row.r12-178.23]
+interface = "interface.12.key-att-record-custody-agent-spend"
+verdict = "served"
+path = "services/wallet/attestor/internal/auth/agent/authority.go"
+line = 614
+symbol = "custody-agent-spend"
+evidence = "Store.UpdateRecord defines the custody-agent-spend RecordKind namespace here and supplies p.PublicKey as its record key; the callback reads and updates the per-agent policy reservation ledger."
+
+[row.r12-178.24]
+interface = "interface.12.err-att-api-agent-invalid"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 24
+symbol = "CodeAgentInvalid"
+evidence = "The const block declares CodeAgentInvalid = 'agent_invalid' here; errorCategories later maps that constant to CategoryToken rather than declaring the code."
+
+[row.r12-178.25]
+interface = "interface.12.err-att-api-key-curve-mismatch"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 37
+symbol = "CodeKeyCurve"
+evidence = "The const block declares CodeKeyCurve = 'key_curve_mismatch' here; the later errorCategories entry uses the constant and assigns CategoryKey."
+
+[row.r12-178.26]
+interface = "interface.12.err-att-api-key-exists"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 36
+symbol = "CodeKeyExists"
+evidence = "The const block declares CodeKeyExists = 'key_exists' here; its later occurrence in errorCategories maps the existing code to CategoryKey."
+
+[row.r12-178.27]
+interface = "interface.12.err-att-api-key-import-disabled"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 40
+symbol = "CodeKeyImportDisabled"
+evidence = "The const block declares CodeKeyImportDisabled = 'key_import_disabled' here; the later errorCategories mapping uses that constant with CategoryKey."
+
+[row.r12-178.28]
+interface = "interface.12.err-att-api-key-invalid-share"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 39
+symbol = "CodeKeyInvalidShare"
+evidence = "The const block declares CodeKeyInvalidShare = 'key_invalid_share' here; errorCategories later references it to assign CategoryKey."
+
+[row.r12-178.29]
+interface = "interface.12.err-att-api-key-not-found"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 35
+symbol = "CodeKeyNotFound"
+evidence = "The const block declares CodeKeyNotFound = 'key_not_found' here; the category mapping and Error.Status switch are uses, with the switch returning HTTP 404."
+
+[row.r12-178.30]
+interface = "interface.12.err-att-api-key-not-refreshed"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/errors.go"
+line = 38
+symbol = "CodeKeyNotRefreshed"
+evidence = "The const block declares CodeKeyNotRefreshed = 'key_not_refreshed' here; the later errorCategories entry maps the constant to CategoryKey."

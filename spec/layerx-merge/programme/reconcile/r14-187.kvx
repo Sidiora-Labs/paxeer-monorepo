@@ -1,0 +1,243 @@
+[reconcile.r14-187]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r14-187.1]
+interface = "interface.14.ts-web-api-generated-index-decodejourneystage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2666
+symbol = "decodeJourneyStage"
+evidence = "Registered line 2471 is stale; line 2666 declares export function decodeJourneyStage(value: JsonValue | undefined, at: string): JourneyStage, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.2]
+interface = "interface.14.ts-web-api-generated-index-decodekeychallenge"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2708
+symbol = "decodeKeyChallenge"
+evidence = "Registered line 2501 is stale; line 2708 declares export function decodeKeyChallenge(value: JsonValue | undefined, at: string): KeyChallenge, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.3]
+interface = "interface.14.ts-web-api-generated-index-decodekeyexportchallenge"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2758
+symbol = "decodeKeyExportChallenge"
+evidence = "Registered line 2551 is stale; line 2758 declares export function decodeKeyExportChallenge(value: JsonValue | undefined, at: string): KeyExportChallenge, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.4]
+interface = "interface.14.ts-web-api-generated-index-decodemoney"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2804
+symbol = "decodeMoney"
+evidence = "Registered line 2597 is stale; line 2804 declares export function decodeMoney(value: JsonValue | undefined, at: string): Money, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.5]
+interface = "interface.14.ts-web-api-generated-index-decodemovequote"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2860
+symbol = "decodeMoveQuote"
+evidence = "Registered line 2653 is stale; line 2860 declares export function decodeMoveQuote(value: JsonValue | undefined, at: string): MoveQuote, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.6]
+interface = "interface.14.ts-web-api-generated-index-decodenativefeeasset"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2932
+symbol = "decodeNativeFeeAsset"
+evidence = "Registered line 2725 is stale; line 2932 declares export function decodeNativeFeeAsset(value: JsonValue | undefined, at: string): NativeFeeAsset, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.7]
+interface = "interface.14.ts-web-api-generated-index-decodenativefeebudget"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2959
+symbol = "decodeNativeFeeBudget"
+evidence = "Registered line 2752 is stale; line 2959 declares export function decodeNativeFeeBudget(value: JsonValue | undefined, at: string): NativeFeeBudget, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.8]
+interface = "interface.14.ts-web-api-generated-index-decodenativesendaccessdisclosure"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3047
+symbol = "decodeNativeSendAccessDisclosure"
+evidence = "Registered line 2833 is stale; line 3047 declares export function decodeNativeSendAccessDisclosure(value: JsonValue | undefined, at: string): NativeSendAccessDisclosure, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.9]
+interface = "interface.14.ts-web-api-generated-index-decodenativesendaccessresult"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3125
+symbol = "decodeNativeSendAccessResult"
+evidence = "Registered line 2904 is stale; line 3125 declares export function decodeNativeSendAccessResult(value: JsonValue | undefined, at: string): NativeSendAccessResult, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.10]
+interface = "interface.14.ts-web-api-generated-index-decodenotificationgroup"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3145
+symbol = "decodeNotificationGroup"
+evidence = "Registered line 2924 is stale; line 3145 declares export function decodeNotificationGroup(value: JsonValue | undefined, at: string): NotificationGroup, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.11]
+interface = "interface.14.ts-web-api-generated-index-decodenotificationpage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3168
+symbol = "decodeNotificationPage"
+evidence = "Registered line 2947 is stale; line 3168 declares export function decodeNotificationPage(value: JsonValue | undefined, at: string): NotificationPage, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.12]
+interface = "interface.14.ts-web-api-generated-index-decodenotificationpreferences"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3194
+symbol = "decodeNotificationPreferences"
+evidence = "Registered line 2973 is stale; line 3194 declares export function decodeNotificationPreferences(value: JsonValue | undefined, at: string): NotificationPreferences, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.13]
+interface = "interface.14.ts-web-api-generated-index-decodenotificationsummary"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3230
+symbol = "decodeNotificationSummary"
+evidence = "Registered line 3009 is stale; line 3230 declares export function decodeNotificationSummary(value: JsonValue | undefined, at: string): NotificationSummary, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.14]
+interface = "interface.14.ts-web-api-generated-index-decodepasskey"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3412
+symbol = "decodePasskey"
+evidence = "Registered line 3123 is stale; line 3412 declares export function decodePasskey(value: JsonValue | undefined, at: string): Passkey, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.15]
+interface = "interface.14.ts-web-api-generated-index-decodepasskeyassertion"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3444
+symbol = "decodePasskeyAssertion"
+evidence = "Registered line 3155 is stale; line 3444 declares export function decodePasskeyAssertion(value: JsonValue | undefined, at: string): PasskeyAssertion, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.16]
+interface = "interface.14.ts-web-api-generated-index-decodepasskeyassertionchallenge"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3492
+symbol = "decodePasskeyAssertionChallenge"
+evidence = "Registered line 3203 is stale; line 3492 declares export function decodePasskeyAssertionChallenge(value: JsonValue | undefined, at: string): PasskeyAssertionChallenge, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.17]
+interface = "interface.14.ts-web-api-generated-index-decodepasskeylist"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3534
+symbol = "decodePasskeyList"
+evidence = "Registered line 3245 is stale; line 3534 declares export function decodePasskeyList(value: JsonValue | undefined, at: string): PasskeyList, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.18]
+interface = "interface.14.ts-web-api-generated-index-decodepasskeyregistrationchallenge"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3574
+symbol = "decodePasskeyRegistrationChallenge"
+evidence = "Registered line 3285 is stale; line 3574 declares export function decodePasskeyRegistrationChallenge(value: JsonValue | undefined, at: string): PasskeyRegistrationChallenge, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.19]
+interface = "interface.14.ts-web-api-generated-index-decodeprofile"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3648
+symbol = "decodeProfile"
+evidence = "Registered line 3359 is stale; line 3648 declares export function decodeProfile(value: JsonValue | undefined, at: string): Profile, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.20]
+interface = "interface.14.ts-web-api-generated-index-decodeprogramapprovalbudget"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3717
+symbol = "decodeProgramApprovalBudget"
+evidence = "Registered line 3427 is stale; line 3717 declares export function decodeProgramApprovalBudget(value: JsonValue | undefined, at: string): ProgramApprovalBudget, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.21]
+interface = "interface.14.ts-web-api-generated-index-decodeprogramapprovaldecision"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3780
+symbol = "decodeProgramApprovalDecision"
+evidence = "Registered line 3483 is stale; line 3780 declares export function decodeProgramApprovalDecision(value: JsonValue | undefined, at: string): ProgramApprovalDecision, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.22]
+interface = "interface.14.ts-web-api-generated-index-decodeprogramapprovaldetail"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3861
+symbol = "decodeProgramApprovalDetail"
+evidence = "Registered line 3558 is stale; line 3861 declares export function decodeProgramApprovalDetail(value: JsonValue | undefined, at: string): ProgramApprovalDetail, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.23]
+interface = "interface.14.ts-web-api-generated-index-decodeprogramapprovaldisclosure"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3924
+symbol = "decodeProgramApprovalDisclosure"
+evidence = "Registered line 3621 is stale; line 3924 declares export function decodeProgramApprovalDisclosure(value: JsonValue | undefined, at: string): ProgramApprovalDisclosure, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.24]
+interface = "interface.14.ts-web-api-generated-index-decodeprogramapprovalmaterial"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 3982
+symbol = "decodeProgramApprovalMaterial"
+evidence = "Registered line 3679 is stale; line 3982 declares export function decodeProgramApprovalMaterial(value: JsonValue | undefined, at: string): ProgramApprovalMaterial, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.25]
+interface = "interface.14.ts-web-api-generated-index-decodeprogramapprovaloperation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4018
+symbol = "decodeProgramApprovalOperation"
+evidence = "Registered line 3715 is stale; line 4018 declares export function decodeProgramApprovalOperation(value: JsonValue | undefined, at: string): ProgramApprovalOperation, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.26]
+interface = "interface.14.ts-web-api-generated-index-decodeprogramapprovalpage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4064
+symbol = "decodeProgramApprovalPage"
+evidence = "Registered line 3761 is stale; line 4064 declares export function decodeProgramApprovalPage(value: JsonValue | undefined, at: string): ProgramApprovalPage, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.27]
+interface = "interface.14.ts-web-api-generated-index-decodeprogramapprovalsummary"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4096
+symbol = "decodeProgramApprovalSummary"
+evidence = "Registered line 3793 is stale; line 4096 declares export function decodeProgramApprovalSummary(value: JsonValue | undefined, at: string): ProgramApprovalSummary, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.28]
+interface = "interface.14.ts-web-api-generated-index-decodeprogrambytescommitment"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4173
+symbol = "decodeProgramBytesCommitment"
+evidence = "Registered line 3870 is stale; line 4173 declares export function decodeProgramBytesCommitment(value: JsonValue | undefined, at: string): ProgramBytesCommitment, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.29]
+interface = "interface.14.ts-web-api-generated-index-decodeprogramcallfacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4200
+symbol = "decodeProgramCallFacts"
+evidence = "Registered line 3897 is stale; line 4200 declares export function decodeProgramCallFacts(value: JsonValue | undefined, at: string): ProgramCallFacts, matching the registered parameters and return type. Other occurrences are decoder references or calls."
+
+[row.r14-187.30]
+interface = "interface.14.ts-web-api-generated-index-decodeprogramdeployfacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4235
+symbol = "decodeProgramDeployFacts"
+evidence = "Registered line 3932 is stale; line 4235 declares export function decodeProgramDeployFacts(value: JsonValue | undefined, at: string): ProgramDeployFacts, matching the registered parameters and return type. Other occurrences are decoder references or calls."

@@ -1,0 +1,243 @@
+[reconcile.r14-194]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r14-194.1]
+interface = "interface.14.ts-web-api-generated-index-programupgradepolicyfacts"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4303
+symbol = "ProgramUpgradePolicyFacts"
+evidence = "Matches registered signature at declaration `export interface ProgramUpgradePolicyFacts {` with kind: ProgramUpgradePolicyKind; authority?: string; Registered line 4000 has drifted; declaration is now at line 4303."
+
+[row.r14-194.2]
+interface = "interface.14.ts-web-api-generated-index-protocolfreshness"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4397
+symbol = "ProtocolFreshness"
+evidence = "Matches registered signature at declaration `export interface ProtocolFreshness {` with observed_at: Timestamp; age_seconds: number; source_head: string; within_bound: boolean; checkpoint?: string; Registered line 4094 has drifted; declaration is now at line 4397."
+
+[row.r14-194.3]
+interface = "interface.14.ts-web-api-generated-index-refusal"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4460
+symbol = "Refusal"
+evidence = "Matches registered signature at declaration `export interface Refusal {` with refused_by: RefusedBy; copy_key: CopyKey; money_left: boolean; change_path?: string; Registered line 4157 has drifted; declaration is now at line 4460."
+
+[row.r14-194.4]
+interface = "interface.14.ts-web-api-generated-index-responseenvelope"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4492
+symbol = "ResponseEnvelope"
+evidence = "Matches registered signature at declaration `export interface ResponseEnvelope {` with ok: boolean; result: JsonObject; trace: TraceId; error?: ApiError; Registered line 4189 has drifted; declaration is now at line 4492."
+
+[row.r14-194.5]
+interface = "interface.14.ts-web-api-generated-index-schemaversion-2"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4524
+symbol = "SchemaVersion"
+evidence = "Matches registered signature at declaration `export interface SchemaVersion {` with major: number; minor: number; Registered line 4221 has drifted; declaration is now at line 4524."
+
+[row.r14-194.6]
+interface = "interface.14.ts-web-api-generated-index-securityaction"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4546
+symbol = "SecurityAction"
+evidence = "Matches registered signature at declaration `export interface SecurityAction {` with confirms: OperationDigest; Registered line 4243 has drifted; declaration is now at line 4546."
+
+[row.r14-194.7]
+interface = "interface.14.ts-web-api-generated-index-securityactionrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4565
+symbol = "SecurityActionRequest"
+evidence = "Matches registered signature at declaration `export interface SecurityActionRequest {` with action: SecurityActionKind; target_id?: string; Registered line 4262 has drifted; declaration is now at line 4565."
+
+[row.r14-194.8]
+interface = "interface.14.ts-web-api-generated-index-securitypasskeyregistrationbegin"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4591
+symbol = "SecurityPasskeyRegistrationBegin"
+evidence = "Matches registered signature at declaration `export interface SecurityPasskeyRegistrationBegin {` with label: string; step_up: StepUpEvidence; Registered line 4288 has drifted; declaration is now at line 4591."
+
+[row.r14-194.9]
+interface = "interface.14.ts-web-api-generated-index-securitypasskeyregistrationfinish"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4613
+symbol = "SecurityPasskeyRegistrationFinish"
+evidence = "Matches registered signature at declaration `export interface SecurityPasskeyRegistrationFinish {` with credential: OpaqueCredential; step_up: StepUpEvidence; Registered line 4310 has drifted; declaration is now at line 4613."
+
+[row.r14-194.10]
+interface = "interface.14.ts-web-api-generated-index-securitypasskeyrevocation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4635
+symbol = "SecurityPasskeyRevocation"
+evidence = "Matches registered signature at declaration `export interface SecurityPasskeyRevocation {` with step_up: StepUpEvidence; Registered line 4332 has drifted; declaration is now at line 4635."
+
+[row.r14-194.11]
+interface = "interface.14.ts-web-api-generated-index-securityrecoveryreveal"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4654
+symbol = "SecurityRecoveryReveal"
+evidence = "Matches registered signature at declaration `export interface SecurityRecoveryReveal {` with evidence_id: EvidenceId; step_up: StepUpEvidence; Registered line 4351 has drifted; declaration is now at line 4654."
+
+[row.r14-194.12]
+interface = "interface.14.ts-web-api-generated-index-securitysessionrevocation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4676
+symbol = "SecuritySessionRevocation"
+evidence = "Matches registered signature at declaration `export interface SecuritySessionRevocation {` with step_up: StepUpEvidence; Registered line 4373 has drifted; declaration is now at line 4676."
+
+[row.r14-194.13]
+interface = "interface.14.ts-web-api-generated-index-session"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4695
+symbol = "Session"
+evidence = "Matches registered signature at declaration `export interface Session {` with session_id: SessionId; device: Device; opened_at: Timestamp; last_active_at: Timestamp; current: boolean; Registered line 4392 has drifted; declaration is now at line 4695."
+
+[row.r14-194.14]
+interface = "interface.14.ts-web-api-generated-index-sessiondevice"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4726
+symbol = "SessionDevice"
+evidence = "Matches registered signature at declaration `export interface SessionDevice {` with label: string; platform: string; Registered line 4423 has drifted; declaration is now at line 4726."
+
+[row.r14-194.15]
+interface = "interface.14.ts-web-api-generated-index-sessionlist"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4748
+symbol = "SessionList"
+evidence = "Matches registered signature at declaration `export interface SessionList {` with sessions: Session[]; Registered line 4445 has drifted; declaration is now at line 4748."
+
+[row.r14-194.16]
+interface = "interface.14.ts-web-api-generated-index-sessionopenrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4767
+symbol = "SessionOpenRequest"
+evidence = "Matches registered signature at declaration `export interface SessionOpenRequest {` with assertion_id: AssertionId; device?: SessionDevice; Registered line 4464 has drifted; declaration is now at line 4767."
+
+[row.r14-194.17]
+interface = "interface.14.ts-web-api-generated-index-sessionrevocation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4793
+symbol = "SessionRevocation"
+evidence = "Matches registered signature at declaration `export interface SessionRevocation {` with revoked_session_ids: SessionId[]; revoked_at: Timestamp; Registered line 4490 has drifted; declaration is now at line 4793."
+
+[row.r14-194.18]
+interface = "interface.14.ts-web-api-generated-index-spendlimit"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4815
+symbol = "SpendLimit"
+evidence = "Matches registered signature at declaration `export interface SpendLimit {` with monthly: Money; enforcement: LimitEnforcement; enforcement_copy_key: CopyKey; Registered line 4512 has drifted; declaration is now at line 4815."
+
+[row.r14-194.19]
+interface = "interface.14.ts-web-api-generated-index-stepupchallenge"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4840
+symbol = "StepUpChallenge"
+evidence = "Matches registered signature at declaration `export interface StepUpChallenge {` with challenge_id: StepUpChallengeId; confirms: OperationDigest; ceremony: OpaqueCredential; expires_at: Timestamp; Registered line 4537 has drifted; declaration is now at line 4840."
+
+[row.r14-194.20]
+interface = "interface.14.ts-web-api-generated-index-stepupfinish"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4899
+symbol = "StepUpFinish"
+evidence = "Matches registered signature at declaration `export interface StepUpFinish {` with credential: OpaqueCredential; Registered line 4596 has drifted; declaration is now at line 4899."
+
+[row.r14-194.21]
+interface = "interface.14.ts-web-api-generated-index-stepuprequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4918
+symbol = "StepUpRequest"
+evidence = "Matches registered signature at declaration `export interface StepUpRequest {` with confirms: OperationDigest; Registered line 4615 has drifted; declaration is now at line 4918."
+
+[row.r14-194.22]
+interface = "interface.14.ts-web-api-generated-index-streamevent"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4937
+symbol = "StreamEvent"
+evidence = "Matches registered signature at declaration `export interface StreamEvent {` with cursor: Cursor; kind: StreamEventKind; observed_at: Timestamp; journey?: Journey; approval?: ApprovalSummary; notification?: NotificationSummary; program_approval?: ProgramApprovalSummary; Registered line 4634 has drifted; declaration is now at line 4937."
+
+[row.r14-194.23]
+interface = "interface.14.ts-web-api-generated-index-streampage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4990
+symbol = "StreamPage"
+evidence = "Matches registered signature at declaration `export interface StreamPage {` with events: StreamEvent[]; next_cursor: Cursor; Registered line 4687 has drifted; declaration is now at line 4990."
+
+[row.r14-194.24]
+interface = "interface.14.ts-web-api-generated-index-streamposition"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5012
+symbol = "StreamPosition"
+evidence = "Matches registered signature at declaration `export interface StreamPosition {` with cursor: Cursor; Registered line 4709 has drifted; declaration is now at line 5012."
+
+[row.r14-194.25]
+interface = "interface.14.ts-web-api-generated-index-streampushprofile"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5764
+symbol = "streamPushProfile"
+evidence = "Matches registered signature at declaration `export const streamPushProfile = {` with version: 2, maximumEvents: 100, maximumPayloadBytes: 1048576, maximumFramingBytes: 6400, maximumCursorBytes: 512, maximumJsonDepth: 64, Registered line 5448 has drifted; declaration is now at line 5764."
+
+[row.r14-194.26]
+interface = "interface.14.ts-web-api-generated-index-streamsubscribeoptions"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5760
+symbol = "StreamSubscribeOptions"
+evidence = "Matches registered signature at declaration `export interface StreamSubscribeOptions {` with readonly signal?: AbortSignal; Registered line 5444 has drifted; declaration is now at line 5760."
+
+[row.r14-194.27]
+interface = "interface.14.ts-web-api-generated-index-submitplanrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5031
+symbol = "SubmitPlanRequest"
+evidence = "Matches registered signature at declaration `export interface SubmitPlanRequest {` with plan_digest: string; signed_digest: string; bindings: IntentLegBinding[]; native_access_id?: string; Registered line 4728 has drifted; declaration is now at line 5031."
+
+[row.r14-194.28]
+interface = "interface.14.ts-web-api-generated-index-supportconversation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5063
+symbol = "SupportConversation"
+evidence = "Matches registered signature at declaration `export interface SupportConversation {` with conversation_id: SupportConversationId; shell: SupportShell; state: SupportConversationState; created_at: Timestamp; updated_at: Timestamp; messages: SupportMessage[]; feedback: SupportFeedback[]; trace_id?: TraceId; Registered line 4760 has drifted; declaration is now at line 5063."
+
+[row.r14-194.29]
+interface = "interface.14.ts-web-api-generated-index-supportconversationpage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5107
+symbol = "SupportConversationPage"
+evidence = "Matches registered signature at declaration `export interface SupportConversationPage {` with conversations: SupportConversation[]; Registered line 4804 has drifted; declaration is now at line 5107."
+
+[row.r14-194.30]
+interface = "interface.14.ts-web-api-generated-index-supportconversationstatus"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5126
+symbol = "SupportConversationStatus"
+evidence = "Matches registered signature at declaration `export interface SupportConversationStatus {` with conversation_id: SupportConversationId; state: SupportConversationState; unread_count: number; updated_at: Timestamp; Registered line 4823 has drifted; declaration is now at line 5126."

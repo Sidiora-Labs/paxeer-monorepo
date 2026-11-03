@@ -1,0 +1,149 @@
+{
+ "slug": "apps-bridge",
+ "manifests": [
+  "apps/bridge/package.json",
+  "apps/bridge/pnpm-lock.yaml"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-58qx-3vcg-4xpx",
+   "number": 4707,
+   "package": "ws",
+   "ecosystem": "npm",
+   "manifest": "apps/bridge/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": ">= 8.0.0, < 8.20.1",
+   "patched": "8.20.1"
+  },
+  {
+   "ghsa": "GHSA-w5hq-g745-h8pq",
+   "number": 4708,
+   "package": "uuid",
+   "ecosystem": "npm",
+   "manifest": "apps/bridge/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": "< 11.1.1",
+   "patched": "11.1.1"
+  },
+  {
+   "ghsa": "GHSA-96hv-2xvq-fx4p",
+   "number": 4709,
+   "package": "ws",
+   "ecosystem": "npm",
+   "manifest": "apps/bridge/pnpm-lock.yaml",
+   "severity": "high",
+   "range": ">= 8.0.0, < 8.21.0",
+   "patched": "8.21.0"
+  },
+  {
+   "ghsa": "GHSA-vcc3-ghjq-m6fr",
+   "number": 4710,
+   "package": "decode-uri-component",
+   "ecosystem": "npm",
+   "manifest": "apps/bridge/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": "<= 0.4.2",
+   "patched": "0.5.0"
+  },
+  {
+   "ghsa": "GHSA-528h-pc64-c93x",
+   "number": 4711,
+   "package": "stream-json",
+   "ecosystem": "npm",
+   "manifest": "apps/bridge/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": "<= 3.4.0",
+   "patched": "3.5.0"
+  },
+  {
+   "ghsa": "GHSA-mjw6-4jj6-33hc",
+   "number": 4712,
+   "package": "stream-json",
+   "ecosystem": "npm",
+   "manifest": "apps/bridge/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": "< 3.6.0",
+   "patched": "3.6.0"
+  },
+  {
+   "ghsa": "GHSA-hqr4-qq8f-hg3x",
+   "number": 4713,
+   "package": "stream-json",
+   "ecosystem": "npm",
+   "manifest": "apps/bridge/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": "<= 3.5.0",
+   "patched": "3.6.0"
+  },
+  {
+   "ghsa": "GHSA-xp26-3454-mjgp",
+   "number": 4714,
+   "package": "@vitest/mocker",
+   "ecosystem": "npm",
+   "manifest": "apps/bridge/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": ">= 4.1.11, < 4.1.12",
+   "patched": "4.1.12"
+  },
+  {
+   "ghsa": "GHSA-qxg6-89mg-rqv8",
+   "number": 4715,
+   "package": "@vitest/mocker",
+   "ecosystem": "npm",
+   "manifest": "apps/bridge/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": ">= 2.1.0-beta.7, < 4.1.12",
+   "patched": "4.1.12"
+  },
+  {
+   "ghsa": "GHSA-mrhx-c7xc-m3w5",
+   "number": 4716,
+   "package": "zod",
+   "ecosystem": "npm",
+   "manifest": "apps/bridge/pnpm-lock.yaml",
+   "severity": "high",
+   "range": "< 4.6.6",
+   "patched": "4.6.6"
+  },
+  {
+   "ghsa": "GHSA-gcqx-w48m-w2h4",
+   "number": 4717,
+   "package": "deepmerge",
+   "ecosystem": "npm",
+   "manifest": "apps/bridge/pnpm-lock.yaml",
+   "severity": "low",
+   "range": ">= 4.2.0, <= 4.3.1",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-qr28-fpjm-wq7f",
+   "number": 4718,
+   "package": "decode-uri-component",
+   "ecosystem": "npm",
+   "manifest": "apps/bridge/pnpm-lock.yaml",
+   "severity": "high",
+   "range": "<= 0.5.0",
+   "patched": "0.5.1"
+  },
+  {
+   "ghsa": "GHSA-mrwp-f3q8-3g9p",
+   "number": 4719,
+   "package": "follow-redirects",
+   "ecosystem": "npm",
+   "manifest": "apps/bridge/pnpm-lock.yaml",
+   "severity": "high",
+   "range": ">= 1.16.0, <= 1.16.1",
+   "patched": "1.16.2"
+  },
+  {
+   "ghsa": "GHSA-g3hv-75wg-m249",
+   "number": 4721,
+   "package": "minimatch",
+   "ecosystem": "npm",
+   "manifest": "apps/bridge/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": "< 11.0.1",
+   "patched": "11.0.1"
+  }
+ ]
+}
