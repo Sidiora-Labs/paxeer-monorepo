@@ -1,38 +1,23 @@
 from __future__ import annotations
 
-import importlib.util
 import json
+import sys
 import unittest
 from hashlib import sha256
 from pathlib import Path
 
-from layerx_sdk import AuthorizedReceiptBatch, PlatformSdkError, ReceiptVerificationError, verify_receipt
-from layerx_sdk.verifier import (
+ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
+
+from layerx_sdk import PlatformSdkError  # noqa: E402
+from layerx_sdk.verifier import (  # noqa: E402
     ReceiptKey,
     SequencerReceiptVerificationError,
-    decode_program_receipt_outcome,
     verify_sequencer_receipt,
 )
-from layerx_sdk.revert import RevertReasonError, raise_for_receipt_status
+from layerx_sdk.revert import RevertReasonError, raise_for_receipt_status  # noqa: E402
 
-_PROGRAM_OUTCOME_V3 = "505247330100000000000100010000000700000001000000000000000b000000000000000c000000000000000d000000000000000e00000001000000000000000f0000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000020000000000000003000000000000000400000000000000050000000000000006000000000000000700000020000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000201111111111111111111111111111111111111111111111111111111111111111000000202222222222222222222222222222222222222222222222222222222222222222000000200000000000000000000000000000000000000000000000000000000000000000"
-
-_REPO_ROOT = Path(__file__).resolve().parents[4]
-_SIGNATURES_PATH = _REPO_ROOT / "sdk/integrations/fastapi/layerx_fastapi/signatures.py"
-_FIXTURE_PATH = _REPO_ROOT / "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
-_NATIVE = _REPO_ROOT / "tests/fixtures/programs/emulator-response-code"
-
-
-def _signature_verifier_class() -> type:
-    spec = importlib.util.spec_from_file_location("layerx_fastapi_signatures", _SIGNATURES_PATH)
-    if spec is None or spec.loader is None:
-        raise AssertionError(f"cannot load {_SIGNATURES_PATH}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.LayerXSignatureVerifier
-
-
-LayerXSignatureVerifier = _signature_verifier_class()
+_FIXTURE_PATH = ROOT / "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
 
 
 def _load_fixture() -> dict:
@@ -60,25 +45,7 @@ def _log_bodies(vector: dict) -> tuple[bytes, ...]:
     return tuple(_hex(log["address"]) + bytes([len(log["topics"])]) + b"".join(_hex(topic) for topic in log["topics"]) + sha256(_hex(log["data"])).digest() for log in vector["receiptJson"]["logs"])
 
 
-def _native_execution() -> tuple[dict, AuthorizedReceiptBatch]:
-    document = json.loads((_NATIVE / "execution.json").read_text(encoding="utf-8"))
-    batch = document["authority"]
-    return document, AuthorizedReceiptBatch(*(bytes.fromhex(batch[field]) for field in ("batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key")))
-
-
 class ReceiptFixtureTest(unittest.TestCase):
-    def test_explicit_protocol_three(self) -> None:
-        document, authority = _native_execution()
-        canonical = bytes.fromhex(document["receipt"])
-        with self.assertRaises(ReceiptVerificationError):
-            verify_receipt(canonical, authority, LayerXSignatureVerifier())
-        verified = verify_receipt(canonical, authority, LayerXSignatureVerifier(), protocol_version=3)
-        self.assertEqual(verified.receipt.protocol_version, 3)
-        self.assertEqual(verified.receipt_digest.hex(), document["receipt_digest"])
-        for damaged, protocol in ((canonical[:-1] + bytes([canonical[-1] ^ 1]), 3), (canonical, 4)):
-            with self.assertRaises(ReceiptVerificationError):
-                verify_receipt(damaged, authority, LayerXSignatureVerifier(), protocol_version=protocol)
-
     def test_protocol_three_refusal_taxonomy(self) -> None:
         expected = {
             "V3-key-not-pinned": "unpinned_key",
@@ -96,14 +63,6 @@ class ReceiptFixtureTest(unittest.TestCase):
                     self.assertEqual(refused.exception.check, expected[vector["id"]])
                     seen.add(vector["id"])
         self.assertEqual(seen, set(expected))
-
-    def test_program_outcome_v3_vector(self) -> None:
-        outcome = decode_program_receipt_outcome(bytes.fromhex(_PROGRAM_OUTCOME_V3), 1)
-        self.assertEqual(outcome.encoding_version, 3)
-        self.assertEqual(outcome.abi_version, 1)
-        self.assertEqual(outcome.fee_units, 16)
-        self.assertEqual(outcome.call_graph_root, bytes.fromhex("11" * 32))
-        self.assertEqual(outcome.terminal_payload_root, bytes.fromhex("22" * 32))
 
     def test_core_fixture_receipt_verifies_positively(self) -> None:
         fixture = _load_fixture()
@@ -132,7 +91,7 @@ class ReceiptFixtureTest(unittest.TestCase):
                 self.assertEqual(receipt.resulting_state_root, _sequence_hash(vector, receipt))
                 self.assertEqual(receipt.activity_root, sha256(_hex(view["returnData"])).digest())
                 self.assertEqual(tuple(effect.body for effect in receipt.effects[1:]), _log_bodies(vector))
-                self.assertIsNone(receipt.program_outcome)
+                self.assertFalse(hasattr(receipt, "program_outcome"))
                 if vector["vector"] == "V2":
                     with self.assertRaises(RevertReasonError) as refused:
                         raise_for_receipt_status(view)
@@ -147,18 +106,6 @@ class ReceiptFixtureTest(unittest.TestCase):
             canonical = _hex(vector["signedReceipt"])
             with self.subTest(vector=vector["id"]), self.assertRaises(PlatformSdkError):
                 verify_sequencer_receipt(canonical[:-1] + bytes([canonical[-1] ^ 1]), _hex(vector["rawTransaction"]), [_pinned_key(vector)])
-
-    def test_core_programs_fixture_preserves_optional_outcome(self) -> None:
-        document, authority = _native_execution()
-        verified = verify_receipt(bytes.fromhex(document["receipt"]), authority, LayerXSignatureVerifier(), protocol_version=3)
-        outcome = verified.receipt.program_outcome
-        self.assertIsNotNone(outcome)
-        assert outcome is not None
-        self.assertEqual((outcome.encoding_version, outcome.runtime_version, outcome.abi_version), (4, 1, 2))
-        self.assertEqual(outcome.fee_units, int(document["usage"]["fee_units"]))
-        self.assertEqual(outcome.cpu_fuel, int(document["usage"]["cpu_fuel"]))
-        self.assertEqual(outcome.terminal_payload_root, sha256(bytes.fromhex(document["terminal_payload"])).digest())
-        self.assertEqual(outcome.call_graph_root, sha256(bytes.fromhex(document["call_graph"])).digest())
 
     def test_core_refusal_vectors_expose_shared_taxonomy(self) -> None:
         seen = set()

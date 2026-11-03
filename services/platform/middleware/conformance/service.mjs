@@ -203,7 +203,9 @@ export async function runServiceScenarios(suite) {
       await response.text();
       assert(response.status !== 200, "a tampered payment must never release the resource");
 
-      const validPayload = buyerPayload({ requirements: parsed.accepted, paymentRequired: parsed.required }, receipt, "service-malformed-rpc");
+      const malformedReceipt = await buildSignedReceipt(sequencer, { ...facts, from: fixedBytes(0xce) });
+      receipts.set(malformedReceipt.txHash, malformedReceipt);
+      const validPayload = buyerPayload({ requirements: parsed.accepted, paymentRequired: parsed.required }, malformedReceipt, "service-malformed-rpc");
       const readsBefore = observations.receiptReads;
       malformedRpcReceipt = true;
       try {

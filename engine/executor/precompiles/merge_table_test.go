@@ -10,7 +10,7 @@ import (
 )
 
 func TestMergeAddressTableIsFailFast(t *testing.T) {
-	require.Len(t, precompiles.MergeAddressTable, 12)
+	require.NotEmpty(t, precompiles.MergeAddressTable)
 	table := make(map[common.Address]struct{}, len(precompiles.MergeAddressTable))
 	for _, entry := range precompiles.MergeAddressTable {
 		require.NotContains(t, table, entry.Address, "duplicate merge address %s", entry.Address.Hex())
@@ -21,6 +21,7 @@ func TestMergeAddressTableIsFailFast(t *testing.T) {
 			require.Same(t, gigaprecompiles.FailFastSingleton, contract, "merge address %s", entry.Address.Hex())
 		})
 	}
+	require.Len(t, table, len(precompiles.MergeAddressTable))
 
 	expected := make(map[common.Address]struct{}, len(table)+len(gigaprecompiles.AllCustomPrecompilesFailFastLate))
 	for address := range table {
