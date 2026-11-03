@@ -124632,7 +124632,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1535.1]
 title = "Issue #1535: Restore the legacy importer's patched frozen dependency lockfile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131892,7 +131892,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1537.1]
 title = "Issue #1537: Unify JVM VerificationStatus generation and prove both drift checks agree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137462,7 +137462,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1434.1]
 title = "Issue #1434: Persist the accepted Move money submission before the receipt lookup and reconcile instead of resending"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["18.1433.1", "10.1.8", "10.21.8", "9.100.2", "22.9.24", "22.9.33", "22.24.24"]
@@ -192908,7 +192908,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1549.1]
 title = "Issue #1549: Supply the chains keeper to the node merge-import test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192937,7 +192937,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1547.1]
 title = "Issue #1547: Name px_getReceiptKeys in its unavailable-method error"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192995,7 +192995,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1539.1]
 title = "Issue #1539: Return the recorded hash for identical WebSocket transaction resubmissions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -227338,7 +227338,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1536.1]
 title = "Issue #1536: Document the retirement of kernel custody credit and its light client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -227398,7 +227398,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1522.1]
 title = "Issue #1522: Check the dashboard Next floor against its shared install lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
