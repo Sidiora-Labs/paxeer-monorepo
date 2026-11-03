@@ -14140,3 +14140,28 @@ fix = "Name each test target under the package whose Cargo.toml declares it; che
 title = "A reuse refusal keyed on an unverified receipt hint is a settlement oracle"
 symptom = "The seller returned 409 receipt reuse from the payload's receiptDigest hint before verification, so a tampered payment got 409 instead of 402 and the status alone told whether the digest had been settled."
 fix = "Verify first, then decide reuse (decision 2376); any pre-verification lookup may only serve the identical-request replay."
+
+[gotcha.2864]
+title = "A loader precondition on module-9 activities reaches every test that executes one"
+symptom = "After 22.2.7 made programs activities require the active fee record, three lxphost tests that run a registry activity without the fixture helper failed with LXP_ERR_VERSION_UNSUPPORTED; the task listed two and attempt 2 stopped on the third as pre-existing."
+fix = "When a change adds a store precondition to a module's execution, grep the package for every test that executes that module's activities and give each the fixture call; run the task's whole verify selection before the single verify run."
+
+[gotcha.2865]
+title = "A catalogue-absence test needs every deleting task in its requires, not only the ones that failed before"
+symptom = "16.90.1 gained the daemon, guarantor and bridge deletions as requires after attempts 1 and 2 and still failed on attempt 3 because the LNI client module deletion (9.24.7) was never listed; each attempt found the next present tree."
+fix = "Before relaunching a test task that asserts absence, check every tree it asserts against main and the catalogue and add the owner task of each present tree to requires in one pass."
+
+[gotcha.2866]
+title = "A rewrite that leaves a test module unimportable passes when its own verify never collects that module"
+symptom = "16.97.6 rewrote tests/agent/sdk/python/test_receipt_fixture.py without the sys.path insertion its siblings carry; its verify ran only the meta-tests of tests/ci, so the import error surfaced weeks later in 22.25.3, whose verify collects the whole directory."
+fix = "When a task rewrites a test module, its verify_cmd runs that module itself, not only a test that reads it; when a later task fails collecting a module it did not write, add the module to touches and rule the fix in a do item instead of relaunching."
+
+[gotcha.2867]
+title = "Two do items pinning opposite call counts for the same test case stall the attempt"
+symptom = "22.8.11 do_14 pinned settleCount 1 for the differing-request-digest replay and decision 2376 made the authority settle before refusing the reuse; attempt 13 implemented the decision, saw the pinned count fail, and stopped to ask instead of choosing."
+fix = "A decision that changes control flow restates every count it moves, in the same batch, naming the test case and the new values; a later do item that contradicts an earlier one says so."
+
+[gotcha.2868]
+title = "A behaviour change closed on its own package tests leaves an earlier task's chain test asserting the old behaviour"
+symptom = "The fee-token sweep of 63dfe3cbc was closed on the modules/evm/keeper tests alone while TestSidioraFeePaid, written the same day, asserted that the collection address keeps the converted fee; the contradiction surfaced only when 22.6.4 made the chain test run again, and two findings and a bisect order were spent on a design that was already documented in the sweep's closure note."
+fix = "Before ordering a bisect for a failing assertion, read the git log of the production code the assertion depends on and the closure note of the commit that introduced the behaviour; when the behaviour is documented, rule the test wrong and move on."
