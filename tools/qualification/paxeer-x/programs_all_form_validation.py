@@ -119,7 +119,7 @@ def build(output):
     native_dir = directory / "native"
     cargo_dir = directory / "cargo"
     library = native_dir / "liblayerx.a"
-    header = native_dir / "generated/lxp_checkpoint_settlement.h"
+    generated = native_dir / "generated"
     sandbox = cargo_dir / "debug/liblayerx_programs_sandbox.a"
     binary = directory / "programs_lifecycle"
     jobs = int(os.environ.get("PAXEER_X_PROGRAM_VALIDATION_BUILD_JOBS", "4"))
@@ -130,10 +130,10 @@ def build(output):
     commands = [
         ["make", "--no-print-directory", "-j" + str(jobs),
          "BUILD_DIR=" + str(native_dir), "LXP_REVISION=" + source["revision"],
-         str(library), str(header)],
+         str(library)],
         ["cargo", "build", "--locked", "--manifest-path", str(ROOT / "programs/Cargo.toml"),
          "-p", "layerx-programs-sandbox", "--features", "host-ffi"],
-        ["cc", "-Iinclude", "-I" + str(header.parent), "-std=c17", "-pedantic", "-Werror",
+        ["cc", "-Iinclude", "-I" + str(generated), "-std=c17", "-pedantic", "-Werror",
          "-Wall", "-Wextra", "-Wconversion", "-Wshadow", "-Wvla", "-fno-strict-aliasing",
          "-ffp-contract=off", "-O2", "tests/programs/test_lifecycle.c",
          "-Wl,--start-group", str(library), str(sandbox), "-Wl,--end-group",
@@ -175,8 +175,7 @@ def build(output):
         record["artifacts"] = {"native": artifact(binary, executable=True),
                                "runtime-tests": artifact(runtime_tests, executable=True),
                                "native-library": artifact(library),
-                               "sandbox-staticlib": artifact(sandbox),
-                               "generated-header": artifact(header)}
+                               "sandbox-staticlib": artifact(sandbox)}
         record["exit_code"] = 0
         write_private(directory / "manifest.json", record)
         print("PROGRAM_VALIDATION_NATIVE_MANIFEST " + str(directory / "manifest.json"))
@@ -254,7 +253,7 @@ def qualify(manifest):
                 "artifact manifest does not bind the exact clean candidate")
         require(saved.get("exit_code") == 0 and saved.get("features") == {"sandbox": ["host-ffi"]},
                 "successful source-bound sandbox artifact production is required")
-        require(set(saved["artifacts"]) == {"native", "runtime-tests", "native-library", "sandbox-staticlib", "generated-header"},
+        require(set(saved["artifacts"]) == {"native", "runtime-tests", "native-library", "sandbox-staticlib"},
                 "candidate artifact inventory is incomplete")
         require(len(saved["logs"]) == 4 and len(saved["commands"]) == 4,
                 "candidate build command evidence is incomplete")

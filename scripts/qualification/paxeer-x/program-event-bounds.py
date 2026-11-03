@@ -46,15 +46,15 @@ def build(output):
     environment = dict(os.environ, CARGO_BUILD_JOBS='3', CARGO_PROFILE_DEV_DEBUG='0',
         CARGO_PROFILE_TEST_DEBUG='0', CARGO_INCREMENTAL='0', PYTHONDONTWRITEBYTECODE='1')
     library = native_dir / 'liblayerx.a'
-    header = native_dir / 'generated/lxp_checkpoint_settlement.h'
+    generated = native_dir / 'generated'
     staticlib = cargo_dir / 'debug/liblayerx_programs_sandbox.a'
     native = directory / 'program-event-bounds-native'
     commands = [
         ['make', '--no-print-directory', '-j3', 'BUILD_DIR=' + str(native_dir),
-         'LXP_REVISION=' + source['revision'], str(library), str(header)],
+         'LXP_REVISION=' + source['revision'], str(library)],
         ['cargo', '+1.91.1', 'build', '--locked', '--manifest-path', str(ROOT / 'programs/Cargo.toml'),
          '-p', 'layerx-programs-sandbox', '--features', 'host-ffi'],
-        ['cc', '-Iinclude', '-I' + str(header.parent), '-std=c17', '-pedantic', '-Werror',
+        ['cc', '-Iinclude', '-I' + str(generated), '-std=c17', '-pedantic', '-Werror',
          '-Wall', '-Wextra', '-Wconversion', '-Wshadow', '-Wvla', '-fno-strict-aliasing',
          '-ffp-contract=off', '-O2', 'tests/programs/test_call_activity.c', '-Wl,--start-group',
          str(library), str(staticlib), '-Wl,--end-group', '-lcrypto', '-lsqlite3', '-pthread',
@@ -85,7 +85,7 @@ def build(output):
             binaries[name] = event['executable']
     require(finished and set(binaries) == set(RUST_CASES), 'missing actual compiled Rust executables')
     artifacts = {'native': producer.artifact(native), 'native-library': producer.artifact(library),
-        'generated-header': producer.artifact(header), 'sandbox-staticlib': producer.artifact(staticlib)}
+        'sandbox-staticlib': producer.artifact(staticlib)}
     for name, binary in binaries.items():
         target = directory / name
         shutil.copyfile(binary, target)
@@ -107,7 +107,7 @@ def verify(path):
     require(value.get('native_cases') == sorted(NATIVE_CASES)
         and value.get('rust_cases') == {name: sorted(cases) for name, cases in RUST_CASES.items()}, 'case inventory differs')
     artifacts = value['artifacts']
-    require(set(artifacts) == {'native', 'native-library', 'generated-header', 'sandbox-staticlib', *RUST_CASES},
+    require(set(artifacts) == {'native', 'native-library', 'sandbox-staticlib', *RUST_CASES},
         'artifact inventory differs')
     require(len(value['logs']) == 4, 'missing explicit build logs')
     saved = list(artifacts.values()) + value['logs']

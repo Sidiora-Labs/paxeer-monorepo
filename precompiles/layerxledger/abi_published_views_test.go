@@ -24,6 +24,13 @@ func TestPublishedLedgerAndAuthABIServeProbedViews(t *testing.T) {
 			require.NoError(t, err, "read published %s ABI", published.name)
 			parsed, err := abi.JSON(bytes.NewReader(data))
 			require.NoError(t, err, "parse published %s ABI", published.name)
+			if published.name == "auth" {
+				method, ok := parsed.Methods["recordLifecycle"]
+				require.True(t, ok)
+				require.Equal(t, "recordLifecycle(bytes,bytes32)", method.Sig)
+				require.Equal(t, "nonpayable", method.StateMutability)
+				require.Equal(t, "(uint64)", ledgerArgumentTypes(method.Outputs))
+			}
 			require.NotEmpty(t, parsed.Methods)
 			if published.name == "ledger" {
 				for _, view := range []struct {
