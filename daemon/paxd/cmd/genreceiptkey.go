@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer"
 	sequencerkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	sequencertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -67,10 +68,12 @@ func AddGenesisReceiptKeyCmd(defaultNodeHome string) *cobra.Command {
 				return fmt.Errorf("failed to unmarshal genesis state: %w", err)
 			}
 			moduleState := make(map[string]json.RawMessage)
-			if raw, ok := appState[sequencertypes.ModuleName]; ok {
-				if err := json.Unmarshal(raw, &moduleState); err != nil {
-					return fmt.Errorf("failed to unmarshal sequencer genesis state: %w", err)
-				}
+			raw, ok := appState[sequencertypes.ModuleName]
+			if !ok {
+				raw = (sequencer.AppModuleBasic{}).DefaultGenesis(nil)
+			}
+			if err := json.Unmarshal(raw, &moduleState); err != nil {
+				return fmt.Errorf("failed to unmarshal sequencer genesis state: %w", err)
 			}
 			if moduleState == nil {
 				return fmt.Errorf("sequencer genesis state must be an object")

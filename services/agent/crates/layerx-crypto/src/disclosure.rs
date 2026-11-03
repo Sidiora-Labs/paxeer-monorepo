@@ -1109,6 +1109,25 @@ impl Disclosure {
         Ok(())
     }
 
+    /// Checks every public semantic field against the retained producer bytes.
+    ///
+    /// # Errors
+    /// Refuses altered semantics or a signing digest inconsistent with the source.
+    pub fn validate(&self) -> Result<(), DisclosureError> {
+        self.validated_digest().map(|_| ())
+    }
+
+    /// Checks the canonical activity bytes consumed by preparation and approval.
+    ///
+    /// # Errors
+    /// Refuses changed semantics, another source kind, or different canonical bytes.
+    pub fn validate_canonical(&self, canonical: &[u8]) -> Result<(), DisclosureError> {
+        if self.reencode()? != canonical {
+            return Err(DisclosureError::FieldMismatch("canonical_bytes"));
+        }
+        Ok(())
+    }
+
     /// Re-encodes the activity represented by this disclosure.
     ///
     /// # Errors
@@ -1252,6 +1271,7 @@ impl Disclosure {
     /// # Errors
     /// Refuses malformed calldata.
     pub fn construct_method(&self) -> Result<Option<call::ConstructMethod>, DisclosureError> {
+        self.validate()?;
         match &self.source {
             Source::Activity(_) => Ok(None),
             Source::Call(call) => call::decode_method(call).map(Some),

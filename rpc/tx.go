@@ -32,6 +32,7 @@ import (
 var ErrPanicTx = errors.New("transaction is panic tx")
 
 type TransactionAPI struct {
+	domainIndex        DomainIndex
 	namespace          string
 	tmClient           client.LocalClient
 	keeper             *keeper.Keeper
@@ -70,6 +71,7 @@ func NewTransactionAPI(
 		namespace:          "eth",
 		tmClient:           tmClient,
 		keeper:             k,
+		domainIndex:        keeperDomainIndex{evm: k},
 		ctxProvider:        ctxProvider,
 		txConfigProvider:   txConfigProvider,
 		homeDir:            homeDir,
@@ -145,6 +147,11 @@ func getTransactionReceipt(
 	}
 	if receipt == nil {
 		return nil, fmt.Errorf("receipt lookup for %s returned nil", hash.Hex())
+	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		if !domainHashSet(t.domainIndex, t.ctxProvider(LatestCtxHeight), scope, receipt.BlockNumber)[hash] {
+			return nil, nil
+		}
 	}
 	if receipt.BlockNumber > math.MaxInt64 {
 		return nil, fmt.Errorf("receipt block number %d exceeds int64", receipt.BlockNumber)
@@ -257,7 +264,7 @@ func (t *TransactionAPI) getTransactionByBlockNumberAndIndex(ctx context.Context
 	if block == nil {
 		return nil, nil
 	}
-	return t.getTransactionWithBlock(block, txIndex, t.includeSynthetic)
+	return t.getTransactionWithBlock(ctx, block, txIndex, t.includeSynthetic)
 }
 
 func (t *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, blockHash common.Hash, txIndex hexutil.Uint) (result *export.RPCTransaction, _err error) {
@@ -282,7 +289,7 @@ func (t *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	return t.getTransactionWithBlock(block, idx, t.includeSynthetic)
+	return t.getTransactionWithBlock(ctx, block, idx, t.includeSynthetic)
 }
 
 // TODO(gprusak): for autobahn txs sharding, we might need to proxy this rpc as well,
@@ -302,6 +309,9 @@ func (t *TransactionAPI) GetTransactionByHash(ctx context.Context, hash common.H
 	if tx, ok := t.tmClient.EvmTxByHash(hash); ok {
 		etx := getEthTxForTxBz(tx, t.txConfigProvider(LatestCtxHeight).TxDecoder())
 		if etx != nil {
+			if !domainAllowsTransaction(ctx, t.domainIndex, etx) {
+				return nil, nil
+			}
 			from, err := rpcutils.RecoverEVMSenderWithContext(sdkCtx, etx)
 			if err != nil { // codecov:ignore - defensive error handling for invalid signatures
 				logger.Error("failed to recover sender", "err", err, "tx", etx.Hash()) // codecov:ignore
@@ -336,6 +346,11 @@ func (t *TransactionAPI) GetTransactionByHash(ctx context.Context, hash common.H
 	}
 	if receipt == nil {
 		return nil, fmt.Errorf("receipt lookup for %s returned nil", hash.Hex())
+	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		if !domainHashSet(t.domainIndex, t.ctxProvider(LatestCtxHeight), scope, receipt.BlockNumber)[hash] {
+			return nil, nil
+		}
 	}
 	if receipt.BlockNumber > math.MaxInt64 {
 		return nil, fmt.Errorf("receipt block number %d exceeds int64", receipt.BlockNumber)
@@ -376,6 +391,9 @@ func (t *TransactionAPI) encodePendingTransaction(ctx context.Context, ptx Pendi
 	etx := getEthTxForTxBz(ptx.TxBytes, t.txConfigProvider(LatestCtxHeight).TxDecoder())
 	if etx == nil {
 		return nil, errors.New("transaction is not an EVM transaction and thus cannot be represented in _getTransaction* endpoints")
+	}
+	if !domainAllowsTransaction(ctx, t.domainIndex, etx) {
+		return nil, nil
 	}
 	sdkCtx, err := t.watermarks.PendingContext(ctx)
 	if err != nil {
@@ -450,13 +468,27 @@ func (t *TransactionAPI) GetTransactionCount(ctx context.Context, address common
 	return (*hexutil.Uint64)(&nonce), nil
 }
 
-// pendingNonce is the sequencer's next nonce for address on the open block. Held
+// pendingNonce reads the open snapshot, or committed state while idle. Held
 // future nonces never move it: the nonce queue drains them into the open block
 // only once the gap fills, so the open-block nonce is the next executable one.
 func (t *TransactionAPI) pendingNonce(ctx context.Context, address common.Address) (*hexutil.Uint64, error) {
-	sdkCtx, err := t.watermarks.PendingContext(ctx)
+	if t.ctxProvider == nil {
+		snapshot, err := t.watermarks.PendingContext(ctx)
+		if err != nil {
+			return nil, err
+		}
+		nonce := t.keeper.GetNonce(snapshot, address)
+		return (*hexutil.Uint64)(&nonce), nil
+	}
+	sdkCtx, height, open, err := t.watermarks.pendingSnapshot(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if !open {
+		sdkCtx = t.ctxProvider(height)
+		if err := CheckVersion(sdkCtx, t.keeper); err != nil {
+			return nil, err
+		}
 	}
 	nonce := t.keeper.GetNonce(sdkCtx, address)
 	return (*hexutil.Uint64)(&nonce), nil
@@ -490,7 +522,7 @@ func (t *TransactionAPI) forwardPendingNonce(ctx context.Context, address common
 	return &nonce, nil
 }
 
-func (t *TransactionAPI) getTransactionWithBlock(block *coretypes.ResultBlock, txIndex uint32, includeSynthetic bool) (*export.RPCTransaction, error) {
+func (t *TransactionAPI) getTransactionWithBlock(ctx context.Context, block *coretypes.ResultBlock, txIndex uint32, includeSynthetic bool) (*export.RPCTransaction, error) {
 	msgs := filterTransactions(t.keeper, t.ctxProvider, t.txConfigProvider, block, includeSynthetic, false, t.cacheCreationMutex, t.globalBlockCache)
 	if txIndex >= uint32(len(msgs)) { //nolint:gosec
 		// Ethereum JSON-RPC: eth_getTransactionByBlock*AndIndex returns null when the index has no transaction.
@@ -504,6 +536,9 @@ func (t *TransactionAPI) getTransactionWithBlock(block *coretypes.ResultBlock, t
 	ethtx, _ := evmTx.AsTransaction()
 	if ethtx == nil {
 		return nil, errors.New("transaction contains malformed EVM message data")
+	}
+	if !domainAllowsTransaction(ctx, t.domainIndex, ethtx) {
+		return nil, nil
 	}
 
 	return t.encodeRPCTransaction(ethtx, block, txIndex)

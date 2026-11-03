@@ -1,0 +1,64 @@
+[disposition.11.31.2]
+finding = "11.31.2"
+status = "resolved"
+evidence = "Commit 8bd22a5b8 replaced the optional config assignment with a resolved u32 network id, and services/interop/crates/x-websearch/src/main.rs:451 passes the startup-resolved value to PaymentGate::new_with_network_id."
+
+[disposition.11.32.1]
+finding = "11.32.1"
+status = "resolved"
+evidence = "Commit ff91c687b repaired the interop lockfile before task 11.32.1 landed as 4857172da, and services/interop/Cargo.lock:1330 now includes layerx-committed-proof among the layerx-indexer dependencies."
+
+[disposition.11.34.3]
+finding = "11.34.3"
+status = "resolved"
+evidence = "Task commit b22e895a6 landed the receiver-signed draw implementation and its three declared tests, while spec/layerx-merge/spec.kvx:173147 now names those tests and public PaymentGate and PaymentRecord symbols instead of the rejected Keys::receiver and Plane methods."
+
+[disposition.11.34.4]
+finding = "11.34.4"
+status = "resolved"
+evidence = "Commit fd07e2f4a added the missing startup responses to answer_rpc, and services/interop/crates/x-websearch/tests/binary.rs:256 now answers eth_chainId, pax_sequencerReceipt and the getKernelNetworkId eth_call before settlement readiness is checked."
+
+[disposition.11.34.5]
+finding = "11.34.5"
+status = "resolved"
+evidence = "Commit f9e457bf9 retained GatewayRpc and RpcAnswer while replacing the payment lx_ path, and services/interop/crates/x-websearch/src/watch.rs:9 still imports the retained client for EVM calls after 79aec7611 removed kernel.rs."
+
+[disposition.11.34.5.2]
+finding = "11.34.5.2"
+status = "resolved"
+evidence = "Commit f9e457bf9 makes verify_receipt return canonical_receipt_digest at services/interop/crates/x-websearch/src/payment.rs:2444 and changes the reverted-draw test at services/interop/crates/x-websearch/tests/payment.rs:1131 to make one receipted retry expecting payment_failed."
+
+[disposition.11.36.1]
+finding = "11.36.1"
+status = "resolved"
+evidence = "Commit 79aec7611 removed kernel.rs while relocating request_topic to services/interop/crates/x-websearch/src/config.rs:943 and KernelError to services/interop/crates/x-websearch/src/program.rs:38 and repointing attest.rs to the program module."
+
+[disposition.11.36.1.2]
+finding = "11.36.1.2"
+status = "resolved"
+evidence = "Commit 79aec7611 relocated decode_request_record to services/interop/crates/x-websearch/src/program.rs:85 and repointed the attest, program and binary tests away from x_websearch::kernel, with the decoder imported from program at services/interop/crates/x-websearch/tests/program.rs:19."
+
+[disposition.11.36.4]
+finding = "11.36.4"
+status = "resolved"
+evidence = "Commit d6f74eebd added the corrected shared-vector test, and services/interop/crates/x-websearch/tests/sequencer_vectors.rs:417 derives receipt_unverified for SequencerSignature or Decode and receipt_mismatch for accepts from expected.verifier."
+
+[disposition.11.36.4.2]
+finding = "11.36.4.2"
+status = "resolved"
+evidence = "The six V3 cases now contain populated receiptJson answers and 32-byte txHash values at sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:272, which services/interop/crates/x-websearch/tests/sequencer_vectors.rs:153 replays through pax_sequencerReceipt and :561 supplies to exact_payload."
+
+[disposition.11.37.3]
+finding = "11.37.3"
+status = "resolved"
+evidence = "Commit 361680c2e made MirrorVerifier::admit_committed public at services/interop/crates/layerx-mirror/src/verify.rs:133, giving the shared-vector integration test a callable admission route without a live source."
+
+[disposition.11.37.3.2]
+finding = "11.37.3.2"
+status = "resolved"
+evidence = "Commit 361680c2e added the corrected refusal classification, and services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs:285 asserts mirror acceptance for verifier accepts cases before checking the R4 transaction and R6 sequence conditions separately and identifying the R5 log case."
+
+[disposition.11.38.2]
+finding = "11.38.2"
+status = "resolved"
+evidence = "Commits 0f8c4e76f and 05dcc1243 landed the deposit API and mirror rung/height migration before release task commit 259712fad, and services/interop/crates/layerx-bridge-relayer/src/attestation_api.rs:235 now defines release_answer beside deposit_answer with the module exported at services/interop/crates/layerx-bridge-relayer/src/lib.rs:23."

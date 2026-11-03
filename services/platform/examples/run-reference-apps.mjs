@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
 import { access, constants, mkdtemp, readFile, rm } from "node:fs/promises";
@@ -16,11 +17,6 @@ import {
 
 const root = resolve(import.meta.dirname, "../../..");
 const ownedServices = new Set();
-for (const [signal, code] of [["SIGTERM", 143], ["SIGINT", 130]]) {
-  process.once(signal, () => {
-    void Promise.all([...ownedServices].map(stopService)).then(() => process.exit(code));
-  });
-}
 const manifest = exactObject(JSON.parse(await readFile(resolve(import.meta.dirname, "reference-apps.json"), "utf8")));
 const expectedApplications = ["buyer-agent", "paid-api", "merchant-shop", "marketplace"];
 if (manifest.version !== 1 || !Array.isArray(manifest.applications) || manifest.applications.length !== 4) {
@@ -35,13 +31,20 @@ const EMULATOR_READY_TIMEOUT_MS = 30_000;
 const EMULATOR_READY_POLL_MS = 100;
 const EMULATOR_KEY_NAMES = Object.freeze(["reference-buyer", "reference-seller", "reference-merchant", "reference-marketplace"]);
 
-const arguments_ = process.argv.slice(2);
-if (arguments_.length === 1 && arguments_[0] === "--check") {
-  await checkManifest();
-} else if (arguments_.length === 2 && arguments_[0] === "--scenario" && ["emulator", "beta"].includes(arguments_[1])) {
-  await runScenario(arguments_[1]);
-} else {
-  throw new Error("usage_--check_or_--scenario_emulator_or_beta");
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  for (const [signal, code] of [["SIGTERM", 143], ["SIGINT", 130]]) {
+    process.once(signal, () => {
+      void Promise.all([...ownedServices].map(stopService)).then(() => process.exit(code));
+    });
+  }
+  const arguments_ = process.argv.slice(2);
+  if (arguments_.length === 1 && arguments_[0] === "--check") {
+    await checkManifest();
+  } else if (arguments_.length === 2 && arguments_[0] === "--scenario" && ["emulator", "beta"].includes(arguments_[1])) {
+    await runScenario(arguments_[1]);
+  } else {
+    throw new Error("usage_--check_or_--scenario_emulator_or_beta");
+  }
 }
 
 async function checkManifest() {
@@ -292,6 +295,7 @@ async function deriveEmulatorInputs(emulator) {
     LAYERX_CREDENTIAL_STORE: emulator.cliEnvironment.LAYERX_CREDENTIAL_STORE,
     LAYERX_CREDENTIAL_PASSPHRASE: emulator.cliEnvironment.LAYERX_CREDENTIAL_PASSPHRASE,
     LAYERX_EMULATOR_TOKEN: token,
+    LAYERX_EMULATOR_RECEIPT_KEYS_JSON: emulatorReceiptKeys(emulator.anchor),
     LAYERX_EMULATOR_ASSET: seeded.asset,
     LAYERX_EMULATOR_SOURCE: source,
     LAYERX_EMULATOR_SELLER: accountIdentifier(accounts, sellerAccount),
@@ -313,6 +317,16 @@ async function deriveEmulatorInputs(emulator) {
     if (supplied !== undefined) derived[name] = supplied;
   }
   return derived;
+}
+
+export function emulatorReceiptKeys(anchor) {
+  const publicKey = requiredHex32(anchor, "invalid_emulator_receipt_public_key");
+  return JSON.stringify([{
+    keyId: createHash("sha256").update(Buffer.from(publicKey, "hex")).digest("hex"),
+    publicKey,
+    firstHeight: "1",
+    lastHeight: "18446744073709551615",
+  }]);
 }
 
 function accountName(did) {
@@ -461,18 +475,7 @@ async function merchantCheckout(environment, inputs) {
       { method: "POST", headers: { "content-type": "application/json" }, body },
       `${checkoutKey}-payment`,
     );
-    if (result.kind !== "paid" || !result.response.ok) throw new Error(`merchant_reference_${result.kind}`);
-    const checkout = exactObject(await result.response.json());
-    const order = exactObject(checkout.order);
-    if (checkout.state !== "paid" || order.state !== "paid-verified" || order.orderId !== checkoutKey) {
-      throw new Error("merchant_reference_missing_verified_order");
-    }
-    const receiptDigest = requiredHex32(result.payment.receiptDigest, "merchant_reference_missing_receipt_digest");
-    if (order.receiptDigest !== receiptDigest) throw new Error("merchant_reference_order_receipt_mismatch");
-    const outcome = {
-      application: "merchant-shop", environment, state: "paid", orderId: order.orderId,
-      receiptDigest, verification: result.settlement.verification.level,
-    };
+    const outcome = await paidMerchantOutcome(result, environment, checkoutKey);
     process.stdout.write(`${JSON.stringify(outcome)}\n`);
     return outcome;
   } finally {
@@ -480,7 +483,14 @@ async function merchantCheckout(environment, inputs) {
   }
 }
 
-function scenarioReceiptKeys(inputs, name) {
+export function merchantCheckoutOutcome(environment, orderId, receiptDigest, settlement) {
+  return {
+    application: "merchant-shop", environment, state: "paid", orderId,
+    receiptDigest, rung: settlement.verification.rung, transactionHash: settlement.txHash,
+  };
+}
+
+export function scenarioReceiptKeys(inputs, name) {
   const value = scenarioEnvironment(inputs, name);
   const previous = process.env[name];
   try {
@@ -563,4 +573,16 @@ function command(commandLine, inputs) {
     child.once("error", reject);
     child.once("exit", (code) => code === 0 ? resolvePromise() : reject(new Error(`reference_command_exited_${code}`)));
   });
+}
+
+export async function paidMerchantOutcome(result, environment, checkoutKey) {
+  if (result.kind !== "paid" || !result.response.ok) throw new Error(`merchant_reference_${result.kind}`);
+  const checkout = exactObject(await result.response.json());
+  const order = exactObject(checkout.order);
+  if (checkout.state !== "paid" || order.state !== "paid-verified" || order.orderId !== checkoutKey) {
+    throw new Error("merchant_reference_missing_verified_order");
+  }
+  const receiptDigest = requiredHex32(result.payment.receiptDigest, "merchant_reference_missing_receipt_digest");
+  if (order.receiptDigest !== receiptDigest) throw new Error("merchant_reference_order_receipt_mismatch");
+  return merchantCheckoutOutcome(environment, order.orderId, receiptDigest, result.settlement);
 }

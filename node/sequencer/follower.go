@@ -7,6 +7,8 @@ import (
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 )
 
+// NewFollowerReceiptOption selects HTTP receipt forwarding for a configured
+// follower. The RPC consumer verifies the forwarded JSON against its receipt.
 func NewFollowerReceiptOption(cfg Config) (evmrpc.SequencerReceiptOption, bool) {
 	if cfg.Enable || cfg.ReceiptForwardURL == "" {
 		return evmrpc.SequencerReceiptOption{}, false

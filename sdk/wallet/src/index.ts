@@ -9,6 +9,7 @@ import { keccak256, serializeTransaction, type Hex, type TransactionSerializable
 import { JsonRpcClient } from './rpc.js';
 import { decodeSequencerReceipt, readSequencerReceipt } from './receipt.js';
 import {
+  assertSendTxResponse,
   PaxeerWalletError,
   FundedUnsupportedError,
   type ChainInfo,
@@ -226,6 +227,7 @@ export class PaxeerWallet {
     const response = await this.callJson<SendTxResponse>('POST', '/v1/wallet/send', {
       tx: serialize(tx),
     });
+    assertSendTxResponse(response, tx.chainId === undefined ? {} : { chainId: tx.chainId });
     let receipt = response.receipt ? decodeSequencerReceipt(response.receipt) : null;
     if (!receipt) {
       const { chain } = await this.getWallet();

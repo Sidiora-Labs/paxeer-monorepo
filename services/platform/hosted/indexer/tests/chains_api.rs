@@ -76,7 +76,7 @@ fn request(stream: &mut TcpStream) -> Option<Value> {
     serde_json::from_slice(&bytes[header_end..header_end + length]).ok()
 }
 
-fn node(head: Arc<AtomicU64>) -> Checked<PaxeerIngester> {
+fn node(head: Arc<AtomicU64>, finality_depth: u64) -> Checked<PaxeerIngester> {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let url = format!("http://{}", listener.local_addr()?);
     let chain = fixture();
@@ -128,7 +128,7 @@ fn node(head: Arc<AtomicU64>) -> Checked<PaxeerIngester> {
         None,
         registry()?,
         FollowPolicy {
-            finality_depth: 100,
+            finality_depth,
             max_units_per_step: 10,
         },
         42,
@@ -182,12 +182,12 @@ fn chains_api_lists_and_reads_one_chain() -> Checked<()> {
     check_topics()?;
     let database = Database::new();
     let store = Store::open(&database.0)?;
-    let ingester = node(Arc::new(AtomicU64::new(44)))?;
+    let ingester = node(Arc::new(AtomicU64::new(45)), 100)?;
     assert_eq!(
         ingester.step(&store)?,
         StepOutcome::Advanced {
-            units: 3,
-            position: 44
+            units: 4,
+            position: 45
         }
     );
     drop(store);
@@ -257,7 +257,7 @@ fn chains_api_lists_and_reads_one_chain() -> Checked<()> {
         let (status, full) = answer(&endpoint, &target)?;
         assert_eq!(status, 200);
         assert_eq!(full["version"], 1);
-        assert_eq!(full["indexedHeight"], 44);
+        assert_eq!(full["indexedHeight"], 45);
         assert!(full["next_cursor"].is_null());
         let all = full["items"].as_array().ok_or("items missing")?;
         assert_eq!(all.len(), count);
@@ -303,5 +303,112 @@ fn chains_api_lists_and_reads_one_chain() -> Checked<()> {
     ] {
         assert_eq!(answer(&endpoint, target)?.0, 400, "{target}");
     }
+    Ok(())
+}
+
+#[test]
+fn chains_api_virtual_transfers_follow_the_shared_cursor() -> Checked<()> {
+    for depth in [0, 1] {
+        let database = Database::new();
+        let store = Store::open(&database.0)?;
+        let ingester = node(Arc::new(AtomicU64::new(44)), depth)?;
+        assert_eq!(
+            ingester.step(&store)?,
+            StepOutcome::Advanced {
+                units: 3,
+                position: 44
+            }
+        );
+        let boundary = store
+            .cursor(layerx_indexer::paxeer::CHAIN)?
+            .ok_or("shared cursor missing")?
+            .finalized_boundary;
+        assert_eq!(boundary, Some(44 - depth));
+        let endpoint = api_endpoint(Store::open(&database.0)?)?;
+        for (id, count) in [(1, 4), (2, 2)] {
+            let target = format!("/v1/chains/{id}/transfers");
+            let (status, full) = answer(&endpoint, &target)?;
+            assert_eq!(status, 200);
+            assert_eq!(full["indexedHeight"], 44);
+            let rows = full["items"].as_array().ok_or("transfers missing")?;
+            assert_eq!(rows.len(), count);
+            assert_eq!(rows, &store.transfers(&format!("pax:{id}"))?);
+            for row in rows {
+                assert_eq!(row["chain"], format!("pax:{id}"));
+                assert_eq!(row["height_or_seq"], "44");
+                assert_eq!(row["final"], depth == 0);
+                assert_eq!(row["final_basis"], "block_commit");
+                assert_eq!(
+                    row["stability"],
+                    json!({
+                        "level": if depth == 0 { "depth_stable" } else { "reversible" },
+                        "source": "block_commit",
+                        "finalized_boundary": boundary.map(|height| height.to_string()),
+                    })
+                );
+                assert_eq!(
+                    row["settlement"],
+                    json!({
+                        "level": "unverified", "source": null,
+                        "reason": "no_verified_checkpoint_evidence",
+                    })
+                );
+            }
+            let (status, page) = answer(&endpoint, &format!("{target}?limit=1"))?;
+            assert_eq!(status, 200);
+            assert_eq!(page["items"], json!([rows[0]]));
+            assert!(page["next_cursor"].is_string());
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn chains_api_status_codes_follow_the_registry_and_rollback() -> Checked<()> {
+    let database = Database::new();
+    let store = Store::open(&database.0)?;
+    let head = Arc::new(AtomicU64::new(42));
+    let ingester = node(Arc::clone(&head), 100)?;
+    let endpoint = api_endpoint(Store::open(&database.0)?)?;
+    for (height, statuses) in [
+        (42, ["active", "active", "active", "active"]),
+        (43, ["paused", "active", "governance_paused", "active"]),
+        (44, ["active", "paused", "governance_paused", "active"]),
+        (45, ["active", "paused", "governance_paused", "retired"]),
+        (46, ["active", "paused", "governance_paused", "retired"]),
+    ] {
+        head.store(height, Ordering::SeqCst);
+        assert_eq!(
+            ingester.step(&store)?,
+            StepOutcome::Advanced {
+                units: 1,
+                position: height
+            }
+        );
+        for (index, expected) in statuses.into_iter().enumerate() {
+            let id = index as u32 + 1;
+            let (status, body) = answer(&endpoint, &format!("/v1/chains/{id}"))?;
+            assert_eq!(status, 200);
+            assert_eq!(body["status"], expected, "block {height}, chain {id}");
+            assert_eq!(
+                body["status"],
+                store.chain(id)?.ok_or("chain missing")?.status
+            );
+        }
+    }
+    store.rollback("paxeer", Some(44))?;
+    let (status, body) = answer(&endpoint, "/v1/chains/4")?;
+    assert_eq!(status, 200);
+    assert_eq!(body["status"], "active");
+    assert_eq!(
+        ingester.step(&store)?,
+        StepOutcome::Advanced {
+            units: 2,
+            position: 46
+        }
+    );
+    let (status, body) = answer(&endpoint, "/v1/chains/4")?;
+    assert_eq!(status, 200);
+    assert_eq!(body["status"], "retired");
     Ok(())
 }

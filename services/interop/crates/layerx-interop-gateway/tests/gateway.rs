@@ -1176,3 +1176,38 @@ fn an_altered_log_is_refused_and_records_nothing() {
     );
     assert_nothing_recorded(&core, &alice, key);
 }
+
+#[test]
+fn payment_amount_above_uint128_is_refused_without_settling() {
+    let mut core = registered_core();
+    let alice = principal("alice");
+    let key = [0x87; 32];
+    pending_state_changing(&mut core, &alice, 0x87);
+    for payment in [payment_exact_log(1, key), payment_drawn_log(1, key)] {
+        let mut data = payment.data().to_vec();
+        data[47] = 1; // 2^128 cannot be a canonical uint128 amount.
+        let logs = vec![
+            transfer_log(0),
+            SequencerLog::new(
+                payment.address(),
+                payment.topics().to_vec(),
+                data,
+                payment.log_index(),
+            ),
+        ];
+        let receipt = signed_sequencer_receipt(&logs);
+        let refused = core
+            .settle_with_sequencer_receipt(
+                &alice,
+                key,
+                &receipt,
+                logs,
+                &in_range_keys(),
+                &TraceId::mint([0x87; 16]),
+                11,
+            )
+            .map_err(|error| *error.error());
+        assert_eq!(refused, Err(SequencerSettlementError::PaymentUnmatched));
+        assert_nothing_recorded(&core, &alice, key);
+    }
+}

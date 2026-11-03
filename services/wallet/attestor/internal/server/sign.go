@@ -417,7 +417,8 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 		return refuse(newError(CodeQuorumSelfMissing, "this node is not among the signers"))
 	}
 
-	if requestCarriesVerification(req) {
+	digest, digestError := hex32("digest", req.Digest)
+	if requestCarriesVerification(req) || (digestError == nil && s.signsVerification(req.KeyID, rec.PublicKey, digest[:], nil)) {
 		return refuse(policyError(policy.CodeVerificationIsolated, "the verification message is signed only under "+KindOperatorVerification))
 	}
 	signed, view, policyKind, e := s.prepare(req, rec.PublicKey, subject)
@@ -770,6 +771,7 @@ func (s *Server) doLXReview(r *http.Request, body []byte) (LXReviewResponse, *Er
 	if s.opts.Inventory == nil {
 		return refuse(newError(CodeTokenUnavailable, "owner-approved wallet inventory is unavailable"))
 	}
+	// Review must enforce the same current inventory as signing, including retirement.
 	if err := s.opts.Inventory.Check(req.KeyID, "sign", payload.Owner, rec.Curve, &rec); err != nil {
 		return refuse(newError(CodeKeyInvalidShare, "owner-approved wallet inventory differs from held share"))
 	}

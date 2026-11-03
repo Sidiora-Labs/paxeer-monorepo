@@ -3,12 +3,13 @@ import { createHash } from "node:crypto";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { LayerXBudgetLedger, LayerXReceiptResolver, LayerXRemoteSigner, LayerXServiceEndpoint } from "@sidiora/layerx-agent-integrations";
 import { createServer } from "node:http";
-import { mkdtemp, open, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, open, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   encodePaymentPayloadHeader,
+  decodeSettlementHeader,
   verifyPaymentReceipt,
 } from "@sidiora/layerx-seller-middleware";
 import {
@@ -70,7 +71,19 @@ export async function runServiceScenarios(suite) {
   };
   const receipt = await buildSignedReceipt(sequencer, facts);
   const receiptKeys = await new FixedReceiptKeys([sequencer.receiptKey()]).resolve();
-  const rpc = await listenJsonService((request, body) => receiptRpc(request, body, receipt));
+  const receipts = new Map([[receipt.txHash, receipt]]);
+  const observations = { payments: [], malformed: undefined, replay: undefined, restarted: false, receiptReads: 0 };
+  let malformedRpcReceipt = false;
+  const rpc = await listenJsonService((request, body) => {
+    const produced = receipts.get(body.params?.[0]);
+    if (produced === undefined) {
+      return jsonReply(400, { jsonrpc: "2.0", id: body.id, error: { code: -32602, message: "unknown receipt transaction" } });
+    }
+    if (body.method === "pax_sequencerReceipt") observations.receiptReads += 1;
+    return receiptRpc(request, body, malformedRpcReceipt
+      ? { ...produced, signedReceipt: produced.signedReceipt.slice(0, -2) }
+      : produced);
+  });
 
   const workDir = await mkdtemp(join(tmpdir(), "layerx-mw-conformance-"));
   const resourceFile = join(workDir, "resource.json");
@@ -136,24 +149,42 @@ export async function runServiceScenarios(suite) {
 
     let capturedVerified = false;
     await suite.check("service: a valid receipt unlocks the resource and settles over the wire", async () => {
-      const offerResponse = await fetch(base, { method: "GET", headers: { accept: "application/json" } });
-      const header = offerResponse.headers.get("PAYMENT-REQUIRED") ?? "";
-      await offerResponse.text();
-      const parsed = buyer.parseOffer(header);
-      const payload = buyerPayload({ requirements: parsed.accepted, paymentRequired: parsed.required }, receipt, "service-happy");
-      const paid = await fetch(base, {
-        method: "GET",
-        headers: { accept: "application/json", "PAYMENT-SIGNATURE": encodePaymentPayloadHeader(payload) },
-      });
-      const body = await paid.text();
-      assert(paid.status === 200, `expected the resource to be released, received ${paid.status}: ${body}`);
-      assert(body === resourceBody, "the released body must match the protected resource");
-      const settlementHeader = paid.headers.get("PAYMENT-RESPONSE");
-      assert(settlementHeader !== null, "a released resource must carry a PAYMENT-RESPONSE settlement");
-      const prepared = await preparedPayment(parsed, receipt, receiptKeys);
-      const captured = await buyer.captureSettlement(settlementHeader ?? "", prepared);
-      capturedVerified = captured.verification.rung === "receipted";
-      assert(capturedVerified, "the buyer must verify the settlement receipt");
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const produced = attempt === 0 ? receipt : await buildSignedReceipt(sequencer, {
+          ...facts, from: fixedBytes(0xcd),
+        });
+        receipts.set(produced.txHash, produced);
+        const idempotencyKey = attempt === 0 ? "service-happy" : "service-happy-second";
+        const readsBefore = observations.receiptReads;
+        const offerResponse = await fetch(base, { method: "GET", headers: { accept: "application/json" } });
+        const header = offerResponse.headers.get("PAYMENT-REQUIRED") ?? "";
+        await offerResponse.text();
+        const parsed = buyer.parseOffer(header);
+        const payload = buyerPayload({ requirements: parsed.accepted, paymentRequired: parsed.required }, produced, idempotencyKey);
+        const paid = await fetch(base, {
+          method: "GET",
+          headers: { accept: "application/json", "PAYMENT-SIGNATURE": encodePaymentPayloadHeader(payload) },
+        });
+        const body = await paid.text();
+        assert(paid.status === 200, `expected the resource to be released, received ${paid.status}: ${body}`);
+        assert(body === resourceBody, "the released body must match the protected resource");
+        const settlementHeader = paid.headers.get("PAYMENT-RESPONSE");
+        assert(settlementHeader !== null, "a released resource must carry a PAYMENT-RESPONSE settlement");
+        const prepared = await preparedPayment(parsed, produced, receiptKeys, idempotencyKey);
+        const captured = await captureServiceSettlement(buyer, settlementHeader ?? "", prepared);
+        capturedVerified = captured.verification.rung === "receipted";
+        assert(capturedVerified, "the buyer must verify the settlement receipt");
+        assert(captured.verification.txHash === produced.txHash, "the buyer must observe this producer transaction");
+        assert(captured.response.extensions.layerx.signedReceipt === produced.signedReceipt, "the settlement must contain this producer receipt");
+        assert(observations.receiptReads > readsBefore, "each new payment must resolve its receipt over RPC");
+        observations.payments.push({
+          txHash: produced.txHash, receiptDigest: produced.receiptDigest,
+          observedTransaction: captured.response.transaction,
+          observedReceipt: captured.response.extensions.layerx.signedReceipt,
+          signedReceipt: produced.signedReceipt, resource: body, status: paid.status,
+          receiptReads: observations.receiptReads - readsBefore,
+        });
+      }
     });
 
     await suite.check("service: a tampered payment cannot unlock the resource", async () => {
@@ -171,9 +202,42 @@ export async function runServiceScenarios(suite) {
       });
       await response.text();
       assert(response.status !== 200, "a tampered payment must never release the resource");
+
+      const validPayload = buyerPayload({ requirements: parsed.accepted, paymentRequired: parsed.required }, receipt, "service-malformed-rpc");
+      const readsBefore = observations.receiptReads;
+      malformedRpcReceipt = true;
+      try {
+        const malformed = await fetch(base, {
+          headers: { "PAYMENT-SIGNATURE": encodePaymentPayloadHeader(validPayload) },
+        });
+        const refusal = await malformed.json();
+        const settlement = decodeSettlementHeader(malformed.headers.get("PAYMENT-RESPONSE") ?? "");
+        assert(malformed.status === 402, "a truncated producer RPC receipt must be refused by the consumer");
+        assert(refusal.state === "refused" && !settlement.success
+          && settlement.errorReason === "sequencer_receipt_verification_failed", "the consumer must refuse at receipt decoding and verification");
+        assert(observations.receiptReads > readsBefore, "malformed evidence must reach the consumer over RPC");
+        observations.malformed = { status: malformed.status, ...refusal, detail: settlement.errorReason };
+      } finally {
+        malformedRpcReceipt = false;
+      }
     });
 
     await suite.check("service: replaying the same payment is idempotent", async () => {
+      const fulfillmentDirectory = join(workDir, config.application, "fulfillments");
+      const records = await Promise.all((await readdir(fulfillmentDirectory)).map(async (name) => {
+        const path = join(fulfillmentDirectory, name);
+        const bytes = await readFile(path, "utf8");
+        return { path, bytes, stored: JSON.parse(bytes) };
+      }));
+      assert(records.length === 2, "both independently verified payments must have durable fulfillment records");
+      const original = records.find((record) => record.stored.txHash === receipt.txHash);
+      assert(original !== undefined, "the original producer transaction must have a durable fulfillment record");
+      const { path: fulfillmentPath, bytes: storedBefore, stored } = original;
+      assert(stored.signedReceipt === receipt.signedReceipt && stored.txHash === receipt.txHash, "the durable record must contain the producer receipt before restart");
+      await stopExample(child);
+      child = spawn(process.execPath, [EXAMPLE_ENTRY, "--environment", "emulator"], { env: environment, stdio: ["ignore", "pipe", "pipe"] });
+      await waitForListening(child, 15_000);
+      observations.restarted = true;
       const offerResponse = await fetch(base, { method: "GET", headers: { accept: "application/json" } });
       const header = offerResponse.headers.get("PAYMENT-REQUIRED") ?? "";
       await offerResponse.text();
@@ -186,18 +250,26 @@ export async function runServiceScenarios(suite) {
       const secondBody = await second.text();
       assert(first.status === 200 && second.status === 200, "both replays must release the resource");
       assert(firstBody === secondBody, "a replayed payment must return the same resource");
+      assert(firstBody === resourceBody, "reopening must preserve the original resource");
+      assert(await readFile(fulfillmentPath, "utf8") === storedBefore, "reopening and replay must preserve the stored receipt");
+      const prepared = await preparedPayment(parsed, receipt, receiptKeys);
+      for (const response of [first, second]) {
+        const captured = await captureServiceSettlement(buyer, response.headers.get("PAYMENT-RESPONSE") ?? "", prepared);
+        assert(captured.signedReceipt === receipt.signedReceipt, "reopened fulfillment must return the original verifiable receipt");
+      }
+      observations.replay = { resource: firstBody, signedReceipt: stored.signedReceipt, txHash: stored.txHash };
       assert(capturedVerified, "the earlier settlement capture must have verified");
     });
   } finally {
     if (child !== undefined) {
-      child.kill("SIGKILL");
+      await stopExample(child);
     }
     await rpc.close();
     await rm(workDir, { recursive: true, force: true });
   }
   await runMerchantServiceScenarios(suite, sequencer, facts, receipt, receiptKeys);
   await runAgentServiceScenarios(suite, receipt, receiptKeys, amount, asset, payTo);
-  return { config, receiptKeysEnvironment: environment.LAYERX_RECEIPT_KEYS_JSON, receiptKey: sequencer.receiptKey() };
+  return { config, receiptKeysEnvironment: environment.LAYERX_RECEIPT_KEYS_JSON, receiptKey: sequencer.receiptKey(), observations };
 }
 
 async function runMerchantServiceScenarios(suite, sequencer, facts, receipt, receiptKeys) {
@@ -449,11 +521,7 @@ async function runAgentServiceScenarios(suite, receipt, receiptKeys, amount, ass
       if (reference === "receipt:pending") return jsonReply(202, { state: "pending" });
       assert(reference === "receipt:conformance" || reference === receipt.receiptDigest.slice(2),
         "the resolver must request the generated receipt reference or digest");
-      return jsonReply(200, { ...receipt, receiptKey: {
-        ...receipt.receiptKey,
-        firstHeight: BigInt(receipt.receiptKey.firstHeight).toString(),
-        lastHeight: BigInt(receipt.receiptKey.lastHeight).toString(),
-      } });
+      return jsonReply(200, receipt);
     }
     if (path === "/budget") {
       const run = budgetQueue.then(() => budgetCall(budgetPath, object(body)));
@@ -957,13 +1025,13 @@ function lastJsonLine(output) {
   return object(JSON.parse(last));
 }
 
-async function preparedPayment(parsed, receipt, receiptKeys) {
+async function preparedPayment(parsed, receipt, receiptKeys, idempotencyKey = "service-happy") {
   const verification = await verifyPaymentReceipt(
     receipt,
     parsed.accepted,
     receiptKeys,
   );
-  const payload = buyerPayload({ requirements: parsed.accepted, paymentRequired: parsed.required }, receipt, "service-happy");
+  const payload = buyerPayload({ requirements: parsed.accepted, paymentRequired: parsed.required }, receipt, idempotencyKey);
   return {
     offer: parsed,
     quote: {
@@ -988,11 +1056,20 @@ async function preparedPayment(parsed, receipt, receiptKeys) {
     },
     payload,
     paymentHeader: encodePaymentPayloadHeader(payload),
-    idempotencyKey: "service-happy",
+    idempotencyKey,
     ...receipt,
     verification,
     receiptDigest: receipt.receiptDigest,
   };
+}
+
+async function stopExample(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  await new Promise((resolve, reject) => {
+    child.once("close", resolve);
+    child.once("error", reject);
+    child.kill("SIGKILL");
+  });
 }
 
 function waitForListening(child, timeoutMs) {
@@ -1029,4 +1106,11 @@ function waitForListening(child, timeoutMs) {
     child.on("exit", (code) => finish(new Error(`paid-api example exited early with code ${code ?? "unknown"}`)));
     child.on("error", (error) => finish(error instanceof Error ? error : new Error(String(error))));
   });
+}
+
+export async function captureServiceSettlement(buyer, header, payment) {
+  const captured = await buyer.captureSettlement(header, payment);
+  assert(captured.verification.rung === payment.verification.rung, "settlement must preserve the prepared verification rung");
+  assert(captured.txHash === payment.txHash, "settlement must bind the prepared transaction");
+  return captured;
 }

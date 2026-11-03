@@ -101,3 +101,50 @@ def test_not_ready_status_refuses_unknown_fields(status: dict[str, object]) -> N
 ])
 def test_not_ready_status_refuses_malformed_shapes(status: object) -> None:
     assert not _valid_verification_status(status)
+
+
+@pytest.mark.parametrize("rung", ["submitted", "receipted", "committed"])
+def test_agent_envelope_accepts_achieved_rung(rung: str) -> None:
+    envelope = json.loads((_GOLDENS / "agent-http-success.json").read_bytes())
+    envelope["verification_status"]["rung"] = rung
+
+    response = _envelope_reply(200, "application/json", json.dumps(envelope).encode(), "7", False)
+
+    assert response.verification_status == {"state": "achieved", "rung": rung}
+    assert response.value == envelope["value"]
+
+
+@pytest.mark.parametrize("keep_rung", [False, True])
+def test_agent_envelope_refuses_old_level_key(keep_rung: bool) -> None:
+    envelope = json.loads((_GOLDENS / "agent-http-success.json").read_bytes())
+    status = envelope["verification_status"]
+    status["level"] = status["rung"]
+    if not keep_rung:
+        del status["rung"]
+
+    with pytest.raises(PlatformSdkError) as raised:
+        _envelope_reply(200, "application/json", json.dumps(envelope).encode(), "7", False)
+
+    assert raised.value.code is SdkErrorCode.VERIFICATION_FAILURE
+    assert raised.value.request_id == "7"
+    assert raised.value.retry == "never"
+
+
+@pytest.mark.parametrize("achieved, accepted", [
+    ("submitted", True),
+    ("receipted", False),
+    ("committed", False),
+])
+def test_unverified_status_requires_achieved_below_requested(achieved: str, accepted: bool) -> None:
+    assert _valid_verification_status({
+        "state": "unverified", "requested": "receipted", "achieved": achieved,
+        "reason": "receipt_pending",
+    }) is accepted
+
+
+@pytest.mark.parametrize("rung", [
+    "Unverified", "SequencerSigned", "BatchIncluded", "StateProven",
+    "CheckpointFinalised", "SettlementAnchored", "unknown", None, [],
+])
+def test_achieved_status_refuses_old_or_unknown_rungs(rung: object) -> None:
+    assert not _valid_verification_status({"state": "achieved", "rung": rung})

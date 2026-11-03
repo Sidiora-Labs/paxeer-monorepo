@@ -236,6 +236,7 @@ struct ModuleDeclaration {
 }
 
 pub fn load() -> Result<Config, String> {
+    validate_listener_mode()?;
     let (sequencer_url, private_network) = sequencer_url()?;
     let manifest_path = env::var("LAYERX_INTEROP_CONFIG")
         .map_err(|_| "LAYERX_INTEROP_CONFIG is required".to_owned())?;
@@ -971,21 +972,31 @@ fn valid_transport_version(value: &str) -> bool {
 const LISTENER_CERTIFICATE_VARIABLES: [&str; 2] =
     ["LAYERX_INTEROP_TLS_CERT_DER", "LAYERX_INTEROP_TLS_KEY_DER"];
 
+fn validate_listener_mode() -> Result<(), String> {
+    match env::var("LAYERX_INTEROP_LISTENER") {
+        Err(env::VarError::NotPresent) => Ok(()),
+        Ok(mode) if mode == "tls" => Ok(()),
+        Ok(mode) if mode == "plain" => LISTENER_CERTIFICATE_VARIABLES
+            .iter()
+            .find(|variable| env::var_os(variable).is_some())
+            .map_or(Ok(()), |variable| {
+                Err(format!(
+                    "{variable} is set with LAYERX_INTEROP_LISTENER plain"
+                ))
+            }),
+        _ => Err("LAYERX_INTEROP_LISTENER must be tls or plain".to_owned()),
+    }
+}
+
 fn listener_config() -> Result<Listener, String> {
+    validate_listener_mode()?;
     rustls::crypto::ring::default_provider()
         .install_default()
         .map_err(|_| "failed to install TLS crypto provider".to_owned())?;
     match env::var("LAYERX_INTEROP_LISTENER") {
         Err(env::VarError::NotPresent) => tls_config().map(Listener::Tls),
         Ok(mode) if mode == "tls" => tls_config().map(Listener::Tls),
-        Ok(mode) if mode == "plain" => LISTENER_CERTIFICATE_VARIABLES
-            .iter()
-            .find(|variable| env::var_os(variable).is_some())
-            .map_or(Ok(Listener::Plain), |variable| {
-                Err(format!(
-                    "{variable} is set with LAYERX_INTEROP_LISTENER plain"
-                ))
-            }),
+        Ok(mode) if mode == "plain" => Ok(Listener::Plain),
         _ => Err("LAYERX_INTEROP_LISTENER must be tls or plain".to_owned()),
     }
 }

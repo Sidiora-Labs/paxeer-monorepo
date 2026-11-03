@@ -28,6 +28,7 @@ type EscrowRecord struct {
 	AgreementReference [32]byte
 }
 
+// DecodeEscrowRecord decodes the fixed-width hold record emitted by the escrow kernel.
 func DecodeEscrowRecord(data []byte) (EscrowRecord, error) {
 	if len(data) != EscrowRecordBytes {
 		return EscrowRecord{}, errBudgetNonCanonical
@@ -70,6 +71,8 @@ type EscrowResult struct {
 	ContextDigest   [32]byte
 }
 
+// DecodeEscrowResult decodes a legacy or context-bound kernel economic result.
+// Both wire versions return owned values and reject trailing or truncated data.
 func DecodeEscrowResult(data []byte) (EscrowResult, error) {
 	if len(data) != EscrowResultBytes && len(data) != EscrowResultV2Bytes {
 		return EscrowResult{}, errBudgetNonCanonical

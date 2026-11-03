@@ -92,6 +92,37 @@ impl DeploymentJournal for CanonicalJournal {
 }
 
 #[test]
+fn registry_consumes_runtime_produced_deployment_and_refuses_duplicate() {
+    let (runtime, expected, fixture) = support::produced_deployment(
+        PROTOCOL_WASM_V1,
+        UpgradePolicy::Authority(AUTHORITY),
+        70,
+        NOW - 100,
+    );
+    let verifier = verifier_for_fixture(&fixture, 1_000);
+    let evidence = verifier
+        .verify_deployment(&fixture.proof, NOW)
+        .expect("verified producer");
+    assert_eq!(evidence.record(), &expected);
+    drop(runtime);
+    let mut registry = Registry::new();
+    registry
+        .record_verified_deployment(&evidence)
+        .expect("consumer admission");
+    assert_eq!(
+        registry.record_verified_deployment(&evidence),
+        Err(RegistryError::VersionHistoryMismatch)
+    );
+    assert_eq!(
+        registry
+            .resolve_deployment(evidence)
+            .expect("consumer resolution")
+            .module(),
+        PROTOCOL_WASM_V1
+    );
+}
+
+#[test]
 fn registry_resolves_historical_and_latest_code_only_from_protocol_evidence() {
     let program = fixture_program();
     let policy = UpgradePolicy::Authority(AUTHORITY);
@@ -108,9 +139,15 @@ fn registry_resolves_historical_and_latest_code_only_from_protocol_evidence() {
     registry
         .record_verified_deployment(&first)
         .unwrap_or_else(|error| panic!("verified deploy: {error}"));
+    assert_eq!(
+        registry.record_verified_deployment(&second),
+        Err(RegistryError::VersionHistoryMismatch)
+    );
+    assert_eq!(registry.latest_version(program), Ok(1));
     registry
-        .record_verified_deployment(&second)
+        .record_verified_upgrade(&first, &second)
         .unwrap_or_else(|error| panic!("verified upgrade: {error}"));
+    assert_eq!(registry.latest_version(program), Ok(2));
     let historical = registry
         .resolve_deployment(first.clone())
         .unwrap_or_else(|error| panic!("historical deployment: {error}"));
@@ -129,12 +166,38 @@ fn registry_resolves_historical_and_latest_code_only_from_protocol_evidence() {
     assert_eq!(latest.code_hash(), fixture_code_hash(PROTOCOL_WASM_V2));
     assert_eq!(latest.receipt_digest(), second.receipt_digest());
     assert_eq!(latest.module(), PROTOCOL_WASM_V2);
+    let mut alternate_entries = first
+        .interface()
+        .expect("deployed interface")
+        .entries()
+        .to_vec();
+    alternate_entries[0].calldata =
+        layerx_programs::ValueSchema::layerx(layerx_programs::ValueType::Bytes { max_len: 128 });
+    let alternate_interface =
+        ProgramInterface::bind(PROTOCOL_WASM_V1, ABI_V1_VERSION, alternate_entries)
+            .expect("alternate interface");
     let alternate = verifier
         .verify_deployment(
-            &deploy_fixture(PROTOCOL_WASM_V1, policy, 73, NOW - 500).proof,
+            &support::deploy_fixture_with_interface(
+                PROTOCOL_WASM_V1,
+                policy,
+                73,
+                NOW - 500,
+                &alternate_interface,
+            )
+            .proof,
             NOW,
         )
         .unwrap_or_else(|error| panic!("alternate receipt evidence: {error}"));
+    assert_eq!(alternate.program(), first.program());
+    assert_eq!(alternate.version(), first.version());
+    assert_eq!(alternate.code_hash(), first.code_hash());
+    assert_eq!(alternate.abi_version(), first.abi_version());
+    assert_eq!(
+        alternate.record().upgrade_policy,
+        first.record().upgrade_policy
+    );
+    assert_ne!(alternate.receipt_digest(), first.receipt_digest());
     assert_eq!(
         registry.resolve_deployment(alternate),
         Err(RegistryError::UnverifiedRead)

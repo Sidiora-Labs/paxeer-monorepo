@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	clientconfig "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/flags"
@@ -112,6 +111,10 @@ For validator or seed nodes, pass --mode validator or --mode seed so RPC and P2P
 			params.SetTendermintConfigByMode(tmConfig)
 			tmConfig.SetRoot(clientCtx.HomeDir)
 			configPath := filepath.Join(tmConfig.RootDir, "config")
+			overwrite, _ := cmd.Flags().GetBool(FlagOverwrite)
+			if err := checkConfigOverwrite(configPath, overwrite); err != nil {
+				return err
+			}
 
 			chainID, _ := cmd.Flags().GetString(flags.FlagChainID)
 			if chainID == "" {
@@ -141,7 +144,6 @@ For validator or seed nodes, pass --mode validator or --mode seed so RPC and P2P
 			tmConfig.Moniker = args[0]
 
 			genFile := tmConfig.GenesisFile()
-			overwrite, _ := cmd.Flags().GetBool(FlagOverwrite)
 			genDoc, err := loadOrWriteGenesis(genFile, chainID, overwrite, mbm, cdc)
 			if err != nil {
 				return err
@@ -157,10 +159,6 @@ For validator or seed nodes, pass --mode validator or --mode seed so RPC and P2P
 
 			toPrint := newPrintInfo(tmConfig.Moniker, chainID, nodeID, "", genDoc.AppState)
 
-			if err := checkConfigOverwrite(configPath, overwrite); err != nil {
-				return err
-			}
-
 			// Write Tendermint config.toml
 			err = tmcfg.WriteConfigFile(tmConfig.RootDir, tmConfig)
 			if err != nil {
@@ -168,19 +166,9 @@ For validator or seed nodes, pass --mode validator or --mode seed so RPC and P2P
 			}
 
 			// Create and configure app config (outputs to app.toml)
-			appConfig := srvconfig.DefaultConfig()
-			params.SetAppConfigByMode(appConfig, nodeMode)
-
-			// Configure EVM based on node mode
-			evmConfig := evmrpcconfig.DefaultConfig
-			params.SetEVMConfigByMode(&evmConfig, nodeMode)
-
-			// Get custom template from root.go
-			customAppTemplate, _ := initAppConfig()
+			customAppConfig := NewAppConfigForMode(srvconfig.DefaultConfig(), nodeMode)
+			customAppTemplate, _ := InitAppConfig()
 			srvconfig.SetConfigTemplate(customAppTemplate)
-
-			// Build custom app config with mode-specific values
-			customAppConfig := NewCustomAppConfig(appConfig, evmConfig)
 
 			appTomlPath := filepath.Join(configPath, "app.toml")
 			srvconfig.WriteConfigFile(appTomlPath, customAppConfig)

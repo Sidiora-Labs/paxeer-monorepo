@@ -1,0 +1,124 @@
+[disposition.18.849.1.5]
+finding = "18.849.1.5"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:196531 declares an empty symbols list for 18.849.1, removing the Dockerfile stage from graph qualification while docker/layerx/Dockerfile:9 retains the native stage delivered by 346848747."
+
+[disposition.18.865.1.1]
+finding = "18.865.1.1"
+status = "resolved"
+evidence = "46580130d split the 18.865.1 verification into separate mix-in-builder invocations for the indexer and block_scout_web apps, as retained at spec/layerx-merge/spec.kvx:198965, avoiding their shared-invocation database ownership conflict."
+
+[disposition.18.865.1.2]
+finding = "18.865.1.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:198960 now names the bare block_update_hashes symbol declared at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex:173 by 6aeb55b6a, removing the qualified-name graph mismatch."
+
+[disposition.18.869.1.1]
+finding = "18.869.1.1"
+status = "environment"
+evidence = "docker/layerx/Dockerfile:21, retained by 346848747, uses a BuildKit cache mount and docker/paxeer/Dockerfile.paxd-node:14 uses the same supported syntax, so the reported legacy-builder rejection came from the qualification host lacking buildx."
+
+[disposition.18.869.1.2]
+finding = "18.869.1.2"
+status = "resolved"
+evidence = "5f14e74e2 restored checksum-listed vendor fixtures after the secret exclusions, including pkcs8-v2.der and pubkey.der at docker/paxeer/Dockerfile.paxd-node.dockerignore:94 and docker/layerx/Dockerfile.dockerignore:187."
+
+[disposition.18.869.1.3]
+finding = "18.869.1.3"
+status = "resolved"
+evidence = "Both ledger entries sharing this finding ID are repaired: 99b6f9e97 replaced the libwasmvm download with context copies at docker/layerx/Dockerfile:41, and cf19fa71c supplied the missing golang.org/x/net go.mod checksum retained at go.sum:2248."
+
+[disposition.18.869.1.4]
+finding = "18.869.1.4"
+status = "resolved"
+evidence = "346848747 re-included tests/testutil/sample in the layerx build context and 959547ba3 added the explicit sample.go exception retained at docker/layerx/Dockerfile.dockerignore:49, supplying the import at modules/epoch/module_simulation.go:15."
+
+[disposition.18.870.1.1]
+finding = "18.870.1.1"
+status = "environment"
+evidence = "apps/explorer/package.json:21 provides chakra:typegen and apps/explorer/package.json:43 runs it after installation, while spec/layerx-merge/spec.kvx:217973 regenerates those dependency-local recipe types before type-checking, addressing the qualification installation state."
+
+[disposition.18.875.1.1]
+finding = "18.875.1.1"
+status = "resolved"
+evidence = "2b40cbcc7 leaves the migration parameter explicitly text before its server-side name cast at services/explorer/backend/apps/explorer/priv/repo/migrations/20261022000002_tune_paxeer_x_price_feed_tables.exs:50 and uses to_regclass($1) in services/explorer/backend/apps/explorer/test/explorer/repo/tune_paxeer_x_price_feed_tables_test.exs:37, avoiding a name-encoded long identifier parameter."
+
+[disposition.18.875.1.2]
+finding = "18.875.1.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:196575 names the bare up and tune_price_feed_migration_reruns_after_partial_failure symbols declared at services/explorer/backend/apps/explorer/priv/repo/migrations/20261022000002_tune_paxeer_x_price_feed_tables.exs:39 and services/explorer/backend/apps/explorer/test/explorer/repo/tune_paxeer_x_price_feed_tables_test.exs:17."
+
+[disposition.18.877.1.1]
+finding = "18.877.1.1"
+status = "resolved"
+evidence = "46580130d replaced the three PriceFeed-qualified graph symbols with their bare names, retained at spec/layerx-merge/spec.kvx:197821 and declared in services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex:346, price_feed.ex:412 and price_feed.ex:434."
+
+[disposition.18.880.1.1]
+finding = "18.880.1.1"
+status = "resolved"
+evidence = "0d81e82e9 changed template.pop to supply None when the optional note is absent, as retained at tools/bringup/search-front.sh:245, so the note-free x-websearch example no longer raises KeyError."
+
+[disposition.18.883.1.1]
+finding = "18.883.1.1"
+status = "resolved"
+evidence = "669bf8778 refreshed the embedded xweb ABI with XWebProgramRequested, whose entry at services/wallet/attestor/internal/policy/evm/abi/xweb.json:15 matches precompiles/xweb/abi.json:15."
+
+[disposition.18.896.1.1]
+finding = "18.896.1.1"
+status = "resolved"
+evidence = "7803f0470 added index: 0 to the MarketUpdate history fixture at apps/explorer/ui/pages/PaxeerXFeedMarketLive.spec.tsx:25, satisfying the newly required update-index field."
+
+[disposition.18.899.1.1]
+finding = "18.899.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:219330 and spec/layerx-merge/spec.kvx:219331 now invoke yarn for the build and regression gate, matching the yarn packageManager pin at apps/explorer/package.json:221."
+
+[disposition.18.911.1.1]
+finding = "18.911.1.1"
+status = "environment"
+evidence = "tools/qualification/paxeer-x/program_market_attestation.py:152 intentionally requires the caller-supplied builder identity and rechecks it at program_market_attestation.py:186, while spec/layerx-merge/spec.kvx:200087 exports that identity for the qualification commands."
+
+[disposition.18.911.1.2]
+finding = "18.911.1.2"
+status = "environment"
+evidence = "tools/qualification/paxeer-x/program_market_attestation.py:120 rejects dirty or untracked inputs anywhere in SOURCE_PATHS, including tests/programs, so the reported uncommitted qualification candidate violated the existing clean-source provenance requirement."
+
+[disposition.18.911.1.3]
+finding = "18.911.1.3"
+status = "environment"
+evidence = "tools/qualification/paxeer-x/program_market_attestation.py:120 still requires a clean source closure and program_market_attestation.py:125 records HEAD identity, making the uncommitted tests/programs/test_market_attestation.c edit a candidate-preparation condition rather than a repository defect."
+
+[disposition.18.911.1.4]
+finding = "18.911.1.4"
+status = "resolved"
+evidence = "c921eba00 made --cppflags default to -Iinclude at tools/qualification/paxeer-x/program_market_attestation.py:371 and routed the native compile through native_command at program_market_attestation.py:173, supplying the layerx header search path."
+
+[disposition.18.911.1.5]
+finding = "18.911.1.5"
+status = "environment"
+evidence = "tools/qualification/paxeer-x/program_market_attestation.py:257 intentionally requires caller-owned private evidence storage outside the checkout, and spec/layerx-merge/spec.kvx:200088 now supplies a mktemp directory to the qualification invocation."
+
+[disposition.18.911.1.6]
+finding = "18.911.1.6"
+status = "resolved"
+evidence = "b1026f526 added line-buffered native stdout at tests/programs/test_market_attestation.c:1449 and fixture diagnostics at test_market_attestation.c:490, while spec/layerx-merge/spec.kvx:200088 surfaces native.log on failure instead of leaving an unexplained empty case inventory."
+
+[disposition.18.911.1.7]
+finding = "18.911.1.7"
+status = "resolved"
+evidence = "b1026f526 changed models 1 and 2 to assert guest -2 registration refusals at tests/programs/test_market_attestation.c:599 and moved admission_cases onto a model 3 lease at test_market_attestation.c:1428, matching the FraudProvable-only register rule at programs/crates/layerx-programs-market/src/lib.rs:308."
+
+[disposition.18.911.1.8]
+finding = "18.911.1.8"
+status = "resolved"
+evidence = "b1026f526 repaired the fixture with ABI-v5 module registration at tests/programs/test_market_attestation.c:202, canonical account-profile initialization at test_market_attestation.c:511 and model 1 and 2 refusal assertions at test_market_attestation.c:599."
+
+[disposition.18.911.1.9]
+finding = "18.911.1.9"
+status = "resolved"
+evidence = "0a00662b0 added canonical market billing settlement coverage at programs/crates/layerx-programs-runtime/src/ffi_call.rs:4394, and b1026f526 fixed the native fixture batch sequencing at tests/programs/test_market_attestation.c:497 before its live and restored billing commits."
+
+[disposition.18.911.1.10]
+finding = "18.911.1.10"
+status = "resolved"
+evidence = "b1026f526 implemented advance_batch at tests/programs/test_market_attestation.c:497 to finalize occupancy and refresh the state root before advancing height, using it for live billing at test_market_attestation.c:1214, restored billing at test_market_attestation.c:1349 and expiry at test_market_attestation.c:1113."

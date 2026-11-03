@@ -28,6 +28,7 @@ import {
 import { defineChain, type Address } from 'viem';
 
 import { bridgeConfig } from './config';
+import { isSolanaAddress } from './solana';
 
 export const PAXEER_CHAIN_ID = 125;
 
@@ -225,7 +226,8 @@ export function buildBridgeChains(config: typeof bridgeConfig): BridgeChain[] {
       finalityDepth: 32,
       blockSeconds: 0.4,
       nativeSymbol: 'SOL',
-      state: config.solanaProgramId && config.attestationApiUrl ? 'configured' : 'awaiting-backend',
+      state: config.solanaProgramId && isSolanaAddress(config.solanaProgramId) && config.attestationApiUrl ?
+        'configured' : 'awaiting-backend',
       assets: [
         {
           key: 'sol',
@@ -252,7 +254,13 @@ export function buildBridgeChains(config: typeof bridgeConfig): BridgeChain[] {
   ];
 }
 
-export const BRIDGE_CHAINS = buildBridgeChains(bridgeConfig);
+export const BRIDGE_CHAINS: BridgeChain[] = buildBridgeChains(bridgeConfig);
+
+/** Wallet networks include only EVM routes with a chain definition. */
+export function walletBridgeChains(chains: readonly BridgeChain[] = BRIDGE_CHAINS) {
+  return chains.filter((chain): chain is BridgeChain & { viemChain: Chain } =>
+    chain.kind === 'evm' && chain.viemChain !== undefined);
+}
 
 export const PAXEER_ROUTE_KEY = 'paxeer';
 

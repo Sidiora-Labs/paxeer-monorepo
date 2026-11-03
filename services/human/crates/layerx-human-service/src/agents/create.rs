@@ -3,6 +3,8 @@
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 
+use layerx_crypto::disclosure::Disclosure;
+use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_intents::{
     compile, BudgetCreate, BudgetFund, CompileError, DidRegistration, DisclosureCheck,
     DisclosureCheckError, Intent, IntentError, IntentKind, RecoveryRegistration,
@@ -476,6 +478,47 @@ pub struct ProtocolEvidence {
     pub rung: Rung,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BoundLifecycleCall {
+    pub call: Eip1559Call,
+    pub sender: [u8; 20],
+    pub disclosure: Disclosure,
+    payload: Vec<u8>,
+    protocol_version: u16,
+}
+
+impl BoundLifecycleCall {
+    #[must_use]
+    pub fn payload(&self) -> &[u8] {
+        &self.payload
+    }
+
+    #[must_use]
+    pub const fn fee_limit(&self) -> u128 {
+        self.disclosure.fee_limit
+    }
+
+    #[must_use]
+    pub const fn protocol_version(&self) -> u16 {
+        self.protocol_version
+    }
+
+    #[must_use]
+    pub const fn activity_type(&self) -> ActivityType {
+        self.disclosure.activity_type
+    }
+
+    #[must_use]
+    pub const fn idempotency_key(&self) -> [u8; 32] {
+        self.disclosure.idempotency_key
+    }
+
+    #[must_use]
+    pub const fn sender(&self) -> [u8; 20] {
+        self.sender
+    }
+}
+
 impl ProtocolEvidence {
     /// # Errors
     /// Refuses malformed lifecycle methods or budget identifiers.
@@ -508,7 +551,7 @@ impl ProtocolEvidence {
         &self,
         expected: ActivityType,
     ) -> Result<layerx_wire::receipt::Receipt, AgentFailure> {
-        let activity = self.bound_activity(expected)?;
+        let bound = self.bound_activity(expected)?;
         if self.rung != Rung::Committed {
             return Err(AgentFailure::Unavailable);
         }
@@ -524,13 +567,13 @@ impl ProtocolEvidence {
         if canonical != self.receipt_bytes
             || self.tx_hash == [0; 32]
             || protocol.activity_id() != self.tx_hash
-            || protocol.protocol_version() != activity.protocol_version()
+            || protocol.protocol_version() != 3
             || protocol.module_id() != expected.module() as u16
             || protocol.module_version() != 1
             || protocol.timestamp() == 0
-            || protocol.fee_charged() > activity.fee_limit()
+            || protocol.fee_charged() > bound.disclosure.fee_limit
             || (protocol.result_code() == 0
-                && !(activity.timestamp_bound().not_before..=activity.timestamp_bound().not_after)
+                && !(bound.disclosure.expiry.not_before..=bound.disclosure.expiry.not_after)
                     .contains(&protocol.timestamp()))
             || self.receipt_hash != hash
             || self.block_height == 0
@@ -549,13 +592,7 @@ impl ProtocolEvidence {
     pub fn bound_activity(
         &self,
         expected: ActivityType,
-    ) -> Result<layerx_wire::activity::Activity, AgentFailure> {
-        let registry = ModuleRegistry::new(&[layerx_types::payload::ModuleRegistration::new(
-            expected.module(),
-            &[expected],
-        )
-        .map_err(|_| AgentFailure::Refused("invalid expected lifecycle operation"))?])
-        .map_err(|_| AgentFailure::Refused("invalid lifecycle registry"))?;
+    ) -> Result<BoundLifecycleCall, AgentFailure> {
         let (call, signature) =
             layerx_crypto::evm_transaction::decode_signed(&self.signed_activity)
                 .map_err(|_| AgentFailure::Refused("invalid signed lifecycle transaction"))?;
@@ -660,6 +697,11 @@ impl ProtocolEvidence {
                 payload,
                 layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
             ),
+            Some(layerx_crypto::disclosure::call::ConstructMethod::ProgramCall { .. }) => {
+                return Err(AgentFailure::Refused(
+                    "invalid lifecycle transaction method",
+                ))
+            }
             Some(
                 layerx_crypto::disclosure::call::ConstructMethod::LedgerOpenAccount { .. }
                 | layerx_crypto::disclosure::call::ConstructMethod::LedgerRegister { .. }
@@ -682,68 +724,13 @@ impl ProtocolEvidence {
                 ))
             }
         };
-        let payload = layerx_types::payload::Payload::new(&registry, expected, &payload)
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        let mut builder = layerx_types::activity::EnvelopeBuilder::new();
-        builder
-            .protocol_version(protocol_version)
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        builder
-            .network_id(self.network_id)
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        builder
-            .activity_type(expected)
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        builder
-            .actor_did(
-                Did::new(&disclosure.actor).map_err(|_| {
-                    AgentFailure::Refused("invalid lifecycle transaction projection")
-                })?,
-            )
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        builder
-            .authority(
-                layerx_types::activity::Authority::owner(&authority).map_err(|_| {
-                    AgentFailure::Refused("invalid lifecycle transaction projection")
-                })?,
-            )
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        builder
-            .account_sequence(call.nonce)
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        builder
-            .timestamp_bound(
-                layerx_types::activity::TimestampBound::new(
-                    disclosure.expiry.not_before,
-                    disclosure.expiry.not_after,
-                )
-                .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?,
-            )
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        builder
-            .idempotency_key(IdempotencyKey::new(disclosure.idempotency_key))
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        builder
-            .fee_limit(Amount::from_u128(disclosure.fee_limit))
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        builder
-            .payload_hash(
-                layerx_wire::hash::payload_hash_for(&payload).map_err(|_| {
-                    AgentFailure::Refused("invalid lifecycle transaction projection")
-                })?,
-            )
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        builder
-            .payload(payload)
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        let envelope = builder
-            .build()
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        let bytes = layerx_wire::activity::encode_unsigned_envelope(&envelope)
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        let activity = layerx_wire::activity::decode_unsigned(&bytes, &registry)
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
-        Ok(activity)
+        Ok(BoundLifecycleCall {
+            call,
+            sender,
+            disclosure,
+            payload,
+            protocol_version,
+        })
     }
 }
 
@@ -1334,7 +1321,7 @@ impl CreationJourney {
         let evidence = agent.submit_protocol_scoped(scope, action)?;
         if evidence.action_key != action_key
             || evidence.network_id != self.record.network_id
-            || evidence.bound_activity(kind)?.payload() != payload
+            || evidence.bound_activity(kind)?.call.data != payload
         {
             return Err(AgentCreationError::EvidenceConflict);
         }
@@ -1570,7 +1557,7 @@ impl CreationJourney {
             | CreationStage::InitialFunding => return Err(AgentCreationError::InvalidStage),
         };
         let compiled = compile(&intent, registry)?;
-        let disclosure = DisclosureCheck::verify(&intent, &compiled)?;
+        let disclosure = compiled.verify_disclosure(&intent)?;
         Ok(ProtocolAction {
             actor: None,
             stage,

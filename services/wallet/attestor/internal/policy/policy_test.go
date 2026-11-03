@@ -5,7 +5,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
+	"flag"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -1925,4 +1927,244 @@ func TestShippedPolicyCountsPerpsPulls(t *testing.T) {
 		})
 	}
 
+}
+
+var xwebProofCalldata = flag.String("xweb-proof-calldata", "", "fulfilment emitted by the in-process application proof")
+
+// TestXweb0x1019ApplicationPolicy consumes the exact fulfilment calldata the
+// application proof sent through the Solidity consumer to the precompile.
+func TestXweb0x1019ApplicationPolicy(t *testing.T) {
+	data := common.FromHex(*xwebProofCalldata)
+	if len(data) < 4 {
+		t.Fatal("application proof must supply its real fulfilment calldata")
+	}
+	contract, err := evm.PrecompileABI("xweb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	method, err := contract.MethodById(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if method.Sig != "fulfilProgram(bytes)" {
+		t.Fatalf("unexpected producer call %s", method.Sig)
+	}
+	args, err := method.Inputs.Unpack(data[4:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(args) != 1 || len(args[0].([]byte)) < 146 {
+		t.Fatal("missing real observation")
+	}
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t)
+	h.policy = New(doc)
+	address, ok := evm.PrecompileAddress("xweb")
+	if !ok {
+		t.Fatal("xweb address missing")
+	}
+	for i := 0; i < 2; i++ {
+		expect(t, h.policy.Evaluate(testAccount, h.tx(t, address, big.NewInt(0), data), h.ledger), CodeSelectorNotAllowed)
+	}
+	// A wallet request is allowed while the attestor-only write remains refused.
+	request, err := contract.Pack("request", uint8(2), []byte("paxeer"), uint64(0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect(t, h.policy.Evaluate(testAccount, h.tx(t, address, big.NewInt(0), request), h.ledger), CodeAllowed)
+	if len(h.ledger.spends) != 0 {
+		t.Fatal("zero-value xweb calls recorded a spend")
+	}
+}
+
+func permit2Data(t *testing.T, primary, spender string, tokens []string, amounts ...string) *evm.TypedData {
+	t.Helper()
+	field := func(name, typ string) map[string]string { return map[string]string{"name": name, "type": typ} }
+	transfer := primary == "PermitTransferFrom" || primary == "PermitBatchTransferFrom"
+	batch := primary == "PermitBatch" || primary == "PermitBatchTransferFrom"
+	typ, key := "PermitDetails", "details"
+	fields := []any{field("token", "address"), field("amount", "uint160"), field("expiration", "uint48"), field("nonce", "uint48")}
+	if transfer {
+		typ, key = "TokenPermissions", "permitted"
+		fields = []any{field("token", "address"), field("amount", "uint256")}
+	}
+	types := map[string]any{
+		"EIP712Domain": []any{field("chainId", "uint256"), field("verifyingContract", "address")},
+		typ:            fields,
+	}
+	entries := make([]any, len(amounts))
+	for i, amount := range amounts {
+		entry := map[string]any{"token": tokens[i], "amount": amount}
+		if !transfer {
+			entry["expiration"], entry["nonce"] = "4102444800", "0"
+		}
+		entries[i] = entry
+	}
+	message := map[string]any{"spender": spender}
+	message[key] = entries[0]
+	if batch {
+		typ += "[]"
+		message[key] = entries
+	}
+	primaryFields := []any{field(key, typ), field("spender", "address")}
+	if transfer {
+		primaryFields = append(primaryFields, field("nonce", "uint256"), field("deadline", "uint256"))
+		message["nonce"], message["deadline"] = "0", "4102444800"
+	} else {
+		primaryFields = append(primaryFields, field("sigDeadline", "uint256"))
+		message["sigDeadline"] = "4102444800"
+	}
+	types[primary] = primaryFields
+	raw, err := json.Marshal(map[string]any{"types": types, "primaryType": primary, "domain": map[string]any{"chainId": 125, "verifyingContract": "0x4444444444444444444444444444444444444444"}, "message": message})
+	if err != nil {
+		t.Fatal(err)
+	}
+	typed, err := evm.DecodeTypedData(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return typed
+}
+
+func TestTypedDataPermitSingleAndBatchInspected(t *testing.T) {
+	for _, primary := range []string{"PermitSingle", "PermitBatch", "PermitTransferFrom", "PermitBatchTransferFrom"} {
+		t.Run(primary, func(t *testing.T) {
+			batch := primary == "PermitBatch" || primary == "PermitBatchTransferFrom"
+			makePermit := func(spender, amount string) *evm.TypedData {
+				t.Helper()
+				if batch {
+					return permit2Data(t, primary, spender, []string{sidiora, sidiora}, amount, "1")
+				}
+				return permit2Data(t, primary, spender, []string{sidiora}, amount)
+			}
+			h := newLaunchpadPermitHarness(t)
+			typed := makePermit(friend, "99")
+			inspection, err := inspectTypedData(Context{ChainID: chainID, Account: common.HexToAddress(testAccount)}, typed)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantEntries := 1
+			if batch {
+				wantEntries = 2
+			}
+			if len(inspection.Spends) != wantEntries {
+				t.Fatalf("inspection has %d spends, want %d", len(inspection.Spends), wantEntries)
+			}
+			for i, spend := range inspection.Spends {
+				wantAmount := int64(99)
+				if i > 0 {
+					wantAmount = 1
+				}
+				if spend.Asset != TokenAsset(common.HexToAddress(sidiora)) || spend.Amount.Cmp(big.NewInt(wantAmount)) != 0 || spend.Spender == nil || *spend.Spender != common.HexToAddress(friend) {
+					t.Fatalf("spend %d: %+v", i, spend)
+				}
+			}
+			wantAmount := int64(99)
+			if batch {
+				wantAmount = 100
+			}
+			decision := h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: typed}, h.ledger)
+			expect(t, decision, CodeAllowed)
+			if len(decision.Spends) != 1 || decision.Spends[0].Asset != TokenAsset(common.HexToAddress(sidiora)) || decision.Spends[0].Amount.Cmp(big.NewInt(wantAmount)) != 0 {
+				t.Fatalf("capped permit spends %+v, want %d", decision.Spends, wantAmount)
+			}
+			h = newLaunchpadPermitHarness(t)
+			decision = h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: makePermit(friend, "101")}, h.ledger)
+			expect(t, decision, CodeValueCap)
+			if len(decision.Spends) != 0 {
+				t.Fatalf("refused permit recorded spends %+v", decision.Spends)
+			}
+			spent, err := h.ledger.Spent(AccountKey(testAccount), TokenAsset(common.HexToAddress(sidiora)), h.now.Add(-SpendWindow))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if spent.Sign() != 0 {
+				t.Fatalf("refused permit recorded %s", spent)
+			}
+			if batch {
+				h = newLaunchpadPermitHarness(t)
+				expect(t, h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: makePermit(friend, "100")}, h.ledger), CodeValueCap)
+				h = newLaunchpadPermitHarness(t)
+				typed = permit2Data(t, primary, friend, []string{sidiora, deniedAddr}, "1", "1")
+				expect(t, h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: typed}, h.ledger), CodeDestinationDenied)
+				h = newLaunchpadPermitHarness(t)
+				typed = permit2Data(t, primary, friend, []string{sidiora, friend}, "1", "1")
+				expect(t, h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: typed}, h.ledger), CodeNoCap)
+			}
+			h = newLaunchpadPermitHarness(t)
+			expect(t, h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: makePermit(deniedAddr, "1")}, h.ledger), CodeDestinationDenied)
+			launchpad, _ := evm.PrecompileAddress("launchpad")
+			h = newLaunchpadPermitHarness(t)
+			decision = h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: makePermit(launchpad.Hex(), "99")}, h.ledger)
+			expect(t, decision, CodeAllowed)
+			if len(decision.Spends) != 1 || decision.Spends[0].Asset != TokenAsset(common.HexToAddress(sidiora)) || decision.Spends[0].Amount.Cmp(big.NewInt(wantAmount)) != 0 {
+				t.Fatalf("trusted launchpad permit bypassed the configured cap: %+v", decision.Spends)
+			}
+			doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			h = newHarness(t)
+			h.policy = New(doc)
+			decision = h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: makePermit(launchpad.Hex(), "99")}, h.ledger)
+			expect(t, decision, CodeAllowed)
+			if len(decision.Spends) != 0 {
+				t.Fatalf("trusted launchpad allowance counted again at permit: %+v", decision.Spends)
+			}
+		})
+	}
+	for _, mutation := range []string{"unknown type", "empty batch", "missing token", "missing amount", "bad token", "bad amount", "missing spender", "wrong digest", "wrong chain"} {
+		t.Run(mutation, func(t *testing.T) {
+			typed := permit2Data(t, "PermitBatch", friend, []string{sidiora}, "1")
+			detail := typed.Data.Message["details"].([]any)[0].(map[string]any)
+			switch mutation {
+			case "unknown type":
+				typed.Data.Types["Unknown"] = typed.Data.Types[typed.Data.PrimaryType]
+				typed.Data.PrimaryType = "Unknown"
+			case "empty batch":
+				typed.Data.Message["details"] = []any{}
+			case "missing token":
+				delete(detail, "token")
+			case "missing amount":
+				delete(detail, "amount")
+			case "bad token":
+				detail["token"] = "not an address"
+			case "bad amount":
+				detail["amount"] = "-1"
+			case "missing spender":
+				delete(typed.Data.Message, "spender")
+			case "wrong digest":
+				typed.Digest[0] ^= 1
+			case "wrong chain":
+				(*big.Int)(typed.Data.Domain.ChainId).SetInt64(1)
+			}
+			if mutation == "unknown type" || mutation == "empty batch" || mutation == "wrong chain" {
+				var err error
+				typed.Digest, err = evm.TypedDataDigest(typed.Data)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			h := newLaunchpadPermitHarness(t)
+			decision := h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: typed}, h.ledger)
+			if decision.Allowed || len(decision.Spends) != 0 {
+				t.Fatalf("%s admitted: %+v", mutation, decision)
+			}
+		})
+	}
+	t.Run("personal message requires key policy", func(t *testing.T) {
+		h := newHarness(t)
+		doc, err := Parse(testDocument(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		doc.Accounts[strictUser] = Rules{Kinds: []string{KindTypedData}}
+		h.policy = New(doc)
+		message := Request{Kind: KindPersonalMessage, View: evm.DecodePersonalMessage([]byte("hello"))}
+		expect(t, h.policy.Evaluate(strictUser, message, h.ledger), CodeKindNotAllowed)
+		expect(t, h.policy.Evaluate(testAccount, message, h.ledger), CodeAllowed)
+	})
 }

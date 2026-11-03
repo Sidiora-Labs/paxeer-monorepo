@@ -1522,9 +1522,6 @@ stream = \"atomic cursor chain with duplicate rejection\"\n\
 [verification]\n\
 receipt = \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceipt\"\n\
 receipt_outcome = \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceiptOutcome\"\n\
-batch_inclusion = \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyBatchInclusion\"\n\
-checkpoint = \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyCheckpoint\"\n\
-receipt_in_batch = \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceiptInBatch\"\n\
 merkle = \"com.sidiora.layerx.sdk.verify.LocalVerifier.verifyMerkleInclusion\"\n\
 \n\
 [golden]\n\
@@ -2243,8 +2240,14 @@ fn run() -> Result<(), String> {
             }
             write_rust_operation_catalog(&repo_root)
         }
-        "--write-program-contracts" => programs_contracts(&repo_root, true),
-        "--check-program-contracts" => programs_contracts(&repo_root, false),
+        "--write-program-contracts" | "--check-program-contracts" => {
+            if arguments.len() > 3 {
+                return Err(format!(
+                    "usage: layerx-platform-sdkgen {mode} [repo-root] [lock-path]"
+                ));
+            }
+            programs_contracts(&repo_root, mode == "--write-program-contracts")
+        }
         "--write" => write_lock(&repo_root, &lock_path),
         "--check" => check(&repo_root, &lock_path),
         "--check-paxai" => {
@@ -2254,7 +2257,7 @@ fn run() -> Result<(), String> {
             check_paxai_contract(&repo_root)
         }
         _ => Err(
-            "usage: layerx-platform-sdkgen [--write|--check|--check-paxai] [repo-root] [lock-path]"
+            "usage: layerx-platform-sdkgen [--write|--check|--check-paxai|--write-program-contracts|--check-program-contracts] [repo-root] [lock-path]"
                 .to_owned(),
         ),
     }
@@ -2264,5 +2267,22 @@ fn main() {
     if let Err(error) = run() {
         eprintln!("platform-sdkgen: {error}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn jvm_conformance_omits_retired_verification_entries() -> Result<(), String> {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+        let text = generate_jvm_conformance(&repo_root)?;
+
+        assert!(text.contains("[verification]"));
+        for key in ["batch_inclusion", "checkpoint", "receipt_in_batch"] {
+            assert!(!text.contains(key), "retired verification key: {key}");
+        }
+        Ok(())
     }
 }

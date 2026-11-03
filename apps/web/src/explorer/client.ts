@@ -1,6 +1,6 @@
 import "server-only";
 
-import { explorerLinkPath, parseExplorerBaseUrl, type ExplorerLinkTarget } from "./links";
+import { explorerLinkPath, parseExplorerBaseUrl, type ExplorerLinkTarget } from "./links.ts";
 import {
   decodeAccountActivity,
   decodeNameResolution,
@@ -23,7 +23,7 @@ import {
   type ReceiptRecord,
   type UnifiedAccountRecord,
   type UnifiedAccountAvailabilityRecord,
-} from "./model";
+} from "./model.ts";
 
 const FETCH_TIMEOUT_MS = 8_000;
 
@@ -44,7 +44,7 @@ function explorerOrigin(): URL {
 /// malformed value fails closed with the unavailable state rather than guessing an origin.
 function explorerBaseUrl(): URL {
   const base = parseExplorerBaseUrl(process.env.PAXEER_X_EXPLORER_BASE_URL);
-  if (base === undefined) {
+  if (base === undefined || base.href !== `${base.origin}/`) {
     throw new ExplorerUnavailableError();
   }
   return base;
@@ -70,9 +70,7 @@ async function get(
         Accept: "application/json",
         ...(profile === "unified-availability" ? { "LayerX-Unified-Profile": "2" } : {}),
       },
-      ...(profile === undefined
-        ? { cache: "force-cache", next: { revalidate: 60 } } as const
-        : { cache: "no-store" } as const),
+      cache: "no-store",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
   } catch {
@@ -107,11 +105,24 @@ export async function receiptRecord(
   if (!validExplorerIdentifier(identifier)) {
     throw new TypeError("Invalid receipt identifier");
   }
-  return decodeRecord(
+  return decodeReceiptRecordForIdentifier(
     await get(`/v1/explorer/receipts/${encodeURIComponent(identifier.toLowerCase())}`),
-    decodeReceipt,
-    "receipt record",
+    identifier,
   );
+}
+
+export function decodeReceiptRecordForIdentifier(
+  value: unknown,
+  identifier: string,
+): ExplorerRecord<ReceiptRecord> {
+  if (!validExplorerIdentifier(identifier)) {
+    throw new TypeError("Invalid receipt identifier");
+  }
+  const record = decodeRecord(value, decodeReceipt, "receipt record");
+  if (record.value !== undefined && record.value.receiptId !== identifier.toLowerCase()) {
+    throw new TypeError("Receipt projection names another receipt");
+  }
+  return record;
 }
 
 export async function accountActivityPage(

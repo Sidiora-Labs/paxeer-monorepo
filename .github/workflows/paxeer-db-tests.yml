@@ -147,6 +147,9 @@ env:
   GO_TEST_TIMEOUT: 30m
   STATE_DB_PKG_PREFIX: github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Race Detection

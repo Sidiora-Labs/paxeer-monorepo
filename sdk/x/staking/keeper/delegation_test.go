@@ -10,6 +10,8 @@ import (
 	paxapp "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/apptesting"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
+	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/teststaking"
@@ -275,6 +277,86 @@ func TestUnbondingDelegation(t *testing.T) {
 
 	resUnbonds = app.StakingKeeper.GetAllUnbondingDelegations(ctx, delAddrs[0])
 	require.Equal(t, 0, len(resUnbonds))
+}
+
+func TestCompleteUnbondingRefusesBlockedRecipient(t *testing.T) {
+	for _, blocked := range []bool{true, false} {
+		name := "admitted"
+		if blocked {
+			name = "blocked"
+		}
+		t.Run(name, func(t *testing.T) {
+			_, app, ctx := createTestInput(t)
+			ctx = ctx.WithBlockHeight(1).WithBlockTime(time.Unix(100, 0).UTC())
+			tokens := app.StakingKeeper.TokensFromConsensusPower(ctx, 10)
+			addrs := paxapp.AddTestAddrsIncremental(app, ctx, 2, tokens)
+			delAddr := addrs[1]
+			valAddr := sdk.ValAddress(addrs[0])
+			checks := 0
+			app.BankKeeper.RegisterRecipientChecker(func(_ sdk.Context, recipient sdk.AccAddress) bool {
+				if recipient.Equals(delAddr) {
+					checks++
+					return !blocked
+				}
+				return true
+			})
+
+			validator := teststaking.NewValidator(t, valAddr, PKs[0])
+			app.StakingKeeper.SetValidator(ctx, validator)
+			app.StakingKeeper.SetValidatorByConsAddr(ctx, validator)
+			shares, err := app.StakingKeeper.Delegate(ctx, delAddr, tokens, types.Unbonded, validator, true)
+			require.NoError(t, err)
+			staking.EndBlocker(ctx, app.StakingKeeper)
+			completionTime, err := app.StakingKeeper.Undelegate(ctx, delAddr, valAddr, shares.QuoInt64(2))
+			require.NoError(t, err)
+			beforeEntry, found := app.StakingKeeper.GetUnbondingDelegation(ctx, delAddr, valAddr)
+			require.True(t, found)
+			require.Len(t, beforeEntry.Entries, 1)
+			ctx = ctx.WithBlockHeight(2).WithBlockTime(completionTime)
+			require.True(t, beforeEntry.Entries[0].IsMature(ctx.BlockTime()))
+			poolAddr := app.StakingKeeper.GetNotBondedPool(ctx).GetAddress()
+			require.NoError(t, apptesting.FundModuleAccount(app.BankKeeper, ctx, types.NotBondedPoolName,
+				sdk.NewCoins(sdk.NewInt64Coin(app.StakingKeeper.BondDenom(ctx), 1))))
+			poolBefore := app.BankKeeper.GetAllBalances(ctx, poolAddr)
+			delBefore := app.BankKeeper.GetAllBalances(ctx, delAddr)
+			amount := sdk.NewCoins(sdk.NewCoin(app.StakingKeeper.BondDenom(ctx), beforeEntry.Entries[0].Balance))
+			invariant := bankkeeper.TotalSupply(app.BankKeeper)
+			message, broken := invariant(ctx)
+			require.False(t, broken, message)
+
+			balances, err := app.StakingKeeper.CompleteUnbonding(ctx, delAddr, valAddr)
+			require.Positive(t, checks)
+			if blocked {
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidRecipient)
+				require.Nil(t, balances)
+				require.Equal(t, poolBefore, app.BankKeeper.GetAllBalances(ctx, poolAddr))
+				require.Equal(t, delBefore, app.BankKeeper.GetAllBalances(ctx, delAddr))
+				afterEntry, found := app.StakingKeeper.GetUnbondingDelegation(ctx, delAddr, valAddr)
+				require.True(t, found)
+				require.Equal(t, beforeEntry, afterEntry)
+				message, broken = invariant(ctx)
+				require.False(t, broken, message)
+
+				checksBefore := checks
+				require.NotPanics(t, func() { staking.EndBlocker(ctx, app.StakingKeeper) })
+				require.Greater(t, checks, checksBefore)
+				require.Equal(t, poolBefore, app.BankKeeper.GetAllBalances(ctx, poolAddr))
+				require.Equal(t, delBefore, app.BankKeeper.GetAllBalances(ctx, delAddr))
+				afterEntry, found = app.StakingKeeper.GetUnbondingDelegation(ctx, delAddr, valAddr)
+				require.True(t, found)
+				require.Equal(t, beforeEntry, afterEntry)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, amount, balances)
+				require.Equal(t, poolBefore.Sub(amount), app.BankKeeper.GetAllBalances(ctx, poolAddr))
+				require.Equal(t, delBefore.Add(amount...), app.BankKeeper.GetAllBalances(ctx, delAddr))
+				_, found = app.StakingKeeper.GetUnbondingDelegation(ctx, delAddr, valAddr)
+				require.False(t, found)
+			}
+			message, broken = invariant(ctx)
+			require.False(t, broken, message)
+		})
+	}
 }
 
 func TestUnbondDelegation(t *testing.T) {

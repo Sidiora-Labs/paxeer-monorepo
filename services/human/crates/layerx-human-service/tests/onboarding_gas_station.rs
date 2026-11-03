@@ -3,15 +3,17 @@ mod station_core;
 pub use station_core::*;
 
 use ed25519_dalek::{Signer as _, SigningKey};
+use layerx_client::runtime_clock::RuntimeClock;
 use layerx_human_service::server::production_components::onboarding_sponsor_command;
 use layerx_platform_internal::{http, tls};
+use layerx_types::clock::Deadline;
 use serde_json::{json, Value};
 use std::fs;
 use std::net::TcpListener;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 static ENVIRONMENT: Mutex<()> = Mutex::new(());
@@ -172,15 +174,20 @@ fn onboarding_prepare_builds_a_bind_layerx_call() -> TestResult {
     config.per_account_limit = 8_000_000;
     let signer = signer::LocalSigner::from_env("ONBOARDING_STATION_SIGNER")?;
     let mut station = Station::new(config, signer)?;
+    let clock = RuntimeClock::from_environment()?;
     let server = std::thread::spawn(move || -> Result<Vec<Value>, String> {
         let mut received = Vec::new();
-        let deadline = Instant::now() + Duration::from_secs(15);
+        let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(15))
+            .map_err(|error| error.to_string())?;
         while received.len() < 2 {
             let (tcp, _) = match listener.accept() {
                 Ok(connection) => connection,
                 Err(error)
                     if error.kind() == std::io::ErrorKind::WouldBlock
-                        && Instant::now() < deadline =>
+                        && !deadline
+                            .remaining(clock.as_ref())
+                            .map_err(|error| error.to_string())?
+                            .is_zero() =>
                 {
                     std::thread::sleep(Duration::from_millis(5));
                     continue;

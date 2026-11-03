@@ -126,6 +126,9 @@ export async function verifyThresholdSignatures(args: {
   attestors: readonly Address[];
   threshold: number;
 }): Promise<SignatureCheck> {
+  if (!Number.isSafeInteger(args.threshold) || args.threshold < 0) {
+    return { ok: false, reason: 'vault threshold is not a non-negative safe integer' };
+  }
   if (args.threshold === 0) {
     return { ok: false, reason: 'vault threshold is zero' };
   }

@@ -307,6 +307,10 @@ func (c *seqReceiptChain9005) commitBatch9005(height int64, toSeq uint64) {
 	require.NoError(c.t, err)
 	msg.Sig = ed25519.Sign(ed25519.NewKeyFromSeed(c.seed), digest[:])
 	require.NoError(c.t, c.keeper.DeliverSequenceBatch(c.writeCtx9005(height), msg))
+	exported, err := c.keeper.ExportGenesis(c.writeCtx9005(height))
+	require.NoError(c.t, err)
+	require.Equal(c.t, toSeq, exported.LastSeq)
+	require.Equal(c.t, last, exported.LastSeqHash)
 	c.commit9005(height)
 	c.committed = toSeq
 }

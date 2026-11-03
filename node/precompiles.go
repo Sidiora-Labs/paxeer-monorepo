@@ -130,17 +130,28 @@ func (pk *PrecompileKeepers) TransferK() putils.TransferKeeper         { return 
 func (pk *PrecompileKeepers) ClientK() putils.ClientKeeper             { return pk.ClientKeeper }
 func (pk *PrecompileKeepers) ConnectionK() putils.ConnectionKeeper     { return pk.ConnectionKeeper }
 func (pk *PrecompileKeepers) ChannelK() putils.ChannelKeeper           { return pk.ChannelKeeper }
-func (pk *PrecompileKeepers) AnchorK() putils.AnchorKeeper             { return pk.layerxAnchor }
 func (pk *PrecompileKeepers) TxConfig() client.TxConfig                { return pk.txConf }
+
+// AnchorK carries the constructed keeper through retirement; upgrade gates refuse retired calls.
+func (pk *PrecompileKeepers) AnchorK() putils.AnchorKeeper {
+	return pk.layerxAnchor
+}
+
 func (pk *PrecompileKeepers) LayerXCustodyK() *layerxcustodykeeper.Keeper {
 	return pk.layerxCustody
 }
 func (pk *PrecompileKeepers) LayerXExchangeK() *layerxexchangekeeper.Keeper {
 	return pk.layerxExchange
 }
+
+// LayerXLedgerK supplies the application keeper to the real ledger precompile;
+// reads use the context of each call, including the sequencer open layer.
 func (pk *PrecompileKeepers) LayerXLedgerK() *layerxledgerkeeper.Keeper {
 	return pk.layerxLedger
 }
+
+// LayerXAuthK supplies the application keeper to the real auth precompile;
+// the adapter owns no grant state or read cache.
 func (pk *PrecompileKeepers) LayerXAuthK() *layerxauthkeeper.Keeper {
 	return pk.layerxAuth
 }

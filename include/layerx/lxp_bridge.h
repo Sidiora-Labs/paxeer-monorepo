@@ -59,6 +59,7 @@ lxp_result lxp_bridge_deposit_credit(
     const lx_asset_transfer_request *transfer,
     const lx_deposit_proof *proof,
     lxp_receipt *receipt);
+/* Requires a nonzero payout recipient, as does lxp_withdrawal_leaf. */
 lxp_result lxp_withdrawal_nullifier(const lx_withdrawal_request *request,
                                     uint8_t nullifier[32]);
 lxp_result lxp_withdrawal_leaf(const lx_withdrawal_request *request,
@@ -75,5 +76,7 @@ lxp_result lxp_paxeer_challenge_window(
     lxp_challenge_outcome resolution,
     size_t attesting_guarantor_count);
 lxp_result lxp_exit_eligibility(const lxp_exit_state *state, bool *eligible);
+/* A repeated declaration refuses with LXP_ERR_IDEMPOTENT_REPLAY and keeps
+ * the original discard_after_sequence. */
 lxp_result lxp_exit_declare(lxp_exit_state *state);
 #endif

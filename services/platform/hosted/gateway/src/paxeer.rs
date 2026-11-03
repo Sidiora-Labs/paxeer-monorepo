@@ -175,8 +175,17 @@ fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static st
     Ok(document)
 }
 
+fn receipt_params(params: Option<&Value>) -> bool {
+    matches!(params.and_then(Value::as_array).map(Vec::as_slice), Some([hash])
+        if hash.as_str().is_some_and(|hash| hash.starts_with("0x")
+            && hash.len() == 66 && hash[2..].bytes().all(|b| b.is_ascii_hexdigit())))
+}
+
 /// Relays one EVM request under the caller's own identifier.
 pub(super) fn relay(config: &Config, id: &Value, method: &str, params: Option<&Value>) -> Value {
+    if method == "pax_sequencerReceipt" && !receipt_params(params) {
+        return super::rpc::error(id, -32602, "Invalid params");
+    }
     if config.paxeer.is_none() {
         return unconfigured(id);
     }
@@ -672,6 +681,14 @@ fn layerx_assets(config: &Config, id: &Value) -> Result<Vec<Value>, Value> {
     Ok(records)
 }
 
+/// Successful ledger reads include the optional OpenRPC `paused` and `verification` fields.
+/// Bank metadata and failed reads retain their existing shapes in `custody_asset`.
+fn layerx_asset_metadata(asset: &evm::LedgerAsset) -> Value {
+    json!({"name": asset.name, "symbol": asset.symbol,
+        "decimals": asset.decimals, "supply": asset.total_units.to_string(),
+        "paused": asset.paused, "verification": "authenticated_committed_snapshot"})
+}
+
 fn custody_asset(node: &mut Node<'_>, record: &Value, height: u64) -> Result<Value, &'static str> {
     let mut node = |request: &Value| node_at_height(node, height, request);
     let metadata = (|| -> Result<Value, &'static str> {
@@ -690,8 +707,7 @@ fn custody_asset(node: &mut Node<'_>, record: &Value, height: u64) -> Result<Val
             if asset.asset_id != id {
                 return Err("invalid_ledger_asset");
             }
-            return Ok(json!({"name": asset.name, "symbol": asset.symbol,
-                "decimals": asset.decimals, "supply": asset.total_units.to_string()}));
+            return Ok(layerx_asset_metadata(&asset));
         }
         let denom = record["denom"]
             .as_str()
@@ -908,6 +924,36 @@ pub(super) fn status(config: &Config) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn listed_layerx_asset_carries_verification_and_decoded_paused() {
+        for paused in [false, true] {
+            let asset = evm::LedgerAsset {
+                asset_id: [0x11; 32],
+                symbol: "LED".to_owned(),
+                name: "Ledger Asset".to_owned(),
+                decimals: 18,
+                supply_cap: 100,
+                issuer_did: [0x22; 32],
+                salt: [0x33; 32],
+                issuer_kind: 1,
+                custody_kind: 0,
+                custody_reference: Vec::new(),
+                paused,
+                total_units: 42,
+            };
+            let metadata = layerx_asset_metadata(&asset);
+            assert_eq!(metadata["paused"], json!(asset.paused));
+            assert_eq!(
+                metadata["verification"],
+                json!("authenticated_committed_snapshot")
+            );
+            assert_eq!(metadata["name"], json!(asset.name));
+            assert_eq!(metadata["symbol"], json!(asset.symbol));
+            assert_eq!(metadata["decimals"], json!(asset.decimals));
+            assert_eq!(metadata["supply"], json!("42"));
+        }
+    }
 
     #[test]
     fn endpoint_arrays_hold_two_to_eight_distinct_https_names() {

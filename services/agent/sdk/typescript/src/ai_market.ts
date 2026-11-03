@@ -1331,6 +1331,27 @@ export function decodeProgramsStateHead(
   return new Uint8Array(bytes.subarray(64, 64 + size));
 }
 
+/** Decode the transfer set root emitted by the real programs transfer producer. */
+export function decodeProgramTransferred(log: {
+  readonly address: string;
+  readonly topics: readonly string[];
+  readonly data: string;
+}) {
+  const topic = `0x${hex(keccak_256(ascii("ProgramTransferred(bytes32,bytes32)")))}`;
+  if (
+    log.address.toLowerCase() !== PROGRAMS_PRECOMPILE.toLowerCase() ||
+    log.topics.length !== 2 ||
+    log.topics[0]?.toLowerCase() !== topic ||
+    !/^0x[0-9a-fA-F]{64}$/u.test(log.topics[1] ?? "") ||
+    !/^0x[0-9a-fA-F]{64}$/u.test(log.data)
+  )
+    invalid();
+  return Object.freeze({
+    program: log.topics[1]!.slice(2).toLowerCase(),
+    transferSetRoot: log.data.slice(2).toLowerCase(),
+  });
+}
+
 export interface AiMarketViewsOptions {
   readonly endpoint: URL | string;
   readonly credential?: LayerXKeyCredential;
@@ -3217,6 +3238,36 @@ function rpcQuantity(value: unknown): bigint {
   )
     refuse("ReceiptMismatch");
   return BigInt(value);
+}
+
+/** Decode the gateway's key document; JSON numbers must remain exact in JavaScript. */
+export function decodeGatewayReceiptKeys(value: unknown): readonly SequencerAuthorization[] {
+  const document = receiptObject(value);
+  if (Object.keys(document).length !== 1 || !Array.isArray(document.keys) || document.keys.length === 0)
+    refuse("ReceiptMismatch");
+  const seen = new Set<string>();
+  return document.keys.map((value: unknown) => {
+    const entry = receiptObject(value);
+    if (Object.keys(entry).length !== 4) refuse("ReceiptMismatch");
+    const sequencerId = rpcBytes(entry.keyId, 32);
+    const publicKey = rpcBytes(entry.publicKey, 32);
+    const first = entry.firstHeight, last = entry.lastHeight;
+    if (typeof first !== "number" || typeof last !== "number" ||
+        !Number.isSafeInteger(first) || !Number.isSafeInteger(last) ||
+        first < 1 || last < first || sequencerId.every((byte) => byte === 0) ||
+        seen.has(hex(sequencerId))) refuse("ReceiptMismatch");
+    try {
+      const point = ed25519.Point.fromBytes(publicKey, false);
+      if (point.isSmallOrder() || !point.isTorsionFree()) refuse("ReceiptMismatch");
+    } catch { return refuse("ReceiptMismatch"); }
+    seen.add(hex(sequencerId));
+    return Object.freeze({ sequencerId, publicKey,
+      firstBatchNumber: BigInt(first), lastBatchNumber: BigInt(last) });
+  });
+}
+
+export async function gatewayReceiptKeys(operations: Eip1193Requester): Promise<readonly SequencerAuthorization[]> {
+  return decodeGatewayReceiptKeys(await operations.request({method: "px_getReceiptKeys", params: []}));
 }
 
 export function decodeProgramsReceipt(

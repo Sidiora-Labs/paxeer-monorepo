@@ -129,6 +129,7 @@ func DecodeServiceOffer(b []byte) (ServiceOffer, error) {
 	}, nil
 }
 
+// DecodeServiceAgreement decodes an agreement header and its contested hashes.
 func DecodeServiceAgreement(b []byte) (ServiceAgreement, error) {
 	if len(b) < 247 || b[0] != 1 || b[229] > 1 {
 		return ServiceAgreement{}, errBudgetNonCanonical
@@ -150,6 +151,7 @@ func DecodeServiceAgreement(b []byte) (ServiceAgreement, error) {
 	}, nil
 }
 
+// DecodeServiceCommitment decodes the fixed-width kernel commitment record.
 func DecodeServiceCommitment(b []byte) (ServiceCommitment, error) {
 	if len(b) != 220 || b[0] != 1 || b[217] > 1 {
 		return ServiceCommitment{}, errBudgetNonCanonical
@@ -164,6 +166,8 @@ func DecodeServiceCommitment(b []byte) (ServiceCommitment, error) {
 	}, nil
 }
 
+// DecodeServiceExecution decodes a kernel attestation and reconstructs its signing payload.
+// Signature verification remains the responsibility of the consumer.
 func DecodeServiceExecution(b []byte) (ServiceExecution, error) {
 	if len(b) != ServiceExecutionBytes+1 || b[0] != 1 {
 		return ServiceExecution{}, errBudgetNonCanonical
@@ -182,6 +186,8 @@ func DecodeServiceExecution(b []byte) (ServiceExecution, error) {
 	return r, nil
 }
 
+// DecodeServiceDelivery decodes a kernel delivery header followed by its ordered item records.
+// The keeper assembles these separately stored records before calling this function.
 func DecodeServiceDelivery(b []byte) (ServiceDelivery, error) {
 	if len(b) < 138 || b[0] != 1 {
 		return ServiceDelivery{}, errBudgetNonCanonical
@@ -220,6 +226,7 @@ func DecodeServiceProgress(b []byte) (ServiceProgress, error) {
 	}, nil
 }
 
+// DecodeServiceDispute decodes a dispute header and its evidence hashes.
 func DecodeServiceDispute(b []byte) (ServiceDispute, error) {
 	if len(b) < 185 || b[0] != 1 || b[137] > 1 {
 		return ServiceDispute{}, errBudgetNonCanonical

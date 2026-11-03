@@ -77,8 +77,25 @@ pub fn deploy_fixture(
     block_height: u64,
     timestamp: u64,
 ) -> ProtocolFixture {
-    fixture(
-        &deploy_payload(wasm, policy),
+    deploy_fixture_with_interface(
+        wasm,
+        policy,
+        block_height,
+        timestamp,
+        &fixture_interface(wasm),
+    )
+}
+
+#[must_use]
+pub fn deploy_fixture_with_interface(
+    wasm: &[u8],
+    policy: UpgradePolicy,
+    block_height: u64,
+    timestamp: u64,
+    interface: &ProgramInterface,
+) -> ProtocolFixture {
+    fixture_with_interface(
+        &deploy_payload(wasm, policy, interface),
         &FixtureState {
             wasm,
             policy,
@@ -87,6 +104,7 @@ pub fn deploy_fixture(
             timestamp,
             deprecated: false,
         },
+        interface,
     )
 }
 
@@ -173,11 +191,18 @@ struct FixtureState<'a> {
 }
 
 fn fixture(transaction: &[u8], state: &FixtureState<'_>) -> ProtocolFixture {
+    fixture_with_interface(transaction, state, &fixture_interface(state.wasm))
+}
+
+fn fixture_with_interface(
+    transaction: &[u8],
+    state: &FixtureState<'_>,
+    interface: &ProgramInterface,
+) -> ProtocolFixture {
     let record = program_record(state.wasm, state.policy, state.version);
     let program_key = programs_state_key(&program_key());
     let interface_key = interface_state_key(program());
-    let interface = fixture_interface(state.wasm);
-    let interface_value = interface_state_value(program(), state.version, &interface)
+    let interface_value = interface_state_value(program(), state.version, interface)
         .unwrap_or_else(|error| panic!("interface state value: {error}"));
     let mut pairs = vec![
         (program_key.clone(), record.clone()),
@@ -300,59 +325,92 @@ fn fixture(transaction: &[u8], state: &FixtureState<'_>) -> ProtocolFixture {
     }
 }
 
-fn deploy_payload(wasm: &[u8], policy: UpgradePolicy) -> Vec<u8> {
-    let interface_encoding = fixture_interface_encoding(wasm);
-    let mut payload = Vec::new();
-    payload.extend_from_slice(&PROGRAM_BYTES);
-    payload.extend_from_slice(&1_u16.to_be_bytes());
-    match policy {
-        UpgradePolicy::Immutable => {
-            payload.extend([0, 0]);
-            payload.extend_from_slice(&[0; 32]);
-        }
-        UpgradePolicy::Authority(authority) => {
-            payload.extend([1, 0]);
-            payload.extend_from_slice(&authority);
+fn deploy_payload(wasm: &[u8], policy: UpgradePolicy, interface: &ProgramInterface) -> Vec<u8> {
+    use layerx_types::program_lifecycle::{NativeProgramDeploy, ProgramUpgradePolicy};
+    NativeProgramDeploy {
+        program_id: layerx_types::intent::ProgramId::new(PROGRAM_BYTES),
+        guest_abi: 1,
+        policy: match policy {
+            UpgradePolicy::Immutable => ProgramUpgradePolicy::Immutable,
+            UpgradePolicy::Authority(authority) => ProgramUpgradePolicy::Authority(authority),
+        },
+        new_hash: code_hash(wasm),
+        interface: Some(interface.canonical_encoding()),
+        wasm,
+    }
+    .encode()
+    .unwrap_or_else(|error| panic!("native deployment encoding: {error:?}"))
+}
+
+/// Produces an actual runtime deployment before constructing its signed chain
+/// membership proofs. The expected record comes from the runtime receipt.
+pub fn produced_deployment(
+    wasm: &[u8],
+    policy: UpgradePolicy,
+    block_height: u64,
+    timestamp: u64,
+) -> (
+    layerx_programs_runtime::Lifecycle,
+    layerx_programs::DeploymentRecord,
+    ProtocolFixture,
+) {
+    use layerx_programs_runtime::{Deploy, Lifecycle, ProgramVersion};
+    let mut lifecycle = Lifecycle::declared().unwrap_or_else(|error| panic!("runtime: {error}"));
+    let version = ProgramVersion {
+        code_hash: code_hash(wasm),
+        wasm: wasm.to_vec(),
+        abi_version: 1,
+    };
+    let receipt = lifecycle
+        .deploy(Deploy {
+            program: program(),
+            code_hash: version.code_hash,
+            wasm: version.wasm.clone(),
+            abi_version: version.abi_version,
+            upgrade_policy: policy,
+        })
+        .unwrap_or_else(|error| panic!("runtime producer: {error}"));
+    let record = layerx_programs::DeploymentRecord::from_deployment(
+        &receipt,
+        &version,
+        policy,
+        block_height.checked_add(1).expect("header height"),
+        timestamp,
+    )
+    .unwrap_or_else(|error| panic!("producer record: {error}"));
+    let fixture = deploy_fixture(wasm, policy, block_height, timestamp);
+    assert_eq!(fixture.proof.deployment.code, record.module);
+    assert_eq!(fixture.proof.state.state.program, record.program);
+    (lifecycle, record, fixture)
+}
+
+impl ProtocolFixture {
+    pub fn program_bundle(&self) -> layerx_programs::ProgramStateBundle {
+        layerx_programs::ProgramStateBundle {
+            commitment: self.proof.state.commitment.clone(),
+            program: self.proof.state.state.program,
+            program_record_ops: self.proof.state.state.ops.clone(),
+            interface_ops: self.interface_witness.proof.clone(),
+            wind_down: Some(self.proof.state.wind_down.clone()),
         }
     }
-    payload.extend_from_slice(&code_hash(wasm));
-    payload.extend_from_slice(
-        &u32::try_from(wasm.len())
-            .unwrap_or_else(|_| panic!("WASM length"))
-            .to_be_bytes(),
-    );
-    payload.extend_from_slice(
-        &u32::try_from(interface_encoding.len())
-            .unwrap_or_else(|_| panic!("interface length"))
-            .to_be_bytes(),
-    );
-    payload.extend_from_slice(&interface_encoding);
-    payload.extend_from_slice(wasm);
-    payload
 }
 
 fn upgrade_payload(old_wasm: &[u8], new_wasm: &[u8]) -> Vec<u8> {
+    use layerx_types::program_lifecycle::NativeProgramUpgrade;
     let interface_encoding = fixture_interface_encoding(new_wasm);
-    let mut payload = Vec::new();
-    payload.extend_from_slice(&PROGRAM_BYTES);
-    payload.extend_from_slice(&1_u16.to_be_bytes());
-    payload.extend([0, 0]);
-    payload.extend_from_slice(&code_hash(old_wasm));
-    payload.extend_from_slice(&code_hash(new_wasm));
-    payload.extend_from_slice(&0_u16.to_be_bytes());
-    payload.extend_from_slice(
-        &u32::try_from(new_wasm.len())
-            .unwrap_or_else(|_| panic!("WASM length"))
-            .to_be_bytes(),
-    );
-    payload.extend_from_slice(
-        &u32::try_from(interface_encoding.len())
-            .unwrap_or_else(|_| panic!("interface length"))
-            .to_be_bytes(),
-    );
-    payload.extend_from_slice(&interface_encoding);
-    payload.extend_from_slice(new_wasm);
-    payload
+    NativeProgramUpgrade {
+        program_id: layerx_types::intent::ProgramId::new(PROGRAM_BYTES),
+        guest_abi: 1,
+        old_hash: code_hash(old_wasm),
+        new_hash: code_hash(new_wasm),
+        migration_hook: &[],
+        clear_interface: false,
+        interface: Some(&interface_encoding),
+        wasm: new_wasm,
+    }
+    .encode()
+    .unwrap_or_else(|error| panic!("native upgrade encoding: {error:?}"))
 }
 
 #[must_use]

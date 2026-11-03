@@ -620,9 +620,8 @@ func CheckMessage(ctx sdk.Context, tx sdk.Tx, ibcKeeper *ibckeeper.Keeper, oracl
 			}
 
 		case *pricefeedtypes.MsgSubmitPrices:
-			if ctx.IsReCheckTx() {
-				continue
-			}
+			// MarkSubmission owns both the composition refusal and the
+			// ReCheckTx no-write rule, including for direct CheckMessage callers.
 			if err := pricefeed.MarkSubmission(ctx, tx, pricefeedKeeper); err != nil {
 				return err
 			}

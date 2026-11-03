@@ -51,6 +51,38 @@ export interface SendTxResponse {
   receipt?: SequencerReceiptAnswer;
 }
 
+type SendTxResponseExpectation = {
+  readonly chainId?: number;
+  readonly account?: string;
+};
+
+/** Reject a send answer that does not identify the requested chain and signer. */
+export function assertSendTxResponse(
+  value: unknown,
+  expected: SendTxResponseExpectation = {}
+): asserts value is SendTxResponse {
+  if (typeof value !== 'object' || value === null || Array.isArray(value))
+    throw new TypeError('malformed send transaction response');
+  const answer = value as Record<string, unknown>;
+  if (
+    typeof answer.tx_hash !== 'string' ||
+    !/^0x[0-9a-fA-F]{64}$/.test(answer.tx_hash) ||
+    typeof answer.address !== 'string' ||
+    !/^0x[0-9a-fA-F]{40}$/.test(answer.address) ||
+    typeof answer.chain_id !== 'number' ||
+    !Number.isSafeInteger(answer.chain_id) ||
+    answer.chain_id <= 0
+  )
+    throw new TypeError('malformed send transaction response');
+  if (expected.chainId !== undefined && answer.chain_id !== expected.chainId)
+    throw new TypeError('send response chain differs from the requested chain');
+  if (
+    expected.account !== undefined &&
+    answer.address.toLowerCase() !== expected.account.toLowerCase()
+  )
+    throw new TypeError('send response signer differs from the connected account');
+}
+
 export interface SignMessageResponse {
   signature: `0x${string}`;
   address: `0x${string}`;

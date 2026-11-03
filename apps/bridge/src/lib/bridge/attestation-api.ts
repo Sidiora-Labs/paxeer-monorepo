@@ -8,7 +8,7 @@
  * its signatures are verified against the on-chain attestor set before the
  * wallet is asked to submit anything.
  */
-import { getAddress, isAddress, isHash, isHex, type Address, type Hex } from 'viem';
+import { getAddress, isAddress, isHash, type Address, type Hex } from 'viem';
 
 import { bridgeConfig } from './config';
 
@@ -42,8 +42,7 @@ export type ReleaseAttestation = {
 
 export class AttestationApiError extends Error {}
 
-async function fetchJson(path: string): Promise<unknown> {
-  const base = bridgeConfig.attestationApiUrl;
+async function fetchJson(path: string, base: string | undefined): Promise<unknown> {
   if (!base) throw new AttestationApiError('The bridge backend is not configured.');
   let response: Response;
   try {
@@ -81,8 +80,8 @@ function readString(obj: Record<string, unknown>, key: string): string {
   return value;
 }
 
-function readDecimal(value: string, key: string): string {
-  if (!/^\d+$/.test(value)) {
+function readDecimal(value: string, key: string, bits = 256): string {
+  if (!/^\d+$/.test(value) || BigInt(value) >= (1n << BigInt(bits))) {
     throw new AttestationApiError(`The bridge backend returned a bad "${ key }".`);
   }
   return value;
@@ -103,7 +102,7 @@ function readHash(value: string, key: string): Hex {
 }
 
 function readBytes32(value: string, key: string): Hex {
-  if (!isHex(value) || value.length !== 66) {
+  if (!/^0x[0-9a-fA-F]{64}$/.test(value)) {
     throw new AttestationApiError(`The bridge backend returned a bad "${ key }".`);
   }
   return value as Hex;
@@ -148,8 +147,8 @@ export async function fetchDepositAttestation(args: {
   chainId: bigint;
   txHash: Hex;
   logIndex: bigint;
-}): Promise<DepositAttestation | null> {
-  const raw = await fetchJson(depositAttestationPath(args));
+}, base = bridgeConfig.attestationApiUrl): Promise<DepositAttestation | null> {
+  const raw = await fetchJson(depositAttestationPath(args), base);
   if (raw === null) return null;
   return parseDepositAttestation(args, raw);
 }
@@ -161,7 +160,7 @@ export function parseDepositAttestation(
   const obj = record(body);
   const chainId = readDecimal(readString(obj, 'chainId'), 'chainId');
   const txHash = readHash(readString(obj, 'txHash'), 'txHash');
-  const logIndex = readDecimal(readString(obj, 'logIndex'), 'logIndex');
+  const logIndex = readDecimal(readString(obj, 'logIndex'), 'logIndex', 64);
   if (BigInt(chainId) !== request.chainId) {
     throw new AttestationApiError('The bridge backend returned a different "chainId".');
   }
@@ -198,8 +197,8 @@ export async function fetchReleaseAttestation(args: {
   chainId: bigint;
   paxeerTxHash: Hex;
   paxeerNonce: bigint;
-}): Promise<ReleaseAttestation | null> {
-  const raw = await fetchJson(releaseAttestationPath(args));
+}, base = bridgeConfig.attestationApiUrl): Promise<ReleaseAttestation | null> {
+  const raw = await fetchJson(releaseAttestationPath(args), base);
   if (raw === null) return null;
   return parseReleaseAttestation(args, raw);
 }
@@ -211,7 +210,7 @@ export function parseReleaseAttestation(
   const obj = record(body);
   const chainId = readDecimal(readString(obj, 'chainId'), 'chainId');
   const paxeerTxHash = readHash(readString(obj, 'paxeerTxHash'), 'paxeerTxHash');
-  const paxeerNonce = readDecimal(readString(obj, 'paxeerNonce'), 'paxeerNonce');
+  const paxeerNonce = readDecimal(readString(obj, 'paxeerNonce'), 'paxeerNonce', 64);
   if (BigInt(chainId) !== request.chainId) {
     throw new AttestationApiError('The bridge backend returned a different "chainId".');
   }

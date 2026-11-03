@@ -4,8 +4,7 @@ use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 
 use layerx_intents::{
-    compile, BudgetCreate, CompileError, DisclosureCheck, DisclosureCheckError, Intent,
-    IntentError, IntentKind,
+    compile, BudgetCreate, CompileError, DisclosureCheckError, Intent, IntentError, IntentKind,
 };
 use layerx_proof::receipt::VerificationFailure;
 use layerx_types::account::AccountId;
@@ -601,7 +600,7 @@ impl<B: AgentControlContract> AgentControls<B> {
             ),
         )?));
         let compiled = compile(&intent, registry)?;
-        let disclosure = DisclosureCheck::verify(&intent, &compiled)?;
+        let disclosure = compiled.verify_disclosure(&intent)?;
         let kind = compiled.activity_type();
         let payload = compiled.payload().as_bytes().to_vec();
         let evidence = self.boundary.submit_protocol_limit(ProtocolAction {
@@ -615,8 +614,8 @@ impl<B: AgentControlContract> AgentControls<B> {
                 .map_err(|_| AgentControlError::InvalidProfile)?,
             started_at: observed_at,
         })?;
-        if evidence.action_key != replacement || evidence.bound_activity(kind)?.payload() != payload
-        {
+        let bound = evidence.bound_activity(kind)?;
+        if evidence.action_key != replacement || bound.payload() != payload {
             return Err(AgentControlError::EvidenceConflict);
         }
         let verified = evidence.verify_outcome(kind)?;

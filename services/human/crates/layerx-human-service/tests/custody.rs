@@ -1,4 +1,7 @@
+use layerx_client::runtime_clock::RuntimeClock;
 use layerx_human_test_support as support;
+use layerx_types::clock::Clock as _;
+use std::time::Duration;
 
 use std::fs;
 use std::future::Future;
@@ -420,10 +423,12 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
         authorization,
     };
     let call = &preparation.transaction.call;
-    let plan_time = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+    let clock =
+        RuntimeClock::from_environment().unwrap_or_else(|error| panic!("plan clock: {error}"));
+    let plan_time = clock
+        .sample(Duration::from_secs(1))
         .unwrap_or_else(|error| panic!("plan time: {error}"))
-        .as_secs();
+        .unix_seconds();
     let authorization = EvmPlanAuthorization {
         plan_id: prepared.disclosure_digest.0,
         action_key: preparation.transaction.signing_hash,
@@ -465,13 +470,28 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
     assert_eq!(signed_call, preparation.transaction.call);
     let signed_activity = attach_external_signature(&preparation, *signature.as_bytes())
         .unwrap_or_else(|error| panic!("attach signature: {error:?}"));
-    assert!(verify_before_submit(
+    let verified = verify_before_submit(
         &signed_activity,
         &preparation,
         &preparation.actor_address,
-        &registry()
+        &registry(),
     )
-    .is_ok());
+    .unwrap_or_else(|error| panic!("verify custody transaction: {error:?}"));
+    assert_eq!(verified.exact_bytes(), action.raw_transaction);
+    assert_eq!(
+        verified.idempotency_key(),
+        preparation.authorization.audit.idempotency_key
+    );
+    assert_eq!(
+        verified.activity_id(),
+        layerx_crypto::evm_transaction::transaction_hash(&action.raw_transaction)
+    );
+    let mut wrong_signer = preparation.actor_address;
+    wrong_signer[0] ^= 1;
+    assert_eq!(
+        verify_before_submit(&signed_activity, &preparation, &wrong_signer, &registry()),
+        Err(layerx_agentd::sign::SigningError::SignerMismatch)
+    );
     drop(signer);
 
     let audits = fixture.audits(&fixture.alice);

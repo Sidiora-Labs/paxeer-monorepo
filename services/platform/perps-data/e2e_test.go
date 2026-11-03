@@ -36,6 +36,7 @@ import (
 
 	perpsabi "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps/abi"
 	spotabi "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/spot/abi"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/bech32"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/decode"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery"
@@ -408,8 +409,6 @@ func TestEndToEnd(t *testing.T) {
 	if os.Getenv(e2eDatabaseEnv) == "" && os.Getenv(e2eRPCEnv) == "" && os.Getenv(e2eCometEnv) == "" {
 		t.Skip("TestEndToEnd needs " + e2eDatabaseEnv + ", " + e2eRPCEnv + " and " + e2eCometEnv)
 	}
-	t.Run("module_builds", testModuleBuilds)
-
 	e := setupE2E(t)
 	ctx := context.Background()
 	opKey := seedKey(t)
@@ -443,7 +442,8 @@ func TestEndToEnd(t *testing.T) {
 	fundingCtx, cancelFunding := context.WithTimeout(ctx, catchUp)
 	defer cancelFunding()
 	waitStarted := time.Now()
-	for e.latestFunding(t, fundingCtx, start, head) == 0 {
+	fundingHeight := e.latestFunding(t, fundingCtx, start, head)
+	for fundingHeight == 0 {
 		if time.Since(waitStarted) < time.Second {
 			t.Logf("waiting up to %s for the first hourly FundingSettled log from block %d", catchUp, start)
 		}
@@ -456,6 +456,7 @@ func TestEndToEnd(t *testing.T) {
 		if err != nil {
 			t.Fatalf("head while waiting for FundingSettled: %v", err)
 		}
+		fundingHeight = e.latestFunding(t, fundingCtx, start, head)
 	}
 	t.Logf("first available FundingSettled log observed after %s", time.Since(waitStarted))
 	// Position projections hold only what the indexer saw, including funding.
@@ -580,8 +581,12 @@ func TestEndToEnd(t *testing.T) {
 		}
 		for _, table := range []string{"funding_settlements", "funding_rates"} {
 			rows := e.endBlockRows(t, table)
+			t.Logf("funding receipt finding: perps.%s has %d end-block heights; synthetic receipt tx_index is the consensus tx_count, not the block-event index -1", table, len(rows))
 			if len(rows) == 0 {
 				t.Errorf("no perps.%s row with receipt_kind perps_endblock", table)
+			}
+			if _, ok := rows[fundingHeight]; !ok {
+				t.Errorf("no perps.%s end-block row for observed FundingSettled block %d after indexing through %d", table, fundingHeight, withdrawLast.block)
 			}
 			for block, hash := range rows {
 				if want := source.SyntheticHash("perps-endblock", block); hash != want {
@@ -617,10 +622,16 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("rest_graphql", func(t *testing.T) {
-		var markets []map[string]any
+		var markets struct {
+			TS      int64               `json:"ts"`
+			Markets []rest.MarketRecord `json:"markets"`
+		}
 		getJSON(t, gwURL+"/api/markets", &markets)
-		if len(markets) == 0 {
+		if len(markets.Markets) == 0 {
 			t.Error("/api/markets is empty")
+		}
+		if markets.TS <= 0 {
+			t.Error("/api/markets has no timestamp")
 		}
 		var one map[string]any
 		getJSON(t, gwURL+"/api/markets/"+e2eSymbol, &one)
@@ -699,13 +710,35 @@ func TestEndToEnd(t *testing.T) {
 		if link == "" {
 			t.Fatalf("explorer history of %s lacks deposit %s with a link", op.Hex(), depositOp.hash.Hex())
 		}
-		var tx struct {
-			Hash         string            `json:"hash"`
-			Transactions []json.RawMessage `json:"transactions"`
+		t.Log("deposit link finding 3.54.7.1: the missing CollateralDeposited action mapping skipped the deposit in store.txActions; section 16 now maps it to Collateral Deposited")
+		if n := e.count(t, `SELECT count(*) FROM perps.tx_actions WHERE tx_hash = $1 AND kind = 'CollateralDeposited' AND action = $2 AND account = $3 AND size = $4`,
+			depositOp.hash.Bytes(), explorer.ActionCollateralDeposited, op.Bytes(), usd(20).String()); n != 1 {
+			t.Fatalf("deposit has %d matching tx_actions rows, want 1", n)
 		}
+		var tx explorer.TransactionDetail
 		getJSON(t, link, &tx)
 		if !strings.EqualFold(tx.Hash, depositOp.hash.Hex()) || len(tx.Transactions) == 0 {
 			t.Fatalf("explorer link %s answered hash %q with %d transactions", link, tx.Hash, len(tx.Transactions))
+		}
+		wantUser, err := bech32.ConvertAndEncode("pax", op.Bytes())
+		if err != nil {
+			t.Fatal(err)
+		}
+		foundDeposit := false
+		for _, action := range tx.Transactions {
+			if action.Action != explorer.ActionCollateralDeposited {
+				continue
+			}
+			foundDeposit = true
+			if !strings.EqualFold(action.Hash, depositOp.hash.Hex()) || action.Block != int64(depositOp.block) || action.User != wantUser || action.Size == nil || *action.Size != 20 || action.Link != link {
+				t.Errorf("deposit action has incorrect hash, block, depositor, amount or link: %+v", action)
+			}
+			if action.Symbol != nil || action.Side != nil || action.Price != nil {
+				t.Errorf("deposit action has market-only fields: %+v", action)
+			}
+		}
+		if !foundDeposit {
+			t.Fatal("explorer transaction lacks the Collateral Deposited action")
 		}
 		portalURL := servePortal(t, gwURL, explorerURL+"/api/chain/tx")
 		page := get(t, portalURL+"/accounts/"+strings.ToLower(op.Hex()))
@@ -718,6 +751,7 @@ func TestEndToEnd(t *testing.T) {
 
 	t.Run("replay_identical", func(t *testing.T) {
 		ix.stop(t)
+		e.drainOutbox(t, ix.publisher)
 		cursor, ok, err := store.Cursor(ctx, e.db)
 		if err != nil || !ok {
 			t.Fatalf("cursor %v %v", ok, err)
@@ -728,7 +762,7 @@ func TestEndToEnd(t *testing.T) {
 		funding := e.firstEndBlockFunding(t)
 		for _, args := range [][]string{
 			{"--from", strconv.FormatUint(funding, 10), "--to", strconv.FormatUint(funding, 10)},
-			{"--from", strconv.FormatUint(first, 10)},
+			{"--from", strconv.FormatUint(start, 10)},
 		} {
 			e.runReplay(t, bin, args...)
 		}
@@ -768,6 +802,7 @@ func TestEndToEnd(t *testing.T) {
 			}
 		}
 	})
+	t.Run("module_builds", testModuleBuilds)
 }
 
 // testModuleBuilds is acceptance 7.1.1: the tree builds and vets as packages
@@ -889,8 +924,9 @@ func moduleAddress(name string) common.Address {
 
 // runningIndexer is one indexer process: Run in a goroutine until stop.
 type runningIndexer struct {
-	cancel context.CancelFunc
-	done   chan error
+	cancel    context.CancelFunc
+	done      chan error
+	publisher *publish.Publisher
 }
 
 func (e *e2e) startIndexer(t *testing.T, holder string, start uint64) *runningIndexer {
@@ -931,7 +967,7 @@ func (e *e2e) startIndexer(t *testing.T, holder string, start uint64) *runningIn
 		t.Fatalf("indexer.New: %v", err)
 	}
 	runCtx, cancel := context.WithCancel(ctx)
-	r := &runningIndexer{cancel: cancel, done: make(chan error, 1)}
+	r := &runningIndexer{cancel: cancel, done: make(chan error, 1), publisher: publisher}
 	go func() { r.done <- ix.Run(runCtx) }()
 	t.Cleanup(func() {
 		cancel()
@@ -956,6 +992,34 @@ func (r *runningIndexer) stop(t *testing.T) {
 		r.done <- err
 	case <-time.After(30 * time.Second):
 		t.Fatal("indexer did not stop")
+	}
+}
+
+func (e *e2e) drainOutbox(t *testing.T, publisher *publish.Publisher) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), waitShort)
+	done := make(chan error, 1)
+	go func() { done <- publisher.Run(ctx) }()
+	defer func() {
+		cancel()
+		select {
+		case err := <-done:
+			if !errors.Is(err, context.Canceled) {
+				t.Errorf("drain publisher: %v", err)
+			}
+		case <-time.After(30 * time.Second):
+			t.Error("drain publisher did not stop")
+		}
+	}()
+	for e.count(t, `SELECT count(*) FROM perps.delivery_outbox WHERE state <> 'published'`) != 0 {
+		select {
+		case err := <-done:
+			done <- err
+			t.Fatalf("publisher stopped before draining the outbox: %v", err)
+		case <-ctx.Done():
+			t.Fatalf("outbox did not drain within %s: %v", waitShort, ctx.Err())
+		case <-time.After(10 * time.Millisecond):
+		}
 	}
 }
 
@@ -996,7 +1060,8 @@ func (e *e2e) count(t *testing.T, query string, args ...any) int {
 // endBlockRows returns block -> tx_hash of the perps_endblock rows of table.
 func (e *e2e) endBlockRows(t *testing.T, table string) map[uint64]common.Hash {
 	t.Helper()
-	rows, err := e.db.Query(`SELECT block, tx_hash FROM perps.` + table + ` WHERE receipt_kind = 'perps_endblock' AND tx_index = -1`)
+	rows, err := e.db.Query(`SELECT f.block, f.tx_hash, f.tx_index, b.tx_count FROM perps.` + table + ` f
+JOIN perps.blocks b ON b.number = f.block WHERE f.receipt_kind = 'perps_endblock'`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1005,8 +1070,12 @@ func (e *e2e) endBlockRows(t *testing.T, table string) map[uint64]common.Hash {
 	for rows.Next() {
 		var block int64
 		var hash []byte
-		if err := rows.Scan(&block, &hash); err != nil {
+		var txIndex, txCount int64
+		if err := rows.Scan(&block, &hash, &txIndex, &txCount); err != nil {
 			t.Fatal(err)
+		}
+		if txIndex != txCount {
+			t.Errorf("perps.%s block %d end-block tx_index %d, want consensus transaction count %d", table, block, txIndex, txCount)
 		}
 		out[uint64(block)] = common.BytesToHash(hash)
 	}
@@ -1193,7 +1262,7 @@ func (e *e2e) serveExplorer(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("explorer.NewServer: %v", err)
 	}
-	late.h = srv
+	late.h = srv.Handler()
 	return base
 }
 

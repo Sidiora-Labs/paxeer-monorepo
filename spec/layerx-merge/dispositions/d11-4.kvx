@@ -1,0 +1,11 @@
+[disposition.11.1.4.2]
+finding = "11.1.4.2"
+status = "resolved"
+evidence = "Commit b44a14724 replaced MigrationPlaneResult::Executed's canonical receipt and AuthorizedBatch with SequencerEvidence and receipt_keys at services/interop/crates/layerx-migrate/src/lib.rs:595 and migrated completion to settle_with_sequencer_evidence at services/interop/crates/layerx-migrate/src/lib.rs:1044 while retaining the ReceiptVerified check."
+follow_up = "closure"
+
+[disposition.11.14.3.2]
+finding = "11.14.3.2"
+status = "resolved"
+evidence = "Commit 52745fe64 removed the operation-byte restriction and added signingKey, bfa29f4fd added committed rung and block fields retained at services/interop/crates/layerx-committed-proof/src/lib.rs:494, and 8b8941892 verifies the recorded view through verify_committed at services/interop/crates/layerx-committed-proof/tests/committed_vectors.rs:311 with verbatim recorder equality asserted at line 473."
+follow_up = "closure"

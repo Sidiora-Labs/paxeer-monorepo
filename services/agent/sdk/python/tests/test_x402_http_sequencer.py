@@ -8,6 +8,7 @@ from hashlib import sha256
 
 import pytest
 
+from layerx_sdk.account_derivation import keccak256
 from layerx_sdk.production import PlatformSdkError, SdkErrorCode
 from layerx_sdk.verifier import SequencerReceiptVerificationError
 from layerx_sdk.x402_draw import PreparedGrantDraws
@@ -21,7 +22,7 @@ from layerx_sdk.x402_http import (
     encode_header,
     grant_payment_header,
 )
-from test_sequencer_receipt import VECTORS, _bytes, _key
+from test_sequencer_receipt import _bytes, _key, _payment_vector
 from test_x402_draw_sequencer import _ReceiptRpc, _grant_inputs, _payment_terms
 
 
@@ -59,11 +60,12 @@ def _payment_header(required, signed):
 
 
 def test_seller_verifies_a_sequencer_receipt_through_receipt_keys(tmp_path):
-    vector = VECTORS[0]
+    vector = _payment_vector()
     signed = _bytes(vector["signedReceipt"])
     raw = _bytes(vector["rawTransaction"])
     key = _key(vector)
     terms = _payment_terms(vector)
+    assert vector["receiptJson"]["txHash"] == "0x" + keccak256(raw).hex()
     required = _required(vector)
     payment_header = _payment_header(required, signed)
     evidence = PaymentEvidence(signed, raw)
@@ -171,23 +173,24 @@ def test_seller_verifies_a_sequencer_receipt_through_receipt_keys(tmp_path):
 
 
 def test_buyer_verifies_sequencer_receipts_through_receipt_keys(tmp_path):
-    vector = VECTORS[0]
+    vector = _payment_vector()
     signed = _bytes(vector["signedReceipt"])
     raw = _bytes(vector["rawTransaction"])
     key = _key(vector)
     terms = _payment_terms(vector)
+    assert vector["receiptJson"]["txHash"] == "0x" + keccak256(raw).hex()
     required = _required(vector)
-    activity = _bytes(vector["receiptJson"]["txHash"]).hex()
+    activity = vector["receiptJson"]["txHash"]
     authority = ConfiguredReceiptAuthority(raw)
     rpc = _ReceiptRpc(vector)
     buyer = BuyerMiddleware(rpc, [key], authority, [("exact", "layerx:125")])
     payment_header = buyer.prepare(
-        encode_header(required), raw.hex(), activity, terms["payer"]
+        encode_header(required), raw.hex(), activity, "0x" + terms["payer"]
     )
     assert decode_header(payment_header)["payload"] == decode_header(
         _payment_header(required, signed)
     )["payload"]
-    assert rpc.submissions == [(raw.hex(), "executed")]
+    assert rpc.submissions == [(raw.hex(), "receipted")]
     seller = SellerMiddleware(
         required, [key], authority, FulfillmentStore(tmp_path / "buyer.sqlite")
     )
@@ -196,7 +199,7 @@ def test_buyer_verifies_sequencer_receipts_through_receipt_keys(tmp_path):
     verified = buyer.capture_settlement(headers["PAYMENT-RESPONSE"], payment_header)
     assert verified.level == "sequencer-signed"
     assert verified.canonical_bytes == signed
-    assert verified.receipt.activity_id.hex() == activity
+    assert "0x" + verified.receipt.activity_id.hex() == activity
     assert verified.receipt_digest == _bytes(vector["receiptDigest"])
 
     receive, body, offer = _grant_inputs(vector)
@@ -230,6 +233,14 @@ def test_buyer_verifies_sequencer_receipts_through_receipt_keys(tmp_path):
         grant_headers["PAYMENT-RESPONSE"], grant_header, activity
     )
     assert grant_verified == verified
+    with pytest.raises(ValueError, match="^transaction-hash-mismatch$"):
+        buyer.capture_grant_settlement(
+            grant_headers["PAYMENT-RESPONSE"], grant_header, "0x" + "2a" * 32
+        )
+    with pytest.raises(ValueError, match="^invalid-rpc-hex$"):
+        buyer.capture_grant_settlement(
+            grant_headers["PAYMENT-RESPONSE"], grant_header, activity.removeprefix("0x")
+        )
 
     for keys, check in (
         ([replace(key, key_id=b"\x2a" * 32)], "unpinned_key"),
@@ -238,7 +249,7 @@ def test_buyer_verifies_sequencer_receipts_through_receipt_keys(tmp_path):
         refused = BuyerMiddleware(rpc, keys, authority, [("exact", "layerx:125")])
         for verify in (
             lambda: refused.prepare(
-                encode_header(required), raw.hex(), activity, terms["payer"]
+                encode_header(required), raw.hex(), activity, "0x" + terms["payer"]
             ),
             lambda: refused.capture_settlement(
                 headers["PAYMENT-RESPONSE"], payment_header

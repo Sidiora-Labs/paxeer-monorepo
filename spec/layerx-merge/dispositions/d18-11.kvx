@@ -1,0 +1,35 @@
+[disposition.18.1308.3.1]
+finding = "18.1308.3.1"
+status = "resolved"
+evidence = "Commits b9fd53afe and b7220cd6e ported migration.rs to three-argument enqueue and SubmissionState::Submitted and revocation.rs to InvalidationReason::GrantRevokedOnChain, removing both stale-target compilation errors on main."
+
+[disposition.18.1309.1.1]
+finding = "18.1309.1.1"
+status = "superseded"
+evidence = "Commit 90bda704a retired Keeper.ResultByIdempotency from modules/layerxauth/keeper/views.go together with its precompile view, removing the call to the deleted ReadIdempotentReceipt host method on main."
+
+[disposition.18.1309.1.2]
+finding = "18.1309.1.2"
+status = "superseded"
+evidence = "Commit 90bda704a removed the retired ResultByIdempotency method and its undefined ReadIdempotentReceipt call, and main now proceeds directly from CheckActivity to RevocationSequence at modules/layerxauth/keeper/views.go:168."
+
+[disposition.18.1309.1.3]
+finding = "18.1309.1.3"
+status = "resolved"
+evidence = "Commit 9fcd979bc made feed_loop mark TERM and INT shutdown successful and excluded feeder processes from cleanup log tails, with both protections retained on main at tools/qualification/localnode/v6120-node.sh:194 and tools/qualification/localnode/v6120-node.sh:285."
+
+[disposition.18.1310.1.1]
+finding = "18.1310.1.1"
+status = "open"
+evidence = "Main still constructs only admission and current-head trust steps at services/agent/crates/layerx-agentd/src/read/program_node.rs:415, so the 14-day limit at programs/crates/layerx-programs-registry/src/chain_proof/trust.rs:27 and validator-overlap check at programs/crates/layerx-programs-registry/src/chain_proof/trust.rs:71 continue to refuse older admissions and nonadjacent full validator rotations without intermediate steps."
+follow_up = "22.9.12"
+
+[disposition.18.1325.1.1]
+finding = "18.1325.1.1"
+status = "resolved"
+evidence = "Commit f31408a2b replaced the retired checkpoint submission in TestReadsRevertFromStoreDelete with a decoded certificate installed through validated genesis at precompiles/layerxanchor/retire_read_gate_test.go:137 and preserved the wired read and store-delete refusal assertions."
+
+[disposition.18.1408.1.1]
+finding = "18.1408.1.1"
+status = "resolved"
+evidence = "Commit 3260f6253 moved the eight deleted Web search kernel selectors and the deleted Mirror checkpoint selector to their rows' dropped lists and replaced them with six surviving Web search tests and five surviving Mirror tests in spec/layerx-merge/programme/data/parity.kvx."

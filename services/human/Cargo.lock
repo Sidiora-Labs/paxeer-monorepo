@@ -903,7 +903,6 @@ dependencies = [
  "layerx-crypto",
  "layerx-identity-binding",
  "layerx-intents",
- "layerx-paxeer-verifier",
  "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
@@ -927,7 +926,6 @@ dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
  "layerx-crypto",
- "layerx-paxeer-verifier",
  "layerx-programs-ai-market",
  "layerx-programs-registry",
  "layerx-proof",
@@ -998,6 +996,7 @@ dependencies = [
  "layerx-human-service",
  "layerx-intents",
  "layerx-types",
+ "layerx-wire",
  "p256",
  "ring",
  "rustix",
@@ -1152,17 +1151,6 @@ version = "0.1.0"
 dependencies = [
  "native-tls",
  "serde_json",
-]
-
-[[package]]
-name = "layerx-paxeer-verifier"
-version = "0.1.0"
-dependencies = [
- "layerx-proof",
- "layerx-types",
- "layerx-wire",
- "rustls",
- "sha3",
 ]
 
 [[package]]

@@ -145,6 +145,9 @@ concurrency:
 env:
   LEDGER_ENABLED: false
 
+permissions:
+  contents: read
+
 jobs:
   linux-amd64:
     name: "Linux AMD64"

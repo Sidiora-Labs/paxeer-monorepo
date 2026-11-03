@@ -435,7 +435,7 @@ function receiptHexField(object: Readonly<Record<string, unknown>>, name: string
 }
 
 function receiptHeight(value: unknown): string {
-  if (typeof value !== "string" || !/^(0|[1-9][0-9]{0,19})$/u.test(value)
+  if (typeof value !== "string" || !/^0x(?:0|[1-9a-f][0-9a-f]{0,15})$/u.test(value)
     || BigInt(value) > 0xffff_ffff_ffff_ffffn) throw new AgentIntegrationError("service-refused");
   return value;
 }

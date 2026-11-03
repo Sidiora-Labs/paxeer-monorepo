@@ -1,0 +1,126 @@
+[sweep.go-tests]
+revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+enumeration_command = "CGO_ENABLED=1 go list ./tests/..."
+enumeration_exit_code = 0
+prerequisite_command = "make paxd-native-libs"
+prerequisite_exit_code = 0
+targets_total = 19
+targets_passed = 17
+targets_failed = 2
+targets_not_run = 0
+notes = "Targets are root-module packages returned with the default Go build tags; nested modules and the autobahn_integration-only package are excluded by go list."
+
+[target.go-tests.1]
+target = "tests/chain"
+result = "failed"
+exit_code = 1
+observed = "TestSidioraFeePaid panics at tests/testutil/processblock/msgs/feetoken.go:70 with LXP_PRECOMPILE_NO_CONTEXT: LayerXPayKeepers is required while constructing the layerxpay precompile."
+assumption = "The bridge-in test helper likely constructs the precompile registry without supplying the required LayerXPayKeepers context."
+
+[target.go-tests.2]
+target = "tests/fixtures/example/contracts/echo"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.3]
+target = "tests/fixtures/example/contracts/erc1155"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.4]
+target = "tests/fixtures/example/contracts/erc20"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.5]
+target = "tests/fixtures/example/contracts/erc2981"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.6]
+target = "tests/fixtures/example/contracts/sendall"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.7]
+target = "tests/fixtures/example/contracts/simplestorage"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.8]
+target = "tests/integration/evm_module/rpc_io_test"
+result = "passed"
+exit_code = 0
+notes = "The default command passed; TestEVMRPCSpec is opt-in via PAX_EVM_IO_RUN_INTEGRATION=1 and was not enabled for this sweep."
+
+[target.go-tests.9]
+target = "tests/integration/evm_module/ws_test"
+result = "passed"
+exit_code = 0
+notes = "The default command passed; TestEthSubscribeNewHeads skips unless PAX_EVM_WS_RUN_INTEGRATION=1 and was not enabled for this sweep."
+
+[target.go-tests.10]
+target = "tests/integration/runner"
+result = "passed"
+exit_code = 0
+
+[target.go-tests.11]
+target = "tests/occ"
+result = "failed"
+exit_code = 1
+observed = "TestParallelTransactionsPointerCreation panics through precompiles/setup.go:422 from tests/occ/messages/test_msgs.go:121 with LXP_PRECOMPILE_NO_CONTEXT: LayerXPayKeepers is required."
+assumption = "The pointer-creation helper likely performs precompile lookup without supplying the required LayerXPayKeepers context."
+
+[target.go-tests.12]
+target = "tests/occ/messages"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.13]
+target = "tests/occ/utils"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.14]
+target = "tests/testutil/keeper"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.15]
+target = "tests/testutil/nullify"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.16]
+target = "tests/testutil/processblock"
+result = "passed"
+exit_code = 0
+
+[target.go-tests.17]
+target = "tests/testutil/processblock/msgs"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.18]
+target = "tests/testutil/processblock/verify"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.19]
+target = "tests/testutil/sample"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."

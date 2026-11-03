@@ -304,7 +304,7 @@ var (
 		layerxanchormodule.AppModuleBasic{},
 		layerxexchangemodule.AppModuleBasic{},
 		layerxbridgemodule.AppModuleBasic{},
-		launchpadmodule.AppModuleBasic{},
+		launchpadmodule.NewAppModuleBasic(),
 		perpsmodule.AppModuleBasic{},
 		spotmodule.AppModuleBasic{},
 		pricefeedmodule.AppModuleBasic{},
@@ -629,11 +629,15 @@ type App struct {
 	GigaOCCEnabled bool
 
 	// openBlock is the sequencer executor's open block; nil in full-node mode.
-	openBlock        OpenBlock
-	sequencerSource  tmtypes.SequencerSource
-	sequencerRPC     evmrpc.SequencerOption
-	sequencerReceipt evmrpc.SequencerReceiptOption
-	commitListener   func(height int64, appHash []byte) error
+	openBlock             OpenBlock
+	sequencerSource       tmtypes.SequencerSource
+	sequencerRPC          evmrpc.SequencerOption
+	sequencerReceipt      evmrpc.SequencerReceiptOption
+	commitListener        func(height int64, appHash []byte) error
+	lastBlockIDMutex      sync.RWMutex
+	committedBlockID      tmproto.BlockID
+	committingBlockID     tmproto.BlockID
+	committingBlockHeight int64
 }
 
 const LayerXHostStoreKey = storekeys.LayerXHostStoreKey
@@ -906,11 +910,12 @@ func New(
 		panic(fmt.Sprintf("error creating LayerX pay keeper: %s", err))
 	}
 	app.LayerXPayKeeper = &payKeeper
-	app.LayerXChainsKeeper, err = layerxchainskeeper.NewKeeper(appCodec, keys[storekeys.LayerXChainsStoreKey],
-		app.BankKeeper, app.EvmKeeper.GetBaseDenom)
+	app.LayerXChainsKeeper, err = layerxchainskeeper.NewKeeperWithAddressResolver(appCodec, keys[storekeys.LayerXChainsStoreKey],
+		app.BankKeeper, app.EvmKeeper.GetBaseDenom, &app.EvmKeeper)
 	if err != nil {
 		panic(fmt.Sprintf("error creating LayerX chains keeper: %s", err))
 	}
+	app.EvmKeeper.SetChainsBinding(evmChainsBinding{app.LayerXChainsKeeper})
 	app.LayerXExchangeKeeper = layerxexchangekeeper.NewKeeper(appCodec, keys[layerxexchangetypes.StoreKey],
 		app.LayerXCustodyKeeper, &app.EvmKeeper)
 	app.LayerXExchangeKeeper.SetUpgradeKeeper(app.UpgradeKeeper)
@@ -920,6 +925,8 @@ func New(
 		tokenfactorykeeper.NewMsgServerImpl(app.TokenFactoryKeeper), &app.EvmKeeper)
 	app.PricefeedKeeper = pricefeedkeeper.NewKeeper(keys[pricefeedtypes.StoreKey], &app.StakingKeeper, app.AccountKeeper, &app.EvmKeeper)
 	app.PerpsKeeper = perpskeeper.NewKeeper(keys[perpstypes.StoreKey], &app.EvmKeeper, app.PricefeedKeeper)
+	// The module and served spot precompiles share this stateless keeper;
+	// every view reads the store attached to its call context.
 	app.SpotKeeper = spotkeeper.NewKeeper(keys[spottypes.StoreKey], app.BankKeeper, &app.EvmKeeper, app.PricefeedKeeper)
 	app.XWebKeeper = xwebkeeper.NewKeeper(keys[xwebtypes.StoreKey], app.BankKeeper, &app.EvmKeeper)
 	app.SequencerKeeper = seqkeeper.NewKeeper(keys[seqtypes.StoreKey])
@@ -927,9 +934,9 @@ func New(
 	bApp.SetPreCommitHandler(app.HandlePreCommit)
 	bApp.SetCloseHandler(app.HandleClose)
 
-	app.evmRPCConfig, err = evmrpcconfig.ReadConfig(appOpts)
+	app.evmRPCConfig, err = ReadEVMRPCConfig(appOpts)
 	if err != nil {
-		panic(fmt.Sprintf("error reading EVM config due to %s", err))
+		panic(err)
 	}
 	// TODO: remove the mode gate and always construct the notifier once
 	// non-Autobahn is also producer-wired to feed it (i.e. a listener
@@ -1231,6 +1238,9 @@ func New(
 	app.mm.RegisterRoutes(app.Router(), app.QueryRouter(), encodingConfig.Amino)
 	app.configurator = module.NewConfigurator(app.appCodec, app.MsgServiceRouter(), app.GRPCQueryRouter())
 	app.mm.RegisterServices(app.configurator)
+	// Keep the retirement-gated message route without restoring the anchor's
+	// genesis, export or migration lifecycle after its store is deleted.
+	layerxanchormodule.NewAppModule(app.LayerXAnchorKeeper, &app.UpgradeKeeper).RegisterServices(app.configurator)
 
 	// create the simulation manager and define the order of the modules for deterministic simulations
 	app.sm = module.NewSimulationManager(
@@ -1434,7 +1444,16 @@ func (app *App) Close() error {
 
 // HandlePreCommit happens right before the block is committed
 func (app *App) HandlePreCommit(ctx sdk.Context) error {
-	return app.EvmKeeper.FlushTransientReceipts(ctx)
+	if err := app.EvmKeeper.FlushTransientReceipts(ctx); err != nil {
+		return err
+	}
+	committed := app.LastBlockID()
+	app.lastBlockIDMutex.Lock()
+	defer app.lastBlockIDMutex.Unlock()
+	app.committedBlockID = committed
+	app.committingBlockID = tmproto.BlockID{Hash: ctx.HeaderHash()}
+	app.committingBlockHeight = ctx.BlockHeight()
+	return nil
 }
 
 // Close closes all items that needs closing (called by baseapp)
@@ -1622,7 +1641,25 @@ func (app *App) MidBlocker(ctx sdk.Context, height int64) []abci.Event {
 // InitChainer application update at chain initialization
 func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
 	var genesisState GenesisState
-	if !app.genesisImportConfig.StreamGenesisImport {
+	if app.genesisImportConfig.StreamGenesisImport {
+		// The streaming reader reports open errors only on stdout and otherwise
+		// returns an empty stream. Refuse an unavailable input before writing state.
+		file, err := os.Open(filepath.Clean(app.genesisImportConfig.GenesisStreamFile))
+		if err != nil {
+			panic(fmt.Errorf("open genesis stream: %w", err))
+		}
+		info, statErr := file.Stat()
+		closeErr := file.Close()
+		if statErr != nil {
+			panic(fmt.Errorf("stat genesis stream: %w", statErr))
+		}
+		if closeErr != nil {
+			panic(fmt.Errorf("close genesis stream: %w", closeErr))
+		}
+		if !info.Mode().IsRegular() {
+			panic(fmt.Errorf("genesis stream %q must be a regular file", file.Name()))
+		}
+	} else {
 		if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 			panic(err)
 		}
@@ -1888,12 +1925,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	appMetrics.optimisticProcessing.Add(ctx.Context(), 1,
 		otelmetric.WithAttributes(attribute.Bool("enabled", false)))
 	logger.Info("optimistic processing ineligible")
-	bpreq := &BlockProcessRequest{
-		Hash:                req.Hash,
-		ByzantineValidators: req.ByzantineValidators,
-		Height:              req.Header.Height,
-		Time:                req.Header.Time,
-	}
+	bpreq := NewBlockProcessRequest(req)
 	events, txResults, endBlockResp, processErr := app.ProcessBlock(ctx, req.Txs, bpreq, req.DecidedLastCommit, false, nil)
 	if processErr != nil {
 		logger.Error("ProcessBlock failed in FinalizeBlocker", "err", processErr)
@@ -2376,6 +2408,17 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 	return execResults, ctx
 }
 
+// NewBlockProcessRequest carries the finalize request metadata into direct block execution.
+// The caller must supply a non-nil request and header, as on the ABCI finalize path.
+func NewBlockProcessRequest(req *abci.RequestFinalizeBlock) *BlockProcessRequest {
+	return &BlockProcessRequest{
+		Hash:                req.Hash,
+		ByzantineValidators: req.ByzantineValidators,
+		Height:              req.Header.Height,
+		Time:                req.Header.Time,
+	}
+}
+
 // ProcessBlock executes block transactions. If preDecoded is non-nil and len(preDecoded)==len(txs),
 // those decoded transactions are reused (bytes are not decoded again); EVM preprocessing still runs
 // on the block context.
@@ -2480,10 +2523,23 @@ func (app *App) CompleteBlock(ctx sdk.Context, height int64, txResults []*abci.E
 	lazyWriteEvents := app.BankKeeper.WriteDeferredBalances(ctx)
 	events = append(events, lazyWriteEvents...)
 
-	// Sum up total used per block only for evm transactions
+	// Decision 2335: domain-routed transactions must not contribute to the root base fee.
+	domainTxs := make(map[string]struct{})
+	readCtx := ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
+	app.LayerXChainsKeeper.IterateDomains(readCtx, func(domain layerxchainstypes.Domain) bool {
+		for _, hash := range app.LayerXChainsKeeper.DomainTxs(readCtx, domain.Id, uint64(height)) {
+			domainTxs[hash.Hex()] = struct{}{}
+		}
+		return false
+	})
+
+	// Sum up total used per block only for root EVM transactions.
 	var evmTotalGasUsed int64
 	for _, txResult := range txResults {
 		if txResult.EvmTxInfo != nil {
+			if _, domain := domainTxs[txResult.EvmTxInfo.TxHash]; domain {
+				continue
+			}
 			evmTotalGasUsed += txResult.GasUsed
 		}
 	}
@@ -2898,6 +2954,26 @@ func (app *App) makeGigaDeliverTx(cache *gigaBlockCache) func(sdk.Context, abci.
 	}
 }
 
+func (app *App) DomainAllowance(ctx sdk.Context, chainID *big.Int) (id uint32, gas uint64, bytes uint64, active bool, known bool) {
+	// The root chain follows the application's configured EVM chain ID, just
+	// as ante validation does; it does not consume a virtual domain allowance.
+	if chainID != nil && chainID.Cmp(app.EvmKeeper.ChainID(ctx)) == 0 {
+		return 0, 0, 0, true, true
+	}
+	id, known = layerxchainstypes.DomainOfChainID(chainID)
+	if !known {
+		return 0, 0, 0, false, false
+	}
+	if id == 0 {
+		return 0, 0, 0, true, true
+	}
+	domain, known := app.LayerXChainsKeeper.ResolveChainID(ctx, chainID)
+	if !known {
+		return id, 0, 0, false, false
+	}
+	return id, domain.GasAllowance, domain.ByteAllowance, domain.Status == layerxchainstypes.StatusActive, true
+}
+
 func (app *App) GetEVMMsg(tx sdk.Tx) (res *evmtypes.MsgEVMTransaction) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -3309,7 +3385,15 @@ func (app *App) SetCommitListener(fn func(height int64, appHash []byte) error) {
 }
 
 func (app *App) LastBlockID() tmproto.BlockID {
-	return app.GetCheckCtx().BlockHeader().LastBlockId
+	app.lastBlockIDMutex.RLock()
+	defer app.lastBlockIDMutex.RUnlock()
+	id := app.committedBlockID
+	if app.committingBlockHeight > 0 && app.committingBlockHeight == app.LastBlockHeight() {
+		id = app.committingBlockID
+	}
+	id.Hash = append([]byte(nil), id.Hash...)
+	id.PartSetHeader.Hash = append([]byte(nil), id.PartSetHeader.Hash...)
+	return id
 }
 
 // LatestCtx is the ante read context. In sequencer mode it is a branch of L_open while a block
@@ -3390,7 +3474,8 @@ const lxpModuleReservedCount uint16 = 11
 // kernel module set, so no kernel module id is reused.
 const EVMReceiptModuleID = lxpModuleReservedCount + 1
 
-// Sequenced reports whether height has reached the keeper's activation height.
+// Sequenced reports whether height has reached the keeper's persisted activation
+// height; reconstructing the application does not reset the sequencing boundary.
 func (app *App) Sequenced(ctx sdk.Context, height int64) bool {
 	sequenced, err := app.SequencerKeeper.Sequenced(ctx, height)
 	if err != nil {
@@ -3514,7 +3599,8 @@ func (app *App) SnapshotAwareRPCContextProvider() evmrpc.TraceContextProvider {
 	})
 }
 
-// RegisterTendermintService implements the Application.RegisterLocalServices method.
+// RegisterLocalServices installs the local query services and the RPC options
+// supplied by the sequencer before either EVM server starts.
 func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.TxConfig) {
 	authtx.RegisterTxService(app.GRPCQueryRouter(), node, txConfig, app.Simulate, app.interfaceRegistry)
 	tmservice.RegisterTendermintService(app.GRPCQueryRouter(), node, app.interfaceRegistry)
@@ -3782,8 +3868,27 @@ func (app *App) BlacklistedAccAddrs() map[string]bool {
 	return blacklistedAddrs
 }
 
+type chainsPrecompileBankKeeper struct {
+	putils.BankKeeper
+	chains *layerxchainskeeper.Keeper
+}
+
+func (k *chainsPrecompileBankKeeper) LayerXChainsK() *layerxchainskeeper.Keeper { return k.chains }
+
+func (pk *PrecompileKeepers) LayerXChainsK() *layerxchainskeeper.Keeper {
+	wired, ok := pk.BankKeeper.(interface {
+		LayerXChainsK() *layerxchainskeeper.Keeper
+	})
+	if !ok {
+		return nil
+	}
+	return wired.LayerXChainsK()
+}
+
 func (app *App) GetPrecompileKeepers() putils.Keepers {
-	return NewPrecompileKeepers(app)
+	keepers := NewPrecompileKeepers(app)
+	keepers.BankKeeper = &chainsPrecompileBankKeeper{BankKeeper: keepers.BankKeeper, chains: app.LayerXChainsKeeper}
+	return keepers
 }
 
 // v6120Contracts builds the contracts the v6.12.0 set adds or switches: the
@@ -4203,4 +4308,50 @@ func (b layerXGovernanceBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) 
 func (b layerXGovernanceBasic) RegisterInterfaces(registry types.InterfaceRegistry) {
 	b.AppModuleBasic.RegisterInterfaces(registry)
 	layerxgovtypes.RegisterInterfaces(registry)
+}
+
+type evmChainsBinding struct {
+	*layerxchainskeeper.Keeper
+}
+
+func (b evmChainsBinding) RecordDomainTx(ctx sdk.Context, id uint32, height int64, hash common.Hash, gasUsed uint64) {
+	if height < 0 {
+		panic("negative domain transaction height")
+	}
+	b.Keeper.RecordDomainTx(ctx, id, uint64(height), hash, gasUsed)
+}
+
+func (b evmChainsBinding) DomainGasUsed(ctx sdk.Context, id uint32, height int64) uint64 {
+	if height < 0 {
+		panic("negative domain gas height")
+	}
+	return b.Keeper.DomainGasUsed(ctx, id, uint64(height))
+}
+
+func (b evmChainsBinding) ActiveDomains(ctx sdk.Context) []uint32 {
+	var ids []uint32
+	b.IterateDomains(ctx, func(d layerxchainstypes.Domain) bool {
+		if d.Status == layerxchainstypes.StatusActive {
+			ids = append(ids, d.Id)
+		}
+		return false
+	})
+	return ids
+}
+
+func (b evmChainsBinding) Operator(ctx sdk.Context, id uint32) (common.Address, uint16) {
+	d, ok := b.GetDomain(ctx, id)
+	if !ok {
+		panic(layerxchainstypes.ErrUnknownDomain)
+	}
+	return d.Operator, d.FeeShareBps
+}
+
+// ReadEVMRPCConfig decodes the startup options consumed by the node's EVM servers.
+func ReadEVMRPCConfig(appOpts servertypes.AppOptions) (evmrpcconfig.Config, error) {
+	config, err := evmrpcconfig.ReadConfig(appOpts)
+	if err != nil {
+		return config, fmt.Errorf("error reading EVM config due to %w", err)
+	}
+	return config, nil
 }

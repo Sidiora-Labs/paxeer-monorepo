@@ -278,3 +278,19 @@ func TestXWebUpgradeKeepsExistingXWebState(t *testing.T) {
 	require.Equal(t, xweb.AppModule{}.ConsensusVersion(), a.UpgradeKeeper.GetModuleVersionMap(ctx)[xwebtypes.ModuleName])
 	require.Contains(t, a.EvmKeeper.CustomPrecompiles(ctx), common.HexToAddress(xwebtypes.PrecompileAddress))
 }
+
+// A completed plan still needs the parameters produced by InitGenesis before
+// either startup or RefreshPrecompiles can expose the xweb consumer.
+func TestXWebUpgradeMarkerRequiresGenesisParameters(t *testing.T) {
+	wrapper := NewTestWrapper(t, time.Unix(1800000000, 0).UTC(), secp256k1.GenPrivKey().PubKey(), true)
+	a, ctx := wrapper.App, wrapper.Ctx
+	a.UpgradeKeeper.SetDone(ctx, xwebUpgrade)
+	require.True(t, a.xwebLive(ctx))
+	missing, _ := ctx.CacheContext()
+	missing.KVStore(a.GetKey(xwebtypes.StoreKey)).Delete(xwebtypes.ParamsKey)
+	require.False(t, a.xwebLive(missing))
+	a.RefreshPrecompiles(missing)
+	require.NotContains(t, a.EvmKeeper.CustomPrecompiles(missing), common.HexToAddress(xwebtypes.PrecompileAddress))
+	a.RefreshPrecompiles(ctx)
+	require.Contains(t, a.EvmKeeper.CustomPrecompiles(ctx), common.HexToAddress(xwebtypes.PrecompileAddress))
+}

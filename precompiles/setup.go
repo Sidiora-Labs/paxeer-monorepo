@@ -62,12 +62,13 @@ type MergeAddress struct {
 }
 
 // MergeAddressTable lists the precompiles the merge plan brings online: the
-// four construct addresses and the eight agent-function addresses.
+// five construct addresses and the eight agent-function addresses.
 var MergeAddressTable = []MergeAddress{
 	{ecommon.HexToAddress("0x000000000000000000000000000000000000101A"), "layerxledger"},
 	{ecommon.HexToAddress("0x000000000000000000000000000000000000101B"), "layerxpay"},
 	{ecommon.HexToAddress("0x000000000000000000000000000000000000101C"), "layerxauth"},
 	{ecommon.HexToAddress("0x000000000000000000000000000000000000101D"), "layerxprograms"},
+	{ecommon.HexToAddress("0x000000000000000000000000000000000000101E"), "layerxchains"},
 	{ecommon.HexToAddress("0x0000000000000000000000000000000000000901"), "orob"},
 	{ecommon.HexToAddress("0x0000000000000000000000000000000000000902"), "clearing"},
 	{ecommon.HexToAddress("0x0000000000000000000000000000000000000903"), "oracle aggregator"},
@@ -185,6 +186,8 @@ func GetCustomPrecompiles(
 	return custom
 }
 
+// GetCustomPrecompilesE includes launchpad.GetVersioned at the direct 0x1017
+// address; surface runtime calls must reach this same registered implementation.
 func GetCustomPrecompilesE(
 	latestUpgrade string,
 	keepers utils.Keepers,
@@ -410,6 +413,9 @@ func InitializePrecompiles(
 		addPrecompileToVM(layerxbridgep)
 		addPrecompileToVM(launchpadp)
 		addPrecompileToVM(xwebp)
+		for _, p := range merge {
+			addPrecompileToVM(p)
+		}
 		Initialized = true
 	}
 	return nil
@@ -425,7 +431,7 @@ func GetPrecompileInfo(name string) PrecompileInfo {
 
 func GetPrecompileInfoE(name string) (PrecompileInfo, error) {
 	if i, ok := PrecompileNamesToInfo[name]; ok {
-		return i, nil
+		return validatePrecompileInfo(name, i)
 	}
 	if !Initialized {
 		if err := InitializePrecompiles(true, &utils.EmptyKeepers{}); err != nil {
@@ -436,7 +442,16 @@ func GetPrecompileInfoE(name string) (PrecompileInfo, error) {
 	if !ok {
 		return PrecompileInfo{}, fmt.Errorf("%s doesn't exist as a precompile", name)
 	}
-	return i, nil
+	return validatePrecompileInfo(name, i)
+}
+
+// A registry entry must carry a destination before a caller can build a call.
+// Returning the zero address would silently turn it into an ordinary EVM send.
+func validatePrecompileInfo(name string, info PrecompileInfo) (PrecompileInfo, error) {
+	if info.Address == (ecommon.Address{}) {
+		return PrecompileInfo{}, fmt.Errorf("%s precompile has no address", name)
+	}
+	return info, nil
 }
 
 // This function modifies global variable in `vm` module. It should only be called once

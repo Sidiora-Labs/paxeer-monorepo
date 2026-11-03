@@ -5,6 +5,8 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
+// GrantSession returns the kernel receipt whose grant summary and body consumers
+// decode with AuthEvents; the grant itself belongs to the shared host store.
 func (k *Keeper) GrantSession(ctx sdk.Context, actor Actor, grant []byte, expirySequence uint64, actionKey, idempotencyKey [32]byte) (Result, error) {
 	if err := k.checkPause(ctx, "grantSession"); err != nil {
 		return Result{}, err

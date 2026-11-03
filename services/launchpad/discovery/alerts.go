@@ -94,7 +94,7 @@ func (s Store) DisableRule(ctx context.Context, actor, id string) error {
 		if e := json.Unmarshal(b, &r); e != nil {
 			return e
 		}
-		if r.OwnerAccountID != actor || r.Disabled {
+		if r.ID != id || r.OwnerAccountID != actor || r.Disabled {
 			return sql.ErrNoRows
 		}
 		if r.Revision == ^uint64(0) {
