@@ -32,7 +32,7 @@
     "@modelcontextprotocol/sdk": "1.32.0",
     "body-parser": "2.4.0",
     "fast-uri": "3.1.9",
-    "hono": "4.13.7",
+    "hono": "4.13.11",
     "ip-address": "10.7.4",
     "next": "16.4.1",
     "proxy-addr": "2.0.8",

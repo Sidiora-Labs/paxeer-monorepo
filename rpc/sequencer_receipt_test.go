@@ -409,6 +409,35 @@ func seqReceiptTwoLogs9005() []*types.Log {
 	}
 }
 
+func TestReceiptKeysNotServedNamesRequestedMethod(t *testing.T) {
+	chain := newSeqReceiptChain9005(t)
+	testApp := app.Setup(t, false, false, false)
+	port := startSeqReceiptServer9005(t, testApp, chain.ctxProvider, evmrpc.SequencerReceiptOption{})
+	unavailableURL, err := url.Parse(fmt.Sprintf("http://%s:%d", TestAddr, port))
+	require.NoError(t, err)
+	forwardPort := startSeqReceiptServer9005(t, testApp, chain.ctxProvider, evmrpc.SequencerReceiptOption{ForwardURL: unavailableURL})
+
+	for _, node := range []struct {
+		name string
+		port int
+	}{
+		{name: "direct", port: port},
+		{name: "forwarded", port: forwardPort},
+	} {
+		t.Run(node.name, func(t *testing.T) {
+			_, rpcErr := callSeqReceipt9005(t, node.port, evmrpc.ReceiptKeysMethod)
+			require.NotNil(t, rpcErr)
+			require.Equal(t, -32000, rpcErr.Code)
+			require.Equal(t, "px_getReceiptKeys served by sequencer", rpcErr.Message)
+		})
+	}
+
+	_, rpcErr := callSeqReceipt9005(t, port, evmrpc.SequencerReceiptMethod, common.HexToHash("0x77"))
+	require.NotNil(t, rpcErr)
+	require.Equal(t, -32000, rpcErr.Code)
+	require.Equal(t, "pax_sequencerReceipt served by sequencer", rpcErr.Message)
+}
+
 func TestReceiptKeysServedByTheNode(t *testing.T) {
 	chain := newSeqReceiptChain9005(t)
 	testApp := app.Setup(t, false, false, false)
