@@ -374,6 +374,8 @@ export const recipe = defineRecipe({
       },
     },
     size: {
+      '2xs_alt': {},
+
       '2xs': {
         px: 2,
         h: 5,

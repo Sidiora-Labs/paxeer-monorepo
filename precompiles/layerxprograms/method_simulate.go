@@ -2,6 +2,7 @@ package layerxprograms
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 
@@ -80,6 +81,10 @@ func simulateHandler(ctx sdk.Context, p *PrecompileExecutor, call callContext, a
 		Payload:         payload,
 	}, authority)
 	if err != nil {
+		var code lxphost.Code
+		if errors.As(err, &code) {
+			return nil, kernelError(code, call.method.Name)
+		}
 		return nil, err
 	}
 	if err := kernelError(receipt.ResultCode, call.method.Name); err != nil {

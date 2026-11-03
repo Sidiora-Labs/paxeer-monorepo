@@ -23,9 +23,10 @@ import (
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
 	bridgetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
+	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
+	sdked25519 "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/ed25519"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
@@ -232,9 +233,14 @@ type receiptHarness struct {
 func newReceiptHarness(t *testing.T, openMs int64, setup func(ctx sdk.Context, a *app.App), funded ...utils.TestAcct) *receiptHarness {
 	t.Helper()
 	tm := time.Now().UTC()
-	valPub := secp256k1.GenPrivKey().PubKey()
+	valPub := sdked25519.GenPrivKey().PubKey()
 	tw := app.NewTestWrapper(t, tm, valPub, false)
 	a := tw.App
+	require.NoError(t, a.SequencerKeeper.SetLeaders(tw.Ctx, [][32]byte{[32]byte(valPub.Bytes())}))
+	public := publicOf(testKeySeed)
+	require.NoError(t, a.SequencerKeeper.SetReceiptKeys(tw.Ctx, seqkeeper.ReceiptKeys{{
+		KeyId: testKeyID[:], PublicKey: public[:], FirstHeight: 1, LastHeight: 1000,
+	}}))
 	for _, acct := range funded {
 		a.EvmKeeper.SetAddressMapping(tw.Ctx, acct.AccountAddress, acct.EvmAddress)
 		tw.FundAcc(acct.AccountAddress, sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(fundingUhpx))))

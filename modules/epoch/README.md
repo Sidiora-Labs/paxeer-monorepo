@@ -84,3 +84,17 @@ new_epoch:
 ## Parameters
 
 The `modules/epoch` module does not contain any parameters.
+
+## Package verification
+
+The package tests cover genesis initialization and export, message rejection,
+module registration, and epoch transitions. They require no external inputs.
+
+```sh
+CGO_ENABLED=1 go vet ./modules/epoch/
+CGO_ENABLED=1 go test -count=1 -timeout 35m -v ./modules/epoch/
+```
+
+The inventory timeout did not reproduce at revision
+`cea04b0a20fed9621b2f2580398024b38b76ff2e`: the package tests passed in 3.984
+seconds without product or test changes.

@@ -2199,7 +2199,6 @@ struct WaitWire {
     #[serde(default)]
     agent: Option<String>,
     submission_ref: String,
-    #[serde(alias = "requested_verification_level")]
     requested_rung: String,
     deadline: String,
 }
@@ -2561,8 +2560,22 @@ mod tests {
             serde_json::json!({
                 "chain_head": "12",
                 "value_height": "9",
-                "relative_to": {"height": "9", "hash": "04".repeat(32)},
+                "relative_to": {"height": "9", "hash": format!("0x{}", "04".repeat(32))},
             })
+        );
+        let mut unprefixed = value.clone();
+        unprefixed["relative_to"]["hash"] = serde_json::json!("04".repeat(32));
+        assert!(Freshness::decode_json(&unprefixed.to_string()).is_err());
+        assert_eq!(
+            Freshness::decode_json(&value.to_string()).unwrap(),
+            Freshness {
+                chain_head: 12,
+                value_height: 9,
+                relative_to: layerx_agent_api::read::RelativeTo::Block {
+                    height: 9,
+                    hash: [4; 32],
+                },
+            }
         );
     }
 
@@ -2605,9 +2618,20 @@ mod tests {
 
     #[test]
     fn wait_request_refuses_retired_level_names_and_field() {
-        let refusal = wait_request(&wait_json("batch-included"), RequestId(8)).unwrap_err();
-        assert_eq!(refusal.reason, "envelope.malformed");
-        assert_eq!(refusal.request_id, RequestId(8));
+        for retired in [
+            "batch-included",
+            "Unverified",
+            "SequencerSigned",
+            "BatchIncluded",
+            "StateProven",
+            "CheckpointFinalised",
+            "SettlementAnchored",
+        ] {
+            let refusal = wait_request(&wait_json(retired), RequestId(8)).unwrap_err();
+            assert_eq!(refusal.reason, "envelope.malformed", "{retired}");
+            assert_eq!(refusal.request_id, RequestId(8));
+            assert_eq!(refusal.class, ErrorClass::ProtocolIncompatibility);
+        }
         let mut retired = wait_json("committed");
         retired.insert(
             "requested_verification_level".into(),
@@ -2616,6 +2640,12 @@ mod tests {
         let refusal = wait_request(&retired, RequestId(9)).unwrap_err();
         assert_eq!(refusal.reason, "envelope.unknown_field");
         assert_eq!(refusal.class, ErrorClass::ProtocolIncompatibility);
+        assert_eq!(refusal.request_id, RequestId(9));
+        retired.remove("requested_rung");
+        let refusal = wait_request(&retired, RequestId(10)).unwrap_err();
+        assert_eq!(refusal.reason, "envelope.unknown_field");
+        assert_eq!(refusal.class, ErrorClass::ProtocolIncompatibility);
+        assert_eq!(refusal.request_id, RequestId(10));
     }
 }
 

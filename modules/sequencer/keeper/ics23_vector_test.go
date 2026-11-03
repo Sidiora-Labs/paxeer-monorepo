@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -14,6 +13,7 @@ import (
 	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	rootmultiv2 "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/storev2/rootmulti"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/memiavl"
 	ics23 "github.com/confio/ics23/go"
 	"github.com/stretchr/testify/require"
 )
@@ -72,6 +72,7 @@ func TestReceiptKeysAppHashVector(t *testing.T) {
 	cache.GetKVStore(key).Set(types.ReceiptKeysKey, value)
 	cache.Write()
 	commit := store.Commit(true)
+	require.Equal(t, int64(height), commit.Version)
 	response := store.Query(context.Background(), abci.RequestQuery{
 		Path: "/sequencer/key", Data: types.ReceiptKeysKey, Height: commit.Version, Prove: true,
 	})
@@ -112,5 +113,37 @@ func TestReceiptKeysAppHashVector(t *testing.T) {
 	}
 	committed, err := os.ReadFile(path)
 	require.NoError(t, err)
-	require.True(t, bytes.Equal(committed, encoded), "regenerate the committed host vector with LXP_WRITE_VECTORS=1")
+	require.Equal(t, string(committed), string(encoded), "receipt-key app-hash vector must match the keeper store layout")
+}
+
+func TestReceiptKeysInitialVersionMutations(t *testing.T) {
+	const initialVersion = 1200
+	tree := memiavl.NewWithInitialVersion(initialVersion)
+	previous := memiavl.NewEmptyTree(initialVersion-1, 0)
+	for _, candidate := range []*memiavl.Tree{tree, previous} {
+		for _, key := range []string{"a", "b", "c", "d", "e"} {
+			candidate.Set([]byte(key), []byte(key))
+		}
+	}
+	require.Equal(t, previous.RootHash(), tree.RootHash())
+	for _, candidate := range []*memiavl.Tree{tree, previous} {
+		candidate.Remove([]byte("c"))
+	}
+	require.Equal(t, previous.RootHash(), tree.RootHash())
+	for _, candidate := range []*memiavl.Tree{tree, previous} {
+		_, version, err := candidate.SaveVersion(true)
+		require.NoError(t, err)
+		require.Equal(t, int64(initialVersion), version)
+		candidate.Set([]byte("b"), []byte("updated"))
+		candidate.Remove([]byte("d"))
+	}
+	require.Equal(t, previous.RootHash(), tree.RootHash())
+	for _, candidate := range []*memiavl.Tree{tree, previous} {
+		_, version, err := candidate.SaveVersion(true)
+		require.NoError(t, err)
+		require.Equal(t, int64(initialVersion+1), version)
+		require.Equal(t, []byte("updated"), candidate.Get([]byte("b")))
+		require.Nil(t, candidate.Get([]byte("c")))
+		require.Nil(t, candidate.Get([]byte("d")))
+	}
 }

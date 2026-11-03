@@ -1,0 +1,928 @@
+# Pre-upgrade source audit; findings propose repairs and do not implement them.
+
+[audit.22.30.1]
+task = "22.30.1"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 67
+findings = 42
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["1"]
+interfaces_reviewed = 661
+review_basis = "All 67 members read in full. Package requirements and 261 produced/400 consumed unique registry rows reviewed with current declarations, retained callers, retirement dispositions and linked kernel contract context. Historic codecs and log readers explicitly retained by decisions 124, 126 and 130 are not treated as active retired services."
+qualification_scope = "The declared gates qualify this audit record only. No source repair, inventory sweep target, runtime test, whole-network upgrade or deployment is claimed qualified."
+
+[file.1]
+path = "layerxproof/codec/account_kind_test.go"
+lines = 64
+verdict = "clean"
+note = "Full review: account-name kind and account-ID vectors match the C namespaces, including reserved historical reserve and withdrawal identifiers; no retired service is invoked."
+
+[file.2]
+path = "layerxproof/codec/batch.go"
+lines = 110
+verdict = "clean"
+note = "Full review: exact 354-byte header framing, sorted tags, protocol versions, sequence ranges and trailing-byte refusals agree with the retained C batch-header codec under decisions 126 and 130; this format is historical, not merged finality."
+
+[file.3]
+path = "layerxproof/codec/checkpoint.go"
+lines = 136
+verdict = "clean"
+note = "Full review: retained settlement-reference widths, nonzero fields, checkpoint hash and attestation signing bytes agree with the historical C format; retired checkpoint and guarantor decoders are absent as required by req 1291."
+
+[file.4]
+path = "layerxproof/codec/codec_test.go"
+lines = 376
+verdict = "issues"
+note = "Full review: receipt, Merkle, account and state refusal assertions were compared with the native producers; checked-in state fixtures omit current module-tree widths."
+
+[file.5]
+path = "layerxproof/codec/discovery.go"
+lines = 86
+verdict = "issues"
+note = "Full review: all 160 payload bytes and 96 proof-material bytes, version and digest fields were checked; the remaining decoder describes an LNI producer that has retired."
+
+[file.6]
+path = "layerxproof/codec/domain.go"
+lines = 98
+verdict = "clean"
+note = "Full review: all 20 shared domain tags and their order match the corresponding C prefix; retained historic hash domains preserve byte compatibility, and no transport or retired process is called."
+
+[file.7]
+path = "layerxproof/codec/merkle.go"
+lines = 155
+verdict = "clean"
+note = "Full review: Merkle framing, depth, positional ordering, duplicated odd siblings, leaf-index bounds and root errors agree with canonical native proofs; uint32 ceiling division is overflow-safe."
+
+[file.8]
+path = "layerxproof/codec/reader.go"
+lines = 246
+verdict = "clean"
+note = "Full review: every scalar reader, length bound, tagged structure, bool, byte-vector copy and U128 arithmetic path was checked for truncation, overflow and trailing fields."
+
+[file.9]
+path = "layerxproof/codec/receipt.go"
+lines = 537
+verdict = "clean"
+note = "Full review: canonical receipt versions 2 and 3, additive supply/program outcome shapes, effect limits, strict tags, signature presence and exact unsigned signing bytes were compared with C receipt encoding."
+
+[file.10]
+path = "layerxproof/codec/state.go"
+lines = 472
+verdict = "issues"
+note = "Full review: account kinds, canonical account records and account-tree hashing agree with C; module ID and composite-width bounds reject current native state witnesses."
+
+[file.11]
+path = "layerxproof/testvectors/load.go"
+lines = 119
+verdict = "clean"
+note = "Full review: fixture name/verdict/type checks, hex and decimal accessors, source-relative lookup and removed LoadAnchor surface were checked; this is a fixture loader, not runtime proof production."
+
+[file.12]
+path = "layerxproof/testvectors/paxeer_bind.go"
+lines = 105
+verdict = "clean"
+note = "Full review: pinned binding fixture loading checks fixed-width keys, addresses, IDs, signature lengths and nonempty vectors; signing data remain explicit bytes rather than float or text conversions."
+
+[file.13]
+path = "layerxproof/verify/checkpoint.go"
+lines = 56
+verdict = "clean"
+note = "Full review: retained historical GuarantorSignature validates v, nonzero/range/low-S signature fields and recovered signer binding; retired certificate, attestation and settlement-domain verification entry points are absent."
+
+[file.14]
+path = "layerxproof/verify/discovery.go"
+lines = 23
+verdict = "issues"
+note = "Full review: only error values and VerifiedDiscovery remain after DiscoveryProof retirement; no current verifier can construct the advertised verified discovery result."
+
+[file.15]
+path = "layerxproof/verify/ed25519.go"
+lines = 88
+verdict = "clean"
+note = "Full review: canonical reduced y/S checks, decoded public key and R small-order refusals and standard-library equation verification were inspected; trust anchors remain explicit and no clock/network state is read."
+
+[file.16]
+path = "layerxproof/verify/receipt.go"
+lines = 81
+verdict = "clean"
+note = "Full review: receipt decoding, protocol refusal, required signature, digest verification and Merkle receipt inclusion at a caller-supplied root agree with retained interfaces; retired header-bound inclusion functions are absent."
+
+[file.17]
+path = "layerxproof/verify/state.go"
+lines = 51
+verdict = "clean"
+note = "Full review: StateProof delegates to strict witness decoding/root comparison and AccountProof binds account key, account leaf and optional asset; the shared codec module-width defect is recorded against codec/state.go."
+
+[file.18]
+path = "layerxproof/verify/verify_test.go"
+lines = 165
+verdict = "issues"
+note = "Full review: every Rust-verdict signature, receipt, state and account-binding assertion was read; state tests use old static fixtures rather than the current host producer."
+
+[file.19]
+path = "layerxproof/verify/withdrawal.go"
+lines = 214
+verdict = "clean"
+note = "Full review: historical withdrawal payload/effect widths, actor account, recipient padding, nullifier, amount, event and receipt signature checks were compared with C; retained WithdrawalEffect primitives follow decision 126 and no forced-exit verifier remains."
+
+[file.20]
+path = "layerxproof/verify/withdrawal_test.go"
+lines = 33
+verdict = "clean"
+note = "Full review: each historical withdrawal fixture is signature-checked and all decoded economic fields are asserted against the independent verdict; this tests retained bytes, not an active custody settlement service."
+
+[file.21]
+path = "src/crypto/lxp_ct.c"
+lines = 34
+verdict = "clean"
+note = "Full review: zero-length/null handling, volatile constant-work comparison, zero detection and secure clearing were inspected against the crypto header."
+
+[file.22]
+path = "src/crypto/lxp_ed25519.c"
+lines = 98
+verdict = "clean"
+note = "Full review: reduced scalar and public-key bounds precede OpenSSL verification; domain hashing and per-item batch verdicts agree with callers. C weak-point refusal coverage versus the strict Go verifier is recorded in the Ed25519 test finding, without claiming an unproven acceptance."
+
+[file.23]
+path = "src/crypto/lxp_hash.c"
+lines = 142
+verdict = "clean"
+note = "Full review: SHA-256 schedule, compression, padding, length accounting, digest output and streaming error handling were inspected against known-answer callers and shared domain hashing."
+
+[file.24]
+path = "src/crypto/lxp_merkle.c"
+lines = 198
+verdict = "issues"
+note = "Full review: native Merkle leaf/node domains, empty and odd trees, arena cleanup, proof generation, verification and encoding were traced; uint32 ceiling overflow and malformed-proof encoding remain."
+
+[file.25]
+path = "src/crypto/lxp_secp256k1.c"
+lines = 207
+verdict = "clean"
+note = "Full review: compact r/s ranges, low-S policy, SEC1 key decoding, recovery ID range, curve subgroup checks and Keccak address derivation were inspected; recovery test coverage is separately recorded."
+
+[file.26]
+path = "src/modules/bridge/lxp_bridge_deposit.c"
+lines = 72
+verdict = "issues"
+note = "Full review: retained deposit-nullifier bytes are stable; the remaining checkpoint-backed credit wrapper still exposes the retired cross-domain funding model and has no native host registration."
+
+[file.27]
+path = "src/modules/bridge/lxp_bridge_exit.c"
+lines = 31
+verdict = "issues"
+note = "Full review: liveness subtraction guards and eligibility flags are checked, but the remaining emergency-exit API describes finalised-checkpoint recovery that does not apply to the merged network."
+
+[file.28]
+path = "src/modules/bridge/lxp_bridge_withdraw.c"
+lines = 124
+verdict = "issues"
+note = "Full review: historical nullifier and withdrawal-leaf bytes remain stable; request and guarantor challenge-window helpers still describe the retired custody payout lifecycle."
+
+[file.29]
+path = "src/modules/bridge/lxp_reserve.c"
+lines = 104
+verdict = "issues"
+note = "Full review: backing arithmetic, claim matching and reserve-class reports were read; the reconciliation API still requires external custody and withdrawal claims rather than native bank balances."
+
+[file.30]
+path = "src/modules/escrow/lx_escrow_capture.c"
+lines = 130
+verdict = "issues"
+note = "Full review: actor-bound context digest, replay refusals, beneficiary/delegation authority, expiry, partial/full capture amounts and settlement rollback were traced; remaining balance trusts the whole custody account rather than the recorded lock."
+
+[file.31]
+path = "src/modules/escrow/lx_escrow_dispute.c"
+lines = 133
+verdict = "clean"
+note = "Full review: dispute opening authenticates an owner/beneficiary and its deadline; resolution authenticates the arbiter and exact accounts, uses floor basis-point arithmetic and conserved splits. Zero first legs are deliberately compacted by lxp_apply_transfer_set, so zero-basis-point resolution is not a finding."
+
+[file.32]
+path = "src/modules/escrow/lx_escrow_internal.h"
+lines = 63
+verdict = "clean"
+note = "Full review: internal prefix/result widths and settlement prototypes match every definition and caller; no hidden transport, environment setting or retired module dependency is introduced."
+
+[file.33]
+path = "src/modules/escrow/lx_escrow_invariants.c"
+lines = 46
+verdict = "issues"
+note = "Full review: escrow debit authority and terminal/locked-balance invariants are defined correctly; the invariant checker is not invoked on the production escrow execution path."
+
+[file.34]
+path = "src/modules/escrow/lx_escrow_module.c"
+lines = 442
+verdict = "clean"
+note = "Full review: all seven activity payloads, lengths, validators, principal checks, protocol-3 derived custody staging, replay events and registered epoch hooks were traced through lxphost and the kernel; the epoch capacity defect is owned by timeout.c."
+
+[file.35]
+path = "src/modules/escrow/lx_escrow_open.c"
+lines = 64
+verdict = "issues"
+note = "Full review: owner/asset/account kind, amount and hold-ID uniqueness checks were read; the retained pre-v3 path accepts a second hold into an already funded custody account."
+
+[file.36]
+path = "src/modules/escrow/lx_escrow_state.c"
+lines = 664
+verdict = "clean"
+note = "Full review: 305-byte hold and 243/276-byte result codecs, prefixes, iteration, immutable replay records, context-bound authorization, committed asset reads and settlement legs agree with callers; the production invariant-wiring gap is recorded against invariants.c."
+
+[file.37]
+path = "src/modules/escrow/lx_escrow_timeout.c"
+lines = 345
+verdict = "issues"
+note = "Full review: permissionless timeout, disputed-hold refusal, owner release, replay binding, epoch sweep and incremental batch maintenance were inspected; the epoch collector aborts once 25 holds expire together."
+
+[file.38]
+path = "src/modules/spot/lx_spot_book.c"
+lines = 113
+verdict = "clean"
+note = "Full review: spot orders project into the perps price/time matcher, maker quantity and escrow decrease together, fill capacity is bounded and dispatcher-owned copies contain partial failures."
+
+[file.39]
+path = "src/modules/spot/lx_spot_codec.h"
+lines = 39
+verdict = "clean"
+note = "Full review: endian helpers, side checks and zero-ID checks are shared consistently by command and persisted-state codecs; no variable-width or unchecked buffer write is present."
+
+[file.40]
+path = "src/modules/spot/lx_spot_dispatch.c"
+lines = 860
+verdict = "clean"
+note = "Full review: native module registration, actor-owned accounts, market administration, committed asset checks, custody accounts, IOC/GTC handling, price-improvement refunds, cancellation and staged settlement were traced; no standalone router or retired bridge is called."
+
+[file.41]
+path = "src/modules/spot/lx_spot_market.c"
+lines = 211
+verdict = "clean"
+note = "Full review: market/order/cancel codecs enforce exact widths, positive tick/lot/quantity, valid order kind/time-in-force and deterministic escrow IDs; U128 notional multiplication refuses overflow."
+
+[file.42]
+path = "src/modules/spot/lx_spot_state.c"
+lines = 307
+verdict = "issues"
+note = "Full review: canonical market/order persistence, bounded book load and delta writes were read; recovery lookups do not bind all decoded identifiers to their storage keys."
+
+[file.43]
+path = "src/network/lx_oracle_codec.c"
+lines = 75
+verdict = "clean"
+note = "Full review: retained perps observation payload is 72 bytes with explicit big-endian fields; public-key derivation, domain-separated digest and signed observation agree with intake. Retired adapter and transport loops are absent."
+
+[file.44]
+path = "src/network/lxp_gateway_http.c"
+lines = 228
+verdict = "clean"
+note = "Full review: exact payment requirement JSON/canonical widths, integer and hex bounds, nonzero values, service signature and unknown/trailing input refusals were checked; the translator alone performs no ledger write or RPC routing."
+
+[file.45]
+path = "src/network/lxp_gateway_internal.h"
+lines = 121
+verdict = "issues"
+note = "Full review: KV, invoice, undo and synchronization declarations match definitions; RECEIVE idempotency and failure-hook declarations remain after receive/grant retirement."
+
+[file.46]
+path = "src/network/lxp_gateway_kv.c"
+lines = 791
+verdict = "issues"
+note = "Full review: sorted KV lookup, undo/rollback ownership, receipt record round-trip, canonical decoding, root ordering and metering were inspected; no durable serialization or restart restoration exists for invoice/idempotency state."
+
+[file.47]
+path = "src/network/lxp_gateway_receive.c"
+lines = 10
+verdict = "issues"
+note = "Full review: the entire ten-line file contains only a test-only failure hook for the removed receive path; it is not a missing live receive implementation."
+
+[file.48]
+path = "src/network/lxp_gateway_send.c"
+lines = 639
+verdict = "issues"
+note = "Full review: requirement/send binding, signature checks, ledger journaling, grant/allowance rollback, mutex/lifecycle handling, exact receipt return and idempotency window were traced; receipts are locally signed over an asset-only state root rather than obtained from the committed host path."
+
+[file.49]
+path = "src/network/lxp_verify_pool.c"
+lines = 164
+verdict = "issues"
+note = "Full review: serial/worker ordering, bounded queue, result synchronization, join and allocation cleanup were read; partial pthread_create failure updates the stop predicate without its mutex."
+
+[file.50]
+path = "src/storage/lxp_fault_hooks.c"
+lines = 79
+verdict = "issues"
+note = "Full review: thread-local arm/disarm, forked workload, exact crash exit and boundary validation were read; the accepted boundary range still advertises removed batch-WAL fault points."
+
+[file.51]
+path = "src/storage/lxp_log.c"
+lines = 724
+verdict = "issues"
+note = "Full review: CRC32C, durable-marker selection, append kind retirement, write/sync/group durability and reopen paths were read; segment_create omits the parent directory sync performed by open_or_create."
+
+[file.52]
+path = "src/storage/lxp_log_recover.c"
+lines = 306
+verdict = "clean"
+note = "Full review: all historic kinds stay readable, CRC and reserved-byte checks precede replay, durable/fallback marker bounds are validated and truncation does not promote an uncommitted suffix; backward compatibility is required by decision 124."
+
+[file.53]
+path = "src/storage/lxp_projection.c"
+lines = 367
+verdict = "issues"
+note = "Full review: transaction ordering, watermark, SQL ownership, rebuild replay and record framing were read; persisted stale state is not restored or enforced across restart."
+
+[file.54]
+path = "src/storage/lxp_snapshot_store.c"
+lines = 229
+verdict = "issues"
+note = "Full review: snapshot and migration manifest digests, exact sizes, regular-file/link checks, write-sync-rename-directory-sync and error cleanup were inspected; a crash before rename leaves the fixed temporary filename unusable on retry."
+
+[file.55]
+path = "tests/crypto/lxp_test_account_key.c"
+lines = 86
+verdict = "clean"
+note = "Full review: account-key derivation vectors, chain/address separation, canonical key input and failure cases match the shared signing/key derivation primitives."
+
+[file.56]
+path = "tests/crypto/lxp_test_ct.c"
+lines = 46
+verdict = "clean"
+note = "Full review: constant-work comparison and zero detection cases include every mismatch offset and the timing comparison uses bounded work; there is no network or balance mutation."
+
+[file.57]
+path = "tests/crypto/lxp_test_ed25519.c"
+lines = 61
+verdict = "issues"
+note = "Full review: real OpenSSL signatures prove domain separation and per-item batch refusal, but the strict malformed/small-order point boundary shared with Go is not exercised."
+
+[file.58]
+path = "tests/crypto/lxp_test_hash.c"
+lines = 37
+verdict = "clean"
+note = "Full review: SHA-256 empty/abc known answers, streaming agreement and pairwise domain distinction exercise the actual hashing implementation."
+
+[file.59]
+path = "tests/crypto/lxp_test_keccak.c"
+lines = 149
+verdict = "clean"
+note = "Full review: Keccak known answers and byte lengths exercise the distinct Ethereum hash used by secp address recovery; no SHA3/Keccak substitution was found."
+
+[file.60]
+path = "tests/crypto/lxp_test_merkle.c"
+lines = 22
+verdict = "clean"
+note = "Full review: empty/single and simple Merkle tree construction uses native hashing and confirms deterministic roots; no retired availability producer is invoked."
+
+[file.61]
+path = "tests/crypto/lxp_test_merkle_node.c"
+lines = 114
+verdict = "clean"
+note = "Full review: node vectors exercise child ordering and domain binding against explicit independent expected hashes."
+
+[file.62]
+path = "tests/crypto/lxp_test_merkle_proof.c"
+lines = 36
+verdict = "clean"
+note = "Full review: 1000 real generated proofs, sibling bit mutations and wrong depth are asserted; missing encoder and UINT32_MAX boundary coverage is captured with the production Merkle findings."
+
+[file.63]
+path = "tests/crypto/lxp_test_merkle_vector.c"
+lines = 123
+verdict = "clean"
+note = "Full review: independent leaf/node/root vectors, odd-node duplication and proof framing compare exact bytes with native functions rather than only a self-round-trip."
+
+[file.64]
+path = "tests/crypto/lxp_test_secp256k1.c"
+lines = 72
+verdict = "issues"
+note = "Full review: actual signed secp digests, wrong domains, low-S boundaries and invalid recovery IDs are checked; recovered addresses are never compared with the known signer."
+
+[file.65]
+path = "tests/network/lxp_test_verify_pool.c"
+lines = 78
+verdict = "issues"
+note = "Full review: real signature jobs prove serial/parallel admission-order parity and domain refusals; partial worker startup failure and cleanup are not tested."
+
+[file.66]
+path = "tests/network/test_gateway_kv.c"
+lines = 474
+verdict = "issues"
+note = "Full review: real KV/root/undo and gateway failure-boundary assertions were read; rollback is exercised within one process, with no persistence/reopen proof."
+
+[file.67]
+path = "tests/test_gateway_send.c"
+lines = 596
+verdict = "issues"
+note = "Full review: registry ownership, concurrency, lifecycle, metering, rollback and replay assertions were read; the purported direct economic reference calls the same gateway implementation."
+
+[finding.1]
+file = "layerxproof/codec/state.go"
+line = 206
+class = "interface-mismatch"
+severity = "high"
+observed = "StateWitness.Root rejects LeafCountB above 10 and DecodeStateWitness rejects ModuleID above 9. The C lxp_state_module_root_count returns highest registered module plus one; lxphost registers spot 10 and service 11, so valid C witnesses have 12 composite leaves and are rejected even for module-zero account balances."
+expected = "The retained StateProof and AccountProof consumers must accept every canonical witness emitted by lxp_state_proof_build for the currently registered native modules, preserving identical leaf hashes, paths and roots."
+proposal = "Update layerxproof/codec/state.go to derive supported module IDs and composite widths from the current native contract, retain strict depth/index/root checks, and prove C-built account, spot and service witnesses through Go decoding and verification with the full lxphost module set."
+owner_domain = 1
+interface = "1.go-layerxproof-codec-state-witness-root"
+
+[finding.2]
+file = "layerxproof/codec/codec_test.go"
+line = 273
+class = "test-gap"
+severity = "medium"
+observed = "TestNativeStateProofsFromCore reads only the checked-in contracts/config/native-state-proofs.json, while the Rust fixture refusal table treats module-tree-width as invalid. Neither obtains a witness from the current host with spot and service registered, allowing the obsolete 10-leaf ceiling to remain green."
+expected = "Producer/consumer coverage must include current native module registration and actual encoded proofs, not only a historical file that the producer no longer represents."
+proposal = "Extend the producer fixture path and layerxproof/codec/codec_test.go to consume C-generated witnesses from the current registered host, assert 11/12-leaf positive cases and module 10/11 inclusion, and retain all malformed-width and root-mutation refusals."
+owner_domain = 1
+interface = "1.go-layerxproof-codec-decode-state-witness"
+
+[finding.3]
+file = "layerxproof/verify/verify_test.go"
+line = 113
+class = "test-gap"
+severity = "medium"
+observed = "TestStateProofMatchesRust and TestAccountProofBindsIdentityAndAsset read static vectors.json through Load; the tested account witness never traverses the current C producer or the complete native module registry."
+expected = "The retained verifier must prove an account and its asset under the same root the current C host actually commits, including current module widths and restored state."
+proposal = "Add a current C-host-to-Go StateProof/AccountProof case in layerxproof/verify tests, persist and restore the host state before regenerating the proof, and assert account identity, asset, balance and committed root against that real producer."
+owner_domain = 1
+interface = "1.go-layerxproof-verify-account-proof"
+
+[finding.4]
+file = "src/crypto/lxp_merkle.c"
+line = 96
+class = "runtime-risk"
+severity = "medium"
+observed = "proof_depth uses (count + 1U) / 2U in uint32 arithmetic, as does the verification fold. At UINT32_MAX the addition wraps to zero, yielding depth 1 instead of 32 and inconsistent canonical proof acceptance compared with Go ProofDepth."
+expected = "Every representable uint32 leaf count must use overflow-safe ceiling division and the same positional depth semantics in C generation, encoding, verification and Go consumption."
+proposal = "Replace the uint32 ceiling additions in src/crypto/lxp_merkle.c with count / 2U + count % 2U, and add boundary assertions for UINT32_MAX and adjacent counts to tests/crypto/lxp_test_merkle_proof.c without allocating an enormous tree."
+owner_domain = 1
+interface = "1.c-lxp-merkle-proof-verify"
+
+[finding.5]
+file = "src/crypto/lxp_merkle.c"
+line = 188
+class = "runtime-risk"
+severity = "medium"
+observed = "lxp_merkle_proof_encode checks depth only. A zero-count depth-zero proof, or a proof whose leaf_index equals leaf_count, can be emitted with LXP_OK even though native verification and Go MerkleProof.Validate refuse it."
+expected = "A successful canonical proof encoder should reject an empty tree and out-of-range index before it writes a transport object that every verifier will refuse."
+proposal = "Validate nonzero leaf_count and leaf_index < leaf_count before writing in src/crypto/lxp_merkle.c, preserve canonical depth checks, and cover both refused encodes and unchanged writer state in the native proof tests."
+owner_domain = 1
+interface = "1.c-lxp-merkle-proof-encode"
+
+[finding.6]
+file = "tests/crypto/lxp_test_ed25519.c"
+line = 45
+class = "test-gap"
+severity = "medium"
+observed = "The C suite signs one valid key with OpenSSL and tests wrong-domain and nonreduced-S refusals, but never exercises off-curve or small-order public keys and R. Go Ed25519 explicitly rejects both small-order points, while C delegates these point checks to its OpenSSL provider."
+expected = "The native and Go strict signature boundary needs shared adversarial point vectors and pinned refusal evidence; use of the same signing backend for positive cases does not establish equivalent weak-point handling."
+proposal = "Add independently sourced malformed and torsion point vectors to tests/crypto/lxp_test_ed25519.c and the Go verifier vectors, require matching BAD_SIGNATURE verdicts for public key and R variants, and make any demonstrated C refusal gap explicit in src/crypto/lxp_ed25519.c."
+owner_domain = 1
+interface = "1.c-lxp-ed25519-verify-raw"
+
+[finding.7]
+file = "tests/crypto/lxp_test_secp256k1.c"
+line = 46
+class = "test-gap"
+severity = "medium"
+observed = "The recovery loop sets found when any recovery ID returns LXP_OK, and tolerates every alternate address. It never compares the result with the known private-key-one signer address, so a consistently wrong address derivation can pass."
+expected = "Address recovery must return the Ethereum Keccak-derived address of the actual signing public key for the correct recovery ID, and reject invalid IDs and scalar ranges."
+proposal = "Add an independent known compact-signature/recovery-ID/address vector to tests/crypto/lxp_test_secp256k1.c, assert the exact recovered address and signer binding, and retain all current low-S and invalid-range checks."
+owner_domain = 1
+interface = "1.c-lxp-secp256k1-recover-address"
+
+[finding.8]
+file = "src/modules/escrow/lx_escrow_open.c"
+line = 32
+class = "runtime-risk"
+severity = "medium"
+observed = "validate_open checks uniqueness of escrow_id but not exclusive ownership or an empty balance of escrow_account. The retained non-v3 module path resolves a caller-selected existing account, so two different holds can lock funds into one account while recording separate locked_amount values."
+expected = "Each supported escrow opening must preserve the declared invariant that its dedicated custody balance equals that hold locked_amount; protocol-3 derived custody already enforces a stronger identity boundary."
+proposal = "Enforce dedicated empty custody and a unique hold-to-account binding in src/modules/escrow/lx_escrow_open.c for every supported execution version, or explicitly refuse the unsupported legacy route at admission, and cover two holds presenting one custody account."
+owner_domain = 1
+interface = "1.c-lx-escrow-open-execute"
+
+[finding.9]
+file = "src/modules/escrow/lx_escrow_capture.c"
+line = 15
+class = "runtime-risk"
+severity = "medium"
+observed = "lx_escrow_remaining returns the complete account balance without comparing record.locked_amount. If a legacy opening shares custody or the account receives an additional native credit, full capture can pay more than the agreed hold and partial capture rewrites the hold to include those extra funds."
+expected = "Capture, release and resolution must refuse an inconsistent custody/hold pair before moving value, rather than treating unrelated balance as part of the commercial hold."
+proposal = "Bind spendable remaining funds to the hold invariant in src/modules/escrow/lx_escrow_capture.c and the shared settlement entry path; handle excess custody through an explicit owner recovery rule, and test overfunding plus shared-account input without changing balances on refusal."
+owner_domain = 1
+interface = "1.c-lx-escrow-remaining"
+
+[finding.10]
+file = "src/modules/escrow/lx_escrow_invariants.c"
+line = 32
+class = "wiring-gap"
+severity = "medium"
+observed = "lx_escrow_invariant_check correctly compares locked_amount with custody balance and terminal emptiness, but production escrow open/capture/dispute/timeout paths never call it; only module tests invoke this checker."
+expected = "The invariant that protects a hold from shared or inconsistent custody must run on the actual native transition path, including restored state, rather than exist only as a test helper."
+proposal = "Wire lx_escrow_invariant_check into the shared production transition preparation and post-settlement validation in src/modules/escrow, with rollback on mismatch and a real kernel-path refusal case for an inconsistent restored hold."
+owner_domain = 1
+interface = "1.c-lx-escrow-remaining"
+
+[finding.11]
+file = "src/modules/escrow/lx_escrow_timeout.c"
+line = 117
+class = "runtime-risk"
+severity = "medium"
+observed = "sweep_collect returns LXP_ERR_ARENA_EXHAUSTED on the 25th expired active hold. lx_escrow_epoch_begin returns before settling any hold, and lxp_kernel_epoch_transition rolls the epoch back. Incremental batch maintenance exists but the declared epoch hook does not require it to drain first."
+expected = "A bounded maintenance allocation must not indefinitely prevent an otherwise valid epoch transition when many customer holds share an expiry; processing must make deterministic progress."
+proposal = "Rework the registered epoch path in src/modules/escrow/lx_escrow_timeout.c to drain deterministic bounded chunks through the same journal or explicitly drain before epoch activation, preserving atomicity and proving more than 24 simultaneous expiries through lxp_kernel_epoch_transition."
+owner_domain = 1
+interface = "1.c-lx-escrow-epoch-begin"
+
+[finding.12]
+file = "src/modules/spot/lx_spot_state.c"
+line = 199
+class = "restart-recovery"
+severity = "medium"
+observed = "lx_spot_order_lookup decodes the stored value without comparing its market_id/order_id with the requested key; visit_order compares the market but not the order suffix. order_decode also accepts zero IDs that order_encode refuses. market_lookup likewise does not bind the decoded market ID to its key."
+expected = "Persisted and restored order-book records must have the same canonical identity as their storage keys before cancellation, matching or delta deletion uses the decoded identifiers."
+proposal = "Add symmetric identifier validation to order_decode and bind decoded market/order identifiers to requested or iterated key bytes in src/modules/spot/lx_spot_state.c; cover mismatched restored records and require refusal before any refund or order deletion."
+owner_domain = 1
+interface = "1.c-lx-spot-order-lookup"
+
+[finding.13]
+file = "src/network/lxp_gateway_kv.c"
+line = 106
+class = "restart-recovery"
+severity = "medium"
+observed = "Invoice receipts and send idempotency records exist only in heap entries. lxp_gateway_kv_init empties them and release frees them; the retained registry API has no save/load or native-state reconstruction hook, so recreating it cannot recover a previously returned invoice receipt."
+expected = "The retained invoice-state interface must recover the original settlement receipt after restart and prevent uncertain retries from becoming another economic operation; the merged network already has committed transaction identity and receipts."
+proposal = "Back the retained registry operations in src/network/lxp_gateway_kv.c with committed transaction/receipt state or a durable store with atomic balance/receipt identity, and prove registry recreation recovers the same invoice and rejects a conflicting retry."
+owner_domain = 1
+interface = "1.c-lxp-gateway-invoice-state"
+
+[finding.14]
+file = "src/network/lxp_gateway_send.c"
+line = 564
+class = "wiring-gap"
+severity = "medium"
+observed = "gateway_send_settle_locked computes previous/resulting roots with lx_asset_state_root and signs a receipt locally using sequencer_private_key; it neither executes through lxphost nor commits the invoice KV root. Its current callers are tests and a fixture generator, not the native transaction path."
+expected = "A merged-network payment result offered as current settlement evidence must be the receipt of the actual native transaction with its canonical state commitment and governed receipt authority."
+proposal = "Adapt the retained gateway entry point in src/network/lxp_gateway_send.c to submit or recover the native transaction and return its canonical committed receipt; keep any legacy asset-only fixture path explicitly historical and prove it cannot be exposed as current settlement."
+owner_domain = 1
+interface = "1.c-lxp-gateway-send-settle"
+
+[finding.15]
+file = "tests/test_gateway_send.c"
+line = 487
+class = "test-gap"
+severity = "medium"
+observed = "The gateway_status/direct_status comparison invokes lxp_gateway_send_settle on both worlds. Matching balances, roots and receipts therefore compare two calls to the same implementation and cannot establish parity with a native transaction or an independent direct ledger path."
+expected = "The reference side must exercise the real distinct native producer and transport, so a shared gateway defect cannot satisfy both sides of the settlement assertion."
+proposal = "Replace the reference setup in tests/test_gateway_send.c with the real native host transaction path and compare economic legs, account nonces and the returned committed receipt while retaining gateway rollback, ownership and replay assertions."
+owner_domain = 1
+interface = "1.c-lxp-gateway-send-settle"
+
+[finding.16]
+file = "tests/network/test_gateway_kv.c"
+line = 330
+class = "test-gap"
+severity = "medium"
+observed = "The failure-boundary checks compare roots and invoice counts on the same live registry before and after rollback. The suite never persists, destroys and reconstructs an invoice registry to retrieve a settled receipt after process restart."
+expected = "Rollback within one process is not evidence that invoice identity and returned settlement receipts survive restart on the real storage path."
+proposal = "Extend tests/network/test_gateway_kv.c with the eventual durable registry/native receipt adapter, close and reopen that state after settlement and uncertain delivery, and assert byte-identical receipt recovery with no second debit."
+owner_domain = 1
+interface = "1.c-lxp-gateway-invoice-state"
+
+[finding.17]
+file = "src/network/lxp_gateway_receive.c"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "The remaining receive file defines a thread-local test_failure_boundary and a setter, but no code reads that value after lxp_gateway_receive_claim was removed. The hook cannot inject a failure into any operation."
+expected = "The removed RECEIVE/grant path must not leave a testing surface that appears to exercise real settlement; current payments use the native payment precompile path."
+proposal = "Remove the orphan receive failure hook and its build input in src/network/lxp_gateway_receive.c when the owning retirement cleanup lands, and keep the explicit retired-symbol absence assertion in modules/lxphost."
+owner_domain = 1
+interface = "1.c-lxp-gateway-receive-test-fail-after"
+
+[finding.18]
+file = "src/network/lxp_gateway_internal.h"
+line = 18
+class = "retired-reference"
+severity = "low"
+observed = "LXP_GATEWAY_IDEMPOTENCY_DOMAIN_RECEIVE and the receive failure-hook declaration remain even though the receive/grant execution and bounds-check functions are retired; no current settlement path consumes this namespace."
+expected = "Current internal gateway declarations should expose the retained SEND and invoice lifecycle without suggesting that the removed RECEIVE/grant route remains supported."
+proposal = "Clean the obsolete RECEIVE-only declarations from src/network/lxp_gateway_internal.h together with the orphan receive hook, preserving SEND numeric encoding and any historical decoding requirement explicitly."
+owner_domain = 1
+interface = "1.c-enum-lxp-gateway-kv-invoice-key-bytes"
+
+[finding.19]
+file = "src/network/lxp_verify_pool.c"
+line = 82
+class = "runtime-risk"
+severity = "medium"
+observed = "If pthread_create fails after starting workers, create writes implementation->stop = 1 and broadcasts available without taking the mutex used by worker_main for that predicate. A worker can race the write or enter cond_wait after the broadcast, leaving cleanup stuck in pthread_join."
+expected = "Partial worker startup failure must synchronize shutdown with the same mutex and always release started workers before returning a typed creation error."
+proposal = "Hold implementation->mutex while changing stop and broadcasting in src/network/lxp_verify_pool.c, then join and destroy initialized resources in a defined order; exercise partial thread-creation failure with a bounded cleanup assertion."
+owner_domain = 1
+
+[finding.20]
+file = "tests/network/lxp_test_verify_pool.c"
+line = 72
+class = "test-gap"
+severity = "medium"
+observed = "The test compares 64 real signature results with zero and eight successfully created workers, but never exercises partial startup, exhausted queue, undersized result output or recovery/cleanup after a failed create."
+expected = "The worker lifecycle refusal paths must have observable bounded cleanup coverage in addition to serial/parallel result parity."
+proposal = "Add focused lifecycle cases to tests/network/lxp_test_verify_pool.c for partial startup failure and declared capacity refusals, using real workers and asserting that cleanup returns without a hung join while retaining the signature-order comparison."
+owner_domain = 1
+
+[finding.21]
+file = "src/storage/lxp_log.c"
+line = 298
+class = "restart-recovery"
+severity = "medium"
+observed = "lxp_log_segment_create creates the numbered file and stores a durable marker but returns without syncing its directory. lxp_log_sync only syncs the file descriptor; unlike open_or_create, no parent-directory barrier makes the new segment name durable."
+expected = "A successfully created and synced segment must remain discoverable after a power failure; durable record bytes are insufficient if the new directory entry can disappear."
+proposal = "Add the parent-directory durability barrier to src/storage/lxp_log.c segment_create before reporting success, with cleanup/error propagation, and cover creation plus append/sync/reopen in the storage fault qualification path."
+owner_domain = 1
+interface = "1.fmt-kernel-log-segment"
+
+[finding.22]
+file = "src/storage/lxp_projection.c"
+line = 65
+class = "restart-recovery"
+severity = "medium"
+observed = "lxp_projection_open zeroes projection->stale and never reloads projection_meta.stale. watermark reads only watermark, and a later successful apply clears stale even if a previous failed sequence was never replayed, allowing a known incomplete projection to appear current after restart."
+expected = "A persisted stale projection must remain visibly stale across reopen and may become healthy only after the missing durable log range has been rebuilt in order."
+proposal = "Load and enforce persisted stale/watermark state in src/storage/lxp_projection.c, prevent an unrelated later apply from clearing a replay gap, and prove stale-close-reopen-rebuild recovery with the actual SQLite database and durable log."
+owner_domain = 1
+interface = "1.c-lxp-projection-apply"
+
+[finding.23]
+file = "src/storage/lxp_snapshot_store.c"
+line = 113
+class = "restart-recovery"
+severity = "medium"
+observed = "The writer always opens <sequence>.lxs.tmp with O_EXCL. A process crash at the header/body/file-sync fault boundary leaves this fixed temporary file behind; retrying the same sequence fails with LXP_ERR_IO, and the store has no startup cleanup or validated resume path."
+expected = "An interrupted snapshot publication must be retryable after restart while preserving the immutable final snapshot and refusing conflicting content."
+proposal = "Implement validated temporary-file recovery or uniquely named temporary writes in src/storage/lxp_snapshot_store.c, keep the final-name conflict and digest checks, and prove crash-before-rename followed by same-sequence retry without manual file deletion."
+owner_domain = 1
+interface = "1.fmt-snapshot-store-file"
+
+[finding.24]
+file = "layerxproof/codec/discovery.go"
+line = 61
+class = "retired-reference"
+severity = "low"
+observed = "DecodeProgramHeadAttestation still describes its input as the LNI program-head response, but the LNI producer and DiscoveryProof verifier are retired and no current native RPC producer feeds this decoder."
+expected = "A retained historical decoder must not imply that integrators can obtain trusted current program discovery through the removed LNI/sequencer attestation route."
+proposal = "Label the retained decoder and head digest as historical compatibility in layerxproof/codec/discovery.go and document the current height-bound program query/proof path; remove it only through an explicit public API retirement decision."
+owner_domain = 1
+interface = "1.go-layerxproof-codec-decode-program-head-attestation"
+
+[finding.25]
+file = "layerxproof/verify/discovery.go"
+line = 17
+class = "dead-code"
+severity = "low"
+observed = "VerifiedDiscovery and five discovery errors remain after DiscoveryProof was deleted. The comment promises an attestation verified under a trusted sequencer key, but no function in the package now performs that construction or trust check."
+expected = "The public proof API should distinguish historical result types from a currently supported verification capability, without encouraging callers to treat a manually populated struct as evidence."
+proposal = "Deprecate or explicitly label the residual discovery result/errors in layerxproof/verify/discovery.go as historical and point consumers to committed native program proofs, retaining any compatibility type only where an actual consumer requires it."
+owner_domain = 1
+interface = "1.go-layerxproof-verify-verified-discovery"
+
+[finding.26]
+file = "src/storage/lxp_fault_hooks.c"
+line = 25
+class = "retired-reference"
+severity = "low"
+observed = "boundary_valid still accepts boundaries through LXP_FAULT_BATCH_WAL_DIRECTORY_SYNCED, although the batch WAL implementation was removed. Arming those obsolete boundaries cannot be reached by the retained storage workload."
+expected = "The advertised fault-injection boundary set should correspond to retained log/snapshot/native durability paths, with removed batch-WAL points clearly historical or refused."
+proposal = "Update src/storage/lxp_fault_hooks.c and the owning fault header to refuse or label retired batch-WAL boundaries without renumbering retained IDs, and align qualification workloads with the native sequencer WAL owner."
+owner_domain = 1
+interface = "1.c-lxp-fault-boundary"
+
+[finding.27]
+file = "src/modules/bridge/lxp_bridge_deposit.c"
+line = 38
+class = "retired-reference"
+severity = "low"
+observed = "lxp_bridge_deposit_credit still accepts checkpoint-backed deposit evidence and forwards it to lx_asset_deposit_credit. The bridge module itself is not registered by lxphost, so this remaining export is a legacy cross-domain funding helper rather than the native bank funding path."
+expected = "The finished network funds native derived sub-accounts and finalizes at block commit; compatibility evidence helpers must not advertise a live custody, guarantor or forced-exit lifecycle."
+proposal = "Classify and isolate the remaining credit helper in src/modules/bridge/lxp_bridge_deposit.c as historical compatibility, preserve lxp_deposit_nullifier bytes, and direct current funding callers to native bank-derived sub-accounts."
+owner_domain = 1
+interface = "1.c-lxp-bridge-deposit-context"
+
+[finding.28]
+file = "src/modules/bridge/lxp_bridge_exit.c"
+line = 4
+class = "retired-reference"
+severity = "low"
+observed = "lxp_exit_eligibility and lxp_exit_declare still expose emergency exit eligibility from checkpoint liveness, fraud flags and discarded sequence state, although merged-network finality is block commit and no native host caller uses these exports."
+expected = "The finished network funds native derived sub-accounts and finalizes at block commit; compatibility evidence helpers must not advertise a live custody, guarantor or forced-exit lifecycle."
+proposal = "Retire or isolate the unused emergency-exit helpers in src/modules/bridge/lxp_bridge_exit.c and their public declarations; describe restart and withdrawal recovery through the native committed block and bank path instead."
+owner_domain = 1
+interface = "1.c-lxp-exit-eligibility"
+
+[finding.29]
+file = "src/modules/bridge/lxp_bridge_withdraw.c"
+line = 73
+class = "retired-reference"
+severity = "low"
+observed = "The retained file still offers lxp_bridge_withdraw_request into system:paxeer-withdrawals and lxp_paxeer_challenge_window with guarantor slash counts; these helpers describe the removed custody claim lifecycle rather than current native withdrawal finality."
+expected = "The finished network funds native derived sub-accounts and finalizes at block commit; compatibility evidence helpers must not advertise a live custody, guarantor or forced-exit lifecycle."
+proposal = "Separate preserved nullifier/leaf codecs from obsolete request/challenge helpers in src/modules/bridge/lxp_bridge_withdraw.c, keep historical bytes stable, and route current withdrawals through native bank or layerxledger moves."
+owner_domain = 1
+interface = "1.c-lxp-paxeer-challenge-window"
+
+[finding.30]
+file = "src/modules/bridge/lxp_reserve.c"
+line = 24
+class = "retired-reference"
+severity = "low"
+observed = "Reserve reporting still requires external custody_amount, settled_out and outstanding withdrawal claims, and reconciliation compares those figures with paxeer-reserve accounting. These inputs are not the merged native bank balance source."
+expected = "The finished network funds native derived sub-accounts and finalizes at block commit; compatibility evidence helpers must not advertise a live custody, guarantor or forced-exit lifecycle."
+proposal = "Keep any required historic reserve report explicitly offline in src/modules/bridge/lxp_reserve.c and its API, remove it from current supply/funding guidance, and have current supply reporting read native bank balances and supply."
+owner_domain = 1
+interface = "1.c-lxp-reserve-report"
+
+[finding.31]
+file = "docs/site/docs/overview/unified-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-15 describe two independent execution domains and layerxd; 51-86 and 104-124 describe custody/guarantor finality; 126-166 advertise the removed /rpc router. Rewrite around one paxd network, native funding and root-path node RPC."
+expected = "Integrator and operator documentation must describe one BFT paxd network, chain ID 125, native sub-account funding and receipt finality at block commit; retired services and transport endpoints must not be prescribed as current."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md using the current native transaction, proof and operator contracts; replace the exact stale lines identified here, identify retained historical formats explicitly and keep working account-binding and cryptographic details."
+owner_domain = 17
+
+[finding.32]
+file = "docs/site/docs/programs/workspace.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3 and 15 present the retired protocol-adapter crate as current; 158 cites removed test-replay-golden-local and 164 cites the deleted cmd/layerxd/lxp_daemon_batch_wal.c. Keep valid ABI and crypto guidance but replace obsolete workspace/gate examples."
+expected = "Integrator and operator documentation must describe one BFT paxd network, chain ID 125, native sub-account funding and receipt finality at block commit; retired services and transport endpoints must not be prescribed as current."
+proposal = "Rewrite docs/site/docs/programs/workspace.md using the current native transaction, proof and operator contracts; replace the exact stale lines identified here, identify retained historical formats explicitly and keep working account-binding and cryptographic details."
+owner_domain = 17
+
+[finding.33]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-15 still describe two execution domains and a separate C node; 53-86 and 184-206 prescribe custody, checkpoint certificates and guarantors; 212 proposes a future shared router. These are retired after merge."
+expected = "Integrator and operator documentation must describe one BFT paxd network, chain ID 125, native sub-account funding and receipt finality at block commit; retired services and transport endpoints must not be prescribed as current."
+proposal = "Rewrite docs/wiki/UnifiedNetwork.md using the current native transaction, proof and operator contracts; replace the exact stale lines identified here, identify retained historical formats explicitly and keep working account-binding and cryptographic details."
+owner_domain = 17
+
+[finding.34]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3 and 15 still list the retired protocol adapter; 158 and 164 prescribe retired replay-golden and daemon batch-WAL inputs. The rest mirrors the site page except navigation links."
+expected = "Integrator and operator documentation must describe one BFT paxd network, chain ID 125, native sub-account funding and receipt finality at block commit; retired services and transport endpoints must not be prescribed as current."
+proposal = "Rewrite docs/wiki/ProgramsWorkspace.md using the current native transaction, proof and operator contracts; replace the exact stale lines identified here, identify retained historical formats explicitly and keep working account-binding and cryptographic details."
+owner_domain = 17
+
+[finding.35]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-39 and 89-105 prescribe guarantor checkpoint publication, custody, deposit-root authority and producer provisioning; line 55 claims only 9/10 native module leaves. Historic publication and current native proof contracts need separate guidance."
+expected = "Integrator and operator documentation must describe one BFT paxd network, chain ID 125, native sub-account funding and receipt finality at block commit; retired services and transport endpoints must not be prescribed as current."
+proposal = "Rewrite docs/site/docs/operators/settlement-evidence.md using the current native transaction, proof and operator contracts; replace the exact stale lines identified here, identify retained historical formats explicitly and keep working account-binding and cryptographic details."
+owner_domain = 17
+
+[finding.36]
+file = "docs/site/docs/interop/x402.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 90-109 require POST /rpc, lx_* submissions and guarantor finalised evidence; 138-148 require layerx:* offers despite the current eip155:125 network rule. Repoint the payment flow to native transactions and committed receipts."
+expected = "Integrator and operator documentation must describe one BFT paxd network, chain ID 125, native sub-account funding and receipt finality at block commit; retired services and transport endpoints must not be prescribed as current."
+proposal = "Rewrite docs/site/docs/interop/x402.md using the current native transaction, proof and operator contracts; replace the exact stale lines identified here, identify retained historical formats explicitly and keep working account-binding and cryptographic details."
+owner_domain = 11
+
+[finding.37]
+file = "docs/wiki/X402Transport.md"
+line = 91
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 91-110 repeat the removed /rpc and guarantor finality flow; 139-149 repeat layerx:* offers. Content matches the site page except the opening interop link and navigation."
+expected = "Integrator and operator documentation must describe one BFT paxd network, chain ID 125, native sub-account funding and receipt finality at block commit; retired services and transport endpoints must not be prescribed as current."
+proposal = "Rewrite docs/wiki/X402Transport.md using the current native transaction, proof and operator contracts; replace the exact stale lines identified here, identify retained historical formats explicitly and keep working account-binding and cryptographic details."
+owner_domain = 11
+
+[finding.38]
+file = "docs/wiki/SettlementEvidence.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Identical to the site settlement-evidence page: lines 3-39 and 89-105 describe retired guarantor/custody publication, and line 55 limits module trees to 9/10 leaves despite native spot/service registration."
+expected = "Integrator and operator documentation must describe one BFT paxd network, chain ID 125, native sub-account funding and receipt finality at block commit; retired services and transport endpoints must not be prescribed as current."
+proposal = "Rewrite docs/wiki/SettlementEvidence.md using the current native transaction, proof and operator contracts; replace the exact stale lines identified here, identify retained historical formats explicitly and keep working account-binding and cryptographic details."
+owner_domain = 17
+
+[finding.39]
+file = "README.md"
+line = 43
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 43-47 describe two domains and a separate layerxd daemon settling through layerxAnchor; 145 builds the removed daemon; 181 says the merge is only a draft and the kernel still runs separately. Replace with the finished-network model."
+expected = "Integrator and operator documentation must describe one BFT paxd network, chain ID 125, native sub-account funding and receipt finality at block commit; retired services and transport endpoints must not be prescribed as current."
+proposal = "Rewrite README.md using the current native transaction, proof and operator contracts; replace the exact stale lines identified here, identify retained historical formats explicitly and keep working account-binding and cryptographic details."
+owner_domain = 17
+
+[finding.40]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Line 3 names layerxd as an active component and lines 69-72 retain custody/checkpoint/guarantor trust boundaries. Layout and toolchain material can remain, but deployment and funding authority must reflect the merged node."
+expected = "Integrator and operator documentation must describe one BFT paxd network, chain ID 125, native sub-account funding and receipt finality at block commit; retired services and transport endpoints must not be prescribed as current."
+proposal = "Rewrite docs/MONOREPO.md using the current native transaction, proof and operator contracts; replace the exact stale lines identified here, identify retained historical formats explicitly and keep working account-binding and cryptographic details."
+owner_domain = 17
+
+[finding.41]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 14-20 describe a separate signed-activity and settlement network; 98 lists layerxd as a current daemon. Rewrite the French product and operator guidance for one paxd network and committed native transactions."
+expected = "Integrator and operator documentation must describe one BFT paxd network, chain ID 125, native sub-account funding and receipt finality at block commit; retired services and transport endpoints must not be prescribed as current."
+proposal = "Rewrite docs/site/docs/overview/i18n/fr.md using the current native transaction, proof and operator contracts; replace the exact stale lines identified here, identify retained historical formats explicitly and keep working account-binding and cryptographic details."
+owner_domain = 17
+
+[finding.42]
+file = "docs/site/docs/concepts/one-account.md"
+line = 87
+class = "doc-drift"
+severity = "medium"
+observed = "Line 5 describes account opening by deposit and line 87 uses chainId 713714 in the signing example. Mainnet-beta is chain ID 125; account-key derivation and consent binding otherwise remain explicit and domain-separated."
+expected = "Integrator and operator documentation must describe one BFT paxd network, chain ID 125, native sub-account funding and receipt finality at block commit; retired services and transport endpoints must not be prescribed as current."
+proposal = "Rewrite docs/site/docs/concepts/one-account.md using the current native transaction, proof and operator contracts; replace the exact stale lines identified here, identify retained historical formats explicitly and keep working account-binding and cryptographic details."
+owner_domain = 17
+
+[doc.1]
+path = "docs/site/docs/overview/unified-network.md"
+status = "stale"
+notes = "Lines 3-15 describe two independent execution domains and layerxd; 51-86 and 104-124 describe custody/guarantor finality; 126-166 advertise the removed /rpc router. Rewrite around one paxd network, native funding and root-path node RPC."
+
+[doc.2]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Lines 3 and 15 present the retired protocol-adapter crate as current; 158 cites removed test-replay-golden-local and 164 cites the deleted cmd/layerxd/lxp_daemon_batch_wal.c. Keep valid ABI and crypto guidance but replace obsolete workspace/gate examples."
+
+[doc.3]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "stale"
+notes = "Lines 3-15 still describe two execution domains and a separate C node; 53-86 and 184-206 prescribe custody, checkpoint certificates and guarantors; 212 proposes a future shared router. These are retired after merge."
+
+[doc.4]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "Lines 3 and 15 still list the retired protocol adapter; 158 and 164 prescribe retired replay-golden and daemon batch-WAL inputs. The rest mirrors the site page except navigation links."
+
+[doc.5]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Lines 3-39 and 89-105 prescribe guarantor checkpoint publication, custody, deposit-root authority and producer provisioning; line 55 claims only 9/10 native module leaves. Historic publication and current native proof contracts need separate guidance."
+
+[doc.6]
+path = "docs/site/docs/interop/x402.md"
+status = "stale"
+notes = "Lines 90-109 require POST /rpc, lx_* submissions and guarantor finalised evidence; 138-148 require layerx:* offers despite the current eip155:125 network rule. Repoint the payment flow to native transactions and committed receipts."
+
+[doc.7]
+path = "docs/wiki/X402Transport.md"
+status = "stale"
+notes = "Lines 91-110 repeat the removed /rpc and guarantor finality flow; 139-149 repeat layerx:* offers. Content matches the site page except the opening interop link and navigation."
+
+[doc.8]
+path = "docs/wiki/SettlementEvidence.md"
+status = "stale"
+notes = "Identical to the site settlement-evidence page: lines 3-39 and 89-105 describe retired guarantor/custody publication, and line 55 limits module trees to 9/10 leaves despite native spot/service registration."
+
+[doc.9]
+path = "README.md"
+status = "stale"
+notes = "Lines 43-47 describe two domains and a separate layerxd daemon settling through layerxAnchor; 145 builds the removed daemon; 181 says the merge is only a draft and the kernel still runs separately. Replace with the finished-network model."
+
+[doc.10]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Line 3 names layerxd as an active component and lines 69-72 retain custody/checkpoint/guarantor trust boundaries. Layout and toolchain material can remain, but deployment and funding authority must reflect the merged node."
+
+[doc.11]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "stale"
+notes = "Lines 14-20 describe a separate signed-activity and settlement network; 98 lists layerxd as a current daemon. Rewrite the French product and operator guidance for one paxd network and committed native transactions."
+
+[doc.12]
+path = "docs/site/docs/concepts/one-account.md"
+status = "stale"
+notes = "Line 5 describes account opening by deposit and line 87 uses chainId 713714 in the signing example. Mainnet-beta is chain ID 125; account-key derivation and consent binding otherwise remain explicit and domain-separated."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/kernel.md"
+status = "accurate"
+notes = "Read the package-linked kernel anchors and their context/decision tables. Line 3 explicitly pins historical revision 2a1033aa2; decisions 124, 126 and 130 preserve historic log reads and proof codecs while retiring active daemon flows. These frozen tables are contract history, not a claim that every cited producer or caller still exists at the audited revision. Current state-proof width incompatibility is recorded separately."

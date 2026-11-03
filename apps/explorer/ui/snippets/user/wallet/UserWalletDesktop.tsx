@@ -1,9 +1,9 @@
-import { type ButtonProps } from '@chakra-ui/react';
 import React from 'react';
 
 import { useMarketplaceContext } from 'lib/contexts/marketplace';
 import useWeb3AccountWithDomain from 'lib/web3/useAccountWithDomain';
 import useWeb3Wallet from 'lib/web3/useWallet';
+import type { ButtonProps } from 'toolkit/chakra/button';
 import { PopoverBody, PopoverContent, PopoverRoot, PopoverTrigger } from 'toolkit/chakra/popover';
 import { useDisclosure } from 'toolkit/hooks/useDisclosure';
 

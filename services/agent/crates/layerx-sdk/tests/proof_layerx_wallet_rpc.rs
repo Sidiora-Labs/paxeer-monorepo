@@ -275,8 +275,9 @@ fn manifest_and_existing_balance_consumer_preserve_the_contract() -> Outcome {
     assert!(handwritten
         .lines()
         .any(|line| line == "\"bin/layerx-wallet-rpc.rs\" = \"handwritten\""));
-    let proof = pipeline
-        .split("[proof.agent-wallet-rpc]")
+    let manifest = include_str!("../Cargo.toml");
+    let proof = manifest
+        .split("[package.metadata.proof.agent-wallet-rpc]")
         .nth(1)
         .ok_or("wallet proof declaration")?
         .split("\n[")

@@ -1,0 +1,7 @@
+[repair.go-rpc.1]
+target = "rpc"
+command = "CGO_ENABLED=1 go vet ./rpc/ && CGO_ENABLED=1 go test -count=1 -timeout 35m ./rpc/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "none"
+producer_input_tests = []
