@@ -123411,7 +123411,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.44]
 title = "Close the 2 dependency alerts of tests-integration-dapp-tests-2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -145623,7 +145623,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.11]
 title = "Repair the inventory sweep target services/launchpad/security/control"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
