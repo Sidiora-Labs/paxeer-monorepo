@@ -14255,3 +14255,8 @@ fix = "A task that changes a crate's behaviour runs that crate's whole test set 
 title = "A receipt-shape change that makes a field mandatory fails every vector builder and fixture copy another task owns"
 symptom = "22.23.8 attempt 5: ReceiptInput.PaymentDenom became required and the vector test's builder and the V1 to V3 fixture copies, owned by 22.25.3, were not in the task's touches."
 fix = "A task that adds a mandatory input field lists every builder of that input and every recorded fixture of its output in touches, and orders itself after the task that is regenerating the same fixtures."
+
+[gotcha.2887]
+title = "A test registered as test(fn) without a name is a todo under vitest 4 and never runs"
+symptom = "22.11.8 attempt 1: the wallet proof test(proof_layerxledger_0x101a) reported 1 todo and the Go proof that shells out to it demanded 1 passed; apps/launchpad/web registers tests the same way."
+fix = "Register every vitest test with an explicit name string and the function; a proof that shells out to another runner asserts 1 passed, never the absence of failures."

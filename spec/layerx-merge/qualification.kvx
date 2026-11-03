@@ -19443,3 +19443,11 @@ symbol = "bind_call_refuses_budget_create_payload_rule_violations"
 observed = "bind_call's budgetCreate disclosure gained the SpendingLimit amount while this sibling test of the same crate kept expecting one amount; the task's verify ran only the disclosure_call target, so the whole-crate run of 22.9.17 found it."
 assumption = "22.9.17 updates the expectation per decision 2394."
 severity = "low"
+
+[finding.21.11.1.5]
+task = "21.11.1"
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+symbol = "proof_layerxledger_0x101a"
+observed = "The wallet consumer of the ledger 0x101a proof is registered as test(fn) without a name, which vitest 4.1.12 records as a todo, so the Go proof's 1 passed assertion fails whole-package."
+assumption = "22.11.8 registers it with an explicit name; apps/launchpad/web carries the same registration form for the closure sweep."
+severity = "medium"
