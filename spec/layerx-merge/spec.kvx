@@ -245465,7 +245465,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.67]
 title = "Pre-upgrade audit of rpc-api: rpc/rpc_unsupported.go (19 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246201,7 +246201,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.44]
 title = "Pre-upgrade audit of node-runtime: consensus/internal/consensus (84 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246329,7 +246329,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.40]
 title = "Pre-upgrade audit of launchpad: launchpad root files (131 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246425,7 +246425,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.37]
 title = "Pre-upgrade audit of launchpad: services/launchpad/pnl-tracker/internal/production (81 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246457,7 +246457,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.36]
 title = "Pre-upgrade audit of launchpad: services/launchpad/pnl-tracker/internal/position (34 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246553,7 +246553,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.33]
 title = "Pre-upgrade audit of launchpad: services/launchpad/indexer (114 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246585,7 +246585,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.32]
 title = "Pre-upgrade audit of launchpad: services/launchpad/gateway (112 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246713,7 +246713,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.28]
 title = "Pre-upgrade audit of launchpad: sdk/launchpad/shared/db (117 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246777,7 +246777,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.26]
 title = "Pre-upgrade audit of launchpad: sdk/launchpad/protocol/bindings (20 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246809,7 +246809,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.25]
 title = "Pre-upgrade audit of launchpad: precompiles/launchpad (64 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247321,7 +247321,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.9]
 title = "Pre-upgrade audit of ledger-auth-pay: precompiles/layerxledger (128 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247385,7 +247385,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.7]
 title = "Pre-upgrade audit of ledger-auth-pay: modules/layerxpay (135 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
