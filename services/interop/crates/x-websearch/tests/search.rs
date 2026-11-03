@@ -1,3 +1,7 @@
+#[path = "support/gateway.rs"]
+mod gateway;
+use gateway::Gateway;
+
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
@@ -296,17 +300,19 @@ fn the_search_route_answers_with_the_results_and_stores_their_canonical_bytes() 
 }
 
 /// A payment gate over the committed configuration, its data under `dir`, and
-/// a receiver key drawn fresh from the operating system for this test only.
-fn gate(dir: &std::path::Path) -> Result<Arc<PaymentGate>, Box<dyn std::error::Error>> {
-    use std::io::Read as _;
+/// the receiver key that owns the recorded ledger accounts.
+fn gate(dir: &std::path::Path) -> Result<(Arc<PaymentGate>, Gateway), Box<dyn std::error::Error>> {
     use std::os::unix::fs::PermissionsExt as _;
     let fixture =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/config/valid.json");
     let mut config: serde_json::Value = serde_json::from_slice(&std::fs::read(fixture)?)?;
     config["data_dir"] = serde_json::json!(dir.join("data"));
+    let gateway = Gateway::start_with_chain_id(Some(125))?;
+    config["evm"]["endpoint"] = serde_json::json!(gateway.url());
+    config["evm"]["chain_id"] = serde_json::json!(125);
     let config = Config::parse(&config.to_string())?;
     let mut secret = [0_u8; 32];
-    std::fs::File::open("/dev/urandom")?.read_exact(&mut secret)?;
+    secret[31] = 3;
     let key = dir.join("receiver.key");
     std::fs::write(&key, hex_of(&secret))?;
     std::fs::set_permissions(&key, std::fs::Permissions::from_mode(0o600))?;
@@ -316,12 +322,15 @@ fn gate(dir: &std::path::Path) -> Result<Arc<PaymentGate>, Box<dyn std::error::E
         receiver: key,
     };
     let receiver = files.load()?.receiver().clone();
-    Ok(Arc::new(PaymentGate::new(
-        &config,
-        &receiver,
-        x_websearch::conformance_suite()?,
-        system_clock,
-    )?))
+    Ok((
+        Arc::new(PaymentGate::new(
+            &config,
+            &receiver,
+            x_websearch::conformance_suite()?,
+            system_clock,
+        )?),
+        gateway,
+    ))
 }
 
 /// The currencies of the offers a `PAYMENT-REQUIRED` header carries.
@@ -368,7 +377,7 @@ fn get_head(
 fn the_search_route_is_registered_behind_the_payment_gate() -> TestResult {
     let vector = vector()?;
     let scratch = Scratch::new("gated")?;
-    let gate = gate(&scratch.0)?;
+    let (gate, _gateway) = gate(&scratch.0)?;
     let index = Arc::new(indexed(&scratch, vector.documents.iter())?);
     let store = Arc::new(ContentStore::open(&scratch.0, &[])?);
     let mut routes = RouteTable::new();

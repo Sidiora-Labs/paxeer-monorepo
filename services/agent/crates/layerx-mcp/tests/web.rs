@@ -820,6 +820,16 @@ fn receiver_address() -> [u8; 20] {
 
 fn context() -> ApprovalContext {
     ApprovalContext {
+        actor_address: unhex(
+            text(
+                &fixture("client-exchange.json"),
+                "/exchange/0/request/headers/LAYERX-PAYER-ADDRESS",
+            )
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("payer address hex prefix")),
+        )
+        .try_into()
+        .unwrap_or_else(|_| panic!("20-byte payer address")),
         tenant: TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}")),
         agent: Did::new(payer_did().as_bytes()).unwrap_or_else(|error| panic!("DID: {error:?}")),
         session: SessionId([7; 32]),

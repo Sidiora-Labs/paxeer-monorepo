@@ -1,9 +1,12 @@
+#[path = "support/corpus.rs"]
+mod replay_corpus;
+
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::result::{KnownResult, ResultCode};
-use layerx_types::vectors::{CodecVector, Corpus};
+use layerx_types::vectors::CodecVector;
 use layerx_wire::activity::decode_signed;
 use layerx_wire::decode::Decoder;
 use layerx_wire::limits::enforce;
@@ -66,7 +69,7 @@ fn registry() -> ModuleRegistry {
 /// differently from the core-declared result.
 #[must_use]
 pub fn rejection_corpus() -> BTreeSet<i32> {
-    let Ok(corpus) = Corpus::load(&repository_root()) else {
+    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
         panic!("published corpus failed to load");
     };
     corpus
@@ -93,7 +96,7 @@ fn published_rejection_corpus_matches_core_classes() {
 
 #[test]
 fn generated_noncanonical_mutations_are_rejected() {
-    let Ok(corpus) = Corpus::load(&repository_root()) else {
+    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
         panic!("published corpus failed to load");
     };
     let canonical = &corpus.valid_codec[0].bytes;

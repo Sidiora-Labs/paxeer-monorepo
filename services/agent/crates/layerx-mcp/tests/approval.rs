@@ -65,6 +65,7 @@ pub fn prepared(amount: u128, request_id: u8) -> Prepared {
 
 pub fn context(request_id: u8) -> ApprovalContext {
     ApprovalContext {
+        actor_address: [4; 20],
         tenant: TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}")),
         agent: Did::new(b"did:layerx:approver-test")
             .unwrap_or_else(|error| panic!("DID: {error:?}")),

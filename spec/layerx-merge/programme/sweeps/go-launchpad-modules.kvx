@@ -1,17 +1,19 @@
 [sweep.go-launchpad-modules]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
 command = "cd TARGET && go vet ./... && go test -count=1 ./..."
 targets_total = 15
 targets_passed = 0
-targets_failed = 13
-targets_not_run = 2
+targets_failed = 15
+targets_not_run = 0
 target_time_limit_seconds = 180
 
 [target.go-launchpad-modules.1]
 target = "services/launchpad/api"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its 180-second share of the 30-minute task budget and was terminated before completion."
+result = "failed"
+exit_code = 1
+observed = "dev_authority_cache_test.go:119: CORE_API_TEST_POSTGRES_URL is not set: point it at a running PostgreSQL whose role may CREATE DATABASE; tests never start containers"
+assumption = "TestDevelopmentAuthorityAttestationCache requires CORE_API_TEST_POSTGRES_URL to select a running PostgreSQL fixture with CREATE DATABASE privilege; that input is missing."
+log = "/out/logs/resweep-api.log"
 
 [target.go-launchpad-modules.2]
 target = "services/launchpad/discovery"
@@ -22,9 +24,11 @@ assumption = "The environment lacks the isolated PostgreSQL fixture configuratio
 
 [target.go-launchpad-modules.3]
 target = "services/launchpad/gateway"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its 180-second share of the 30-minute task budget and was terminated before completion."
+result = "failed"
+exit_code = 1
+observed = "identity_peers_test.go:557: fixture postgres: failed to connect to `user=kindle_fixture database=kindle_fixture`: 127.0.0.1:25432 (127.0.0.1): dial error: dial tcp 127.0.0.1:25432: connect: connection refused"
+assumption = "The PostgreSQL fixture selected by L33_POSTGRES_DSN, or its default fixture endpoint, is unavailable; TestPlatformPeersThroughGatewayIdentityListener requires a running server with CREATE DATABASE privilege."
+log = "/out/logs/resweep-gateway.log"
 
 [target.go-launchpad-modules.4]
 target = "services/launchpad/indexer"

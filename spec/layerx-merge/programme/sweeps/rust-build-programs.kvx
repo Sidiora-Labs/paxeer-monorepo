@@ -98,10 +98,13 @@ exit_code = 0
 
 [target.rust-build-programs.19]
 target = "wasm-instrument"
+revision = "e4ea95433a982235f0a6c0304857a074c61d0b6e"
+command = "cargo build --locked --manifest-path programs/Cargo.toml -p wasm-instrument --all-targets"
+toolchain = "cmake 4.2.3 on PATH."
 result = "failed"
 exit_code = 101
-observed = "cmake-0.1.58/src/lib.rs:1132:5: the binaryen-sys v0.12.0 build script panicked because executing cmake failed with No such file or directory (os error 2)."
-assumption = "This is an environmental failure caused by CMake being unavailable on the sandbox PATH."
+observed = "After dropping the binaryen test dependency, the previous qualification build failed first with E0433 for DynamicHelper in the ungated memory-grow helper test; both helper-sequence tests now use the same bulk feature gate as DynamicHelper and add_dynamic_helpers, pending qualification."
+assumption = "Qualification runs in the Railway Ubuntu sandbox with CMake 4.2.3 on PATH."
 
 [target.rust-build-programs.20]
 target = "wasmi"

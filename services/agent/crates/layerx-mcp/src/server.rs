@@ -851,6 +851,10 @@ impl Server {
         Ok(WebBoundary {
             inner,
             context: ApprovalContext {
+                actor_address: route
+                    .config
+                    .payer_address()
+                    .ok_or(ServerError::CapabilityMismatch)?,
                 tenant: self.binding.tenant.clone(),
                 agent: self.binding.agent.clone(),
                 session: self.binding.session_id,
