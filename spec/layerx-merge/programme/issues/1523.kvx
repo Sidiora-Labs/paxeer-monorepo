@@ -1,0 +1,7 @@
+[issue.1523]
+number = 1523
+title = "[Coherence] Raising sdk/wallet's vitest specifier without updating the services/wallet workspace lock breaks every frozen install of the wallet workspace"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "already-fixed"
+evidence = "Commit 8dc0d37ce04f002d216ab533a297389e013f15d5 corrected the ../../sdk/wallet importer at services/wallet/pnpm-lock.yaml:15 to Vitest specifier ^4.1.11 at services/wallet/pnpm-lock.yaml:43 and resolution 4.1.12 at services/wallet/pnpm-lock.yaml:44, matching sdk/wallet/package.json:54 for the workspace member declared at services/wallet/pnpm-workspace.yaml:3 and removing the reported specifier mismatch from the frozen installs at .github/workflows/platform.yml:188 and docker/wallet-pwa/Dockerfile:13."
+close_comment = "The wallet workspace lock now records Vitest ^4.1.11 for the wallet SDK and resolves it to 4.1.12, matching the SDK manifest. The reported manifest-to-lock specifier mismatch is fixed."

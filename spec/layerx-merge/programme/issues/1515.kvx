@@ -1,0 +1,49 @@
+[issue.1515]
+number = 1515
+title = "[P2] Keep persisted chain submissions outside editable-draft expiry"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "The journal introduced by commit 29f3b3d9380bff9b4e45ea4ad7cff91545918d4a still applies the editable-draft age check at apps/launchpad/web/src/widgets/create-chain/chain-domain.ts:51 through chain-storage.ts:19, chain-storage.ts:61 and chain-storage.ts:72 to both confirm and reverted records, so after 30 days plus 1 ms chain-wizard.tsx:75 sets recoveryBlocked before exposing the hash at chain-wizard.tsx:233 and blocks launches at chain-wizard.tsx:120 and fresh drafts at chain-wizard.tsx:252, while chain-wizard.test.tsx:251 and chain-wizard.test.tsx:310 cover immediate recovery and reverts without advancing through expiry."
+close_comment = "Confirmed: a saved chain submission older than 30 days can hide its transaction hash and block confirmation and new launches, including after a known revert. The follow-up separates submitted transaction history from editable-draft expiry while preserving identity checks and the 30-day limit for unsent drafts."
+
+[task.18.1515.1]
+title = "Issue #1515: Preserve submitted chain history beyond editable-draft expiry"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181515.1"]
+capabilities = []
+interfaces = []
+do_1 = "In apps/launchpad/web/src/widgets/create-chain/chain-storage.ts:18 separate editable-draft freshness from validation of an immutable submitted draft: saveSubmission (:40), static restoreSubmission (:55), the instance restore (:51) and clearSubmission (:71) must accept otherwise valid confirm and reverted records regardless of elapsed age, including a reverted update after a delayed confirmation; preserve the reviewed snapshot and timestamp, schema/version, creator, root-chain, tier, fee-share, timestamp validity, hash, phase, bond and size checks and owner/hash matching on clear, and retain the 30-day expiry for saveDraft (:29) and restoreDraft (:33)."
+do_2 = "Add the planned apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts with a declared function chain_submissions_survive_editable_draft_expiry registered as test(chain_submissions_survive_editable_draft_expiry): use the real ChainDraftStorage and jsdom localStorage with controlled time, save records at T, restore via fresh instances and the static method at T plus 30 days and T plus 30 days plus 1 ms, assert unchanged reviewed fields and submission identity for confirm and reverted, persist a reverted update after expiry, and prove another account can read the global record but cannot clear it while only the matching creator/hash can clear it."
+do_3 = "Within that same focused test, assert an unsent draft remains restorable at exactly 30 days and rejects at 30 days plus 1 ms, a fresh editable draft can be saved and restored after clearing the aged terminal-reverted record, and malformed journal identity, chain, timestamp, tier, fee share, hash, phase and bond remain rejected without deleting stored bytes; preserve the existing expiry assertions at apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts:30 and :48 and the confirmation scope checks at chain-adapters.ts:147, whose read-only receipt path (:155) already permits delayed confirmation."
+symbols = ["ChainDraftStorage", "chain_submissions_survive_editable_draft_expiry"]
+touches = ["apps/launchpad/web/src/widgets/create-chain/chain-storage.ts", "apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts"]
+tests = ["apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts::chain_submissions_survive_editable_draft_expiry"]
+planned_paths = ["apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts"]
+build_cmd = "pnpm --dir apps/launchpad/web exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/create-chain/chain-storage.test.ts -t '^chain_submissions_survive_editable_draft_expiry$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181515]
+title = "Submitted chain history survives editable-draft expiry"
+ac_1 = "An otherwise valid persisted confirm or reverted journal at apps/launchpad/web/src/widgets/create-chain/chain-storage.ts:40 remains readable, updatable to a confirmed revert and clearable by its matching owner/hash beyond the editable-draft age boundary at chain-domain.ts:51 without changing the reviewed snapshot or weakening structural validation, so the recovery consumer at chain-wizard.tsx:59 receives the identity instead of entering recoveryBlocked, while unsent drafts retain their 30-day expiry."
+
+[acceptance.18.1515.1]
+feature = "18"
+req = "181515.1"
+scenario = "Given a valid chain submission saved at T and an unsent editable draft, when the journal is restored through fresh storage instances at T plus 30 days and T plus 30 days plus 1 ms, then pending and reverted identities and reviewed snapshots remain intact, a late revert can be persisted, another account can read but cannot clear the record, the matching owner/hash can clear it and save a fresh draft, malformed records remain rejected, and the unsent draft alone expires after the boundary."
+contract = "contracts/virtual-chains.md#launch"
+test = "apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts::chain_submissions_survive_editable_draft_expiry (planned)"
+qualification = "UNRUN"

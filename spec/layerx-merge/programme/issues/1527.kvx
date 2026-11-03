@@ -1,0 +1,48 @@
+[issue.1527]
+number = 1527
+title = "[Coherence] Resolutions pin phoenix and js-cookie to one version, but the app ships another"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "apps/explorer/package.json:107 and :117 request caret ranges while :248 and :259 pin js-cookie 3.0.7 and phoenix 1.6.17, tools/deps/floors/explorer-web.json:41 and :52 record those floors, and apps/explorer/yarn.lock:18649 and :20406 resolve the direct selectors to 3.0.8 and 1.8.16 alongside the pinned entries at :18644 and :20401 consumed through apps/explorer/lib/cookies.ts:1 and apps/explorer/lib/socket/context.tsx:3."
+close_comment = "The explorer still locks its direct Phoenix and cookie dependencies to different versions from its resolution pins. A follow-up task will align the direct dependencies and lockfile with those pins and add a regression check for the versions the app resolves."
+
+[task.18.1527.1]
+title = "Issue #1527: Align explorer Phoenix and cookie dependencies with their resolution pins"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181527.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change the direct js-cookie and phoenix dependencies at apps/explorer/package.json:107 and :117 to exact 3.0.7 and 1.6.17, matching the resolutions at :248 and :259 and preserving the floors at tools/deps/floors/explorer-web.json:41 and :52; regenerate apps/explorer/yarn.lock with the declared Yarn version at apps/explorer/package.json:281 so the conflicting direct-selector entries at apps/explorer/yarn.lock:18648 and :20405 disappear and every selector for these packages resolves to its pin."
+do_2 = "Add apps/explorer/lib/dependencyVersions.spec.ts with one declared function explorerDependencyVersionsMatchPins registered with test(explorerDependencyVersionsMatchPins); read the real explorer manifest, Yarn lockfile, dependency floors and installed packages resolved from the explorer package root, and assert for both packages that the direct dependency, resolution and installed version equal the exact pin, every lock selector resolves to that same version, and the security floor is preserved."
+symbols = ["explorerDependencyVersionsMatchPins"]
+touches = ["apps/explorer/package.json", "apps/explorer/yarn.lock", "apps/explorer/lib/dependencyVersions.spec.ts"]
+tests = ["apps/explorer/lib/dependencyVersions.spec.ts::explorerDependencyVersionsMatchPins"]
+planned_paths = ["apps/explorer/lib/dependencyVersions.spec.ts"]
+build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/explorer exec vitest run lib/dependencyVersions.spec.ts -t '^explorerDependencyVersionsMatchPins$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181527]
+title = "Explorer direct dependencies resolve to their declared Phoenix and cookie pins"
+ac_1 = "Given the Phoenix import at apps/explorer/lib/socket/context.tsx:3 and cookie import at apps/explorer/lib/cookies.ts:1, when the explorer dependencies are installed from its lockfile, then phoenix resolves to 1.6.17 and js-cookie to 3.0.7, matching the direct dependency declarations, resolutions at apps/explorer/package.json:259 and :248 and floors at tools/deps/floors/explorer-web.json:52 and :41, with no lock selector resolving either package to another version."
+
+[acceptance.18.1527.1]
+feature = "18"
+req = "181527.1"
+scenario = "Given the explorer manifest, Yarn lockfile and installed dependencies, when explorerDependencyVersionsMatchPins reads both packages through the explorer package root, then their direct declarations, resolutions, lock entries and installed versions agree on phoenix 1.6.17 and js-cookie 3.0.7 and meet their security floors."
+contract = "contracts/explorer-frontend.md#pages"
+test = "apps/explorer/lib/dependencyVersions.spec.ts::explorerDependencyVersionsMatchPins (planned)"
+qualification = "UNRUN"
