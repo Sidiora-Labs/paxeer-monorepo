@@ -14215,3 +14215,33 @@ fix = "A source deletion greps include/ for every symbol the file defined and re
 title = "A pinned-digest test on the former asset field and a stale transient-receipt comparison stop a receipt task that changed neither"
 symptom = "22.23.8 attempt 3: TestReceiptFeeFields (node/sequencer/receipt_equality_test.go:44 in the fee-token case) pins the fee token's digest as the receipt asset, which decision 2360 moved to the payment asset; TestAccepterReceiptsASendAcrossASeal (node/sequencer/accepter_test.go:383) compares the transient receipt (CumulativeGasUsed 0 at execution) with the signed receipt's Exec, which carries the cumulative gas Receipter.after adds (receipt.go:457, accepter.go:103)."
 fix = "The fee-token case asserts the payment-asset digest; the across-a-seal comparison takes CumulativeGasUsed from the signed summary (Effects[0].Body[8:16]) before comparing, the way accepter.go:103 does; both files are in 22.23.8's touches."
+
+[gotcha.2879]
+title = "A task whose symbol list names files or deleted declarations never qualifies"
+symptom = "22.24.24, 22.24.25 and 1.0.10 attempts 1 and 2: the completion check reported symbol go.sum, symbol Cargo.lock and the three retired lxp_batch declarations as not defined in the graph, with every build and test passing."
+fix = "The symbols list names only code symbols that exist in the indexed graph after the change; a lock-file or deletion task declares an empty symbols list."
+
+[gotcha.2880]
+title = "A Go build list that names a test-only package fails before any test runs"
+symptom = "22.6.5 attempts 1 to 3: go build ./precompiles/layerxagent/served/ stopped with no non-test Go files; the same list under go vet and go test is fine."
+fix = "Build lists name packages with non-test sources; test-only packages belong to the vet and test lists only."
+
+[gotcha.2881]
+title = "The SDK corpus-bound library test needs the built terminal v5 corpus exported"
+symptom = "22.9.18 attempts 4 and 6: v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes returned Verification because PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS was unset; 1.18.4's verify shows how the corpus is built and where its path is printed."
+fix = "A verify that runs the layerx-sdk library tests builds the corpus first (program-terminal-v5.py --build, then --manifest) and exports the printed path."
+
+[gotcha.2882]
+title = "Adding a served RPC method without regenerating the served-methods golden fails the next whole-package run"
+symptom = "22.7.3 attempt 5: TestServedMethodsHTTPGolden found px_getReceiptKeys (22.9.28) in the served set but not in rpc/testdata/served_methods_http.golden."
+fix = "Every task that registers or removes a served method updates the golden in the same change and lists it in touches."
+
+[gotcha.2883]
+title = "An exact version pin in a manifest blocks a lock-file floor raise that does not touch the manifest"
+symptom = "22.24.19 attempt 5: six lock files stayed at rustls 0.23.45 because six manifests pin rustls with an exact =0.23.45 requirement, outside the task's touches."
+fix = "A floor raise lists every manifest with an exact pin of the raised crate and moves the pin with the lock files."
+
+[gotcha.2884]
+title = "A client encoded to a call shape the chain never produced passes its own tests and fails the first look at the real ABI"
+symptom = "22.9.10 attempt 14: the perps v2 open and cancel signatures of 9.33.13 and 12.33.8 do not exist in precompiles/perps/abi/abi.json; the web proof had substituted them for the real declarations."
+fix = "A client call shape is asserted against the producer's ABI file, never against a declaration the test writes itself."
