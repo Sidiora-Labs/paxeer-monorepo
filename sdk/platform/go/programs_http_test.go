@@ -179,161 +179,126 @@ func TestSignedProgramCallBindingDerivesCanonicalIdentityAndKey(t *testing.T) {
 func TestProgramDiscoveryCachesFreshHeadAndDowngradesServerClaim(t *testing.T) {
 	program := [32]byte{1}
 	id := hex.EncodeToString(program[:])
-	var sequence atomic.Uint64
-	sequence.Store(7)
-	var rootVersion atomic.Uint64
+	var requests atomic.Uint64
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Method != http.MethodGet || request.URL.Path != "/v1/programs/registry/"+id {
-			http.Error(response, "unexpected Programs route", http.StatusNotFound)
-			return
-		}
-		root := strings.Repeat("4", 64)
-		if rootVersion.Load() != 0 {
-			root = strings.Repeat("5", 64)
-		}
-		writeProgramSuccess(response, programDiscoveryValue(id, root, sequence.Load(), 900, 1_100), false)
+		requests.Add(1)
+		writeProgramSuccess(response, programDiscoveryValue(id, strings.Repeat("4", 64), 7, 900, 1_100), false)
 	}))
 	defer server.Close()
-	transport, err := NewHumanHTTPTransport(server.URL, server.Client(), nil)
-	if err != nil {
-		t.Fatalf("construct Programs HTTP transport: %v", err)
+	programs := newHTTPProgramsForTest(t, server, [32]byte{9}, func() uint64 { return 1_000 })
+	// Decision 808 retires HTTP discovery, including its server-attested head.
+	if discovery, err := programs.Discover(context.Background(), program); programErrorCode(err) != ErrorUnavailableCapability || discovery.ProgramID != "" || discovery.Verification != "" {
+		t.Fatalf("retired HTTP discovery returned a trusted projection: %+v %v", discovery, err)
 	}
-	client, err := NewClient(transport, nil)
-	if err != nil {
-		t.Fatalf("construct Programs client: %v", err)
+	if _, found := programs.rememberedHead(program); found || requests.Load() != 0 {
+		t.Fatal("retired HTTP discovery dispatched or retained a server claim")
 	}
-	var now atomic.Uint64
-	now.Store(1_000)
-	programs, err := NewProgramsWithTrustOptions(client, [32]byte{9}, ProgramTrustOptions{
-		ClockMilliseconds: func() uint64 { return now.Load() }, MaximumSimulationAgeMilliseconds: 300,
-	})
-	if err != nil {
-		t.Fatalf("construct Programs operations: %v", err)
+	head := programHeadObservation{StateRoot: [32]byte{4}, Sequence: 7, ObservedAt: 900, ValidThrough: 1_100}
+	if err := programs.rememberHead(program, head); err != nil || !programs.headIsCurrent(program, head) || !validProgramHeadTime(head, 1_000) {
+		t.Fatalf("fresh head was not retained: %v", err)
 	}
-	discovery, err := programs.Discover(context.Background(), program)
-	if err != nil || discovery.Verification != "server-side-receipt-verification-only" {
-		t.Fatalf("fresh Programs discovery was not safely projected: %#v %v", discovery, err)
+	rollback := head
+	rollback.Sequence--
+	if err := programs.rememberHead(program, rollback); err == nil {
+		t.Fatal("head cache accepted a sequence rollback")
 	}
-	head, found := programs.rememberedHead(program)
-	expectedRoot, _ := programHex32(strings.Repeat("4", 64))
-	if !found || head.Sequence != 7 || head.ObservedAt != 900 || head.ValidThrough != 1_100 || head.StateRoot != expectedRoot {
-		t.Fatalf("Programs discovery head was not retained: %#v", head)
+	conflict := head
+	conflict.StateRoot[0] ^= 1
+	if err := programs.rememberHead(program, conflict); err == nil {
+		t.Fatal("head cache accepted a conflicting root")
 	}
-
-	sequence.Store(6)
-	if _, err := programs.Discover(context.Background(), program); programErrorCode(err) != ErrorVerificationFailure {
-		t.Fatalf("Programs discovery accepted a sequence rollback: %v", err)
-	}
-	sequence.Store(7)
-	rootVersion.Store(1)
-	if _, err := programs.Discover(context.Background(), program); programErrorCode(err) != ErrorVerificationFailure {
-		t.Fatalf("Programs discovery accepted a conflicting root: %v", err)
-	}
-	rootVersion.Store(0)
-	now.Store(800)
-	if _, err := programs.Discover(context.Background(), program); err == nil {
-		t.Fatal("Programs discovery accepted a future-observed head")
+	if validProgramHeadTime(head, 800) || !programs.headIsCurrent(program, head) {
+		t.Fatal("future-observed head accepted or refused updates changed the retained head")
 	}
 }
 
 func TestProgramsSimulateRejectsHeadExpiryDuringHTTPCall(t *testing.T) {
-	call, _, _ := canonicalProgramCallFixture()
-	id := hex.EncodeToString(call.ProgramID[:])
-	var now atomic.Uint64
+	call := programEVMCall(t, readProgramEVMVector(t, "native-program-call-v4"))
+	var now, requests atomic.Uint64
 	now.Store(1)
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		switch request.URL.Path {
-		case "/v1/programs/registry/" + id:
-			writeProgramSuccess(response, programDiscoveryValue(id, strings.Repeat("4", 64), 7, 1, 2), false)
-		case "/v1/programs/simulate":
-			now.Store(3)
-			writeProgramSuccess(response, `{}`, true)
-		default:
-			http.Error(response, "unexpected Programs route", http.StatusNotFound)
-		}
+		requests.Add(1)
+		now.Store(3)
+		writeProgramSuccess(response, `{}`, true)
 	}))
 	defer server.Close()
 	programs := newHTTPProgramsForTest(t, server, [32]byte{9}, func() uint64 { return now.Load() })
-	if _, err := programs.Discover(context.Background(), call.ProgramID); err != nil {
-		t.Fatalf("discover Programs head: %v", err)
+	head := programHeadObservation{StateRoot: [32]byte{4}, Sequence: 7, ObservedAt: 1, ValidThrough: 2}
+	if err := programs.rememberHead(call.ProgramID, head); err != nil {
+		t.Fatal(err)
 	}
-	if _, err := programs.Simulate(context.Background(), call); programErrorCode(err) != ErrorVerificationFailure {
-		t.Fatalf("simulation accepted a head that expired in flight: %v", err)
+	if _, err := programs.Discover(context.Background(), call.ProgramID); programErrorCode(err) != ErrorUnavailableCapability {
+		t.Fatalf("retired HTTP discovery was accepted: %v", err)
+	}
+	if simulation, err := programs.Simulate(context.Background(), call); programErrorCode(err) != ErrorUnavailableCapability || simulation.Committed || simulation.Execution.Receipt != "" {
+		t.Fatalf("retired HTTP simulation returned evidence: %+v %v", simulation, err)
+	}
+	if requests.Load() != 0 || now.Load() != 1 || !programs.headIsCurrent(call.ProgramID, head) {
+		t.Fatal("retired HTTP simulation dispatched or changed its retained head")
+	}
+	if !validProgramHeadTime(head, 1) || validProgramHeadTime(head, 3) {
+		t.Fatal("head expiry was not enforced")
 	}
 }
 
 func TestProgramsSimulateRejectsExpiredHeadBeforeHTTPCall(t *testing.T) {
-	call, _, _ := canonicalProgramCallFixture()
-	id := hex.EncodeToString(call.ProgramID[:])
-	var now atomic.Uint64
+	call := programEVMCall(t, readProgramEVMVector(t, "native-program-call-v4"))
+	var now, requests atomic.Uint64
 	now.Store(1)
-	var simulationRequests atomic.Uint64
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		switch request.URL.Path {
-		case "/v1/programs/registry/" + id:
-			writeProgramSuccess(response, programDiscoveryValue(id, strings.Repeat("4", 64), 7, 1, 2), false)
-		case "/v1/programs/simulate":
-			simulationRequests.Add(1)
-			writeProgramSuccess(response, `{}`, true)
-		default:
-			http.Error(response, "unexpected Programs route", http.StatusNotFound)
-		}
+		requests.Add(1)
+		writeProgramSuccess(response, `{}`, true)
 	}))
 	defer server.Close()
 	programs := newHTTPProgramsForTest(t, server, [32]byte{9}, func() uint64 { return now.Load() })
-	if _, err := programs.Discover(context.Background(), call.ProgramID); err != nil {
-		t.Fatalf("discover Programs head: %v", err)
+	head := programHeadObservation{StateRoot: [32]byte{4}, Sequence: 7, ObservedAt: 1, ValidThrough: 2}
+	if err := programs.rememberHead(call.ProgramID, head); err != nil {
+		t.Fatal(err)
 	}
 	now.Store(3)
-	if _, err := programs.Simulate(context.Background(), call); programErrorCode(err) != ErrorVerificationFailure {
-		t.Fatalf("simulation accepted a head that expired before dispatch: %v", err)
+	if validProgramHeadTime(head, now.Load()) {
+		t.Fatal("expired head accepted before dispatch")
 	}
-	if simulationRequests.Load() != 0 {
-		t.Fatalf("simulation dispatched %d request(s) against an expired head", simulationRequests.Load())
+	if simulation, err := programs.Simulate(context.Background(), call); programErrorCode(err) != ErrorUnavailableCapability || simulation.Committed || simulation.Execution.Receipt != "" {
+		t.Fatalf("retired HTTP simulation returned evidence against an expired head: %+v %v", simulation, err)
+	}
+	if requests.Load() != 0 || !programs.headIsCurrent(call.ProgramID, head) {
+		t.Fatal("retired HTTP simulation dispatched or changed its retained head")
 	}
 }
 
 func TestProgramsSimulateRejectsConcurrentHTTPHeadAdvance(t *testing.T) {
-	call, _, _ := canonicalProgramCallFixture()
-	id := hex.EncodeToString(call.ProgramID[:])
-	var sequence atomic.Uint64
-	sequence.Store(7)
-	entered := make(chan struct{})
-	release := make(chan struct{})
+	call := programEVMCall(t, readProgramEVMVector(t, "native-program-call-v4"))
+	var requests atomic.Uint64
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		switch request.URL.Path {
-		case "/v1/programs/registry/" + id:
-			root := strings.Repeat("4", 64)
-			if sequence.Load() == 8 {
-				root = strings.Repeat("5", 64)
-			}
-			writeProgramSuccess(response, programDiscoveryValue(id, root, sequence.Load(), 1, 2), false)
-		case "/v1/programs/simulate":
-			close(entered)
-			<-release
-			writeProgramSuccess(response, `{}`, true)
-		default:
-			http.Error(response, "unexpected Programs route", http.StatusNotFound)
-		}
+		requests.Add(1)
+		writeProgramSuccess(response, `{}`, true)
 	}))
 	defer server.Close()
 	programs := newHTTPProgramsForTest(t, server, [32]byte{9}, func() uint64 { return 1 })
-	if _, err := programs.Discover(context.Background(), call.ProgramID); err != nil {
-		t.Fatalf("discover initial Programs head: %v", err)
+	head := programHeadObservation{StateRoot: [32]byte{4}, Sequence: 7, ObservedAt: 1, ValidThrough: 2}
+	if err := programs.rememberHead(call.ProgramID, head); err != nil {
+		t.Fatal(err)
 	}
 	result := make(chan error, 1)
 	go func() {
-		_, err := programs.Simulate(context.Background(), call)
+		simulation, err := programs.Simulate(context.Background(), call)
+		if simulation.Committed || simulation.Execution.Receipt != "" {
+			t.Error("retired HTTP simulation returned execution evidence")
+		}
 		result <- err
 	}()
-	<-entered
-	sequence.Store(8)
-	if _, err := programs.Discover(context.Background(), call.ProgramID); err != nil {
+	advanced := head
+	advanced.Sequence++
+	advanced.StateRoot[0]++
+	if err := programs.rememberHead(call.ProgramID, advanced); err != nil {
 		t.Fatalf("advance Programs head: %v", err)
 	}
-	close(release)
-	if err := <-result; programErrorCode(err) != ErrorVerificationFailure {
-		t.Fatalf("simulation accepted evidence against a superseded head: %v", err)
+	if err := <-result; programErrorCode(err) != ErrorUnavailableCapability {
+		t.Fatalf("retired HTTP simulation accepted evidence during a head advance: %v", err)
+	}
+	if requests.Load() != 0 || programs.headIsCurrent(call.ProgramID, head) || !programs.headIsCurrent(call.ProgramID, advanced) {
+		t.Fatal("retired HTTP simulation dispatched or failed to retain the head advance")
 	}
 }
 

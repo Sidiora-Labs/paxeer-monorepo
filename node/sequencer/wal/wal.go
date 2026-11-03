@@ -112,10 +112,13 @@ type Open struct {
 
 // Accept records one executed transaction and its canonical signed receipt.
 type Accept struct {
-	Seq     uint64
-	Height  uint64
-	Tx      []byte
-	Receipt []byte
+	Seq        uint64
+	Height     uint64
+	Tx         []byte
+	Receipt    []byte
+	ReturnData []byte
+	LogData    [][]byte
+	VMError    string
 }
 
 // Seal records the sealing of seqs FromSeq..ToSeq into the block at Height.
@@ -160,7 +163,16 @@ func (e *Accept) appendPayload(dst []byte) ([]byte, error) {
 	dst = binary.BigEndian.AppendUint64(dst, e.Seq)
 	dst = binary.BigEndian.AppendUint64(dst, e.Height)
 	dst = appendBytes(dst, e.Tx)
-	return appendBytes(dst, e.Receipt), nil
+	dst = appendBytes(dst, e.Receipt)
+	if len(e.ReturnData) != 0 || len(e.LogData) != 0 || e.VMError != "" {
+		dst = appendBytes(dst, e.ReturnData)
+		dst = appendBytes(dst, []byte(e.VMError))
+		dst = binary.BigEndian.AppendUint32(dst, uint32(len(e.LogData)))
+		for _, data := range e.LogData {
+			dst = appendBytes(dst, data)
+		}
+	}
+	return dst, nil
 }
 
 func (e *Seal) appendPayload(dst []byte) ([]byte, error) {
@@ -220,7 +232,19 @@ func DecodeEntry(b []byte) (Entry, error) {
 	case KindOpen:
 		e = &Open{Height: d.u64(), OpenTimeMs: d.u64(), BaseFee: new(uint256.Int).SetBytes32(d.fixed(32))}
 	case KindAccept:
-		e = &Accept{Seq: d.u64(), Height: d.u64(), Tx: d.bytes(), Receipt: d.bytes()}
+		a := &Accept{Seq: d.u64(), Height: d.u64(), Tx: d.bytes(), Receipt: d.bytes()}
+		if !d.failed && len(d.b) != 0 {
+			a.ReturnData = d.bytes()
+			a.VMError = string(d.bytes())
+			n := binary.BigEndian.Uint32(d.fixed(4))
+			if uint64(n) > uint64(len(d.b)/4) {
+				d.failed = true
+			}
+			for i := uint32(0); !d.failed && i < n; i++ {
+				a.LogData = append(a.LogData, d.bytes())
+			}
+		}
+		e = a
 	case KindSeal:
 		s := &Seal{Height: d.u64(), ToSeq: d.u64()}
 		copy(s.LastSeqHash[:], d.fixed(32))
@@ -716,6 +740,35 @@ type ReplayResult struct {
 	LastLogged *Accept
 	// Tail is the corrupt or torn head tail that OpenWAL cut off, nil when the head ended cleanly.
 	Tail *CorruptTail
+}
+
+func (w *WAL) Scan(visit func(Entry) error) error {
+	w.pruneMu.Lock()
+	defer w.pruneMu.Unlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.err != nil {
+		return w.err
+	}
+	if err := w.buf.Flush(); err != nil {
+		w.fail(err)
+		return err
+	}
+	paths := make([]string, 0, len(w.sealed)+1)
+	for _, s := range w.sealed {
+		paths = append(paths, filepath.Join(w.dir, s.name()))
+	}
+	paths = append(paths, filepath.Join(w.dir, headName))
+	for _, path := range paths {
+		_, tailErr, err := scanSegment(path, visit)
+		if err != nil {
+			return err
+		}
+		if tailErr != nil {
+			return fmt.Errorf("%s: %w", path, tailErr)
+		}
+	}
+	return nil
 }
 
 // Replay feeds every entry after the last COMMITTED entry to exec in WAL order and stops with
