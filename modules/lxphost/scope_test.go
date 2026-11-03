@@ -107,6 +107,7 @@ func TestHostBlobLoadScopedToModule(t *testing.T) {
 			case governanceModule:
 				activity = actor.register(t, host, 0, blockTime)
 			case 9:
+				seedProgramsFeeRecord(t, chain, actor.id)
 				activity = actor.registry(t, host, 0, blockTime, 0x63, []byte("manifest"))
 			}
 			receipt := execute(t, host, ctx, activity, actor.authority())
