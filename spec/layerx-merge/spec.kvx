@@ -7539,6 +7539,66 @@ value = "18.1434.1 do_2 is the fact: ReceiptLookup::Submitted, a lookup transpor
 basis = "18.1434.1 attempt 6 (94a880eaf): four move_commit tests panicked at production_fixture.rs:1476 with POST /v1/moves: HTTP/1.1 503 upstream-degraded after the sixty-second mark; attempt 5 had failed on the attestor go.sum that 22.24.24 restored."
 affects = ["18.1434.1"]
 
+[decision.2405]
+title = "The committed RPC package test run drops the Sei mainnet replays and the retired getRawTransaction refusal, skips the two new-heads tests owned by 7.10.6, and proves the 5.98.6 pending-block contract after a seal"
+value = "rpc/tests/regression_test.go replays two Sei mainnet transactions (fixtures 0x01aaf9dd75… and 0xf15bb88570…) that need the sei wasm capability and the seichain oracle vote type, neither of which this chain carries: the two cases and their fixture files leave. rpc/tracers_test.go TestDebugGetRawMethodsNotSupported still expects debug_getRawTransaction to refuse although 7.18.1 implemented it (decision at spec line 2290): that subtest leaves, the other three refusals stay. TestSubscribeNewHeads and TestSubscribeNewHeadsAutobahn are repaired by 7.10.6, so 22.7.3 skips them by name. rpc/send_sequencer_test.go TestSendSequencerReturnsAfterReceipt expects ErrLayerNotOpen after the seal, but since 5.98.5 and 5.98.6 acceptOnSequencer continues to the pending context, and a SendAPI built without a WatermarkManager answers ErrPendingServedBySequencer: the harness builds its SendAPI with a WatermarkManager over the executor's pending source as newSendPendingAPI does and expects ErrPendingBlockClosed, superseding 22.7.3 do_11."
+basis = "22.7.3 attempt 6 (70991e4d2): the two Sei cases fail on sei wasm capability unavailable and an unknown oracle vote type; getRawTransaction answers instead of refusing; TestSendSequencerReturnsAfterReceipt reports pending served by sequencer; the two new-heads tests fail as in 7.10.6."
+affects = ["22.7.3", "7.10.6", "5.98.6", "7.18.1"]
+
+[decision.2406]
+title = "Both block header encoders carry the four Cancun keys and the committed head takes gasUsed and logsBloom from the receipts"
+value = "EncodeTmBlock (rpc/block.go) and encodeHead (rpc/subscribe.go) both emit withdrawalsRoot as the empty withdrawals hash, blobGasUsed 0x0, excessBlobGas 0x0 and parentBeaconBlockRoot as the zero hash, as 7.10.6 attempt 3 does; this supersedes the removal in 7.10.1 do_2 while keeping 7.10.1's invariant that the two key sets are equal, so TestEncodeCommittedBlockWithRoots gains the four keys and TestNewHeadsKeySetMatchesBlockHeader passes. Since 7.10.2 the committed head's gasUsed and logsBloom come from the EVM receipts (LogFetcher headExecution), the same source as eth_getBlockByNumber, so rpc/subscribe_test.go:196 no longer pins the mock FinalizeBlock sum 0x11558 and asserts equality with eth_getBlockByNumber for the same height instead."
+basis = "7.10.6 attempt 3 (b528bb8b9): TestEncodeCommittedBlockWithRoots and TestNewHeadsKeySetMatchesBlockHeader fail on the four keys the attempt added; TestSubscribeNewHeads expects gasUsed 0x11558 and receives 0x0."
+affects = ["7.10.6", "7.10.1", "7.10.2"]
+
+[decision.2407]
+title = "The human-owner daemon proof answers px_getNetwork from a router stand-in in the test, built over the real node and its consensus status"
+value = "connect_human_node (services/agent/crates/layerx-agentd/src/main.rs:486-511) calls px_getNetwork on LAYERX_AGENT_NODE_RPC_URL; the node's Go RPC does not serve that method, only the router does (services/platform/hosted/gateway/src/paxeer.rs get_network), and the router needs a Redis store, the boundary component, the authority and a client identity that the qualification environment does not carry. production_unhooked.rs therefore starts a JSON-RPC stand-in on 127.0.0.1 that answers px_getNetwork in the network_result shape from the real node's eth_chainId and eth_blockNumber and from the CometBFT /status sync_info at PERPS_DATA_TEST_COMET, and forwards every other method to LOCAL_NODE_RPC unchanged; the daemon's node URL points at the stand-in. The router itself stays outside this proof until the environment carries its store."
+basis = "10.20.6 attempt 6: both tests stop in connect_human_node because the node answers method not found for px_getNetwork."
+affects = ["10.20.6"]
+
+[decision.2408]
+title = "A refused kernel write leaves the host sequence unchanged, and the coded precompile suffix is asserted on the transient receipt only"
+value = "modules/layerxauth/keeper tests sessions_test.go:115 and :205 and execute_test.go:110 still expect NextSequence to advance across a refused write; decision 2396(2) made execute.go allocate the host sequence only after the kernel admits the activity, so the tests expect the refused response's GlobalSequence (and 45 in execute_test) unchanged. The |LXP_NO_PAYER_GRANT suffix is appended to the receipt VmError by modules/evm/keeper/receipt.go:287 from the state database's precompile error and nowhere else; the MsgServer response and EvmTxInfo carry the raw execution reverted string (msg_server.go:214, outside 22.11.8), so gas_conformance_test.go asserts the suffix on the transient receipt and the raw string on the response."
+basis = "22.11.8 attempt 3 (f30acfdc7): sessions_test.go:115 expected 0x2e got 0x2d, :205 expected 0x2d got 0x2c, execute_test.go:110 expected 46 got 45, TestLedgerGasConformance/issueGrant expected the coded suffix in EvmTxInfo.VmError and received execution reverted."
+affects = ["22.11.8"]
+
+[decision.2409]
+title = "The vendored engine is changed by the smallest behavioural diff and never reformatted, and the stack-overflow check keeps its result"
+value = "22.13.12 attempt 1 reformatted src/engine/mod.rs (404 lines), executor.rs and stack/frames.rs under programs/vendor/wasmi-0.31.2 and, inside that noise, replaced the fallible call_stack push with an infallible suspend, dropping the StackOverflow result, which broke the two metering tests. The engine keeps its formatting as vendored; the push keeps its fallible result and the terminal trap record is produced where that TrapCode arises."
+basis = "22.13.12 attempt 1 (5bacff9c1): actual_runtime_meter_exhaustion_before_capture_preserves_resource_refusal and metered_fuel_exhaustion_golden_replays_every_step_and_its_host_trap_exactly fail after the push became a suspend."
+affects = ["22.13.12"]
+
+[decision.2410]
+title = "A producer that removes a field updates every consumer construction in the other crates of the same workspace in the same change"
+value = "9.35.17 do_2 drops authorization from SigningPreparation; the human service tests agent_controls_rungs.rs:1254 and :2394, journey_faults.rs:333 and reclaim.rs:73 still construct it with that field, so the dependent-crate check fails with E0560. The four constructions join 9.35.17's touches and drop the field."
+basis = "9.35.17 attempt 3 (00eca8e26): the dependent-crate check exits 101 on four E0560 errors in layerx-human-service tests."
+affects = ["9.35.17"]
+
+[decision.2411]
+title = "The native reads proof's touches follow finding 21.95.1.1: the agent daemon test target is not part of the task"
+value = "21.95.1 do_8 moved the proof to services/agent/crates/layerx-mcp/tests/proof_native_reads.rs and deleted the layerx-agentd test target of the same name, which never reached main; the touches, tests and planned_paths still named it, so cg spec done refuses the candidate for a path with no change. The three lists name the mcp proof file instead and attempt 10, whose eight tests pass, is re-qualified unchanged."
+basis = "21.95.1 attempt 10 (fddf153c8): eight tests pass; the only failed graph check is touched services/agent/crates/layerx-agentd/tests/proof_native_reads.rs with no matching change."
+affects = ["21.95.1"]
+
+[decision.2412]
+title = "The two fail-fast expectation lists follow the fail-fast table"
+value = "engine/executor/precompiles/failfast_test.go:52-64 TestMergeFailFastPrecompiles and proof_node_engine_test.go:34-46 TestProofNodeEngineExportedRegistry pin the eleven merge fail-fast addresses with ElementsMatch; decision 2398 added layerxchains 0x101E to MergeFailFastPrecompileAddresses, so both lists gain it."
+basis = "22.6.5 attempt 6 (1ccddb0f7): both tests report one extra element 0x…101e in the table."
+affects = ["22.6.5"]
+
+[decision.2413]
+title = "The wallet SDK build compiles only its library sources, and the web exchange task waits for the wallet SDK consumer"
+value = "sdk/wallet/tsconfig.json includes src/**/* with types []; since 22.12.5 added src/index.test.ts, which imports node:buffer, node:fs, node:http and node:net, tsc -p sdk/wallet/tsconfig.json fails on every build because no node type declarations are configured. The build excludes src/**/*.test.ts (vitest runs those files itself). apps/web typecheck compiles sdk/wallet/src/modules/exchange.ts, whose cancelOrder still passes two arguments to the SDK's one-argument encoder since 22.9.37 published; 22.24.26 owns that file, so 22.23.13 requires it."
+basis = "22.24.26 attempt 1 (1000d0522): seven TS2307 and TS7006 errors in src/index.test.ts stop the sdk/wallet build; 22.23.13 attempt 1 (10112ca60): exchange.ts(54,81) TS2554 expected 1 argument but got 2."
+affects = ["22.24.26", "22.23.13", "22.12.5", "22.9.37"]
+
+[decision.2414]
+title = "The move-commit 503 is located by its trace before it is repaired"
+value = "18.1434.1 attempt 7 still answers POST /v1/moves with upstream-degraded in the four tests that inject a failed receipt read or the consumed-nonce rejection, after the daemon's second ReceiptLookup exchange and the node's px_getReceiptKeys, pax_sequencerReceipt and eth_getTransactionReceipt reads. The candidate has five sources of that failure in advance_evm_intent (the send mismatch arm, the leg nonce check, the Submitted hash or nonce mismatch, the Unavailable and CorruptResponse mapping of agent_failure) and the daemon's augment_receipt_evidence answers Unavailable when the sequencer receipt read observes nothing. The attempt runs one failing test alone, reads the fixture's agent and node trace, names the firing arm in the commit message, and routes it per do_2; a leg recorded before this change may carry no nonce field, so the nonce is taken from the decoded call."
+basis = "18.1434.1 attempts 6 and 7: the same four tests, the same 503 after the sixty-second mark; attempt 7 changed only the loop shape, the consumed-nonce arm, the still-checking write and the error mapping."
+affects = ["18.1434.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -36758,7 +36818,7 @@ title = "Make the newHeads subscription tests pass against the test node after t
 reqs = ["22052.1"]
 touches = ["rpc"]
 tests = ["rpc/subscribe_test.go::TestSubscribeNewHeads", "rpc/subscribe_test.go::TestSubscribeNewHeadsAutobahn"]
-verification_contract = "go vet ./rpc/ && go test -count=1 ./rpc/ -run '^(TestSubscribeNewHeads|TestSubscribeNewHeadsAutobahn|TestEncodeCommittedBlockStateRootIsHeaderAppHash)$'"
+verification_contract = "go vet ./rpc/ && go test -count=1 ./rpc/ -run '^(TestSubscribeNewHeads|TestSubscribeNewHeadsAutobahn|TestEncodeCommittedBlockStateRootIsHeaderAppHash|TestEncodeCommittedBlockWithRoots|TestNewHeadsKeySetMatchesBlockHeader)$'"
 do_1 = "Since commit 5fce7caee (task 7.10.3) rpc/subscribe.go:535 encodeCommittedBlock refuses a committed head whose AppHash is not thirty-two bytes, and TestSubscribeNewHeadsAutobahn (rpc/subscribe_test.go:114) receives no event because the test node's committed head 8 is dropped with that message, while TestSubscribeNewHeads (rpc/subscribe_test.go:39) fails at :95 because the withdrawalsRoot key is absent from the payload; establish at the base revision which of the two the test node causes (its committed heads carry no application hash) and which the encoder causes (withdrawalsRoot omitted), and repair each at its source: the test node's committed heads carry the real thirty-two byte application hash of the finalized block, and the encoder emits withdrawalsRoot (the empty withdrawals root of a chain without withdrawals) beside the other keys the test expects at :51 and :140."
 symbols = ["encodeCommittedBlock", "TestSubscribeNewHeads", "TestSubscribeNewHeadsAutobahn"]
 
@@ -37514,7 +37574,7 @@ title = "Reconcile the latest-tag pending expectation and export the gas price h
 reqs = ["22011.1"]
 touches = ["rpc/block_txcount_parity_test.go", "rpc/info.go", "rpc/tests/gas_price_test.go"]
 tests = []
-verification_contract = "CGO_ENABLED=1 go vet ./rpc/ ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 -skip '^(TestHttpDenyList|TestSubscribeLogsFromReceipts)$' ./rpc/ ./rpc/tests/"
+verification_contract = "CGO_ENABLED=1 go vet ./rpc/ ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 -skip '^(TestHttpDenyList|TestSubscribeLogsFromReceipts|TestSubscribeNewHeads|TestSubscribeNewHeadsAutobahn)$' ./rpc/ ./rpc/tests/"
 do_1 = "rpc/block_txcount_parity_test.go:209 TestBlockAPILatestTagResolves expects an error containing 'pending served by sequencer' and receives nil now that pending reads are served from the committed state (task 22.7.2): assert the served response. rpc/tests/gas_price_test.go:31 fails vet because InfoAPI.GasPriceHelper is unexported (gasPriceHelper): export the helper with a doc comment or point the test at the exported entry."
 symbols = []
 
@@ -117632,7 +117692,7 @@ title = "Open and cancel perps positions from the web exchange with the precompi
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.9.37"]
+requires = ["22.9.37", "22.24.26"]
 reqs = ["22095.1"]
 capabilities = ["22.23.13"]
 interfaces = []
@@ -117656,6 +117716,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2413 (attempt 1, 10112ca60): npm --prefix apps/web run typecheck compiles sdk/wallet/src/modules/exchange.ts, whose cancelOrder passes two arguments to the SDK's one-argument encoder since 22.9.37 published; task 22.24.26 owns that file and this task now requires it. Nothing under sdk/wallet changes here."
 
 [task.22.24.26]
 title = "Open and cancel perps positions from the wallet with the precompile ABI's shapes"
@@ -117670,7 +117731,7 @@ do_1 = "Decision 2389: sdk/wallet/src/modules/exchange.ts:53-54 passes the SDK's
 do_2 = "apps/wallet/src/surfaces/ExchangeView.tsx collects a market, a collateral token, a collateral amount, a leverage and a long or short direction and opens the position through the module; the account id and size inputs of the v2 form leave. apps/wallet/src/surfaces/ExchangeView.test.tsx replaces exchange_view_opens_a_perps_position_through_the_v2_call_and_shows_the_decoded_event with exchange_view_opens_a_perps_position_through_the_precompile_call_and_shows_the_decoded_event, asserting the selector of openPosition(uint256,address,uint256,uint256,bool) from precompiles/perps/abi/abi.json and the five argument words."
 do_3 = "No file outside the four touches changes; the SDK types come from 22.9.37."
 symbols = ["ExchangeView"]
-touches = ["sdk/wallet/src/modules/exchange.ts", "sdk/wallet/test/modules.test.ts", "apps/wallet/src/surfaces/ExchangeView.tsx", "apps/wallet/src/surfaces/ExchangeView.test.tsx"]
+touches = ["sdk/wallet/src/modules/exchange.ts", "sdk/wallet/test/modules.test.ts", "apps/wallet/src/surfaces/ExchangeView.tsx", "apps/wallet/src/surfaces/ExchangeView.test.tsx", "sdk/wallet/tsconfig.json"]
 tests = ["apps/wallet/src/surfaces/ExchangeView.test.tsx::exchange_view_opens_a_perps_position_through_the_precompile_call_and_shows_the_decoded_event"]
 planned_paths = []
 build_cmd = "pnpm --dir sdk/wallet run build && pnpm --dir apps/wallet run typecheck"
@@ -117686,6 +117747,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2413 (attempt 1, 1000d0522, continue): pnpm --dir sdk/wallet run build runs tsc over src/**/* with types [], and src/index.test.ts (22.12.5) imports node:buffer, node:fs, node:http and node:net, so the build has failed on every run since 6c70c0a3e. sdk/wallet/tsconfig.json (now in touches) excludes src/**/*.test.ts and src/**/*.test.tsx from the build; vitest runs the tests itself and the task's verify is unchanged. The attempt 1 changes to the four other files stand."
 
 [task.22.9.37]
 title = "Encode the perps open and cancel calls in the precompile ABI's shapes"
@@ -128887,6 +128949,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Decision 2409 (attempt 1, 5bacff9c1): the engine under programs/vendor/wasmi-0.31.2 keeps its formatting as vendored (no formatter run; attempt 1 reformatted 404 lines of src/engine/mod.rs and hid the behavioural change inside). The fallible call_stack push and its StackOverflow result stay; the terminal trap record is produced where that TrapCode arises, with the pre-state captured before the call instruction executes. The metering tests actual_runtime_meter_exhaustion_before_capture_preserves_resource_refusal (Cpu limit 2) and metered_fuel_exhaustion_golden_replays_every_step_and_its_host_trap_exactly (limit 20000) keep passing; the checksum is refreshed last."
 
 [task.22.9.38]
 title = "Build the human projection facts fixture in-process from the Human peer server"
@@ -129363,7 +129426,7 @@ do_3 = "In services/agent/crates/layerx-agentd/src/human_runtime.rs the two buil
 do_4 = "The six test files that build a SigningPreparation drop their authorization: services/agent/crates/layerx-agentd/tests/evm_signing.rs prepared() (:145-190) and services/agent/crates/layerx-agentd/tests/signing.rs prepared() (:131-176) and services/agent/crates/layerx-agentd/tests/signature_binding.rs prepared() (:106-151) and services/agent/crates/layerx-agentd/tests/human_node_budgets.rs prepared() (:364-413) remove the restore_canonical call, its Authority argument and the restore_canonical import; signing.rs asserts at :187-192 and :257-261 compare prepared.transaction.call.encode_unsigned() and prepared.transaction.disclosure_digest instead of the legacy canonical bytes and digest; signature_binding.rs:176 reads prepared.transaction.disclosure.idempotency_key; services/agent/crates/layerx-agentd/tests/proof_agentd.rs signing_preparation (:145-178) takes the payload only and the test inconsistent_prepared_envelope_preimage_and_audit_are_refused (:372) becomes inconsistent_prepared_call_and_disclosure_are_refused, asserting that a SigningPreparation whose transaction.disclosure_digest is altered is refused by verify_before_submit with SigningError::Disclosure and one whose call data changed after preparation with SigningError::PreparedBytesChanged; services/agent/tests/limits/exactly_once.rs send_payload (:980-1070) drops the authorization field and the restore step at :1025-1034 while its envelope step stays until task 9.35.22 ports it."
 do_5 = "The verify builds the crate's test targets and runs prepare, evm_signing, signing, signature_binding, human_node_budgets, proof_agentd and the limits-exactly-once target; the prepare target's canonical_bytes_and_preimage_come_only_from_layerx_wire (services/agent/crates/layerx-agentd/tests/prepare.rs:98) also asserts that prepared.disclosure.idempotency_key equals the request's idempotency key and that verify_call_binding accepts the preparation."
 symbols = ["EvmPrepared", "verify_call_binding", "SigningPreparation", "inconsistent_prepared_call_and_disclosure_are_refused"]
-touches = ["services/agent/crates/layerx-agentd/src/prepare/mod.rs", "services/agent/crates/layerx-agentd/src/sign.rs", "services/agent/crates/layerx-agentd/src/sign_verify.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs", "services/agent/crates/layerx-agentd/tests/evm_signing.rs", "services/agent/crates/layerx-agentd/tests/signing.rs", "services/agent/crates/layerx-agentd/tests/signature_binding.rs", "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs", "services/agent/crates/layerx-agentd/tests/prepare.rs", "services/agent/tests/limits/exactly_once.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/prepare/mod.rs", "services/agent/crates/layerx-agentd/src/sign.rs", "services/agent/crates/layerx-agentd/src/sign_verify.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs", "services/agent/crates/layerx-agentd/tests/evm_signing.rs", "services/agent/crates/layerx-agentd/tests/signing.rs", "services/agent/crates/layerx-agentd/tests/signature_binding.rs", "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs", "services/agent/crates/layerx-agentd/tests/prepare.rs", "services/agent/tests/limits/exactly_once.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs", "services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/reclaim.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/proof_agentd.rs::inconsistent_prepared_call_and_disclosure_are_refused", "services/agent/crates/layerx-agentd/tests/prepare.rs::canonical_bytes_and_preimage_come_only_from_layerx_wire", "services/agent/crates/layerx-agentd/tests/signing.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -129380,6 +129443,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Attempt 2 ruling: the build stops with E0063 (missing fields disclosure, disclosure_digest and from in the initializer of evm::Prepared) in the RPC adapter module of services/agent/crates/layerx-agentd/src that constructs crate::prepare::evm::Prepared at line 185, the file the error names; that file is now in touches. Fill the three fields there from the adapter's bound call (the call-bound disclosure, its digest and the sender) the way prepare/mod.rs fills them, run the crate build with --tests, and continue from the attempt 2 candidate (6e474201d)."
+do_7 = "Decision 2410 (attempt 3, 00eca8e26, continue): the dependent-crate check fails with E0560 because four human service tests construct SigningPreparation with the authorization field do_2 removed: services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1254 and :2394, tests/journey_faults.rs:333 and tests/reclaim.rs:73 (all three files now in touches). The four constructions drop the field and any helper that only produced it leaves; the layerx-human-service tests compile in the dependent-crate check."
 
 [task.9.35.16]
 title = "Make bind_call construct every precompile call the agent daemon's EVM preparation offers"
@@ -131694,9 +131758,9 @@ do_3 = "The anchor carries no persistent state of its own: the test asserts inst
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs", "services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-mcp/src/boundary.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/Cargo.lock", "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs", "services/agent/crates/layerx-mcp/Cargo.toml", "services/agent/crates/layerx-client/src/sequencer.rs"]
-tests = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
-planned_paths = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
+touches = ["services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-mcp/src/boundary.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/Cargo.lock", "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs", "services/agent/crates/layerx-mcp/Cargo.toml", "services/agent/crates/layerx-client/src/sequencer.rs"]
+tests = ["services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"]
+planned_paths = ["services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"]
 build_cmd = "make -f chain.mk install && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test proof_native_reads"
 gate_kind = "planned"
@@ -131717,6 +131781,7 @@ do_9 = "Finding 21.95.1.2 (decision 2322): produce_transaction reads the sender 
 do_10 = "Finding 21.95.1.3 and decision 2292: build_cmd now installs the node (make -f chain.mk install); the proof starts it from std::process::Command by running tools/qualification/localnode/v6120-node.sh --sequencer --env-out <tempdir>/localnode.env as 21.45.1 does, reads LOCAL_NODE_KEY and the RPC endpoint from that file (never from the process environment; the two std::env::var reads at :153 and :249 leave), funds nothing it does not need, stops the node when the test ends, and drops the module doc comment's out-of-scope paragraph about the inherited setup; the boundary.rs and latest_nonce repairs of the seventh candidate stand; continue from the seventh candidate."
 do_11 = "Finding 21.95.1.4 and decision 2345: the proof keeps reading receipt keys from the node through layerx-client (sequencer.rs:515); task 22.9.28 serves px_getReceiptKeys on the node and this task now requires it; continue from attempt 8 once 22.9.28 is on main, with no other change to the candidate."
 do_12 = "Decision 2390 and attempt 9 ruling: the node serves no px_getHistory (the method is the hosted gateway's, services/platform/hosted/gateway/src/history.rs:546), so in services/agent/crates/layerx-mcp/tests/proof_native_reads.rs the history.list read is asserted as the boundary's typed unavailable refusal naming the method (no panic, no HTTP 503 leaking as a transport error), while receipt, proof, checkpoint and availability stay positive reads; services/agent/crates/layerx-mcp/src/boundary.rs:395-397 maps the daemon's unavailable answer for /v1/reads/history to that refusal. No history producer is started for the proof; decision 2292 stands."
+do_13 = "Decision 2411 (attempt 10, fddf153c8, re-qualify unchanged): the eight tests pass and the only refused graph check is the touches entry for the deleted agent daemon test target of do_8; touches, tests and planned_paths now name services/agent/crates/layerx-mcp/tests/proof_native_reads.rs instead, and the attempt 10 candidate is re-qualified without change."
 
 [task.21.94.1]
 title = "Prove the serve errors path end to end: producer, transport, consumer"
@@ -133717,6 +133782,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "Decision 2270: the verify runs the move_commit_bank_send target through sh tools/runtime/run-with-clock.sh, as the Makefile runs every human-workspace test."
 do_6 = "Decision 2383: attempt 5 (6ac4ea361 on b9ae495fc) failed only because the attestor build stopped on a missing go.sum entry (3a45b8541 deleted services/wallet/attestor/go.sum); this task now requires 22.24.24, which restores the file. Re-qualify 6ac4ea361 unchanged once 22.24.24 has published."
 do_7 = "Decision 2404 (attempt 6, 94a880eaf, continue): with the attestor module restored, three move_commit tests pass and the four that inject a failed receipt read or the consumed-nonce rejection on a retained hash (retains_the_accepted_submission_when_the_receipt_read_fails, recovers_the_accepted_submission_after_reopening, keeps_a_submitted_receipt_pending_without_resending, reconciles_a_consumed_nonce_with_a_retained_hash) receive POST /v1/moves 503 upstream-degraded after the sixty-second mark. do_2 is the fact: in advance_evm_intent a submitted leg whose lookup fails or whose repeat send meets the consumed-nonce rejection continues to the receipt lookup and leaves the journey still-checking; find the branch that still answers upstream_degraded on those two paths (and any deadline the lookup retry runs past) and route it per do_2. Keep the fixture injections of do_3."
+do_8 = "Decision 2414 (attempt 7, c219c442a, continue): the same four tests still receive POST /v1/moves 503 upstream-degraded, after the daemon's second ReceiptLookup exchange and the node's px_getReceiptKeys, pax_sequencerReceipt and eth_getTransactionReceipt reads (the fixture prints both traces at production_fixture.rs:1476). The candidate has five sources of that answer in advance_evm_intent: the send mismatch arm, the leg nonce check, the Submitted hash or nonce mismatch, and the Unavailable and CorruptResponse mapping of agent_failure (production_components.rs:1996); the daemon's augment_receipt_evidence (services/agent/crates/layerx-agentd/src/human_runtime.rs:13262) answers Unavailable when the sequencer receipt read observes nothing. Run move_commit_recovers_the_accepted_submission_after_reopening alone, read the trace, name the firing arm in the commit message, and route it per do_2: a leg recorded before this change may carry no nonce field, so the nonce comes from the decoded call and never refuses on a missing field; a lookup that answers Unavailable leaves the leg submitted and the journey still-checking. The module 12 versus module 1 receipt check belongs to the retired x402 Python verifier (decision 2092) and is not on this path."
 
 [task.18.1433.1]
 title = "Issue #1433: Encode the owner receipt lookup answer as one shared frame the Human decoder reads"
@@ -136001,7 +136067,7 @@ touches = ["rpc", "node/abci.go", "node/app.go"]
 tests = ["rpc/subscribe_test.go::TestSubscribeNewHeads", "rpc/subscribe_test.go::TestSubscribeNewHeadsAutobahn"]
 planned_paths = []
 build_cmd = "go build ./rpc/ ./node/"
-verify_cmd = "go vet ./rpc/ && go test -count=1 ./rpc/ -run '^(TestSubscribeNewHeads|TestSubscribeNewHeadsAutobahn|TestEncodeCommittedBlockStateRootIsHeaderAppHash)$'"
+verify_cmd = "go vet ./rpc/ && go test -count=1 ./rpc/ -run '^(TestSubscribeNewHeads|TestSubscribeNewHeadsAutobahn|TestEncodeCommittedBlockStateRootIsHeaderAppHash|TestEncodeCommittedBlockWithRoots|TestNewHeadsKeySetMatchesBlockHeader)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-rpc-api"
@@ -136015,6 +136081,8 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1: task 7.10.3 reads the committed block's stateRoot from header.AppHash (rpc/subscribe.go:472), but node/abci.go:320 leaves Header.AppHash unset on purpose and node/app.go:1943-1945 stashes the request and response for the notifier; node/abci.go and node/app.go are now in touches so the published header carries the AppHash that eth_getBlockByNumber (rpc/block.go:478) returns for the same height, and the test asserts the two are equal."
 do_5 = "Attempt 2: the subscription and block changes are in scope; the build failed on the root go.sum gap of finding 18.1043.2.1 (missing go.sum entry for go.uber.org/automaxprocs v1.6.0 after the in-repo go-ethereum replace), not on this task's code. Task 22.25.4 repairs go.sum; this task requires it and continues attempt 2 unchanged on top of it."
+do_6 = "Decision 2406 (attempt 3, b528bb8b9, continue): EncodeTmBlock (rpc/block.go) and encodeHead (rpc/subscribe.go) both carry withdrawalsRoot as the empty withdrawals hash, blobGasUsed 0x0, excessBlobGas 0x0 and parentBeaconBlockRoot as the zero hash, as the attempt does; this supersedes the removal of 7.10.1 do_2 while keeping its invariant that the two key sets are equal. rpc/notifier_internal_test.go TestEncodeCommittedBlockWithRoots (:193) adds the four keys to its expected map and TestNewHeadsKeySetMatchesBlockHeader (:316) passes unchanged; both are now in the verify run."
+do_7 = "Decision 2406: since 7.10.2 the committed head's gasUsed and logsBloom come from the EVM receipts (LogFetcher headExecution in rpc/subscribe.go), the same source as eth_getBlockByNumber, so the mock FinalizeBlock gas sum 0x11558 pinned at rpc/subscribe_test.go:196 is stale; the test asserts that the head's gasUsed and logsBloom equal the eth_getBlockByNumber answer for the same height, the way the attempt's state-root helper already compares stateRoot."
 
 [task.18.1508.2]
 title = "Give the launchpad REST package tests fixtures the repository holds"
@@ -175225,6 +175293,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing proof: the two tests start the real layerx-agentd against the real local node and open the real production components; no daemon stub, no mocked agent socket (decision.1990)."
 do_5 = "Decision 2383: attempt 4 (d2bf4c2c4 on b9ae495fc) failed only because the attestor build stopped on a missing go.sum entry (3a45b8541 deleted services/wallet/attestor/go.sum); this task now requires 22.24.24, which restores the file. Re-qualify d2bf4c2c4 unchanged once 22.24.24 has published."
+do_6 = "Decision 2407 (attempt 6, continue): both tests stop in connect_human_node (services/agent/crates/layerx-agentd/src/main.rs:486-511), which calls px_getNetwork on LAYERX_AGENT_NODE_RPC_URL; the node's Go RPC does not serve that method, the router does (services/platform/hosted/gateway/src/paxeer.rs get_network and network_result), and the router needs a Redis store, the boundary component, the authority and a client identity that the qualification environment does not carry. tests/production_unhooked.rs starts a JSON-RPC stand-in on a 127.0.0.1 ephemeral port (std TcpListener, one thread) that answers px_getNetwork in the network_result shape the client decoder accepts (layerx-client/src/px.rs:289-313): network_id as text, paxeer with chain_id and latest_block from the real node's eth_chainId and eth_blockNumber, and consensus with latest_height (decimal string), latest_block_hash, latest_app_hash and catching_up from the sync_info of the CometBFT /status answer at PERPS_DATA_TEST_COMET; no anchor key and no lx_ key. Every other method is forwarded to LOCAL_NODE_RPC and its answer returned unchanged. The daemon's LAYERX_AGENT_NODE_RPC_URL points at the stand-in; the chain id and every other variable stay as do_1 to do_5 set them, and the stand-in stops when the test ends."
 
 [task.10.20.5]
 title = "Commit Move money through bank sends and delete the movement provider client"
@@ -188950,6 +189019,8 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Decision 2382: the bound-caller case of TestAuthWriteRefusals (precompiles/layerxauth) fails on main since the lxphost resolution moved: layerxauth.go:70-95 calls p.keeper.Actor(ctx, caller) for every non-constant method before the authHandlers lookup at :93, Actor (modules/layerxauth/keeper/authority.go:26) resolves through lxphost.DIDID, and for the test's bound caller that read answers LXP_UNKNOWN_FIELD (-7), so the unknown-method refusal is never reached. Find why DIDID refuses the bound caller the test registers (modules/lxphost/ctx.go, host.go and execute.go moved after 21.21.1 last changed the test) and repair it within modules/lxphost or the precompile's ordering so the unknown-method text is answered for a bound caller; if the cause is under src/, stop with a finding naming the kernel function. The whole TestAuthWriteRefusals table is in this task's verify."
 do_6 = "Decision 2396 and attempt 1 ruling: (1) precompiles/layerxledger/gas_conformance_test.go asserts the VmError the product produces for the retired issueGrant and draw calls, execution reverted|LXP_NO_PAYER_GRANT, the coded suffix modules/evm/keeper/receipt.go:287 appends, in the response, the receipt and the transaction info alike. (2) The bound-caller case of TestAuthWriteRefusals is the fact: a refused write leaves the host store unchanged, so modules/layerxauth/keeper/execute.go:32 allocates the host sequence and reads the identity sequence only after the kernel admits the activity, or inside a branch that is discarded when it refuses; the attempt 1 move of the unknown-method check ahead of the actor resolution in precompiles/layerxauth/layerxauth.go stays. (3) modules/lxphost/code_names.go drops the -804 row, retired from include/layerx/lxp_result.h by 1.1.5 (the header marks it permanently reserved); the generated-file header stays as the file still mirrors the list. (4) apps/wallet/src/surfaces/WebDataView.test.tsx:902 (now in touches) registers the ledger proof as test with the explicit name proof_layerxledger_0x101a and the function, so the Go proof's wallet consumer prints 1 passed. Continue from the attempt 1 candidate (f7d6180988)."
+do_7 = "Decision 2408 (attempt 3, f30acfdc7, continue): modules/layerxauth/keeper/sessions_test.go:115 and :205 and execute_test.go:110 still expect the host sequence to advance across a refused write; per decision 2396(2) and do_6 a refusal leaves NextSequence unchanged, so sessions_test.go expects the refused response's GlobalSequence (not plus one) at :115 and the same value at :205, and execute_test.go:110 expects 45."
+do_8 = "Decision 2408, amending do_6(1): the |LXP_NO_PAYER_GRANT suffix is appended to the receipt VmError by modules/evm/keeper/receipt.go:281-288 from the state database's precompile error (precompiles/common/precompiles.go HandlePrecompileError) and by nothing else; the MsgServer response and result.EvmTxInfo.VmError carry the raw execution reverted string (modules/evm/keeper/msg_server.go:214, outside this task). precompiles/layerxledger/gas_conformance_test.go issueGrant asserts the coded suffix on the transient receipt and the raw string on the response."
 
 [task.22.6.10]
 title = "Select the v6.12.0 precompile set from the module version map so the merge plan gate passes on a full-genesis chain"
@@ -189081,11 +189152,11 @@ interfaces = []
 do_1 = "rpc/block_txcount_parity_test.go:209 TestBlockAPILatestTagResolves expects an error containing 'pending served by sequencer' and receives nil now that pending reads are served from the committed state (task 22.7.2): assert the served response. rpc/tests/gas_price_test.go:31 fails vet because InfoAPI.GasPriceHelper is unexported (gasPriceHelper): export the helper with a doc comment or point the test at the exported entry."
 do_2 = "Both packages vet and test clean."
 symbols = []
-touches = ["rpc/block_txcount_parity_test.go", "rpc/info.go", "rpc/tests/gas_price_test.go", "rpc/debug_tracer_shape_test.go", "rpc/simulate.go", "rpc/utils.go", "rpc/header_receipts_root_test.go", "rpc/pending_state_test.go", "rpc/notifier.go", "rpc/testdata/served_methods_http.golden", "rpc/simulate_test.go"]
+touches = ["rpc/block_txcount_parity_test.go", "rpc/info.go", "rpc/tests/gas_price_test.go", "rpc/debug_tracer_shape_test.go", "rpc/simulate.go", "rpc/utils.go", "rpc/header_receipts_root_test.go", "rpc/pending_state_test.go", "rpc/notifier.go", "rpc/testdata/served_methods_http.golden", "rpc/simulate_test.go", "rpc/tests/regression_test.go", "rpc/tests/mock_data/transactions/0x01aaf9dd754d86f887c0c530cdd769da9202dfc1eb4a3e229050b417a4dc1adf.json", "rpc/tests/mock_data/transactions/0xf15bb88570910ae06a479a6e052bbadf23bcc8eaae1239025252d4b1afc8ea18.json", "rpc/tracers_test.go", "rpc/send_sequencer_test.go"]
 tests = []
 planned_paths = []
 build_cmd = "CGO_ENABLED=1 go build ./rpc/..."
-verify_cmd = "CGO_ENABLED=1 go vet ./rpc/ ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 -skip '^(TestHttpDenyList|TestSubscribeLogsFromReceipts)$' ./rpc/ ./rpc/tests/"
+verify_cmd = "CGO_ENABLED=1 go vet ./rpc/ ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 -skip '^(TestHttpDenyList|TestSubscribeLogsFromReceipts|TestSubscribeNewHeads|TestSubscribeNewHeadsAutobahn)$' ./rpc/ ./rpc/tests/"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-rpc-api"
@@ -189107,6 +189178,10 @@ do_9 = "Attempt 5 ruling, part A: TestServedMethodsHTTPGolden fails because rpc/
 do_10 = "Decision 2387 and attempt 5 ruling, part B: delete TestPreV620UpgradeUsesBaseFeeNil from rpc/simulate_test.go (the pacific-1 pre-v6.2.0 nil base fee is another chain's history; getHeader prices every block); rpc/simulate_test.go is now in touches and no production code changes for it."
 do_11 = "Attempt 5 ruling, part C: TestSendSequencerReturnsAfterReceipt (rpc/send_sequencer_test.go:426) expects exactly sequencer.ErrLayerNotOpen after the seal and attempt 5 answered pending served by sequencer. The test is the fact: it qualified with 22.9.27 (2afc32013) and rpc/send.go and rpc/watermark_manager.go are unchanged since. The candidate's own rewrite of ctxAtHeight into a helper that returns ErrPendingServedBySequencer for the pending height when no block is open, and panics on a snapshot error, is the first suspect: for the pending height with no open block the resolver answers the provider's context at the last committed height exactly as main did, never a refusal, and a snapshot error falls back to the latest committed context instead of panicking. Then run the test alone and confirm it passes before the whole package."
 do_12 = "Decision 2388: TestHttpDenyList and TestSubscribeLogsFromReceipts are owned by 22.7.4 and 22.7.5; this task's verify skips exactly those two and nothing else in ./rpc/ or ./rpc/tests/ is skipped."
+do_13 = "Decision 2405 (attempt 6, 70991e4d2, continue): rpc/tests/regression_test.go (now in touches) replays two Sei mainnet transactions whose fixtures 0x01aaf9dd754d86f887c0c530cdd769da9202dfc1eb4a3e229050b417a4dc1adf.json and 0xf15bb88570910ae06a479a6e052bbadf23bcc8eaae1239025252d4b1afc8ea18.json under rpc/tests/mock_data/transactions need the sei wasm capability and the seichain oracle vote message type, neither of which this chain carries; delete the two cases and the two fixture files (both in touches). The other thirty cases stay."
+do_14 = "Decision 2405: rpc/tracers_test.go:24-30 (now in touches) TestDebugGetRawMethodsNotSupported still expects debug_getRawTransaction to refuse, but 7.18.1 implemented DebugAPI.GetRawTransaction (rpc/tracers.go:742-756); delete that subtest and keep the three refused methods."
+do_15 = "Decision 2405: TestSubscribeNewHeads and TestSubscribeNewHeadsAutobahn are repaired by 7.10.6, so the verify now skips them by name; they are not changed here."
+do_16 = "Decision 2405, superseding do_11: rpc/send.go acceptOnSequencer continues to the pending context on ErrLayerNotOpen since 5.98.5 and 5.98.6 (after 22.9.27), so the premise that send.go is unchanged no longer holds. rpc/send_sequencer_test.go (now in touches) TestSendSequencerReturnsAfterReceipt builds its SendAPI with a WatermarkManager over the executor's pending source the way newSendPendingAPI in rpc/send_pending_test.go:135-150 does, sets a short SetPendingOpenWait, and after the seal expects ErrPendingBlockClosed with the message no block is open; retry, not ErrLayerNotOpen, with no receipt and no broadcast. The harness's other cases are unchanged."
 
 [task.22.4.5]
 title = "Reconcile the launchpad module, CLI, airdrop and legacy fixtures"
@@ -189356,7 +189431,7 @@ interfaces = []
 do_1 = "precompiles/missing_merge_test.go:42 expects 10 merge constructors and finds 11 (layerxchains); engine/executor/precompiles/merge_table_test.go:13 expects 12 fail-fast address entries and finds 13; precompiles/layerxagent/served/served_test.go:65 rejects 0x000000000000000000000000000000000000101E as an unaccounted merge address; modules/evm/keeper/keeper_activation_test.go:104 expects a precompile map entry for a retired executor address. Update each expectation to the table at HEAD (layerxchains at 0x101E is a served merge address; the retired executor address is absent) and, where a test hard-codes a count, derive it from the table it checks so the next addition cannot drift it."
 do_2 = "The four packages vet and test clean."
 symbols = []
-touches = ["precompiles/missing_merge_test.go", "engine/executor/precompiles/merge_table_test.go", "precompiles/layerxagent/served/served_test.go", "modules/evm/keeper/keeper_activation_test.go", "engine/executor/precompiles/failfast.go"]
+touches = ["precompiles/missing_merge_test.go", "engine/executor/precompiles/merge_table_test.go", "precompiles/layerxagent/served/served_test.go", "modules/evm/keeper/keeper_activation_test.go", "engine/executor/precompiles/failfast.go", "engine/executor/precompiles/failfast_test.go", "engine/executor/precompiles/proof_node_engine_test.go"]
 tests = []
 planned_paths = []
 build_cmd = "CGO_ENABLED=1 go build ./precompiles/ ./engine/executor/precompiles/ ./modules/evm/keeper/"
@@ -189374,6 +189449,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Decision 2393: precompiles/layerxagent/served holds only served_test.go, so the build list no longer names it; go vet and go test in the verify keep it. Attempt 3 (3f399e38b) passed every test and is re-qualified unchanged."
 do_4 = "Decision 2398 (attempt 4, 8e3a89a64, continue): engine/executor/precompiles/failfast.go (now in touches) MergeFailFastPrecompileAddresses gains the layerxchains address 0x101E that precompiles/setup.go:73 carries since 20.2.2, so TestMergeAddressTableIsFailFast/layerxchains finds it. modules/evm/keeper/keeper_activation_test.go:124 lists 0x0903 among the addresses withheld until the plan is applied: node/upgrades.go:603 gates the oracle aggregator on layerxexchange as well as layerxagent, and the test rewinds the layerxexchange entry; the attempt 4 changes to merge_table_test.go (NotEmpty and Len over the table), served_test.go and missing_merge_test.go stay."
+do_5 = "Decision 2412 (attempt 6, 1ccddb0f7, continue): engine/executor/precompiles/failfast_test.go:52-64 TestMergeFailFastPrecompiles and proof_node_engine_test.go:34-46 TestProofNodeEngineExportedRegistry (both now in touches) pin the merge fail-fast addresses with ElementsMatch; both expected lists gain 0x101E. Nothing else in the two files changes."
 
 [task.22.5.7]
 title = "Preserve every key in the Litt 3-to-3 migration and open the anchor tree once in the memiavl fixture"
