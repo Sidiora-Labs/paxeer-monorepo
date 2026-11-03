@@ -954,7 +954,7 @@ lxp_result lxp_genesis_materialize(const lxp_genesis_manifest *manifest,
     if (status != LXP_OK || arena == NULL || kernel == NULL ||
         kernel->state == NULL || kernel->journal == NULL ||
         lxp_genesis_module_plan_matches(&plan, kernel) != LXP_OK ||
-        kernel->state->count != 0U || kernel->state->idempotency_count != 0U ||
+        kernel->state->count != 0U ||
         kernel->state->next_sequence != 1U ||
         kernel->module_kv_count != 0U || kernel->blob_count != 0U ||
         kernel->state->accounts == NULL ||
