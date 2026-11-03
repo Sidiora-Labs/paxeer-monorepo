@@ -1037,7 +1037,7 @@ fn a_pending_draw_recovers_from_the_sequencer_receipt_and_releases_once() -> Out
         let mut answer = draw_receipt_answer(signed.hash, &[draw_event(&grant, label)?], 1)?;
         if committed {
             answer["rung"] = json!("committed");
-            answer["blockNumber"] = json!("0xa");
+            answer["blockNumber"] = answer["height"].clone();
             answer["blockHash"] = json!(format!("0x{}", "ab".repeat(32)));
         }
         receipt_rule(&harness, signed.hash, answer, false)?;
@@ -1058,7 +1058,14 @@ fn a_pending_draw_recovers_from_the_sequencer_receipt_and_releases_once() -> Out
         assert_eq!(snapshots.len(), 2);
         assert_eq!(snapshots[0], snapshots[1]);
         drop(snapshots);
-        assert_settled(&harness.pay(&target, Some(harness.payer()?), &signature)?)?;
+        let settled = harness.pay(&target, Some(harness.payer()?), &signature)?;
+        assert_settled(&settled)?;
+        let response = settled.decoded(PAYMENT_RESPONSE)?;
+        let evidence = &response["extensions"]["layerx"];
+        assert_eq!(evidence["verificationLevel"], "receipted");
+        for unproved in ["blockNumber", "blockHash", "proof"] {
+            assert!(evidence.get(unproved).is_none(), "{unproved}: {evidence}");
+        }
         assert_refused(
             &harness.pay(&target, Some(harness.payer()?), &signature)?,
             "receipt_consumed",
