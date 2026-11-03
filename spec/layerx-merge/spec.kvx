@@ -139452,7 +139452,7 @@ do_4 = "Attempt 1 (continue): the dependent-crate check failed only on the human
 
 [task.22.99.58]
 title = "Repair the inventory sweep target layerx-human-identity-provider"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.160"]
@@ -203645,7 +203645,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.117]
 title = "Repair the inventory sweep target modules/sequencer/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.158", "22.99.160"]
