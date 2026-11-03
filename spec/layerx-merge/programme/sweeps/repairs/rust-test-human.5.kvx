@@ -1,0 +1,7 @@
+[repair.rust-test-human.5]
+target = "layerx-network-gateway"
+command = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --no-fail-fast -- --skip real_repeated_account_and_balance_lookup_preserves_owner"
+revision = "e8573b90e9e176a83dff6a872e8f47d5abb3c7f7"
+result = "already-passing"
+change = "none"
+producer_input_tests = ["identity_selector_contract::real_repeated_account_and_balance_lookup_preserves_owner requires PAXEER_X_IDENTITY_FIXTURE naming a real isolated identity fixture with targets.healthy.url serving account resolution, account and balance lookups, bound evm and did selectors, and their native_account digest."]
