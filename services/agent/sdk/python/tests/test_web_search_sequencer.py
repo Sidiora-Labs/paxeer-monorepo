@@ -7,8 +7,14 @@ from hashlib import sha256
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-from layerx_sdk.verifier import ReceiptKey
+from layerx_sdk.verifier import (
+    ReceiptKey,
+    _decode_sequencer_receipt,
+    verify_sequencer_receipt,
+)
 from layerx_sdk.web_search import (
     WebSearchAssetTerms,
     WebSearchClient,
@@ -17,6 +23,7 @@ from layerx_sdk.web_search import (
     WebSearchMeteredPayment,
     WebSearchOffer,
     WebSearchPreference,
+    _PreparedPayment,
 )
 
 ROOT = Path(__file__).resolve().parents[5]
@@ -164,3 +171,101 @@ def test_web_search_refuses_a_receipt_under_an_unknown_key():
         with pytest.raises(WebSearchError) as raised:
             client._settle(_header(SETTLEMENT), OFFER, payment)
         assert raised.value.code == "receipt-unverified"
+
+
+def test_web_search_metered_settlement_accepts_the_sequencer_receipt():
+    offer = replace(OFFER, scheme="metered", purpose_hash="2a" * 32)
+    payment = _PreparedPayment(header="", receipt=None)
+    response = {
+        **SETTLEMENT,
+        "extensions": {
+            "layerx": {
+                **SETTLEMENT["extensions"]["layerx"],
+                "purposeHash": offer.purpose_hash,
+            }
+        },
+    }
+    verified = verify_sequencer_receipt(SIGNED_RECEIPT, RAW_TRANSACTION, (RECEIPT_KEY,))
+    assert verified.receipt.module_id == 12
+    assert verified.receipt.operation == 2
+
+    client = _client((RECEIPT_KEY,))
+    settlement = client._settle(_header(response), offer, payment)
+    assert settlement.scheme == "metered"
+    assert settlement.currency == offer.currency
+    assert settlement.network == offer.network
+    assert settlement.asset == offer.asset
+    assert settlement.amount == offer.amount
+    assert settlement.payer == offer.payer
+    assert settlement.receipt_digest == RECEIPT_DIGEST
+    assert settlement.transaction == VECTOR["receiptJson"]["txHash"]
+
+    for field, value, code in (
+        ("payer", "2b" * 32, "settlement-payer-mismatch"),
+        ("purpose_hash", "2b" * 32, "settlement-purpose-mismatch"),
+        ("amount", str(int(offer.amount) + 1), "receipt-offer-mismatch"),
+        ("asset", "2b" * 32, "receipt-offer-mismatch"),
+        ("pay_to", "2b" * 32, "receipt-offer-mismatch"),
+    ):
+        changed_offer = replace(offer, **{field: value})
+        changed_response = {**response, "amount": changed_offer.amount}
+        with pytest.raises(WebSearchError) as raised:
+            client._settle(_header(changed_response), changed_offer, payment)
+        assert raised.value.code == code
+
+
+@pytest.mark.parametrize("scheme", ("exact", "metered"))
+@pytest.mark.parametrize("module_id,operation", ((1, 6), (1, 2), (13, 2), (12, 6)))
+def test_web_search_refuses_other_receipt_operations(scheme, module_id, operation):
+    body, _ = _decode_sequencer_receipt(SIGNED_RECEIPT)
+    summary_prefix = b"".join(
+        (
+            body.module_id.to_bytes(2, "big"),
+            body.module_version.to_bytes(4, "big"),
+            body.parameter_version.to_bytes(4, "big"),
+            body.operation.to_bytes(1, "big"),
+            len(body.asset).to_bytes(4, "big"),
+            body.asset,
+        )
+    )
+    assert SIGNED_RECEIPT.count(summary_prefix) == 1
+    offset = SIGNED_RECEIPT.index(summary_prefix)
+    receipt = bytearray(SIGNED_RECEIPT)
+    receipt[offset : offset + 2] = module_id.to_bytes(2, "big")
+    receipt[offset + 10] = operation
+    _, unsigned = _decode_sequencer_receipt(bytes(receipt))
+    signer = Ed25519PrivateKey.from_private_bytes(b"\x2a" * 32)
+    receipt_key = replace(
+        RECEIPT_KEY,
+        public_key=signer.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw),
+    )
+    receipt[-64:] = signer.sign(sha256(b"LXP/v1/receipt\0" + unsigned).digest())
+    signed = bytes(receipt)
+    verified = verify_sequencer_receipt(signed, RAW_TRANSACTION, (receipt_key,))
+    assert verified.receipt.module_id == module_id
+    assert verified.receipt.operation == operation
+    assert verified.receipt.amount == int(OFFER.amount)
+    assert verified.receipt.asset.hex() == OFFER.asset
+    assert verified.receipt.from_account.hex() == OFFER.payer
+    assert verified.receipt.to_account.hex() == OFFER.pay_to
+
+    offer = replace(OFFER, scheme=scheme, purpose_hash="2a" * 32)
+    response = {
+        **SETTLEMENT,
+        "extensions": {
+            "layerx": {
+                **SETTLEMENT["extensions"]["layerx"],
+                "receipt": base64.b64encode(signed).decode("ascii"),
+                "receiptDigest": sha256(b"LXP/v1/merkle-leaf\0" + signed).hexdigest(),
+                "purposeHash": offer.purpose_hash,
+            }
+        },
+    }
+    payment = _PreparedPayment(
+        header="",
+        receipt=signed if scheme == "exact" else None,
+        raw_transaction=RAW_TRANSACTION if scheme == "exact" else None,
+    )
+    with pytest.raises(WebSearchError) as raised:
+        _client((receipt_key,))._settle(_header(response), offer, payment)
+    assert raised.value.code == "settlement-operation-mismatch"
