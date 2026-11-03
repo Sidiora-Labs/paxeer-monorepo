@@ -1,0 +1,481 @@
+[reconcile.r1-4]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 50
+
+[row.r1-4.1]
+interface = "interface.1.c-lxp-result-domain"
+verdict = "served"
+path = "include/layerx/lxp_result.h"
+line = 171
+symbol = "lxp_result_domain"
+evidence = "Declaration remains lxp_result_domain_id lxp_result_domain(lxp_result result); signature unchanged. The override.J21.1 change is implemented in src/protocol/lxp_result.c:44: unregistered result codes now return LXP_RESULT_DOMAIN_UNKNOWN before range bucketing."
+
+[row.r1-4.2]
+interface = "interface.1.c-lxp-seq-persist-fn"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 10
+symbol = "lxp_seq_persist_fn"
+evidence = "lxp_seq_persist_fn is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 1 listed files; no replacement declaration was found."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:1184"]
+
+[row.r1-4.3]
+interface = "interface.1.c-lxp-seq-allocator"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 12
+symbol = "lxp_seq_allocator"
+evidence = "lxp_seq_allocator is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 1 listed files; no replacement declaration was found."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:1175"]
+
+[row.r1-4.4]
+interface = "interface.1.c-lxp-admission-ticket"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 19
+symbol = "lxp_admission_ticket"
+evidence = "lxp_admission_ticket is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 1 listed files; no replacement declaration was found."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:242"]
+
+[row.r1-4.5]
+interface = "interface.1.c-lxp-admission-queue"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 25
+symbol = "lxp_admission_queue"
+evidence = "lxp_admission_queue is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 1 listed files; no replacement declaration was found."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:230"]
+
+[row.r1-4.6]
+interface = "interface.1.c-lxp-sequencer-snapshot-load-fn"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 34
+symbol = "lxp_sequencer_snapshot_load_fn"
+evidence = "lxp_sequencer_snapshot_load_fn is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 1 listed files; no replacement declaration was found."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:1226"]
+
+[row.r1-4.7]
+interface = "interface.1.c-lxp-sequencer-replay-record-fn"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 37
+symbol = "lxp_sequencer_replay_record_fn"
+evidence = "lxp_sequencer_replay_record_fn is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 1 listed files; no replacement declaration was found."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:1223"]
+
+[row.r1-4.8]
+interface = "interface.1.c-lxp-sequencer-projection-rebuild-fn"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 40
+symbol = "lxp_sequencer_projection_rebuild_fn"
+evidence = "lxp_sequencer_projection_rebuild_fn is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 1 listed files; no replacement declaration was found."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:1211"]
+
+[row.r1-4.9]
+interface = "interface.1.c-lxp-sequencer-recovery-ops"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 43
+symbol = "lxp_sequencer_recovery_ops"
+evidence = "lxp_sequencer_recovery_ops is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 2 listed files; no replacement declaration was found."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_sequencer.py:13", "tests/codec/lxp_test_kernel_complete.c:1217"]
+
+[row.r1-4.10]
+interface = "interface.1.c-lxp-sequencer-recovery-result"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 49
+symbol = "lxp_sequencer_recovery_result"
+evidence = "lxp_sequencer_recovery_result is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 2 listed files; no replacement declaration was found."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_sequencer.py:14", "tests/codec/lxp_test_kernel_complete.c:1220"]
+
+[row.r1-4.11]
+interface = "interface.1.c-enum-lxp-max-sealed-batch-headers"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 57
+symbol = "LXP_MAX_SEALED_BATCH_HEADERS"
+evidence = "LXP_MAX_SEALED_BATCH_HEADERS is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 1 listed files; no replacement declaration was found."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:53"]
+
+[row.r1-4.12]
+interface = "interface.1.c-lxp-sealed-header-record"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 58
+symbol = "lxp_sealed_header_record"
+evidence = "lxp_sealed_header_record is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 2 listed files; no replacement declaration was found."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_equivocation_bond.py:10", "tests/codec/lxp_test_kernel_complete.c:1169"]
+
+[row.r1-4.13]
+interface = "interface.1.c-lxp-sequencer-equivocation-evidence"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 64
+symbol = "lxp_sequencer_equivocation_evidence"
+evidence = "lxp_sequencer_equivocation_evidence is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 2 listed files; no replacement declaration was found."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_sequencer.py:16", "tests/codec/lxp_test_kernel_complete.c:1193"]
+
+[row.r1-4.14]
+interface = "interface.1.c-lxp-equivocation-publish-fn"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 69
+symbol = "lxp_equivocation_publish_fn"
+evidence = "lxp_equivocation_publish_fn is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 1 listed files; no replacement declaration was found."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:785"]
+
+[row.r1-4.15]
+interface = "interface.1.c-lxp-sequencer-header-registry"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 72
+symbol = "lxp_sequencer_header_registry"
+evidence = "lxp_sequencer_header_registry is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 2 listed files; no replacement declaration was found."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_sequencer.py:17", "tests/codec/lxp_test_kernel_complete.c:1199"]
+
+[row.r1-4.16]
+interface = "interface.1.c-lxp-sequencer-liveness"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 80
+symbol = "lxp_sequencer_liveness"
+evidence = "lxp_sequencer_liveness is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 2 listed files; no replacement declaration was found."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_qual_faults.py:10", "tests/codec/lxp_test_kernel_complete.c:1205"]
+
+[row.r1-4.17]
+interface = "interface.1.c-lxp-seq-allocator-init"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 87
+symbol = "lxp_seq_allocator_init"
+evidence = "lxp_seq_allocator_init is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 2 listed files; no replacement declaration was found."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_sequence_allocator_test.go:10", "tests/codec/lxp_test_kernel_complete.c:1178"]
+
+[row.r1-4.18]
+interface = "interface.1.c-lxp-seq-assign"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 91
+symbol = "lxp_seq_assign"
+evidence = "lxp_seq_assign is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 2 listed files; no replacement declaration was found."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_sequence_allocator_test.go:11", "tests/codec/lxp_test_kernel_complete.c:1181"]
+
+[row.r1-4.19]
+interface = "interface.1.c-lxp-admission-queue-init"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 96
+symbol = "lxp_admission_queue_init"
+evidence = "lxp_admission_queue_init is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 2 listed files; no replacement declaration was found."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_admission_queue_test.go:10", "tests/codec/lxp_test_kernel_complete.c:233"]
+
+[row.r1-4.20]
+interface = "interface.1.c-lxp-admission-queue-push"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 100
+symbol = "lxp_admission_queue_push"
+evidence = "lxp_admission_queue_push is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 2 listed files; no replacement declaration was found."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_admission_queue_test.go:11", "tests/codec/lxp_test_kernel_complete.c:239"]
+
+[row.r1-4.21]
+interface = "interface.1.c-lxp-admission-queue-pop"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 104
+symbol = "lxp_admission_queue_pop"
+evidence = "lxp_admission_queue_pop is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 2 listed files; no replacement declaration was found."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_admission_queue_test.go:12", "tests/codec/lxp_test_kernel_complete.c:236"]
+
+[row.r1-4.22]
+interface = "interface.1.c-lxp-batch-range-check"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 106
+symbol = "lxp_batch_range_check"
+evidence = "lxp_batch_range_check is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 3 listed files; no replacement declaration was found."
+remaining_refs = 3
+remaining = ["modules/lxphost/retired_sequence_allocator_test.go:12", "tests/ci/test_retired_qual_faults.py:14", "tests/codec/lxp_test_kernel_complete.c:278"]
+
+[row.r1-4.23]
+interface = "interface.1.c-lxp-sequencer-recover"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 108
+symbol = "lxp_sequencer_recover"
+evidence = "lxp_sequencer_recover is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 3 listed files; no replacement declaration was found."
+remaining_refs = 3
+remaining = ["modules/lxphost/retired_sequencer_recovery_test.go:14", "tests/ci/test_retired_sequencer.py:15", "tests/codec/lxp_test_kernel_complete.c:1214"]
+
+[row.r1-4.24]
+interface = "interface.1.c-lxp-sequencer-header-registry-init"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 111
+symbol = "lxp_sequencer_header_registry_init"
+evidence = "lxp_sequencer_header_registry_init is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 3 listed files; no replacement declaration was found."
+remaining_refs = 3
+remaining = ["modules/lxphost/retired_sequencer_recovery_test.go:15", "tests/ci/test_retired_sequencer.py:18", "tests/codec/lxp_test_kernel_complete.c:1202"]
+
+[row.r1-4.25]
+interface = "interface.1.c-lxp-sequencer-equivocation-detect"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 114
+symbol = "lxp_sequencer_equivocation_detect"
+evidence = "lxp_sequencer_equivocation_detect is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 2 listed files; no replacement declaration was found."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_sequencer_recovery_test.go:16", "tests/codec/lxp_test_kernel_complete.c:1190"]
+
+[row.r1-4.26]
+interface = "interface.1.c-lxp-sequencer-loss"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 118
+symbol = "lxp_sequencer_loss"
+evidence = "lxp_sequencer_loss is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 3 listed files; no replacement declaration was found."
+remaining_refs = 3
+remaining = ["modules/lxphost/retired_sequencer_recovery_test.go:17", "tests/ci/test_retired_qual_faults.py:11", "tests/codec/lxp_test_kernel_complete.c:1208"]
+
+[row.r1-4.27]
+interface = "interface.1.c-lxp-sequencer-handover-authorize"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 119
+symbol = "lxp_sequencer_handover_authorize"
+evidence = "lxp_sequencer_handover_authorize is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 3 listed files; no replacement declaration was found."
+remaining_refs = 3
+remaining = ["modules/lxphost/retired_sequencer_recovery_test.go:18", "tests/ci/test_retired_qual_faults.py:13", "tests/codec/lxp_test_kernel_complete.c:1196"]
+
+[row.r1-4.28]
+interface = "interface.1.c-lxp-sequencer-can-seal"
+verdict = "retired"
+path = "include/layerx/lxp_sequencer.h"
+line = 122
+symbol = "lxp_sequencer_can_seal"
+evidence = "lxp_sequencer_can_seal is absent because include/layerx/lxp_sequencer.h has been removed. Repository-wide whole-identifier search excluding spec and docs found only retirement assertions and/or the historical kernel inventory in the 3 listed files; no replacement declaration was found."
+remaining_refs = 3
+remaining = ["modules/lxphost/retired_sequencer_recovery_test.go:19", "tests/ci/test_retired_qual_faults.py:12", "tests/codec/lxp_test_kernel_complete.c:1187"]
+
+[row.r1-4.29]
+interface = "interface.1.c-lxp-state-store"
+verdict = "served"
+path = "include/layerx/lxp_state.h"
+line = 27
+symbol = "lxp_state_store"
+evidence = "typedef struct lxp_state_store now contains cells, count, next_sequence, accounts, account_root_required, writer and lock; the registered lxp_idempotency_key_state *idempotency, idempotency_count and idempotency_retention fields have been removed."
+
+[row.r1-4.30]
+interface = "interface.1.c-lxp-state-journal"
+verdict = "served"
+path = "include/layerx/lxp_state.h"
+line = 37
+symbol = "lxp_state_journal"
+evidence = "typedef struct lxp_state_journal retains store, staged cells, count, global_sequence, open and account_root_required_before; the registered bool has_idempotency and lxp_idempotency_key_state staged_idempotency fields have been removed."
+
+[row.r1-4.31]
+interface = "interface.1.c-lxp-state-store-init"
+verdict = "served"
+path = "include/layerx/lxp_state.h"
+line = 51
+symbol = "lxp_state_store_init"
+evidence = "Declaration remains lxp_result lxp_state_store_init(lxp_state_store *store, uint64_t first_sequence); signature unchanged. The override.J21.3 change removes the retired idempotency table from lxp_state_store; the initializer remains declared at its new line."
+
+[row.r1-4.32]
+interface = "interface.1.c-lxp-state-journal-commit"
+verdict = "served"
+path = "include/layerx/lxp_state.h"
+line = 95
+symbol = "lxp_state_journal_commit"
+evidence = "Declaration remains lxp_result lxp_state_journal_commit(lxp_state_journal *journal); signature unchanged. The override.J21.4 change removes idempotency staging fields from lxp_state_journal while retaining the cell and sequence commit API."
+
+[row.r1-4.33]
+interface = "interface.1.c-lxp-kernel-idempotency-receipt-validate"
+verdict = "retired"
+path = "include/layerx/lxp_state.h"
+line = 134
+symbol = "lxp_kernel_idempotency_receipt_validate"
+evidence = "lxp_kernel_idempotency_receipt_validate is absent from include/layerx/lxp_state.h. Repository-wide identifier search excluding spec and docs found only the weak-symbol retirement assertion in tests/codec/lxp_test_kernel_entry_retired.c."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_entry_retired.c:25"]
+
+[row.r1-4.34]
+interface = "interface.1.c-lxp-state-diff-entry"
+verdict = "retired"
+path = "include/layerx/lxp_state_diff.h"
+line = 7
+symbol = "lxp_state_diff_entry"
+evidence = "include/layerx/lxp_state_diff.h and src/state/lxp_state_diff.c are absent. The remaining lxp_state_diff_entry declarations are retirement-test forward declarations and the historical kernel inventory, not a production implementation."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_kernel_complete.c:1238", "tests/codec/lxp_test_state_diff_retired.c:11"]
+
+[row.r1-4.35]
+interface = "interface.1.c-lxp-state-diff-encode"
+verdict = "retired"
+path = "include/layerx/lxp_state_diff.h"
+line = 12
+symbol = "lxp_state_diff_encode"
+evidence = "include/layerx/lxp_state_diff.h and src/state/lxp_state_diff.c are absent. Remaining lxp_state_diff_encode references are the weak extern/null assertion in the retirement test and the historical kernel inventory."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_kernel_complete.c:1235", "tests/codec/lxp_test_state_diff_retired.c:13"]
+
+[row.r1-4.36]
+interface = "interface.1.c-lxp-state-diff-decode"
+verdict = "retired"
+path = "include/layerx/lxp_state_diff.h"
+line = 15
+symbol = "lxp_state_diff_decode"
+evidence = "include/layerx/lxp_state_diff.h and src/state/lxp_state_diff.c are absent. Remaining lxp_state_diff_decode references are the weak extern/null assertion in the retirement test and the historical kernel inventory."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_kernel_complete.c:1232", "tests/codec/lxp_test_state_diff_retired.c:15"]
+
+[row.r1-4.37]
+interface = "interface.1.c-lxp-verify-run"
+verdict = "retired"
+path = "include/layerx/lxp_tools.h"
+line = 34
+symbol = "lxp_verify_run"
+evidence = "The lxp_verify_run typedef is absent from include/layerx/lxp_tools.h; the header now declares only ctl and genesis CLI interfaces. Repository-wide identifier search excluding spec and docs found only the historical kernel inventory."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:1247"]
+
+[row.r1-4.38]
+interface = "interface.1.c-lxp-verify-main"
+verdict = "retired"
+path = "include/layerx/lxp_tools.h"
+line = 62
+symbol = "lxp_verify_main"
+evidence = "The lxp_verify_main prototype is absent from include/layerx/lxp_tools.h and its cmd/layerx-verify implementation is removed. Remaining mentions are two retirement path lists and the historical kernel inventory."
+remaining_refs = 3
+remaining = ["cmd/retirement/test_kernel_symbol_consumers_retired.py:27", "cmd/retirement/test_layerx_verify.py:10", "tests/codec/lxp_test_kernel_complete.c:1244"]
+
+[row.r1-4.39]
+interface = "interface.1.c-lxp-receipt-verify-checkpointed"
+verdict = "retired"
+path = "include/layerx/lxp_verify.h"
+line = 15
+symbol = "lxp_receipt_verify_checkpointed"
+evidence = "lxp_receipt_verify_checkpointed is absent from include/layerx/lxp_verify.h; the header retains offline verification and requirement matching. The only remaining identifier reference is the weak extern/null assertion in tests/codec/lxp_test_verify_header.c."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_verify_header.c:17"]
+
+[row.r1-4.40]
+interface = "interface.1.c-enum-lx-programs-state-feed-max-notices"
+verdict = "retired"
+path = "include/layerx/programs.h"
+line = 113
+symbol = "LX_PROGRAMS_STATE_FEED_MAX_NOTICES"
+evidence = "LX_PROGRAMS_STATE_FEED_MAX_NOTICES is absent from include/layerx/programs.h. Repository-wide identifier search excluding spec and docs found no remaining references to this retired state-feed capacity constant."
+remaining_refs = 0
+remaining = []
+
+[row.r1-4.41]
+interface = "interface.1.c-lx-programs-state-notice"
+verdict = "retired"
+path = "include/layerx/programs.h"
+line = 117
+symbol = "lx_programs_state_notice"
+evidence = "lx_programs_state_notice is absent from include/layerx/programs.h. Repository-wide identifier search excluding spec and docs found no remaining references to this retired state-feed notice type."
+remaining_refs = 0
+remaining = []
+
+[row.r1-4.42]
+interface = "interface.1.c-enum-lx-programs-deploy"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 92
+symbol = "LX_PROGRAMS_DEPLOY"
+evidence = "The enum still declares LX_PROGRAMS_DEPLOY = 0x00090001 at line 92 and retains the other activity/ABI/event values, but the registered LX_PROGRAMS_FEE_GOVERNANCE = 0x00090008 enumerator has been removed."
+
+[row.r1-4.43]
+interface = "interface.1.c-enum-lx-programs-fee-price-fields"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 259
+symbol = "LX_PROGRAMS_FEE_PRICE_FIELDS"
+evidence = "The enum now declares only LX_PROGRAMS_FEE_PRICE_FIELDS = 7; the registered LX_PROGRAMS_FEE_GOVERNANCE_PROPOSAL_BYTES = 149 enumerator has been removed, leaving the seven-field fee schedule constant intact."
+
+[row.r1-4.44]
+interface = "interface.1.c-lxp-programs-sandbox-execute"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 768
+symbol = "lxp_programs_sandbox_execute"
+evidence = "Declaration remains lxp_result lxp_programs_sandbox_execute(lxp_module_ctx *ctx, const lxp_activity *activity, const lxp_authority_resolved *authority, const void *decoded, lxp_effect_buffer *effects); signature unchanged. Task 4.2.2 lifecycle staging is implemented in src/modules/programs/sandbox.c:342-363: FUND/ACTIVATE allocate buffers and reserve staged slots."
+
+[row.r1-4.45]
+interface = "interface.1.c-layerx-programs-call-sandbox-state-stage-begin"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 799
+symbol = "layerx_programs_call_sandbox_state_stage_begin"
+evidence = "Declaration remains lxp_result layerx_programs_call_sandbox_state_stage_begin(uint64_t call_token, uint16_t kind, uint32_t length); signature unchanged. Task 4.2.2 behavior is implemented at src/modules/programs/sandbox.c:813-818: staging accepts host_reserved or lifecycle_reserved."
+
+[row.r1-4.46]
+interface = "interface.1.c-lxp-programs-state-record-encode"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 860
+symbol = "lxp_programs_state_record_encode"
+evidence = "Declaration remains lxp_result lxp_programs_state_record_encode(lxp_module_ctx *ctx, const uint8_t program_id[32], const uint8_t receipt_digest[32], lxp_arena *arena, lxp_byte_span *encoded); signature unchanged. Registry override.J21.6 concerns duplicate account IDs in the encoder implementation, not a new parameter or return type."
+
+[row.r1-4.47]
+interface = "interface.1.c-lx-programs-transfer-runtime"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 935
+symbol = "lx_programs_transfer_runtime"
+evidence = "typedef struct lx_programs_transfer_runtime still carries accounts, assets, fee_schedule, occupancy parameters and metering callbacks; the registered const lx_programs_state_feed *state_feed field has been removed from the struct."
+
+[row.r1-4.48]
+interface = "interface.1.c-lxp-programs-replay-finalize"
+verdict = "retired"
+path = "include/layerx/programs.h"
+line = 1078
+symbol = "lxp_programs_replay_finalize"
+evidence = "lxp_programs_replay_finalize is absent from include/layerx/programs.h. Remaining references are the retirement test weak extern/null assertion and a proof comment explicitly noting that the inventory predates retirement; current occupancy finalization has separate APIs."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_programs_retired.c:19", "tests/proof/lxp_proof_programs_h.c:7"]
+
+[row.r1-4.49]
+interface = "interface.1.c-lxp-programs-replay-engine-bind"
+verdict = "retired"
+path = "include/layerx/programs.h"
+line = 1082
+symbol = "lxp_programs_replay_engine_bind"
+evidence = "lxp_programs_replay_engine_bind is absent from include/layerx/programs.h. Remaining references are the retirement test weak extern/null assertion and a proof comment explicitly noting that the inventory predates retirement."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_programs_retired.c:22", "tests/proof/lxp_proof_programs_h.c:8"]
+
+[row.r1-4.50]
+interface = "interface.1.go-layerxproof-verify-batch-header"
+verdict = "retired"
+path = "layerxproof/verify/receipt.go"
+line = 72
+symbol = "func BatchHeader("
+evidence = "The registered function declaration literal func BatchHeader( is absent from layerxproof/verify/receipt.go and repository-wide search excluding spec and docs found no such declaration elsewhere. The bare BatchHeader identifier at receipt.go:41 is the distinct codec.BatchHeader type, not the retired verifier function. layerxproof/exportcheck/inclusion_exports_test.go:18 explicitly requires the verify export to be absent. remaining_refs counts the function declaration literal, not unrelated same-name types."
+remaining_refs = 0
+remaining = []

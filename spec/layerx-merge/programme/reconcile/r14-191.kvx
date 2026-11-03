@@ -1,0 +1,243 @@
+[reconcile.r14-191]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r14-191.1]
+interface = "interface.14.ts-web-api-generated-index-encodesecuritysessionrevocation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4688
+symbol = "encodeSecuritySessionRevocation"
+evidence = "Declaration `export function encodeSecuritySessionRevocation(value: SecuritySessionRevocation): JsonValue {` matches the registered signature; its line moved from 4385 to 4688. Encodes step_up through encodeStepUpEvidence; the later security revocation occurrences invoke this function."
+
+[row.r14-191.2]
+interface = "interface.14.ts-web-api-generated-index-encodesession"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4715
+symbol = "encodeSession"
+evidence = "Declaration `export function encodeSession(value: Session): JsonValue {` matches the registered signature; its line moved from 4412 to 4715. Encodes session_id, device, timestamps and current; the SessionList encoder passes this function to map."
+
+[row.r14-191.3]
+interface = "interface.14.ts-web-api-generated-index-encodesessiondevice"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4740
+symbol = "encodeSessionDevice"
+evidence = "Declaration `export function encodeSessionDevice(value: SessionDevice): JsonValue {` matches the registered signature; its line moved from 4437 to 4740. Encodes label and platform; the SessionOpenRequest encoder calls this function for its optional device."
+
+[row.r14-191.4]
+interface = "interface.14.ts-web-api-generated-index-encodesessionopenrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4783
+symbol = "encodeSessionOpenRequest"
+evidence = "Declaration `export function encodeSessionOpenRequest(value: SessionOpenRequest): JsonValue {` matches the registered signature; its line moved from 4480 to 4783. Encodes assertion_id and optional device; the session.open client operation calls this function."
+
+[row.r14-191.5]
+interface = "interface.14.ts-web-api-generated-index-encodespendlimit"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4831
+symbol = "encodeSpendLimit"
+evidence = "Declaration `export function encodeSpendLimit(value: SpendLimit): JsonValue {` matches the registered signature; its line moved from 4528 to 4831. Encodes monthly money, enforcement and enforcement_copy_key; the earlier limit occurrence is a call."
+
+[row.r14-191.6]
+interface = "interface.14.ts-web-api-generated-index-encodestepupfinish"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4911
+symbol = "encodeStepUpFinish"
+evidence = "Declaration `export function encodeStepUpFinish(value: StepUpFinish): JsonValue {` matches the registered signature; its line moved from 4608 to 4911. Encodes credential; the stepup.finish client operation calls this function."
+
+[row.r14-191.7]
+interface = "interface.14.ts-web-api-generated-index-encodestepuprequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4930
+symbol = "encodeStepUpRequest"
+evidence = "Declaration `export function encodeStepUpRequest(value: StepUpRequest): JsonValue {` matches the registered signature; its line moved from 4627 to 4930. Encodes confirms; the stepup.begin client operation calls this function."
+
+[row.r14-191.8]
+interface = "interface.14.ts-web-api-generated-index-encodestreamevent"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 4969
+symbol = "encodeStreamEvent"
+evidence = "Declaration `export function encodeStreamEvent(value: StreamEvent): JsonValue {` matches the registered signature; its line moved from 4666 to 4969. Encodes cursor, kind and observed_at with optional journey and approval; the stream page encoder maps this function."
+
+[row.r14-191.9]
+interface = "interface.14.ts-web-api-generated-index-encodesubmitplanrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5051
+symbol = "encodeSubmitPlanRequest"
+evidence = "Declaration `export function encodeSubmitPlanRequest(value: SubmitPlanRequest): JsonValue {` matches the registered signature; its line moved from 4748 to 5051. Encodes plan_digest, signed_digest, bindings and optional native_access_id; intent.submit invokes this function."
+
+[row.r14-191.10]
+interface = "interface.14.ts-web-api-generated-index-encodesupportconversation"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5091
+symbol = "encodeSupportConversation"
+evidence = "Declaration `export function encodeSupportConversation(value: SupportConversation): JsonValue {` matches the registered signature; its line moved from 4788 to 5091. Encodes conversation metadata, messages and feedback; the conversation list encoder maps this function."
+
+[row.r14-191.11]
+interface = "interface.14.ts-web-api-generated-index-encodesupportcreaterequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5176
+symbol = "encodeSupportCreateRequest"
+evidence = "Declaration `export function encodeSupportCreateRequest(value: SupportCreateRequest): JsonValue {` matches the registered signature; its line moved from 4873 to 5176. Encodes body and shell with optional topic and trace_id; support.create invokes this function."
+
+[row.r14-191.12]
+interface = "interface.14.ts-web-api-generated-index-encodesupportfeedback"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5206
+symbol = "encodeSupportFeedback"
+evidence = "Declaration `export function encodeSupportFeedback(value: SupportFeedback): JsonValue {` matches the registered signature; its line moved from 4903 to 5206. Encodes message_id, helpful and received_at; the conversation encoder maps this function over feedback."
+
+[row.r14-191.13]
+interface = "interface.14.ts-web-api-generated-index-encodesupportfeedbackrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5229
+symbol = "encodeSupportFeedbackRequest"
+evidence = "Declaration `export function encodeSupportFeedbackRequest(value: SupportFeedbackRequest): JsonValue {` matches the registered signature; its line moved from 4926 to 5229. Encodes message_id and helpful; support.feedback invokes this request encoder."
+
+[row.r14-191.14]
+interface = "interface.14.ts-web-api-generated-index-encodesupportmessage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5261
+symbol = "encodeSupportMessage"
+evidence = "Declaration `export function encodeSupportMessage(value: SupportMessage): JsonValue {` matches the registered signature; its line moved from 4958 to 5261. Encodes message_id, author, body, sent_at and read with optional topic; the conversation encoder maps this function."
+
+[row.r14-191.15]
+interface = "interface.14.ts-web-api-generated-index-encodesupportreadrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5287
+symbol = "encodeSupportReadRequest"
+evidence = "Declaration `export function encodeSupportReadRequest(value: SupportReadRequest): JsonValue {` matches the registered signature; its line moved from 4984 to 5287. Encodes through_message_id; support.read invokes this request encoder."
+
+[row.r14-191.16]
+interface = "interface.14.ts-web-api-generated-index-encodesupportreplyrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5306
+symbol = "encodeSupportReplyRequest"
+evidence = "Declaration `export function encodeSupportReplyRequest(value: SupportReplyRequest): JsonValue {` matches the registered signature; its line moved from 5003 to 5306. Encodes body; support.reply invokes this request encoder."
+
+[row.r14-191.17]
+interface = "interface.14.ts-web-api-generated-index-encodetimedsecret"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5329
+symbol = "encodeTimedSecret"
+evidence = "Declaration `export function encodeTimedSecret(value: TimedSecret): JsonValue {` matches the registered signature; its line moved from 5026 to 5329. Encodes value, remask_at and copyable; earlier secret and otpauth_uri occurrences call this function."
+
+[row.r14-191.18]
+interface = "interface.14.ts-web-api-generated-index-encodeverifiedmoney"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5356
+symbol = "encodeVerifiedMoney"
+evidence = "Declaration `export function encodeVerifiedMoney(value: VerifiedMoney): JsonValue {` matches the registered signature; its line moved from 5049 to 5356. Encodes money and verification with optional rung; earlier budget_remaining_after occurrences call this function."
+
+[row.r14-191.19]
+interface = "interface.14.ts-web-api-generated-index-encodewalletsignrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5467
+symbol = "encodeWalletSignRequest"
+evidence = "Declaration `export function encodeWalletSignRequest(value: WalletSignRequest): JsonValue {` matches the registered signature; its line moved from 5141 to 5467. Encodes stage_id, copy_key, from_address and to_sign_base64 with optional settlement_domain and chain_id; earlier wallet_request occurrences call this function."
+
+[row.r14-191.20]
+interface = "interface.14.ts-web-api-generated-index-evidencematerial"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 1990
+symbol = "EvidenceMaterial"
+evidence = "Declaration `export interface EvidenceMaterial {` matches the registered signature; its line moved from 1895 to 1990. Declares evidence_id, class, verification, content_type and bytes_base64 with optional settlement metadata; decoder, encoder and client occurrences reference this interface."
+
+[row.r14-191.21]
+interface = "interface.14.ts-web-api-generated-index-evidenceref"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2042
+symbol = "EvidenceRef"
+evidence = "Declaration `export interface EvidenceRef {` matches the registered signature; its line moved from 1933 to 2042. Declares evidence_id, class, verification and optional settlement_domain; other occurrences use this interface in fields or codecs."
+
+[row.r14-191.22]
+interface = "interface.14.ts-web-api-generated-index-exiteligibility"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2074
+symbol = "ExitEligibility"
+evidence = "Declaration `export interface ExitEligibility {` matches the registered signature; its line moved from 1965 to 2074. Declares eligible, copy_key, optional withdraw_instead_path and settlement_domain; codec occurrences reference this interface."
+
+[row.r14-191.23]
+interface = "interface.14.ts-web-api-generated-index-exitstartrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2110
+symbol = "ExitStartRequest"
+evidence = "Declaration `export interface ExitStartRequest {` matches the registered signature; its line moved from 2001 to 2110. Declares confirmation and optional settlement_domain; decoder and encoder annotations reference this interface."
+
+[row.r14-191.24]
+interface = "interface.14.ts-web-api-generated-index-exportartefact"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2136
+symbol = "ExportArtefact"
+evidence = "Declaration `export interface ExportArtefact {` matches the registered signature; its line moved from 2027 to 2136. Declares export_id, kind, download_path, content_type, created_at, evidence and optional rung; codecs and export client operations reference this interface."
+
+[row.r14-191.25]
+interface = "interface.14.ts-web-api-generated-index-exportedprimarykey"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2226
+symbol = "ExportedPrimaryKey"
+evidence = "Declaration `export interface ExportedPrimaryKey {` matches the registered signature; its line moved from 2110 to 2226. Declares public_key, secret and self_custodied_at; codecs and security key-export client results reference this interface."
+
+[row.r14-191.26]
+interface = "interface.14.ts-web-api-generated-index-exportevidencerequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2177
+symbol = "ExportEvidenceRequest"
+evidence = "Declaration `export interface ExportEvidenceRequest {` matches the registered signature; its line moved from 2061 to 2177. Declares optional filter and entry_ids; codecs and activityExportEvidence request annotations reference this interface."
+
+[row.r14-191.27]
+interface = "interface.14.ts-web-api-generated-index-exportstatementrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2205
+symbol = "ExportStatementRequest"
+evidence = "Declaration `export interface ExportStatementRequest {` matches the registered signature; its line moved from 2089 to 2205. Declares optional filter; codecs and activityExportStatement request annotations reference this interface."
+
+[row.r14-191.28]
+interface = "interface.14.ts-web-api-generated-index-fetchlike"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5749
+symbol = "FetchLike"
+evidence = "Declaration `export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;` matches the registered signature; its line moved from 5433 to 5749. Declares the transport function type taking string input and RequestInit and returning Promise<Response>; options.fetch and transport annotate uses of this type."
+
+[row.r14-191.29]
+interface = "interface.14.ts-web-api-generated-index-homesummary"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 2251
+symbol = "HomeSummary"
+evidence = "Declaration `export interface HomeSummary {` matches the registered signature; its line moved from 2135 to 2251. Declares balance, agents, approvals and recent_activity with optional program_approvals and rung; codecs and homeSummary results reference this interface."
+
+[row.r14-191.30]
+interface = "interface.14.ts-web-api-generated-index-httpmethod"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5561
+symbol = "HttpMethod"
+evidence = "Declaration `export type HttpMethod = \"DELETE\" | \"GET\" | \"PATCH\" | \"POST\" | \"PUT\";` matches the registered signature; its line moved from 5223 to 5561. Declares the DELETE, GET, PATCH, POST and PUT literal union; OperationShape.method and the execute method parameter use this type."

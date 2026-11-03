@@ -1,0 +1,243 @@
+[reconcile.r14-195]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r14-195.1]
+interface = "interface.14.ts-web-api-generated-index-supportcreaterequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5154
+symbol = "SupportCreateRequest"
+evidence = "export interface SupportCreateRequest declares body and shell with optional topic and trace_id; decoder, encoder and route occurrences refer to this declaration."
+
+[row.r14-195.2]
+interface = "interface.14.ts-web-api-generated-index-supportfeedback"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5190
+symbol = "SupportFeedback"
+evidence = "export interface SupportFeedback declares message_id, helpful and received_at; the conversation field and codec references are uses of this type."
+
+[row.r14-195.3]
+interface = "interface.14.ts-web-api-generated-index-supportfeedbackrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5215
+symbol = "SupportFeedbackRequest"
+evidence = "export interface SupportFeedbackRequest declares message_id and helpful; its codec and support.feedback route occurrences use the declared request type."
+
+[row.r14-195.4]
+interface = "interface.14.ts-web-api-generated-index-supportmessage"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5237
+symbol = "SupportMessage"
+evidence = "export interface SupportMessage declares message_id, author, body, sent_at, read and optional topic; SupportMessageId and codec names are separate identifiers."
+
+[row.r14-195.5]
+interface = "interface.14.ts-web-api-generated-index-supportreadrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5275
+symbol = "SupportReadRequest"
+evidence = "export interface SupportReadRequest declares through_message_id; the decoder, encoder and support.read method signatures reference this declaration."
+
+[row.r14-195.6]
+interface = "interface.14.ts-web-api-generated-index-supportreplyrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5294
+symbol = "SupportReplyRequest"
+evidence = "export interface SupportReplyRequest declares the body string; its codec functions and support.reply route metadata are references rather than declarations of the interface."
+
+[row.r14-195.7]
+interface = "interface.14.ts-web-api-generated-index-timedsecret"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5313
+symbol = "TimedSecret"
+evidence = "export interface TimedSecret declares value, remask_at and copyable; security response fields, codecs and recovery route references use this interface."
+
+[row.r14-195.8]
+interface = "interface.14.ts-web-api-generated-index-verifiedmoney"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5338
+symbol = "VerifiedMoney"
+evidence = "export interface VerifiedMoney declares money, verification and optional rung; budget_remaining_after fields and codec signatures reference this declaration."
+
+[row.r14-195.9]
+interface = "interface.14.ts-web-api-generated-index-versioninfo"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5367
+symbol = "VersionInfo"
+evidence = "export interface VersionInfo declares schema and service; its codecs, version route metadata and client return type reference this interface."
+
+[row.r14-195.10]
+interface = "interface.14.ts-web-api-generated-index-walletsignrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5429
+symbol = "WalletSignRequest"
+evidence = "export interface WalletSignRequest declares stage_id, copy_key, from_address and to_sign_base64 with optional settlement_domain, chain_id, nonce and fee fields; wallet_request fields and codecs use it."
+
+[row.r14-195.11]
+interface = "interface.14.ts-web-api-generated-index-withdrawclaimrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5492
+symbol = "WithdrawClaimRequest"
+evidence = "export interface WithdrawClaimRequest declares claim_signature and optional settlement_domain; the following decoder and encoder take this declared request type."
+
+[row.r14-195.12]
+interface = "interface.14.ts-web-api-generated-index-withdrawstartrequest"
+verdict = "served"
+path = "apps/web/src/api/generated/index.ts"
+line = 5518
+symbol = "WithdrawStartRequest"
+evidence = "export interface WithdrawStartRequest declares money, destination and optional settlement_domain; decoder and encoder occurrences reference this declaration."
+
+[row.r14-195.13]
+interface = "interface.14.ts-web-api-precompiles-bridgeattestors"
+verdict = "served"
+path = "apps/web/src/api/precompiles.ts"
+line = 315
+symbol = "BridgeAttestors"
+evidence = "export interface BridgeAttestors declares readonly signers and threshold; bridgeAttestors returns Promise<BridgeAttestors> and is a separate function declaration."
+
+[row.r14-195.14]
+interface = "interface.14.ts-web-api-precompiles-bridgecap"
+verdict = "served"
+path = "apps/web/src/api/precompiles.ts"
+line = 308
+symbol = "BridgeCap"
+evidence = "export interface BridgeCap declares readonly denom, maxInFlight, maxPerTx and inFlight; bridgeCap uses it as the return type of the getCap view."
+
+[row.r14-195.15]
+interface = "interface.14.ts-web-api-precompiles-bridgechain"
+verdict = "served"
+path = "apps/web/src/api/precompiles.ts"
+line = 301
+symbol = "BridgeChain"
+evidence = "export interface BridgeChain declares readonly registered, vault, finalityDepth and enabled; bridgeChain references it as the getChain view result type."
+
+[row.r14-195.16]
+interface = "interface.14.ts-web-api-precompiles-launchpadquote"
+verdict = "served"
+path = "apps/web/src/api/precompiles.ts"
+line = 263
+symbol = "LaunchpadQuote"
+evidence = "export interface LaunchpadQuote declares readonly amountOut, feeAmount and priceImpactBps; launchpadQuote returns this type after decoding quoteExactInput."
+
+[row.r14-195.17]
+interface = "interface.14.ts-web-api-precompiles-perps-collateral-token"
+verdict = "served"
+path = "apps/web/src/api/precompiles.ts"
+line = 409
+symbol = "PERPS_COLLATERAL_TOKEN"
+evidence = "export const PERPS_COLLATERAL_TOKEN still declares address 0x85fcd13735f4309833a503ee804ea32395851479; the getAccountSummary argument is a use of this constant."
+
+[row.r14-195.18]
+interface = "interface.14.ts-web-api-precompiles-perps-errors"
+verdict = "served"
+path = "apps/web/src/api/precompiles.ts"
+line = 418
+symbol = "PERPS_ERRORS"
+evidence = "export const PERPS_ERRORS declares the parameterless custom error name array as const; PERPS_ERROR_BY_SELECTOR maps that array later. The registry records override.J53.1 for this surface."
+
+[row.r14-195.19]
+interface = "interface.14.ts-web-api-precompiles-perps-max-markets"
+verdict = "served"
+path = "apps/web/src/api/precompiles.ts"
+line = 415
+symbol = "PERPS_MAX_MARKETS"
+evidence = "export const PERPS_MAX_MARKETS = 1024n remains the declaration; perpsMarkets uses it in its totalMarkets bound and error message."
+
+[row.r14-195.20]
+interface = "interface.14.ts-web-api-precompiles-perpsaccount"
+verdict = "served"
+path = "apps/web/src/api/precompiles.ts"
+line = 553
+symbol = "PerpsAccount"
+evidence = "export interface PerpsAccount declares readonly idle, locked, positions and orders; perpsAccount uses this interface as its return type."
+
+[row.r14-195.21]
+interface = "interface.14.ts-web-api-precompiles-perpsmarket"
+verdict = "served"
+path = "apps/web/src/api/precompiles.ts"
+line = 490
+symbol = "PerpsMarket"
+evidence = "export interface PerpsMarket declares marketId, name, symbol, leverage, maintenance margin, open interest and enabled fields; perpsMarkets return annotations use this interface."
+
+[row.r14-195.22]
+interface = "interface.14.ts-web-api-precompiles-perpsorder"
+verdict = "served"
+path = "apps/web/src/api/precompiles.ts"
+line = 542
+symbol = "PerpsOrder"
+evidence = "export interface PerpsOrder declares orderId, marketId, isLong, orderType, triggerPrice, limitPrice, sizeUsd and collateralAmount; PerpsAccount.orders refers to it."
+
+[row.r14-195.23]
+interface = "interface.14.ts-web-api-precompiles-perpsposition"
+verdict = "served"
+path = "apps/web/src/api/precompiles.ts"
+line = 532
+symbol = "PerpsPosition"
+evidence = "export interface PerpsPosition declares positionId, marketId, isLong, sizeUsd, collateralUsd, collateralAmount and entryPrice; PerpsAccount.positions refers to it."
+
+[row.r14-195.24]
+interface = "interface.14.ts-web-api-precompiles-perpsrevertreason"
+verdict = "served"
+path = "apps/web/src/api/precompiles.ts"
+line = 437
+symbol = "perpsRevertReason"
+evidence = "export function perpsRevertReason(data: string | undefined): string | undefined declares the decoder for custom errors and Error(string); perpsRevert calls it later. The registry records override.J53.2."
+
+[row.r14-195.25]
+interface = "interface.14.ts-web-api-wallet-sidioraamount"
+verdict = "served"
+path = "apps/web/src/api/wallet.ts"
+line = 262
+symbol = "sidioraAmount"
+evidence = "export function sidioraAmount(amount: bigint): string declares the decimal formatter using SIDIORA_DECIMALS; quote presentation calls it for tokenAmount and maxTokenAmount."
+
+[row.r14-195.26]
+interface = "interface.14.ts-web-api-wallet-sidioraquotepresentation"
+verdict = "served"
+path = "apps/web/src/api/wallet.ts"
+line = 267
+symbol = "sidioraQuotePresentation"
+evidence = "export function sidioraQuotePresentation starts the multiline declaration with quoted: SidioraGasQuote and the same default now timestamp; calls elsewhere consume its validated amount, maximum, deadline, consent and identity."
+
+[row.r14-195.27]
+interface = "interface.14.ts-web-api-wallet-sponsoredwalletmodule"
+verdict = "served"
+path = "apps/web/src/api/wallet.ts"
+line = 316
+symbol = "sponsoredWalletModule"
+evidence = "export function sponsoredWalletModule starts the multiline declaration accepting quoted: SidioraGasQuote, wallet: NonNullable<ReturnType<typeof windowWalletProvider>> and optional submissionStore: GasSubmissionStore; its body constructs gasStation."
+
+[row.r14-195.28]
+interface = "interface.14.ts-web-api-wallet-walletfeepreference"
+verdict = "served"
+path = "apps/web/src/api/wallet.ts"
+line = 224
+symbol = "WalletFeePreference"
+evidence = "export type WalletFeePreference = Readonly<{ currency: 'paxeer' | 'sidiora'; maximum?: bigint }> retains the registered type with single-quoted literals; feePreference and function annotations are uses."
+
+[row.r14-195.29]
+interface = "interface.14.ts-web-api-wallet-walletfeepreference-2"
+verdict = "served"
+path = "apps/web/src/api/wallet.ts"
+line = 228
+symbol = "walletFeePreference"
+evidence = "export function walletFeePreference(): WalletFeePreference declares the session preference reader; this lowercase function is distinct from the uppercase WalletFeePreference type and its earlier call."
+
+[row.r14-195.30]
+interface = "interface.14.ts-web-api-wallet-walletsendfailure"
+verdict = "served"
+path = "apps/web/src/api/wallet.ts"
+line = 99
+symbol = "walletSendFailure"
+evidence = "export function walletSendFailure(error: unknown): PrecompileSendOutcome declares the error classifier; later send paths call it rather than redeclare it."

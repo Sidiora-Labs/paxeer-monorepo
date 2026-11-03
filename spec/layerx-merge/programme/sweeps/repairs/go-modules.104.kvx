@@ -1,0 +1,8 @@
+[repair.go-modules.104]
+target = "modules/pricefeed/types"
+command = "CGO_ENABLED=1 go vet ./modules/pricefeed/types/ && CGO_ENABLED=1 go test -count=1 -timeout 35m -v ./modules/pricefeed/types/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "none"
+producer_input_tests = []
+wall_time_measurement = "The verification evidence records the command start and finish times and the uncached package test duration."

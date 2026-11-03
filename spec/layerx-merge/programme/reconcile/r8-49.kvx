@@ -1,0 +1,269 @@
+[reconcile.r8-49]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 33
+
+[row.r8-49.1]
+interface = "interface.8.cli-cli-layerx-faucet"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 136
+symbol = "Faucet"
+evidence = "Faucet(faucet::FaucetArgs), retains its registered signature; FaucetArgs has key: Option<String> at faucet.rs:8. The transport changed from lx_requestFunds to px_requestFunds in faucet.rs:18 and requires a bearer identity session."
+
+[row.r8-49.2]
+interface = "interface.8.cli-cli-layerx-receipt-get"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 272
+symbol = "Get"
+evidence = "ReceiptCommand still declares Get { id: String }, rather than changing the Rust signature. The id now denotes a 0x-prefixed transaction hash, validated at main.rs:1060 before programs::sequencer_receipt uses pax_sequencerReceipt at programs.rs:1414."
+
+[row.r8-49.3]
+interface = "interface.8.cli-cli-layerx-program-discover"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 296
+symbol = "Discover"
+evidence = "Discover { program_id: String }, retains the registered signature at its current line. programs.rs:897 now discovers an active program through registry_get and the layerxprograms eth_call view at programs.rs:916 instead of a gateway /v1/programs route."
+
+[row.r8-49.4]
+interface = "interface.8.cli-cli-layerx-program-deploy"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 332
+symbol = "Deploy"
+evidence = "Deploy { remains the registered variant; its complete current fields are artifact: PathBuf, upgrade_authority: Option<String>, interface: Option<PathBuf>, and flattened signing: ProgramLifecycleArgs. Signing now carries program_id: String, evm_key_file: PathBuf and fee_limit: String at main.rs:368."
+
+[row.r8-49.5]
+interface = "interface.8.cli-cli-layerx-program-upgrade"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 341
+symbol = "Upgrade"
+evidence = "Upgrade { remains the registered variant; current fields are artifact: PathBuf, old_hash: String, migration_hook: Option<PathBuf>, interface: Option<PathBuf>, clear_interface: bool, allow_breaking_interface: bool, and flattened signing: ProgramLifecycleArgs. The signing arguments at main.rs:368 require an EVM key file."
+
+[row.r8-49.6]
+interface = "interface.8.cli-cli-layerx-program-wind-down"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 357
+symbol = "WindDown"
+evidence = "WindDown(ProgramWindDownCommand), retains its registered signature. Its nested Route, Deprecate, Tombstone and Exit variants now flatten ProgramLifecycleArgs, requiring program_id, evm_key_file and fee_limit; see main.rs:368 and main.rs:378."
+
+[row.r8-49.7]
+interface = "interface.8.cli-cli-layerx-program-call"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 359
+symbol = "Call"
+evidence = "Call(ProgramExecutionArgs), retains the registered tuple signature. ProgramExecutionArgs at main.rs:1200 now contains program_id, optional evm_key_file and from, flattened NativeCallOptions, optional calldata, fuel, fee_limit and capabilities; programs.rs:1606 submits eth_sendRawTransaction."
+
+[row.r8-49.8]
+interface = "interface.8.cli-cli-layerx-program-simulate"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 361
+symbol = "Simulate"
+evidence = "Simulate(ProgramExecutionArgs), retains its registered signature. Its current shared payload at main.rs:1200 includes optional EVM sender from and flattened NativeCallOptions alongside program_id, calldata, fuel, fee_limit, capabilities and optional evm_key_file; programs.rs:1670 simulates with eth_call at pending."
+
+[row.r8-49.9]
+interface = "interface.8.cli-cli-layerx-program-wind-down-route"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 379
+symbol = "Route"
+evidence = "ProgramWindDownCommand declares Route { with account: String, asset: String, destination: String, seed: String and flattened signing: ProgramLifecycleArgs. The registered Route { prefix survives; current lifecycle signing requires program_id, evm_key_file and fee_limit at main.rs:368."
+
+[row.r8-49.10]
+interface = "interface.8.cli-cli-layerx-program-wind-down-deprecate"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 391
+symbol = "Deprecate"
+evidence = "ProgramWindDownCommand declares Deprecate { with exit_program: String, deadline_batch: u64 and flattened signing: ProgramLifecycleArgs. The registered variant prefix survives; current signing carries program_id, evm_key_file and fee_limit at main.rs:368."
+
+[row.r8-49.11]
+interface = "interface.8.cli-cli-layerx-program-wind-down-tombstone"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 399
+symbol = "Tombstone"
+evidence = "ProgramWindDownCommand declares Tombstone { with flattened signing: ProgramLifecycleArgs as its only field. The registered variant prefix survives; current signing requires program_id: String, evm_key_file: PathBuf and fee_limit: String at main.rs:368."
+
+[row.r8-49.12]
+interface = "interface.8.cli-cli-layerx-program-wind-down-exit"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 403
+symbol = "Exit"
+evidence = "ProgramWindDownCommand declares Exit { with account: String and flattened signing: ProgramLifecycleArgs. The registered variant prefix survives; the current lifecycle payload carries program_id, evm_key_file and fee_limit at main.rs:368."
+
+[row.r8-49.13]
+interface = "interface.8.cli-cli-layerx-program-interface-get"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 413
+symbol = "Get"
+evidence = "ProgramInterfaceCommand declares Get { program_id: String } across main.rs:413-415; its registered signature prefix is unchanged. interface_get at programs.rs:905 reads the layerxprograms interface through eth_call at pending instead of the old gateway route."
+
+[row.r8-49.14]
+interface = "interface.8.cli-cli-layerx-program-interface-publish"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 416
+symbol = "Publish"
+evidence = "ProgramInterfaceCommand declares Publish { with program_id: String, interface: PathBuf, artifact: PathBuf, evm_key_file: PathBuf, fee_limit: String and idempotency_key: String. The registered prefix survives; programs.rs:1040 requires the deployed artifact and republishes the interface through an EVM lifecycle upgrade."
+
+[row.r8-49.15]
+interface = "interface.8.cli-cli-layerx-program-registry-list"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 435
+symbol = "List"
+evidence = "RegistryCommand still declares the unit variant List, with no Rust signature change. Its handler changed to registry_list at programs.rs:1079, which reads eth_blockNumber and scans ProgramDeployed events using eth_getLogs rather than a /v1/programs registry endpoint."
+
+[row.r8-49.16]
+interface = "interface.8.cli-cli-layerx-program-registry-get"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 437
+symbol = "Get"
+evidence = "RegistryCommand still declares Get { program_id: String }, with the registered Rust signature unchanged. registry_get at programs.rs:749 reads the deployed program record through the layerxprograms eth_call view rather than the old gateway route."
+
+[row.r8-49.17]
+interface = "interface.8.cli-cli-layerx-program-registry-mirror-source"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 439
+symbol = "MirrorSource"
+evidence = "RegistryCommand declares MirrorSource { with program_id: String, source_uri: String, plan: PathBuf and archive: PathBuf. The registered variant prefix remains; programs.rs:1214 reads the deployed record first, then publishes the plan and archive to /__registry/sources and reports source verification unavailable."
+
+[row.r8-49.18]
+interface = "interface.8.cli-cli-layerx-program-registry-verify-source"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 450
+symbol = "VerifySource"
+evidence = "RegistryCommand declares VerifySource { with program_id: String, source_uri: String, source_digest: String and idempotency_key: String. The registered prefix remains; programs.rs:1270 validates these inputs and reads the deployed record, then explicitly refuses because getProgram exposes no source digest."
+
+[row.r8-49.19]
+interface = "interface.8.cli-cli-layerx-mcp-serve"
+verdict = "served"
+path = "tools/platform/cli/src/main.rs"
+line = 532
+symbol = "Serve"
+evidence = "McpCommand declares Serve { with daemon_binding: PathBuf and read_only: bool. The registered Serve { prefix survives; the current required --daemon-binding selects an agent daemon binding, as documented immediately above the declaration, rather than a gateway activity transport."
+
+[row.r8-49.20]
+interface = "interface.8.rs-cli-rpc-request-j42"
+verdict = "served"
+path = "tools/platform/cli/src/rpc.rs"
+line = 80
+symbol = "request"
+evidence = "pub fn request(method: &str, params: &Value) -> Result<Value, String> retains the registered Rust signature and moved from line 84 to 80. Its accepted RPC contract changed: lx_ methods are refused, positional parameters are required, and eth_sendRawTransaction, pax_sequencerReceipt, eth_estimateGas and px_requestFunds are validated."
+
+[row.r8-49.21]
+interface = "interface.8.cli-cli-layerx-wallet-balance"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 32
+symbol = "Balance"
+evidence = "WalletCommand still declares Balance { with did: Option<String> and asset: Option<String>; the registered variant prefix remains. The live branch at wallet.rs:515 obtains a verified_account_snapshot through sdk_rpc rather than reading lx_getBalances, while the emulator branch remains explicit."
+
+[row.r8-49.22]
+interface = "interface.8.cli-cli-layerx-wallet-send"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 39
+symbol = "Send"
+evidence = "Send(TransferArgs), retains the registered tuple signature. TransferArgs at wallet.rs:95 now flattens TransferWriteOptions containing optional evm_key_file, receipt_policy and fee_limit plus wait: Commitment and timeout_seconds: u64; transfer submission uses the EVM transaction signing path."
+
+[row.r8-49.23]
+interface = "interface.8.cli-cli-layerx-wallet-watch"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 47
+symbol = "Watch"
+evidence = "WalletCommand declares Watch { with topic: SubscriptionTopic, account_id: Option<String> and timeout_seconds: u64 bounded to 1..=300. The registered prefix remains; rpc_subscription.rs:29 now builds eth_subscribe logs requests instead of lx_subscribe and treats notifications as unverified."
+
+[row.r8-49.24]
+interface = "interface.8.cli-cli-layerx-wallet-estimate-fee"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 56
+symbol = "EstimateFee"
+evidence = "The registered EstimateFee { canonical_hex: String }, signature is replaced by EstimateFee { transaction_hex: String, from: String }. wallet.rs:310 decodes unsigned EIP-1559 bytes, then calls eth_estimateGas at pending and eth_gasPrice instead of lx_estimateFee."
+
+[row.r8-49.25]
+interface = "interface.8.cli-cli-layerx-wallet-receipt"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 62
+symbol = "Receipt"
+evidence = "WalletCommand declares Receipt { with tx_hash: String, wait: Commitment and receipt_policy: Option<std::path::PathBuf>. The registered variant prefix remains; wallet_receipt at wallet.rs:575 requires independently pinned receipt policy and fetches sequencer_receipt rather than lx_getReceipt or /v1/receipts."
+
+[row.r8-49.26]
+interface = "interface.8.cli-cli-layerx-wallet-open-account"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 70
+symbol = "OpenAccount"
+evidence = "WalletCommand declares OpenAccount { with asset: String, key: Option<String> and flattened write: WriteOptions. The registered prefix remains; WriteOptions at wallet.rs:124 requires evm_key_file, receipt_policy and fee_limit plus commitment and timeout, and the handler executes Payment::OpenAccount."
+
+[row.r8-49.27]
+interface = "interface.8.cli-cli-layerx-token-create"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 141
+symbol = "Create"
+evidence = "TokenCommand declares Create { with symbol, name, supply_cap, salt and optional key strings, decimals: u8, and flattened write: WriteOptions. The registered prefix remains; wallet.rs:124 supplies required EVM key, receipt policy and fee limit, and the handler constructs Payment::Register for execute_payment."
+
+[row.r8-49.28]
+interface = "interface.8.cli-cli-layerx-token-mint"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 158
+symbol = "Mint"
+evidence = "TokenCommand declares Mint { with asset: String, to: String, amount: String, key: Option<String> and flattened write: WriteOptions. The registered prefix remains; the current shared write payload at wallet.rs:124 requires EVM key file, receipt policy and fee limit before execute_write."
+
+[row.r8-49.29]
+interface = "interface.8.cli-cli-layerx-token-burn"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 171
+symbol = "Burn"
+evidence = "TokenCommand declares Burn { with asset: String, amount: String, key: Option<String> and flattened write: WriteOptions. The registered prefix remains; current WriteOptions at wallet.rs:124 carries EVM key file, receipt policy, fee limit, wait commitment and bounded timeout for execute_write."
+
+[row.r8-49.30]
+interface = "interface.8.cli-cli-layerx-token-transfer"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 182
+symbol = "Transfer"
+evidence = "Transfer(TransferArgs), retains its registered tuple signature and now lives at line 182. TransferArgs at wallet.rs:95 flattens TransferWriteOptions with optional evm_key_file, receipt_policy and fee_limit plus commitment and timeout; token transfer shares the wallet transfer execution path."
+
+[row.r8-49.31]
+interface = "interface.8.cli-cli-layerx-token-info"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 184
+symbol = "Info"
+evidence = "Info { asset: String }, retains its registered Rust signature at the current line. The token handler dispatches AssetRead::Metadata to read_asset, whose live SDK client calls get_asset at wallet.rs:709 instead of the old lx_getAsset transport."
+
+[row.r8-49.32]
+interface = "interface.8.cli-cli-layerx-token-list"
+verdict = "served"
+path = "tools/platform/cli/src/wallet.rs"
+line = 186
+symbol = "List"
+evidence = "TokenCommand declares List { with cursor: Option<String> and limit: Option<u16>, where limit is bounded to 1..=256 and the documented default is 64. The registered variant prefix remains; the handler reads a page through list_assets_page instead of lx_listAssets."
+
+[row.r8-49.33]
+interface = "interface.8.rs-cli-wallet-signing-canonical-unsigned-j42"
+verdict = "retired"
+path = "tools/platform/cli/src/wallet_signing.rs"
+line = 103
+symbol = "canonical_unsigned"
+evidence = "pub fn canonical_unsigned(&self) -> &[u8] is absent throughout wallet_signing.rs. PreparedPayment now exposes call() -> &Eip1559Call at line 230 and signs EVM transactions through sign_with_id at line 265. Repository-wide rg -n -w canonical_unsigned, excluding spec and docs directories and ignored dependency/build trees, found ten other files: approval-material fields and consumers plus an unrelated string validator in layerx-mcp; none restores the removed wallet method."
+remaining_refs = 10
+remaining = ["apps/web/e2e/program-approvals.test.ts:79", "apps/web/src/api/generated/index.ts:3976", "apps/web/src/journeys/approvals/controller.ts:93", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:2039", "services/agent/crates/layerx-mcp/src/validate.rs:172", "services/human/crates/layerx-human-service/src/server/projection.rs:584", "services/human/schema/human-api/baseline.kvx:1078", "services/human/schema/human-api/golden/approval.program.material.response.json:9", "services/human/schema/human-api/program-approvals.kvx:80", "tools/qualification/paxeer-x/human_program_approvals.py:57"]

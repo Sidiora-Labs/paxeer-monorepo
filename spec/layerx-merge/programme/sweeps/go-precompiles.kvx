@@ -1,5 +1,5 @@
 [sweep.go-precompiles]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 enumeration_command = "CGO_ENABLED=1 go list ./precompiles/..."
 enumeration_exit_code = 0
@@ -9,33 +9,37 @@ environment = "CGO_ENABLED=1 GOMAXPROCS=2"
 parallel_targets = 4
 per_target_time_limit_seconds = 300
 targets_total = 223
-targets_passed = 208
-targets_failed = 7
-targets_not_run = 8
+targets_passed = 215
+targets_failed = 8
+targets_not_run = 0
 
 [target.go-precompiles.1]
 target = "precompiles"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its five-minute share of the thirty-minute task budget and was terminated to preserve time for remaining targets and the bounded gates."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "passed"
+exit_code = 0
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/precompiles\t13.402s"
 
 [target.go-precompiles.2]
 target = "precompiles/addr"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its five-minute share of the thirty-minute task budget and was terminated to preserve time for remaining targets and the bounded gates."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "passed"
+exit_code = 0
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/precompiles/addr\t3.140s"
 
 [target.go-precompiles.3]
 target = "precompiles/addr/legacy/v552"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its five-minute share of the thirty-minute task budget and was terminated to preserve time for remaining targets and the bounded gates."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "passed"
+exit_code = 0
+observed = "?   \tgithub.com/Sidiora-Labs/Paxeer-X-Network/precompiles/addr/legacy/v552\t[no test files]"
 
 [target.go-precompiles.4]
 target = "precompiles/addr/legacy/v555"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its five-minute share of the thirty-minute task budget and was terminated to preserve time for remaining targets and the bounded gates."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "passed"
+exit_code = 0
+observed = "?   \tgithub.com/Sidiora-Labs/Paxeer-X-Network/precompiles/addr/legacy/v555\t[no test files]"
 
 [target.go-precompiles.5]
 target = "precompiles/addr/legacy/v562"
@@ -104,9 +108,10 @@ exit_code = 0
 
 [target.go-precompiles.18]
 target = "precompiles/bank"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its five-minute share of the thirty-minute task budget and was terminated to preserve time for remaining targets and the bounded gates."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "passed"
+exit_code = 0
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/precompiles/bank\t5.746s"
 
 [target.go-precompiles.19]
 target = "precompiles/bank/legacy/v552"
@@ -185,9 +190,10 @@ exit_code = 0
 
 [target.go-precompiles.34]
 target = "precompiles/common"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its five-minute share of the thirty-minute task budget and was terminated to preserve time for remaining targets and the bounded gates."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "passed"
+exit_code = 0
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common\t5.856s"
 
 [target.go-precompiles.35]
 target = "precompiles/common/legacy/v552"
@@ -656,9 +662,11 @@ exit_code = 0
 
 [target.go-precompiles.126]
 target = "precompiles/layerxprograms"
-result = "not_run"
-exit_code = 124
-reason = "The command exceeded its five-minute share of the thirty-minute task budget and was terminated to preserve time for remaining targets and the bounded gates."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "failed"
+exit_code = 1
+observed = "--- FAIL: TestProgramsPrecompileActiveAfterMergeHeight (0.00s)"
+assumption = "The merge constructor appears to be missing the LayerX host input supplied by node keepers; activation_test.go:29 reports that node keepers must expose the LayerX host to the merge constructor."
 
 [target.go-precompiles.127]
 target = "precompiles/layerxprograms/types"
@@ -1141,9 +1149,10 @@ exit_code = 0
 
 [target.go-precompiles.222]
 target = "precompiles/xweb"
-result = "not_run"
-exit_code = 124
-reason = "The command was terminated at the sweep deadline to reserve the remaining task time for report generation and the bounded gates."
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "passed"
+exit_code = 0
+observed = "ok  \tgithub.com/Sidiora-Labs/Paxeer-X-Network/precompiles/xweb\t166.357s"
 
 [target.go-precompiles.223]
 target = "precompiles/xweb/legacy/v68"

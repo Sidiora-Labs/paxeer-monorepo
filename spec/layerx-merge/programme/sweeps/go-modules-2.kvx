@@ -1,38 +1,44 @@
 [sweep.go-modules-2]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 21
 targets_passed = 11
-targets_failed = 2
-targets_not_run = 8
-inventory_note = "The task title says twenty-two packages, but its explicit list and the first-pass report both identify 21 not_run targets; every one of those targets was attempted at the current origin/main revision."
+targets_failed = 10
+targets_not_run = 0
+inventory_note = "The eight previously not_run targets were re-swept at the header revision and each timed out with exit 124 at the unchanged 600-second limit. The other thirteen target blocks retain their original evidence from revision 1fea7069e58b649760bb1afcabdb9c4caec5ea4c (eleven passed, two failed); those results were not re-run in this task."
 target_time_limit_seconds = 600
-environment = "CGO_ENABLED=1; GOMAXPROCS=1; GOFLAGS=-p=1; up to eleven concurrent target commands"
-qualification_record = "/out/logs/go-modules-2-current/results.jsonl"
+environment = "CGO_ENABLED=1; GOMAXPROCS=1; GOFLAGS=-p=1; eight concurrent re-sweep target commands"
+qualification_record = "/out/logs/go-modules-2-resweep/results.jsonl"
 
 [target.go-modules-2.1]
 target = "modules/epoch"
-result = "not_run"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "failed"
 exit_code = 124
-reason = "The per-target vet/test command did not finish within its 600-second budget and was terminated with exit code 124."
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 elapsed_seconds = 600
-log = "/out/logs/go-modules-2-current/01-modules-epoch.log"
+log = "/out/logs/go-modules-2-resweep/1-modules-epoch.log"
 
 [target.go-modules-2.2]
 target = "modules/pricefeed/keeper"
-result = "not_run"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "failed"
 exit_code = 124
-reason = "The per-target vet/test command did not finish within its 600-second budget and was terminated with exit code 124."
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 elapsed_seconds = 600
-log = "/out/logs/go-modules-2-current/02-modules-pricefeed-keeper.log"
+log = "/out/logs/go-modules-2-resweep/2-modules-pricefeed-keeper.log"
 
 [target.go-modules-2.3]
 target = "modules/pricefeed/types"
-result = "not_run"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "failed"
 exit_code = 124
-reason = "The per-target vet/test command did not finish within its 600-second budget and was terminated with exit code 124."
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 elapsed_seconds = 600
-log = "/out/logs/go-modules-2-current/03-modules-pricefeed-types.log"
+log = "/out/logs/go-modules-2-resweep/3-modules-pricefeed-types.log"
 
 [target.go-modules-2.4]
 target = "modules/sequencer"
@@ -43,11 +49,13 @@ log = "/out/logs/go-modules-2-current/04-modules-sequencer.log"
 
 [target.go-modules-2.5]
 target = "modules/sequencer/keeper"
-result = "not_run"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "failed"
 exit_code = 124
-reason = "The per-target vet/test command did not finish within its 600-second budget and was terminated with exit code 124."
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 elapsed_seconds = 600
-log = "/out/logs/go-modules-2-current/05-modules-sequencer-keeper.log"
+log = "/out/logs/go-modules-2-resweep/5-modules-sequencer-keeper.log"
 
 [target.go-modules-2.6]
 target = "modules/sequencer/types"
@@ -58,19 +66,23 @@ log = "/out/logs/go-modules-2-current/06-modules-sequencer-types.log"
 
 [target.go-modules-2.7]
 target = "modules/spot"
-result = "not_run"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "failed"
 exit_code = 124
-reason = "The per-target vet/test command did not finish within its 600-second budget and was terminated with exit code 124."
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 elapsed_seconds = 600
-log = "/out/logs/go-modules-2-current/07-modules-spot.log"
+log = "/out/logs/go-modules-2-resweep/7-modules-spot.log"
 
 [target.go-modules-2.8]
 target = "modules/spot/keeper"
-result = "not_run"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "failed"
 exit_code = 124
-reason = "The per-target vet/test command did not finish within its 600-second budget and was terminated with exit code 124."
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 elapsed_seconds = 600
-log = "/out/logs/go-modules-2-current/08-modules-spot-keeper.log"
+log = "/out/logs/go-modules-2-resweep/8-modules-spot-keeper.log"
 
 [target.go-modules-2.9]
 target = "modules/spot/types"
@@ -95,11 +107,13 @@ log = "/out/logs/go-modules-2-current/11-modules-tokenfactory.log"
 
 [target.go-modules-2.12]
 target = "modules/tokenfactory/client/cli"
-result = "not_run"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "failed"
 exit_code = 124
-reason = "The per-target vet/test command did not finish within its 600-second budget and was terminated with exit code 124."
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 elapsed_seconds = 600
-log = "/out/logs/go-modules-2-current/12-modules-tokenfactory-client-cli.log"
+log = "/out/logs/go-modules-2-resweep/12-modules-tokenfactory-client-cli.log"
 
 [target.go-modules-2.13]
 target = "modules/tokenfactory/client/wasm"
@@ -149,11 +163,13 @@ log = "/out/logs/go-modules-2-current/18-modules-xweb-client-cli.log"
 
 [target.go-modules-2.19]
 target = "modules/xweb/keeper"
-result = "not_run"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "failed"
 exit_code = 124
-reason = "The per-target vet/test command did not finish within its 600-second budget and was terminated with exit code 124."
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 elapsed_seconds = 600
-log = "/out/logs/go-modules-2-current/19-modules-xweb-keeper.log"
+log = "/out/logs/go-modules-2-resweep/19-modules-xweb-keeper.log"
 
 [target.go-modules-2.20]
 target = "modules/xweb/testutil"

@@ -1,0 +1,137 @@
+[reconcile.r1-5]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 16
+
+[row.r1-5.1]
+interface = "interface.1.key-lxphost-idempotency-j22"
+verdict = "served"
+path = "modules/lxphost/ctx.go"
+line = 66
+symbol = "idempotencyPrefix"
+evidence = "idempotencyPrefix byte = 0x04 remains declared. Its meaning changed from the kernel idempotency table to the authoritative host payment-reference set: checkPaymentReference rejects repeated LX_ASSET_SEND keys at lines 351-359, and commitPaymentReference stores successful encoded receipts at lines 362-365."
+
+[row.r1-5.2]
+interface = "interface.1.go-lxphost-code-j22"
+verdict = "served_elsewhere"
+path = "modules/lxphost/code.go"
+line = 3
+symbol = "Code"
+evidence = "type Code int32 moved out of the cgo host.go into code.go; the underlying type is unchanged and this file has no C import."
+
+[row.r1-5.3]
+interface = "interface.1.go-lxphost-code-error-j22"
+verdict = "served_elsewhere"
+path = "modules/lxphost/code.go"
+line = 5
+symbol = "Error"
+evidence = "func (c Code) Error() string moved to code.go with the same signature. It looks up codeNames and returns LXP_ERR_UNKNOWN for an unknown code, replacing the C.GoString(C.lxp_result_name(...)) implementation."
+
+[row.r1-5.4]
+interface = "interface.1.go-lxphost-config-j22"
+verdict = "served"
+path = "modules/lxphost/host.go"
+line = 910
+symbol = "Config"
+evidence = "type Config struct remains in host.go and adds Workers int at line 911 alongside StoreKey, NetworkID, Epoch, ParameterVersion, TimestampWindowMs and GasLimit; NewHost uses Workers to size the node pool."
+
+[row.r1-5.5]
+interface = "interface.1.go-lxphost-activity-j22"
+verdict = "served"
+path = "modules/lxphost/host.go"
+line = 932
+symbol = "Activity"
+evidence = "type Activity struct now includes FeeLimit [16]byte, ReceiptAuthorities []ReceiptAuthority and ProtocolVersion uint16; IdempotencyKey uses the IdempotencyKey alias for [32]byte. Payload and Signature remain byte slices."
+
+[row.r1-5.6]
+interface = "interface.1.go-lxphost-kernel-authority-j22"
+verdict = "served"
+path = "modules/lxphost/host.go"
+line = 947
+symbol = "KernelAuthority"
+evidence = "type KernelAuthority struct adds Bound bool, Kind uint8, GrantID [32]byte, AuthorityHash [32]byte and Scope *AuthorityScope to the registered Actor, Principal and VerifiedKey fields; execution computes binding_authority from this value and the activity."
+
+[row.r1-5.7]
+interface = "interface.1.go-lxphost-receipt-j22"
+verdict = "served"
+path = "modules/lxphost/host.go"
+line = 979
+symbol = "Receipt"
+evidence = "type Receipt struct adds FeeCharged sdk.Int, Events []ReceiptEvent, Transfers []TransferLeg and ProgramOutcome *ProgramOutcome alongside the existing result, sequence, timestamp, roots and Encoded fields; HostExecute populates these from the kernel outcome at lines 1194-1236."
+
+[row.r1-5.8]
+interface = "interface.1.go-lxphost-host-j22"
+verdict = "served"
+path = "modules/lxphost/host.go"
+line = 992
+symbol = "Host"
+evidence = "type Host struct changes mu from sync.Mutex to sync.RWMutex and adds nodes chan *C.lxphost_node while retaining cfg Config and node *C.lxphost_node; borrowNode and returnNode coordinate concurrent executions through the pool."
+
+[row.r1-5.9]
+interface = "interface.1.go-lxphost-new-host-j22"
+verdict = "served"
+path = "modules/lxphost/host.go"
+line = 1005
+symbol = "NewHost"
+evidence = "func NewHost(cfg Config) (*Host, error) retains its signature but now validates Workers in 0..16, defaults zero to one, allocates a channel and one C node per worker, and frees previously allocated nodes if allocation fails."
+
+[row.r1-5.10]
+interface = "interface.1.go-lxphost-close-j22"
+verdict = "served"
+path = "modules/lxphost/host.go"
+line = 1044
+symbol = "Close"
+evidence = "func (h *Host) Close() retains its signature; under the exclusive RWMutex lock it now drains and frees cap(h.nodes) nodes, closes the pool channel and clears h.node, with a nil guard for repeated closure."
+
+[row.r1-5.11]
+interface = "interface.1.go-lxphost-host-execute-j22"
+verdict = "served"
+path = "modules/lxphost/host.go"
+line = 1125
+symbol = "HostExecute"
+evidence = "func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelAuthority) (Receipt, error) retains its signature with the expanded Activity, KernelAuthority and Receipt types. It borrows a pooled node, checks binding authority and payment replay, loads activity module state and blobs, and commits the receipt and payment reference; it no longer serializes every execution on one node."
+
+[row.r1-5.12]
+interface = "interface.1.go-lxphost-payer-grant-state-j22"
+verdict = "retired"
+path = "modules/lxphost/read.go"
+line = 207
+symbol = "PayerGrantState"
+evidence = "PayerGrantState is absent throughout read.go. Repository-wide symbol search excluding spec and docs finds only read_exports_test.go, whose lines 37-38 assert that this retired type is not exported."
+remaining_refs = 1
+remaining = ["modules/lxphost/read_exports_test.go:37"]
+
+[row.r1-5.13]
+interface = "interface.1.go-lxphost-read-payer-grant-j22"
+verdict = "retired"
+path = "modules/lxphost/read.go"
+line = 412
+symbol = "ReadPayerGrant"
+evidence = "ReadPayerGrant is absent throughout read.go. Repository-wide symbol search excluding spec and docs finds only read_exports_test.go, whose lines 34-35 assert that Host.ReadPayerGrant is no longer exported."
+remaining_refs = 1
+remaining = ["modules/lxphost/read_exports_test.go:34"]
+
+[row.r1-5.14]
+interface = "interface.1.c-lxp-gateway-grant-present-test-locked"
+verdict = "retired"
+path = "src/network/lxp_gateway_internal.h"
+line = 84
+symbol = "lxp_gateway_grant_present_test_locked"
+evidence = "The helper is absent from lxp_gateway_internal.h and lxp_gateway_receive.c despite the registry's override.J22.66. Repository-wide search excluding spec and docs finds only two retirement checks, in retired_gateway_test.go and test_retired_gateway_receive.py; the old tests/test_gateway_receive.c caller file is gone."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_gateway_test.go:12", "tests/ci/test_retired_gateway_receive.py:26"]
+
+[row.r1-5.15]
+interface = "interface.1.fmt-state-snapshot"
+verdict = "served"
+path = "src/state/lxp_snapshot.c"
+line = 446
+symbol = "lxp_snapshot_write"
+evidence = "lxp_snapshot_write still encodes the canonical snapshot with LXP_SNAPSHOT_FORMAT_VERSION (0x1805) and legacy or occupancy protocol version. The retired kernel idempotency entries are replaced by an explicit u32 zero at line 523 between state cells and module registrations; module KV, blobs, optional accounts and module roots remain encoded after that slot."
+
+[row.r1-5.16]
+interface = "interface.1.fmt-kernel-log-segment"
+verdict = "served"
+path = "src/storage/lxp_log.c"
+line = 69
+symbol = "encode_header"
+evidence = "encode_header still writes the 32-byte big-endian record header with kind, sequence, body length, body CRC32C and previous offset; durable_marker_encode at line 141 retains the two 64-byte marker slots. The format layout is unchanged, but valid_append_kind at lines 34-38 now allows only ACTIVITY, RECEIPT, CHECKPOINT, STATE_DIFF and GENESIS; valid_kind still accepts historical kinds 1..9 for reads."

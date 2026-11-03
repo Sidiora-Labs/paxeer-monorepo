@@ -26,6 +26,8 @@ import (
 )
 
 const (
+	// TestDeliveryStore migrates and truncates this database; TestStore also
+	// requires permission to create and drop a separate database.
 	testDatabaseEnv = "PERPS_DATA_TEST_DATABASE_URL"
 	fillSubject     = "perps.125.7.fill"
 	orderSubject    = "perps.125.7.order"

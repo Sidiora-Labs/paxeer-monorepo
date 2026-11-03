@@ -1,0 +1,7 @@
+[repair.rust-test-agent.5]
+target = "layerx-client"
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --no-fail-fast"
+revision = "47aa019083fb2f9d3e037d94c49a1b0694e00226"
+result = "repaired"
+change = "services/agent/crates/layerx-client/src/runtime_clock.rs and Cargo.toml provide the production clock server for tests, tests/committed_caps.rs invokes the native budget vector producer, tests/history_rpc.rs and tests/px_reads.rs assert the served contracts of tasks 18.1238.1 and 18.1376.1, and tests/receipt_rpc.rs includes signingKey required by decision 1839."
+producer_input_tests = []

@@ -185,12 +185,14 @@ impl AgentSurface {
         }
         let (status, body) = self.get(path)?;
         match status {
-            200 => serde_json::from_str(&body)
-                .map_err(|_| BoundaryRefusal::Malformed("invalid native read result".to_owned())),
+            200 => decode_native_read_result(&body),
             401 => Err(BoundaryRefusal::Unauthorized),
             404 | 405 | 501 => Err(BoundaryRefusal::UnsupportedRead),
             400 | 413 => Err(BoundaryRefusal::Malformed(
                 "the daemon refused the read selector or result bound".to_owned(),
+            )),
+            503 if path.starts_with("/v1/reads/history/") => Err(BoundaryRefusal::Unavailable(
+                "history.list evidence from px_getHistory is unavailable".to_owned(),
             )),
             _ => Err(BoundaryRefusal::Unavailable(
                 "verified native evidence is unavailable".to_owned(),
@@ -232,6 +234,22 @@ impl AgentSurface {
         }
         decode_response(&bytes)
     }
+}
+
+/// Decodes the object envelope emitted by the daemon's native read routes.
+///
+/// # Errors
+/// Refuses invalid JSON and non-object results instead of presenting a scalar,
+/// array or null as native evidence.
+pub fn decode_native_read_result(body: &str) -> Result<Value, BoundaryRefusal> {
+    let value: Value = serde_json::from_str(body)
+        .map_err(|_| BoundaryRefusal::Malformed("invalid native read result".to_owned()))?;
+    if !value.is_object() {
+        return Err(BoundaryRefusal::Malformed(
+            "native read result is not an object".to_owned(),
+        ));
+    }
+    Ok(value)
 }
 
 fn decode_response(bytes: &[u8]) -> Result<(u16, String), BoundaryRefusal> {

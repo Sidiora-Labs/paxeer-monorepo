@@ -1,0 +1,7 @@
+[repair.go-services.31]
+target = "services/platform/perps-data/internal/records"
+command = "cd services/platform/perps-data && go vet ./internal/records/ && go test -count=1 ./internal/records/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "services/platform/perps-data/internal/records/proof_records_test.go asserts the portal identity validator's exact refusal for a market ID outside GraphQL Int range while preserving the rejection and empty HTML checks."
+producer_input_tests = ["TestMarketSetLoadsChainMarkets: PERPS_DATA_TEST_DATABASE_URL naming PostgreSQL with CREATE DATABASE privileges", "TestSymbolResolvesInsertedMarket: PERPS_DATA_TEST_DATABASE_URL naming PostgreSQL with CREATE DATABASE privileges", "TestProofRecordsProducerTransportConsumer: PostgreSQL initdb and pg_ctl executables under /usr/lib/postgresql/*/bin and an unprivileged postgres account when started as root"]

@@ -1,0 +1,245 @@
+[reconcile.r16-201]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r16-201.1]
+interface = "interface.16.mk-builddir-tests-lxp-test-arith-property-san"
+verdict = "served"
+path = "Makefile"
+line = 1381
+symbol = "$(BUILD_DIR)/tests/lxp_test_arith_property_san:"
+evidence = "Makefile:1381 declares $(BUILD_DIR)/tests/lxp_test_arith_property_san: $(ARITH_PROPERTY_SOURCES)  src/protocol/lxp_u128.c src/protocol/lxp_u256.c  src/protocol/lxp_i128.c src/protocol/lxp_result.c. The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.2]
+interface = "interface.16.mk-builddir-tests-lxp-test-authority-resolve"
+verdict = "served"
+path = "Makefile"
+line = 1556
+symbol = "$(BUILD_DIR)/tests/lxp_test_authority_resolve:"
+evidence = "Makefile:1556 declares $(BUILD_DIR)/tests/lxp_test_authority_resolve:  tests/state/lxp_test_authority_resolve.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.3]
+interface = "interface.16.mk-builddir-tests-lxp-test-blob-lifecycle"
+verdict = "served"
+path = "Makefile"
+line = 2884
+symbol = "$(BUILD_DIR)/tests/lxp_test_blob_lifecycle:"
+evidence = "Makefile:2884 declares $(BUILD_DIR)/tests/lxp_test_blob_lifecycle: tests/programs/test_blob_lifecycle.c  $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.4]
+interface = "interface.16.mk-builddir-tests-lxp-test-codec-composite"
+verdict = "served"
+path = "Makefile"
+line = 1225
+symbol = "$(BUILD_DIR)/tests/lxp_test_codec_composite:"
+evidence = "Makefile:1225 declares $(BUILD_DIR)/tests/lxp_test_codec_composite:  tests/codec/lxp_test_codec_composite.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.5]
+interface = "interface.16.mk-builddir-tests-lxp-test-codec-primitives"
+verdict = "served"
+path = "Makefile"
+line = 1217
+symbol = "$(BUILD_DIR)/tests/lxp_test_codec_primitives:"
+evidence = "Makefile:1217 declares $(BUILD_DIR)/tests/lxp_test_codec_primitives:  tests/codec/lxp_test_codec_primitives.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.6]
+interface = "interface.16.mk-builddir-tests-lxp-test-codec-strict"
+verdict = "served"
+path = "Makefile"
+line = 1233
+symbol = "$(BUILD_DIR)/tests/lxp_test_codec_strict:"
+evidence = "Makefile:1233 declares $(BUILD_DIR)/tests/lxp_test_codec_strict:  tests/codec/lxp_test_codec_strict.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.7]
+interface = "interface.16.mk-builddir-tests-lxp-test-codec-vectors"
+verdict = "served"
+path = "Makefile"
+line = 1241
+symbol = "$(BUILD_DIR)/tests/lxp_test_codec_vectors:"
+evidence = "Makefile:1241 declares $(BUILD_DIR)/tests/lxp_test_codec_vectors:  tests/codec/lxp_test_codec_vectors.c $(LIBRARY)  tests/vectors/codec/valid.lxv tests/vectors/codec/adversarial.lxv. The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.8]
+interface = "interface.16.mk-builddir-tests-lxp-test-ct"
+verdict = "served"
+path = "Makefile"
+line = 1306
+symbol = "$(BUILD_DIR)/tests/lxp_test_ct:"
+evidence = "Makefile:1306 declares $(BUILD_DIR)/tests/lxp_test_ct: tests/crypto/lxp_test_ct.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.9]
+interface = "interface.16.mk-builddir-tests-lxp-test-ed25519"
+verdict = "served"
+path = "Makefile"
+line = 1269
+symbol = "$(BUILD_DIR)/tests/lxp_test_ed25519:"
+evidence = "Makefile:1269 declares $(BUILD_DIR)/tests/lxp_test_ed25519: tests/crypto/lxp_test_ed25519.c  tests/fuzz/lxp_fuzz_signature.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.10]
+interface = "interface.16.mk-builddir-tests-lxp-test-envelope"
+verdict = "served"
+path = "Makefile"
+line = 1497
+symbol = "$(BUILD_DIR)/tests/lxp_test_envelope:"
+evidence = "Makefile:1497 declares $(BUILD_DIR)/tests/lxp_test_envelope: tests/protocol/lxp_test_envelope.c  $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.11]
+interface = "interface.16.mk-builddir-tests-lxp-test-fee-gate"
+verdict = "served"
+path = "Makefile"
+line = 1533
+symbol = "$(BUILD_DIR)/tests/lxp_test_fee_gate:"
+evidence = "Makefile:1533 declares $(BUILD_DIR)/tests/lxp_test_fee_gate: tests/protocol/lxp_test_fee_gate.c  $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.12]
+interface = "interface.16.mk-builddir-tests-lxp-test-grants"
+verdict = "served"
+path = "Makefile"
+line = 1549
+symbol = "$(BUILD_DIR)/tests/lxp_test_grants:"
+evidence = "Makefile:1549 declares $(BUILD_DIR)/tests/lxp_test_grants: tests/state/lxp_test_grants.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.13]
+interface = "interface.16.mk-builddir-tests-lxp-test-hash"
+verdict = "served"
+path = "Makefile"
+line = 1262
+symbol = "$(BUILD_DIR)/tests/lxp_test_hash:"
+evidence = "Makefile:1262 declares $(BUILD_DIR)/tests/lxp_test_hash: tests/crypto/lxp_test_hash.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.14]
+interface = "interface.16.mk-builddir-tests-lxp-test-identity"
+verdict = "served"
+path = "Makefile"
+line = 1542
+symbol = "$(BUILD_DIR)/tests/lxp_test_identity:"
+evidence = "Makefile:1542 declares $(BUILD_DIR)/tests/lxp_test_identity: tests/state/lxp_test_identity.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.15]
+interface = "interface.16.mk-builddir-tests-lxp-test-journal"
+verdict = "served"
+path = "Makefile"
+line = 1465
+symbol = "$(BUILD_DIR)/tests/lxp_test_journal:"
+evidence = "Makefile:1465 declares $(BUILD_DIR)/tests/lxp_test_journal: tests/state/lxp_test_journal.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.16]
+interface = "interface.16.mk-builddir-tests-lxp-test-log"
+verdict = "served"
+path = "Makefile"
+line = 1412
+symbol = "$(BUILD_DIR)/tests/lxp_test_log:"
+evidence = "Makefile:1412 declares $(BUILD_DIR)/tests/lxp_test_log: tests/storage/lxp_test_log.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.17]
+interface = "interface.16.mk-builddir-tests-lxp-test-log-durability"
+verdict = "served"
+path = "Makefile"
+line = 1419
+symbol = "$(BUILD_DIR)/tests/lxp_test_log_durability:"
+evidence = "Makefile:1419 declares $(BUILD_DIR)/tests/lxp_test_log_durability:  tests/storage/lxp_test_log_durability.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.18]
+interface = "interface.16.mk-builddir-tests-lxp-test-merkle"
+verdict = "served"
+path = "Makefile"
+line = 1285
+symbol = "$(BUILD_DIR)/tests/lxp_test_merkle:"
+evidence = "Makefile:1285 declares $(BUILD_DIR)/tests/lxp_test_merkle: tests/crypto/lxp_test_merkle.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.19]
+interface = "interface.16.mk-builddir-tests-lxp-test-merkle-proof"
+verdict = "served"
+path = "Makefile"
+line = 1292
+symbol = "$(BUILD_DIR)/tests/lxp_test_merkle_proof:"
+evidence = "Makefile:1292 declares $(BUILD_DIR)/tests/lxp_test_merkle_proof: tests/crypto/lxp_test_merkle_proof.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.20]
+interface = "interface.16.mk-builddir-tests-lxp-test-merkle-vector"
+verdict = "served"
+path = "Makefile"
+line = 1299
+symbol = "$(BUILD_DIR)/tests/lxp_test_merkle_vector:"
+evidence = "Makefile:1299 declares $(BUILD_DIR)/tests/lxp_test_merkle_vector: tests/crypto/lxp_test_merkle_vector.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.21]
+interface = "interface.16.mk-builddir-tests-lxp-test-nofloat"
+verdict = "served"
+path = "Makefile"
+line = 1394
+symbol = "$(BUILD_DIR)/tests/lxp_test_nofloat:"
+evidence = "Makefile:1394 declares $(BUILD_DIR)/tests/lxp_test_nofloat: tests/arith/lxp_test_nofloat.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.22]
+interface = "interface.16.mk-builddir-tests-lxp-test-owner-rotation"
+verdict = "retired"
+path = "Makefile"
+line = 4259
+symbol = "$(BUILD_DIR)/tests/lxp_test_owner_rotation:"
+evidence = "The registered daemon rule $(BUILD_DIR)/tests/lxp_test_owner_rotation: is absent from Makefile; line 4259 is its historical registry location. Makefile:3160 instead declares lxp_test_owner_rotation_unit from tests/protocol/lxp_test_owner_rotation.c, not the daemon/onboarding/admission sources in this signature. The colon is part of the rule literal to distinguish the unit target prefix. Repository-wide searches outside spec and docs found no remaining files mentioning this exact rule literal."
+remaining_refs = 0
+remaining = []
+
+[row.r16-201.23]
+interface = "interface.16.mk-builddir-tests-lxp-test-owner-rotation-unit"
+verdict = "served"
+path = "Makefile"
+line = 3160
+symbol = "$(BUILD_DIR)/tests/lxp_test_owner_rotation_unit:"
+evidence = "Makefile:3160 declares $(BUILD_DIR)/tests/lxp_test_owner_rotation_unit: tests/protocol/lxp_test_owner_rotation.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.24]
+interface = "interface.16.mk-builddir-tests-lxp-test-paxai-native-gaps"
+verdict = "served"
+path = "Makefile"
+line = 2929
+symbol = "$(BUILD_DIR)/tests/lxp_test_paxai_native_gaps:"
+evidence = "Makefile:2929 declares $(BUILD_DIR)/tests/lxp_test_paxai_native_gaps: tests/programs/test_paxai_native_gaps.c  $(LAYERXD_SOURCES) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.25]
+interface = "interface.16.mk-builddir-tests-lxp-test-projection"
+verdict = "served"
+path = "Makefile"
+line = 1436
+symbol = "$(BUILD_DIR)/tests/lxp_test_projection:"
+evidence = "Makefile:1436 declares $(BUILD_DIR)/tests/lxp_test_projection: tests/storage/lxp_test_projection.c  src/storage/lxp_projection.c $(LIBRARY)  migrations/0001_projection.sql. The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.26]
+interface = "interface.16.mk-builddir-tests-lxp-test-rebuild"
+verdict = "served"
+path = "Makefile"
+line = 1448
+symbol = "$(BUILD_DIR)/tests/lxp_test_rebuild:"
+evidence = "Makefile:1448 declares $(BUILD_DIR)/tests/lxp_test_rebuild: tests/storage/lxp_test_rebuild.c  src/storage/lxp_projection.c $(LIBRARY) migrations/0001_projection.sql. The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.27]
+interface = "interface.16.mk-builddir-tests-lxp-test-recovery"
+verdict = "served"
+path = "Makefile"
+line = 1427
+symbol = "$(BUILD_DIR)/tests/lxp_test_recovery:"
+evidence = "Makefile:1427 declares $(BUILD_DIR)/tests/lxp_test_recovery: tests/storage/lxp_test_recovery.c  $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.28]
+interface = "interface.16.mk-builddir-tests-lxp-test-revocation"
+verdict = "served"
+path = "Makefile"
+line = 1581
+symbol = "$(BUILD_DIR)/tests/lxp_test_revocation:"
+evidence = "Makefile:1581 declares $(BUILD_DIR)/tests/lxp_test_revocation: tests/state/lxp_test_revocation.c  $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.29]
+interface = "interface.16.mk-builddir-tests-lxp-test-rotation"
+verdict = "served"
+path = "Makefile"
+line = 1591
+symbol = "$(BUILD_DIR)/tests/lxp_test_rotation:"
+evidence = "Makefile:1591 declares $(BUILD_DIR)/tests/lxp_test_rotation: tests/state/lxp_test_rotation.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."
+
+[row.r16-201.30]
+interface = "interface.16.mk-builddir-tests-lxp-test-rounding"
+verdict = "served"
+path = "Makefile"
+line = 1366
+symbol = "$(BUILD_DIR)/tests/lxp_test_rounding:"
+evidence = "Makefile:1366 declares $(BUILD_DIR)/tests/lxp_test_rounding: tests/arith/lxp_test_rounding.c $(LIBRARY). The target and all prerequisites match the registered signature after joining continued lines; this is the defining rule, not a prerequisite or recipe reference. The recorded line has drifted."

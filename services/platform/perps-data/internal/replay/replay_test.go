@@ -277,6 +277,7 @@ func (o *observed) Read(ctx context.Context, q decode.Querier, h uint64) (store.
 }
 
 func TestReplayRenewsLeaseWithinBatch(t *testing.T) {
+	db := testDB(t)
 	if os.Getenv(testRPCEnv) == "" || os.Getenv(testCometEnv) == "" {
 		t.Setenv("TMPDIR", t.TempDir())
 		envFile := filepath.Join(os.Getenv("TMPDIR"), "lx-localnode", "localnode.env")
@@ -307,7 +308,6 @@ func TestReplayRenewsLeaseWithinBatch(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	db := testDB(t)
 	src, rpc := testSource(t, db)
 	head, err := rpc.Head(ctx)
 	if err != nil || head < 2 {

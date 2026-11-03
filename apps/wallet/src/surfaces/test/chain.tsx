@@ -36,6 +36,12 @@ export interface ChainLog {
   readonly data: string;
 }
 
+interface ChainReceipt {
+  readonly nonce: string;
+  readonly status: string;
+  readonly logs: Array<ChainLog & { readonly logIndex: string }>;
+}
+
 const SET_FEE_DENOM = abiSelector('setFeeDenom(string)');
 const CLEAR_FEE_DENOM = abiSelector('clearFeeDenom()');
 const GET_FEE_DENOM = abiSelector('getFeeDenom(address)');
@@ -69,7 +75,7 @@ export class SurfaceChain implements Eip1193Provider {
   launchpadCreationFee = 0n;
   readonly allowances = new Map<string, bigint>();
   logsFor: (call: SentCall) => ChainLog[] = () => [];
-  private readonly receipts = new Map<string, { status: string; logs: ChainLog[] }>();
+  private readonly receipts = new Map<string, ChainReceipt>();
   private readonly listeners = new Map<ProviderEvent, Set<ProviderListener>>();
 
   async request(args: { method: string; params?: readonly unknown[] | object }): Promise<unknown> {
@@ -104,11 +110,22 @@ export class SurfaceChain implements Eip1193Provider {
         this.sent.push(call);
         this.apply(call);
         const hash = ethers.id(`${this.sent.length}:${call.to}:${call.data}:${call.value}`);
-        const receipt = { status: '0x1', logs: this.logsFor(call) };
+        const receipt: ChainReceipt = {
+          nonce: ethers.toQuantity(this.sent.length - 1),
+          status: '0x1',
+          logs: this.logsFor(call).map((log, index) => ({
+            ...log,
+            logIndex: ethers.toQuantity(index),
+          })),
+        };
         this.receipts.set(hash, receipt);
         return args.method === 'eth_sendTransaction'
           ? hash
           : { rung: 'receipted', txHash: hash, ...receipt };
+      }
+      case 'eth_getTransactionReceipt': {
+        const receipt = this.receipts.get(String(params[0]));
+        return receipt === undefined ? null : { transactionHash: params[0], ...receipt };
       }
       case 'pax_sequencerReceipt': {
         const receipt = this.receipts.get(String(params[0]));

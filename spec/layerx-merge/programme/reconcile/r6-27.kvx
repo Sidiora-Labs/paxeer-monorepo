@@ -1,0 +1,331 @@
+[reconcile.r6-27]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 41
+
+[row.r6-27.1]
+interface = "interface.6.pc-0x1013-assetbypointer"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "assetByPointer"
+evidence = "ABI still declares assetByPointer(address) view returns (bytes32), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.2]
+interface = "interface.6.pc-0x1013-deposit"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "deposit"
+evidence = "ABI still declares deposit(bytes32) payable returns (bytes32), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.3]
+interface = "interface.6.pc-0x1013-depositcount"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "depositCount"
+evidence = "ABI still declares depositCount() view returns (uint64), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.4]
+interface = "interface.6.pc-0x1013-depositnonce"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "depositNonce"
+evidence = "ABI still declares depositNonce(address,bytes32) view returns (uint64), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.5]
+interface = "interface.6.pc-0x1013-depositregistrationdigest"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "depositRegistrationDigest"
+evidence = "ABI still declares depositRegistrationDigest(bytes32) view returns (bytes32), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.6]
+interface = "interface.6.pc-0x1013-depositrootauthority"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "depositRootAuthority"
+evidence = "ABI still declares depositRootAuthority() view returns (bytes32), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.7]
+interface = "interface.6.pc-0x1013-depositrootregistered"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "depositRootRegistered"
+evidence = "ABI still declares depositRootRegistered(bytes32) view returns (bool), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.8]
+interface = "interface.6.pc-0x1013-deposittoken"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "depositToken"
+evidence = "ABI still declares depositToken(address,uint256,bytes32) nonpayable returns (bytes32), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.9]
+interface = "interface.6.pc-0x1013-evt-claimfinalised"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "ClaimFinalised"
+evidence = "ABI still declares event ClaimFinalised(bytes32 indexed,bytes32 indexed), anonymous=false, matching the registered indexed fields. Registry status retire has not removed this event declaration."
+
+[row.r6-27.10]
+interface = "interface.6.pc-0x1013-evt-claimqueued"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "ClaimQueued"
+evidence = "ABI still declares event ClaimQueued(bytes32 indexed,bytes32 indexed,bytes32 indexed,bytes32,address,uint256,uint64), anonymous=false, matching the registered indexed fields. Registry status retire has not removed this event declaration."
+
+[row.r6-27.11]
+interface = "interface.6.pc-0x1013-evt-custodydeposit"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "CustodyDeposit"
+evidence = "ABI still declares event CustodyDeposit(bytes32 indexed,bytes32 indexed,address indexed,bytes32,uint256,uint64), anonymous=false, matching the registered indexed fields. Registry status retire has not removed this event declaration."
+
+[row.r6-27.12]
+interface = "interface.6.pc-0x1013-evt-custodyrelease"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "CustodyRelease"
+evidence = "ABI still declares event CustodyRelease(bytes32 indexed,bytes32 indexed,address indexed,uint256,address), anonymous=false, matching the registered indexed fields. Registry status retire has not removed this event declaration."
+
+[row.r6-27.13]
+interface = "interface.6.pc-0x1013-evt-depositrootregistered"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "DepositRootRegistered"
+evidence = "ABI still declares event DepositRootRegistered(bytes32 indexed,bytes32 indexed,bytes32,uint16), anonymous=false, matching the registered indexed fields. Registry status retire has not removed this event declaration."
+
+[row.r6-27.14]
+interface = "interface.6.pc-0x1013-evt-emergencyexitexecuted"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "EmergencyExitExecuted"
+evidence = "ABI still declares event EmergencyExitExecuted(bytes32 indexed,bytes32 indexed,bytes32 indexed,bytes32,bytes32,address,uint256), anonymous=false, matching the registered indexed fields. Registry status retire has not removed this event declaration."
+
+[row.r6-27.15]
+interface = "interface.6.pc-0x1013-executeforcedexit"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "executeForcedExit"
+evidence = "ABI still declares executeForcedExit(bytes,uint64,bytes32,bytes32,address,bytes) nonpayable returns (bytes32), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.16]
+interface = "interface.6.pc-0x1013-exiteligible"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "exitEligible"
+evidence = "ABI still declares exitEligible() view returns (bool), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.17]
+interface = "interface.6.pc-0x1013-finalisewithdrawal"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "finaliseWithdrawal"
+evidence = "ABI still declares finaliseWithdrawal(bytes,bytes,bytes,bytes) nonpayable returns (bytes32), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.18]
+interface = "interface.6.pc-0x1013-getasset"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "getAsset"
+evidence = "ABI still declares getAsset(bytes32) view returns ((bytes32,string,address,bool,bool,uint256,uint256,uint256,uint256,uint256)), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.19]
+interface = "interface.6.pc-0x1013-getclaim"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "getClaim"
+evidence = "ABI still declares getClaim(bytes32) view returns ((bytes32,uint8,uint8,bytes32,bytes32,bytes32,bytes32,string,address,uint256,uint64,bytes32,uint64)), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.20]
+interface = "interface.6.pc-0x1013-getdeposit"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "getDeposit"
+evidence = "ABI still declares getDeposit(bytes32) view returns ((bytes32,uint64,address,bytes32,bytes32,string,uint256,uint64,uint64)), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.21]
+interface = "interface.6.pc-0x1013-getdepositbyindex"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "getDepositByIndex"
+evidence = "ABI still declares getDepositByIndex(uint64) view returns ((bytes32,uint64,address,bytes32,bytes32,string,uint256,uint64,uint64)), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.22]
+interface = "interface.6.pc-0x1013-nativeassetid"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "nativeAssetId"
+evidence = "ABI still declares nativeAssetId() view returns (bytes32), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.23]
+interface = "interface.6.pc-0x1013-nullifierstatus"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "nullifierStatus"
+evidence = "ABI still declares nullifierStatus(bytes32) view returns (uint8), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.24]
+interface = "interface.6.pc-0x1013-registerdepositroot"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "registerDepositRoot"
+evidence = "ABI still declares registerDepositRoot(bytes,bytes,bytes32[]) nonpayable, with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.25]
+interface = "interface.6.pc-0x1013-requestforcedexit"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "requestForcedExit"
+evidence = "ABI still declares requestForcedExit(bytes,uint64,bytes32,bytes32,address,bytes) nonpayable returns (bytes32,uint64), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.26]
+interface = "interface.6.pc-0x1013-requestwithdrawal"
+verdict = "served"
+path = "precompiles/layerxcustody/abi.json"
+line = 1
+symbol = "requestWithdrawal"
+evidence = "ABI still declares requestWithdrawal(bytes,bytes,bytes,bytes) nonpayable returns (bytes32,uint64), with the registered input, output and mutability types. Runtime retirement is checked by keeper.Retired(ctx) in precompiles/layerxcustody/layerxcustody.go:227; the ABI symbol remains present."
+
+[row.r6-27.27]
+interface = "interface.6.pc-0x1012-verifydiscoveryproof"
+verdict = "served"
+path = "precompiles/layerxverify/abi.json"
+line = 1
+symbol = "verifyDiscoveryProof"
+evidence = "ABI still declares verifyDiscoveryProof(bytes,bytes,bytes32,uint64,bytes32) pure returns ((bytes32,uint32,bytes32,uint16,uint64,uint64,uint64,bytes32,bytes32)), with the registered input, output and mutability types. Execute checks pcommon.RetiredAt at precompiles/layerxverify/layerxverify.go:199 and returns a retirement revert; the ABI symbol remains present."
+
+[row.r6-27.28]
+interface = "interface.6.pc-0x1012-verifyed25519"
+verdict = "served"
+path = "precompiles/layerxverify/abi.json"
+line = 1
+symbol = "verifyEd25519"
+evidence = "ABI still declares verifyEd25519(bytes32,uint8,bytes,bytes) pure returns (bool), with the registered input, output and mutability types. Execute checks pcommon.RetiredAt at precompiles/layerxverify/layerxverify.go:199 and returns a retirement revert; the ABI symbol remains present."
+
+[row.r6-27.29]
+interface = "interface.6.pc-0x1012-verifyreceipt"
+verdict = "served"
+path = "precompiles/layerxverify/abi.json"
+line = 1
+symbol = "verifyReceipt"
+evidence = "ABI still declares verifyReceipt(bytes,bytes32) pure returns ((bytes32,bytes32,uint64,int32,uint16,uint8,bytes32,uint128,bytes32,bytes32,bytes32,bytes32,uint64)), with the registered input, output and mutability types. Execute checks pcommon.RetiredAt at precompiles/layerxverify/layerxverify.go:199 and returns a retirement revert; the ABI symbol remains present."
+
+[row.r6-27.30]
+interface = "interface.6.pc-0x1012-verifyreceiptinclusion"
+verdict = "served"
+path = "precompiles/layerxverify/abi.json"
+line = 1
+symbol = "verifyReceiptInclusion"
+evidence = "ABI still declares verifyReceiptInclusion(bytes,bytes,bytes,bytes,bytes32,bytes32,uint64,uint64) pure returns ((bytes32,bytes32,uint64,int32,uint16,uint8,bytes32,uint128,bytes32,bytes32,bytes32,bytes32,uint64),(bytes32,uint32,uint64,uint64,uint64,uint64,bytes32,bytes32,bytes32,bytes32,uint64)), with the registered input, output and mutability types. Execute checks pcommon.RetiredAt at precompiles/layerxverify/layerxverify.go:199 and returns a retirement revert; the ABI symbol remains present."
+
+[row.r6-27.31]
+interface = "interface.6.pc-0x1012-verifystateproof"
+verdict = "served"
+path = "precompiles/layerxverify/abi.json"
+line = 1
+symbol = "verifyStateProof"
+evidence = "ABI still declares verifyStateProof(bytes,bytes32) pure returns (uint16,bytes,bytes), with the registered input, output and mutability types. Execute checks pcommon.RetiredAt at precompiles/layerxverify/layerxverify.go:199 and returns a retirement revert; the ABI symbol remains present."
+
+[row.r6-27.32]
+interface = "interface.6.go-lxverify-newprecompile-j37"
+verdict = "served"
+path = "precompiles/layerxverify/layerxverify.go"
+line = 128
+symbol = "NewPrecompile"
+evidence = "Declares func NewPrecompile(keepers utils.Keepers) (*pcommon.Precompile, error); the registered unnamed utils.Keepers argument is now named keepers, with unchanged parameter type and (*pcommon.Precompile, error) results. The constructor now reads keepers.EVMK() through pcommon.UpgradeReaderOf for the retirement gate at precompiles/layerxverify/layerxverify.go:132."
+
+[row.r6-27.33]
+interface = "interface.6.pc-0x1019-fulfilprogram"
+verdict = "served"
+path = "precompiles/xweb/abi.json"
+line = 4
+symbol = "fulfilProgram"
+evidence = "ABI declares fulfilProgram(bytes) nonpayable; argument types, mutability and return types are unchanged from the registered signature. The former missing implementation now has an Execute case FulfilProgramMethod at precompiles/xweb/xweb.go:312, guarded by ProgramOriginActive at lines 260-263."
+
+[row.r6-27.34]
+interface = "interface.6.pc-0x1019-getprogramresult"
+verdict = "served"
+path = "precompiles/xweb/abi.json"
+line = 12
+symbol = "getProgramResult"
+evidence = "ABI declares getProgramResult(bytes32,uint64) view returns (bytes32,uint32,uint32,bytes); argument types, mutability and return types are unchanged from the registered signature. The former missing implementation now has an Execute case GetProgramResultMethod at precompiles/xweb/xweb.go:314, guarded by ProgramOriginActive at lines 260-263."
+
+[row.r6-27.35]
+interface = "interface.6.pc-0x1019-getkernelnetworkid"
+verdict = "served"
+path = "precompiles/xweb/abi.json"
+line = 13
+symbol = "getKernelNetworkId"
+evidence = "ABI declares getKernelNetworkId() view returns (uint32); argument types, mutability and return types are unchanged from the registered signature. The former missing implementation now has an Execute case GetKernelNetworkIdMethod at precompiles/xweb/xweb.go:316, guarded by ProgramOriginActive at lines 260-263."
+
+[row.r6-27.36]
+interface = "interface.6.gen-wasm-codes"
+verdict = "served"
+path = "wasm/proto/cosmwasm/wasm/v1/genesis.proto"
+line = 13
+symbol = "codes"
+evidence = "GenesisState still declares repeated Code codes = 2 [; the registered repeated field name and protobuf tag are unchanged, with nullable=false and its matching JSON tag in the following lines."
+
+[row.r6-27.37]
+interface = "interface.6.gen-wasm-contracts"
+verdict = "served"
+path = "wasm/proto/cosmwasm/wasm/v1/genesis.proto"
+line = 17
+symbol = "contracts"
+evidence = "GenesisState still declares repeated Contract contracts = 3 [; the registered repeated field name and protobuf tag are unchanged, with nullable=false and its matching JSON tag in the following lines."
+
+[row.r6-27.38]
+interface = "interface.6.gen-wasm-sequences"
+verdict = "served"
+path = "wasm/proto/cosmwasm/wasm/v1/genesis.proto"
+line = 21
+symbol = "sequences"
+evidence = "GenesisState still declares repeated Sequence sequences = 4 [; the registered repeated field name and protobuf tag are unchanged, with nullable=false and its matching JSON tag in the following lines."
+
+[row.r6-27.39]
+interface = "interface.6.gen-wasm-gen-msgs"
+verdict = "served"
+path = "wasm/proto/cosmwasm/wasm/v1/genesis.proto"
+line = 25
+symbol = "gen_msgs"
+evidence = "GenesisState still declares repeated GenMsgs gen_msgs = 5 [; the registered repeated field name and protobuf tag are unchanged, with nullable=false and its matching JSON tag in the following lines."
+
+[row.r6-27.40]
+interface = "interface.6.gen-wasm-params-code-upload-access"
+verdict = "served"
+path = "wasm/proto/cosmwasm/wasm/v1/types.proto"
+line = 42
+symbol = "code_upload_access"
+evidence = "Params still declares AccessConfig code_upload_access = 1 [; AccessConfig retains permission = 1 and address = 2 at lines 35-36. The registered field type and tag 1 are unchanged."
+
+[row.r6-27.41]
+interface = "interface.6.gen-wasm-params-instantiate-default-permission"
+verdict = "served"
+path = "wasm/proto/cosmwasm/wasm/v1/types.proto"
+line = 46
+symbol = "instantiate_default_permission"
+evidence = "Params still declares AccessType instantiate_default_permission = 2; the registered AccessType field and tag 2 are unchanged, including its instantiate_default_permission YAML tag."

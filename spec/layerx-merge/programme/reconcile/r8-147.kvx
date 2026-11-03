@@ -1,0 +1,271 @@
+[reconcile.r8-147]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-147.1]
+interface = "interface.8.err-agent-boundary-invalid-activity-length"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1452
+symbol = "invalid_activity_length"
+evidence = "The explicit HTTP 400 invalid_activity_length refusal is absent from agent-boundary main.rs and the repository search found no remaining exact-symbol mentions outside spec and docs. Remaining references count distinct files from a repository-wide exact-symbol search excluding spec/ and docs/ directories; one location is listed per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-147.2]
+interface = "interface.8.err-agent-boundary-invalid-expected-state-root"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 639
+symbol = "invalid_expected_state_root"
+evidence = "program_read_freshness returns HTTP 400 with no retry for uppercase expected-state-root input at line 639, matching the registered return Err signature; the separate parse-failure occurrence is at 643."
+
+[row.r8-147.3]
+interface = "interface.8.err-agent-boundary-invalid-idempotency-key"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1739
+symbol = "invalid_idempotency_key"
+evidence = "The registered agent-boundary HTTP 400 invalid_idempotency_key refusal is absent. Remaining producers validate independent core program-receipt keys, faucet requests and testnet funding requests; none relocates this boundary handler. Remaining references count distinct files from a repository-wide exact-symbol search excluding spec/ and docs/ directories; one location is listed per file."
+remaining_refs = 3
+remaining = ["services/platform/hosted/core/src/main.rs:779", "services/platform/hosted/faucet/src/main.rs:975", "services/platform/hosted/testnet/src/main.rs:1193"]
+
+[row.r8-147.4]
+interface = "interface.8.err-agent-boundary-invalid-minimum-sequence"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 628
+symbol = "invalid_minimum_sequence"
+evidence = "program_read_freshness returns HTTP 400 with no retry for empty, leading-zero or nondecimal minimum-sequence input at 628, matching the registered return Err signature; numeric overflow is handled separately at 632."
+
+[row.r8-147.5]
+interface = "interface.8.err-agent-boundary-invalid-request"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 992
+symbol = "invalid_request"
+evidence = "handle_connection maps parse_client_request failure to refusal(400, invalid_request, None) at 992, matching the registered error closure rather than a caller or mention."
+
+[row.r8-147.6]
+interface = "interface.8.err-agent-boundary-lifecycle-receipt-invalid"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1245
+symbol = "lifecycle_receipt_invalid"
+evidence = "The explicit HTTP 503 lifecycle_receipt_invalid refusal is absent from agent-boundary main.rs. No exact-symbol mentions remain in the repository outside spec and docs. Remaining references count distinct files from a repository-wide exact-symbol search excluding spec/ and docs/ directories; one location is listed per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-147.7]
+interface = "interface.8.err-agent-boundary-node-invalid"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 710
+symbol = "node_invalid"
+evidence = "relay_bounded emits the registered HTTP 503 node_invalid refusal with a five-second retry when read_http_message fails at 710. The same refusal also rejects an invalid upstream status at 723 and non-UTF-8 body at 726."
+
+[row.r8-147.8]
+interface = "interface.8.err-agent-boundary-node-transport-lost"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 320
+symbol = "node_transport_lost"
+evidence = "The explicit HTTP 503 node_transport_lost refusal is absent from agent-boundary main.rs; current chain lookup and relay transport failures use node_unavailable. No exact-symbol mentions remain outside spec and docs. Remaining references count distinct files from a repository-wide exact-symbol search excluding spec/ and docs/ directories; one location is listed per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-147.9]
+interface = "interface.8.err-agent-boundary-node-unavailable"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 671
+symbol = "node_unavailable"
+evidence = "receipt_route emits refusal(503, node_unavailable, Some(5)) on chain_receipts.lookup failure at 671. The literal and HTTP/retry values remain; the former registered standalone expression is now a match arm. Relay and readiness failures also emit this code."
+
+[row.r8-147.10]
+interface = "interface.8.err-agent-boundary-not-program-call"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1459
+symbol = "not_program_call"
+evidence = "The explicit HTTP 400 not_program_call refusal is absent from agent-boundary main.rs. No exact-symbol mentions remain in the repository outside spec and docs. Remaining references count distinct files from a repository-wide exact-symbol search excluding spec/ and docs/ directories; one location is listed per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-147.11]
+interface = "interface.8.err-agent-boundary-persistence-invalid"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1311
+symbol = "persistence_invalid"
+evidence = "The explicit HTTP 503 persistence_invalid refusal is absent from agent-boundary main.rs. load_record now returns a String error for invalid journal data; no exact-symbol mentions remain outside spec and docs. Remaining references count distinct files from a repository-wide exact-symbol search excluding spec/ and docs/ directories; one location is listed per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-147.12]
+interface = "interface.8.err-agent-boundary-persistence-unavailable"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1347
+symbol = "persistence_unavailable"
+evidence = "The registered agent-boundary HTTP 503 persistence_unavailable refusal is absent. Remaining occurrences belong to independent registry, faucet, gateway and interop persistence handlers and the Python SDK error list; they do not relocate this boundary handler. Remaining references count distinct files from a repository-wide exact-symbol search excluding spec/ and docs/ directories; one location is listed per file."
+remaining_refs = 6
+remaining = ["services/agent/sdk/python/layerx_sdk/ai_market.py:2035", "services/interop/crates/layerx-interop-service/src/server.rs:103", "services/platform/hosted/faucet/src/main.rs:969", "services/platform/hosted/gateway/src/ai_views.rs:102", "services/platform/hosted/gateway/src/main.rs:1588", "services/platform/hosted/registry/src/routes.rs:1025"]
+
+[row.r8-147.13]
+interface = "interface.8.err-agent-boundary-program-artifacts-invalid"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1127
+symbol = "program_artifacts_invalid"
+evidence = "The registered invalid closure emitting HTTP 503 program_artifacts_invalid is absent from agent-boundary main.rs. No exact-symbol mentions remain in the repository outside spec and docs. Remaining references count distinct files from a repository-wide exact-symbol search excluding spec/ and docs/ directories; one location is listed per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-147.14]
+interface = "interface.8.err-agent-boundary-program-artifacts-unavailable"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1138
+symbol = "program_artifacts_unavailable"
+evidence = "The explicit Err(refusal(503, program_artifacts_unavailable, Some(5))) producer is absent from agent-boundary main.rs. No exact-symbol mentions remain outside spec and docs. Remaining references count distinct files from a repository-wide exact-symbol search excluding spec/ and docs/ directories; one location is listed per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-147.15]
+interface = "interface.8.err-agent-boundary-receipt-invalid"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 558
+symbol = "receipt_invalid"
+evidence = "outcome_response returns the registered refusal(503, receipt_invalid, Some(5)) when verified_receipt_metadata rejects a journal record; the producing return statement is now at 558."
+
+[row.r8-147.16]
+interface = "interface.8.err-agent-boundary-receipt-not-found"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 670
+symbol = "receipt_not_found"
+evidence = "receipt_route declares the HTTP 404 receipt_not_found response at 670. The registered Ok(Lookup::Absent) arm has become Ok(None) from chain_receipts.lookup; the error literal and absent retry remain unchanged."
+
+[row.r8-147.17]
+interface = "interface.8.err-agent-boundary-receipt-unavailable"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1905
+symbol = "receipt_unavailable"
+evidence = "The registered agent-boundary HTTP 503 receipt_unavailable refusal is absent; receipt_route now emits node_unavailable for lookup failure. Remaining references handle core receipts, treasury funding receipts and CLI admission errors rather than relocating this boundary handler. Remaining references count distinct files from a repository-wide exact-symbol search excluding spec/ and docs/ directories; one location is listed per file."
+remaining_refs = 3
+remaining = ["services/platform/hosted/core/src/chain_fund.rs:330", "services/platform/hosted/core/src/main.rs:610", "tools/platform/cli/src/wallet.rs:1692"]
+
+[row.r8-147.18]
+interface = "interface.8.err-agent-boundary-snapshot-mismatch"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1686
+symbol = "snapshot_mismatch"
+evidence = "The explicit HTTP 409 snapshot_mismatch refusal is absent from agent-boundary main.rs. program_read_freshness still parses the expected root, but no exact-symbol mentions of this refusal remain outside spec and docs. Remaining references count distinct files from a repository-wide exact-symbol search excluding spec/ and docs/ directories; one location is listed per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-147.19]
+interface = "interface.8.err-agent-boundary-snapshot-stale"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1683
+symbol = "snapshot_stale"
+evidence = "The explicit HTTP 409 snapshot_stale refusal with a one-second retry is absent from agent-boundary main.rs. No exact-symbol mentions remain in the repository outside spec and docs. Remaining references count distinct files from a repository-wide exact-symbol search excluding spec/ and docs/ directories; one location is listed per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-147.20]
+interface = "interface.8.err-agent-boundary-version-unsupported"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 863
+symbol = "version_unsupported"
+evidence = "The explicit SubmitOutcome::Refused(terminal(422, version_unsupported)) branch is absent from agent-boundary main.rs. Remaining mentions are a wallet wire reason, explorer receipt decoding and a qualification policy set, not a relocated boundary producer. Remaining references count distinct files from a repository-wide exact-symbol search excluding spec/ and docs/ directories; one location is listed per file."
+remaining_refs = 3
+remaining = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:87", "services/wallet/attestor/internal/lxwire/activity.go:41", "tools/qualification/paxeer-x/registry-contract.py:1047"]
+
+[row.r8-147.21]
+interface = "interface.8.err-agent-boundary-wrong-network"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 866
+symbol = "wrong_network"
+evidence = "The explicit SubmitOutcome::Refused(terminal(422, wrong_network)) branch is absent from agent-boundary main.rs. Remaining occurrences are other services network checks, policy sets and test variables or cases; they do not relocate the boundary refusal. Remaining references count distinct files from a repository-wide exact-symbol search excluding spec/ and docs/ directories; one location is listed per file."
+remaining_refs = 17
+remaining = ["modules/xweb/keeper/program_kernel_parity_test.go:111", "precompiles/xweb/program_dispatch_test.go:140", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs:2110", "services/agent/crates/layerx-agentd/src/protocol_evidence_time_tests.rs:111", "services/agent/crates/layerx-agentd/tests/session_seed.rs:85", "services/human/crates/layerx-human-kms/tests/provider.rs:499", "services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs:559", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs:862", "services/human/crates/layerx-human-service/tests/evidence_node.rs:475", "services/interop/crates/layerx-x402/tests/vectors.rs:417", "services/platform/hosted/core/src/main.rs:2284", "services/platform/hosted/gateway/src/routes.rs:1483", "services/platform/hosted/node/reset_state.py:109", "tests/agent/sdk/python/test_program_http.py:153", "tests/protocol/paxeer_x_rejection_policy.py:34", "tools/qualification/paxeer-x/registry-contract.py:1047", "tools/qualification/paxeer-x/unified-account-identity.py:143"]
+
+[row.r8-147.22]
+interface = "interface.8.http-agent-boundary-any-v1"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 826
+symbol = "/v1/"
+evidence = "route rejects paths outside /v1/ or requests with a query at 826, exactly matching the registered starts_with guard. Other /v1/ occurrences select individual routes rather than define this catch-all guard."
+
+[row.r8-147.23]
+interface = "interface.8.http-agent-boundary-get-livez"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 795
+symbol = "/livez"
+evidence = "route declares GET /livez with query.is_none() at 795 and returns the live service response; this is the matching route condition rather than another GET method occurrence."
+
+[row.r8-147.24]
+interface = "interface.8.http-agent-boundary-get-readyz"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 798
+symbol = "/readyz"
+evidence = "route declares GET /readyz with query.is_none() at 798 and delegates to readiness(config); this is the matching route condition rather than another GET method occurrence."
+
+[row.r8-147.25]
+interface = "interface.8.http-agent-boundary-get-v1-receipts"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 830
+symbol = "/v1/receipts/"
+evidence = "route extracts the public receipt identifier with path.strip_prefix(/v1/receipts/) at 830 and dispatches GET to receipt_route at 839. The registered target else-if became a filtered let-Some binding; line 679 only defines the account-state relay allowlist."
+
+[row.r8-147.26]
+interface = "interface.8.err-authority-invalid-budget-id"
+verdict = "served"
+path = "services/platform/hosted/authority/src/human/budget_state.rs"
+line = 311
+symbol = "invalid_budget_id"
+evidence = "budget_state::read declares hex::decode32(id).map_err to refusal(400, invalid_budget_id, None) at 311, exactly matching the registered signature after its budget-binding guard. The same decode refusal also appears in read_dynamic, export_at and export_dynamic at 321, 340 and 365."
+
+[row.r8-147.27]
+interface = "interface.8.err-authority-method-not-allowed"
+verdict = "served"
+path = "services/platform/hosted/authority/src/main.rs"
+line = 1012
+symbol = "method_not_allowed"
+evidence = "authority route rejects every non-GET request with return refusal(405, method_not_allowed, None) at 1012, matching the registered signature."
+
+[row.r8-147.28]
+interface = "interface.8.err-authority-receipt-network-mismatch"
+verdict = "served"
+path = "services/platform/hosted/authority/src/main.rs"
+line = 812
+symbol = "receipt_network_mismatch"
+evidence = "authority receipt handling returns refusal(503, receipt_network_mismatch, Some(5)) at 812 when the decoded evidence header network differs from config.protocol_network_id, matching the registered signature."
+
+[row.r8-147.29]
+interface = "interface.8.err-authority-replica-evidence-unavailable"
+verdict = "served"
+path = "services/platform/hosted/authority/src/main.rs"
+line = 797
+symbol = "replica_evidence_unavailable"
+evidence = "authority receipt handling maps ReplicaAnswer::Status(404, _) to return refusal(503, replica_evidence_unavailable, Some(1)) at 797, matching the registered signature."
+
+[row.r8-147.30]
+interface = "interface.8.err-authority-replica-unavailable"
+verdict = "served"
+path = "services/platform/hosted/authority/src/main.rs"
+line = 801
+symbol = "replica_unavailable"
+evidence = "authority receipt handling returns refusal(503, replica_unavailable, Some(5)) for unexpected replica HTTP status at 801, matching the registered standalone return signature. Transport unavailability is a separate arm at 803; relay responses occur at 869 and 871."

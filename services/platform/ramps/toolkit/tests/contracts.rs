@@ -973,10 +973,12 @@ fn torn_tail_is_recovered_but_terminated_corruption_is_rejected() {
         settle_callback(&mut recovered, digest),
         Err(RampError::Journal)
     );
-    let authority = RecoveryAuthority::protected();
     let invoked = std::cell::Cell::new(false);
     assert_eq!(
-        authority.recover(&mut recovered, &invoked),
+        recovered.recover_verified(|_| {
+            invoked.set(true);
+            panic!("unmatched torn tail must be refused before settlement verification")
+        }),
         Err(RampError::Journal)
     );
     assert!(!invoked.get());

@@ -136,15 +136,42 @@ func TestProcessSellLegSplit(t *testing.T) {
 	// A sell: amountIn = tokens, amountOut = USDL received.
 	sell := position.SwapEvent{
 		PoolAddress: "0xpool", Sender: "0xs", IsBuy: false,
-		AmountIn: "1000000000000000000", AmountOut: "5000000",
-		Price: "5000000", Fee: "0", BlockNumber: 1, BlockTimestamp: 1, TxHash: "0xtx", LogIndex: 0,
+		AmountIn: "1000000000000000000", AmountOut: "6000000",
+		Price: "6000000", Fee: "0", BlockNumber: 2, BlockTimestamp: 2, TxHash: "0xtx", LogIndex: 0,
+	}
+	// An unbacked sell must fail atomically, without recording the trade or
+	// inventing a position. The same event can be retried after its buy arrives.
+	if err := c.ProcessEvent(ctx, sell); err == nil {
+		t.Fatal("sell without inventory accepted")
+	}
+	var trades, positions int
+	if err := st.Pool().QueryRow(ctx, `SELECT
+		(SELECT count(*) FROM pnl.user_trades WHERE user_address='0xs'),
+		(SELECT count(*) FROM pnl.user_positions WHERE user_address='0xs')`).Scan(&trades, &positions); err != nil {
+		t.Fatal(err)
+	}
+	if trades != 0 || positions != 0 {
+		t.Fatalf("unbacked sell persisted: trades=%d positions=%d", trades, positions)
+	}
+	if err := c.ProcessEvent(ctx, position.SwapEvent{
+		PoolAddress: "0xpool", Sender: "0xs", IsBuy: true,
+		AmountIn: "1000000", AmountOut: "1000000000000000000",
+		Price: "1000000", Fee: "0", BlockNumber: 1, BlockTimestamp: 1, TxHash: "0xbuy", LogIndex: 0,
+	}); err != nil {
+		t.Fatalf("process prior buy: %v", err)
 	}
 	if err := c.ProcessEvent(ctx, sell); err != nil {
 		t.Fatalf("process sell: %v", err)
 	}
-	pos, _ := st.GetPosition(ctx, "0xs", "0xpool")
-	// No prior cost basis -> full proceeds realised; tokens sold recorded.
+	pos, err := st.GetPosition(ctx, "0xs", "0xpool")
+	if err != nil || pos == nil {
+		t.Fatalf("position: %v %v", pos, err)
+	}
+	// Six USDL proceeds less one USDL cost: five USDL realized profit.
 	if pos.RealizedPnlUsdl != "5000000" || pos.TotalTokensSold != "1000000000000000000" {
 		t.Fatalf("sell fold = %+v", pos)
+	}
+	if pos.TotalUsdlSpent != "1000000" || pos.TotalUsdlReceived != "6000000" || pos.CurrentHoldings != "0" || pos.TradeCount != 2 {
+		t.Fatalf("sell legs or prior inventory lost: %+v", pos)
 	}
 }
