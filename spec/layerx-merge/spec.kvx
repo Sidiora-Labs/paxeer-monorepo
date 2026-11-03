@@ -136617,7 +136617,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.88]
 title = "Re-sweep the not-run targets of the rust-test-human inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -137325,7 +137325,7 @@ do_5 = "Attempt 2 (continue): decision 2502. The receipted fixture carries five 
 
 [task.22.99.61]
 title = "Repair the inventory sweep target layerx-mirror"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -137356,7 +137356,7 @@ do_4 = "Attempt 1 (continue): the dependent-crate check failed only on the human
 
 [task.22.99.60]
 title = "Repair the inventory sweep target layerx-portable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -137728,7 +137728,7 @@ do_4 = "Attempt 1 (continue): the dependent-crate check failed only on the human
 
 [task.22.99.48]
 title = "Repair the inventory sweep target layerx-proof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -137791,7 +137791,7 @@ do_4 = "Attempt 1 (continue): the dependent-crate check failed only on the human
 
 [task.22.99.46]
 title = "Repair the inventory sweep target layerx-types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -137853,7 +137853,7 @@ do_4 = "Attempt 1 (continue): the crate does not build because the vendored wasm
 
 [task.22.99.44]
 title = "Repair the rust-build-explorer-verifier inventory sweep targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146098,7 +146098,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.15]
 title = "Repair the inventory sweep target services/launchpad/trading-charts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146436,7 +146436,7 @@ do_4 = "Decision 2496 (continue): the module's tests are bound to inputs the qua
 
 [task.22.99.4]
 title = "Repair the inventory sweep target services/launchpad/indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200311,7 +200311,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.85]
 title = "Re-sweep the not-run targets of the go-node inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -200340,7 +200340,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.84]
 title = "Re-sweep the not-run targets of the go-modules inventory sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
