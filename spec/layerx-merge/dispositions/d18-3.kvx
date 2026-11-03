@@ -117,7 +117,7 @@ evidence = "Commit f6a8daf80 replaced both deleted ProtocolFeesKey calls with fr
 finding = "18.1043.1.1"
 status = "open"
 evidence = "Root go.mod:290 still pins pax-geth v1.15.7-pax.17 rather than the nested implementation repaired and tested by f18697d75, so the root-module behavior awaits publication and adoption of a release containing that change."
-follow_up = "closure"
+follow_up = "18.1043.2"
 
 [disposition.18.1048.1.1]
 finding = "18.1048.1.1"

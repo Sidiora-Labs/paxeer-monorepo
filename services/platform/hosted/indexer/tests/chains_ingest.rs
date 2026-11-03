@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use layerx_indexer::abi::{keccak, AbiRegistry};
 use layerx_indexer::chains::{chains_abi, ChainsConfig};
-use layerx_indexer::codec::hex0x;
+use layerx_indexer::codec::{hex0x, unhex, unhex_fixed};
 use layerx_indexer::follow::{FollowPolicy, StepOutcome};
 use layerx_indexer::paxeer::{AttributeEncoding, PaxeerIngester};
 use layerx_indexer::store::Store;
@@ -225,10 +225,6 @@ fn chains_ingest_records_create_status_fund_and_operator_changes() -> Checked<()
         store.chain(3)?.ok_or("governed chain missing")?.status,
         "governance_paused"
     );
-    assert_eq!(
-        store.chain(4)?.ok_or("old chain missing")?.status,
-        "retired"
-    );
     drop(store);
     let store = Store::open(&database.0)?;
     assert_eq!(store.chain(1)?, Some(updated.clone()));
@@ -271,5 +267,114 @@ fn chains_ingest_records_create_status_fund_and_operator_changes() -> Checked<()
         store.chain(1)?.ok_or("chain missing")?.bond,
         "100000000000000000007"
     );
+    head.store(45, Ordering::SeqCst);
+    assert_eq!(
+        ingester.step(&store)?,
+        StepOutcome::Advanced {
+            units: 1,
+            position: 45
+        }
+    );
+    assert_eq!(
+        store.chain(4)?.ok_or("old chain missing")?.status,
+        "retired"
+    );
+    Ok(())
+}
+
+#[test]
+fn chains_status_codes_follow_the_registry() -> Checked<()> {
+    let database = Database::new();
+    let store = Store::open(&database.0)?;
+    let head = Arc::new(AtomicU64::new(42));
+    let ingester = node(Arc::clone(&head))?;
+    for (height, statuses) in [
+        (42, ["active", "active", "active", "active"]),
+        (43, ["paused", "active", "governance_paused", "active"]),
+        (44, ["active", "paused", "governance_paused", "active"]),
+        (45, ["active", "paused", "governance_paused", "retired"]),
+    ] {
+        head.store(height, Ordering::SeqCst);
+        assert_eq!(
+            ingester.step(&store)?,
+            StepOutcome::Advanced {
+                units: 1,
+                position: height
+            }
+        );
+        assert_eq!(
+            store.cursor("paxeer")?.ok_or("cursor missing")?.position,
+            height
+        );
+        for (index, status) in statuses.into_iter().enumerate() {
+            assert_eq!(
+                store
+                    .chain(index as u32 + 1)?
+                    .ok_or("chain missing")?
+                    .status,
+                status,
+                "block {height}, chain {}",
+                index + 1
+            );
+        }
+    }
+    let retired = store.chain(4)?.ok_or("retired chain missing")?;
+    assert_eq!(retired.status, "retired");
+    drop(store);
+    let store = Store::open(&database.0)?;
+    assert_eq!(store.chain(4)?, Some(retired.clone()));
+    head.store(46, Ordering::SeqCst);
+    assert_eq!(
+        ingester.step(&store)?,
+        StepOutcome::Advanced {
+            units: 1,
+            position: 46
+        }
+    );
+    assert_eq!(
+        store.cursor("paxeer")?.ok_or("cursor missing")?.position,
+        46
+    );
+    assert_eq!(store.chain(4)?, Some(retired));
+    assert_eq!(ingester.step(&store)?, StepOutcome::Idle);
+    store.rollback("paxeer", Some(44))?;
+    assert_eq!(store.chain(4)?.ok_or("chain missing")?.status, "active");
+    assert_eq!(
+        store.cursor("paxeer")?.ok_or("cursor missing")?.position,
+        44
+    );
+    assert_eq!(
+        ingester.step(&store)?,
+        StepOutcome::Advanced {
+            units: 2,
+            position: 46
+        }
+    );
+    assert_eq!(store.chain(4)?.ok_or("chain missing")?.status, "retired");
+    Ok(())
+}
+
+#[test]
+fn chains_status_codes_refuse_zero_and_out_of_range() -> Checked<()> {
+    let fixture = fixture();
+    let log = &fixture["receipts"][format!("0x{:064x}", 1043)]["logs"][0];
+    let emitter = unhex_fixed(log["address"].as_str().ok_or("address missing")?)?;
+    let topics = log["topics"]
+        .as_array()
+        .ok_or("topics missing")?
+        .iter()
+        .map(|topic| unhex_fixed(topic.as_str().expect("topic is a string")))
+        .collect::<Result<Vec<_>, _>>()?;
+    let registry = registry()?;
+    for code in (0_u16..=255).filter(|code| !(1..=4).contains(code)) {
+        let data = unhex(&format!("0x{code:064x}"))?;
+        let (_, decoded) = registry
+            .decode_log(emitter, &topics, &data)?
+            .ok_or("status event missing")?;
+        assert!(
+            layerx_indexer::chains::decode(&decoded, 43, "").is_none(),
+            "code {code}"
+        );
+    }
     Ok(())
 }

@@ -22,6 +22,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/livepeer"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
 
 type MeasurementArtifact struct {
@@ -327,6 +328,11 @@ func mediaFetch(ctx context.Context, client *http.Client, run, category, target,
 			if category != "cdn_segment" && (mime != "application/json" || !json.Valid(raw)) {
 				e = errors.New("origin_content_type")
 			}
+			if category == "viewer_heartbeat" && v.Status >= 200 && v.Status < 300 {
+				if _, err := v2.DecodeStreamHeartbeatResponse(raw); err != nil {
+					e = err
+				}
+			}
 			if category != "cdn_segment" && (strings.Contains(string(raw), "streamKey") || strings.Contains(string(raw), "rtmp://") || strings.Contains(string(raw), "rtmps://")) {
 				e = errors.New("public_credential_leak")
 			}
@@ -554,8 +560,8 @@ func RunMediaMeasurement(ctx context.Context, c MediaMeasurementConfig) (MediaMe
 					timer.Stop()
 					return
 				}
-				body, _ := json.Marshal(map[string]string{"sessionId": s.ID, "token": s.Token})
-				dispatch(request{category: "viewer_heartbeat", target: c.Origin + "/v2/streams/" + c.StreamID + "/heartbeat", method: "POST", session: s.ID, body: body, scheduled: due})
+				body, _ := json.Marshal(map[string]string{"playbackSessionId": s.ID, "viewerToken": s.Token})
+				dispatch(request{category: "viewer_heartbeat", target: c.Origin + "/v2/streams/" + c.StreamID + "/viewers:heartbeat", method: "POST", session: s.ID, body: body, scheduled: due})
 			}
 		}
 	}()

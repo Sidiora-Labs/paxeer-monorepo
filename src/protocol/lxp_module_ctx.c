@@ -1153,60 +1153,6 @@ lxp_result lxp_module_ctx_commit(lxp_module_ctx *ctx)
     return LXP_OK;
 }
 
-static lxp_result capacity_grants_hold(const lxp_module_ctx *ctx,
-                                       size_t kv_additions,
-                                       size_t blob_additions,
-                                       size_t blob_bytes)
-{
-    const lxp_capacity_ledger *ledger = ctx->kernel->capacity;
-    const uint64_t limit[3] = {LXP_KERNEL_MAX_BLOBS,
-                               LXP_KERNEL_MAX_BLOB_TOTAL_BYTES,
-                               LXP_KERNEL_MAX_MODULE_KV};
-    uint64_t committed[3];
-    uint64_t additions[3];
-    uint64_t floor[3];
-    uint64_t obligations[3] = {0U, 0U, 0U};
-    uint64_t work[3] = {0U, 0U, 0U};
-    uint64_t next_sequence;
-    size_t index;
-    size_t axis;
-    if (ledger == NULL || ledger->profile.version == 0U) return LXP_OK;
-    if (ctx->kernel->state == NULL || ledger->count > LXP_CAPACITY_MAX_RESERVATIONS)
-        return LXP_ERR_NON_CANONICAL;
-    next_sequence = ctx->kernel->state->next_sequence;
-    committed[0] = ctx->kernel->blob_count;
-    committed[1] = ctx->kernel->blob_total_bytes;
-    committed[2] = ctx->kernel->module_kv_count;
-    additions[0] = blob_additions;
-    additions[1] = blob_bytes;
-    additions[2] = kv_additions;
-    floor[0] = ledger->profile.floor.blobs;
-    floor[1] = ledger->profile.floor.bytes;
-    floor[2] = ledger->profile.floor.kv;
-    for (index = 0U; index < ledger->count; ++index) {
-        const lxp_capacity_reservation *entry = &ledger->entries[index];
-        uint64_t *sum;
-        if (entry->state != LXP_CAPACITY_RESERVED ||
-            (entry->kind != LXP_CAPACITY_OBLIGATION &&
-             entry->expires_sequence <= next_sequence) ||
-            memcmp(entry->activity_id, ctx->activity_id, 32U) == 0)
-            continue;
-        sum = entry->kind == LXP_CAPACITY_OBLIGATION ? obligations : work;
-        sum[0] += entry->demand.blobs;
-        sum[1] += entry->demand.bytes;
-        sum[2] += entry->demand.kv;
-    }
-    for (axis = 0U; axis < 3U; ++axis) {
-        uint64_t reserve = floor[axis] > obligations[axis] ? floor[axis] :
-            obligations[axis];
-        if (additions[axis] == 0U || work[axis] == 0U) continue;
-        if (committed[axis] + additions[axis] + reserve + work[axis] >
-            limit[axis])
-            return LXP_ERR_ARENA_EXHAUSTED;
-    }
-    return LXP_OK;
-}
-
 lxp_result lxp_module_ctx_prepare_commit(lxp_module_ctx *ctx)
 {
     size_t additions = 0U;
@@ -1245,10 +1191,6 @@ lxp_result lxp_module_ctx_prepare_commit(lxp_module_ctx *ctx)
         status = account_registry_preview(ctx, account_preview);
         if (status == LXP_OK)
             status = lx_account_registry_root(account_preview, account_root);
-#ifdef LXP_TESTING
-        if (status == LXP_OK && ctx->module_id == LXP_MODULE_BRIDGE &&
-            ctx->bridge_credit_fail_stage == 4U) status = LXP_ERR_IO;
-#endif
         lx_account_registry_release(account_preview);
         free(account_preview);
         if (status != LXP_OK) return status;
@@ -1269,8 +1211,6 @@ lxp_result lxp_module_ctx_prepare_commit(lxp_module_ctx *ctx)
         blob_bytes > LXP_KERNEL_MAX_BLOB_TOTAL_BYTES -
                          ctx->kernel->blob_total_bytes)
         return LXP_ERR_ARENA_EXHAUSTED;
-    status = capacity_grants_hold(ctx, additions, blob_additions, blob_bytes);
-    if (status != LXP_OK) return status;
     ctx->commit_prepared = true;
     return LXP_OK;
 }
@@ -2421,9 +2361,6 @@ lxp_result lxp_ctx_bridge_credit(lxp_module_ctx *ctx,
         if (status == LXP_OK)
             status = lxp_ctx_kv_put(ctx, trust_key, 32U, trust_bytes, sizeof(trust_bytes));
     }
-#ifdef LXP_TESTING
-    if (status == LXP_OK && ctx->bridge_credit_fail_stage == 1U) status = LXP_ERR_IO;
-#endif
     if (status != LXP_OK) {
         lxp_module_ctx_rollback(ctx);
         return status;
@@ -2439,12 +2376,6 @@ lxp_result lxp_ctx_bridge_credit(lxp_module_ctx *ctx,
         lxp_module_ctx_rollback(ctx);
         return status;
     }
-#ifdef LXP_TESTING
-    if (ctx->bridge_credit_fail_stage == 2U) {
-        lxp_module_ctx_rollback(ctx);
-        return LXP_ERR_IO;
-    }
-#endif
     asset = *registered_asset;
     (void)memset(&transfer, 0, sizeof(transfer));
     transfer.leg_count = 1U;
@@ -2504,9 +2435,6 @@ lxp_result lxp_ctx_bridge_credit(lxp_module_ctx *ctx,
         if (status == LXP_OK && lxp_u128_cmp(total, next_issued) != 0)
             status = LXP_FATAL_SUPPLY_MISMATCH;
     }
-#ifdef LXP_TESTING
-    if (status == LXP_OK && ctx->bridge_credit_fail_stage == 3U) status = LXP_ERR_IO;
-#endif
     if (status != LXP_OK) lxp_module_ctx_rollback(ctx);
     return status;
 }

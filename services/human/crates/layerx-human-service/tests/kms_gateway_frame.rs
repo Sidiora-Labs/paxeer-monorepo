@@ -5,11 +5,12 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use layerx_human_service::custody::GATEWAY_FRAME_LIMIT;
 use layerx_human_service::frame::{ConnectionGate, FrameTransport, Limits, MutualTlsConfig, Tls};
-use layerx_types::clock::{Clock, ClockError, ClockReading};
+use layerx_human_test_support::StepClock;
+use layerx_types::clock::{Clock, Deadline};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::RootCertStore;
 
@@ -18,16 +19,16 @@ const PROVIDER: &str = "gateway-frame-kms";
 const BACKEND_PROCESS: &str = "LAYERX_GATEWAY_FRAME_BACKEND_PROCESS";
 const STARTUP_LIMIT: Duration = Duration::from_secs(15);
 
-struct Process(Child);
+struct Process(Child, Arc<StepClock>);
 
 impl Process {
     fn wait(&mut self) -> TestResult<ExitStatus> {
-        let started = Instant::now();
+        let mut expires = Deadline::start(self.1.as_ref(), STARTUP_LIMIT)?;
         loop {
             if let Some(status) = self.0.try_wait()? {
                 return Ok(status);
             }
-            if started.elapsed() >= STARTUP_LIMIT {
+            if expires.remaining(self.1.as_ref())?.is_zero() {
                 return Err("process did not exit before the startup deadline".into());
             }
             std::thread::sleep(Duration::from_millis(20));
@@ -42,7 +43,7 @@ impl Drop for Process {
     }
 }
 
-struct Fixture(PathBuf);
+struct Fixture(PathBuf, Arc<StepClock>);
 
 impl Drop for Fixture {
     fn drop(&mut self) {
@@ -61,7 +62,7 @@ impl Fixture {
         ));
         fs::create_dir(&root)?;
         fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
-        let fixture = Self(root);
+        let fixture = Self(root, Arc::new(StepClock::new(1_700_000_000_000)));
         fixture.openssl(&[
             "req",
             "-x509",
@@ -216,6 +217,7 @@ impl Fixture {
                 .stdout(Stdio::null())
                 .stderr(fs::File::create(self.0.join(log))?)
                 .spawn()?,
+            Arc::clone(&self.1),
         ))
     }
 
@@ -286,34 +288,12 @@ impl Fixture {
     }
 }
 
-struct OsClock {
-    start: Instant,
-    generation: [u8; 16],
-}
-
-impl Clock for OsClock {
-    fn sample(&self, _transport_budget: Duration) -> Result<ClockReading, ClockError> {
-        Ok(ClockReading {
-            generation: self.generation,
-            unix_milliseconds: u64::try_from(
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_err(|_| ClockError::Invalid)?
-                    .as_millis(),
-            )
-            .map_err(|_| ClockError::Overflow)?,
-            monotonic_nanoseconds: u64::try_from(self.start.elapsed().as_nanos())
-                .map_err(|_| ClockError::Overflow)?,
-        })
-    }
-}
-
 fn free_address() -> TestResult<SocketAddr> {
     Ok(TcpListener::bind("127.0.0.1:0")?.local_addr()?)
 }
 
 fn wait_for_socket(process: &mut Process, address: SocketAddr, log: &Path) -> TestResult {
-    let started = Instant::now();
+    let mut expires = Deadline::start(process.1.as_ref(), STARTUP_LIMIT)?;
     loop {
         if let Some(status) = process.0.try_wait()? {
             return Err(format!("startup exited {status}: {}", fs::read_to_string(log)?).into());
@@ -321,7 +301,7 @@ fn wait_for_socket(process: &mut Process, address: SocketAddr, log: &Path) -> Te
         if TcpStream::connect_timeout(&address, Duration::from_millis(100)).is_ok() {
             return Ok(());
         }
-        if started.elapsed() >= STARTUP_LIMIT {
+        if expires.remaining(process.1.as_ref())?.is_zero() {
             return Err(format!("startup deadline: {}", fs::read_to_string(log)?).into());
         }
         std::thread::sleep(Duration::from_millis(20));
@@ -364,12 +344,7 @@ fn kms_gateway_refuses_a_registry_document_with_modules() -> TestResult {
 #[test]
 fn kms_gateway_starts_with_a_chain_snapshot_document() -> TestResult {
     if std::env::var_os(BACKEND_PROCESS).is_some() {
-        let mut generation = [0; 16];
-        getrandom::fill(&mut generation).map_err(|error| error.to_string())?;
-        let clock: Arc<dyn Clock> = Arc::new(OsClock {
-            start: Instant::now(),
-            generation,
-        });
+        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(1_700_000_000_000));
         return layerx_human_kms::run_from_environment(&clock).map_err(Into::into);
     }
     let fixture = Fixture::new()?;

@@ -72,15 +72,8 @@ func (p *PrecompileExecutor) issueGrant(ctx sdk.Context, method *abi.Method, act
 	if err := method.Inputs.Copy(&input, args); err != nil {
 		return nil, err
 	}
-	result, err := p.keeper.IssueGrant(ctx, actor, input.Grant, sha256.Sum256(input.Grant))
-	if err != nil {
-		return nil, RevertError(err)
-	}
-	events, err := p.paymentLogs(evm, 0x00010007, result, ledgerkeeper.EventArgs{})
-	if err != nil {
-		return nil, err
-	}
-	return p.abi.Methods["revokeGrant"].Inputs[:1].Pack(events[0].Fields["grantId"])
+	_, err := p.keeper.IssueGrant(ctx, actor, input.Grant, sha256.Sum256(input.Grant))
+	return nil, RevertError(err)
 }
 
 func (p *PrecompileExecutor) revokeGrant(ctx sdk.Context, method *abi.Method, actor ledgerkeeper.Actor, args []interface{}, evm *vm.EVM, _ *tracing.Hooks) ([]byte, error) {
@@ -92,14 +85,8 @@ func (p *PrecompileExecutor) revokeGrant(ctx sdk.Context, method *abi.Method, ac
 		return nil, err
 	}
 	payload := types.EncodeRevokeGrantPayload(input.GrantId, input.RevocationSequence)
-	result, err := p.keeper.RevokeGrant(ctx, actor, input.GrantId, input.RevocationSequence, sha256.Sum256(payload))
-	if err != nil {
-		return nil, RevertError(err)
-	}
-	if _, err := p.paymentLogs(evm, 0x00010008, result, ledgerkeeper.EventArgs{}); err != nil {
-		return nil, err
-	}
-	return method.Outputs.Pack()
+	_, err := p.keeper.RevokeGrant(ctx, actor, input.GrantId, input.RevocationSequence, sha256.Sum256(payload))
+	return nil, RevertError(err)
 }
 
 func (p *PrecompileExecutor) draw(ctx sdk.Context, method *abi.Method, actor ledgerkeeper.Actor, args []interface{}, evm *vm.EVM, _ *tracing.Hooks) ([]byte, error) {

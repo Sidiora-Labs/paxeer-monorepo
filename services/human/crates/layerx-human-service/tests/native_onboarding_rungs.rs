@@ -17,6 +17,7 @@ use layerx_human_service::trace::TraceId;
 use layerx_human_test_support as support;
 use layerx_intents::{canonical, NativeOwnerBootstrap};
 use layerx_sdk::Client as AgentClient;
+use layerx_types::clock::{Clock, Deadline};
 use layerx_types::ids::Did;
 use layerx_types::intent::{ApprovalThreshold, PublicKey, RecoveryRoot};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
@@ -24,8 +25,9 @@ use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 use std::fs;
 use std::os::unix::net::UnixListener;
+use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use support::{directory, install_and_open, principal, retention_uniform, tenancy};
 const NETWORK_ID: u32 = 77;
 const CHALLENGE_DELAY: u64 = 86_400;
@@ -337,7 +339,8 @@ fn native_onboarding_completes_only_at_committed() {
 #[test]
 fn native_onboarding_uses_the_pending_nonce() {
     let mut fixture = Fixture::new("native-onboarding-pending-nonce");
-    let mut runtime = AgentRuntime::new(
+    let clock: Arc<dyn Clock> = Arc::new(support::StepClock::new(100_000));
+    let mut runtime = AgentRuntime::new_with_clock(
         fixture.root.join("unavailable-agent.sock"),
         layerx_human_service::frame::Limits {
             maximum_frame_bytes: 65_536,
@@ -347,6 +350,7 @@ fn native_onboarding_uses_the_pending_nonce() {
             deadline: Duration::from_secs(1),
         },
         fixture.registry.clone(),
+        Arc::clone(&clock),
     )
     .unwrap();
     let mut scope = fixture.store.principal(&principal("alice")).unwrap();
@@ -377,13 +381,17 @@ fn native_onboarding_uses_the_pending_nonce() {
     let socket = fixture.root.join("peer.sock");
     let listener = UnixListener::bind(&socket).unwrap();
     listener.set_nonblocking(true).unwrap();
+    let peer_clock = Arc::clone(&clock);
     let server = thread::spawn(move || {
-        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut deadline = Deadline::start(peer_clock.as_ref(), Duration::from_secs(5)).unwrap();
         let mut stream = loop {
             match listener.accept() {
                 Ok((stream, _)) => break stream,
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    assert!(Instant::now() < deadline, "peer request deadline");
+                    assert!(
+                        !deadline.remaining(peer_clock.as_ref()).unwrap().is_zero(),
+                        "peer request deadline"
+                    );
                     thread::sleep(Duration::from_millis(1));
                 }
                 Err(error) => panic!("peer accept: {error}"),
@@ -398,7 +406,7 @@ fn native_onboarding_uses_the_pending_nonce() {
         assert_eq!(read_frame(&mut stream, 4096).unwrap(), nonce_request);
         write_frame(&mut stream, &nonce_answer, 4096).unwrap();
     });
-    let mut pending_runtime = AgentRuntime::new(
+    let mut pending_runtime = AgentRuntime::new_with_clock(
         &socket,
         Limits {
             maximum_frame_bytes: 4096,
@@ -408,6 +416,7 @@ fn native_onboarding_uses_the_pending_nonce() {
             deadline: Duration::from_secs(5),
         },
         fixture.registry.clone(),
+        clock,
     )
     .unwrap();
     let action = journey
