@@ -1,0 +1,48 @@
+[issue.1526]
+number = 1526
+title = "[Coherence] OpenTelemetry core is pinned below the exact version the raised Jaeger propagator requires"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "apps/explorer/package.json:219 still forces core 2.8.0 and apps/explorer/package.json:227 forces Jaeger 2.9.0, whose exact core 2.9.0 dependency at apps/explorer/yarn.lock:6821 is resolved together with incompatible 1.x and ^2.9.0 selectors to 2.8.0 at apps/explorer/yarn.lock:6328, while tools/deps/floors/explorer-web.json:12 sets only a 2.8.0 minimum and tools/deps/lockfloor.py:293 checks that minimum without checking dependent ranges."
+close_comment = "Confirmed: the explorer forces OpenTelemetry core 2.8.0 onto Jaeger 2.9.0 and older consumers with incompatible dependency ranges. A follow-up task will align the telemetry dependencies and add a compatibility regression test while preserving the security minimums."
+
+[task.18.1526.1]
+title = "Issue #1526: Align explorer telemetry dependencies with Jaeger's required core version"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181526.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the incompatible core override at apps/explorer/package.json:219 and align the legacy telemetry dependencies at apps/explorer/package.json:69 with the Jaeger 2.9.0 requirement at apps/explorer/yarn.lock:6821; upgrade consumers that require core 1.x to compatible releases, remove the unused legacy Jaeger exporter dependency at apps/explorer/package.json:70 while retaining OTLP trace export at apps/explorer/instrumentation.node.ts:17, adapt SDK initialization at apps/explorer/instrumentation.node.ts:19 to the aligned SDK APIs, and regenerate apps/explorer/yarn.lock with its declared Yarn manager so every remaining core selector satisfies its resolved version and every core copy meets the unchanged 2.8.0 minimum at tools/deps/floors/explorer-web.json:12."
+do_2 = "Add apps/explorer/instrumentation.node.spec.ts with the declared test_explorer_telemetry_dependency_coherence function and register it with an explicit matching test name; read the real manifest and Yarn lock with a real lock parser and semver range checks, assert that every core selector resolves within its declared range, Jaeger 2.9.0 resolves exactly core 2.9.0, and no legacy 1.x request is forced onto core 2.x, run the existing floor checker against tools/deps/floors/explorer-web.json without changing its rules, and exercise the installed aligned SDK and Jaeger propagator through a real span-context inject/extract round trip without test doubles."
+symbols = ["test_explorer_telemetry_dependency_coherence"]
+touches = ["apps/explorer/package.json", "apps/explorer/yarn.lock", "apps/explorer/instrumentation.node.ts", "apps/explorer/instrumentation.node.spec.ts"]
+tests = ["apps/explorer/instrumentation.node.spec.ts::test_explorer_telemetry_dependency_coherence"]
+planned_paths = ["apps/explorer/instrumentation.node.spec.ts"]
+build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit"
+verify_cmd = "yarn --cwd apps/explorer test:vitest run instrumentation.node.spec.ts -t '^test_explorer_telemetry_dependency_coherence$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181526]
+title = "Explorer telemetry resolves compatible core versions without lowering security minimums"
+ac_1 = "Given the conflicting core override at apps/explorer/package.json:219 and Jaeger's exact core dependency at apps/explorer/yarn.lock:6821, when explorer telemetry dependencies are resolved, then Jaeger 2.9.0 receives core 2.9.0, every remaining core selector accepts its locked version, every core copy meets the unchanged floor at tools/deps/floors/explorer-web.json:12, and the installed SDK preserves a real span context through Jaeger injection and extraction."
+
+[acceptance.18.1526.1]
+feature = "18"
+req = "181526.1"
+scenario = "Given the explorer telemetry dependency graph, when test_explorer_telemetry_dependency_coherence checks its real manifest and lock and propagates a real SDK span context, then Jaeger 2.9.0 uses core 2.9.0, every core request is satisfied without forcing legacy 1.x requests onto 2.x, the unchanged security floor checker passes, and the extracted trace and span identifiers match the injected context."
+contract = "contracts/programme.md#programme"
+test = "apps/explorer/instrumentation.node.spec.ts::test_explorer_telemetry_dependency_coherence (planned)"
+qualification = "UNRUN"
