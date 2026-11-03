@@ -203427,7 +203427,7 @@ do_7 = "Attempt 3 (continue): TestProofLayerxprograms0x101d runs tests/agent/sdk
 
 [task.22.99.144]
 title = "Repair the inventory sweep target node/sequencer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.13", "22.99.160"]
