@@ -1,0 +1,7 @@
+[issue.1531]
+number = 1531
+title = "[Coherence] Task 1.2.3 still leaves kernel tests that read the deleted idempotency fields outside its scope, although the commit says every reader is now covered"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "duplicate"
+evidence = "Issue #1542 (spec/layerx-merge/programme/issues/input/1542.md:5) covers the same omitted test migrations after commit 5af20d0e86ae6c82ed20809338a1d8d4f4ba97fb removed the store and journal fields now absent at include/layerx/lxp_state.h:27 and include/layerx/lxp_state.h:37, while all six readers remain at tests/state/lxp_test_state_root.c:184, tests/codec/lxp_test_idempotency_retired.c:205, tests/codec/lxp_test_settled_maintenance.c:306, tests/codec/lxp_test_fee_meter_refused.c:308, tests/codec/lxp_test_global_sequence.c:225 and tests/codec/lxp_test_program_signer_binding.c:263, outside the completed task's touches at spec/layerx-merge/spec.kvx:104938 and focused verification at spec/layerx-merge/spec.kvx:104942."
+close_comment = "Closing as a duplicate of #1542, which tracks the same kernel tests referencing the removed idempotency fields and includes two additional affected tests. The six test files identified here still require migration to the current state and journal types."

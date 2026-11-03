@@ -44,23 +44,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var updateSequencerReceiptVectors = flag.Bool("update", false, "rewrite sdk/platform/conformance/fixtures/sequencer-receipt-v1.json")
+var updateSequencerReceiptVectors = flag.Bool("update", false, "rewrite sequencer receipt conformance fixtures")
 
 const (
-	seqVecName         = "sequencer-receipt-v1"
-	seqVecFixture      = "../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
-	seqVecGenerator    = "rpc/sequencer_receipt_vectors_test.go"
-	seqVecCommand      = "go test -count=1 ./rpc/ -run TestSequencerReceiptVectors -update"
-	seqVecChainID      = 125
-	seqVecModuleID     = seqnode.KernelReservedModules + 1
-	seqVecFirstHeight  = 1000
-	seqVecLastHeight   = 1999
-	seqVecBaseFee      = 1_000_000_000
-	seqVecTipCap       = 1_000_000_000
-	seqVecFeeCap       = 3_000_000_000
-	seqVecTimeBase     = 1_750_000_000_000
-	seqVecBlockMs      = 400
-	seqVecInsufficient = "LXP_INSUFFICIENT_BALANCE"
+	seqVecName            = "sequencer-receipt-v1"
+	seqVecFixture         = "../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+	seqVecFeeTokenFixture = "../sdk/platform/conformance/fixtures/sequencer-receipt-fee-token-v1.json"
+	seqVecFeeTokenCommand = "go test -count=1 ./rpc/ -run '^TestSequencerReceiptFeeTokenVector$' -update"
+	seqVecGenerator       = "rpc/sequencer_receipt_vectors_test.go"
+	seqVecCommand         = "go test -count=1 ./rpc/ -run TestSequencerReceiptVectors -update"
+	seqVecChainID         = 125
+	seqVecModuleID        = seqnode.KernelReservedModules + 1
+	seqVecFirstHeight     = 1000
+	seqVecLastHeight      = 1999
+	seqVecBaseFee         = 1_000_000_000
+	seqVecTipCap          = 1_000_000_000
+	seqVecFeeCap          = 3_000_000_000
+	seqVecTimeBase        = 1_750_000_000_000
+	seqVecBlockMs         = 400
+	seqVecInsufficient    = "LXP_INSUFFICIENT_BALANCE"
 )
 
 var (
@@ -103,13 +105,16 @@ type seqVecCase struct {
 	Vector         string          `json:"vector"`
 	Description    string          `json:"description"`
 	RawTransaction hexutil.Bytes   `json:"rawTransaction"`
-	ReceiptJSON    json.RawMessage `json:"receiptJson"`
+	ReceiptJSON    json.RawMessage `json:"receiptJson,omitempty"`
 	SignedReceipt  hexutil.Bytes   `json:"signedReceipt"`
 	ReceiptDigest  common.Hash     `json:"receiptDigest"`
 	PrevSeqHash    common.Hash     `json:"prevSeqHash"`
 	PinnedKey      seqVecPin       `json:"pinnedKey"`
 	LXPCode        string          `json:"lxpCode,omitempty"`
 	Expected       seqVecExpected  `json:"expected"`
+	PaymentDenom   string          `json:"paymentDenom,omitempty"`
+	FeeDenom       string          `json:"feeDenom,omitempty"`
+	Asset          *common.Hash    `json:"asset,omitempty"`
 }
 
 type seqVecProvenance struct {
@@ -180,11 +185,12 @@ type seqVecSigned struct {
 // seqVecBuilder signs the vector transactions and their receipts and tracks the sender balance
 // and the cumulative gas of each open block along the accepted chain.
 type seqVecBuilder struct {
-	t          *testing.T
-	sender     common.Address
-	ethSigner  ethtypes.Signer
-	balance    *big.Int
-	cumulative map[int64]uint64
+	t            *testing.T
+	sender       common.Address
+	ethSigner    ethtypes.Signer
+	balance      *big.Int
+	cumulative   map[int64]uint64
+	paymentDenom string
 }
 
 func newSeqVecBuilder(t *testing.T) *seqVecBuilder {
@@ -192,11 +198,12 @@ func newSeqVecBuilder(t *testing.T) *seqVecBuilder {
 	key, err := crypto.ToECDSA(seqVecSenderSecret)
 	require.NoError(t, err)
 	return &seqVecBuilder{
-		t:          t,
-		sender:     crypto.PubkeyToAddress(key.PublicKey),
-		ethSigner:  ethtypes.NewLondonSigner(big.NewInt(seqVecChainID)),
-		balance:    new(big.Int).Set(seqVecStartBalance),
-		cumulative: map[int64]uint64{},
+		t:            t,
+		sender:       crypto.PubkeyToAddress(key.PublicKey),
+		ethSigner:    ethtypes.NewLondonSigner(big.NewInt(seqVecChainID)),
+		balance:      new(big.Int).Set(seqVecStartBalance),
+		cumulative:   map[int64]uint64{},
+		paymentDenom: evmkeeper.BaseDenom,
 	}
 }
 
@@ -266,7 +273,7 @@ func (b *seqVecBuilder) receipt(key *seqnode.ReceiptKey, keyID [32]byte, signedT
 		},
 		Operation:         signedTx.Type(),
 		ReturnData:        tx.returnData,
-		PaymentDenom:      evmkeeper.BaseDenom,
+		PaymentDenom:      b.paymentDenom,
 		FeeDenom:          evmkeeper.BaseDenom,
 		FeeCharged:        fee,
 		Amount:            tx.value,
@@ -918,16 +925,82 @@ func TestSequencerReceiptVectors(t *testing.T) {
 		FeeDenom:   evmkeeper.BaseDenom,
 		Cases:      cases,
 	}
+	seqVecWriteFixture(t, seqVecFixture, seqVecCommand, file)
+	t.Run("conformance-copies", TestVectorFilesV1ToV3MatchSequencerReceiptFixture)
+}
+
+func seqVecWriteFixture(t *testing.T, path, command string, file seqVecFile) {
+	t.Helper()
 	rendered, err := json.MarshalIndent(file, "", "  ")
 	require.NoError(t, err)
 	rendered = append(rendered, '\n')
 	if *updateSequencerReceiptVectors {
-		require.NoError(t, os.WriteFile(seqVecFixture, rendered, 0o644)) //nolint:gosec // a published conformance fixture
+		require.NoError(t, os.WriteFile(path, rendered, 0o644)) //nolint:gosec // a published conformance fixture
 	}
-	stored, err := os.ReadFile(seqVecFixture)
-	require.NoError(t, err, "run %s to write the fixture", seqVecCommand)
-	require.Equal(t, string(stored), string(rendered), "the fixture differs from the node signer output; run %s", seqVecCommand)
-	t.Run("conformance-copies", TestVectorFilesV1ToV3MatchSequencerReceiptFixture)
+	stored, err := os.ReadFile(path)
+	require.NoError(t, err, "run %s to write the fixture", command)
+	require.Equal(t, string(stored), string(rendered), "the fixture differs from the node signer output; run %s", command)
+}
+
+func TestSequencerReceiptFeeTokenVector(t *testing.T) {
+	a := app.Setup(t, false, false, false)
+	ctx := a.GetContextForDeliverTx(nil).WithBlockHeight(seqVecFirstHeight)
+	params := evmtypes.DefaultParams()
+	params.FeeTokenEnabled = true
+	params.AllowedFeeDenoms = []evmtypes.AllowedFeeDenom{{
+		Denom: "usid", Rate: sdk.NewDec(evmtypes.InitialSidioraBaseUnitsPerPax), RateUpdateHeight: seqVecFirstHeight,
+	}}
+	a.EvmKeeper.SetParams(ctx, params)
+	b := newSeqVecBuilder(t)
+	require.NoError(t, a.EvmKeeper.SetAccountFeeDenom(ctx, b.sender, "usid"))
+	charge, err := a.EvmKeeper.GetFeeTokenCharge(ctx, b.sender)
+	require.NoError(t, err)
+	require.NotNil(t, charge)
+	require.Equal(t, "usid", charge.Denom)
+	b.paymentDenom = charge.Denom
+	feeDenom := a.EvmKeeper.GetBaseDenom(ctx)
+	require.Equal(t, evmkeeper.BaseDenom, feeDenom)
+	require.NotEqual(t, feeDenom, b.paymentDenom)
+
+	public := [32]byte(ed25519.NewKeyFromSeed(seqVecReceiptSeed).Public().(ed25519.PublicKey))
+	pin := seqVecPin{KeyID: seqVecKeyID, PublicKey: public[:], FirstHeight: seqVecFirstHeight, LastHeight: seqVecLastHeight}
+	key := loadSeqVecKey(t, t.TempDir(), verify.SequencerAuthorization{
+		SequencerID: seqVecKeyID, PublicKey: public, FirstBatchNumber: seqVecFirstHeight, LastBatchNumber: seqVecLastHeight,
+	})
+	tx := seqVecTransfer(0, 1)
+	signed := b.receipt(key, seqVecKeyID, b.signTx(tx), tx, seqVecSlot{seq: 1, height: seqVecFirstHeight, index: 1}, true)
+	verified, err := verify.ReceiptSignature(signed.signed, public)
+	require.NoError(t, err)
+	require.Equal(t, signed.digest, verified.Digest)
+	decoded := verified.Receipt
+	asset := common.Hash(sha256.Sum256([]byte(charge.Denom)))
+	require.Equal(t, asset, common.Hash(decoded.Asset))
+	require.NotEqual(t, sha256.Sum256([]byte(feeDenom)), decoded.Asset)
+	require.Equal(t, seqVecModuleID, decoded.ModuleID)
+	require.Equal(t, seqVecKeyID, decoded.ContextHash)
+	require.Equal(t, [32]byte(signed.activity), decoded.ActivityID)
+	require.Equal(t, signed.seqHash, decoded.ResultingStateRoot)
+	require.Equal(t, uint64(1), decoded.GlobalSequence)
+	require.Equal(t, int32(0), decoded.ResultCode)
+	require.Len(t, decoded.Effects, 1)
+	summary := decoded.Effects[0].Body
+	require.GreaterOrEqual(t, len(summary), 109)
+	require.Equal(t, len(feeDenom), int(summary[108]))
+	require.Equal(t, feeDenom, string(summary[109:]))
+	fee := decoded.FeeCharged.Bytes()
+	require.Equal(t, new(big.Int).Mul(new(big.Int).SetUint64(tx.gasUsed), big.NewInt(seqVecBaseFee+seqVecTipCap)), new(big.Int).SetBytes(fee[:]))
+
+	c := seqVecCaseOf("V1-fee-token-payment", "V1", "Registered fee-token payment asset with fees denominated in the base denomination", signed, signed.raw, nil, [32]byte{}, pin)
+	c.Expected = seqVecExpected{Verifier: "accepts"}
+	c.PaymentDenom, c.FeeDenom, c.Asset = charge.Denom, feeDenom, &asset
+	file := seqVecFile{
+		Name:       "sequencer-receipt-fee-token-v1",
+		Provenance: seqVecProvenance{Generator: seqVecGenerator, Command: seqVecFeeTokenCommand},
+		ChainID:    seqVecChainID, ModuleID: seqVecModuleID, FeeDenom: feeDenom,
+		Cases: []seqVecCase{c},
+	}
+	require.Len(t, file.Cases, 1)
+	seqVecWriteFixture(t, seqVecFeeTokenFixture, seqVecFeeTokenCommand, file)
 }
 
 func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {

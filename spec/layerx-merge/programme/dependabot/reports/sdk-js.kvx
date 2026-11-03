@@ -1,0 +1,8 @@
+[alert.GHSA-848j-6mx2-7j84]
+package = "elliptic"
+manifest = "sdk/js/package-lock.json"
+verdict = "no-fix"
+version_before = "6.6.1"
+version_after = "6.6.1"
+pinned_by = "@cosmjs/proto-signing@0.32.4 -> @cosmjs/crypto@0.32.4 -> elliptic@6.6.1 (range ^6.5.4); @cosmjs/stargate@0.32.4 -> @cosmjs/amino@0.32.4 -> @cosmjs/crypto@0.32.4 -> elliptic@6.6.1, with additional stargate routes through @cosmjs/proto-signing@0.32.4 and @cosmjs/tendermint-rpc@0.32.4. Published @cosmjs/proto-signing@0.34.0 and @cosmjs/stargate@0.34.0 depend on @cosmjs/crypto ^0.34.0 directly or transitively; @cosmjs/crypto@0.34.0 replaces elliptic with @noble/curves ^1.9.2. Upgrading both direct dependencies to 0.34.0 removes these elliptic paths; their current ^0.32.4 ranges exclude 0.34.0. The advisory names no patched elliptic version."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"

@@ -1,0 +1,18 @@
+{
+ "slug": "tests-integration-rpc-tests",
+ "manifests": [
+  "tests/integration/rpc_tests/package-lock.json"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-848j-6mx2-7j84",
+   "number": 2272,
+   "package": "elliptic",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/rpc_tests/package-lock.json",
+   "severity": "low",
+   "range": "<= 6.6.1",
+   "patched": null
+  }
+ ]
+}

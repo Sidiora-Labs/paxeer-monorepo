@@ -1,0 +1,35 @@
+[alert.GHSA-gcqx-w48m-w2h4]
+package = "deepmerge"
+manifest = "services/explorer/backend/apps/block_scout_web/assets/package-lock.json"
+verdict = "no-fix"
+version_before = "4.3.1"
+version_after = "4.3.1"
+pinned_by = "jest@29.7.0 -> @jest/core@29.7.0 -> jest-config@29.7.0 -> deepmerge@4.3.1 (^4.2.2); the advisory names no patched release"
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-848j-6mx2-7j84]
+package = "elliptic"
+manifest = "services/explorer/backend/apps/block_scout_web/assets/package-lock.json"
+verdict = "no-fix"
+version_before = "6.6.1"
+version_after = "6.6.1"
+pinned_by = "crypto-browserify@3.12.1 -> create-ecdh@4.0.4 -> elliptic@6.6.1 (^6.5.3); the advisory names no patched release"
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-g3hv-75wg-m249]
+package = "minimatch"
+manifest = "services/explorer/backend/apps/block_scout_web/assets/package-lock.json"
+verdict = "pinned"
+version_before = "3.1.3"
+version_after = "3.1.3"
+pinned_by = "eslint-plugin-node latest release 11.1.0 requires minimatch ^3.0.4, excluding the patched 11.0.1; minimatch remains pinned at 3.1.3"
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-p8p7-x288-28g6]
+package = "request"
+manifest = "services/explorer/backend/apps/block_scout_web/assets/package-lock.json"
+verdict = "no-fix"
+version_before = "2.88.2"
+version_after = "2.88.2"
+pinned_by = "@walletconnect/web3-provider@1.8.0 -> web3-provider-engine@16.0.1 -> request@2.88.2 (^2.85.0); the advisory names no patched release"
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"

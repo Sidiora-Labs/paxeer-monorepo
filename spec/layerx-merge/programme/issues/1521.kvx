@@ -1,0 +1,48 @@
+[issue.1521]
+number = 1521
+title = "[Coherence] The blanket glob override hands glob 14 to rimraf 2 and globby 6, which call glob as a callback function, so the next-pwa clean step in `next build` breaks"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit fc3d178f2a01ba91683a726d3468dbd68f3cf8dc remains the latest change to these dependencies: apps/perps/package.json:105 and :145 force glob 14.0.2, apps/perps/pnpm-lock.yaml:12202, :10981, :11192, :11695 and :12841 retain next-pwa -> clean-webpack-plugin -> del 4 -> globby 6/rimraf 2 with that glob, apps/perps/package-lock.json:11422, :12772 and :15938 confirm the npm resolution, and apps/perps/next.config.js:1 loads the incompatible chain before its development-disable option at :3 can apply."
+close_comment = "The PWA cleanup dependency chain still resolves a non-callable glob export into globby 6, which fails while loading the build configuration; glob 14 retains sync, so the failure occurs before the cleanup hook runs. A follow-up task upgrades the cleanup dependency without lowering the security floors and adds a regression test for the production cleanup path."
+
+[task.18.1521.1]
+title = "Issue #1521: Restore compatible PWA cleanup without lowering dependency floors"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181521.1"]
+capabilities = []
+interfaces = []
+do_1 = "In apps/perps/package.json:85 and :125, add equivalent npm and pnpm overrides scoped to clean-webpack-plugin's del dependency, raising del from 4.1.1 to 6.1.1, and regenerate apps/perps/pnpm-lock.yaml and apps/perps/package-lock.json consistently; the chain at apps/perps/pnpm-lock.yaml:10979 and :11189 must use globby 11 instead of globby 6 and the compatible del 6 sync API, whose rimraf calls disable glob expansion, retaining every floor in tools/deps/floors/perps-web.json:1 and both glob overrides at apps/perps/package.json:105 and :145."
+do_2 = "Add apps/perps/tests/pwa-cleanup.test.ts (planned) with declared function productionPwaCleanupUsesCompatibleGlobApi registered with test(productionPwaCleanupUsesCompatibleGlobApi): load the real apps/perps/next.config.js:1 with NODE_ENV=production, invoke its webpack hook with a real webpack configuration, and compile a minimal entry in a temporary directory using the actual PWA cleanup plugin selected by that hook; seed stale sw.js, sw.js.map and workbox files and an unrelated asset, assert successful compilation, removal of the stale matching files and preservation of the unrelated asset, assert the cleanup chain resolves del 6 and globby 11, assert a successful tools/deps/lockfloor.py check of tools/deps/floors/perps-web.json covering both locks, and restore environment and temporary files afterwards without mocks or disabled checks."
+symbols = ["productionPwaCleanupUsesCompatibleGlobApi"]
+touches = ["apps/perps/package.json", "apps/perps/pnpm-lock.yaml", "apps/perps/package-lock.json", "apps/perps/tests/pwa-cleanup.test.ts"]
+tests = ["apps/perps/tests/pwa-cleanup.test.ts::productionPwaCleanupUsesCompatibleGlobApi"]
+planned_paths = ["apps/perps/tests/pwa-cleanup.test.ts"]
+build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^productionPwaCleanupUsesCompatibleGlobApi$' tests/pwa-cleanup.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181521]
+title = "Production PWA cleanup uses compatible dependencies above the security floors"
+ac_1 = "Given the production configuration at apps/perps/next.config.js:1 and stale files matching next-pwa's cleanup patterns, when its real webpack cleanup plugin compiles a minimal entry, then configuration loading and compilation succeed, stale worker files are removed, unrelated assets survive, the legacy globby 6 resolution at apps/perps/pnpm-lock.yaml:11692 is absent from the cleanup chain, and the dependency floors in tools/deps/floors/perps-web.json:1 remain satisfied."
+
+[acceptance.18.1521.1]
+feature = "18"
+req = "181521.1"
+scenario = "Given production PWA configuration, stale generated worker files and an unrelated asset, when the actual configured cleanup plugin participates in a webpack compilation, then the compilation succeeds, the matching stale files are deleted and the unrelated asset remains with all dependency security floors preserved."
+contract = "contracts/perps-client.md#app"
+test = "apps/perps/tests/pwa-cleanup.test.ts::productionPwaCleanupUsesCompatibleGlobApi (planned)"
+qualification = "UNRUN"

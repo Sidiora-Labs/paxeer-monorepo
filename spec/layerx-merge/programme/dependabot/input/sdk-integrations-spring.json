@@ -1,0 +1,78 @@
+{
+ "slug": "sdk-integrations-spring",
+ "manifests": [
+  "sdk/integrations/spring/pom.xml"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-wjgm-6hv5-3cvf",
+   "number": 2753,
+   "package": "com.fasterxml.jackson.core:jackson-databind",
+   "ecosystem": "maven",
+   "manifest": "sdk/integrations/spring/pom.xml",
+   "severity": "medium",
+   "range": ">= 2.8.0, < 2.18.10",
+   "patched": "2.18.10"
+  },
+  {
+   "ghsa": "GHSA-q4xh-88c3-wmh7",
+   "number": 2754,
+   "package": "com.fasterxml.jackson.core:jackson-databind",
+   "ecosystem": "maven",
+   "manifest": "sdk/integrations/spring/pom.xml",
+   "severity": "high",
+   "range": ">= 2.14.0, < 2.18.10",
+   "patched": "2.18.10"
+  },
+  {
+   "ghsa": "GHSA-gx83-3vf8-gh7j",
+   "number": 2755,
+   "package": "com.fasterxml.jackson.core:jackson-databind",
+   "ecosystem": "maven",
+   "manifest": "sdk/integrations/spring/pom.xml",
+   "severity": "medium",
+   "range": ">= 2.11.0, < 2.18.10",
+   "patched": "2.18.10"
+  },
+  {
+   "ghsa": "GHSA-wv8q-qhhj-9h54",
+   "number": 2756,
+   "package": "com.fasterxml.jackson.core:jackson-databind",
+   "ecosystem": "maven",
+   "manifest": "sdk/integrations/spring/pom.xml",
+   "severity": "high",
+   "range": ">= 2.0.0, <= 2.18.10",
+   "patched": "2.18.11"
+  },
+  {
+   "ghsa": "GHSA-cxp5-3px4-pw24",
+   "number": 2757,
+   "package": "com.fasterxml.jackson.core:jackson-databind",
+   "ecosystem": "maven",
+   "manifest": "sdk/integrations/spring/pom.xml",
+   "severity": "high",
+   "range": ">= 2.5.0, <= 2.18.10",
+   "patched": "2.18.11"
+  },
+  {
+   "ghsa": "GHSA-wwpq-f5c3-7hvx",
+   "number": 2745,
+   "package": "org.springframework.boot:spring-boot",
+   "ecosystem": "maven",
+   "manifest": "sdk/integrations/spring/pom.xml",
+   "severity": "high",
+   "range": ">= 3.3.0, <= 3.3.18",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-ggg2-9786-hwc8",
+   "number": 2751,
+   "package": "org.springframework.boot:spring-boot-autoconfigure",
+   "ecosystem": "maven",
+   "manifest": "sdk/integrations/spring/pom.xml",
+   "severity": "medium",
+   "range": ">= 3.3.0, <= 3.3.19",
+   "patched": null
+  }
+ ]
+}

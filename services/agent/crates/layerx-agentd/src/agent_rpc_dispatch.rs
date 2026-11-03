@@ -182,7 +182,13 @@ fn prepare_bootstrap_transaction(
         to,
         data,
     };
+    let disclosure =
+        layerx_crypto::disclosure::call::bind_call(&call, from).map_err(|_| malformed(id))?;
+    let disclosure_digest = disclosure.signing_digest().map_err(|_| malformed(id))?;
     Ok(crate::prepare::evm::Prepared {
+        from,
+        disclosure,
+        disclosure_digest,
         signing_hash: call.signing_hash(),
         call,
         observed_head_height: state.head_height,
