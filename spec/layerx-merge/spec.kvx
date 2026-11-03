@@ -120338,7 +120338,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.35]
 title = "Restore the blockscout client yarn lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.96.33", "22.96.34"]
@@ -120606,7 +120606,7 @@ do_3 = "Decision 2457 (attempt 1, 5b7663901, continue): the build failed with ER
 
 [task.18.1521.1]
 title = "Issue #1521: Restore compatible PWA cleanup without lowering dependency floors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.96.30"]
