@@ -19331,3 +19331,59 @@ symbol = "TestSidioraFeePaid"
 observed = "Attempt 13 (3b736cb1c on 8019d18ff) passed the precompile packages, the merge tests and the node refresh test and failed only the collection-address assertion of TestSidioraFeePaid (expected 32697, actual 0); the end-of-block sweep of modules/evm/keeper/abci.go:183-196 (63dfe3cbc) moves the fee tokens to the block coinbase and the routing holds them, which the test's expectation (FeeCollected at the collection address, FeeRouted zero) contradicts since the day both landed."
 assumption = "The test asserts a layout the sweep replaced; decision 2380 rules the sweep right and the expectation moves to the routed accounts within 22.6.4."
 severity = "high"
+
+[finding.9.97.7.7]
+task = "9.97.7"
+file = "tests/agent/sdk/python/test_receipt_fixture.py"
+symbol = "verify_receipt, decode_program_receipt_outcome"
+observed = "efc169938 retired verify_receipt and decode_program_receipt_outcome from layerx_sdk and ported services/agent/sdk/python/tests; tests/agent/sdk/python/test_receipt_fixture.py:14-15 still imports both, so the module fails at collection (22.25.3 attempt 3, ImportError) and no later task collecting tests/agent/sdk/python passes."
+assumption = "The retirement missed the second test tree; decision 2381 assigns the port to 22.25.3 and 9.97.7 stays done."
+severity = "major"
+
+[finding.22.2.5.8]
+task = "22.2.5"
+file = "precompiles/layerxauth/layerxauth_test.go"
+symbol = "TestAuthWriteRefusals"
+observed = "Attempt 8 (7b461a9e0 on dcfbed2f9) passed the keeper, ledger, lxphost and common packages and failed only the bound-caller case of TestAuthWriteRefusals, which expected the unknown-method text and read LXP_UNKNOWN_FIELD (-7) from the actor resolution that layerxauth.go:70-95 runs before the method lookup."
+assumption = "The failure predates the task (the test last changed in 21.21.1, 2095e9c5b, and the lxphost resolution moved afterwards); decision 2382 narrows this task's verify to TestAuthRevertReasons and assigns the repair to 22.11.8."
+severity = "major"
+
+[finding.22.24.16.1]
+task = "22.24.16"
+file = "services/wallet/attestor/go.sum"
+symbol = "module sums"
+observed = "3a45b8541 raised three floors in services/wallet/attestor/go.mod and deleted services/wallet/attestor/go.sum and services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.lock; 10.20.6 attempt 4 (d2bf4c2c4) and 18.1434.1 attempt 5 (6ac4ea361), both on b9ae495fc, failed seven human-service tests with a missing go.sum entry for the module providing filippo.io/edwards25519 while building the attestor."
+assumption = "The task's own verify ran inside the module without the read-only module mode and did not assert the files exist; decision 2383 restores them in 22.24.24 and 22.24.25, and 22.24.16 stays done."
+severity = "major"
+
+[finding.1.1.5.3]
+task = "1.1.5"
+file = "services/agent/crates/layerx-types/tests/errors.rs"
+symbol = "KnownResult::DaMissing"
+observed = "f8721c8e3 retired LXP_ERR_DA_MISSING from include/layerx/lxp_result.h and changed two C tests; services/agent/crates/layerx-types generates KnownResult from that header, so tests/errors.rs:321 stopped compiling (E0599, no variant DaMissing) and 22.9.17 attempt 9 failed on it."
+assumption = "The retirement did not grep the generated-enum consumers; 22.9.17 drops the expectation and 1.1.5 stays done."
+severity = "major"
+
+[finding.21.45.1.4]
+task = "21.45.1"
+file = "services/agent/crates/layerx-proof/src/receipt.rs"
+symbol = "ReceiptCheck::DebitBalance"
+observed = "Attempt 11 (9f861946a on b9ae495fc) failed at tests/proof_sdk.rs:827 with VerificationFailure at DebitBalance for a node-produced account-open receipt whose sender paid only the gas fee: receipt.rs:385-392 checks debit_before - amount == debit_after while node/sequencer/receipt.go:400 and :479 capture the sender's balance before and after the fee was charged."
+assumption = "The verifier applies a fee-separate identity to an EVM receipt; decision 2385 moves the fee-aware identity into 22.9.36, which 21.45.1 now requires, and the candidate is re-qualified unchanged."
+severity = "high"
+
+[finding.21.87.1.2]
+task = "21.87.1"
+file = "node/sequencer/accepter_test.go"
+symbol = "TestAccepterReceiptsASendAcrossASeal"
+observed = "2f080287b left the across-a-seal test comparing the transient receipt (CumulativeGasUsed 0) with the signed receipt's Exec, which carries the cumulative gas Receipter.after adds (receipt.go:457); the test fails on main and stopped 22.23.8 attempts 1 to 3, none of which changed it."
+assumption = "The proof of 21.87.1 did not run this test; decision 2386 rules cumulative gas receipt-bound, 22.23.8 aligns the comparison, and 21.87.1 stays done."
+severity = "major"
+
+[finding.1.0.9.1]
+task = "1.0.9"
+file = "include/layerx/lxp_batch.h"
+symbol = "lxp_batch_body, lxp_batch_timestamp_select, lxp_batch_timestamp_validate"
+observed = "Attempts 1 (baa087ec9) and 2 (63baac208) wrote kernel_completion_retired_surfaces_absent over 481 retired interfaces and 52 planned paths and failed on exactly three: the typedef at include/layerx/lxp_batch.h:72-82 and the prototypes at :91 and :93 stayed behind when src/network/lxp_batch_publish.c and src/sequencer/lxp_batch_time.c were deleted; nothing under src, tests, modules or precompiles uses them."
+assumption = "The header is outside this task's touches; decision 2386 deletes the declarations in 1.0.10, which this task now requires, and the candidate is re-qualified unchanged."
+severity = "major"

@@ -14165,3 +14165,53 @@ fix = "A decision that changes control flow restates every count it moves, in th
 title = "A behaviour change closed on its own package tests leaves an earlier task's chain test asserting the old behaviour"
 symptom = "The fee-token sweep of 63dfe3cbc was closed on the modules/evm/keeper tests alone while TestSidioraFeePaid, written the same day, asserted that the collection address keeps the converted fee; the contradiction surfaced only when 22.6.4 made the chain test run again, and two findings and a bisect order were spent on a design that was already documented in the sweep's closure note."
 fix = "Before ordering a bisect for a failing assertion, read the git log of the production code the assertion depends on and the closure note of the commit that introduced the behaviour; when the behaviour is documented, rule the test wrong and move on."
+
+[gotcha.2869]
+title = "A Python test module that imports names a retirement task removed fails at collection in every later task that collects it"
+symptom = "tests/agent/sdk/python/test_receipt_fixture.py imported verify_receipt and decode_program_receipt_outcome after 9.97.7 retired them from layerx_sdk; the port of 18.1478.1 covered three sibling files and not this one, so 22.25.3 stopped at collection with ImportError."
+fix = "When a retirement removes public names, grep every test tree that imports the package (tests/agent/sdk/python as well as services/agent/sdk/python/tests) and port or delete each importer in the same task; decision 2381 assigns this file to 22.25.3."
+
+[gotcha.2870]
+title = "A precompile that resolves the caller before the method lookup answers the unknown-method case with the caller's error"
+symptom = "precompiles/layerxauth/layerxauth.go:70-95 calls Actor for every non-constant method before looking the method up, so the bound-caller case of TestAuthWriteRefusals reads LXP_UNKNOWN_FIELD from lxphost.DIDID instead of the unknown-method text once the lxphost resolution changed under it."
+fix = "Decision 2382: the failure belongs to the task that owns modules/lxphost (22.11.8); a task that did not change the refusal path narrows its verify to the table it owns and names the base failure in its commit message."
+
+[gotcha.2871]
+title = "A dependency raise that deletes go.sum and a vendored Cargo.lock breaks every build of the module while its own verify passes"
+symptom = "22.24.16 (3a45b8541) deleted services/wallet/attestor/go.sum and the kernelvectors Cargo.lock while raising three floors; its verify ran go mod verify and go build inside the module where the Go toolchain resolved modules without the sum file, and the human-service tests that build the attestor binary with -mod=readonly then failed on a missing go.sum entry."
+fix = "A raise that touches a module manifest ends with go mod tidy (or cargo generate-lockfile offline) and the verify asserts test -s on the sum or lock file; decision 2383 restores both files in 22.24.24 and 22.24.25."
+
+[gotcha.2872]
+title = "A lock-file raise re-applied onto lock files that moved keeps the old version in every manifest"
+symptom = "22.24.19 attempt 4 re-applied attempt 3's rustls 0.23.46 raise onto six Cargo.lock files that main had regenerated (0108cb23e, e8ef05d35); the merge kept the regenerated 0.23.45 entries without a conflict, so the floor check reported 0.23.45 < 0.23.46 in services/human, services/platform, tools/platform, services/interop, services/agent and services/agent/fuzz."
+fix = "A lock-file raise is redone on the current lock files with cargo update -p <crate> --precise <version> per manifest, never re-applied as a patch; the floors file and the pinned manifests carry the intent."
+
+[gotcha.2873]
+title = "A test that pins a retired header value by its generated enum variant fails to compile after the header retires it"
+symptom = "1.1.5 (f8721c8e3) retired LXP_ERR_DA_MISSING from include/layerx/lxp_result.h; services/agent/crates/layerx-types generates KnownResult from that header, so tests/errors.rs:321 (Some(KnownResult::DaMissing)) stopped compiling and every task whose verify builds the layerx-types tests failed with E0599."
+fix = "A header retirement greps the generated-enum consumers (services/agent/crates/layerx-types/tests) for the variant name and drops or re-pins the expectation in the same task; 22.9.17 carries the drop for errors.rs:321."
+
+[gotcha.2874]
+title = "A fixture test that expects an admission to expire fails once the reader bridges admissions of any age"
+symptom = "tests/program_chain_head.rs:686 expected HistoricalTrustAnchor for an admission 14 days and 1 ms old; after 9be053c27 the reader bridges the admission through served checkpoints and verifies it, so unwrap_err panicked on an Ok value."
+fix = "Decision 2384: assert the bridge (the admission verifies at the later time) and construct the refusal by withholding an intermediate checkpoint read; the 14-day constant is a step-push rule, not an expiry."
+
+[gotcha.2875]
+title = "A receipt verifier written for a fee-separate ledger refuses every real EVM receipt whose sender paid gas"
+symptom = "node/sequencer/receipt.go captures the sender's native balance before and after the transaction, so debit_after is lower by amount plus the gas fee when the fee is paid in the receipt asset; services/agent/crates/layerx-proof/src/receipt.rs:385-392 checks debit_before - amount == debit_after and reports DebitBalance for an account-open receipt whose only debit was the fee."
+fix = "Decision 2385: the identity accounts for fee_charged when the fee denomination in Effects[0].Body[108..] digests to the receipt asset; 22.9.36 carries it with vectors for both fee paths."
+
+[gotcha.2876]
+title = "A sample's Next build output committed past its own ignore rule turned a passing qualification into a different candidate"
+symptom = "22.8.11 attempt 14 qualified bd51e24b3 and then committed 5a1534c62 with 150 files under services/platform/docs/samples/paid-route-next/.next, although that sample's .gitignore ignores .next/; the recorded verification revision no longer matched the candidate."
+fix = "The qualification records the commit it ran on; a later commit is a new candidate. Build output under an ignored path is never force-added, and a candidate is inspected with git status --ignored before the qualification run."
+
+[gotcha.2877]
+title = "Deleting a source file leaves its public declarations in the header until a completion gate counts them"
+symptom = "src/network/lxp_batch_publish.c and src/sequencer/lxp_batch_time.c were deleted with their tests, but include/layerx/lxp_batch.h still declares lxp_batch_body (:72-82), lxp_batch_timestamp_select (:91) and lxp_batch_timestamp_validate (:93); the domain-1 completion gate (1.0.9) found the three catalogued retire-status interfaces present."
+fix = "A source deletion greps include/ for every symbol the file defined and removes the declarations in the same task; decision 2386 assigns the three to 1.0.10."
+
+[gotcha.2878]
+title = "A pinned-digest test on the former asset field and a stale transient-receipt comparison stop a receipt task that changed neither"
+symptom = "22.23.8 attempt 3: TestReceiptFeeFields (node/sequencer/receipt_equality_test.go:44 in the fee-token case) pins the fee token's digest as the receipt asset, which decision 2360 moved to the payment asset; TestAccepterReceiptsASendAcrossASeal (node/sequencer/accepter_test.go:383) compares the transient receipt (CumulativeGasUsed 0 at execution) with the signed receipt's Exec, which carries the cumulative gas Receipter.after adds (receipt.go:457, accepter.go:103)."
+fix = "The fee-token case asserts the payment-asset digest; the across-a-seal comparison takes CumulativeGasUsed from the signed summary (Effects[0].Body[8:16]) before comparing, the way accepter.go:103 does; both files are in 22.23.8's touches."
