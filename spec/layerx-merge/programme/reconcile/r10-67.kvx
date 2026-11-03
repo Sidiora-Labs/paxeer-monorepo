@@ -1,0 +1,519 @@
+[reconcile.r10-67]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r10-67.1]
+interface = "interface.10.rs-human-test-support-raw-receipt-evidence"
+verdict = "served"
+path = "services/human/crates/layerx-human-test-support/src/lib.rs"
+line = 346
+symbol = "raw_receipt_evidence"
+evidence = "pub fn raw_receipt_evidence now takes pinned_sequencer_receipt_key: [u8; 32], previous_state_root: [u8; 32] and resulting_state_root: [u8; 32] in place of authorised_batch: AuthorizedBatch; canonical_receipt, global_sequence, signer and the RawReceiptEvidence return remain. The helper checks the pinned key against the signer."
+
+[row.r10-67.2]
+interface = "interface.10.rs-human-test-support-receive-signed-receive"
+verdict = "served"
+path = "services/human/crates/layerx-human-test-support/src/receive.rs"
+line = 1
+symbol = "signed_receive"
+evidence = "The registered receive.rs still re-exports signed_receive from layerx_intents::vectors in a grouped pub use statement."
+
+[row.r10-67.3]
+interface = "interface.10.rs-human-test-support-receive-signed-receive-request"
+verdict = "served"
+path = "services/human/crates/layerx-human-test-support/src/receive.rs"
+line = 1
+symbol = "SignedReceiveRequest"
+evidence = "The registered receive.rs still re-exports SignedReceiveRequest from layerx_intents::vectors in the same grouped pub use statement."
+
+[row.r10-67.4]
+interface = "interface.10.rs-intents-canonical-activity"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 1
+symbol = "Activity"
+evidence = "The layerx_intents::canonical Activity re-export is gone; canonical.rs has no Activity identifier. override.J46.12 and decisions 1023/1026 retire this export. The original wire type and other Activity homonyms survive elsewhere; remaining conservatively lists every file mentioning the exact identifier, including prose and tests. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 225
+remaining = ["GOTCHA.kvx:2123", "apps/explorer/types/api/paxeerX.ts:28", "apps/explorer/ui/pages/PaxeerXAccount.spec.tsx:182", "apps/explorer/ui/pages/PaxeerXAccount.tsx:186", "apps/explorer/ui/pages/RewardsDashboard.tsx:139", "apps/explorer/ui/paxeerX/chains/ChainDetail.tsx:46", "apps/explorer/ui/rewards/dashboard/RewardsActivityPassCard.tsx:30", "apps/launchpad/web/src/ui/primitives/badges.tsx:6", "apps/launchpad/web/src/widgets/explore/preset-tabs.tsx:3", "apps/launchpad/web/src/widgets/profile/activity-tab.tsx:33", "apps/launchpad/web/src/widgets/profile/profile-tabs.tsx:17", "apps/launchpad/web/src/widgets/terminal/views/track.tsx:139", "apps/perps/src/widgets/portfolio/MobilePortfolioOverview.tsx:356", "apps/perps/src/widgets/trading/MobileTradingLayout.tsx:270", "apps/wallet/e2e/home.spec.ts:12", "apps/wallet/src/components/nav/BottomNav.tsx:14", "apps/wallet/src/lib/locale/messages.ts:257", "apps/wallet/src/widgets/discover/DiscoverWidget.tsx:5", "apps/wallet/src/widgets/shell/ShellWidget.tsx:120", "apps/wallet/src/widgets/tokenDetail/ActivityFeed.tsx:34", "apps/wallet/src/widgets/transactions/TransactionsWidget.tsx:4", "apps/web/copy/catalog.ts:60", "apps/web/copy/messages.generated.ts:29", "apps/web/packages/layerx-ui/README.md:56", "apps/web/packages/layerx-ui/src/components/app-shell.tsx:4", "apps/web/src/app/_markets/activity-feed.tsx:54", "apps/web/src/app/app/activity/page.tsx:1", "apps/web/src/journeys/activity/activity.tsx:138", "apps/web/src/journeys/activity/index.ts:1", "apps/web/src/journeys/activity/model.ts:139", "consensus/spec/p2p/peer.md:126", "core/deps/geth/signer/fourbyte/4byte.json:245516", "modules/layerxauth/ante/integration_test.go:83", "modules/layerxauth/ante/revocation_test.go:98", "modules/layerxauth/keeper/execute.go:42", "modules/layerxauth/keeper/retire_test.go:66", "modules/layerxauth/keeper/shared_host_test.go:56", "modules/layerxauth/keeper/views_test.go:28", "modules/layerxexchange/keeper/oracle.go:74", "modules/layerxexchange/keeper/oracle_test.go:82", "modules/layerxledger/keeper/accounts_test.go:45", "modules/layerxledger/keeper/events_test.go:154", "modules/layerxledger/keeper/execute.go:46", "modules/layerxledger/keeper/execute_test.go:272", "modules/layerxledger/keeper/mirror_test.go:57", "modules/layerxledger/keeper/pause_test.go:115", "modules/layerxledger/keeper/views_test.go:53", "modules/layerxledger/types/proof_payload_codec_test.go:1", "modules/layerxpay/integration/genesis_test.go:51", "modules/layerxpay/keeper/budget_close_test.go:78", "modules/layerxpay/keeper/budget_create_test.go:47", "modules/layerxpay/keeper/budget_pull_test.go:115", "modules/layerxpay/keeper/budget_spend_test.go:61", "modules/layerxpay/keeper/budget_views_test.go:53", "modules/layerxpay/keeper/escrow_open_test.go:98", "modules/layerxpay/keeper/escrow_settle_test.go:174", "modules/layerxpay/keeper/execute.go:44", "modules/layerxpay/keeper/execute_test.go:34", "modules/layerxpay/keeper/harness_test.go:111", "modules/layerxpay/keeper/proof_pay_genesis_test.go:136", "modules/layerxpay/keeper/service_agreement_test.go:46", "modules/layerxpay/keeper/service_offer_test.go:45", "modules/layerxpay/keeper/stream_lifecycle_test.go:110", "modules/layerxpay/keeper/stream_open_test.go:99", "modules/layerxpay/keeper/stream_settle_test.go:127", "modules/layerxpay/types/proof_views_test.go:91", "modules/lxphost/account_codec_conformance_test.go:13", "modules/lxphost/binding_test.go:15", "modules/lxphost/ctx.go:351", "modules/lxphost/execute.go:20", "modules/lxphost/fee_record_load_test.go:29", "modules/lxphost/genesis_test.go:27", "modules/lxphost/host.go:826", "modules/lxphost/host_test.go:145", "modules/lxphost/idempotency_restart_test.go:53", "modules/lxphost/pool_read_test.go:28", "modules/lxphost/pool_test.go:45", "modules/lxphost/proof_lxphost_host_test.go:102", "modules/lxphost/read_authority_test.go:25", "modules/lxphost/resolution_test.go:83", "modules/lxphost/scope_test.go:102", "modules/lxphost/simulate.go:161", "modules/lxphost/simulate_test.go:17", "node/ante_revocation_test.go:171", "precompiles/layerxagent/oracle/oracle.go:91", "precompiles/layerxagent/oracle/oracle_test.go:139", "precompiles/layerxagent/oracle/proof_oracle_aggregator_0x0903_test.go:250", "precompiles/layerxagent/streams/harness_test.go:198", "precompiles/layerxauth/client_test.go:120", "precompiles/layerxauth/grants_test.go:77", "precompiles/layerxauth/parity_test.go:28", "precompiles/layerxauth/pause_test.go:59", "precompiles/layerxauth/revoke_test.go:80", "precompiles/layerxauth/views_test.go:33", "precompiles/layerxledger/client_test.go:183", "precompiles/layerxledger/parity_test.go:75", "precompiles/layerxledger/transfers_test.go:196", "precompiles/layerxledger/views_test.go:55", "precompiles/layerxpay/conformance_budget_test.go:166", "precompiles/layerxpay/conformance_escrow_test.go:83", "precompiles/layerxpay/conformance_service_test.go:54", "precompiles/layerxpay/escrow_test.go:53", "precompiles/layerxpay/served/served_test.go:89", "precompiles/layerxprograms/method_deploy_test.go:108", "precompiles/layerxprograms/method_quote_test.go:153", "precompiles/layerxprograms/method_registry_test.go:40", "precompiles/layerxprograms/method_simulate.go:70", "precompiles/layerxprograms/method_transfer_test.go:66", "precompiles/layerxprograms/replay_test.go:45", "precompiles/layerxprograms/submit.go:79", "precompiles/layerxprograms/submit_test.go:50", "precompiles/layerxprograms/view_winddown_test.go:77", "programs/crates/layerx-programs-arbiter/src/activity_codec.rs:1", "programs/crates/layerx-programs-arbiter/src/admission.rs:10", "programs/crates/layerx-programs-arbiter/tests/activity_codec.rs:4", "programs/crates/layerx-programs-runtime/src/meter.rs:927", "programs/crates/layerx-programs-runtime/src/schedule.rs:407", "programs/crates/layerx-programs-sandbox/src/activity.rs:553", "programs/crates/layerx-programs-sandbox/tests/activity_chain.rs:24", "sdk/integrations/android/sample-app/app/src/main/java/com/sidiora/layerx/android/sample/WalletActivity.java:3", "sdk/integrations/android/sample-app/app/src/main/res/values/strings.xml:8", "sdk/integrations/ios/Sources/LayerXMobileSampleKit/WalletScreen.swift:26", "sdk/platform/go/native_program_lifecycle.go:466", "sdk/platform/go/program_transport_retired_test.go:56", "sdk/platform/go/programs.go:2055", "sdk/platform/go/programs_http_test.go:818", "sdk/platform/jvm/examples/OfflineVerificationExample.java:31", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:353", "services/agent/crates/layerx-agent-api/src/read.rs:232", "services/agent/crates/layerx-agent-api/tests/read_heights.rs:223", "services/agent/crates/layerx-agent-api/tests/schema_rungs.rs:141", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:3103", "services/agent/crates/layerx-agentd/src/human_runtime.rs:15637", "services/agent/crates/layerx-agentd/src/human_runtime/native_receipt.rs:4", "services/agent/crates/layerx-agentd/src/policy/native_program.rs:20", "services/agent/crates/layerx-agentd/src/prepare/mod.rs:655", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs:764", "services/agent/crates/layerx-agentd/src/read/checkpoint.rs:443", "services/agent/crates/layerx-agentd/src/read/history.rs:329", "services/agent/crates/layerx-agentd/src/read/proof_bundle.rs:182", "services/agent/crates/layerx-agentd/src/receipt.rs:58", "services/agent/crates/layerx-agentd/src/session_keys.rs:450", "services/agent/crates/layerx-agentd/src/sign.rs:124", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs:617", "services/agent/crates/layerx-agentd/tests/evm_signing.rs:106", "services/agent/crates/layerx-agentd/tests/human_node.rs:130", "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs:405", "services/agent/crates/layerx-agentd/tests/proof_bundle_v2.rs:305", "services/agent/crates/layerx-agentd/tests/receipts.rs:168", "services/agent/crates/layerx-agentd/tests/session_grants_layerxauth.rs:82", "services/agent/crates/layerx-agentd/tests/session_keys_evm.rs:72", "services/agent/crates/layerx-agentd/tests/signing.rs:110", "services/agent/crates/layerx-client/src/ai_market.rs:84", "services/agent/crates/layerx-client/src/rpc/history.rs:93", "services/agent/crates/layerx-crypto/src/disclosure.rs:24", "services/agent/crates/layerx-crypto/src/disclosure/native.rs:6", "services/agent/crates/layerx-crypto/src/disclosure/program.rs:11", "services/agent/crates/layerx-crypto/src/onboarding.rs:4", "services/agent/crates/layerx-crypto/src/session.rs:23", "services/agent/crates/layerx-crypto/src/signer.rs:38", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs:824", "services/agent/crates/layerx-crypto/tests/keystore.rs:93", "services/agent/crates/layerx-proof/src/export.rs:38", "services/agent/crates/layerx-proof/src/export_codec.rs:588", "services/agent/crates/layerx-proof/src/inclusion.rs:1", "services/agent/crates/layerx-proof/src/program.rs:23", "services/agent/crates/layerx-proof/tests/offline_export.rs:62", "services/agent/crates/layerx-proof/tests/pre_runtime_refusal.rs:135", "services/agent/crates/layerx-proof/tests/terminal_v4.rs:252", "services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs:1184", "services/agent/crates/layerx-types/src/checkpoint.rs:35", "services/agent/crates/layerx-types/src/payload.rs:322", "services/agent/crates/layerx-types/src/verify.rs:33", "services/agent/crates/layerx-wire/src/activity.rs:31", "services/agent/crates/layerx-wire/src/hash.rs:8", "services/agent/crates/layerx-wire/src/sign.rs:5", "services/agent/schema/agent-api/golden/v1.kvx:485", "services/agent/schema/agent-api/read.kvx:92", "services/agent/schema/agent-api/v1.kvx:485", "services/agent/sdk/typescript/src/wallet.ts:46", "services/human/crates/layerx-human-kms/tests/provider.rs:1907", "services/human/crates/layerx-human-service/src/activity/export.rs:151", "services/human/crates/layerx-human-service/src/agents/reclaim.rs:384", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs:353", "services/human/crates/layerx-human-service/src/custody/sessions.rs:1115", "services/human/crates/layerx-human-service/src/notify/event.rs:349", "services/human/crates/layerx-human-service/src/notify/links.rs:26", "services/human/crates/layerx-human-service/src/server/agent_creation.rs:1056", "services/human/crates/layerx-human-service/tests/agent_create.rs:407", "services/human/crates/layerx-intents/src/vocabulary.rs:231", "services/human/crates/layerx-intents/tests/differential.rs:113", "services/human/crates/layerx-intents/tests/live_kinds.rs:264", "services/human/crates/layerx-intents/tests/session_grant.rs:33", "services/human/tools/api-gen/tests/completion_gate.rs:126", "services/interop/crates/layerx-portable/FORMAT.md:97", "services/launchpad/ranking-algo/internal/ranker/snapshot.go:171", "services/launchpad/ranking-algo/internal/ranker/snapshot_test.go:16", "services/launchpad/ranking-algo/internal/store/production_universe_test.go:207", "services/launchpad/ranking-algo/internal/store/universe_features.go:181", "services/platform/hosted/authority/src/human/dynamic.rs:11", "services/platform/hosted/authority/src/human/session_membership.rs:269", "services/platform/hosted/authority/src/lib.rs:172", "services/platform/hosted/indexer/src/ai_market.rs:283", "services/wallet/attestor/cmd/attestor/main_test.go:848", "services/wallet/attestor/cmd/loadtest/loadtest_test.go:446", "services/wallet/attestor/cmd/loadtest/main.go:549", "services/wallet/attestor/internal/lxwire/activity.go:163", "services/wallet/attestor/internal/lxwire/lxwire_test.go:197", "services/wallet/attestor/internal/policy/lx/lx.go:155", "services/wallet/attestor/internal/policy/lx/lx_test.go:135", "services/wallet/attestor/internal/server/durability_test.go:308", "services/wallet/attestor/internal/server/e2e_test.go:727", "services/wallet/attestor/internal/server/lx_retired_test.go:64", "services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go:208", "services/wallet/attestor/internal/server/send_authorization_test.go:22", "services/wallet/attestor/internal/server/server_test.go:76", "services/wallet/attestor/internal/server/sign.go:84", "services/wallet/attestor/internal/server/verification.go:384", "services/wallet/ceremony/internal/attestor/client.go:351", "services/wallet/gateway/src/routes/owner.ts:494", "src/protocol/lxp_genesis.c:51", "tests/ci/test_kernel_suite_retired_uses.py:63", "tests/explorer_fixture_test.py:38", "tests/modules/test_escrow_capture.c:324", "tools/platform/cli/src/wallet.rs:1458"]
+
+[row.r10-67.5]
+interface = "interface.10.rs-intents-canonical-decode-signed-activity"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 1
+symbol = "decode_signed_activity"
+evidence = "The decode_signed as decode_signed_activity re-export is absent from canonical.rs, as required by override.J46.7 and decisions 1023/1026. The original layerx_wire::activity::decode_signed is a separate surviving API. Remaining references name the removed public alias. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 2
+remaining = ["GOTCHA.kvx:13395", "services/human/tools/api-gen/tests/completion_gate.rs:121"]
+
+[row.r10-67.6]
+interface = "interface.10.rs-intents-canonical-decode-unsigned-activity"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 1
+symbol = "decode_unsigned_activity"
+evidence = "The decode_unsigned as decode_unsigned_activity re-export is absent from canonical.rs, as required by override.J46.8 and decisions 1023/1026. The original wire decoder is separate; the surviving alias mention is in the API retirement detector. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 1
+remaining = ["services/human/tools/api-gen/tests/completion_gate.rs:122"]
+
+[row.r10-67.7]
+interface = "interface.10.rs-intents-canonical-signed-envelope-bytes"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 1
+symbol = "signed_envelope_bytes"
+evidence = "canonical.rs no longer re-exports encode_signed_envelope as signed_envelope_bytes. override.J46.9 and decisions 1023/1026 retire this public alias; the remaining mention is in the API retirement detector. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 1
+remaining = ["services/human/tools/api-gen/tests/completion_gate.rs:123"]
+
+[row.r10-67.8]
+interface = "interface.10.rs-intents-canonical-unsigned-activity-bytes"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 1
+symbol = "unsigned_activity_bytes"
+evidence = "canonical.rs no longer re-exports encode_unsigned as unsigned_activity_bytes. override.J46.10 and decisions 1023/1026 retire this public alias; the remaining mention is in the API retirement detector. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 1
+remaining = ["services/human/tools/api-gen/tests/completion_gate.rs:124"]
+
+[row.r10-67.9]
+interface = "interface.10.rs-intents-canonical-unsigned-envelope-bytes"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 1
+symbol = "unsigned_envelope_bytes"
+evidence = "canonical.rs no longer re-exports encode_unsigned_envelope as unsigned_envelope_bytes. override.J46.11 and decisions 1023/1026 retire this alias. Remaining includes the historical gotcha and the API retirement detector. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 2
+remaining = ["GOTCHA.kvx:10413", "services/human/tools/api-gen/tests/completion_gate.rs:125"]
+
+[row.r10-67.10]
+interface = "interface.10.rs-intents-canonical-account-id-for-protocol"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 2
+symbol = "account_id_for_protocol"
+evidence = "The grouped pub use layerx_wire::hash re-export still exposes account_id_for_protocol, now at line 2 rather than the registered line 7."
+
+[row.r10-67.11]
+interface = "interface.10.rs-intents-canonical-activity-id"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 2
+symbol = "activity_id"
+evidence = "The grouped pub use layerx_wire::hash re-export still exposes activity_id, now at line 2 rather than the registered line 7."
+
+[row.r10-67.12]
+interface = "interface.10.rs-intents-canonical-batch-header-digest"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 2
+symbol = "batch_header_digest"
+evidence = "The grouped pub use layerx_wire::hash re-export still exposes batch_header_digest, now at line 2 rather than the registered line 7."
+
+[row.r10-67.13]
+interface = "interface.10.rs-intents-canonical-did-id-for-protocol"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 2
+symbol = "did_id_for_protocol"
+evidence = "The grouped pub use layerx_wire::hash re-export still exposes did_id_for_protocol, now at line 2 rather than the registered line 7."
+
+[row.r10-67.14]
+interface = "interface.10.rs-intents-canonical-domain"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 4
+symbol = "Domain"
+evidence = "The grouped pub use layerx_wire::hash re-export still exposes Domain on its own line 4, rather than the registered line 7."
+
+[row.r10-67.15]
+interface = "interface.10.rs-intents-canonical-execution-batch-id"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 3
+symbol = "execution_batch_id"
+evidence = "The grouped pub use layerx_wire::hash re-export still exposes execution_batch_id, now at line 3 rather than the registered line 7."
+
+[row.r10-67.16]
+interface = "interface.10.rs-intents-canonical-payload-hash"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 3
+symbol = "payload_hash"
+evidence = "The grouped pub use layerx_wire::hash re-export still exposes payload_hash, now at line 3 rather than the registered line 7."
+
+[row.r10-67.17]
+interface = "interface.10.rs-intents-canonical-payload-hash-for"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 3
+symbol = "payload_hash_for"
+evidence = "The grouped pub use layerx_wire::hash re-export still exposes payload_hash_for, now at line 3 rather than the registered line 7."
+
+[row.r10-67.18]
+interface = "interface.10.rs-intents-canonical-program-execution-batch-id"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 3
+symbol = "program_execution_batch_id"
+evidence = "The grouped pub use layerx_wire::hash re-export still exposes program_execution_batch_id, now at line 3 rather than the registered line 7."
+
+[row.r10-67.19]
+interface = "interface.10.rs-intents-canonical-receipt-digest"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 3
+symbol = "receipt_digest"
+evidence = "The grouped pub use layerx_wire::hash re-export still exposes receipt_digest, now at line 3 rather than the registered line 7."
+
+[row.r10-67.20]
+interface = "interface.10.rs-intents-canonical-max-message-bytes"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 7
+symbol = "MAX_MESSAGE_BYTES"
+evidence = "The grouped pub use layerx_wire::limits re-export still exposes MAX_MESSAGE_BYTES, now at line 7 rather than the registered line 12."
+
+[row.r10-67.21]
+interface = "interface.10.rs-intents-canonical-protocol-version"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 7
+symbol = "PROTOCOL_VERSION"
+evidence = "The grouped pub use layerx_wire::limits re-export still exposes PROTOCOL_VERSION, now at line 7 rather than the registered line 12."
+
+[row.r10-67.22]
+interface = "interface.10.rs-intents-canonical-protocol-version-supported"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 7
+symbol = "protocol_version_supported"
+evidence = "The grouped pub use layerx_wire::limits re-export still exposes protocol_version_supported, now at line 7 rather than the registered line 12."
+
+[row.r10-67.23]
+interface = "interface.10.rs-intents-canonical-state-commitment-protocol-version"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 8
+symbol = "STATE_COMMITMENT_PROTOCOL_VERSION"
+evidence = "The grouped pub use layerx_wire::limits re-export still exposes STATE_COMMITMENT_PROTOCOL_VERSION, now at line 8 rather than the registered line 12."
+
+[row.r10-67.24]
+interface = "interface.10.rs-intents-canonical-batch-header"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 14
+symbol = "BatchHeader"
+evidence = "The grouped pub use layerx_wire::receipt re-export still exposes BatchHeader, now at line 14 rather than the registered line 17."
+
+[row.r10-67.25]
+interface = "interface.10.rs-intents-canonical-batch-header-bytes"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 13
+symbol = "batch_header_bytes"
+evidence = "The grouped receipt re-export names encode_batch_header as batch_header_bytes at line 13; the public alias is still served in canonical.rs."
+
+[row.r10-67.26]
+interface = "interface.10.rs-intents-canonical-decode-batch-header"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 12
+symbol = "decode_batch_header"
+evidence = "The grouped pub use layerx_wire::receipt re-export still exposes decode_batch_header, now at line 12 rather than the registered line 17."
+
+[row.r10-67.27]
+interface = "interface.10.rs-intents-canonical-decode-merkle-proof"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 12
+symbol = "decode_merkle_proof"
+evidence = "The grouped pub use layerx_wire::receipt re-export still exposes decode_merkle_proof, now at line 12 rather than the registered line 17."
+
+[row.r10-67.28]
+interface = "interface.10.rs-intents-canonical-decode-receipt"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 12
+symbol = "decode_receipt"
+evidence = "The grouped receipt re-export names decode as decode_receipt at line 12; the public alias is still served in canonical.rs."
+
+[row.r10-67.29]
+interface = "interface.10.rs-intents-canonical-program-outcome"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 14
+symbol = "ProgramOutcome"
+evidence = "The grouped pub use layerx_wire::receipt re-export still exposes ProgramOutcome, now at line 14 rather than the registered line 17."
+
+[row.r10-67.30]
+interface = "interface.10.rs-intents-canonical-protocol-receipt"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 14
+symbol = "ProtocolReceipt"
+evidence = "The grouped pub use layerx_wire::receipt re-export still exposes ProtocolReceipt, now at line 14 rather than the registered line 17."
+
+[row.r10-67.31]
+interface = "interface.10.rs-intents-canonical-receipt-bytes"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 12
+symbol = "receipt_bytes"
+evidence = "The grouped receipt re-export names encode as receipt_bytes at line 12; the public alias is still served in canonical.rs."
+
+[row.r10-67.32]
+interface = "interface.10.rs-intents-canonical-unsigned-receipt-bytes"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/canonical.rs"
+line = 13
+symbol = "unsigned_receipt_bytes"
+evidence = "The grouped receipt re-export names encode_unsigned as unsigned_receipt_bytes at line 13; the public alias is still served in canonical.rs."
+
+[row.r10-67.33]
+interface = "interface.10.rs-intents-compiler-compile"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/compile.rs"
+line = 163
+symbol = "compile"
+evidence = "pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledIntent, CompileError> retains its callable signature at line 163. Its accepted IntentKind shape changed: NativeCustodyCredit and bridge kinds are gone, while NativeReceive compiles an Asset activity with ordinal 6 and NativeAssetAccountOpen compiles ordinal 4."
+
+[row.r10-67.34]
+interface = "interface.10.rs-intents-disclosure-check"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/lib.rs"
+line = 19
+symbol = "DisclosureCheck"
+evidence = "lib.rs still exposes DisclosureCheck through the grouped pub use disclosure statement, now at line 19 rather than the registered line 22."
+
+[row.r10-67.35]
+interface = "interface.10.rs-intents-disclosure-check-error"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/lib.rs"
+line = 19
+symbol = "DisclosureCheckError"
+evidence = "lib.rs still exposes DisclosureCheckError through the grouped pub use disclosure statement, now at line 19 rather than the registered line 22."
+
+[row.r10-67.36]
+interface = "interface.10.rs-intents-disclosure-field"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/lib.rs"
+line = 19
+symbol = "DisclosureField"
+evidence = "lib.rs still exposes DisclosureField through the grouped pub use disclosure statement, now at line 19 rather than the registered line 22."
+
+[row.r10-67.37]
+interface = "interface.10.rs-intents-owner-activity-owner-envelope-context"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/owner_activity.rs"
+line = 16
+symbol = "OwnerEnvelopeContext"
+evidence = "The registered owner_activity.rs is deleted and lib.rs no longer declares an owner_activity module, matching override.J46.4 and decisions 1023/1026. The sole remaining identifier belongs to a private gateway test context for EIP-1559 calls, not the removed public type. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 1
+remaining = ["services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs:216"]
+
+[row.r10-67.38]
+interface = "interface.10.rs-intents-owner-activity-unsigned-native"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/owner_activity.rs"
+line = 29
+symbol = "unsigned_native"
+evidence = "The registered owner_activity.rs is deleted and its public unsigned_native function is gone, matching override.J46.5 and decisions 1023/1026. The sole remaining identifier is a private gateway test helper taking two arguments and producing an unsigned EIP-1559 call, not the former registry-based API. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 1
+remaining = ["services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs:224"]
+
+[row.r10-67.39]
+interface = "interface.10.rs-intents-owner-activity-verify"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/owner_activity.rs"
+line = 75
+symbol = "owner_activity::verify"
+evidence = "The registered owner_activity.rs is deleted and lib.rs no longer declares that module, matching override.J46.14 and decisions 1023/1026. The qualified owner_activity::verify API has no remaining references; unrelated verify functions are not this interface. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 0
+remaining = []
+
+[row.r10-67.40]
+interface = "interface.10.rs-intents-owner-activity-attach-signature"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/owner_activity.rs"
+line = 109
+symbol = "attach_signature"
+evidence = "The registered owner_activity.rs is deleted and its public attach_signature function is gone, matching override.J46.6 and decisions 1023/1026. Remaining counts every file mentioning attach_signature, including unrelated EVM and protocol-envelope methods, rather than treating those homonyms as a relocated API. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 14
+remaining = ["programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:567", "services/agent/crates/layerx-agentd/src/sign.rs:324", "services/agent/crates/layerx-agentd/src/sign_verify.rs:52", "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:616", "services/agent/crates/layerx-crypto/tests/send_call.rs:160", "services/agent/crates/layerx-types/src/activity.rs:255", "services/agent/crates/layerx-types/tests/activity.rs:106", "services/agent/crates/layerx-wire/tests/wallet_vectors.rs:515", "services/agent/sdk/python/layerx_sdk/evm_transaction.py:217", "services/agent/sdk/python/layerx_sdk/evm_transaction.pyi:35", "services/platform/hosted/testnet/tests/payment-journey.py:240", "services/platform/middleware/conformance/pay6/test_agent.py:125", "tests/agent/sdk/python/test_ai_market.py:555", "tests/agent/sdk/python/test_evm_transaction.py:65"]
+
+[row.r10-67.41]
+interface = "interface.10.rs-intents-reject-intent-kind-tag"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/reject.rs"
+line = 9
+symbol = "IntentKindTag"
+evidence = "pub enum IntentKindTag remains at line 9, but its variant signature has changed: NativeCustodyCredit and bridge/payout tags are absent, NativeReceive = 17 is present, and from_u16 explicitly rejects tags 4, 11, 12 and 16 as RetiredShape."
+
+[row.r10-67.42]
+interface = "interface.10.rs-intents-reject-inspect-intent"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/reject.rs"
+line = 100
+symbol = "inspect_intent"
+evidence = "pub fn inspect_intent(input: &[u8]) -> Result<IntentHeader, RejectedIntent<'_>> retains its callable signature, now at line 100. Its accepted kind signature excludes bridge and NativeCustodyCredit tags: from_u16 rejects 4, 11, 12 and 16 as RetiredShape, with V2 otherwise rejected as UnknownVersion."
+
+[row.r10-67.43]
+interface = "interface.10.rs-intents-vocabulary-intent-kind"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 88
+symbol = "IntentKind"
+evidence = "pub enum IntentKind remains, now at line 88. The variant signature has changed: NativeCustodyCredit, EvmPayoutBinding and bridge kinds are absent; NativeReceive, NativeBudgetCreate, NativeAssetAccountOpen and Perps are present, so the executable vocabulary follows native modules."
+
+[row.r10-67.44]
+interface = "interface.10.rs-intents-vocabulary-intent-kind-module"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 150
+symbol = "module"
+evidence = "impl IntentKind still declares pub const fn module(&self) -> ModuleId at line 150, retaining its callable signature. Its receiver enum changed: NativeReceive and NativeAssetAccountOpen map to Asset, NativeBudgetCreate maps to Budget, and custody-credit/bridge variants are absent."
+
+[row.r10-67.45]
+interface = "interface.10.rs-intents-vocabulary-intent-kind-settled-on-paxeer"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 202
+symbol = "settled_on_paxeer"
+evidence = "IntentKind no longer declares settled_on_paxeer anywhere in vocabulary.rs; override.J46.13 and decisions 1023/1026 require deleting that bridge-specific predicate. A repository-wide identifier search finds no remaining references. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 0
+remaining = []
+
+[row.r10-67.46]
+interface = "interface.10.rs-intents-vocabulary-evm-payout-binding-new"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 398
+symbol = "EvmPayoutBinding"
+evidence = "EvmPayoutBinding and its entire impl, including new(did, network, payout_address, ownership_signature), are absent from vocabulary.rs. Remaining conservatively counts the carrier type name, including surviving audit/signing tags, wire hash domains and retirement checks; none is a vocabulary constructor. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 9
+remaining = ["services/agent/crates/layerx-agentd/src/capability/effects.rs:453", "services/agent/crates/layerx-wire/src/hash.rs:39", "services/agent/crates/layerx-wire/tests/hashing.rs:33", "services/human/crates/layerx-human-service/src/audit/event.rs:96", "services/human/crates/layerx-human-service/src/custody/signer.rs:878", "services/human/crates/layerx-human-service/tests/audit_retired_kinds.rs:321", "services/human/crates/layerx-human-service/tests/custody.rs:682", "services/human/crates/layerx-human-service/tests/no_retired_intent_kinds.rs:12", "tools/paxeer-x/retired_callers.json:586"]
+
+[row.r10-67.47]
+interface = "interface.10.rs-intents-vocabulary-bridge-deposit-credit-to-wire-parts"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 871
+symbol = "BridgeDepositCredit"
+evidence = "BridgeDepositCredit and its entire impl are absent from vocabulary.rs, so its to_wire_parts method returning deposit/checkpoint/reserve credit fields is retired. Remaining counts carrier type-name mentions in audit tags and retirement checks, covering references even without a qualified method call. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 3
+remaining = ["services/human/crates/layerx-human-service/src/audit/event.rs:103", "services/human/crates/layerx-human-service/tests/audit_retired_kinds.rs:328", "services/human/crates/layerx-human-service/tests/no_retired_intent_kinds.rs:11"]
+
+[row.r10-67.48]
+interface = "interface.10.rs-intents-vocabulary-bridge-deposit-credit-new"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 898
+symbol = "BridgeDepositCredit"
+evidence = "BridgeDepositCredit and its entire impl are absent from vocabulary.rs, so its new(deposit_proof, checkpoint, reserve, recipient, asset, amount, idempotency_key) constructor is retired. Remaining counts carrier type-name mentions in audit tags and retirement checks. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 3
+remaining = ["services/human/crates/layerx-human-service/src/audit/event.rs:103", "services/human/crates/layerx-human-service/tests/audit_retired_kinds.rs:328", "services/human/crates/layerx-human-service/tests/no_retired_intent_kinds.rs:11"]
+
+[row.r10-67.49]
+interface = "interface.10.rs-intents-vocabulary-bridge-withdraw-request-to-wire-parts"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 938
+symbol = "BridgeWithdrawRequest"
+evidence = "BridgeWithdrawRequest and its entire impl are absent from vocabulary.rs, so its to_wire_parts method returning checkpoint/fee/withdrawal fields is retired. Remaining counts carrier type-name mentions in audit/signing tags, covering references even without a qualified method call. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 3
+remaining = ["services/human/crates/layerx-human-service/src/audit/event.rs:104", "services/human/crates/layerx-human-service/src/custody/signer.rs:877", "services/human/crates/layerx-human-service/tests/audit_retired_kinds.rs:329"]
+
+[row.r10-67.50]
+interface = "interface.10.rs-intents-vocabulary-bridge-withdraw-request-new"
+verdict = "retired"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 967
+symbol = "BridgeWithdrawRequest"
+evidence = "BridgeWithdrawRequest and its entire impl are absent from vocabulary.rs, so its new(request_anchor, fee_limit, owner, withdrawals_account, payout_address, asset, amount, idempotency_key) constructor is retired. Remaining counts carrier type-name mentions in audit/signing tags. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 3
+remaining = ["services/human/crates/layerx-human-service/src/audit/event.rs:104", "services/human/crates/layerx-human-service/src/custody/signer.rs:877", "services/human/crates/layerx-human-service/tests/audit_retired_kinds.rs:329"]
+
+[row.r10-67.51]
+interface = "interface.10.rs-network-gateway-lib-status-name-limit-l34-j46"
+verdict = "retired"
+path = "services/human/crates/layerx-network-gateway/src/lib.rs"
+line = 34
+symbol = "STATUS_NAME_LIMIT"
+evidence = "STATUS_NAME_LIMIT is absent from the registered gateway lib.rs and has no remaining identifier references. Task 10.24.3 explicitly deleted the constant together with the obsolete anchor status-name decoder; NETWORK_ID_LIMIT now occupies line 34 and is a different bound. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 0
+remaining = []
+
+[row.r10-67.52]
+interface = "interface.10.rs-network-gateway-lib-paxeer-account-l283-j46"
+verdict = "served"
+path = "services/human/crates/layerx-network-gateway/src/lib.rs"
+line = 281
+symbol = "PaxeerAccount"
+evidence = "pub struct PaxeerAccount is now at line 281. Task 10.24.1 changed its field signature by adding pub height: u64 beside address, balance and nonce; decode_account reads that height from the paxeer object so all values describe one block."
+
+[row.r10-67.53]
+interface = "interface.10.rs-network-gateway-lib-account-join-l294-j46"
+verdict = "served"
+path = "services/human/crates/layerx-network-gateway/src/lib.rs"
+line = 294
+symbol = "AccountJoin"
+evidence = "pub struct AccountJoin remains at line 294, with its field signature changed by task 10.24.1: the layerx field is removed; the remaining account: ResolvedIdentities, paxeer: Option<PaxeerAccount> and evidence: Evidence carry the chain account, including the height within PaxeerAccount."
+
+[row.r10-67.54]
+interface = "interface.10.rs-network-gateway-paxeer-asset-balance"
+verdict = "retired"
+path = "services/human/crates/layerx-network-gateway/src/lib.rs"
+line = 307
+symbol = "PaxeerAssetBalance"
+evidence = "PaxeerAssetBalance is absent from the gateway lib.rs and has no remaining identifier references. Task 10.24.1 and override.J46.15 (decision 1027) replaced the per-row paxeer/custody/layerx join with bank coin AssetBalance rows carrying denom and amount. Remaining is one first matching line per tracked text file from git grep -n -I -w, excluding spec/ and docs/ directories (including nested docs/)."
+remaining_refs = 0
+remaining = []
+
+[row.r10-67.55]
+interface = "interface.10.rs-network-gateway-asset-balance"
+verdict = "served"
+path = "services/human/crates/layerx-network-gateway/src/lib.rs"
+line = 305
+symbol = "AssetBalance"
+evidence = "pub struct AssetBalance now declares pub denom: String and pub amount: u128 at line 305. Task 10.24.1 implemented the shape change required by override.J46.16: the per-row paxeer, custody and layerx objects are gone and the row is a bank coin at the answer height."
+
+[row.r10-67.56]
+interface = "interface.10.rs-network-gateway-account-balances"
+verdict = "served"
+path = "services/human/crates/layerx-network-gateway/src/lib.rs"
+line = 314
+symbol = "AccountBalances"
+evidence = "pub struct AccountBalances is now at line 314. Task 10.24.1 implemented override.J46.17 by adding pub height: u64; balances: Vec<AssetBalance> now contains denom/amount bank rows, and asset(&self, denom: &str) resolves them by denomination."
+
+[row.r10-67.57]
+interface = "interface.10.rs-network-gateway-lib-asset-entry-l393-j46"
+verdict = "served"
+path = "services/human/crates/layerx-network-gateway/src/lib.rs"
+line = 388
+symbol = "AssetEntry"
+evidence = "pub struct AssetEntry is now at line 388. Task 10.24.2 replaced the layerx/paxeer custody join with asset_id: String, denom: Option<String>, kind: String and optional name, symbol, decimals: Option<u8> and supply: Option<u128>, preserving null chain metadata."
+
+[row.r10-67.58]
+interface = "interface.10.rs-network-gateway-lib-asset-table-l404-j46"
+verdict = "served"
+path = "services/human/crates/layerx-network-gateway/src/lib.rs"
+line = 407
+symbol = "AssetTable"
+evidence = "pub struct AssetTable is now at line 407. Task 10.24.2 added pub height: u64 to its field signature; assets: Vec<AssetEntry> now contains chain metadata rows, while joined_limit: u64 and evidence: Evidence remain."
+
+[row.r10-67.59]
+interface = "interface.10.rs-network-gateway-lib-network-head-l426-j46"
+verdict = "served"
+path = "services/human/crates/layerx-network-gateway/src/lib.rs"
+line = 433
+symbol = "NetworkHead"
+evidence = "pub struct NetworkHead is now at line 433. Task 10.24.3 changed its field signature by removing anchor and adding pub consensus: Option<ConsensusHead>; the head carries latest_height, latest_block_hash, latest_app_hash and catching_up, with None for unavailable consensus."
+
+[row.r10-67.60]
+interface = "interface.10.rs-network-gateway-lib-decode-account-l916-j46"
+verdict = "served"
+path = "services/human/crates/layerx-network-gateway/src/lib.rs"
+line = 916
+symbol = "decode_account"
+evidence = "pub fn decode_account(result: &Value) -> Result<AccountJoin, GatewayError> retains its callable signature at line 916. Task 10.24.1 changed the returned AccountJoin shape: layerx is gone and paxeer carries height: counted(&document[\"height\"]), alongside address, balance and nonce."
