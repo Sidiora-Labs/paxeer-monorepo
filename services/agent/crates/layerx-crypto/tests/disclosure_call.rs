@@ -691,3 +691,291 @@ fn ledger_account_registration_mint_and_burn_are_bound() -> Result<(), Box<dyn s
     }
     Ok(())
 }
+
+#[test]
+fn daemon_precompile_constructors_bind() -> Result<(), Box<dyn std::error::Error>> {
+    use layerx_crypto::disclosure::call::{
+        encode_program_call, ledger_selector, reencode, validate_call, validate_canonical,
+    };
+    use layerx_crypto::disclosure::DisclosedNativeOperation;
+    use layerx_crypto::session::{issue_session_key, SessionKeyRequest, SessionPurpose};
+    use layerx_types::intent::ProgramId;
+    use layerx_types::payload::ActivityType;
+    use layerx_types::program_call::{NativeProgramCall, Resources};
+
+    // Fixed payload supplied to prepare::evm::PrecompileCall::ledger_transfer.
+    let payload = hex(include_str!("fixtures/payments/native-1-5.hex"));
+    let transfer = call(0x101a, [0x2b, 0xb1, 0xae, 0x7c], &dynamic(&payload));
+    let disclosure = bind_call(&transfer, SENDER)?;
+    assert_eq!(disclosure.counterparties.len(), 2);
+    assert_eq!(disclosure.counterparties[0].role, CounterpartyRole::Payer);
+    assert_eq!(disclosure.counterparties[0].account, [1; 32]);
+    assert_eq!(
+        disclosure.counterparties[1].role,
+        CounterpartyRole::Recipient
+    );
+    assert_eq!(disclosure.counterparties[1].account, [2; 32]);
+    assert_eq!(disclosure.amounts.len(), 1);
+    assert_eq!(disclosure.amounts[0].role, AmountRole::Transfer);
+    assert_eq!(disclosure.amounts[0].value, 123);
+    assert_eq!(disclosure.asset, [3; 32]);
+    assert_eq!(disclosure.expiry.payload_expires_at, 100);
+    assert_eq!(disclosure.payload_sequence()?, Some(7));
+    assert_eq!(
+        disclosure.construct_method()?,
+        Some(ConstructMethod::LedgerSend { payload })
+    );
+    let mut cases = vec![(transfer, ModuleId::Asset, 5, [4; 32])];
+
+    // The twelve ABI words of BudgetRequest::create_protocol_budget, v1 and v2.
+    let budget_words = [
+        [0x21; 32],
+        [0x22; 32],
+        [0x23; 32],
+        [0x24; 32],
+        word(1000),
+        word(0),
+        word(123),
+        word(10),
+        word(20),
+        word(100),
+        word(7),
+        word(1),
+    ];
+    for native in [false, true] {
+        let mut words = budget_words.to_vec();
+        if native {
+            words.extend([[0x25; 32], word(9)]);
+        }
+        let signature = if native {
+            "budgetCreateNative(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bytes32,uint64)"
+        } else {
+            "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)"
+        };
+        let transaction = call(0x101b, ledger_selector(signature), &words.concat());
+        let disclosure = bind_call(&transaction, SENDER)?;
+        assert_eq!(disclosure.asset, [0x23; 32]);
+        assert_eq!(disclosure.expiry.payload_expires_at, 100);
+        assert_eq!(disclosure.amounts.len(), 2);
+        assert_eq!(disclosure.amounts[0].role, AmountRole::Transfer);
+        assert_eq!(disclosure.amounts[0].value, 123);
+        assert_eq!(disclosure.amounts[1].role, AmountRole::SpendingLimit);
+        assert_eq!(disclosure.amounts[1].value, 1000);
+        let recipient = disclosure.counterparties.last().expect("budget recipient");
+        assert_eq!(recipient.role, CounterpartyRole::Recipient);
+        assert_eq!(recipient.account, [0x22; 32]);
+        if native {
+            assert_eq!(disclosure.counterparties.len(), 2);
+            assert_eq!(disclosure.counterparties[0].role, CounterpartyRole::Payer);
+            assert_eq!(disclosure.counterparties[0].account, [0x25; 32]);
+            assert_eq!(disclosure.payload_sequence()?, Some(9));
+            let Some(DisclosedNativeOperation::BudgetCreate(budget)) = &disclosure.native_operation
+            else {
+                panic!("missing native budget creation");
+            };
+            assert_eq!(budget.encoding_version, 2);
+            assert_eq!(budget.budget_id, [0x21; 32]);
+            assert_eq!(budget.budget_account, [0x22; 32]);
+            assert_eq!(budget.asset, [0x23; 32]);
+            assert_eq!(budget.purpose, [0x24; 32]);
+            assert_eq!(budget.per_period_limit, 1000);
+            assert_eq!(budget.carry_cap, 0);
+            assert_eq!(budget.initial_amount, 123);
+            assert_eq!(budget.period_length_ms, 10);
+            assert_eq!(budget.period_start_ms, 20);
+            assert_eq!(budget.expiry_ms, 100);
+            assert_eq!(budget.revocation_sequence, 7);
+            assert_eq!(budget.rollover, 1);
+            assert_eq!(budget.source_account, [0x25; 32]);
+            assert_eq!(budget.source_sequence, 9);
+        } else {
+            assert_eq!(disclosure.counterparties.len(), 1);
+            assert_eq!(disclosure.payload_sequence()?, None);
+            assert!(matches!(
+                disclosure.construct_method()?,
+                Some(ConstructMethod::PayBudgetCreate { .. })
+            ));
+        }
+        // All integer words keep their declared ABI widths.
+        let mut narrow_words = vec![4, 5, 6, 7, 8, 9, 10, 11];
+        if native {
+            narrow_words.push(13);
+        }
+        for index in narrow_words {
+            let mut invalid = transaction.clone();
+            invalid.data[4 + index * 32] = 1;
+            assert!(bind_call(&invalid, SENDER).is_err());
+        }
+        cases.push((transaction, ModuleId::Budget, 1, [0x21; 32]));
+    }
+
+    // agent_rpc_dispatch::session_open puts the grant, expiry sequence and action
+    // key in that order. Issue a real, bounded protocol grant from fixed inputs.
+    let grant = issue_session_key(&SessionKeyRequest {
+        grantor: [0x41; 32],
+        session_public_key: [0x42; 32],
+        not_before: 10,
+        expires_at: Some(100),
+        revocation_sequence: Some(7),
+        permitted_activity_types: vec![
+            ActivityType::new(ModuleId::Asset, 5).map_err(|e| format!("{e:?}"))?
+        ],
+        fee_budget: None,
+        purpose: SessionPurpose::Activity,
+    })?;
+    let mut args = [
+        word(96),
+        word(9),
+        [0x43; 32],
+        word(grant.registration_payload.len() as u128),
+    ]
+    .concat();
+    args.extend_from_slice(&grant.registration_payload);
+    args.resize(args.len().div_ceil(32) * 32, 0);
+    assert_eq!(
+        ledger_selector("grantSession(bytes,uint64,bytes32)"),
+        [0x11, 0x07, 0xb4, 0x9e]
+    );
+    let session = call(0x101c, [0x11, 0x07, 0xb4, 0x9e], &args);
+    let disclosure = bind_call(&session, SENDER)?;
+    assert_eq!(disclosure.expiry.payload_expires_at, 100);
+    assert!(disclosure.counterparties.is_empty());
+    assert!(disclosure.amounts.is_empty());
+    assert_eq!(disclosure.asset, [0; 32]);
+    let session_grant = disclosure
+        .session_grant
+        .as_ref()
+        .expect("session registration");
+    assert_eq!(session_grant.grant, grant);
+    assert_eq!(session_grant.expiry_sequence, 9);
+    assert_eq!(session_grant.action_key, [0x43; 32]);
+    assert_eq!(session_grant.replacement, None);
+    assert_eq!(
+        disclosure.construct_method()?,
+        Some(ConstructMethod::AuthSession {
+            grant,
+            expiry_sequence: 9,
+            purpose: [0x43; 32],
+        })
+    );
+    cases.push((session, ModuleId::Governance, 5, [0x43; 32]));
+
+    // ProgramOperations::call_precompile's fifteen-word head and four tails.
+    // Exercise both ordinary program bytes and the PAXAI retry/expiry envelope.
+    let mut envelope = vec![0; 239];
+    envelope[..8].copy_from_slice(b"PAXAI1\0\x01");
+    envelope[42..74].fill(0x31);
+    envelope[194..202].copy_from_slice(&100_u64.to_be_bytes());
+    envelope[202..234].fill(0x32);
+    for (calldata, key, expiry) in [
+        (b"fixed input".as_slice(), [0; 32], u64::MAX),
+        (envelope.as_slice(), [0x32; 32], 100),
+    ] {
+        let native = NativeProgramCall {
+            program_id: ProgramId::new([0x31; 32]),
+            guest_abi: 5,
+            entrypoint: b"layerx_call",
+            calldata,
+            capabilities: &[0, 0],
+            access_declaration: b"LayerX/programs/access-declaration/v1\0\0",
+            response_capacity: 16,
+            resources: Resources([1000, 2000, 3000, 4, 5, 6, 7]),
+        };
+        let execution_fee = 73;
+        let mut head = vec![native.program_id.bytes(), word(native.guest_abi.into())];
+        let mut tails = Vec::new();
+        for bytes in [
+            native.entrypoint,
+            native.calldata,
+            native.capabilities,
+            native.access_declaration,
+        ] {
+            head.push(word((15 * 32 + tails.len()) as u128));
+            tails.extend_from_slice(&word(bytes.len() as u128));
+            tails.extend_from_slice(bytes);
+            tails.resize(tails.len().div_ceil(32) * 32, 0);
+        }
+        head.push(word(native.response_capacity.into()));
+        head.extend(native.resources.0.into_iter().map(|n| word(n.into())));
+        head.push(word(execution_fee));
+        let mut args = head.concat();
+        args.extend(tails);
+        let transaction = call(0x101d, [0x54, 0xbd, 0x2b, 0x48], &args);
+        assert_eq!(
+            transaction.data,
+            encode_program_call(&native, execution_fee)
+        );
+        let disclosure = bind_call(&transaction, SENDER)?;
+        assert_eq!(disclosure.expiry.payload_expires_at, expiry);
+        assert_eq!(disclosure.expiry.not_after, expiry);
+        assert_eq!(disclosure.asset, [0; 32]);
+        assert!(disclosure.counterparties.is_empty());
+        assert!(disclosure.amounts.is_empty());
+        let Some(DisclosedNativeOperation::ProgramCall(disclosed)) = &disclosure.native_operation
+        else {
+            panic!("missing native program call");
+        };
+        assert_eq!(disclosed.native(), native);
+        assert_eq!(
+            disclosure.construct_method()?,
+            Some(ConstructMethod::ProgramCall {
+                call: disclosed.clone(),
+                fee_limit: execution_fee,
+            })
+        );
+        cases.push((transaction, ModuleId::Programs, 3, key));
+    }
+
+    for (transaction, module, ordinal, key) in cases {
+        let disclosure = bind_call(&transaction, SENDER)?;
+        assert_eq!(disclosure.activity_type.module(), module);
+        assert_eq!(disclosure.activity_type.ordinal(), ordinal);
+        assert_eq!(disclosure.idempotency_key, key);
+        assert_eq!(disclosure.actor, SENDER);
+        assert_eq!(disclosure.authority, SENDER);
+        assert_eq!(disclosure.fee_limit, 3_000_000);
+        assert_eq!(disclosure.signing_digest()?, transaction.signing_hash());
+        let canonical = transaction.encode_unsigned();
+        assert_eq!(reencode(&disclosure)?, canonical);
+        validate_canonical(&disclosure, &canonical)?;
+        validate_call(&transaction, &disclosure, SENDER)?;
+        let mut different_sender = SENDER;
+        different_sender[0] ^= 1;
+        // The EIP-1559 hash omits from; the retained approval must refuse a new
+        // sender, and its audit identity must change on an independent binding.
+        assert!(validate_call(&transaction, &disclosure, different_sender).is_err());
+        assert_ne!(
+            disclosure.audit_digest()?,
+            bind_call(&transaction, different_sender)?.audit_digest()?
+        );
+        for index in 0..transaction.data.len() {
+            let mut changed = transaction.clone();
+            changed.data[index] ^= 1;
+            assert!(validate_call(&changed, &disclosure, SENDER).is_err());
+            assert!(validate_canonical(&disclosure, &changed.encode_unsigned()).is_err());
+            if let Ok(changed_disclosure) = bind_call(&changed, SENDER) {
+                assert_ne!(
+                    changed_disclosure.signing_digest()?,
+                    disclosure.signing_digest()?,
+                    "data byte {index}"
+                );
+            }
+        }
+        for length in 0..transaction.data.len() {
+            let mut truncated = transaction.clone();
+            truncated.data.truncate(length);
+            assert!(
+                bind_call(&truncated, SENDER).is_err(),
+                "truncated at {length}"
+            );
+        }
+        let mut trailing = transaction.clone();
+        trailing.data.push(0);
+        assert!(bind_call(&trailing, SENDER).is_err());
+        let mut changed = disclosure.clone();
+        changed.idempotency_key[0] ^= 1;
+        assert!(reencode(&changed).is_err());
+        assert!(validate_canonical(&changed, &canonical).is_err());
+    }
+    Ok(())
+}
