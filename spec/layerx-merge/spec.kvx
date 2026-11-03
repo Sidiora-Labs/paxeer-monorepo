@@ -245817,7 +245817,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.56]
 title = "Pre-upgrade audit of node-runtime: storage/state_db/sc/flatkv (102 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245849,7 +245849,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.55]
 title = "Pre-upgrade audit of node-runtime: storage/state_db/sc/composite (154 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245913,7 +245913,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.53]
 title = "Pre-upgrade audit of node-runtime: storage/db_engine/litt (122 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246009,7 +246009,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.50]
 title = "Pre-upgrade audit of node-runtime: node (122 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246105,7 +246105,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.47]
 title = "Pre-upgrade audit of node-runtime: consensus/spec (103 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246137,7 +246137,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.46]
 title = "Pre-upgrade audit of node-runtime: consensus/rpc (130 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246233,7 +246233,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.43]
 title = "Pre-upgrade audit of node-runtime: cmd/layerxctl (237 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246265,7 +246265,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.42]
 title = "Pre-upgrade audit of launchpad: services/launchpad/user (87 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246297,7 +246297,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.41]
 title = "Pre-upgrade audit of launchpad: services/launchpad/trading-charts (153 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246393,7 +246393,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.38]
 title = "Pre-upgrade audit of launchpad: services/launchpad/security (124 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246489,7 +246489,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.35]
 title = "Pre-upgrade audit of launchpad: services/launchpad/metadata (99 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246521,7 +246521,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.34]
 title = "Pre-upgrade audit of launchpad: services/launchpad/livestream (110 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246617,7 +246617,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.31]
 title = "Pre-upgrade audit of launchpad: services/launchpad/discovery (124 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246681,7 +246681,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.29]
 title = "Pre-upgrade audit of launchpad: sdk/launchpad/shared/delivery (111 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246745,7 +246745,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.27]
 title = "Pre-upgrade audit of launchpad: sdk/launchpad/shared/config (89 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246841,7 +246841,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.24]
 title = "Pre-upgrade audit of launchpad: modules/launchpad (163 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246969,7 +246969,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.20]
 title = "Pre-upgrade audit of launchpad: apps/launchpad/web/src/ui (117 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247001,7 +247001,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.19]
 title = "Pre-upgrade audit of launchpad: apps/launchpad/web/src/core (137 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247033,7 +247033,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.18]
 title = "Pre-upgrade audit of markets: services/platform (52 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247065,7 +247065,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.17]
 title = "Pre-upgrade audit of markets: precompiles/spot (117 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247097,7 +247097,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.16]
 title = "Pre-upgrade audit of markets: precompiles/perps (121 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247193,7 +247193,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.13]
 title = "Pre-upgrade audit of markets: apps/perps/tests (180 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247225,7 +247225,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.12]
 title = "Pre-upgrade audit of markets: apps/perps/src/widgets (155 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247257,7 +247257,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.11]
 title = "Pre-upgrade audit of markets: apps/perps/src/core (206 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247417,7 +247417,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.6]
 title = "Pre-upgrade audit of kernel: tests/modules (61 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247513,7 +247513,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.3]
 title = "Pre-upgrade audit of kernel: src/protocol (31 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
