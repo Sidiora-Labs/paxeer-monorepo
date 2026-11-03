@@ -33,6 +33,9 @@ subtle.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
+layerx-platform-authority = { path = "../authority" }
+signal-hook = "=0.3.18"
+tempfile = "3.27.0"
 layerx-indexer = { path = "../indexer" }
 
 [lints]

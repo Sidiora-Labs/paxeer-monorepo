@@ -20523,3 +20523,307 @@ symbol = "readyz_reports_the_consensus_endpoint"
 observed = "Attempt 6: the readiness logic passes; readyz_reports_the_consensus_endpoint fails at chain_reads.rs:64 on a fixed temporary directory that already exists when the tests run in parallel."
 assumption = "The fixture takes a unique temporary directory; continue from attempt 6."
 severity = "low"
+
+[finding.22.99.92.3]
+task = "22.99.92"
+file = "services/platform/hosted/node/bootstrap.sh"
+symbol = "GENESIS_MODULES"
+observed = "Attempt 3: 102 kernel guards pass; the two public-bootstrap genesis runs fail because bootstrap.sh:334 requires seven configured modules while genesis-modules.conf has listed six since the registry reconciliation of 22.1.9; the locked agent build also fails on the stale lock."
+assumption = "The bootstrap count follows the reconciled registry (six); the task requires 22.99.158 for the lock."
+severity = "medium"
+
+[finding.22.9.31.3]
+task = "22.9.31"
+file = "services/agent/Cargo.lock"
+symbol = "layerx-agentd"
+observed = "Attempt 5: the webhook fixture repairs compiled nothing because the locked build stopped on the stale services/agent lock (gotcha 2954); verification did not run."
+assumption = "Requires 22.99.158; the attempt-5 tree is requalified after it."
+severity = "low"
+
+[finding.22.99.58.1]
+task = "22.99.58"
+file = "services/human/crates/layerx-human-identity-provider/tests/catalog.rs"
+symbol = "generated_catalog_loads_through_the_service_reader"
+observed = "Attempt 2: three tests fail. catalog.rs:17 runs services/platform/hosted/human/test_provision.py, which stops at import yaml because the qualification environment lacks pyyaml; assertion_capability_reaches_existing_attestor_admission needs the isolated attestor admission fixture that no producer provides; provision_resolve_device_and_restart_replay fails with InvalidData state already locked when the replayed provider reopens its state."
+assumption = "The first is environmental and the build installs pyyaml; the second is a producer input excluded by name (decision 2496); the third is a restart defect in the provider repaired inside the crate."
+severity = "medium"
+
+[finding.22.99.76.2]
+task = "22.99.76"
+file = "programs/crates/layerx-programs-runtime/src/market_tests.rs"
+symbol = "compiled_market_dispute_refuses_forged_wrong_replayed_unauthorized_and_premature_moves"
+observed = "Attempt 2: the compiled market dispute test refuses operation 10 at index 6 with a V2AuthorizedExecutionRecord that the test expects to be accepted (market_tests.rs:642); six actual_ tests of tests/program_spend_composition.rs stop because the source-bound native guest producer and its signed receipt terminal evidence are NotPresent."
+assumption = "The actual_ tests are producer inputs excluded by name (decision 2496); the dispute refusal is compared with the dispute contract of the module and repaired inside the crate."
+severity = "medium"
+
+[finding.22.99.77.1]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs"
+symbol = "f03_a04_empty_vector_returns_no_scores"
+observed = "Attempt 2: 21 tests fail. Ten native harness tests stop because build/paxai-host-boundary/manifest is absent (make paxai-host-boundary-build never ran); four F03 host tests receive generic refusal codes 2, 3, 4, 5 and 20 where the F03 codes of src/errors.rs (0x0307 to 0x030C) are expected; rewards_native.rs:2193 and view_binding.rs:529 publish a committed snapshot at the evidence rank (2 or 3) where FINALIZED_RANK 4 is expected."
+assumption = "The task moves to the mixed environment profile and the build runs make -s paxai-host-boundary-build first; the host boundary propagates the F03 codes unchanged; a binding whose block is committed is published at FINALIZED_RANK because a committed block is final on this chain."
+severity = "medium"
+
+[finding.22.9.10.11]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/test/receipt-fixture.test.ts"
+symbol = "decodeProgramsReceipt"
+observed = "Attempt 24: npm run build fails with TS2724 at test/receipt-fixture.test.ts:13 because that test still imports decodeProgramsReceipt, which this task removed from src/ai_market.ts; the file was outside the paths."
+assumption = "The test file joins the paths and follows the decoder this task keeps."
+severity = "low"
+
+[finding.22.9.18.6]
+task = "22.9.18"
+file = "services/agent/crates/layerx-sdk/src/program_http.rs"
+symbol = "signed_program_transaction"
+observed = "Attempt 14: following the attempt-13 ruling the corpus record 0 (abi3-success) was compared with the decoder: its signed activity starts with byte 0x00, the native activity form the kernel emits, while signed_program_transaction in program_http.rs accepts only the EIP-1559 envelope (type byte 0x02); the file was outside the paths so no gate ran."
+assumption = "program_http.rs joins the paths; the decoder accepts the native activity form the kernel wire defines alongside the EIP-1559 envelope."
+severity = "medium"
+
+[finding.9.98.2.2]
+task = "9.98.2"
+file = "tests/fixtures/authority/provider-subject/consent.activity"
+symbol = "signed_submission"
+observed = "Commit a1ea1c8a6 references tests/fixtures/authority/provider-subject/consent.activity from human_runtime.rs:19709 and human_runtime/subject/tests.rs:100 but the file is absent on main; cargo build --locked -p layerx-agentd --tests fails (9.35.19 attempt 6)."
+assumption = "Repaired by 22.99.159, which the open agent daemon tasks now require."
+severity = "high"
+
+[finding.22.99.148.2]
+task = "22.99.148"
+file = "services/agent/sdk/typescript/src/intent.ts"
+symbol = "decodeIntentPlan"
+observed = "Attempt 2: npm test fails in test/intent.test.ts:68 with decode-failure because decodeIntentPlan requires the key sponsored and legs with call and nonce, which the fixture plan_result does not carry; the Python decoder in turn refuses the fixture's extra leg keys."
+assumption = "Decision 2512 fixes the contract; the task requires 22.9.10, which repairs the fixture and both decoders."
+severity = "medium"
+
+[finding.22.99.72.4]
+task = "22.99.72"
+file = "services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs"
+symbol = "px_getReceiptKeys"
+observed = "Attempt 7: the five chain_reads tests pass; px_getReceiptKeys runs a TypeScript consumer that imports services/agent/sdk/typescript/src/ai_market.ts and fails with ERR_MODULE_NOT_FOUND for @noble/curves because the SDK dependencies were never installed in the qualification environment."
+assumption = "The build installs the SDK dependencies first; the attempt-7 tree is continued."
+severity = "low"
+
+[finding.22.99.117.2]
+task = "22.99.117"
+file = "programs/tests/vectors/ics23-admission-evidence-app-hash.json"
+symbol = "TestAdmissionEvidenceAppHashVector"
+observed = "Attempt 2: TestReceiptKeysAppHashVector and TestProofSequencerModule pass; the four remaining vector tests (admission evidence, market namespaces, module catalogue, EVM storage) fail with regenerate with LXP_WRITE_VECTORS=1 because the committed vectors were produced while the tree wrote version 1 instead of the configured initial version (attempt-1 ruling); the vectors are outside the paths."
+assumption = "programs/tests/vectors joins the paths; the vectors are regenerated by the keeper and the Rust consumers of those vectors are verified against them."
+severity = "medium"
+
+[finding.22.99.150.2]
+task = "22.99.150"
+file = "tests/bridge/retired/test_retired_emergency_exit.py"
+symbol = "test_emergency_exit_is_retired"
+observed = "Attempts 1 and 2: python3 -m pytest --collect-only tests exits 2 with import file mismatch because tests/ci/test_retired_emergency_exit.py and tests/bridge/retired/test_retired_emergency_exit.py share a module name without packages; both files are outside the paths, so no change was made."
+assumption = "The task's paths move to tests/bridge/retired and the retired-bridge module is renamed."
+severity = "low"
+
+[finding.22.95.1.2]
+task = "22.95.1"
+file = "services/agent/Cargo.lock"
+symbol = "layerx-agentd"
+observed = "Attempt 5: the locked build stopped on the stale services/agent lock (gotcha 2954) before any test compiled."
+assumption = "Requires 22.99.158 and 22.99.159; the attempt-5 tree is requalified after both."
+severity = "low"
+
+[finding.9.35.19.3]
+task = "9.35.19"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "signed_submission"
+observed = "Attempt 6: the agent daemon test build fails because tests/fixtures/authority/provider-subject/consent.activity, included at human_runtime.rs:19709 and subject/tests.rs:100, is absent on main (gotcha 2956)."
+assumption = "Requires 22.99.159; the attempt-6 tree is continued after it."
+severity = "medium"
+
+[finding.22.99.145.2]
+task = "22.99.145"
+file = "precompiles/layerxprograms/fuzz_test.go"
+symbol = "FuzzProgramsDecodeArgs"
+observed = "Attempt 2: build passes and every test but the fuzz corpus entries 128 and 129 passes; those two call getRetirementControl without a record and the attempt's new per-method expectation demands LXP_NOT_FOUND while the handler forwards the kernel code LXP_UNKNOWN_FIELD that the host read returns for an absent progretire/v1 field (modules/lxphost/read.go:268 through read_program.go:399)."
+assumption = "The kernel code is the contract: the precompile forwards it unchanged and the expectation follows it; the attempt-2 tree is continued."
+severity = "low"
+
+[finding.13.99.1.4]
+task = "13.99.1"
+file = "programs/Cargo.lock"
+symbol = "layerx-programs-ai-market"
+observed = "Commit 051e6c3e0 removed the wasm32 spin dependency of the AI market crate but programs/Cargo.lock, services/agent/Cargo.lock, services/human/Cargo.lock and services/platform/Cargo.lock still list it under the crate, so every --locked build in those workspaces and make paxd-native-libs fail on main (first seen 20:48Z on 22.99.155 a3, 22.99.58 a4, 22.99.72 a8, 22.99.159 a1)."
+assumption = "Repaired by 22.99.160 (decision 2513, gotcha 2957); the task's own verify passed on a tree whose refreshed lock did not reach the commit."
+severity = "high"
+
+[finding.22.99.155.2]
+task = "22.99.155"
+file = "programs/Cargo.lock"
+symbol = "layerx-indexer"
+observed = "Attempt 3: the build stopped in make paxd-native-libs on the stale programs lock (gotcha 2957) before any indexer test ran; the only change is the repair record."
+assumption = "Requalify once 22.99.160 is on main."
+severity = "low"
+
+[finding.22.99.58.2]
+task = "22.99.58"
+file = "services/human/Cargo.lock"
+symbol = "layerx-human-identity-provider"
+observed = "Attempt 4: the locked build stopped on the stale services/human lock (gotcha 2957) before compiling; the attempt-4 tree carries the attestor assertion and state-lock changes of the attempt-3 ruling."
+assumption = "Continue once 22.99.160 is on main."
+severity = "low"
+
+[finding.22.99.72.5]
+task = "22.99.72"
+file = "services/platform/Cargo.lock"
+symbol = "layerx-platform-gateway"
+observed = "Attempt 8: the locked build stopped on the stale services/platform lock (gotcha 2957) before compiling the gateway."
+assumption = "Continue once 22.99.160 is on main."
+severity = "low"
+
+[finding.22.99.159.1]
+task = "22.99.159"
+file = "services/agent/Cargo.lock"
+symbol = "layerx-agentd"
+observed = "Attempt 1: the locked build stopped on the stale services/agent lock (gotcha 2957) before the consent fixture work started."
+assumption = "Relaunch once 22.99.160 is on main."
+severity = "low"
+
+[finding.22.99.77.2]
+task = "22.99.77"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "layerx-agentd"
+observed = "Attempt 3: the native harness builds and the crate tests build; the dependent-crate check fails compiling layerx-agentd tests because tests/fixtures/authority/provider-subject/consent.activity is absent on main (gotcha 2956)."
+assumption = "Requires 22.99.159 and 22.99.160; continue the attempt-3 tree."
+severity = "low"
+
+[finding.18.1562.1.1]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go"
+symbol = "TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 6: go build and the TypeScript build pass; the verify links rpc.test without the native libraries (the programs environment library is missing from the link), so go test ./rpc/ fails before TestAiMarketTransferAuthorityReceipt runs."
+assumption = "The build now runs make paxd-native-libs first (which requires 22.99.160); continue the attempt-6 tree."
+severity = "low"
+
+[finding.22.23.11.3]
+task = "22.23.11"
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+symbol = "lookup_authenticated"
+observed = "Attempt 4: only lookup_authenticated_checks_the_payment_asset_when_fees_use_a_token fails, with FieldMismatch(feeDenom): src/rpc/receipt.rs:289 compares the protocol asset of the canonical receipt with sha256(feeDenom) while the receipt view and src/sequencer.rs (executed, paymentDenom) make the payment asset sha256(paymentDenom); the file was outside the task's paths."
+assumption = "src/rpc/receipt.rs joins the paths; the asset check follows paymentDenom; continue the attempt-4 tree."
+severity = "medium"
+
+[finding.22.99.150.3]
+task = "22.99.150"
+file = "tests/bridge/retired/test_retired_bridge_emergency_exit.py"
+symbol = "test_emergency_exit_is_retired"
+observed = "Attempt 3: the verify passed (498 tests collected, record written) at the commit the qualification run recorded, but the final tree differs from that commit (an edit landed after the qualification run), so the attempt was not published."
+assumption = "Requalify the attempt-3 tree as it stands."
+severity = "low"
+
+[finding.22.9.10.12]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/src/web-search.ts"
+symbol = "verifySequencerReceipt"
+observed = "Attempt 25: the build passes and npm test fails in test/web-search.test.ts (dist line 186) with receipt-offer-mismatch from verifySequencerReceipt (src/web-search.ts:329), which compares the receipt protocol facts asset, amount and to against the offer after pinning moduleId 12 and operation 2 (line 328); the gateway's own verify_receipt (services/interop/crates/x-websearch/src/payment.rs:661-674) proves payee, asset and amount from the PaymentExact log of the ledger precompile in the pax_sequencerReceipt answer and never compares the protocol facts."
+assumption = "The TypeScript client follows the gateway contract: the settlement log, not the receipt protocol facts, proves the offer; the attempt-25 tree is continued with the web-search files in the paths."
+severity = "medium"
+
+[finding.22.99.92.4]
+task = "22.99.92"
+file = "tests/test_beta_withdrawal_genesis.py"
+symbol = "test_public_bootstrap_and_real_builder_bind_v3_and_native_authority"
+observed = "Attempt 4: 102 tests pass and 3 fail. The two public-bootstrap genesis runs stop at bootstrap: layerxd is not executable: build/bin/layerxd; cmd/layerxd is deleted on main (tasks 5.50.1-5.50.7, 16.9.4) and no root Makefile rule builds build/bin/layerxd, while services/platform/hosted/node/bootstrap.sh:82 and :444 still resolve it. tests/ci/test_agent_codec_corpus.py fails because the attempt moved tests/vectors/codec/generate.py to tests/codec/generate_replay_corpus.py and repointed the Makefile recipe agent-prepare-codec-corpus, while services/agent/crates/layerx-types/tests/vectors.rs:19-31 copies tests/vectors/codec/generate.py from the repository root into the clean checkout."
+assumption = "A test that starts the retired daemon is recorded as a producer-input test of the retired binary (gotcha 2397) and deselected; the generator move is reverted because the Rust vector test consumes the path."
+severity = "medium"
+
+[finding.22.99.92.5]
+task = "22.99.92"
+file = "services/platform/hosted/node/bootstrap.sh"
+symbol = "resolve_binary"
+observed = "services/platform/hosted/node/bootstrap.sh:82 and :444 resolve build/bin/layerxd and layerx-genesis-build although cmd/layerxd is deleted on main and nothing builds the binary (wiring.J33.23 is listed as fulfilled by tasks 8.19.2 and 8.19.3, yet the reference stays); the hosted node bootstrap, supervisor.sh and sequencer-env.sh cannot start a node from this tree."
+assumption = "Closure-wave item: the hosted node deployment is retargeted onto paxd or retired with the daemon; no repair task changes it now."
+severity = "medium"
+
+[finding.22.99.117.3]
+task = "22.99.117"
+file = "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs"
+symbol = "canonical_native_authority_matches_authenticated_historical_facts"
+observed = "Attempt 3: the build (make -s paxd-native-libs and go vet) passes and every verify step passes except cargo test -p layerx-programs-arbiter --tests, where canonical_native_authority_matches_authenticated_historical_facts panics required genuine native replay corpus; no fallback: NotPresent reading LAYERX_AUTHENTICATED_REPLAY_INPUTS (authority_from_prestate.rs:290; :298 reads LAYERX_ARBITER_ADMISSION_INPUTS); verified_step.rs and the market profile test of the arbiter crate read the same recorded corpora, which repair record rust-test-programs.11 lists under producer_input_tests."
+assumption = "The verify names the vector consumer that needs no recorded corpus; the attempt-3 tree is requalified."
+severity = "low"
+
+[finding.22.99.145.3]
+task = "22.99.145"
+file = "precompiles/layerxprograms/proof_layerxprograms_0x101d_test.go"
+symbol = "TestProofLayerxprograms0x101d"
+observed = "Attempt 3 (started before the attempt-2 ruling landed): the fuzz corpus entries 128 and 129 fail as ruled, and TestProofLayerxprograms0x101d fails because its producer tests/agent/sdk/python/test_evm_transaction.py imports cryptography, which the Go test environment lacks (ModuleNotFoundError at line 9)."
+assumption = "The build command installs the Python package the proof producer needs; the attempt-3 tree is continued under the attempt-2 ruling."
+severity = "low"
+
+[finding.22.99.144.1]
+task = "22.99.144"
+file = "node/sequencer/limits_test.go"
+symbol = "TestExecutorAdmissionIsAnteChain"
+observed = "Attempt 1: go vet passes and go test ./node/sequencer/ fails 20 tests on top of the landed replay and chain-allowance work. (1) TestExecutorAdmissionIsAnteChain and TestNonceAdmissionReleasesHeldNonceInOrder sign their wrong-chain case with config.DefaultChainID+1 and expect sdkerrors.ErrInvalidChainID; since task 20.3.2 (dd59c88fc) node/sequencer/limits.go:77-79 refuses every chain id that DomainAllowance reports unknown with ErrNotAdmitted wrapping ErrDomainNotActive before the ante handler runs. (2) TestAcceptRefusesPastChainGasAllowance, TestAcceptRefusesPastChainByteAllowance and TestChainAllowanceDoesNotLimitRootTransactions build their domains in the in-memory host map of limits_test.go:52-62 without registering them in the chains keeper, and modules/evm/keeper/msg_server.go:250-254 (e576fb445) now reads NextBaseFee for the transaction's domain, which panics recovered: unknown domain in modules/layerxchains/keeper/accounting.go:50. (3) TestMicroBatchEqualsSequential and TestMicroBatchPlacesTxWithSetTxPosition compare whole Accepted values whose ctx now carries the admission usage value of the allowance accounting. (4) TestProofSequencerExecutorTransportRecovery (proof_sequencer_executor_test.go:255, message outside-scope Node.Start does not rebuild receipt lookup) and TestProofSequencerExecutorRPCConsumers (:393) still assert the gap that 22.95.2 and 22.95.13 closed. (5) TestSealBatchEqualsGigaProcessBlock finds no evmone library (seal_giga_test.go:49) because the build never ran go generate ./engine/executor/lib (precedent task 5.16.4). (6) TestConsensusSourceBelowActivation (consensus_source_test.go:368 reports height 2 sequenced), the resolutionProposal REJECT at limits_test.go:429, resolution_test.go:190 and :399, seal_batch_test.go:119, :184 and :255, standby_role_test.go:786 and :865 and standby_wal_sync_hook_test.go:42 fail on the replay-rebuilt source state and are not yet diagnosed."
+assumption = "The package is repaired as one task: an unknown chain id is refused as invalid chain-id, the allowance harness registers its domains in the keeper, the proof tests assert the closed gap, the build generates the evmone library; the attempt-1 tree is continued."
+severity = "medium"
+
+[finding.22.99.155.3]
+task = "22.99.155"
+file = "services/platform/hosted/indexer/tests/names_api.rs"
+symbol = "names_api_answers_match_the_committed_vector"
+observed = "Attempt 4: attempts 1 to 4 changed only the repair record and the three failing test targets of layerx-indexer remain. names_api_answers_match_the_committed_vector and names_api_accepts_the_explorer_query_parameters compare the events of alice.pax with tests/vectors/names/indexer_api_v1.json, whose third event at 2027-01-15T08:00:01Z is register, while names.rs classifies a registry NewOwner as transfer since issue #1394 (task 18.1394.1, 62c08f5e0, which changed names.rs and names_ingest.rs but not the vector)."
+assumption = "The committed vector follows the product classification of issue #1394 (the registry owner change recorded during a registration is a transfer, not a registration); the vector is added to the paths."
+severity = "medium"
+
+[finding.22.99.155.4]
+task = "22.99.155"
+file = "services/platform/hosted/indexer/tests/ai_reputation_finality.rs"
+symbol = "a11_finalized_eviction_reports_history_outside_retention_with_archive_locator"
+observed = "a11_finalized_eviction_reports_history_outside_retention_with_archive_locator and a11_eviction_never_seen_by_this_projection_has_no_archive_locator offer a 32-record first section at height 20000 and are refused with CAPACITY (ApplicationError 0x0016) at ai_reputation_finality.rs:893 instead of Admission::Advanced; the a11 fixtures date from before the block-commit finality port (task 8.1.5, c0b6a66b0)."
+assumption = "The retention capacity the projection applies is the product fact; the fixture record count, or the constant the test derives it from, is aligned with it."
+severity = "medium"
+
+[finding.22.99.155.5]
+task = "22.99.155"
+file = "services/platform/hosted/indexer/tests/history_position.rs"
+symbol = "proof_layerxledger_0x101a"
+observed = "proof_layerxledger_0x101a and proof_layerxpay_0x101b read their producer document from stdin and run through the declared gates of the two proof tasks (precompiles/layerxledger/proof_layerxledger_0x101a_test.go and precompiles/layerxpay/proof_layerxpay_0x101b_test.go); under cargo test -p layerx-indexer they read an empty stdin and panic EOF while parsing a value."
+assumption = "Producer-input tests: the sweep verify skips them by name and the record lists them under producer_input_tests."
+severity = "low"
+
+[finding.22.99.58.3]
+task = "22.99.58"
+file = "services/platform/hosted/human/provision.py"
+symbol = "activity_types"
+observed = "Attempt 5: build and dependent-crate check pass; generated_catalog_loads_through_the_service_reader (tests/catalog.rs:25) fails with catalog load: InvalidPresetConfig. The producer services/platform/hosted/human/provision.py:203 emits each preset with activity_types from the template beta-purpose-catalog.json, while the consumer PurposePreset in services/human/crates/layerx-human-service/src/agents/create.rs:214-230 is deny_unknown_fields and requires a non-empty call_selectors list of 4-byte hex selectors (tasks 10.0.3, 63aee3813, and 10.20.5, 5ff108e0d); the generator was never moved to the new schema."
+assumption = "Producer follows consumer: the generator emits call_selectors from the template and stops emitting activity_types; the three hosted human files are added to the paths."
+severity = "medium"
+
+[finding.18.1562.1.2]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go"
+symbol = "TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 7: the build passes (make paxd-native-libs, go build ./rpc/..., SDK build); TestAiMarketTransferAuthorityReceipt fails at sequencer_receipt_vectors_test.go:707 (from :1385): the AI market CREATE call reverts with LXP_VERSION_UNSUPPORTED. The test assembles the create record and the 307-byte policy by hand (lines 688-700) and packs envelope(0x0101, 1, create); task 13.99.1 (051e6c3e0, required by this task) rewrote the guest codec in programs/crates/layerx-programs-ai-market so that record fields read as u64 before are read as nonzero big-endian versions (the version reader of reputation_codec.rs, the config version of the create record), and the guest refuses the hand-built bytes. Earlier attempts never reached this call (attempt 5 failed on the guest size that 13.99.1 fixed)."
+assumption = "The guest codec is the producer contract: the create fixture of the test is rebuilt from the record layout the guest decodes after 13.99.1, and the guest is not changed."
+severity = "medium"
+
+[finding.22.99.64.2]
+task = "22.99.64"
+file = "services/interop/Cargo.lock"
+symbol = "layerx-interop-service"
+observed = "Attempt 2: cargo build --locked in services/interop fails on main because services/interop/Cargo.lock (last refreshed by 6378efda0) predates the manifest changes of 1ea64199b (layerx-client), f7646b1ab (layerx-platform-gateway), 051e6c3e0 (layerx-programs-ai-market) and b022d25a2 (the vendored wasm-instrument); tools/platform/Cargo.lock is stale for the same manifests; 22.99.160 refreshed only the programs, services/agent, services/human and services/platform locks. No change inside the task's paths was made."
+assumption = "Repaired by 22.99.161; 22.99.64 and 22.9.10 require it (decision 2513)."
+severity = "high"
+
+[finding.9.35.19.4]
+task = "9.35.19"
+file = "services/agent/crates/layerx-agentd/tests/prepare_expiry.rs"
+symbol = "layerx-agentd"
+observed = "Attempt 7: the test build fails with E0308 at tests/prepare_expiry.rs:164, :170 and :198 because the expiry registry callers there pass prepare::Prepared while src/prepare/expiry.rs:71 register now takes the call-bound prepare::evm::Prepared the task introduced; the file was outside the task's paths, so the migration stopped."
+assumption = "tests/prepare_expiry.rs joins the paths and its callers follow the call-bound preparation type; continue the attempt-7 tree."
+severity = "medium"
+
+[finding.22.99.92.6]
+task = "22.99.92"
+file = "spec/layerx-merge/programme/sweeps/repairs/c-kernel-make.5.kvx"
+symbol = "test-tests-python"
+observed = "Attempt 5: the verify passed (102 tests and 9 subtests, two declared deselections, record written) at the commit the qualification run recorded, but the final tree differs from that commit (the repair record was edited after the qualification run), so the attempt was not published."
+assumption = "Requalify the attempt-5 tree as it stands."
+severity = "low"

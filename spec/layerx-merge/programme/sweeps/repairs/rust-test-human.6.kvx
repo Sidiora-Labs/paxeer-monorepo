@@ -1,0 +1,7 @@
+[repair.rust-test-human.6]
+target = "layerx-human-identity-provider"
+command = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider --no-fail-fast -- --skip assertion_capability_reaches_existing_attestor_admission"
+revision = "471d207b0eef6bcf4f9c1dc6a9c5f2b602d0f89b"
+result = "repaired"
+change = "src/state.rs releases the writer lock on drop and shutdown, tests/provider.rs preserves provision_resolve_device_and_restart_replay resolution, tests/support/mod.rs supplies the runtime clock authority to tests/assertion.rs, tests/client.rs, tests/principal_store.rs, tests/probe.rs and tests/provider.rs, tests/assertion.rs supplies producer-signed wallet bindings, services/platform/hosted/human/beta-purpose-catalog.json configures WPAX transfer(address,uint256) and approve(address,uint256) selectors from contracts/src/WPAX.sol and contracts/test/WPAXTest.t.sol, provision.py validates and emits call_selectors instead of activity_types, and test_provision.py with tests/catalog.rs verifies malformed selector refusal and generated_catalog_loads_through_the_service_reader."
+producer_input_tests = ["assertion_capability_reaches_existing_attestor_admission: PAXEER_X_IDENTITY_ATTESTOR_FIXTURE with an isolated local attestor quorum, certificates, JWKS URL and signed assertion (decision 2496)"]

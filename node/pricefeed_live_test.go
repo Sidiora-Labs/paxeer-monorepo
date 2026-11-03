@@ -135,6 +135,9 @@ func newPriceFeedLiveChain(t *testing.T) *priceFeedLiveChain {
 	header := c.header(a.LastBlockHeight() + 1)
 	c.writeAndCommit(header, func(ctx sdk.Context) {
 		require.NoError(t, pricefeedkeeper.InitV6120(ctx, a.PricefeedKeeper))
+		params := a.PricefeedKeeper.GetParams(ctx)
+		params.MinSources = priceFeedLiveRequired
+		require.NoError(t, a.PricefeedKeeper.SetParams(ctx, params))
 		require.NoError(t, perpskeeper.SeedV6120(ctx, *a.PerpsKeeper))
 		staking := stakingkeeper.NewMsgServerImpl(a.StakingKeeper)
 		bond := sdk.NewCoin(sdk.DefaultBondDenom, sdk.DefaultPowerReduction)

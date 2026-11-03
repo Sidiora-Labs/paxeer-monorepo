@@ -159,7 +159,9 @@ fn prepare(
 ) -> Result<(Eip1559Call, Disclosure, [u8; 20]), WalletToolError> {
     let wallet = execution.wallet;
     let options = execution.options;
-    if options.wait_timeout > Duration::from_secs(300) {
+    if execution.canonical_payload.len() > layerx_sdk::rpc::MAX_TRANSACTION_CALLDATA_BYTES
+        || options.wait_timeout > Duration::from_secs(300)
+    {
         return Err(WalletToolError::Arguments);
     }
     if options.commitment == Commitment::Finalised

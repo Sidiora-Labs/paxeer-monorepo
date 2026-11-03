@@ -1,7 +1,7 @@
 ## RPC Test Overview
 An RPC test under `rpc/tests` involves generating the chain state as if the chain started from a specified genesis state and processed a number of specified blocks. This is encapsulated in one `SetupTestServer` call (in `utils.go`). After the `*testing.T`, its second argument is a `[][][]byte` which represents a list of blocks (note that `[]byte` represents a transaction and `[][]byte` represents a block), and the remaining arguments are a series of `func(sdk.Context, *app.App)` which represent the genesis state initializers and allows test writers to set genesis state directly through keeper functions without having to write it as a json file. Once a test server is set up, test writers can call `Run` with a function parameter `func(port int)`, within which requests can be made via calls like `sendRequestWithNamespace(<namespace e.g. eth>, port, <endpoint e.g. getTransactionByHash>, parameters...)`. 
 
-Run the suite from the repository root with `go test ./rpc/tests/`. The tests read `ERC20.bin` and other files by paths relative to this directory, which `go test` uses as the working directory.
+Run the inventory sweep from the repository root with `CGO_ENABLED=1 go vet ./rpc/tests/ && CGO_ENABLED=1 go test -count=1 -timeout 35m ./rpc/tests/`. The tests read `ERC20.bin` and other files by paths relative to this directory, which `go test` uses as the working directory.
 
 ### Transaction Generation
 To generate a transaction to feed into `SetupTestServer`, it follows a three-step process:

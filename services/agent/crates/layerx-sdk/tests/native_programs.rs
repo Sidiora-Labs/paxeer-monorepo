@@ -15,10 +15,12 @@ fn bytes(value: &str) -> Result<Vec<u8>, std::num::ParseIntError> {
 
 #[test]
 fn native_request_binds_real_signed_fixture() -> Result<(), Box<dyn std::error::Error>> {
+    use layerx_crypto::evm_transaction::{transaction_hash, Eip1559Call};
+
     let fixture: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/native-program-call-v3.json"
     ))?;
-    let signed = bytes(
+    let legacy = bytes(
         fixture["signed_activity_hex"]
             .as_str()
             .ok_or("signed fixture missing")?,
@@ -29,6 +31,18 @@ fn native_request_binds_real_signed_fixture() -> Result<(), Box<dyn std::error::
             .ok_or("payload fixture missing")?,
     )?;
     let native = NativeProgramCall::decode(&payload).map_err(|_| "invalid fixture")?;
+    let signed = Eip1559Call {
+        chain_id: 125,
+        nonce: 7,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 500,
+        to: bytes("000000000000000000000000000000000000101d")?
+            .try_into()
+            .map_err(|_| "invalid precompile address")?,
+        data: payload.clone(),
+    }
+    .sign(&[0x42; 32])?;
     let registry = ModuleRegistry::new(&[ModuleRegistration::new(
         ModuleId::Programs,
         &[ActivityType::new(ModuleId::Programs, 3).map_err(|_| "activity type invalid")?],
@@ -38,10 +52,9 @@ fn native_request_binds_real_signed_fixture() -> Result<(), Box<dyn std::error::
     let bound = NativeProgramCallRequest::new(&registry, native, 1000, &signed)
         .map_err(|_| "binding failed")?;
     assert_eq!(bound.signed_activity(), signed);
-    assert_eq!(
-        bound.bound_activity_id().to_vec(),
-        bytes(fixture["activity_id_hex"].as_str().ok_or("id missing")?)?
-    );
+    assert_eq!(bound.bound_activity_id(), transaction_hash(&signed));
+    assert_eq!(bound.bound_idempotency_key(), transaction_hash(&signed));
+    assert!(NativeProgramCallRequest::new(&registry, native, 1000, &legacy).is_err());
     assert!(NativeProgramCallRequest::new(&registry, native, 999, &signed).is_err());
     assert!(NativeProgramCallRequest::new(
         &registry,
