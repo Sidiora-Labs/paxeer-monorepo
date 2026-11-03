@@ -350,10 +350,13 @@ async function replayedSettlementAnswersStoredTransaction() {
   await assert.rejects(restarted.handle("merchant", fixture.header, fixture.release),
     (error) => error instanceof MiddlewareError && error.code === "fulfillment-conflict");
   fixture.fulfillments.records.set(key, { ...stored, requestDigest: "wrong-request" });
-  await assert.rejects(restarted.handle("merchant", fixture.header, fixture.release),
-    (error) => error instanceof MiddlewareError && error.code === "fulfillment-conflict");
-  assert.equal(fixture.authority.settleCount, 1);
+  const refused = await restarted.handle("merchant", fixture.header, fixture.release);
+  assert.equal(refused.kind, "refused");
+  assert.equal(refused.status, 409);
+  assert.equal(refused.settlement.errorReason, "receipt_reuse");
+  assert.equal(fixture.authority.settleCount, 2);
   assert.equal(fixture.releaseCount(), 1);
+  assert.equal(fixture.fulfillments.records.size, 1);
 }
 
 test(settlementResponseNamesTransactionHash);
