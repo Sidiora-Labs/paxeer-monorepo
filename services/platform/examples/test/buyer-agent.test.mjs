@@ -97,7 +97,7 @@ async function buyerAgentExampleConfigHasNoReceiptAuthority() {
       config.rpcUrl,
       environment === "emulator"
         ? "http://127.0.0.1:9402/rpc"
-        : "https://api-mainnet-beta.paxeer.network/rpc",
+        : "https://api-mainnet-beta.paxeer.network",
       environment,
     );
     assert.equal(
