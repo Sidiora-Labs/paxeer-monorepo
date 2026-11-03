@@ -21,6 +21,7 @@ import (
 )
 
 func TestPayParamsThroughLayerXProposal(t *testing.T) {
+	t.Log("initializing governance application")
 	w := app.NewTestWrapper(t, time.Unix(1800000000, 0).UTC(), ed25519.GenPrivKey().PubKey(), false)
 	t.Cleanup(func() { require.NoError(t, w.App.Close()) })
 	ctx := w.Ctx
@@ -108,6 +109,7 @@ func TestPayParamsThroughLayerXProposal(t *testing.T) {
 	require.Equal(t, govtypes.NewNonSplitVoteOption(govtypes.OptionYes), govtypes.WeightedVoteOptions(storedVote.Options))
 	assertParams(before)
 	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 1).WithBlockTime(stored.VotingEndTime.Add(time.Second))
+	t.Log("applying proposal at voting end time")
 	gov.EndBlocker(ctx, w.App.GovKeeper)
 	stored, found = w.App.GovKeeper.GetProposal(ctx, proposalID)
 	require.True(t, found)

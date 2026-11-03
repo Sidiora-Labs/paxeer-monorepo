@@ -140,6 +140,7 @@ func genesisSharedRecords(t *testing.T, w *app.TestWrapper, genesis paytypes.Gen
 }
 
 func TestAppExportsPayGenesisWithSharedHost(t *testing.T) {
+	t.Log("initializing source application")
 	now := time.UnixMilli(1_800_000_000_000).UTC()
 	validator := secp256k1.GenPrivKey().PubKey()
 	source := app.NewTestWrapper(t, now, validator, true)
@@ -244,6 +245,7 @@ func TestAppExportsPayGenesisWithSharedHost(t *testing.T) {
 
 	*source.App.DeliverContext() = source.Ctx
 	source.App.SetDeliverStateToCommit()
+	t.Log("committing source application")
 	_, err = source.App.Commit(context.Background())
 	require.NoError(t, err)
 	source.Ctx = source.App.NewContext(true, tmproto.Header{Height: source.App.LastBlockHeight(), ChainID: "pax-test", Time: now})
@@ -268,6 +270,7 @@ func TestAppExportsPayGenesisWithSharedHost(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, stored, decoded)
 
+	t.Log("initializing restored application from exported genesis")
 	restored := &app.TestWrapper{App: app.Setup(t, true, true, false)}
 	t.Cleanup(func() { require.NoError(t, restored.App.Close()) })
 	restored.Ctx = sdk.NewContext(restored.App.CommitMultiStore(), tmproto.Header{Height: exported.Height, ChainID: "pax-test", Time: now}, false)
@@ -294,6 +297,7 @@ func TestAppExportsPayGenesisWithSharedHost(t *testing.T) {
 
 	*restored.App.DeliverContext() = restored.Ctx
 	restored.App.SetDeliverStateToCommit()
+	t.Log("committing restored application")
 	_, err = restored.App.Commit(context.Background())
 	require.NoError(t, err)
 	reexported, err := restored.App.ExportAppStateAndValidators(false, nil)
