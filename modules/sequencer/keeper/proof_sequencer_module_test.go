@@ -246,7 +246,7 @@ func TestProofSequencerModule(t *testing.T) {
 	require.NoError(t, err)
 	input := &seqnode.ReceiptInput{
 		Accepted: &seqnode.Accepted{Seq: seq, SeqHash: hash, ActivityID: activity, Height: 2, TxIndex: 1, TimestampMs: 1700000000000},
-		EVM:      &evmtypes.Receipt{Status: 1}, FeeDenom: "upax", FeeCharged: big.NewInt(0), Amount: big.NewInt(0),
+		EVM:      &evmtypes.Receipt{Status: 1}, PaymentDenom: "upax", FeeDenom: "upax", FeeCharged: big.NewInt(0), Amount: big.NewInt(0),
 		FromBalanceBefore: big.NewInt(0), FromBalanceAfter: big.NewInt(0), ToBalanceBefore: big.NewInt(0), ToBalanceAfter: big.NewInt(0),
 		ModuleID: app.EVMReceiptModuleID,
 	}
@@ -262,7 +262,7 @@ func TestProofSequencerModule(t *testing.T) {
 		BlockNumber: &blockNumber, BlockHash: &blockHash,
 		SequencerReceiptView: &evmrpc.SequencerReceiptView{
 			Seq: hexutil.Uint64(seq), Height: 2, Index: 1, Timestamp: 1700000000000, Status: 1,
-			Logs: []evmrpc.SequencerReceiptLog{}, FeeDenom: "upax", FeeAmount: (*hexutil.Big)(big.NewInt(0)),
+			Logs: []evmrpc.SequencerReceiptLog{}, PaymentDenom: input.PaymentDenom, FeeDenom: input.FeeDenom, FeeAmount: (*hexutil.Big)(big.NewInt(0)),
 			KeyID: common.Hash(keyID), SigningKey: public[:], Receipt: signed,
 		},
 	}
@@ -271,8 +271,14 @@ func TestProofSequencerModule(t *testing.T) {
 	var observed evmrpc.SequencerReceiptResult
 	require.NoError(t, json.Unmarshal(wire, &observed))
 	require.NoError(t, observed.Verify(persistedPins))
+	require.Equal(t, input.PaymentDenom, observed.PaymentDenom)
 	require.Equal(t, evmrpc.RungCommitted, observed.Rung)
 	require.Equal(t, seq, uint64(observed.Seq))
+	for _, paymentDenom := range []string{"", "uhpx", "different-payment-asset"} {
+		observed.PaymentDenom = paymentDenom
+		require.ErrorIs(t, observed.Verify(persistedPins), evmrpc.ErrSequencerReceiptMismatch)
+	}
+	observed.PaymentDenom = input.PaymentDenom
 	observed.Status = 0
 	require.ErrorIs(t, observed.Verify(persistedPins), evmrpc.ErrSequencerReceiptMismatch)
 }
