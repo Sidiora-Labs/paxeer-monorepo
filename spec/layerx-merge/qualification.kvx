@@ -19451,3 +19451,59 @@ symbol = "proof_layerxledger_0x101a"
 observed = "The wallet consumer of the ledger 0x101a proof is registered as test(fn) without a name, which vitest 4.1.12 records as a todo, so the Go proof's 1 passed assertion fails whole-package."
 assumption = "22.11.8 registers it with an explicit name; apps/launchpad/web carries the same registration form for the closure sweep."
 severity = "medium"
+
+[finding.10.1.4.2]
+task = "10.1.4"
+file = "services/human/tools/boundary-check/src/lib.rs"
+symbol = "RETIRED_IMPORTS"
+observed = "The retired-import list names layerx_proof::receipt::AuthorizedBatch, a struct the proof crate defines and the human journeys engine consumes, and the pre-move lni path of the frame codec."
+assumption = "Decision 2397: the AuthorizedBatch row leaves and the KMS tests import the frame module."
+severity = "medium"
+
+[finding.20.2.2.2]
+task = "20.2.2"
+file = "engine/executor/precompiles/failfast.go"
+symbol = "MergeFailFastPrecompileAddresses"
+observed = "The layerxchains merge address 0x101E entered precompiles/setup.go MergeAddressTable without entering the fail-fast table that TestMergeAddressTableIsFailFast checks address by address."
+assumption = "Decision 2398: 22.6.5 adds the address to the fail-fast table."
+severity = "medium"
+
+[finding.22.9.37.1]
+task = "22.9.37"
+file = "services/agent/sdk/typescript/test/precompile-calls.test.ts"
+symbol = "perpsCancelOrderCall"
+observed = "The TypeScript SDK build compiles the test directory, and rows 151-153 still type the retired bytes32 open and cancel shapes, so the build stops before the task's own test."
+assumption = "Decision 2399: the rows move with the encoder in 22.9.37."
+severity = "low"
+
+[finding.22.9.31.1]
+task = "22.9.31"
+file = "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"
+symbol = "projection_fixture"
+observed = "The real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen test requires a JSON fixture named by PAXEER_X_HUMAN_PROJECTION_FACTS_FIXTURE that no producer in the repository writes, so it has failed since 3422bafe2."
+assumption = "Decision 2400: 22.9.38 derives the fixture from the in-process Human peer server and approval registry."
+severity = "medium"
+
+[finding.10.15.4.1]
+task = "10.15.4"
+file = "sdk/platform/conformance/operations.json"
+symbol = "O48"
+observed = "The portable operation catalogue names Journey as the response of agent.create, onboarding.resume and onboarding.status while the human schema and the generated Go catalogue answer AgentCreationJourney and OnboardingJourney, so the Go conformance command refuses O48."
+assumption = "Decision 2401: 22.25.5 moves the three rows, regenerates the Swift and C# catalogues and reseals the pipeline lock."
+severity = "medium"
+
+[finding.16.2.2.1]
+task = "16.2.2"
+file = "scripts/qualification/paxeer-x/program-terminal-v5.py"
+symbol = "build"
+observed = "Eight qualification producers under tools and scripts still request generated/lxp_checkpoint_settlement.h after the Makefile rule retired, so every terminal-v5 corpus build exits 2."
+assumption = "Decision 2402: 22.1.11 removes the eight requests."
+severity = "medium"
+
+[finding.22.13.9.4]
+task = "22.13.9"
+file = "programs/crates/layerx-programs-runtime/tests/step_conformance.rs"
+symbol = "fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly"
+observed = "take_execution_trap_record answers None after a recursive guest traps with StackOverflow under a 128-frame stack limit, so the test panics at :61 real terminal trap record on the current main."
+assumption = "Decision 2403: the vendored engine raises the trap at call entry without recording the terminal step; 22.13.12 records it."
+severity = "medium"
