@@ -322,6 +322,10 @@ func NewEVMHTTPServer(
 			Service:   sequencerReceiptAPI,
 		},
 		{
+			Namespace: "px",
+			Service:   &receiptKeysAPI{receipts: sequencerReceiptAPI},
+		},
+		{
 			Namespace: "eth",
 			Service:   NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeHTTP, watermarks, app.CommitMultiStore().(storetypes.Queryable)),
 		},
