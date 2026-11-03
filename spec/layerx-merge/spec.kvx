@@ -128790,7 +128790,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.25]
 title = "Restore the kernelvectors fixture lock file so the crate builds under --locked"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -135514,7 +135514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.24]
 title = "Restore the attestor go.sum at the raised dependency floors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188445,7 +188445,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.1.0.10]
 title = "Delete the retired batch body and timestamp declarations from the kernel batch header"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
