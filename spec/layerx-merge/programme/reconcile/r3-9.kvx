@@ -1,0 +1,483 @@
+[reconcile.r3-9]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r3-9.1]
+interface = "interface.3.go-perps-keeper-withdrawable-j64"
+verdict = "served"
+path = "modules/perps/keeper/account.go"
+line = 203
+symbol = "Withdrawable"
+evidence = "Signature unchanged: func (k *Keeper) Withdrawable(ctx sdk.Context, address common.Address) (uint256.Int, error). The implementation now reads params.WithdrawFloorPpm at modules/perps/keeper/account.go:231 and rounds the required USD up with accountCeilDiv, replacing the registered fixed-divisor behavior."
+
+[row.r3-9.2]
+interface = "interface.3.go-perps-appmodulebasic-registerinterfaces-j25"
+verdict = "served"
+path = "modules/perps/module.go"
+line = 38
+symbol = "RegisterInterfaces"
+evidence = "Declaration changed from func (AppModuleBasic) RegisterInterfaces(_ cdctypes.InterfaceRegistry) {} to func (AppModuleBasic) RegisterInterfaces(registry cdctypes.InterfaceRegistry). The formerly ignored argument is passed to types.RegisterInterfaces(registry)."
+
+[row.r3-9.3]
+interface = "interface.3.go-perps-appmodulebasic-validategenesis-j25"
+verdict = "served"
+path = "modules/perps/module.go"
+line = 54
+symbol = "ValidateGenesis"
+evidence = "Signature unchanged: func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConfig, bz json.RawMessage) error. After JSON decoding it now returns keeper.ValidateGenesis(genState), replacing the registered types.ValidateGenesis-only behavior."
+
+[row.r3-9.4]
+interface = "interface.3.go-perps-appmodule-registerservices-j25"
+verdict = "served"
+path = "modules/perps/module.go"
+line = 99
+symbol = "RegisterServices"
+evidence = "Declaration changed from func (AppModule) RegisterServices(_ module.Configurator) {} to func (am AppModule) RegisterServices(cfg module.Configurator). The named receiver and configurator now register types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))."
+
+[row.r3-9.5]
+interface = "interface.3.go-perps-types-perpscode-j25"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 9
+symbol = "PerpsCode"
+evidence = "The exact declaration is func PerpsCode(name string) string at line 9; it returns the LXP_PERPS_ prefix plus name. This is a function generating error reasons, while ModuleName declares the perps codespace."
+
+[row.r3-9.6]
+interface = "interface.3.err-sdk-perps-2-invalid-params"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 17
+symbol = "ErrInvalidParams"
+evidence = "Declaration changed from ErrInvalidParams = Register(\"perps\", 2, \"LXP_PERPS_INVALID_PARAMS\") to ErrInvalidParams = sdkerrors.Register(ModuleName, 2, PerpsCode(\"INVALID_PARAMS\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.7]
+interface = "interface.3.err-sdk-perps-3-unknown-market"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 18
+symbol = "ErrUnknownMarket"
+evidence = "Declaration changed from ErrUnknownMarket = Register(\"perps\", 3, \"LXP_PERPS_UNKNOWN_MARKET\") to ErrUnknownMarket = sdkerrors.Register(ModuleName, 3, PerpsCode(\"UNKNOWN_MARKET\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.8]
+interface = "interface.3.err-sdk-perps-4-market-disabled"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 19
+symbol = "ErrMarketDisabled"
+evidence = "Declaration changed from ErrMarketDisabled = Register(\"perps\", 4, \"LXP_PERPS_MARKET_DISABLED\") to ErrMarketDisabled = sdkerrors.Register(ModuleName, 4, PerpsCode(\"MARKET_DISABLED\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.9]
+interface = "interface.3.err-sdk-perps-5-price-stale"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 20
+symbol = "ErrPriceStale"
+evidence = "Declaration changed from ErrPriceStale = Register(\"perps\", 5, \"LXP_PERPS_PRICE_STALE\") to ErrPriceStale = sdkerrors.Register(ModuleName, 5, PerpsCode(\"PRICE_STALE\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.10]
+interface = "interface.3.err-sdk-perps-6-zero-amount"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 21
+symbol = "ErrZeroAmount"
+evidence = "Declaration changed from ErrZeroAmount = Register(\"perps\", 6, \"LXP_PERPS_ZERO_AMOUNT\") to ErrZeroAmount = sdkerrors.Register(ModuleName, 6, PerpsCode(\"ZERO_AMOUNT\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.11]
+interface = "interface.3.err-sdk-perps-7-unsupported-collateral"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 22
+symbol = "ErrUnsupportedCollateral"
+evidence = "Declaration changed from ErrUnsupportedCollateral = Register(\"perps\", 7, \"LXP_PERPS_UNSUPPORTED_COLLATERAL\") to ErrUnsupportedCollateral = sdkerrors.Register(ModuleName, 7, PerpsCode(\"UNSUPPORTED_COLLATERAL\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.12]
+interface = "interface.3.err-sdk-perps-8-insufficient-collateral"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 23
+symbol = "ErrInsufficientCollateral"
+evidence = "Declaration changed from ErrInsufficientCollateral = Register(\"perps\", 8, \"LXP_PERPS_INSUFFICIENT_COLLATERAL\") to ErrInsufficientCollateral = sdkerrors.Register(ModuleName, 8, PerpsCode(\"INSUFFICIENT_COLLATERAL\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.13]
+interface = "interface.3.err-sdk-perps-9-insufficient-margin"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 24
+symbol = "ErrInsufficientMargin"
+evidence = "Declaration changed from ErrInsufficientMargin = Register(\"perps\", 9, \"LXP_PERPS_INSUFFICIENT_MARGIN\") to ErrInsufficientMargin = sdkerrors.Register(ModuleName, 9, PerpsCode(\"INSUFFICIENT_MARGIN\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.14]
+interface = "interface.3.err-sdk-perps-10-leverage-too-high"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 25
+symbol = "ErrLeverageTooHigh"
+evidence = "Declaration changed from ErrLeverageTooHigh = Register(\"perps\", 10, \"LXP_PERPS_LEVERAGE_TOO_HIGH\") to ErrLeverageTooHigh = sdkerrors.Register(ModuleName, 10, PerpsCode(\"LEVERAGE_TOO_HIGH\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.15]
+interface = "interface.3.err-sdk-perps-11-tick-size"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 26
+symbol = "ErrTickSize"
+evidence = "Declaration changed from ErrTickSize = Register(\"perps\", 11, \"LXP_PERPS_TICK_SIZE\") to ErrTickSize = sdkerrors.Register(ModuleName, 11, PerpsCode(\"TICK_SIZE\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.16]
+interface = "interface.3.err-sdk-perps-12-lot-size"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 27
+symbol = "ErrLotSize"
+evidence = "Declaration changed from ErrLotSize = Register(\"perps\", 12, \"LXP_PERPS_LOT_SIZE\") to ErrLotSize = sdkerrors.Register(ModuleName, 12, PerpsCode(\"LOT_SIZE\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.17]
+interface = "interface.3.err-sdk-perps-13-min-order-value"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 28
+symbol = "ErrMinOrderValue"
+evidence = "Declaration changed from ErrMinOrderValue = Register(\"perps\", 13, \"LXP_PERPS_MIN_ORDER_VALUE\") to ErrMinOrderValue = sdkerrors.Register(ModuleName, 13, PerpsCode(\"MIN_ORDER_VALUE\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.18]
+interface = "interface.3.err-sdk-perps-14-max-order-value"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 29
+symbol = "ErrMaxOrderValue"
+evidence = "Declaration changed from ErrMaxOrderValue = Register(\"perps\", 14, \"LXP_PERPS_MAX_ORDER_VALUE\") to ErrMaxOrderValue = sdkerrors.Register(ModuleName, 14, PerpsCode(\"MAX_ORDER_VALUE\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.19]
+interface = "interface.3.err-sdk-perps-15-open-interest-cap"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 30
+symbol = "ErrOpenInterestCap"
+evidence = "Declaration changed from ErrOpenInterestCap = Register(\"perps\", 15, \"LXP_PERPS_OPEN_INTEREST_CAP\") to ErrOpenInterestCap = sdkerrors.Register(ModuleName, 15, PerpsCode(\"OPEN_INTEREST_CAP\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.20]
+interface = "interface.3.err-sdk-perps-16-invalid-time-in-force"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 31
+symbol = "ErrInvalidTimeInForce"
+evidence = "Declaration changed from ErrInvalidTimeInForce = Register(\"perps\", 16, \"LXP_PERPS_INVALID_TIME_IN_FORCE\") to ErrInvalidTimeInForce = sdkerrors.Register(ModuleName, 16, PerpsCode(\"INVALID_TIME_IN_FORCE\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.21]
+interface = "interface.3.err-sdk-perps-17-invalid-order-type"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 32
+symbol = "ErrInvalidOrderType"
+evidence = "Declaration changed from ErrInvalidOrderType = Register(\"perps\", 17, \"LXP_PERPS_INVALID_ORDER_TYPE\") to ErrInvalidOrderType = sdkerrors.Register(ModuleName, 17, PerpsCode(\"INVALID_ORDER_TYPE\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.22]
+interface = "interface.3.err-sdk-perps-18-post-only-would-cross"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 33
+symbol = "ErrPostOnlyWouldCross"
+evidence = "Declaration changed from ErrPostOnlyWouldCross = Register(\"perps\", 18, \"LXP_PERPS_POST_ONLY_WOULD_CROSS\") to ErrPostOnlyWouldCross = sdkerrors.Register(ModuleName, 18, PerpsCode(\"POST_ONLY_WOULD_CROSS\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.23]
+interface = "interface.3.err-sdk-perps-19-fok-not-filled"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 34
+symbol = "ErrFokNotFilled"
+evidence = "Declaration changed from ErrFokNotFilled = Register(\"perps\", 19, \"LXP_PERPS_FOK_NOT_FILLED\") to ErrFokNotFilled = sdkerrors.Register(ModuleName, 19, PerpsCode(\"FOK_NOT_FILLED\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.24]
+interface = "interface.3.err-sdk-perps-20-no-liquidity"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 35
+symbol = "ErrNoLiquidity"
+evidence = "Declaration changed from ErrNoLiquidity = Register(\"perps\", 20, \"LXP_PERPS_NO_LIQUIDITY\") to ErrNoLiquidity = sdkerrors.Register(ModuleName, 20, PerpsCode(\"NO_LIQUIDITY\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.25]
+interface = "interface.3.err-sdk-perps-21-slippage-exceeded"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 36
+symbol = "ErrSlippageExceeded"
+evidence = "Declaration changed from ErrSlippageExceeded = Register(\"perps\", 21, \"LXP_PERPS_SLIPPAGE_EXCEEDED\") to ErrSlippageExceeded = sdkerrors.Register(ModuleName, 21, PerpsCode(\"SLIPPAGE_EXCEEDED\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.26]
+interface = "interface.3.err-sdk-perps-22-deadline-expired"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 37
+symbol = "ErrDeadlineExpired"
+evidence = "Declaration changed from ErrDeadlineExpired = Register(\"perps\", 22, \"LXP_PERPS_DEADLINE_EXPIRED\") to ErrDeadlineExpired = sdkerrors.Register(ModuleName, 22, PerpsCode(\"DEADLINE_EXPIRED\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.27]
+interface = "interface.3.err-sdk-perps-23-reduce-only-violation"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 38
+symbol = "ErrReduceOnlyViolation"
+evidence = "Declaration changed from ErrReduceOnlyViolation = Register(\"perps\", 23, \"LXP_PERPS_REDUCE_ONLY_VIOLATION\") to ErrReduceOnlyViolation = sdkerrors.Register(ModuleName, 23, PerpsCode(\"REDUCE_ONLY_VIOLATION\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.28]
+interface = "interface.3.err-sdk-perps-24-duplicate-cloid"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 39
+symbol = "ErrDuplicateCloid"
+evidence = "Declaration changed from ErrDuplicateCloid = Register(\"perps\", 24, \"LXP_PERPS_DUPLICATE_CLOID\") to ErrDuplicateCloid = sdkerrors.Register(ModuleName, 24, PerpsCode(\"DUPLICATE_CLOID\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.29]
+interface = "interface.3.err-sdk-perps-25-unknown-order"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 40
+symbol = "ErrUnknownOrder"
+evidence = "Declaration changed from ErrUnknownOrder = Register(\"perps\", 25, \"LXP_PERPS_UNKNOWN_ORDER\") to ErrUnknownOrder = sdkerrors.Register(ModuleName, 25, PerpsCode(\"UNKNOWN_ORDER\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.30]
+interface = "interface.3.err-sdk-perps-26-not-order-holder"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 41
+symbol = "ErrNotOrderHolder"
+evidence = "Declaration changed from ErrNotOrderHolder = Register(\"perps\", 26, \"LXP_PERPS_NOT_ORDER_HOLDER\") to ErrNotOrderHolder = sdkerrors.Register(ModuleName, 26, PerpsCode(\"NOT_ORDER_HOLDER\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.31]
+interface = "interface.3.err-sdk-perps-27-unknown-position"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 42
+symbol = "ErrUnknownPosition"
+evidence = "Declaration changed from ErrUnknownPosition = Register(\"perps\", 27, \"LXP_PERPS_UNKNOWN_POSITION\") to ErrUnknownPosition = sdkerrors.Register(ModuleName, 27, PerpsCode(\"UNKNOWN_POSITION\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.32]
+interface = "interface.3.err-sdk-perps-28-not-position-holder"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 43
+symbol = "ErrNotPositionHolder"
+evidence = "Declaration changed from ErrNotPositionHolder = Register(\"perps\", 28, \"LXP_PERPS_NOT_POSITION_HOLDER\") to ErrNotPositionHolder = sdkerrors.Register(ModuleName, 28, PerpsCode(\"NOT_POSITION_HOLDER\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.33]
+interface = "interface.3.err-sdk-perps-29-invalid-trigger-price"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 44
+symbol = "ErrInvalidTriggerPrice"
+evidence = "Declaration changed from ErrInvalidTriggerPrice = Register(\"perps\", 29, \"LXP_PERPS_INVALID_TRIGGER_PRICE\") to ErrInvalidTriggerPrice = sdkerrors.Register(ModuleName, 29, PerpsCode(\"INVALID_TRIGGER_PRICE\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.34]
+interface = "interface.3.err-sdk-perps-30-trigger-not-reached"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 45
+symbol = "ErrTriggerNotReached"
+evidence = "Declaration changed from ErrTriggerNotReached = Register(\"perps\", 30, \"LXP_PERPS_TRIGGER_NOT_REACHED\") to ErrTriggerNotReached = sdkerrors.Register(ModuleName, 30, PerpsCode(\"TRIGGER_NOT_REACHED\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.35]
+interface = "interface.3.err-sdk-perps-31-too-many-open-orders"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 46
+symbol = "ErrTooManyOpenOrders"
+evidence = "Declaration changed from ErrTooManyOpenOrders = Register(\"perps\", 31, \"LXP_PERPS_TOO_MANY_OPEN_ORDERS\") to ErrTooManyOpenOrders = sdkerrors.Register(ModuleName, 31, PerpsCode(\"TOO_MANY_OPEN_ORDERS\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.36]
+interface = "interface.3.err-sdk-perps-32-cross-margin-only"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 47
+symbol = "ErrCrossMarginOnly"
+evidence = "Declaration changed from ErrCrossMarginOnly = Register(\"perps\", 32, \"LXP_PERPS_CROSS_MARGIN_ONLY\") to ErrCrossMarginOnly = sdkerrors.Register(ModuleName, 32, PerpsCode(\"CROSS_MARGIN_ONLY\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.37]
+interface = "interface.3.err-sdk-perps-33-not-liquidatable"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 48
+symbol = "ErrNotLiquidatable"
+evidence = "Declaration changed from ErrNotLiquidatable = Register(\"perps\", 33, \"LXP_PERPS_NOT_LIQUIDATABLE\") to ErrNotLiquidatable = sdkerrors.Register(ModuleName, 33, PerpsCode(\"NOT_LIQUIDATABLE\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.38]
+interface = "interface.3.err-sdk-perps-34-liquidation-cooldown"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 49
+symbol = "ErrLiquidationCooldown"
+evidence = "Declaration changed from ErrLiquidationCooldown = Register(\"perps\", 34, \"LXP_PERPS_LIQUIDATION_COOLDOWN\") to ErrLiquidationCooldown = sdkerrors.Register(ModuleName, 34, PerpsCode(\"LIQUIDATION_COOLDOWN\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.39]
+interface = "interface.3.err-sdk-perps-35-unauthorized"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 50
+symbol = "ErrUnauthorized"
+evidence = "Declaration changed from ErrUnauthorized = Register(\"perps\", 35, \"LXP_PERPS_UNAUTHORIZED\") to ErrUnauthorized = sdkerrors.Register(ModuleName, 35, PerpsCode(\"UNAUTHORIZED\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.40]
+interface = "interface.3.err-sdk-perps-36-static-call"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 51
+symbol = "ErrStaticCall"
+evidence = "Declaration changed from ErrStaticCall = Register(\"perps\", 36, \"LXP_PERPS_STATIC_CALL\") to ErrStaticCall = sdkerrors.Register(ModuleName, 36, PerpsCode(\"STATIC_CALL\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.41]
+interface = "interface.3.err-sdk-perps-37-delegatecall"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 52
+symbol = "ErrDelegatecall"
+evidence = "Declaration changed from ErrDelegatecall = Register(\"perps\", 37, \"LXP_PERPS_DELEGATECALL\") to ErrDelegatecall = sdkerrors.Register(ModuleName, 37, PerpsCode(\"DELEGATECALL\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.42]
+interface = "interface.3.err-sdk-perps-38-overflow"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 53
+symbol = "ErrOverflow"
+evidence = "Declaration changed from ErrOverflow = Register(\"perps\", 38, \"LXP_PERPS_OVERFLOW\") to ErrOverflow = sdkerrors.Register(ModuleName, 38, PerpsCode(\"OVERFLOW\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.43]
+interface = "interface.3.err-sdk-perps-39-invalid-genesis"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 54
+symbol = "ErrInvalidGenesis"
+evidence = "Declaration changed from ErrInvalidGenesis = Register(\"perps\", 39, \"LXP_PERPS_INVALID_GENESIS\") to ErrInvalidGenesis = sdkerrors.Register(ModuleName, 39, PerpsCode(\"INVALID_GENESIS\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.44]
+interface = "interface.3.err-sdk-perps-40-close-size-exceeds-position"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 55
+symbol = "ErrCloseSizeExceedsPosition"
+evidence = "Declaration changed from ErrCloseSizeExceedsPosition = Register(\"perps\", 40, \"LXP_PERPS_CLOSE_SIZE_EXCEEDS_POSITION\") to ErrCloseSizeExceedsPosition = sdkerrors.Register(ModuleName, 40, PerpsCode(\"CLOSE_SIZE_EXCEEDS_POSITION\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.45]
+interface = "interface.3.err-sdk-perps-41-self-transfer"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 56
+symbol = "ErrSelfTransfer"
+evidence = "Declaration changed from ErrSelfTransfer = Register(\"perps\", 41, \"LXP_PERPS_SELF_TRANSFER\") to ErrSelfTransfer = sdkerrors.Register(ModuleName, 41, PerpsCode(\"SELF_TRANSFER\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.46]
+interface = "interface.3.err-sdk-perps-42-zero-address"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 57
+symbol = "ErrZeroAddress"
+evidence = "Declaration changed from ErrZeroAddress = Register(\"perps\", 42, \"LXP_PERPS_ZERO_ADDRESS\") to ErrZeroAddress = sdkerrors.Register(ModuleName, 42, PerpsCode(\"ZERO_ADDRESS\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.47]
+interface = "interface.3.err-sdk-perps-43-no-account"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 58
+symbol = "ErrNoAccount"
+evidence = "Declaration changed from ErrNoAccount = Register(\"perps\", 43, \"LXP_PERPS_NO_ACCOUNT\") to ErrNoAccount = sdkerrors.Register(ModuleName, 43, PerpsCode(\"NO_ACCOUNT\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.48]
+interface = "interface.3.err-sdk-perps-44-token-transfer-failed"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 59
+symbol = "ErrTokenTransferFailed"
+evidence = "Declaration changed from ErrTokenTransferFailed = Register(\"perps\", 44, \"LXP_PERPS_TOKEN_TRANSFER_FAILED\") to ErrTokenTransferFailed = sdkerrors.Register(ModuleName, 44, PerpsCode(\"TOKEN_TRANSFER_FAILED\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.49]
+interface = "interface.3.err-sdk-perps-45-paused"
+verdict = "served"
+path = "modules/perps/types/errors.go"
+line = 60
+symbol = "ErrPaused"
+evidence = "Declaration changed from ErrPaused = Register(\"perps\", 45, \"LXP_PERPS_PAUSED\") to ErrPaused = sdkerrors.Register(ModuleName, 45, PerpsCode(\"PAUSED\")). Registration now uses sdkerrors.Register, ModuleName and PerpsCode instead of literal codespace and reason arguments; the perps codespace, numeric code and LXP_PERPS_ reason remain unchanged."
+
+[row.r3-9.50]
+interface = "interface.3.go-perps-pricefeedkeeper-marketsymbol-j25"
+verdict = "served"
+path = "modules/perps/types/expected_keepers.go"
+line = 28
+symbol = "MarketSymbol"
+evidence = "PricefeedKeeper now adds MarketSymbol(ctx sdk.Context, marketID uint64) (string, bool, error) at line 29 alongside GetPrice(ctx sdk.Context, marketID uint64) (pricefeedkeeper.Price, error). The registered one-method interface used marketId; both methods now use marketID, and a compile-time assertion binds pricefeedkeeper.Keeper."
+
+[row.r3-9.51]
+interface = "interface.3.go-perps-types-sequenceorderid-j64"
+verdict = "served"
+path = "modules/perps/types/keys.go"
+line = 48
+symbol = "SequenceOrderID"
+evidence = "Current declaration: SequenceOrderID byte = 0x01. The symbol remains in the registered file; its declaration is at line 48, previously registered at line 48, with no signature or value change."
+
+[row.r3-9.52]
+interface = "interface.3.go-perps-types-sequenceplacement-j64"
+verdict = "served"
+path = "modules/perps/types/keys.go"
+line = 50
+symbol = "SequencePlacement"
+evidence = "Current declaration: SequencePlacement byte = 0x03. The symbol remains in the registered file; its declaration is at line 50, previously registered at line 50, with no signature or value change."
+
+[row.r3-9.53]
+interface = "interface.3.gen-perps-withdraw-floor-ppm-j25"
+verdict = "served"
+path = "modules/perps/types/params.go"
+line = 70
+symbol = "WithdrawFloorPpm"
+evidence = "Field signature unchanged: WithdrawFloorPpm uint64 `json:\"withdraw_floor_ppm\"`. Its declaration moved from line 68 to line 70; modules/perps/keeper/account.go:231 now reads params.WithdrawFloorPpm to compute the rounded-up withdrawal floor, replacing the fixed-divisor behavior described by the registry."
+
+[row.r3-9.54]
+interface = "interface.3.gen-perps-adl-positions-per-block-j25"
+verdict = "served"
+path = "modules/perps/types/params.go"
+line = 83
+symbol = "AdlPositionsPerBlock"
+evidence = "Field signature unchanged: AdlPositionsPerBlock uint64 `json:\"adl_positions_per_block\"`. Its declaration moved from line 79 to line 83; modules/perps/keeper/adl.go:54 caps RankADL and line 111 initializes the ExecuteADL counterparty budget from this parameter, replacing the registered constant-64 behavior."
+
+[row.r3-9.55]
+interface = "interface.3.go-perps-types-sidebuy-j64"
+verdict = "served"
+path = "modules/perps/types/state.go"
+line = 14
+symbol = "SideBuy"
+evidence = "Current declaration: SideBuy byte = 1. The symbol remains in the registered file; its declaration is at line 14, previously registered at line 14, with no signature or value change."
+
+[row.r3-9.56]
+interface = "interface.3.go-perps-types-triggerrising-j64"
+verdict = "served"
+path = "modules/perps/types/state.go"
+line = 23
+symbol = "TriggerRising"
+evidence = "Current declaration: TriggerRising byte = 1. The symbol remains in the registered file; its declaration is at line 23, previously registered at line 23, with no signature or value change."
+
+[row.r3-9.57]
+interface = "interface.3.go-perps-types-tierclassb-j64"
+verdict = "served"
+path = "modules/perps/types/tiers.go"
+line = 15
+symbol = "TierClassB"
+evidence = "Current declaration: TierClassB // major alternative assets. The symbol remains in the registered file; its declaration is at line 15, previously registered at line 15, with no signature or value change."
+
+[row.r3-9.58]
+interface = "interface.3.go-perps-types-tierclassc-j64"
+verdict = "served"
+path = "modules/perps/types/tiers.go"
+line = 16
+symbol = "TierClassC"
+evidence = "Current declaration: TierClassC // indices and gold. The symbol remains in the registered file; its declaration is at line 16, previously registered at line 16, with no signature or value change."
+
+[row.r3-9.59]
+interface = "interface.3.go-perps-types-tierclassd-j64"
+verdict = "served"
+path = "modules/perps/types/tiers.go"
+line = 17
+symbol = "TierClassD"
+evidence = "Current declaration: TierClassD // single equities. The symbol remains in the registered file; its declaration is at line 17, previously registered at line 17, with no signature or value change."
+
+[row.r3-9.60]
+interface = "interface.3.go-perps-types-tierclasse-j64"
+verdict = "served"
+path = "modules/perps/types/tiers.go"
+line = 18
+symbol = "TierClassE"
+evidence = "Current declaration: TierClassE // native and new listings. The symbol remains in the registered file; its declaration is at line 18, previously registered at line 18, with no signature or value change."

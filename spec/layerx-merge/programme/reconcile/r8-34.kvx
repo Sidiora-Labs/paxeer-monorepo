@@ -1,0 +1,491 @@
+[reconcile.r8-34]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r8-34.1]
+interface = "interface.8.go-sdkcs-nativeprogramlifecyclerequest"
+verdict = "served"
+path = "sdk/platform/dotnet/NativeProgramLifecycle.cs"
+line = 127
+symbol = "NativeProgramLifecycleRequest"
+evidence = "Class declaration is unchanged; the request now encodes 0x101D EVM ABI calldata and binds signed transactions, with feeLimit and unsigned-transaction construction overloads instead of only a signed kernel activity."
+
+[row.r8-34.2]
+interface = "interface.8.go-sdkcs-nativeprogramlifecyclerequest-payload"
+verdict = "served"
+path = "sdk/platform/dotnet/NativeProgramLifecycle.cs"
+line = 132
+symbol = "Payload"
+evidence = "Property signature public byte[] Payload => _payload.ToArray(); is unchanged. Its payload now contains ProgramsAbi.Encode calldata for the deploy, upgrade and wind-down selectors, replacing the kernel lifecycle payload."
+
+[row.r8-34.3]
+interface = "interface.8.go-sdkcs-nativeprogramlifecyclerequest-signedactivity"
+verdict = "served"
+path = "sdk/platform/dotnet/NativeProgramLifecycle.cs"
+line = 134
+symbol = "SignedActivity"
+evidence = "Property now declares public byte[] SignedActivity => SignedTransaction; rather than copying _signed directly. This compatibility alias returns signed EVM transaction bytes through the new SignedTransaction property."
+
+[row.r8-34.4]
+interface = "interface.8.go-sdkcs-nativeprogramlifecyclerequest-activityid"
+verdict = "served"
+path = "sdk/platform/dotnet/NativeProgramLifecycle.cs"
+line = 136
+symbol = "ActivityId"
+evidence = "Property now declares public byte[] ActivityId => TransactionHash; replacing LifecycleWire.Hash with the LXP/v1/activity-id domain. TransactionHash delegates to Programs.TransactionHash(_signed)."
+
+[row.r8-34.5]
+interface = "interface.8.go-sdkcs-nativeprogramlifecyclerequest-nativeprogramlifecyclerequest"
+verdict = "served"
+path = "sdk/platform/dotnet/NativeProgramLifecycle.cs"
+line = 181
+symbol = "NativeProgramLifecycleRequest"
+evidence = "Constructor now declares NativeProgramLifecycleRequest(INativeProgramLifecycle operation, byte[] signedTransaction), renaming signedActivity and delegating to the feeLimit overload; Programs.BindTransaction validates the signed EVM transaction against encoded calldata."
+
+[row.r8-34.6]
+interface = "interface.8.go-sdkcs-sdkerrorcode-invalidargument"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 17
+symbol = "InvalidArgument"
+evidence = "SdkErrorCode still declares the InvalidArgument enum member at line 17; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.7]
+interface = "interface.8.go-sdkcs-sdkerrorcode-idempotencyrequired"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 18
+symbol = "IdempotencyRequired"
+evidence = "SdkErrorCode still declares the IdempotencyRequired enum member at line 18; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.8]
+interface = "interface.8.go-sdkcs-sdkerrorcode-transportfailure"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 19
+symbol = "TransportFailure"
+evidence = "SdkErrorCode still declares the TransportFailure enum member at line 19; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.9]
+interface = "interface.8.go-sdkcs-sdkerrorcode-deadline"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 20
+symbol = "Deadline"
+evidence = "SdkErrorCode still declares the Deadline enum member at line 20; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.10]
+interface = "interface.8.go-sdkcs-sdkerrorcode-protocolincompatibility"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 21
+symbol = "ProtocolIncompatibility"
+evidence = "SdkErrorCode still declares the ProtocolIncompatibility enum member at line 21; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.11]
+interface = "interface.8.go-sdkcs-sdkerrorcode-unavailablecapability"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 22
+symbol = "UnavailableCapability"
+evidence = "SdkErrorCode still declares the UnavailableCapability enum member at line 22; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.12]
+interface = "interface.8.go-sdkcs-sdkerrorcode-corerejection"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 23
+symbol = "CoreRejection"
+evidence = "SdkErrorCode still declares the CoreRejection enum member at line 23; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.13]
+interface = "interface.8.go-sdkcs-sdkerrorcode-verificationfailure"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 24
+symbol = "VerificationFailure"
+evidence = "SdkErrorCode still declares the VerificationFailure enum member at line 24; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.14]
+interface = "interface.8.go-sdkcs-sdkerrorcode-policyrefusal"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 25
+symbol = "PolicyRefusal"
+evidence = "SdkErrorCode still declares the PolicyRefusal enum member at line 25; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.15]
+interface = "interface.8.go-sdkcs-sdkerrorcode-capabilityrefusal"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 26
+symbol = "CapabilityRefusal"
+evidence = "SdkErrorCode still declares the CapabilityRefusal enum member at line 26; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.16]
+interface = "interface.8.go-sdkcs-sdkerrorcode-budgetrefusal"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 27
+symbol = "BudgetRefusal"
+evidence = "SdkErrorCode still declares the BudgetRefusal enum member at line 27; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.17]
+interface = "interface.8.go-sdkcs-sdkerrorcode-ratelimit"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 28
+symbol = "RateLimit"
+evidence = "SdkErrorCode still declares the RateLimit enum member at line 28; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.18]
+interface = "interface.8.go-sdkcs-sdkerrorcode-idempotencyconflict"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 29
+symbol = "IdempotencyConflict"
+evidence = "SdkErrorCode still declares the IdempotencyConflict enum member at line 29; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.19]
+interface = "interface.8.go-sdkcs-sdkerrorcode-decodefailure"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 30
+symbol = "DecodeFailure"
+evidence = "SdkErrorCode still declares the DecodeFailure enum member at line 30; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.20]
+interface = "interface.8.go-sdkcs-sdkerrorcode-unknownoutcome"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 31
+symbol = "UnknownOutcome"
+evidence = "SdkErrorCode still declares the UnknownOutcome enum member at line 31; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.21]
+interface = "interface.8.go-sdkcs-sdkerrorcode-internalfault"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 32
+symbol = "InternalFault"
+evidence = "SdkErrorCode still declares the InternalFault enum member at line 32; its MachineCode mapping remains in the same file. The registered enum member and location are unchanged."
+
+[row.r8-34.22]
+interface = "interface.8.go-sdkcs-secretbytes-use"
+verdict = "served"
+path = "sdk/platform/dotnet/Production.cs"
+line = 156
+symbol = "Use"
+evidence = "SecretBytes still declares public T Use<T>(Func<ReadOnlyMemory<byte>, T> consume); it validates consume and invokes it under the storage lock after checking disposal."
+
+[row.r8-34.23]
+interface = "interface.8.go-sdkcs-programcall"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 17
+symbol = "ProgramCall"
+evidence = "Declaration public sealed record ProgramCall remains; the record now exposes SignedTransaction and TransactionHash, adds an unsigned NativeProgramCall overload, and builds EVM calldata and unsigned transactions."
+
+[row.r8-34.24]
+interface = "interface.8.go-sdkcs-programcall-programcall"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 28
+symbol = "ProgramCall"
+evidence = "Constructor still declares ProgramCall(byte[] programId, byte[] calldata, ProgramBudget budget, IEnumerable<ProgramCapability> capabilities, byte[] signedActivity). Signature is unchanged; the record now also provides SignedTransaction and TransactionHash compatibility accessors."
+
+[row.r8-34.25]
+interface = "interface.8.go-sdkcs-programcall-programcall-2"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 38
+symbol = "ProgramCall"
+evidence = "Constructor still declares ProgramCall(NativeProgramCall nativeCall, ProtocolAmount feeLimit, byte[] signedActivity). Signature is unchanged; a new two-argument unsigned overload at line 43 supports EncodeCalldata and BuildTransaction."
+
+[row.r8-34.26]
+interface = "interface.8.go-sdkcs-programsource"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 63
+symbol = "ProgramSource"
+evidence = "ProgramSource remains a public abstract record in Programs.cs, now at line 63; its Unpublished, Verified and Mismatch source variants remain declared immediately below."
+
+[row.r8-34.27]
+interface = "interface.8.go-sdkcs-programsource-unpublished"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 65
+symbol = "Unpublished"
+evidence = "ProgramSource.Unpublished remains declared as public sealed record Unpublished : ProgramSource; its line moved from 45 to 65 and InterfaceAsync still constructs it."
+
+[row.r8-34.28]
+interface = "interface.8.go-sdkcs-programsubmission"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 97
+symbol = "ProgramSubmission"
+evidence = "Declaration public sealed class ProgramSubmission remains; it now stores TransactionHash, exposes ActivityId as a copy of that hash, and adds SequencerReceiptVerification? SequencerReceipt plus retained signed-transaction access."
+
+[row.r8-34.29]
+interface = "interface.8.go-sdkcs-programsubmission-isunknown"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 101
+symbol = "IsUnknown"
+evidence = "Property public bool IsUnknown => State == \"unknown\"; is unchanged and moved from line 81 to 101. Submission state now comes from EVM transaction lookup and pax_sequencerReceipt rather than the program REST ingress."
+
+[row.r8-34.30]
+interface = "interface.8.go-sdkcs-programsclient"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 124
+symbol = "ProgramsClient"
+evidence = "Declaration public sealed class ProgramsClient remains; the client now accepts Programs rpc, ReceiptKeys? receiptKeys and byte[]? didId, builds 0x101D transactions and reads pax_sequencerReceipt instead of the retired program REST routes."
+
+[row.r8-34.31]
+interface = "interface.8.go-sdkcs-programsclient-lifecyclereceiptasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 169
+symbol = "LifecycleReceiptAsync"
+evidence = "Return signature changed from async Task<ReceiptVerification> to Task<SequencerReceiptVerification>; request and CancellationToken parameters remain. It now calls ReadReceiptAsync(request.TransactionHash, request.SignedTransaction, cancellationToken)."
+
+[row.r8-34.32]
+interface = "interface.8.go-sdkcs-programsclient-deployasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 172
+symbol = "DeployAsync"
+evidence = "Signed overload now returns Task<SequencerReceiptVerification> instead of Task<ReceiptVerification> and names the byte[] argument signedTransaction. A separate sender/BigInteger gas-price overload returns Task<UnsignedProgramTransaction> at line 143."
+
+[row.r8-34.33]
+interface = "interface.8.go-sdkcs-programsclient-upgradeasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 174
+symbol = "UpgradeAsync"
+evidence = "Signed overload now returns Task<SequencerReceiptVerification>, adds ProtocolAmount feeLimit before byte[] signedTransaction and retains IdempotencyKey and CancellationToken. The former signature returned Task<ReceiptVerification> and accepted signedActivity without feeLimit."
+
+[row.r8-34.34]
+interface = "interface.8.go-sdkcs-programsclient-winddownasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 176
+symbol = "WindDownAsync"
+evidence = "Signed overload now returns Task<SequencerReceiptVerification> rather than Task<ReceiptVerification> and renames byte[] signedActivity to signedTransaction. A sender/gas-price overload at line 151 builds an unsigned transaction."
+
+[row.r8-34.35]
+interface = "interface.8.go-sdkcs-programsclient-receiptmoduleid"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 189
+symbol = "ReceiptModuleId"
+evidence = "Declaration public const ushort ReceiptModuleId = 9; public const byte CallOperation = 3; is unchanged and remains as legacy kernel receipt metadata. The served RPC code separately targets Programs.AddressValue ending 101d; the constant has not been rewritten to that address."
+
+[row.r8-34.36]
+interface = "interface.8.go-sdkcs-programsclient-programsclient"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 216
+symbol = "ProgramsClient"
+evidence = "Registered constructor still declares ProgramsClient(PlatformClient client, byte[] sequencerPublicKey, TimeProvider? timeProvider = null, TimeSpan? maximumSimulationAge = null, ushort protocolVersion = 2). The legacy signature remains; the new Programs/ReceiptKeys/didId constructor at line 131 initializes RPC access."
+
+[row.r8-34.37]
+interface = "interface.8.go-sdkcs-programsclient-discoverasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 229
+symbol = "DiscoverAsync"
+evidence = "Signature remains public async Task<ProgramDiscovery> DiscoverAsync(byte[] programId, string verificationLevel, CancellationToken cancellationToken = default). Its body now uses Rpc.CallAsync on 0x101D with selector b1ffb3d4, returning pending-eth-call observations."
+
+[row.r8-34.38]
+interface = "interface.8.go-sdkcs-programsclient-interfaceasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 251
+symbol = "InterfaceAsync"
+evidence = "Signature remains public async Task<ProgramInterface> InterfaceAsync(byte[] programId, string verificationLevel, CancellationToken cancellationToken = default). It now calls 0x101D selector 8efc7240, checks the interface digest and discovery binding, and returns pending-eth-call."
+
+[row.r8-34.39]
+interface = "interface.8.go-sdkcs-programsclient-simulateasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 265
+symbol = "SimulateAsync"
+evidence = "Declaration changed from public async Task<ProgramSimulation> to public Task<ProgramSimulation> SimulateAsync(ProgramCall call, CancellationToken cancellationToken = default). It delegates to SimulateCoreAsync, which calls EVM simulation calldata; a sender overload is also present."
+
+[row.r8-34.40]
+interface = "interface.8.go-sdkcs-programsclient-submitasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 287
+symbol = "SubmitAsync"
+evidence = "Signature public async Task<ProgramSubmission> SubmitAsync(ProgramCall call, IdempotencyKey idempotencyKey, CancellationToken cancellationToken = default) remains. Its body now binds call.SignedTransaction to calldata, sends eth_sendRawTransaction and verifies pax_sequencerReceipt."
+
+[row.r8-34.41]
+interface = "interface.8.go-sdkcs-programsclient-receiptasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 302
+symbol = "ReceiptAsync"
+evidence = "Signature now accepts byte[] expectedTransactionHash instead of byte[] expectedActivityId while retaining Task<ProgramSubmission>, IdempotencyKey, verificationLevel and CancellationToken. It delegates to ActivityAsync with the transaction hash."
+
+[row.r8-34.42]
+interface = "interface.8.go-sdkcs-programsclient-activityasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 311
+symbol = "ActivityAsync"
+evidence = "Signature now accepts byte[] transactionHash instead of byte[] activityId and still returns async Task<ProgramSubmission>. It resolves eth_getTransactionByHash and eth_getRawTransactionByHash, binds the hash and verifies pax_sequencerReceipt."
+
+[row.r8-34.43]
+interface = "interface.8.go-sdkcs-programsclient-verifyreceiptasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Programs.cs"
+line = 328
+symbol = "VerifyReceiptAsync"
+evidence = "Signature changed from static async ValueTask<ReceiptVerification>(byte[] canonicalReceipt, AuthorizedReceiptBatch authorized, ...) to public static SequencerReceiptVerification VerifyReceiptAsync(JsonValue view, byte[] rawTransaction, ReceiptKeys keys), delegating to LocalVerifier.VerifySequencerReceipt."
+
+[row.r8-34.44]
+interface = "interface.8.go-sdkcs-streamevent"
+verdict = "served"
+path = "sdk/platform/dotnet/Stream.cs"
+line = 23
+symbol = "StreamEvent"
+evidence = "StreamEvent<T> is still declared with string EventId, StreamCursor PreviousCursor, StreamCursor Cursor and T Value at the registered line 23; the generic record signature is unchanged."
+
+[row.r8-34.45]
+interface = "interface.8.go-sdkcs-streampage"
+verdict = "served"
+path = "sdk/platform/dotnet/Stream.cs"
+line = 24
+symbol = "StreamPage"
+evidence = "StreamPage<T> is still declared with RequestedCursor, IReadOnlyList<StreamEvent<T>> Events and NextCursor at registered line 24; its generic record signature is unchanged."
+
+[row.r8-34.46]
+interface = "interface.8.go-sdkcs-internal-programroutes-89"
+verdict = "retired"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 89
+symbol = "ProgramRoutes"
+evidence = "ProgramRoutes is absent from Transport.cs and a repository-wide tracked-file search excluding spec and docs found no remaining mention. AgentHttpTransport.SendAsync now refuses with UnavailableCapability; the private program REST route table is gone."
+remaining_refs = 0
+remaining = []
+
+[row.r8-34.47]
+interface = "interface.8.go-sdkcs-internal-enveloperequest-803"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 433
+symbol = "writer.WriteNumber(\"version\", EnvelopeVersion);"
+evidence = "The registered writer.WriteNumber(\"version\", 1); statement is now writer.WriteNumber(\"version\", EnvelopeVersion); at line 433. EnvelopeVersion is a private const int equal to 2 at line 297, so the retained EnvelopeRequest writer emits envelope version 2."
+
+[row.r8-34.48]
+interface = "interface.8.go-sdkcs-merkleproof"
+verdict = "served"
+path = "sdk/platform/dotnet/Verifier.cs"
+line = 34
+symbol = "MerkleProof"
+evidence = "Declaration remains public sealed record MerkleProof(uint LeafIndex, uint LeafCount, IReadOnlyList<byte[]> Siblings); with no signature change. Its location moved from line 36 to 34; VerifyMerkleInclusion still consumes this proof type."
+
+[row.r8-34.49]
+interface = "interface.8.go-sdkcs-receipteffect"
+verdict = "served"
+path = "sdk/platform/dotnet/Verifier.cs"
+line = 38
+symbol = "ReceiptEffect"
+evidence = "Declaration remains public sealed record ReceiptEffect(ushort ModuleId, ushort Ordinal, ushort EventType, byte Kind, bool Monetary, byte[] TransferSetRoot, byte[] Body); with no signature change. Its line moved from 136 to 38 alongside the sequencer verifier rewrite."
+
+[row.r8-34.50]
+interface = "interface.8.go-sdkcs-programreceiptoutcome"
+verdict = "served"
+path = "sdk/platform/dotnet/Verifier.cs"
+line = 40
+symbol = "ProgramReceiptOutcome"
+evidence = "Declaration remains public sealed record ProgramReceiptOutcome(...), now at line 40. The current positional fields include encoding/terminal versions, metering and occupancy values, CallGraphRoot, TerminalPayloadRoot, TransferRoot and AppliedLegsDigest; the registered header itself is unchanged."
+
+[row.r8-34.51]
+interface = "interface.8.go-sdkcs-protocolreceipt"
+verdict = "served"
+path = "sdk/platform/dotnet/Verifier.cs"
+line = 66
+symbol = "ProtocolReceipt"
+evidence = "Declaration remains public sealed record ProtocolReceipt(...), now at line 66. The current fields still expose ActivityId, GlobalSequence, effects, ProgramOutcome and SequencerSignature; the registered header is unchanged and the new sequencer verifier decodes this record."
+
+[row.r8-34.52]
+interface = "interface.8.go-sdkcs-receiptverification"
+verdict = "served"
+path = "sdk/platform/dotnet/Verifier.cs"
+line = 97
+symbol = "ReceiptVerification"
+evidence = "Declaration remains public sealed record ReceiptVerification(string Level, ProtocolReceipt Receipt, byte[] CanonicalBytes, byte[] ReceiptDigest); unchanged at its new line 97. It is retained for the legacy lifecycle verifier; new sequencer APIs use the separate SequencerReceiptVerification type."
+
+[row.r8-34.53]
+interface = "interface.8.go-sdkcs-localverifier"
+verdict = "served"
+path = "sdk/platform/dotnet/Verifier.cs"
+line = 113
+symbol = "LocalVerifier"
+evidence = "Declaration public static class LocalVerifier remains, now at line 113. Its API replaces the AuthorizedReceiptBatch-based VerifyReceiptAsync and VerifyReceiptOutcomeAsync methods with VerifySequencerReceipt overloads taking receipt data, rawTransaction and ReceiptKeys."
+
+[row.r8-34.54]
+interface = "interface.8.go-sdkcs-localverifier-verifyed25519digest"
+verdict = "served"
+path = "sdk/platform/dotnet/Verifier.cs"
+line = 115
+symbol = "VerifyEd25519Digest"
+evidence = "Signature remains public static bool VerifyEd25519Digest(ReadOnlySpan<byte> publicKey, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> digest). It moved from line 200 to 115 and delegates to the exact-length Ed25519 verification helper; this primitive was retained through the sequencer rewrite."
+
+[row.r8-34.55]
+interface = "interface.8.go-sdkcs-localverifier-verifymerkleinclusion"
+verdict = "served"
+path = "sdk/platform/dotnet/Verifier.cs"
+line = 386
+symbol = "VerifyMerkleInclusion"
+evidence = "Signature remains public static void VerifyMerkleInclusion(ReadOnlySpan<byte> canonicalLeaf, MerkleProof proof, ReadOnlySpan<byte> expectedRoot). It moved from line 220 to 386; the retained implementation validates leaf/count bounds, sibling depth and the expected root."
+
+[row.r8-34.56]
+interface = "interface.8.go-sdkcs-localverifier-verifyreceiptoutcomeasync"
+verdict = "retired"
+path = "sdk/platform/dotnet/Verifier.cs"
+line = 340
+symbol = "VerifyReceiptOutcomeAsync"
+evidence = "LocalVerifier.VerifyReceiptOutcomeAsync is absent from Verifier.cs. The only remaining file mentions it in AuthorizedBatch(), which asserts the method is absent; VerifySequencerReceipt now accepts raw transactions and ReceiptKeys without AuthorizedReceiptBatch."
+remaining_refs = 1
+remaining = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:117"]
+
+[row.r8-34.57]
+interface = "interface.8.go-sdkcs-localverifier-verifyprogramlifecyclereceipt"
+verdict = "served"
+path = "sdk/platform/dotnet/Verifier.cs"
+line = 407
+symbol = "VerifyProgramLifecycleReceipt"
+evidence = "Signature remains public static ReceiptVerification VerifyProgramLifecycleReceipt(byte[] canonical, byte[] expectedActivity, byte[] sequencer). This retained legacy implementation still requires protocol 3 and kernel module 9/version 4; new lifecycle RPC operations instead call VerifySequencerReceipt with ReceiptKeys."
+
+[row.r8-34.58]
+interface = "interface.8.go-sdkcs-localverifier-verifyreceiptasync"
+verdict = "retired"
+path = "sdk/platform/dotnet/Verifier.cs"
+line = 400
+symbol = "VerifyReceiptAsync"
+evidence = "LocalVerifier.VerifyReceiptAsync is absent from Verifier.cs, and AuthorizedBatch() explicitly asserts its removal. The three remaining files contain the unrelated MirrorSourceVerifier method, the ProgramsClient sequencer wrapper and the retirement assertion; none preserves the old AuthorizedReceiptBatch overload."
+remaining_refs = 3
+remaining = ["sdk/platform/dotnet/MirrorSource.cs:57", "sdk/platform/dotnet/Programs.cs:298", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:117"]
+
+[row.r8-34.59]
+interface = "interface.8.go-sdkcs-localverifier-decodeprogramreceiptoutcome"
+verdict = "served"
+path = "sdk/platform/dotnet/Verifier.cs"
+line = 561
+symbol = "DecodeProgramReceiptOutcome"
+evidence = "Signature remains public static ProgramReceiptOutcome DecodeProgramReceiptOutcome(ReadOnlySpan<byte> canonicalOutcome, ushort protocolVersion), now at line 561. It still decodes a bounded complete outcome using the supplied protocol version; the registered declaring header did not change."
+
+[row.r8-34.60]
+interface = "interface.8.cli-sdkgen-generate-lifecycle-py"
+verdict = "retired"
+path = "sdk/platform/generators/generate_lifecycle.py"
+line = 50
+symbol = "generate_lifecycle.py"
+evidence = "The registered generate_lifecycle.py file is absent. Both generator test files list it among retired paths, and the remaining GOTCHA entry is historical. The Rust receipt generator rejects program_lifecycle sections and no longer generates the four ProgramLifecycleRoutes outputs."
+remaining_refs = 3
+remaining = ["GOTCHA.kvx:8475", "sdk/platform/generators/tests/lifecycle_retired.rs:27", "sdk/platform/generators/tests/proof_generators.rs:36"]
