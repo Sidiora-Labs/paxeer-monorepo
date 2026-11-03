@@ -1,0 +1,25 @@
+[repair.go-launchpad-modules.15]
+target = "services/launchpad/user"
+command = "cd services/launchpad/user && go vet ./... && go test -count=1 ./..."
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "Updated internal/account/store.go to preserve replay responses, internal/account/privacy.go to accept the registered v2 deletion route, internal/account/v2_owner_http_test.go to exercise production identity migrations in an isolated database, and internal/config/config_test.go to isolate default settings."
+producer_input_tests = [
+  "internal/account/TestConnectedOwnerPreferencesAndConsentExport: USER_TEST_DATABASE_URL (PostgreSQL with CREATE SCHEMA privilege) and the gateway identity migrations.",
+  "internal/account/TestConnectedRevisionInboxRejectsReplayAndResurrection: USER_TEST_DATABASE_URL (PostgreSQL with CREATE SCHEMA privilege) and the gateway identity migrations.",
+  "internal/account/TestConnectedInputAndTelemetryBoundaries: no external input; included in the prescribed TestConnected exclusion by decision 2496.",
+  "internal/account/TestConnectedEncryptedExportWorkerAndSingleUseDownload: USER_TEST_DATABASE_URL (PostgreSQL with CREATE SCHEMA privilege) and the gateway identity migrations, L35_TEST_OBJECT_ENDPOINT, L35_TEST_OBJECT_ACCESS_KEY, L35_TEST_OBJECT_SECRET_KEY and L35_TEST_OBJECT_BUCKET (real object storage).",
+  "internal/account/TestConnectedFrozenProfileAndVersionedExtensions: USER_TEST_DATABASE_URL (PostgreSQL with CREATE SCHEMA privilege) and the gateway identity migrations.",
+  "internal/account/TestConnectedGatewayRejectsForgedAssertion: USER_TEST_DATABASE_URL (PostgreSQL with CREATE SCHEMA privilege) and the gateway identity migrations.",
+  "internal/account/TestConnectedDeviceProofReassignmentAndRevocation: USER_TEST_DATABASE_URL (PostgreSQL with CREATE SCHEMA privilege) and the gateway identity migrations.",
+  "internal/account/TestConnectedPhase3ConcurrentReplayAndDatabaseInterruption: USER_TEST_DATABASE_URL (PostgreSQL with CREATE SCHEMA privilege) and the gateway identity migrations.",
+  "internal/account/TestConnectedPhase3ConsentConcurrentReplayAndPrivacy: USER_TEST_DATABASE_URL (PostgreSQL with CREATE SCHEMA privilege) and the gateway identity migrations.",
+  "internal/account/TestConnectedPhase3DeviceIdentityRevocation: USER_TEST_DATABASE_URL (PostgreSQL with CREATE SCHEMA privilege) and the gateway identity migrations.",
+  "internal/account/TestConnectedPhase3OwnedHTTPProfileAndWatchlist: USER_TEST_DATABASE_URL (PostgreSQL with CREATE SCHEMA privilege).",
+  "internal/account/TestConnectedPhase3LegacyReplayRollbackAndQuarantine: USER_TEST_POSTGRES_DSN (PostgreSQL with CREATE DATABASE privilege) and the gateway identity migrations.",
+  "internal/account/TestConnectedPhase3DeletionRetryAndImmutableBoundary: USER_TEST_POSTGRES_DSN (PostgreSQL with CREATE DATABASE privilege) and the gateway identity migrations, USER_TEST_MINIO_ENDPOINT, USER_TEST_MINIO_ACCESS_KEY and USER_TEST_MINIO_SECRET_KEY (real MinIO).",
+  "internal/account/TestConnectedPhase3LiveSocketRevocationAndHTTPWrites: L35_PHASE3_GATEWAY_URL, L35_PHASE3_STREAM_URL, L35_PHASE3_ORIGIN, L35_PHASE3_ACCESS_TOKEN, L35_PHASE3_WALLET_PRIVATE_KEY and L35_PHASE3_OPERATION_ENVIRONMENT (admitted live gateway, identity session and private stream).",
+  "internal/account/TestConnectedPhase3IdentityDependencyInterruption: USER_TEST_DATABASE_URL (PostgreSQL with CREATE SCHEMA privilege) and the gateway identity migrations.",
+  "internal/account/TestConnectedPhase3PreferenceFieldsAndOlderClients: USER_TEST_DATABASE_URL (PostgreSQL with CREATE SCHEMA privilege) and the gateway identity migrations.",
+  "internal/user/TestUserService: USER_TEST_POSTGRES_DSN (PostgreSQL with CREATE DATABASE privilege), USER_TEST_REDIS_URL, USER_TEST_MINIO_ENDPOINT, USER_TEST_MINIO_ACCESS_KEY and USER_TEST_MINIO_SECRET_KEY; USER_TEST_CLAMAV_ADDR supplies the real scanner for clean-upload checks."
+]

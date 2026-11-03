@@ -1,6 +1,7 @@
 package account
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -404,7 +405,7 @@ func (s Store) Idempotent(ctx context.Context, p Principal, method, path string,
 		if string(old) != string(digest[:]) {
 			return nil, ErrIdempotency
 		}
-		return result, nil
+		return compactIdempotentResponse(result)
 	}
 	if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 		return nil, e
@@ -416,7 +417,11 @@ func (s Store) Idempotent(ctx context.Context, p Principal, method, path string,
 	if !json.Valid(result) {
 		return nil, ErrInvalid
 	}
-	_, e = tx.Exec(ctx, `INSERT INTO account_idempotency VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(account_id,method,path,key) DO UPDATE SET digest=EXCLUDED.digest,result=EXCLUDED.result,expires_at=EXCLUDED.expires_at`, p.AccountID, method, path, key, digest[:], result, s.now().Add(24*time.Hour))
+	e = tx.QueryRow(ctx, `INSERT INTO account_idempotency VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(account_id,method,path,key) DO UPDATE SET digest=EXCLUDED.digest,result=EXCLUDED.result,expires_at=EXCLUDED.expires_at RETURNING result`, p.AccountID, method, path, key, digest[:], result, s.now().Add(24*time.Hour)).Scan(&result)
+	if e != nil {
+		return nil, e
+	}
+	result, e = compactIdempotentResponse(result)
 	if e != nil {
 		return nil, e
 	}
@@ -424,6 +429,14 @@ func (s Store) Idempotent(ctx context.Context, p Principal, method, path string,
 		return nil, e
 	}
 	return result, nil
+}
+
+func compactIdempotentResponse(result []byte) (json.RawMessage, error) {
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, result); err != nil {
+		return nil, err
+	}
+	return compact.Bytes(), nil
 }
 
 func (s Store) AddWatch(ctx context.Context, p Principal, id uuid.UUID, pool string, lookup PoolLookup) error {
