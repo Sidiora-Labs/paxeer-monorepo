@@ -200,6 +200,7 @@ func vectorInput() *sequencer.ReceiptInput {
 		},
 		Operation:         2,
 		ReturnData:        append(make([]byte, 31), 1),
+		PaymentDenom:      "upax",
 		FeeDenom:          "upax",
 		FeeCharged:        bigInt("51234000000000"),
 		Sponsor:           sponsorAddr,
@@ -469,7 +470,7 @@ func TestReceiptFeeFields(t *testing.T) {
 	sidAfter := rh.app.BankKeeper.GetBalance(rh.openCtx(), sid.AccountAddress, denom).Amount
 	require.Equal(t, sdk.NewInt(sidConverted), sidBefore.Sub(sidAfter))
 	require.Equal(t, u128(big.NewInt(sidConverted)), rec.FeeCharged)
-	require.Equal(t, sha256.Sum256([]byte(denom)), rec.Asset)
+	require.Equal(t, sha256.Sum256([]byte("uhpx")), rec.Asset)
 	require.Equal(t, denom, string(rec.Effects[0].Body[109:]))
 	require.Equal(t, uint8(len(denom)), rec.Effects[0].Body[108])
 
