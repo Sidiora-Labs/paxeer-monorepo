@@ -1,0 +1,243 @@
+[reconcile.r4-111]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r4-111.1]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-role-admin-changed"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 3619
+symbol = "FeeAccumulatorRoleAdminChanged"
+evidence = "Matches registered signature: type FeeAccumulatorRoleAdminChanged struct { Declaration moved from registered line 2200 to 3619 in the same generated binding. Event fields: Role [32]byte, PreviousAdminRole [32]byte, NewAdminRole [32]byte, Raw types.Log."
+
+[row.r4-111.2]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-role-admin-changed-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 3552
+symbol = "FeeAccumulatorRoleAdminChangedIterator"
+evidence = "Matches registered signature: type FeeAccumulatorRoleAdminChangedIterator struct { Declaration moved from registered line 2133 to 3552 in the same generated binding. The iterator holds Event *FeeAccumulatorRoleAdminChanged and is returned by the event filter."
+
+[row.r4-111.3]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-role-granted"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 3781
+symbol = "FeeAccumulatorRoleGranted"
+evidence = "Matches registered signature: type FeeAccumulatorRoleGranted struct { Declaration moved from registered line 2362 to 3781 in the same generated binding. Event fields: Role [32]byte, Account common.Address, Sender common.Address, Raw types.Log."
+
+[row.r4-111.4]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-role-granted-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 3714
+symbol = "FeeAccumulatorRoleGrantedIterator"
+evidence = "Matches registered signature: type FeeAccumulatorRoleGrantedIterator struct { Declaration moved from registered line 2295 to 3714 in the same generated binding. The iterator holds Event *FeeAccumulatorRoleGranted and is returned by the event filter."
+
+[row.r4-111.5]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-role-revoked"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 3943
+symbol = "FeeAccumulatorRoleRevoked"
+evidence = "Matches registered signature: type FeeAccumulatorRoleRevoked struct { Declaration moved from registered line 2524 to 3943 in the same generated binding. Event fields: Role [32]byte, Account common.Address, Sender common.Address, Raw types.Log."
+
+[row.r4-111.6]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-role-revoked-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 3876
+symbol = "FeeAccumulatorRoleRevokedIterator"
+evidence = "Matches registered signature: type FeeAccumulatorRoleRevokedIterator struct { Declaration moved from registered line 2457 to 3876 in the same generated binding. The iterator holds Event *FeeAccumulatorRoleRevoked and is returned by the event filter."
+
+[row.r4-111.7]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-upgraded"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 4105
+symbol = "FeeAccumulatorUpgraded"
+evidence = "Matches registered signature: type FeeAccumulatorUpgraded struct { Declaration moved from registered line 2686 to 4105 in the same generated binding. Event fields: Implementation common.Address, Raw types.Log."
+
+[row.r4-111.8]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-upgraded-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 4038
+symbol = "FeeAccumulatorUpgradedIterator"
+evidence = "Matches registered signature: type FeeAccumulatorUpgradedIterator struct { Declaration moved from registered line 2619 to 4038 in the same generated binding. The iterator holds Event *FeeAccumulatorUpgraded and is returned by the event filter."
+
+[row.r4-111.9]
+interface = "interface.4.go-protocol-bindings-fees-router-airdrop-claimed-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 686
+symbol = "FeesRouterAirdropClaimedIterator"
+evidence = "Matches registered signature: type FeesRouterAirdropClaimedIterator struct { Declaration moved from registered line 632 to 686 in the same generated binding. The iterator holds Event *FeesRouterAirdropClaimed and is returned by the event filter."
+
+[row.r4-111.10]
+interface = "interface.4.go-protocol-bindings-fees-router-airdrop-executed-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 840
+symbol = "FeesRouterAirdropExecutedIterator"
+evidence = "Matches registered signature: type FeesRouterAirdropExecutedIterator struct { Declaration moved from registered line 786 to 840 in the same generated binding. The iterator holds Event *FeesRouterAirdropExecuted and is returned by the event filter."
+
+[row.r4-111.11]
+interface = "interface.4.go-protocol-bindings-fees-router-fee-strategy-changed-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 985
+symbol = "FeesRouterFeeStrategyChangedIterator"
+evidence = "Matches registered signature: type FeesRouterFeeStrategyChangedIterator struct { Declaration moved from registered line 931 to 985 in the same generated binding. The iterator holds Event *FeesRouterFeeStrategyChanged and is returned by the event filter."
+
+[row.r4-111.12]
+interface = "interface.4.go-protocol-bindings-fees-router-fees-burned-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 1131
+symbol = "FeesRouterFeesBurnedIterator"
+evidence = "Matches registered signature: type FeesRouterFeesBurnedIterator struct { Declaration moved from registered line 1077 to 1131 in the same generated binding. The iterator holds Event *FeesRouterFeesBurned and is returned by the event filter."
+
+[row.r4-111.13]
+interface = "interface.4.go-protocol-bindings-fees-router-fees-claimed-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 1276
+symbol = "FeesRouterFeesClaimedIterator"
+evidence = "Matches registered signature: type FeesRouterFeesClaimedIterator struct { Declaration moved from registered line 1222 to 1276 in the same generated binding. The iterator holds Event *FeesRouterFeesClaimed and is returned by the event filter."
+
+[row.r4-111.14]
+interface = "interface.4.go-protocol-bindings-fees-router-initialized-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 1430
+symbol = "FeesRouterInitializedIterator"
+evidence = "Matches registered signature: type FeesRouterInitializedIterator struct { Declaration moved from registered line 1376 to 1430 in the same generated binding. The iterator holds Event *FeesRouterInitialized and is returned by the event filter."
+
+[row.r4-111.15]
+interface = "interface.4.go-protocol-bindings-fees-router-lp-rewards-executed-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 1564
+symbol = "FeesRouterLpRewardsExecutedIterator"
+evidence = "Matches registered signature: type FeesRouterLpRewardsExecutedIterator struct { Declaration moved from registered line 1510 to 1564 in the same generated binding. The iterator holds Event *FeesRouterLpRewardsExecuted and is returned by the event filter."
+
+[row.r4-111.16]
+interface = "interface.4.go-protocol-bindings-fees-router-role-admin-changed"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 1920
+symbol = "FeesRouterRoleAdminChanged"
+evidence = "Matches registered signature: type FeesRouterRoleAdminChanged struct { Declaration moved from registered line 1722 to 1920 in the same generated binding. Event fields: Role [32]byte, PreviousAdminRole [32]byte, NewAdminRole [32]byte, Raw types.Log."
+
+[row.r4-111.17]
+interface = "interface.4.go-protocol-bindings-fees-router-role-admin-changed-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 1853
+symbol = "FeesRouterRoleAdminChangedIterator"
+evidence = "Matches registered signature: type FeesRouterRoleAdminChangedIterator struct { Declaration moved from registered line 1655 to 1853 in the same generated binding. The iterator holds Event *FeesRouterRoleAdminChanged and is returned by the event filter."
+
+[row.r4-111.18]
+interface = "interface.4.go-protocol-bindings-fees-router-role-granted"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 2082
+symbol = "FeesRouterRoleGranted"
+evidence = "Matches registered signature: type FeesRouterRoleGranted struct { Declaration moved from registered line 1884 to 2082 in the same generated binding. Event fields: Role [32]byte, Account common.Address, Sender common.Address, Raw types.Log."
+
+[row.r4-111.19]
+interface = "interface.4.go-protocol-bindings-fees-router-role-granted-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 2015
+symbol = "FeesRouterRoleGrantedIterator"
+evidence = "Matches registered signature: type FeesRouterRoleGrantedIterator struct { Declaration moved from registered line 1817 to 2015 in the same generated binding. The iterator holds Event *FeesRouterRoleGranted and is returned by the event filter."
+
+[row.r4-111.20]
+interface = "interface.4.go-protocol-bindings-fees-router-role-revoked"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 2244
+symbol = "FeesRouterRoleRevoked"
+evidence = "Matches registered signature: type FeesRouterRoleRevoked struct { Declaration moved from registered line 2046 to 2244 in the same generated binding. Event fields: Role [32]byte, Account common.Address, Sender common.Address, Raw types.Log."
+
+[row.r4-111.21]
+interface = "interface.4.go-protocol-bindings-fees-router-role-revoked-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 2177
+symbol = "FeesRouterRoleRevokedIterator"
+evidence = "Matches registered signature: type FeesRouterRoleRevokedIterator struct { Declaration moved from registered line 1979 to 2177 in the same generated binding. The iterator holds Event *FeesRouterRoleRevoked and is returned by the event filter."
+
+[row.r4-111.22]
+interface = "interface.4.go-protocol-bindings-fees-router-upgraded"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 2406
+symbol = "FeesRouterUpgraded"
+evidence = "Matches registered signature: type FeesRouterUpgraded struct { Declaration moved from registered line 2208 to 2406 in the same generated binding. Event fields: Implementation common.Address, Raw types.Log."
+
+[row.r4-111.23]
+interface = "interface.4.go-protocol-bindings-fees-router-upgraded-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+line = 2339
+symbol = "FeesRouterUpgradedIterator"
+evidence = "Matches registered signature: type FeesRouterUpgradedIterator struct { Declaration moved from registered line 2141 to 2339 in the same generated binding. The iterator holds Event *FeesRouterUpgraded and is returned by the event filter."
+
+[row.r4-111.24]
+interface = "interface.4.go-protocol-bindings-pool-registry-initialized-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/poolregistry.go"
+line = 818
+symbol = "PoolRegistryInitializedIterator"
+evidence = "Matches registered signature: type PoolRegistryInitializedIterator struct { Declaration moved from registered line 723 to 818 in the same generated binding. The iterator holds Event *PoolRegistryInitialized and is returned by the event filter."
+
+[row.r4-111.25]
+interface = "interface.4.go-protocol-bindings-pool-registry-pool-registered"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/poolregistry.go"
+line = 1163
+symbol = "PoolRegistryPoolRegistered"
+evidence = "Matches registered signature: type PoolRegistryPoolRegistered struct { Declaration moved from registered line 924 to 1163 in the same generated binding. Event fields: Pool common.Address, Token common.Address, Creator common.Address, Optical common.Address, NftId *big.Int, Timestamp *big.Int, Raw types.Log."
+
+[row.r4-111.26]
+interface = "interface.4.go-protocol-bindings-pool-registry-pool-registered-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/poolregistry.go"
+line = 1096
+symbol = "PoolRegistryPoolRegisteredIterator"
+evidence = "Matches registered signature: type PoolRegistryPoolRegisteredIterator struct { Declaration moved from registered line 857 to 1096 in the same generated binding. The iterator holds Event *PoolRegistryPoolRegistered and is returned by the event filter."
+
+[row.r4-111.27]
+interface = "interface.4.go-protocol-bindings-pool-registry-role-admin-changed"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/poolregistry.go"
+line = 1328
+symbol = "PoolRegistryRoleAdminChanged"
+evidence = "Matches registered signature: type PoolRegistryRoleAdminChanged struct { Declaration moved from registered line 1089 to 1328 in the same generated binding. Event fields: Role [32]byte, PreviousAdminRole [32]byte, NewAdminRole [32]byte, Raw types.Log."
+
+[row.r4-111.28]
+interface = "interface.4.go-protocol-bindings-pool-registry-role-admin-changed-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/poolregistry.go"
+line = 1261
+symbol = "PoolRegistryRoleAdminChangedIterator"
+evidence = "Matches registered signature: type PoolRegistryRoleAdminChangedIterator struct { Declaration moved from registered line 1022 to 1261 in the same generated binding. The iterator holds Event *PoolRegistryRoleAdminChanged and is returned by the event filter."
+
+[row.r4-111.29]
+interface = "interface.4.go-protocol-bindings-pool-registry-role-granted"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/poolregistry.go"
+line = 1490
+symbol = "PoolRegistryRoleGranted"
+evidence = "Matches registered signature: type PoolRegistryRoleGranted struct { Declaration moved from registered line 1251 to 1490 in the same generated binding. Event fields: Role [32]byte, Account common.Address, Sender common.Address, Raw types.Log."
+
+[row.r4-111.30]
+interface = "interface.4.go-protocol-bindings-pool-registry-role-granted-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/poolregistry.go"
+line = 1423
+symbol = "PoolRegistryRoleGrantedIterator"
+evidence = "Matches registered signature: type PoolRegistryRoleGrantedIterator struct { Declaration moved from registered line 1184 to 1423 in the same generated binding. The iterator holds Event *PoolRegistryRoleGranted and is returned by the event filter."
