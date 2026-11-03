@@ -14545,3 +14545,13 @@ fix = "Make the re-sweep require the repair task and requalify it on the current
 title = "The Rust test harness skip filter matches by substring"
 symptom = "A seven-test real-workload family in the hosted PaxAI service shares the _real_ name marker; listing each test separately bloated the verify command."
 fix = "Exclude a family with its shared marker in one --skip filter and list every excluded test by name in the repair record."
+
+[gotcha.2945]
+title = "The fee-token sequencer receipt vector names a different payment asset on purpose"
+symptom = "A repair stopped because sequencer-receipt-fee-token-v1.json carries paymentDenom usid while the other vectors carry uhpx and read it as a fixture disagreement."
+fix = "The fee-token vector records a fee paid in another asset (22.23.8, 22.95.3); it is not a defect and must not be edited."
+
+[gotcha.2946]
+title = "Generated pointer files go stale when the workflow spec changes without a re-render"
+symptom = "tools/specgen TestRepositorySpecIsValidAndCurrent reports CLAUDE.md, AGENTS.md, .cursor/rules/spec-workflow.mdc and .github/copilot-instructions.md stale and fails every specgen change."
+fix = "Re-render with go run ./tools/specgen -root . and commit the four outputs in the same change."
