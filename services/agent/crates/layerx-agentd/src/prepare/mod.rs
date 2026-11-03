@@ -4,6 +4,7 @@ pub mod evm {
     use std::time::Duration;
 
     use layerx_client::sequencer::{CallRequest, SequencerEndpoint, SequencerError};
+    use layerx_crypto::disclosure::{call::bind_call, Disclosure, DisclosureError};
     use layerx_crypto::evm_transaction::Eip1559Call;
     use serde_json::{json, Value};
 
@@ -146,6 +147,9 @@ pub mod evm {
     #[derive(Clone, Debug, Eq, PartialEq)]
     pub struct Prepared {
         pub call: Eip1559Call,
+        pub from: [u8; 20],
+        pub disclosure: Disclosure,
+        pub disclosure_digest: [u8; 32],
         pub signing_hash: [u8; 32],
         pub observed_head_height: u64,
     }
@@ -153,6 +157,7 @@ pub mod evm {
     #[derive(Clone, Debug, Eq, PartialEq)]
     pub enum PrepareError {
         Sequencer(SequencerError),
+        Disclosure(DisclosureError),
         StaleNonce { expected: u64, pending: u64 },
         InvalidDefaults,
         PayloadLimitExceeded { actual: usize, maximum: usize },
@@ -318,7 +323,7 @@ pub mod evm {
                 data: call.data.clone(),
             })
             .map_err(PrepareError::Sequencer)?;
-        finish_call(call, state.head_height)
+        finish_call(call, request.from, state.head_height)
     }
 
     /// Deterministic construction from an observed state and its pending gas estimate.
@@ -330,18 +335,57 @@ pub mod evm {
     ) -> Result<Prepared, PrepareError> {
         let mut call = build_call(state, defaults, &request)?;
         call.gas_limit = gas_limit;
-        finish_call(call, state.head_height)
+        finish_call(call, request.from, state.head_height)
     }
 
-    fn finish_call(call: Eip1559Call, observed_head_height: u64) -> Result<Prepared, PrepareError> {
+    fn finish_call(
+        call: Eip1559Call,
+        from: [u8; 20],
+        observed_head_height: u64,
+    ) -> Result<Prepared, PrepareError> {
         if call.gas_limit == 0 {
             return Err(PrepareError::InvalidDefaults);
         }
+        let disclosure = bind_call(&call, from).map_err(PrepareError::Disclosure)?;
+        let disclosure_digest = disclosure
+            .signing_digest()
+            .map_err(PrepareError::Disclosure)?;
         Ok(Prepared {
+            from,
+            disclosure,
+            disclosure_digest,
             signing_hash: call.signing_hash(),
             call,
             observed_head_height,
         })
+    }
+
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    pub enum CallBindingError {
+        Disclosure(DisclosureError),
+        DigestMismatch,
+        SigningHashMismatch,
+    }
+
+    pub fn verify_call_binding(prepared: &Prepared) -> Result<(), CallBindingError> {
+        if prepared.call.signing_hash() != prepared.signing_hash {
+            return Err(CallBindingError::SigningHashMismatch);
+        }
+        let disclosure =
+            bind_call(&prepared.call, prepared.from).map_err(CallBindingError::Disclosure)?;
+        if disclosure != prepared.disclosure {
+            return Err(CallBindingError::Disclosure(
+                DisclosureError::FieldMismatch("call"),
+            ));
+        }
+        if disclosure
+            .signing_digest()
+            .map_err(CallBindingError::Disclosure)?
+            != prepared.disclosure_digest
+        {
+            return Err(CallBindingError::DigestMismatch);
+        }
+        Ok(())
     }
 
     fn build_call(
@@ -394,10 +438,13 @@ pub mod evm {
 }
 
 pub use evm::{
-    prepare_bound, AbiArgument, EvmPreparationState, PrecompileCall, PrecompileTarget,
-    PreparationDefaults as EvmPreparationDefaults, PrepareError as EvmPrepareError,
-    PrepareRequest as EvmPrepareRequest, Prepared as EvmPrepared, ProductionEvmPreparationBoundary,
+    prepare_bound, verify_call_binding, AbiArgument, CallBindingError, EvmPreparationState,
+    PrecompileCall, PrecompileTarget, PreparationDefaults as EvmPreparationDefaults,
+    PrepareError as EvmPrepareError, PrepareRequest as EvmPrepareRequest,
+    ProductionEvmPreparationBoundary,
 };
+
+pub type EvmPrepared = evm::Prepared;
 
 #[path = ""]
 pub mod legacy {

@@ -701,6 +701,7 @@ function signedReceiptView(
   kind = 1,
   revert = false,
   reasonText = "LXP_FEE_LIMIT: fee cap",
+  moduleId = 12,
 ): Record<string, unknown> {
   const txHash = keccak_256(signed);
   const seq = 1n;
@@ -753,7 +754,7 @@ function signedReceiptView(
   const log = Buffer.concat([to, Buffer.from([1]), topic, sha256(logData)]);
   const effect = (ordinal: number, body: Uint8Array): Buffer =>
     Buffer.concat([
-      be(16n, 2),
+      be(BigInt(moduleId), 2),
       be(BigInt(ordinal), 2),
       be(0n, 2),
       Buffer.from([ordinal === 0 ? 1 : 3, 0]),
@@ -775,7 +776,7 @@ function signedReceiptView(
     effect(1, log),
     be(100n, 16),
     arr(be(500n, 32)),
-    be(16n, 2),
+    be(BigInt(moduleId), 2),
     be(1n, 4),
     be(0n, 4),
     Buffer.from([2]),
@@ -2329,10 +2330,8 @@ try {
     );
     await check("ai_market_submit_is_programs_call", async () => {
       acknowledge = true;
-      const journal = await OperationJournal.open(
-        await mkdtemp(join(tmpdir(), "paxai-journal-")),
-        receiptKeys,
-      );
+      const directory = await mkdtemp(join(tmpdir(), "paxai-journal-"));
+      const journal = await OperationJournal.open(directory, receiptKeys);
       const record = OperationRecord.signed(
         recordSigned,
         ownerKey,
@@ -2378,7 +2377,7 @@ try {
         ) === hex(ownerKey),
         "transaction recovered to another trader",
       );
-      const decoded = decodeProgramsReceipt(
+      const decoded = await decodeProgramsReceipt(
         signedReceiptView(recordSigned),
         recordSigned,
         receiptKeys,
@@ -2388,6 +2387,8 @@ try {
           decoded.programResult?.terminalResult === 0 &&
           decoded.programResult.terminalKind === 1 &&
           hex(decoded.programResult.response) === "010203" &&
+          decoded.receipt.moduleId === 12 &&
+          decoded.receipt.operation === 2 &&
           decoded.receipt.globalSequence === 1n,
         "program result lost",
       );
@@ -2403,16 +2404,186 @@ try {
           resolved.rung === "receipted",
         "verified receipt not applied",
       );
+      const reopened = await OperationJournal.open(directory, receiptKeys);
+      const retained = await reopened.load(record.activityId);
       assert(
-        (await journal.load(record.activityId)).state === "executed",
-        "execution not durable",
+        retained.state === "executed" &&
+          retained.resultCode === 0 &&
+          retained.globalSequence === 1n &&
+          retained.txHash === pending.txHash,
+        "execution not durable across journal restart",
       );
     });
+
+    async function market_receipt_conformance_fixture_resolves(): Promise<void> {
+      const vectors: {
+        cases: {
+          id: string;
+          rawTransaction: string;
+          receiptJson: Record<string, unknown>;
+          pinnedKey: {
+            keyId: string;
+            publicKey: string;
+            firstHeight: number;
+            lastHeight: number;
+          };
+        }[];
+      } = JSON.parse(
+        await readFile(
+          new URL(
+            "../../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+            import.meta.url,
+          ),
+          "utf8",
+        ),
+      );
+      const vector = vectors.cases.find(
+        (entry) =>
+          entry.id === "V1-layerxprograms-call" &&
+          entry.receiptJson.to === PROGRAMS_PRECOMPILE,
+      );
+      assert(
+        vector !== undefined,
+        "sequencer-receipt-v1.json has no producer-generated Programs transaction; " +
+          "its transfer, ERC20, ledger and bridge transactions cannot enter the AI operation journal",
+      );
+      const signed = raw(vector.rawTransaction.slice(2));
+      const keys = [
+        {
+          sequencerId: raw(vector.pinnedKey.keyId.slice(2)),
+          publicKey: raw(vector.pinnedKey.publicKey.slice(2)),
+          firstBatchNumber: BigInt(vector.pinnedKey.firstHeight),
+          lastBatchNumber: BigInt(vector.pinnedKey.lastHeight),
+        },
+      ];
+      const execution = await decodeProgramsReceipt(
+        vector.receiptJson,
+        signed,
+        keys,
+      );
+      assert(
+        execution !== null &&
+          execution.receipt.moduleId === 12 &&
+          execution.receipt.operation === 2 &&
+          hex(execution.receipt.activityId) === activityIdOf(signed),
+        "conformance sequencer receipt was not decoded",
+      );
+      const result = execution.programResult;
+      const output = raw(String(vector.receiptJson.returnData).slice(2));
+      const envelopeDomain = Buffer.from(
+        "LXP/programs/terminal-applied-legs/v1\0",
+      );
+      const envelopeLength = Number(BigInt(`0x${hex(output.slice(96, 128))}`));
+      const envelope = output.slice(128, 128 + envelopeLength);
+      const innerLength = new DataView(
+        envelope.buffer,
+        envelope.byteOffset,
+      ).getUint32(envelopeDomain.length);
+      const inner = envelope.slice(
+        envelopeDomain.length + 4,
+        envelopeDomain.length + 4 + innerLength,
+      );
+      assert(
+        result?.terminalResult === 0 &&
+          result.terminalKind === 1 &&
+          hex(result.response) === hex(inner) &&
+          Buffer.from(inner)
+            .subarray(
+              0,
+              Buffer.byteLength("LXP/program-execution-with-occupancy/v1\0"),
+            )
+            .toString() === "LXP/program-execution-with-occupancy/v1\0" &&
+          envelopeLength === 372,
+        "conformance terminal execution record was not unwrapped",
+      );
+      const log = (
+        vector.receiptJson.logs as { topics: string[]; data: string }[]
+      )[0]!;
+      assert(
+        log.topics[0] ===
+          "0xcfe5297f03a2951065e463e9e0c2e3686bc0204f727eeec1a52357b5dd4a27a0" &&
+          execution.receipt.effects.length === 2,
+        "conformance ProgramCallOutcome log was not bound",
+      );
+      await refuses("ReceiptMismatch", () =>
+        decodeProgramsReceipt(vector.receiptJson, signed, [
+          { ...keys[0]!, publicKey: receiptKey },
+        ]),
+      );
+      await refuses("ReceiptMismatch", () =>
+        decodeProgramsReceipt(
+          { ...vector.receiptJson, logs: [{ ...log, data: "0x00" }] },
+          signed,
+          keys,
+        ),
+      );
+      const transferRoot = raw(log.data.slice(2)).slice(9 * 32, 10 * 32);
+      assert(
+        hex(decodeProgramsCallResult(output, 64, transferRoot).response) ===
+          hex(inner),
+        "terminal envelope was bounded by guest capacity",
+      );
+      await refuses("ReceiptMismatch", () =>
+        decodeProgramsCallResult(output, 64, raw(id(1))),
+      );
+      await refuses("ReceiptMismatch", () =>
+        decodeProgramsCallResult(output, 64),
+      );
+      const trailing = Buffer.concat([envelope, Buffer.from([0])]);
+      await refuses("ReceiptMismatch", () =>
+        decodeProgramsCallResult(
+          programsResult(0, 1, trailing),
+          64,
+          transferRoot,
+        ),
+      );
+    }
+    await check(
+      market_receipt_conformance_fixture_resolves.name,
+      market_receipt_conformance_fixture_resolves,
+    );
+
+    async function market_receipt_refuses_retired_kernel_shape(): Promise<void> {
+      const retired = signedReceiptView(
+        recordSigned,
+        0,
+        1,
+        false,
+        "LXP_FEE_LIMIT: fee cap",
+        16,
+      );
+      await refuses("ReceiptMismatch", () =>
+        decodeProgramsReceipt(retired, recordSigned, receiptKeys),
+      );
+      const directory = await mkdtemp(join(tmpdir(), "paxai-retired-receipt-"));
+      const journal = await OperationJournal.open(directory, receiptKeys);
+      const record = OperationRecord.signed(
+        recordSigned,
+        ownerKey,
+        recordIntent,
+      );
+      await journal.recordSigned(record);
+      acknowledge = true;
+      const pending = await journal.submit(record, operations);
+      await refuses("ReceiptMismatch", () => journal.resolve(pending, retired));
+      const reopened = await OperationJournal.open(directory, receiptKeys);
+      const retained = await reopened.load(record.activityId);
+      assert(
+        retained.state === "pending" &&
+          retained.resultCode === null &&
+          retained.globalSequence === null,
+        "retired receipt changed the durable journal",
+      );
+    }
+    await check(
+      market_receipt_refuses_retired_kernel_shape.name,
+      market_receipt_refuses_retired_kernel_shape,
+    );
 
     await check(
       "market_receipt_decodes exact failures and refuses unbound data",
       async () => {
-        const failure = decodeProgramsReceipt(
+        const failure = await decodeProgramsReceipt(
           signedReceiptView(recordSigned, -0x601, 2),
           recordSigned,
           receiptKeys,
@@ -2443,7 +2614,7 @@ try {
             retainedFailure.globalSequence === 1n,
           "durable program refusal changed",
         );
-        const reverted = decodeProgramsReceipt(
+        const reverted = await decodeProgramsReceipt(
           signedReceiptView(recordSigned, 0, 1, true),
           recordSigned,
           receiptKeys,

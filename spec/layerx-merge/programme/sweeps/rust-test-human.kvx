@@ -1,54 +1,55 @@
 [sweep.rust-test-human]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "cargo test --locked --manifest-path services/human/Cargo.toml -p TARGET --no-fail-fast"
 targets_total = 7
 targets_passed = 1
-targets_failed = 6
-targets_not_run = 0
+targets_failed = 5
+targets_not_run = 1
 
 [target.rust-test-human.1]
 target = "layerx-human-security-provider"
 result = "failed"
 exit_code = 101
-observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
+observed = "probe_exits_zero_only_on_the_serving_providers_healthy_answer panicked at services/human/crates/layerx-human-security-provider/tests/probe.rs:68:50 while unwrapping an Err value of Unavailable."
+assumption = "The environment lacks the supervised runtime clock required by RuntimeClock::from_environment()."
 
 [target.rust-test-human.2]
 target = "layerx-human-service"
-result = "failed"
-exit_code = 101
-observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
+result = "not_run"
+exit_code = 124
+reason = "The package command was started but terminated after 600 seconds to reserve the remaining task wall-clock budget for other workspace packages and qualification, so its suite did not complete."
+observed = "Before termination, server::agent_runtime::subject_tests::cloned_subject_handle_binds_every_coordinate_without_changing_original_head_frame panicked at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4672:29 with typed runtime."
+assumption = "The environment lacks the supervised runtime clock required by AgentRuntime::new(), and the full package test command did not finish within its allocation."
 
 [target.rust-test-human.3]
 target = "layerx-human-kms"
 result = "failed"
 exit_code = 101
-observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
+observed = "attestor_refuses_a_mismatched_disclosure_before_contacting_any_node in services/human/crates/layerx-human-kms/tests/attestor.rs returned Error: Unavailable."
+assumption = "The environment lacks the supervised runtime clock required by the test support StepClock::new()."
 
 [target.rust-test-human.4]
 target = "layerx-intents"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "budget_create_compiles_to_canonical_call_payload panicked at services/human/crates/layerx-intents/tests/budget_payloads.rs:245:9 because disclosure.amounts.len() was 2 while the assertion expected 1."
+assumption = "The current budget-create disclosure emits an additional amount entry while the existing test still expects one entry."
 
 [target.rust-test-human.5]
 target = "layerx-network-gateway"
 result = "failed"
 exit_code = 101
-observed = "identity_selector_contract::real_repeated_account_and_balance_lookup_preserves_owner panicked at services/human/crates/layerx-network-gateway/src/lib.rs:1163:14 with real isolated identity fixture required: NotPresent."
-assumption = "The environment lacks PAXEER_X_IDENTITY_FIXTURE, which this test requires to locate a real isolated identity fixture."
+observed = "identity_selector_contract::real_repeated_account_and_balance_lookup_preserves_owner panicked at services/human/crates/layerx-network-gateway/src/lib.rs:1218:14 with real isolated identity fixture required: NotPresent."
+assumption = "The environment lacks PAXEER_X_IDENTITY_FIXTURE, which the test requires to locate a real isolated identity fixture."
 
 [target.rust-test-human.6]
 target = "layerx-human-identity-provider"
 result = "failed"
 exit_code = 101
-observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
+observed = "assertion_binary_serve_wires_the_configuration_from_the_environment in services/human/crates/layerx-human-identity-provider/tests/assertion.rs returned Error: Unavailable."
+assumption = "The environment lacks the supervised runtime clock required by the assertion test before it starts the identity-provider service."
 
 [target.rust-test-human.7]
 target = "layerx-human-test-support"
-result = "failed"
-exit_code = 101
-observed = "Compilation failed with E0004 at services/human/crates/layerx-human-service/src/agents/create.rs:610:49 because the match does not cover Some(ConstructMethod::ProgramCall { .. })."
-assumption = "The existing layerx-human-service lifecycle match has not been updated for the ConstructMethod::ProgramCall variant, preventing this package test command from compiling."
+result = "passed"
+exit_code = 0

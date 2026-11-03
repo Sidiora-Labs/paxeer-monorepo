@@ -1,0 +1,48 @@
+[issue.1547]
+number = 1547
+title = "[Coherence] px_getReceiptKeys on a node that is not serving answers with an error message naming pax_sequencerReceipt"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "The unavailable GetReceiptKeys branch still returns errSequencerReceiptNotServed at rpc/sequencer_receipt.go:359, whose message names pax_sequencerReceipt at rpc/sequencer_receipt.go:74 and whose code is -32000 at rpc/sequencer_receipt.go:54 and rpc/sequencer_receipt.go:77, while rpc/sequencer_receipt_test.go:476 checks only the code and services/agent/crates/layerx-agentd/src/boot.rs:146 requires receipt-key retrieval for readiness."
+close_comment = "Confirmed: px_getReceiptKeys returns an unavailable-method error naming pax_sequencerReceipt when no local source or forwarding endpoint is configured. The follow-up RPC task will name px_getReceiptKeys in that response while preserving error code -32000 and the existing pax_sequencerReceipt response."
+
+[task.18.1547.1]
+title = "Issue #1547: Name px_getReceiptKeys in its unavailable-method error"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181547.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add a typed errReceiptKeysNotServed implementing rpc.Error in rpc/sequencer_receipt.go beside the existing error at rpc/sequencer_receipt.go:71, with message ReceiptKeysMethod + ' served by sequencer' and code sequencerNotServedCode; return it from GetReceiptKeys at rpc/sequencer_receipt.go:359 when Source and ForwardURL are nil, preserving errSequencerReceiptNotServed and the forwarding path at rpc/sequencer_receipt.go:367."
+do_2 = "Add TestReceiptKeysNotServedNamesRequestedMethod in rpc/sequencer_receipt_test.go using the existing real HTTP server and JSON-RPC request helpers: call px_getReceiptKeys on a node with no source or forwarding endpoint and through a second node forwarding to it, assert code -32000 and exact message px_getReceiptKeys served by sequencer in both responses, and assert that pax_sequencerReceipt on the unavailable node retains its exact existing code and message from rpc/sequencer_receipt_test.go:783; retain the existing receipt-key serving assertions at rpc/sequencer_receipt_test.go:424."
+symbols = ["errReceiptKeysNotServed", "GetReceiptKeys", "TestReceiptKeysNotServedNamesRequestedMethod"]
+touches = ["rpc/sequencer_receipt.go", "rpc/sequencer_receipt_test.go"]
+tests = ["rpc/sequencer_receipt_test.go::TestReceiptKeysNotServedNamesRequestedMethod"]
+planned_paths = []
+build_cmd = "go build ./rpc/..."
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestReceiptKeysNotServedNamesRequestedMethod$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181547]
+title = "Unavailable receipt-key errors identify the requested method"
+ac_1 = "When Source and ForwardURL are nil, GetReceiptKeys at rpc/sequencer_receipt.go:352 returns JSON-RPC code -32000 with exact message px_getReceiptKeys served by sequencer, including through the forwarder at rpc/sequencer_receipt.go:367; pax_sequencerReceipt retains code -32000 and exact message pax_sequencerReceipt served by sequencer as asserted at rpc/sequencer_receipt_test.go:783."
+
+[acceptance.18.1547.1]
+feature = "18"
+req = "181547.1"
+scenario = "Given a node with neither a local sequencer receipt source nor a forwarding endpoint and a second node forwarding to it, when px_getReceiptKeys is called on each, then both responses carry code -32000 and message px_getReceiptKeys served by sequencer, and a pax_sequencerReceipt call on the unavailable node retains code -32000 and message pax_sequencerReceipt served by sequencer."
+contract = "contracts/rpc.md#error-model"
+test = "rpc/sequencer_receipt_test.go::TestReceiptKeysNotServedNamesRequestedMethod (planned)"
+qualification = "UNRUN"

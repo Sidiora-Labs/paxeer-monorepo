@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-import binascii
 import json
 import re
 import urllib.parse
@@ -323,7 +321,7 @@ class PxClient:
 
     def call(
         self, method: str, params: list[object]
-    ) -> Mapping[str, object] | list[object]:
+    ) -> Mapping[str, object]:
         if method not in PX_METHODS or not isinstance(params, list):
             raise ValueError("invalid-px-method")
         self._id += 1
@@ -375,10 +373,6 @@ class PxClient:
                 raise ValueError("invalid-px-error")
             raise PxRpcError(error["code"], error["message"], error.get("data"))
         result = answer["result"]
-        if method == "px_getReceiptKeys":
-            if not isinstance(result, list):
-                raise ValueError("invalid-px-result")
-            return result
         if not isinstance(result, dict) or any(
             not isinstance(key, str) for key in result
         ):
@@ -576,11 +570,15 @@ def decode_px_network_head(value: object) -> PxNetworkHead:
 
 
 def decode_px_receipt_keys(value: object) -> tuple[PxReceiptKeyEntry, ...]:
-    if not isinstance(value, list):
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"keys"}
+        or not isinstance(value["keys"], list)
+    ):
         raise ValueError("invalid-px-receipt-keys")
     keys: list[PxReceiptKeyEntry] = []
     seen: set[str] = set()
-    for value in value:
+    for value in value["keys"]:
         entry = _document(value)
         _present(entry, ("keyId", "publicKey", "firstHeight", "lastHeight"))
         if len(entry) != 4:
@@ -599,15 +597,9 @@ def decode_px_receipt_keys(value: object) -> tuple[PxReceiptKeyEntry, ...]:
 
 
 def _receipt_key_bytes(value: object) -> str:
-    if not isinstance(value, str) or len(value) != 44:
+    if not isinstance(value, str) or re.fullmatch(r"0x[0-9a-fA-F]{64}", value) is None:
         raise ValueError("invalid-px-receipt-key-bytes")
-    try:
-        decoded = base64.b64decode(value, validate=True)
-    except (binascii.Error, ValueError) as error:
-        raise ValueError("invalid-px-receipt-key-bytes") from error
-    if len(decoded) != 32 or base64.b64encode(decoded).decode("ascii") != value:
-        raise ValueError("invalid-px-receipt-key-bytes")
-    return decoded.hex()
+    return value[2:].lower()
 
 
 def history_cursor(block_height: int, tx_index: int, log_index: int) -> str:

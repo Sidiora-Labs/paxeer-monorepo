@@ -9,6 +9,7 @@ use layerx_types::{rung::Rung, verify::VerificationLevel};
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::receipt_digest;
 use layerx_wire::limits::{LEGACY_PROTOCOL_VERSION, PROTOCOL_VERSION};
+use sha2::{Digest as _, Sha256};
 
 #[derive(Clone)]
 struct Fields {
@@ -18,6 +19,8 @@ struct Fields {
     batch_id: [u8; 32],
     asset: [u8; 32],
     amount: u128,
+    fee_charged: u128,
+    effect_bodies: Vec<Vec<u8>>,
     from: [u8; 32],
     from_before: u128,
     from_after: u128,
@@ -34,6 +37,8 @@ fn fields() -> Fields {
         batch_id: [4; 32],
         asset: [5; 32],
         amount: 25,
+        fee_charged: 1,
+        effect_bodies: vec![],
         from: [6; 32],
         from_before: 100,
         from_after: 75,
@@ -60,8 +65,25 @@ fn encode_fields_version(
     assert_eq!(encoder.bytes(&fields.resulting_state_root, 32), Ok(()));
     assert_eq!(encoder.bytes(&[8; 32], 32), Ok(()));
     assert_eq!(encoder.i32(0), Ok(()));
-    assert_eq!(encoder.sequence_length(0, 512), Ok(()));
-    assert_eq!(encoder.u128(1), Ok(()));
+    assert_eq!(
+        encoder.sequence_length(fields.effect_bodies.len(), 512),
+        Ok(())
+    );
+    for (ordinal, body) in fields.effect_bodies.iter().enumerate() {
+        assert_eq!(encoder.u16(1), Ok(()));
+        assert_eq!(
+            encoder.u16(
+                u16::try_from(ordinal).unwrap_or_else(|error| panic!("effect ordinal: {error}"))
+            ),
+            Ok(())
+        );
+        assert_eq!(encoder.u16(1), Ok(()));
+        assert_eq!(encoder.tag(1, 3), Ok(()));
+        assert_eq!(encoder.u8(0), Ok(()));
+        assert_eq!(encoder.bytes(&[0; 32], 32), Ok(()));
+        assert_eq!(encoder.bytes(body, 256), Ok(()));
+    }
+    assert_eq!(encoder.u128(fields.fee_charged), Ok(()));
     assert_eq!(encoder.bytes(&fields.batch_id, 32), Ok(()));
     assert_eq!(encoder.u16(1), Ok(()));
     assert_eq!(encoder.u32(1), Ok(()));
@@ -117,6 +139,121 @@ fn authorised(fields: &Fields, signing_key: &SigningKey) -> AuthorizedBatch {
         fields.resulting_state_root,
         signing_key.verifying_key().to_bytes(),
     )
+}
+
+fn execution_effect_body(denomination: &[u8]) -> Vec<u8> {
+    let mut body = vec![0; 108];
+    body.push(
+        u8::try_from(denomination.len())
+            .unwrap_or_else(|error| panic!("fee denomination length: {error}")),
+    );
+    body.extend_from_slice(denomination);
+    body
+}
+
+#[test]
+fn debit_identity_accounts_for_the_fee_in_the_receipt_asset() {
+    let signing_key = SigningKey::from_bytes(&[3; 32]);
+    let mut fields = fields();
+    fields.asset = Sha256::digest(b"uhpx").into();
+    fields.fee_charged = 7;
+    fields.effect_bodies = vec![execution_effect_body(b"uhpx")];
+    for amount in [25, 0] {
+        fields.amount = amount;
+        fields.to_after = fields.to_before + amount;
+        fields.from_after = fields.from_before - amount - fields.fee_charged;
+        let bytes = sign(&fields, &signing_key);
+        let verified = verify(&bytes, &authorised(&fields, &signing_key))
+            .unwrap_or_else(|error| panic!("same-asset fee rejected: {error:?}"));
+        assert_eq!(verified.canonical_bytes(), bytes);
+        fields.from_after = fields.from_before - amount;
+        assert_eq!(
+            verify(
+                &sign(&fields, &signing_key),
+                &authorised(&fields, &signing_key)
+            ),
+            Err(VerificationFailure {
+                check: ReceiptCheck::DebitBalance
+            })
+        );
+    }
+    for (before, amount, fee) in [(24, 25, 7), (31, 25, 7), (u128::MAX, 1, u128::MAX)] {
+        fields.from_before = before;
+        fields.amount = amount;
+        fields.fee_charged = fee;
+        fields.from_after = 0;
+        fields.to_after = fields.to_before + amount;
+        assert_eq!(
+            verify(
+                &sign(&fields, &signing_key),
+                &authorised(&fields, &signing_key)
+            ),
+            Err(VerificationFailure {
+                check: ReceiptCheck::DebitBalance
+            })
+        );
+    }
+}
+
+#[test]
+fn debit_identity_ignores_a_fee_in_another_asset() {
+    let signing_key = SigningKey::from_bytes(&[3; 32]);
+    let mut fields = fields();
+    fields.asset = Sha256::digest(b"uhpx").into();
+    fields.fee_charged = 7;
+    fields.effect_bodies = vec![execution_effect_body(b"other")];
+    let bytes = sign(&fields, &signing_key);
+    let verified = verify(&bytes, &authorised(&fields, &signing_key))
+        .unwrap_or_else(|error| panic!("other-asset fee rejected: {error:?}"));
+    assert_eq!(verified.canonical_bytes(), bytes);
+    fields.from_after = fields.from_before - fields.amount - fields.fee_charged;
+    assert_eq!(
+        verify(
+            &sign(&fields, &signing_key),
+            &authorised(&fields, &signing_key)
+        ),
+        Err(VerificationFailure {
+            check: ReceiptCheck::DebitBalance
+        })
+    );
+}
+
+#[test]
+fn debit_identity_keeps_fee_free_identity_without_a_complete_first_denomination() {
+    let signing_key = SigningKey::from_bytes(&[3; 32]);
+    let mut fields = fields();
+    fields.asset = Sha256::digest(b"uhpx").into();
+    fields.fee_charged = 7;
+    let mut truncated = execution_effect_body(b"uhpx");
+    truncated.pop();
+    let mut overrun = execution_effect_body(b"uhpx");
+    overrun[108] = u8::MAX;
+    for bodies in [
+        vec![],
+        vec![vec![]],
+        vec![vec![0; 108]],
+        vec![truncated],
+        vec![overrun],
+        vec![
+            execution_effect_body(b"other"),
+            execution_effect_body(b"uhpx"),
+        ],
+    ] {
+        fields.effect_bodies = bodies;
+        fields.from_after = fields.from_before - fields.amount;
+        let bytes = sign(&fields, &signing_key);
+        assert!(verify(&bytes, &authorised(&fields, &signing_key)).is_ok());
+        fields.from_after -= fields.fee_charged;
+        assert_eq!(
+            verify(
+                &sign(&fields, &signing_key),
+                &authorised(&fields, &signing_key)
+            ),
+            Err(VerificationFailure {
+                check: ReceiptCheck::DebitBalance
+            })
+        );
+    }
 }
 
 #[test]

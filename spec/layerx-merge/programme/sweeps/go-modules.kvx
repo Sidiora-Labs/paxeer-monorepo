@@ -1,43 +1,52 @@
 [sweep.go-modules]
-revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
-targets_total = 121
-targets_passed = 83
-targets_failed = 17
-targets_not_run = 21
+targets_total = 124
+targets_passed = 65
+targets_failed = 2
+targets_not_run = 45
+targets_no_tests = 12
 enumeration_command = "CGO_ENABLED=1 go list ./modules/..."
 enumeration_exit_code = 0
+supplemental_targets = ["precompiles/addr/legacy/v552", "precompiles/addr/legacy/v555"]
 prerequisite_command = "make paxd-native-libs"
 prerequisite_exit_code = 0
-environment = "CGO_ENABLED=1; GOMAXPROCS=4; two concurrent package commands"
+environment = "CGO_ENABLED=1; GOMAXPROCS=2; four concurrent package commands"
 target_time_limit_seconds = 240
-qualification_record = "/out/logs/go-modules/results.jsonl"
+time_budget = "Per-target allocations are capped by the remaining inventory time; three minutes are reserved for reporting and bounded qualification gates."
+qualification_record = "/out/logs/go-modules-pass2/results.jsonl"
 
 [target.go-modules.1]
 target = "modules/epoch"
 result = "not_run"
 exit_code = 124
-reason = "The per-target command was stopped after 240 seconds to keep the 121-package inventory within the task wall clock; the vet/test pair did not finish."
+reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
 
 [target.go-modules.2]
 target = "modules/epoch/client/cli"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = 124
+reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
 
 [target.go-modules.3]
 target = "modules/epoch/client/wasm"
-result = "passed"
-exit_code = 0
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/epoch/client/wasm; no package test command was run."
 
 [target.go-modules.4]
 target = "modules/epoch/client/wasm/bindings"
-result = "passed"
-exit_code = 0
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/epoch/client/wasm/bindings; no package test command was run."
 
 [target.go-modules.5]
 target = "modules/epoch/keeper"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = 124
+reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
 
 [target.go-modules.6]
 target = "modules/epoch/simulation"
@@ -51,15 +60,15 @@ exit_code = 0
 
 [target.go-modules.8]
 target = "modules/evm"
-result = "failed"
-exit_code = 1
-observed = "TestModuleExportGenesis at modules/evm/module_test.go:58 failed equality because exported genesis has minimum_fee_per_gas 67000000 instead of 1000000000 and additional pointer accounts."
-assumption = "The genesis export fixture appears stale relative to the current fee cap and automatic pointer registration."
+result = "not_run"
+exit_code = 124
+reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
 
 [target.go-modules.9]
 target = "modules/evm/ante"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = 124
+reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
 
 [target.go-modules.10]
 target = "modules/evm/artifacts"
@@ -100,6 +109,10 @@ exit_code = 0
 target = "modules/evm/artifacts/native"
 result = "passed"
 exit_code = 0
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+command = "CGO_ENABLED=1 go test -count=1 ./modules/evm/artifacts/native/ ./modules/tokenfactory/client/wasm/bindings/"
+observed = "Package tests passed with CGO_ENABLED=1 and the test cache disabled; revision identifies the unchanged Go source tested by the task gate."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.go-modules.18]
 target = "modules/evm/artifacts/utils"
@@ -118,10 +131,8 @@ exit_code = 0
 
 [target.go-modules.21]
 target = "modules/evm/client/cli"
-result = "failed"
-exit_code = 1
-observed = "TestCallPrecompileResolvesPerps/perps at modules/evm/client/cli/call_precompile_test.go:96 expected \"not enough arguments\" but received \"method quoteMarket expects 1 arguments, got 0\"."
-assumption = "The CLI test appears to retain an older error message expectation after argument validation became method-specific."
+result = "passed"
+exit_code = 0
 
 [target.go-modules.22]
 target = "modules/evm/client/wasm"
@@ -145,10 +156,8 @@ exit_code = 0
 
 [target.go-modules.26]
 target = "modules/evm/keeper"
-result = "failed"
-exit_code = 1
-observed = "TestCustomPrecompilesWithheldUntilTheActivationPlanIsApplied at modules/evm/keeper/keeper_activation_test.go:104 failed because the precompile map does not contain address 0x1012."
-assumption = "The activation fixture appears to retain an expectation for a retired executor address absent from the current registry."
+result = "passed"
+exit_code = 0
 
 [target.go-modules.27]
 target = "modules/evm/migrations"
@@ -182,17 +191,13 @@ exit_code = 0
 
 [target.go-modules.33]
 target = "modules/launchpad"
-result = "failed"
-exit_code = 1
-observed = "TestRegisterServicesServesQuery/Surface at modules/launchpad/module_services_test.go:70 expected invalid address in the error chain but received an RPC InvalidArgument status describing a required 0x-prefixed 40-hex-digit address."
-assumption = "The test appears to expect sentinel error identity across an RPC status conversion that preserves the message but not the original error chain."
+result = "passed"
+exit_code = 0
 
 [target.go-modules.34]
 target = "modules/launchpad/client/cli"
-result = "failed"
-exit_code = 1
-observed = "TestCmdQuerySurfaceNetwork/surface/zero at modules/launchpad/client/cli/query_surface_test.go:184 expected error codespace sdk but received launchpad."
-assumption = "The query fixture appears to retain the previous SDK codespace after launchpad began returning its own module error."
+result = "passed"
+exit_code = 0
 
 [target.go-modules.35]
 target = "modules/launchpad/client/rest"
@@ -201,10 +206,9 @@ exit_code = 0
 
 [target.go-modules.36]
 target = "modules/launchpad/keeper"
-result = "failed"
-exit_code = 1
-observed = "TestAirdropEpochs/generation_1_native_airdrop_methods_are_removed at modules/launchpad/keeper/airdrop_test.go:171 failed with Should be true."
-assumption = "The retirement assertion appears inconsistent with the airdrop API shape at the swept revision."
+result = "not_run"
+exit_code = 124
+reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
 
 [target.go-modules.37]
 target = "modules/launchpad/launchpadtest"
@@ -213,10 +217,8 @@ exit_code = 0
 
 [target.go-modules.38]
 target = "modules/launchpad/legacy/v610/keeper"
-result = "failed"
-exit_code = 1
-observed = "TestAirdropHoldingHistory/boundary at modules/launchpad/legacy/v610/keeper/history_test.go:128 failed an integer equality assertion."
-assumption = "The legacy holding-history fixture appears inconsistent with boundary accounting at the swept revision."
+result = "passed"
+exit_code = 0
 
 [target.go-modules.39]
 target = "modules/launchpad/legacy/v610/types"
@@ -260,17 +262,13 @@ exit_code = 0
 
 [target.go-modules.47]
 target = "modules/layerxanchor"
-result = "failed"
-exit_code = 1
-observed = "TestBringUpAnchorGenesisValidates at modules/layerxanchor/bringup_genesis_test.go:39 exited 2 because services/platform/hosted/paxeer/anchor-genesis.py does not exist."
-assumption = "The test appears to retain a reference to a retired genesis script at the swept revision."
+result = "passed"
+exit_code = 0
 
 [target.go-modules.48]
 target = "modules/layerxanchor/keeper"
-result = "failed"
-exit_code = 1
-observed = "go vet failed at modules/layerxanchor/keeper/keeper_test.go:355:31 because testvectors.LoadAnchor is undefined."
-assumption = "The keeper test appears to retain a reference to a removed anchor vector loader."
+result = "passed"
+exit_code = 0
 
 [target.go-modules.49]
 target = "modules/layerxanchor/types"
@@ -289,10 +287,8 @@ exit_code = 0
 
 [target.go-modules.52]
 target = "modules/layerxauth/keeper"
-result = "failed"
-exit_code = 1
-observed = "TestGrantCapability/mirror at modules/layerxauth/keeper/capability_test.go:88 expected LXP_IDEMPOTENT_REPLAY in the error chain but received LXP_SEQUENCE_REUSED."
-assumption = "The capability replay fixture appears inconsistent with current sequence reuse semantics."
+result = "passed"
+exit_code = 0
 
 [target.go-modules.53]
 target = "modules/layerxauth/types"
@@ -341,10 +337,8 @@ exit_code = 0
 
 [target.go-modules.62]
 target = "modules/layerxcustody"
-result = "failed"
-exit_code = 1
-observed = "TestCustodyProposalDispatchesAllGovernanceMessages at modules/layerxcustody/handler_test.go:356 failed through handler_test.go:309 with custody module retired by the merge plan."
-assumption = "The governance fixture appears to exercise custody operations retired by the merge plan."
+result = "passed"
+exit_code = 0
 
 [target.go-modules.63]
 target = "modules/layerxcustody/keeper"
@@ -363,15 +357,15 @@ exit_code = 0
 
 [target.go-modules.66]
 target = "modules/layerxexchange/keeper"
-result = "failed"
-exit_code = 1
-observed = "TestDepositMarginMovesFundsOnlyIntoCustody at modules/layerxexchange/keeper/keeper_test.go:288 expected an integer balance of 2500 but received zero."
-assumption = "The margin deposit fixture appears inconsistent with the current custody balance accounting path."
+result = "passed"
+exit_code = 0
 
 [target.go-modules.67]
 target = "modules/layerxexchange/types"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 1
+observed = "TestProofLayerxexchangeRetirement at modules/layerxexchange/types/proof_layerxexchange_retirement_test.go:150 expected the error codespace layerxexchange but received undefined."
+assumption = "The retirement proof appears to receive a generic error that does not retain the expected module codespace."
 
 [target.go-modules.68]
 target = "modules/layerxgov"
@@ -395,20 +389,21 @@ exit_code = 0
 
 [target.go-modules.72]
 target = "modules/layerxledger/keeper"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = 124
+reason = "The vet/test pair did not finish within its 33-second inventory allocation and was stopped to preserve the task wall clock."
 
 [target.go-modules.73]
 target = "modules/layerxledger/types"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 1
+observed = "TestProofPayloadCodec at modules/layerxledger/types/proof_payload_codec_test.go:100, called from line 229, received the unexpected error LXP_ERR_IDEMPOTENT_REPLAY."
+assumption = "The payload-codec proof appears to reuse an operation identity already recorded by the native kernel, triggering replay protection."
 
 [target.go-modules.74]
 target = "modules/layerxpay"
-result = "failed"
-exit_code = 1
-observed = "TestPayAppModuleGenesisAndServices at modules/layerxpay/module_test.go:76 failed with layerxpay: missing EVM binding reader."
-assumption = "The module genesis fixture appears to omit the required EVM binding reader dependency."
+result = "passed"
+exit_code = 0
 
 [target.go-modules.75]
 target = "modules/layerxpay/client/cli"
@@ -417,258 +412,307 @@ exit_code = 0
 
 [target.go-modules.76]
 target = "modules/layerxpay/integration"
-result = "passed"
-exit_code = 0
+result = "not_run"
+exit_code = 124
+reason = "The vet/test pair did not finish within its 18-second inventory allocation and was stopped to preserve the task wall clock."
 
 [target.go-modules.77]
 target = "modules/layerxpay/keeper"
-result = "failed"
-exit_code = 1
-observed = "TestProofPayGenesis at modules/layerxpay/keeper/proof_pay_genesis_test.go:110 failed through proof_pay_genesis_test.go:76 with layerxpay: missing EVM binding reader."
-assumption = "The keeper genesis fixture appears to omit the required EVM binding reader dependency."
+result = "not_run"
+exit_code = 124
+reason = "The vet/test pair did not finish within its 15-second inventory allocation and was stopped to preserve the task wall clock."
 
 [target.go-modules.78]
-target = "modules/layerxpay/types"
-result = "failed"
-exit_code = 1
-observed = "TestMethodActivityMatchesKernelTypes/budgetPull at modules/layerxpay/types/activity_test.go:116 expected type 0x0003000b but kernel LX_BUDGET_PULL was absent and read as 0x00000000."
-assumption = "The activity mapping fixture appears to reference a kernel budget operation removed at the swept revision."
+target = "modules/layerxpay/testutil"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.79]
-target = "modules/lxphost"
-result = "failed"
-exit_code = 1
-observed = "TestHostAuthorityDelegatedScope at modules/lxphost/authority_test.go:49 failed through host_test.go:213 with LXP_ERR_VERSION_UNSUPPORTED."
-assumption = "The delegated authority fixture appears to use a payload version unsupported by the current native kernel."
+target = "modules/layerxpay/types"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.80]
-target = "modules/mint"
-result = "passed"
-exit_code = 0
+target = "modules/lxphost"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.81]
-target = "modules/mint/client/cli"
-result = "passed"
-exit_code = 0
+target = "modules/mint"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.82]
-target = "modules/mint/client/rest"
-result = "passed"
-exit_code = 0
+target = "modules/mint/client/cli"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.83]
-target = "modules/mint/keeper"
-result = "passed"
-exit_code = 0
+target = "modules/mint/client/rest"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.84]
-target = "modules/mint/simulation"
-result = "passed"
-exit_code = 0
+target = "modules/mint/keeper"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.85]
-target = "modules/mint/types"
-result = "passed"
-exit_code = 0
+target = "modules/mint/simulation"
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/mint/simulation; no package test command was run."
 
 [target.go-modules.86]
-target = "modules/oracle"
-result = "passed"
-exit_code = 0
+target = "modules/mint/types"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.87]
-target = "modules/oracle/client/cli"
-result = "passed"
-exit_code = 0
+target = "modules/oracle"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.88]
-target = "modules/oracle/client/rest"
-result = "passed"
-exit_code = 0
+target = "modules/oracle/client/cli"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.89]
-target = "modules/oracle/client/wasm"
-result = "passed"
-exit_code = 0
+target = "modules/oracle/client/rest"
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/oracle/client/rest; no package test command was run."
 
 [target.go-modules.90]
-target = "modules/oracle/client/wasm/bindings"
-result = "passed"
-exit_code = 0
+target = "modules/oracle/client/wasm"
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/oracle/client/wasm; no package test command was run."
 
 [target.go-modules.91]
-target = "modules/oracle/keeper"
-result = "passed"
-exit_code = 0
+target = "modules/oracle/client/wasm/bindings"
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/oracle/client/wasm/bindings; no package test command was run."
 
 [target.go-modules.92]
-target = "modules/oracle/keeper/testutils"
-result = "passed"
-exit_code = 0
+target = "modules/oracle/keeper"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.93]
-target = "modules/oracle/simulation"
-result = "passed"
-exit_code = 0
+target = "modules/oracle/keeper/testutils"
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/oracle/keeper/testutils; no package test command was run."
 
 [target.go-modules.94]
-target = "modules/oracle/types"
-result = "passed"
-exit_code = 0
+target = "modules/oracle/simulation"
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/oracle/simulation; no package test command was run."
 
 [target.go-modules.95]
-target = "modules/oracle/utils"
-result = "passed"
-exit_code = 0
+target = "modules/oracle/types"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.96]
-target = "modules/perps"
-result = "passed"
-exit_code = 0
+target = "modules/oracle/utils"
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/oracle/utils; no package test command was run."
 
 [target.go-modules.97]
-target = "modules/perps/keeper"
-result = "failed"
-exit_code = 1
-observed = "TestAdlRefusals at modules/perps/keeper/adl_test.go:320 expected LXP_PERPS_INVALID_PARAMS in the error chain but received LXP_PERPS_UNKNOWN_POSITION."
-assumption = "The ADL refusal fixture appears inconsistent with current validation ordering or position setup."
+target = "modules/perps"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.98]
-target = "modules/perps/types"
-result = "passed"
-exit_code = 0
+target = "modules/perps/keeper"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.99]
-target = "modules/pricefeed"
-result = "passed"
-exit_code = 0
+target = "modules/perps/types"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.100]
-target = "modules/pricefeed/client/cli"
-result = "passed"
-exit_code = 0
+target = "modules/pricefeed"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.101]
-target = "modules/pricefeed/keeper"
+target = "modules/pricefeed/client/cli"
 result = "not_run"
-exit_code = 124
-reason = "The per-target command was stopped after 59 seconds to keep the 121-package inventory within the task wall clock; the vet/test pair did not finish."
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.102]
-target = "modules/pricefeed/testutil"
-result = "passed"
-exit_code = 0
+target = "modules/pricefeed/keeper"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.103]
-target = "modules/pricefeed/types"
-result = "not_run"
-exit_code = 124
-reason = "The per-target command was stopped after 43 seconds to keep the 121-package inventory within the task wall clock; the vet/test pair did not finish."
+target = "modules/pricefeed/testutil"
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/pricefeed/testutil; no package test command was run."
 
 [target.go-modules.104]
+target = "modules/pricefeed/types"
+result = "not_run"
+exit_code = -1
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+
+[target.go-modules.105]
 target = "modules/sequencer"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.105]
+[target.go-modules.106]
 target = "modules/sequencer/keeper"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.106]
+[target.go-modules.107]
 target = "modules/sequencer/types"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.107]
+[target.go-modules.108]
 target = "modules/spot"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.108]
+[target.go-modules.109]
 target = "modules/spot/keeper"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.109]
+[target.go-modules.110]
 target = "modules/spot/types"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.110]
+[target.go-modules.111]
 target = "modules/store"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.111]
+[target.go-modules.112]
 target = "modules/tokenfactory"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.112]
+[target.go-modules.113]
 target = "modules/tokenfactory/client/cli"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.113]
+[target.go-modules.114]
 target = "modules/tokenfactory/client/wasm"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
-
-[target.go-modules.114]
-target = "modules/tokenfactory/client/wasm/bindings"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
 [target.go-modules.115]
+target = "modules/tokenfactory/client/wasm/bindings"
+result = "passed"
+exit_code = 0
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+command = "CGO_ENABLED=1 go test -count=1 ./modules/evm/artifacts/native/ ./modules/tokenfactory/client/wasm/bindings/"
+observed = "Package tests passed with CGO_ENABLED=1 and the test cache disabled; revision identifies the unchanged Go source tested by the task gate."
+qualification_record = "/out/logs/verify-1.log"
+
+[target.go-modules.116]
 target = "modules/tokenfactory/keeper"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.116]
+[target.go-modules.117]
 target = "modules/tokenfactory/types"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.117]
+[target.go-modules.118]
 target = "modules/xweb"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.118]
+[target.go-modules.119]
 target = "modules/xweb/client/cli"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.119]
+[target.go-modules.120]
 target = "modules/xweb/keeper"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.120]
+[target.go-modules.121]
 target = "modules/xweb/testutil"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
 
-[target.go-modules.121]
+[target.go-modules.122]
 target = "modules/xweb/types"
 result = "not_run"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for writing the report and running the bounded gates."
+reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+
+[target.go-modules.123]
+target = "precompiles/addr/legacy/v552"
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in precompiles/addr/legacy/v552; no package test command was run."
+
+[target.go-modules.124]
+target = "precompiles/addr/legacy/v555"
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in precompiles/addr/legacy/v555; no package test command was run."
