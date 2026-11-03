@@ -118254,7 +118254,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.15]
 title = "Decode the AI market programs receipt from the sequencer receipt and drop the kernel-shaped decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.25.3"]
@@ -129002,7 +129002,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.36]
 title = "Account for the gas fee in the receipt verifier's debit balance identity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.23.8"]
