@@ -110,10 +110,12 @@ exit_code = 0
 
 [target.python-pytest-collect.20]
 target = "sdk/chainflow/python/tests"
-result = "failed"
-exit_code = 2
-observed = "sdk/chainflow/python/tests/test_response_parse.py:3 raises ModuleNotFoundError for httpx during collection."
-assumption = "The collection environment lacks the SDK httpx dependency; the same run also reports a missing websockets dependency."
+revision = "7368fc6d8839b408e32f6f5293c047ffaefce076"
+command = "python3 -m pip install -q -e 'sdk/chainflow/python[websockets]' && python3 -m pytest -q --collect-only sdk/chainflow/python/tests"
+result = "passed"
+exit_code = 0
+observed = "Test collection succeeds with the SDK installed in editable mode with its declared websockets extra."
+assumption = "The revision identifies the SDK source; installing the package supplies its declared httpx dependency and websockets extra."
 
 [target.python-pytest-collect.21]
 target = "sdk/integrations/fastapi/tests"
