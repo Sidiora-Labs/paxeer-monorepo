@@ -46,16 +46,69 @@ fn hash(case: &serde_json::Value, name: &str) -> [u8; 32] {
 }
 
 #[test]
+fn receipt_denominations_are_bound_to_signed_payment_asset_and_summary() {
+    let fixture: serde_json::Value = serde_json::from_str(FIXTURE).unwrap();
+    let case = fixture["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| string(case, "id") == "V1-pax-transfer")
+        .unwrap();
+    let raw = bytes(case, "rawTransaction");
+    let receipt = bytes(case, "signedReceipt");
+    let previous = hash(case, "prevSeqHash");
+    let pin = &case["pinnedKey"];
+    let keys = [(
+        hash(pin, "keyId"),
+        hash(pin, "publicKey"),
+        number(pin, "firstHeight"),
+        number(pin, "lastHeight"),
+    )];
+    let verify = |view: &serde_json::Value| {
+        verify_receipted(
+            &raw,
+            &receipt,
+            &serde_json::to_vec(view).unwrap(),
+            previous,
+            &keys,
+        )
+    };
+    assert_eq!(
+        verify(&case["receiptJson"]),
+        Ok(hash(case, "receiptDigest"))
+    );
+    for field in ["paymentDenom", "feeDenom"] {
+        for value in [serde_json::json!("usid"), serde_json::json!("")] {
+            let mut altered = case["receiptJson"].clone();
+            altered[field] = value;
+            assert_eq!(verify(&altered), Err(ProofError::ReceiptViewMismatch));
+        }
+        let mut missing = case["receiptJson"].clone();
+        missing.as_object_mut().unwrap().remove(field);
+        assert_eq!(verify(&missing), Err(ProofError::ReceiptViewMismatch));
+    }
+    let mut both_changed = case["receiptJson"].clone();
+    both_changed["paymentDenom"] = "usid".into();
+    both_changed["feeDenom"] = "usid".into();
+    assert_eq!(verify(&both_changed), Err(ProofError::ReceiptViewMismatch));
+}
+
+#[test]
 fn receipted_fixture_cases_verify_or_refuse() {
     let mut accepted = 0;
     let mut refused = 0;
     let mut failures = Vec::new();
     let fixture: serde_json::Value =
         serde_json::from_str(FIXTURE).unwrap_or_else(|error| panic!("invalid fixture: {error}"));
-    for case in fixture["cases"]
+    let cases = fixture["cases"]
         .as_array()
-        .unwrap_or_else(|| panic!("missing fixture cases"))
-    {
+        .unwrap_or_else(|| panic!("missing fixture cases"));
+    let expected_v1_cases = cases
+        .iter()
+        .filter(|case| string(case, "vector") == "V1")
+        .count();
+    assert_ne!(expected_v1_cases, 0, "fixture must contain V1 cases");
+    for case in cases {
         let id = string(case, "id");
         let vector = string(case, "vector");
         if vector != "V1" && vector != "V3" {
@@ -267,7 +320,10 @@ fn receipted_fixture_cases_verify_or_refuse() {
             }
         }
     }
-    assert_eq!(accepted, 4, "all recorded V1 cases must execute");
+    assert_eq!(
+        accepted, expected_v1_cases,
+        "all recorded V1 cases must execute"
+    );
     assert_eq!(refused, 6, "all recorded V3 cases must execute");
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
@@ -277,12 +333,15 @@ fn receipted_operation_zero_is_carried_into_signature_check() {
     let fixture: serde_json::Value =
         serde_json::from_str(FIXTURE).unwrap_or_else(|error| panic!("invalid fixture: {error}"));
     let mut checked = 0;
-    for case in fixture["cases"]
+    let cases = fixture["cases"]
         .as_array()
-        .unwrap_or_else(|| panic!("missing fixture cases"))
+        .unwrap_or_else(|| panic!("missing fixture cases"));
+    let expected_v1_cases = cases
         .iter()
         .filter(|case| string(case, "vector") == "V1")
-    {
+        .count();
+    assert_ne!(expected_v1_cases, 0, "fixture must contain V1 cases");
+    for case in cases.iter().filter(|case| string(case, "vector") == "V1") {
         let id = string(case, "id");
         let raw = bytes(case, "rawTransaction");
         let receipt = bytes(case, "signedReceipt");
@@ -326,7 +385,10 @@ fn receipted_operation_zero_is_carried_into_signature_check() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 4, "all recorded V1 operations must be checked");
+    assert_eq!(
+        checked, expected_v1_cases,
+        "all recorded V1 operations must be checked"
+    );
 }
 
 fn committed_header(fixture: &serde_json::Value) -> Header {

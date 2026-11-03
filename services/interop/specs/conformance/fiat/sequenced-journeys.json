@@ -168,8 +168,8 @@
       "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
       "case": "V2-layerxledger-revert",
       "rung": "receipted",
-      "transaction_hash": "0xd094a7ecf7bea5c2b54967020a06984d50b26c6a7219748d1c30db5dfc896d03",
-      "receipt_digest": "0xb4e6fb3842c14bda5052950c2bd3322f04c50856fbfb6ece5b428c065ccc33df"
+      "transaction_hash": "0xd9ea67d1ca9968723dbc84262f2fcf28bd44512b5035a92acb9f417f1c8e1b8e",
+      "receipt_digest": "0x85d1e9aab2f85b7e2b720cc3eaf459e8dcc5e1d6449bba119f3f0c9dd97af943"
     },
     "expect": {
       "refusal": "ReceiptMismatch",

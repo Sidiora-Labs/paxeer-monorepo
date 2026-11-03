@@ -1,0 +1,8 @@
+[repair.go-sdk-modules.3]
+target = "sdk/launchpad/protocol"
+command = "cd sdk/launchpad/protocol && go vet ./... && go test -count=1 ./..."
+revision = "c56bf8dab2a36860f56543433ebe85802b492d14"
+result = "already-passing"
+change = "none"
+producer_input_tests = ["TestRealReviewedHistoricalDecoderMeasurement requires L02_MEASUREMENT_MANIFEST (reviewed historical measurement manifest), L02_MEASUREMENT_MANIFEST_SHA256 (reviewed manifest digest), and L02_MEASUREMENT_RPC_URL (chain-125 historical RPC endpoint)."]
+verify_command = "test -s spec/layerx-merge/programme/sweeps/repairs/go-sdk-modules.3.kvx && cd sdk/launchpad/protocol && go test -count=1 -skip TestRealReviewedHistoricalDecoderMeasurement ./..."

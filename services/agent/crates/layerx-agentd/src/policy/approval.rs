@@ -23,8 +23,8 @@ use layerx_types::payload::ModuleRegistry;
 
 const HOLD_KEY_PREFIX: &[u8] = b"approval-hold-v1:";
 const RELEASED_KEY_PREFIX: &[u8] = b"approval-released-v1:";
-const HOLD_MAGIC: &[u8; 8] = b"LXAPHLD2";
-const TIMED_HOLD_MAGIC: &[u8; 8] = b"LXAPHLD3";
+const HOLD_MAGIC: &[u8; 8] = b"LXAPHLD4";
+const TIMED_HOLD_MAGIC: &[u8; 8] = b"LXAPHLD5";
 const RELEASED_MAGIC: &[u8; 8] = b"LXAPREL1";
 const MAX_HOLD_RECORD_BYTES: usize = 2 * 1024 * 1024;
 const MAX_DISCLOSURE_ITEMS: u32 = 64;
@@ -34,6 +34,7 @@ const MAX_DISCLOSURE_ITEMS: u32 = 64;
 pub struct ApprovalContext {
     pub tenant: TenantId,
     pub agent: Did,
+    pub actor_address: [u8; 20],
     pub session: SessionId,
     pub capability: CapabilityId,
     pub policy_version: String,
@@ -117,6 +118,7 @@ pub struct ApprovalPresentation {
 
 #[derive(Clone, Debug)]
 struct HeldApproval {
+    sender: [u8; 20],
     context: ApprovalContext,
     prepared: Prepared,
     created_at_sequence: u64,
@@ -223,7 +225,7 @@ impl ApprovalRegistry {
         &self,
         tenant: &TenantId,
         limiter: &BudgetLimiter,
-        registry: &ModuleRegistry,
+        _registry: &ModuleRegistry,
     ) -> Result<Vec<ReleasedApproval>, ApprovalError> {
         let store = self.store.as_ref().ok_or(ApprovalError::Unavailable)?;
         let store = store.lock().map_err(|_| ApprovalError::Unavailable)?;
@@ -243,10 +245,8 @@ impl ApprovalRegistry {
             let (submission_ref, held) = decode_released(value.bytes())?;
             validate_replayed(&held, tenant)?;
             let canonical = held.prepared.unsigned_canonical_bytes.as_bytes();
-            let disclosure = layerx_crypto::disclosure::bind(canonical, registry)
-                .map_err(|_| ApprovalError::CorruptRecord)?;
-            if disclosure
-                .reencode()
+            let disclosure = validate_held_call(&held)?;
+            if layerx_crypto::disclosure::call::reencode(&disclosure)
                 .map_err(|_| ApprovalError::CorruptRecord)?
                 != canonical
             {
@@ -281,7 +281,7 @@ impl ApprovalRegistry {
         Ok(released)
     }
 
-    /// Rebinds every replayed canonical preparation to the live negotiated registry.
+    /// Rebinds every replayed unsigned call to its retained sender.
     ///
     /// # Errors
     ///
@@ -289,20 +289,11 @@ impl ApprovalRegistry {
     pub fn validate_registry(
         &self,
         tenant: &TenantId,
-        registry: &ModuleRegistry,
+        _registry: &ModuleRegistry,
     ) -> Result<(), ApprovalError> {
         let holds = self.holds.lock().map_err(|_| ApprovalError::Unavailable)?;
         for held in holds.values().filter(|held| &held.context.tenant == tenant) {
-            let bytes = held.prepared.unsigned_canonical_bytes.as_bytes();
-            let disclosure = layerx_crypto::disclosure::bind(bytes, registry)
-                .map_err(|_| ApprovalError::CorruptRecord)?;
-            if disclosure
-                .reencode()
-                .map_err(|_| ApprovalError::CorruptRecord)?
-                != bytes
-            {
-                return Err(ApprovalError::CorruptRecord);
-            }
+            validate_held_call(held)?;
         }
         Ok(())
     }
@@ -803,6 +794,7 @@ fn register_hold(
         return Err(ApprovalError::DuplicateHold);
     }
     let held = HeldApproval {
+        sender: context.actor_address,
         context,
         prepared,
         created_at_sequence: current_sequence,
@@ -1141,6 +1133,32 @@ fn decode_released(bytes: &[u8]) -> Result<([u8; 32], HeldApproval), ApprovalErr
     Ok((submission_ref, held))
 }
 
+fn validate_held_call(
+    held: &HeldApproval,
+) -> Result<layerx_crypto::disclosure::Disclosure, ApprovalError> {
+    let bytes = held.prepared.unsigned_canonical_bytes.as_bytes();
+    let call = layerx_crypto::evm_transaction::decode_unsigned(bytes)
+        .map_err(|_| ApprovalError::CorruptRecord)?;
+    let disclosure = layerx_crypto::disclosure::call::bind_call(&call, held.sender)
+        .map_err(|_| ApprovalError::CorruptRecord)?;
+    let actor = disclosure
+        .actor
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    if held.prepared.signing_preimage.as_bytes() != call.signing_hash()
+        || held.prepared.disclosure.actor.as_str() != actor
+        || held.context.actor_address != held.sender
+        || canonical_digest(bytes) != held.prepared.disclosure.canonical_digest
+        || layerx_crypto::disclosure::call::reencode(&disclosure)
+            .map_err(|_| ApprovalError::CorruptRecord)?
+            != bytes
+    {
+        return Err(ApprovalError::CorruptRecord);
+    }
+    Ok(disclosure)
+}
+
 fn validate_replayed(held: &HeldApproval, tenant: &TenantId) -> Result<(), ApprovalError> {
     if &held.context.tenant != tenant
         || held.context.request_id == [0; 32]
@@ -1207,6 +1225,7 @@ fn encode_legacy_hold(h: &HeldApproval) -> Result<Vec<u8>, ApprovalError> {
     o.extend_from_slice(&h.context.capability.0);
     put_text(&mut o, &h.context.policy_version)?;
     o.extend_from_slice(&h.context.request_id);
+    o.extend_from_slice(&h.sender);
     o.extend_from_slice(&h.created_at_sequence.to_be_bytes());
     o.extend_from_slice(&h.expires_at_sequence.to_be_bytes());
     o.extend_from_slice(
@@ -1347,13 +1366,22 @@ fn decode_legacy_hold(bytes: &[u8]) -> Result<HeldApproval, ApprovalError> {
     }
     let tenant = TenantId::new(r.text()?).map_err(|_| ApprovalError::CorruptRecord)?;
     let agent = Did::new(&r.bytes()?).map_err(|_| ApprovalError::CorruptRecord)?;
+    let session = SessionId(r.a32()?);
+    let capability = CapabilityId(r.a32()?);
+    let policy_version = r.text()?;
+    let request_id = r.a32()?;
+    let sender = r
+        .take(20)?
+        .try_into()
+        .map_err(|_| ApprovalError::CorruptRecord)?;
     let context = ApprovalContext {
         tenant,
         agent,
-        session: SessionId(r.a32()?),
-        capability: CapabilityId(r.a32()?),
-        policy_version: r.text()?,
-        request_id: r.a32()?,
+        actor_address: sender,
+        session,
+        capability,
+        policy_version,
+        request_id,
     };
     let created_at_sequence = r.u64()?;
     let expires_at_sequence = r.u64()?;
@@ -1419,6 +1447,7 @@ fn decode_legacy_hold(bytes: &[u8]) -> Result<HeldApproval, ApprovalError> {
         idempotency_key,
     };
     Ok(HeldApproval {
+        sender,
         context,
         prepared: Prepared {
             preparation_ref,
@@ -1516,7 +1545,7 @@ mod released_replay_tests {
     use crate::session::SessionId;
     use crate::store::{ObjectKind, Store, TenantId, TenantKey};
 
-    const ACTOR: &str = "did:layerx:expiry";
+    const ACTOR: &str = "0404040404040404040404040404040404040404";
 
     struct RecordedCore(CorePreparationState);
 
@@ -1628,38 +1657,22 @@ mod released_replay_tests {
     }
 
     fn prepared() -> Prepared {
-        let mut core = RecordedCore(CorePreparationState {
-            network_id: 17,
-            account_sequence: 5,
-            protocol_timestamp: 1_000,
-            observed_head_sequence: 88,
-            module_registry: modules(),
-        });
-        let activity = prepare_activity(
-            &mut core,
-            PreparationDefaults {
-                timestamp_span: 30,
-                fee_limit: layerx_types::amount::Amount::from_u128(12),
-                maximum_payload_bytes: 1_024,
-            },
-            PrepareRequest {
-                actor: Did::new(ACTOR.as_bytes()).unwrap_or_else(|error| panic!("DID: {error:?}")),
-                authority: Authority::owner(b"external-authority")
-                    .unwrap_or_else(|error| panic!("authority: {error:?}")),
-                activity_type: activity_type(),
-                expected_account_sequence: Some(5),
-                timestamp_bound: Some(
-                    TimestampBound::new(995, 1_010)
-                        .unwrap_or_else(|error| panic!("timestamp: {error:?}")),
-                ),
-                fee_limit: Some(layerx_types::amount::Amount::from_u128(7)),
-                idempotency_key: IdempotencyKey::new([4; 32]),
-                payload: send_payload(),
-                declared_payload_limit: 1_024,
-            },
-        )
-        .unwrap_or_else(|error| panic!("prepare: {error:?}"));
-        let bytes = activity.canonical_bytes;
+        let call = layerx_crypto::evm_transaction::Eip1559Call {
+            chain_id: 125,
+            nonce: 5,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 100_000,
+            to: [3; 20],
+            data: [
+                layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)")
+                    .to_vec(),
+                [vec![0; 12], vec![5; 20]].concat(),
+                [vec![0; 31], vec![50]].concat(),
+            ]
+            .concat(),
+        };
+        let bytes = call.encode_unsigned();
         Prepared {
             preparation_ref: PreparationRef::new("released-replay")
                 .unwrap_or_else(|error| panic!("preparation: {error:?}")),
@@ -1679,7 +1692,7 @@ mod released_replay_tests {
             },
             unsigned_canonical_bytes: CanonicalBytes::new(bytes)
                 .unwrap_or_else(|error| panic!("bytes: {error:?}")),
-            signing_preimage: SigningPreimage::new(activity.signing_preimage.to_vec())
+            signing_preimage: SigningPreimage::new(call.signing_hash().to_vec())
                 .unwrap_or_else(|error| panic!("preimage: {error:?}")),
             expiry: TimestampSeconds(1_010),
         }
@@ -1747,6 +1760,7 @@ mod released_replay_tests {
             &registry,
             ApprovalContext {
                 tenant: tenant(),
+                actor_address: [4; 20],
                 agent: Did::new(ACTOR.as_bytes())
                     .unwrap_or_else(|error| panic!("agent: {error:?}")),
                 session: SessionId([2; 32]),

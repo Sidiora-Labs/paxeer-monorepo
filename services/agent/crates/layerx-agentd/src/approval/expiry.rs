@@ -126,7 +126,8 @@ impl ApprovalExpiry {
     ) -> Result<ApprovalState, ApprovalExpiryError> {
         let mut store = self.store.lock().map_err(|_| ApprovalExpiryError::Store)?;
         if super::program_requirement::has_bound_approval(&store, snapshot)
-            .map_err(|_| ApprovalExpiryError::Corrupt)? {
+            .map_err(|_| ApprovalExpiryError::Corrupt)?
+        {
             return observe_program(&mut store, snapshot, current_sequence, limiter);
         }
         let key = storage_key(&snapshot.context.tenant, snapshot.context.request_id)?;
@@ -229,8 +230,10 @@ impl ApprovalExpiry {
     ) -> Result<ApprovalDecision, ApprovalExpiryError> {
         let _decision = self.lock_decisions()?;
         let mut store = self.store.lock().map_err(|_| ApprovalExpiryError::Store)?;
-        if let Some(snapshot) = crate::policy::approval::program_recovery_snapshot(&store, tenant, approval_id)
-            .map_err(|_| ApprovalExpiryError::Corrupt)? {
+        if let Some(snapshot) =
+            crate::policy::approval::program_recovery_snapshot(&store, tenant, approval_id)
+                .map_err(|_| ApprovalExpiryError::Corrupt)?
+        {
             if snapshot.expires_at_sequence != expires_at_sequence {
                 return Err(ApprovalExpiryError::ExpiryMismatch);
             }
@@ -645,6 +648,7 @@ mod tests {
             ApprovalContext {
                 tenant: tenant.clone(),
                 agent: must(Did::new(actor.as_bytes())),
+                actor_address: [4; 20],
                 session: SessionId([2; 32]),
                 capability: CapabilityId([3; 32]),
                 policy_version: "policy-v3".to_owned(),
@@ -714,9 +718,13 @@ impl PreparedDecision {
                 return Err(ApprovalExpiryError::DecisionConflict);
             }
         }
-        if !matches!(outcome, ApprovalOutcome::Granted | ApprovalOutcome::Rejected
-            | ApprovalOutcome::Expired | ApprovalOutcome::Defective)
-            || (outcome == ApprovalOutcome::Granted) != submission_ref.is_some()
+        if !matches!(
+            outcome,
+            ApprovalOutcome::Granted
+                | ApprovalOutcome::Rejected
+                | ApprovalOutcome::Expired
+                | ApprovalOutcome::Defective
+        ) || (outcome == ApprovalOutcome::Granted) != submission_ref.is_some()
         {
             return Err(ApprovalExpiryError::Corrupt);
         }
@@ -726,7 +734,11 @@ impl PreparedDecision {
             outcome: Some(outcome),
             submission_ref,
         })?;
-        Ok(Self { key, expected, bytes })
+        Ok(Self {
+            key,
+            expected,
+            bytes,
+        })
     }
 
     pub(crate) fn apply_program_terminal(
@@ -742,7 +754,8 @@ impl PreparedDecision {
         self.check_pending(store)?;
         let intended = decode(&self.bytes)?;
         if self.key != storage_key(&snapshot.context.tenant, snapshot.context.request_id)?
-            || intended.expires_at_sequence != snapshot.expires_at_sequence {
+            || intended.expires_at_sequence != snapshot.expires_at_sequence
+        {
             return Err(ApprovalExpiryError::Corrupt);
         }
         let outcome = match intended.outcome {
@@ -755,25 +768,39 @@ impl PreparedDecision {
         if (outcome == Terminal::Granted) != released.is_some() {
             return Err(ApprovalExpiryError::Corrupt);
         }
-        let (record, durable) = read_approval(store, snapshot)
-            .map_err(|_| ApprovalExpiryError::Corrupt)?;
+        let (record, durable) =
+            read_approval(store, snapshot).map_err(|_| ApprovalExpiryError::Corrupt)?;
         if durable.terminal() && outcome == Terminal::Granted {
             return Err(ApprovalExpiryError::DecisionConflict);
         }
-        let key_text = intended.idempotency_key.as_deref().ok_or(ApprovalExpiryError::Corrupt)?;
-        let updated = record.stage_terminal(
-            snapshot.context.request_id, key_text, context, sequence, outcome, intended.submission_ref,
-        ).map_err(|_| ApprovalExpiryError::DecisionConflict)?;
+        let key_text = intended
+            .idempotency_key
+            .as_deref()
+            .ok_or(ApprovalExpiryError::Corrupt)?;
+        let updated = record
+            .stage_terminal(
+                snapshot.context.request_id,
+                key_text,
+                context,
+                sequence,
+                outcome,
+                intended.submission_ref,
+            )
+            .map_err(|_| ApprovalExpiryError::DecisionConflict)?;
         let hold_key = crate::policy::approval::hold_storage_key(
-            &snapshot.context.tenant, snapshot.context.request_id,
-        ).map_err(|_| ApprovalExpiryError::Corrupt)?;
+            &snapshot.context.tenant,
+            snapshot.context.request_id,
+        )
+        .map_err(|_| ApprovalExpiryError::Corrupt)?;
         let held = store.get(&hold_key).ok_or(ApprovalExpiryError::NotFound)?;
         if held.class() != crate::store::StorageClass::LocalOnly || held.bytes() != expected_hold {
             return Err(ApprovalExpiryError::DecisionConflict);
         }
         crate::policy::approval::validate_hold_snapshot(expected_hold, snapshot)
             .map_err(|_| ApprovalExpiryError::Corrupt)?;
-        let mut updates = vec![updated.companion().map_err(|_| ApprovalExpiryError::Corrupt)?];
+        let mut updates = vec![updated
+            .companion()
+            .map_err(|_| ApprovalExpiryError::Corrupt)?];
         let mut inserts = Vec::new();
         if self.expected.is_some() {
             updates.push((self.key, self.bytes));
@@ -781,60 +808,108 @@ impl PreparedDecision {
             inserts.push((self.key, self.bytes));
         }
         if let Some((key, bytes)) = released {
-            if key != crate::policy::approval::released_storage_key(
-                &snapshot.context.tenant, snapshot.context.request_id,
-            ).map_err(|_| ApprovalExpiryError::Corrupt)? {
+            if key
+                != crate::policy::approval::released_storage_key(
+                    &snapshot.context.tenant,
+                    snapshot.context.request_id,
+                )
+                .map_err(|_| ApprovalExpiryError::Corrupt)?
+            {
                 return Err(ApprovalExpiryError::Corrupt);
             }
             crate::policy::approval::validate_released_snapshot(
-                &bytes, snapshot, intended.submission_ref.ok_or(ApprovalExpiryError::Corrupt)?,
-            ).map_err(|_| ApprovalExpiryError::Corrupt)?;
+                &bytes,
+                snapshot,
+                intended
+                    .submission_ref
+                    .ok_or(ApprovalExpiryError::Corrupt)?,
+            )
+            .map_err(|_| ApprovalExpiryError::Corrupt)?;
             inserts.push((key, bytes));
         } else {
             let terminal_key = crate::policy::approval::program_terminal_storage_key(
-                &snapshot.context.tenant, snapshot.context.request_id,
-            ).map_err(|_| ApprovalExpiryError::Corrupt)?;
+                &snapshot.context.tenant,
+                snapshot.context.request_id,
+            )
+            .map_err(|_| ApprovalExpiryError::Corrupt)?;
             inserts.push((terminal_key, expected_hold.to_vec()));
         }
-        store.apply_program_approval_batch(updates, inserts, vec![hold_key])
+        store
+            .apply_program_approval_batch(updates, inserts, vec![hold_key])
             .map_err(|_| ApprovalExpiryError::Store)
     }
 }
 
 fn observe_program(
-    store: &mut Store, snapshot: &ApprovalSnapshot, sequence: u64, limiter: &BudgetLimiter,
+    store: &mut Store,
+    snapshot: &ApprovalSnapshot,
+    sequence: u64,
+    limiter: &BudgetLimiter,
 ) -> Result<ApprovalState, ApprovalExpiryError> {
     use super::program_requirement::{read_approval, Terminal};
-    let (requirement, _) = read_approval(store, snapshot).map_err(|_| ApprovalExpiryError::Corrupt)?;
-    if let Some((outcome, decision_key, reference)) = requirement.terminal_decision()
-        .map_err(|_| ApprovalExpiryError::Corrupt)? {
+    let (requirement, _) =
+        read_approval(store, snapshot).map_err(|_| ApprovalExpiryError::Corrupt)?;
+    if let Some((outcome, decision_key, reference)) = requirement
+        .terminal_decision()
+        .map_err(|_| ApprovalExpiryError::Corrupt)?
+    {
         let key = storage_key(&snapshot.context.tenant, snapshot.context.request_id)?;
-        let persisted = decode(store.get(&key).ok_or(ApprovalExpiryError::NotFound)?.bytes())?;
+        let persisted = decode(
+            store
+                .get(&key)
+                .ok_or(ApprovalExpiryError::NotFound)?
+                .bytes(),
+        )?;
         let (expected, state) = match outcome {
             Terminal::Granted => (ApprovalOutcome::Granted, ApprovalState::Approved),
             Terminal::Rejected => (ApprovalOutcome::Rejected, ApprovalState::Rejected),
             Terminal::Expired => (ApprovalOutcome::Expired, ApprovalState::Expired),
             Terminal::Defective => (ApprovalOutcome::Defective, ApprovalState::Defective),
         };
-        if persisted.outcome != Some(expected) || persisted.idempotency_key.as_deref() != Some(decision_key)
-            || persisted.submission_ref != reference || persisted.expires_at_sequence != snapshot.expires_at_sequence {
+        if persisted.outcome != Some(expected)
+            || persisted.idempotency_key.as_deref() != Some(decision_key)
+            || persisted.submission_ref != reference
+            || persisted.expires_at_sequence != snapshot.expires_at_sequence
+        {
             return Err(ApprovalExpiryError::Corrupt);
         }
         return Ok(state);
     }
-    if sequence < snapshot.expires_at_sequence { return Ok(ApprovalState::AwaitingApproval); }
-    let hold_key = crate::policy::approval::hold_storage_key(&snapshot.context.tenant, snapshot.context.request_id)
-        .map_err(|_| ApprovalExpiryError::Corrupt)?;
-    let expected_hold = store.get(&hold_key).ok_or(ApprovalExpiryError::NotFound)?.bytes().to_vec();
+    if sequence < snapshot.expires_at_sequence {
+        return Ok(ApprovalState::AwaitingApproval);
+    }
+    let hold_key = crate::policy::approval::hold_storage_key(
+        &snapshot.context.tenant,
+        snapshot.context.request_id,
+    )
+    .map_err(|_| ApprovalExpiryError::Corrupt)?;
+    let expected_hold = store
+        .get(&hold_key)
+        .ok_or(ApprovalExpiryError::NotFound)?
+        .bytes()
+        .to_vec();
     let reservations = crate::policy::approval::validate_hold_snapshot(&expected_hold, snapshot)
         .map_err(|_| ApprovalExpiryError::Corrupt)?;
     for reservation in reservations {
-        limiter.consumed(reservation.limit_id).map_err(|_| ApprovalExpiryError::Reservation)?;
+        limiter
+            .consumed(reservation.limit_id)
+            .map_err(|_| ApprovalExpiryError::Reservation)?;
     }
     let decision_key = DecisionKey::new("program-expiry-v1")?;
-    let terminal = PreparedDecision::program_terminal(store, snapshot, &decision_key, ApprovalOutcome::Expired, None)?;
-    let staged = budget::stage_release(limiter, snapshot.context.request_id, ReleaseKind::Expired, sequence)
-        .map_err(|_| ApprovalExpiryError::Reservation)?;
+    let terminal = PreparedDecision::program_terminal(
+        store,
+        snapshot,
+        &decision_key,
+        ApprovalOutcome::Expired,
+        None,
+    )?;
+    let staged = budget::stage_release(
+        limiter,
+        snapshot.context.request_id,
+        ReleaseKind::Expired,
+        sequence,
+    )
+    .map_err(|_| ApprovalExpiryError::Reservation)?;
     terminal.apply_program_terminal(store, snapshot, None, sequence, &expected_hold, None)?;
     let _ = staged.publish();
     Ok(ApprovalState::Expired)
@@ -842,25 +917,38 @@ fn observe_program(
 
 impl ApprovalExpiry {
     pub(crate) fn validate_program_terminal(
-        store: &Store, snapshot: &ApprovalSnapshot,
+        store: &Store,
+        snapshot: &ApprovalSnapshot,
     ) -> Result<ApprovalDecision, ApprovalExpiryError> {
         use super::program_requirement::{read_approval, Terminal};
-        let (record, _) = read_approval(store, snapshot).map_err(|_| ApprovalExpiryError::Corrupt)?;
-        let (terminal, decision_key, reference) = record.terminal_decision()
-            .map_err(|_| ApprovalExpiryError::Corrupt)?.ok_or(ApprovalExpiryError::Corrupt)?;
+        let (record, _) =
+            read_approval(store, snapshot).map_err(|_| ApprovalExpiryError::Corrupt)?;
+        let (terminal, decision_key, reference) = record
+            .terminal_decision()
+            .map_err(|_| ApprovalExpiryError::Corrupt)?
+            .ok_or(ApprovalExpiryError::Corrupt)?;
         let outcome = match terminal {
             Terminal::Granted => ApprovalOutcome::Granted,
             Terminal::Rejected => ApprovalOutcome::Rejected,
             Terminal::Expired => ApprovalOutcome::Expired,
             Terminal::Defective => ApprovalOutcome::Defective,
         };
-        let stored = store.get(&storage_key(&snapshot.context.tenant, snapshot.context.request_id)?)
+        let stored = store
+            .get(&storage_key(
+                &snapshot.context.tenant,
+                snapshot.context.request_id,
+            )?)
             .ok_or(ApprovalExpiryError::NotFound)?;
-        if stored.class() != crate::store::StorageClass::LocalOnly { return Err(ApprovalExpiryError::Corrupt); }
+        if stored.class() != crate::store::StorageClass::LocalOnly {
+            return Err(ApprovalExpiryError::Corrupt);
+        }
         let persisted = decode(stored.bytes())?;
         if persisted.expires_at_sequence != snapshot.expires_at_sequence
-            || persisted.outcome != Some(outcome) || persisted.idempotency_key.as_deref() != Some(decision_key)
-            || persisted.submission_ref != reference || encode(&persisted)?.as_slice() != stored.bytes() {
+            || persisted.outcome != Some(outcome)
+            || persisted.idempotency_key.as_deref() != Some(decision_key)
+            || persisted.submission_ref != reference
+            || encode(&persisted)?.as_slice() != stored.bytes()
+        {
             return Err(ApprovalExpiryError::Corrupt);
         }
         Ok(decision(outcome, reference))

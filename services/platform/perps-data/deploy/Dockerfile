@@ -11,6 +11,7 @@ RUN set -eu; \
     case "${RUNTIME_IMAGE}" in *@sha256:????????????????????????????????????????????????????????????????) ;; *) echo "RUNTIME_IMAGE must be pinned by digest" >&2; exit 1 ;; esac; \
     case "${SERVICE}" in perps-indexer|perps-gateway|perps-explorer|perps-portal|perps-replay|perps-loadtest) ;; *) echo "SERVICE must name a binary under services/platform/perps-data/cmd" >&2; exit 1 ;; esac
 COPY go.mod go.sum ./
+COPY core/deps/geth/go.mod core/deps/geth/go.sum ./core/deps/geth/
 RUN sha256sum go.mod go.sum > /tmp/module-graph.sha256 && go mod download && go mod verify && sha256sum -c /tmp/module-graph.sha256
 COPY . .
 RUN go build -mod=readonly -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/app "./services/platform/perps-data/cmd/${SERVICE}" && sha256sum -c /tmp/module-graph.sha256

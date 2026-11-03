@@ -15,15 +15,15 @@ func setValid(t *testing.T) {
 		"GATEWAY_RUNTIME_SHA256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 		"PUBLIC_URL":             "https://web.example",
 		"CORS_ALLOWED_ORIGINS":   "https://web.example",
-		"REDIS_URL":            "redis://localhost:6379",
-		"GATEWAY_JWT_SECRET":   "super-secret-signing-key",
-		"SOCIAL_HTTP_URL":      "http://social:3000",
-		"SOCIAL_WS_URL":        "ws://social:3000",
-		"METADATA_UPLOAD_URL":  "http://metadata:3000",
-		"S3_ENDPOINT":          "https://acc.r2.cloudflarestorage.com",
-		"S3_ACCESS_KEY_ID":     "ak",
-		"S3_SECRET_ACCESS_KEY": "sk",
-		"METADATA_BUCKET":      "kl-metadata",
+		"REDIS_URL":              "redis://localhost:6379",
+		"GATEWAY_JWT_SECRET":     "super-secret-signing-key",
+		"SOCIAL_HTTP_URL":        "http://social:3000",
+		"SOCIAL_WS_URL":          "ws://social:3000",
+		"METADATA_UPLOAD_URL":    "http://metadata:3000",
+		"S3_ENDPOINT":            "https://acc.r2.cloudflarestorage.com",
+		"S3_ACCESS_KEY_ID":       "ak",
+		"S3_SECRET_ACCESS_KEY":   "sk",
+		"METADATA_BUCKET":        "kl-metadata",
 	} {
 		t.Setenv(k, v)
 	}
@@ -31,6 +31,8 @@ func setValid(t *testing.T) {
 
 func TestLoad_Valid(t *testing.T) {
 	setValid(t)
+	// Exercise the declared default even when the process has a deployment port.
+	t.Setenv("PORT", "")
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -43,6 +45,18 @@ func TestLoad_Valid(t *testing.T) {
 	}
 	if got := cfg.Buckets(); len(got) != 1 || got["token"] != "kl-metadata" {
 		t.Errorf("Buckets() = %v, want {token: kl-metadata}", got)
+	}
+}
+
+func TestLoad_ExplicitPort(t *testing.T) {
+	setValid(t)
+	t.Setenv("PORT", "8080")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Port != 8080 {
+		t.Errorf("configured Port = %d, want 8080", cfg.Port)
 	}
 }
 
