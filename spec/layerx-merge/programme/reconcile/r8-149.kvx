@@ -1,0 +1,247 @@
+[reconcile.r8-149]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-149.1]
+interface = "interface.8.err-core-fee-evidence-unavailable"
+verdict = "retired"
+path = "services/platform/hosted/core/src/public_reads.rs"
+line = 278
+symbol = "fee_evidence_unavailable"
+evidence = "The error literal is absent from public_reads.rs; estimate_fee now calculates the fee from validated transaction gas and price. Repository-wide literal search excluding spec and docs found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-149.2]
+interface = "interface.8.http-core-any-v1-assets-2"
+verdict = "served"
+path = "services/platform/hosted/core/src/public_reads.rs"
+line = 247
+symbol = "/v1/assets"
+evidence = "The route function declares the exact-path or starts_with assets guard here and dispatches to asset_route; earlier occurrences validate and extract an asset id."
+
+[row.r8-149.3]
+interface = "interface.8.rpc-gateway-px-gethistory"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/history.rs"
+line = 593
+symbol = "px_getHistory"
+evidence = "The served function declares the px_getHistory match arm selecting the Paxeer account key here; the later combined arm dispatches both history methods and other occurrences are documentation or tests."
+
+[row.r8-149.4]
+interface = "interface.8.rpc-gateway-px-getunifiedhistory"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/history.rs"
+line = 624
+symbol = "px_getUnifiedHistory"
+evidence = "The registered let unified = method comparison is here in served, immediately before the history call; the later shared dispatcher and test requests are separate occurrences."
+
+[row.r8-149.5]
+interface = "interface.8.cfg-gateway-policy-schema"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 827
+symbol = "schema"
+evidence = "The deserialized Policy struct inside HpxIngressPolicy::from_protected_file declares schema: String here; document.schema below is its validation use."
+
+[row.r8-149.6]
+interface = "interface.8.cfg-gateway-policy-trusted-proxies"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 828
+symbol = "trusted_proxies"
+evidence = "The deserialized Policy struct declares trusted_proxies: Vec<String> here, matching the registry signature; HpxIngressPolicy stores a BTreeSet<IpAddr> at the earlier occurrence."
+
+[row.r8-149.7]
+interface = "interface.8.http-gateway-any-v1-wallet-lx-approvals"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 762
+symbol = "/v1/wallet/lx/approvals/"
+evidence = "The unified_service_route match guard declares the approvals prefix here; the following strip_prefix extracts the id and the branch requires GET, no query, and a canonical UUID."
+
+[row.r8-149.8]
+interface = "interface.8.http-gateway-get-v1-state"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 711
+symbol = "/v1/state"
+evidence = "The production_route match declares GET /v1/state returning ProductionRoute::State here; later occurrences exercise accepted and rejected routes in tests."
+
+[row.r8-149.9]
+interface = "interface.8.http-gateway-post-v1-settle"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 710
+symbol = "/v1/settle"
+evidence = "The production_route match declares POST /v1/settle returning ProductionRoute::Settle here; later calls belong to route tests."
+
+[row.r8-149.10]
+interface = "interface.8.http-gateway-post-v1-wallet-custody"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 754
+symbol = "/v1/wallet/custody/"
+evidence = "The registered starts_with custody guard is here in unified_service_route, followed by id extraction. Despite the registry id containing post, this branch requires GET, no query, and a canonical 0x-prefixed program id."
+
+[row.r8-149.11]
+interface = "interface.8.rs-gateway-layerx-platform-gateway-configured-sequencer"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 1297
+symbol = "configured_sequencer"
+evidence = "The public configured_sequencer function declaration is here, taking id, key, first and last string references and returning Result<SequencerAuthorization, &'static str>; other occurrences call or import it."
+
+[row.r8-149.12]
+interface = "interface.8.rs-gateway-layerx-platform-gateway-verifiedoperation-verification-level"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 402
+symbol = "verification_level"
+evidence = "The impl VerifiedOperation declares pub const fn verification_level(&self) -> &'static str here; the earlier identically named field and later struct initializers are separate occurrences."
+
+[row.r8-149.13]
+interface = "interface.8.rs-gateway-layerx-platform-gateway-verify-activity-operation"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 423
+symbol = "verify_activity_operation"
+evidence = "The public verify_activity_operation declaration takes receipt bytes, AuthorityFacts, a trusted sequencer key and an optional expected activity id, returning Result<VerifiedOperation, GatewayError>; the later occurrence calls it."
+
+[row.r8-149.14]
+interface = "interface.8.env-gateway-layerx-gateway-authority-url"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 899
+symbol = "LAYERX_GATEWAY_AUTHORITY_URL"
+evidence = "configured_kernel reads this environment variable for Endpoint::parse of Kernel.authority here; the earlier KERNEL_VARIABLES entry only enumerates the key."
+
+[row.r8-149.15]
+interface = "interface.8.env-gateway-layerx-gateway-client-identity-pkcs12"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 880
+symbol = "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12"
+evidence = "configured_kernel reads the identity file path from env::var here before fs::read and Identity::from_pkcs12; the earlier occurrence is a KERNEL_VARIABLES entry."
+
+[row.r8-149.16]
+interface = "interface.8.env-gateway-layerx-gateway-component-url"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 866
+symbol = "LAYERX_GATEWAY_COMPONENT_URL"
+evidence = "The registered env::var_os(...).is_none() guard starts configured_kernel here, returning None when the component and dependent kernel settings are absent; the later env::var parses its endpoint."
+
+[row.r8-149.17]
+interface = "interface.8.env-gateway-layerx-gateway-identity-url"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 904
+symbol = "LAYERX_GATEWAY_IDENTITY_URL"
+evidence = "configured_kernel reads this environment variable for Endpoint::parse of Kernel.identity here; the earlier KERNEL_VARIABLES occurrence only lists the key."
+
+[row.r8-149.18]
+interface = "interface.8.env-gateway-layerx-gateway-listen"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 993
+symbol = "LAYERX_GATEWAY_LISTEN"
+evidence = "The Config initializer declares listen: env::var of this exact key here, with PORT and [::]:9443 defaults before SocketAddr parsing; LAYERX_GATEWAY_LISTENER is a distinct key."
+
+[row.r8-149.19]
+interface = "interface.8.env-gateway-layerx-gateway-listener"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 796
+symbol = "LAYERX_GATEWAY_LISTENER"
+evidence = "listener_config declares the match on env::var here to choose TLS or plain mode; later literal occurrences are error messages about the selection."
+
+[row.r8-149.20]
+interface = "interface.8.env-gateway-layerx-gateway-module-registry-file"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2673
+symbol = "LAYERX_GATEWAY_MODULE_REGISTRY_FILE"
+evidence = "configured_modules reads this environment variable as the fs::read input for deserializing ModuleFile here; the earlier KERNEL_VARIABLES entry only enumerates it."
+
+[row.r8-149.21]
+interface = "interface.8.env-gateway-layerx-gateway-program-registry-url"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 909
+symbol = "LAYERX_GATEWAY_PROGRAM_REGISTRY_URL"
+evidence = "configured_kernel reads this environment variable for Endpoint::parse of Kernel.registry here; the earlier KERNEL_VARIABLES occurrence only lists the key."
+
+[row.r8-149.22]
+interface = "interface.8.env-gateway-layerx-gateway-tls-cert-der"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 814
+symbol = "LAYERX_GATEWAY_TLS_CERT_DER"
+evidence = "tls_config reads the certificate file path through env::var here before fs::read and CertificateDer construction; the earlier LISTENER_CERTIFICATE_VARIABLES array only lists the setting."
+
+[row.r8-149.23]
+interface = "interface.8.env-gateway-layerx-gateway-tls-key-der"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 821
+symbol = "LAYERX_GATEWAY_TLS_KEY_DER"
+evidence = "tls_config declares the env::var read with the gateway TLS key is required error here, feeding fs::read and PrivatePkcs8KeyDer; the earlier array is a list of listener settings."
+
+[row.r8-149.24]
+interface = "interface.8.env-gateway-paxeer-x-authority-contract-case-j69"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5061
+symbol = "PAXEER_X_AUTHORITY_CONTRACT_CASE"
+evidence = "authority_readiness_contract declares the env::var read with expect(real authority case required) here; the later test reads the same key with a different expect message, actual case."
+
+[row.r8-149.25]
+interface = "interface.8.err-gateway-activity-content-type-required"
+verdict = "retired"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 2496
+symbol = "activity_content_type_required"
+evidence = "The registered return Err(response(415, ...)) error literal is absent from gateway main.rs. Repository-wide literal search excluding spec and docs found no remaining references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-149.26]
+interface = "interface.8.err-gateway-authority-invalid"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 1675
+symbol = "authority_invalid"
+evidence = "authority_response first declares the registered HTTP 503 map_err with retry Some(5) on AuthorityResponse JSON decoding here; later matching responses cover receipt decoding and malformed authority fields."
+
+[row.r8-149.27]
+interface = "interface.8.err-gateway-caps-account-refused"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5537
+symbol = "caps_account_refused"
+evidence = "The account_id extraction branch returns the registered HTTP 403 response with no retry when the wallet caps context lacks an account id accepted by parse_hex32."
+
+[row.r8-149.28]
+interface = "interface.8.err-gateway-caps-assertion-refused"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5528
+symbol = "caps_assertion_refused"
+evidence = "The wallet_assertion result match declares Err(_) returning the registered HTTP 403 response here, after its separate HTTP 503 issuer-unavailable arm."
+
+[row.r8-149.29]
+interface = "interface.8.err-gateway-caps-binding-refused"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5523
+symbol = "caps_binding_refused"
+evidence = "The caps context validation branch returns the registered HTTP 403 response here when tenant, session id, address, chain id or expiry disagrees with the expected binding."
+
+[row.r8-149.30]
+interface = "interface.8.err-gateway-caps-binding-unavailable"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5500
+symbol = "caps_binding_unavailable"
+evidence = "The first registered HTTP 503 response with retry Some(5) is the missing capsContext object branch here; the second identical response at line 5507 handles missing identityBinding."
