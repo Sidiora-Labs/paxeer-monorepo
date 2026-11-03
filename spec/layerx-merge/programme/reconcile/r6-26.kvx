@@ -1,0 +1,285 @@
+[reconcile.r6-26]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 35
+
+[row.r6-26.1]
+interface = "interface.6.pc-0x1014-activateguarantor"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 4
+symbol = "activateGuarantor"
+evidence = "ABI still declares activateGuarantor(bytes32) nonpayable returns (bool); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.2]
+interface = "interface.6.pc-0x1014-beginunbond"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 23
+symbol = "beginUnbond"
+evidence = "ABI still declares beginUnbond(bytes32,uint256) nonpayable returns (uint64); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.3]
+interface = "interface.6.pc-0x1014-checkpoint"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 47
+symbol = "checkpoint"
+evidence = "ABI still declares checkpoint(uint64) view returns ((uint64,bytes32,bytes32,uint64,uint64,uint64,bytes32,bytes32,bytes32,bytes32,bytes32,uint64,uint8,uint8,uint8,uint32,uint64,uint64)); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.4]
+interface = "interface.6.pc-0x1014-completeunbond"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 158
+symbol = "completeUnbond"
+evidence = "ABI still declares completeUnbond(bytes32) nonpayable returns (uint256); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.5]
+interface = "interface.6.pc-0x1014-finalize"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 177
+symbol = "finalize"
+evidence = "ABI still declares finalize(uint64) nonpayable returns (bool); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.6]
+interface = "interface.6.pc-0x1014-finalizedreceiptroot"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 196
+symbol = "finalizedReceiptRoot"
+evidence = "ABI still declares finalizedReceiptRoot(uint64) view returns (bytes32,bool); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.7]
+interface = "interface.6.pc-0x1014-finalizedstateroot"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 220
+symbol = "finalizedStateRoot"
+evidence = "ABI still declares finalizedStateRoot(uint64) view returns (bytes32,bool); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.8]
+interface = "interface.6.pc-0x1014-guarantor"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 244
+symbol = "guarantor"
+evidence = "ABI still declares guarantor(bytes32) view returns ((bytes32,address,address,uint256,uint256,uint8,bool)); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.9]
+interface = "interface.6.pc-0x1014-increasebond"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 300
+symbol = "increaseBond"
+evidence = "ABI still declares increaseBond(bytes32) payable returns (bool); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.10]
+interface = "interface.6.pc-0x1014-latestfinalized"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 319
+symbol = "latestFinalized"
+evidence = "ABI still declares latestFinalized() view returns (uint64,bool); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.11]
+interface = "interface.6.pc-0x1014-openchallenge"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 337
+symbol = "openChallenge"
+evidence = "ABI still declares openChallenge(uint64,uint8,bytes32) payable returns (uint64); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.12]
+interface = "interface.6.pc-0x1014-registerguarantor"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 366
+symbol = "registerGuarantor"
+evidence = "ABI still declares registerGuarantor(bytes32,address) payable returns (bool); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.13]
+interface = "interface.6.pc-0x1014-resolvechallenge"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 390
+symbol = "resolveChallenge"
+evidence = "ABI still declares resolveChallenge(uint64,bool) nonpayable returns (bool); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.14]
+interface = "interface.6.pc-0x1014-setsequencerauthorization"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 414
+symbol = "setSequencerAuthorization"
+evidence = "ABI still declares setSequencerAuthorization(bytes32,bytes32,uint64,uint64) nonpayable returns (bool); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.15]
+interface = "interface.6.pc-0x1014-statusof"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 448
+symbol = "statusOf"
+evidence = "ABI still declares statusOf(uint64) view returns (uint8); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.16]
+interface = "interface.6.pc-0x1014-submitavailabilityattestation"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 467
+symbol = "submitAvailabilityAttestation"
+evidence = "ABI still declares submitAvailabilityAttestation(bytes) nonpayable returns (uint8); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.17]
+interface = "interface.6.pc-0x1014-submitcheckpoint"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 486
+symbol = "submitCheckpoint"
+evidence = "ABI still declares submitCheckpoint(bytes,bytes,bytes) nonpayable returns (bytes32,uint8); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.18]
+interface = "interface.6.pc-0x1014-submitequivocation"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 520
+symbol = "submitEquivocation"
+evidence = "ABI still declares submitEquivocation(bytes,bytes) nonpayable returns (uint256); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.19]
+interface = "interface.6.pc-0x1014-threshold"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 544
+symbol = "threshold"
+evidence = "ABI still declares threshold() view returns (uint32); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.20]
+interface = "interface.6.pc-0x1014-evt-availabilityattested"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 557
+symbol = "AvailabilityAttested"
+evidence = "ABI still declares event AvailabilityAttested(uint64 indexed,bytes32 indexed,uint8,uint8) with anonymous=false; the event declaration remains despite registry status retire. Execution is gated by MergeUpgrade for writes and StoreDeleteUpgrade for all methods in precompiles/layerxanchor/layerxanchor.go."
+
+[row.r6-26.21]
+interface = "interface.6.pc-0x1014-evt-bondincreased"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 588
+symbol = "BondIncreased"
+evidence = "ABI still declares event BondIncreased(bytes32 indexed,uint256,uint256) with anonymous=false; the event declaration remains despite registry status retire. Execution is gated by MergeUpgrade for writes and StoreDeleteUpgrade for all methods in precompiles/layerxanchor/layerxanchor.go."
+
+[row.r6-26.22]
+interface = "interface.6.pc-0x1014-evt-challengeopened"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 613
+symbol = "ChallengeOpened"
+evidence = "ABI still declares event ChallengeOpened(uint64 indexed,uint64 indexed,uint8,bytes32,address) with anonymous=false; the event declaration remains despite registry status retire. Execution is gated by MergeUpgrade for writes and StoreDeleteUpgrade for all methods in precompiles/layerxanchor/layerxanchor.go."
+
+[row.r6-26.23]
+interface = "interface.6.pc-0x1014-evt-challengeresolved"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 650
+symbol = "ChallengeResolved"
+evidence = "ABI still declares event ChallengeResolved(uint64 indexed,uint64 indexed,bool) with anonymous=false; the event declaration remains despite registry status retire. Execution is gated by MergeUpgrade for writes and StoreDeleteUpgrade for all methods in precompiles/layerxanchor/layerxanchor.go."
+
+[row.r6-26.24]
+interface = "interface.6.pc-0x1014-evt-checkpointfinalized"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 675
+symbol = "CheckpointFinalized"
+evidence = "ABI still declares event CheckpointFinalized(uint64 indexed,bytes32 indexed,bytes32,bytes32) with anonymous=false; the event declaration remains despite registry status retire. Execution is gated by MergeUpgrade for writes and StoreDeleteUpgrade for all methods in precompiles/layerxanchor/layerxanchor.go."
+
+[row.r6-26.25]
+interface = "interface.6.pc-0x1014-evt-checkpointsubmitted"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 706
+symbol = "CheckpointSubmitted"
+evidence = "ABI still declares event CheckpointSubmitted(uint64 indexed,bytes32 indexed,bytes32,bytes32,uint8) with anonymous=false; the event declaration remains despite registry status retire. Execution is gated by MergeUpgrade for writes and StoreDeleteUpgrade for all methods in precompiles/layerxanchor/layerxanchor.go."
+
+[row.r6-26.26]
+interface = "interface.6.pc-0x1014-evt-guarantoractivated"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 743
+symbol = "GuarantorActivated"
+evidence = "ABI still declares event GuarantorActivated(bytes32 indexed) with anonymous=false; the event declaration remains despite registry status retire. Execution is gated by MergeUpgrade for writes and StoreDeleteUpgrade for all methods in precompiles/layerxanchor/layerxanchor.go."
+
+[row.r6-26.27]
+interface = "interface.6.pc-0x1014-evt-guarantorregistered"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 756
+symbol = "GuarantorRegistered"
+evidence = "ABI still declares event GuarantorRegistered(bytes32 indexed,address indexed,address,uint256,uint8) with anonymous=false; the event declaration remains despite registry status retire. Execution is gated by MergeUpgrade for writes and StoreDeleteUpgrade for all methods in precompiles/layerxanchor/layerxanchor.go."
+
+[row.r6-26.28]
+interface = "interface.6.pc-0x1014-evt-guarantorslashed"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 793
+symbol = "GuarantorSlashed"
+evidence = "ABI still declares event GuarantorSlashed(bytes32 indexed,uint8,uint64,uint256,address,uint256) with anonymous=false; the event declaration remains despite registry status retire. Execution is gated by MergeUpgrade for writes and StoreDeleteUpgrade for all methods in precompiles/layerxanchor/layerxanchor.go."
+
+[row.r6-26.29]
+interface = "interface.6.pc-0x1014-evt-sequencerauthorized"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 836
+symbol = "SequencerAuthorized"
+evidence = "ABI still declares event SequencerAuthorized(bytes32 indexed,bytes32,uint64,uint64) with anonymous=false; the event declaration remains despite registry status retire. Execution is gated by MergeUpgrade for writes and StoreDeleteUpgrade for all methods in precompiles/layerxanchor/layerxanchor.go."
+
+[row.r6-26.30]
+interface = "interface.6.pc-0x1014-evt-unbondbegun"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 867
+symbol = "UnbondBegun"
+evidence = "ABI still declares event UnbondBegun(bytes32 indexed,uint256,uint64) with anonymous=false; the event declaration remains despite registry status retire. Execution is gated by MergeUpgrade for writes and StoreDeleteUpgrade for all methods in precompiles/layerxanchor/layerxanchor.go."
+
+[row.r6-26.31]
+interface = "interface.6.pc-0x1014-evt-unbondcompleted"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 892
+symbol = "UnbondCompleted"
+evidence = "ABI still declares event UnbondCompleted(bytes32 indexed,uint256) with anonymous=false; the event declaration remains despite registry status retire. Execution is gated by MergeUpgrade for writes and StoreDeleteUpgrade for all methods in precompiles/layerxanchor/layerxanchor.go."
+
+[row.r6-26.32]
+interface = "interface.6.pc-0x1014-checkpointbatch"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 911
+symbol = "checkpointBatch"
+evidence = "ABI still declares checkpointBatch(bytes32) view returns (uint64,uint8); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.33]
+interface = "interface.6.pc-0x1014-checkpointguarantors"
+verdict = "served"
+path = "precompiles/layerxanchor/abi.json"
+line = 935
+symbol = "checkpointGuarantors"
+evidence = "ABI still declares checkpointGuarantors(uint64) view returns (bytes32[]); registry retirement is behavioral, not removal of the declaration. Execute in precompiles/layerxanchor/layerxanchor.go rejects writes at MergeUpgrade and all calls at StoreDeleteUpgrade (or with a nil anchor)."
+
+[row.r6-26.34]
+interface = "interface.6.go-pc0x1014-module-certificatework-j35"
+verdict = "retired"
+path = "precompiles/layerxanchor/layerxanchor.go"
+line = 144
+symbol = "CertificateWork"
+evidence = "CertificateWork is absent from precompiles/layerxanchor/layerxanchor.go. RequiredGas now charges WriteBaseGas for submitCheckpoint and submitEquivocation without certificate decoding. Repository-wide rg --hidden -n -w CertificateWork, excluding .git and all spec/docs directories, returned no other files (exit 1)."
+remaining_refs = 0
+remaining = []
+
+[row.r6-26.35]
+interface = "interface.6.go-layerxanchor-precompile-execute-j35"
+verdict = "served"
+path = "precompiles/layerxanchor/layerxanchor.go"
+line = 169
+symbol = "Execute"
+evidence = "Declaration remains func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller common.Address, _ common.Address, args []interface{}, value *big.Int, readOnly bool, evm *vm.EVM, hooks *tracing.Hooks) (ret []byte, err error) {. No parameter or return-type change from the registered signature; implementation now returns RetiredRevert with vm.ErrExecutionReverted when the anchor is nil, gates all calls at StoreDeleteUpgrade, and gates non-view calls at MergeUpgrade before dispatch."
