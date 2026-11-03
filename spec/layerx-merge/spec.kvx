@@ -194108,7 +194108,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.97.3]
 title = "Make the persist write-error test fail its write for every user"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
