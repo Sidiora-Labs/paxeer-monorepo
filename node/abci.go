@@ -317,12 +317,13 @@ func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error
 	app.RecordBenchmarkCommitTime(elapsed)
 	// After a successful Commit, publish the pending eth_newHeads event
 	// stashed by FinalizeBlocker. Subscribers see only committed state.
-	// Header.AppHash is intentionally left unset (Tendermint convention:
-	// it holds the previous block's hash); stateRoot is sourced from
-	// response.AppHash by encodeCommittedBlock.
 	if err == nil {
 		if n, ok := app.blockHeaderNotifier.Get(); ok {
+			if app.pendingBlockHeader != nil {
+				app.pendingBlockHeader.AppHash = bytes.Clone(app.LastCommitID().Hash)
+			}
 			n.PublishStashed()
+			app.pendingBlockHeader = nil
 		}
 		if app.commitListener != nil {
 			err = commitListener(app, app.LastBlockHeight(), app.LastCommitID().Hash)
