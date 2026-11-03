@@ -1,0 +1,553 @@
+[reconcile.r8-46]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r8-46.1]
+interface = "interface.8.env-node-layerx-node-identities"
+verdict = "retired"
+path = "services/platform/hosted/node/guarantor.sh"
+line = 80
+symbol = "LAYERX_NODE_IDENTITIES"
+evidence = "The registered guarantor.sh launcher is absent, as specified by task 8.19.1. Decision override.J40.714. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 2
+remaining = ["services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1283", "services/platform/hosted/node/bootstrap.sh:852"]
+
+[row.r8-46.2]
+interface = "interface.8.env-node-layerx-guarantor-node-config"
+verdict = "retired"
+path = "services/platform/hosted/node/guarantor.sh"
+line = 81
+symbol = "LAYERX_GUARANTOR_NODE_CONFIG"
+evidence = "The registered guarantor.sh launcher is absent, as specified by task 8.19.1. Decision override.J40.715. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-46.3]
+interface = "interface.8.env-node-pythonpath"
+verdict = "retired"
+path = "services/platform/hosted/node/guarantor.sh"
+line = 125
+symbol = "PYTHONPATH"
+evidence = "The registered guarantor.sh launcher is absent, as specified by task 8.19.1. Decision override.J40.716. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 24
+remaining = [".github/workflows/xweb-test.yml:190", "Makefile:2335", "deploy/launchpad/production/topology/phase2/operator-runbook.md:3", "precompiles/bank/proof_0x1001_bank_test.go:221", "precompiles/common/proof_error_registry_test.go:130", "scripts/ci/xweb-workflow-check.sh:62", "scripts/paxeer-x/verify-sdk-program-python.sh:4", "services/agent/sdk/typescript/test/account-derivation.test.ts:424", "services/agent/sdk/typescript/test/ai-market.test.ts:2796", "services/agent/sdk/typescript/test/px.test.ts:262", "services/agent/tests/parity/src/main.rs:761", "services/agent/tests/qualify/fabrication.rs:114", "services/platform/Makefile.inc:280", "services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs:527", "services/platform/hosted/node/tests/signer-test.py:595", "services/platform/middleware/conformance/pay6/examples.test.mjs:7", "services/platform/middleware/examples/examples-check.sh:116", "services/platform/middleware/examples/examples-live-check.sh:193", "services/platform/middleware/examples/test_public_rpc.py:77", "tools/launchpad/production/dispatcher/qualification.py:133", "tools/launchpad/production/dispatcher/qualification_leases.py:46", "tools/launchpad/production/dispatcher/tests/test_store.py:141", "tools/paxeer-x/gates/104.38.6.sh:88", "tools/qualification/paxeer-x/native-effect-sdk.py:108"]
+
+[row.r8-46.4]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-authority"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 101
+symbol = "--authority"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.110. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 10
+remaining = ["services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1129", "services/launchpad/metadata/internal/metadata/measure_production.py:464", "services/launchpad/security/supplychain/check_phase2.py:284", "services/launchpad/security/supplychain/controller.py:351", "services/platform/hosted/node/supervisor.sh:21", "services/platform/hosted/paxeer/custody-genesis.py:62", "services/platform/middleware/examples/examples-live-check.sh:199", "services/platform/middleware/examples/test_public_rpc.py:195", "tests/daemon/test_serve_commits_programs_call.py:180", "tools/bringup/tests/paxeer-x-fixture-foundation.py:302"]
+
+[row.r8-46.5]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-authority-evm"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 102
+symbol = "--authority-evm"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.111. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 1
+remaining = ["tools/bringup/tests/paxeer-x-fixture-foundation.py:302"]
+
+[row.r8-46.6]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-paxeer-chain-id"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 103
+symbol = "--paxeer-chain-id"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.112. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 4
+remaining = ["services/interop/deploy/mirror/render-config.py:197", "services/interop/deploy/mirror/tests/render-config-check.sh:92", "services/interop/deploy/mirror/tests/test_render_check_arguments.py:111", "tools/bringup/tests/paxeer-x-fixture-foundation.py:303"]
+
+[row.r8-46.7]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-network-id"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 104
+symbol = "--network-id"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.113. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 44
+remaining = ["cmd/layerx-genesis/test_module_table_conformance.py:194", "cmd/layerx-module-registry/main.c:112", "cmd/layerx-module-registry/test_no_bridge_profile.py:15", "cmd/layerx-module-registry/test_registry.py:11", "cmd/layerx-module-registry/test_registry_cli.py:14", "cmd/layerxctl/tests/files.rs:280", "services/interop/deploy/gateway/render.py:887", "services/interop/deploy/gateway/tests/test_render_receipt_keys.py:44", "services/platform/examples/run-reference-apps.mjs:221", "services/platform/hosted/human/onboarding_manifest.py:36", "services/platform/hosted/human/owner_native.py:352", "services/platform/hosted/human/provision.sh:344", "services/platform/hosted/node/bootstrap.sh:11", "services/platform/hosted/node/deployment.yaml:159", "services/platform/hosted/node/supervisor.sh:528", "services/platform/hosted/node/tests/genesis-modules-test.py:29", "services/platform/hosted/node/tests/probe/src/main.rs:24", "services/platform/hosted/node/tests/sequencer-seed-test.py:91", "services/platform/hosted/node/tests/signer-test.py:669", "services/platform/hosted/paxeer/custody-genesis.py:54", "services/platform/hosted/paxeer/prepare-beta.py:89", "services/platform/hosted/testnet/tests/hosted-smoke.sh:139", "services/platform/hosted/testnet/tests/payment-journey.py:127", "services/platform/hosted/tests/beta-cluster.sh:1076", "tests/test_beta_withdrawal_genesis.py:61", "tools/bringup/check-live.sh:4614", "tools/bringup/tests/paxeer-x-fixture-foundation.py:294", "tools/bringup/tests/test_value_loop_probe_contract.py:29", "tools/bringup/value-loop.sh:66", "tools/platform/cli/README.md:60", "tools/platform/cli/src/emulator.rs:22", "tools/platform/cli/src/install/mod.rs:568", "tools/platform/cli/src/main.rs:747", "tools/platform/cli/tests/clean-bootstrap.sh:62", "tools/platform/cli/tests/commands.rs:217", "tools/platform/cli/tests/common/mod.rs:84", "tools/platform/cli/tests/emulator.rs:793", "tools/platform/cli/tests/faucet_route.rs:42", "tools/platform/cli/tests/install-journey.sh:60", "tools/platform/cli/tests/proof_cli_cli_commands.rs:149", "tools/platform/emulator/src/main.rs:1625", "tools/qualification/beta_driver.py:717", "tools/qualification/paxeer-x/fixtures/event_source_fixture.py:206", "tools/qualification/test_beta_driver.py:157"]
+
+[row.r8-46.8]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-threshold"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 105
+symbol = "--threshold"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.114. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 11
+remaining = ["contracts/bridge/solana/admin/src/main.rs:93", "contracts/bridge/solana/admin/tests/admin.rs:643", "contracts/bridge/solana/chains/solana/README.md:56", "services/bridge/deploy/deploy-solana-program.sh:506", "tools/bringup/tests/paxeer-x-fixture-foundation.py:303", "tools/wasm-tools/src/bin/wasm-tools/component.rs:1151", "tools/wasm-tools/tests/cli/unbundle-fix-core-type-indices.wat:1", "tools/wasm-tools/tests/cli/unbundle-fixup-outer-aliases.wat:1", "tools/wasm-tools/tests/cli/unbundle-nested.wat:1", "tools/wasm-tools/tests/cli/unbundle-print-module.wat:1", "tools/wasm-tools/tests/cli/unbundle-simple.wat:1"]
+
+[row.r8-46.9]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-min-bond"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 106
+symbol = "--min-bond"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.115. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-46.10]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-bond-denom"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 107
+symbol = "--bond-denom"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.116. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-46.11]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-challenge-bond"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 108
+symbol = "--challenge-bond"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.117. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-46.12]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-challenge-window-seconds"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 109
+symbol = "--challenge-window-seconds"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.118. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-46.13]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-unbonding-delay-seconds"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 110
+symbol = "--unbonding-delay-seconds"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.119. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-46.14]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-max-attestation-delay-ms"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 111
+symbol = "--max-attestation-delay-ms"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.120. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-46.15]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-sequencer-id"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 112
+symbol = "--sequencer-id"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.121. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 6
+remaining = ["services/platform/hosted/paxeer/custody-genesis.py:55", "services/platform/hosted/tests/beta-cluster.sh:1440", "tools/bringup/tests/paxeer-x-fixture-foundation.py:295", "tools/paxeer-x/gov/README.md:11", "tools/paxeer-x/gov/render.sh:14", "tools/paxeer-x/gov/test.sh:65"]
+
+[row.r8-46.16]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-sequencer-public-key"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 113
+symbol = "--sequencer-public-key"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.122. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 8
+remaining = ["services/interop/deploy/gateway/tests/test_render_receipt_keys.py:102", "services/platform/hosted/paxeer/custody-genesis.py:56", "services/platform/hosted/testnet/tests/hosted-smoke.sh:161", "services/platform/hosted/tests/beta-cluster.sh:1440", "tools/bringup/tests/paxeer-x-fixture-foundation.py:295", "tools/platform/cli/tests/commands.rs:364", "tools/platform/cli/tests/install-journey.sh:281", "tools/qualification/beta_driver.py:834"]
+
+[row.r8-46.17]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-first-batch"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 114
+symbol = "--first-batch"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.123. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 5
+remaining = ["services/platform/hosted/paxeer/custody-genesis.py:57", "services/platform/hosted/tests/beta-cluster.sh:2470", "tools/paxeer-x/gov/README.md:13", "tools/paxeer-x/gov/render.sh:16", "tools/paxeer-x/gov/test.sh:67"]
+
+[row.r8-46.18]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-last-batch"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 115
+symbol = "--last-batch"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.124. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 3
+remaining = ["services/platform/hosted/paxeer/custody-genesis.py:58", "tools/paxeer-x/gov/README.md:13", "tools/paxeer-x/gov/render.sh:16"]
+
+[row.r8-46.19]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-guarantor"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 116
+symbol = "--guarantor"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.125. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-46.20]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-anchor"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 117
+symbol = "--anchor"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.126. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 3
+remaining = ["apps/bridge/src/components/ui/select.tsx:59", "services/platform/hosted/paxeer/gov-upgrade.sh:7", "services/platform/hosted/paxeer/tests/gov-scripts-test.sh:116"]
+
+[row.r8-46.21]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-permissionless-registration"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 118
+symbol = "--permissionless-registration"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.127. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-46.22]
+interface = "interface.8.cli-paxeer-anchor-genesis-py-output"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-genesis.py"
+line = 119
+symbol = "--output"
+evidence = "The registered anchor-genesis.py parser is absent, as specified by task 8.14.2; identical option text in other tools does not restore this anchor CLI. Decision override.J40.128. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 324
+remaining = [".github/workflows/paxeer-libwasmvm.yml:147", ".github/workflows/paxeer-pr-to-slack-codex.yml:171", ".github/workflows/paxeer-release-publish.yml:93", ".github/workflows/paxeer-x-qualification.yml:74", ".github/workflows/platform.yml:267", ".github/workflows/programs-conformance.yml:152", ".github/workflows/publish-images.yml:272", "GOTCHA.kvx:2137", "apps/explorer/package.json:26", "apps/explorer/public/static/fonts/README.md:16", "apps/launchpad/qualification/account-ui/run-phase4.py:191", "apps/launchpad/qualification/bootstrap/frontend.py:63", "apps/launchpad/qualification/market-ui/phase4-browser.mjs:33", "apps/launchpad/qualification/mobile/release_harness.py:536", "apps/launchpad/web/src/core/wallet-sdk/test-fixtures/run-l25-check.py:25", "apps/launchpad/web/src/core/wallet-sdk/test-fixtures/run-l25-phase2-check.py:16", "apps/launchpad/web/src/core/wallet-sdk/test-fixtures/run-l25-phase4-check.py:183", "apps/launchpad/web/src/hooks/chat/qualify-connected.py:744", "apps/launchpad/web/src/widgets/community-safety/qualify_widgets.py:25", "apps/launchpad/web/src/widgets/create/run-creation-chain.py:21", "apps/launchpad/web/src/widgets/meta-ag/run-connected-chain.py:30", "apps/launchpad/web/src/widgets/trading/transaction-controls/run-phase2.py:11", "apps/launchpad/web/src/widgets/trading/transaction-controls/run-phase4.py:99", "consensus/cmd/tendermint/commands/gen_autobahn_config.go:29", "contracts/launchpad/operations/README.md:104", "contracts/launchpad/scripts/release-qualify.js:19", "contracts/test/lib.js:364", "core/deps/geth/cmd/devp2p/internal/ethtest/mkchain.sh:9", "core/deps/geth/cmd/evm/README.md:42", "core/deps/geth/cmd/evm/testdata/10/readme.md:6", "core/deps/geth/cmd/evm/testdata/11/readme.md:11", "core/deps/geth/cmd/evm/testdata/12/readme.md:8", "core/deps/geth/cmd/evm/testdata/14/readme.md:7", "core/deps/geth/cmd/evm/testdata/19/readme.md:8", "core/deps/geth/cmd/evm/testdata/20/readme.md:6", "core/deps/geth/cmd/evm/testdata/21/readme.md:8", "core/deps/geth/cmd/evm/testdata/22/readme.md:6", "core/deps/geth/cmd/evm/testdata/29/readme.md:9", "core/deps/geth/cmd/evm/testdata/30/README.txt:10", "core/deps/geth/cmd/evm/testdata/31/README.md:6", "core/deps/geth/cmd/evm/testdata/7/readme.md:6", "core/deps/geth/cmd/evm/testdata/9/readme.md:40", "core/deps/geth/cmd/evm/transition-test.sh:257", "daemon/committed-fixture/main.go:234", "daemon/committed-fixture/vector_v1.go:178", "daemon/committed-fixture/vector_v2.go:57", "daemon/paxd/cmd/proof_node_cli_test.go:70", "daemon/paxd/cmd/sequencer.go:21", "daemon/paxd/cmd/sequencer_genesis_conformance_test.go:36", "daemon/paxd/cmd/sequencer_test.go:43", "deploy/launchpad/production/observability/README.md:9", "deploy/launchpad/production/observability/check.py:3", "deploy/launchpad/production/observability/phase2/build.py:42", "deploy/launchpad/production/observability/phase2/control.py:145", "deploy/launchpad/production/observability/phase2/phase4.py:310", "deploy/launchpad/production/observability/phase2/probes.py:156", "deploy/launchpad/production/observability/phase2/qualify.py:30", "deploy/launchpad/production/observability/phase2/render.py:104", "deploy/launchpad/production/recovery/phase2/providers.py:203", "deploy/launchpad/production/recovery/phase4/release.py:357", "deploy/launchpad/production/recovery/phase4/runbook.md:9", "deploy/launchpad/production/recovery/phase4/test_release.py:93", "deploy/launchpad/production/topology/README.md:11", "deploy/launchpad/production/topology/phase2/capacity.py:583", "deploy/launchpad/production/topology/phase2/operator-runbook.md:3", "deploy/launchpad/production/topology/phase2/operator.py:295", "deploy/launchpad/production/topology/phase2/tests/test_capacity.py:68", "deploy/launchpad/production/topology/tests/test_topology.py:85", "deploy/launchpad/production/topology/topology.py:324", "docker/flyci-runner/Dockerfile:77", "docker/localnode/scripts/step4_config_override.sh:149", "interchain/testing/simapp/simd/cmd/testnet.go:56", "modules/epoch/README.md:15", "modules/launchpad/client/cli/proof_module_cli_test.go:102", "modules/launchpad/client/cli/query_airdrop.go:16", "modules/launchpad/client/cli/query_airdrop_test.go:137", "modules/launchpad/client/cli/query_feeright.go:16", "modules/launchpad/client/cli/query_feeright_test.go:132", "modules/launchpad/client/cli/query_ledger_test.go:121", "modules/launchpad/client/cli/query_market.go:13", "modules/launchpad/client/cli/query_markets.go:44", "modules/launchpad/client/cli/query_markets_test.go:140", "modules/launchpad/client/cli/query_params.go:35", "modules/launchpad/client/cli/query_params_test.go:151", "modules/launchpad/client/cli/query_price_test.go:146", "modules/launchpad/client/cli/query_surface.go:57", "modules/launchpad/client/cli/query_surface_test.go:132", "modules/layerxpay/client/cli/query_test.go:52", "modules/pricefeed/client/cli/query_prices_test.go:89", "modules/pricefeed/client/cli/query_test.go:101", "modules/tokenfactory/client/cli/proof_cli_test.go:153", "node/proof_node_genesis_test.go:63", "node/sequencer/proof_sequencer_config_test.go:68", "programs/sdk/rust/tests/bindgen_conformance.rs:512", "programs/vendor/binaryen-sys-0.12.0/binaryen/scripts/test/wasm_opt.py:131", "programs/vendor/binaryen-sys-0.12.0/binaryen/src/tools/wasm-as.cpp:43", "programs/vendor/binaryen-sys-0.12.0/binaryen/src/tools/wasm-ctor-eval.cpp:417", "programs/vendor/binaryen-sys-0.12.0/binaryen/src/tools/wasm-dis.cpp:36", "programs/vendor/binaryen-sys-0.12.0/binaryen/src/tools/wasm-emscripten-finalize.cpp:68", "programs/vendor/binaryen-sys-0.12.0/binaryen/src/tools/wasm-metadce.cpp:453", "programs/vendor/binaryen-sys-0.12.0/binaryen/src/tools/wasm-opt.cpp:96", "programs/vendor/binaryen-sys-0.12.0/binaryen/src/tools/wasm2js.cpp:878", "programs/vendor/clap_builder-4.6.6/src/parser/matches/arg_matches.rs:53", "programs/vendor/criterion-0.5.1/CHANGELOG.md:151", "programs/vendor/criterion-0.5.1/src/lib.rs:936", "scripts/build/paxeer-x/104.38.10.mk:3", "scripts/check-paxd-native-digest.sh:17", "scripts/ci/restore-build-ownership.py:118", "scripts/paxeer-x/qualify-scan-load.py:107", "scripts/qualification/paxeer-x/program-event-bounds.py:143", "scripts/qualification/paxeer-x/program-http-producer.py:477", "scripts/qualification/paxeer-x/program-terminal-v5.py:128", "sdk/client/keys/show.go:47", "sdk/launchpad/protocol/bootstrap/abi_baseline.py:59", "sdk/launchpad/protocol/bootstrap/test_abi_baseline.py:22", "sdk/launchpad/protocol/generator-inputs/export.py:299", "sdk/launchpad/shared/config/deployment/generate.py:126", "sdk/launchpad/shared/config/deployment/tests/generate.test.sh:11", "sdk/x/evidence/atlas/atlas-v0.41.x.md:146", "sdk/x/gov/client/cli/query_test.go:20", "services/agent/tools/generate-operation.py:53", "services/agent/tools/run-real-node-tests.sh:58", "services/bridge/deploy/deploy-solana-program.sh:384", "services/bridge/deploy/tests/deploy-scripts-check.sh:791", "services/bridge/deploy/tests/fixtures/solana-deploy/toolchain/solana:49", "services/explorer/deploy/tools/gen-swagger.py:1437", "services/interop/deploy/mirror/deploy-solana-mirror.sh:63", "services/interop/deploy/mirror/render-config.py:192", "services/interop/deploy/mirror/tests/render-config-check.sh:86", "services/interop/deploy/mirror/tests/test_render_check_arguments.py:103", "services/launchpad/api/internal/broker/qualify_realtime_v4.py:668", "services/launchpad/metadata/internal/metadata/measure_production.py:468", "services/launchpad/pnl-tracker/internal/production/l17/phase2_qualification.py:901", "services/launchpad/pnl-tracker/internal/production/l18/measurement.py:527", "services/launchpad/pnl-tracker/internal/production/l18/measurement_test.py:32", "services/launchpad/pnl-tracker/internal/production/l18/phase2_qualify.py:14", "services/launchpad/pnl-tracker/internal/production/l18/qualify.py:105", "services/launchpad/pnl-tracker/internal/production/l18/qualify_test.py:93", "services/launchpad/security/control/phase4-browser.cjs:14", "services/launchpad/security/control/qualification_phase4.py:274", "services/launchpad/security/policy/release_harness.py:539", "services/launchpad/security/policy/test_release_harness.py:61", "services/launchpad/security/supplychain/check_phase2.py:284", "services/launchpad/security/supplychain/controller.py:261", "services/launchpad/security/supplychain/reproduce.py:128", "services/launchpad/security/supplychain/sbom.py:73", "services/launchpad/security/supplychain/scanner.py:99", "services/launchpad/social/internal/safety/qualify_phase4.py:285", "services/launchpad/stats-workers/internal/projectionstats/qualify_phase2.py:497", "services/launchpad/stats-workers/internal/projectionstats/reconciliation_test.go:73", "services/launchpad/user/internal/account/qualify_phase4.py:707", "services/platform/hosted/agentd/probe.sh:203", "services/platform/hosted/human/README.md:68", "services/platform/hosted/human/guardians.py:146", "services/platform/hosted/human/onboarding_provision.sh:133", "services/platform/hosted/human/provision.py:963", "services/platform/hosted/human/provision.sh:143", "services/platform/hosted/node/tests/probe/src/main.rs:24", "services/platform/hosted/paxeer/custody-genesis.py:66", "services/platform/hosted/paxeer/fork-rehearsal.sh:364", "services/platform/hosted/paxeer/init-chain.sh:195", "services/platform/hosted/paxeer/tests/settlement_domains.py:33", "services/platform/hosted/testnet/render-status.sh:16", "services/platform/hosted/testnet/tests/hosted-smoke.sh:34", "services/platform/hosted/testnet/tests/journey-credentials.py:19", "services/platform/hosted/testnet/tests/wallet-receipt-journey.py:22", "services/platform/hosted/tests/beta-cluster.sh:370", "services/platform/hosted/tests/publish-images.sh:32", "services/platform/perf-db/.github/workflows/ci.yml:72", "services/platform/ramps/sandbox-journey.sh:276", "services/platform/ramps/toolkit/src/bin/ramp-verify-receipt.rs:67", "services/platform/ramps/toolkit/tests/verify_receipt_cli.rs:15", "storage/tools/cmd/paxdb/operations/dump_flatkv.go:52", "storage/tools/cmd/paxdb/operations/trace_profile_report.go:163", "tests/ci/focused-source-identity.py:130", "tests/ci/test_real_node_build_ownership.py:62", "tests/integration/authz_module/generic_authorization_test.yaml:4", "tests/integration/authz_module/send_authorization_test.yaml:4", "tests/integration/authz_module/staking_authorization_test.yaml:4", "tests/integration/autobahn/autobahn_test.go:496", "tests/integration/bank_module/multi_sig_send_test.yaml:4", "tests/integration/bank_module/send_funds_test.yaml:11", "tests/integration/bank_module/simulation_tx.yaml:17", "tests/integration/contracts/contract_dep_generator.py:31", "tests/integration/contracts/create_tokenfactory_denoms.sh:4", "tests/integration/contracts/deploy_dex_contract.sh:4", "tests/integration/contracts/deploy_timelocked_token_contract.sh:4", "tests/integration/contracts/deploy_wasm_contracts.sh:4", "tests/integration/contracts/verify_cross_validator_flatkv_digest.sh:139", "tests/integration/contracts/verify_flatkv_crash_recovery.sh:138", "tests/integration/contracts/verify_flatkv_evm_migrate.sh:726", "tests/integration/contracts/verify_flatkv_evm_store.sh:52", "tests/integration/contracts/verify_flatkv_only_statesync.sh:354", "tests/integration/contracts/verify_flatkv_partial_loss_fails_loudly.sh:138", "tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh:174", "tests/integration/contracts/verify_flatkv_total_loss_recovery.sh:333", "tests/integration/contracts/verify_statesync_flatkv_digest.sh:128", "tests/integration/dapp_tests/steak/utils.js:8", "tests/integration/dapp_tests/utils.js:106", "tests/integration/db/flatkv_evm_test.yaml:89", "tests/integration/db/state_store_test.yaml:4", "tests/integration/gov_module/gov_proposal_test.yaml:4", "tests/integration/gov_module/staking_proposal_test.yaml:4", "tests/integration/mint_module/mint_test.yaml:6", "tests/integration/oracle_module/set_feeder_test.yaml:4", "tests/integration/oracle_module/verify_penalty_counts.yaml:4", "tests/integration/rpc_tests/utils/chainUtils.ts:210", "tests/integration/staking_module/staking_test.yaml:3", "tests/integration/tokenfactory_module/create_tokenfactory_test.yaml:4", "tests/integration/upgrade_module/scripts/proposal_submit.sh:40", "tests/integration/upgrade_module/scripts/proposal_vote.sh:22", "tests/integration/upgrade_module/scripts/proposal_wait_for_pass.sh:10", "tests/integration/utils/_tx_helpers.sh:64", "tests/integration/wasm_module/timelocked_token_admin_test.yaml:10", "tests/integration/wasm_module/timelocked_token_delegation_test.yaml:7", "tests/integration/wasm_module/timelocked_token_emergency_withdraw_test.yaml:6", "tests/integration/wasm_module/timelocked_token_withdraw_test.yaml:7", "tests/support/generate_beta_genesis.py:22", "tests/test_lxgb_producers.py:19", "tests/vectors/checkpoint/generate.py:117", "tools/benchmark/loadtest/contracts/deploy.sh:44", "tools/benchmark/loadtest/contracts/deploy_fifty_contracts.sh:3", "tools/benchmark/loadtest/contracts/deploy_ten_contracts.sh:3", "tools/benchmark/loadtest/scripts/validator_failures.py:36", "tools/bringup/ca.sh:11", "tools/bringup/check-live.sh:1941", "tools/bringup/check-live.test.sh:388", "tools/bringup/registry-artifacts.py:113", "tools/bringup/sync-fleet.sh:339", "tools/bringup/tests/ca.test.sh:77", "tools/bringup/tests/foundation-artifacts.py:197", "tools/bringup/tests/paxeer-x-fixture-foundation.py:296", "tools/bringup/tests/paxeer-x-runtime-contract.py:3533", "tools/bringup/tests/validator-firewall.test.sh:69", "tools/bringup/value-loop.sh:150", "tools/hpx/publish.sh:81", "tools/launchpad/cache/capacity.py:452", "tools/launchpad/cache/phase2-check.sh:15", "tools/launchpad/delivery/measure_phase4.py:703", "tools/launchpad/delivery/qualify_phase2.py:36", "tools/launchpad/production/bootstrap/baseline.py:192", "tools/launchpad/production/bootstrap/build/check.py:111", "tools/launchpad/production/bootstrap/check-registry.json:72", "tools/launchpad/production/bootstrap/snapshot/snapshot.py:134", "tools/launchpad/production/bootstrap/snapshot/test_snapshot.py:83", "tools/launchpad/production/bootstrap/toolchain/inventory.py:38", "tools/launchpad/production/charts-engine/phase4.py:249", "tools/launchpad/production/charts-history/phase4.py:579", "tools/launchpad/production/dispatcher/README.md:63", "tools/launchpad/production/dispatcher/cli.py:59", "tools/launchpad/production/dispatcher/qualification_cli.py:24", "tools/launchpad/production/feature-acceptance/collect_journeys.py:69", "tools/launchpad/production/feature-acceptance/readiness.py:28", "tools/launchpad/production/integration/journeys.py:434", "tools/launchpad/production/integration/replay_restore.py:460", "tools/launchpad/production/load/phase-2-scenario-manifest.json:44", "tools/launchpad/production/load/phase-3-scenario-manifest.json:92", "tools/launchpad/production/load/phase-4-scenario-manifest.json:39", "tools/launchpad/production/load/phase2_runner.py:372", "tools/launchpad/production/load/phase3_runner.py:529", "tools/launchpad/production/load/phase4_runner.py:303", "tools/ops/keyring-migrate.sh:56", "tools/paxctl/.agent/runbooks/seictl-smoke.md:15", "tools/paxctl/README.md:164", "tools/paxeer-x/build/104.31.6.mk:3", "tools/paxeer-x/build/104.38.9.mk:3", "tools/paxeer-x/candidate.py:410", "tools/paxeer-x/gates/104.16.5.sh:263", "tools/paxeer-x/gates/104.19.2.sh:11", "tools/paxeer-x/gates/104.30.3.sh:257", "tools/paxeer-x/gates/110.8.2.sh:62", "tools/paxeer-x/gov/render.sh:168", "tools/paxeer-x/tests/candidate_test.py:27", "tools/paxeer-x/tests/gate_dispatch_test.py:77", "tools/platform/release/src/fetch.rs:177", "tools/platform/release/src/main.rs:2268", "tools/platform/release/tests/manifest.rs:960", "tools/qualification/beta_driver.py:1590", "tools/qualification/localnode/v6120-node.sh:216", "tools/qualification/paxeer-x/build-caps-codecs.sh:17", "tools/qualification/paxeer-x/deterministic-execution-producer.py:488", "tools/qualification/paxeer-x/event-delivery-contract.py:1356", "tools/qualification/paxeer-x/human-owner-evidence.py:196", "tools/qualification/paxeer-x/program-abi-freeze.py:158", "tools/qualification/paxeer-x/program-abi-policy.py:77", "tools/qualification/paxeer-x/program-bindings-producer.py:237", "tools/qualification/paxeer-x/program-interface-producer.py:194", "tools/qualification/paxeer-x/program-interface.py:77", "tools/qualification/paxeer-x/program-storage-producer.py:113", "tools/qualification/paxeer-x/programs_typed_interfaces.py:275", "tools/qualification/paxeer-x/ramp-source-settlement.py:288", "tools/qualification/paxeer-x/storage-recovery-producer.py:160", "tools/qualification/paxeer_x_release.py:292", "tools/qualification/release_runner.py:649", "tools/qualification/test_beta_driver.py:267", "tools/release/rehearsal/rewrite_genesis.py:181", "tools/release/rehearsal/test_rewrite_genesis.py:159", "tools/release/rehearse-v6120.sh:626", "tools/release/tests/snapshot.test.sh:149", "tools/uci/.github/workflows/ai-review.yml:674", "tools/wasm-tools/README.md:120", "tools/wasm-tools/tests/cli/help-addr2line-short.wat.stdout:16", "tools/wasm-tools/tests/cli/help-addr2line.wat.stdout:50", "tools/wasm-tools/tests/cli/help-component-embed-short.wat.stdout:19", "tools/wasm-tools/tests/cli/help-component-embed.wat.stdout:59", "tools/wasm-tools/tests/cli/help-component-new-short.wat.stdout:19", "tools/wasm-tools/tests/cli/help-component-new.wat.stdout:62", "tools/wasm-tools/tests/cli/help-component-wit-short.wat.stdout:14", "tools/wasm-tools/tests/cli/help-component-wit.wat.stdout:37", "tools/wasm-tools/tests/cli/help-demangle-short.wat.stdout:9", "tools/wasm-tools/tests/cli/help-demangle.wat.stdout:19", "tools/wasm-tools/tests/cli/help-metadata-add-short.wat.stdout:14", "tools/wasm-tools/tests/cli/help-metadata-add.wat.stdout:28", "tools/wasm-tools/tests/cli/help-metadata-show-short.wat.stdout:9", "tools/wasm-tools/tests/cli/help-metadata-show.wat.stdout:14", "tools/wasm-tools/tests/cli/help-objdump-short.wat.stdout:9", "tools/wasm-tools/tests/cli/help-objdump.wat.stdout:17", "tools/wasm-tools/tests/cli/help-parse-short.wat.stdout:14", "tools/wasm-tools/tests/cli/help-parse.wat.stdout:31", "tools/wasm-tools/tests/cli/help-print-short.wat.stdout:14", "tools/wasm-tools/tests/cli/help-print.wat.stdout:28", "tools/wasm-tools/tests/cli/help-strip-short.wat.stdout:9", "tools/wasm-tools/tests/cli/help-strip.wat.stdout:18", "wasm/contrib/relayer-tests/one_chain.sh:74"]
+
+[row.r8-46.23]
+interface = "interface.8.env-paxeer-layerx-paxeer-boundary-url"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-guarantors.sh"
+line = 39
+symbol = "LAYERX_PAXEER_BOUNDARY_URL"
+evidence = "The registered anchor-guarantors.sh consumer is absent, as specified by task 8.14.2; other consumers or textual mentions are inventoried separately. Decision override.J40.129. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 3
+remaining = ["services/platform/hosted/paxeer/deploy-contracts.sh:40", "services/platform/hosted/paxeer/tests/real_chain.py:178", "services/platform/hosted/tests/beta-cluster.sh:2940"]
+
+[row.r8-46.24]
+interface = "interface.8.env-paxeer-layerx-paxeer-boundary-ca-der"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-guarantors.sh"
+line = 40
+symbol = "LAYERX_PAXEER_BOUNDARY_CA_DER"
+evidence = "The registered anchor-guarantors.sh consumer is absent, as specified by task 8.14.2; other consumers or textual mentions are inventoried separately. Decision override.J40.130. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 2
+remaining = ["services/platform/hosted/paxeer/deploy-contracts.sh:41", "services/platform/hosted/paxeer/tests/real_chain.py:179"]
+
+[row.r8-46.25]
+interface = "interface.8.env-paxeer-layerx-paxeer-chain-id"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-guarantors.sh"
+line = 41
+symbol = "LAYERX_PAXEER_CHAIN_ID"
+evidence = "The registered anchor-guarantors.sh consumer is absent, as specified by task 8.14.2; other consumers or textual mentions are inventoried separately. Decision override.J40.131. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 15
+remaining = ["docker/kernel/init.sh:1178", "services/platform/hosted/paxeer/deploy-contracts.sh:42", "services/platform/hosted/paxeer/deployment.yaml:44", "services/platform/hosted/paxeer/init-chain.sh:36", "services/platform/hosted/paxeer/src/main.rs:154", "services/platform/hosted/paxeer/tests/deployment_profile.py:25", "services/platform/hosted/paxeer/tests/genesis.py:60", "services/platform/hosted/paxeer/tests/real_chain.py:43", "services/platform/tests/support/tls_boundary.rs:194", "tools/bringup/tests/paxeer-x-fixture-foundation.py:304", "tools/qualification/beta_driver.py:104", "tools/qualification/paxeer-x/fixtures/xweb_fixture.py:216", "tools/qualification/test_beta_driver.py:381", "tools/release/tests/build.test.sh:172", "tools/release/tests/rollback.test.sh:135"]
+
+[row.r8-46.26]
+interface = "interface.8.env-paxeer-layerx-paxeer-deployer-key-file"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-guarantors.sh"
+line = 42
+symbol = "LAYERX_PAXEER_DEPLOYER_KEY_FILE"
+evidence = "The registered anchor-guarantors.sh consumer is absent, as specified by task 8.14.2; other consumers or textual mentions are inventoried separately. Decision override.J40.132. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 2
+remaining = ["services/platform/hosted/paxeer/deploy-contracts.sh:43", "services/platform/hosted/paxeer/tests/real_chain.py:180"]
+
+[row.r8-46.27]
+interface = "interface.8.env-paxeer-layerx-paxeer-anchor-genesis"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-guarantors.sh"
+line = 43
+symbol = "LAYERX_PAXEER_ANCHOR_GENESIS"
+evidence = "The registered anchor-guarantors.sh consumer is absent, as specified by task 8.14.2; other consumers or textual mentions are inventoried separately. Decision override.J40.133. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 1
+remaining = ["services/platform/hosted/tests/test_retired_kernel_scripts.py:19"]
+
+[row.r8-46.28]
+interface = "interface.8.env-paxeer-layerx-paxeer-guarantors"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-guarantors.sh"
+line = 44
+symbol = "LAYERX_PAXEER_GUARANTORS"
+evidence = "The registered anchor-guarantors.sh consumer is absent, as specified by task 8.14.2; other consumers or textual mentions are inventoried separately. Decision override.J40.134. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 2
+remaining = ["services/platform/hosted/paxeer/deploy-contracts.sh:48", "services/platform/hosted/paxeer/tests/real_chain.py:183"]
+
+[row.r8-46.29]
+interface = "interface.8.env-paxeer-layerx-paxeer-guarantor-keys-dir"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-guarantors.sh"
+line = 45
+symbol = "LAYERX_PAXEER_GUARANTOR_KEYS_DIR"
+evidence = "The registered anchor-guarantors.sh consumer is absent, as specified by task 8.14.2; other consumers or textual mentions are inventoried separately. Decision override.J40.135. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 2
+remaining = ["services/platform/hosted/paxeer/deploy-contracts.sh:49", "services/platform/hosted/paxeer/tests/real_chain.py:184"]
+
+[row.r8-46.30]
+interface = "interface.8.env-paxeer-layerx-paxeer-settlement-json"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-guarantors.sh"
+line = 46
+symbol = "LAYERX_PAXEER_SETTLEMENT_JSON"
+evidence = "The registered anchor-guarantors.sh consumer is absent, as specified by task 8.14.2; other consumers or textual mentions are inventoried separately. Decision override.J40.136. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 4
+remaining = ["services/platform/hosted/node/bootstrap.sh:242", "services/platform/hosted/node/supervisor.sh:568", "services/platform/hosted/paxeer/deploy-contracts.sh:52", "services/platform/hosted/paxeer/tests/real_chain.py:186"]
+
+[row.r8-46.31]
+interface = "interface.8.env-paxeer-layerx-paxeer-settlement-domain"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-guarantors.sh"
+line = 47
+symbol = "LAYERX_PAXEER_SETTLEMENT_DOMAIN"
+evidence = "The registered anchor-guarantors.sh consumer is absent, as specified by task 8.14.2; other consumers or textual mentions are inventoried separately. Decision override.J40.137. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 1
+remaining = ["services/platform/hosted/paxeer/deploy-contracts.sh:53"]
+
+[row.r8-46.32]
+interface = "interface.8.env-paxeer-layerx-paxeer-protocol-version"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-guarantors.sh"
+line = 48
+symbol = "LAYERX_PAXEER_PROTOCOL_VERSION"
+evidence = "The registered anchor-guarantors.sh consumer is absent, as specified by task 8.14.2; other consumers or textual mentions are inventoried separately. Decision override.J40.138. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-46.33]
+interface = "interface.8.env-paxeer-layerx-paxeer-controller-gas-wei"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-guarantors.sh"
+line = 49
+symbol = "LAYERX_PAXEER_CONTROLLER_GAS_WEI"
+evidence = "The registered anchor-guarantors.sh consumer is absent, as specified by task 8.14.2; other consumers or textual mentions are inventoried separately. Decision override.J40.139. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 1
+remaining = ["services/platform/hosted/paxeer/deploy-contracts.sh:80"]
+
+[row.r8-46.34]
+interface = "interface.8.env-paxeer-guarantors"
+verdict = "retired"
+path = "services/platform/hosted/paxeer/anchor-guarantors.sh"
+line = 58
+symbol = "GUARANTORS"
+evidence = "The registered anchor-guarantors.sh consumer is absent, as specified by task 8.14.2; other consumers or textual mentions are inventoried separately. Decision override.J40.140. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 0
+remaining = []
+
+[row.r8-46.35]
+interface = "interface.8.http-paxeer-any-store-layerxcustody-key"
+verdict = "served"
+path = "services/platform/hosted/paxeer/src/comet.rs"
+line = 467
+symbol = "/store/layerxcustody/key"
+evidence = "The literal /store/layerxcustody/key remains only in custody_store_query_is_refused test inputs at lines 467 and 475. Admission is retired per decision override.J40.101: validate now accepts only /store/evm/key at line 142 and the custody inputs assert RPC error -32602. Served records literal presence, not a live custody endpoint."
+
+[row.r8-46.36]
+interface = "interface.8.http-registry-post-registry-deployments"
+verdict = "served"
+path = "services/platform/hosted/registry/src/routes.rs"
+line = 293
+symbol = "/__registry/deployments"
+evidence = "POST /__registry/deployments remains declared at line 293, but the match arm now requires LAYERX_REGISTRY_CHAIN_RPC_URL and calls route_chain_deployment(request, &self.request_authority, &self.chain_deployment_journal, &endpoint, deadline), replacing ingest_deployment(&request.body, deadline)."
+
+[row.r8-46.37]
+interface = "interface.8.http-registry-post-registry-head"
+verdict = "served"
+path = "services/platform/hosted/registry/src/routes.rs"
+line = 312
+symbol = "/__registry/head"
+evidence = "POST /__registry/head remains declared at line 312, but the match arm now requires LAYERX_REGISTRY_CHAIN_RPC_URL and calls route_chain_head(request, &self.request_authority, &self.journal, &endpoint, deadline), replacing ingest_head(now)."
+
+[row.r8-46.38]
+interface = "interface.8.env-testnet-layerx-testnet-registry-url"
+verdict = "retired"
+path = "services/platform/hosted/testnet/run-testnet.sh"
+line = 12
+symbol = "LAYERX_TESTNET_REGISTRY_URL"
+evidence = "run-testnet.sh no longer requires LAYERX_TESTNET_REGISTRY_URL; its program-registry probe was retired under task 8.14.4. Decision override.J40.102. Remaining references use a repository-wide text search excluding spec and docs directories, with one first occurrence per file."
+remaining_refs = 2
+remaining = ["services/platform/hosted/testnet/deployment.yaml:95", "services/platform/hosted/tests/topology-regressions.py:19"]
+
+[row.r8-46.39]
+interface = "interface.8.rs-webhooks-layerx-platform-webhooks-events-verification"
+verdict = "served"
+path = "services/platform/hosted/webhooks/src/events.rs"
+line = 20
+symbol = "Verification"
+evidence = "pub enum Verification { remains the declaration. Its wire vocabulary is now Unverified, ReceiptVerified and BlockCommitted; checkpoint-finalised and paxeer-finalised are absent from public parsing and decode only through the stored-record migration, matching decision override.J40.100."
+
+[row.r8-46.40]
+interface = "interface.8.ts-middleware-agent-sidiora-layerx-agent-middleware-decodedaemonprepared"
+verdict = "served"
+path = "services/platform/middleware/agent/src/daemon.ts"
+line = 95
+symbol = "decodeDaemonPrepared"
+evidence = "export function decodeDaemonPrepared(value: unknown, request: AgentSpendRequest, _protocolVersion: number): PreparedActivity { renames protocolVersion to _protocolVersion. The returned preparation now carries chain_id, nonce, EIP-1559 gas fields and signing_hash validated against the request network."
+
+[row.r8-46.41]
+interface = "interface.8.ts-middleware-agent-sidiora-layerx-agent-middleware-signedactivityid"
+verdict = "served"
+path = "services/platform/middleware/agent/src/daemon.ts"
+line = 125
+symbol = "signedActivityId"
+evidence = "export function signedActivityId(prepared: PreparedActivity, signature: string, publicKey: string): string { retains the registered signature. Its implementation now appends the signature to the unsigned EIP-1559 RLP, verifies the recovered sender and returns keccak256(raw) as the transaction hash."
+
+[row.r8-46.42]
+interface = "interface.8.ts-middleware-agent-sidiora-layerx-agent-middleware-decodedaemonsubmission"
+verdict = "served"
+path = "services/platform/middleware/agent/src/daemon.ts"
+line = 143
+symbol = "decodeDaemonSubmission"
+evidence = "export function decodeDaemonSubmission(value: unknown, expectedTxHash?: string, expectedReference?: string): Submission { replaces expectedActivityId with expectedTxHash. It checks tx_hash and constructs a portableReceipt containing raw_transaction, signed_receipt and sequencer receipt-key evidence."
+
+[row.r8-46.43]
+interface = "interface.8.ts-middleware-agent-sidiora-layerx-agent-middleware-agentspendrequest"
+verdict = "served"
+path = "services/platform/middleware/agent/src/index.ts"
+line = 30
+symbol = "AgentSpendRequest"
+evidence = "export interface AgentSpendRequest { retains its declaration name. The current body uses preparation: DaemonPreparation and networkId: string, plus signerPublicKey, submitIdempotencyKey, approvalCurrentSequence and optional commitment and walletApprovalId for chain transaction preparation."
+
+[row.r8-46.44]
+interface = "interface.8.ts-middleware-agent-sidiora-layerx-agent-middleware-preparedactivity"
+verdict = "served"
+path = "services/platform/middleware/agent/src/index.ts"
+line = 117
+symbol = "PreparedActivity"
+evidence = "export interface PreparedActivity { retains its declaration name. Its current signature includes preparation_ref, chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, to, data, signing_hash and sender, describing the EIP-1559 transaction to sign."
+
+[row.r8-46.45]
+interface = "interface.8.ts-middleware-agent-index-submission-j41"
+verdict = "served"
+path = "services/platform/middleware/agent/src/index.ts"
+line = 141
+symbol = "Submission"
+evidence = "export interface Submission { remains exported at line 141. Its current shape requires tx_hash: string and optionally carries portableReceipt: PortableReceiptV2 with verification_level limited to Submitted, Receipted or Committed, alongside receipt_ref, receiptEvidence and transitions."
+
+[row.r8-46.46]
+interface = "interface.8.ts-middleware-agent-sidiora-layerx-agent-middleware-agentreceiptevidence"
+verdict = "served"
+path = "services/platform/middleware/agent/src/index.ts"
+line = 167
+symbol = "AgentReceiptEvidence"
+evidence = "export interface AgentReceiptEvidence extends PortableReceiptV2 {} replaces the recorded standalone interface declaration. It inherits format layerx-receipt-proof-v2, rawTransaction, signedReceipt, receiptDigest, receiptKey and the receipted or committed verificationLevel."
+
+[row.r8-46.47]
+interface = "interface.8.ts-middleware-agent-sidiora-layerx-agent-middleware-agentreceiptresolver"
+verdict = "served"
+path = "services/platform/middleware/agent/src/index.ts"
+line = 179
+symbol = "AgentReceiptResolver"
+evidence = "export interface AgentReceiptResolver { keeps resolve(receiptRef: string): Promise<AgentReceiptEvidence>. Its current body also exposes optional resolveFor(receiptRef, context: AgentReceiptContext) and retainVerified(record: AgentReceiptRecording), retaining transaction receipt context."
+
+[row.r8-46.48]
+interface = "interface.8.ts-middleware-agent-index-agentmiddlewareconfig-j41"
+verdict = "served"
+path = "services/platform/middleware/agent/src/index.ts"
+line = 222
+symbol = "AgentMiddlewareConfig"
+evidence = "export interface AgentMiddlewareConfig { retains its declaration name. Its current body requires readonly receiptKeys: readonly SequencerReceiptKey[] and accepts optional commitments: PaymentCommitmentResolver, budgets: AgentBudgetLedger and preparationBudgets: AgentPreparationBudget."
+
+[row.r8-46.49]
+interface = "interface.8.ts-middleware-agent-sidiora-layerx-agent-middleware-agentmiddleware"
+verdict = "served"
+path = "services/platform/middleware/agent/src/index.ts"
+line = 248
+symbol = "AgentMiddleware"
+evidence = "export class AgentMiddleware { retains its declaration name and constructor(config: AgentMiddlewareConfig). The current constructor copies sequencer receipt keys and requires exactly one of budgets or preparationBudgets; spend(input: AgentSpendRequest) returns Promise<AgentSpendResult> with chain receipt verification."
+
+[row.r8-46.50]
+interface = "interface.8.ts-middleware-agent-index-verifycommittedagentpayment-j41"
+verdict = "served"
+path = "services/platform/middleware/agent/src/index.ts"
+line = 864
+symbol = "verifyCommittedAgentPayment"
+evidence = "export async function verifyCommittedAgentPayment( remains exported. The complete current signature takes AgentReceiptEvidence, CommittedBudgetReservation, AgentPaymentTerms, readonly SequencerReceiptKey[] and optional PaymentCommitmentResolver, returning Promise<Extract<AgentSpendResult, { readonly kind: \"verified\" }>> after receipt digest and reservation-term checks."
+
+[row.r8-46.51]
+interface = "interface.8.ts-middleware-agent-sidiora-layerx-agent-middleware-verifyagentpayment"
+verdict = "served"
+path = "services/platform/middleware/agent/src/index.ts"
+line = 879
+symbol = "verifyAgentPayment"
+evidence = "export async function verifyAgentPayment( is now multiline with evidence: AgentReceiptEvidence, request: AgentSpendRequest, receiptKeys: readonly SequencerReceiptKey[], commitments?: PaymentCommitmentResolver and return Promise<PaymentReceiptVerification>. It checks the raw EIP-1559 chainId against request.networkId."
+
+[row.r8-46.52]
+interface = "interface.8.ts-middleware-agent-index-agentgrantmiddleware-j41"
+verdict = "served"
+path = "services/platform/middleware/agent/src/index.ts"
+line = 892
+symbol = "AgentGrantMiddleware"
+evidence = "export class AgentGrantMiddleware implements GrantDrawExecution { retains the registered declaration. Its current constructor requires receiptKeys: readonly SequencerReceiptKey[], budgets, draws and receipts, with optional commitments; execute checks the raw EIP-1559 grant draw and returns Promise<SellerSettlementOutcome>."
+
+[row.r8-46.53]
+interface = "interface.8.ts-middleware-buyer-index-buyermiddlewareconfig-j41"
+verdict = "served"
+path = "services/platform/middleware/buyer/src/index.ts"
+line = 65
+symbol = "BuyerMiddlewareConfig"
+evidence = "export interface BuyerMiddlewareConfig { retains its declaration name. The current body requires client, source, supported and readonly receiptKeys: readonly SequencerReceiptKey[]; optional commitments: PaymentCommitmentResolver supplies stronger payment commitment verification."
+
+[row.r8-46.54]
+interface = "interface.8.ts-middleware-buyer-sidiora-layerx-buyer-middleware-parsedoffer"
+verdict = "served"
+path = "services/platform/middleware/buyer/src/index.ts"
+line = 76
+symbol = "ParsedOffer"
+evidence = "export interface ParsedOffer { is unchanged as a declaration; its fields remain required: PaymentRequired and accepted: PaymentRequirements. The current parseOffer implementation matches supported scheme and eip155 network and requires a commitment resolver for levels above receipted."
+
+[row.r8-46.55]
+interface = "interface.8.ts-middleware-buyer-index-evidencereference-j41"
+verdict = "served"
+path = "services/platform/middleware/buyer/src/index.ts"
+line = 114
+symbol = "EvidenceReference"
+evidence = "export interface EvidenceReference { retains the registered declaration and the string fields evidence_id, class and verification. No declaration change was observed; the current Journey evidence and stage evidence arrays still reference this type."
+
+[row.r8-46.56]
+interface = "interface.8.ts-middleware-buyer-sidiora-layerx-buyer-middleware-journey"
+verdict = "served"
+path = "services/platform/middleware/buyer/src/index.ts"
+line = 120
+symbol = "Journey"
+evidence = "export interface Journey { retains the registered declaration. Its current shape uses state: JourneyState, evidence: readonly EvidenceReference[], per-stage state and evidence, started_at and updated_at; optional refusal records refused_by, copy_key and money_left. There is no new extends clause."
+
+[row.r8-46.57]
+interface = "interface.8.ts-middleware-buyer-index-evidencematerial-j41"
+verdict = "served"
+path = "services/platform/middleware/buyer/src/index.ts"
+line = 141
+symbol = "EvidenceMaterial"
+evidence = "export interface EvidenceMaterial { retains the registered declaration and string fields evidence_id, class, verification, content_type and bytes_base64. No declaration change was observed; receipt material is still transported as base64 bytes for decoding."
+
+[row.r8-46.58]
+interface = "interface.8.ts-middleware-buyer-sidiora-layerx-buyer-middleware-preparedpayment"
+verdict = "served"
+path = "services/platform/middleware/buyer/src/index.ts"
+line = 149
+symbol = "PreparedPayment"
+evidence = "export interface PreparedPayment extends PortableReceiptV2 { adds the inheritance missing from the registered export interface PreparedPayment { signature. It combines the portable sequencer receipt with offer, quote, journey, payload, paymentHeader, idempotencyKey, PaymentReceiptVerification and txHash."
+
+[row.r8-46.59]
+interface = "interface.8.ts-middleware-buyer-index-capturedsettlement-j41"
+verdict = "served"
+path = "services/platform/middleware/buyer/src/index.ts"
+line = 166
+symbol = "CapturedSettlement"
+evidence = "export interface CapturedSettlement extends PortableReceiptV2 { adds the inheritance missing from the registered declaration. Its own fields are response: SettlementResponse, verification: PaymentReceiptVerification and txHash: string; receipt bytes and sequencer keys come from PortableReceiptV2."
+
+[row.r8-46.60]
+interface = "interface.8.ts-middleware-buyer-sidiora-layerx-buyer-middleware-buyermiddleware"
+verdict = "served"
+path = "services/platform/middleware/buyer/src/index.ts"
+line = 190
+symbol = "BuyerMiddleware"
+evidence = "export class BuyerMiddleware { retains its declaration name. Its constructor(config: BuyerMiddlewareConfig) now copies sequencer receipt keys and validates eip155 network ids; prepare returns Promise<PaymentPreparation>, while captureSettlement verifies portable receipt material and grant methods handle raw EIP-1559 draws."
