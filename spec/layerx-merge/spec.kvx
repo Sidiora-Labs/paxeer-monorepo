@@ -130242,7 +130242,7 @@ do_7 = "Decision 2402 (attempts 5 to 8): every terminal-v5 corpus build exits 2 
 
 [task.22.9.17]
 title = "Reconcile the agent crates' vector counts, settlement fixtures and address casing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24", "22.9.25", "22.9.33"]
