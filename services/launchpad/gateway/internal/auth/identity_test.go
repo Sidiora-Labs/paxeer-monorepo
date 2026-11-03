@@ -85,7 +85,7 @@ func fixtureIdentity(t *testing.T) *identityFixture {
 	}
 	migration := string(sql)
 	baseStart := strings.Index(migration, "CREATE TABLE identity_accounts(")
-	baseEnd := strings.Index(migration, "CREATE TABLE identity_reauth(")
+	baseEnd := strings.Index(migration, "ALTER TABLE identity_tickets ADD COLUMN binding jsonb;")
 	immutableStart := strings.Index(migration, "CREATE FUNCTION identity_verified_at_immutable()")
 	immutableEnd := strings.Index(migration, "-- +goose Down")
 	if baseStart < 0 || baseEnd <= baseStart || immutableStart <= baseEnd || immutableEnd <= immutableStart {

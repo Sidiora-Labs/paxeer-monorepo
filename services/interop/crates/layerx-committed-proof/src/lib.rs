@@ -577,8 +577,11 @@ fn verify_receipt_view(
         return Err(ProofError::InvalidReceipt);
     }
     let denom = std::str::from_utf8(&body[109..]).map_err(|_| ProofError::InvalidReceipt)?;
-    if <[u8; 32]>::from(Sha256::digest(denom.as_bytes())) != asset {
-        return Err(ProofError::InvalidReceipt);
+    let payment_denom = view_string(&view, "paymentDenom")?;
+    if payment_denom.is_empty()
+        || <[u8; 32]>::from(Sha256::digest(payment_denom.as_bytes())) != asset
+    {
+        return Err(ProofError::ReceiptViewMismatch);
     }
     let mut summary_reader = ReceiptReader(body);
     for name in ["gasUsed", "cumulativeGasUsed", "effectiveGasPrice"] {
@@ -605,6 +608,7 @@ fn verify_receipt_view(
     }
     expected["vmError"] = vm_error.into();
     expected["returnData"] = receipt_hex(&return_data).into();
+    expected["paymentDenom"] = payment_denom.into();
     expected["feeDenom"] = denom.into();
     let logs = view
         .get("logs")

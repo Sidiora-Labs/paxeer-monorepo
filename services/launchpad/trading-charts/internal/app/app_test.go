@@ -2,12 +2,15 @@ package app_test
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	sharedlog "github.com/Sidiora-Technologies/KindleLaunch/shared/log"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/app"
@@ -82,25 +85,35 @@ func TestNewBadDatabase(t *testing.T) {
 // is cancelled.
 func TestRunShutsDownOnContextCancel(t *testing.T) {
 	cfg := testConfig(t)
-	addr := "0x1111111111111111111111111111111111111111"
+	roles := deployment.Current().Roles
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	if err := listener.Close(); err != nil {
+		t.Fatal(err)
+	}
 	env := map[string]string{
 		"DATABASE_URL":            cfg.DatabaseURL,
 		"REDIS_URL":               cfg.RedisURL,
 		"REDIS_BULL_URL":          cfg.RedisURL,
 		"RPC_URL":                 "https://rpc.example.com/rpc",
-		"EVENT_EMITTER_ADDRESS":   addr,
-		"POOL_REGISTRY_ADDRESS":   addr,
-		"ROUTER_ADDRESS":          addr,
-		"FACTORY_ADDRESS":         addr,
-		"QUOTER_ADDRESS":          addr,
-		"PROTOCOL_CONFIG_ADDRESS": addr,
-		"FEE_ACCUMULATOR_ADDRESS": addr,
-		"SIDIORA_NFT_ADDRESS":     addr,
-		"FEES_ROUTER_ADDRESS":     addr,
-		"POOL_BEACON_ADDRESS":     addr,
+		"EVENT_EMITTER_ADDRESS":   roles["EventEmitter"].Address,
+		"POOL_REGISTRY_ADDRESS":   roles["PoolRegistry"].Address,
+		"ROUTER_ADDRESS":          roles["Router"].Address,
+		"FACTORY_ADDRESS":         roles["SidioraFactory"].Address,
+		"QUOTER_ADDRESS":          roles["Quoter"].Address,
+		"PROTOCOL_CONFIG_ADDRESS": roles["ProtocolConfig"].Address,
+		"FEE_ACCUMULATOR_ADDRESS": roles["FeeAccumulator"].Address,
+		"SIDIORA_NFT_ADDRESS":     roles["SidioraNFT"].Address,
+		"FEES_ROUTER_ADDRESS":     roles["FeesRouter"].Address,
+		"POOL_BEACON_ADDRESS":     roles["PoolBeacon"].Address,
 		"WEBHOOK_HMAC_SECRET":     strings.Repeat("s", 32),
 		"LOG_LEVEL":               "error",
-		"PORT":                    "0",
+		"PORT":                    strconv.Itoa(port),
+		"BIND_ADDRESS":            "127.0.0.1",
+		"NODE_ENV":                "development",
 	}
 	for k, v := range env {
 		t.Setenv(k, v)

@@ -15,10 +15,10 @@ use crate::store::{Store, TenantId};
 
 mod events;
 mod expiry;
-pub(crate) mod program_requirement;
+pub(crate) mod native_effect;
 pub(crate) mod native_program;
 pub mod native_program_presentation;
-pub(crate) mod native_effect;
+pub(crate) mod program_requirement;
 pub(crate) use expiry::PreparedDecision;
 
 #[cfg(test)]
@@ -77,19 +77,34 @@ mod receipt_settlement_tests {
     }
 
     fn prepared(id: u8) -> Prepared {
-        let bytes = format!("receipt-settlement-preparation-{id}").into_bytes();
+        let call = layerx_crypto::evm_transaction::Eip1559Call {
+            chain_id: 125,
+            nonce: u64::from(id),
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 100_000,
+            to: [3; 20],
+            data: [
+                layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)")
+                    .to_vec(),
+                [vec![0; 12], vec![5; 20]].concat(),
+                [vec![0; 31], vec![50]].concat(),
+            ]
+            .concat(),
+        };
+        let bytes = call.encode_unsigned();
         let digest: [u8; 32] = Sha256::digest(&bytes).into();
         Prepared {
             preparation_ref: PreparationRef::new(format!("prepared-{id}"))
                 .unwrap_or_else(|error| panic!("preparation: {error:?}")),
             unsigned_canonical_bytes: CanonicalBytes::new(bytes)
                 .unwrap_or_else(|error| panic!("bytes: {error:?}")),
-            signing_preimage: SigningPreimage::new(vec![id; 32])
+            signing_preimage: SigningPreimage::new(call.signing_hash().to_vec())
                 .unwrap_or_else(|error| panic!("preimage: {error:?}")),
             disclosure: Disclosure {
                 canonical_digest: digest,
                 activity_type: ActivityType(7),
-                actor: AgentDid::new("did:layerx:receipt-settlement")
+                actor: AgentDid::new("0404040404040404040404040404040404040404")
                     .unwrap_or_else(|error| panic!("actor: {error:?}")),
                 authority: AuthorityRef::new("session-key")
                     .unwrap_or_else(|error| panic!("authority: {error:?}")),
@@ -161,8 +176,9 @@ mod receipt_settlement_tests {
         hold_reserved(
             &registry,
             ApprovalContext {
+                actor_address: [4; 20],
                 tenant: tenant(),
-                agent: Did::new(b"did:layerx:receipt-settlement")
+                agent: Did::new(b"0404040404040404040404040404040404040404")
                     .unwrap_or_else(|error| panic!("agent: {error:?}")),
                 session: SessionId([2; 32]),
                 capability: CapabilityId([3; 32]),
@@ -502,19 +518,34 @@ mod lock_order_tests {
     }
 
     fn prepared(id: u8) -> Prepared {
-        let bytes = format!("lock-order-preparation-{id}").into_bytes();
+        let call = layerx_crypto::evm_transaction::Eip1559Call {
+            chain_id: 125,
+            nonce: u64::from(id),
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 100_000,
+            to: [3; 20],
+            data: [
+                layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)")
+                    .to_vec(),
+                [vec![0; 12], vec![5; 20]].concat(),
+                [vec![0; 31], vec![50]].concat(),
+            ]
+            .concat(),
+        };
+        let bytes = call.encode_unsigned();
         let digest: [u8; 32] = Sha256::digest(&bytes).into();
         Prepared {
             preparation_ref: PreparationRef::new(format!("prepared-{id}"))
                 .unwrap_or_else(|error| panic!("preparation: {error:?}")),
             unsigned_canonical_bytes: CanonicalBytes::new(bytes)
                 .unwrap_or_else(|error| panic!("bytes: {error:?}")),
-            signing_preimage: SigningPreimage::new(vec![id; 32])
+            signing_preimage: SigningPreimage::new(call.signing_hash().to_vec())
                 .unwrap_or_else(|error| panic!("preimage: {error:?}")),
             disclosure: Disclosure {
                 canonical_digest: digest,
                 activity_type: ActivityType(7),
-                actor: AgentDid::new("did:layerx:lock-order")
+                actor: AgentDid::new("0404040404040404040404040404040404040404")
                     .unwrap_or_else(|error| panic!("actor: {error:?}")),
                 authority: AuthorityRef::new("session-key")
                     .unwrap_or_else(|error| panic!("authority: {error:?}")),
@@ -620,8 +651,9 @@ mod lock_order_tests {
         hold_reserved(
             &shared.registry,
             ApprovalContext {
+                actor_address: [4; 20],
                 tenant: tenant(),
-                agent: Did::new(b"did:layerx:lock-order")
+                agent: Did::new(b"0404040404040404040404040404040404040404")
                     .unwrap_or_else(|error| panic!("agent: {error:?}")),
                 session: SessionId([2; 32]),
                 capability: CapabilityId([3; 32]),
@@ -800,19 +832,34 @@ mod reject_persist_tests {
     }
 
     fn prepared(id: u8) -> Prepared {
-        let bytes = format!("lock-order-preparation-{id}").into_bytes();
+        let call = layerx_crypto::evm_transaction::Eip1559Call {
+            chain_id: 125,
+            nonce: u64::from(id),
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 100_000,
+            to: [3; 20],
+            data: [
+                layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)")
+                    .to_vec(),
+                [vec![0; 12], vec![5; 20]].concat(),
+                [vec![0; 31], vec![50]].concat(),
+            ]
+            .concat(),
+        };
+        let bytes = call.encode_unsigned();
         let digest: [u8; 32] = Sha256::digest(&bytes).into();
         Prepared {
             preparation_ref: PreparationRef::new(format!("prepared-{id}"))
                 .unwrap_or_else(|error| panic!("preparation: {error:?}")),
             unsigned_canonical_bytes: CanonicalBytes::new(bytes)
                 .unwrap_or_else(|error| panic!("bytes: {error:?}")),
-            signing_preimage: SigningPreimage::new(vec![id; 32])
+            signing_preimage: SigningPreimage::new(call.signing_hash().to_vec())
                 .unwrap_or_else(|error| panic!("preimage: {error:?}")),
             disclosure: Disclosure {
                 canonical_digest: digest,
                 activity_type: ActivityType(7),
-                actor: AgentDid::new("did:layerx:lock-order")
+                actor: AgentDid::new("0404040404040404040404040404040404040404")
                     .unwrap_or_else(|error| panic!("actor: {error:?}")),
                 authority: AuthorityRef::new("session-key")
                     .unwrap_or_else(|error| panic!("authority: {error:?}")),
@@ -917,8 +964,9 @@ mod reject_persist_tests {
         hold_reserved(
             &shared.registry,
             ApprovalContext {
+                actor_address: [4; 20],
                 tenant: tenant(),
-                agent: Did::new(b"did:layerx:lock-order")
+                agent: Did::new(b"0404040404040404040404040404040404040404")
                     .unwrap_or_else(|error| panic!("agent: {error:?}")),
                 session: SessionId([2; 32]),
                 capability: CapabilityId([3; 32]),
@@ -1103,19 +1151,34 @@ mod defective_persist_tests {
     }
 
     fn prepared(id: u8) -> Prepared {
-        let bytes = format!("lock-order-preparation-{id}").into_bytes();
+        let call = layerx_crypto::evm_transaction::Eip1559Call {
+            chain_id: 125,
+            nonce: u64::from(id),
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 100_000,
+            to: [3; 20],
+            data: [
+                layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)")
+                    .to_vec(),
+                [vec![0; 12], vec![5; 20]].concat(),
+                [vec![0; 31], vec![50]].concat(),
+            ]
+            .concat(),
+        };
+        let bytes = call.encode_unsigned();
         let digest: [u8; 32] = Sha256::digest(&bytes).into();
         Prepared {
             preparation_ref: PreparationRef::new(format!("prepared-{id}"))
                 .unwrap_or_else(|error| panic!("preparation: {error:?}")),
             unsigned_canonical_bytes: CanonicalBytes::new(bytes)
                 .unwrap_or_else(|error| panic!("bytes: {error:?}")),
-            signing_preimage: SigningPreimage::new(vec![id; 32])
+            signing_preimage: SigningPreimage::new(call.signing_hash().to_vec())
                 .unwrap_or_else(|error| panic!("preimage: {error:?}")),
             disclosure: Disclosure {
                 canonical_digest: digest,
                 activity_type: ActivityType(7),
-                actor: AgentDid::new("did:layerx:lock-order")
+                actor: AgentDid::new("0404040404040404040404040404040404040404")
                     .unwrap_or_else(|error| panic!("actor: {error:?}")),
                 authority: AuthorityRef::new("session-key")
                     .unwrap_or_else(|error| panic!("authority: {error:?}")),
@@ -1220,8 +1283,9 @@ mod defective_persist_tests {
         hold_reserved(
             &shared.registry,
             ApprovalContext {
+                actor_address: [4; 20],
                 tenant: tenant(),
-                agent: Did::new(b"did:layerx:lock-order")
+                agent: Did::new(b"0404040404040404040404040404040404040404")
                     .unwrap_or_else(|error| panic!("agent: {error:?}")),
                 session: SessionId([2; 32]),
                 capability: CapabilityId([3; 32]),
@@ -1473,19 +1537,34 @@ mod reject_no_store_tests {
     }
 
     fn prepared(id: u8) -> Prepared {
-        let bytes = format!("lock-order-preparation-{id}").into_bytes();
+        let call = layerx_crypto::evm_transaction::Eip1559Call {
+            chain_id: 125,
+            nonce: u64::from(id),
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 100_000,
+            to: [3; 20],
+            data: [
+                layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)")
+                    .to_vec(),
+                [vec![0; 12], vec![5; 20]].concat(),
+                [vec![0; 31], vec![50]].concat(),
+            ]
+            .concat(),
+        };
+        let bytes = call.encode_unsigned();
         let digest: [u8; 32] = Sha256::digest(&bytes).into();
         Prepared {
             preparation_ref: PreparationRef::new(format!("prepared-{id}"))
                 .unwrap_or_else(|error| panic!("preparation: {error:?}")),
             unsigned_canonical_bytes: CanonicalBytes::new(bytes)
                 .unwrap_or_else(|error| panic!("bytes: {error:?}")),
-            signing_preimage: SigningPreimage::new(vec![id; 32])
+            signing_preimage: SigningPreimage::new(call.signing_hash().to_vec())
                 .unwrap_or_else(|error| panic!("preimage: {error:?}")),
             disclosure: Disclosure {
                 canonical_digest: digest,
                 activity_type: ActivityType(7),
-                actor: AgentDid::new("did:layerx:lock-order")
+                actor: AgentDid::new("0404040404040404040404040404040404040404")
                     .unwrap_or_else(|error| panic!("actor: {error:?}")),
                 authority: AuthorityRef::new("session-key")
                     .unwrap_or_else(|error| panic!("authority: {error:?}")),
@@ -1590,8 +1669,9 @@ mod reject_no_store_tests {
         hold_reserved(
             &shared.registry,
             ApprovalContext {
+                actor_address: [4; 20],
                 tenant: tenant(),
-                agent: Did::new(b"did:layerx:lock-order")
+                agent: Did::new(b"0404040404040404040404040404040404040404")
                     .unwrap_or_else(|error| panic!("agent: {error:?}")),
                 session: SessionId([2; 32]),
                 capability: CapabilityId([3; 32]),
@@ -1647,11 +1727,11 @@ mod reject_no_store_tests {
     }
 }
 
+pub use crate::policy::approval::ApprovalPresentation;
 pub use events::{
     ApprovalEmission, ApprovalEventError, ApprovalEventKind, ApprovalEvents, ApprovalLifecycle,
 };
 pub use expiry::{ApprovalExpiry, ApprovalExpiryError, DecisionKey};
-pub use crate::policy::approval::ApprovalPresentation;
 
 pub const APPROVAL_ENFORCEMENT_NOTICE: &str =
     "daemon-enforced restriction; confers no protocol authority; bypassing layerx-agentd bypasses this restriction";
@@ -1826,7 +1906,7 @@ impl ApprovalSubmissionQueue {
         &self,
         tenant: &TenantId,
         preparation_ref: &str,
-        canonical_bytes: &[u8],
+        call_bytes: &[u8],
         release_ref: Option<[u8; 32]>,
     ) -> Result<(), ApprovalOutcome> {
         let queued = self.queued.lock().map_err(|_| ApprovalOutcome::Conflict)?;
@@ -1835,8 +1915,7 @@ impl ApprovalSubmissionQueue {
                 Some(record)
                     if &record.tenant == tenant
                         && record.prepared.preparation_ref.as_str() == preparation_ref
-                        && record.prepared.unsigned_canonical_bytes.as_bytes()
-                            == canonical_bytes =>
+                        && record.prepared.unsigned_canonical_bytes.as_bytes() == call_bytes =>
                 {
                     Ok(())
                 }
@@ -1845,7 +1924,7 @@ impl ApprovalSubmissionQueue {
             None if queued.values().any(|record| {
                 &record.tenant == tenant
                     && record.prepared.preparation_ref.as_str() == preparation_ref
-                    && record.prepared.unsigned_canonical_bytes.as_bytes() == canonical_bytes
+                    && record.prepared.unsigned_canonical_bytes.as_bytes() == call_bytes
             }) =>
             {
                 Err(ApprovalOutcome::Conflict)
@@ -2356,12 +2435,24 @@ impl ApprovalSubmissionQueue {
         persist: impl FnOnce([u8; 32]) -> Result<T, ApprovalOperationError>,
     ) -> Result<T, ApprovalOperationError> {
         let reference = Self::reference(&tenant, approval_id, &prepared);
-        let mut queued = self.queued.lock().map_err(|_| ApprovalOperationError::Registry(RegistryError::Unavailable))?;
+        let mut queued = self
+            .queued
+            .lock()
+            .map_err(|_| ApprovalOperationError::Registry(RegistryError::Unavailable))?;
         if queued.contains_key(&reference) {
-            return Err(ApprovalOperationError::Registry(RegistryError::DecisionConflict));
+            return Err(ApprovalOperationError::Registry(
+                RegistryError::DecisionConflict,
+            ));
         }
         let result = persist(reference)?;
-        queued.insert(reference, QueuedSubmission { tenant, approval_id, prepared });
+        queued.insert(
+            reference,
+            QueuedSubmission {
+                tenant,
+                approval_id,
+                prepared,
+            },
+        );
         Ok(result)
     }
 }
@@ -2376,7 +2467,13 @@ impl ApprovalService<'_> {
         submissions: &ApprovalSubmissionQueue,
     ) -> Result<ApprovalDecision, ApprovalOperationError> {
         self.registry.complete_program_decision(
-            request, context, current_prepared, approve, self.expiry, self.limiter, submissions,
+            request,
+            context,
+            current_prepared,
+            approve,
+            self.expiry,
+            self.limiter,
+            submissions,
         )
     }
 }

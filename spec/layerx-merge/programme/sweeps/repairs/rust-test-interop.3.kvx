@@ -1,0 +1,7 @@
+[repair.rust-test-interop.3]
+target = "layerx-portable"
+command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-portable --no-fail-fast"
+revision = "51496eb36024c76e53e5c7b0db7857a2225bbf0a"
+result = "repaired"
+change = "Updated exact shared receipt counts in services/interop/crates/layerx-portable/tests/independent_verifier.rs, services/interop/crates/layerx-portable/tests/proof_portable_receipt.rs and services/interop/crates/layerx-portable/tests/sequencer_vectors.rs to cover all six valid receipts, including five successful outcomes, and declared the independent Python verifier's cryptographic dependencies in services/interop/crates/layerx-portable/tests/requirements.txt."
+producer_input_tests = []
