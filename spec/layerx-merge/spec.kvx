@@ -136920,7 +136920,7 @@ do_4 = "Decision 2496 (continue): the tests native_receipt_authorized_interface_
 
 [task.22.99.74]
 title = "Repair the inventory sweep target layerx-program-sdk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -137387,7 +137387,7 @@ do_4 = "Attempt 1 (continue): the dependent-crate check failed only on the human
 
 [task.22.99.59]
 title = "Repair the inventory sweep target layerx-interop-gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -137760,7 +137760,7 @@ do_5 = "Attempt 1 (continue): go_signed_positive_and_revert_receipts_verify_with
 
 [task.22.99.47]
 title = "Repair the inventory sweep target layerx-wire"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
@@ -139570,7 +139570,7 @@ do_7 = "Attempt 4 (continue): the test build fails in tests/w7_core_time.rs (lin
 
 [task.9.35.18]
 title = "Hold approvals over the unsigned EIP-1559 call and replay them through bind_call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["9.35.17"]
