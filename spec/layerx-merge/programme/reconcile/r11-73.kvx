@@ -1,0 +1,445 @@
+[reconcile.r11-73]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 54
+
+[row.r11-73.1]
+interface = "interface.11.rs-x402-captured-settlement"
+verdict = "served"
+path = "services/interop/crates/layerx-x402/src/buyer.rs"
+line = 64
+symbol = "CapturedSettlement"
+evidence = "pub struct CapturedSettlement retains the declaration and now exposes canonical_receipt: Vec<u8>, receipt_digest: [u8; 32], transaction_hash: [u8; 32] and rung: String for sequencer receipt capture."
+
+[row.r11-73.2]
+interface = "interface.11.fmt-x402-layerx-evidence"
+verdict = "served"
+path = "services/interop/crates/layerx-x402/src/buyer.rs"
+line = 75
+symbol = "LayerXEvidence"
+evidence = "pub struct LayerXEvidence retains strict camelCase deserialization; the registered receipt/receiptDigest/verificationLevel/purposeHash shape now also requires logs: Vec<EvidenceLog> and accepts optional blockNumber, blockHash and proof for committed evidence."
+
+[row.r11-73.3]
+interface = "interface.11.rs-x402-buyer"
+verdict = "served"
+path = "services/interop/crates/layerx-x402/src/buyer.rs"
+line = 313
+symbol = "Buyer"
+evidence = "pub struct Buyer retains its name; its fields now include receipt_keys: Vec<SequencerAuthorization> alongside supported kinds, with with_receipt_keys validating pinned sequencer authorization ranges."
+
+[row.r11-73.4]
+interface = "interface.11.rs-x402-buyer-capture-settlement"
+verdict = "served"
+path = "services/interop/crates/layerx-x402/src/buyer.rs"
+line = 434
+symbol = "capture_settlement"
+evidence = "pub fn capture_settlement(response_header: &str, expected: &BuiltPayment, receipt_keys: &[SequencerAuthorization], trace: &TraceId) -> Result<CapturedSettlement, Traced<X402Error>> replaces authorised_batch: &AuthorizedBatch with receipt_keys and verifies the signed receipt and logs."
+
+[row.r11-73.5]
+interface = "interface.11.rs-x402-facilitator-verify"
+verdict = "served"
+path = "services/interop/crates/layerx-x402/src/facilitator.rs"
+line = 342
+symbol = "verify"
+evidence = "pub fn verify(&self, gateway: &mut GatewayCore, principal: &PrincipalId, request: &FacilitatorRequest, plane: &mut impl FacilitatorPlane, trace: &TraceId, now: u64) -> Result<VerifyResponse, Traced<X402Error>> is unchanged in signature; transaction validation now rejects non-hash forms as transaction_form before read-only plane verification."
+
+[row.r11-73.6]
+interface = "interface.11.rs-x402-facilitator-settle"
+verdict = "served"
+path = "services/interop/crates/layerx-x402/src/facilitator.rs"
+line = 406
+symbol = "settle"
+evidence = "pub fn settle retains gateway, principal, request, stable_identity, step, plane, trace and now arguments and Result<SettlementResponse, Traced<X402Error>>; its executed branch now passes sequencer evidence to settle_executed instead of authorizing a batch."
+
+[row.r11-73.7]
+interface = "interface.11.rs-x402-layerx-network-namespace"
+verdict = "retired"
+path = "services/interop/crates/layerx-x402/src/model.rs"
+line = 19
+symbol = "LAYERX_NETWORK_NAMESPACE"
+evidence = "LAYERX_NETWORK_NAMESPACE is absent from model.rs and has no code references outside spec and docs; model.rs:19 instead declares LAYERX_NETWORK: &str = \"eip155:125\", replacing the old network namespace API."
+remaining_refs = 0
+remaining = []
+
+[row.r11-73.8]
+interface = "interface.11.rs-x402-x402-error"
+verdict = "served"
+path = "services/interop/crates/layerx-x402/src/model.rs"
+line = 488
+symbol = "X402Error"
+evidence = "pub enum X402Error retains its name and now includes TransactionForm at model.rs:503, displayed as refusal of any settlement transaction that is not a 0x-prefixed 32-byte transaction hash."
+
+[row.r11-73.9]
+interface = "interface.11.rs-x402-executed-payment"
+verdict = "served"
+path = "services/interop/crates/layerx-x402/src/seller.rs"
+line = 63
+symbol = "ExecutedPayment"
+evidence = "pub struct ExecutedPayment now carries evidence: SequencerEvidence and committed: Option<CommittedSettlementProof>; seller settlement verifies signed sequencer receipts under ReceiptKeys rather than AuthorizedBatch evidence."
+
+[row.r11-73.10]
+interface = "interface.11.rs-x402-seller-settle"
+verdict = "served"
+path = "services/interop/crates/layerx-x402/src/seller.rs"
+line = 175
+symbol = "settle"
+evidence = "pub fn settle(&self, gateway: &mut GatewayCore, principal: &PrincipalId, payment_header: &str, plane: &mut impl PaymentPlane, trace: &TraceId, now: u64) -> Result<SellerOutcome, Traced<X402Error>> retains its signature; Seller::settled now verifies sequencer signatures using ReceiptKeys::HeightRanges and matches ledger payment logs."
+
+[row.r11-73.11]
+interface = "interface.11.rs-xws-max-did-bytes"
+verdict = "retired"
+path = "services/interop/crates/x-websearch/src/config.rs"
+line = 25
+symbol = "MAX_DID_BYTES"
+evidence = "MAX_DID_BYTES is absent from x-websearch config.rs; payment.payer_address is Option<[u8; 20]> and parse_payer_address validates EVM addresses. A repository-wide identifier search excluding spec and docs finds the name in 13 other files, including independent constants; these do not implement the removed x-websearch DID bound."
+remaining_refs = 13
+remaining = ["programs/crates/layerx-programs-arbiter/src/authority.rs:984", "services/agent/crates/layerx-agent-api/src/identity.rs:273", "services/agent/crates/layerx-mcp/src/catalogue.rs:3", "services/agent/crates/layerx-mcp/src/tools/web.rs:61", "services/agent/crates/layerx-sdk/src/agent_envelope.rs:1242", "services/agent/crates/layerx-types/src/account.rs:3", "services/agent/crates/layerx-types/src/ids.rs:3", "services/agent/crates/layerx-types/src/limits.rs:6", "services/agent/crates/layerx-types/tests/ids.rs:6", "services/agent/crates/layerx-wire/src/activity.rs:15", "services/human/crates/layerx-intents/tests/bounds.rs:8", "services/interop/crates/layerx-migrate/src/mapping_v2.rs:13", "services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/src/main.rs:19"]
+
+[row.r11-73.12]
+interface = "interface.11.rs-xws-gateway-config"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/config.rs"
+line = 148
+symbol = "GatewayConfig"
+evidence = "pub struct GatewayConfig now contains endpoint: String and receipt_keys: Vec<SequencerAuthorization>; gateway parsing rejects legacy sequencer_id and sequencer_public_key and requires bounded receipt key ranges."
+
+[row.r11-73.13]
+interface = "interface.11.rs-xws-payer-did-valid"
+verdict = "retired"
+path = "services/interop/crates/x-websearch/src/config.rs"
+line = 207
+symbol = "payer_did_valid"
+evidence = "payer_did_valid is absent from config.rs and has no remaining code references outside spec and docs; config.rs:194 instead declares parse_payer_address(text: &str) -> Option<[u8; 20]> for the EVM payer API."
+remaining_refs = 0
+remaining = []
+
+[row.r11-73.14]
+interface = "interface.11.rs-xws-config"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/config.rs"
+line = 207
+symbol = "Config"
+evidence = "pub struct Config retains its name; kernel_network_id is now Option<u32>, gateway contains receipt_keys, payment contains payer_address: Option<[u8; 20]>, and the former kernel configuration section is absent."
+
+[row.r11-73.15]
+interface = "interface.11.rs-xws-config-parse"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/config.rs"
+line = 229
+symbol = "parse"
+evidence = "pub fn parse(text: &str) -> Result<Self, ConfigError> retains its signature; its schema now parses gateway receipt_keys, optional kernel_network_id and payment settings, then root.finish rejects unconsumed fields including the removed kernel section."
+
+[row.r11-73.16]
+interface = "interface.11.cfg-xws-kernel-network-id"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/config.rs"
+line = 248
+symbol = "kernel_network_id"
+evidence = "The kernel_network_id config key now uses root.optional(\"kernel_network_id\") and stores Option<u32>; absence succeeds, while zero is refused as Placeholder and values outside u32 fail conversion."
+
+[row.r11-73.17]
+interface = "interface.11.cfg-xws-gateway-endpoint"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/config.rs"
+line = 838
+symbol = "endpoint"
+evidence = "gateway.endpoint remains a URL string parsed by endpoint(&mut object), with object.finish rejecting unknown gateway fields; the gateway schema now requires receipt_keys, while PaymentGate creates settlement RPC from config.evm.endpoint rather than sending legacy lx_ methods here."
+
+[row.r11-73.18]
+interface = "interface.11.env-xws-x-websearch-receiver-key-file"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/keys.rs"
+line = 9
+symbol = "X_WEBSEARCH_RECEIVER_KEY_FILE"
+evidence = "pub const RECEIVER_KEY_FILE: &str = \"X_WEBSEARCH_RECEIVER_KEY_FILE\" keeps the environment spelling; Keys now stores receiver_key: SecpKey and receiver() returns &SecpKey, supplying the secp256k1 key for EVM draw signing."
+
+[row.r11-73.19]
+interface = "interface.11.rs-xws-conformance-vector-count"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/lib.rs"
+line = 43
+symbol = "CONFORMANCE_VECTOR_COUNT"
+evidence = "pub const CONFORMANCE_VECTOR_COUNT: u64 = 131 retains its type; the current suite is documented as eth_* and pax_sequencerReceipt settlement recordings, replacing the kernel recording inputs named by the change request."
+
+[row.r11-73.20]
+interface = "interface.11.rs-xws-conformance-suite-digest"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/lib.rs"
+line = 46
+symbol = "CONFORMANCE_SUITE_DIGEST"
+evidence = "pub const CONFORMANCE_SUITE_DIGEST: [u8; 32] retains its type and currently pins 7cb1571843970b815beb4e774577e77700d29db72fe7761b4615f1441b5999c3 for the eth_* and pax_sequencerReceipt recording suite; the public declaration has moved from line 43 to 46."
+
+[row.r11-73.21]
+interface = "interface.11.rs-xws-protocol-version"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 32
+symbol = "PROTOCOL_VERSION"
+evidence = "The registered pub const PROTOCOL_VERSION: u16 is now a public import alias: pub use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION as PROTOCOL_VERSION. The name remains served and the layerx_wire dependency still exists here."
+
+[row.r11-73.22]
+interface = "interface.11.rs-xws-grant-bytes"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 64
+symbol = "GRANT_BYTES"
+evidence = "pub const GRANT_BYTES: usize = 346 remains declared; payer_grant_payload now enforces this bound on the dynamic bytes inside the ledger getPayerGrant ABI return, rather than treating the whole RPC answer as a kernel grant payload."
+
+[row.r11-73.23]
+interface = "interface.11.fmt-xws-payment-domains"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 70
+symbol = "PURPOSE_DOMAIN"
+evidence = "PURPOSE_DOMAIN, PRINCIPAL_DOMAIN and TRACE_DOMAIN retain their domain bytes; purpose_hash now hashes the 20-byte receiver address instead of a public key, principal hashes an EVM payer address instead of a DID (payment.rs:1934), and trace still hashes the header."
+
+[row.r11-73.24]
+interface = "interface.11.rs-xws-decode-grant"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 179
+symbol = "decode_grant"
+evidence = "pub fn decode_grant(bytes: &[u8], actor: &str) -> Option<Grant> retains its signature; it now extracts the ABI dynamic payload with payer_grant_payload before Payment::decode verifies the grant, replacing direct kernel grant decoding."
+
+[row.r11-73.25]
+interface = "interface.11.rs-xws-rpc-answer"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 404
+symbol = "RpcAnswer"
+evidence = "pub enum RpcAnswer remains Result(Value) or Error { code: i64, data: Value }; the enum signature is unchanged and the old line 353 is stale. Ledger settlement now uses the separate SettlementRpc transport rather than extending this legacy gateway answer type."
+
+[row.r11-73.26]
+interface = "interface.11.rs-xws-gateway-rpc"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 412
+symbol = "GatewayRpc"
+evidence = "pub struct GatewayRpc retains HTTP/TLS endpoint fields tls, host, port, authority and path; authorization-file state and its builder are gone. PaymentGate now uses SettlementRpc for ledger and sequencer receipt operations."
+
+[row.r11-73.27]
+interface = "interface.11.rs-xws-gateway-rpc-new"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 423
+symbol = "new"
+evidence = "pub fn new(endpoint: &str) -> Result<Self, GateError> retains its signature in impl GatewayRpc; construction now returns only tls, host, port, authority and path, with no relay authorization-file field."
+
+[row.r11-73.28]
+interface = "interface.11.rs-xws-gateway-rpc-with-authorization-file"
+verdict = "retired"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 428
+symbol = "with_authorization_file"
+evidence = "GatewayRpc::with_authorization_file is absent from payment.rs and no other code file mentions that identifier outside spec and docs. GatewayRpc now has no relay authorization-file field; PaymentGate settles through SettlementRpc."
+remaining_refs = 0
+remaining = []
+
+[row.r11-73.29]
+interface = "interface.11.rs-xws-gateway-rpc-call"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 468
+symbol = "call"
+evidence = "pub fn call(&self, method: &str, params: &Value) -> Option<RpcAnswer> retains its signature; the request contains ordinary JSON-RPC HTTP headers with no relay authorization-file input. Ledger settlement now uses the separate SettlementRpc client."
+
+[row.r11-73.30]
+interface = "interface.11.rs-xws-payment-record"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 590
+symbol = "PaymentRecord"
+evidence = "pub struct PaymentRecord now stores tx_hash: Option<String> and raw_transaction: Option<String> instead of activity/activity_id; legacy activity fields survive only in LegacyPaymentRecord and unreleased attempted legacy records are refused during conversion."
+
+[row.r11-73.31]
+interface = "interface.11.rs-xws-payment-store-open"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 955
+symbol = "open"
+evidence = "pub fn open(data_dir: &Path) -> io::Result<Self> retains its signature; startup now scans request records and validates current or legacy shapes, rejecting unreleased kernel activities through LegacyPaymentRecord::into_current."
+
+[row.r11-73.32]
+interface = "interface.11.rs-xws-payment-store-load"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 997
+symbol = "load"
+evidence = "pub fn load(&self, key: &[u8; 32]) -> io::Result<Option<PaymentRecord>> retains its signature; loaded records now expose tx_hash/raw_transaction, and legacy records are converted only after the unreleased-kernel-activity check."
+
+[row.r11-73.33]
+interface = "interface.11.rs-xws-payment-store-release"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1086
+symbol = "release"
+evidence = "pub fn release(&self, key: &[u8; 32], receipt_digest: &[u8; 32]) -> io::Result<bool> retains its signature; it still checks receipt_digest and claims the receipt index once before setting released, now operating on the transaction-hash PaymentRecord schema."
+
+[row.r11-73.34]
+interface = "interface.11.rs-xws-payment-gate-new"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1171
+symbol = "new"
+evidence = "pub fn new(config: &Config, receiver: &SigningKey, conformance: ConformanceSuite, clock: Clock) -> Result<Self, GateError> retains its signature; it delegates to new_with_network_id, which uses EVM SettlementRpc, secp256k1 receiver accounts, receipt_keys and a writer lease."
+
+[row.r11-73.35]
+interface = "interface.11.rs-xws-payment-gate-receiver-did"
+verdict = "retired"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1180
+symbol = "receiver_did"
+evidence = "PaymentGate::receiver_did is absent from payment.rs; receiver_address() -> [u8; 20] at line 1262 replaces the string-returning receiver accessor. A repository-wide search excluding spec and docs finds receiver_did in three other files; read_receiver_did is a distinct internal helper, not the removed accessor."
+remaining_refs = 3
+remaining = ["services/agent/crates/layerx-mcp/src/tools/web.rs:1069", "services/interop/crates/x-websearch/tests/payment.rs:1268", "tools/qualification/paxeer-x/paid-web-contract.py:3336"]
+
+[row.r11-73.36]
+interface = "interface.11.rs-xws-payment-gate-payer"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1273
+symbol = "payer"
+evidence = "pub fn payer(&self) -> Option<[u8; 20]> replaces the registered Option<&str> return type; it returns the configured EVM payer_address rather than a DID string."
+
+[row.r11-73.37]
+interface = "interface.11.rs-xws-payment-gate-settle"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1396
+symbol = "settle"
+evidence = "pub fn settle(&self, request: &Request, release: &dyn Fn(&Request) -> Response) -> Response retains its signature; settle_request now parses an EVM payer address, pins Seller receipt_keys and uses the ledger-backed payment plane before releasing the response."
+
+[row.r11-73.38]
+interface = "interface.11.rs-xws-payment-gate-recover-pending-deliveries"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1682
+symbol = "recover_pending_deliveries"
+evidence = "pub fn recover_pending_deliveries(&self) -> io::Result<()> retains its signature; recovery now validates tx_hash/raw-transaction records and signed sequencer receipts under ReceiptKeys::HeightRanges, matching the transaction-backed payment schema."
+
+[row.r11-73.39]
+interface = "interface.11.http-xws-program-attestations"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/server.rs"
+line = 216
+symbol = "/program-attestations/"
+evidence = "GET /program-attestations/<64 lowercase hex program id>/<decimal request id> retains its route syntax and PROGRAM_ATTESTATION_PATH literal; server.rs:327 now describes the EVM program relay and program.rs:763 registers its ProgramExchange handler instead of the retired kernel registration."
+
+[row.r11-73.40]
+interface = "interface.11.rs-xws-route-table-set-program-attestations"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/server.rs"
+line = 331
+symbol = "set_program_attestations"
+evidence = "pub fn set_program_attestations(&mut self, handler: impl Fn([u8; 32], u64) -> Response + Send + Sync + 'static) -> Result<(), RouteError> retains its signature; the documented caller is now the EVM program relay, registered in program.rs:763 rather than kernel.rs."
+
+[row.r11-73.41]
+interface = "interface.11.rs-xws-route-table-dispatch"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/server.rs"
+line = 367
+symbol = "dispatch"
+evidence = "pub fn dispatch(&self, request: &Request) -> Response retains its signature; its new Route::Content branch runs before the serving-eligibility check, while search and fetch still require eligibility."
+
+[row.r11-73.42]
+interface = "interface.11.http-xws-search"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/server.rs"
+line = 721
+symbol = "/search"
+evidence = "GET /search?q=<query> keeps the /search route literal and GET-only dispatch; settlement now uses EVM payer addresses and the ledger-backed PaymentGate with pinned sequencer receipts, replacing the legacy kernel/DID payment contract."
+
+[row.r11-73.43]
+interface = "interface.11.http-xws-fetch"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/server.rs"
+line = 722
+symbol = "/fetch"
+evidence = "GET /fetch?url=<absolute url> keeps the /fetch route literal and GET-only dispatch; its paid contract now uses the ledger-backed PaymentGate and EVM payer address parsing instead of the kernel settlement and payer-DID naming."
+
+[row.r11-73.44]
+interface = "interface.11.http-xws-content"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/server.rs"
+line = 724
+symbol = "/content/"
+evidence = "GET /content/<64 lowercase hex digest> retains the /content/ prefix and rejects prefixed or malformed digests; dispatch now serves Route::Content before serving eligibility (server.rs:382), implementing the exemption missing from the registry notes."
+
+[row.r11-73.45]
+interface = "interface.11.fmt-deploy-gateway-readme"
+verdict = "served"
+path = "services/interop/deploy/gateway/README.md"
+line = 1
+symbol = "Interop gateway runtime additions"
+evidence = "The Markdown title Interop gateway runtime additions is retained; the deployment instructions now name LAYERX_INTEROP_RECEIPT_KEYS_FILE and INTEROP_RECEIPT_KEYS and compare pins with px_getReceiptKeys instead of relying only on singleton sequencer pins."
+
+[row.r11-73.46]
+interface = "interface.11.fmt-deploy-gateway-hosted"
+verdict = "served"
+path = "services/interop/deploy/gateway/railway.env.example"
+line = 26
+symbol = "LAYERX_INTEROP_RECEIPT_KEYS_FILE"
+evidence = "The env file now declares LAYERX_INTEROP_RECEIPT_KEYS_FILE and INTEROP_RECEIPT_KEYS instead of the registered receipt-authority token and singleton sequencer key/id/batch file variables; listener and Redis deployment inputs remain."
+
+[row.r11-73.47]
+interface = "interface.11.cli-deploy-gateway-render"
+verdict = "served"
+path = "services/interop/deploy/gateway/render.py"
+line = 888
+symbol = "--receipt-keys-file"
+evidence = "The python3 gateway/render.py command now accepts --receipt-keys-file instead of --sequencer-public-key-file; --check and --self-test are boolean flags, and --network-id, --beta-roots-file, --out, --migration-profile-out and --repo-root remain."
+
+[row.r11-73.48]
+interface = "interface.11.fmt-deploy-mirror-config-example"
+verdict = "served"
+path = "services/interop/deploy/mirror/config.example.json"
+line = 3
+symbol = "first_height"
+evidence = "The mirror JSON object now uses first_height and freshness_budget_blocks instead of first_batch_number and checkpoint_freshness_budget_batches; a paxeer RPC/chain/genesis/receipt_keys object replaces the old node/LNI input and singleton sequencer key policy."
+
+[row.r11-73.49]
+interface = "interface.11.cli-deploy-mirror-deploy-ethereum-mirror"
+verdict = "served"
+path = "services/interop/deploy/mirror/deploy-ethereum-mirror.sh"
+line = 15
+symbol = "LAYERX_MIRROR_RECEIPT_KEYS_FILE"
+evidence = "The bash deploy-ethereum-mirror.sh entry point remains; it now requires LAYERX_MIRROR_RECEIPT_KEYS_FILE, hashes its contents and adds receipt_keys_sha256 to the deployment record alongside the observed runtime_code_keccak256."
+
+[row.r11-73.50]
+interface = "interface.11.cli-deploy-mirror-render-config"
+verdict = "served"
+path = "services/interop/deploy/mirror/render-config.py"
+line = 194
+symbol = "--first-height"
+evidence = "The python3 mirror/render-config.py CLI replaces --first-batch-number with --first-height and --sequencer-public-key with --receipt-keys-file; it renders paxeer RPC/chain/genesis/receipt_keys plus freshness_budget_blocks for committed header mirroring."
+
+[row.r11-73.51]
+interface = "interface.11.cli-deploy-mirror-tests-render-config-check"
+verdict = "served"
+path = "services/interop/deploy/mirror/tests/render-config-check.sh"
+line = 16
+symbol = "render-config-check"
+evidence = "The bash tests/render-config-check.sh entry point remains; its generated Ed25519 receipt key file and --first-height/--receipt-keys-file renderer invocation now exercise the height-based mirror configuration, replacing the registered batch and singleton-key inputs."
+
+[row.r11-73.52]
+interface = "interface.11.fmt-deploy-search-front-nginx"
+verdict = "served"
+path = "services/interop/deploy/search-front/nginx.conf"
+line = 1
+symbol = "worker_processes"
+evidence = "The nginx configuration retains its route layout; its search/fetch/content block now explicitly sets proxy_set_header LAYERX-PAYER-DID \"\" at line 95, suppressing the obsolete DID header instead of forwarding it. Payment headers continue through unchanged."
+
+[row.r11-73.53]
+interface = "interface.11.http-search-front-search"
+verdict = "served"
+path = "services/interop/deploy/search-front/nginx.conf"
+line = 94
+symbol = "^/(search|fetch|content/)"
+evidence = "GET /search, /fetch and /content/<digest> retain the regex location ^/(search|fetch|content/); the proxy now suppresses LAYERX-PAYER-DID, forwards ordinary request headers (including the EVM payer-address header) and still checks selected-backend readiness."
+
+[row.r11-73.54]
+interface = "interface.11.fmt-deploy-x-websearch-config-example"
+verdict = "served"
+path = "services/interop/deploy/x-websearch/config.example.json"
+line = 41
+symbol = "receipt_keys"
+evidence = "The x-websearch JSON example now uses gateway.receipt_keys entries with key_id/public_key/first_height/last_height instead of gateway singleton sequencer key fields; kernel_network_id and the kernel relay section are absent while gateway and evm endpoints remain."
