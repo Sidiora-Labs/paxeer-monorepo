@@ -14435,3 +14435,28 @@ fix = "Scope a floor to the advisory's version range when the lock legitimately 
 title = "A struct gaining a field broke initializers in dependent crates"
 symptom = "A context struct gained a required field in one crate; the dependent-crate check found the initializers in two other crates and their tests uncompilable."
 fix = "When a task adds a required field, list every crate that initializes the struct in its scope and migrate them in the same task."
+
+[gotcha.2923]
+title = "A registry presence check ignored the row's status"
+symptom = "The interface sweep counted every absent symbol as missing, including thousands of rows whose status already said retire, so the report could not tell a wrongly dropped interface from a retired one."
+fix = "Classify registry rows by status and presence together, and settle the rows that need judgement with written evidence per row."
+
+[gotcha.2924]
+title = "An SDK type change left a sibling test on the old shape"
+symptom = "A task ported a payment type and its named test, but a second test file constructing the same type was outside its scope, so the package no longer type-checked."
+fix = "When a task changes an exported type, search the package for every construction of it and put each file in the task's scope."
+
+[gotcha.2925]
+title = "A fixture chain lacking receipt fields starved the view under test"
+symptom = "View tests waited forever for a receipt because the shared fixture chain returned receipts without the nonce and logIndex fields the SDK readers require."
+fix = "Build fixture receipts from the fields the reader checks, and assert those fields in the fixture's own test."
+
+[gotcha.2926]
+title = "A refusal tag renumbering left a native corpus fixture asserting the old tag"
+symptom = "The runtime began reporting a kernel refusal of a settlement leg under the kernel tag instead of the receipt-mismatch tag; the native corpus fixture kept asserting the old tag and the signed corpus was no longer emitted, so every consumer of the corpus failed its qualification."
+fix = "When a producer changes an encoded tag, run the native corpus producer and every fixture that asserts the tag in the same task."
+
+[gotcha.2927]
+title = "A scope rename stranded a publication that deleted the old path"
+symptom = "A task moved a test file to another crate; its scope was renamed to the new path only, so the publication that deleted the old file was refused for a change outside the scope although the verify and the done check had passed."
+fix = "When a task moves or deletes a file, keep the old path in the scope beside the new one; a deletion is a change of the old path."
