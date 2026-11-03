@@ -1,0 +1,341 @@
+[reconcile.r5-19]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 41
+
+[row.r5-19.1]
+interface = "interface.5.go-node-app-begin-block"
+verdict = "served"
+path = "node/abci.go"
+line = 30
+symbol = "BeginBlock"
+evidence = "Signature now spelled out as func (app *App) BeginBlock(ctx sdk.Context, height int64, votes []abci.VoteInfo, byzantineValidators []abci.Misbehavior, checkHeight bool) (res abci.ResponseBeginBlock); the registry recorded only its opening line. Stores current votes and reads StoredVotes(height-1) at sequenced heights before legacyabci.BeginBlock, serving override.J31.18."
+
+[row.r5-19.2]
+interface = "interface.5.go-node-app-check-tx"
+verdict = "served"
+path = "node/abci.go"
+line = 113
+symbol = "CheckTx"
+evidence = "Signature unchanged: func (app *App) CheckTx(ctx context.Context, req *abci.RequestCheckTxV2) *abci.ResponseCheckTxV2. The body now rejects nil requests and refuses the SequenceBatchDomain prefix through seqkeeper.RefuseCheckTx before transaction decoding, serving override.J31.19."
+
+[row.r5-19.3]
+interface = "interface.5.go-node-app-commit"
+verdict = "served"
+path = "node/abci.go"
+line = 284
+symbol = "Commit"
+evidence = "Signature unchanged: func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error). After successful BaseApp.Commit the body publishes stashed headers and invokes commitListener with LastBlockHeight and LastCommitID().Hash, serving override.J31.20."
+
+[row.r5-19.4]
+interface = "interface.5.go-node-app-process-proposal-handler"
+verdict = "served"
+path = "node/app.go"
+line = 1687
+symbol = "ProcessProposalHandler"
+evidence = "Signature unchanged: func (app *App) ProcessProposalHandler(ctx sdk.Context, req *abci.RequestProcessProposal) (resp *abci.ResponseProcessProposal, err error). It decodes sequenced tx 0 separately and rejects mismatched batch transactions, sequence order or proposer before optimistic processing."
+
+[row.r5-19.5]
+interface = "interface.5.go-node-app-finalize-blocker"
+verdict = "served"
+path = "node/app.go"
+line = 1821
+symbol = "FinalizeBlocker"
+evidence = "Signature unchanged: func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock) (*abci.ResponseFinalizeBlock, error). It seals through SealForFinalize, installs a matching sealed sequencer state with SetSealedStateToCommit, and propagates ProcessBlock errors on the execution path."
+
+[row.r5-19.6]
+interface = "interface.5.go-node-app-process-block"
+verdict = "served"
+path = "node/app.go"
+line = 2435
+symbol = "ProcessBlock"
+evidence = "Signature unchanged: func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessRequest, lastCommit abci.CommitInfo, simulate bool, preDecoded []sdk.Tx) (events []abci.Event, txResults []*abci.ExecTxResult, endBlockResp abci.ResponseEndBlock, err error). It applies tx 0 after BeginBlock and wraps batch verification or delivery failures through sequencedHalt, serving override.J31.22."
+
+[row.r5-19.7]
+interface = "interface.5.go-node-open-block"
+verdict = "served"
+path = "node/app.go"
+line = 3317
+symbol = "OpenBlock"
+evidence = "The registry recorded only type OpenBlock interface; its current member signature is Snapshot() (sdk.Context, error), providing a read-only point-in-time view under the executor lock. The type remains in node/app.go and is installed by production sequencer startup."
+
+[row.r5-19.8]
+interface = "interface.5.go-node-app-set-open-block"
+verdict = "served"
+path = "node/app.go"
+line = 3324
+symbol = "SetOpenBlock"
+evidence = "Signature unchanged: func (app *App) SetOpenBlock(ob OpenBlock). It assigns app.openBlock; production callers now exist in node/sequencer/node_start.go and node/sequencer/standby_role.go, replacing the registry note that wiring was absent."
+
+[row.r5-19.9]
+interface = "interface.5.go-node-app-sequenced"
+verdict = "served"
+path = "node/app.go"
+line = 3489
+symbol = "Sequenced"
+evidence = "Signature unchanged: func (app *App) Sequenced(ctx sdk.Context, height int64) bool. Its implementation now delegates to SequencerKeeper.Sequenced(ctx, height) and panics on error, using the persisted activation boundary instead of the registry-noted height > done rule."
+
+[row.r5-19.10]
+interface = "interface.5.fmt-tx0-sequence-batch-domain"
+verdict = "served"
+path = "node/app.go"
+line = 3498
+symbol = "sequenceBatchDomain"
+evidence = "Declaration changed from a duplicate private string literal to const sequenceBatchDomain = seqtypes.SequenceBatchDomain. The shared constant is declared in modules/sequencer/types/msgs.go:14; the node encoder and decoder now delegate to the shared sequence-batch codec."
+
+[row.r5-19.11]
+interface = "interface.5.go-node-app-register-local-services"
+verdict = "served"
+path = "node/app.go"
+line = 3614
+symbol = "RegisterLocalServices"
+evidence = "Signature unchanged: func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.TxConfig). It now passes sequencer receipt, pending snapshot, sequencer RPC and forwarding options into the HTTP and WebSocket server constructors, serving override.J31.21."
+
+[row.r5-19.12]
+interface = "interface.5.cfg-app-genesis-import-file"
+verdict = "served"
+path = "node/genesis.go"
+line = 25
+symbol = "flagGenesisImportFile"
+evidence = "Declaration changed from flagGenesisImportFile = genesis.import-file to flagGenesisImportFile = genesis.genesis-stream-file. ReadGenesisImportConfig uses that constant, aligning the reader with the genesis template key."
+
+[row.r5-19.13]
+interface = "interface.5.go-node-read-genesis-import-config"
+verdict = "served"
+path = "node/genesis.go"
+line = 28
+symbol = "ReadGenesisImportConfig"
+evidence = "Signature unchanged: func ReadGenesisImportConfig(opts servertypes.AppOptions) (genesistypes.GenesisImportConfig, error). It now reads the corrected genesis.genesis-stream-file key with cast.ToStringE and refuses enabled streaming with an empty file path, serving override.J31.23."
+
+[row.r5-19.14]
+interface = "interface.5.cfg-app-state-commit-sc-snapshot-writer-limit"
+verdict = "served"
+path = "node/paxdb.go"
+line = 24
+symbol = "FlagSCSnapshotWriterLimit"
+evidence = "Declaration unchanged: FlagSCSnapshotWriterLimit = state-commit.sc-snapshot-writer-limit. The reader remains at node/paxdb.go:109; storage/config/toml.go:44 now emits sc-snapshot-writer-limit in the state-commit section, resolving the registry-noted template omission."
+
+[row.r5-19.15]
+interface = "interface.5.go-node-precompile-keepers-anchor-k"
+verdict = "served"
+path = "node/precompiles.go"
+line = 150
+symbol = "AnchorK"
+evidence = "Signature remains func (pk *PrecompileKeepers) AnchorK() putils.AnchorKeeper, but its return expression changed from pk.AnchorKeeper to pk.layerxAnchor. This is the constructed application keeper; decision.2218 and override.J31.24 leave retirement to the upgrade height gates."
+
+[row.r5-19.16]
+interface = "interface.5.go-node-merge-upgrade"
+verdict = "served"
+path = "node/upgrades.go"
+line = 127
+symbol = "MergeUpgrade"
+evidence = "Declaration changed from const MergeUpgrade = a private v7.0 literal to const MergeUpgrade = pcommon.MergeUpgrade. The canonical v7.0 value is in precompiles/common/precompiles.go:29, so node and precompile upgrade gates share one plan identifier."
+
+[row.r5-19.17]
+interface = "interface.5.fmt-embedded-genesis-chains"
+verdict = "retired"
+path = "node/genesis/genesis.go"
+line = 1
+symbol = "//go:embed chains/*.json"
+evidence = "The registered file now contains only package genesis; the //go:embed chains/*.json directive is gone. Repository-wide text searches excluding spec and docs found no remaining chains/*.json mentions; the foreign genesis embedding recorded by override.J31.2 has been removed."
+remaining_refs = 0
+remaining = []
+
+[row.r5-19.18]
+interface = "interface.5.go-node-genesis-well-known-chain-i-ds"
+verdict = "retired"
+path = "node/genesis/genesis.go"
+line = 1
+symbol = "WellKnownChainIDs"
+evidence = "The registered file now contains only package genesis; WellKnownChainIDs is absent. Repository-wide searches excluding spec and docs found zero files mentioning this identifier, consistent with the embedded foreign genesis retirement in task 5.11.2 and override.J31.26."
+remaining_refs = 0
+remaining = []
+
+[row.r5-19.19]
+interface = "interface.5.go-node-genesis-is-well-known"
+verdict = "retired"
+path = "node/genesis/genesis.go"
+line = 1
+symbol = "IsWellKnown"
+evidence = "The registered file now contains only package genesis; IsWellKnown is absent. Repository-wide searches excluding spec and docs found zero files mentioning this identifier, including no remaining daemon init callers, consistent with task 5.11.2 and override.J31.27."
+remaining_refs = 0
+remaining = []
+
+[row.r5-19.20]
+interface = "interface.5.go-node-genesis-embedded-genesis"
+verdict = "retired"
+path = "node/genesis/genesis.go"
+line = 1
+symbol = "EmbeddedGenesis"
+evidence = "The registered file now contains only package genesis; EmbeddedGenesis is absent. Repository-wide searches excluding spec and docs found zero files mentioning this identifier, consistent with the embedded foreign genesis retirement in task 5.11.2 and override.J31.28."
+remaining_refs = 0
+remaining = []
+
+[row.r5-19.21]
+interface = "interface.5.go-node-genesis-embedded-genesis-doc"
+verdict = "retired"
+path = "node/genesis/genesis.go"
+line = 1
+symbol = "EmbeddedGenesisDoc"
+evidence = "The registered file now contains only package genesis; EmbeddedGenesisDoc is absent. Repository-wide searches excluding spec and docs found zero files mentioning this identifier, including no remaining daemon init callers, consistent with task 5.11.2 and override.J31.29."
+remaining_refs = 0
+remaining = []
+
+[row.r5-19.22]
+interface = "interface.5.go-node-legacyabci-begin-block"
+verdict = "served"
+path = "node/legacyabci/begin_block.go"
+line = 43
+symbol = "BeginBlock"
+evidence = "Signature now spelled out as func BeginBlock(ctx sdk.Context, height int64, votes []abci.VoteInfo, byzantineValidators []abci.Misbehavior, keepers BeginBlockKeepers); the registry recorded only its opening line. Distribution and slashing still consume votes here; app.BeginBlock now supplies stored votes at sequenced heights."
+
+[row.r5-19.23]
+interface = "interface.5.go-node-legacyabci-end-block-keepers"
+verdict = "served"
+path = "node/legacyabci/end_block.go"
+line = 23
+symbol = "EndBlockKeepers"
+evidence = "Declaration remains type EndBlockKeepers struct; the shape now includes AgentKeeper *layerxagentkeeper.Keeper and MergeLive func() bool alongside the existing keepers and V6120Live gate. EndBlock uses the added fields to run due agents after merge, serving override.J31.25."
+
+[row.r5-19.24]
+interface = "interface.5.go-node-legacyabci-end-block"
+verdict = "served"
+path = "node/legacyabci/end_block.go"
+line = 35
+symbol = "EndBlock"
+evidence = "Signature unchanged: func EndBlock(ctx sdk.Context, height int64, blockGasUsed int64, keepers EndBlockKeepers) []abci.ValidatorUpdate. It now invokes AgentKeeper.RunDue when MergeLive is true and adds the returned gas to blockGasUsed before EvmKeeper.EndBlock."
+
+[row.r5-19.25]
+interface = "interface.5.go-node-params-default-weight-msg-send"
+verdict = "served"
+path = "node/params/weights.go"
+line = 5
+symbol = "DefaultWeightMsgSend"
+evidence = "Declaration unchanged: DefaultWeightMsgSend int = 100. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.26]
+interface = "interface.5.go-node-params-default-weight-msg-multi-send"
+verdict = "served"
+path = "node/params/weights.go"
+line = 6
+symbol = "DefaultWeightMsgMultiSend"
+evidence = "Declaration unchanged: DefaultWeightMsgMultiSend int = 10. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.27]
+interface = "interface.5.go-node-params-default-weight-msg-set-withdraw-address"
+verdict = "served"
+path = "node/params/weights.go"
+line = 7
+symbol = "DefaultWeightMsgSetWithdrawAddress"
+evidence = "Declaration unchanged: DefaultWeightMsgSetWithdrawAddress int = 50. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.28]
+interface = "interface.5.go-node-params-default-weight-msg-withdraw-delegation-reward"
+verdict = "served"
+path = "node/params/weights.go"
+line = 8
+symbol = "DefaultWeightMsgWithdrawDelegationReward"
+evidence = "Declaration unchanged: DefaultWeightMsgWithdrawDelegationReward int = 50. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.29]
+interface = "interface.5.go-node-params-default-weight-msg-fund-community-pool"
+verdict = "served"
+path = "node/params/weights.go"
+line = 10
+symbol = "DefaultWeightMsgFundCommunityPool"
+evidence = "Declaration unchanged: DefaultWeightMsgFundCommunityPool int = 50. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.30]
+interface = "interface.5.go-node-params-default-weight-msg-deposit"
+verdict = "served"
+path = "node/params/weights.go"
+line = 11
+symbol = "DefaultWeightMsgDeposit"
+evidence = "Declaration unchanged: DefaultWeightMsgDeposit int = 100. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.31]
+interface = "interface.5.go-node-params-default-weight-msg-vote"
+verdict = "served"
+path = "node/params/weights.go"
+line = 12
+symbol = "DefaultWeightMsgVote"
+evidence = "Declaration unchanged: DefaultWeightMsgVote int = 67. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.32]
+interface = "interface.5.go-node-params-default-weight-msg-vote-weighted"
+verdict = "served"
+path = "node/params/weights.go"
+line = 13
+symbol = "DefaultWeightMsgVoteWeighted"
+evidence = "Declaration unchanged: DefaultWeightMsgVoteWeighted int = 33. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.33]
+interface = "interface.5.go-node-params-default-weight-msg-unjail"
+verdict = "served"
+path = "node/params/weights.go"
+line = 14
+symbol = "DefaultWeightMsgUnjail"
+evidence = "Declaration unchanged: DefaultWeightMsgUnjail int = 100. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.34]
+interface = "interface.5.go-node-params-default-weight-msg-create-validator"
+verdict = "served"
+path = "node/params/weights.go"
+line = 15
+symbol = "DefaultWeightMsgCreateValidator"
+evidence = "Declaration unchanged: DefaultWeightMsgCreateValidator int = 100. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.35]
+interface = "interface.5.go-node-params-default-weight-msg-edit-validator"
+verdict = "served"
+path = "node/params/weights.go"
+line = 16
+symbol = "DefaultWeightMsgEditValidator"
+evidence = "Declaration unchanged: DefaultWeightMsgEditValidator int = 5. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.36]
+interface = "interface.5.go-node-params-default-weight-msg-delegate"
+verdict = "served"
+path = "node/params/weights.go"
+line = 17
+symbol = "DefaultWeightMsgDelegate"
+evidence = "Declaration unchanged: DefaultWeightMsgDelegate int = 100. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.37]
+interface = "interface.5.go-node-params-default-weight-msg-undelegate"
+verdict = "served"
+path = "node/params/weights.go"
+line = 18
+symbol = "DefaultWeightMsgUndelegate"
+evidence = "Declaration unchanged: DefaultWeightMsgUndelegate int = 100. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.38]
+interface = "interface.5.go-node-params-default-weight-msg-begin-redelegate"
+verdict = "served"
+path = "node/params/weights.go"
+line = 19
+symbol = "DefaultWeightMsgBeginRedelegate"
+evidence = "Declaration unchanged: DefaultWeightMsgBeginRedelegate int = 100. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.39]
+interface = "interface.5.go-node-params-default-weight-text-proposal"
+verdict = "served"
+path = "node/params/weights.go"
+line = 22
+symbol = "DefaultWeightTextProposal"
+evidence = "Declaration unchanged: DefaultWeightTextProposal int = 5. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.40]
+interface = "interface.5.go-node-params-default-weight-param-change-proposal"
+verdict = "served"
+path = "node/params/weights.go"
+line = 23
+symbol = "DefaultWeightParamChangeProposal"
+evidence = "Declaration unchanged: DefaultWeightParamChangeProposal int = 5. The exported simulation weight remains in the registered const block at its current line."
+
+[row.r5-19.41]
+interface = "interface.5.go-node-params-default-weight-grant-allowance"
+verdict = "served"
+path = "node/params/weights.go"
+line = 26
+symbol = "DefaultWeightGrantAllowance"
+evidence = "Declaration unchanged: DefaultWeightGrantAllowance int = 100. The exported simulation weight remains in the registered const block at its current line."

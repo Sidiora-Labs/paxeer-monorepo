@@ -1,0 +1,381 @@
+[reconcile.r7-29]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 46
+
+[row.r7-29.1]
+interface = "interface.7.fmt-api-buf-gen-yaml"
+verdict = "retired"
+path = "api/buf.gen.yaml"
+line = 1
+symbol = "version: v1"
+evidence = "The registered api/buf.gen.yaml is absent. Its v1 generation template was removed by task 7.22.3 (override.J39.2); root buf.gen.yaml:1 now uses v2, writes into build/proto and passes plugins=interfacetype+grpc. Remaining entries are literal version: v1 mentions, including unrelated v1.x workflow versions, not copies of the retired api template."
+remaining_refs = 10
+remaining = [".github/workflows/agent.yml:35", ".github/workflows/bridge-test.yml:48", ".github/workflows/ci.yml:68", ".github/workflows/platform.yml:449", ".github/workflows/xweb-test.yml:154", "scripts/ci/xweb-workflow-check.sh:1187", "sdk/baseapp/testutil/buf.gen.yaml:1", "sdk/baseapp/testutil/buf.lock:2", "sdk/baseapp/testutil/buf.yaml:1", "services/bridge/deploy/tests/workflow-check.sh:774"]
+
+[row.r7-29.2]
+interface = "interface.7.fmt-api-buf-yaml"
+verdict = "retired"
+path = "api/buf.yaml"
+line = 1
+symbol = "version: v1"
+evidence = "The registered api/buf.yaml is absent. Task 7.22.3 (override.J39.1) removed the v1 module with remote deps and FILE breaking; root buf.yaml:2-5 serves the v2 workspace module instead. Remaining entries are literal version: v1 mentions, including unrelated v1.x workflow versions, not the retired api module."
+remaining_refs = 10
+remaining = [".github/workflows/agent.yml:35", ".github/workflows/bridge-test.yml:48", ".github/workflows/ci.yml:68", ".github/workflows/platform.yml:449", ".github/workflows/xweb-test.yml:154", "scripts/ci/xweb-workflow-check.sh:1187", "sdk/baseapp/testutil/buf.gen.yaml:1", "sdk/baseapp/testutil/buf.lock:2", "sdk/baseapp/testutil/buf.yaml:1", "services/bridge/deploy/tests/workflow-check.sh:774"]
+
+[row.r7-29.3]
+interface = "interface.7.fmt-buf-yaml-j39"
+verdict = "served"
+path = "buf.yaml"
+line = 2
+symbol = "version: v2"
+evidence = "Current declaration: version: v2 The v2 workspace module paths and WIRE/WIRE_JSON breaking rules remain; lint.ignore now contains only sdk/third_party/proto, removing the nonexistent wasm/third_party/proto entry from the registered format."
+
+[row.r7-29.4]
+interface = "interface.7.rpc-eth-getblocktransactioncountbynumber"
+verdict = "served"
+path = "rpc/block.go"
+line = 131
+symbol = "GetBlockTransactionCountByNumber"
+evidence = "Current declaration: func (a *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, number rpc.BlockNumber) (result *hexutil.Uint, returnErr error) { Signature unchanged; the pending-number branch now reads the pending snapshot, counts pendingBlockTxHashes and returns that count instead of unconditional null; domain scope filters the hashes."
+
+[row.r7-29.5]
+interface = "interface.7.rpc-pax-getblocktransactioncountbynumber"
+verdict = "served"
+path = "rpc/block.go"
+line = 131
+symbol = "GetBlockTransactionCountByNumber"
+evidence = "Current declaration: func (a *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, number rpc.BlockNumber) (result *hexutil.Uint, returnErr error) { Signature unchanged; PaxBlockAPI still embeds BlockAPI and shares its pending snapshot transaction count. The pax namespace remains subject to the legacy HTTP gate."
+
+[row.r7-29.6]
+interface = "interface.7.rpc-pax2-getblocktransactioncountbynumber"
+verdict = "served"
+path = "rpc/block.go"
+line = 131
+symbol = "GetBlockTransactionCountByNumber"
+evidence = "Current declaration: func (a *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, number rpc.BlockNumber) (result *hexutil.Uint, returnErr error) { Signature unchanged; NewPax2BlockAPI shares the BlockAPI pending snapshot count through PaxBlockAPI and sets the pax2 namespace and includeBankTransfers."
+
+[row.r7-29.7]
+interface = "interface.7.rpc-eth-getblockbyhash"
+verdict = "served"
+path = "rpc/block.go"
+line = 212
+symbol = "GetBlockByHash"
+evidence = "Current declaration: func (a *BlockAPI) GetBlockByHash(ctx context.Context, blockHash common.Hash, fullTx bool) (result map[string]interface{}, returnErr error) { Signature unchanged; delegates to getBlockByHash, whose resolved block goes through encodeBlock without the former EVM launch-height rejection. Synthetic receipt inclusion still comes from the API instance."
+
+[row.r7-29.8]
+interface = "interface.7.rpc-pax-getblockbyhash"
+verdict = "served"
+path = "rpc/block.go"
+line = 212
+symbol = "GetBlockByHash"
+evidence = "Current declaration: func (a *BlockAPI) GetBlockByHash(ctx context.Context, blockHash common.Hash, fullTx bool) (result map[string]interface{}, returnErr error) { Signature unchanged; PaxBlockAPI inherits this BlockAPI method and selects synthetic receipts through includeShellReceipts; getBlockByHash no longer rejects blocks below the former launch-height floor."
+
+[row.r7-29.9]
+interface = "interface.7.rpc-pax2-getblockbyhash"
+verdict = "served"
+path = "rpc/block.go"
+line = 212
+symbol = "GetBlockByHash"
+evidence = "Current declaration: func (a *BlockAPI) GetBlockByHash(ctx context.Context, blockHash common.Hash, fullTx bool) (result map[string]interface{}, returnErr error) { Signature unchanged; the pax2 API inherits this BlockAPI method and enables bank transfers in NewPax2BlockAPI; getBlockByHash no longer applies the former launch-height rejection."
+
+[row.r7-29.10]
+interface = "interface.7.rpc-eth-getblockbynumber"
+verdict = "served"
+path = "rpc/block.go"
+line = 240
+symbol = "GetBlockByNumber"
+evidence = "Current declaration: func (a *BlockAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber, fullTx bool) (result map[string]interface{}, returnErr error) { Signature unchanged; getBlockByNumber now encodes the pending snapshot and otherwise calls encodeBlock without the former EVM launch-height floor."
+
+[row.r7-29.11]
+interface = "interface.7.rpc-pax-getblockbynumber"
+verdict = "served"
+path = "rpc/block.go"
+line = 240
+symbol = "GetBlockByNumber"
+evidence = "Current declaration: func (a *BlockAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber, fullTx bool) (result map[string]interface{}, returnErr error) { Signature unchanged; PaxBlockAPI inherits the shared method, including pending snapshot encoding and removal of the former launch-height rejection; its namespace remains gated on HTTP."
+
+[row.r7-29.12]
+interface = "interface.7.rpc-pax2-getblockbynumber"
+verdict = "served"
+path = "rpc/block.go"
+line = 240
+symbol = "GetBlockByNumber"
+evidence = "Current declaration: func (a *BlockAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber, fullTx bool) (result map[string]interface{}, returnErr error) { Signature unchanged; the pax2 instance inherits the pending snapshot path and removal of the former launch-height floor, while NewPax2BlockAPI enables bank transfers."
+
+[row.r7-29.13]
+interface = "interface.7.rpc-pax-setreceiptlogfeed"
+verdict = "retired"
+path = "rpc/filter.go"
+line = 583
+symbol = "SetReceiptLogFeed"
+evidence = "The exported SetReceiptLogFeed identifier is absent from rpc/filter.go and the repository search. Its replacement is the unexported setReceiptLogFeed at rpc/filter.go:590, preserving internal receipt-feed wiring while removing RPC registration under task 7.2.3 and override.J38.2."
+remaining_refs = 0
+remaining = []
+
+[row.r7-29.14]
+interface = "interface.7.rpc-pax-newpendingtransactionfilter"
+verdict = "served"
+path = "rpc/filter.go"
+line = 851
+symbol = "NewPendingTransactionFilter"
+evidence = "Current declaration: func (a *FilterAPI) NewPendingTransactionFilter( ctx context.Context, fullTx *bool, ) (id ethrpc.ID, err error) { The registered FilterAPI declaration remains, with the same parameters and results now formatted across four lines. It serves hashes from the receipt feed for eth; PaxFilterAPI in rpc/pax_filter.go deliberately omits it under override.J38.3, so pax_newPendingTransactionFilter is retired despite this shared declaration surviving."
+
+[row.r7-29.15]
+interface = "interface.7.rpc-eth-getlogs"
+verdict = "served"
+path = "rpc/filter.go"
+line = 1097
+symbol = "GetLogs"
+evidence = "Current declaration: func (a *FilterAPI) GetLogs(ctx context.Context, crit filters.FilterCriteria) (res []*FilterLog, err error) { Signature unchanged; GetLogs now propagates committedLogs and domain-scoping errors and merges receipt-feed logs for pending ranges rather than silently discarding failures."
+
+[row.r7-29.16]
+interface = "interface.7.rpc-pax-getlogs"
+verdict = "served"
+path = "rpc/filter.go"
+line = 1097
+symbol = "GetLogs"
+evidence = "Current declaration: func (a *FilterAPI) GetLogs(ctx context.Context, crit filters.FilterCriteria) (res []*FilterLog, err error) { Signature unchanged; PaxFilterAPI.GetLogs explicitly forwards to this shared FilterAPI method, whose committed log and scope failures now propagate and whose pending path uses receipt logs."
+
+[row.r7-29.17]
+interface = "interface.7.rpc-pax-cleanup"
+verdict = "retired"
+path = "rpc/filter.go"
+line = 1206
+symbol = "Cleanup"
+evidence = "The exported Cleanup identifier is absent from rpc/filter.go; internal cleanupLoop at line 702 and cleanupExpiredFilters at line 723 perform expiry work. Task 7.2.1 and override.J38.1 remove the RPC method. Remaining entries count exact Cleanup identifiers in other files, including unrelated testing.T.Cleanup calls and methods on other receiver types, not surviving FilterAPI.Cleanup declarations."
+remaining_refs = 785
+remaining = ["GOTCHA.kvx:11521", "api/protosource_helpers_test.go:222", "apps/perps/src/widgets/trading/Chart.tsx:682", "consensus/abci/types/mocks/application.go:434", "consensus/cmd/tendermint/commands/reindex_event_test.go:142", "consensus/config/statesync_compat_test.go:22", "consensus/internal/blocksync/pool_test.go:111", "consensus/internal/blocksync/reactor_test.go:67", "consensus/internal/consensus/common_test.go:96", "consensus/internal/consensus/invalid_test.go:36", "consensus/internal/consensus/mempool_test.go:59", "consensus/internal/consensus/reactor_test.go:110", "consensus/internal/consensus/replay_test.go:310", "consensus/internal/eventbus/event_bus_test.go:464", "consensus/internal/evidence/mocks/block_store.go:77", "consensus/internal/evidence/reactor_test.go:79", "consensus/internal/inspect/inspect_test.go:32", "consensus/internal/mempool/reactor/reactor_test.go:50", "consensus/internal/p2p/conn/oldmux_test.go:47", "consensus/internal/p2p/giga_router_earliest_test.go:57", "consensus/internal/p2p/pex/reactor_test.go:212", "consensus/internal/p2p/router_test.go:69", "consensus/internal/p2p/testonly.go:323", "consensus/internal/p2p/transport_test.go:105", "consensus/internal/pubsub/pubsub_test.go:411", "consensus/internal/rpc/core/autobahn_indexing_test.go:36", "consensus/internal/rpc/core/autobahn_routes_conformance_test.go:39", "consensus/internal/rpc/core/blocks_autobahn_blockchain_test.go:57", "consensus/internal/rpc/core/blocks_autobahn_commit_test.go:22", "consensus/internal/rpc/core/blocks_autobahn_header_test.go:35", "consensus/internal/rpc/core/blocks_autobahn_lower_bound_test.go:33", "consensus/internal/rpc/core/blocks_autobahn_results_test.go:266", "consensus/internal/rpc/core/blocks_autobahn_search_test.go:34", "consensus/internal/rpc/core/consensus_autobahn_test.go:24", "consensus/internal/rpc/core/evidence_autobahn_test.go:24", "consensus/internal/rpc/core/lag_status_autobahn_test.go:53", "consensus/internal/rpc/core/routes_gateway_keep_test.go:39", "consensus/internal/rpc/core/status_autobahn_test.go:52", "consensus/internal/rpc/core/tx_autobahn_prove_test.go:32", "consensus/internal/state/indexer/indexer_service_test.go:47", "consensus/internal/state/indexer/mocks/event_sink.go:218", "consensus/internal/state/mocks/block_store.go:285", "consensus/internal/state/mocks/evidence_pool.go:94", "consensus/internal/state/mocks/store.go:265", "consensus/internal/state/sequencer_proposal_test.go:291", "consensus/internal/state/state_test.go:998", "consensus/internal/statesync/dispatcher_test.go:46", "consensus/internal/statesync/mocks/state_provider.go:111", "consensus/internal/statesync/reactor_test.go:107", "consensus/internal/statesync/syncer_test.go:627", "consensus/libs/service/service_test.go:57", "consensus/libs/time/mocks/source.go:38", "consensus/light/client.go:878", "consensus/light/client_test.go:462", "consensus/light/example_test.go:71", "consensus/light/light_test.go:74", "consensus/light/mocks/state_provider.go:112", "consensus/light/provider/mocks/provider.go:88", "consensus/light/rpc/mocks/light_client.go:152", "consensus/node/node_giga_eventbus_test.go:57", "consensus/node/node_test.go:72", "consensus/privval/signer_client_test.go:59", "consensus/privval/signer_listener_endpoint_test.go:42", "consensus/privval/socket_listeners_test.go:30", "consensus/rpc/client/main_test.go:42", "consensus/rpc/client/rpc_test.go:43", "consensus/rpc/coretypes/proof_rpc_autobahn_test.go:63", "consensus/rpc/jsonrpc/client/ws_client_test.go:68", "consensus/rpc/jsonrpc/jsonrpc_test.go:257", "consensus/rpc/jsonrpc/server/http_server_test.go:36", "consensus/rpc/jsonrpc/server/ws_handler_test.go:22", "consensus/test/e2e/runner/cleanup.go:12", "consensus/test/e2e/runner/main.go:54", "contracts/test/DisableWasmTest.js:221", "contracts/test/EVMGigaTest.js:1049", "core/deps/cosmwasm/contracts/burner/src/contract.rs:53", "core/deps/cosmwasm/contracts/burner/src/msg.rs:26", "core/deps/cosmwasm/contracts/burner/tests/integration.rs:96", "core/deps/geth/build/nsis.uninstall.nsh:31", "core/deps/geth/cmd/utils/history_test.go:165", "core/deps/geth/console/console_test.go:114", "core/deps/geth/crypto/secp256k1/libsecp256k1/.cirrus.yml:59", "core/deps/geth/crypto/secp256k1/libsecp256k1/src/ecmult_gen_impl.h:277", "core/deps/geth/eth/downloader/downloader_test.go:63", "core/deps/geth/internal/cmdtest/test_cmd.go:48", "core/deps/geth/node/node_test.go:603", "core/deps/geth/node/rpcstack_test.go:323", "core/deps/geth/rpc/client_test.go:200", "core/deps/geth/rpc/deny_list_batch_test.go:43", "core/deps/log/seilog_test.go:896", "daemon/committed-fixture/main_test.go:61", "daemon/committed-fixture/vector_v3_test.go:172", "daemon/paxd/cmd/new_app_test.go:124", "engine/deps/testutil/network/network.go:56", "engine/deps/xevm/state/statedb.go:89", "engine/executor/precompiles/proof_node_engine_test.go:137", "engine/tests/state_harness_test.go:604", "interchain/testing/sdk_test.go:126", "modules/evm/ante/sig_metrics_test.go:37", "modules/evm/client/cli/call_precompile_test.go:25", "modules/evm/keeper/msg_server.go:113", "modules/evm/migrations/migrate_fee_token_params_test.go:38", "modules/evm/state/statedb.go:91", "modules/launchpad/client/cli/proof_module_cli_test.go:203", "modules/launchpad/client/cli/query_price_test.go:128", "modules/launchpad/client/rest/grpc_query_market_test.go:74", "modules/launchpad/keeper/grpc_query_fee_accounting_test.go:80", "modules/launchpad/legacy/v610/keeper/keeper_test.go:547", "modules/layerxagent/integration/endblock_test.go:45", "modules/layerxagent/integration/genesis_test.go:31", "modules/layerxagent/integration/gov_test.go:44", "modules/layerxagent/keeper/proof_layerxagent_module_test.go:73", "modules/layerxagent/module_test.go:187", "modules/layerxanchor/keeper/bond_return_test.go:87", "modules/layerxanchor/keeper/checkpoint_path_retired_test.go:53", "modules/layerxanchor/keeper/keeper_test.go:130", "modules/layerxanchor/keeper/merge_handler_test.go:28", "modules/layerxanchor/keeper/msg_server_retired_test.go:16", "modules/layerxanchor/keeper/retire_merge_test.go:18", "modules/layerxanchor/keeper/retirement_rehearsal_test.go:38", "modules/layerxanchor/proof_retirement_test.go:28", "modules/layerxauth/ante/integration_test.go:44", "modules/layerxauth/ante/revocation_test.go:71", "modules/layerxauth/keeper/harness_test.go:71", "modules/layerxauth/keeper/proof_did_binding_test.go:59", "modules/layerxauth/keeper/retire_test.go:32", "modules/layerxauth/keeper/shared_host_test.go:24", "modules/layerxauth/module_test.go:98", "modules/layerxcustody/keeper/keeper_test.go:72", "modules/layerxcustody/keeper/merge_release_test.go:31", "modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go:84", "modules/layerxexchange/keeper/oracle_test.go:41", "modules/layerxgov/handler_anchor_retired_test.go:20", "modules/layerxgov/handler_pause_live_test.go:35", "modules/layerxgov/handler_pay_pause_live_test.go:25", "modules/layerxledger/keeper/app_genesis_test.go:36", "modules/layerxledger/keeper/execute_test.go:37", "modules/layerxledger/keeper/harness_test.go:68", "modules/layerxledger/keeper/msg_server_test.go:23", "modules/layerxledger/keeper/pause_test.go:29", "modules/layerxledger/keeper/proof_layerxledger_keeper_test.go:54", "modules/layerxledger/keeper/retire_test.go:27", "modules/layerxledger/module_test.go:72", "modules/layerxledger/types/proof_layerxledger_genesis_test.go:161", "modules/layerxledger/types/proof_payload_codec_test.go:81", "modules/layerxpay/integration/genesis_test.go:146", "modules/layerxpay/integration/gov_test.go:25", "modules/layerxpay/keeper/execute_test.go:141", "modules/layerxpay/keeper/harness_test.go:80", "modules/layerxpay/keeper/proof_pay_genesis_test.go:66", "modules/layerxpay/keeper/proof_pay_keeper_test.go:68", "modules/layerxpay/module_test.go:64", "modules/layerxpay/types/proof_views_test.go:199", "modules/lxphost/host_test.go:84", "modules/lxphost/idempotency_restart_test.go:45", "modules/lxphost/pool_test.go:24", "modules/lxphost/proof_lxphost_host_test.go:60", "modules/mint/client/rest/grpc_query_test.go:62", "modules/oracle/keeper/slash_metrics_test.go:28", "modules/perps/gov_route_test.go:52", "modules/perps/keeper/adl_test.go:39", "modules/perps/keeper/funding_test.go:41", "modules/perps/keeper/msg_server_market_test.go:24", "modules/perps/keeper/proof_perps_governance_test.go:53", "modules/perps/keeper/quotes_test.go:54", "modules/perps/module_test.go:62", "modules/perps/types/proof_perps_0x1015_test.go:60", "modules/pricefeed/client/cli/query_feeds_test.go:55", "modules/pricefeed/client/cli/query_prices_test.go:78", "modules/pricefeed/client/cli/query_test.go:90", "modules/pricefeed/gateway_test.go:53", "modules/sequencer/keeper/ics23_evm_storage_vector_test.go:27", "modules/sequencer/keeper/ics23_module_catalogue_vector_test.go:40", "modules/sequencer/keeper/ics23_vector_test.go:65", "modules/sequencer/keeper/proof_sequencer_module_test.go:107", "modules/spot/keeper/fees_test.go:199", "modules/spot/keeper/pricing_test.go:39", "modules/spot/keeper/proof_go_exported_modules_spot_keeper_test.go:78", "modules/spot/keeper/proof_spot_storage_test.go:43", "modules/tokenfactory/client/cli/proof_cli_test.go:161", "modules/tokenfactory/client/cli/query_metadata_cli_test.go:62", "modules/tokenfactory/client/wasm/bindings/proof_wasm_test.go:91", "modules/tokenfactory/keeper/app_export_paused_test.go:33", "modules/tokenfactory/keeper/denom_paused_surface_test.go:76", "modules/tokenfactory/keeper/ledger_issuer_bind_test.go:29", "modules/tokenfactory/keeper/proof_issuer_did_test.go:26", "modules/tokenfactory/types/proof_events_test.go:53", "node/ante_revocation_test.go:108", "node/ante_test.go:208", "node/app.go:2621", "node/app_feetoken_test.go:64", "node/app_merge_modules_test.go:24", "node/app_merge_wiring_test.go:22", "node/custom_precompiles_e_test.go:12", "node/genesis_sequenced_test.go:46", "node/giga_merge_fallback_test.go:88", "node/layerxchains_block_test.go:71", "node/layerxchains_wiring_test.go:26", "node/leader_schedule_gov_test.go:39", "node/leader_source_test.go:35", "node/merge_rehearsal_test.go:42", "node/precompiles_agent_imports_test.go:11", "node/precompiles_agent_merge_imports_test.go:13", "node/precompiles_anchor_retired_test.go:11", "node/precompiles_merge_imports_test.go:15", "node/precompiles_v6120_test.go:106", "node/proof_node_abci_test.go:66", "node/proof_node_genesis_test.go:135", "node/proof_node_go_api_test.go:69", "node/rpc_restart_test.go:106", "node/sequenced_finalize_test.go:41", "node/sequenced_halt_rehearsal_test.go:34", "node/sequenced_metrics_test.go:18", "node/sequenced_optimistic_test.go:29", "node/sequenced_proposal_test.go:22", "node/sequencer/accepter_test.go:128", "node/sequencer/agent_scheduler_parity_test.go:30", "node/sequencer/commit_release_test.go:36", "node/sequencer/consensus_source_admit_test.go:56", "node/sequencer/consensus_source_fence_test.go:46", "node/sequencer/consensus_source_test.go:54", "node/sequencer/consensus_source_wal_test.go:59", "node/sequencer/dial_test.go:18", "node/sequencer/driver_test.go:66", "node/sequencer/failover_rehearsal_test.go:86", "node/sequencer/failover_test.go:27", "node/sequencer/handover_test.go:38", "node/sequencer/limits_test.go:44", "node/sequencer/log_feed_test.go:70", "node/sequencer/metrics_test.go:18", "node/sequencer/mixed_load_test.go:32", "node/sequencer/node_start_test.go:53", "node/sequencer/node_stop_test.go:43", "node/sequencer/node_test.go:55", "node/sequencer/proof_sequencer_executor_test.go:54", "node/sequencer/proof_sequencer_receipt_test.go:313", "node/sequencer/proof_sequencer_wal_test.go:55", "node/sequencer/receipt_latency_test.go:30", "node/sequencer/receipt_source_test.go:24", "node/sequencer/receiptkey_pins_test.go:20", "node/sequencer/replay_test.go:75", "node/sequencer/rpc_e2e_test.go:87", "node/sequencer/seal_batch_test.go:33", "node/sequencer/seal_giga_test.go:29", "node/sequencer/standalone_primary_test.go:54", "node/sequencer/standby_role_test.go:44", "node/sequencer/standby_test.go:86", "node/sequencer/standby_wal_sync_hook_test.go:51", "node/sequencer/tcp_ack_test.go:33", "node/sequencer/vote_parity_test.go:36", "node/sequencer/wal/wal_test.go:502", "node/sequencer_rpc_option_test.go:77", "node/standby_recorder_replication_test.go:68", "node/store_delete_test.go:45", "node/test_helpers.go:187", "node/test_wrapper_stores_test.go:16", "node/upgrade_export_test.go:40", "node/upgrades_activation_test.go:499", "node/upgrades_merge_activation_test.go:46", "node/upgrades_merge_bonds_test.go:20", "node/upgrades_merge_gate_test.go:120", "node/upgrades_merge_stores_test.go:31", "node/upgrades_sequencer_test.go:332", "node/upgrades_test.go:24", "node/upgrades_unmounted_test.go:15", "node/vote_feed_test.go:21", "precompiles/bank/proof_0x1001_bank_test.go:81", "precompiles/common/precompile_stdout_test.go:27", "precompiles/custom_precompiles_e_test.go:17", "precompiles/launchpad/events_test.go:61", "precompiles/launchpad/proof_precompile_go_test.go:144", "precompiles/layerxagent/clearing/clearing_test.go:30", "precompiles/layerxagent/common/common_test.go:35", "precompiles/layerxagent/eip712/eip712_test.go:41", "precompiles/layerxagent/oracle/oracle_test.go:69", "precompiles/layerxagent/oracle/proof_oracle_aggregator_0x0903_test.go:263", "precompiles/layerxagent/orob/orob_test.go:36", "precompiles/layerxagent/orob/proof_orob_0x0901_test.go:34", "precompiles/layerxagent/pofq/pofq_test.go:39", "precompiles/layerxagent/scheduler/proof_scheduler_0x0905_test.go:104", "precompiles/layerxagent/served/served_test.go:34", "precompiles/layerxagent/streams/harness_test.go:78", "precompiles/layerxagent/teeattestor/resolution_test.go:133", "precompiles/layerxanchor/retired_surface_test.go:41", "precompiles/layerxauth/client_test.go:32", "precompiles/layerxauth/gas_conformance_test.go:30", "precompiles/layerxauth/grants_test.go:45", "precompiles/layerxauth/harness_test.go:84", "precompiles/layerxauth/lifecycle_test.go:22", "precompiles/layerxauth/parity_test.go:170", "precompiles/layerxauth/pause_test.go:25", "precompiles/layerxauth/proof_layerxauth_0x101c_test.go:61", "precompiles/layerxauth/revoke_test.go:73", "precompiles/layerxauth/views_test.go:46", "precompiles/layerxledger/activation_test.go:19", "precompiles/layerxledger/client_test.go:31", "precompiles/layerxledger/gas_conformance_test.go:33", "precompiles/layerxledger/harness_test.go:86", "precompiles/layerxledger/mirror_app_test.go:27", "precompiles/layerxledger/parity_test.go:67", "precompiles/layerxledger/pause_test.go:29", "precompiles/layerxledger/proof_layerxledger_0x101a_test.go:193", "precompiles/layerxledger/proof_layerxledger_errors_test.go:63", "precompiles/layerxpay/harness_test.go:69", "precompiles/layerxpay/proof_layerxpay_0x101b_test.go:126", "precompiles/layerxpay/served/served_test.go:34", "precompiles/layerxprograms/determinism_test.go:30", "precompiles/layerxprograms/events_call_test.go:39", "precompiles/layerxprograms/events_sandbox_test.go:24", "precompiles/layerxprograms/harness_test.go:91", "precompiles/layerxprograms/idempotency_test.go:55", "precompiles/layerxprograms/layerxprograms_test.go:43", "precompiles/layerxprograms/method_quote_test.go:37", "precompiles/layerxprograms/method_sandbox_activate_test.go:44", "precompiles/layerxprograms/occ_test.go:86", "precompiles/layerxprograms/view_accounts_test.go:42", "precompiles/layerxprograms/view_fees_test.go:25", "precompiles/layerxprograms/view_height_test.go:33", "precompiles/layerxprograms/view_sandbox_test.go:25", "precompiles/layerxprograms/view_web_test.go:35", "precompiles/layerxprograms/view_winddown_test.go:48", "precompiles/layerxprograms/webreader_test.go:241", "precompiles/layerxprograms/xweb_test.go:92", "precompiles/missing_merge_test.go:17", "precompiles/names_markets_test.go:20", "precompiles/perps/switch_test.go:608", "precompiles/precompile_info_e_test.go:29", "precompiles/proof_activation_test.go:62", "precompiles/proof_precompile_go_api_test.go:52", "precompiles/setup_test.go:49", "precompiles/spot/events_test.go:59", "precompiles/spot/integration_test.go:298", "programs/vendor/generic-array-0.14.7/CHANGELOG.md:6", "programs/vendor/libc-0.2.189/CHANGELOG.md:825", "programs/vendor/openssl-0.10.81/src/x509/mod.rs:136", "programs/vendor/ureq-3.4.0/src/run.rs:249", "programs/vendor/ureq-proto-0.6.4/src/client/mod.rs:24", "programs/vendor/ureq-proto-0.6.4/src/client/recvbody.rs:99", "programs/vendor/ureq-proto-0.6.4/src/client/recvresp.rs:196", "programs/vendor/ureq-proto-0.6.4/src/client/redirect.rs:7", "programs/vendor/ureq-proto-0.6.4/src/client/test/scenario.rs:7", "programs/vendor/ureq-proto-0.6.4/src/client/test/state_recv_response.rs:291", "programs/vendor/ureq-proto-0.6.4/src/server/mod.rs:20", "programs/vendor/ureq-proto-0.6.4/src/server/sendbody.rs:6", "programs/vendor/ureq-proto-0.6.4/src/server/sendres.rs:42", "programs/vendor/ureq-proto-0.6.4/src/server/test/scenario.rs:7", "programs/vendor/ureq-proto-0.6.4/src/server/test/state_cleanup.rs:27", "programs/vendor/ureq-proto-0.6.4/src/server/test/state_send_body.rs:140", "programs/vendor/ureq-proto-0.6.4/src/server/test/state_send_response.rs:95", "programs/vendor/wasip2-1.0.4+wasi-0.2.12/src/imports.rs:3888", "programs/vendor/wasip2-1.0.4+wasi-0.2.12/src/proxy.rs:982", "programs/vendor/wit-bindgen-0.57.1/src/rt/async_support/abi_buffer.rs:1", "programs/vendor/wit-bindgen-0.57.1/src/rt/async_support/future_support.rs:114", "programs/vendor/wit-bindgen-0.57.1/src/rt/async_support/stream_support.rs:8", "programs/vendor/wit-bindgen-0.57.1/src/rt/async_support/subtask.rs:10", "programs/vendor/wit-bindgen-0.57.1/src/rt/mod.rs:223", "rpc/block_launch_height_test.go:28", "rpc/block_receipts_root_test.go:35", "rpc/block_test.go:127", "rpc/client_matrix_test.go:120", "rpc/debug_tracer_shape_test.go:55", "rpc/domain_reads_test.go:40", "rpc/domain_scope_test.go:60", "rpc/domain_ws_test.go:39", "rpc/error_codes_test.go:57", "rpc/ethclient_blocks_test.go:20", "rpc/ethclient_call_test.go:26", "rpc/ethclient_chain_test.go:19", "rpc/ethclient_domain_test.go:44", "rpc/ethclient_fees_test.go:19", "rpc/ethclient_send_test.go:25", "rpc/ethclient_state_test.go:19", "rpc/ethclient_transactions_test.go:21", "rpc/filter_blockhash_test.go:24", "rpc/filter_earliest_test.go:21", "rpc/filter_shutdown_test.go:16", "rpc/header_receipts_root_test.go:40", "rpc/http_ws_parity_test.go:112", "rpc/info_metric_labels_test.go:26", "rpc/ip_rate_limit_test.go:16", "rpc/names_proof_test.go:69", "rpc/notifier_internal_test.go:328", "rpc/pax_served_set_test.go:63", "rpc/pending_block_txcount_test.go:24", "rpc/pending_context_test.go:51", "rpc/pending_filter_test.go:72", "rpc/pending_simulate_test.go:495", "rpc/pending_tx_index_test.go:38", "rpc/proof_client_parity_test.go:86", "rpc/proof_metrics_test.go:43", "rpc/resolution_pending_test.go:78", "rpc/rpcstack_test.go:335", "rpc/send_pending_test.go:123", "rpc/send_sequencer_test.go:279", "rpc/sequencer_options_integration_test.go:110", "rpc/sequencer_receipt_hosted_test.go:30", "rpc/sequencer_receipt_test.go:367", "rpc/sequencer_receipt_vectors_test.go:475", "rpc/served_labels_test.go:34", "rpc/served_methods_test.go:83", "rpc/server_options_test.go:57", "rpc/server_options_wiring_test.go:44", "rpc/server_registration_test.go:41", "rpc/simulate_basefee_test.go:32", "rpc/subscribe_logs_test.go:41", "rpc/subscribe_test.go:431", "rpc/synthetic_receipts_test.go:142", "rpc/trace_baker_metrics_test.go:22", "rpc/transport_limits_test.go:56", "rpc/tx_metric_labels_test.go:29", "rpc/txpool_status_test.go:22", "rpc/utils_metrics_test.go:45", "rpc/web3_sha3_test.go:15", "rpc/websockets_metrics_test.go:22", "rpc/ws_transport_test.go:39", "sdk/client/grpc/tmservice/service_test.go:47", "sdk/client/grpc_query_test.go:40", "sdk/client/keys/add_ledger_test.go:67", "sdk/client/keys/add_test.go:38", "sdk/client/keys/export_test.go:90", "sdk/client/keys/import_test.go:92", "sdk/client/keys/list_test.go:37", "sdk/client/keys/show_test.go:66", "sdk/client/rpc/rpc_test.go:34", "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/java/org/bitcoin/NativeSecp256k1.java:184", "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/modules/ecdh/tests_impl.h:35", "sdk/launchpad/shared/auth/audit_delivery_integration_test.go:259", "sdk/launchpad/shared/auth/http_authorization_integration_test.go:63", "sdk/launchpad/shared/auth/mtls_identity_client_test.go:62", "sdk/launchpad/shared/auth/reported_hash_backend_test.go:49", "sdk/launchpad/shared/chain/client_test.go:56", "sdk/launchpad/shared/chain/contracts_test.go:180", "sdk/launchpad/shared/config/capabilities/preflight_chain_test.go:148", "sdk/launchpad/shared/config/capabilities/reported_header_test.go:42", "sdk/launchpad/shared/config/capabilities/reported_pinned_test.go:123", "sdk/launchpad/shared/config/deployment/attest_surface_test.go:156", "sdk/launchpad/shared/config/deployment/attest_test.go:123", "sdk/launchpad/shared/db/client.go:290", "sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go:318", "sdk/launchpad/shared/db/production/online_indexes_test.go:34", "sdk/launchpad/shared/db/production/production_test.go:128", "sdk/launchpad/shared/db/production/readroute_test.go:45", "sdk/launchpad/shared/delivery/natsdriver/driver_test.go:70", "sdk/launchpad/shared/delivery/natsdriver/epoch_test.go:73", "sdk/launchpad/shared/delivery/ordered_test.go:24", "sdk/launchpad/shared/delivery/store.go:93", "sdk/launchpad/shared/http/envelope_test.go:114", "sdk/launchpad/shared/http/http_test.go:53", "sdk/launchpad/shared/queue/queue_test.go:47", "sdk/launchpad/shared/redis/primitives_test.go:59", "sdk/launchpad/shared/redis/redis_test.go:19", "sdk/launchpad/shared/storage/r2_test.go:64", "sdk/platform/go/agent_envelope_major2_test.go:21", "sdk/platform/go/programs_evm_test.go:104", "sdk/server/grpc/grpc_web_test.go:59", "sdk/server/grpc/server_test.go:69", "sdk/server/util_test.go:212", "sdk/snapshots/helpers_test.go:166", "sdk/store/gaskv/legacy_metrics_test.go:24", "sdk/store/gaskv/store_test.go:86", "sdk/store/rootmulti/chain_proof_vector_test.go:26", "sdk/storev2/rootmulti/legacy_metrics_test.go:44", "sdk/storev2/rootmulti/otel_commit_metrics_test.go:33", "sdk/storev2/rootmulti/otel_snapshot_metrics_test.go:33", "sdk/telemetry/legacy_definitions_test.go:20", "sdk/testutil/ioutil.go:77", "sdk/testutil/network/doc.go:19", "sdk/testutil/network/network.go:131", "sdk/testutil/network/network_test.go:33", "sdk/testutil/oteltest/oteltest.go:124", "sdk/types/context_test.go:61", "sdk/types/module/module_test.go:32", "sdk/types/rest/rest_test.go:236", "sdk/x/auth/client/testutil/suite.go:77", "sdk/x/auth/types/account_retriever_test.go:17", "sdk/x/auth/vesting/client/testutil/suite.go:38", "sdk/x/authz/client/rest/grpc_query_test.go:84", "sdk/x/authz/client/testutil/tx.go:77", "sdk/x/bank/client/rest/query_test.go:72", "sdk/x/bank/client/testutil/suite.go:91", "sdk/x/distribution/client/testutil/suite.go:57", "sdk/x/evidence/client/testutil/suite.go:35", "sdk/x/feegrant/client/testutil/suite.go:109", "sdk/x/genutil/client/testutil/suite.go:44", "sdk/x/gov/client/testutil/deposits.go:41", "sdk/x/gov/client/testutil/suite.go:77", "sdk/x/params/client/rest/grpc_query_test.go:37", "sdk/x/params/client/testutil/suite.go:37", "sdk/x/slashing/client/rest/grpc_query_test.go:41", "sdk/x/slashing/client/testutil/suite.go:44", "sdk/x/staking/client/rest/grpc_query_test.go:75", "sdk/x/staking/client/testutil/suite.go:78", "sdk/x/upgrade/client/testutil/suite.go:44", "services/bridge/deploy/appenv/proof_app_env_test.go:191", "services/explorer/backend/CHANGELOG.md:1157", "services/launchpad/api/internal/app/app_test.go:63", "services/launchpad/api/internal/app/dev_authority_cache_test.go:112", "services/launchpad/api/internal/app/dev_authority_contract_test.go:73", "services/launchpad/api/internal/app/dev_authority_test.go:168", "services/launchpad/api/internal/app/dev_market_reads_test.go:34", "services/launchpad/api/internal/app/dev_network_reads_test.go:46", "services/launchpad/api/internal/app/dev_stream_test.go:99", "services/launchpad/api/internal/app/network_reads_production_test.go:99", "services/launchpad/api/internal/app/proof_launchpad_api_test.go:65", "services/launchpad/api/internal/app/stream_relay_production_test.go:125", "services/launchpad/api/internal/broker/integration_test.go:28", "services/launchpad/api/internal/broker/postgres_stream_test.go:23", "services/launchpad/api/internal/cache/adapter_test.go:299", "services/launchpad/api/internal/config/config_test.go:44", "services/launchpad/api/internal/internaltest/containers.go:202", "services/launchpad/api/internal/internaltest/runtime_database.go:199", "services/launchpad/api/internal/rest/dev_head_budget_test.go:55", "services/launchpad/api/internal/rest/dev_history_discovery_test.go:125", "services/launchpad/api/internal/rest/dev_market_test.go:85", "services/launchpad/api/internal/rest/pool_reads_test.go:164", "services/launchpad/api/internal/rest/production_integration_test.go:57", "services/launchpad/api/internal/sse/sse_test.go:40", "services/launchpad/api/internal/store/deterministic_test.go:27", "services/launchpad/api/internal/ws/ws_test.go:39", "services/launchpad/discovery/alerts_disable_test.go:17", "services/launchpad/discovery/alerts_v2_http_test.go:28", "services/launchpad/discovery/phase2_test.go:25", "services/launchpad/discovery/proof_launchpad_discovery_test.go:66", "services/launchpad/discovery/squads_actions_test.go:51", "services/launchpad/discovery/squads_store_v2_test.go:34", "services/launchpad/discovery/squads_v2_http_test.go:71", "services/launchpad/gateway/internal/app/app_test.go:61", "services/launchpad/gateway/internal/app/dev_identity_test.go:86", "services/launchpad/gateway/internal/app/development_user_routes_test.go:55", "services/launchpad/gateway/internal/app/identity_peers_test.go:118", "services/launchpad/gateway/internal/app/metadata_proxy_test.go:143", "services/launchpad/gateway/internal/app/purge_mode_test.go:31", "services/launchpad/gateway/internal/auth/identity_http_test.go:72", "services/launchpad/gateway/internal/auth/identity_journeys_test.go:238", "services/launchpad/gateway/internal/auth/identity_measurement_test.go:229", "services/launchpad/gateway/internal/auth/identity_test.go:74", "services/launchpad/gateway/internal/internaltest/containers.go:41", "services/launchpad/gateway/internal/proxy/connected_errors_test.go:23", "services/launchpad/gateway/internal/proxy/connected_media_v2_test.go:40", "services/launchpad/gateway/internal/proxy/proof_launchpad_gateway_test.go:125", "services/launchpad/gateway/internal/proxy/rest_test.go:29", "services/launchpad/gateway/internal/proxy/ws_test.go:42", "services/launchpad/gateway/internal/storage/connected_integration_test.go:19", "services/launchpad/gateway/internal/upload/connected_integration_test.go:27", "services/launchpad/gateway/internal/upload/upload_test.go:52", "services/launchpad/indexer/internal/chainreader/historical_test.go:85", "services/launchpad/indexer/internal/chainreader/nft_test.go:45", "services/launchpad/indexer/internal/internaltest/chainfixture/chainfixture.go:117", "services/launchpad/indexer/internal/internaltest/containers.go:5", "services/launchpad/indexer/internal/processor/inventory_publication_postgres_test.go:96", "services/launchpad/indexer/internal/processor/live_ingest_postgres_test.go:138", "services/launchpad/indexer/internal/processor/reconcile_test.go:137", "services/launchpad/indexer/internal/processor/replay_postgres_test.go:29", "services/launchpad/indexer/internal/publisher/publisher_test.go:56", "services/launchpad/indexer/internal/receipt/rpc_test.go:30", "services/launchpad/indexer/internal/runtimedocs/paxeer_test.go:92", "services/launchpad/indexer/internal/source/committed_test.go:46", "services/launchpad/indexer/internal/source/evm_test.go:62", "services/launchpad/indexer/internal/source/historical_integration_test.go:47", "services/launchpad/indexer/internal/store/canonicaltest/postgres.go:46", "services/launchpad/livestream/internal/app/development_reads_test.go:49", "services/launchpad/livestream/internal/app/platform_test.go:71", "services/launchpad/livestream/internal/streams/connected_integration_test.go:475", "services/launchpad/livestream/internal/streams/directory_test.go:114", "services/launchpad/livestream/internal/streams/lifecycle_test.go:41", "services/launchpad/livestream/internal/streams/proof_launchpad_livestream_test.go:94", "services/launchpad/livestream/internal/streams/v2_lifecycle_http_test.go:36", "services/launchpad/livestream/internal/streams/viewer_counter_test.go:33", "services/launchpad/metadata/internal/app/dev_connected_test.go:153", "services/launchpad/metadata/internal/app/dev_upload_test.go:69", "services/launchpad/metadata/internal/app/dev_v2_test.go:83", "services/launchpad/metadata/internal/internaltest/containers.go:25", "services/launchpad/metadata/internal/internaltest/external.go:69", "services/launchpad/metadata/internal/internaltest/identity.go:86", "services/launchpad/metadata/internal/metadata/edge_production_test.go:62", "services/launchpad/metadata/internal/metadata/handlers_test.go:64", "services/launchpad/notifications/phase2_test.go:26", "services/launchpad/notifications/proof_launchpad_notifications_test.go:84", "services/launchpad/notifications/store_page_test.go:28", "services/launchpad/notifications/v2_http_test.go:27", "services/launchpad/pnl-tracker/internal/app/app_test.go:58", "services/launchpad/pnl-tracker/internal/app/proof_launchpad_pnl_tracker_test.go:177", "services/launchpad/pnl-tracker/internal/devreads/devreads_test.go:60", "services/launchpad/pnl-tracker/internal/internaltest/containers.go:6", "services/launchpad/pnl-tracker/internal/production/l16/baseline_ahead_postgres_test.go:85", "services/launchpad/pnl-tracker/internal/production/l16/live_transfers_production_test.go:32", "services/launchpad/pnl-tracker/internal/production/l17/phase2_test.go:42", "services/launchpad/pnl-tracker/internal/production/l18/chain_test.go:334", "services/launchpad/pnl-tracker/internal/production/l18/journeys_test.go:43", "services/launchpad/pnl-tracker/internal/production/l18/storage_test.go:51", "services/launchpad/pnl-tracker/internal/referral/localfixture_test.go:40", "services/launchpad/ranking-algo/internal/httpapi/rankings_test.go:23", "services/launchpad/ranking-algo/internal/internaltest/containers.go:54", "services/launchpad/ranking-algo/internal/internaltest/runtime_database.go:200", "services/launchpad/ranking-algo/internal/store/phase2_test.go:192", "services/launchpad/ranking-algo/internal/store/production_universe_test.go:64", "services/launchpad/ranking-algo/internal/store/visibility_cutoff_test.go:32", "services/launchpad/security/control/chain_reported_hash_test.go:70", "services/launchpad/security/control/control_test.go:88", "services/launchpad/security/control/ready_test.go:37", "services/launchpad/security/control/workflows_test.go:46", "services/launchpad/security/policy/credentials_test.go:20", "services/launchpad/security/policy/operator_test.go:51", "services/launchpad/security/policy/redis_fault_test.go:46", "services/launchpad/social/internal/app/dev_v2_test.go:73", "services/launchpad/social/internal/app/platform_test.go:95", "services/launchpad/social/internal/fanout/connected_protocol_test.go:159", "services/launchpad/social/internal/fanout/durable_test.go:42", "services/launchpad/social/internal/fanout/hub_membership_test.go:28", "services/launchpad/social/internal/fanout/hub_test.go:46", "services/launchpad/social/internal/interactions/integration_test.go:62", "services/launchpad/social/internal/internaltest/containers.go:43", "services/launchpad/social/internal/safety/http_test.go:45", "services/launchpad/social/internal/safety/store_test.go:53", "services/launchpad/social/internal/social/contract_test.go:27", "services/launchpad/social/internal/social/handlers_test.go:39", "services/launchpad/social/internal/social/proof_launchpad_social_test.go:72", "services/launchpad/social/internal/social/voice_v2_actions_test.go:42", "services/launchpad/social/internal/social/voice_v2_read_test.go:43", "services/launchpad/social/internal/voice/control_test.go:71", "services/launchpad/stats-workers/internal/analytics/phase2_integration_test.go:46", "services/launchpad/stats-workers/internal/app/dev_holders_test.go:40", "services/launchpad/stats-workers/internal/consumer/canonical_legacy_test.go:163", "services/launchpad/stats-workers/internal/consumer/holder_test.go:353", "services/launchpad/stats-workers/internal/consumer/publish_test.go:26", "services/launchpad/stats-workers/internal/holdings/phase2_journey_test.go:25", "services/launchpad/stats-workers/internal/httpapi/identity_mtls_test.go:119", "services/launchpad/stats-workers/internal/httpapi/publish_test.go:28", "services/launchpad/stats-workers/internal/httpapi/webhook_test.go:35", "services/launchpad/stats-workers/internal/internaltest/containers.go:6", "services/launchpad/stats-workers/internal/projectionstats/phase2_test.go:87", "services/launchpad/stats-workers/internal/projectionstats/postgres_test.go:22", "services/launchpad/stats-workers/internal/projectionstats/public_http_test.go:49", "services/launchpad/stats-workers/internal/search/http_test.go:91", "services/launchpad/stats-workers/internal/search/integrated_test.go:47", "services/launchpad/stats-workers/internal/search/projection_test.go:100", "services/launchpad/trading-charts/internal/app/app_dev_test.go:31", "services/launchpad/trading-charts/internal/consumer/accounting_test.go:332", "services/launchpad/trading-charts/internal/engine/builder_test.go:39", "services/launchpad/trading-charts/internal/httpapi/dev_udf_test.go:75", "services/launchpad/trading-charts/internal/httpapi/history_contract_test.go:44", "services/launchpad/trading-charts/internal/httpapi/webhook_test.go:39", "services/launchpad/trading-charts/internal/internaltest/containers.go:40", "services/launchpad/user/internal/account/account_test.go:54", "services/launchpad/user/internal/account/connected_integration_test.go:231", "services/launchpad/user/internal/account/proof_launchpad_user_test.go:74", "services/launchpad/user/internal/app/committed_blocks_test.go:52", "services/launchpad/user/internal/app/development_profile_writes_test.go:59", "services/launchpad/user/internal/app/development_profiles_test.go:51", "services/launchpad/user/internal/internaltest/containers.go:41", "services/launchpad/user/internal/user/handlers_test.go:53", "services/platform/hosted/core/tests/send.rs:155", "services/platform/perps-data/deploy/nats_test.go:270", "services/platform/perps-data/e2e_test.go:135", "services/platform/perps-data/internal/auth/auth_test.go:70", "services/platform/perps-data/internal/decode/owner_lookup_test.go:189", "services/platform/perps-data/internal/decode/spot_test.go:64", "services/platform/perps-data/internal/delivery/natsdriver/driver_test.go:39", "services/platform/perps-data/internal/delivery/store_test.go:182", "services/platform/perps-data/internal/explorer/explorer_test.go:50", "services/platform/perps-data/internal/explorer/proof_explorer_test.go:61", "services/platform/perps-data/internal/explorer/server_test.go:69", "services/platform/perps-data/internal/feeds/feeds_test.go:78", "services/platform/perps-data/internal/gateway/server_test.go:46", "services/platform/perps-data/internal/graphql/account_test.go:82", "services/platform/perps-data/internal/graphql/operations_test.go:149", "services/platform/perps-data/internal/graphql/perps_test.go:103", "services/platform/perps-data/internal/graphql/proof_graphql_test.go:80", "services/platform/perps-data/internal/graphql/spot_test.go:226", "services/platform/perps-data/internal/graphql/subscriptions_test.go:94", "services/platform/perps-data/internal/indexer/indexer_test.go:84", "services/platform/perps-data/internal/markets/markets_test.go:61", "services/platform/perps-data/internal/markets/proof_markets_test.go:62", "services/platform/perps-data/internal/pnl/pnl_test.go:75", "services/platform/perps-data/internal/portal/pages_test.go:264", "services/platform/perps-data/internal/portal/server_test.go:44", "services/platform/perps-data/internal/publish/publisher_test.go:188", "services/platform/perps-data/internal/records/marketset_test.go:37", "services/platform/perps-data/internal/records/proof_records_test.go:67", "services/platform/perps-data/internal/replay/replay_test.go:55", "services/platform/perps-data/internal/rest/accountv2_test.go:116", "services/platform/perps-data/internal/rest/markets_id_test.go:35", "services/platform/perps-data/internal/rest/proof_rest_test.go:85", "services/platform/perps-data/internal/rest/spotusers_test.go:204", "services/platform/perps-data/internal/rest/symbol_test.go:83", "services/platform/perps-data/internal/rest/venue_test.go:361", "services/platform/perps-data/internal/source/follower_test.go:81", "services/platform/perps-data/internal/source/rpc_test.go:84", "services/platform/perps-data/internal/store/facts_test.go:299", "services/platform/perps-data/internal/store/migrate_test.go:74", "services/platform/perps-data/internal/store/projections_test.go:50", "services/platform/perps-data/internal/ws/hub_test.go:65", "services/platform/perps-data/internal/ws/protocol_test.go:102", "services/platform/perps-data/internal/ws/spotuser_test.go:89", "services/platform/perps-data/loadtest/load_test.go:103", "services/wallet/attestor/cmd/attestor/main_test.go:271", "services/wallet/attestor/cmd/loadtest/loadtest_test.go:131", "services/wallet/attestor/internal/audit/audit_test.go:30", "services/wallet/attestor/internal/auth/agent/authority_test.go:32", "services/wallet/attestor/internal/auth/jwt/jwt_test.go:82", "services/wallet/attestor/internal/auth/jwt/replay_test.go:46", "services/wallet/attestor/internal/backup/backup_test.go:57", "services/wallet/attestor/internal/policy/lx/chain_test.go:125", "services/wallet/attestor/internal/policy/lx/lx_test.go:281", "services/wallet/attestor/internal/replica/replica_test.go:110", "services/wallet/attestor/internal/server/e2e_test.go:173", "services/wallet/attestor/internal/server/native_purpose_test.go:363", "services/wallet/attestor/internal/store/store_test.go:45", "services/wallet/attestor/internal/transport/transport_test.go:180", "services/wallet/ceremony/internal/move/move_test.go:57", "services/wallet/ceremony/internal/testsupport/postgres.go:105", "storage/common/keys/proof_node_storage_test.go:47", "storage/db_engine/litt/cli/push_test.go:53", "storage/db_engine/litt/test/migration_test.go:133", "storage/db_engine/litt/test/snapshot_test.go:209", "storage/db_engine/litt/util/file_utils_test.go:199", "storage/db_engine/litt/util/ssh_test.go:31", "storage/db_engine/litt/util/ssh_test_utils.go:217", "storage/db_engine/pebbledb/db_test.go:39", "storage/db_engine/pebbledb/mvcc/iterator_test.go:40", "storage/db_engine/pebbledb/mvcc/metrics_test.go:49", "storage/db_engine/pebbledb/mvcc/proof_node_metrics_test.go:47", "storage/db_engine/pebbledb/mvcc/prune_test.go:52", "storage/ledger_db/receipt/receipt_bench_read_test.go:253", "storage/ledger_db/receipt/receipt_bench_test.go:42", "storage/ledger_db/receipt/receipt_store_test.go:33", "storage/state_db/bench/wrappers/state_store_wrapper_test.go:54", "storage/state_db/sc/composite/random_test_framework_test.go:1492", "storage/state_db/sc/composite/state_sync_merge_stores_test.go:81", "storage/state_db/sc/composite/store_merge_stores_test.go:39", "storage/state_db/sc/composite/store_migration_test.go:663", "storage/state_db/sc/composite/store_test.go:1391", "storage/state_db/sc/flatkv/importer_test.go:331", "storage/state_db/sc/flatkv/store_iteration_test.go:59", "storage/state_db/sc/hashvault/pebble_hashvault_rollback_test.go:32", "storage/state_db/sc/hashvault/pebble_hashvault_test.go:25", "storage/state_db/sc/memiavl/anchor_delete_test.go:40", "storage/state_db/sc/memiavl/benchmark_test.go:41", "storage/state_db/sc/memiavl/db_rewrite_test.go:83", "storage/state_db/sc/memiavl/db_test.go:28", "storage/state_db/sc/memiavl/merge_upgrade_test.go:36", "storage/state_db/sc/memiavl/proof_test.go:51", "storage/state_db/sc/memiavl/snapshot_methods_test.go:28", "storage/state_db/sc/memiavl/snapshot_pipeline_test.go:34", "storage/state_db/sc/memiavl/snapshot_refcount_test.go:26", "storage/state_db/sc/memiavl/store_test.go:997", "storage/state_db/sc/memiavl/tree_test.go:247", "storage/state_db/sc/memiavl/unloaded_store_test.go:30", "storage/state_db/sc/migration/migration_iterator_paired_test.go:308", "storage/state_db/sc/migration/migration_iterator_test_helpers_test.go:49", "storage/state_db/sc/migration/migration_test_framework_test.go:605", "storage/state_db/ss/evm/db_test.go:30", "storage/wal/wal_bench_test.go:45", "storage/wal/wal_test.go:194", "tools/flyci/controller/fly_test.go:40", "tools/flyci/controller/github_test.go:60", "tools/flyci/controller/readiness_test.go:333", "tools/loadtest/config/proof_paxload_bounds_test.go:63", "tools/loadtest/config/settings_test.go:127", "tools/paxctl/.agent/runbooks/seictl-smoke.md:206", "tools/paxctl/internal/testenv/testenv.go:52", "tools/paxctl/seinetwork/render_test.go:190", "tools/paxctl/seinode/render_test.go:308", "tools/paxctl/serve_test.go:129", "tools/paxctl/sidecar/client/client_test.go:18", "tools/paxctl/sidecar/engine/engine_e2e_test.go:23", "tools/paxctl/sidecar/engine/engine_test.go:20", "tools/paxctl/sidecar/engine/mark_not_ready_test.go:22", "tools/paxctl/sidecar/engine/sqlite_store_test.go:15", "tools/paxctl/sidecar/server/keyring_test.go:102", "tools/paxctl/sidecar/server/server_test.go:24", "tools/paxctl/sidecar/tasks/result_compare_test.go:23", "tools/paxctl/sidecar/tasks/sign_and_broadcast_test.go:163", "tools/paxctl/task/snapshot_upload_test.go:166", "tools/qualification/localnode/v6120_test.go:230", "tools/wasm-tools/crates/wit-dylib/src/bindgen.rs:792", "wasm-runtime/cmd/demo/main.go:54", "wasm-runtime/lib.go:39", "wasm-runtime/lib_test.go:37", "wasm/x/wasm/artifacts/v152/lib.go:41", "wasm/x/wasm/artifacts/v155/lib.go:41", "wasm/x/wasm/keeper/genesis_test.go:641", "wasm/x/wasm/keeper/options_test.go:74", "wasm/x/wasm/keeper/wasmtesting/mock_engine.go:146", "wasm/x/wasm/types/wasmer_engine.go:142"]
+
+[row.r7-29.18]
+interface = "interface.7.rpc-eth-blobbasefee"
+verdict = "served"
+path = "rpc/info.go"
+line = 366
+symbol = "BlobBaseFee"
+evidence = "Current declaration: func (i *InfoAPI) BlobBaseFee(ctx context.Context) (result *hexutil.Big, returnErr error) { Signature unchanged; the metric label is corrected to eth_blobBaseFee rather than eth_BlobBaseFee, while the handler still returns ErrEVMNotSupported with blobs not supported on this chain."
+
+[row.r7-29.19]
+interface = "interface.7.go-wsconfig-j38"
+verdict = "served"
+path = "rpc/rpcstack.go"
+line = 57
+symbol = "WsConfig"
+evidence = "Current declaration: type WsConfig struct { The WsConfig struct signature gains DenyList []string and embeds RPCEndpointConfig; EnableWS registers the deny list and applies the shared batch and per-IP limit configuration."
+
+[row.r7-29.20]
+interface = "interface.7.ws-endpoint-root"
+verdict = "served"
+path = "rpc/rpcstack.go"
+line = 241
+symbol = "ServeHTTP"
+evidence = "Current declaration: func (h *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) { Signature unchanged; ServeHTTP now resolves /chain/<id> into DomainScope before routing HTTP or WS, returning unknown_chain for unknown scopes. EnableWS applies deny-list, batch and per-IP limits to the WS handler."
+
+[row.r7-29.21]
+interface = "interface.7.http-jsonrpc-root"
+verdict = "served"
+path = "rpc/rpcstack.go"
+line = 300
+symbol = "CheckPath"
+evidence = "Current declaration: func CheckPath(r *http.Request, path string) bool { Signature unchanged; CheckPath still matches the root when the prefix is empty. The adjacent EnableRPC construction now sets batch limits and wraps the legacy HTTP handler in a per-IP limiter; this change is in handler construction, not CheckPath parameters."
+
+[row.r7-29.22]
+interface = "interface.7.ws-eth-subscribe-newheads"
+verdict = "served"
+path = "rpc/subscribe.go"
+line = 208
+symbol = "NewHeads"
+evidence = "Current declaration: func (a *SubscriptionAPI) NewHeads(ctx context.Context) (s *rpc.Subscription, err error) { Signature unchanged; NewHeads remains the subscription entry and its notification goroutine ends on Notify failure. Head payload construction elsewhere in this file now derives execution fields and the Comet results root instead of changing this method signature."
+
+[row.r7-29.23]
+interface = "interface.7.ws-eth-subscribe-logs"
+verdict = "served"
+path = "rpc/subscribe.go"
+line = 253
+symbol = "Logs"
+evidence = "Current declaration: func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriteria) (s *rpc.Subscription, _err error) { Signature unchanged; Logs now tracks logSubscriptions under a mutex and enforces logLimit; fetch or scope failures terminate the subscription instead of emitting an error as a log payload."
+
+[row.r7-29.24]
+interface = "interface.7.rpc-pax-tracetransactionprofile"
+verdict = "served"
+path = "rpc/trace_profile.go"
+line = 45
+symbol = "TraceTransactionProfile"
+evidence = "Current declaration: func (api *DebugAPI) TraceTransactionProfile(ctx context.Context, hash common.Hash, config *tracers.TraceConfig) (result interface{}, returnErr error) { The registered DebugAPI method remains for the debug namespace. PaxDebugAPI at rpc/tracers.go:195 now stores a named debug *DebugAPI field instead of embedding DebugAPI, so this method is not promoted to pax; task 7.3.1 and override.J38.13 retire the pax route, not the shared Go declaration."
+
+[row.r7-29.25]
+interface = "interface.7.rpc-pax-tracetransaction"
+verdict = "served"
+path = "rpc/tracers.go"
+line = 285
+symbol = "TraceTransaction"
+evidence = "Current declaration: func (api *DebugAPI) TraceTransaction(ctx context.Context, hash common.Hash, config *tracers.TraceConfig) (result interface{}, returnErr error) { The registered DebugAPI method remains for the debug namespace. PaxDebugAPI at rpc/tracers.go:195 now stores a named debug *DebugAPI field instead of embedding DebugAPI, so this method is not promoted to pax; task 7.3.1 and override.J38.12 retire the pax route, not the shared Go declaration."
+
+[row.r7-29.26]
+interface = "interface.7.rpc-pax-traceblockbynumber"
+verdict = "served"
+path = "rpc/tracers.go"
+line = 642
+symbol = "TraceBlockByNumber"
+evidence = "Current declaration: func (api *DebugAPI) TraceBlockByNumber(ctx context.Context, number rpc.BlockNumber, config *tracers.TraceConfig) (result interface{}, returnErr error) { The registered DebugAPI method remains for the debug namespace. PaxDebugAPI at rpc/tracers.go:195 now stores a named debug *DebugAPI field instead of embedding DebugAPI, so this method is not promoted to pax; task 7.3.1 and override.J38.9 retire the pax route, not the shared Go declaration."
+
+[row.r7-29.27]
+interface = "interface.7.rpc-pax-traceblockbyhash"
+verdict = "served"
+path = "rpc/tracers.go"
+line = 670
+symbol = "TraceBlockByHash"
+evidence = "Current declaration: func (api *DebugAPI) TraceBlockByHash(ctx context.Context, hash common.Hash, config *tracers.TraceConfig) (result interface{}, returnErr error) { The registered DebugAPI method remains for the debug namespace. PaxDebugAPI at rpc/tracers.go:195 now stores a named debug *DebugAPI field instead of embedding DebugAPI, so this method is not promoted to pax; task 7.3.1 and override.J38.8 retire the pax route, not the shared Go declaration."
+
+[row.r7-29.28]
+interface = "interface.7.rpc-pax-tracecall"
+verdict = "served"
+path = "rpc/tracers.go"
+line = 698
+symbol = "TraceCall"
+evidence = "Current declaration: func (api *DebugAPI) TraceCall(ctx context.Context, args export.TransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, config *tracers.TraceCallConfig) (result interface{}, returnErr error) { The registered DebugAPI method remains for the debug namespace. PaxDebugAPI at rpc/tracers.go:195 now stores a named debug *DebugAPI field instead of embedding DebugAPI, so this method is not promoted to pax; task 7.3.1 and override.J38.10 retire the pax route, not the shared Go declaration."
+
+[row.r7-29.29]
+interface = "interface.7.rpc-pax-getrawheader"
+verdict = "served"
+path = "rpc/tracers.go"
+line = 718
+symbol = "GetRawHeader"
+evidence = "Current declaration: func (api *DebugAPI) GetRawHeader(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (_ hexutil.Bytes, returnErr error) { The registered DebugAPI method remains for the debug namespace. PaxDebugAPI at rpc/tracers.go:195 now stores a named debug *DebugAPI field instead of embedding DebugAPI, so this method is not promoted to pax; task 7.3.1 and override.J38.5 retire the pax route, not the shared Go declaration."
+
+[row.r7-29.30]
+interface = "interface.7.rpc-pax-getrawblock"
+verdict = "served"
+path = "rpc/tracers.go"
+line = 726
+symbol = "GetRawBlock"
+evidence = "Current declaration: func (api *DebugAPI) GetRawBlock(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (_ hexutil.Bytes, returnErr error) { The registered DebugAPI method remains for the debug namespace. PaxDebugAPI at rpc/tracers.go:195 now stores a named debug *DebugAPI field instead of embedding DebugAPI, so this method is not promoted to pax; task 7.3.1 and override.J38.4 retire the pax route, not the shared Go declaration."
+
+[row.r7-29.31]
+interface = "interface.7.rpc-pax-getrawreceipts"
+verdict = "served"
+path = "rpc/tracers.go"
+line = 734
+symbol = "GetRawReceipts"
+evidence = "Current declaration: func (api *DebugAPI) GetRawReceipts(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (_ []hexutil.Bytes, returnErr error) { The registered DebugAPI method remains for the debug namespace. PaxDebugAPI at rpc/tracers.go:195 now stores a named debug *DebugAPI field instead of embedding DebugAPI, so this method is not promoted to pax; task 7.3.1 and override.J38.6 retire the pax route, not the shared Go declaration."
+
+[row.r7-29.32]
+interface = "interface.7.rpc-debug-getrawtransaction"
+verdict = "served"
+path = "rpc/tracers.go"
+line = 742
+symbol = "GetRawTransaction"
+evidence = "Current declaration: func (api *DebugAPI) GetRawTransaction(ctx context.Context, hash common.Hash) (_ hexutil.Bytes, returnErr error) { Signature unchanged; the former ErrEVMNotSupported body is replaced by NewRawTransactionAPI.GetRawTransactionByHash, returning the signed envelope or a transaction-not-found error."
+
+[row.r7-29.33]
+interface = "interface.7.rpc-pax-getrawtransaction"
+verdict = "served"
+path = "rpc/tracers.go"
+line = 742
+symbol = "GetRawTransaction"
+evidence = "Current declaration: func (api *DebugAPI) GetRawTransaction(ctx context.Context, hash common.Hash) (_ hexutil.Bytes, returnErr error) { The registered DebugAPI method remains for the debug namespace. PaxDebugAPI at rpc/tracers.go:195 now stores a named debug *DebugAPI field instead of embedding DebugAPI, so this method is not promoted to pax; task 7.3.1 and override.J38.7 retire the pax route, not the shared Go declaration. The surviving debug implementation now returns the raw transaction envelope."
+
+[row.r7-29.34]
+interface = "interface.7.rpc-pax-tracestateaccess"
+verdict = "served"
+path = "rpc/tracers.go"
+line = 764
+symbol = "TraceStateAccess"
+evidence = "Current declaration: func (api *DebugAPI) TraceStateAccess(ctx context.Context, hash common.Hash) (result interface{}, returnErr error) { The registered DebugAPI method remains for the debug namespace. PaxDebugAPI at rpc/tracers.go:195 now stores a named debug *DebugAPI field instead of embedding DebugAPI, so this method is not promoted to pax; task 7.3.1 and override.J38.11 retire the pax route, not the shared Go declaration."
+
+[row.r7-29.35]
+interface = "interface.7.rpc-eth-gettransactionbyblocknumberandindex"
+verdict = "served"
+path = "rpc/tx.go"
+line = 218
+symbol = "GetTransactionByBlockNumberAndIndex"
+evidence = "Current declaration: func (t *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, txIndex hexutil.Uint) (result *export.RPCTransaction, _err error) { Signature unchanged; delegates after uint32 index validation to getTransactionByBlockNumberAndIndex, which now resolves pending snapshot hashes and PendingTx and encodes the pending transaction."
+
+[row.r7-29.36]
+interface = "interface.7.rpc-pax-gettransactionbyblocknumberandindex"
+verdict = "served"
+path = "rpc/tx.go"
+line = 218
+symbol = "GetTransactionByBlockNumberAndIndex"
+evidence = "Current declaration: func (t *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, txIndex hexutil.Uint) (result *export.RPCTransaction, _err error) { Signature unchanged; the pax TransactionAPI uses the same validated-index and pending snapshot lookup as eth; its namespace still controls metrics and legacy HTTP access."
+
+[row.r7-29.37]
+interface = "interface.7.rpc-txpool-content"
+verdict = "served"
+path = "rpc/txpool.go"
+line = 41
+symbol = "Content"
+evidence = "Current declaration: func (t *TxPoolAPI) Content(ctx context.Context) (result map[string]map[string]map[string]*export.RPCTransaction, returnErr error) { Signature unchanged; the metric label is now txpool_content. Content still returns pending/queued maps, limits UnconfirmedTxs with maxNumTxs and encodes EVM pending transactions."
+
+[row.r7-29.38]
+interface = "interface.7.go-evmrpcconfig-config-j38"
+verdict = "served"
+path = "rpc/config/config.go"
+line = 50
+symbol = "Config"
+evidence = "Current declaration: type Config struct { The Config struct now declares BatchRequestLimit int, BatchResponseMaxSize int, SendRawTxSyncTimeout time.Duration and MaxSubscriptionsLogs uint64, and removes CheckTxTimeout; the type name is unchanged."
+
+[row.r7-29.39]
+interface = "interface.7.cfg-evm-http-address"
+verdict = "served"
+path = "rpc/config/config.go"
+line = 61
+symbol = "HTTPAddress"
+evidence = "Current declaration: HTTPAddress string `mapstructure:\"http_address\"` Field signature remains HTTPAddress string with mapstructure http_address. Both HTTP and WS now pass config.HTTPAddress to SetListenAddr in rpc/server.go rather than binding WS to LocalAddress."
+
+[row.r7-29.40]
+interface = "interface.7.cfg-evm-checktx-timeout"
+verdict = "retired"
+path = "rpc/config/config.go"
+line = 93
+symbol = "CheckTxTimeout"
+evidence = "CheckTxTimeout is absent from rpc/config/config.go and the repository search. Neither the Config field, DefaultConfig initializer, ReadConfig parser nor ConfigTemplate retains checktx_timeout, implementing task 7.13.2 and decision 712 / override.J38.17."
+remaining_refs = 0
+remaining = []
+
+[row.r7-29.41]
+interface = "interface.7.cfg-evm-deny-list"
+verdict = "served"
+path = "rpc/config/config.go"
+line = 120
+symbol = "DenyList"
+evidence = "Current declaration: DenyList []string `mapstructure:\"deny_list\"` Field signature remains DenyList []string with mapstructure deny_list. WsConfig now receives the deny list as well as HTTPConfig, and EnableWS registers each denied method."
+
+[row.r7-29.42]
+interface = "interface.7.cfg-evm-ip-rate-limit-rps"
+verdict = "served"
+path = "rpc/config/config.go"
+line = 191
+symbol = "IPRateLimitRPS"
+evidence = "Current declaration: IPRateLimitRPS float64 `mapstructure:\"ip_rate_limit_rps\"` Field signature remains IPRateLimitRPS float64 with mapstructure ip_rate_limit_rps. rpc/server.go now copies it into RPCEndpointConfig; EnableRPC and EnableWS construct per-IP limiters from it."
+
+[row.r7-29.43]
+interface = "interface.7.cfg-evm-ip-rate-limit-burst"
+verdict = "served"
+path = "rpc/config/config.go"
+line = 194
+symbol = "IPRateLimitBurst"
+evidence = "Current declaration: IPRateLimitBurst int `mapstructure:\"ip_rate_limit_burst\"` Field signature remains IPRateLimitBurst int with mapstructure ip_rate_limit_burst. rpc/server.go now copies it into RPCEndpointConfig and both HTTP and WS limiter construction use that burst."
+
+[row.r7-29.44]
+interface = "interface.7.go-evmrpcconfig-defaultconfig-j38"
+verdict = "served"
+path = "rpc/config/config.go"
+line = 197
+symbol = "DefaultConfig"
+evidence = "Current declaration: var DefaultConfig = Config{ The DefaultConfig = Config initializer retains its declaration and adds BatchRequestLimit=1000, BatchResponseMaxSize=25000000, SendRawTxSyncTimeout=2s and MaxSubscriptionsLogs=10000 through named constants; CheckTxTimeout is absent."
+
+[row.r7-29.45]
+interface = "interface.7.go-evmrpcconfig-readconfig-j38"
+verdict = "served"
+path = "rpc/config/config.go"
+line = 307
+symbol = "ReadConfig"
+evidence = "Current declaration: func ReadConfig(opts servertypes.AppOptions) (Config, error) { Signature unchanged; ReadConfig now parses evm.batch_request_limit, evm.batch_response_max_size, evm.send_raw_tx_sync_timeout and evm.max_subscriptions_logs, preserving conversion errors; it no longer reads evm.checktx_timeout."
+
+[row.r7-29.46]
+interface = "interface.7.go-evmrpcconfig-configtemplate-j38"
+verdict = "served"
+path = "rpc/config/config.go"
+line = 538
+symbol = "ConfigTemplate"
+evidence = "Current declaration: const ConfigTemplate = ` The ConfigTemplate constant declaration remains; its TOML now renders the four new batch, send timeout and logs subscription keys, omits checktx_timeout and formats deny_list as a quoted TOML array instead of a scalar."

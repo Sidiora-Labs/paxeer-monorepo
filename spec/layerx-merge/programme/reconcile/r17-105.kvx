@@ -1,0 +1,67 @@
+[reconcile.r17-105]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 8
+
+[row.r17-105.1]
+interface = "interface.17.fmt-gotcha-ledger-j60"
+verdict = "served"
+path = "GOTCHA.kvx"
+line = 14459
+symbol = "[gotcha.2927]"
+evidence = "The [gotcha.<n>] ledger remains in this file, but the registered line 8789 is a summary inside gotcha.1843. The ledger now ends with [gotcha.2927] at line 14459, whose keys are title, symptom and fix rather than the registered area, symptom, cause and do; the original schema remains documented at lines 10-14."
+
+[row.r17-105.2]
+interface = "interface.17.fmt-fork-runbook-j60"
+verdict = "served"
+path = "docs/runbooks/paxeer-x-fork.md"
+line = 240
+symbol = "## 4. Rehearsal (must pass before go)"
+evidence = "The declaring heading ## 4. Rehearsal (must pass before go) is unchanged at line 240. Its body now names task 17.3.4 and the test_rehearsal_passes_on_merged_revision selector, lists four ordered merge rehearsal steps, and requires private revision, command, exit code and log evidence before go."
+
+[row.r17-105.3]
+interface = "interface.17.fmt-docs-system-precompiles-j60"
+verdict = "served"
+path = "docs/system/precompiles.md"
+line = 9
+symbol = "| Precompile | ABI | Address | Functions |"
+evidence = "The declaring table header | Precompile | ABI | Address | Functions | is unchanged at line 9. The generated summary now includes perps at line 44, pricefeed at line 47, spot ABI rows at lines 49-54 and all eight layerxagent packages at lines 58-65, replacing the omissions described by the registry notes."
+
+[row.r17-105.4]
+interface = "interface.17.fmt-decision-index-doc-j60"
+verdict = "served"
+path = "spec/layerx-merge/docs/decisions/INDEX.md"
+line = 7
+symbol = "| Id | Title | Carry | Affects | Resolutions |"
+evidence = "The declaring table header | Id | Title | Carry | Affects | Resolutions | remains at line 7 with the same five columns. The index now covers decisions 1-94 and 1701-1720, as stated at line 3 and ending with D1720 at line 122, rather than the registry's D1-D34-only inventory."
+
+[row.r17-105.5]
+interface = "interface.17.fmt-off-chain-services-doc-j60"
+verdict = "served"
+path = "spec/layerx-merge/docs/off-chain-services.md"
+line = 14
+symbol = "## Domain 3"
+evidence = "The registered narrative span ## Sequencer .. ## Explorer and index has been replaced by generated domain sections starting with ## Domain 3 at line 14. Each section uses Service, Route, Readiness probe and Operation task columns; sequencer is in Domain 5 and explorer is in Domain 14. The document names programme/data/services.kvx as its source."
+
+[row.r17-105.6]
+interface = "interface.17.fmt-parity-doc-j60"
+verdict = "served"
+path = "spec/layerx-merge/docs/parity-inventory.md"
+line = 14
+symbol = "## 1 Parity oracle"
+evidence = "The registered span still starts with ## 1 Parity oracle at line 14 and ends with ## 5 Cut-over goldens, now at line 176. The generated format adds exact selectors and Planned by columns, separates 42 dropped references across 29 rows in section 4, and reports 24 existing rows, 37 new rows and three cut-over goldens at line 12."
+
+[row.r17-105.7]
+interface = "interface.17.fmt-retirements-doc-j60"
+verdict = "served"
+path = "spec/layerx-merge/docs/retirements-and-callers.md"
+line = 10
+symbol = "## Retired components"
+evidence = "The registered headings survive as ## Retired components at line 10 and ## Caller groups at line 67; registered line 9 is now blank. The narrative inventory is now generated from programme/data/retired.kvx: 48 components use Component, Owner domain, Address, Refusal, Deleted trees and Replacement columns, followed by caller-group component counts."
+
+[row.r17-105.8]
+interface = "interface.17.fmt-layerx-merge-spec-j60"
+verdict = "served"
+path = "spec/layerx-merge/spec.kvx"
+line = 4
+symbol = "[meta]"
+evidence = "The declaring [meta] block remains at line 4. Its version is now 2.0.0 at line 7 instead of the registered 1.12.0, and its revision is 2a1033aa2 at line 11 instead of 52b672ac4. The file banner identifies the merged v2 specification generated from fragments."

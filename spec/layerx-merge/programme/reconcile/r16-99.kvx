@@ -1,0 +1,43 @@
+[reconcile.r16-99]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 5
+
+[row.r16-99.1]
+interface = "interface.16.fmt-gh-wf-human"
+verdict = "served"
+path = ".github/workflows/human.yml"
+line = 1
+symbol = "Human workspace"
+evidence = "The declaring line remains name: Human workspace. The workflow signature still has push, pull_request, workflow_dispatch and schedule triggers and four jobs: build-lint-test, browser-real-stack, browser-performance and intent-fuzz. Its current build job prepares the real withdrawal fixture and builds the Human workspace; apps/web/.next is a generated bundle input to boundary-check and apps/web/test-results is a browser artifact output, rather than either being a required committed source path."
+
+[row.r16-99.2]
+interface = "interface.16.fmt-gh-wf-interop-x402"
+verdict = "served"
+path = ".github/workflows/interop-x402.yml"
+line = 1
+symbol = "Interop x402 transport matrix"
+evidence = "The declaring line remains name: Interop x402 transport matrix. Its current signature retains push, pull_request and workflow_dispatch with one transport-matrix job running make interop-test-x402 INTEROP_CARGO=\"cargo +1.91.1\". The registered stale activity-codec references at lines 12 and 24 are now services/agent/crates/layerx-crypto/** and services/agent/crates/layerx-types/** path filters respectively; no activity wire codec or C differential command remains in this workflow."
+
+[row.r16-99.3]
+interface = "interface.16.fmt-gh-wf-node-build"
+verdict = "served"
+path = ".github/workflows/node-build.yml"
+line = 1
+symbol = "Node / Build"
+evidence = "The declaring line remains name: Node / Build. The current signature keeps push and pull_request and jobs native-libs, paxd, lxphost, node-tests and node-build-gate. The registered stale custody reference at line 126 is now an env block setting CGO_ENABLED: '1' at line 127, followed by go test ./node/... at line 128; there is no deposit escrow, withdrawal claim or forced-exit command in the workflow. The final gate requires all four prerequisite jobs to succeed."
+
+[row.r16-99.4]
+interface = "interface.16.fmt-gh-wf-platform"
+verdict = "served"
+path = ".github/workflows/platform.yml"
+line = 1
+symbol = "Platform workspace"
+evidence = "The declaring line remains name: Platform workspace, with schedule, push (main and sdk-v* tags), pull_request and workflow_dispatch triggers. The job signature differs from the registry notes: replay-matrix is absent, while release-promotion and hosted-testnet-journey are present. No kernel root replay golden or activity wire codec command remains in this workflow. The iOS artifact job generates LayerXWallet.xcodeproj with xcodegen and builds its .derived app bundle, explaining the registered missing generated paths."
+
+[row.r16-99.5]
+interface = "interface.16.fmt-gh-wf-xweb-test"
+verdict = "served"
+path = ".github/workflows/xweb-test.yml"
+line = 1
+symbol = "Paxeer X / xweb Test"
+evidence = "The declaring line remains name: Paxeer X / xweb Test. The current push and pull_request workflow signature has four jobs: sidecar-crate, module-precompile, consumer-contract and agent-clients; the registered kernel-web job is gone. Kernel web and batch headers still occur in trigger path filters, but no kernel-web execution job remains. The module-precompile job builds paxd-native-libs and tests modules/xweb and precompiles/xweb, and the contract job runs the XWebConsumer Forge test."
