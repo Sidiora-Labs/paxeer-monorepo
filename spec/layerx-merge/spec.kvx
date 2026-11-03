@@ -7737,6 +7737,24 @@ value = "The 166 open dependency alerts across 40 manifests are grouped into 29 
 basis = "The closure ruling counts open alerts as known issues; none had a task."
 affects = ["22.96.1"]
 
+[decision.2438]
+title = "The thirty task-verdict triage reports are spliced as issue tasks"
+value = "Of the 51 triage reports under spec/layerx-merge/programme/issues, 30 carry the verdict task and their proposed blocks are spliced as tasks 18.<N>.1 with their req and acceptance blocks (two wordings adjusted, no scope changed); 10 already-fixed, 3 duplicate and 2 not-relevant reports close their issues with the recorded comment; 5 spec-edit reports (1533, 1538, 1553, 1554, 1560) become specification corrections in the next batch; 1540 is a product-choice decision for the owner (which bridge-credit retirement contract stands: the weak-reference absence proof or the ban on naming the retired symbol in kernel tests)."
+basis = "Decision 2427 prescribed the splice of accepted blocks; every report passed check.py at its revision."
+affects = ["18.1511.1", "18.1562.1"]
+
+[decision.2439]
+title = "The regression mock serves the recorded validator page as the complete set"
+value = "Every block fixture under rpc/tests/mock_data/blocks records exactly one Validators page (count 30, total 40 at block 169638843): the recording's loader fetched a single default page and passed those validators to BeginBlock, so the recorded answers derive from the captured validators. MockClient.Validators serves the captured list as the complete set (Total and Count equal its length) paged by the requested per_page; rpc/simulate.go loadAllValidators keeps requiring the full set from a live node."
+basis = "22.7.3 attempt 9 (4a618bdaf): the type URL rewrite passes and the twelve cases fail at regression_test.go:381 with failed to load validators for block N: incomplete validator fixture, captured 30 of 39 validators, the refusal the candidate added to the mock."
+affects = ["22.7.3"]
+
+[decision.2440]
+title = "The sweep summary reader accepts decimal numbers"
+value = "Sweep records carry elapsed_seconds as a decimal number (spec/layerx-merge/programme/sweeps/go-launchpad-modules-2.kvx:15, 780.788); the summary generator's reader accepted only quoted strings, integers, booleans and string lists and refused the file. The reader accepts a decimal number value as a number; the sweep records are not edited."
+basis = "22.17.6 attempt 1: 14 tests pass, the regeneration stops at that line with expected a quoted string, integer, boolean or string list value."
+affects = ["22.17.6"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -21357,6 +21375,126 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.181562]
+title = "AI market receipts accept supported authority-bearing terminals with all receipt and transfer bindings preserved"
+ac_1 = "Given ordinary and authority-bearing results produced by the Programs runtime, including the authority-before-occupancy order at programs/crates/layerx-programs-runtime/src/ffi_call.rs:3409, the AI market decoder at services/agent/sdk/typescript/src/ai_market.ts:3265 accepts canonical supported results and refuses malformed, reordered, oversized or mismatched authority data while retaining applied-leg, signature, transaction, log, terminal-kind and guest-capacity validation; a real ABI5 reward receipt resolves through OperationJournal.resolve at :3069 and remains executed after reopen, while refused receipts remain unresolved."
+
+[req.181561]
+title = "Agent vector tests prepare their replay corpus from tracked inputs"
+ac_1 = "Given tracked inputs without tests/vectors/codec/replay_corpus.lxb, make agent-test-vectors at Makefile:1970-1971 generates deterministic corpus bytes before Cargo and passes the complete conformance, unsupported-version and unknown-class tests at services/agent/crates/layerx-types/tests/vectors.rs:37-100; generation errors fail the target, and retired budget pull remains excluded as required by tests/vectors/codec/generate.py:28-35 and services/agent/crates/layerx-wire/src/activity.rs:444-446."
+
+[req.181558]
+title = "The perps ABI change history distinguishes decisions from delivered changes"
+ac_1 = "The documentation identifies c1f5f4d31ef0f4885db9b4203821d350fd249cb1 as a decision and task-recording commit, identifies c31ded3a33b5c890e15e40b05be99c5b763307e9 as the later SDK implementation at services/agent/sdk/typescript/src/perps.ts:740-753, and leaves the changes whose tasks are pending at spec/layerx-merge/spec.kvx:119043, :119012, :175311 and :191684 explicitly outstanding at the cited revision."
+
+[req.181556]
+title = "Agent event ingestion accepts sequencer receipt logs and reconciles verified commitment"
+ac_1 = "Given receipted logs emitted with seq and blockHash:null by rpc/filter.go:487, when EventIngestor::read_log at services/agent/crates/layerx-agentd/src/events/ingest.rs:702 consumes them and committed backfill overlaps them across restart, then ingestion preserves the actual Receipted rung, uses only verified committed evidence for promotion, maintains block/transaction/log cursor order, delivers each event once and refuses malformed or conflicting logs without advancing durable progress."
+
+[req.181552]
+title = "Cold scheduler metadata equals the served contract ABI without initialization"
+ac_1 = "Cold GetPrecompileInfoE for scheduler at precompiles/setup.go:536 returns address 0x0000000000000000000000000000000000000905 and an ABI equal in full to the real served scheduler constructed at precompiles/layerxagent/scheduler/scheduler.go:49, with exactly the three events declared at precompiles/layerxagent/scheduler/scheduler.go:32 through precompiles/layerxagent/scheduler/scheduler.go:35, while Initialized stays false, PrecompileNamesToInfo stays empty and VM precompile maps and address lists remain unchanged, as TestPrecompileInfoResolvesWithoutMergeKeepers at precompiles/setup_test.go:379 proves."
+
+[req.181551]
+title = "Both public PxClient SDKs decode the served receipt-key response"
+ac_1 = "Given the canonical object emitted by rpc/sequencer_receipt.go:376 and services/platform/hosted/gateway/src/chain_reads.rs:292, TypeScript PxClient.getReceiptKeys at services/agent/sdk/typescript/src/px.ts:177 and Python PxClient.get_receipt_keys at services/agent/sdk/python/layerx_sdk/px.py:291 return the exact key bytes in producer order with inclusive numeric height ranges, including empty and rotated lists, while rejecting malformed entries, bytes, duplicate ids and invalid ranges and preserving JSON-RPC errors."
+
+[req.181550]
+title = "The intents budget-create test checks the complete version-1 call disclosure"
+ac_1 = "Given either rollover fixture in services/human/crates/layerx-intents/tests/budget_payloads.rs:218-235, when the compiled version-1 budgetCreate call is bound, then budget_create_compiles_to_canonical_call_payload asserts exactly one Recipient for the budget account, Transfer and SpendingLimit amounts in that order with value AMOUNT, and payload expiry 1_900_000_000_000, matching services/agent/crates/layerx-crypto/src/disclosure/call.rs:770-790, while all canonical binding and rejection assertions at budget_payloads.rs:240-309 remain enforced."
+
+[req.181549]
+title = "The node merge-import test constructs its table with the application's complete precompile keepers"
+ac_1 = "TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams at node/precompiles_agent_merge_imports_test.go:11 supplies a.GetPrecompileKeepers() at line 15, receives no construction error at line 16, and retains every assertion at lines 24-33 proving that the oracle aggregator, scheduler and streams constructors are registered and expose their expected merge versions, addresses, names and ABIs."
+
+[req.181548]
+title = "Gateway typed-data records compile with Zod 4 and preserve request validation"
+ac_1 = "The six records at services/wallet/gateway/src/schemas/agent.ts:63 and services/wallet/gateway/src/routes/sign.ts:60 use explicit string key and existing value schemas compatible with Zod 4.6.7; the gateway typecheck succeeds and gatewayTypedDataRecordsZod4 asserts retained parsed values, both wallet aliases, optional agent domain, agent passthrough, invalid-container refusal, strict envelopes, wallet field validation and the existing 256-field boundary."
+
+[req.181547]
+title = "Unavailable receipt-key errors identify the requested method"
+ac_1 = "When Source and ForwardURL are nil, GetReceiptKeys at rpc/sequencer_receipt.go:352 returns JSON-RPC code -32000 with exact message px_getReceiptKeys served by sequencer, including through the forwarder at rpc/sequencer_receipt.go:367; pax_sequencerReceipt retains code -32000 and exact message pax_sequencerReceipt served by sequencer as asserted at rpc/sequencer_receipt_test.go:783."
+
+[req.181545]
+title = "Nested Go modules retain complete checksums at their raised dependency versions"
+ac_1 = "For the committed manifests at tools/paxctl/go.mod:9, tools/loadtest/go.mod:6, services/wallet/ceremony/go.mod:8 and sdk/cosmovisor/go.mod:37, each module has a nonempty go.sum, builds with GOWORK=off and GOFLAGS=-mod=readonly, resolves all package and test dependencies in read-only mode and passes go mod verify without changing go.mod or go.sum."
+
+[req.181543]
+title = "Android sample dependency declarations and verification metadata cover the binding's patched dependencies"
+ac_1 = "The direct dependencies at sdk/integrations/android/sample-app/app/build.gradle.kts:71 match the binding floors at sdk/integrations/android/pom.xml:25, and sdk/integrations/android/sample-app/gradle/verification-metadata.xml:541 contains SHA-256 checksums for the selected Jackson and BouncyCastle artifacts and required Jackson metadata, allowing the sample to assemble with strict dependency verification while preserving sdk/integrations/android/sample-app/gradle/verification-metadata.xml:4."
+
+[req.181541]
+title = "Journal test prerequisites contain no retired idempotency source"
+ac_1 = "The journal TSan source list at Makefile:1457 omits the deleted src/state/lxp_idempotency.c currently named at Makefile:1458, and the unchanged aggregate dry-run regression test at tools/ci/tests/test_makefile_wave1.py:35 exits zero and rejects lxp_idempotency in all printed recipes."
+
+[req.181539]
+title = "Identical sequencer transaction resubmissions return the recorded hash on HTTP and WebSocket"
+ac_1 = "Given a transaction accepted by the real sequencer through the node's HTTP or WebSocket server (node/sequencer_rpc_option_test.go:195-210), resubmitting its identical raw bytes through either transport returns its recorded hash without another Accept or a change to its receipt, pending nonce or balances; a different signed transaction reusing its nonce still receives the wrong-sequence refusal, as required by spec/layerx-merge/spec.kvx:21611 and implemented for HTTP in rpc/send_sequencer_test.go:338-364."
+
+[req.181537]
+title = "The JVM VerificationStatus declaration has one rendering accepted by both drift checks"
+ac_1 = "Given the live VerificationStatus contract at services/agent/schema/agent-api/v1.kvx:121, fresh Python generation emits exactly the committed declaration at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:1028 with all shape and rung guards preserved, sdkgen writing leaves the generated schema unchanged, and both checks required by services/platform/Makefile.inc:233 and services/platform/Makefile.inc:234 accept the identical output and reject a removed declaration."
+
+[req.181536]
+title = "Bridge, Programs and Custody documentation describes kernel custody credit and its light client as retired"
+ac_1 = "The descriptions at docs/wiki/Bridge.md:4, docs/wiki/Programs.md:574, docs/site/docs/programs/index.md:533, docs/wiki/Custody.md:8 and docs/site/docs/human/custody.md:3 explicitly state that kernel custody credit and its light client are retired, contain no references to the removed credit or light-client implementations, and offer no bridge-profile genesis or custody-issued supply instructions."
+
+[req.181535]
+title = "The legacy importer has a patched lockfile that supports a frozen install"
+ac_1 = "Given the standalone importer workspace at services/wallet/ceremony/legacy-import/pnpm-workspace.yaml:1 and vitest 4.1.12 at services/wallet/ceremony/legacy-import/package.json:25, its own committed lockfile resolves vitest and every @vitest/mocker copy at or above 4.1.12, satisfies its entry at tools/deps/floors/wallet-services.json:30, and permits the frozen install required by spec/layerx-merge/spec.kvx:119212 without changing that lockfile."
+
+[req.181528]
+title = "Launchpad dependency checksums support immutable standalone module resolution"
+ac_1 = "Given the 17 launchpad module checksum files deleted by b6101fd075736c857ad85fd9d2eeeb6690239032 and the dependency versions still required by services/launchpad/api/go.mod:14, when each affected module resolves production and test imports with GOWORK=off and -mod=readonly from a fresh module cache and verifies its downloaded modules, then resolution and verification succeed without changing any manifest or checksum file, and services/launchpad/go.work.sum is restored with valid checksum records for the workspace declared at services/launchpad/go.work:8."
+
+[req.181527]
+title = "Explorer direct dependencies resolve to their declared Phoenix and cookie pins"
+ac_1 = "Given the Phoenix import at apps/explorer/lib/socket/context.tsx:3 and cookie import at apps/explorer/lib/cookies.ts:1, when the explorer dependencies are installed from its lockfile, then phoenix resolves to 1.6.17 and js-cookie to 3.0.7, matching the direct dependency declarations, resolutions at apps/explorer/package.json:259 and :248 and floors at tools/deps/floors/explorer-web.json:52 and :41, with no lock selector resolving either package to another version."
+
+[req.181526]
+title = "Explorer telemetry resolves compatible core versions without lowering security minimums"
+ac_1 = "Given the conflicting core override at apps/explorer/package.json:219 and Jaeger's exact core dependency at apps/explorer/yarn.lock:6821, when explorer telemetry dependencies are resolved, then Jaeger 2.9.0 receives core 2.9.0, every remaining core selector accepts its locked version, every core copy meets the unchanged floor at tools/deps/floors/explorer-web.json:12, and the installed SDK preserves a real span context through Jaeger injection and extraction."
+
+[req.181525]
+title = "Vendored database dependencies resolve without changing committed manifests or checksums"
+ac_1 = "Given the dependencies required by core/deps/db-backend/go.mod:5-38 and core/deps/tm-db/go.mod:5-37, both modules have nonempty generated go.sum files, pass go mod verify, resolve all package dependencies with GOWORK=off and -mod=readonly, and build without modifying either module's go.mod or go.sum."
+
+[req.181522]
+title = "The dashboard dependency floor covers the dependencies used to build it"
+ac_1 = "The dashboard Next floor currently declared at tools/deps/floors/platform-node.json:25 checks apps/web/package-lock.json, which docker/platform-dashboard-web/Dockerfile:8 installs and Makefile:2528 shares; no standalone dashboard lock remains, the dashboard Next pin equals the shared resolution, and a shared resolution below 16.4.1 fails even if a separate dashboard lock resolves a patched version."
+
+[req.181521]
+title = "Production PWA cleanup uses compatible dependencies above the security floors"
+ac_1 = "Given the production configuration at apps/perps/next.config.js:1 and stale files matching next-pwa's cleanup patterns, when its real webpack cleanup plugin compiles a minimal entry, then configuration loading and compilation succeed, stale service-script files are removed, unrelated assets survive, the legacy globby 6 resolution at apps/perps/pnpm-lock.yaml:11692 is absent from the cleanup chain, and the dependency floors in tools/deps/floors/perps-web.json:1 remain satisfied."
+
+[req.181519]
+title = "Explorer tool dependency floors are enforced by retained reproducible lockfiles"
+ac_1 = "The nine Yarn lockfiles named by tools/deps/floors/explorer-tools.json:3 through :74 exist, every resolved copy meets its unchanged floor through tools/deps/lockfloor.py:271, and each directory's frozen install succeeds without modifying its lockfile, satisfying spec/layerx-merge/spec.kvx:21439."
+
+[req.181518]
+title = "Both web search SDKs accept only sequencer payment receipt shapes"
+ac_1 = "Given a matching payment offer and a valid pinned sequencer receipt, TypeScript exact and metered web search accept module 12/operation 2 and refuse any other module or operation with settlement-operation-mismatch, matching services/agent/sdk/python/layerx_sdk/web_search.py:448-464 and replacing services/agent/sdk/typescript/src/web-search.ts:322-325 and :511 without weakening any other receipt or settlement check."
+
+[req.181516]
+title = "The FastAPI example preserves receipt-reuse refusal and original-request replay"
+ac_1 = "Given the FileFulfillmentRepository in sdk/integrations/fastapi/examples/paid_api.py:27 with a stored fulfilment, a different request using the same verified receipt reaches the HTTP 409 settled_receipt_reuse check in sdk/integrations/fastapi/layerx_fastapi/seller.py:254 without a second release, while replaying the original request returns the recorded resource before and after reopening the repository and leaves the persisted record unchanged."
+
+[req.181515]
+title = "Submitted chain history survives editable-draft expiry"
+ac_1 = "An otherwise valid persisted confirm or reverted journal at apps/launchpad/web/src/widgets/create-chain/chain-storage.ts:40 remains readable, updatable to a confirmed revert and clearable by its matching owner/hash beyond the editable-draft age boundary at chain-domain.ts:51 without changing the reviewed snapshot or weakening structural validation, so the recovery consumer at chain-wizard.tsx:59 receives the identity instead of entering recoveryBlocked, while unsent drafts retain their 30-day expiry."
+
+[req.181513]
+title = "Incremental native archives reflect current source membership"
+ac_1 = "Given production and testing archives built from Makefile:46 source membership with remaining objects older than the archives, deleting a source alone makes the next invocations of the rules at Makefile:185 and Makefile:194 regenerate both archives without cleaning, removing its member and defined symbols while preserving retained members and symbols, and subsequent invocations with unchanged inputs reuse both archives and surviving objects."
+
+[req.181512]
+title = "The retained log test exercises the current append contract and all safety checks"
+ac_1 = "Given the retained test at tests/storage/lxp_test_log.c:13, when its standalone main runs through the Makefile:1404 test-log entrypoint, then kinds 1, 2, 4, 5 and 7 append and read back correctly, kinds 3, 6, 8 and 9 are refused without changing segment bytes or append state, and the sequence-exhaustion, invalid-kind and corruption assertions at tests/storage/lxp_test_log.c:39, tests/storage/lxp_test_log.c:47 and tests/storage/lxp_test_log.c:50 execute and pass without weakening the refusal at src/storage/lxp_log.c:420 or the historical read contract at src/storage/lxp_log.c:465."
+
+[req.181511]
+title = "PAY2's locked qualification gates reproduce from tracked standalone dependencies"
+ac_1 = "Given the independent workspace at services/agent/qualification/pay2/Cargo.toml:8, a fresh checkout includes a valid tracked Cargo.lock that is not ignored by services/agent/qualification/pay2/.gitignore:1, and the locked build and test-compilation gates at spec/layerx-merge/spec.kvx:131536 and spec/layerx-merge/spec.kvx:131537 plus the focused lockfile regression pass without generating or modifying the lockfile, while preserving node readiness and distinguishing compilation from funded execution."
 
 [req.22108]
 title = "Every open dependency alert is upgraded or dispositioned in a checked report"
@@ -36365,6 +36503,276 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.18.1562.1]
+title = "Issue #1562: Decode and validate transfer-authority wrappers in AI market receipts"
+reqs = ["181562.1"]
+touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "rpc/sequencer_receipt_vectors_test.go"]
+tests = ["rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"]
+verification_contract = "go test -count=1 ./rpc/ -run '^TestAiMarketTransferAuthorityReceipt$'"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1562.kvx, verdict task at its revision). Update decodeProgramsCallResult and validateProgramsExecutionResponse in services/agent/sdk/typescript/src/ai_market.ts:3169 and :3265 to decode one bounded transfer-authority/v2 wrapper before optional occupancy and execution/v2-v5, following programs/crates/layerx-programs-runtime/src/terminal.rs:325; validate canonical authorization, account-bound names, transfer sources, assets, destinations, amounts and the reconstructed authority root against the wrapper root and corresponding applied legs, including funding and Program-account payments, rather than discarding the attachment or conflating its root with occupancy-inclusive applied legs; reject truncation, empty or oversized fields, trailing bytes, repeated wrappers, wrong ordering and binding mismatches."
+symbols = ["decodeProgramsCallResult", "validateProgramsExecutionResponse", "TestAiMarketTransferAuthorityReceipt", "market_receipt_transfer_authority_resolves"]
+
+[capability.18.1561.1]
+title = "Issue #1561: Prepare the codec replay corpus before agent vector tests"
+reqs = ["181561.1"]
+touches = ["Makefile", "tests/ci/test_agent_codec_corpus.py"]
+tests = ["tests/ci/test_agent_codec_corpus.py::test_agent_vectors_prepare_codec_corpus_from_clean_checkout"]
+verification_contract = "python3 -m pytest tests/ci/test_agent_codec_corpus.py::test_agent_vectors_prepare_codec_corpus_from_clean_checkout -q"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1561.kvx, verdict task at its revision). Make agent-test-vectors at Makefile:1970-1971 depend on successful execution of tests/vectors/codec/generate.py:15-36 before its existing clock-wrapped Cargo command; declare the preparation target phony so an existing output cannot hide generator failures or stale kernel declarations, propagate generator failures, and preserve the generator's retired budget-pull exclusion at tests/vectors/codec/generate.py:28-35."
+symbols = ["test_agent_vectors_prepare_codec_corpus_from_clean_checkout"]
+
+[capability.18.1558.1]
+title = "Issue #1558: Document the actual scope of the perps ABI decision commit"
+reqs = ["181558.1"]
+touches = ["docs/perps-abi-change-history.md", "docs/README.md"]
+tests = ["docs/perps-abi-change-history.md::commit_scope_correction"]
+verification_contract = "grep -Fx 'c1f5f4d31ef0f4885db9b4203821d350fd249cb1 records decisions 2387-2393 and follow-up tasks; it does not implement the perps callers, boundary manifest-rule retirement or served-methods golden refresh.' docs/perps-abi-change-history.md && grep -Fq '[Perps ABI change history](perps-abi-change-history.md)' docs/README.md"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1558.kvx, verdict task at its revision). Create docs/perps-abi-change-history.md and link it from the documentation index at docs/README.md:9-32; correct the historical summary of c1f5f4d31ef0f4885db9b4203821d350fd249cb1, whose three-file diff records decisions 2387-2393 and follow-up tasks rather than the implementation named in its subject, with this exact standalone sentence: c1f5f4d31ef0f4885db9b4203821d350fd249cb1 records decisions 2387-2393 and follow-up tasks; it does not implement the perps callers, boundary manifest-rule retirement or served-methods golden refresh."
+symbols = []
+
+[capability.18.1556.1]
+title = "Issue #1556: Ingest receipted logs and reconcile their committed copies"
+reqs = ["181556.1"]
+touches = ["services/agent/crates/layerx-agentd/src/events/ingest.rs", "services/agent/crates/layerx-agentd/src/events/gap.rs", "services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs", "services/agent/crates/layerx-agentd/tests/fixtures/receipted-log-transition.json"]
+tests = ["services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs::receipted_logs_recover_committed_without_duplicate_delivery"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test ingest_eth_subscribe receipted_logs_recover_committed_without_duplicate_delivery"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1556.kvx, verdict task at its revision). Represent the sequencer's receipted log state explicitly in services/agent/crates/layerx-agentd/src/events/ingest.rs:610 and decode_log at :663: accept the valid seq plus null blockHash shape emitted by rpc/filter.go:487 without fabricating a hash, and retain strict quantity, address, topic, data and removed-log validation; hashed logs must still contain a valid 32-byte hash."
+symbols = ["EthereumLog", "CoreEvent", "EventIngestor", "decode_log", "attempt_backfill", "receipted_logs_recover_committed_without_duplicate_delivery"]
+
+[capability.18.1552.1]
+title = "Issue #1552: Align cold scheduler metadata with the served ABI"
+reqs = ["181552.1"]
+touches = ["precompiles/setup.go", "precompiles/setup_test.go"]
+tests = ["precompiles/setup_test.go::TestPrecompileInfoResolvesWithoutMergeKeepers"]
+verification_contract = "go test -count=1 ./precompiles/ -run '^TestPrecompileInfoResolvesWithoutMergeKeepers$'"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1552.kvx, verdict task at its revision). Replace the scheduler entry in mergeAgentInfoABIs at precompiles/setup.go:230 with the exact served ABI at precompiles/layerxagent/scheduler/scheduler.go:26, removing the cold-only JobExecuted and JobFailed entries at precompiles/setup.go:239 and precompiles/setup.go:240; retain all five methods and the three served events, and preserve the keeper-free lookup at precompiles/setup.go:536 without constructing precompiles or publishing VM state."
+symbols = ["TestPrecompileInfoResolvesWithoutMergeKeepers"]
+
+[capability.18.1551.1]
+title = "Issue #1551: Decode canonical receipt-key responses in both public PxClient SDKs"
+reqs = ["181551.1"]
+touches = ["services/agent/sdk/typescript/src/px.ts", "services/agent/sdk/python/layerx_sdk/px.py", "services/agent/sdk/typescript/test/px.test.ts", "rpc/sequencer_receipt_test.go"]
+tests = ["rpc/sequencer_receipt_test.go::TestPublicPxReceiptKeysCanonical"]
+verification_contract = "go test -count=1 ./rpc/ -run '^TestPublicPxReceiptKeysCanonical$'"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1551.kvx, verdict task at its revision). Update TypeScript PxClient.getReceiptKeys and call at services/agent/sdk/typescript/src/px.ts:177 and :230 and Python PxClient.get_receipt_keys and call at services/agent/sdk/python/layerx_sdk/px.py:291 and :378 to consume the canonical result object exactly once; update decodePxReceiptKeys and receiptKeyBytes at services/agent/sdk/typescript/src/px.ts:470 and :498 and decode_px_receipt_keys and _receipt_key_bytes at services/agent/sdk/python/layerx_sdk/px.py:578 and :601 to decode the served 0x-prefixed 32-byte keyId and publicKey fields, preserving the public entry types, key bytes, order, inclusive ranges, empty lists and existing quantity bounds."
+symbols = ["PxClient", "decodePxReceiptKeys", "receiptKeyBytes", "decode_px_receipt_keys", "_receipt_key_bytes", "receipt_keys_shape", "TestPublicPxReceiptKeysCanonical"]
+
+[capability.18.1550.1]
+title = "Issue #1550: Align the intents budget-create test with the complete version-1 disclosure"
+reqs = ["181550.1"]
+touches = ["services/human/crates/layerx-intents/tests/budget_payloads.rs"]
+tests = ["services/human/crates/layerx-intents/tests/budget_payloads.rs::budget_create_compiles_to_canonical_call_payload"]
+verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test budget_payloads budget_create_compiles_to_canonical_call_payload -- --exact"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1550.kvx, verdict task at its revision). Update budget_create_compiles_to_canonical_call_payload in services/human/crates/layerx-intents/tests/budget_payloads.rs:216-250 to assert the version-1 disclosure emitted by services/agent/crates/layerx-crypto/src/disclosure/call.rs:770-790: exactly two amounts, Transfer then SpendingLimit, both equal to AMOUNT for this fixture; exactly one Recipient equal to account_id(&budget_account()); and payload_expires_at equal to 1_900_000_000_000 milliseconds; retain the existing asset, budget identity, canonical payload and signing assertions."
+symbols = ["budget_create_compiles_to_canonical_call_payload"]
+
+[capability.18.1549.1]
+title = "Issue #1549: Supply the chains keeper to the node merge-import test"
+reqs = ["181549.1"]
+touches = ["node/precompiles_agent_merge_imports_test.go"]
+tests = ["node/precompiles_agent_merge_imports_test.go::TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams"]
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams$'"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1549.kvx, verdict task at its revision). In TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams at node/precompiles_agent_merge_imports_test.go:15, replace NewPrecompileKeepers(a) with a.GetPrecompileKeepers(), which attaches the application's chains keeper at node/app.go:3900; preserve the setup, cleanup and every assertion at node/precompiles_agent_merge_imports_test.go:16-33."
+symbols = ["TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams"]
+
+[capability.18.1548.1]
+title = "Issue #1548: Migrate gateway typed-data records to the Zod 4 signature"
+reqs = ["181548.1"]
+touches = ["services/wallet/gateway/src/schemas/agent.ts", "services/wallet/gateway/src/routes/sign.ts", "services/wallet/gateway/test/typed-data-records.test.ts"]
+tests = ["services/wallet/gateway/test/typed-data-records.test.ts::gatewayTypedDataRecordsZod4"]
+verification_contract = "pnpm --dir services/wallet/gateway exec vitest run test/typed-data-records.test.ts -t '^gatewayTypedDataRecordsZod4$'"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1548.kvx, verdict task at its revision). Replace the three one-argument z.record calls at services/wallet/gateway/src/schemas/agent.ts:63 and the three at services/wallet/gateway/src/routes/sign.ts:60 with z.record(z.string(), valueSchema), retaining each existing value schema, optional agent domain, agent typed-data passthrough, wallet typedData and typed_data aliases, strict envelopes, field bounds and 256-field array limit; retain the Zod 4 dependency at services/wallet/gateway/package.json:30 and its resolution at services/wallet/pnpm-lock.yaml:126."
+symbols = ["AgentSignTypedDataBody", "TypedDataDocument", "gatewayTypedDataRecordsZod4"]
+
+[capability.18.1547.1]
+title = "Issue #1547: Name px_getReceiptKeys in its unavailable-method error"
+reqs = ["181547.1"]
+touches = ["rpc/sequencer_receipt.go", "rpc/sequencer_receipt_test.go"]
+tests = ["rpc/sequencer_receipt_test.go::TestReceiptKeysNotServedNamesRequestedMethod"]
+verification_contract = "go test -count=1 ./rpc/ -run '^TestReceiptKeysNotServedNamesRequestedMethod$'"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1547.kvx, verdict task at its revision). Add a typed errReceiptKeysNotServed implementing rpc.Error in rpc/sequencer_receipt.go beside the existing error at rpc/sequencer_receipt.go:71, with message ReceiptKeysMethod + ' served by sequencer' and code sequencerNotServedCode; return it from GetReceiptKeys at rpc/sequencer_receipt.go:359 when Source and ForwardURL are nil, preserving errSequencerReceiptNotServed and the forwarding path at rpc/sequencer_receipt.go:367."
+symbols = ["errReceiptKeysNotServed", "GetReceiptKeys", "TestReceiptKeysNotServedNamesRequestedMethod"]
+
+[capability.18.1545.1]
+title = "Issue #1545: Restore checksums for the four remaining nested Go modules"
+reqs = ["181545.1"]
+touches = ["tools/paxctl/go.sum", "tools/loadtest/go.sum", "services/wallet/ceremony/go.sum", "sdk/cosmovisor/go.sum", "tools/deps/tests/test_go_root_checksums.py"]
+tests = ["tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums"]
+verification_contract = "python3 -m pytest tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums -q"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1545.kvx, verdict task at its revision). Regenerate tools/paxctl/go.sum, tools/loadtest/go.sum, services/wallet/ceremony/go.sum and sdk/cosmovisor/go.sum with each module's Go toolchain and GOWORK=off against the committed manifests, including dependencies used by tests; preserve the dependency versions and replacements at tools/paxctl/go.mod:9 and :35, tools/loadtest/go.mod:6, services/wallet/ceremony/go.mod:8 and :47, and sdk/cosmovisor/go.mod:37, without hand-writing checksums or changing manifests."
+symbols = ["test_go_root_nested_checksums"]
+
+[capability.18.1543.1]
+title = "Issue #1543: Align Android sample dependencies and verification checksums with the binding"
+reqs = ["181543.1"]
+touches = ["sdk/integrations/android/sample-app/app/build.gradle.kts", "sdk/integrations/android/sample-app/gradle/verification-metadata.xml", "tools/deps/tests/test_android_sample_dependencies.py"]
+tests = ["tools/deps/tests/test_android_sample_dependencies.py::test_android_sample_dependency_verification"]
+verification_contract = "python3 -m pytest tools/deps/tests/test_android_sample_dependencies.py::test_android_sample_dependency_verification -q"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1543.kvx, verdict task at its revision). Raise the direct jackson-databind and bcprov-jdk18on declarations at sdk/integrations/android/sample-app/app/build.gradle.kts:71 and sdk/integrations/android/sample-app/app/build.gradle.kts:72 to 2.18.9 and 1.85 respectively, matching sdk/integrations/android/pom.xml:25 and sdk/integrations/android/pom.xml:26 and the Android floors in tools/deps/floors/jvm.json:14."
+symbols = ["test_android_sample_dependency_verification"]
+
+[capability.18.1541.1]
+title = "Issue #1541: Remove the retired idempotency source from the journal TSan prerequisites"
+reqs = ["181541.1"]
+touches = ["Makefile"]
+tests = ["tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest::test_aggregates_dry_run_clean"]
+verification_contract = "python3 -m pytest tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest::test_aggregates_dry_run_clean -q"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1541.kvx, verdict task at its revision). Remove src/state/lxp_idempotency.c from the journal TSan prerequisites at Makefile:1458 so the $^ compile input at Makefile:1467 contains no deleted idempotency source; preserve the journal targets, sanitizer flags and remaining prerequisites."
+symbols = []
+
+[capability.18.1539.1]
+title = "Issue #1539: Return the recorded hash for identical WebSocket transaction resubmissions"
+reqs = ["181539.1"]
+touches = ["rpc/server.go", "node/app.go", "node/sequencer_rpc_option_test.go"]
+tests = ["node/sequencer_rpc_option_test.go::TestEVMServerServesSequencerReceiptOption"]
+verification_contract = "go test -count=1 ./node/ -run '^TestEVMServerServesSequencerReceiptOption$'"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1539.kvx, verdict task at its revision). Update NewEVMWebSocketServer in rpc/server.go:401 to accept SequencerReceiptOption and assign its Source to SendConfig.SequencerSource after sendConfig at rpc/server.go:444, matching HTTP at rpc/server.go:215 and rpc/server.go:235, so the existing lookup in rpc/send.go:200-210 answers known hashes before acceptance; update the ServerOption documentation at rpc/server.go:48 to describe the supported option."
+symbols = ["NewEVMWebSocketServer", "RegisterLocalServices", "TestEVMServerServesSequencerReceiptOption"]
+
+[capability.18.1537.1]
+title = "Issue #1537: Unify JVM VerificationStatus generation and prove both drift checks agree"
+reqs = ["181537.1"]
+touches = ["sdk/platform/generators/generate_jvm.py", "sdk/platform/generators/src/main.rs", "sdk/platform/generators/tests/drift.rs", "sdk/platform/pipeline.kvx"]
+tests = ["sdk/platform/generators/tests/drift.rs::jvm_generators_agree_on_verification_status"]
+verification_contract = "cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift jvm_generators_agree_on_verification_status -- --exact"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1537.kvx, verdict task at its revision). Make render_models in sdk/platform/generators/generate_jvm.py:331 emit AgentModels.VerificationStatus from services/agent/schema/agent-api/v1.kvx:121 using one Python renderer that validates the schema contract and reproduces the existing declaration at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:1028 byte for byte in its existing position, including all four shapes, nonempty reasons, rung validation, strict achieved-below-requested ordering and null omission."
+symbols = ["render_models", "jvm_verification_status", "jvm_generators_agree_on_verification_status"]
+
+[capability.18.1536.1]
+title = "Issue #1536: Document the retirement of kernel custody credit and its light client"
+reqs = ["181536.1"]
+touches = ["docs/wiki/Bridge.md", "docs/wiki/Programs.md", "docs/site/docs/programs/index.md", "docs/wiki/Custody.md", "docs/site/docs/human/custody.md", "spec/layerx-merge/programme/tests/test_retired_docs.py"]
+tests = ["spec/layerx-merge/programme/tests/test_retired_docs.py::test_custody_credit_docs_are_retired"]
+verification_contract = "python3 -m pytest spec/layerx-merge/programme/tests/test_retired_docs.py::test_custody_credit_docs_are_retired -q"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1536.kvx, verdict task at its revision). Rewrite the custody credit descriptions at docs/wiki/Bridge.md:3, docs/wiki/Bridge.md:34, docs/wiki/Custody.md:8 and docs/site/docs/human/custody.md:3 to state that the kernel custody credit activity and its light client are retired; remove their active verification, execution, profile, payload and issuance instructions and citations to the deleted headers, sources and functions at docs/wiki/Bridge.md:17, docs/wiki/Bridge.md:42, docs/wiki/Bridge.md:64, docs/wiki/Custody.md:26, docs/wiki/Custody.md:79, docs/site/docs/human/custody.md:21 and docs/site/docs/human/custody.md:74."
+symbols = ["test_custody_credit_docs_are_retired"]
+
+[capability.18.1535.1]
+title = "Issue #1535: Restore the legacy importer's patched frozen dependency lockfile"
+reqs = ["181535.1"]
+touches = ["services/wallet/ceremony/legacy-import/pnpm-lock.yaml", "services/wallet/ceremony/legacy-import/test/test_lockfile.py"]
+tests = ["services/wallet/ceremony/legacy-import/test/test_lockfile.py::test_legacy_import_lockfile"]
+verification_contract = "python3 -m pytest services/wallet/ceremony/legacy-import/test/test_lockfile.py::test_legacy_import_lockfile -q"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1535.kvx, verdict task at its revision). Regenerate services/wallet/ceremony/legacy-import/pnpm-lock.yaml with the importer's own pnpm workspace, preserving the manifest's vitest 4.1.12 pin at services/wallet/ceremony/legacy-import/package.json:25 and resolving every @vitest/mocker copy to at least the 4.1.12 floor at tools/deps/floors/wallet-services.json:30; the workspace boundary at services/wallet/ceremony/legacy-import/pnpm-workspace.yaml:1 requires a local lockfile rather than the parent wallet lockfile."
+symbols = ["test_legacy_import_lockfile"]
+
+[capability.18.1528.1]
+title = "Issue #1528: Restore launchpad dependency checksums without lowering dependency floors"
+reqs = ["181528.1"]
+touches = ["sdk/launchpad/protocol/go.sum", "sdk/launchpad/shared/go.sum", "services/launchpad/api/go.sum", "services/launchpad/discovery/go.sum", "services/launchpad/gateway/go.sum", "services/launchpad/go.work.sum", "services/launchpad/indexer/go.sum", "services/launchpad/livestream/go.sum", "services/launchpad/metadata/go.sum", "services/launchpad/notifications/go.sum", "services/launchpad/pnl-tracker/go.sum", "services/launchpad/ranking-algo/go.sum", "services/launchpad/security/control/go.sum", "services/launchpad/security/go.sum", "services/launchpad/social/go.sum", "services/launchpad/stats-workers/go.sum", "services/launchpad/trading-charts/go.sum", "services/launchpad/user/go.sum", "services/launchpad/security/supplychain/test_go_checksums.py"]
+tests = ["services/launchpad/security/supplychain/test_go_checksums.py::test_go_checksums_support_readonly_resolution"]
+verification_contract = "python3 -m pytest services/launchpad/security/supplychain/test_go_checksums.py::test_go_checksums_support_readonly_resolution -q"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1528.kvx, verdict task at its revision). Regenerate the 17 module go.sum files deleted by b6101fd075736c857ad85fd9d2eeeb6690239032 from each module's current manifest using Go's module download commands with GOWORK=off, including discovery and notifications whose manifests were unchanged; services/launchpad/api/go.mod:14 retains chi v5.4.0, services/launchpad/discovery/go.mod:19 and services/launchpad/notifications/go.mod:19 retain their local SDK replacements, and no go.mod, dependency floor, source file or Dockerfile changes."
+symbols = ["test_go_checksums_support_readonly_resolution"]
+
+[capability.18.1527.1]
+title = "Issue #1527: Align explorer Phoenix and cookie dependencies with their resolution pins"
+reqs = ["181527.1"]
+touches = ["apps/explorer/package.json", "apps/explorer/yarn.lock", "apps/explorer/lib/dependencyVersions.spec.ts"]
+tests = ["apps/explorer/lib/dependencyVersions.spec.ts::explorerDependencyVersionsMatchPins"]
+verification_contract = "pnpm --dir apps/explorer exec vitest run lib/dependencyVersions.spec.ts -t '^explorerDependencyVersionsMatchPins$'"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1527.kvx, verdict task at its revision). Change the direct js-cookie and phoenix dependencies at apps/explorer/package.json:107 and :117 to exact 3.0.7 and 1.6.17, matching the resolutions at :248 and :259 and preserving the floors at tools/deps/floors/explorer-web.json:41 and :52; regenerate apps/explorer/yarn.lock with the declared Yarn version at apps/explorer/package.json:281 so the conflicting direct-selector entries at apps/explorer/yarn.lock:18648 and :20405 disappear and every selector for these packages resolves to its pin."
+symbols = ["explorerDependencyVersionsMatchPins"]
+
+[capability.18.1526.1]
+title = "Issue #1526: Align explorer telemetry dependencies with Jaeger's required core version"
+reqs = ["181526.1"]
+touches = ["apps/explorer/package.json", "apps/explorer/yarn.lock", "apps/explorer/instrumentation.node.ts", "apps/explorer/instrumentation.node.spec.ts"]
+tests = ["apps/explorer/instrumentation.node.spec.ts::test_explorer_telemetry_dependency_coherence"]
+verification_contract = "yarn --cwd apps/explorer test:vitest run instrumentation.node.spec.ts -t '^test_explorer_telemetry_dependency_coherence$'"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1526.kvx, verdict task at its revision). Replace the incompatible core override at apps/explorer/package.json:219 and align the legacy telemetry dependencies at apps/explorer/package.json:69 with the Jaeger 2.9.0 requirement at apps/explorer/yarn.lock:6821; upgrade consumers that require core 1.x to compatible releases, remove the unused legacy Jaeger exporter dependency at apps/explorer/package.json:70 while retaining OTLP trace export at apps/explorer/instrumentation.node.ts:17, adapt SDK initialization at apps/explorer/instrumentation.node.ts:19 to the aligned SDK APIs, and regenerate apps/explorer/yarn.lock with its declared Yarn manager so every remaining core selector satisfies its resolved version and every core copy meets the unchanged 2.8.0 minimum at tools/deps/floors/explorer-web.json:12."
+symbols = ["test_explorer_telemetry_dependency_coherence"]
+
+[capability.18.1525.1]
+title = "Issue #1525: Restore the vendored database module checksums"
+reqs = ["181525.1"]
+touches = ["core/deps/db-backend/go.sum", "core/deps/tm-db/go.sum", "tools/deps/tests/test_vendored_checksums.py"]
+tests = ["tools/deps/tests/test_vendored_checksums.py::test_vendored_database_checksums"]
+verification_contract = "python3 -m pytest tools/deps/tests/test_vendored_checksums.py::test_vendored_database_checksums -q"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1525.kvx, verdict task at its revision). Regenerate core/deps/db-backend/go.sum and core/deps/tm-db/go.sum using Go's module commands against the existing manifests, including grpc v1.83.1 at core/deps/db-backend/go.mod:14 and compress v1.18.7 at core/deps/tm-db/go.mod:27; retain the dependency floors in tools/deps/floors/go-vendored.json:11-25 and do not restore obsolete checksums from before the dependency update."
+symbols = ["test_vendored_database_checksums"]
+
+[capability.18.1522.1]
+title = "Issue #1522: Check the dashboard Next floor against its shared install lock"
+reqs = ["181522.1"]
+touches = ["tools/deps/floors/platform-node.json", "services/platform/hosted/dashboard/web/package-lock.json", "tools/deps/tests/test_lockfloor.py"]
+tests = ["tools/deps/tests/test_lockfloor.py::test_dashboard_floor_uses_shared_install_lock"]
+verification_contract = "python3 -m pytest tools/deps/tests/test_lockfloor.py::test_dashboard_floor_uses_shared_install_lock -q"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1522.kvx, verdict task at its revision). Replace the dashboard manifest entry at tools/deps/floors/platform-node.json:25 with an explicit apps/web/package-lock.json entry retaining next >=16.4.1, using the direct-lock support at tools/deps/lockfloor.py:242, and delete services/platform/hosted/dashboard/web/package-lock.json, introduced by ab65ff9baedf72cacc151d5876378a5ce09111ee; the selected lock must be the one installed by docker/platform-dashboard-web/Dockerfile:8 and shared by Makefile:2528, without changing pins, install recipes or existing consistency assertions."
+symbols = ["test_dashboard_floor_uses_shared_install_lock"]
+
+[capability.18.1521.1]
+title = "Issue #1521: Restore compatible PWA cleanup without lowering dependency floors"
+reqs = ["181521.1"]
+touches = ["apps/perps/package.json", "apps/perps/pnpm-lock.yaml", "apps/perps/package-lock.json", "apps/perps/tests/pwa-cleanup.test.ts"]
+tests = ["apps/perps/tests/pwa-cleanup.test.ts::productionPwaCleanupUsesCompatibleGlobApi"]
+verification_contract = "pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^productionPwaCleanupUsesCompatibleGlobApi$' tests/pwa-cleanup.test.ts"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1521.kvx, verdict task at its revision). In apps/perps/package.json:85 and :125, add equivalent npm and pnpm overrides scoped to clean-webpack-plugin's del dependency, raising del from 4.1.1 to 6.1.1, and regenerate apps/perps/pnpm-lock.yaml and apps/perps/package-lock.json consistently; the chain at apps/perps/pnpm-lock.yaml:10979 and :11189 must use globby 11 instead of globby 6 and the compatible del 6 sync API, whose rimraf calls disable glob expansion, retaining every floor in tools/deps/floors/perps-web.json:1 and both glob overrides at apps/perps/package.json:105 and :145."
+symbols = ["productionPwaCleanupUsesCompatibleGlobApi"]
+
+[capability.18.1519.1]
+title = "Issue #1519: Restore the nine explorer tool lockfiles at their dependency floors"
+reqs = ["181519.1"]
+touches = ["apps/explorer/toolkit/package", "apps/explorer/deploy/tools/essential-dapps-chains-config-generator", "apps/explorer/deploy/tools/affected-tests", "apps/explorer/deploy/tools/favicon-generator", "apps/explorer/deploy/tools/multichain-config-generator", "apps/explorer/deploy/tools/llms-txt-generator", "apps/explorer/deploy/tools/envs-validator", "apps/explorer/deploy/tools/feature-reporter", "apps/explorer/deploy/tools/sitemap-generator", "tools/deps/tests/test_lockfloor.py"]
+tests = ["tools/deps/tests/test_lockfloor.py::test_explorer_tools_locks_meet_floors"]
+verification_contract = "python3 -m pytest tools/deps/tests/test_lockfloor.py::test_explorer_tools_locks_meet_floors -q"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1519.kvx, verdict task at its revision). Regenerate and retain each of the nine yarn.lock files named by tools/deps/floors/explorer-tools.json:3, :18, :27, :35, :43, :51, :59, :67 and :74 using its directory's Yarn package manager; raise direct dependencies or resolutions in the corresponding package.json only where needed to meet every existing floor, including nested copies, as required by spec/layerx-merge/spec.kvx:119478 and :21439; preserve the floors file and checker unchanged and do not change application sources."
+symbols = ["test_explorer_tools_locks_meet_floors"]
+
+[capability.18.1518.1]
+title = "Issue #1518: Align TypeScript web search settlement with the sequencer receipt shape"
+reqs = ["181518.1"]
+touches = ["services/agent/sdk/typescript/src/web-search.ts", "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"]
+tests = ["services/agent/sdk/typescript/test/web-search-sequencer.test.ts::web_search_receipt_shape_matches_sequencer"]
+verification_contract = "node --test --test-name-pattern='^web_search_receipt_shape_matches_sequencer$' services/agent/sdk/typescript/dist/test/web-search-sequencer.test.js"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1518.kvx, verdict task at its revision). In services/agent/sdk/typescript/src/web-search.ts:315-330 require moduleId 12 and operation 2 after pinned receipt verification for both exact and metered payments, raising settlement-operation-mismatch for any other shape, matching services/agent/sdk/python/layerx_sdk/web_search.py:448-464; remove the module 1 balance arm at :322-325 and replace the obsolete metered-only 1/6 check at :511 with the shared check, preserving signature, key, transaction, result, offer, payer, purpose and digest validation."
+symbols = ["verifySequencerReceipt", "WebSearchClient", "web_search_receipt_shape_matches_sequencer"]
+
+[capability.18.1516.1]
+title = "Issue #1516: Preserve the stored request digest in the FastAPI example repository"
+reqs = ["181516.1"]
+touches = ["sdk/integrations/fastapi/examples/paid_api.py", "sdk/integrations/fastapi/tests/test_seller_receipts.py"]
+tests = ["sdk/integrations/fastapi/tests/test_seller_receipts.py::test_example_repository_refuses_settled_receipt_reuse"]
+verification_contract = "PYTHONPATH=sdk/integrations/fastapi:services/agent/sdk/python python3 -m pytest sdk/integrations/fastapi/tests/test_seller_receipts.py::test_example_repository_refuses_settled_receipt_reuse -q"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1516.kvx, verdict task at its revision). Update FileFulfillmentRepository.read in sdk/integrations/fastapi/examples/paid_api.py:68 to return the persisted requestDigest instead of the proposed digest at :74 and remove its request-digest conflict rejection at :70; both existing-record paths at :38 and :53 must return the stored fulfilment without releasing the resource again, leaving the receipt, key and request checks in sdk/integrations/fastapi/layerx_fastapi/seller.py:240 intact."
+symbols = ["FileFulfillmentRepository", "test_example_repository_refuses_settled_receipt_reuse"]
+
+[capability.18.1515.1]
+title = "Issue #1515: Preserve submitted chain history beyond editable-draft expiry"
+reqs = ["181515.1"]
+touches = ["apps/launchpad/web/src/widgets/create-chain/chain-storage.ts", "apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts"]
+tests = ["apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts::chain_submissions_survive_editable_draft_expiry"]
+verification_contract = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/create-chain/chain-storage.test.ts -t '^chain_submissions_survive_editable_draft_expiry$'"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1515.kvx, verdict task at its revision). In apps/launchpad/web/src/widgets/create-chain/chain-storage.ts:18 separate editable-draft freshness from validation of an immutable submitted draft: saveSubmission (:40), static restoreSubmission (:55), the instance restore (:51) and clearSubmission (:71) must accept otherwise valid confirm and reverted records regardless of elapsed age, including a reverted update after a delayed confirmation; preserve the reviewed snapshot and timestamp, schema/version, creator, root-chain, tier, fee-share, timestamp validity, hash, phase, bond and size checks and owner/hash matching on clear, and retain the 30-day expiry for saveDraft (:29) and restoreDraft (:33)."
+symbols = ["ChainDraftStorage", "chain_submissions_survive_editable_draft_expiry"]
+
+[capability.18.1513.1]
+title = "Issue #1513: Invalidate native archives when source membership changes"
+reqs = ["181513.1"]
+touches = ["Makefile", "tests/ci/test_native_archive_membership.py"]
+tests = ["tests/ci/test_native_archive_membership.py::test_native_archives_track_source_membership"]
+verification_contract = "python3 -m pytest tests/ci/test_native_archive_membership.py::test_native_archives_track_source_membership -q"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1513.kvx, verdict task at its revision). Make the sorted, filtered source membership at Makefile:46 an effective normal prerequisite of both archive rules at Makefile:185 and Makefile:194 using membership state scoped to BUILD_DIR that changes only when the source list changes; preserve source exclusions, production/testing flags, deterministic archive creation and the existing removal of the old archive before ar, so deletion or rename invalidates each archive without cleaning or touching unrelated objects and unchanged membership preserves reuse."
+symbols = ["test_native_archives_track_source_membership"]
+
+[capability.18.1512.1]
+title = "Issue #1512: Align the retained log test with admitted append kinds"
+reqs = ["181512.1"]
+touches = ["tests/storage/lxp_test_log.c"]
+tests = ["tests/storage/lxp_test_log.c::main"]
+verification_contract = "make -C . build/tests/lxp_test_log && ./build/tests/lxp_test_log"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1512.kvx, verdict task at its revision). Replace the contiguous kind loop in tests/storage/lxp_test_log.c:32 with explicit admitted kinds LXP_LOG_ACTIVITY, LXP_LOG_RECEIPT, LXP_LOG_CHECKPOINT, LXP_LOG_STATE_DIFF and LXP_LOG_GENESIS, matching src/storage/lxp_log.c:34; retain successful append/read body and record-kind assertions for every admitted kind."
+symbols = ["main"]
+
+[capability.18.1511.1]
+title = "Issue #1511: Restore PAY2's tracked standalone dependency lock"
+reqs = ["181511.1"]
+touches = ["services/agent/qualification/pay2/Cargo.lock", "services/agent/qualification/pay2/.gitignore", "services/agent/qualification/pay2/tests/build_inputs.rs"]
+tests = ["services/agent/qualification/pay2/tests/build_inputs.rs::pay2_lockfile_is_tracked"]
+verification_contract = "! grep -nw lni services/agent/qualification/pay2/pay2e_test.rs && cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --no-run && cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --test build_inputs pay2_lockfile_is_tracked -- --exact"
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1511.kvx, verdict task at its revision). Restore services/agent/qualification/pay2/Cargo.lock with dependency resolution valid for the standalone workspace declared at services/agent/qualification/pay2/Cargo.toml:8 and its current dependencies at services/agent/qualification/pay2/Cargo.toml:21; remove the lockfile ignore rule at services/agent/qualification/pay2/.gitignore:1 while retaining the target directory rule at services/agent/qualification/pay2/.gitignore:2."
+symbols = ["pay2_lockfile_is_tracked"]
 
 [capability.22.96.29]
 title = "Close the 3 dependency alerts of wasm-runtime/libwasmvm/Cargo.lock"
@@ -119193,6 +119601,182 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.18.1548.1]
+title = "Issue #1548: Migrate gateway typed-data records to the Zod 4 signature"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181548.1"]
+capabilities = ["18.1548.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1548.kvx, verdict task at its revision). Replace the three one-argument z.record calls at services/wallet/gateway/src/schemas/agent.ts:63 and the three at services/wallet/gateway/src/routes/sign.ts:60 with z.record(z.string(), valueSchema), retaining each existing value schema, optional agent domain, agent typed-data passthrough, wallet typedData and typed_data aliases, strict envelopes, field bounds and 256-field array limit; retain the Zod 4 dependency at services/wallet/gateway/package.json:30 and its resolution at services/wallet/pnpm-lock.yaml:126."
+do_2 = "Add services/wallet/gateway/test/typed-data-records.test.ts (planned) with one declared test function gatewayTypedDataRecordsZod4 exercising the exported AgentSignTypedDataBody and SignTypedDataBody directly without replacing either schema: assert parsed valid named records retain their values through all six records and both wallet aliases; accept an omitted agent domain and agent typed-data extra properties; reject null, array and scalar record containers, unknown outer keys, unknown wallet document keys, malformed wallet TypedDataField values and 257-field arrays, while accepting 256 fields and retaining existing string bounds at services/wallet/gateway/src/routes/sign.ts:56; follow the focused Vitest runner in services/wallet/gateway/vitest.config.ts:6 and the existing schema safeParse assertion pattern at services/wallet/gateway/test/schemas.injection.test.ts:154."
+symbols = ["AgentSignTypedDataBody", "TypedDataDocument", "gatewayTypedDataRecordsZod4"]
+touches = ["services/wallet/gateway/src/schemas/agent.ts", "services/wallet/gateway/src/routes/sign.ts", "services/wallet/gateway/test/typed-data-records.test.ts"]
+tests = ["services/wallet/gateway/test/typed-data-records.test.ts::gatewayTypedDataRecordsZod4"]
+planned_paths = ["services/wallet/gateway/test/typed-data-records.test.ts"]
+build_cmd = "pnpm --dir services/wallet/gateway exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/typed-data-records.test.ts -t '^gatewayTypedDataRecordsZod4$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1527.1]
+title = "Issue #1527: Align explorer Phoenix and cookie dependencies with their resolution pins"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181527.1"]
+capabilities = ["18.1527.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1527.kvx, verdict task at its revision). Change the direct js-cookie and phoenix dependencies at apps/explorer/package.json:107 and :117 to exact 3.0.7 and 1.6.17, matching the resolutions at :248 and :259 and preserving the floors at tools/deps/floors/explorer-web.json:41 and :52; regenerate apps/explorer/yarn.lock with the declared Yarn version at apps/explorer/package.json:281 so the conflicting direct-selector entries at apps/explorer/yarn.lock:18648 and :20405 disappear and every selector for these packages resolves to its pin."
+do_2 = "Add apps/explorer/lib/dependencyVersions.spec.ts with one declared function explorerDependencyVersionsMatchPins registered with test(explorerDependencyVersionsMatchPins); read the real explorer manifest, Yarn lockfile, dependency floors and installed packages resolved from the explorer package root, and assert for both packages that the direct dependency, resolution and installed version equal the exact pin, every lock selector resolves to that same version, and the security floor is preserved."
+symbols = ["explorerDependencyVersionsMatchPins"]
+touches = ["apps/explorer/package.json", "apps/explorer/yarn.lock", "apps/explorer/lib/dependencyVersions.spec.ts"]
+tests = ["apps/explorer/lib/dependencyVersions.spec.ts::explorerDependencyVersionsMatchPins"]
+planned_paths = ["apps/explorer/lib/dependencyVersions.spec.ts"]
+build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/explorer exec vitest run lib/dependencyVersions.spec.ts -t '^explorerDependencyVersionsMatchPins$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1526.1]
+title = "Issue #1526: Align explorer telemetry dependencies with Jaeger's required core version"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181526.1"]
+capabilities = ["18.1526.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1526.kvx, verdict task at its revision). Replace the incompatible core override at apps/explorer/package.json:219 and align the legacy telemetry dependencies at apps/explorer/package.json:69 with the Jaeger 2.9.0 requirement at apps/explorer/yarn.lock:6821; upgrade consumers that require core 1.x to compatible releases, remove the unused legacy Jaeger exporter dependency at apps/explorer/package.json:70 while retaining OTLP trace export at apps/explorer/instrumentation.node.ts:17, adapt SDK initialization at apps/explorer/instrumentation.node.ts:19 to the aligned SDK APIs, and regenerate apps/explorer/yarn.lock with its declared Yarn manager so every remaining core selector satisfies its resolved version and every core copy meets the unchanged 2.8.0 minimum at tools/deps/floors/explorer-web.json:12."
+do_2 = "Add apps/explorer/instrumentation.node.spec.ts with the declared test_explorer_telemetry_dependency_coherence function and register it with an explicit matching test name; read the real manifest and Yarn lock with a real lock parser and semver range checks, assert that every core selector resolves within its declared range, Jaeger 2.9.0 resolves exactly core 2.9.0, and no legacy 1.x request is forced onto core 2.x, run the existing floor checker against tools/deps/floors/explorer-web.json without changing its rules, and exercise the installed aligned SDK and Jaeger propagator through a real span-context inject/extract round trip without test doubles."
+symbols = ["test_explorer_telemetry_dependency_coherence"]
+touches = ["apps/explorer/package.json", "apps/explorer/yarn.lock", "apps/explorer/instrumentation.node.ts", "apps/explorer/instrumentation.node.spec.ts"]
+tests = ["apps/explorer/instrumentation.node.spec.ts::test_explorer_telemetry_dependency_coherence"]
+planned_paths = ["apps/explorer/instrumentation.node.spec.ts"]
+build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit"
+verify_cmd = "yarn --cwd apps/explorer test:vitest run instrumentation.node.spec.ts -t '^test_explorer_telemetry_dependency_coherence$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1521.1]
+title = "Issue #1521: Restore compatible PWA cleanup without lowering dependency floors"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181521.1"]
+capabilities = ["18.1521.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1521.kvx, verdict task at its revision). In apps/perps/package.json:85 and :125, add equivalent npm and pnpm overrides scoped to clean-webpack-plugin's del dependency, raising del from 4.1.1 to 6.1.1, and regenerate apps/perps/pnpm-lock.yaml and apps/perps/package-lock.json consistently; the chain at apps/perps/pnpm-lock.yaml:10979 and :11189 must use globby 11 instead of globby 6 and the compatible del 6 sync API, whose rimraf calls disable glob expansion, retaining every floor in tools/deps/floors/perps-web.json:1 and both glob overrides at apps/perps/package.json:105 and :145."
+do_2 = "Add apps/perps/tests/pwa-cleanup.test.ts (planned) with declared function productionPwaCleanupUsesCompatibleGlobApi registered with test(productionPwaCleanupUsesCompatibleGlobApi): load the real apps/perps/next.config.js:1 with NODE_ENV=production, invoke its webpack hook with a real webpack configuration, and compile a minimal entry in a temporary directory using the actual PWA cleanup plugin selected by that hook; place stale sw.js, sw.js.map and workbox files and an unrelated asset, assert successful compilation, removal of the stale matching files and preservation of the unrelated asset, assert the cleanup chain resolves del 6 and globby 11, assert a successful tools/deps/lockfloor.py check of tools/deps/floors/perps-web.json covering both locks, and restore environment and temporary files afterwards without mocks or disabled checks."
+symbols = ["productionPwaCleanupUsesCompatibleGlobApi"]
+touches = ["apps/perps/package.json", "apps/perps/pnpm-lock.yaml", "apps/perps/package-lock.json", "apps/perps/tests/pwa-cleanup.test.ts"]
+tests = ["apps/perps/tests/pwa-cleanup.test.ts::productionPwaCleanupUsesCompatibleGlobApi"]
+planned_paths = ["apps/perps/tests/pwa-cleanup.test.ts"]
+build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^productionPwaCleanupUsesCompatibleGlobApi$' tests/pwa-cleanup.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1518.1]
+title = "Issue #1518: Align TypeScript web search settlement with the sequencer receipt shape"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181518.1"]
+capabilities = ["18.1518.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1518.kvx, verdict task at its revision). In services/agent/sdk/typescript/src/web-search.ts:315-330 require moduleId 12 and operation 2 after pinned receipt verification for both exact and metered payments, raising settlement-operation-mismatch for any other shape, matching services/agent/sdk/python/layerx_sdk/web_search.py:448-464; remove the module 1 balance arm at :322-325 and replace the obsolete metered-only 1/6 check at :511 with the shared check, preserving signature, key, transaction, result, offer, payer, purpose and digest validation."
+do_2 = "In services/agent/sdk/typescript/test/web-search-sequencer.test.ts:26-43 load the signed receipt, raw transaction and pinned key from sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, derive matching offer and settlement fields as services/agent/sdk/python/tests/test_web_search_sequencer.py:29-65 does, and replace the synthetic positive receipt built at :93-104 with that unchanged producer receipt; keep the existing test assertions and registrations at :162-225."
+do_3 = "Declare and register one node:test function web_search_receipt_shape_matches_sequencer in services/agent/sdk/typescript/test/web-search-sequencer.test.ts; drive WebSearchClient.search for both exact and metered schemes, assert the producer receipt verifies as 12/2 and settles with the expected scheme, payer, amount, asset, digest and transaction, then re-sign otherwise valid receipts with shapes 1/6, 1/2, 13/2 and 12/6 and assert settlement-operation-mismatch for each scheme, following services/agent/sdk/python/tests/test_web_search_sequencer.py:217-271; assert wrong keys, altered transactions, result failures and offer, payer and purpose mismatches still refuse with their existing error codes."
+symbols = ["verifySequencerReceipt", "WebSearchClient", "web_search_receipt_shape_matches_sequencer"]
+touches = ["services/agent/sdk/typescript/src/web-search.ts", "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"]
+tests = ["services/agent/sdk/typescript/test/web-search-sequencer.test.ts::web_search_receipt_shape_matches_sequencer"]
+planned_paths = []
+build_cmd = "pnpm --dir services/agent/sdk/typescript run build"
+verify_cmd = "node --test --test-name-pattern='^web_search_receipt_shape_matches_sequencer$' services/agent/sdk/typescript/dist/test/web-search-sequencer.test.js"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1515.1]
+title = "Issue #1515: Preserve submitted chain history beyond editable-draft expiry"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181515.1"]
+capabilities = ["18.1515.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1515.kvx, verdict task at its revision). In apps/launchpad/web/src/widgets/create-chain/chain-storage.ts:18 separate editable-draft freshness from validation of an immutable submitted draft: saveSubmission (:40), static restoreSubmission (:55), the instance restore (:51) and clearSubmission (:71) must accept otherwise valid confirm and reverted records regardless of elapsed age, including a reverted update after a delayed confirmation; preserve the reviewed snapshot and timestamp, schema/version, creator, root-chain, tier, fee-share, timestamp validity, hash, phase, bond and size checks and owner/hash matching on clear, and retain the 30-day expiry for saveDraft (:29) and restoreDraft (:33)."
+do_2 = "Add the planned apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts with a declared function chain_submissions_survive_editable_draft_expiry registered as test(chain_submissions_survive_editable_draft_expiry): use the real ChainDraftStorage and jsdom localStorage with controlled time, save records at T, restore via fresh instances and the static method at T plus 30 days and T plus 30 days plus 1 ms, assert unchanged reviewed fields and submission identity for confirm and reverted, persist a reverted update after expiry, and prove another account can read the global record but cannot clear it while only the matching creator/hash can clear it."
+do_3 = "Within that same focused test, assert an unsent draft remains restorable at exactly 30 days and rejects at 30 days plus 1 ms, a fresh editable draft can be saved and restored after clearing the aged terminal-reverted record, and malformed journal identity, chain, timestamp, tier, fee share, hash, phase and bond remain rejected without deleting stored bytes; preserve the existing expiry assertions at apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts:30 and :48 and the confirmation scope checks at chain-adapters.ts:147, whose read-only receipt path (:155) already permits delayed confirmation."
+symbols = ["ChainDraftStorage", "chain_submissions_survive_editable_draft_expiry"]
+touches = ["apps/launchpad/web/src/widgets/create-chain/chain-storage.ts", "apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts"]
+tests = ["apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts::chain_submissions_survive_editable_draft_expiry"]
+planned_paths = ["apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts"]
+build_cmd = "pnpm --dir apps/launchpad/web exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/create-chain/chain-storage.test.ts -t '^chain_submissions_survive_editable_draft_expiry$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.96.27]
 title = "Report the 1 dependency alerts of tests/integration/rpc_tests/package-lock.json that name no patched version"
 status = "pending"
@@ -119435,7 +120019,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.9]
 title = "Close the 13 dependency alerts of contracts/package-lock.json"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -119465,7 +120049,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.8]
 title = "Report the 1 dependency alerts of contracts/launchpad/pnpm-lock.yaml that name no patched version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -119615,7 +120199,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.96.2]
 title = "Report the 1 dependency alerts of apps/launchpad/pnpm-lock.yaml that name no patched version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123918,6 +124502,184 @@ gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-markets"
 rollback = "Revert the touched files of task 3.98.1; the gateway state and env file live outside the repository, so no repository state depends on them."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1562.1]
+title = "Issue #1562: Decode and validate transfer-authority wrappers in AI market receipts"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181562.1"]
+capabilities = ["18.1562.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1562.kvx, verdict task at its revision). Update decodeProgramsCallResult and validateProgramsExecutionResponse in services/agent/sdk/typescript/src/ai_market.ts:3169 and :3265 to decode one bounded transfer-authority/v2 wrapper before optional occupancy and execution/v2-v5, following programs/crates/layerx-programs-runtime/src/terminal.rs:325; validate canonical authorization, account-bound names, transfer sources, assets, destinations, amounts and the reconstructed authority root against the wrapper root and corresponding applied legs, including funding and Program-account payments, rather than discarding the attachment or conflating its root with occupancy-inclusive applied legs; reject truncation, empty or oversized fields, trailing bytes, repeated wrappers, wrong ordering and binding mismatches."
+do_2 = "Preserve the applied-leg Merkle-root check in services/agent/sdk/typescript/src/ai_market.ts:3247, receipt signature and transaction bindings in decodeProgramsReceipt at :3468 and :3453, ProgramCallOutcome log binding at :3638, terminal-kind and guest-response-capacity checks at :3325 and :3327, and OperationJournal.resolve persistence at :3090; keep ordinary no-transfer decoding and ReceiptMismatch refusals intact."
+do_3 = "Add TestAiMarketTransferAuthorityReceipt in rpc/sequencer_receipt_vectors_test.go using the real app, runtime and sequencer receipt producers already exercised by seqVecProgramsCall at :459 and TestSequencerReceiptVectors at :795; produce an ABI5 AI reward Fund call carrying capabilities as services/agent/sdk/typescript/src/ai_market.ts:2274 does and reaching the request routing module of programs/crates/layerx-programs-ai-market/src (line 1084) and programs/crates/layerx-programs-ai-market/src/value_adapter.rs:329, then pass its actual ABI output, signed transaction, receipt, pinned key and logs to a dedicated market_receipt_transfer_authority_resolves consumer mode in services/agent/sdk/typescript/test/ai-market.test.ts, using the TypeScript loader pattern in precompiles/layerxprograms/proof_layerxprograms_0x101d_test.go:265; build any required guest artifact from its repository source and fail if the producer cannot run."
+do_4 = "The single focused test asserts ordinary no-transfer conformance results, the real account-bound authority fixture checked at services/agent/sdk/typescript/test/account-bound-call.test.ts:13, and the separate producer-generated ABI5 reward receipt; it drives decodeProgramsCallResult, decodeProgramsReceipt and OperationJournal.resolve, reopens the journal and asserts executed state, result code, sequence and transaction hash; negative subcases mutate real producer outputs to test malformed or mismatched authorization, authority and applied roots, account names, signature, transaction, logs, terminal kind and guest response capacity, and prove refused receipts leave the reopened journal unresolved; the generic ABI2 fixture alone is decoder coverage, never an AI reward integration proof."
+symbols = ["decodeProgramsCallResult", "validateProgramsExecutionResponse", "TestAiMarketTransferAuthorityReceipt", "market_receipt_transfer_authority_resolves"]
+touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "rpc/sequencer_receipt_vectors_test.go"]
+tests = ["rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"]
+planned_paths = []
+build_cmd = "go build ./rpc/... && pnpm --dir services/agent/sdk/typescript exec tsc --noEmit"
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestAiMarketTransferAuthorityReceipt$'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1561.1]
+title = "Issue #1561: Prepare the codec replay corpus before agent vector tests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181561.1"]
+capabilities = ["18.1561.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1561.kvx, verdict task at its revision). Make agent-test-vectors at Makefile:1970-1971 depend on successful execution of tests/vectors/codec/generate.py:15-36 before its existing clock-wrapped Cargo command; declare the preparation target phony so an existing output cannot hide generator failures or stale kernel declarations, propagate generator failures, and preserve the generator's retired budget-pull exclusion at tests/vectors/codec/generate.py:28-35."
+do_2 = "Add tests/ci/test_agent_codec_corpus.py::test_agent_vectors_prepare_codec_corpus_from_clean_checkout using an isolated snapshot of tracked repository inputs with no codec replay corpus; invoke the real make agent-test-vectors target without replacing Cargo, the clock wrapper or the generator, require all three existing vector tests at services/agent/crates/layerx-types/tests/vectors.rs:37-100 to execute and pass, and assert the resulting corpus exists and is byte-identical after regeneration. Run the existing focused layerx-wire library test replay_registry_tests::replay_registry_tracks_kernel_budget_and_stream_declarations through tools/runtime/run-with-clock.sh against the same generated corpus to retain the exclusion assertion at services/agent/crates/layerx-wire/src/activity.rs:444-446; preserve every existing rejection assertion."
+symbols = ["test_agent_vectors_prepare_codec_corpus_from_clean_checkout"]
+touches = ["Makefile", "tests/ci/test_agent_codec_corpus.py"]
+tests = ["tests/ci/test_agent_codec_corpus.py::test_agent_vectors_prepare_codec_corpus_from_clean_checkout"]
+planned_paths = ["tests/ci/test_agent_codec_corpus.py"]
+build_cmd = "python3 -m py_compile tests/ci/test_agent_codec_corpus.py"
+verify_cmd = "python3 -m pytest tests/ci/test_agent_codec_corpus.py::test_agent_vectors_prepare_codec_corpus_from_clean_checkout -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1545.1]
+title = "Issue #1545: Restore checksums for the four remaining nested Go modules"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181545.1"]
+capabilities = ["18.1545.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1545.kvx, verdict task at its revision). Regenerate tools/paxctl/go.sum, tools/loadtest/go.sum, services/wallet/ceremony/go.sum and sdk/cosmovisor/go.sum with each module's Go toolchain and GOWORK=off against the committed manifests, including dependencies used by tests; preserve the dependency versions and replacements at tools/paxctl/go.mod:9 and :35, tools/loadtest/go.mod:6, services/wallet/ceremony/go.mod:8 and :47, and sdk/cosmovisor/go.mod:37, without hand-writing checksums or changing manifests."
+do_2 = "Add tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums as one regression test over exactly those four real modules: require each go.sum to be nonempty, snapshot each go.mod and go.sum, run go list -mod=readonly -deps -test ./... and go mod verify with GOWORK=off and GOFLAGS=-mod=readonly, assert successful exits and a nonempty package list, and assert all snapshots remain byte-identical; do not substitute fixtures or skip modules."
+do_3 = "Build each affected module once with GOWORK=off and GOFLAGS=-mod=readonly; the restored attestor checksum file belongs to the completed repair at spec/layerx-merge/spec.kvx:137723 and is not part of this change, and the existing manifest-floor test at sdk/cosmovisor/deps_floor_test.go:12 remains intact."
+symbols = ["test_go_root_nested_checksums"]
+touches = ["tools/paxctl/go.sum", "tools/loadtest/go.sum", "services/wallet/ceremony/go.sum", "sdk/cosmovisor/go.sum", "tools/deps/tests/test_go_root_checksums.py"]
+tests = ["tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums"]
+planned_paths = ["tools/paxctl/go.sum", "tools/loadtest/go.sum", "services/wallet/ceremony/go.sum", "sdk/cosmovisor/go.sum", "tools/deps/tests/test_go_root_checksums.py"]
+build_cmd = "python3 -m py_compile tools/deps/tests/test_go_root_checksums.py && (cd tools/paxctl && GOWORK=off GOFLAGS=-mod=readonly go build ./...) && (cd tools/loadtest && GOWORK=off GOFLAGS=-mod=readonly go build ./...) && (cd services/wallet/ceremony && GOWORK=off GOFLAGS=-mod=readonly go build ./...) && (cd sdk/cosmovisor && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "python3 -m pytest tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1543.1]
+title = "Issue #1543: Align Android sample dependencies and verification checksums with the binding"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181543.1"]
+capabilities = ["18.1543.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1543.kvx, verdict task at its revision). Raise the direct jackson-databind and bcprov-jdk18on declarations at sdk/integrations/android/sample-app/app/build.gradle.kts:71 and sdk/integrations/android/sample-app/app/build.gradle.kts:72 to 2.18.9 and 1.85 respectively, matching sdk/integrations/android/pom.xml:25 and sdk/integrations/android/pom.xml:26 and the Android floors in tools/deps/floors/jvm.json:14."
+do_2 = "Regenerate sdk/integrations/android/sample-app/gradle/verification-metadata.xml:541 and sdk/integrations/android/sample-app/gradle/verification-metadata.xml:1318 from the actual resolved artifacts, adding authentic SHA-256 checksums for Jackson databind 2.18.9, its resolved core, annotations, BOM, base and parent metadata, and bcprov-jdk18on 1.85; retain metadata verification and the existing trust boundary at sdk/integrations/android/sample-app/gradle/verification-metadata.xml:4 without ignoring artifacts or broadening trust."
+do_3 = "Add tools/deps/tests/test_android_sample_dependencies.py with test_android_sample_dependency_verification, reading the real Android POM, JVM floors, sample Gradle declarations and namespaced verification XML; assert both direct versions match the binding and meet the floors, require SHA-256 entries for the selected Jackson and BouncyCastle JARs and POMs plus Jackson BOM and parent POMs, and assert metadata verification remains enabled without new trust exemptions for these dependencies."
+symbols = ["test_android_sample_dependency_verification"]
+touches = ["sdk/integrations/android/sample-app/app/build.gradle.kts", "sdk/integrations/android/sample-app/gradle/verification-metadata.xml", "tools/deps/tests/test_android_sample_dependencies.py"]
+tests = ["tools/deps/tests/test_android_sample_dependencies.py::test_android_sample_dependency_verification"]
+planned_paths = ["tools/deps/tests/test_android_sample_dependencies.py"]
+build_cmd = "gradle --no-daemon --dependency-verification strict -p sdk/integrations/android/sample-app :app:assembleDebug"
+verify_cmd = "python3 -m pytest tools/deps/tests/test_android_sample_dependencies.py::test_android_sample_dependency_verification -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1535.1]
+title = "Issue #1535: Restore the legacy importer's patched frozen dependency lockfile"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181535.1"]
+capabilities = ["18.1535.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1535.kvx, verdict task at its revision). Regenerate services/wallet/ceremony/legacy-import/pnpm-lock.yaml with the importer's own pnpm workspace, preserving the manifest's vitest 4.1.12 pin at services/wallet/ceremony/legacy-import/package.json:25 and resolving every @vitest/mocker copy to at least the 4.1.12 floor at tools/deps/floors/wallet-services.json:30; the workspace boundary at services/wallet/ceremony/legacy-import/pnpm-workspace.yaml:1 requires a local lockfile rather than the parent wallet lockfile."
+do_2 = "Add services/wallet/ceremony/legacy-import/test/test_lockfile.py (planned) with test_legacy_import_lockfile: read the real manifest and the importer's entry from tools/deps/floors/wallet-services.json:30, use the production _lock_path, _pnpm_lock and compare_versions functions in tools/deps/lockfloor.py:239, tools/deps/lockfloor.py:90 and tools/deps/lockfloor.py:30 to assert the local lock exists and every resolved vitest and @vitest/mocker copy meets 4.1.12 and the recorded floors, then run pnpm --dir services/wallet/ceremony/legacy-import --ignore-workspace install --frozen-lockfile --ignore-scripts, assert exit zero and assert the committed lockfile bytes remain unchanged; missing or unresolved packages must fail."
+symbols = ["test_legacy_import_lockfile"]
+touches = ["services/wallet/ceremony/legacy-import/pnpm-lock.yaml", "services/wallet/ceremony/legacy-import/test/test_lockfile.py"]
+tests = ["services/wallet/ceremony/legacy-import/test/test_lockfile.py::test_legacy_import_lockfile"]
+planned_paths = ["services/wallet/ceremony/legacy-import/pnpm-lock.yaml", "services/wallet/ceremony/legacy-import/test/test_lockfile.py"]
+build_cmd = "pnpm --dir services/wallet/ceremony/legacy-import exec tsc --noEmit"
+verify_cmd = "python3 -m pytest services/wallet/ceremony/legacy-import/test/test_lockfile.py::test_legacy_import_lockfile -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1519.1]
+title = "Issue #1519: Restore the nine explorer tool lockfiles at their dependency floors"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181519.1"]
+capabilities = ["18.1519.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1519.kvx, verdict task at its revision). Regenerate and retain each of the nine yarn.lock files named by tools/deps/floors/explorer-tools.json:3, :18, :27, :35, :43, :51, :59, :67 and :74 using its directory's Yarn package manager; raise direct dependencies or resolutions in the corresponding package.json only where needed to meet every existing floor, including nested copies, as required by spec/layerx-merge/spec.kvx:119478 and :21439; preserve the floors file and checker unchanged and do not change application sources."
+do_2 = "Add test_explorer_tools_locks_meet_floors to tools/deps/tests/test_lockfloor.py, whose current format tests at tools/deps/tests/test_lockfloor.py:162 and missing-lock test at :305 do not cover the committed explorer locks; read the real explorer-tools floors file, assert that its nine expected lock paths exist, invoke the real checker from the repository root and assert exit 0 with no violations, then run yarn --cwd <directory> install --frozen-lockfile --ignore-scripts for each of those nine directories and assert every exit is 0 and every lockfile remains byte-identical, using no mocked subprocesses or generated lock fixtures."
+symbols = ["test_explorer_tools_locks_meet_floors"]
+touches = ["apps/explorer/toolkit/package", "apps/explorer/deploy/tools/essential-dapps-chains-config-generator", "apps/explorer/deploy/tools/affected-tests", "apps/explorer/deploy/tools/favicon-generator", "apps/explorer/deploy/tools/multichain-config-generator", "apps/explorer/deploy/tools/llms-txt-generator", "apps/explorer/deploy/tools/envs-validator", "apps/explorer/deploy/tools/feature-reporter", "apps/explorer/deploy/tools/sitemap-generator", "tools/deps/tests/test_lockfloor.py"]
+tests = ["tools/deps/tests/test_lockfloor.py::test_explorer_tools_locks_meet_floors"]
+planned_paths = ["apps/explorer/toolkit/package/yarn.lock", "apps/explorer/deploy/tools/essential-dapps-chains-config-generator/yarn.lock", "apps/explorer/deploy/tools/affected-tests/yarn.lock", "apps/explorer/deploy/tools/favicon-generator/yarn.lock", "apps/explorer/deploy/tools/multichain-config-generator/yarn.lock", "apps/explorer/deploy/tools/llms-txt-generator/yarn.lock", "apps/explorer/deploy/tools/envs-validator/yarn.lock", "apps/explorer/deploy/tools/feature-reporter/yarn.lock", "apps/explorer/deploy/tools/sitemap-generator/yarn.lock"]
+build_cmd = "python3 -m py_compile tools/deps/tests/test_lockfloor.py"
+verify_cmd = "python3 -m pytest tools/deps/tests/test_lockfloor.py::test_explorer_tools_locks_meet_floors -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -131059,6 +131821,127 @@ gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
 rollback = "Revert the two files in touches; calls to 0x101c are refused by the decoder again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1556.1]
+title = "Issue #1556: Ingest receipted logs and reconcile their committed copies"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181556.1"]
+capabilities = ["18.1556.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1556.kvx, verdict task at its revision). Represent the sequencer's receipted log state explicitly in services/agent/crates/layerx-agentd/src/events/ingest.rs:610 and decode_log at :663: accept the valid seq plus null blockHash shape emitted by rpc/filter.go:487 without fabricating a hash, and retain strict quantity, address, topic, data and removed-log validation; hashed logs must still contain a valid 32-byte hash."
+do_2 = "Reconcile receipt evidence in CoreEvent::from_log_bytes at services/agent/crates/layerx-agentd/src/events/ingest.rs:627 and commit_block at :850 with actual verified commitment; BATCH_INCLUDED at :635 already maps to Receipted under services/agent/crates/layerx-types/src/verify.rs:80, so preserve that mapping and promote only after a matching committed log and verified checkpoint establish the real block hash."
+do_3 = "Update pending, durable and buffered recovery in services/agent/crates/layerx-agentd/src/events/ingest.rs:767 and committed backfill decoding in services/agent/crates/layerx-agentd/src/events/gap.rs:340 so a receipted log and its committed copy reconcile by validated transaction/log identity and payload despite seq/blockHash representation changes; preserve cursor order and persisted progress across reopen, refuse conflicting payloads or hashes, and never deliver the same event twice."
+do_4 = "Capture real receipt-feed logs and their committed counterparts serialized through rpc/filter.go:471 into services/agent/crates/layerx-agentd/tests/fixtures/receipted-log-transition.json, including producer transaction hashes and multiple log positions; declare receipted_logs_recover_committed_without_duplicate_delivery in services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs and send the captured producer bytes through the supported Logs subscription and EventIngestor::read_log rather than replacing a null hash as the existing test does at :33."
+do_5 = "The single regression test must assert successful null-hash receipted ingestion with the Receipted rung, ordered delivery, committed backfill overlap with live logs, checkpoint-backed promotion using the producer's actual hash, restart recovery and no duplicate delivery; also assert refusal of missing or malformed seq on null-hash logs, malformed non-null hashes, removed logs, conflicting committed copies and mismatched checkpoint hashes without advancing the watermark."
+symbols = ["EthereumLog", "CoreEvent", "EventIngestor", "decode_log", "attempt_backfill", "receipted_logs_recover_committed_without_duplicate_delivery"]
+touches = ["services/agent/crates/layerx-agentd/src/events/ingest.rs", "services/agent/crates/layerx-agentd/src/events/gap.rs", "services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs", "services/agent/crates/layerx-agentd/tests/fixtures/receipted-log-transition.json"]
+tests = ["services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs::receipted_logs_recover_committed_without_duplicate_delivery"]
+planned_paths = ["services/agent/crates/layerx-agentd/tests/fixtures/receipted-log-transition.json"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test ingest_eth_subscribe receipted_logs_recover_committed_without_duplicate_delivery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1550.1]
+title = "Issue #1550: Align the intents budget-create test with the complete version-1 disclosure"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181550.1"]
+capabilities = ["18.1550.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1550.kvx, verdict task at its revision). Update budget_create_compiles_to_canonical_call_payload in services/human/crates/layerx-intents/tests/budget_payloads.rs:216-250 to assert the version-1 disclosure emitted by services/agent/crates/layerx-crypto/src/disclosure/call.rs:770-790: exactly two amounts, Transfer then SpendingLimit, both equal to AMOUNT for this fixture; exactly one Recipient equal to account_id(&budget_account()); and payload_expires_at equal to 1_900_000_000_000 milliseconds; retain the existing asset, budget identity, canonical payload and signing assertions."
+do_2 = "Use the existing focused budget_create_compiles_to_canonical_call_payload test to prove the complete disclosure for both rollover policies at services/human/crates/layerx-intents/tests/budget_payloads.rs:218-220, retaining every malformed-input and disclosure-mismatch rejection at lines 251-309; leave the binder and the already-corrected crypto amount assertions unchanged."
+symbols = ["budget_create_compiles_to_canonical_call_payload"]
+touches = ["services/human/crates/layerx-intents/tests/budget_payloads.rs"]
+tests = ["services/human/crates/layerx-intents/tests/budget_payloads.rs::budget_create_compiles_to_canonical_call_payload"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test budget_payloads budget_create_compiles_to_canonical_call_payload -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1537.1]
+title = "Issue #1537: Unify JVM VerificationStatus generation and prove both drift checks agree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181537.1"]
+capabilities = ["18.1537.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1537.kvx, verdict task at its revision). Make render_models in sdk/platform/generators/generate_jvm.py:331 emit AgentModels.VerificationStatus from services/agent/schema/agent-api/v1.kvx:121 using one Python renderer that validates the schema contract and reproduces the existing declaration at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:1028 byte for byte in its existing position, including all four shapes, nonempty reasons, rung validation, strict achieved-below-requested ordering and null omission."
+do_2 = "Replace the independent Java template in jvm_verification_status at sdk/platform/generators/src/main.rs:1491 with delegation to the Python renderer, keeping the existing regeneration helpers and their preservation and missing-type assertions intact at sdk/platform/generators/tests/drift.rs:835 and sdk/platform/generators/tests/drift.rs:873; Python owns the declaration as spec/layerx-merge/spec.kvx:6348 decision.2206 requires, and Rust must not introduce a second rendering or silently accept an unsupported schema."
+do_3 = "Add jvm_generators_agree_on_verification_status in sdk/platform/generators/tests/drift.rs using copies of the real repository schemas, generators, generated outputs and pipeline declarations rather than the synthetic repo_fixture: prove fresh Python generation equals the committed JVM schema, contains exactly one VerificationStatus declaration and no missing nested component type, then prove Python generation followed by sdkgen writing leaves those bytes unchanged and both genuine --check paths accept them; removing the declaration must make both checks fail, with the Rust failure identifying JVM output drift. Reseal only the changed generator digest in sdk/platform/pipeline.kvx:18 without changing generated Java bytes or handwritten classifications."
+symbols = ["render_models", "jvm_verification_status", "jvm_generators_agree_on_verification_status"]
+touches = ["sdk/platform/generators/generate_jvm.py", "sdk/platform/generators/src/main.rs", "sdk/platform/generators/tests/drift.rs", "sdk/platform/pipeline.kvx"]
+tests = ["sdk/platform/generators/tests/drift.rs::jvm_generators_agree_on_verification_status"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen"
+verify_cmd = "cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift jvm_generators_agree_on_verification_status -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1511.1]
+title = "Issue #1511: Restore PAY2's tracked standalone dependency lock"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181511.1"]
+capabilities = ["18.1511.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1511.kvx, verdict task at its revision). Restore services/agent/qualification/pay2/Cargo.lock with dependency resolution valid for the standalone workspace declared at services/agent/qualification/pay2/Cargo.toml:8 and its current dependencies at services/agent/qualification/pay2/Cargo.toml:21; remove the lockfile ignore rule at services/agent/qualification/pay2/.gitignore:1 while retaining the target directory rule at services/agent/qualification/pay2/.gitignore:2."
+do_2 = "Extend services/agent/qualification/pay2/tests/build_inputs.rs:7 with pay2_lockfile_is_tracked, asserting that the standalone lockfile exists, is tracked, matches its tracked bytes and is not ignored even with git check-ignore --no-index; assert command exit codes so an unavailable Git invocation cannot pass as an unignored file, and retain the existing build-input assertions."
+do_3 = "A fresh checkout containing only tracked PAY2 prerequisites must pass both locked compilation commands retained at spec/layerx-merge/spec.kvx:131536 and spec/layerx-merge/spec.kvx:131537 and the focused lockfile regression without changing the lockfile; preserve the node chain, height and receipt-key checks at services/agent/qualification/pay2/pay2e_test.rs:316 and services/agent/qualification/pay2/pay2e_test.rs:356, and keep the funded source as the build input read at services/agent/qualification/pay2/build.rs:11 rather than claiming that --no-run executes it."
+symbols = ["pay2_lockfile_is_tracked"]
+touches = ["services/agent/qualification/pay2/Cargo.lock", "services/agent/qualification/pay2/.gitignore", "services/agent/qualification/pay2/tests/build_inputs.rs"]
+tests = ["services/agent/qualification/pay2/tests/build_inputs.rs::pay2_lockfile_is_tracked"]
+planned_paths = ["services/agent/qualification/pay2/Cargo.lock"]
+build_cmd = "cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --all-targets"
+verify_cmd = "! grep -nw lni services/agent/qualification/pay2/pay2e_test.rs && cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --no-run && cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --test build_inputs pay2_lockfile_is_tracked -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -138513,6 +139396,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.18.1525.1]
+title = "Issue #1525: Restore the vendored database module checksums"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181525.1"]
+capabilities = ["18.1525.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1525.kvx, verdict task at its revision). Regenerate core/deps/db-backend/go.sum and core/deps/tm-db/go.sum using Go's module commands against the existing manifests, including grpc v1.83.1 at core/deps/db-backend/go.mod:14 and compress v1.18.7 at core/deps/tm-db/go.mod:27; retain the dependency floors in tools/deps/floors/go-vendored.json:11-25 and do not restore obsolete checksums from before the dependency update."
+do_2 = "Add tools/deps/tests/test_vendored_checksums.py::test_vendored_database_checksums as one real integration test of both modules: require each go.sum to exist and be nonempty, run go mod verify and go list -mod=readonly -deps ./... in each module with GOWORK=off and GOFLAGS=-mod=readonly, assert successful exit codes and a nonempty dependency list, and assert byte-for-byte unchanged go.mod and go.sum files afterward; resolve the imports used by core/deps/db-backend/remotedb/grpcdb/server.go:9-10 and core/deps/tm-db/backends/arweave.go:8-9 without mocks or checksum generation during the test."
+symbols = ["test_vendored_database_checksums"]
+touches = ["core/deps/db-backend/go.sum", "core/deps/tm-db/go.sum", "tools/deps/tests/test_vendored_checksums.py"]
+tests = ["tools/deps/tests/test_vendored_checksums.py::test_vendored_database_checksums"]
+planned_paths = ["core/deps/db-backend/go.sum", "core/deps/tm-db/go.sum", "tools/deps/tests/test_vendored_checksums.py"]
+build_cmd = "(cd core/deps/db-backend && GOWORK=off go build -mod=readonly ./...) && (cd core/deps/tm-db && GOWORK=off go build -mod=readonly ./...)"
+verify_cmd = "python3 -m pytest tools/deps/tests/test_vendored_checksums.py::test_vendored_database_checksums -q"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.96.25]
 title = "Report the 10 dependency alerts of services-launchpad that name no patched version"
@@ -191935,6 +192847,241 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.18.1552.1]
+title = "Issue #1552: Align cold scheduler metadata with the served ABI"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181552.1"]
+capabilities = ["18.1552.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1552.kvx, verdict task at its revision). Replace the scheduler entry in mergeAgentInfoABIs at precompiles/setup.go:230 with the exact served ABI at precompiles/layerxagent/scheduler/scheduler.go:26, removing the cold-only JobExecuted and JobFailed entries at precompiles/setup.go:239 and precompiles/setup.go:240; retain all five methods and the three served events, and preserve the keeper-free lookup at precompiles/setup.go:536 without constructing precompiles or publishing VM state."
+do_2 = "Extend TestPrecompileInfoResolvesWithoutMergeKeepers at precompiles/setup_test.go:379 to assert that cold scheduler metadata has exactly JobScheduled, JobCancelled and JobRescheduled and to snapshot and compare the VM precompile maps and address lists around cold lookups; retain the full served-versus-cold ABI equality assertion at precompiles/setup_test.go:425 and the unchanged initialization and empty registry assertions at precompiles/setup_test.go:417 and precompiles/setup_test.go:418."
+symbols = ["TestPrecompileInfoResolvesWithoutMergeKeepers"]
+touches = ["precompiles/setup.go", "precompiles/setup_test.go"]
+tests = ["precompiles/setup_test.go::TestPrecompileInfoResolvesWithoutMergeKeepers"]
+planned_paths = []
+build_cmd = "go build ./precompiles/..."
+verify_cmd = "go test -count=1 ./precompiles/ -run '^TestPrecompileInfoResolvesWithoutMergeKeepers$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1551.1]
+title = "Issue #1551: Decode canonical receipt-key responses in both public PxClient SDKs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181551.1"]
+capabilities = ["18.1551.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1551.kvx, verdict task at its revision). Update TypeScript PxClient.getReceiptKeys and call at services/agent/sdk/typescript/src/px.ts:177 and :230 and Python PxClient.get_receipt_keys and call at services/agent/sdk/python/layerx_sdk/px.py:291 and :378 to consume the canonical result object exactly once; update decodePxReceiptKeys and receiptKeyBytes at services/agent/sdk/typescript/src/px.ts:470 and :498 and decode_px_receipt_keys and _receipt_key_bytes at services/agent/sdk/python/layerx_sdk/px.py:578 and :601 to decode the served 0x-prefixed 32-byte keyId and publicKey fields, preserving the public entry types, key bytes, order, inclusive ranges, empty lists and existing quantity bounds."
+do_2 = "Migrate the receipt-key fixtures and cross-language assertions at services/agent/sdk/typescript/test/px.test.ts:654, :737 and :781 to the canonical producer object and hex bytes; retain strict rejection of missing or extra entry fields, malformed or wrong-length bytes, zero keys, duplicate key ids, reversed ranges and invalid or unsafe quantities, and retain JSON-RPC envelope validation and error code, message and data propagation."
+do_3 = "Add TestPublicPxReceiptKeysCanonical to rpc/sequencer_receipt_test.go using the real node server, keeper updates and empty-list production exercised by TestReceiptKeysServedByTheNode at rpc/sequencer_receipt_test.go:412; invoke the exported TypeScript PxClient.getReceiptKeys and Python PxClient.get_receipt_keys over loopback JSON-RPC in subprocesses, assert exact decoded bytes and inclusive range endpoints for initial, rotated multi-key and empty lists, and assert the non-serving node's error propagates with its code, message and data; use captured producer results for malformed-byte, duplicate, range and shape mutations checked by both decoders without substituting a fake producer or transport."
+symbols = ["PxClient", "decodePxReceiptKeys", "receiptKeyBytes", "decode_px_receipt_keys", "_receipt_key_bytes", "receipt_keys_shape", "TestPublicPxReceiptKeysCanonical"]
+touches = ["services/agent/sdk/typescript/src/px.ts", "services/agent/sdk/python/layerx_sdk/px.py", "services/agent/sdk/typescript/test/px.test.ts", "rpc/sequencer_receipt_test.go"]
+tests = ["rpc/sequencer_receipt_test.go::TestPublicPxReceiptKeysCanonical"]
+planned_paths = []
+build_cmd = "go build ./rpc/... && pnpm --dir services/agent/sdk/typescript exec tsc --noEmit && python3 -m py_compile services/agent/sdk/python/layerx_sdk/px.py"
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestPublicPxReceiptKeysCanonical$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1549.1]
+title = "Issue #1549: Supply the chains keeper to the node merge-import test"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181549.1"]
+capabilities = ["18.1549.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1549.kvx, verdict task at its revision). In TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams at node/precompiles_agent_merge_imports_test.go:15, replace NewPrecompileKeepers(a) with a.GetPrecompileKeepers(), which attaches the application's chains keeper at node/app.go:3900; preserve the setup, cleanup and every assertion at node/precompiles_agent_merge_imports_test.go:16-33."
+do_2 = "Run the existing TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams at node/precompiles_agent_merge_imports_test.go:11 as the single focused test: table construction must succeed and its oracle aggregator, scheduler and streams subtests must still assert registration, merge-version presence, concrete precompile type, address, name and nonempty ABI; leave the missing-keeper refusals at precompiles/setup_test.go:437-445 unchanged."
+symbols = ["TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams"]
+touches = ["node/precompiles_agent_merge_imports_test.go"]
+tests = ["node/precompiles_agent_merge_imports_test.go::TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams"]
+planned_paths = []
+build_cmd = "CGO_ENABLED=1 go build ./node/"
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1547.1]
+title = "Issue #1547: Name px_getReceiptKeys in its unavailable-method error"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181547.1"]
+capabilities = ["18.1547.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1547.kvx, verdict task at its revision). Add a typed errReceiptKeysNotServed implementing rpc.Error in rpc/sequencer_receipt.go beside the existing error at rpc/sequencer_receipt.go:71, with message ReceiptKeysMethod + ' served by sequencer' and code sequencerNotServedCode; return it from GetReceiptKeys at rpc/sequencer_receipt.go:359 when Source and ForwardURL are nil, preserving errSequencerReceiptNotServed and the forwarding path at rpc/sequencer_receipt.go:367."
+do_2 = "Add TestReceiptKeysNotServedNamesRequestedMethod in rpc/sequencer_receipt_test.go using the existing real HTTP server and JSON-RPC request helpers: call px_getReceiptKeys on a node with no source or forwarding endpoint and through a second node forwarding to it, assert code -32000 and exact message px_getReceiptKeys served by sequencer in both responses, and assert that pax_sequencerReceipt on the unavailable node retains its exact existing code and message from rpc/sequencer_receipt_test.go:783; retain the existing receipt-key serving assertions at rpc/sequencer_receipt_test.go:424."
+symbols = ["errReceiptKeysNotServed", "GetReceiptKeys", "TestReceiptKeysNotServedNamesRequestedMethod"]
+touches = ["rpc/sequencer_receipt.go", "rpc/sequencer_receipt_test.go"]
+tests = ["rpc/sequencer_receipt_test.go::TestReceiptKeysNotServedNamesRequestedMethod"]
+planned_paths = []
+build_cmd = "go build ./rpc/..."
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestReceiptKeysNotServedNamesRequestedMethod$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1541.1]
+title = "Issue #1541: Remove the retired idempotency source from the journal TSan prerequisites"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181541.1"]
+capabilities = ["18.1541.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1541.kvx, verdict task at its revision). Remove src/state/lxp_idempotency.c from the journal TSan prerequisites at Makefile:1458 so the $^ compile input at Makefile:1467 contains no deleted idempotency source; preserve the journal targets, sanitizer flags and remaining prerequisites."
+do_2 = "Use the existing MakefileWaveOneTest.test_aggregates_dry_run_clean at tools/ci/tests/test_makefile_wave1.py:35 as the focused regression check: it includes test-journal at line 43, requires exit zero at line 54 and rejects lxp_idempotency in all printed recipes at lines 62 and 65 without weakening any assertion."
+symbols = []
+touches = ["Makefile"]
+tests = ["tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest::test_aggregates_dry_run_clean"]
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "python3 -m pytest tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest::test_aggregates_dry_run_clean -q"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1539.1]
+title = "Issue #1539: Return the recorded hash for identical WebSocket transaction resubmissions"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181539.1"]
+capabilities = ["18.1539.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1539.kvx, verdict task at its revision). Update NewEVMWebSocketServer in rpc/server.go:401 to accept SequencerReceiptOption and assign its Source to SendConfig.SequencerSource after sendConfig at rpc/server.go:444, matching HTTP at rpc/server.go:215 and rpc/server.go:235, so the existing lookup in rpc/send.go:200-210 answers known hashes before acceptance; update the ServerOption documentation at rpc/server.go:48 to describe the supported option."
+do_2 = "Update App.RegisterLocalServices in node/app.go:3614 to pass app.sequencerReceipt to the WebSocket constructor at node/app.go:3664 alongside the shared sequencer, pending and forwarding options; retain HTTP's trace option and use the receipt source for WebSocket sends without adding receipt RPC methods."
+do_3 = "Extend TestEVMServerServesSequencerReceiptOption in node/sequencer_rpc_option_test.go:100, which already installs the real Accepter and ReceiptSource at node/sequencer_rpc_option_test.go:162-179 and submits fresh transactions over both transports at node/sequencer_rpc_option_test.go:195-220: resubmit each transaction's identical bytes over HTTP and WebSocket, including cross-transport replay, assert the same hash, byte-identical receipt, unchanged pending nonce and balances, and no additional WAL Accept record, then assert a different signed transaction reusing that nonce is refused with the wrong-sequence JSON-RPC error and leaves the original receipt unchanged."
+symbols = ["NewEVMWebSocketServer", "RegisterLocalServices", "TestEVMServerServesSequencerReceiptOption"]
+touches = ["rpc/server.go", "node/app.go", "node/sequencer_rpc_option_test.go"]
+tests = ["node/sequencer_rpc_option_test.go::TestEVMServerServesSequencerReceiptOption"]
+planned_paths = []
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 ./node/ -run '^TestEVMServerServesSequencerReceiptOption$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1513.1]
+title = "Issue #1513: Invalidate native archives when source membership changes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181513.1"]
+capabilities = ["18.1513.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1513.kvx, verdict task at its revision). Make the sorted, filtered source membership at Makefile:46 an effective normal prerequisite of both archive rules at Makefile:185 and Makefile:194 using membership state scoped to BUILD_DIR that changes only when the source list changes; preserve source exclusions, production/testing flags, deterministic archive creation and the existing removal of the old archive before ar, so deletion or rename invalidates each archive without cleaning or touching unrelated objects and unchanged membership preserves reuse."
+do_2 = "Add tests/ci/test_native_archive_membership.py::test_native_archives_track_source_membership using an isolated copy of the real repository sources and unchanged production Makefile with real make, compiler, ar and nm: build both archives in a non-default BUILD_DIR, assert a selected real source's member and defined symbols are initially present, make only that source deletion while retaining all outputs and timestamps, rebuild both archives and assert the member and its definitions are absent while retained members and symbols remain; assert surviving object timestamps do not change, both archives regenerate, and subsequent unchanged invocations preserve archive timestamps and contents; never substitute recipes, prebuilt objects or fake tools."
+symbols = ["test_native_archives_track_source_membership"]
+touches = ["Makefile", "tests/ci/test_native_archive_membership.py"]
+tests = ["tests/ci/test_native_archive_membership.py::test_native_archives_track_source_membership"]
+planned_paths = ["tests/ci/test_native_archive_membership.py"]
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "python3 -m pytest tests/ci/test_native_archive_membership.py::test_native_archives_track_source_membership -q"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1512.1]
+title = "Issue #1512: Align the retained log test with admitted append kinds"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181512.1"]
+capabilities = ["18.1512.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1512.kvx, verdict task at its revision). Replace the contiguous kind loop in tests/storage/lxp_test_log.c:32 with explicit admitted kinds LXP_LOG_ACTIVITY, LXP_LOG_RECEIPT, LXP_LOG_CHECKPOINT, LXP_LOG_STATE_DIFF and LXP_LOG_GENESIS, matching src/storage/lxp_log.c:34; retain successful append/read body and record-kind assertions for every admitted kind."
+do_2 = "In main at tests/storage/lxp_test_log.c:13, assert that retired kinds 3, 6, 8 and 9 return LXP_ERR_NON_CANONICAL without changing the write offset, previous-record offset, next sequence, output offset or segment bytes, as demonstrated by tests/codec/lxp_test_log_kinds.c:44; preserve the sequence-exhaustion and unchanged-state assertions at tests/storage/lxp_test_log.c:39, invalid-kind rejection at tests/storage/lxp_test_log.c:47 and corrupted-body rejection at tests/storage/lxp_test_log.c:50."
+do_3 = "Run the retained log test through its existing Makefile:1400 build target and require main to reach all append, read, refusal, sequence-exhaustion and corruption assertions; preserve decision.124 at spec/layerx-merge/spec.kvx:812 and the existing historical-producer/read coverage at tests/codec/lxp_test_log_kinds.c:97 and tests/codec/lxp_test_log_kinds.c:171, using historical bytes for retired-kind reads rather than successful new appends of retired kinds."
+symbols = ["main"]
+touches = ["tests/storage/lxp_test_log.c"]
+tests = ["tests/storage/lxp_test_log.c::main"]
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "make -C . build/tests/lxp_test_log && ./build/tests/lxp_test_log"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.95.3]
 title = "Record the fee-token sequencer receipt vector as its own producer-generated fixture"
 status = "pending"
@@ -193027,6 +194174,7 @@ do_15 = "Decision 2405: TestSubscribeNewHeads and TestSubscribeNewHeadsAutobahn 
 do_16 = "Decision 2405, superseding do_11: rpc/send.go acceptOnSequencer continues to the pending context on ErrLayerNotOpen since 5.98.5 and 5.98.6 (after 22.9.27), so the premise that send.go is unchanged no longer holds. rpc/send_sequencer_test.go (now in touches) TestSendSequencerReturnsAfterReceipt builds its SendAPI with a WatermarkManager over the executor's pending source the way newSendPendingAPI in rpc/send_pending_test.go:135-150 does, sets a short SetPendingOpenWait, and after the seal expects ErrPendingBlockClosed with the message no block is open; retry, not ErrLayerNotOpen, with no receipt and no broadcast. The harness's other cases are unchanged."
 do_17 = "Decision 2419 (attempt 7, ef0fc44d0, continue): eleven Test0x regression cases and Test169638844 answer -32000 with unable to resolve type URL for the oracle vote message of the fixtures' encoded block transactions. Facts: every fixture under rpc/tests/mock_data/transactions encodes its block transactions with the upstream chain's type URLs (the oracle vote, the EVM message and the eth transaction types), which no codec of this repository registers; Backend.BlockByNumber (rpc/simulate.go:518) returns the first decode error of any transaction of the block; the same eleven cases passed at attempt 6 (70991e4d2 on c1f5f4d31) with identical fixture bytes, so whether a case reaches that decode depends on state shared between the cases of the rpc/tests package (the mock upgrade table of mock_upgrade.go, the package caches, or the receipt lookup that routes debug_traceTransaction). First run one failing case alone, then after one passing case, find the shared state and make every case independent of the cases before it; rpc/tests is now in touches as a directory. If the oracle decode is on every isolated case's path, re-encode the fixtures' block transactions with this chain's type URLs: the names have the same byte length, so the protobuf framing is unchanged, and a committed python script under rpc/tests/mock_data performs the rewrite so it can be repeated. Never register the upstream type URLs in a product codec and never skip an undecodable transaction in BlockByNumber. The attempt 7 changes to the other files stand; rerun the task's verify afterwards."
 do_18 = "Decision 2431 (attempt 8, 940ed5126, continue): the condition of do_17 is met, the same eleven Test0x cases and Test169638844 fail again with the -32000 answer unable to resolve type URL for the upstream oracle vote message. Write rpc/tests/mock_data/retype.py (plain python3, no third-party imports) that rewrites, in every fixture under rpc/tests/mock_data/transactions, the encoded transactions' type URLs from the upstream packages seiprotocol.seichain.<module> to this chain's paxprotocol.paxchain.<module> (api/oracle/tx.proto:2; the package names have the same byte lengths, so the protobuf framing is unchanged), run it and commit the rewritten fixtures with it; then run one failing case alone and the whole package. Never register the upstream type URLs in a product codec and never skip an undecodable transaction in BlockByNumber. The attempt 8 changes to the other files stand; rerun the task's verify afterwards."
+do_19 = "Decision 2439 (attempt 9, 4a618bdaf, continue): the type URL rewrite is accepted; the twelve regression cases now fail at rpc/tests/regression_test.go:381 with the -32000 answer failed to load validators for block N from tendermint: incomplete validator fixture, captured 30 of 39 validators, raised by the refusal the candidate added to MockClient.Validators in rpc/tests/mock_client.go (line 183). Every block fixture records exactly one Validators page (count 30, total 40 at block 169638843); the recording's loader fetched a single default page and passed those validators to BeginBlock, so the recorded answers derive from the captured validators. Make the mock serve the captured validators as the complete set (Total and Count equal the captured length; pages cut from the captured list by the requested per_page; a page beyond the list is an error), remove the incomplete-fixture refusal and state in a comment that the trace is a single recorded page. rpc/simulate.go loadAllValidators is not changed. If a case then differs in its recorded answer, record the case, the field and both values in the commit message and continue. Rerun the task's verify."
 
 [task.22.4.5]
 title = "Reconcile the launchpad module, CLI, airdrop and legacy fixtures"
@@ -226158,6 +227306,155 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx-merge/programme/tests/test_issue_closure.py: a temporary spec with one done and one superseded 18.x task returns an empty list."
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 
+[task.18.1558.1]
+title = "Issue #1558: Document the actual scope of the perps ABI decision commit"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181558.1"]
+capabilities = ["18.1558.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1558.kvx, verdict task at its revision). Create docs/perps-abi-change-history.md and link it from the documentation index at docs/README.md:9-32; correct the historical summary of c1f5f4d31ef0f4885db9b4203821d350fd249cb1, whose three-file diff records decisions 2387-2393 and follow-up tasks rather than the implementation named in its subject, with this exact standalone sentence: c1f5f4d31ef0f4885db9b4203821d350fd249cb1 records decisions 2387-2393 and follow-up tasks; it does not implement the perps callers, boundary manifest-rule retirement or served-methods golden refresh."
+do_2 = "Distinguish the original decision commit from SDK implementation c31ded3a33b5c890e15e40b05be99c5b763307e9, citing services/agent/sdk/typescript/src/perps.ts:740-753 and its ABI-based tests at services/agent/sdk/typescript/test/perps-v2.test.ts:33-88; record the web page signatures at apps/web/src/app/exchange/exchange-client.tsx:72-77 and the outstanding wallet, web-proof, boundary and golden changes under existing tasks 22.24.26, 22.23.13, 10.1.4 and 22.7.3, whose pending statuses are at spec/layerx-merge/spec.kvx:119043, :119012, :175311 and :191684 at revision 210639d0360c53f5c2fdd81c9c7c5e84b24b8c84."
+do_3 = "The focused documentation check asserts the complete corrected commit-scope sentence and the index link; describe completion only where a separate implementation commit supplies it, and retain the existing code fixes and their tests under their existing tasks."
+symbols = []
+touches = ["docs/perps-abi-change-history.md", "docs/README.md"]
+tests = ["docs/perps-abi-change-history.md::commit_scope_correction"]
+planned_paths = ["docs/perps-abi-change-history.md"]
+build_cmd = "true"
+verify_cmd = "grep -Fx 'c1f5f4d31ef0f4885db9b4203821d350fd249cb1 records decisions 2387-2393 and follow-up tasks; it does not implement the perps callers, boundary manifest-rule retirement or served-methods golden refresh.' docs/perps-abi-change-history.md && grep -Fq '[Perps ABI change history](perps-abi-change-history.md)' docs/README.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1536.1]
+title = "Issue #1536: Document the retirement of kernel custody credit and its light client"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181536.1"]
+capabilities = ["18.1536.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1536.kvx, verdict task at its revision). Rewrite the custody credit descriptions at docs/wiki/Bridge.md:3, docs/wiki/Bridge.md:34, docs/wiki/Custody.md:8 and docs/site/docs/human/custody.md:3 to state that the kernel custody credit activity and its light client are retired; remove their active verification, execution, profile, payload and issuance instructions and citations to the deleted headers, sources and functions at docs/wiki/Bridge.md:17, docs/wiki/Bridge.md:42, docs/wiki/Bridge.md:64, docs/wiki/Custody.md:26, docs/wiki/Custody.md:79, docs/site/docs/human/custody.md:21 and docs/site/docs/human/custody.md:74."
+do_2 = "Rewrite the custody funding sections at docs/wiki/Programs.md:572 and docs/site/docs/programs/index.md:531 to explain the retirement, remove the obsolete bridge-profile genesis and zero custody-issued supply claims and the deleted source citations at docs/wiki/Programs.md:600 and docs/site/docs/programs/index.md:559, and retain the separate program-account funding guidance with current source citations and the existing Human service payment links; src/protocol/lxp_genesis.c:558 validates legacy accounts and commit d3612ed8deac2a380d4e840cc8360834bdacf07d removes the bridge-profile supply insertion."
+do_3 = "Add test_custody_credit_docs_are_retired to spec/layerx-merge/programme/tests/test_retired_docs.py, using its existing ROOT at line 4 to read all five pages, normalize whitespace, assert that each explicitly states the retirement of kernel custody credit and its light client, and reject the removed implementation references lxp_bridge_credit, lxp_bridge_light, lxp_ctx_bridge_credit and LXP_BRIDGE_CREDIT and the obsolete custody-credit-profile/v1 and custody-issued: instructions in each page; keep every existing documentation assertion intact."
+symbols = ["test_custody_credit_docs_are_retired"]
+touches = ["docs/wiki/Bridge.md", "docs/wiki/Programs.md", "docs/site/docs/programs/index.md", "docs/wiki/Custody.md", "docs/site/docs/human/custody.md", "spec/layerx-merge/programme/tests/test_retired_docs.py"]
+tests = ["spec/layerx-merge/programme/tests/test_retired_docs.py::test_custody_credit_docs_are_retired"]
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_retired_docs.py"
+verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_retired_docs.py::test_custody_credit_docs_are_retired -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1528.1]
+title = "Issue #1528: Restore launchpad dependency checksums without lowering dependency floors"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181528.1"]
+capabilities = ["18.1528.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1528.kvx, verdict task at its revision). Regenerate the 17 module go.sum files deleted by b6101fd075736c857ad85fd9d2eeeb6690239032 from each module's current manifest using Go's module download commands with GOWORK=off, including discovery and notifications whose manifests were unchanged; services/launchpad/api/go.mod:14 retains chi v5.4.0, services/launchpad/discovery/go.mod:19 and services/launchpad/notifications/go.mod:19 retain their local SDK replacements, and no go.mod, dependency floor, source file or Dockerfile changes."
+do_2 = "Restore services/launchpad/go.work.sum for the current workspace graph, retaining the workspace's use entries at services/launchpad/go.work:8 and the current module versions; regenerate checksums rather than copying only the obsolete pre-raise module sums, and preserve the dependency-integrity requirements of deploy/launchpad/Dockerfile.svc:12 and deploy/launchpad/Dockerfile.native:12."
+do_3 = "Add services/launchpad/security/supplychain/test_go_checksums.py with one test_go_checksums_support_readonly_resolution that enumerates exactly the 17 affected modules, asserts their go.sum and the restored go.work.sum are nonempty valid checksum records, snapshots all their manifests and checksum files, and runs real go list -mod=readonly -deps -test ./... followed by go mod verify per affected module with GOWORK=off and a fresh shared temporary module cache; assert every command succeeds and every snapshot is unchanged, without prepopulating checksums by a writable download command, skipping modules, mocking Go or weakening the Dockerfile checks."
+symbols = ["test_go_checksums_support_readonly_resolution"]
+touches = ["sdk/launchpad/protocol/go.sum", "sdk/launchpad/shared/go.sum", "services/launchpad/api/go.sum", "services/launchpad/discovery/go.sum", "services/launchpad/gateway/go.sum", "services/launchpad/go.work.sum", "services/launchpad/indexer/go.sum", "services/launchpad/livestream/go.sum", "services/launchpad/metadata/go.sum", "services/launchpad/notifications/go.sum", "services/launchpad/pnl-tracker/go.sum", "services/launchpad/ranking-algo/go.sum", "services/launchpad/security/control/go.sum", "services/launchpad/security/go.sum", "services/launchpad/social/go.sum", "services/launchpad/stats-workers/go.sum", "services/launchpad/trading-charts/go.sum", "services/launchpad/user/go.sum", "services/launchpad/security/supplychain/test_go_checksums.py"]
+tests = ["services/launchpad/security/supplychain/test_go_checksums.py::test_go_checksums_support_readonly_resolution"]
+planned_paths = []
+build_cmd = "python3 -m py_compile services/launchpad/security/supplychain/test_go_checksums.py"
+verify_cmd = "python3 -m pytest services/launchpad/security/supplychain/test_go_checksums.py::test_go_checksums_support_readonly_resolution -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1522.1]
+title = "Issue #1522: Check the dashboard Next floor against its shared install lock"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181522.1"]
+capabilities = ["18.1522.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1522.kvx, verdict task at its revision). Replace the dashboard manifest entry at tools/deps/floors/platform-node.json:25 with an explicit apps/web/package-lock.json entry retaining next >=16.4.1, using the direct-lock support at tools/deps/lockfloor.py:242, and delete services/platform/hosted/dashboard/web/package-lock.json, introduced by ab65ff9baedf72cacc151d5876378a5ce09111ee; the selected lock must be the one installed by docker/platform-dashboard-web/Dockerfile:8 and shared by Makefile:2528, without changing pins, install recipes or existing consistency assertions."
+do_2 = "Add test_dashboard_floor_uses_shared_install_lock to tools/deps/tests/test_lockfloor.py beside the existing run_checker helper at :24: read the real platform-node floors, assert that the dashboard floor names apps/web/package-lock.json directly and that no dashboard lock remains, assert the dashboard Next pin equals the shared resolved version, then copy the real shared lock into a temporary tree and invoke the production checker through run_checker with that configured entry, asserting success and asserting exit 1 with the exact Next violation after lowering the shared Next resolution to 16.3.5, even when a dashboard-local lock in that temporary tree resolves 16.4.1."
+symbols = ["test_dashboard_floor_uses_shared_install_lock"]
+touches = ["tools/deps/floors/platform-node.json", "services/platform/hosted/dashboard/web/package-lock.json", "tools/deps/tests/test_lockfloor.py"]
+tests = ["tools/deps/tests/test_lockfloor.py::test_dashboard_floor_uses_shared_install_lock"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deps/tests/test_lockfloor.py"
+verify_cmd = "python3 -m pytest tools/deps/tests/test_lockfloor.py::test_dashboard_floor_uses_shared_install_lock -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1516.1]
+title = "Issue #1516: Preserve the stored request digest in the FastAPI example repository"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181516.1"]
+capabilities = ["18.1516.1"]
+interfaces = []
+do_1 = "Decision 2438 (triage report spec/layerx-merge/programme/issues/1516.kvx, verdict task at its revision). Update FileFulfillmentRepository.read in sdk/integrations/fastapi/examples/paid_api.py:68 to return the persisted requestDigest instead of the proposed digest at :74 and remove its request-digest conflict rejection at :70; both existing-record paths at :38 and :53 must return the stored fulfilment without releasing the resource again, leaving the receipt, key and request checks in sdk/integrations/fastapi/layerx_fastapi/seller.py:240 intact."
+do_2 = "Add test_example_repository_refuses_settled_receipt_reuse to sdk/integrations/fastapi/tests/test_seller_receipts.py using the real FileFulfillmentRepository from the shipped example, the signed sequencer receipt fixture at :78, ReceiptPayloadAuthority and SellerMiddleware; unlike the separate FileFulfillments used at :245, this test must exercise the example's persisted record."
+do_3 = "In that single test, settle one request, then present the same verified receipt with a different request payload and assert HTTPException status 409 and detail settled_receipt_reuse; repeat with a reopened example repository and seller, assert the original request still returns its recorded resource, exactly one release occurred, and the sole persisted record and its original request digest remain unchanged."
+symbols = ["FileFulfillmentRepository", "test_example_repository_refuses_settled_receipt_reuse"]
+touches = ["sdk/integrations/fastapi/examples/paid_api.py", "sdk/integrations/fastapi/tests/test_seller_receipts.py"]
+tests = ["sdk/integrations/fastapi/tests/test_seller_receipts.py::test_example_repository_refuses_settled_receipt_reuse"]
+planned_paths = []
+build_cmd = "python3 -m py_compile sdk/integrations/fastapi/examples/paid_api.py sdk/integrations/fastapi/tests/test_seller_receipts.py"
+verify_cmd = "PYTHONPATH=sdk/integrations/fastapi:services/agent/sdk/python python3 -m pytest sdk/integrations/fastapi/tests/test_seller_receipts.py::test_example_repository_refuses_settled_receipt_reuse -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.94.18]
 title = "Disposition of qualification findings 22.90.9.3 to 22.7.3.4 (domain 22, part 3)"
 status = "done"
@@ -228343,6 +229640,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Decision 2440 (attempt 1, continue): the 14 tests pass and the verify stops at spec/layerx-merge/programme/sweeps/go-launchpad-modules-2.kvx:15 (elapsed_seconds = 780.788) with expected a quoted string, integer, boolean or string list value. Make the reader of spec/layerx-merge/programme/sweeps_summary.py accept a decimal number value (digits with one dot, optional sign) as a number alongside integers, add one test case for it in spec/layerx-merge/programme/tests/test_sweeps_summary.py, regenerate summary.kvx and commit it. Do not edit the sweep record files. Rerun the task's verify."
 
 [task.22.91.82]
 title = "Inventory every pytest tree for collection errors again at the current revision"
