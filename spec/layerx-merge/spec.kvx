@@ -229360,7 +229360,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.26]
 title = "Disposition of qualification findings 17.1.7.1 to 17.1.7.3 (domain 17, part 6)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -229393,7 +229393,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.25]
 title = "Disposition of qualification findings 11.23.3.2 to 11.23.3.2 (domain 11, part 5)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -229426,7 +229426,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.24]
 title = "Disposition of qualification findings 9.35.9.1 to 9.35.11.3 (domain 9, part 12)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -229459,7 +229459,7 @@ do_6 = "Decision 2466 (attempt 1, re-qualify unchanged): the verify named the di
 
 [task.22.94.23]
 title = "Disposition of qualification findings 8.101.4.1 to 8.101.4.2 (domain 8, part 10)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
