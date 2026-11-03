@@ -124671,7 +124671,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.123]
 title = "Inventory the platform examples packages a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -240003,7 +240003,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.124]
 title = "Inventory every tracked Python file for compilation a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
