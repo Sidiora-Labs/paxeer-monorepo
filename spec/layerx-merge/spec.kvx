@@ -125255,7 +125255,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.23.12]
 title = "Read paymentDenom in the TypeScript sdk receipt views and check the asset against it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.23.8"]
@@ -201464,7 +201464,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.7.3]
 title = "Reconcile the latest-tag pending expectation and export the gas price helper the RPC tests call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.7.2", "22.5.9", "22.6.4", "22.25.4"]
