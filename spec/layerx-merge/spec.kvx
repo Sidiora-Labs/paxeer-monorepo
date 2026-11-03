@@ -7377,6 +7377,12 @@ value = "Since the loader change of 22.2.7 (4120aa4c4) a module-9 activity execu
 basis = "22.25.2 attempt 2: TestHostAuthorityDelegatedScope (authority_test.go:25-50) passed at 1.23.3 (44edbdfbc), executes a programs registry activity without the fixture call and failed with LXP_ERR_VERSION_UNSUPPORTED at host_test.go:213 after the loader change; the same class as the two failures of finding 22.2.5.7."
 affects = ["22.25.2"]
 
+[decision.2378]
+title = "The retired-catalogue acceptance test runs after every deletion it asserts"
+value = "test_deleted_trees_absent_and_catalogue_valid asserts that each deleted tree of the catalogue components guarantor-runtime, lni, replica and intent-ingester is absent; the task that owns it (16.90.1) requires every task that deletes one of those trees, and the LNI client module services/agent/crates/layerx-client/src/lni is deleted by 9.24.7, so 16.90.1 requires 9.24.7 and runs only once that deletion is published. The two assertion files stay as written."
+basis = "16.90.1 attempt 3 (base 144ec64cf): both tests present, the verify failed only on the lni component because services/agent/crates/layerx-client/src/lni still exists on main; tools/paxeer-x/retired_callers.json lists it under lni deleted_trees and 9.24.7 (pending, wave 36, behind 22.9.29 to 22.9.31) deletes it; every other deleted tree of the four components is already absent."
+affects = ["16.90.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -225687,7 +225693,7 @@ title = "Write the two tooling acceptance tests the merged spec names"
 status = "pending"
 mode = "BUILD"
 wave = 47
-requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3", "6.60.2"]
+requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3", "6.60.2", "9.24.7"]
 reqs = ["16044.1", "16966.4"]
 capabilities = ["16.90.1"]
 interfaces = []
@@ -225712,6 +225718,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 16.9.4.4 and decision 2198: both acceptances hold only once cmd/layerxd (task 5.50.7), cmd/layerx-guarantor (5.51.1 and 5.51.4), tests/daemon (5.54.9) and the bridge credit suites (1.19.3) are deleted, so this task runs at wave 47 after them; the tests themselves stay as written in attempt 1 (0dacda199)."
 do_4 = "Decision 2294: attempt 2 (base a86f1a980) saw tests/bridge/test_credit.c and tests/bridge/sign_credit.c still present; task 6.60.2 (done) deleted them, so this task now requires 6.60.2 and its own scope (the two assertion files) is unchanged. Continue from attempt 2 on the current main."
+do_5 = "Decision 2378: attempt 3 (base 144ec64cf) carried both tests and failed only on the lni component, whose deleted tree services/agent/crates/layerx-client/src/lni is deleted by 9.24.7; this task now requires 9.24.7 and every other deleted tree of the four asserted components is already absent on main. The two assertion files stay as written in attempt 3 (b0fcbda46); continue from it on the current main once 9.24.7 is published."
 
 [task.19.0.1]
 title = "Refuse the name-system closure while any name task is not done"

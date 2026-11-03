@@ -14145,3 +14145,8 @@ fix = "Verify first, then decide reuse (decision 2376); any pre-verification loo
 title = "A loader precondition on module-9 activities reaches every test that executes one"
 symptom = "After 22.2.7 made programs activities require the active fee record, three lxphost tests that run a registry activity without the fixture helper failed with LXP_ERR_VERSION_UNSUPPORTED; the task listed two and attempt 2 stopped on the third as pre-existing."
 fix = "When a change adds a store precondition to a module's execution, grep the package for every test that executes that module's activities and give each the fixture call; run the task's whole verify selection before the single verify run."
+
+[gotcha.2865]
+title = "A catalogue-absence test needs every deleting task in its requires, not only the ones that failed before"
+symptom = "16.90.1 gained the daemon, guarantor and bridge deletions as requires after attempts 1 and 2 and still failed on attempt 3 because the LNI client module deletion (9.24.7) was never listed; each attempt found the next present tree."
+fix = "Before relaunching a test task that asserts absence, check every tree it asserts against main and the catalogue and add the owner task of each present tree to requires in one pass."
