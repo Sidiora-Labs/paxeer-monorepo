@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"sync"
 
 	custodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
@@ -98,15 +99,20 @@ type assetDenoms interface {
 	GetAsset(ctx sdk.Context, assetID [32]byte) (custodytypes.AssetMapping, bool)
 }
 
-func configureXWeb(p *PrecompileExecutor, keeper *xwebkeeper.Keeper) {
+var webHandlers = sync.OnceValue(func() handlerTable {
 	table := make(handlerTable, len(handlers))
 	for name, h := range handlers {
 		table[name] = h
 	}
 	table["call"] = func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error) {
-		return callWithWebRequests(ctx.WithValue(xwebContextKey{}, keeper), p, call, args)
+		return callWithWebRequests(ctx.WithValue(xwebContextKey{}, p.xweb), p, call, args)
 	}
-	p.handlers = table
+	return table
+})
+
+func configureXWeb(p *PrecompileExecutor, keeper *xwebkeeper.Keeper) {
+	p.xweb = keeper
+	p.handlers = webHandlers()
 }
 
 func commitWebRequestReceipt(ctx sdk.Context, p *PrecompileExecutor, call *xwebkeeper.ProgramCall, receipt lxphost.Receipt) error {

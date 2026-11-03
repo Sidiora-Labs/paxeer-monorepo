@@ -1,0 +1,37 @@
+[repair.rust-test-programs.4]
+target = "layerx-programs-runtime"
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --no-fail-fast"
+revision = "471d207b0eef6bcf4f9c1dc6a9c5f2b602d0f89b"
+result = "repaired"
+change = "src/market_tests.rs and tests/interpreter_program.rs use tests/support/compiled_guest.rs to compile the real market and interpreter guests, and src/market_tests.rs asserts the plain usage commit is refused without claim, challenge, dispute or settlement state as task 18.811.1 and acceptance 18.911.1 require."
+verify_command = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.4.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --no-fail-fast -- --skip actual_"
+producer_input_tests = [
+    "actual_abi_storage_refuses_a_calldata_selected_undeclared_key: the test constructs its ABI authority, storage and access declaration locally",
+    "actual_abi_prior_state_cannot_select_an_undeclared_followup_key: the test constructs its ABI authority, storage and access declaration locally",
+    "actual_nested_abi_refuses_an_undeclared_callee_write: the test constructs its ABI authority, storage and access declaration locally",
+    "fixed_table_and_passive_segment_vectors_replay_actual_mutations: the test constructs its Wasm vectors, host authority and replay inputs locally",
+    "native_storage_event_and_oracle_host_successes_replay_actual_state_and_metering: the test constructs its Wasm vectors, host authority and replay inputs locally",
+    "native_transfer_receipt_and_balance_host_successes_replay_actual_effects_and_metering: the test constructs its Wasm vectors, host authority and replay inputs locally",
+    "native_signature_verify_and_recover_successes_replay_actual_output_and_metering: the test constructs its Wasm vectors, host authority and replay inputs locally",
+    "fixed_hash_and_wide_integer_host_successes_replay_actual_output_and_metering: the test constructs its Wasm vectors, host authority and replay inputs locally",
+    "actual_guest_without_authenticated_context_refuses_every_field: the test constructs its Wasm guest or call graph and execution context locally",
+    "actual_graph_boundary_preserves_context_and_refuses_edge_sixty_five: the test constructs its Wasm guest or call graph and execution context locally",
+    "actual_abi_pair_restores_exact_current_baseline_and_observed_delta: the test constructs its runtime state, storage and semantic replay inputs locally",
+    "absent_actual_storage_is_not_replaced_with_empty_storage: the test constructs its runtime state, storage and semantic replay inputs locally",
+    "semantic_restore_retains_actual_authority_meter_storage_graph_and_context: the test constructs its runtime state, storage and semantic replay inputs locally",
+    "budgeted_v1_cpu_exhaustion_retains_actual_usage_and_failed_graph: the test constructs its budgeted Wasm guest and nested call inputs locally",
+    "budgeted_v1_nested_refusal_and_fault_keep_the_actual_leaf: the test constructs its budgeted Wasm guest and nested call inputs locally",
+    "declared_maximum_depth_preserves_the_actual_leaf_failure: the test constructs the composed Wasm guests and maximum-depth call graph locally",
+    "actual_production_capture_is_opt_in_and_bounded: the test constructs its Wasm guest and bounded replay capture profile locally",
+    "actual_module_start_refuses_unobservable_start_state: the test constructs its Wasm guest and bounded replay capture profile locally",
+    "actual_unreachable_has_a_distinct_retained_terminal_record: the test constructs its Wasm guest and bounded replay capture profile locally",
+    "actual_guest_narrowing_preserves_owner_leg_and_repeated_visits: PAXEER_X_SPEND_GUESTS with payee.bin and case0/case4 owner, child and descendant Wasm guests",
+    "actual_guest_escalation_rolls_back_the_preceding_owner_leg: PAXEER_X_SPEND_GUESTS with payee.bin and case1/2/3/5/6/7 owner, child and descendant Wasm guests",
+    "actual_native_failure_terminal_retains_class_reason_and_rejecting_frame: PAXEER_X_SPEND_RESULTS with native signed receipt case1/2/3/5/6/7.terminal.bin evidence",
+    "actual_returned_proposals_are_staged_by_owner_after_child_return: PAXEER_X_SPEND_GUESTS with payee.bin and case8/9/10/11 owner, child and descendant Wasm guests",
+    "actual_late_returned_proposal_cannot_escape_atomic_owner_budget: PAXEER_X_SPEND_GUESTS with payee.bin and case12 owner, child and descendant Wasm guests",
+    "actual_native_owner_budget_denial_has_authenticated_failure_terminal: PAXEER_X_SPEND_RESULTS with native signed receipt case12.terminal.bin evidence",
+    "actual_runtime_meter_exhaustion_before_capture_preserves_resource_refusal: the test constructs its looping Wasm guest and two-unit CPU budget locally",
+]
+producer_input_note = "The declared actual_ substring filter also excludes locally supplied deterministic tests listed above; only the spend composition tests require external producer artifacts."
+contract = "Operation 10 is a direct usage commit and is always refused by commit_direct_usage; payable claims require tenant-authorized sandbox profile operation 13 and provider billing operation 14, while dispute operations 15, 16 and 17 act on the committed claim and enforce provider reveals, challenger responses and deadline resolutions."

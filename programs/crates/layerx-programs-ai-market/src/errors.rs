@@ -1,7 +1,9 @@
 //! Frozen application and independent offchain error spaces. Native errors are untouched.
+#[cfg(not(target_arch = "wasm32"))]
 use core::fmt;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ApplicationError(u16);
 pub type CodecResult<T> = Result<T, ApplicationError>;
 impl ApplicationError {
@@ -10,7 +12,7 @@ impl ApplicationError {
     /// # Errors
     /// Returns `NON_CANONICAL` when the code is not registered.
     pub fn from_code(code: u16) -> CodecResult<Self> {
-        if APPLICATION_ERRORS.iter().any(|e| e.code == code) {
+        if APPLICATION_ERROR_CODES.contains(&code) {
             Ok(Self(code))
         } else {
             Err(NON_CANONICAL)
@@ -33,17 +35,32 @@ impl ApplicationError {
             .ok_or(NON_CANONICAL)
     }
 }
+#[cfg(not(target_arch = "wasm32"))]
 impl fmt::Display for ApplicationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "PAXAI application error {:04x}", self.0)
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ErrorEntry {
     pub feature: &'static str,
     pub name: &'static str,
     pub code: u16,
 }
+
+// Keep the numeric decoder independent of diagnostic names in the guest. Derive
+// this projection at compile time so the published error registry stays the only
+// source of accepted codes, including its gaps and aliases.
+const APPLICATION_ERROR_CODES: [u16; APPLICATION_ERRORS.len()] = {
+    let mut codes = [0; APPLICATION_ERRORS.len()];
+    let mut i = 0;
+    while i < codes.len() {
+        codes[i] = APPLICATION_ERRORS[i].code;
+        i += 1;
+    }
+    codes
+};
 pub const BAD_VERSION: ApplicationError = ApplicationError(0x0001);
 pub const NON_CANONICAL: ApplicationError = ApplicationError(0x0002);
 pub const WRONG_DOMAIN: ApplicationError = ApplicationError(0x0003);
@@ -1025,7 +1042,8 @@ pub const APPLICATION_ALIASES: &[ErrorEntry] = &[
         code: 0x001c,
     },
 ];
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum OffchainSpace {
     WorkerService,
     ArtifactService,

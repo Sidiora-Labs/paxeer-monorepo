@@ -72,7 +72,8 @@ const CONTROL_CAP: usize = Section::Control.payload_cap();
 pub const SCRATCH_BYTES: usize = POLICY_CAP + REPORTS_CAP + CONTROL_CAP;
 
 /// The accepted commitment of one evaluator epoch.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct CommitRecord {
     pub evaluator: EvaluatorId,
     pub commitment: CommitmentDigest,
@@ -90,6 +91,7 @@ impl CommitRecord {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the record does not fill exactly 96 bytes.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self) -> CodecResult<[u8; COMMIT_RECORD_BYTES]> {
         let mut out = [0; COMMIT_RECORD_BYTES];
         let mut w = Writer::new(&mut out);
@@ -104,14 +106,15 @@ impl CommitRecord {
         }
         Ok(out)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'_>) -> CodecResult<Self> {
         Ok(Self {
-            evaluator: EvaluatorId::new(r.fixed()?)?,
-            commitment: CommitmentDigest::new(r.fixed()?)?,
+            evaluator: r.evaluator_id()?,
+            commitment: r.commitment_digest()?,
             height: r.u64()?,
             sequence: r.u64()?,
-            grant: Version::new(r.u64()?)?,
-            key_version: Version::new(r.u64()?)?,
+            grant: r.version()?,
+            key_version: r.version()?,
         })
     }
     /// The 81-byte F04 commit result payload.
@@ -141,7 +144,8 @@ impl CommitRecord {
 }
 
 /// The F04 commit region after the F03 admitted-report region. Empty bytes hold no record.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct CommitRegion<'a> {
     pub epoch: u64,
     records: &'a [u8],
@@ -152,6 +156,7 @@ impl<'a> CommitRegion<'a> {
     /// # Errors
     /// Returns `NON_CANONICAL` for a truncated, empty, oversized, unordered or duplicate region
     /// or trailing bytes.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(bytes: &'a [u8]) -> CodecResult<Self> {
         if bytes.is_empty() {
             return Ok(Self {
@@ -200,6 +205,7 @@ impl<'a> CommitRegion<'a> {
         Ok(None)
     }
     /// Writes the region of `epoch` with `record` inserted in evaluator order.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write_with(&self, epoch: u64, record: &CommitRecord, w: &mut Writer<'_>) -> CodecResult<()> {
         let current = self.of(epoch);
         let count = current.len() / COMMIT_RECORD_BYTES;
@@ -279,7 +285,8 @@ fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
 }
 
 /// Derived status of one evaluator epoch.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum Status {
     Absent = 0,
@@ -290,7 +297,8 @@ pub enum Status {
 }
 
 /// The current-epoch slot of one evaluator.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Slot {
     pub status: Status,
     pub commit: Option<CommitRecord>,
@@ -323,7 +331,8 @@ pub fn slot(current: &[u8], evaluator: EvaluatorId, height: u64) -> CodecResult<
     })
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Outcome {
     /// ABSENT became COMMITTED: one revision increment and one evaluator sequence were
     /// composed into `next` and the 194-byte `CommitScore` event into `event`.

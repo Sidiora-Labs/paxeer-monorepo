@@ -29,7 +29,8 @@ pub const INPUT_PREIMAGE_MAX_BYTES: usize = 668;
 pub const OUTPUT_PREIMAGE_MAX_BYTES: usize = 1788;
 pub const MAX_TOTAL_WEIGHT: u64 = 32_000_000;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum QualityStatus {
     InsufficientQuorum = 0,
@@ -41,6 +42,7 @@ impl QualityStatus {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` for a value other than 0, 1 or 2.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(value: u8) -> CodecResult<Self> {
         match value {
             0 => Ok(Self::InsufficientQuorum),
@@ -50,7 +52,8 @@ impl QualityStatus {
         }
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct WorkerAggregate {
     worker: WorkerId,
     generation: Version,
@@ -129,6 +132,7 @@ impl WorkerAggregate {
         }
     }
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_worker(w: &mut Writer<'_>, v: WorkerAggregate) -> CodecResult<()> {
     w.put(v.worker.as_bytes())?;
     w.u64(v.generation.get())?;
@@ -137,10 +141,11 @@ fn write_worker(w: &mut Writer<'_>, v: WorkerAggregate) -> CodecResult<()> {
     w.u32(v.score.get())?;
     w.u32(v.weight)
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read_worker(r: &mut Reader<'_>) -> CodecResult<WorkerAggregate> {
     WorkerAggregate::new(
-        WorkerId::new(r.fixed()?)?,
-        Version::new(r.u64()?)?,
+        r.worker_id()?,
+        r.version()?,
         r.u8()?,
         QualityStatus::decode(r.u8()?)?,
         r.u32()?,
@@ -158,6 +163,7 @@ fn capacity(out: &[u8], n: usize, max: usize) -> CodecResult<()> {
 ///
 /// # Errors
 /// Returns `CAPACITY` when `out` is shorter than 50 bytes.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_worker_aggregate(v: WorkerAggregate, out: &mut [u8]) -> CodecResult<usize> {
     capacity(out, 50, 50)?;
     let mut w = Writer::new(out);
@@ -169,12 +175,14 @@ pub fn encode_worker_aggregate(v: WorkerAggregate, out: &mut [u8]) -> CodecResul
 /// # Errors
 /// Returns `NON_CANONICAL` for truncated, trailing or invalid fields and `F03_SCORE_RANGE` for
 /// an out-of-range score.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_worker_aggregate(bytes: &[u8]) -> CodecResult<WorkerAggregate> {
     let mut r = Reader::new(bytes);
     let v = read_worker(&mut r)?;
     r.finish()?;
     Ok(v)
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_binding(w: &mut Writer<'_>, b: FrozenBinding) -> CodecResult<()> {
     w.u16(SCHEMA_VERSION)?;
     w.put(b.chain.as_bytes())?;
@@ -184,24 +192,19 @@ fn write_binding(w: &mut Writer<'_>, b: FrozenBinding) -> CodecResult<()> {
     w.u64(b.config.get())?;
     w.put(b.roster.as_bytes())
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read_binding(r: &mut Reader<'_>) -> CodecResult<FrozenBinding> {
     if r.u16()? != SCHEMA_VERSION {
         return Err(BAD_VERSION);
     }
-    Ok(FrozenBinding {
-        chain: ChainDomain::new(r.fixed()?)?,
-        program: ProgramId::new(r.fixed()?)?,
-        market: MarketId::new(r.fixed()?)?,
-        epoch: r.u64()?,
-        config: Version::new(r.u64()?)?,
-        roster: RosterDigest::new(r.fixed()?)?,
-    })
+    r.frozen_binding()
 }
 /// Compares every frozen binding field in fixed order.
 ///
 /// # Errors
 /// Returns the first of `WRONG_DOMAIN`, `WRONG_PROGRAM`, `WRONG_MARKET`, `WRONG_EPOCH`,
 /// `WRONG_CONFIG` or `WRONG_ROSTER` whose field differs.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn check_binding(actual: FrozenBinding, expected: FrozenBinding) -> CodecResult<()> {
     if actual.chain != expected.chain {
         Err(WRONG_DOMAIN)
@@ -219,7 +222,8 @@ pub fn check_binding(actual: FrozenBinding, expected: FrozenBinding) -> CodecRes
         Ok(())
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ReportCommitment {
     pub evaluator: EvaluatorId,
     pub report: ReportDigest,
@@ -250,7 +254,7 @@ pub fn canonicalize_arrivals(rows: &mut [ReportCommitment]) -> CodecResult<()> {
             return Err(NON_CANONICAL);
         }
     }
-    rows.sort_unstable_by_key(|r| r.evaluator);
+    crate::codec::sort_by(rows, |a, b| a.evaluator.cmp(&b.evaluator));
     Ok(())
 }
 /// Encodes the canonical aggregation input preimage.
@@ -258,6 +262,7 @@ pub fn canonicalize_arrivals(rows: &mut [ReportCommitment]) -> CodecResult<()> {
 /// # Errors
 /// Returns `CAPACITY` for more than eight rows or a short `out` and `NON_CANONICAL` for rows
 /// not in strictly ascending evaluator order.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_input_preimage(
     binding: FrozenBinding,
     seal_height: u64,
@@ -293,7 +298,8 @@ pub fn input_digest(
 /// Structurally validated actual producer reports. This is deliberately NOT an
 /// authenticated accepted/revealed set. Runtime must separately prove signatures,
 /// commitment opening, evidence/generation admission, deadlines and revocation.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct AggregationInputView<'a> {
     binding: FrozenBinding,
     roster: Roster<'a>,
@@ -451,7 +457,8 @@ fn check_outputs(
 }
 /// Immutable canonical output commitment; numerical correctness is supplied by
 /// T02 and terminal provenance by the atomic T03/F06 transition, not this codec.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EpochAggregation<'a> {
     binding: FrozenBinding,
     input: Digest32,
@@ -499,10 +506,12 @@ impl<'a> EpochAggregation<'a> {
     ///
     /// # Errors
     /// Returns `CAPACITY` when `out` is too short.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode_preimage(&self, out: &mut [u8]) -> CodecResult<usize> {
         write_output_preimage(self.binding, self.input, self.outputs, self.total, out)
     }
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_output_preimage(
     binding: FrozenBinding,
     input: Digest32,
@@ -522,14 +531,16 @@ fn write_output_preimage(
     Ok(w.len())
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum AggregationPhase {
     Unsealed = 0,
     Processing = 1,
     Terminal = 2,
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct CurrentAggregation<'a> {
     pub phase: AggregationPhase,
     pub seal_height: u64,
@@ -547,6 +558,7 @@ impl CurrentAggregation<'_> {
     /// Propagates `check_reports`/`check_outputs` refusals; returns `NON_CANONICAL` for an
     /// inconsistent cursor, sum, phase field or root presence, `F05_REPORT_INVARIANT` when support
     /// exceeds the report count and `CONFLICT` when the input digest or terminal root differs.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(
         &self,
         binding: FrozenBinding,
@@ -635,6 +647,7 @@ impl CurrentAggregation<'_> {
 /// # Errors
 /// Propagates `validate` refusals; returns `CAPACITY` for a count above the wire bound or a short
 /// `out`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_current(
     v: &CurrentAggregation<'_>,
     binding: FrozenBinding,
@@ -673,7 +686,8 @@ pub fn encode_current(
     Ok(w.len())
 }
 /// Owns bounded decoded storage; borrowed views cannot outlive this record.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct DecodedCurrent {
     phase: AggregationPhase,
     seal_height: u64,
@@ -722,6 +736,7 @@ impl DecodedCurrent {
     /// # Errors
     /// Propagates `encode_current` or `decode_current` refusals; returns `CAPACITY` when `out` is
     /// too short.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(
         &self,
         binding: FrozenBinding,
@@ -748,6 +763,7 @@ impl DecodedCurrent {
         encode_decoded(self, binding, workers, out)
     }
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn encode_decoded(
     v: &DecodedCurrent,
     binding: FrozenBinding,
@@ -797,6 +813,7 @@ fn encode_decoded(
 /// inconsistent fields, `F03_SCORE_RANGE` for an out-of-range score, `F05_REPORT_INVARIANT` for
 /// an output not matching the roster, `ARITHMETIC` on weight overflow and `CONFLICT` when the
 /// input digest or terminal root differs.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_current(
     bytes: &[u8],
     binding: FrozenBinding,
@@ -828,8 +845,8 @@ pub fn decode_current(
     let mut last = None;
     for slot in &mut reports[..report_count] {
         let row = ReportCommitment {
-            evaluator: EvaluatorId::new(r.fixed()?)?,
-            report: ReportDigest::new(r.fixed()?)?,
+            evaluator: r.evaluator_id()?,
+            report: r.report_digest()?,
         };
         if last.is_some_and(|p| p >= row.evaluator) {
             return Err(NON_CANONICAL);
@@ -863,7 +880,7 @@ pub fn decode_current(
         *slot = Some(output);
     }
     let running_weight = r.u64()?;
-    let root = r.presence(|r| Digest32::new(r.fixed()?))?;
+    let root = r.presence(|r| r.digest32())?;
     r.finish()?;
     if sum != running_weight || sum > MAX_TOTAL_WEIGHT {
         return Err(NON_CANONICAL);
@@ -943,7 +960,8 @@ fn check_decoded_phase(
     }
     Ok(())
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct HistorySummary {
     pub epoch: u64,
     pub config: Version,
@@ -965,6 +983,7 @@ fn check_history(history: &[HistorySummary]) -> CodecResult<()> {
 /// # Errors
 /// Returns `CAPACITY` for more than 32 rows or a short `out` and `NON_CANONICAL` for epochs not
 /// strictly ascending.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_history(history: &[HistorySummary], out: &mut [u8]) -> CodecResult<usize> {
     check_history(history)?;
     capacity(out, 2 + history.len() * 112, HISTORY_MAX_BYTES)?;
@@ -979,7 +998,8 @@ pub fn encode_history(history: &[HistorySummary], out: &mut [u8]) -> CodecResult
     }
     Ok(w.len())
 }
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct DecodedHistory {
     entries: [Option<HistorySummary>; 32],
     count: usize,
@@ -1010,6 +1030,7 @@ impl DecodedHistory {
 /// # Errors
 /// Returns `CAPACITY` for oversized input or more than 32 rows and `NON_CANONICAL` for
 /// malformed, zero or unordered fields.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_history(bytes: &[u8]) -> CodecResult<DecodedHistory> {
     if bytes.len() > HISTORY_MAX_BYTES {
         return Err(CAPACITY);
@@ -1024,10 +1045,10 @@ pub fn decode_history(bytes: &[u8]) -> CodecResult<DecodedHistory> {
     for slot in &mut entries[..count] {
         let row = HistorySummary {
             epoch: r.u64()?,
-            config: Version::new(r.u64()?)?,
-            roster: RosterDigest::new(r.fixed()?)?,
-            input: Digest32::new(r.fixed()?)?,
-            root: Digest32::new(r.fixed()?)?,
+            config: r.version()?,
+            roster: r.roster_digest()?,
+            input: r.digest32()?,
+            root: r.digest32()?,
         };
         if last.is_some_and(|p| p >= row.epoch) {
             return Err(NON_CANONICAL);
@@ -1041,7 +1062,8 @@ pub fn decode_history(bytes: &[u8]) -> CodecResult<DecodedHistory> {
 
 /// Strict decoding of the exact output commitment preimage, not a new terminal
 /// wire ABI. An externally supplied commitment is checked alongside all bindings.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct DecodedEpochAggregation {
     binding: FrozenBinding,
     input: Digest32,
@@ -1095,6 +1117,7 @@ impl DecodedEpochAggregation {
 /// out-of-range score, `F05_REPORT_INVARIANT` for an output not matching the roster,
 /// `ARITHMETIC` on weight overflow and `CONFLICT` when the root differs; propagates
 /// `check_binding` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_epoch_preimage(
     bytes: &[u8],
     expected: FrozenBinding,
@@ -1110,7 +1133,7 @@ pub fn decode_epoch_preimage(
     let mut r = Reader::new(bytes);
     let binding = read_binding(&mut r)?;
     check_binding(binding, expected)?;
-    let input = Digest32::new(r.fixed()?)?;
+    let input = r.digest32()?;
     let count = usize::from(r.u16()?);
     if count > 32 {
         return Err(CAPACITY);
@@ -1198,7 +1221,8 @@ pub fn validate_current_history(
     Ok(())
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct DecodedInputCommitment {
     binding: FrozenBinding,
     seal_height: u64,
@@ -1241,6 +1265,7 @@ impl DecodedInputCommitment {
 /// Returns `CAPACITY` for oversized input or more than eight rows, `BAD_VERSION` for a wrong
 /// schema, `NON_CANONICAL` for malformed or unordered fields and `CONFLICT` when the digest
 /// differs; propagates `check_binding` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_input_preimage(
     bytes: &[u8],
     expected: FrozenBinding,
@@ -1261,8 +1286,8 @@ pub fn decode_input_preimage(
     let mut last = None;
     for slot in &mut rows[..count] {
         let row = ReportCommitment {
-            evaluator: EvaluatorId::new(r.fixed()?)?,
-            report: ReportDigest::new(r.fixed()?)?,
+            evaluator: r.evaluator_id()?,
+            report: r.report_digest()?,
         };
         if last.is_some_and(|p| p >= row.evaluator) {
             return Err(NON_CANONICAL);
@@ -1357,12 +1382,14 @@ impl DecodedCurrent {
 
 /// Canonical per-worker input projection in ascending stable evaluator identity.
 /// Absence creates no vote; an explicit Score(0) remains a real entry.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EvaluatorVote {
     pub evaluator: EvaluatorId,
     pub score: Score,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct WorkerVotes {
     worker: WorkerId,
     generation: Version,

@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use base64::Engine as _;
 use serde_json::{json, Map, Value};
+use sha2::{Digest as _, Sha256};
 
 pub use layerx_programs_registry::chain_proof::decode::ProofOp;
 
@@ -132,6 +133,8 @@ pub struct ExecutedReceipt {
     pub effective_gas_price: u64,
     /// Denomination the fee was charged in.
     pub fee_denom: String,
+    /// Denomination of the payment asset.
+    pub payment_denom: String,
     /// Fee charged, a 256-bit big-endian amount.
     pub fee_amount: [u8; 32],
     /// Fee sponsor; the zero address when unsponsored.
@@ -150,6 +153,13 @@ pub struct ExecutedReceipt {
     pub receipt: Vec<u8>,
     /// Signing public key served with the receipt.
     pub signing_key: [u8; 32],
+}
+
+impl ExecutedReceipt {
+    #[must_use]
+    pub fn payment_denom(&self) -> &str {
+        &self.payment_denom
+    }
 }
 
 /// The answer of `pax_sequencerReceipt` for a known transaction.
@@ -901,7 +911,7 @@ fn decode_receipt_key(value: &Value) -> Option<ReceiptKeyEntry> {
 }
 
 const SUBMITTED_FIELDS: [&str; 3] = ["rung", "txHash", "nonce"];
-const RECEIPTED_FIELDS: [&str; 23] = [
+const RECEIPTED_FIELDS: [&str; 24] = [
     "rung",
     "txHash",
     "nonce",
@@ -916,6 +926,7 @@ const RECEIPTED_FIELDS: [&str; 23] = [
     "cumulativeGasUsed",
     "effectiveGasPrice",
     "feeDenom",
+    "paymentDenom",
     "feeAmount",
     "sponsor",
     "from",
@@ -967,8 +978,14 @@ fn executed(fields: &Fields<'_>) -> Option<ExecutedReceipt> {
     if fee_denom.is_empty() || fee_denom.len() > MAX_FEE_DENOM_BYTES {
         return None;
     }
+    let payment_denom = fields.string("paymentDenom")?;
+    if payment_denom.is_empty() || payment_denom.len() > MAX_FEE_DENOM_BYTES {
+        return None;
+    }
     let receipt = fields.bytes("receipt")?;
-    if receipt.is_empty() {
+    let decoded = layerx_wire::receipt::decode(&receipt).ok()?;
+    let asset: [u8; 32] = Sha256::digest(payment_denom.as_bytes()).into();
+    if decoded.protocol()?.asset() != asset {
         return None;
     }
     Some(ExecutedReceipt {
@@ -991,6 +1008,7 @@ fn executed(fields: &Fields<'_>) -> Option<ExecutedReceipt> {
         cumulative_gas_used: fields.u64("cumulativeGasUsed")?,
         effective_gas_price: fields.u64("effectiveGasPrice")?,
         fee_denom,
+        payment_denom,
         fee_amount: quantity_u256(fields.0.get("feeAmount")?)?,
         sponsor: fields.fixed("sponsor")?,
         from: fields.fixed("from")?,
