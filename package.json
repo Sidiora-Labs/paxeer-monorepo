@@ -3,7 +3,8 @@
   "private": false,
   "license": "Apache-2.0",
   "scripts": {
-    "build": "node tools/build/npm-workspace-build.mjs"
+    "build": "node tools/build/npm-workspace-build.mjs",
+    "build:dependencies": "node sdk/integrations/build-dependencies.mjs"
   },
   "workspaces": [
     "services/agent/sdk/typescript",

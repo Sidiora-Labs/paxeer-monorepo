@@ -3,8 +3,10 @@ use std::path::{Path, PathBuf};
 #[path = "../../../tests/support/rustc.rs"]
 mod rustc;
 
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_types::settlement::{DeclaredCheckpointSettlement, CHECKPOINT_SETTLEMENT_PATH};
+use layerx_types::payload::{ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::settlement::{
+    DeclaredCheckpointSettlement, CHECKPOINT_SETTLEMENT_PATH, CHECKPOINT_SETTLEMENT_SCHEMA,
+};
 use layerx_types::vectors::checkpoint::{load_checkpoint_vectors, CHECKPOINT_VECTOR_CASES};
 use layerx_types::vectors::Corpus;
 use layerx_wire::activity::decode_signed;
@@ -42,36 +44,31 @@ fn repository_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..")
 }
 
-fn registry() -> ModuleRegistry {
-    let module_maximums = [
-        (ModuleId::Asset, 8),
-        (ModuleId::Escrow, 7),
-        (ModuleId::Budget, 7),
-        (ModuleId::Stream, 7),
-        (ModuleId::Service, 13),
-        (ModuleId::Perps, 11),
-    ];
-    let registrations: Vec<_> = module_maximums
+fn registry(corpus: &Corpus) -> ModuleRegistry {
+    let registrations: Vec<_> = ModuleId::ALL
         .into_iter()
-        .map(|(module, maximum)| {
-            let values: Vec<_> = (1..=maximum)
-                .map(|ordinal| {
-                    let Ok(value) = ActivityType::new(module, ordinal) else {
-                        panic!("valid activity type rejected");
-                    };
-                    value
-                })
+        .filter_map(|module| {
+            let mut values: Vec<_> = corpus
+                .replay
+                .activity_types
+                .iter()
+                .copied()
+                .filter(|kind| kind.module() == module)
                 .collect();
-            let Ok(registration) = ModuleRegistration::new(module, &values) else {
-                panic!("valid registration rejected");
-            };
-            registration
+            values.sort();
+            values.dedup();
+            if values.is_empty() {
+                return None;
+            }
+            Some(
+                ModuleRegistration::new(module, &values).unwrap_or_else(|error| {
+                    panic!("published activity registration rejected: {error:?}")
+                }),
+            )
         })
         .collect();
-    let Ok(registry) = ModuleRegistry::new(&registrations) else {
-        panic!("valid registry rejected");
-    };
-    registry
+    ModuleRegistry::new(&registrations)
+        .unwrap_or_else(|error| panic!("published registry rejected: {error:?}"))
 }
 
 #[test]
@@ -79,7 +76,7 @@ fn activity_and_payload_hashes_match_every_replay_vector() {
     let Ok(corpus) = Corpus::load(&repository_root()) else {
         panic!("published corpus failed to load");
     };
-    let registry = registry();
+    let registry = registry(&corpus);
     for (index, (activity_bytes, receipt_bytes)) in corpus
         .replay
         .canonical_activities
@@ -109,7 +106,8 @@ fn all_domains_separate_identical_canonical_bytes() {
     let Ok(corpus) = Corpus::load(&repository_root()) else {
         panic!("published corpus failed to load");
     };
-    let Ok(activity) = decode_signed(&corpus.replay.canonical_activities[0], &registry()) else {
+    let Ok(activity) = decode_signed(&corpus.replay.canonical_activities[0], &registry(&corpus))
+    else {
         panic!("activity failed decode");
     };
     let Ok(canonical) = canonical_activity(&activity) else {
@@ -132,7 +130,7 @@ fn signing_preimage_binds_network_and_protocol_version() {
     let Ok(corpus) = Corpus::load(&repository_root()) else {
         panic!("published corpus failed to load");
     };
-    let registry = registry();
+    let registry = registry(&corpus);
     let original_bytes = &corpus.replay.canonical_activities[0];
     let Ok(original) = decode_signed(original_bytes, &registry) else {
         panic!("activity failed decode");
@@ -207,8 +205,9 @@ fn raw_text_and_debug_values_cannot_enter_consensus_hashing() {
 fn declared_settlement() -> DeclaredCheckpointSettlement {
     let text = fs::read_to_string(repository_root().join(CHECKPOINT_SETTLEMENT_PATH))
         .unwrap_or_else(|error| panic!("declared settlement unreadable: {error}"));
-    DeclaredCheckpointSettlement::parse(&text)
-        .unwrap_or_else(|error| panic!("declared settlement invalid: {error}"))
+    DeclaredCheckpointSettlement::parse(&text).unwrap_or_else(|error| {
+        panic!("{CHECKPOINT_SETTLEMENT_PATH} must satisfy {CHECKPOINT_SETTLEMENT_SCHEMA}: {error}")
+    })
 }
 
 #[test]
