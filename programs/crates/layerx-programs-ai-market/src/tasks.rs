@@ -80,7 +80,8 @@ pub const ADMIT_SUFFIX_BYTES: usize = TASK_BINDING_BYTES + 32;
 const ADMISSION_DOMAIN: &str = "PAXAI/task-admission/v1";
 const TASK_SET_DOMAIN: &[u8] = b"PAXAI/task-set/v1";
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum TaskStatus {
     Admitted = 1,
     Accepted = 2,
@@ -104,7 +105,8 @@ impl TaskStatus {
 }
 
 /// One compact task record; absent acknowledgement and result encode as zero.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct TaskBinding {
     pub task: TaskId,
     pub requester: PrincipalId,
@@ -121,6 +123,7 @@ impl TaskBinding {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the digests present do not match the status.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         let valid = match self.status {
             TaskStatus::Admitted | TaskStatus::Cancelled => {
@@ -139,6 +142,7 @@ impl TaskBinding {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` for a record that fails [`TaskBinding::validate`].
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self) -> CodecResult<[u8; TASK_BINDING_BYTES]> {
         self.validate()?;
         let mut out = [0; TASK_BINDING_BYTES];
@@ -159,18 +163,19 @@ impl TaskBinding {
     /// # Errors
     /// Returns `NON_CANONICAL` for a short or long input, a zero identity, input or admission
     /// digest, an unknown status or a status/digest mismatch.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = Self {
-            task: TaskId::new(r.fixed()?)?,
-            requester: PrincipalId::new(r.fixed()?)?,
-            worker: WorkerId::new(r.fixed()?)?,
-            input: Digest32::new(r.fixed()?)?,
+            task: r.task_id()?,
+            requester: r.principal_id()?,
+            worker: r.worker_id()?,
+            input: r.digest32()?,
             deadline: r.u64()?,
             status: TaskStatus::from_u8(r.u8()?)?,
-            acknowledgement: Digest32::new(r.fixed()?).ok(),
-            result: Digest32::new(r.fixed()?).ok(),
-            admission: Digest32::new(r.fixed()?)?,
+            acknowledgement: r.digest32().ok(),
+            result: r.digest32().ok(),
+            admission: r.digest32()?,
         };
         r.finish()?;
         value.validate()?;
@@ -179,7 +184,8 @@ impl TaskBinding {
 }
 
 /// Borrowed, validated view of a task region.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct TaskSet<'a> {
     seal: Option<Digest32>,
     records: &'a [u8],
@@ -194,12 +200,13 @@ impl<'a> TaskSet<'a> {
     /// # Errors
     /// Returns `NON_CANONICAL` for a count above `MAX_TASKS`, a bad presence flag, a zero seal,
     /// short or trailing bytes, an invalid record or records not strictly ascending by `TaskId`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(region: &'a [u8]) -> CodecResult<Self> {
         let mut r = Reader::new(region);
         let count = usize::from(r.u16()?);
         let seal = match r.u8()? {
             0 => None,
-            1 => Some(Digest32::new(r.fixed()?)?),
+            1 => Some(r.digest32()?),
             _ => return Err(NON_CANONICAL),
         };
         if count > MAX_TASKS {
@@ -256,7 +263,8 @@ impl<'a> TaskSet<'a> {
 }
 
 /// The immutable binding every task of one opened epoch inherits.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct SetBinding {
     pub market: MarketId,
     pub epoch: u64,
@@ -285,7 +293,8 @@ pub fn task_set_digest(binding: &SetBinding, set: &TaskSet<'_>) -> CodecResult<D
 }
 
 /// The F01 receipt: market, committed revision, request id, action, config and policy digest.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Receipt {
     bytes: [u8; RECEIPT_MAX_BYTES],
     pub digest: ResultDigest,
@@ -321,7 +330,8 @@ impl Receipt {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Outcome {
     /// One revision increment was composed into `next` and its event into `event`.
     Applied {
@@ -520,6 +530,7 @@ impl Call<'_> {
         &self.envelope.envelope
     }
     /// Domain, expiry, market and the opened epoch's envelope binding.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn check_binding(&self) -> CodecResult<()> {
         let e = self.e();
         let market = derive_market(self.ctx.chain, self.ctx.program)?;
@@ -569,6 +580,7 @@ struct Buffers<'b> {
 }
 
 /// Writes `count:u16 || seal presence || [seal] || parts` into `out`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_region(seal: Option<Digest32>, parts: [&[u8]; 3], out: &mut [u8]) -> CodecResult<usize> {
     let bytes = parts.iter().map(|p| p.len()).sum::<usize>();
     if bytes % TASK_BINDING_BYTES != 0 || bytes > MAX_TASKS * TASK_BINDING_BYTES {
@@ -586,6 +598,7 @@ fn write_region(seal: Option<Digest32>, parts: [&[u8]; 3], out: &mut [u8]) -> Co
 }
 
 /// Region of `set` with `binding` at `index`, inserted or replacing the record there.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_binding(
     set: &TaskSet<'_>,
     index: usize,
@@ -690,13 +703,13 @@ fn parse_admit(payload: &[u8]) -> CodecResult<AdmitBody> {
     let body = AdmitBody {
         epoch: r.u64()?,
         config: r.u64()?,
-        policy: PolicyDigest::new(r.fixed()?)?,
-        roster: RosterDigest::new(r.fixed()?)?,
-        requester: PrincipalId::new(r.fixed()?)?,
-        worker: WorkerId::new(r.fixed()?)?,
-        metadata: MetadataDigest::new(r.fixed()?)?,
+        policy: r.policy_digest()?,
+        roster: r.roster_digest()?,
+        requester: r.principal_id()?,
+        worker: r.worker_id()?,
+        metadata: r.metadata_digest()?,
         nonce: r.fixed()?,
-        input: Digest32::new(r.fixed()?)?,
+        input: r.digest32()?,
         deadline: r.u64()?,
         digest: domain_hash(ADMISSION_DOMAIN, payload)?,
     };
@@ -783,7 +796,7 @@ fn check_frozen_worker(
         count += 1;
     }
     let workers = workers.get_mut(..count).ok_or(CAPACITY)?;
-    workers.sort_unstable_by_key(|w| w.worker);
+    codec::sort_by(workers, |a, b| a.worker.cmp(&b.worker));
     let (evaluators, evaluator_count) = evaluator_roster(identity, binding.epoch)?;
     let digest = codec::roster_digest(&Roster {
         market: binding.market,
@@ -871,7 +884,7 @@ fn admit(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
 
 fn task_id(payload: &[u8]) -> CodecResult<TaskId> {
     let mut r = Reader::new(payload);
-    let task = TaskId::new(r.fixed()?)?;
+    let task = r.task_id()?;
     r.finish()?;
     Ok(task)
 }
@@ -1012,8 +1025,8 @@ fn worker_step(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     let e = call.e();
     let mut r = Reader::new(e.payload);
     let expected = r.u64()?;
-    let task = TaskId::new(r.fixed()?)?;
-    let digest = Digest32::new(r.fixed()?)?;
+    let task = r.task_id()?;
+    let digest = r.digest32()?;
     r.finish()?;
     call.check_binding()?;
     let (index, record) = find(call, task)?;
@@ -1042,7 +1055,7 @@ fn seal(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     let mut r = Reader::new(e.payload);
     let epoch = r.u64()?;
     let config = r.u64()?;
-    let expected = Digest32::new(r.fixed()?)?;
+    let expected = r.digest32()?;
     r.finish()?;
     codec::compare_native_principal(e, call.ctx.principal)?;
     call.check_binding()?;
