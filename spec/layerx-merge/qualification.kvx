@@ -19587,3 +19587,35 @@ symbol = "exchange"
 observed = "The wallet SDK exchange module still calls the perps cancel encoder with two arguments after 22.9.37 narrowed it to one, so the web typecheck fails on main."
 assumption = "Decision 2413: 22.24.26 moves the caller; 22.23.13 requires it."
 severity = "medium"
+
+[finding.10.3.2.3]
+task = "10.3.2"
+file = "services/human/crates/layerx-human-service/src/server/stream_journal.rs"
+symbol = "StreamJournal"
+observed = "10.3.2 removed the settlement domain from the persisted stream record but left the StreamJournal::new parameter, its field and two unused read parameters, so the human service still imports the retired layerx_proof::checkpoint::SettlementDomain in five files."
+assumption = "Decision 2415: 10.1.4 removes the leftovers with the boundary gate as oracle."
+severity = "medium"
+
+[finding.9.97.15.2]
+task = "9.97.15"
+file = "services/agent/sdk/typescript/src/ai_market.ts"
+symbol = "decodeProgramsCallResult"
+observed = "The AI market decoder bounds the ABI response output by the call's declared responseCapacity, but the precompile packs the runtime's terminal envelope there, which carries the execution record and the applied legs and is larger than any guest response bound."
+assumption = "Decision 2416: the decoder unwraps the envelope and bounds the guest response inside it."
+severity = "medium"
+
+[finding.6.94.3.1]
+task = "6.94.3"
+file = "sdk/wallet/src/modules/web-data.ts"
+symbol = "WEB_DATA_EVENTS"
+observed = "6.94.3 declared and emits XWebProgramRequested in the xweb precompile ABI, but the wallet web-data module's event table and the modules test vectors still carry three events, so the wallet modules test that compares the vectors with the ABI fails on main."
+assumption = "Decision 2420: 22.24.27 adds the event spec and a vector; the consumer was never ported with the producer."
+severity = "medium"
+
+[finding.22.7.3.4]
+task = "22.7.3"
+file = "rpc/tests/mock_data/transactions"
+symbol = "testTx"
+observed = "The thirty regression fixtures encode their block transactions with the upstream chain's type URLs, which no codec of the repository registers; whether a debug_traceTransaction case reaches the whole-block decode of Backend.BlockByNumber depends on the cases that ran before it, so eleven cases fail or pass with the order of the package."
+assumption = "Decision 2419: isolate the cases, then re-encode the fixtures if the decode is on every case's path."
+severity = "medium"

@@ -200,6 +200,12 @@ func TestSharedHostIdempotencyAcrossModules(t *testing.T) {
 	}
 	assertPaymentReferences := func() {
 		t.Helper()
+		module := ctx.KVStore(a.GetKey(authtypes.StoreKey))
+		moduleRows := module.Iterator(nil, nil)
+		for ; moduleRows.Valid(); moduleRows.Next() {
+			require.Equal(t, authtypes.ParamsKey, moduleRows.Key())
+		}
+		require.NoError(t, moduleRows.Close())
 		iterator := sdk.KVStorePrefixIterator(ctx.KVStore(hostKey), []byte{0x04})
 		defer iterator.Close()
 		rows := map[string][]byte{}
